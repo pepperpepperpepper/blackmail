@@ -1,0 +1,183 @@
+import Foundation
+
+/// One conversation: the messages of a back-and-forth, shown as a single
+/// row the way Mail shows them.
+///
+/// Mail has grouped by thread, by default, since long before the iPad this
+/// build is modelled on. Without it a correspondence of eight replies is
+/// eight rows all called "Re: the roof", and for someone who answers his
+/// mail — which is most of what this reader does — the list fills with
+/// near-identical lines and the newest one is not obviously the newest.
+struct MessageThread {
+
+    /// Newest first, like every list in this app.
+    let messages: [MessageSummary]
+
+    /// Stable across regroupings, so a row does not change identity when a
+    /// page is appended. It is the id of the NEWEST message rather than the
+    /// thread key, because the thread key is absent on a server without
+    /// Gmail's extension.
+    var id: String { newest.id }
+
+    var newest: MessageSummary { messages[0] }
+    var count: Int { messages.count }
+
+    /// A thread is unread if ANY message in it is, which is what the blue
+    /// dot has to mean: the alternative is a conversation with an unread
+    /// reply in it looking answered.
+    var isRead: Bool { messages.allSatisfy(\.isRead) }
+    var isFlagged: Bool { messages.contains(where: \.isFlagged) }
+    var hasAttachment: Bool { messages.contains(where: \.hasAttachment) }
+
+    /// What the row says. The newest message's subject, because a thread's
+    /// subject can drift ("Re: the roof" → "Re: the roof and the gutter")
+    /// and the latest wording is the one he was last reading.
+    var subject: String { newest.subject }
+    var date: Date { newest.date }
+    var preview: String { newest.preview }
+
+    /// Who is in the conversation, newest speaker first, each named once.
+    ///
+    /// Mail shows the participants rather than only the last sender,
+    /// because "Margaret, Carlo" tells him it is a back-and-forth and one
+    /// name does not.
+    var participants: [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for m in messages {
+            let name = MailFormat.displayName(m.sender)
+            if seen.insert(name).inserted { out.append(name) }
+        }
+        return out
+    }
+
+    /// The conversation as the single row the list draws.
+    ///
+    /// Out here rather than in the view controller so it can be TESTED —
+    /// the controller is behind `#if canImport(UIKit)` and does not exist
+    /// on the machine the suite runs on, the same reason `PageWindow` and
+    /// `SearchCriteria` were pulled out.
+    ///
+    /// Deliberately reuses `MessageSummary` and therefore the row that
+    /// draws a single letter. A second cell type would mean two copies of
+    /// a geometry measured against the reference to the half point, and
+    /// two places to keep it true.
+    func displayRow() -> MessageSummary {
+        let who = participants.joined(separator: ", ")
+        // The count rides on the sender line — "Margaret, Carlo (3)" —
+        // rather than in a badge, which would need a new view in a layout
+        // that is frozen.
+        let sender = count > 1 ? "\(who) (\(count))" : who
+        return MessageSummary(
+            id: id,
+            mailboxID: newest.mailboxID,
+            sender: sender,
+            subject: subject,
+            preview: preview,
+            date: date,
+            isRead: isRead,
+            isFlagged: isFlagged,
+            hasAttachment: hasAttachment,
+            threadID: newest.threadID,
+            countedFolderIDs: newest.countedFolderIDs)
+    }
+
+    // MARK: - Grouping
+
+    /// Groups a flat, newest-first list into conversations, preserving the
+    /// order the list was already in.
+    ///
+    /// Order is preserved deliberately: a thread takes the position of its
+    /// NEWEST message, which is where he last saw that conversation. Any
+    /// re-sort would move rows under a reader's thumb, and the flat list
+    /// this replaces was already in the order the server gave.
+    static func group(_ messages: [MessageSummary]) -> [MessageThread] {
+        var order: [String] = []
+        var buckets: [String: [MessageSummary]] = [:]
+
+        for message in messages {
+            let key = key(for: message)
+            if buckets[key] == nil { order.append(key) }
+            buckets[key, default: []].append(message)
+        }
+        return order.map { MessageThread(messages: buckets[$0] ?? []) }
+    }
+
+    /// The rows a list should show — grouped when browsing a folder, NOT
+    /// grouped when showing search results.
+    ///
+    /// Search is the exception and it is not a small one. A conversation
+    /// row stands for its NEWEST letter: that is the sender it names, the
+    /// subject it prints and the preview it shows. Group the results of a
+    /// search and a hit that is not the newest in its thread is displayed
+    /// as a completely different message — he searches for a phrase and
+    /// gets back a row that does not contain it, with somebody else's
+    /// subject on it. The letter he asked for is one tap inside, which is
+    /// no help at all when the row gives him no reason to tap.
+    ///
+    /// It is not rare either: across 600 of his own messages in All Mail,
+    /// 26.5% are not the newest in their thread, so roughly a quarter of
+    /// any result set would be misrepresented this way. And search is the
+    /// thing he does all the time.
+    ///
+    /// Each result becomes a conversation of one, so the row draws exactly
+    /// as a single letter does — no count, no participants list — and
+    /// everything downstream keeps working on one type.
+    static func rows(for messages: [MessageSummary], grouped: Bool) -> [MessageThread] {
+        grouped ? group(messages) : messages.map { MessageThread(messages: [$0]) }
+    }
+
+    /// What makes two messages the same conversation.
+    ///
+    /// Gmail's own thread id when the server gave one, because it is the
+    /// answer that agrees with what he sees in Gmail everywhere else, and
+    /// because every alternative is a guess. Falling back to the subject is
+    /// that guess, and it is confined to servers with no extension.
+    ///
+    /// The fallback is the subject ALONE, and deliberately so even though
+    /// that can collide: two unrelated letters both called "Hello" would
+    /// be grouped.
+    ///
+    /// Folding the sender in to prevent that is the obvious next thought
+    /// and it is wrong. A conversation is precisely the case where the
+    /// sender CHANGES — Carlo at one domain and Margaret at another,
+    /// answering each other about the roof — so keying on the sender
+    /// would split every real thread in half to avoid an occasional
+    /// spurious merge. Splitting a live correspondence is much the worse
+    /// failure, and Gmail never reaches this path anyway.
+    static func key(for message: MessageSummary) -> String {
+        if let threadID = message.threadID, !threadID.isEmpty {
+            return "t:" + threadID
+        }
+        let subject = normalisedSubject(message.subject)
+        // A message with no subject at all threads with nothing — grouping
+        // every blank-subject letter into one conversation would hide
+        // them behind each other.
+        guard !subject.isEmpty else { return "u:" + message.id }
+        return "s:" + subject
+    }
+
+    /// Strips the reply and forward prefixes a subject accumulates.
+    ///
+    /// Handles the pile-up — "Re: Fwd: Re: the roof" — and the localised
+    /// forms that arrive from correspondents on other clients, because a
+    /// thread broken in half by one "AW:" is a conversation he has to read
+    /// in two places.
+    static func normalisedSubject(_ subject: String) -> String {
+        var text = subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixes = ["re:", "re :", "fwd:", "fw:", "aw:", "wg:", "sv:",
+                        "vs:", "rif:", "res:", "enc:", "tr:"]
+        var stripped = true
+        while stripped {
+            stripped = false
+            let lower = text.lowercased()
+            for prefix in prefixes where lower.hasPrefix(prefix) {
+                text = String(text.dropFirst(prefix.count))
+                    .trimmingCharacters(in: .whitespaces)
+                stripped = true
+                break
+            }
+        }
+        return text.lowercased()
+    }
+}

@@ -1,0 +1,1284 @@
+// Guarded so this file compiles away on a host without UIKit.
+// The library is built for Linux too, so the MIME and IMAP parsers
+// can be tested in seconds instead of through a device cycle.
+#if canImport(UIKit)
+
+import UIKit
+
+/// The middle pane: the messages in one folder.
+///
+/// Swapped wholesale by `RootViewController` when a folder is chosen, never
+/// pushed, so its navigation stack is always exactly one deep and no back
+/// button ever appears. The folder list it came from is still on screen to
+/// its left.
+final class MessageListViewController: UITableViewController {
+
+    var onSelectMessage: ((MessageSummary) -> Void)?
+    /// A conversation of more than one letter was chosen. The reading pane
+    /// shows the whole stack; see B-022.
+    var onSelectThread: ((MessageThread) -> Void)?
+    var onMessagesChanged: (() -> Void)?
+    var onRefreshRequested: (() -> Void)?
+    /// He asked to jump across ALL mailboxes from a pane showing one.
+    ///
+    /// Handed up rather than handled here, because a list IS a folder: its
+    /// title, its unread count and every page it fetches are that folder's.
+    /// Quietly filling an "Inbox" pane with All Mail would make the title a
+    /// lie and the next page fetch walk the wrong mailbox. The container
+    /// opens All Mail properly and jumps there.
+    var onJumpAcrossMailboxes: ((Date) -> Void)?
+    /// Fired when reading a message has changed the unread count of one or
+    /// more folders. Several, on Gmail, where one message wears many labels.
+    var onUnreadCountChanged: (([String], Int) -> Void)?
+
+    /// Messages already billed to the folder counters.
+    ///
+    /// Never cleared. It is scoped to this controller, and the controller is
+    /// rebuilt whenever the folder changes, so it cannot outgrow a page of
+    /// mail. A full sidebar refresh installs server truth regardless of what
+    /// is in here, so keeping an id forever costs nothing and dropping one
+    /// risks billing the same message twice.
+    private var countedRead: Set<String> = []
+
+    /// Lets the container restore the folder highlight after a reload.
+    var mailboxID: String { mailbox.id }
+
+    private let repository: MailRepository
+    private let mailbox: Mailbox
+    private var messages: [MessageSummary] = []
+    private var filtered: [MessageSummary]?
+    private var searchBar: SearchHeaderView!
+    private let emptyLabel = UILabel()
+    private let statusLabel = UILabel()
+    private var deleteItem: UIBarButtonItem!
+    private var moveItem: UIBarButtonItem!
+    private var markItem: UIBarButtonItem!
+    private var selectAllItem: UIBarButtonItem!
+    private var browseItems: [UIBarButtonItem] = []
+    private var editItems: [UIBarButtonItem] = []
+
+    /// Bumped when the list is REPLACED — a reload, or a search changing
+    /// what is on screen. Deliberately NOT bumped when a page is appended:
+    /// appending leaves every existing row exactly where it was, so a
+    /// preview fetch already in flight for those rows is still valid and
+    /// cancelling it would blank the page he is looking at to fill in the
+    /// one below it.
+    private var listGeneration = 0
+
+    /// How many messages a page is. Fifty is what the list opens with and
+    /// what each scroll-triggered load adds.
+    private static let pageSize = 50
+
+    /// One page fetch at a time. `willDisplay` fires for every row that
+    /// scrolls into view, so without this a flick would start a dozen.
+    private var isLoadingPage = false
+    /// The same, for the upward direction. Separate rather than shared: a
+    /// list opened at a date can be near both ends at once on a short
+    /// folder, and one flag would let whichever direction started first
+    /// block the other permanently.
+    private var isLoadingPrevious = false
+    /// Set when the server returns a short page, which is how "there is no
+    /// more" is spelled. Stops an endless walk off the bottom of a folder.
+    private var reachedOldestMessage = false
+    /// The other end, and normally TRUE: a list that opens at the newest
+    /// message has nothing above it, and until the date jump existed there
+    /// was no way for that to be false.
+    private var reachedNewestMessage = true
+    /// The footer that says what paging is doing.
+    private let pageFooter = UIButton(type: .system)
+
+    /// Where search is looking, and what it is looking for. Held here as
+    /// well as in the band because a scope change has to re-run the search
+    /// the field already contains.
+    private var searchQuery = ""
+    private var searchScope: MailSearchScope = .allMailboxes
+    /// Cancels the previous keystroke's pending search. See `runSearch`.
+    private var searchDebounce: Task<Void, Never>?
+
+    private var visible: [MessageSummary] { filtered ?? messages }
+
+    /// What a row actually is, now that the list groups.
+    ///
+    /// One case, and that is the point. A row USED to be either a
+    /// conversation or one letter inside an opened-out conversation,
+    /// because a tap expanded a thread in place. Mail does not do that —
+    /// it opens the conversation in the reading pane as a stack — and B-022
+    /// recorded the deviation until the decision was made to follow Mail. With the
+    /// expansion gone, the list is one row per conversation, always.
+    private enum Row {
+        case thread(MessageThread)
+    }
+
+    private var rows: [Row] = []
+
+    /// Rebuilds the visible rows from the flat message list.
+    ///
+    /// The flat arrays stay the source of truth and paging still walks
+    /// them by UID; grouping is a view over the top. That matters because
+    /// a thread is not a thing the server pages — asking for "the next
+    /// fifty conversations" is not an IMAP operation.
+    private func rebuildRows() {
+        // Grouped when browsing a folder; NOT grouped when these are
+        // search results. See MessageThread.rows(for:grouped:) — a grouped
+        // result set shows the newest letter of each thread rather than
+        // the one that actually matched.
+        //
+        // `organizeByThread` is Mail's own switch and defaults ON; turning
+        // it off gives every letter its own row without a code change.
+        rows = MessageThread.rows(
+            for: visible,
+            grouped: filtered == nil && ConversationSettings.organizeByThread
+        ).map(Row.thread)
+    }
+
+    /// The id a row stands for, used to hold the selection across a
+    /// structural reload.
+    private func identifier(at indexPath: IndexPath) -> String? {
+        guard indexPath.row < rows.count else { return nil }
+        switch rows[indexPath.row] {
+        case let .thread(t): return t.id
+        }
+    }
+
+    /// The row a given message is VISIBLE in — the conversation row that
+    /// stands for it, since a letter has no row of its own.
+    private func rowIndex(showing id: String) -> Int? {
+        for (i, row) in rows.enumerated() {
+            switch row {
+            case let .thread(t) where t.messages.contains(where: { $0.id == id }):
+                return i
+            default:
+                continue
+            }
+        }
+        return nil
+    }
+
+    private func indexPath(forIdentifier id: String) -> IndexPath? {
+        for (i, row) in rows.enumerated() {
+            switch row {
+            // A conversation stands for every letter in it, so a selection
+            // held by the id of one of its messages still finds its row.
+            case let .thread(t) where t.id == id || t.messages.contains(where: { $0.id == id }):
+                return IndexPath(row: i, section: 0)
+            default: continue
+            }
+        }
+        return nil
+    }
+
+    /// Regroups and redraws, putting the selection back where it was.
+    ///
+    /// `reloadData` rather than `insertRows`, and this is the cost of
+    /// grouping: a page appended to the bottom can MERGE into a
+    /// conversation already on screen instead of adding rows after it, so
+    /// "the new rows are the last N" stopped being true. Reload drops the
+    /// selection, and the selected row is the letter open in the pane to
+    /// the right, so it is restored by id.
+    @MainActor
+    private func regroup() {
+        let selected = tableView.indexPathForSelectedRow.flatMap(identifier(at:))
+        rebuildRows()
+        tableView.reloadData()
+        if let selected, let path = indexPath(forIdentifier: selected) {
+            tableView.selectRow(at: path, animated: false, scrollPosition: .none)
+        }
+    }
+
+    init(repository: MailRepository, mailbox: Mailbox) {
+        self.repository = repository
+        self.mailbox = mailbox
+        super.init(style: .plain)
+        title = mailbox.name
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        tableView.register(MessageCell.self, forCellReuseIdentifier: MessageCell.reuseID)
+        tableView.rowHeight = Theme.messageRowHeightScaled
+        tableView.backgroundColor = Theme.canvas
+        tableView.separatorColor = Theme.separator
+        tableView.separatorInset = UIEdgeInsets(top: 0, left: Theme.messageSeparatorInset,
+                                                bottom: 0, right: 0)
+        tableView.tableFooterView = UIView()
+        // Set ONCE, here, and true. It only has an effect while editing, and
+        // toggling it in `editTapped` was a bug: it was assigned *after*
+        // `setEditing(true)`, so the rows were configured while it was still
+        // false and came up with the `.delete` editing style — a red minus
+        // badge on every row. That is not cosmetic. It says "delete" beside
+        // every letter when the control means "choose", and tapping one
+        // reveals a Delete button that does nothing, because no
+        // `commit editingStyle` is implemented.
+        //
+        // Nor was it ever doing what its old comment claimed. Swipe-to-delete
+        // is banned by `PRODUCT_SPEC.md` and is genuinely absent, but that is because
+        // neither `commit editingStyle:` nor
+        // `trailingSwipeActionsConfigurationForRowAt` exists — not because of
+        // this property, which has nothing to do with swiping.
+        tableView.allowsMultipleSelectionDuringEditing = true
+
+        searchBar = SearchHeaderView(width: view.bounds.width)
+        searchBar.onQueryChanged = { [weak self] text in self?.queryChanged(text) }
+        searchBar.onScopeChanged = { [weak self] scope in
+            guard let self else { return }
+            self.searchScope = scope
+            // Re-run what is already typed. Changing where to look is not a
+            // new question, so it must not wait for him to retype the old
+            // one — and it goes through the debounced path so a double-tap
+            // on the two buttons costs one search, not two.
+            self.queryChanged(self.searchQuery)
+        }
+        searchBar.onCancel = { [weak self] in self?.cancelSearch() }
+        // The band grows when the scope buttons appear, and the table has to
+        // be told to re-ask how tall its header is. `begin`/`endUpdates`
+        // with no changes between them does exactly that and nothing else.
+        searchBar.onHeightChanged = { [weak self] in
+            guard let self, self.isViewLoaded else { return }
+            self.tableView.beginUpdates()
+            self.tableView.endUpdates()
+        }
+        searchScope = searchBar.scope
+
+        // A SECTION header, not `tableView.tableHeaderView`.
+        //
+        // The difference is the whole point: a table header view scrolls
+        // away with the mail, and a plain-style section header stays put at
+        // the top of the pane. It was a table header view, so the search
+        // field scrolled out of sight as soon as he moved down the list —
+        // which contradicted the measured reference ("pinned 43 pt search
+        // bar"), contradicted D-012's own promise that "the search field
+        // itself never moves", and mattered more than either, because the
+        // one habit known about him is that he searches all the
+        // time. A search field you have to scroll back to the top to reach
+        // is a search field with a scroll in front of it.
+        tableView.sectionHeaderTopPadding = 0
+        // Zero ESTIMATE, so the table asks `heightForHeaderInSection` for
+        // the real number instead of guessing and correcting later. The
+        // band changes height when the scope bar appears, and an estimated
+        // header is exactly where a stale height comes from.
+        tableView.estimatedSectionHeaderHeight = 0
+
+        emptyLabel.text = "No messages"
+        emptyLabel.font = Theme.fontListSubject
+        emptyLabel.textColor = Theme.secondaryText
+        emptyLabel.textAlignment = .center
+        emptyLabel.isHidden = true
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(emptyLabel)
+        NSLayoutConstraint.activate([
+            emptyLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            // Near the top rather than dead centre, because the commonest
+            // time this label has something to say is now "No results" —
+            // and while he is typing a search the keyboard covers the
+            // bottom two thirds of the pane, so a centred label was behind
+            // it. Seen on device: a search with no hits showed an empty
+            // black rectangle and no explanation at all.
+            emptyLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 140),
+        ])
+
+        // "Edit", as in the reference. Compose is NOT duplicated here - it
+        // lives once, in the detail pane's toolbar, so there is exactly one
+        // place to start a letter.
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Edit", style: .plain, target: self, action: #selector(editTapped))
+        navigationItem.rightBarButtonItem?.setTitleTextAttributes(
+            [.font: Theme.fontBarButton], for: .normal)
+
+        // The calendar, and the most important button in the app.
+        //
+        // Not in the reference and not in Mail — Mail has never had one,
+        // which is precisely the problem it is here to fix. What actually
+        // goes wrong for him is that he cannot get back to a particular day, and Mail's only answer to
+        // that is to scroll, which does not work when the day is four
+        // months and two thousand letters up.
+        //
+        // The nav bar's leading slot because it is the one permanently
+        // empty, permanently visible place in this pane: no back button
+        // ever appears here (the folder list is always on screen to the
+        // left), so nothing can displace it and it is never one tap deep in
+        // anything. "Easy to access" is the requirement,
+        // and this is the whole of it.
+        let jump = UIBarButtonItem(image: UIImage(systemName: "calendar"),
+                                   style: .plain, target: self,
+                                   action: #selector(jumpToDateTapped))
+        jump.accessibilityLabel = "Go to a date"
+        navigationItem.leftBarButtonItem = jump
+
+        // The bottom bar from the reference. It looks decorative and is not:
+        // "Updated Just Now" is the only thing on screen that answers "is this
+        // actually my mail, or is it stale?" - a question that otherwise ends
+        // in a phone call.
+        statusLabel.font = Theme.fontToolbarStatus
+        statusLabel.textColor = Theme.secondaryText
+        statusLabel.textAlignment = .center
+        statusLabel.text = "Updated Just Now"
+        statusLabel.sizeToFit()
+        // Five taps here opens the connection log. Hidden on purpose:
+        // `PRODUCT_SPEC.md` forbids showing protocol text to him, but whoever is helping
+        // over the phone needs to see what the server actually said, and
+        // "tap the grey words five times" is a thing that can be said down a
+        // telephone to someone who cannot navigate a settings screen.
+        DiagnosticsViewController.attachOpener(to: statusLabel) { [weak self] in self }
+        // The footer is a real labelled control, not just a status line.
+        // Automatic loading covers the ordinary case, but a gesture you have
+        // to know about is not a control — and if a load has failed, the one
+        // thing he needs is something that says what it does and can be
+        // pressed again.
+        pageFooter.addTarget(self, action: #selector(loadMoreTapped), for: .touchUpInside)
+        buildBottomBar()
+
+        Task { @MainActor in
+            await reload()
+            // A jump asked for before this pane existed — the container
+            // opened All Mail in order to serve it — runs once the folder
+            // is actually up.
+            if let pending = self.pendingJump {
+                self.pendingJump = nil
+                self.jump(to: pending)
+            }
+        }
+    }
+
+    /// Set by the container when it opens this folder purely in order to
+    /// jump in it.
+    var pendingJump: Date?
+
+    @MainActor
+    func reload() async {
+        listGeneration += 1
+        isLoadingPage = false
+        isLoadingPrevious = false
+        reachedOldestMessage = false
+        // Back to the top, so there is nothing above us again. A reload
+        // after a date jump must clear this or the list would keep trying
+        // to load mail newer than the newest message there is.
+        reachedNewestMessage = true
+        do {
+            let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
+                                                          limit: Self.pageSize)
+            messages = first
+            // A short first page means the whole folder fits in one, so no
+            // footer and no scroll trigger.
+            reachedOldestMessage = first.count < Self.pageSize
+            filtered = nil
+            searchQuery = ""
+            searchBar.clear()
+            statusLabel.text = "Updated Just Now"
+            statusLabel.sizeToFit()
+            rebuildRows()
+            tableView.reloadData()
+            updateEmptyState()
+            updatePageFooter()
+            loadPreviews(for: first)
+        } catch {
+            ErrorPresenter.show(.cannotConnect, on: self)
+        }
+    }
+
+    // MARK: - Opening the folder at a day
+
+    @objc private func jumpToDateTapped() {
+        let picker = JumpToDateViewController()
+        picker.onPick = { [weak self] date, scope in
+            guard let self else { return }
+            // Already looking at everything? Then "all mailboxes" is what
+            // this pane is, and there is nothing to switch to.
+            if scope == .allMailboxes && self.mailbox.role != .archive {
+                self.onJumpAcrossMailboxes?(date)
+            } else {
+                self.jump(to: date)
+            }
+        }
+        let nav = UINavigationController(rootViewController: picker)
+        nav.modalPresentationStyle = .formSheet
+        present(nav, animated: true)
+    }
+
+    /// Opens this folder at a day, with mail on both sides of it.
+    ///
+    /// Replaces the list rather than scrolling the one on screen, because
+    /// the message he wants is almost never in it — that is the entire
+    /// problem. `listGeneration` is bumped for the same reason `reload`
+    /// bumps it: every preview and page fetch in flight belongs to a list
+    /// that no longer exists.
+    @MainActor
+    func jump(to date: Date) {
+        listGeneration += 1
+        isLoadingPage = false
+        isLoadingPrevious = false
+        let generation = listGeneration
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let window: MessageWindow?
+            do {
+                window = try await self.repository.messages(around: date, in: self.mailbox.id,
+                                                            limit: Self.pageSize)
+            } catch {
+                ErrorPresenter.show(.cannotConnect, on: self)
+                return
+            }
+            guard generation == self.listGeneration else { return }
+
+            guard let window, !window.messages.isEmpty else {
+                // Nothing that recent in this folder. Say so rather than
+                // leaving the list where it was, which reads as the button
+                // having done nothing at all.
+                self.statusLabel.text =
+                    "No mail on or after \(IMAPDate.spokenDay(date))"
+                self.statusLabel.sizeToFit()
+                return
+            }
+
+            // Leaving search on would hide the window we just fetched
+            // behind the previous result set.
+            self.filtered = nil
+            self.searchQuery = ""
+            self.searchBar.clear()
+
+            self.messages = window.messages
+            self.reachedNewestMessage = window.reachedNewest
+            self.reachedOldestMessage = window.reachedOldest
+            self.rebuildRows()
+            self.tableView.reloadData()
+            self.updateEmptyState()
+            self.updatePageFooter()
+
+            // `.top` and not `.middle`: the day he asked for should be the
+            // first line he reads, with the days after it above, which is
+            // how a page of a diary opens.
+            //
+            // `layoutIfNeeded` first, because `scrollToRow` computes its
+            // offset from the CURRENT content size and `reloadData` has only
+            // scheduled the layout, not performed it. Without it the scroll
+            // is computed against the previous list's height.
+            //
+            // A short folder cannot always honour it — if there is less
+            // than a screenful below the anchor the table clamps to its
+            // last row, which is correct: there is nowhere further to go.
+            self.tableView.layoutIfNeeded()
+            // The anchor is an index into the flat window; the list shows
+            // conversations. Scroll to the ROW that carries that letter,
+            // which for a message inside a collapsed thread is the
+            // thread's own row.
+            let anchorIndex = min(window.anchorIndex, window.messages.count - 1)
+            let anchorID = window.messages[anchorIndex].id
+            if let row = self.rowIndex(showing: anchorID) {
+                self.tableView.scrollToRow(at: IndexPath(row: row, section: 0),
+                                           at: .top, animated: false)
+            }
+
+            // The bottom bar stops reporting freshness and starts reporting
+            // WHERE HE IS, which for a list that no longer starts at today
+            // is the more urgent of the two. It goes back to "Updated Just
+            // Now" on the next refresh.
+            self.statusLabel.text = "Showing \(IMAPDate.spokenDay(window.landedOn))"
+            self.statusLabel.sizeToFit()
+
+            self.loadPreviews(for: window.messages)
+        }
+    }
+
+    // MARK: - Paging
+
+    /// Fetches the next fifty and appends them.
+    ///
+    /// Appending, never replacing: the rows already on screen keep their
+    /// index paths, so nothing under his thumb moves while he is reading.
+    /// That is the whole reason paging is by UID rather than by page number
+    /// — a page index shifts the instant mail is delivered, and the row he
+    /// was about to tap becomes a different letter.
+    @MainActor
+    private func loadNextPage() {
+        guard !isLoadingPage, !reachedOldestMessage,
+              let cursor = visible.last?.id else { return }
+
+        isLoadingPage = true
+        updatePageFooter()
+        let generation = listGeneration
+        // Captured now, because both can change while the fetch is in
+        // flight and the page that comes back must be filed against the
+        // question that was asked.
+        let searching = filtered != nil
+        let query = searchQuery
+        let scope = searchScope
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                self.isLoadingPage = false
+                self.updatePageFooter()
+            }
+            let older: [MessageSummary]
+            do {
+                // Search pages exactly like the folder does. It used to
+                // stop dead at the newest hundred hits with nothing on
+                // screen to say so — for a man searching years of
+                // mail, a silent ceiling is the letter simply not being
+                // there.
+                older = searching
+                    ? try await self.repository.search(in: self.mailbox.id, query: query,
+                                                       scope: scope, beforeUID: cursor,
+                                                       limit: Self.pageSize)
+                    : try await self.repository.listMessages(in: self.mailbox.id,
+                                                             beforeUID: cursor,
+                                                             limit: Self.pageSize)
+            } catch {
+                // No alert. He did not ask for this — he scrolled — so an
+                // error box over the letters would be the app interrupting
+                // him about work he never requested. The footer becomes a
+                // labelled retry instead.
+                self.loadFailed = true
+                return
+            }
+            // The folder was reloaded or the search changed while this was
+            // in flight; these rows belong to a list that is gone.
+            guard generation == self.listGeneration else { return }
+
+            self.loadFailed = false
+            if older.count < Self.pageSize { self.reachedOldestMessage = true }
+
+            // Deduped by id. The snapshot this page was cut from is stable,
+            // but a message MOVED into this folder by another client can
+            // still appear twice across two pages, and a duplicated row is
+            // a letter that cannot be told from its twin.
+            let known = Set(self.visible.map(\.id))
+            let fresh = older.filter { !known.contains($0.id) }
+            guard !fresh.isEmpty else { return }
+
+            if searching { self.filtered?.append(contentsOf: fresh) }
+            else { self.messages.append(contentsOf: fresh) }
+            // Regroup rather than insert at the tail. A message in this
+            // page can belong to a conversation already on screen, in
+            // which case it does not add a row at the bottom at all — it
+            // joins one further up and changes its count. "The new rows
+            // are the last N" stopped being true the moment the list
+            // grouped. `regroup` puts the selection back by id.
+            self.regroup()
+            self.loadPreviews(for: fresh)
+        }
+    }
+
+    /// Fetches the fifty messages immediately NEWER and puts them on top.
+    ///
+    /// The direction that only exists after a date jump. Prepending is the
+    /// hard one: every row already on screen changes index, so the scroll
+    /// position has to be corrected by hand or the list lurches downward by
+    /// a page and he loses the letter he was reading.
+    ///
+    /// The correction is exact rather than approximate because
+    /// `tableView.rowHeight` is fixed — the app sets it once and never uses
+    /// self-sizing rows, so inserted height is simply the row count times
+    /// the row height. Were rows self-sizing this would have to be done by
+    /// remembering a row and re-scrolling to it.
+    @MainActor
+    private func loadPreviousPage() {
+        guard !isLoadingPrevious, !reachedNewestMessage, filtered == nil,
+              let cursor = messages.first?.id else { return }
+
+        isLoadingPrevious = true
+        let generation = listGeneration
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.isLoadingPrevious = false }
+
+            let newer: [MessageSummary]
+            do {
+                newer = try await self.repository.listMessages(in: self.mailbox.id,
+                                                               afterUID: cursor,
+                                                               limit: Self.pageSize)
+            } catch {
+                // Silent, like the downward direction: he scrolled, he did
+                // not ask. Refresh is the way back to the top if it keeps
+                // failing.
+                return
+            }
+            guard generation == self.listGeneration else { return }
+
+            if newer.count < Self.pageSize { self.reachedNewestMessage = true }
+
+            let known = Set(self.messages.map(\.id))
+            let fresh = newer.filter { !known.contains($0.id) }
+            guard !fresh.isEmpty else { return }
+
+            // Measured, not assumed. Fifty newer messages do not
+            // necessarily add fifty rows: any of them that belong to a
+            // conversation already on screen join it instead. So the
+            // scroll correction is the change in ROW count, not in
+            // message count.
+            let before = self.rows.count
+            self.messages.insert(contentsOf: fresh, at: 0)
+            self.rebuildRows()
+            let added = CGFloat(self.rows.count - before) * self.tableView.rowHeight
+
+            // No animation: an animated insert ABOVE the viewport animates
+            // the content out from under the reader, and the offset fix
+            // would land a frame late and visibly jump.
+            UIView.performWithoutAnimation {
+                self.regroup()
+                self.tableView.contentOffset.y += added
+            }
+            self.loadPreviews(for: fresh)
+        }
+    }
+
+    /// Whether the last page attempt failed, which turns the footer into a
+    /// labelled retry rather than leaving him to guess.
+    private var loadFailed = false
+
+    @MainActor
+    private func updatePageFooter() {
+        // Nothing to say once the oldest message is on screen. Search
+        // results now DO get a footer: they page like everything else, and
+        // the old "no cursor to page from" is no longer true.
+        guard !reachedOldestMessage else {
+            tableView.tableFooterView = UIView()
+            return
+        }
+
+        var config = UIButton.Configuration.plain()
+        config.baseForegroundColor = Theme.secondaryText
+        if isLoadingPage {
+            var title = AttributedString("Loading more messages…")
+            title.font = Theme.fontToolbarStatus
+            config.attributedTitle = title
+        } else if loadFailed {
+            var title = AttributedString("Load More Messages")
+            title.font = Theme.fontBarButton
+            config.attributedTitle = title
+            config.baseForegroundColor = Theme.tintBlue
+        } else {
+            var title = AttributedString("Load More Messages")
+            title.font = Theme.fontToolbarStatus
+            config.attributedTitle = title
+        }
+        pageFooter.configuration = config
+        pageFooter.isEnabled = !isLoadingPage
+        pageFooter.frame = CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 56)
+        tableView.tableFooterView = pageFooter
+    }
+
+    // MARK: - Previews
+
+    /// Fills in the two grey lines under each subject, after the rows are up.
+    ///
+    /// Deliberately a second pass. The rest of a row comes from the ENVELOPE,
+    /// which arrives for the whole page in one reply; the preview is body
+    /// text, and a page of HTML mail is several hundred kilobytes of it.
+    /// Waiting for that before showing anything would turn a list that appears
+    /// in about a second into one that appears in four — so the rows go up
+    /// blank there and fill in behind, which is what Mail itself does.
+    ///
+    /// Nothing moves when they arrive: the row height is fixed and the space
+    /// is already reserved, so this is text appearing in a gap rather than the
+    /// list reflowing under a reader's eye.
+    /// Takes the ROWS, not their ids, because a row no longer necessarily
+    /// belongs to the folder on screen.
+    ///
+    /// An "All Mailboxes" search runs against Gmail's All Mail and its hits
+    /// carry All Mail's UIDs. Asking the Inbox for them fetches whatever
+    /// happens to wear those numbers there, or nothing — which is what the
+    /// first device run showed: every search result came up with two blank
+    /// grey lines under it.
+    @MainActor
+    private func loadPreviews(for rows: [MessageSummary]) {
+        guard !rows.isEmpty else { return }
+        let generation = listGeneration
+        for (mailboxID, group) in Dictionary(grouping: rows, by: \.mailboxID) {
+            let ids = group.map(\.id)
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard let previews = try? await self.repository.previews(for: ids,
+                                                                         in: mailboxID),
+                      !previews.isEmpty,
+                      // The list has been replaced while we were waiting.
+                      // These previews belong to rows no longer on screen.
+                      generation == self.listGeneration else { return }
+                self.apply(previews)
+            }
+        }
+    }
+
+    /// Patches the rows in place rather than calling `reloadRows`.
+    ///
+    /// `reloadRows` deselects what it reloads, and on the iPad the selected
+    /// row is the message open in the pane to the right — so filling in a
+    /// preview would visibly unhighlight the letter being read. Off-screen
+    /// rows need no help: they pick the new text up from the model when they
+    /// are next dequeued.
+    @MainActor
+    private func apply(_ previews: [String: String]) {
+        for i in messages.indices {
+            if let text = previews[messages[i].id] { messages[i].preview = text }
+        }
+        if filtered != nil {
+            for i in filtered!.indices {
+                if let text = previews[filtered![i].id] { filtered![i].preview = text }
+            }
+        }
+
+        // Regrouped first so the rows hold the new text; the row COUNT
+        // cannot change, since a preview does not decide what threads
+        // with what, so the cells can be patched in place.
+        rebuildRows()
+        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
+            guard indexPath.row < rows.count,
+                  let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
+            switch rows[indexPath.row] {
+            case let .thread(t):
+                cell.configure(with: t.displayRow())
+            }
+        }
+    }
+
+    private func updateEmptyState() {
+        // An empty folder must say so. A blank white rectangle is how an app
+        // looks broken, and this user cannot tell the two apart.
+        emptyLabel.isHidden = !rows.isEmpty
+        if filtered == nil {
+            emptyLabel.text = "No messages"
+        } else if searchFailed {
+            emptyLabel.text = "Could not search. Check the connection."
+        } else {
+            emptyLabel.text = "No results"
+        }
+    }
+
+    /// The bottom bar uses the navigation controller's own toolbar rather than
+    /// a subview. In a UITableViewController `self.view` IS the table view, so
+    /// a "pinned" subview scrolls away with the content - which is exactly what
+    /// happened on the first build: "Updated Just Now" slid off the bottom.
+    private func buildBottomBar() {
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let status = UIBarButtonItem(customView: statusLabel)
+        // Bottom-left, the slot the reference uses for the filter control, and
+        // deliberately beside the freshness label rather than in the folder
+        // pane: "Updated Just Now" says how stale this is, and the button
+        // immediately left of it is what fixes that.
+        let refresh = UIBarButtonItem(title: "Refresh", style: .plain,
+                                      target: self, action: #selector(refreshTapped))
+        refresh.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
+        refresh.width = Theme.toolbarLeadingSlot
+        // Settings occupies what used to be dead space of the same width,
+        // kept there so the status label still centres in the PANE rather
+        // than in whatever Refresh left over. Putting it here rather than in
+        // the folder pane is forced: that pane is 250 pt wide and a button
+        // beside "Mailboxes" left 8.5 pt between them, measured on device.
+        //
+        // It has to exist somewhere visible, because `MailError` has been
+        // telling him "Password needs to be updated in Settings." since the
+        // error strings were written, and until now there was no Settings —
+        // an instruction pointing at a screen that did not exist.
+        let settings = UIBarButtonItem(title: "Settings", style: .plain,
+                                       target: self, action: #selector(settingsTapped))
+        settings.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
+        settings.width = Theme.toolbarLeadingSlot
+        let mirror = settings
+        // Mark / Move / Trash is Mail's own edit-mode bar, in that order.
+        //
+        // Leaving something unread is how a great many people say "come
+        // back to this", and until now the app could set `\Seen` but never
+        // clear it — the repository had the call and nothing reached it.
+        // Putting it here rather than behind a swipe or a long press keeps
+        // the promise that nothing needs a gesture beyond tap and scroll.
+        markItem = UIBarButtonItem(title: "Mark", style: .plain,
+                                   target: self, action: #selector(markSelected))
+        moveItem = UIBarButtonItem(title: "Move", style: .plain,
+                                   target: self, action: #selector(moveSelected))
+        deleteItem = UIBarButtonItem(title: "Delete", style: .plain,
+                                     target: self, action: #selector(deleteSelected))
+        deleteItem.tintColor = Theme.destructive
+        // Mark All as Read, as Mail actually offers it.
+        //
+        // Mail has no button by that name. What it has is Select All in
+        // edit mode, which composes with the Mark sheet already here — so
+        // "mark everything read" is Edit, Select All, Mark, Mark as Read.
+        // Building a dedicated one-tap button instead would have been a
+        // new, irreversible-looking control that Mail does not have, and it
+        // would not have given him Select All + Move or Select All +
+        // Delete, which come free this way.
+        selectAllItem = UIBarButtonItem(title: "Select All", style: .plain,
+                                        target: self, action: #selector(selectAllTapped))
+        for item in [markItem, moveItem, deleteItem, selectAllItem] {
+            item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
+        }
+        browseItems = [refresh, flex, status, flex, mirror]
+        editItems = [selectAllItem, flex, markItem, flex, moveItem, flex, deleteItem]
+        toolbarItems = browseItems
+    }
+
+    /// Refreshes the folders too, via the container — a person who taps
+    /// Refresh means "get my mail", not "get my mail but leave the unread
+    /// counts beside the folder names stale".
+    @objc private func refreshTapped() {
+        Task { @MainActor in
+            await reload()
+            onRefreshRequested?()
+        }
+    }
+
+    /// Multi-select, which is what Edit is for. Deliberately the ONLY route to
+    /// deleting more than one message - there is no swipe-to-delete anywhere,
+    /// so nothing is ever binned by a stray thumb on a moving list.
+    @objc private func editTapped() {
+        let editing = !tableView.isEditing
+        tableView.setEditing(editing, animated: true)
+        navigationItem.rightBarButtonItem?.title = editing ? "Done" : "Edit"
+        setToolbarItems(editing ? editItems : browseItems, animated: true)
+        updateSelectAllTitle()
+    }
+
+    /// Ticks, or unticks, every conversation in the list.
+    ///
+    /// The scope is what is LOADED, which is the same scope Mail's own
+    /// Select All has and the only honest one available: a folder is paged
+    /// fifty at a time and "all" cannot mean the thousands of letters in
+    /// All Mail that this device has never seen. The title says which state
+    /// the next tap produces, so it is never a guess.
+    @objc private func selectAllTapped() {
+        let alreadyAll = (tableView.indexPathsForSelectedRows?.count ?? 0) == rows.count
+        for row in 0..<rows.count {
+            let ip = IndexPath(row: row, section: 0)
+            if alreadyAll {
+                tableView.deselectRow(at: ip, animated: false)
+            } else {
+                tableView.selectRow(at: ip, animated: false, scrollPosition: .none)
+            }
+        }
+        updateSelectAllTitle()
+    }
+
+    private func updateSelectAllTitle() {
+        guard let selectAllItem else { return }
+        let all = rows.count > 0 && (tableView.indexPathsForSelectedRows?.count ?? 0) == rows.count
+        selectAllItem.title = all ? "Deselect All" : "Select All"
+        selectAllItem.isEnabled = rows.count > 0
+    }
+
+    /// Ticking a conversation acts on ALL of it, which is what Mail does
+    /// and what the row means: he chose the thread, not a letter inside it.
+    private var selectedMessages: [MessageSummary] {
+        var seen = Set<String>()
+        var out: [MessageSummary] = []
+        for ip in tableView.indexPathsForSelectedRows ?? [] where ip.row < rows.count {
+            switch rows[ip.row] {
+            case let .thread(t):
+                // Deduplicated even though a row can no longer be ticked
+                // twice: two conversations that merge on the next page
+                // would otherwise contribute the same letter to a delete.
+                for m in t.messages where seen.insert(m.id).inserted { out.append(m) }
+            }
+        }
+        return out
+    }
+
+    @objc private func deleteSelected() {
+        let chosen = selectedMessages
+        guard !chosen.isEmpty else { return }
+        Task { @MainActor in
+            for m in chosen { try? await repository.delete(m.id, from: m.mailboxID) }
+            editTapped()
+            await reload()
+            onMessagesChanged?()
+        }
+    }
+
+    @objc private func markSelected() {
+        let chosen = selectedMessages
+        guard !chosen.isEmpty else { return }
+
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        sheet.popoverPresentationController?.barButtonItem = markItem
+        sheet.addAction(UIAlertAction(title: "Mark as Unread", style: .default) {
+            [weak self] _ in self?.applyRead(false, to: chosen)
+        })
+        sheet.addAction(UIAlertAction(title: "Mark as Read", style: .default) {
+            [weak self] _ in self?.applyRead(true, to: chosen)
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    /// Sets or clears `\Seen` on a selection, and keeps the folder counters
+    /// honest about it.
+    ///
+    /// The counter arithmetic is the fiddly half. `countedRead` remembers
+    /// which messages this screen has already billed as a -1, so that a
+    /// reload deriving `isRead` from pre-STORE server flags cannot bill the
+    /// same letter twice. Marking something unread has to UNDO that
+    /// bookkeeping as well as adding one back, or reading it again later
+    /// would be free and the count would drift low — and a count that is
+    /// too low says "no new mail" when there is some, which is the failure
+    /// the sidebar exists to prevent.
+    @MainActor
+    private func applyRead(_ read: Bool, to chosen: [MessageSummary]) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            for m in chosen where m.isRead != read {
+                do {
+                    try await self.repository.setRead(read, id: m.id, mailboxID: m.mailboxID)
+                } catch {
+                    continue          // leave this one as it was
+                }
+                self.setRead(m.id, read: read)
+                let folders = m.countedFolderIDs.isEmpty ? [m.mailboxID] : m.countedFolderIDs
+                if read {
+                    if self.countedRead.insert(m.id).inserted {
+                        self.onUnreadCountChanged?(folders, -1)
+                    }
+                } else {
+                    self.countedRead.remove(m.id)
+                    self.onUnreadCountChanged?(folders, 1)
+                }
+            }
+            if self.tableView.isEditing { self.editTapped() }
+            self.regroup()
+        }
+    }
+
+    @objc private func moveSelected() {
+        let chosen = selectedMessages
+        guard !chosen.isEmpty else { return }
+        let move = MoveMessageViewController(repository: repository,
+                                             excluding: mailbox.id) { [weak self] destination in
+            guard let self else { return }
+            Task { @MainActor in
+                for m in chosen {
+                    try? await self.repository.move(m.id, from: m.mailboxID, to: destination.id)
+                }
+                self.editTapped()
+                await self.reload()
+                self.onMessagesChanged?()
+            }
+        }
+        let nav = UINavigationController(rootViewController: move)
+        nav.modalPresentationStyle = .formSheet
+        present(nav, animated: true)
+    }
+
+    /// Reopens a saved draft in the composer.
+    @MainActor
+    private func openDraft(_ summary: MessageSummary) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let draft = try? await self.repository.loadDraft(id: summary.id,
+                                                                   mailboxID: summary.mailboxID)
+            else {
+                ErrorPresenter.show(.cannotConnect, on: self)
+                return
+            }
+            let compose = ComposeViewController(repository: self.repository, draft: draft)
+            // Saving, sending or deleting all change what is in this very
+            // folder, so the list behind has to be rebuilt.
+            compose.onDraftsChanged = { [weak self] in
+                Task { @MainActor in await self?.reload() }
+            }
+            let nav = UINavigationController(rootViewController: compose)
+            nav.modalPresentationStyle = .formSheet
+            self.present(nav, animated: true)
+        }
+    }
+
+    @objc private func composeTapped() {
+        let signature = CredentialStore.loadAccount()?.signature ?? ""
+        let compose = ComposeViewController(repository: repository,
+                                            draft: .blank(signature: signature))
+        let nav = UINavigationController(rootViewController: compose)
+        nav.modalPresentationStyle = .formSheet
+        present(nav, animated: true)
+    }
+
+    // MARK: - Search
+
+    /// How long to sit on a keystroke before asking the server.
+    ///
+    /// Search is live as he types, which is Mail's behaviour and worth
+    /// keeping. What is not worth keeping is what that used to cost: one
+    /// full IMAP round trip PER KEYSTROKE, so typing a six-letter name
+    /// fired six searches over a domestic connection and the answer he saw
+    /// was whichever came back last, not necessarily the one for what was
+    /// in the field. A third of a second is longer than the gap between two
+    /// keystrokes and shorter than a pause for thought.
+    private static let searchDelay = Duration.milliseconds(350)
+
+    private func queryChanged(_ text: String) {
+        searchQuery = text
+        searchDebounce?.cancel()
+
+        // Clearing the field is not a search and must not wait: he is
+        // asking for his mail back.
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            showUnfilteredList()
+            return
+        }
+
+        searchDebounce = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.searchDelay)
+            guard !Task.isCancelled else { return }
+            await self?.runSearch(text)
+        }
+    }
+
+    /// Leaves search behind and puts the folder back, without a round trip.
+    @MainActor
+    private func showUnfilteredList() {
+        searchDebounce?.cancel()
+        listGeneration += 1
+        filtered = nil
+        // The folder's own end state comes back with it. Search may have
+        // set `reachedOldestMessage` from a short page of HITS, which says
+        // nothing about how much mail is left in the folder.
+        reachedOldestMessage = messages.count < Self.pageSize
+        regroup()
+        updateEmptyState()
+        updatePageFooter()
+    }
+
+    @objc private func cancelSearch() {
+        searchQuery = ""
+        showUnfilteredList()
+    }
+
+    @MainActor
+    private func runSearch(_ text: String) async {
+        listGeneration += 1
+        let generation = listGeneration
+        let scope = searchScope
+
+        let hits: [MessageSummary]
+        do {
+            hits = try await repository.search(in: mailbox.id, query: text, scope: scope,
+                                               beforeUID: nil, limit: Self.pageSize)
+        } catch {
+            // This used to be `try?`, which turned every failure into an
+            // empty array and rendered it as "No results" — so a dropped
+            // connection told him the letter did not exist. It does exist;
+            // we could not look.
+            guard generation == listGeneration else { return }
+            filtered = []
+            searchFailed = true
+            regroup()
+            updateEmptyState()
+            updatePageFooter()
+            return
+        }
+
+        guard generation == listGeneration else { return }
+        searchFailed = false
+        filtered = hits
+        reachedOldestMessage = hits.count < Self.pageSize
+        regroup()
+        updateEmptyState()
+        updatePageFooter()
+        loadPreviews(for: hits.filter { $0.preview.isEmpty })
+    }
+
+    /// Whether the last search could not be run, as opposed to finding
+    /// nothing. Two different sentences.
+    private var searchFailed = false
+
+    // MARK: - Table
+
+    override func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int { rows.count }
+
+    /// The search band, pinned. See `viewDidLoad`.
+    override func tableView(_ t: UITableView, viewForHeaderInSection s: Int) -> UIView? {
+        searchBar
+    }
+
+    override func tableView(_ t: UITableView, heightForHeaderInSection s: Int) -> CGFloat {
+        // From the band's own idea of how tall it wants to be, NOT from its
+        // frame: the table resets a section header's frame during layout,
+        // so reading the frame back here returns the previous height and
+        // the scope bar gets drawn over the first message instead of
+        // pushing it down.
+        searchBar.wantedHeight
+    }
+
+    /// Starts the next page while there is still a screenful to read.
+    ///
+    /// Ten rows of lead time rather than waiting for the last one, so the
+    /// fetch is usually finished before he scrolls far enough to notice it
+    /// happened. Loading only once he hits the bottom would stop the list
+    /// dead every fifty messages.
+    override func tableView(_ t: UITableView, willDisplay cell: UITableViewCell,
+                            forRowAt ip: IndexPath) {
+        // Upward first. After a date jump the list runs in both directions,
+        // and the top of it is no longer the top of the folder.
+        //
+        // The threshold is the same share of the page the jump reserved
+        // above the anchor, so landing on a date does not immediately
+        // trigger the load of the page above it — he is inside the buffer,
+        // not at the edge of it.
+        if ip.row < max(1, Self.pageSize / 5) { loadPreviousPage() }
+        guard ip.row >= rows.count - 10 else { return }
+        loadNextPage()
+    }
+
+    @objc private func settingsTapped() {
+        guard let account = CredentialStore.loadAccount() else { return }
+        let settings = SettingsViewController(account: account)
+        settings.onSaved = { [weak self] _ in
+            // Nothing on this screen changes what is IN the mailbox, so the
+            // list is not reloaded. The signature is read fresh every time a
+            // compose window opens, so the next letter already has it.
+            self?.onRefreshRequested?()
+        }
+        // The grouping switch acts immediately, so the list behind the
+        // sheet has to hear about it the moment it flips.
+        settings.onOrganizeByThreadChanged = { [weak self] in self?.regroup() }
+        let nav = UINavigationController(rootViewController: settings)
+        nav.modalPresentationStyle = .formSheet
+        present(nav, animated: true)
+    }
+
+    @objc private func loadMoreTapped() {
+        loadFailed = false
+        loadNextPage()
+    }
+
+    override func tableView(_ t: UITableView, cellForRowAt ip: IndexPath) -> UITableViewCell {
+        let cell = t.dequeueReusableCell(withIdentifier: MessageCell.reuseID, for: ip) as! MessageCell
+        // A letter inside an opened conversation sits on a slightly
+        // different ground, so the group reads as a block rather than as
+        // more top-level rows. The cell lays itself out by measured frames
+        // against the reference, so indenting it would mean touching a
+        // frozen layout; a background is the cue that costs nothing.
+        cell.backgroundColor = Theme.canvas
+        cell.indent = 0
+        cell.separatorInset = UIEdgeInsets(top: 0, left: Theme.messageSeparatorInset,
+                                           bottom: 0, right: 0)
+        switch rows[ip.row] {
+        case let .thread(thread):
+            cell.configure(with: thread.displayRow())
+            cell.accessibilityLabel = [
+                thread.isRead ? nil : "Unread",
+                thread.participants.joined(separator: ", "),
+                thread.count > 1 ? "\(thread.count) messages" : nil,
+                thread.subject,
+                MailFormat.listTimestamp(thread.date),
+            ].compactMap { $0 }.joined(separator: ", ")
+        }
+        return cell
+    }
+
+
+    override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
+        // In Edit mode a tap ticks a row rather than opening it, and the
+        // Select All button has to keep up with what that leaves selected.
+        guard !t.isEditing else { updateSelectAllTitle(); return }
+        switch rows[ip.row] {
+        case let .thread(thread) where thread.count > 1:
+            // The conversation opens in the READING PANE, as a stack of its
+            // letters, which is what Mail does. It used to open OUT in the
+            // list instead — B-022 — on the reasoning that the pane should
+            // always hold exactly one letter. The requirement is that
+            // the app work the way the one he knows works, and his
+            // hands know Mail.
+            open(thread, at: ip)
+        case let .thread(thread):
+            open(thread.newest, at: ip)
+        }
+    }
+
+    override func tableView(_ t: UITableView, didDeselectRowAt ip: IndexPath) {
+        if t.isEditing { updateSelectAllTitle() }
+    }
+
+    /// Opens a whole conversation in the reading pane.
+    ///
+    /// Only the letter the pane actually shows open is marked read — the
+    /// newest — and the rest keep their unread dots until he expands them.
+    /// Marking the lot read on one tap would empty his unread count for a
+    /// thread he has read one line of, and the count is how he knows what
+    /// is still waiting.
+    @MainActor
+    private func open(_ thread: MessageThread, at ip: IndexPath) {
+        // Drafts never group into a stack: a tap there has to reopen the
+        // composer, and there is no reading-pane form of that.
+        if mailbox.role == .drafts {
+            tableView.deselectRow(at: ip, animated: false)
+            openDraft(thread.newest)
+            return
+        }
+
+        onSelectThread?(thread)
+        markReadIfNeeded(thread.newest)
+    }
+
+    /// Opens one letter in the reading pane and marks it read.
+    @MainActor
+    private func open(_ summary: MessageSummary, at ip: IndexPath) {
+        let m = summary
+
+        // In Drafts a tap REOPENS the letter for writing. Everywhere else it
+        // opens it for reading. Mail behaves the same way, and the previous
+        // behaviour here made a saved draft a dead end: it opened read-only
+        // in the pane to the right, with no route back into the composer, so
+        // a letter he had been interrupted writing could never be finished.
+        if mailbox.role == .drafts {
+            tableView.deselectRow(at: ip, animated: false)
+            openDraft(m)
+            return
+        }
+
+        onSelectMessage?(m)
+        markReadIfNeeded(m)
+    }
+
+    /// Marks one letter read locally, tells the server, and bills the
+    /// folder counters — or puts everything back if the server refuses.
+    ///
+    /// Lifted out of `open` so the conversation path can use it for the one
+    /// letter it actually shows open. Doing it twice in two places is how
+    /// the counter arithmetic drifts.
+    @MainActor
+    private func markReadIfNeeded(_ summary: MessageSummary) {
+        var m = summary
+        guard !m.isRead else { return }
+        m.isRead = true
+        setRead(m.id)
+        // Regroup rather than reload the one row: the thread this letter
+        // belongs to may have just lost its unread dot.
+        regroup()
+        if let path = indexPath(forIdentifier: m.id) {
+            tableView.selectRow(at: path, animated: false, scrollPosition: .none)
+        }
+
+        Task { @MainActor in
+            do {
+                try await repository.setRead(true, id: m.id, mailboxID: m.mailboxID)
+            } catch {
+                // Put the dot back. Before the sidebar counter existed a
+                // failed STORE merely left the folder count stale HIGH,
+                // which nags; decrementing anyway would leave it stale LOW,
+                // and a count that is too low tells him there is no new mail
+                // when there is. That is the failure this pane exists to
+                // prevent, so the decrement is only ever committed after the
+                // server has actually taken the flag.
+                self.setRead(m.id, read: false)
+                self.regroup()
+                return
+            }
+            // Once per message, ever. A reload can re-derive `isRead` from
+            // server FLAGS that predate this STORE and put the unread dot
+            // back, which re-arms the `guard !m.isRead` above — so the guard
+            // alone would let one message be billed twice.
+            guard self.countedRead.insert(m.id).inserted else { return }
+            let folders = m.countedFolderIDs.isEmpty ? [self.mailbox.id] : m.countedFolderIDs
+            self.onUnreadCountChanged?(folders, -1)
+        }
+    }
+
+    private func setRead(_ id: String, read: Bool = true) {
+        if let i = messages.firstIndex(where: { $0.id == id }) { messages[i].isRead = read }
+        if filtered != nil, let i = filtered!.firstIndex(where: { $0.id == id }) {
+            filtered![i].isRead = read
+        }
+    }
+}
+
+#endif

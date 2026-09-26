@@ -1,0 +1,29 @@
+# Build output and signing artifacts never belong in the repo.
+packages/
+*.ipa
+.theos/
+build/
+.DS_Store
+
+# Signing material. tools/provision-ipad.sh has whoever runs it copy the
+# signing directory onto their machine, so one `cp` followed by `git add -A`
+# would commit the Apple distribution PRIVATE KEY. These lines close that.
+.env
+*.p12
+*.p8
+*.pem
+*.key
+*.cer
+*.mobileprovision
+
+# zsign's build cache. Contents are benign — bundle id, version, hashes — but
+# they record the build host's directory layout and accrue with every sign.
+.zsign_cache/
+
+# Machine-specific values for the device tools; see tools/device.env.example.
+tools/device.env
+
+# Copyrighted reference screenshots: measure from them locally, never commit.
+# Sources are listed in spec/references/REFERENCE_SCREENSHOTS.md.
+spec/references/ios10-12.9-threepane.png
+spec/references/owner-ipad.jpeg
