@@ -2074,8 +2074,8 @@ the pane draws has changed, only when and where the work is done. The
 rules are checked in host tests (`PanePageTests`, `PaneLoadsTests`,
 `PaneDocumentTests`, `ConversationDocumentTests`, `DisplayDatesTests`,
 `MIMEDecoderTests`); the web view that applies them is WebKit, which the
-host cannot build, and none of it has been seen on the iPad yet. The TODO
-says what to look at.
+host cannot build. What the iPad has shown is at the end; the TODO says
+what is still to look at.
 
 **A big letter no longer holds the screen while it is drawn.** When a
 letter came, the app made its page on the same thread that draws the
@@ -2112,3 +2112,20 @@ time zone, the language or region, or the 24-hour clock is changed in
 Settings. Which day is today is worked out every time, so after midnight
 a letter from late the evening before says "Yesterday" once the list is
 drawn again, as it did.
+
+**Confirmed on the iPad, 2026-09-28**, on carlo's mailbox, driving the real
+UI. The app launched with `callAsyncJavaScript` bound from `libswiftWebKit`.
+An HTML newsletter drew with its pictures and the page's own colours
+inverted as before. A conversation of four plain letters filled its newest
+letter's body, with the `<` and `>` of the quoted addresses shown as
+typed. Opening the oldest letter put its body in and moved the header to
+it; opening two more a third of a second apart left the header on the one
+opened last. With three letters open, `killall -9
+com.apple.WebKit.WebContent` brought the stack back with every open body
+in. Closing a letter and opening it again put its body straight back and
+moved the header to it. A 34 KB PDF decoded and opened. Three letters
+tapped a third of a second apart drew only the last. The list's times read
+"Friday", "Wednesday" and "21/09/26" on a Monday, as before. Not yet seen:
+a letter of a megabyte, a conversation of twenty letters, a body with
+backslashes or `</script>` in it, a change of time zone or 24-hour clock,
+and the fill's own time on the iPad.

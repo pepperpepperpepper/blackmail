@@ -368,7 +368,13 @@ this host. Ordered by value, not by size.
       the pane, and tapping the letter again draws it. Then open a long
       conversation (twenty letters or more) a few times on fast Wi-Fi: its
       newest letter must never stay on "Loading…" (pane-13).
-- [ ] **B-043, the reading pane's CPU.** The app must launch at all: the
+- [ ] **B-043, the reading pane's CPU.** *Partly seen 2026-09-28 (launch,
+      an HTML letter, a four-letter conversation opened, closed, reopened
+      and redrawn after a WebContent kill, a quick tap-through, a PDF); see
+      B-043. Still to see: the rest below from "a newsletter of a few
+      hundred KB", a twenty-letter conversation, a body with backslashes or
+      `</script>`, the time zone and 24-hour clock, and the fill's timing.*
+      The app must launch at all: the
       pane now binds `callAsyncJavaScript` from `libswiftWebKit`, which the
       16.5 SDK says every iOS 16 has. Open the largest letter in the
       mailbox, a newsletter of a few hundred KB or more, and scroll the list
