@@ -9,7 +9,7 @@ import XCTest
 /// reporting its height a moment after the others so the text jumps while
 /// he is reading. That decision moves the risk into this file: the whole
 /// stack is now a string, and a message body is hostile input that ends up
-/// inside both an HTML document and a JavaScript string literal.
+/// inside an HTML document, and goes to the page's script as an argument.
 final class ConversationDocumentTests: XCTestCase {
 
     private func entry(_ id: String, sender: String = "Jane <j@x.com>",
@@ -104,43 +104,48 @@ final class ConversationDocumentTests: XCTestCase {
 
     // MARK: - Injecting a body afterwards
 
-    func testAQuoteInTheBodyCannotEndTheJavascriptString() {
-        let js = ConversationDocument.javascriptFill(
-            sectionID: "m1_1", html: "it's here", isHTML: false)
-        XCTAssertTrue(js.contains("it\\'s here"), js)
+    /// Bodies with everything that used to have to be escaped by hand to
+    /// survive a JavaScript string literal: quotes of both kinds,
+    /// backslashes, line breaks of every sort including U+2028 and U+2029,
+    /// which end a line of script even inside a string, a closing
+    /// `</script>`, which ends the element wherever it appears, NUL, and
+    /// text outside the Basic Multilingual Plane.
+    static let awkwardBodies = [
+        "it's here", "\"quoted\" and 'quoted'", "a\\b\\\\c\\", "a\nb\rc\r\nd",
+        "before\u{2028}after\u{2029}end", "text </script> more <script>alert(1)</script>",
+        "</SCRIPT", "nul \u{0}here", "\\x3C and \\u2028 written out", "\u{1F4EE} \u{10FFFF} é",
+        "${template} `backtick` \\' \\\"", "",
+    ]
+
+    /// A body goes to the page's `bmFill` as an argument, exactly as it is:
+    /// nothing escaped, so nothing to get wrong, and nothing done to it on
+    /// the main thread. It used to be written into the script, escaped a
+    /// character at a time. Escaping it now as well would show him the
+    /// backslashes.
+    func testABodyGoesToTheFillAsItIs() throws {
+        for html in Self.awkwardBodies {
+            for isHTML in [true, false] {
+                let fill = ConversationDocument.Fill(
+                    sectionID: "m1_9", body: .init(html: html, isHTML: isHTML))
+                let arguments = fill.arguments
+                XCTAssertEqual(arguments.count, 3)
+                XCTAssertEqual(arguments["id"] as? String, "m1_9")
+                let sent = try XCTUnwrap(arguments["html"] as? String)
+                XCTAssertEqual(Array(sent.utf8), Array(html.utf8), html.debugDescription)
+                XCTAssertEqual(arguments["isHTML"] as? Bool, isHTML)
+            }
+        }
     }
 
-    func testAClosingScriptTagInTheBodyIsDefused() {
-        // The one that matters most. A body containing "</script>" ends the
-        // script element wherever it appears, whatever it is quoted with,
-        // and the rest of the letter is then parsed as markup.
-        let js = ConversationDocument.javascriptFill(
-            sectionID: "m1_1", html: "text </script> more", isHTML: true)
-        XCTAssertFalse(js.contains("</script>"), js)
-        XCTAssertTrue(js.contains("\\x3C/script>"), js)
-    }
-
-    func testBackslashesAndNewlinesSurviveTheTrip() {
-        let js = ConversationDocument.javascriptFill(
-            sectionID: "m1_1", html: "a\\b\nc", isHTML: false)
-        XCTAssertTrue(js.contains("a\\\\b\\nc"), js)
-    }
-
-    func testTheUnicodeLineSeparatorsAreEscaped() {
-        // U+2028 and U+2029 end a line in JavaScript source even inside a
-        // string literal, so a body containing one is a syntax error and
-        // the letter never appears.
-        let js = ConversationDocument.escapeForJS("before\u{2028}after\u{2029}end")
-        XCTAssertFalse(js.contains("\u{2028}"))
-        XCTAssertFalse(js.contains("\u{2029}"))
-        XCTAssertTrue(js.contains("\\u2028"), js)
-    }
-
-    func testTheFillTargetsTheRightSection() {
-        let js = ConversationDocument.javascriptFill(
-            sectionID: "m1_9", html: "x", isHTML: true)
-        XCTAssertTrue(js.hasPrefix("bmFill('m1_9'"), js)
-        XCTAssertTrue(js.hasSuffix("true)"), js)
+    /// What the web view is asked to run is the same few characters for
+    /// every body, naming `bmFill`'s own parameters, which the page defines
+    /// in its own script.
+    func testTheFillCallsThePagesOwnFunctionByItsArguments() {
+        XCTAssertEqual(ConversationDocument.Fill.script, "bmFill(id, html, isHTML)")
+        let fill = ConversationDocument.Fill(sectionID: "m1_9",
+                                             body: .init(html: "x", isHTML: true))
+        XCTAssertEqual(Set(fill.arguments.keys), ["id", "html", "isHTML"])
+        XCTAssertTrue(document([entry("1/9")]).contains("function bmFill(id, html, isHTML) {"))
     }
 
     // MARK: - The document is well formed

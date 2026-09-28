@@ -23,9 +23,9 @@ final class PaneDocumentTests: XCTestCase {
 
     private let body = ConversationDocument.Entry.Rendered(html: "Dear Sam,", isHTML: false)
 
-    private func script(_ id: String, _ body: ConversationDocument.Entry.Rendered) -> String {
-        ConversationDocument.javascriptFill(sectionID: ConversationDocument.sectionID(for: id),
-                                            html: body.html, isHTML: body.isHTML)
+    private func filling(_ id: String, _ body: ConversationDocument.Entry.Rendered)
+        -> ConversationDocument.Fill {
+        ConversationDocument.Fill(sectionID: ConversationDocument.sectionID(for: id), body: body)
     }
 
     private func entries(_ content: PaneDocument.Content) -> [ConversationDocument.Entry]? {
@@ -49,9 +49,9 @@ final class PaneDocumentTests: XCTestCase {
         let later = ConversationDocument.Entry.Rendered(html: "<p>Dear Carlo,</p>", isHTML: true)
         XCTAssertNil(document.fill("7/2", with: later))
         XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)),
-                       [script("7/3", body), script("7/2", later)], "in the order they came")
+                       [filling("7/3", body), filling("7/2", later)], "in the order they came")
         XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)), [], "once")
-        XCTAssertEqual(document.fill("7/3", with: body), script("7/3", body), "loaded: at once")
+        XCTAssertEqual(document.fill("7/3", with: body), filling("7/3", body), "loaded: at once")
     }
 
     /// Bodies waiting for a document go with it when another replaces it
@@ -69,7 +69,7 @@ final class PaneDocumentTests: XCTestCase {
         // The first one's finishing did not finish the second: a body for it
         // still waits, and goes in when the second has loaded.
         XCTAssertNil(document.fill("7/9", with: body), "the second document is still loading")
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(second)), [script("7/9", body)])
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(second)), [filling("7/9", body)])
 
         XCTAssertNil(document.fill("7/3", with: body), "not a letter of this stack")
         document.loaded(.notice([PaneNotice.loading]), navigation: ObjectIdentifier(first))
@@ -77,7 +77,23 @@ final class PaneDocumentTests: XCTestCase {
 
         // A load WebKit gave no navigation for is taken as loaded.
         document.loaded(.conversation([entry("7/9", open: true)]), navigation: nil)
-        XCTAssertEqual(document.fill("7/9", with: body), script("7/9", body))
+        XCTAssertEqual(document.fill("7/9", with: body), filling("7/9", body))
+    }
+
+    /// The body kept for a letter is the one that went into its section,
+    /// put back as it was when he opens the letter again rather than built
+    /// again. There is none for a letter whose body has not come, for one
+    /// outside the stack, or once the pane shows something else.
+    func testTheBodyKeptForALetterIsTheOneThatWentIn() {
+        var document = PaneDocument()
+        document.loaded(.conversation([entry("7/3", open: true), entry("7/2")]), navigation: nil)
+        XCTAssertNil(document.body(of: "7/3"))
+        _ = document.fill("7/3", with: body)
+        XCTAssertEqual(document.body(of: "7/3"), body)
+        XCTAssertNil(document.body(of: "7/2"), "not come")
+        XCTAssertNil(document.body(of: "7/9"), "not in the stack")
+        document.loaded(.notice([PaneNotice.loading]), navigation: nil)
+        XCTAssertNil(document.body(of: "7/3"), "no stack on screen")
     }
 
     // MARK: - WebKit's content process ending (pane-7)
@@ -140,7 +156,7 @@ final class PaneDocumentTests: XCTestCase {
         document.loaded(redraw.content, navigation: ObjectIdentifier(navigation))
         for (id, body) in redraw.bodies { XCTAssertNil(document.fill(id, with: body)) }
         XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)),
-                       [script("7/3", broken), script("7/2", failed)])
+                       [filling("7/3", broken), filling("7/2", failed)])
         XCTAssertEqual(entries(document.content)?.map(\.body), [broken, failed, nil])
         XCTAssertNil(document.redraw(), "drawn again once")
     }
@@ -155,6 +171,8 @@ final class PaneDocumentTests: XCTestCase {
         return redraw.content
     }
 
+    private let page = "<!DOCTYPE html><html><body><div id=\"bm\">Dear Sam,</div></body></html>"
+
     private let letter = Message.heading(for: MessageSummary(
         id: "7/3", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
         subject: "The garden", preview: "", date: Server.newestDate,
@@ -165,14 +183,15 @@ final class PaneDocumentTests: XCTestCase {
     func testALetterOrANoticeIsDrawnAgainAndTheEmptyPaneIsNot() {
         var document = PaneDocument()
         XCTAssertFalse(document.holdsLetter)
-        document.loaded(.letter(letter), navigation: nil)
+        document.loaded(.letter(letter, page: page), navigation: nil)
         XCTAssertTrue(document.holdsLetter)
         document.contentProcessEnded()
         XCTAssertTrue(document.holdsLetter, "lost, and still to be cleared if the pane empties")
-        guard case .letter(let again)? = drawAgain(&document) else {
+        guard case .letter(let again, let pageAgain)? = drawAgain(&document) else {
             return XCTFail("the letter is drawn again")
         }
         XCTAssertEqual(again.id, "7/3")
+        XCTAssertEqual(pageAgain, page, "from the page it was drawn as, built once")
         XCTAssertNil(document.redraw(), "once")
 
         document.loaded(.notice([PaneNotice.loading]), navigation: nil)
@@ -225,7 +244,7 @@ final class PaneDocumentTests: XCTestCase {
         }
 
         // Lost again while the redraw loads.
-        document.loaded(.letter(letter), navigation: ObjectIdentifier(navigation))
+        document.loaded(.letter(letter, page: page), navigation: ObjectIdentifier(navigation))
         document.contentProcessEnded()
         guard case .letter? = drawAgain(&document, navigation: navigation) else {
             return XCTFail("drawn again the first time")
@@ -241,7 +260,7 @@ final class PaneDocumentTests: XCTestCase {
         XCTAssertNil(document.redraw())
 
         // Lost again soon after the redraw has loaded.
-        document.loaded(.letter(letter), navigation: ObjectIdentifier(navigation))
+        document.loaded(.letter(letter, page: page), navigation: ObjectIdentifier(navigation))
         document.contentProcessEnded()
         _ = drawAgain(&document, navigation: navigation)
         finished(&document)
@@ -253,7 +272,7 @@ final class PaneDocumentTests: XCTestCase {
 
         // A redraw that has lasted is drawn again when it is lost, and so
         // is a letter the pane drew itself, however soon.
-        document.loaded(.letter(letter), navigation: ObjectIdentifier(navigation))
+        document.loaded(.letter(letter, page: page), navigation: ObjectIdentifier(navigation))
         document.contentProcessEnded()
         _ = drawAgain(&document, navigation: navigation)
         finished(&document)
@@ -262,7 +281,7 @@ final class PaneDocumentTests: XCTestCase {
         guard case .letter? = drawAgain(&document, navigation: navigation) else {
             return XCTFail("it lasted: drawn again")
         }
-        document.loaded(.letter(letter), navigation: nil)
+        document.loaded(.letter(letter, page: page), navigation: nil)
         document.contentProcessEnded()
         guard case .letter? = drawAgain(&document) else {
             return XCTFail("the pane's own: drawn again")

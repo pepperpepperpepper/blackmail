@@ -70,10 +70,13 @@ this host. Ordered by value, not by size.
       sweep for the developer too. Turn it on with the Layout button on the
       connection log (five taps on the list's status line), which also
       sweeps once at the tap; see `LayoutAudit.enabledKey`.*
-- [ ] **P8. `MIMEDecoder.decodeBase64` accumulates into `Data`.** :53 —
+- [x] **P8. `MIMEDecoder.decodeBase64` accumulates into `Data`.** :53 —
       `[UInt8]` + `withUnsafeBytes`, exactly as `decodeQuotedPrintable` above
       it already learned to. 5.7-11x on attachment and inline-image decode.
       (B-038 #5)
+      *Done: 8x on base64 wrapped as mailers wrap it (5 MB 619 → 77 ms in a
+      release build here), byte-identical at 1, 5 and 25 MB, and against
+      the old decoder in `MIMEDecoderTests`.*
 - [x] **Less of the connection spent on work he did not ask for.**
       *Done: cold launch sends LOGIN, one LIST shared by the folder names
       and the Inbox's role, and the Inbox's first page, and only then the
@@ -136,11 +139,23 @@ this host. Ordered by value, not by size.
       (`ListPlaces.refetched`). Checked
       in `ListPlaceTests`, `FeedbackTests` and `PaneDocumentTests`; see
       B-042 for what he could notice.*
-- [ ] **Batch 5 of the lag fixes, the reading pane's CPU.**
+- [x] **Batch 5 of the lag fixes, the reading pane's CPU.**
       `callAsyncJavaScript` in place of the escaper, the letter's
-      preparation off the main thread, and P8. A conversation's bodies now
-      go in through `PaneDocument.fill`, which is where the escaped script
-      is built; the argument form belongs there.
+      preparation off the main thread, and P8.
+      *Done: a conversation's body goes to `bmFill` as an argument
+      (`ConversationDocument.Fill`, made by `PaneDocument.fill`, held for
+      `didFinish` and put back by the redraw as before), so nothing is
+      escaped. A letter's page and a conversation letter's body are made by
+      `PanePage` away from the main thread, inside the load's own task
+      (`PaneLoads`), so one he has left draws nothing. P8 as above, and the
+      list's and pane's date formatters are kept (`DisplayDates`). Release
+      build here: the app's own code holds the main thread 0.1-0.6 ms while
+      a letter of up to a megabyte is drawn, where it was 18-411 ms; WebKit's
+      serializing of a conversation's body comes on top, untimed (see the
+      device item). Loads settle in the order they were started, so a small
+      letter opened after a large one keeps the header. `PanePageTests`,
+      `PaneLoadsTests`, `PaneDocumentTests`, `ConversationDocumentTests`,
+      `DisplayDatesTests`; PERFORMANCE.md #1 and #5; B-043.*
 - [ ] **Left from batch 4.** Opening another letter inside a conversation
       still changes the header to that letter once its body has come, so
       a letter with a different number of files moves the stack then. The
@@ -148,7 +163,9 @@ this host. Ordered by value, not by size.
       letter has come, as the single-letter pane does since P1. And a new
       result set as he types asks for every hit's preview again, where the
       previews already drawn for the same letters could be carried over by
-      id, as Refresh does.
+      id, as Refresh does. Also left as it was: a letter reopened in the
+      stack whose body is already kept takes the header at once, so a letter
+      opened before it and still coming takes the header back when it lands.
 - [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -351,6 +368,29 @@ this host. Ordered by value, not by size.
       the pane, and tapping the letter again draws it. Then open a long
       conversation (twenty letters or more) a few times on fast Wi-Fi: its
       newest letter must never stay on "Loading…" (pane-13).
+- [ ] **B-043, the reading pane's CPU.** The app must launch at all: the
+      pane now binds `callAsyncJavaScript` from `libswiftWebKit`, which the
+      16.5 SDK says every iOS 16 has. Open the largest letter in the
+      mailbox, a newsletter of a few hundred KB or more, and scroll the list
+      while it comes: the list must not catch, and the letter draws. Then a
+      long conversation, twenty letters or more, with HTML and plain letters
+      in it: the newest fills in, and opening, closing and opening again
+      letters in the stack puts each body back, pictures included. A letter
+      in a conversation whose text has quotes, backslashes or `</script>` in
+      it reads exactly as sent, with no backslashes added. Kill WebContent
+      with the conversation open, as for B-042: it comes back with its
+      bodies. Tap quickly through several large letters: only the last is
+      drawn. Open a 5 MB PDF: it opens sooner than it did. Then change the
+      time zone in Settings, and switch the 24-hour clock, and come back:
+      rows drawn afterwards, and the pane's date, follow both; and a letter
+      from late yesterday says "Yesterday" once the list is drawn again
+      after midnight. And time the conversation's fill, `run(fill)` around
+      `callAsyncJavaScript` with a letter of a megabyte, in the
+      Instruments time profiler or with a signpost: once cold, more than
+      10 s after the last fill, when WebKit makes a new `JSContext` in the
+      app to serialize the body, and once warm. The host's 0.1-0.6 ms is the
+      app's part only. Watch the app's memory for those 10 s alongside
+      B-042's WebContent terminations.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

@@ -179,41 +179,33 @@ enum ConversationDocument {
         """
     }
 
-    /// What a body is wrapped in when it is injected after the fact.
+    /// A body going into its letter's section once the stack has loaded:
+    /// the page's own `bmFill`, called through `callAsyncJavaScript` with the
+    /// section, the body and its kind as arguments.
     ///
-    /// `bmFill` takes the inner HTML, so this escapes it for a JavaScript
-    /// string literal rather than for HTML.
-    static func javascriptFill(sectionID: String, html: String, isHTML: Bool) -> String {
-        "bmFill('\(sectionID)', '\(escapeForJS(html))', \(isHTML))"
+    /// Arguments rather than a script with the body written into it. The
+    /// body used to be escaped into a JavaScript string literal, one
+    /// character at a time on the main thread: about 0.15 ms a kilobyte, so
+    /// two frames for a 200 KB newsletter and a sixth of a second for a
+    /// megabyte, and every character that could end the string, the line or
+    /// the `<script>` element had to be caught. An argument goes across as a
+    /// string and is never read as script, so there is nothing to catch.
+    struct Fill: Equatable {
+        let sectionID: String
+        let body: Entry.Rendered
+
+        /// What `callAsyncJavaScript` runs, in the page's own content world,
+        /// where `bmFill` is: the three names are its arguments.
+        static let script = "bmFill(id, html, isHTML)"
+
+        var arguments: [String: Any] {
+            ["id": sectionID, "html": body.html, "isHTML": body.isHTML]
+        }
     }
 
     static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
-    }
-
-    /// Everything that would end the single-quoted string, close the
-    /// `<script>` element, or break the line in two.
-    ///
-    /// `</script>` matters as much as the quote: a message body containing
-    /// that sequence ends the script element early wherever it appears, and
-    /// the rest of the letter is then parsed as markup.
-    static func escapeForJS(_ text: String) -> String {
-        var out = ""
-        out.reserveCapacity(text.count + 16)
-        for ch in text {
-            switch ch {
-            case "\\": out += "\\\\"
-            case "'":  out += "\\'"
-            case "\n": out += "\\n"
-            case "\r": out += "\\r"
-            case "\u{2028}": out += "\\u2028"   // a line separator ends a JS line
-            case "\u{2029}": out += "\\u2029"
-            case "<":  out += "\\x3C"           // defuses </script>
-            default:   out.append(ch)
-            }
-        }
-        return out
     }
 }

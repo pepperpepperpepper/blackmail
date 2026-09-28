@@ -163,6 +163,153 @@ final class PaneLoadsTests: XCTestCase {
         XCTAssertEqual(loads.inFlight, 0)
     }
 
+    // MARK: - The page made away from the main thread
+
+    /// A letter's page is made while the main actor goes on, as the screen
+    /// must: the preparation below holds until the main actor has run
+    /// meanwhile, and for a second at most. It used to be made on the main
+    /// thread as the letter came, where it would have held that second, and
+    /// held the screen for as long as a big letter took.
+    ///
+    /// The preparation asks the main actor for a turn itself, with a task
+    /// for the main actor, which starts there without a thread from the
+    /// pool. A test polling on a timer instead needs one to wake, and the
+    /// preparation holds one, which on a machine with one processor is the
+    /// whole pool until the system adds another, about a second later.
+    @MainActor
+    func testThePageIsMadeWhileTheMainThreadGoesOn() async throws {
+        let loads = PaneLoads()
+        let events = Events()
+        let mainWentOn = DispatchSemaphore(value: 0)
+        loads.show(standIn: {},
+                   fetch: { "letter" },
+                   prepare: { letter -> String in
+                       events.add(Thread.isMainThread ? "preparing on main" : "preparing")
+                       Task { @MainActor in mainWentOn.signal() }
+                       let free = mainWentOn.wait(timeout: .now() + 1) == .success
+                       return free ? "page of \(letter)" : "main thread held"
+                   },
+                   settle: { result in events.add("drawn \((try? result.get()) ?? "-")") })
+        try await until { loads.inFlight == 0 }
+        XCTAssertEqual(events.all, ["preparing", "drawn page of letter"])
+    }
+
+    /// The settle rule holds across the preparation. A letter he leaves
+    /// while its page is being made draws nothing, and the one he moved to
+    /// is drawn; a letter he left before its body came is not prepared at
+    /// all, which would be work for nothing. He moves on from inside the
+    /// preparation, on the main actor, as in the test above.
+    @MainActor
+    func testALetterLeftBeforeOrWhileItsPageIsMadeDrawsNothing() async throws {
+        let loads = PaneLoads()
+        let events = Events()
+        let release = DispatchSemaphore(value: 0)
+        let drawn = { (result: Result<String, Error>) in
+            events.add("drawn \((try? result.get()) ?? "-")")
+        }
+        let moveOn = {
+            loads.show(standIn: {}, fetch: { "second" }, prepare: { "page of \($0)" }, settle: drawn)
+            release.signal()
+        }
+
+        loads.show(standIn: {}, fetch: { "first" },
+                   prepare: { letter -> String in
+                       events.add("preparing \(letter)")
+                       Task { @MainActor in moveOn() }
+                       _ = release.wait(timeout: .now() + 1)
+                       events.add("prepared \(letter)")
+                       return "page of \(letter)"
+                   },
+                   settle: drawn)
+        try await until { loads.inFlight == 0 && events.all.contains("prepared first") }
+        try await Task.sleep(for: .milliseconds(10))
+        // Second's page may be drawn either side of the first's being made.
+        XCTAssertTrue(events.all.contains("drawn page of second"), "\(events.all)")
+        XCTAssertFalse(events.all.contains("drawn page of first"), "\(events.all)")
+
+        let left = Events()
+        let gate = Gate()
+        loads.show(standIn: {},
+                   fetch: { () async throws -> String in
+                       await gate.wait()
+                       left.add("third came")
+                       return "third"
+                   },
+                   prepare: { letter -> String in
+                       left.add("preparing \(letter)")
+                       return letter
+                   },
+                   settle: { _ in left.add("third drawn") })
+        try await until { gate.waiting }
+        loads.supersede()
+        await gate.open()
+        try await until { left.all.contains("third came") }
+        try await Task.sleep(for: .milliseconds(10))
+        XCTAssertEqual(left.all, ["third came"])
+    }
+
+    // MARK: - The letter he opened last has the header
+
+    /// Two letters opened one after the other in the conversation on
+    /// screen, the first a large one whose page takes a while, the second a
+    /// small one. The second's body comes after the first's, as it does
+    /// down the one connection, and its page is ready while the first's is
+    /// still being made. They settle first then second all the same, so the
+    /// header, Reply, Delete and the pictures' loader end on the letter he
+    /// opened last. Settled as each page was ready, the second took the
+    /// header and then lost it to the first.
+    @MainActor
+    func testLettersOpenedOneAfterAnotherSettleInTheOrderTheyWereOpened() async throws {
+        let loads = PaneLoads()
+        let events = Events()
+        let gate = Gate()
+        let secondMade = DispatchSemaphore(value: 0)
+        let focus = { (result: Result<String, Error>) in
+            events.add("focus \((try? result.get()) ?? "-")")
+        }
+
+        loads.show(standIn: {},
+                   fetch: { () async -> String in
+                       await gate.open()
+                       return "first"
+                   },
+                   prepare: { letter -> String in
+                       // Still being made when the second's page is ready,
+                       // and for a few milliseconds after, time enough for
+                       // the second to settle if nothing held it back.
+                       _ = secondMade.wait(timeout: .now() + .milliseconds(20))
+                       usleep(5_000)
+                       return letter
+                   },
+                   settle: focus)
+        loads.start({ () async -> String in
+                        await gate.wait()
+                        return "second"
+                    },
+                    prepare: { letter -> String in
+                        secondMade.signal()
+                        return letter
+                    },
+                    settle: focus)
+        try await until { loads.inFlight == 0 }
+        XCTAssertEqual(events.all, ["focus first", "focus second"])
+
+        // Moving on starts afresh: what is shown next waits for nothing left
+        // from what was there, here a letter whose body never comes.
+        let stuck = Gate()
+        loads.start({ () async -> String in
+                        await stuck.wait()
+                        return "third"
+                    },
+                    settle: { _ in events.add("third drawn") })
+        try await until { stuck.waiting }
+        loads.show(standIn: {}, fetch: { "fourth" }, settle: focus)
+        try await until { events.all.contains("focus fourth") }
+        await stuck.open()
+        try await Task.sleep(for: .milliseconds(10))
+        XCTAssertEqual(events.all, ["focus first", "focus second", "focus fourth"])
+    }
+
     /// Four letters tapped in quick succession, the first one's body already
     /// on the wire. That one finishes its exchange, as a cancelled caller
     /// does, and draws nothing; the two he tapped past are called off while

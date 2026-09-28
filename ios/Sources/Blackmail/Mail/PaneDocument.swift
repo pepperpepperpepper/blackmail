@@ -11,7 +11,7 @@ import Foundation
 /// that never appeared.
 ///
 /// A conversation's bodies are put into their sections by script once they
-/// come (`ConversationDocument.javascriptFill`). A body that came before the
+/// come (`ConversationDocument.Fill`). A body that came before the
 /// stack's own document had finished loading ran against the page before
 /// it, found no section, and was lost: the letter said "Loading…" for good,
 /// or until he closed and opened it again. It is likelier the faster the
@@ -55,8 +55,9 @@ struct PaneDocument {
         case blank
         /// Grey words in place of a letter: "Loading…", or why there is none.
         case notice([String])
-        /// One letter.
-        case letter(Message)
+        /// One letter, and the page it was drawn as, so that drawing it again
+        /// has nothing to build (`PanePage.letter`).
+        case letter(Message, page: String)
         /// A conversation's stack, with the bodies that have come and which
         /// letters are open.
         case conversation([ConversationDocument.Entry])
@@ -84,8 +85,8 @@ struct PaneDocument {
     /// was none to wait for.
     private var navigation: ObjectIdentifier?
     private var finished = true
-    /// Scripts for bodies that came while the document was still loading.
-    private var waiting: [String] = []
+    /// Bodies that came while the document was still loading.
+    private var waiting: [ConversationDocument.Fill] = []
     /// The document went with WebKit's process and has not been drawn
     /// again. `content` is still what it held, and bodies that come
     /// meanwhile are kept in it for the redraw.
@@ -132,24 +133,34 @@ struct PaneDocument {
     }
 
     /// A body for one letter of the conversation on screen. Kept in the
-    /// stack, so a redraw has it, and returned as the script that puts it in
+    /// stack, so a redraw has it, and returned as the fill that puts it in
     /// its section when that can run now. Nil when the document is still
-    /// loading, and the script waits for it (`didFinish`); when the document
+    /// loading, and the fill waits for it (`didFinish`); when the document
     /// has been lost, and the redraw puts it in; or when the pane is not
     /// showing a conversation with that letter in it.
-    mutating func fill(_ id: String, with body: ConversationDocument.Entry.Rendered) -> String? {
+    mutating func fill(_ id: String,
+                       with body: ConversationDocument.Entry.Rendered) -> ConversationDocument.Fill? {
         guard case .conversation(var entries) = content,
               let i = entries.firstIndex(where: { $0.id == id }) else { return nil }
         entries[i].body = body
         content = .conversation(entries)
         guard !lost else { return nil }
-        let script = ConversationDocument.javascriptFill(
-            sectionID: ConversationDocument.sectionID(for: id), html: body.html, isHTML: body.isHTML)
+        let fill = ConversationDocument.Fill(sectionID: ConversationDocument.sectionID(for: id),
+                                             body: body)
         guard finished else {
-            waiting.append(script)
+            waiting.append(fill)
             return nil
         }
-        return script
+        return fill
+    }
+
+    /// The body kept for one letter of the conversation on screen: what
+    /// went into its section, to be put back as it was when he opens the
+    /// letter again. Nil when none has, or the pane shows no stack with
+    /// that letter in it.
+    func body(of id: String) -> ConversationDocument.Entry.Rendered? {
+        guard case .conversation(let entries) = content else { return nil }
+        return entries.first(where: { $0.id == id })?.body
     }
 
     /// A letter of the stack opened or closed by hand, so a redraw opens the
@@ -162,8 +173,8 @@ struct PaneDocument {
     }
 
     /// A document has finished loading. When it is the one on screen, the
-    /// scripts that were waiting for it, in the order they came.
-    mutating func didFinish(_ navigation: ObjectIdentifier) -> [String] {
+    /// fills that were waiting for it, in the order they came.
+    mutating func didFinish(_ navigation: ObjectIdentifier) -> [ConversationDocument.Fill] {
         guard navigation == self.navigation, !finished else { return [] }
         finished = true
         if case .again(nil) = drawn { drawn = .again(finished: now()) }

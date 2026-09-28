@@ -2066,3 +2066,49 @@ often it happens.
 comes quickly.** A body that arrived before the conversation's page had
 finished loading was lost, and the letter said "Loading…" until he closed
 and opened it again. It now waits for the page.
+
+## B-043 — CHANGED 2026-09-28. The reading pane's own work, off the screen's thread
+
+Behaviour he could notice, from the fifth batch of the lag fixes: nothing
+the pane draws has changed, only when and where the work is done. The
+rules are checked in host tests (`PanePageTests`, `PaneLoadsTests`,
+`PaneDocumentTests`, `ConversationDocumentTests`, `DisplayDatesTests`,
+`MIMEDecoderTests`); the web view that applies them is WebKit, which the
+host cannot build, and none of it has been seen on the iPad yet. The TODO
+says what to look at.
+
+**A big letter no longer holds the screen while it is drawn.** When a
+letter came, the app made its page on the same thread that draws the
+screen and answers his fingers: took off the sender's wrapper, pointed its
+pictures at the app, and escaped plain text. For a letter in a
+conversation it then wrote the whole body into a script a character at a
+time. Measured on the development computer, which is about as fast as an
+A12 iPad: a newsletter of 200 KB held the screen for 18 ms on its own and
+50 ms in a conversation, three frames, and a letter of a megabyte for a
+tenth of a second on its own and up to four tenths in a conversation. A
+scroll caught, a tap waited. The page is now made on another thread, and
+the body goes to the page as it is, with nothing escaped; the app's own
+part holds the screen for well under a millisecond on the development
+computer. In a conversation WebKit then copies the body across to the
+page on the same thread, and after a pause of more than ten seconds makes
+itself a new JavaScript engine in the app to do it, which it keeps for ten
+seconds. That part has not been timed on the iPad; it is copying, not the
+old character-at-a-time loop, so it should still be far quicker. The
+letter itself comes no sooner on its own; in a conversation it comes
+sooner by the time the escaping took.
+
+**A letter he has moved on from is not drawn, and is not made either if
+he left before it came.** As before for the download, now for the page:
+tapping quickly through large letters draws only the one he stops on.
+
+**Attachments and inline pictures open sooner.** Their decoding is about
+eight times quicker: a 5 MB PDF took about 0.6 s to decode before it could
+be shown, and now takes under a tenth of a second.
+
+**Times and dates follow the iPad's settings as before, for less work.**
+The list's times and the pane's dates used to build a date formatter for
+every row and every letter. They are now kept, and made again when the
+time zone, the language or region, or the 24-hour clock is changed in
+Settings. Which day is today is worked out every time, so after midnight
+a letter from late the evening before says "Yesterday" once the list is
+drawn again, as it did.

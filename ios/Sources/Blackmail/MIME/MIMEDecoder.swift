@@ -49,38 +49,48 @@ enum MIMEDecoder {
     /// count is not a multiple of four, and truncated-without-padding base64 is
     /// something senders really do emit. Decoding a bit at a time means a
     /// damaged tail costs the last character rather than the whole attachment.
+    ///
+    /// The output is a plain array and the input is read through a raw
+    /// buffer, for the reason `decodeQuotedPrintable` below gives. `Data` has
+    /// no `append` for one byte: each one went through the generic
+    /// `replaceSubrange`, an opaque call into Foundation per output byte, and
+    /// reading `Data` byte by byte costs a call each too. A 5 MB attachment
+    /// took about 625 ms to open, and a letter with a few inline pictures
+    /// spent most of its decode here.
     private static func decodeBase64(_ data: Data) -> Data {
-        var out = Data()
+        var out: [UInt8] = []
         out.reserveCapacity(data.count * 3 / 4 + 3)
         var accumulator: UInt32 = 0
         var bits = 0
-        for byte in data {
-            let value: UInt32
-            switch byte {
-            case 0x41...0x5A: value = UInt32(byte - 0x41)          // A-Z
-            case 0x61...0x7A: value = UInt32(byte - 0x61) + 26     // a-z
-            case 0x30...0x39: value = UInt32(byte - 0x30) + 52     // 0-9
-            case 0x2B, 0x2D:  value = 62                           // '+', and base64url '-'
-            case 0x2F, 0x5F:  value = 63                           // '/', and base64url '_'
-            case 0x3D:
-                // '=' ends a quantum. Resetting rather than ignoring is what
-                // makes a message whose body is several separately padded
-                // base64 blocks glued together decode correctly instead of
-                // sliding six bits out of alignment at the join.
-                accumulator = 0
-                bits = 0
-                continue
-            default:
-                continue                                           // white space, CRLF, junk
-            }
-            accumulator = ((accumulator << 6) | value) & 0xFFFF
-            bits += 6
-            if bits >= 8 {
-                bits -= 8
-                out.append(UInt8((accumulator >> UInt32(bits)) & 0xFF))
+        data.withUnsafeBytes { (input: UnsafeRawBufferPointer) in
+            for byte in input {
+                let value: UInt32
+                switch byte {
+                case 0x41...0x5A: value = UInt32(byte - 0x41)          // A-Z
+                case 0x61...0x7A: value = UInt32(byte - 0x61) + 26     // a-z
+                case 0x30...0x39: value = UInt32(byte - 0x30) + 52     // 0-9
+                case 0x2B, 0x2D:  value = 62                           // '+', and base64url '-'
+                case 0x2F, 0x5F:  value = 63                           // '/', and base64url '_'
+                case 0x3D:
+                    // '=' ends a quantum. Resetting rather than ignoring is
+                    // what makes a message whose body is several separately
+                    // padded base64 blocks glued together decode correctly
+                    // instead of sliding six bits out of alignment at the join.
+                    accumulator = 0
+                    bits = 0
+                    continue
+                default:
+                    continue                                           // white space, CRLF, junk
+                }
+                accumulator = ((accumulator << 6) | value) & 0xFFFF
+                bits += 6
+                if bits >= 8 {
+                    bits -= 8
+                    out.append(UInt8((accumulator >> UInt32(bits)) & 0xFF))
+                }
             }
         }
-        return out
+        return Data(out)
     }
 
     private static func decodeQuotedPrintable(_ data: Data) -> Data {

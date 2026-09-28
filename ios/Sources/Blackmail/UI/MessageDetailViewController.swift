@@ -222,14 +222,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 renderNotice(PaneNotice.loading)
             },
             fetch: { try await repository.loadMessage(id: summary.id, mailboxID: summary.mailboxID) },
+            // The page is built away from the main thread, and drawn only
+            // if he is still on this letter when it is ready; see
+            // `PaneLoads`.
+            prepare: { [style = pageStyle] m in (m, PanePage.letter(m, style: style)) },
             settle: { [weak self] result in
                 guard let self else { return }
                 switch result {
-                case .success(let m):
+                case .success(let (m, page)):
                     self.message = m
                     self.header.configure(with: m)
                     self.header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
-                    self.render(m)
+                    self.draw(m, page: page)
                 case .failure:
                     // Say so IN THE PANE, not only in an alert.
                     //
@@ -307,16 +311,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 renderConversation(entries)
             },
             fetch: { try await repository.loadMessage(id: newest.id, mailboxID: newest.mailboxID) },
+            prepare: { m in (m, PanePage.stackBody(m)) },
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
             })
     }
 
+    /// The pane's measurements, for the pages built away from the main
+    /// thread, which cannot read `Theme` there.
+    private var pageStyle: PanePage.Style {
+        .init(inset: Int(Theme.detailContentInsetLeft), bodyPointSize: Int(Theme.scaled(17)),
+              lineHeight: Theme.detailBodyLineHeight)
+    }
+
+    /// The stack itself, drawn at the tap as the stand-in, on the main
+    /// thread: it holds no body, only a line per letter, and waiting for it
+    /// would leave the previous letter on screen in the meantime.
     private func renderConversation(_ entries: [ConversationDocument.Entry]) {
-        load(ConversationDocument.html(entries: entries,
-                                       inset: Int(Theme.detailContentInsetLeft),
-                                       bodyPointSize: Int(Theme.scaled(17)),
-                                       lineHeight: Theme.detailBodyLineHeight),
+        let style = pageStyle
+        load(ConversationDocument.html(entries: entries, inset: style.inset,
+                                       bodyPointSize: style.bodyPointSize,
+                                       lineHeight: style.lineHeight),
              as: .conversation(entries))
     }
 
@@ -331,22 +346,26 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     @MainActor
     private func loadBody(for id: String, focus: Bool) {
         guard let row = threadSummaries[id] else { return }
-        if let already = loaded[id] {
-            drawBody(already, focus: focus)
+        // Opened before, and its body is in its section: put back as it
+        // went in, with nothing to build again.
+        if let already = loaded[id], let body = document.body(of: id) {
+            drawBody(already, body, focus: focus)
             return
         }
         let repository = self.repository
         loads.start({ try await repository.loadMessage(id: id, mailboxID: row.mailboxID) },
+                    prepare: { m in (m, PanePage.stackBody(m)) },
                     settle: { [weak self] result in
                         self?.settleBody(result, for: id, focus: focus)
                     })
     }
 
-    private func settleBody(_ result: Result<Message, Error>, for id: String, focus: Bool) {
+    private func settleBody(_ result: Result<(Message, ConversationDocument.Entry.Rendered), Error>,
+                            for id: String, focus: Bool) {
         switch result {
-        case .success(let m):
+        case .success(let (m, body)):
             loaded[id] = m
-            drawBody(m, focus: focus)
+            drawBody(m, body, focus: focus)
         case .failure:
             // Said in the section rather than only in an alert, for the
             // same reason as the single-message path: a letter that
@@ -358,16 +377,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    private func drawBody(_ m: Message, focus: Bool) {
-        let known = prepareInlineImages(for: [m])
-        let isHTML = m.htmlBody != nil
-        let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
-        let content = empty
-            ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
-            : (isHTML
-               ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!), known: known)
-               : ConversationDocument.escape(leadingBlankLinesTrimmed(m.textBody ?? "")))
-        fill(m.id, .init(html: content, isHTML: isHTML && !empty))
+    /// Puts a letter's body, built by `PanePage.stackBody`, in its section,
+    /// with the loader pointed at the letter's pictures.
+    private func drawBody(_ m: Message, _ body: ConversationDocument.Entry.Rendered, focus: Bool) {
+        prepareInlineImages(for: [m])
+        fill(m.id, body)
         if focus { focusLetter(m) }
     }
 
@@ -385,8 +399,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// would find no section and be lost. Kept in the stack as well, so a
     /// redraw has it. See `PaneDocument`.
     private func fill(_ id: String, _ body: ConversationDocument.Entry.Rendered) {
-        guard let script = document.fill(id, with: body) else { return }
-        webView.evaluateJavaScript(script)
+        guard let fill = document.fill(id, with: body) else { return }
+        run(fill)
+    }
+
+    /// Calls the page's `bmFill` with the body as an argument, which needs
+    /// no escaping; see `ConversationDocument.Fill`. In the page's own
+    /// content world, where its script defined `bmFill`, as
+    /// `evaluateJavaScript` without one ran.
+    private func run(_ fill: ConversationDocument.Fill) {
+        webView.callAsyncJavaScript(ConversationDocument.Fill.script, arguments: fill.arguments,
+                                    in: nil, in: .page)
     }
 
     /// A letter in the stack was opened or closed.
@@ -431,13 +454,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             threadSummaries[id] = read
             onLetterOpened?(row)
         }
-    }
-
-    /// Leading blank lines dropped, as the single-message path does — this
-    /// app's own replies open with two newlines so there is room to type
-    /// above the quote, and they are really sent.
-    private func leadingBlankLinesTrimmed(_ text: String) -> String {
-        String(text.drop(while: { $0 == "\n" || $0 == "\r" }))
     }
 
     /// Fills the reading pane with the reason there is nothing in it.
@@ -503,8 +519,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    /// Points the loader at this message's parts, and returns the ids it can
-    /// actually serve.
+    /// Points the loader at this message's parts. The page was pointed at
+    /// the same ones when it was built (`PanePage.contentIDs`).
     ///
     /// Re-pointed per message rather than held once, because a `Content-ID`
     /// only means anything inside the message that declared it — two letters
@@ -513,7 +529,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Several letters at once only for a conversation drawn again after
     /// WebKit lost it, when every picture in it is asked for anew. Where two
     /// use the same id, the later letter's is served.
-    private func prepareInlineImages(for letters: [Message]) -> Set<String> {
+    private func prepareInlineImages(for letters: [Message]) {
         var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
         for m in letters {
             for attachment in m.attachments {
@@ -532,87 +548,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 part.section, of: part.letter.id, mailboxID: part.letter.mailboxID)
             return (data, part.mimeType)
         }
-        return Set(parts.keys)
     }
 
-    private func render(_ m: Message) {
-        let isHTML = m.htmlBody != nil
-        // Leading blank lines are dropped from PLAIN TEXT before rendering.
-        //
-        // Not cosmetic tidying — it is this app's own doing coming back.
-        // `Draft.replying` and `Draft.forwarding` both open a letter with
-        // two newlines so there is room to type ABOVE the quoted part, and
-        // those newlines are really sent. Reading such a letter back
-        // therefore started it about eighty points down an otherwise empty
-        // pane, which on the screen where he actually reads is the most
-        // expensive space in the product. Measured against a forward whose
-        // header block ended at y 355 and whose first words began at 470.
-        //
-        // Nothing is lost: blank lines before the first word carry no
-        // meaning. HTML is left exactly alone, because whitespace there is
-        // not reliably whitespace and the document may open with a layout
-        // table.
-        let known = prepareInlineImages(for: [m])
-        // Said out loud, so that a pane with nothing in it can only ever
-        // mean a bug. See MailText.hasNoVisibleContent and B-026.
-        guard !MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody) else {
+    /// Draws a letter from its page, built by `PanePage.letter` away from
+    /// the main thread, with the loader pointed at its pictures; or says in
+    /// the pane that there is nothing in it, so that a pane with nothing in
+    /// it can only ever mean a bug. See `MailText.hasNoVisibleContent` and
+    /// B-026.
+    private func draw(_ m: Message, page: String?) {
+        prepareInlineImages(for: [m])
+        guard let page else {
             renderNotice(MailText.emptyBodyNotice)
             return
         }
-        let content = isHTML
-            ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!), known: known)
-            : (m.textBody ?? "")
-                .drop(while: { $0 == "\n" || $0 == "\r" })
-                .replacingOccurrences(of: "&", with: "&amp;")
-                .replacingOccurrences(of: "<", with: "&lt;")
-
-        // Every property lives on #bm, a container the inner document cannot
-        // reach, rather than on `body` where a sender's inline style outranks
-        // it. The viewport rule is what stops a desktop-width newsletter from
-        // needing horizontal scrolling, which `ACCEPTANCE_TESTS.md` calls out by name.
-        // Dark body. Plain text is simply light-on-black, but an HTML message
-        // carries its OWN colours — almost always dark text assuming a white
-        // page — so forcing a black background behind it would give unreadable
-        // black-on-black, or white islands if the sender sets their own.
-        //
-        // So HTML gets inverted the way Smart Invert was doing it, in CSS:
-        // invert the lot, then hue-rotate to put the colours back the right way
-        // round, then invert images and video AGAIN to cancel it for them. That
-        // is exactly the trick that keeps a photograph looking like a
-        // photograph while the text around it goes light-on-dark.
-        let smartInvert = isHTML
-            ? """
-              #bm { filter: invert(1) hue-rotate(180deg); background: #fff; }
-              #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
-                  filter: invert(1) hue-rotate(180deg); }
-              """
-            : ""
-        let wrapped = """
-        <!DOCTYPE html><html><head><meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          html { -webkit-text-size-adjust: 100%; }
-          html, body { margin: 0; padding: 0; background: #000; }
-          #bm { padding: \(Int(Theme.detailContentInsetLeft))px;
-                font: \(Int(Theme.scaled(17)))px -apple-system, sans-serif;
-                line-height: \(Theme.detailBodyLineHeight);
-                color: \(isHTML ? "#000" : "#fff"); word-wrap: break-word;\
-        \(isHTML ? "" : " white-space: pre-wrap;") }
-          img, table { max-width: 100% !important; height: auto; }
-          a { color: \(isHTML ? "#007AFF" : "#0A84FF"); }
-          \(smartInvert)
-        </style></head><body><div id="bm">\(content)</div></body></html>
-        """
-        load(wrapped, as: .letter(m))
+        load(page, as: .letter(m, page: page))
     }
 
     /// A document has finished loading: the conversation's bodies that came
     /// before it had, go in now. See `PaneDocument`.
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
         guard let navigation else { return }
-        for script in document.didFinish(ObjectIdentifier(navigation)) {
-            w.evaluateJavaScript(script)
-        }
+        for fill in document.didFinish(ObjectIdentifier(navigation)) { run(fill) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while
@@ -647,14 +603,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             break
         case .notice(let lines):
             renderNotice(lines)
-        case .letter(let m):
-            render(m)
+        case .letter(let m, let page):
+            draw(m, page: page)
         case .conversation(let entries):
             // The letter in the header last, so its pictures win a clash of
             // ids; see `prepareInlineImages`.
             let drawn = entries.compactMap { loaded[$0.id] }
-            _ = prepareInlineImages(for: drawn.filter { $0.id != focused }
-                                        + drawn.filter { $0.id == focused })
+            prepareInlineImages(for: drawn.filter { $0.id != focused }
+                                    + drawn.filter { $0.id == focused })
             // The stack as it was first drawn, and the bodies put back into
             // it by script once it has loaded, as they first went in; see
             // `PaneDocument`.

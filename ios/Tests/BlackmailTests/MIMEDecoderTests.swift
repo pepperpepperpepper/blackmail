@@ -25,6 +25,89 @@ final class MIMEDecoderTests: XCTestCase {
         XCTAssertEqual(String(decoding: unpadded, as: UTF8.self), "hello world")
     }
 
+    /// The base64 decoder as it was before it moved from `Data` to a byte
+    /// array (P8), kept as the reference the new one has to agree with.
+    private func previousBase64(_ data: Data) -> Data {
+        var out = Data()
+        out.reserveCapacity(data.count * 3 / 4 + 3)
+        var accumulator: UInt32 = 0
+        var bits = 0
+        for byte in data {
+            let value: UInt32
+            switch byte {
+            case 0x41...0x5A: value = UInt32(byte - 0x41)
+            case 0x61...0x7A: value = UInt32(byte - 0x61) + 26
+            case 0x30...0x39: value = UInt32(byte - 0x30) + 52
+            case 0x2B, 0x2D:  value = 62
+            case 0x2F, 0x5F:  value = 63
+            case 0x3D:
+                accumulator = 0
+                bits = 0
+                continue
+            default:
+                continue
+            }
+            accumulator = ((accumulator << 6) | value) & 0xFFFF
+            bits += 6
+            if bits >= 8 {
+                bits -= 8
+                out.append(UInt8((accumulator >> UInt32(bits)) & 0xFF))
+            }
+        }
+        return out
+    }
+
+    /// Byte for byte what it decoded before, on everything a sender sends:
+    /// clean, wrapped at 76 with CRLF or LF, unpadded, truncated mid-quantum,
+    /// separately padded blocks glued together, base64url, stray `=`, junk
+    /// and high bytes, NUL, and a slice of a larger buffer, which does not
+    /// start at index zero. The sizes here are small because the suite runs
+    /// a debug build; 1, 5 and 25 MB were compared in a release build and
+    /// are in PERFORMANCE.md #5.
+    func testBase64DecodesByteForByteAsItDidBefore() {
+        var seed: UInt64 = 0x2545_F491_4F6C_DD1D
+        func random() -> UInt8 {
+            seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17
+            return UInt8(truncatingIfNeeded: seed)
+        }
+        func encoded(_ count: Int) -> String {
+            Data((0..<count).map { _ in random() }).base64EncodedString()
+        }
+        func wrapped(_ text: String, every width: Int, with eol: String) -> String {
+            var lines: [Substring] = []
+            var rest = Substring(text)
+            while !rest.isEmpty {
+                lines.append(rest.prefix(width))
+                rest = rest.dropFirst(width)
+            }
+            return lines.joined(separator: eol)
+        }
+
+        let body = encoded(6_000)
+        var inputs: [Data] = [
+            Data(), Data("=".utf8), Data("====".utf8), Data("Q".utf8), Data("QQ".utf8),
+            Data("QUJDR".utf8), Data("QQ==QQ==".utf8), Data("QUJD\r\n=\r\nREVG".utf8),
+            Data(body.utf8),
+            Data(wrapped(body, every: 76, with: "\r\n").utf8),
+            Data(wrapped(body, every: 76, with: "\n").utf8),
+            Data(body.replacingOccurrences(of: "=", with: "").utf8),
+            Data(body.dropLast(3).utf8),
+            Data((encoded(100) + encoded(101) + encoded(102)).utf8),
+            Data(body.replacingOccurrences(of: "+", with: "-")
+                     .replacingOccurrences(of: "/", with: "_").utf8),
+            Data((0..<4_096).map { _ in random() }),
+            Data([0x00, 0x51, 0x00, 0x51, 0xFF, 0x3D, 0x51, 0x51, 0x80, 0x0D]),
+        ]
+        let larger = Data(("!!!!" + wrapped(encoded(3_000), every: 76, with: "\r\n")).utf8)
+        inputs.append(larger[4...])
+        inputs.append(larger[1_001..<2_002])
+
+        for (i, input) in inputs.enumerated() {
+            XCTAssertEqual(MIMEDecoder.decodeTransfer(input, encoding: "base64"),
+                           previousBase64(input), "input \(i), \(input.count) bytes")
+        }
+    }
+
     func testQuotedPrintableSoftBreaksAndLowercaseHex() {
         let soft = MIMEDecoder.decodeTransfer(Data("Hello=\r\n world".utf8), encoding: "quoted-printable")
         XCTAssertEqual(String(decoding: soft, as: UTF8.self), "Hello world")

@@ -22,6 +22,24 @@ import Foundation
 /// and one still waiting for the connection leaves the line without sending
 /// anything (`IMAPClient.beginExchange`). Whichever way a cancelled fetch
 /// ends, it draws nothing.
+///
+/// What came is made into a page before it is drawn (`prepare`), away from
+/// the main thread, in the same task as the fetch, so the rule holds for it
+/// too: a letter he has left is not prepared if the fetch came after he
+/// left, and not drawn if he leaves while it is being prepared. The page
+/// used to be built on the main thread as the letter came, which for a
+/// letter of a megabyte held the screen for a tenth of a second or more,
+/// and for a conversation's letter longer, since its body was then escaped
+/// into a script there as well.
+///
+/// Loads for the same thing on screen settle in the order they were
+/// started, however long each page takes. A conversation's letter takes the
+/// header when it settles, so the one he opened last has to settle last:
+/// the fetches come in that order down the one connection, but a small
+/// letter's page is made in a millisecond and a large one's in a tenth of a
+/// second or more, and a letter opened after a large one would otherwise
+/// settle first and then lose the header, and Reply, Delete and the
+/// pictures' loader, to the one he opened before it.
 @MainActor
 final class PaneLoads {
 
@@ -29,6 +47,11 @@ final class PaneLoads {
     private var generation = 0
     private var running: [Int: Task<Void, Never>] = [:]
     private var lastID = 0
+    /// The load started last for what is on screen, which the next one
+    /// waits for before it settles. Dropped when the pane moves on, so a
+    /// page still being made for a letter he has left never holds up the
+    /// one he moved to.
+    private var lastStarted: Task<Void, Never>?
 
     /// Puts something new in the pane: calls off every fetch for what was
     /// there, draws `standIn` at once, and then fetches. `settle` gets the
@@ -37,41 +60,76 @@ final class PaneLoads {
     /// The stand-in is drawn before the fetch is so much as asked for. That
     /// is the point of it: from the tap onwards the pane says which letter
     /// it is about, and nothing left over from the one before is on screen.
+    func show<Value, Page>(standIn: () -> Void,
+                           fetch: @escaping () async throws -> Value,
+                           prepare: @escaping @Sendable (Value) -> Page,
+                           settle: @escaping @MainActor (Result<Page, Error>) -> Void) {
+        supersede()
+        standIn()
+        start(fetch, prepare: prepare, settle: settle)
+    }
+
+    /// `show`, drawing what came as it is.
     func show<Value>(standIn: () -> Void,
                      fetch: @escaping () async throws -> Value,
                      settle: @escaping @MainActor (Result<Value, Error>) -> Void) {
-        supersede()
-        standIn()
-        start(fetch, settle: settle)
+        show(standIn: standIn, fetch: fetch, prepare: { $0 }, settle: settle)
     }
 
     /// Fetches for what is on screen now without replacing it: another
     /// letter opened inside the conversation already showing. A fetch
     /// started here is called off with the rest when the pane moves on.
-    func start<Value>(_ fetch: @escaping () async throws -> Value,
-                      settle: @escaping @MainActor (Result<Value, Error>) -> Void) {
+    func start<Value, Page>(_ fetch: @escaping () async throws -> Value,
+                            prepare: @escaping @Sendable (Value) -> Page,
+                            settle: @escaping @MainActor (Result<Page, Error>) -> Void) {
         let asked = generation
         lastID += 1
         let id = lastID
-        running[id] = Task { @MainActor [weak self] in
-            let outcome: Result<Value, Error>
+        let before = lastStarted
+        let task = Task { @MainActor [weak self] in
+            let outcome: Result<Page, Error>
             do {
-                outcome = .success(try await fetch())
+                let value = try await fetch()
+                // Called off while it was coming: nothing to prepare, since
+                // nothing will be drawn.
+                try Task.checkCancellation()
+                outcome = .success(await Self.prepared(value, by: prepare))
             } catch {
                 outcome = .failure(error)
             }
+            // Made alongside the one before, settled after it.
+            await before?.value
             guard let self else { return }
             self.running.removeValue(forKey: id)
             guard Self.draws(outcome, cancelled: Task.isCancelled,
                              current: asked == self.generation) else { return }
             settle(outcome)
         }
+        running[id] = task
+        lastStarted = task
+    }
+
+    /// `start`, drawing what came as it is.
+    func start<Value>(_ fetch: @escaping () async throws -> Value,
+                      settle: @escaping @MainActor (Result<Value, Error>) -> Void) {
+        start(fetch, prepare: { $0 }, settle: settle)
+    }
+
+    /// Runs `prepare` on the cooperative pool rather than the main actor:
+    /// an async function isolated to no actor runs away from the caller's
+    /// (SE-0338), and returns to it, the main actor here, when it is done.
+    /// Awaited rather than detached, so it is part of the load's task, and
+    /// what it makes goes through the same rule as a fetch's answer.
+    private nonisolated static func prepared<Value, Page>(
+        _ value: Value, by prepare: @Sendable (Value) -> Page) async -> Page {
+        prepare(value)
     }
 
     /// The pane has been given something else, or emptied: every fetch for
     /// what it showed is called off, and none of their answers is drawn.
     func supersede() {
         generation += 1
+        lastStarted = nil
         let called = running.values
         running = [:]
         for task in called { task.cancel() }

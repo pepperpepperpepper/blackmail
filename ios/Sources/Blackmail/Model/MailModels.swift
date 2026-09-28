@@ -358,9 +358,6 @@ struct DraftAttachment {
 
 enum MailFormat {
 
-    /// The list timestamp. iPad Mail shows a time for today, a weekday inside
-    /// the last week, and a date beyond that — never a relative string like
-    /// "2 hours ago", which forces a reader to do arithmetic.
     /// The address currently being typed in a recipient field —
     /// everything after the last comma, since a field can hold several.
     static func currentRecipientToken(in text: String) -> String {
@@ -385,24 +382,27 @@ enum MailFormat {
         return parts.joined(separator: ",").trimmingCharacters(in: .whitespaces) + ", "
     }
 
-    static func listTimestamp(_ date: Date, now: Date = Date()) -> String {
-        let cal = Calendar.current
-        let f = DateFormatter()
-        if cal.isDateInToday(date) {
-            f.dateFormat = "h:mm a"
-        } else if cal.isDateInYesterday(date) {
-            return "Yesterday"
-        } else if let week = cal.date(byAdding: .day, value: -6, to: now), date > week {
-            f.dateFormat = "EEEE"
-        } else {
-            f.dateFormat = "dd/MM/yy"
+    /// The list timestamp. iPad Mail shows a time for today, a weekday inside
+    /// the last week, and a date beyond that — never a relative string like
+    /// "2 hours ago", which forces a reader to do arithmetic.
+    ///
+    /// Today and yesterday are `now`'s, which is the clock unless a test
+    /// hands in another; the formatters are kept (`DisplayDates`), the day
+    /// never is. `locale` and `timeZone` are the iPad's unless a test hands
+    /// in others.
+    static func listTimestamp(_ date: Date, now: Date = Date(),
+                              locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        let dates = DisplayDates.shared
+        let format: String
+        switch dates.day(of: date, now: now, locale: locale, timeZone: timeZone) {
+        case .today:     format = "h:mm a"
+        case .yesterday: return "Yesterday"
+        case .thisWeek:  format = "EEEE"
+        case .earlier:   format = "dd/MM/yy"
         }
-        return f.string(from: date)
+        return dates.string(from: date, format: format, locale: locale, timeZone: timeZone)
     }
 
-    /// "Today at 9:14 AM" / "Yesterday at 6:43 PM" / "18 September 2026 at 6:43 PM".
-    /// The reference uses the relative day for recent mail, which is both
-    /// shorter and easier than parsing a date to work out whether it is new.
     /// `"Jane Smith" <jane@example.com>` → `jane@example.com`. Replying needs
     /// the bare address; sending to the display-name form bounces.
     ///
@@ -482,19 +482,21 @@ enum MailFormat {
         return "\(f.string(from: date))\(narrowNoBreakSpace)\(a.string(from: date))"
     }
 
-    static func detailTimestamp(_ date: Date) -> String {
-        let cal = Calendar.current
-        let time = DateFormatter()
-        time.dateFormat = "h:mm a"
-        if cal.isDateInToday(date) {
-            return "Today at " + time.string(from: date)
+    /// "Today at 9:14 AM" / "Yesterday at 6:43 PM" / "18 September 2026 at 6:43 PM".
+    /// The reference uses the relative day for recent mail, which is both
+    /// shorter and easier than parsing a date to work out whether it is new.
+    /// `now`, `locale` and `timeZone` as for `listTimestamp`.
+    static func detailTimestamp(_ date: Date, now: Date = Date(),
+                                locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        let dates = DisplayDates.shared
+        let time = { dates.string(from: date, format: "h:mm a", locale: locale, timeZone: timeZone) }
+        switch dates.day(of: date, now: now, locale: locale, timeZone: timeZone) {
+        case .today:     return "Today at " + time()
+        case .yesterday: return "Yesterday at " + time()
+        case .thisWeek, .earlier:
+            return dates.string(from: date, format: "d MMMM yyyy 'at' h:mm a",
+                                locale: locale, timeZone: timeZone)
         }
-        if cal.isDateInYesterday(date) {
-            return "Yesterday at " + time.string(from: date)
-        }
-        let full = DateFormatter()
-        full.dateFormat = "d MMMM yyyy 'at' h:mm a"
-        return full.string(from: date)
     }
 
     /// "Jane Smith <jane@example.com>" -> "Jane Smith". Falls back to the whole
@@ -504,5 +506,121 @@ enum MailFormat {
         guard let angle = sender.firstIndex(of: "<") else { return sender }
         let name = sender[..<angle].trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? sender : name.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+    }
+}
+
+/// The list's and the reading pane's date formatters, built once and kept.
+///
+/// A `DateFormatter` costs over a hundred microseconds to build, and these
+/// were built on every call: twice for each row the list draws and once for
+/// each letter in a conversation's stack. `IMAPParserDates` keeps its
+/// formatters for the same reason.
+///
+/// The parser's are pinned to `en_US_POSIX` and UTC; these follow the iPad's
+/// language, region and time zone, and a kept formatter keeps whatever it was
+/// built with. So they are built again when asked for a locale or zone other
+/// than the one they were made for, which is what a trip abroad or a change
+/// in Settings looks like here, and thrown away when iOS says either has
+/// changed. The notification covers what the identifiers do not show, such
+/// as the 24-hour clock, which changes the locale's preferences and not its
+/// name.
+///
+/// Which day it is is never kept. Today, yesterday and the last week are
+/// worked out from `now` on every call, so a list drawn after midnight does
+/// not go on giving yesterday's letters a time of day.
+///
+/// One lock around all of it, formatting included: the notifications arrive
+/// on whichever thread posted them, and a kept formatter is shared by every
+/// caller.
+final class DisplayDates: @unchecked Sendable {
+
+    /// Where a date falls, seen from `now`.
+    enum Day {
+        case today, yesterday
+        /// Within the six days before today.
+        case thisWeek
+        case earlier
+    }
+
+    static let shared = DisplayDates()
+
+    private let lock = NSLock()
+    private let notifications: NotificationCenter
+    private var observers: [NSObjectProtocol] = []
+    /// The locale and zone the calendar and formatters below were made for;
+    /// nil when there are none, or iOS has said either has changed.
+    private var madeFor: (locale: String, zone: String)?
+    private var calendar = Calendar.current
+    private var formatters: [String: DateFormatter] = [:]
+    private var builds = 0
+
+    /// `notifications` is where iOS says the locale or the time zone has
+    /// changed; a test hands in a centre of its own.
+    init(notifications: NotificationCenter = .default) {
+        self.notifications = notifications
+        for name in [NSLocale.currentLocaleDidChangeNotification, .NSSystemTimeZoneDidChange] {
+            observers.append(notifications.addObserver(forName: name, object: nil, queue: nil) {
+                [weak self] _ in self?.forget()
+            })
+        }
+    }
+
+    deinit {
+        for observer in observers { notifications.removeObserver(observer) }
+    }
+
+    /// How many formatters have been built. How a test tells a kept one
+    /// from a new one.
+    var built: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return builds
+    }
+
+    func day(of date: Date, now: Date, locale: Locale, timeZone: TimeZone) -> Day {
+        lock.lock()
+        defer { lock.unlock() }
+        make(locale, timeZone)
+        if calendar.isDate(date, inSameDayAs: now) { return .today }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) { return .yesterday }
+        if let week = calendar.date(byAdding: .day, value: -6, to: now), date > week {
+            return .thisWeek
+        }
+        return .earlier
+    }
+
+    func string(from date: Date, format: String, locale: Locale, timeZone: TimeZone) -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        make(locale, timeZone)
+        if let kept = formatters[format] { return kept.string(from: date) }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateFormat = format
+        formatters[format] = formatter
+        builds += 1
+        return formatter.string(from: date)
+    }
+
+    /// Starts afresh for `locale` and `zone` unless everything kept was made
+    /// for them. Called with the lock held.
+    private func make(_ locale: Locale, _ zone: TimeZone) {
+        if let made = madeFor, made.locale == locale.identifier, made.zone == zone.identifier {
+            return
+        }
+        madeFor = (locale.identifier, zone.identifier)
+        var fresh = Calendar.current
+        fresh.timeZone = zone
+        calendar = fresh
+        formatters = [:]
+    }
+
+    private func forget() {
+        lock.lock()
+        madeFor = nil
+        formatters = [:]
+        lock.unlock()
     }
 }
