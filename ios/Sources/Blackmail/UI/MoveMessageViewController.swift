@@ -68,9 +68,22 @@ final class MoveMessageViewController: UITableViewController {
         return cell
     }
 
+    /// A folder has been chosen; a second tap while the sheet slides away
+    /// would move the letters twice.
+    private var picked = false
+
+    /// The Move starts at the tap, while the sheet slides away, rather than
+    /// once it has gone; see `JumpToDateViewController.goTapped`.
     override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
+        guard !picked else { return }
+        picked = true
         let destination = mailboxes[ip.row]
-        dismiss(animated: true) { [onPick] in onPick(destination) }
+        let leaving = isBeingDismissed || navigationController?.isBeingDismissed == true
+        if presentingViewController != nil, !leaving {
+            let gone = ErrorPresenter.sheetLeaving()
+            dismiss(animated: true) { gone() }
+        }
+        onPick(destination)
     }
 }
 

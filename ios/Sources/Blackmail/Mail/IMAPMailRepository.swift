@@ -756,7 +756,8 @@ actor IMAPMailRepository: MailRepository {
                 isFlagged: r.isFlagged,
                 hasAttachment: r.bodyStructure.map(Self.hasAttachment) ?? false,
                 threadID: r.threadID,
-                countedFolderIDs: countedFolders(labels: r.labels, selected: name))
+                countedFolderIDs: countedFolders(labels: r.labels, selected: name),
+                attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [])
         }
     }
 

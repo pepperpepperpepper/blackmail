@@ -46,6 +46,17 @@ struct MessageSummary: Identifiable, Hashable {
     /// caller falls back to the folder the message was listed from — which
     /// is exactly right for a one-message-one-folder server.
     var countedFolderIDs: [String] = []
+    /// The files the letter carries, as the reading pane's header lists
+    /// them, worked out from the BODYSTRUCTURE the row is fetched with, so
+    /// before a byte of the letter is downloaded
+    /// (`MIMEDecoder.listedAttachments(in:)`). Empty when it has none, or
+    /// the server described no structure.
+    ///
+    /// Carried so the header can list them from the tap. It used to list
+    /// them only once the letter had come, and grew by a row per file
+    /// then, pushing a conversation's stack down under him as he began to
+    /// read it.
+    var attachments: [Attachment] = []
 }
 
 struct Message: Identifiable {
@@ -75,6 +86,11 @@ struct Message: Identifiable {
 }
 
 extension Message {
+    /// The files the header lists: every attachment but the pictures the
+    /// body shows by `cid:`, which are not files to him. See
+    /// `Attachment.isInline`.
+    var listedAttachments: [Attachment] { attachments.filter { !$0.isInline } }
+
     /// The body to quote underneath a reply or forward.
     ///
     /// Falls back to a plain-text rendering of the HTML, because an
@@ -93,7 +109,7 @@ extension Message {
     }
 }
 
-struct Attachment: Identifiable {
+struct Attachment: Identifiable, Hashable {
     let id: String
     let filename: String
     let mimeType: String

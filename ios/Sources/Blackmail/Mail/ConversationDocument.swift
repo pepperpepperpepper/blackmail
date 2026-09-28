@@ -25,7 +25,7 @@ import Foundation
 enum ConversationDocument {
 
     /// One letter's place in the stack.
-    struct Entry {
+    struct Entry: Equatable {
         let id: String
         let sender: String
         let date: Date
@@ -37,7 +37,7 @@ enum ConversationDocument {
         var isExpanded: Bool
         var preview: String
 
-        struct Rendered {
+        struct Rendered: Equatable {
             let html: String
             /// Whether `html` came from the sender as markup. Drives the
             /// invert trick below, which must not be applied to text.

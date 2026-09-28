@@ -29,9 +29,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private let repository: MailRepository
     private var summary: MessageSummary?
     private var message: Message?
-    /// The conversation on screen, when the pane is showing a stack rather
-    /// than one letter. Empty otherwise.
-    private var entries: [ConversationDocument.Entry] = []
     /// The loaded letters of that conversation, by id, so the toolbar can
     /// act on whichever one he last opened.
     private var loaded: [String: Message] = [:]
@@ -59,10 +56,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The Delete and the Flags on their way to the server, which decide
     /// what the next tap on either does. See `PaneWrites`.
     private var writes = PaneWrites()
-    /// Whether the web view holds a document of this pane's, which emptying
-    /// the pane has to clear. False until the first letter, so launch does
-    /// not start WebKit's content process for an empty page.
-    private var holdsDocument = false
+    /// What the web view holds, which emptying the pane has to clear and
+    /// which is drawn again if WebKit loses it, and the conversation's
+    /// bodies waiting for its document to load. Nothing until the first
+    /// letter, so launch does not start WebKit's content process for an
+    /// empty page. See `PaneDocument`.
+    private var document = PaneDocument()
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -124,6 +123,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         ])
 
         showEmpty()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appBecameActive),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        drawAgain()
     }
 
     // MARK: - Toolbar
@@ -166,7 +174,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loads.supersede()
         summary = nil
         message = nil
-        entries = []
         loaded = [:]
         threadSummaries = [:]
         focused = nil
@@ -177,10 +184,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // letter, and the next letter's pane unhid it: after a Delete, the
         // letter just binned was back on screen under the next one's header
         // until that one's body came.
-        if holdsDocument {
-            webView.loadHTMLString(PaneNotice.html([]), baseURL: nil)
-            holdsDocument = false
-        }
+        if document.holdsLetter { load(PaneNotice.html([]), as: .blank) }
         placeholder.isHidden = false
         setActionsEnabled(false)
     }
@@ -190,7 +194,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     func show(summary: MessageSummary) {
         self.summary = summary
         message = nil
-        entries = []
         loaded = [:]
         threadSummaries = [:]
         focused = nil
@@ -209,8 +212,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // beside a selection that had already moved on: a plausible
                 // letter that was not the one he tapped. The header is sized
                 // before the document goes in, as the conversation's is; see
-                // `show(thread:)`. Loading any document also starts WebKit's
-                // content process while the body is on its way.
+                // `show(thread:)`, and carries the letter's files, from its
+                // row, so it does not grow when the letter lands. Loading any
+                // document also starts WebKit's content process while the
+                // body is on its way.
                 header.configure(with: .heading(for: summary))
                 header.onSelectAttachment = nil
                 view.layoutIfNeeded()
@@ -268,7 +273,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         webView.isHidden = false
         setActionsEnabled(true)
 
-        entries = thread.messages.map { m in
+        let entries = thread.messages.map { m in
             ConversationDocument.Entry(
                 id: m.id, sender: m.sender, date: m.date, body: nil,
                 // Newest open, everything else collapsed. Mail's own
@@ -291,10 +296,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // the web view is pinned to the bottom of it, so loading a
                 // document into a pane whose header has not been sized yet
                 // gives the web view nothing to occupy.
+                //
+                // Sized for the newest letter's files too, from its row. The
+                // header used to gain a row per file only when the letter
+                // came, 44 pt or more each, and push the whole stack down
+                // under him as he began to read it.
                 header.configure(with: .heading(for: newest, subject: thread.subject))
                 header.onSelectAttachment = nil
                 view.layoutIfNeeded()
-                renderConversation()
+                renderConversation(entries)
             },
             fetch: { try await repository.loadMessage(id: newest.id, mailboxID: newest.mailboxID) },
             settle: { [weak self] result in
@@ -302,14 +312,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             })
     }
 
-    private func renderConversation() {
-        holdsDocument = true
-        webView.loadHTMLString(
-            ConversationDocument.html(entries: entries,
-                                      inset: Int(Theme.detailContentInsetLeft),
-                                      bodyPointSize: Int(Theme.scaled(17)),
-                                      lineHeight: Theme.detailBodyLineHeight),
-            baseURL: nil)
+    private func renderConversation(_ entries: [ConversationDocument.Entry]) {
+        load(ConversationDocument.html(entries: entries,
+                                       inset: Int(Theme.detailContentInsetLeft),
+                                       bodyPointSize: Int(Theme.scaled(17)),
+                                       lineHeight: Theme.detailBodyLineHeight),
+             as: .conversation(entries))
+    }
+
+    /// Gives the web view a document, and `document` what it holds.
+    private func load(_ html: String, as content: PaneDocument.Content) {
+        let navigation = webView.loadHTMLString(html, baseURL: nil)
+        document.loaded(content, navigation: navigation.map(ObjectIdentifier.init))
     }
 
     /// Fetches one letter of the conversation and puts it in its section.
@@ -338,15 +352,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // same reason as the single-message path: a letter that
             // silently stays empty looks like a letter with nothing in
             // it. See B-026.
-            fill(id: id, html: "<span class=\"bm-waiting\">This message could not "
-                 + "be downloaded. Tap the line above twice to try again.</span>",
-                 isHTML: false)
+            fill(id, .init(html: "<span class=\"bm-waiting\">This message could not "
+                           + "be downloaded. Tap the line above twice to try again.</span>",
+                           isHTML: false))
         }
     }
 
     private func drawBody(_ m: Message, focus: Bool) {
-        let id = m.id
-        let known = prepareInlineImages(for: m)
+        let known = prepareInlineImages(for: [m])
         let isHTML = m.htmlBody != nil
         let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
         let content = empty
@@ -354,11 +367,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             : (isHTML
                ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!), known: known)
                : ConversationDocument.escape(leadingBlankLinesTrimmed(m.textBody ?? "")))
-        fill(id: id, html: content, isHTML: isHTML && !empty)
-
-        if let i = entries.firstIndex(where: { $0.id == id }) {
-            entries[i].body = .init(html: content, isHTML: isHTML)
-        }
+        fill(m.id, .init(html: content, isHTML: isHTML && !empty))
         if focus { focusLetter(m) }
     }
 
@@ -371,11 +380,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
     }
 
-    private func fill(id: String, html: String, isHTML: Bool) {
-        webView.evaluateJavaScript(
-            ConversationDocument.javascriptFill(
-                sectionID: ConversationDocument.sectionID(for: id),
-                html: html, isHTML: isHTML))
+    /// Puts a body in its letter's section of the stack: now, or once the
+    /// stack's document has finished loading, since run before that it
+    /// would find no section and be lost. Kept in the stack as well, so a
+    /// redraw has it. See `PaneDocument`.
+    private func fill(_ id: String, _ body: ConversationDocument.Entry.Rendered) {
+        guard let script = document.fill(id, with: body) else { return }
+        webView.evaluateJavaScript(script)
     }
 
     /// A letter in the stack was opened or closed.
@@ -384,7 +395,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         guard scriptMessage.name == "bmLetter",
               let payload = scriptMessage.body as? [String: Any],
               let sectionID = payload["id"] as? String,
-              let opened = payload["open"] as? Bool, opened,
+              let opened = payload["open"] as? Bool,
               // Back from the section id to the message id. Matched rather
               // than unescaped, because the mapping loses which underscores
               // were slashes.
@@ -393,6 +404,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
               })
         else { return }
 
+        // Open or closed, kept, so a redraw opens the same letters.
+        document.setOpen(opened, id)
+        guard opened else { return }
         loadBody(for: id, focus: true)
         // Reading a letter marks THAT letter read, not the thread. The
         // unread count is how he knows what is still waiting, and
@@ -437,8 +451,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// same presentation for both, because the difference that matters is
     /// in the WORDS — and the words are the whole point.
     private func renderNotice(_ lines: String...) {
-        holdsDocument = true
-        webView.loadHTMLString(PaneNotice.html(lines), baseURL: nil)
+        renderNotice(lines)
+    }
+
+    private func renderNotice(_ lines: [String]) {
+        load(PaneNotice.html(lines), as: .notice(lines))
     }
 
     // MARK: - Attachments
@@ -456,7 +473,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         header.setAttachment(attachment.id, busy: true)
 
         Task { @MainActor in
-            defer { header.setAttachment(attachment.id, busy: false) }
+            // Only while the header still shows the letter the file came
+            // from. Another letter's header can list a file under the same
+            // part, "2" as often as not, and would be told it is no longer
+            // busy while its own download runs, or before its letter has
+            // come and its rows can be opened.
+            defer {
+                if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
+            }
             do {
                 let data = try await repository.fetchAttachmentData(
                     attachment.id, of: m.id, mailboxID: m.mailboxID)
@@ -485,24 +509,30 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Re-pointed per message rather than held once, because a `Content-ID`
     /// only means anything inside the message that declared it — two letters
     /// can both contain `cid:image001.png` and mean different pictures.
-    private func prepareInlineImages(for m: Message) -> Set<String> {
-        var sections: [String: (section: String, mimeType: String)] = [:]
-        for attachment in m.attachments {
-            guard let cid = attachment.contentID else { continue }
-            sections[cid] = (attachment.id, attachment.mimeType)
+    ///
+    /// Several letters at once only for a conversation drawn again after
+    /// WebKit lost it, when every picture in it is asked for anew. Where two
+    /// use the same id, the later letter's is served.
+    private func prepareInlineImages(for letters: [Message]) -> Set<String> {
+        var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
+        for m in letters {
+            for attachment in m.attachments {
+                guard let cid = attachment.contentID else { continue }
+                parts[cid] = (m, attachment.id, attachment.mimeType)
+            }
         }
 
         inlineImages.fetch = { [weak self] contentID in
             // Never surfaced to him: the loader turns a throw into an empty
             // 404 so the picture is simply absent rather than an alert.
-            guard let self, let part = sections[contentID] else {
+            guard let self, let part = parts[contentID] else {
                 throw MailError.attachmentFailed
             }
             let data = try await self.repository.fetchAttachmentData(
-                part.section, of: m.id, mailboxID: m.mailboxID)
+                part.section, of: part.letter.id, mailboxID: part.letter.mailboxID)
             return (data, part.mimeType)
         }
-        return Set(sections.keys)
+        return Set(parts.keys)
     }
 
     private func render(_ m: Message) {
@@ -522,7 +552,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // meaning. HTML is left exactly alone, because whitespace there is
         // not reliably whitespace and the document may open with a layout
         // table.
-        let known = prepareInlineImages(for: m)
+        let known = prepareInlineImages(for: [m])
         // Said out loud, so that a pane with nothing in it can only ever
         // mean a bug. See MailText.hasNoVisibleContent and B-026.
         guard !MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody) else {
@@ -573,9 +603,67 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
           \(smartInvert)
         </style></head><body><div id="bm">\(content)</div></body></html>
         """
-        holdsDocument = true
-        webView.loadHTMLString(wrapped, baseURL: nil)
+        load(wrapped, as: .letter(m))
     }
+
+    /// A document has finished loading: the conversation's bodies that came
+    /// before it had, go in now. See `PaneDocument`.
+    func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let navigation else { return }
+        for script in document.didFinish(ObjectIdentifier(navigation)) {
+            w.evaluateJavaScript(script)
+        }
+    }
+
+    /// WebKit's content process has ended, as iOS ends it for memory while
+    /// he is in another app, and the page went with it: the pane came back
+    /// black, or a conversation stuck on "Loading…", under a header still
+    /// saying which letter it was. What the pane showed is drawn again from
+    /// what it holds, the letter, the stack with the bodies that had come
+    /// and the letters he had open, or the grey words, once he can see it;
+    /// see `drawAgain`. A body still on its way goes in when it comes, as
+    /// ever. The place he had scrolled to in the letter is not kept: the
+    /// page starts at the top.
+    func webViewWebContentProcessDidTerminate(_ w: WKWebView) {
+        Diagnostics.log(.note, "webview: content process ended")
+        document.contentProcessEnded()
+        drawAgain()
+    }
+
+    /// Draws again what WebKit lost, if the app is in front and the pane on
+    /// screen, and otherwise leaves it for when they are: iOS ends the
+    /// process mostly while he is in another app, and a document drawn
+    /// there would take back the memory it was ended for. Called again when
+    /// the app becomes active and when the pane appears. See `PaneDocument`.
+    ///
+    /// No letter is fetched again. The pictures in a conversation's letters
+    /// are asked for anew, since the page that had them has gone, and those
+    /// of any letter but the last one downloaded come from the server.
+    private func drawAgain() {
+        guard UIApplication.shared.applicationState == .active, viewIfLoaded?.window != nil,
+              let redraw = document.redraw() else { return }
+        switch redraw.content {
+        case .nothing, .blank:
+            break
+        case .notice(let lines):
+            renderNotice(lines)
+        case .letter(let m):
+            render(m)
+        case .conversation(let entries):
+            // The letter in the header last, so its pictures win a clash of
+            // ids; see `prepareInlineImages`.
+            let drawn = entries.compactMap { loaded[$0.id] }
+            _ = prepareInlineImages(for: drawn.filter { $0.id != focused }
+                                        + drawn.filter { $0.id == focused })
+            // The stack as it was first drawn, and the bodies put back into
+            // it by script once it has loaded, as they first went in; see
+            // `PaneDocument`.
+            renderConversation(entries)
+            for (id, body) in redraw.bodies { fill(id, body) }
+        }
+    }
+
+    @objc private func appBecameActive() { drawAgain() }
 
     func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {

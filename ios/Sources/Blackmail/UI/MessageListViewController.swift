@@ -94,6 +94,16 @@ final class MessageListViewController: UITableViewController {
     /// Cancels the previous keystroke's pending search. See `runSearch`.
     private var searchDebounce: Task<Void, Never>?
 
+    /// Where the folder's letters were while a search shows in their place,
+    /// and where a replaced list goes. See `ListPlaces`.
+    private var places = ListPlaces()
+
+    /// What the line under the list says. See `StatusLine`.
+    private var status = StatusLine(resting: "Updated Just Now")
+
+    /// The draft on its way to the composer. See `DraftOpening`.
+    private var drafts = DraftOpening()
+
     private var visible: [MessageSummary] { letters.visible }
 
     /// What a row actually is, now that the list groups.
@@ -130,15 +140,6 @@ final class MessageListViewController: UITableViewController {
         ).map(Row.thread)
     }
 
-    /// The id a row stands for, used to hold the selection across a
-    /// structural reload.
-    private func identifier(at indexPath: IndexPath) -> String? {
-        guard indexPath.row < rows.count else { return nil }
-        switch rows[indexPath.row] {
-        case let .thread(t): return t.id
-        }
-    }
-
     /// The row a given message is VISIBLE in — the conversation row that
     /// stands for it, since a letter has no row of its own.
     private func rowIndex(showing id: String) -> Int? {
@@ -153,7 +154,17 @@ final class MessageListViewController: UITableViewController {
         return nil
     }
 
-    /// Regroups and redraws, putting the selection back where it was.
+    /// The rows as conversations, for the helpers that work on them.
+    private var threads: [MessageThread] {
+        rows.map { row -> MessageThread in
+            switch row {
+            case let .thread(t): return t
+            }
+        }
+    }
+
+    /// Regroups and redraws, putting the selection back where it was, and
+    /// the list where `move` says: by default where he is.
     ///
     /// `reloadData` rather than `insertRows`, and this is the cost of
     /// grouping: a page appended to the bottom can MERGE into a
@@ -164,21 +175,76 @@ final class MessageListViewController: UITableViewController {
     /// restored by id, all of it (`ListEdit.selectedRows`). `opened` is a
     /// letter just marked read as the one open in the pane, whose row is
     /// highlighted with it.
+    ///
+    /// Reload keeps the scroll offset and nothing else, and the rows under
+    /// that offset can have moved: a page above, a row taken off by a
+    /// Delete, the grouping switch. So the rows he can see are held by the
+    /// letters in them and put back where they were on screen, and the
+    /// selection by its letters too. Both are taken before the rows are
+    /// rebuilt, since row numbers mean nothing after; see `ListPlace`.
     @MainActor
-    private func regroup(highlighting opened: String? = nil) {
-        let kept = (tableView.indexPathsForSelectedRows ?? []).compactMap(identifier(at:))
+    private func regroup(highlighting opened: String? = nil, to move: ListPlaces.Move = .stay) {
+        let before = place()
         rebuildRows()
         tableView.reloadData()
-        let threads = rows.map { row -> MessageThread in
-            switch row {
-            case let .thread(t): return t
-            }
-        }
-        for row in ListEdit.selectedRows(in: threads, kept: kept, opened: opened,
-                                         editing: tableView.isEditing) {
+        let threads = self.threads
+        for row in before.selection(in: threads, opened: opened, editing: tableView.isEditing) {
             tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false,
                                 scrollPosition: .none)
         }
+        switch move {
+        case .top:
+            scrollToTop()
+        case .back(let folder):
+            if !scroll(to: folder, in: threads) { scrollToTop() }
+        case .stay:
+            scroll(to: before, in: threads)
+        }
+    }
+
+    /// Where he is now: the rows on screen and how far down the pane each
+    /// sits, and the selected rows. See `ListPlace`.
+    @MainActor
+    private func place() -> ListPlace {
+        let top = Double(tableView.contentOffset.y)
+        let visible = (tableView.indexPathsForVisibleRows ?? [])
+            .filter { $0.section == 0 && $0.row < rows.count }
+            .sorted()
+            .map { ($0.row, Double(tableView.rectForRow(at: $0).minY) - top) }
+        let selected = (tableView.indexPathsForSelectedRows ?? []).map(\.row)
+        return ListPlace(rows: threads, visible: visible, selected: selected)
+    }
+
+    /// Puts `place` back on screen, if any of it is in `threads`. Leaves the
+    /// offset alone when it is already there, so a regroup that moved
+    /// nothing, as a page appended below does, never touches a list he is
+    /// flicking through.
+    @MainActor
+    @discardableResult
+    private func scroll(to place: ListPlace, in threads: [MessageThread]) -> Bool {
+        guard let landing = place.landing(in: threads) else { return false }
+        // Laid out first: `reloadData` has only scheduled it, and the row
+        // positions and content height are those of the old rows until it
+        // runs. See `show(_ window:)`.
+        tableView.layoutIfNeeded()
+        let lowest = -Double(tableView.adjustedContentInset.top)
+        let highest = max(lowest, Double(tableView.contentSize.height
+                                         + tableView.adjustedContentInset.bottom
+                                         - tableView.bounds.height))
+        let rowTop = tableView.rectForRow(at: IndexPath(row: landing.row, section: 0)).minY
+        if let y = ListPlace.contentOffset(rowTop: Double(rowTop), offset: landing.offset,
+                                           range: lowest...highest,
+                                           current: Double(tableView.contentOffset.y)) {
+            tableView.contentOffset.y = CGFloat(y)
+        }
+        return true
+    }
+
+    /// To the first row, the newest.
+    @MainActor
+    private func scrollToTop() {
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
+                                   animated: false)
     }
 
     init(repository: MailRepository, mailbox: Mailbox) {
@@ -317,8 +383,7 @@ final class MessageListViewController: UITableViewController {
         statusLabel.font = Theme.fontToolbarStatus
         statusLabel.textColor = Theme.secondaryText
         statusLabel.textAlignment = .center
-        statusLabel.text = "Updated Just Now"
-        statusLabel.sizeToFit()
+        showStatus()
         // Five taps here opens the connection log. Hidden on purpose:
         // `PRODUCT_SPEC.md` forbids showing protocol text to him, but whoever is helping
         // over the phone needs to see what the server actually said, and
@@ -345,6 +410,9 @@ final class MessageListViewController: UITableViewController {
             // be fetched. A jump that landed, or one another action took
             // over, leaves nothing to say about the connection.
             var came = true
+            // Said from the start: this list was opened to jump, and has
+            // no rows until the day comes.
+            let going = day.map { self.working(StatusLine.goingTo($0)) }
             let fellBack = await ListOpening.open(
                 at: day,
                 jump: { date in
@@ -352,6 +420,7 @@ final class MessageListViewController: UITableViewController {
                 },
                 newest: { came = await self.reload() })
             if let day, let fellBack { self.report(fellBack, jumpingTo: day) }
+            going?()
             self.onFirstLoadFinished?(came)
             self.onFirstLoadFinished = nil
         }
@@ -366,10 +435,11 @@ final class MessageListViewController: UITableViewController {
     /// wait for it, and are not asked for after a failure.
     var onFirstLoadFinished: ((Bool) -> Void)?
 
-    /// Returns whether the page came.
+    /// Returns whether the page came. At the top, unless `keepingPlace`,
+    /// for an edit of his own; see `ListPlaces.refetched`.
     @MainActor
     @discardableResult
-    func reload() async -> Bool {
+    func reload(keepingPlace: Bool = false) async -> Bool {
         listGeneration += 1
         stopSearching()
         isLoadingPage = false
@@ -390,11 +460,14 @@ final class MessageListViewController: UITableViewController {
             reachedOldestMessage = first.count < Self.pageSize
             searchQuery = ""
             searchBar.clear()
-            statusLabel.text = "Updated Just Now"
-            statusLabel.sizeToFit()
+            say("Updated Just Now")
             // Regrouped, which puts the highlight back on the letter open in
-            // the reading pane if its row is still here.
-            regroup()
+            // the reading pane if its row is still here. At the top: this is
+            // the newest page, and a Refresh from far down a folder used to
+            // leave it under the offset the old rows had. After a Delete or
+            // a Move from Edit mode, or a draft saved, where he is, if the
+            // newest page reaches that far.
+            regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())
             updateEmptyState()
             updatePageFooter()
             loadPreviews(for: unpreviewed)
@@ -412,8 +485,7 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func returnToNewest() async -> Bool {
         if tableView.isEditing { editTapped() }
-        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
-                                   animated: false)
+        scrollToTop()
         return await reload()
     }
 
@@ -443,13 +515,18 @@ final class MessageListViewController: UITableViewController {
     /// problem. `listGeneration` is bumped for the same reason `reload`
     /// bumps it: every preview and page fetch in flight belongs to a list
     /// that no longer exists.
+    ///
+    /// Asked for at the tap on Go, while the sheet is still sliding away,
+    /// and said on the status line from then until it has landed or failed.
     @MainActor
     func jump(to date: Date) {
         let generation = startReplacingList()
+        let going = working(StatusLine.goingTo(date))
         Task { @MainActor [weak self] in
             guard let self else { return }
             let outcome = await self.landWindow(around: date, generation: generation)
             self.report(outcome, jumpingTo: date)
+            going()
         }
     }
 
@@ -473,8 +550,7 @@ final class MessageListViewController: UITableViewController {
         case .failed:
             ErrorPresenter.show(.cannotConnect, on: self)
         case .nothingThatRecent:
-            statusLabel.text = "No mail on or after \(IMAPDate.spokenDay(date))"
-            statusLabel.sizeToFit()
+            say("No mail on or after \(IMAPDate.spokenDay(date))")
         case .landed, .superseded:
             break
         }
@@ -509,6 +585,8 @@ final class MessageListViewController: UITableViewController {
 
         reachedNewestMessage = window.reachedNewest
         reachedOldestMessage = window.reachedOldest
+        // Scrolled to the day below, which is the place this list has now.
+        _ = places.replaced()
         rebuildRows()
         tableView.reloadData()
         updateEmptyState()
@@ -542,8 +620,7 @@ final class MessageListViewController: UITableViewController {
         // WHERE HE IS, which for a list that no longer starts at today
         // is the more urgent of the two. It goes back to "Updated Just
         // Now" on the next refresh.
-        statusLabel.text = "Showing \(IMAPDate.spokenDay(window.landedOn))"
-        statusLabel.sizeToFit()
+        say("Showing \(IMAPDate.spokenDay(window.landedOn))")
 
         loadPreviews(for: window.messages)
     }
@@ -632,11 +709,14 @@ final class MessageListViewController: UITableViewController {
     /// position has to be corrected by hand or the list lurches downward by
     /// a page and he loses the letter he was reading.
     ///
-    /// The correction is exact rather than approximate because
-    /// `tableView.rowHeight` is fixed — the app sets it once and never uses
-    /// self-sizing rows, so inserted height is simply the row count times
-    /// the row height. Were rows self-sizing this would have to be done by
-    /// remembering a row and re-scrolling to it.
+    /// Corrected by remembering the rows he can see and putting them back
+    /// where they were (`regroup`, `ListPlace`), not by the rows added. It
+    /// used to add the change in the row count times the fixed row height,
+    /// which is exact only if the new rows all go above the old ones. They
+    /// do not: a newer letter in a conversation already listed takes that
+    /// conversation's row up to the new page, so one below the top of the
+    /// pane slipped the list by a row, and the highlight, read back by row
+    /// number after the rows were rebuilt, landed on another letter.
     @MainActor
     private func loadPreviousPage() {
         guard !isLoadingPrevious, !reachedNewestMessage, !letters.isSearching,
@@ -664,25 +744,15 @@ final class MessageListViewController: UITableViewController {
 
             if newer.count < Self.pageSize { self.reachedNewestMessage = true }
 
-            let before = self.rows.count
             let fresh = self.letters.prependPage(newer)
             guard !fresh.isEmpty else { return }
 
-            // Measured, not assumed. Fifty newer messages do not
-            // necessarily add fifty rows: any of them that belong to a
-            // conversation already on screen join it instead. So the
-            // scroll correction is the change in ROW count, not in
-            // message count.
-            self.rebuildRows()
-            let added = CGFloat(self.rows.count - before) * self.tableView.rowHeight
-
-            // No animation: an animated insert ABOVE the viewport animates
-            // the content out from under the reader, and the offset fix
-            // would land a frame late and visibly jump.
-            UIView.performWithoutAnimation {
-                self.regroup()
-                self.tableView.contentOffset.y += added
-            }
+            // The rows he can see and the highlight are taken before the
+            // rows are rebuilt and put back after, by their letters; see
+            // `regroup`. No animation: an animated change ABOVE the viewport
+            // animates the content out from under the reader, and the
+            // offset fix would land a frame late and visibly jump.
+            UIView.performWithoutAnimation { self.regroup() }
             self.loadPreviews(for: fresh)
         }
     }
@@ -806,6 +876,34 @@ final class MessageListViewController: UITableViewController {
         } else {
             emptyLabel.text = "No results"
         }
+    }
+
+    // MARK: - The status line
+
+    /// Something for the status line to say for good: how fresh the list
+    /// is, or where he is in it. See `StatusLine`.
+    @MainActor
+    private func say(_ text: String) {
+        status.rest(text)
+        showStatus()
+    }
+
+    /// Says `text` on the status line while something he asked for is on
+    /// its way: a jump, or a Move from here or from the reading pane.
+    /// Returns what to call when it is done, whichever way it went.
+    @MainActor
+    func working(_ text: String) -> () -> Void {
+        let id = status.start(text)
+        showStatus()
+        return { [weak self] in
+            self?.status.finish(id)
+            self?.showStatus()
+        }
+    }
+
+    private func showStatus() {
+        statusLabel.text = status.text
+        statusLabel.sizeToFit()
     }
 
     /// The bottom bar uses the navigation controller's own toolbar rather than
@@ -942,7 +1040,7 @@ final class MessageListViewController: UITableViewController {
         Task { @MainActor in
             for m in chosen { try? await repository.delete(m.id, from: m.mailboxID) }
             editTapped()
-            await reload()
+            await reload(keepingPlace: true)
             onMessagesChanged?()
         }
     }
@@ -998,12 +1096,16 @@ final class MessageListViewController: UITableViewController {
         let move = MoveMessageViewController(repository: repository,
                                              excluding: mailbox.id) { [weak self] destination in
             guard let self else { return }
+            // At the tap, while the sheet slides away, and said on the
+            // status line until the list has been fetched again.
+            let moving = self.working(StatusLine.moving)
             Task { @MainActor in
                 for m in chosen {
                     try? await self.repository.move(m.id, from: m.mailboxID, to: destination.id)
                 }
                 self.editTapped()
-                await self.reload()
+                await self.reload(keepingPlace: true)
+                moving()
                 self.onMessagesChanged?()
             }
         }
@@ -1013,13 +1115,26 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// Reopens a saved draft in the composer.
+    ///
+    /// The draft has to be downloaded first. Its row stays highlighted,
+    /// with a spinner, until the composer opens, and a second tap on it
+    /// meanwhile does nothing; see `DraftOpening`. The highlight used to go
+    /// at the tap, with nothing on screen until the sheet came up.
     @MainActor
     private func openDraft(_ summary: MessageSummary) {
+        guard drafts.tap(summary.id) else { return }
+        showDraftSpinners()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard let draft = try? await self.repository.loadDraft(id: summary.id,
-                                                                   mailboxID: summary.mailboxID)
-            else {
+            let draft = try? await self.repository.loadDraft(id: summary.id,
+                                                             mailboxID: summary.mailboxID)
+            // Another draft tapped since is the one he wants now.
+            guard self.drafts.landed(summary.id) else { return }
+            self.showDraftSpinners()
+            if let row = self.rowIndex(showing: summary.id) {
+                self.tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
+            }
+            guard let draft else {
                 ErrorPresenter.show(.cannotConnect, on: self)
                 return
             }
@@ -1027,11 +1142,24 @@ final class MessageListViewController: UITableViewController {
             // Saving, sending or deleting all change what is in this very
             // folder, so the list behind has to be rebuilt.
             compose.onDraftsChanged = { [weak self] in
-                Task { @MainActor in await self?.reload() }
+                Task { @MainActor in await self?.reload(keepingPlace: true) }
             }
             let nav = UINavigationController(rootViewController: compose)
             nav.modalPresentationStyle = .formSheet
             self.present(nav, animated: true)
+        }
+    }
+
+    /// The spinner on the row of the draft being downloaded, and on no
+    /// other. Cells scrolled in later ask `drafts` for themselves.
+    @MainActor
+    private func showDraftSpinners() {
+        for ip in tableView.indexPathsForVisibleRows ?? [] where ip.row < rows.count {
+            guard let cell = tableView.cellForRow(at: ip) as? MessageCell else { continue }
+            switch rows[ip.row] {
+            case let .thread(t):
+                cell.isBusy = t.messages.contains { $0.id == drafts.loading }
+            }
         }
     }
 
@@ -1086,19 +1214,24 @@ final class MessageListViewController: UITableViewController {
         searchDebounce?.cancel()
     }
 
-    /// Leaves search behind and puts the folder back, without a round trip.
+    /// Leaves search behind and puts the folder back, without a round trip:
+    /// where he was in it, and with the previews its own pass had not
+    /// fetched when the search replaced it (`ListLetters.endSearch`), which
+    /// used to stay blank until the next Refresh.
     @MainActor
     private func showUnfilteredList() {
         searchDebounce?.cancel()
         listGeneration += 1
-        letters.endSearch()
+        let showingResults = letters.isSearching
+        let unpreviewed = letters.endSearch()
         // The folder's own end state comes back with it. Search may have
         // set `reachedOldestMessage` from a short page of HITS, which says
         // nothing about how much mail is left in the folder.
         reachedOldestMessage = letters.folder.count < Self.pageSize
-        regroup()
+        regroup(to: places.searchEnded(showingResults: showingResults))
         updateEmptyState()
         updatePageFooter()
+        loadPreviews(for: unpreviewed)
     }
 
     @objc private func cancelSearch() {
@@ -1133,9 +1266,10 @@ final class MessageListViewController: UITableViewController {
             // empty array and rendered it as "No results" — so a dropped
             // connection told him the letter did not exist. It does exist;
             // we could not look.
+            let move = showingResults()
             letters.showResults([])
             searchFailed = true
-            regroup()
+            regroup(to: move)
             updateEmptyState()
             updatePageFooter()
             return
@@ -1144,9 +1278,10 @@ final class MessageListViewController: UITableViewController {
         }
 
         searchFailed = false
+        let move = showingResults()
         letters.showResults(hits)
         reachedOldestMessage = hits.count < Self.pageSize
-        regroup()
+        regroup(to: move)
         updateEmptyState()
         updatePageFooter()
         loadPreviews(for: hits.filter { $0.preview.isEmpty })
@@ -1155,6 +1290,16 @@ final class MessageListViewController: UITableViewController {
     /// Whether the last search could not be run, as opposed to finding
     /// nothing. Two different sentences.
     private var searchFailed = false
+
+    /// A search's answer is about to replace the rows: where the list goes,
+    /// the top, and where he was in the folder's letters if it is those it
+    /// replaces. Asked before the letters change, while the rows on screen
+    /// are still the ones he was reading. See `ListPlaces`.
+    @MainActor
+    private func showingResults() -> ListPlaces.Move {
+        let overFolder = !letters.isSearching
+        return places.resultsShown(overFolder: overFolder, here: overFolder ? place() : nil)
+    }
 
     // MARK: - Table
 
@@ -1230,6 +1375,7 @@ final class MessageListViewController: UITableViewController {
         switch rows[ip.row] {
         case let .thread(thread):
             cell.configure(with: thread.displayRow())
+            cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
             cell.accessibilityLabel = [
                 thread.isRead ? nil : "Unread",
                 thread.participants.joined(separator: ", "),
@@ -1276,7 +1422,6 @@ final class MessageListViewController: UITableViewController {
         // Drafts never group into a stack: a tap there has to reopen the
         // composer, and there is no reading-pane form of that.
         if mailbox.role == .drafts {
-            tableView.deselectRow(at: ip, animated: false)
             openDraft(thread.newest)
             return
         }
@@ -1296,7 +1441,6 @@ final class MessageListViewController: UITableViewController {
         // in the pane to the right, with no route back into the composer, so
         // a letter he had been interrupted writing could never be finished.
         if mailbox.role == .drafts {
-            tableView.deselectRow(at: ip, animated: false)
             openDraft(m)
             return
         }

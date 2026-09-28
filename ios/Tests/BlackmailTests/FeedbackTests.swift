@@ -1,0 +1,145 @@
+import XCTest
+@testable import Blackmail
+
+/// What is on screen while something he asked for is on its way: the
+/// list's status line during a jump or a Move, an alert held until the
+/// sheet he chose from has gone, and a draft on its way to the composer.
+/// The screens are UIKit; these are the rules they follow.
+final class FeedbackTests: XCTestCase {
+
+    private let day = Date(timeIntervalSince1970: 1_777_766_400)   // 3 May 2026
+
+    // MARK: - The status line
+
+    /// A jump says where it is going from the tap, and the line says where
+    /// it landed once it has; a jump that fails goes back to what the line
+    /// said before. Nothing used to be said until it was over.
+    func testAJumpSaysWhereItIsGoingUntilItIsDone() {
+        var line = StatusLine(resting: "Updated Just Now")
+        XCTAssertEqual(line.text, "Updated Just Now")
+
+        let going = line.start(StatusLine.goingTo(day))
+        XCTAssertEqual(line.text, "Going to \(IMAPDate.spokenDay(day))…")
+        // The day lands, and is said once the jump is done.
+        line.rest("Showing \(IMAPDate.spokenDay(day))")
+        XCTAssertEqual(line.text, "Going to \(IMAPDate.spokenDay(day))…")
+        line.finish(going)
+        XCTAssertEqual(line.text, "Showing \(IMAPDate.spokenDay(day))")
+
+        // One that fails leaves the line as it was.
+        let again = line.start(StatusLine.goingTo(day))
+        line.finish(again)
+        XCTAssertEqual(line.text, "Showing \(IMAPDate.spokenDay(day))")
+    }
+
+    /// A Move and a jump at once: the later is said while both are out, the
+    /// other when it alone is; and a Refresh that overtook a jump has the
+    /// last word once the jump lets go.
+    func testOverlappingWorkAndARefreshThatOvertookIt() {
+        var line = StatusLine(resting: "Updated Just Now")
+        let going = line.start(StatusLine.goingTo(day))
+        let moving = line.start(StatusLine.moving)
+        XCTAssertEqual(line.text, "Moving…")
+        line.finish(moving)
+        XCTAssertEqual(line.text, StatusLine.goingTo(day))
+        line.rest("Updated Just Now")
+        line.finish(going)
+        XCTAssertEqual(line.text, "Updated Just Now")
+        line.finish(going)
+        XCTAssertEqual(line.text, "Updated Just Now", "finishing twice changes nothing")
+    }
+
+    // MARK: - Alerts over a sheet on its way out
+
+    /// A jump or a Move now starts at the tap, and one that fails fast, with
+    /// no connection at all, fails while its sheet is still sliding away,
+    /// where UIKit would drop the alert. It is held until the sheet has
+    /// gone, and shown once.
+    func testAnAlertAskedForWhileTheSheetLeavesWaitsForItToGo() {
+        var hold = AlertHold<String>()
+        XCTAssertEqual(hold.show("Can't connect", at: day), ["Can't connect"], "no sheet: at once")
+
+        let sheet = hold.sheetLeaving(at: day)
+        XCTAssertEqual(hold.show("Can't connect", at: day + 0.1), [])
+        XCTAssertEqual(hold.sheetGone(sheet, at: day + 0.35), ["Can't connect"])
+        XCTAssertEqual(hold.sheetGone(sheet, at: day + 0.4), [], "shown once")
+        XCTAssertEqual(hold.due(at: day + 2), [], "and not again at the bound")
+        XCTAssertEqual(hold.show("Later", at: day + 3), ["Later"], "the sheet has gone: at once")
+    }
+
+    /// Nothing held: the sheet's going says nothing, as with its Cancel. Two
+    /// sheets going at once: the alert waits for both.
+    func testASheetGoingWithNothingHeldAndTwoSheetsGoing() {
+        var hold = AlertHold<String>()
+        let cancelled = hold.sheetLeaving(at: day)
+        XCTAssertEqual(hold.sheetGone(cancelled, at: day + 0.3), [], "Cancel: nothing was asked of it")
+        XCTAssertEqual(hold.show("At once", at: day + 0.4), ["At once"])
+
+        let first = hold.sheetLeaving(at: day + 1)
+        let second = hold.sheetLeaving(at: day + 1.1)
+        XCTAssertEqual(hold.show("Held", at: day + 1.2), [])
+        XCTAssertEqual(hold.sheetGone(first, at: day + 1.3), [])
+        XCTAssertEqual(hold.sheetGone(second, at: day + 1.4), ["Held"])
+    }
+
+    /// A dismissal UIKit ignores, as one asked for in the middle of a swipe
+    /// down, never reports that the sheet has gone. The hold ends at its
+    /// bound anyway, with the alert it held, and alerts go at once after
+    /// it. It used to end only at the report, so one that never came held
+    /// every alert in the app from then on, and dropped all but the first.
+    func testASheetThatNeverReportsGoingIsWaitedForOnlySoLong() {
+        var hold = AlertHold<String>()
+        let sheet = hold.sheetLeaving(at: day)
+        XCTAssertEqual(hold.show("Can't connect", at: day + 0.2), [])
+        XCTAssertEqual(hold.due(at: day + AlertHold<String>.bound - 0.1), [], "still sliding")
+        XCTAssertEqual(hold.due(at: day + AlertHold<String>.bound), ["Can't connect"])
+        XCTAssertEqual(hold.show("Can't connect", at: day + 5), ["Can't connect"], "no longer held")
+        XCTAssertEqual(hold.sheetGone(sheet, at: day + 6), [], "a report that comes late changes nothing")
+
+        // A late report ends only its own sheet's wait, not another's.
+        let late = hold.sheetLeaving(at: day + 10)
+        let next = hold.sheetLeaving(at: day + 12)
+        XCTAssertEqual(hold.show("Held", at: day + 12.1), [])
+        XCTAssertEqual(hold.sheetGone(late, at: day + 12.2), [], "the next sheet is still going")
+        XCTAssertEqual(hold.sheetGone(next, at: day + 12.3), ["Held"])
+    }
+
+    /// Two alerts while the sheet goes: both are kept, and tried latest
+    /// first. The first can be for a list a jump into All Mail has replaced
+    /// during the slide, with nothing left to show it over, and the second
+    /// used to be dropped for being second, so neither was seen.
+    func testEveryAlertHeldIsTriedLatestFirst() {
+        var hold = AlertHold<String>()
+        let sheet = hold.sheetLeaving(at: day)
+        XCTAssertEqual(hold.show("For the list replaced", at: day + 0.1), [])
+        XCTAssertEqual(hold.show("For the list now", at: day + 0.2), [])
+        XCTAssertEqual(hold.sheetGone(sheet, at: day + 0.35),
+                       ["For the list now", "For the list replaced"])
+        XCTAssertEqual(hold.due(at: day + 2), [], "tried once")
+    }
+
+    // MARK: - A draft on its way to the composer
+
+    /// A second tap on a draft being downloaded does nothing: it used to
+    /// download it again. Once it has come, a tap opens it again.
+    func testASecondTapOnTheDraftBeingFetchedDoesNothing() {
+        var drafts = DraftOpening()
+        XCTAssertTrue(drafts.tap("5/12"))
+        XCTAssertEqual(drafts.loading, "5/12")
+        XCTAssertFalse(drafts.tap("5/12"))
+        XCTAssertTrue(drafts.landed("5/12"))
+        XCTAssertNil(drafts.loading)
+        XCTAssertTrue(drafts.tap("5/12"), "after it has come, or failed, a tap tries again")
+    }
+
+    /// Another draft tapped meanwhile is the one he wants: the first is
+    /// neither opened nor said to have failed when it comes back.
+    func testAnotherDraftTappedMeanwhileWins() {
+        var drafts = DraftOpening()
+        XCTAssertTrue(drafts.tap("5/12"))
+        XCTAssertTrue(drafts.tap("5/13"))
+        XCTAssertFalse(drafts.landed("5/12"))
+        XCTAssertEqual(drafts.loading, "5/13")
+        XCTAssertTrue(drafts.landed("5/13"))
+    }
+}

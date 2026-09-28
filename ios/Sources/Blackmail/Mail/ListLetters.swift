@@ -101,8 +101,24 @@ final class ListLetters: PaneActionList {
     }
 
     /// Back to the folder's letters, as they were, without a round trip.
-    func endSearch() {
+    /// Returns the ones whose previews still have to be fetched.
+    ///
+    /// A search replaces the list, and a preview pass stops as soon as its
+    /// list is replaced (`PreviewPass`), so whatever the folder's pass had
+    /// not fetched when the search began was never fetched: cancelling the
+    /// search put the folder back with those rows blank until the next
+    /// Refresh. They are asked for again now, less any the search has
+    /// already brought: a hit is the same letter, and its preview is the
+    /// folder row's too, under the same id (`apply(previews:)` fills both)
+    /// or, for an All Mailboxes hit, under All Mail's
+    /// (`ListEdit.carryingPreviews(fromTwins:into:)`). Letters taken off by
+    /// hand are not asked for.
+    @discardableResult
+    func endSearch() -> [MessageSummary] {
+        let hits = results ?? []
         results = nil
+        folder = ListEdit.carryingPreviews(fromTwins: hits, into: folder)
+        return shown.filter { $0.preview.isEmpty }
     }
 
     func apply(previews: [String: String]) {

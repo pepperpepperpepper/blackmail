@@ -133,7 +133,13 @@ final class JumpToDateViewController: UIViewController {
 
     @objc private func cancelTapped() { dismiss(animated: true) }
 
+    /// Go has been tapped. The jump starts at the tap now, so a second tap
+    /// while the sheet slides away would start a second.
+    private var picked = false
+
     @objc private func goTapped() {
+        guard !picked else { return }
+        picked = true
         // Read from the picker rather than from a change handler. An inline
         // picker does not fire `.valueChanged` for the month arrows, and a
         // day tapped without the handler having fired would otherwise send
@@ -143,7 +149,22 @@ final class JumpToDateViewController: UIViewController {
         let scope = MailSearchScope.allCases[scopeControl.selectedSegmentIndex]
         Self.lastPicked = chosen
         Self.lastScope = scope
-        dismiss(animated: true) { [onPick] in onPick?(chosen, scope) }
+        // The jump starts at the tap, not once the sheet has finished
+        // sliding away, a third of a second later, with nothing on screen
+        // to say anything was happening; the list says "Going to …" from
+        // now. An alert it brings meanwhile waits for the sheet to go,
+        // since UIKit drops one presented over a sheet still leaving. Held
+        // only when this dismissal will report that it is over, since every
+        // alert in the app waits while the hold lasts: not with nothing to
+        // dismiss from, and not when the sheet is already on its way out,
+        // in the middle of a swipe down, where UIKit ignores a second
+        // dismissal and its completion with it.
+        let leaving = isBeingDismissed || navigationController?.isBeingDismissed == true
+        if presentingViewController != nil, !leaving {
+            let gone = ErrorPresenter.sheetLeaving()
+            dismiss(animated: true) { gone() }
+        }
+        onPick?(chosen, scope)
     }
 }
 

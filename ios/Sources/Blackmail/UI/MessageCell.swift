@@ -28,6 +28,7 @@ final class MessageCell: UITableViewCell {
     private let previewLabel = UILabel()
     private let attachmentIcon = UIImageView()
     private let flagIcon = UIImageView()
+    private let spinner = UIActivityIndicatorView(style: .medium)
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
@@ -61,9 +62,25 @@ final class MessageCell: UITableViewCell {
         flagIcon.tintColor = Theme.flagTint
         flagIcon.contentMode = .scaleAspectFit
 
+        spinner.color = Theme.secondaryText
+        spinner.hidesWhenStopped = true
+
         for v in [unreadDot, senderLabel, timestampLabel, subjectLabel,
-                  previewLabel, attachmentIcon, flagIcon] {
+                  previewLabel, attachmentIcon, flagIcon, spinner] {
             contentView.addSubview(v)
+        }
+    }
+
+    /// A spinner in the leading gutter, over the unread dot and the
+    /// paperclip, which it hides while it turns: this row's letter is on its
+    /// way, as a draft is to the composer. The gutter because it is the one
+    /// place in a measured row that nothing else needs while it turns, so
+    /// the text does not move.
+    var isBusy = false {
+        didSet {
+            guard isBusy != oldValue else { return }
+            if isBusy { spinner.startAnimating() } else { spinner.stopAnimating() }
+            setNeedsLayout()
         }
     }
 
@@ -131,6 +148,7 @@ final class MessageCell: UITableViewCell {
             x: gutterX - Theme.unreadDotDiameter / 2,
             y: (Theme.unreadDotCenterY * Theme.textScale) - Theme.unreadDotDiameter / 2,
             width: Theme.unreadDotDiameter, height: Theme.unreadDotDiameter)
+        spinner.center = CGPoint(x: gutterX, y: Theme.unreadDotCenterY * Theme.textScale)
 
         // The timestamp takes what it needs from the right; the sender gets the
         // rest, so a long name truncates instead of colliding with the date.
@@ -147,6 +165,10 @@ final class MessageCell: UITableViewCell {
         // row that is both unread AND has an attachment, so the dot wins the
         // gutter and the clip falls back to trailing when they collide.
         let clipInGutter = attachmentIcon.isHidden == false && unreadDot.isHidden
+        // Faded rather than hidden under the spinner, so that nothing the
+        // layout decides from what is hidden changes while it turns.
+        unreadDot.alpha = isBusy ? 0 : 1
+        attachmentIcon.alpha = isBusy && clipInGutter ? 0 : 1
         var subjectWidth = textWidth
         if clipInGutter {
             let size: CGFloat = 16

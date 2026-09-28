@@ -92,6 +92,20 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var flags: Set<String> = []
         var messageID: String
         var inReplyTo: String?
+        /// Files after the words, which make it multipart/mixed.
+        var files: [File] = []
+    }
+
+    /// A file carried by a letter, base64 on the wire.
+    struct File: Equatable {
+        var name: String
+        /// Upper case, as BODYSTRUCTURE spells them: "APPLICATION", "PDF".
+        var type: String
+        var subtype: String
+        var bytes: Data
+        /// A picture the body shows by `cid:`, sent inline under this id.
+        /// Nil for a file sent as an attachment.
+        var contentID: String?
     }
 
     /// One command as the server received it.
@@ -1365,29 +1379,69 @@ private extension ScriptedIMAPServer {
                         + "\(body.utf8.count) \(lines) NIL NIL NIL NIL)")
         }
 
+        // The words: one text part, or plain and HTML as alternatives, which
+        // are parts 1 and 2 of the letter, or 1.1 and 1.2 under files.
         var sections: [String: Data] = [:]
-        let body: String
-        let structure: String
+        let words: (headers: String, body: String, structure: String)
+        let prefix = letter.files.isEmpty ? "" : "1."
         switch (letter.text, letter.html) {
         case let (text?, html?):
             let boundary = "=_part_" + letter.messageID.filter { $0.isLetter || $0.isNumber }
             let plain = leaf("PLAIN", text)
             let rich = leaf("HTML", html)
-            header += "Content-Type: multipart/alternative; boundary=\"\(boundary)\"\r\n"
-            body = "--\(boundary)\r\n\(plain.headers)\r\n\(text)\r\n"
-                + "--\(boundary)\r\n\(rich.headers)\r\n\(html)\r\n"
-                + "--\(boundary)--\r\n"
-            structure = "(\(plain.structure)\(rich.structure) \"ALTERNATIVE\" "
-                + "(\"BOUNDARY\" \"\(boundary)\") NIL NIL NIL)"
-            sections["1"] = Data(text.utf8)
-            sections["2"] = Data(html.utf8)
+            words = ("Content-Type: multipart/alternative; boundary=\"\(boundary)\"\r\n",
+                     "--\(boundary)\r\n\(plain.headers)\r\n\(text)\r\n"
+                        + "--\(boundary)\r\n\(rich.headers)\r\n\(html)\r\n"
+                        + "--\(boundary)--\r\n",
+                     "(\(plain.structure)\(rich.structure) \"ALTERNATIVE\" "
+                        + "(\"BOUNDARY\" \"\(boundary)\") NIL NIL NIL)")
+            sections[prefix + "1"] = Data(text.utf8)
+            sections[prefix + "2"] = Data(html.utf8)
         case let (text, html):
             let content = text ?? html ?? ""
             let only = leaf(text == nil ? "HTML" : "PLAIN", content)
-            header += only.headers
-            body = content
-            structure = only.structure
+            words = (only.headers, content, only.structure)
             sections["1"] = Data(content.utf8)
+        }
+
+        let body: String
+        let structure: String
+        if letter.files.isEmpty {
+            header += words.headers
+            body = words.body
+            structure = words.structure
+        } else {
+            // multipart/mixed: the words, then each file as a part of its
+            // own, numbered 2, 3, …
+            let boundary = "=_mixed_" + letter.messageID.filter { $0.isLetter || $0.isNumber }
+            header += "Content-Type: multipart/mixed; boundary=\"\(boundary)\"\r\n"
+            var text = "--\(boundary)\r\n\(words.headers)\r\n\(words.body)\r\n"
+            var parts = words.structure
+            for (i, file) in letter.files.enumerated() {
+                let encoded = file.bytes.base64EncodedString(
+                    options: [.lineLength76Characters, .endLineWithCarriageReturn,
+                              .endLineWithLineFeed])
+                let disposition = file.contentID == nil ? "attachment" : "inline"
+                var headers = "Content-Type: \(file.type.lowercased())/\(file.subtype.lowercased());"
+                    + " name=\"\(file.name)\"\r\n"
+                    + "Content-Disposition: \(disposition); filename=\"\(file.name)\"\r\n"
+                    + "Content-Transfer-Encoding: base64\r\n"
+                if let id = file.contentID { headers += "Content-ID: <\(id)>\r\n" }
+                text += "--\(boundary)\r\n\(headers)\r\n\(encoded)\r\n"
+                parts += "(\"\(file.type)\" \"\(file.subtype)\" (\"NAME\" \"\(file.name)\") "
+                    + (file.contentID.map { "\"<\($0)>\"" } ?? "NIL")
+                    + " NIL \"BASE64\" \(encoded.utf8.count) "
+                    // A text part's size is followed by its line count.
+                    // Counted on the bytes: "\r\n" is one Character to a
+                    // String, and splitting that on "\n" never splits.
+                    + (file.type == "TEXT"
+                       ? "\(encoded.utf8.split(separator: UInt8(ascii: "\n")).count) " : "")
+                    + "NIL "
+                    + "(\"\(disposition.uppercased())\" (\"FILENAME\" \"\(file.name)\")) NIL NIL)"
+                sections["\(i + 2)"] = Data(encoded.utf8)
+            }
+            body = text + "--\(boundary)--\r\n"
+            structure = "(\(parts) \"MIXED\" (\"BOUNDARY\" \"\(boundary)\") NIL NIL NIL)"
         }
         header += "\r\n"
         sections["HEADER"] = Data(header.utf8)

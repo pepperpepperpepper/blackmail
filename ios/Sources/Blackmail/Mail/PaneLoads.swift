@@ -127,17 +127,20 @@ enum PaneNotice {
 extension Message {
 
     /// What the reading pane's header can say about a letter before its
-    /// body has come: sender, subject and date, all of which the list row
-    /// already has.
+    /// body has come: sender, subject and date, and the files it carries,
+    /// all of which the list row already has.
     ///
-    /// No recipients and no attachments, because the row has neither, so
-    /// the header reads "To: me" until the letter lands. A conversation's
-    /// stack has always made the same trade. `subject` is the thread's when
-    /// the pane is showing a conversation.
+    /// No recipients, because the row has none, so the header reads "To: me"
+    /// until the letter lands; one line either way, so nothing moves when it
+    /// does. The files are the row's, from the letter's structure, and they
+    /// are the ones the landed letter lists: a row each, at least 44 pt
+    /// tall, which the header used to gain only when the body came, pushing
+    /// the letter or a conversation's stack down under him. `subject` is the
+    /// thread's when the pane is showing a conversation.
     static func heading(for row: MessageSummary, subject: String? = nil) -> Message {
         Message(id: row.id, mailboxID: row.mailboxID,
                 sender: row.sender, senderAddress: MailFormat.bareAddress(row.sender),
                 to: [], cc: [], subject: subject ?? row.subject, date: row.date,
-                textBody: nil, htmlBody: nil, attachments: [])
+                textBody: nil, htmlBody: nil, attachments: row.attachments)
     }
 }

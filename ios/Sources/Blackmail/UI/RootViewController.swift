@@ -249,6 +249,12 @@ final class RootViewController: UIViewController {
         detail.perform = { [weak self] action, letter in
             guard let self else { return false }
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            // A Move is asked for at the tap on its folder, while the sheet
+            // slides away, and the list says so until the server answers.
+            // The letter itself has gone from the pane and the list by then.
+            var moving: (() -> Void)?
+            if case .move = action { moving = self.list.working(StatusLine.moving) }
+            defer { moving?() }
             return await PaneActions.run(
                 action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
                 list: self.list.letters, repository: self.repository,

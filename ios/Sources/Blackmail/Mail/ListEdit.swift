@@ -62,6 +62,24 @@ enum ListEdit {
         }
     }
 
+    /// `letters` with the previews of their copies under other mailboxes'
+    /// ids put in where they have none: an All Mailboxes hit's, fetched from
+    /// All Mail, for its Inbox row. The same letter has the same text, so
+    /// its preview is the same, and asking the Inbox for it again would
+    /// only leave the row blank for as long as that takes.
+    static func carryingPreviews(fromTwins others: [MessageSummary],
+                                 into letters: [MessageSummary]) -> [MessageSummary] {
+        let previewed = others.filter { !$0.preview.isEmpty }
+        guard !previewed.isEmpty else { return letters }
+        return letters.map { letter in
+            guard letter.preview.isEmpty,
+                  let twin = twins(of: letter, among: previewed).first else { return letter }
+            var carried = letter
+            carried.preview = twin.preview
+            return carried
+        }
+    }
+
     /// Changes the letter with `id` in `letters`, if it is there.
     static func change(_ letters: inout [MessageSummary], id: String,
                        _ edit: (inout MessageSummary) -> Void) {

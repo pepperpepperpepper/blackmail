@@ -44,7 +44,16 @@ final class MessageHeaderView: UIView {
 
     /// Fired when a file is tapped. The header does not know how to open
     /// one; it only knows which was chosen.
-    var onSelectAttachment: ((Attachment) -> Void)?
+    ///
+    /// The rows are greyed while there is none: the header lists a letter's
+    /// files from the tap, from its list row, and they can be opened once
+    /// the letter has come. Greyed rather than live and ignoring the tap,
+    /// which reads as a tap that missed.
+    var onSelectAttachment: ((Attachment) -> Void)? {
+        didSet {
+            for button in attachmentButtons.values { button.isEnabled = onSelectAttachment != nil }
+        }
+    }
     private let topRule = UIView()
     private let bottomRule = UIView()
 
@@ -155,7 +164,7 @@ final class MessageHeaderView: UIView {
         // Inline pictures are not files: they are rendered inside the
         // letter by the `cid:` resolver, and a row for each would list the
         // signature's logo on every message. See Attachment.isInline.
-        let listed = m.attachments.filter { !$0.isInline }
+        let listed = m.listedAttachments
         for row in attachmentStack.arrangedSubviews { row.removeFromSuperview() }
         attachmentButtons.removeAll()
         attachmentStack.isHidden = listed.isEmpty
@@ -191,6 +200,7 @@ final class MessageHeaderView: UIView {
         button.configuration = config
 
         button.contentHorizontalAlignment = .leading
+        button.isEnabled = onSelectAttachment != nil
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget).isActive = true
         button.accessibilityLabel = "Attachment, \(attachment.filename)\(size)"
         button.addAction(UIAction { [weak self] _ in
@@ -205,9 +215,12 @@ final class MessageHeaderView: UIView {
     /// feedback lands on the thing that was touched. A download of a few
     /// megabytes is several seconds of nothing otherwise, which reads as a
     /// tap that missed — and the response to that is to tap again.
+    ///
+    /// Not busy is live only if a file can be opened: a row listed from the
+    /// list's row before the letter has come stays grey.
     func setAttachment(_ id: String, busy: Bool) {
         guard let button = attachmentButtons[id] else { return }
-        button.isEnabled = !busy
+        button.isEnabled = !busy && onSelectAttachment != nil
         button.configuration?.showsActivityIndicator = busy
     }
 }

@@ -67,13 +67,18 @@ final class PaneLoadsTests: XCTestCase {
     }
 
     /// What the header says before the letter lands: the row's sender,
-    /// subject and date, and nothing it does not know.
-    func testTheStandInHeaderIsTheRowsSenderSubjectAndDate() {
-        let row = MessageSummary(id: "600001/1119", mailboxID: "inbox",
+    /// subject and date, and the files the row lists, and nothing it does
+    /// not know. The files are what the header is sized by; see
+    /// `PaneDocumentTests.testTheHeaderListsTheLettersFilesFromItsRow`.
+    func testTheStandInHeaderIsTheRowsSenderSubjectDateAndFiles() {
+        var row = MessageSummary(id: "600001/1119", mailboxID: "inbox",
                                  sender: "Sam Example <sam@example.com>",
                                  subject: "Letter 119: garden", preview: "A few words",
                                  date: Server.newestDate, isRead: false, isFlagged: false,
                                  hasAttachment: true)
+        let quote = Attachment(id: "2", filename: "Garden quote.pdf", mimeType: "application/pdf",
+                               size: 3_000)
+        row.attachments = [quote]
         let heading = Message.heading(for: row)
         XCTAssertEqual(heading.id, row.id)
         XCTAssertEqual(heading.mailboxID, row.mailboxID)
@@ -83,7 +88,7 @@ final class PaneLoadsTests: XCTestCase {
         XCTAssertEqual(heading.date, row.date)
         XCTAssertEqual(heading.to, [])
         XCTAssertEqual(heading.cc, [])
-        XCTAssertTrue(heading.attachments.isEmpty)
+        XCTAssertEqual(heading.attachments, [quote])
         XCTAssertNil(heading.textBody)
         XCTAssertNil(heading.htmlBody)
         // A conversation's header carries the thread's subject.

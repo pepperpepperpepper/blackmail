@@ -1038,6 +1038,17 @@ enum MIMEDecoder {
         return body
     }
 
+    /// The files a letter carries, as the reading pane's header lists them,
+    /// from its structure alone: what `flatten` finds with no bodies to
+    /// hand, less the pictures the body shows by `cid:`. Worked out from the
+    /// BODYSTRUCTURE a list row is fetched with, so the header can list the
+    /// files before the letter is downloaded, the same ones it will list
+    /// once it has been: the downloaded letter goes through `flatten` too,
+    /// and IMAP numbers the parts as `parse` does.
+    static func listedAttachments(in structure: MIMEPart) -> [Attachment] {
+        flatten(structure) { _ in nil }.attachments.filter { !$0.isInline }
+    }
+
     /// Finds a part by its IMAP section path ("2", "1.3").
     ///
     /// The counterpart to `parse`'s `bodies` dictionary: that gives the

@@ -1957,3 +1957,112 @@ back to the app, with nothing to tell him so.
 **The connection log** no longer notes "webview: load failed -999" when a
 page in the reading pane is replaced before it has finished, which now
 happens whenever a letter arrives while "Loading…" is still being drawn.
+
+---
+
+## B-042 — CHANGED 2026-09-28. Things that move under him
+
+Behaviour he could notice, from the second half of the fourth batch of the
+lag fixes: the list and the reading pane holding still while what is in
+them changes, and saying what they are doing while he waits. The rules are
+checked in host tests (`ListPlaceTests`, `FeedbackTests`,
+`PaneDocumentTests`); the screens that apply them are UIKit and WebKit,
+which the host cannot build, and none of it has been seen on the iPad yet.
+The TODO says what to look at.
+
+**Search results start at the top.** A search started from far down a
+folder used to draw its results under the scroll offset the folder had,
+so the newest hits were above the top of the pane, and a short result set
+showed empty pane with "No results" or "Could not search" up out of sight:
+it read as the search not having found the letter. Every result set now
+starts at its first hit, including each new one as he types on and one
+that could not be run. Refresh goes to the top too, once the newest page
+has come. A Delete or a Move from Edit mode, or a draft saved, sent or
+deleted in Drafts, fetches the newest page afresh as before, and the rows
+he could see stay where they were in it, as the old scroll offset roughly
+did; if he was further down than the newest page reaches, it goes to the
+top. From a search's results, the folder comes back where he was in it.
+
+**Cancelling a search puts him back where he was in the folder.** The
+folder used to come back at whatever depth the results had been scrolled
+to. It now comes back with the row he had at the top of the pane at the
+same height, found again by its letters rather than by its position, so a
+letter binned from the results meanwhile does not shift it; if that row
+itself has gone, the next one he could see stays put. And the folder's
+previews that had not come in when the search replaced it are fetched
+again, or taken from the same letter found by the search, where they used
+to stay blank until Refresh.
+
+**Paging upward after a date jump holds still.** Scrolling up past the day
+he jumped to loads the newer mail above it. A newer letter in a
+conversation already listed takes that conversation's row up to where the
+new letter is, and the list used to correct its position by the number of
+rows added, so each such conversation below the top of the pane slipped
+the list by a row: 0 to 3 rows a page, measured on the host with the real
+grouping. And the highlight moved to another letter on every page that
+added rows. Now the rows he can see stay exactly where they were, except
+one that has moved up because newer mail joined it, and the highlight
+stays on the letter open in the reading pane, or on his ticks in Edit
+mode. The same hold applies whenever the list is regrouped under him: a
+row binned from the reading pane above the top of the pane no longer
+shifts the rows he is looking at, and nor does the Organize by Thread
+switch.
+
+**Go to Date and Move start at the tap.** Both used to start only once
+their sheet had finished sliding away, about a third of a second, with
+nothing on screen to say anything was happening. The request now goes as
+he taps Go, or the folder, and the list's status line says "Going to
+3 May…" or "Moving…" until it is done; then it says where the jump landed,
+as before, or goes back to what it said. A jump into All Mail from another
+folder opens All Mail during the slide, saying "Going to …". An alert
+brought by a failure while the sheet is still sliding away, which UIKit
+would drop, is held and shown once the sheet has gone; "Can't connect to
+mail server." as ever. It is held for a second at most, in case UIKit
+never says the sheet has gone, and if two come meanwhile the later is
+shown, the earlier only if the later has nothing to go over. A second
+tap on Go, or on a folder, while the sheet slides away is ignored.
+
+**The reading pane's header lists a letter's files from the tap.** It
+used to list them only when the letter arrived, a row of at least 44 pt
+per file, which pushed the letter, or a conversation's whole stack, down
+under him as he began to read it. The files are now known from the list
+row, which describes the letter's parts, and the header is its final
+height from the start. The file rows are grey until the letter has come,
+and open as before after that; a file download from the letter before
+does not light them up early. The same holds when he opens a
+conversation. It does not hold when he opens another letter inside the
+stack: the header changes to that letter once it has come, files and all,
+as before.
+
+**A draft he taps stays highlighted, with a spinner, until it opens.** In
+Drafts the row used to lose its highlight at the tap, with nothing on
+screen for the tenth of a second to half a second the draft took to
+download, and a second tap downloaded it again. Now the row stays
+highlighted, with a small spinner where the unread dot goes, until the
+composer opens; a second tap on it does nothing, and a tap on another
+draft meanwhile opens that one instead of both. If the draft cannot be
+fetched, the highlight goes and he is told the app could not connect.
+
+**The reading pane comes back after WebKit loses it.** The letters are
+drawn by a separate WebKit process, which iOS ends when it needs the
+memory, typically while he is in Photos or Safari. Nothing answered for
+that, so he could come back to a black pane, or a conversation stuck on
+"Loading…", under a header still naming the letter. The pane now draws
+again what it was showing, from what it already holds: the letter, the
+conversation with the letters he had opened and the bodies that had come,
+or the grey words. It does so once he is back in the app with the pane on
+screen, not while he is still elsewhere. No letter is fetched again to do
+it; the inline pictures of a conversation's letters are asked for again,
+and those of any letter but the last one downloaded come from the server.
+The position he had scrolled to inside the letter is not kept: it comes
+back at the top. If the page drawn again is lost again while it loads or
+within ten seconds, which points at the letter itself being too much for
+WebKit, it is not drawn a third time: the pane says "This message could
+not be shown.", and tapping the letter again tries afresh. The connection
+log notes "webview: content process ended" each time, which settles how
+often it happens.
+
+**A conversation's letter no longer sticks on "Loading…" when its body
+comes quickly.** A body that arrived before the conversation's page had
+finished loading was lost, and the letter said "Loading…" until he closed
+and opened it again. It now waits for the page.

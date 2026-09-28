@@ -113,17 +113,42 @@ this host. Ordered by value, not by size.
       (`IMAPMailRepository.warmUp`). Checked on the scripted server in
       `PaneLoadsTests`, `PaneActionsTests` and `ComingBackTests`; see B-041
       for what he could notice.*
-- [ ] **The rest of the lag fixes' batch 4.** Scroll resets when a result set
-      replaces the list, and the folder's offset restored when a search is
-      cancelled; an anchor row and the selection captured before a rebuild,
-      so paging upward after a jump neither slips nor moves the highlight;
-      folder previews asked for again after a cancelled search; a "Going to
-      <day>…" status for
-      jumps and Moves, with any alert held until the sheet has gone; the
-      conversation header sized for its attachments before the body lands;
-      and a guard on Drafts taps. Then batch 5, the reading pane's CPU:
+- [x] **Things that move under him (the lag fixes, batch 4, second half).**
+      *Done: a result set that replaces the list starts at the top, and a
+      cancelled search puts the folder back at the row he had at the top
+      of the pane (`ListPlaces`); every regroup, paging upward after a
+      jump included, holds the rows on screen and the selection by their
+      letters, taken before the rows are rebuilt (`ListPlace`); the
+      folder's previews cut off by a search are asked for again when it
+      ends, less any a hit has brought (`ListLetters.endSearch`); Go to
+      Date and Move start at the tap and say so on the status line
+      (`StatusLine`), with an alert held until the sheet has gone
+      (`AlertHold`, through `ErrorPresenter`); the reading pane's header
+      lists a letter's files from its row's BODYSTRUCTURE
+      (`MIMEDecoder.listedAttachments`), so it does not grow when the
+      letter lands; a draft tapped keeps its highlight with a spinner and
+      ignores a second tap (`DraftOpening`); a conversation's bodies wait
+      for its document to load, and the pane is drawn again from what it
+      holds when WebKit's content process ends, once he can see it, the
+      bodies put back by script as they first went in, and not a third
+      time if it is lost again at once (`PaneDocument`). A Delete or Move
+      from Edit mode, or a draft saved, keeps his place in the list
+      (`ListPlaces.refetched`). Checked
+      in `ListPlaceTests`, `FeedbackTests` and `PaneDocumentTests`; see
+      B-042 for what he could notice.*
+- [ ] **Batch 5 of the lag fixes, the reading pane's CPU.**
       `callAsyncJavaScript` in place of the escaper, the letter's
-      preparation off the main thread, and P8.
+      preparation off the main thread, and P8. A conversation's bodies now
+      go in through `PaneDocument.fill`, which is where the escaped script
+      is built; the argument form belongs there.
+- [ ] **Left from batch 4.** Opening another letter inside a conversation
+      still changes the header to that letter once its body has come, so
+      a letter with a different number of files moves the stack then. The
+      header could change at the tap instead, with Reply held until the
+      letter has come, as the single-letter pane does since P1. And a new
+      result set as he types asks for every hit's preview again, where the
+      previews already drawn for the same letters could be carried over by
+      id, as Refresh does.
 - [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -200,9 +225,9 @@ this host. Ordered by value, not by size.
       end on the last. Tap Reply while a large letter is loading: nothing
       should open until it is there. The web view's first paint of
       "Loading…" and of the letter after it is the part the host cannot
-      see: look for a white flash or a blank frame between them, and for
-      the header's height jumping when a letter with attachments lands
-      (expected; that is the rest of batch 4).
+      see: look for a white flash or a blank frame between them. The
+      header's height must not change when a letter with files lands
+      (B-042).
 - [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
@@ -248,6 +273,84 @@ this host. Ordered by value, not by size.
       MOVE, and the row must not come back. Lock for thirty seconds straight
       after tapping a letter: nothing at all should be sent on the way out
       or on the way back.
+- [ ] **B-042, where the list is.** In the Inbox, scroll down three pages
+      and note the row at the top of the pane. Type a search: the first
+      hit must be the first row under the search band, never above the
+      pane, and the keyboard must stay up as the results land (list-11,
+      which this makes likelier to show if it is real). Type two more
+      letters: the new hits start at the top again. Scroll the results
+      down, then Cancel: the noted row is back at the top of the pane at
+      the same height, to within a few points, and every row's preview is
+      filled within a second or two (the connection log shows a preview
+      FETCH after the cancel if any were missing). Scroll down again, tap
+      Refresh: the list goes to the top when the new page lands. Scroll a
+      screen down, Edit, tick two rows in view and Delete: the rows left in
+      view stay where they were. Scroll far past the first page and do the
+      same: the list goes to the top. With
+      Wi-Fi off, search from far down: "Could not search. Check the
+      connection." is on screen, not above it.
+- [ ] **B-042, paging upward.** In All Mail, Go to Date a few months back,
+      open a letter so its row is highlighted, and scroll up slowly past
+      the top of the window until the page above loads: the rows on screen
+      must not move, not even by a row, and the highlight must stay on the
+      letter in the reading pane. Best on a day where a conversation on
+      screen has a later reply: that row alone leaves for the top, and the
+      rest stay. Repeat with Edit on and three rows ticked: the same three
+      stay ticked. From the reading pane, Delete a letter whose row is just
+      above the top of the pane (open it, scroll it off, Delete): the rows
+      in view do not move. Flip Organize by Thread in Settings: the row at
+      the top stays at the top.
+- [ ] **B-042, Go to Date and Move.** Tap Go: "Going to <day>…" must be on
+      the status line while the sheet is still sliding away, then
+      "Showing <day>". From the Inbox, go to a day in All Mailboxes: All
+      Mail opens during the slide, saying "Going to <day>…". Double-tap Go
+      quickly: one jump in the connection log. With Airplane Mode on, Go:
+      "Can't connect to mail server." must appear, once the sheet has gone
+      if the failure came during the slide (the log's timestamps say
+      whether it did), and the status line goes back to what it said. Move a letter from the
+      reading pane: "Moving…" until the MOVE is answered; with Wi-Fi off,
+      the row comes back and the alert appears after the sheet has gone.
+      Double-tap a folder in the Move sheet: one MOVE in the log. Edit,
+      tick two, Move: "Moving…" until the list is fetched again. Start to
+      swipe the Go to Date sheet down and tap Go before letting go, with
+      Wi-Fi off: the alert may be lost with the sheet, but alerts after it,
+      a second later, must still appear (tap a letter: "Can't connect").
+- [ ] **B-042, the header's files.** Open a letter with two PDFs: both file
+      rows are in the header at the tap, grey, and turn blue when the
+      letter lands; nothing under the header moves then. Open a
+      conversation whose newest letter has files: the stack must not shift
+      when its body lands. A letter whose only picture is a signature logo
+      shows no file row before or after. Open a forwarded letter
+      (message/rfc822 inside): the rows before and after must be the same;
+      if they are not, the BODYSTRUCTURE and the downloaded letter
+      disagree about its parts, which the host cannot see with Gmail's own
+      structures. Tap a large PDF in one letter, and at once another letter
+      with a file: when the first download ends, the second letter's rows
+      stay grey until it lands, and a download of its own keeps its
+      spinner.
+- [ ] **B-042, Drafts.** Tap a draft: its row stays highlighted with a
+      spinner in the left gutter, the text beside it unmoved, until the
+      composer opens. Tap it again while it spins: one FETCH in the
+      connection log. Tap a second draft while the first spins: only the
+      second opens. With Wi-Fi off: the spinner stops, the highlight goes,
+      and "Can't connect to mail server." appears.
+- [ ] **B-042, WebKit's content process.** Force it out while a letter is
+      showing: on a device with a shell, `killall -9
+      com.apple.WebKit.WebContent`; otherwise leave for Safari and Photos,
+      open many large pages and a few videos, and come back. The
+      connection log must say "webview: content process ended". A single
+      letter comes back drawn, at the top, with no FETCH of the letter in
+      the log; its inline pictures reappear. A conversation with two
+      letters opened and one closed comes back the same way round, bodies
+      and pictures in; the pictures of any letter but the last one
+      downloaded are FETCHed again, which is expected. Killed while he is
+      in another app, it is drawn when he comes back, not before (the log
+      line comes first, then nothing until the return). Kill it while
+      "Loading…" is showing: the letter appears when it lands. Kill it
+      twice within a few seconds: "This message could not be shown." in
+      the pane, and tapping the letter again draws it. Then open a long
+      conversation (twenty letters or more) a few times on fast Wi-Fi: its
+      newest letter must never stay on "Loading…" (pane-13).
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
