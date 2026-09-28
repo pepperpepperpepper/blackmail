@@ -241,8 +241,16 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// To the first row, the newest.
+    ///
+    /// Laid out first, for the same reason as `scroll(to:)`: this runs
+    /// straight after `reloadData`, which has only scheduled the layout, and
+    /// an offset set before it runs is overridden by it. Seen on the iPad:
+    /// searching from part-way down the Inbox put the results under the old
+    /// offset, with the first hits scrolled out of sight above the search
+    /// field.
     @MainActor
     private func scrollToTop() {
+        tableView.layoutIfNeeded()
         tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
                                    animated: false)
     }
