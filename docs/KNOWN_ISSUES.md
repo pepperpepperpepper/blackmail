@@ -1662,9 +1662,11 @@ done as a runtime switch, off by default, instead of `#if DEBUG`; see B-030.)
 
 ## B-039 — A UID command could run in the wrong mailbox, and act on another letter
 
-**RESOLVED 2026-09-28.** Found in simulation, never seen on the iPad, which
-is not the same as never having happened: a read mark or a flag landing on
-the wrong letter looks like nothing at all.
+**RESOLVED 2026-09-28.** Found in simulation, then reproduced on the iPad
+against the build before the fix, and the fix confirmed there the same
+night (see "Confirmed on the iPad" below). A read mark or a flag landing on
+the wrong letter looks like nothing at all, so it may well have happened
+before anyone was looking.
 
 **What it was.** A UID means nothing outside the mailbox that issued it, and
 Gmail numbers each mailbox on its own, so one UID can name three different
@@ -1718,6 +1720,28 @@ own and the second read the closed connection as a dropped socket and
 retried into a new one: with a revoked app password, two failed logins
 for one moment of use. Every call already waiting when an attempt fails
 now gets that failure, and the password goes once.
+
+**Confirmed on the iPad, 2026-09-28**, on carlo's mailbox, driving the real
+UI: open a letter in the Inbox, type an All Mailboxes search for a word with hits in Trash and All Mail,
+tap Delete about half a second later, then read the connection log.
+
+- Build before the fix, first try: the delete's `SELECT "INBOX"` landed
+  between the search's `SELECT "[Gmail]/Spam"` and its SEARCH, so the Spam
+  SEARCH and its FETCH ran in the Inbox; the reload after the delete then
+  ran its `UID SEARCH ALL` and page FETCH in All Mail, and the list headed
+  "INBOX" showed All Mail's letters under blank previews.
+- Build before the fix, second try: the search's `SELECT "[Gmail]/Spam"`
+  landed between the delete's `SELECT "INBOX"` and its `UID MOVE 16`, so
+  the MOVE ran in Spam. Gmail answered `OK Success` with no COPYUID: nothing
+  moved, the app believed the letter gone, and it was still in the Inbox
+  after a relaunch. With All Mail selected at that instant it would have
+  binned All Mail's UID 16, a different letter.
+- Fixed build, same steps, twice: the delete went at a mailbox boundary of
+  the search as `SELECT "INBOX"` + `UID MOVE` in one hold, Gmail's COPYUID
+  named the letter that was open, the refresh ran wholly in the Inbox, and
+  every UID command in both logs ran in the mailbox it was meant for. An
+  All Mailboxes search on its own returned hits from Inbox, Trash and All
+  Mail with every preview filled, and the keyboard stayed up as they landed.
 
 **Tested** in `MailboxAtomicityTests`, over mailboxes that number their
 letters from the same UID so that a write in the wrong one changes some
