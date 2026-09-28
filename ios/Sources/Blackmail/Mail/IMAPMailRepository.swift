@@ -52,6 +52,13 @@ actor IMAPMailRepository: MailRepository {
     /// attributes RFC 6154 never defined, so they have no `Mailbox.Role` and
     /// cannot be found through `roleNames` at all.
     private var folderForAttribute: [String: String] = [:]
+    /// What LIST said last, nil until it has been asked. The two tables
+    /// above are learned from it, `folders()` answers from it, and every
+    /// sweep of the counts lists again and replaces it. See `knownListing`.
+    private var listed: [IMAPMailboxListing]?
+    /// The LIST on the wire, for anyone else who wants one to share rather
+    /// than send a second. See `freshListing`.
+    private var listing: Task<[IMAPMailboxListing], Error>?
     /// The ascending UID list per mailbox, and its UIDVALIDITY, as of the
     /// last time the list was started from the top. Paging walks this rather
     /// than re-issuing SEARCH ALL for every page. See `listMessages`, and
@@ -248,9 +255,19 @@ actor IMAPMailRepository: MailRepository {
     /// `Mailbox(id: "inbox")` on launch — while IMAP wants "INBOX" or
     /// "[Gmail]/Sent Mail". Anything that is not a known role is passed
     /// through untouched, so a real folder name works too.
+    ///
+    /// The roles come from LIST alone, asked once. This used to run the
+    /// whole sweep, a STATUS for every folder, and throw the counts away
+    /// for the one name it wanted; at launch that put the Inbox's SELECT
+    /// eighteen or so commands deep, behind eight unread counts, with the
+    /// folder pane's own sweep interleaved on top. The LIST cannot be
+    /// skipped for the Inbox, though "INBOX" is its name everywhere: without
+    /// the roles, the rows of the first page would be drawn without All Mail
+    /// among the folders they count in (`countedFolders`), and reading one
+    /// would leave All Mail's count high.
     private func resolve(_ id: String) async throws -> String {
         if let role = Mailbox.Role(rawValue: id.lowercased()) {
-            if roleNames.isEmpty { _ = try await listMailboxes() }
+            _ = try await knownListing()
             if let name = roleNames[role] { return name }
             if role == .inbox { return "INBOX" }
         }
@@ -260,16 +277,85 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - Mailboxes
 
-    func listMailboxes() async throws -> [Mailbox] {
-        try await retryingIfDisconnected {
-            try await self.listMailboxesOnce()
-        }
+    /// The folders as LIST last gave them, asking only if it never has.
+    private func knownListing() async throws -> [IMAPMailboxListing] {
+        if let listed { return listed }
+        return try await freshListing()
     }
 
-    private func listMailboxesOnce() async throws -> [Mailbox] {
-        let client = try await connected()
-        let listings = try await client.listMailboxes()
+    /// LIST, now, and what it says learned: the roles, the attribute table
+    /// and `listed`.
+    ///
+    /// A LIST already on the wire is joined rather than sent again. At
+    /// launch the folder pane wants the names and the Inbox wants its role
+    /// at the same moment, and two callers each finding nothing known used
+    /// to send one each.
+    ///
+    /// Its own task, so the LIST is not the property of whichever caller
+    /// happened to start it: a search cancelled by the next keystroke does
+    /// not take the others' answer with it. Retried like any read, because
+    /// a write that has to find a role's name comes through here without a
+    /// retry of its own.
+    private func freshListing() async throws -> [IMAPMailboxListing] {
+        if let listing { return try await listing.value }
+        let asked = Task { () async throws -> [IMAPMailboxListing] in
+            try await self.retryingIfDisconnected {
+                let found = try await self.connected().listMailboxes()
+                self.learn(found)
+                return found
+            }
+        }
+        listing = asked
+        defer { listing = nil }
+        return try await asked.value
+    }
 
+    /// Names, no counts: the folders from the last LIST, or from a LIST
+    /// alone if there has never been one.
+    ///
+    /// For what only needs the names. The Move sheet used to run the whole
+    /// sweep, a STATUS per folder it does not show, and opened empty until
+    /// it was done; from the reading pane a Move then ran a second sweep for
+    /// the sidebar. At launch the folder pane draws these while the Inbox
+    /// opens and asks for the counts after.
+    ///
+    /// A folder made in another client since the last sweep is missing
+    /// until the next one. Every Refresh sweeps.
+    func folders() async throws -> [Mailbox] {
+        Self.mailboxes(from: try await knownListing(), unread: [:])
+    }
+
+    /// The sweep: LIST, and the unread count of every folder in it.
+    ///
+    /// No read retry of its own. The LIST is retried in `freshListing`, and
+    /// a STATUS that fails leaves its folder at 0 rather than failing the
+    /// sweep, so a retry here could only repeat a LIST that had already
+    /// been retried, and would connect again doing it. When the socket has
+    /// died and the reconnect fails, the inner retry leaves the client
+    /// disconnected, which a retry at this level takes for a dropped
+    /// socket: the connect `retryingIfDisconnected` refuses to repeat would
+    /// be made twice, and a LOGIN refused without [AUTHENTICATIONFAILED]
+    /// sent twice.
+    func listMailboxes() async throws -> [Mailbox] {
+        let listings = try await freshListing()
+        let client = try await connected()
+
+        // Unread count is a STATUS per folder, so this is N round trips.
+        // Acceptable for the handful of folders one person has, and the
+        // count is not decoration: it is what tells him there is something
+        // new without opening anything.
+        var unread: [String: Int] = [:]
+        for l in listings where Self.isSelectable(l) {
+            if let counts = try? await client.status(l.name, items: ["UNSEEN"]),
+               let n = counts["UNSEEN"] {
+                unread[l.name] = Int(n)
+            }
+        }
+        return Self.mailboxes(from: listings, unread: unread)
+    }
+
+    /// The roles and the attribute table, from one LIST.
+    private func learn(_ listings: [IMAPMailboxListing]) {
         var found: [Mailbox.Role: String] = [:]
         var byAttribute: [String: String] = [:]
         for l in listings {
@@ -292,32 +378,28 @@ actor IMAPMailRepository: MailRepository {
         }
         roleNames = found
         folderForAttribute = byAttribute
+        listed = listings
+    }
 
+    /// \Noselect marks a container that holds folders but no mail —
+    /// "[Gmail]" itself is one. Tapping it would be an error, so it is not
+    /// offered, and it has no count to ask for.
+    private static func isSelectable(_ listing: IMAPMailboxListing) -> Bool {
+        !listing.attributes.contains { $0.caseInsensitiveCompare("\\Noselect") == .orderedSame }
+    }
+
+    /// The folder list the app shows, from LIST and whatever counts there
+    /// are. A folder with no count reads 0.
+    private static func mailboxes(from listings: [IMAPMailboxListing],
+                                  unread: [String: Int]) -> [Mailbox] {
         var out: [Mailbox] = []
-        for l in listings {
-            // \Noselect marks a container that holds folders but no mail —
-            // "[Gmail]" itself is one. Tapping it would be an error, so it is
-            // not offered.
-            if l.attributes.contains(where: { $0.caseInsensitiveCompare("\\Noselect") == .orderedSame }) {
-                continue
-            }
+        for l in listings where isSelectable(l) {
             let delimiter = l.delimiter ?? "/"
             let components = delimiter.isEmpty ? [l.name] : l.name.components(separatedBy: delimiter)
             let depth = max(0, components.count - 1)
             let display = components.last ?? l.name
-
-            // Unread count is a STATUS per folder, so this is N round trips.
-            // Acceptable for the handful of folders one person has, and the
-            // count is not decoration: it is what tells him there is something
-            // new without opening anything.
-            var unread = 0
-            if let counts = try? await client.status(l.name, items: ["UNSEEN"]),
-               let n = counts["UNSEEN"] {
-                unread = Int(n)
-            }
-
             out.append(Mailbox(id: l.name, name: display,
-                               unreadCount: unread, role: l.specialUse, depth: depth))
+                               unreadCount: unread[l.name] ?? 0, role: l.specialUse, depth: depth))
         }
 
         // Inbox first, then the other well-known roles in a fixed order, then
@@ -493,9 +575,13 @@ actor IMAPMailRepository: MailRepository {
     /// `countedFolders` are both easy to leave out of a copy, and leaving
     /// either out fails invisibly — blank previews, or a sidebar count that
     /// drifts.
+    ///
+    /// The addresses it notes are written out once, when the page is done,
+    /// and not once per address. See `RecipientBook.note`.
     private func rows(from fetched: [IMAPFetchResult], in mailboxID: String, name: String,
                       validity: UInt32) -> [MessageSummary] {
-        fetched.compactMap { r -> MessageSummary? in
+        defer { recipients.flush() }
+        return fetched.compactMap { r -> MessageSummary? in
             guard let uid = r.uid else { return nil }
             let env = r.envelope
             // Harvested here because it is FREE here. The list already asks

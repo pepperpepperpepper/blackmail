@@ -1756,3 +1756,71 @@ connection back. `RepositoryWireTests` has the rows drawn before a
 renumbering, paged both ways and previewed, and the refused password in
 both halves of the reconnect window; `ExchangeGateTests` has which line
 each command waits in. Each fails with its part of the fix reverted.
+
+---
+
+## B-040 — CHANGED 2026-09-28. Less of the connection spent on work he did not ask for
+
+Behaviour he could notice, from the third batch of the lag fixes. Checked
+on the scripted server (`RepositoryTrafficTests`); none of it has been
+seen on the iPad yet, and the TODO says what to look at.
+
+**At launch the Inbox comes first.** The connection sends LOGIN, one LIST,
+and the Inbox's first page, and only then asks for the unread counts, a
+STATUS per folder. It used to be the other way round: finding the Inbox's
+real name ran the whole count sweep, the folder pane ran another, and the
+Inbox's SELECT came eighteen or so commands in. The folder pane now shows
+the folder names as soon as that LIST answers, with no numbers beside
+them, and the numbers appear once the Inbox's rows are up. Before, the
+pane stayed empty until every count was in. If the Inbox cannot be
+fetched at all, the counts are not asked for: with a password Gmail
+refuses, or a server that cannot be reached, launch makes one attempt,
+and the counts come with the next Refresh. Asking for them anyway would
+connect again straight after the failure and send the refused password
+a second time.
+
+**The counts are asked for once, not once per reason.** About eight things
+ask for them: Delete, Move or Flag from the reading pane, deleting or
+moving a selection, Refresh, saving Settings, coming back after a while.
+Each used to run the whole sweep, and several in a row ran several.
+Now one sweep runs at a time, and anything that asks while it runs gets
+exactly one more sweep after it. That one more is what keeps the device
+bug recorded at `RootViewController.bindList` fixed: a sweep that had
+already counted the Inbox when an unread letter left it would otherwise
+be the last word, and the Inbox would read one too many. Nothing waits
+in front of a sweep, so the counts after a Move come as soon as the
+connection is free.
+
+A letter he reads while a sweep is out asks for one more as well. The
+read takes one off its folders once the server has the flag, and a sweep
+that counted the Inbox before that would land afterwards with the letter
+still unread. At launch that is the usual case, since the counts go out
+just as the Inbox's rows appear, which is when he taps the newest
+letter. The Inbox may read one too many for the length of that sweep,
+and is right once the next lands.
+
+**The Move sheet lists the folders the app last listed.** It used to ask
+for every folder's count, which it does not show, and opened empty for
+most of a second. It now takes the names from the last LIST, or sends a
+LIST alone the first time. So a folder made in another client since the
+last sweep is not offered until the next one; any Refresh is a sweep.
+
+**A jump into All Mail no longer shows today first.** Opening All Mail to
+jump to a day used to load and draw its newest page and then replace it
+with the day. The day is now the only thing it loads. If there is no
+mail on or after the day, or the jump fails, the newest page is loaded
+after all and the status line or the usual alert says why, so the pane
+is never left empty. A jump that fails once he has started a search, or
+opened another folder, is let go quietly, with no alert and no newest
+page: the list belongs to what he did next, and the newest page would
+clear the search box and what he had typed in it.
+
+**The address book is written once per page, not once per address.**
+Addresses seen in a page of mail are kept in memory and written out when
+the page is done, and whatever is left when the app goes into the
+background. An address he has sent to is still written at once. The
+book is also locked now: noting addresses from the connection while the
+composer ranks them for a keystroke, or while the book was being written
+out, could crash the app (B-038). Two writes at once, one at the end of a
+page and one as the app goes into the background, take turns, so the
+older copy cannot land last.

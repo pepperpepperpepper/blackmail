@@ -53,6 +53,14 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    /// The address book is written once per page of mail listed, so the
+    /// addresses noted since the last page, if any, are written here, while
+    /// the app is still allowed to run. A suspended app can be ended without
+    /// being told.
+    public func applicationDidEnterBackground(_ application: UIApplication) {
+        RecipientBook.shared.flush()
+    }
+
     /// Real mail if an account has been set up, the setup form if not.
     ///
     /// `MockMailRepository` is deliberately no longer reachable at runtime. It

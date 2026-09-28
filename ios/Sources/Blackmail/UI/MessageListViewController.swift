@@ -330,14 +330,26 @@ final class MessageListViewController: UITableViewController {
         buildBottomBar()
 
         Task { @MainActor in
-            await reload()
             // A jump asked for before this pane existed — the container
-            // opened All Mail in order to serve it — runs once the folder
-            // is actually up.
-            if let pending = self.pendingJump {
-                self.pendingJump = nil
-                self.jump(to: pending)
-            }
+            // opened All Mail in order to serve it — runs INSTEAD of the
+            // newest page, which it used to follow and throw away. The
+            // newest page comes only if the jump finds nothing or fails;
+            // see `ListOpening`.
+            let day = self.pendingJump
+            self.pendingJump = nil
+            // False only when the newest page was asked for and could not
+            // be fetched. A jump that landed, or one another action took
+            // over, leaves nothing to say about the connection.
+            var came = true
+            let fellBack = await ListOpening.open(
+                at: day,
+                jump: { date in
+                    await self.landWindow(around: date, generation: self.startReplacingList())
+                },
+                newest: { came = await self.reload() })
+            if let day, let fellBack { self.report(fellBack, jumpingTo: day) }
+            self.onFirstLoadFinished?(came)
+            self.onFirstLoadFinished = nil
         }
     }
 
@@ -345,8 +357,15 @@ final class MessageListViewController: UITableViewController {
     /// jump in it.
     var pendingJump: Date?
 
+    /// Called once, when this list's first rows have been fetched or have
+    /// failed to be, with false for the second. At launch the folder counts
+    /// wait for it, and are not asked for after a failure.
+    var onFirstLoadFinished: ((Bool) -> Void)?
+
+    /// Returns whether the page came.
     @MainActor
-    func reload() async {
+    @discardableResult
+    func reload() async -> Bool {
         listGeneration += 1
         stopSearching()
         isLoadingPage = false
@@ -373,8 +392,10 @@ final class MessageListViewController: UITableViewController {
             updateEmptyState()
             updatePageFooter()
             loadPreviews(for: first)
+            return true
         } catch {
             ErrorPresenter.show(.cannotConnect, on: self)
+            return false
         }
     }
 
@@ -406,81 +427,108 @@ final class MessageListViewController: UITableViewController {
     /// that no longer exists.
     @MainActor
     func jump(to date: Date) {
+        let generation = startReplacingList()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let outcome = await self.landWindow(around: date, generation: generation)
+            self.report(outcome, jumpingTo: date)
+        }
+    }
+
+    /// Everything in flight belongs to the list about to be replaced.
+    /// Returns the new list's generation.
+    @MainActor
+    private func startReplacingList() -> Int {
         listGeneration += 1
         stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
-        let generation = listGeneration
+        return listGeneration
+    }
 
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            let window: MessageWindow?
-            do {
-                window = try await self.repository.messages(around: date, in: self.mailbox.id,
-                                                            limit: Self.pageSize)
-            } catch {
-                ErrorPresenter.show(.cannotConnect, on: self)
-                return
-            }
-            guard generation == self.listGeneration else { return }
-
-            guard let window, !window.messages.isEmpty else {
-                // Nothing that recent in this folder. Say so rather than
-                // leaving the list where it was, which reads as the button
-                // having done nothing at all.
-                self.statusLabel.text =
-                    "No mail on or after \(IMAPDate.spokenDay(date))"
-                self.statusLabel.sizeToFit()
-                return
-            }
-
-            // Leaving search on would hide the window we just fetched
-            // behind the previous result set.
-            self.filtered = nil
-            self.searchQuery = ""
-            self.searchBar.clear()
-
-            self.messages = window.messages
-            self.reachedNewestMessage = window.reachedNewest
-            self.reachedOldestMessage = window.reachedOldest
-            self.rebuildRows()
-            self.tableView.reloadData()
-            self.updateEmptyState()
-            self.updatePageFooter()
-
-            // `.top` and not `.middle`: the day he asked for should be the
-            // first line he reads, with the days after it above, which is
-            // how a page of a diary opens.
-            //
-            // `layoutIfNeeded` first, because `scrollToRow` computes its
-            // offset from the CURRENT content size and `reloadData` has only
-            // scheduled the layout, not performed it. Without it the scroll
-            // is computed against the previous list's height.
-            //
-            // A short folder cannot always honour it — if there is less
-            // than a screenful below the anchor the table clamps to its
-            // last row, which is correct: there is nowhere further to go.
-            self.tableView.layoutIfNeeded()
-            // The anchor is an index into the flat window; the list shows
-            // conversations. Scroll to the ROW that carries that letter,
-            // which for a message inside a collapsed thread is the
-            // thread's own row.
-            let anchorIndex = min(window.anchorIndex, window.messages.count - 1)
-            let anchorID = window.messages[anchorIndex].id
-            if let row = self.rowIndex(showing: anchorID) {
-                self.tableView.scrollToRow(at: IndexPath(row: row, section: 0),
-                                           at: .top, animated: false)
-            }
-
-            // The bottom bar stops reporting freshness and starts reporting
-            // WHERE HE IS, which for a list that no longer starts at today
-            // is the more urgent of the two. It goes back to "Updated Just
-            // Now" on the next refresh.
-            self.statusLabel.text = "Showing \(IMAPDate.spokenDay(window.landedOn))"
-            self.statusLabel.sizeToFit()
-
-            self.loadPreviews(for: window.messages)
+    /// What he is told about a jump that did not land. Nothing that recent
+    /// is said on the status line rather than leaving the list where it
+    /// was, which reads as the button having done nothing at all.
+    @MainActor
+    private func report(_ outcome: ListOpening.Jump, jumpingTo date: Date) {
+        switch outcome {
+        case .failed:
+            ErrorPresenter.show(.cannotConnect, on: self)
+        case .nothingThatRecent:
+            statusLabel.text = "No mail on or after \(IMAPDate.spokenDay(date))"
+            statusLabel.sizeToFit()
+        case .landed, .superseded:
+            break
         }
+    }
+
+    /// Fetches the mail around `date` and puts it on screen, unless the list
+    /// has been replaced since `generation` was taken. See
+    /// `ListOpening.settle`, which decides, and why a failure is no
+    /// different there.
+    @MainActor
+    private func landWindow(around date: Date, generation: Int) async -> ListOpening.Jump {
+        let fetched: Result<MessageWindow?, Error>
+        do {
+            fetched = .success(try await repository.messages(around: date, in: mailbox.id,
+                                                             limit: Self.pageSize))
+        } catch {
+            fetched = .failure(error)
+        }
+        let outcome = ListOpening.settle(fetched, current: generation == listGeneration)
+        if outcome == .landed, let window = try? fetched.get() { show(window) }
+        return outcome
+    }
+
+    /// Replaces the list with the mail around a day, scrolled to the day.
+    @MainActor
+    private func show(_ window: MessageWindow) {
+        // Leaving search on would hide the window we just fetched
+        // behind the previous result set.
+        filtered = nil
+        searchQuery = ""
+        searchBar.clear()
+
+        messages = window.messages
+        reachedNewestMessage = window.reachedNewest
+        reachedOldestMessage = window.reachedOldest
+        rebuildRows()
+        tableView.reloadData()
+        updateEmptyState()
+        updatePageFooter()
+
+        // `.top` and not `.middle`: the day he asked for should be the
+        // first line he reads, with the days after it above, which is
+        // how a page of a diary opens.
+        //
+        // `layoutIfNeeded` first, because `scrollToRow` computes its
+        // offset from the CURRENT content size and `reloadData` has only
+        // scheduled the layout, not performed it. Without it the scroll
+        // is computed against the previous list's height.
+        //
+        // A short folder cannot always honour it — if there is less
+        // than a screenful below the anchor the table clamps to its
+        // last row, which is correct: there is nowhere further to go.
+        tableView.layoutIfNeeded()
+        // The anchor is an index into the flat window; the list shows
+        // conversations. Scroll to the ROW that carries that letter,
+        // which for a message inside a collapsed thread is the
+        // thread's own row.
+        let anchorIndex = min(window.anchorIndex, window.messages.count - 1)
+        let anchorID = window.messages[anchorIndex].id
+        if let row = rowIndex(showing: anchorID) {
+            tableView.scrollToRow(at: IndexPath(row: row, section: 0),
+                                  at: .top, animated: false)
+        }
+
+        // The bottom bar stops reporting freshness and starts reporting
+        // WHERE HE IS, which for a list that no longer starts at today
+        // is the more urgent of the two. It goes back to "Updated Just
+        // Now" on the next refresh.
+        statusLabel.text = "Showing \(IMAPDate.spokenDay(window.landedOn))"
+        statusLabel.sizeToFit()
+
+        loadPreviews(for: window.messages)
     }
 
     // MARK: - Paging

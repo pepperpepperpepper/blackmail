@@ -53,7 +53,28 @@ final class RecipientBook {
 
     private static let storageKey = "blackmail.recipients"
 
+    /// Written from the repository's actor as envelopes go past, and read on
+    /// the main thread at every keystroke in an address field, so every
+    /// touch of it is under `lock`. Without it a read that met a write
+    /// could crash the app: `suggestions(for:)` copying the values while an
+    /// insert or an eviction rebuilt the dictionary.
     private var entries: [String: KnownRecipient] = [:]
+    /// Something has changed since the book was last written out. Under
+    /// `lock` with `entries`, because a flush from one thread has to see
+    /// what another has noted.
+    private var dirty = false
+    /// Held for the dictionary and the flag, and for nothing else: never
+    /// across the encode or the write to the defaults. A keystroke waits at
+    /// most for one `record`, a few microseconds, and never for a flush.
+    /// Not an actor for the same reason: that would make `suggestions(for:)`
+    /// async, and the rows would appear a run-loop turn after the letter he
+    /// typed.
+    private let lock = NSLock()
+    /// Puts flushes in single file, and is taken by nothing else. Two at
+    /// once, from the repository and from the app going into the
+    /// background, could otherwise finish in the other order and leave the
+    /// older copy on disk. Neither the composer nor a note ever waits on it.
+    private let flushing = NSLock()
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -64,13 +85,24 @@ final class RecipientBook {
     // MARK: - Recording
 
     /// Seen in passing — in a list, or on a message he opened.
+    ///
+    /// Kept in memory only. Whoever notes a batch flushes once when it is
+    /// done: the repository at the end of each page of rows. Writing the
+    /// whole book out per address meant re-encoding three hundred entries
+    /// a hundred times for every fifty rows, about 1.2 ms each time, on the
+    /// repository's actor, so every other call to it waited for the page.
     func note(address: String, name: String? = nil) {
         record(address: address, name: name, chosen: false)
     }
 
     /// Actually addressed a letter to. Ranks above anything merely seen.
+    ///
+    /// Written out at once. It happens once per recipient of a letter he
+    /// sends, and a use is the one thing about an address that watching his
+    /// mail go past cannot teach the book again.
     func used(address: String, name: String? = nil) {
         record(address: address, name: name, chosen: true)
+        flush()
     }
 
     private func record(address: String, name: String?, chosen: Bool) {
@@ -78,6 +110,10 @@ final class RecipientBook {
         // A bare word is not an address, and neither is an empty one.
         guard key.contains("@"), key.count > 2 else { return }
 
+        let seen = Date()
+
+        lock.lock()
+        defer { lock.unlock() }
         var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
                                                    lastSeen: .distantPast)
         // A name once learned is kept unless a better one turns up. Senders
@@ -86,15 +122,15 @@ final class RecipientBook {
             entry.name = name.trimmingCharacters(in: .whitespaces)
         }
         if chosen { entry.uses += 1 }
-        entry.lastSeen = Date()
+        entry.lastSeen = seen
         entries[key] = entry
         evictIfNeeded()
-        save()
+        dirty = true
     }
 
     /// Drops the least useful when full: never-chosen entries first, oldest
     /// first within that. Someone he has actually written to survives a
-    /// thousand newsletters.
+    /// thousand newsletters. The caller holds `lock`.
     private func evictIfNeeded() {
         guard entries.count > Self.capacity else { return }
         let ordered = entries.values.sorted {
@@ -110,7 +146,12 @@ final class RecipientBook {
 
     func suggestions(for query: String, limit: Int = RecipientBook.suggestionLimit)
         -> [KnownRecipient] {
-        Self.rank(Array(entries.values), matching: query, limit: limit)
+        // Copied under the lock and ranked outside it: the ranking takes
+        // about a millisecond, the copy a few microseconds.
+        lock.lock()
+        let all = Array(entries.values)
+        lock.unlock()
+        return Self.rank(all, matching: query, limit: limit)
     }
 
     /// The pure half, so the ordering can be tested without a store.
@@ -167,14 +208,39 @@ final class RecipientBook {
         entries = Dictionary(stored.map { ($0.address, $0) }, uniquingKeysWith: { a, _ in a })
     }
 
-    private func save() {
-        guard let data = try? JSONEncoder().encode(Array(entries.values)) else { return }
+    /// Writes the book out if anything has changed since it last was.
+    ///
+    /// Once per page of rows from the repository, at once for an address he
+    /// has sent to, and when the app goes into the background. What was
+    /// noted since the last flush is lost if the app is killed first, which
+    /// costs nothing: the next listing notes it again.
+    ///
+    /// The entries are copied under `lock` and encoded outside it, so a
+    /// keystroke never waits for the encode. A fresh `JSONEncoder` each
+    /// time is deliberate; keeping one was measured and bought nothing.
+    func flush() {
+        flushing.lock()
+        defer { flushing.unlock() }
+
+        lock.lock()
+        guard dirty else {
+            lock.unlock()
+            return
+        }
+        let snapshot = Array(entries.values)
+        dirty = false
+        lock.unlock()
+
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
         defaults.set(data, forKey: Self.storageKey)
     }
 
     /// Test seam.
     func removeAll() {
+        lock.lock()
         entries = [:]
+        dirty = false
+        lock.unlock()
         defaults.removeObject(forKey: Self.storageKey)
     }
 }

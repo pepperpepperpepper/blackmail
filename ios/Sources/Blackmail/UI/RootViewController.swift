@@ -142,9 +142,23 @@ final class RootViewController: UIViewController {
         // the whole first page again, blank the previews that had already
         // landed, and clear a search typed in the first seconds after
         // launch, keyboard and all.
+        //
+        // In this order on the wire: LOGIN, the one LIST the folder names
+        // and the Inbox's role share, the Inbox's first page, and only then
+        // the unread counts, a STATUS per folder. The counts used to go
+        // first, the Inbox's SELECT eighteen or so commands deep.
         Task { @MainActor in
-            await mailboxList.reload()
+            await mailboxList.showFolders()
             mailboxList.select(mailboxID: "inbox")   // opens into Inbox, and shows that it did
+        }
+        // Asked for now, sent once the Inbox's first page has come: the
+        // folder pane holds its sweeps until it is told to let them go. If
+        // the page could not be fetched the counts are not asked for at
+        // all, since they would connect again straight after the connect
+        // that failed, and send a refused password a second time.
+        mailboxList.refreshCounts()
+        list.onFirstLoadFinished = { [weak self] came in
+            self?.mailboxList.releaseSweeps(firstPageCame: came)
         }
     }
 
@@ -201,10 +215,8 @@ final class RootViewController: UIViewController {
         let inbox = mailboxList.mailbox(for: .inbox)
             ?? Mailbox(id: "inbox", name: "Inbox", unreadCount: 0, role: .inbox)
         openMailbox(inbox)
-        Task { @MainActor in
-            await mailboxList.reload()
-            mailboxList.select(mailboxID: inbox.id)
-        }
+        mailboxList.select(mailboxID: inbox.id)
+        mailboxList.refreshCounts()
     }
 
     override func viewWillTransition(to size: CGSize, with c: UIViewControllerTransitionCoordinator) {
@@ -286,13 +298,13 @@ final class RootViewController: UIViewController {
     ///
     /// The re-select is not optional: `reloadData` drops the selection, so
     /// without it the folder he is reading stops looking like the folder he
-    /// is reading.
+    /// is reading. The folder pane puts it back after each sweep.
+    ///
+    /// Requests that overlap are merged into at most one more sweep, which
+    /// starts after the latest of them; see `SweepCoalescer`.
     private func refreshMailboxes() {
-        let current = list.mailboxID
-        Task { @MainActor in
-            await mailboxList.reload()
-            mailboxList.select(mailboxID: current)
-        }
+        mailboxList.select(mailboxID: list.mailboxID)
+        mailboxList.refreshCounts()
     }
 
     /// Swaps the middle pane's contents. Deliberately `setViewControllers`

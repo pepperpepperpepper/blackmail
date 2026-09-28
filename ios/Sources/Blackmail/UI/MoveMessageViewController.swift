@@ -37,7 +37,12 @@ final class MoveMessageViewController: UITableViewController {
         navigationItem.leftBarButtonItem?.setTitleTextAttributes(
             [.font: Theme.fontBarButton], for: .normal)
         Task { @MainActor in
-            let all = (try? await repository.listMailboxes()) ?? []
+            // Names only, which is all a sheet of folder names needs: the
+            // folders the pane last listed, or a LIST alone if it never has.
+            // This used to be the whole sweep, a STATUS for every folder
+            // whose count the sheet does not show, and the sheet sat empty
+            // until it was done.
+            let all = (try? await repository.folders()) ?? []
             // Case-insensitive, because the two sides genuinely disagree on
             // spelling: the list pane opens on the role word "inbox" at
             // launch, while LIST names the same folder "INBOX". An exact

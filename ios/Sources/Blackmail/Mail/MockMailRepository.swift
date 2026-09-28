@@ -31,6 +31,10 @@ final class MockMailRepository: MailRepository {
 
     func listMailboxes() async throws -> [Mailbox] { mailboxes }
 
+    func folders() async throws -> [Mailbox] {
+        mailboxes.map { var m = $0; m.unreadCount = 0; return m }
+    }
+
     func listMessages(in mailboxID: String, beforeUID: String?, limit: Int) async throws -> [MessageSummary] {
         let all = messages[mailboxID] ?? []
         guard let beforeUID, let idx = all.firstIndex(where: { $0.id == beforeUID }) else {

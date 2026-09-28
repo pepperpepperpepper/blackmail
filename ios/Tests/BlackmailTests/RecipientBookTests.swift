@@ -143,6 +143,127 @@ final class RecipientBookTests: XCTestCase {
                        "carlo@example.org")
     }
 
+    /// The repository notes addresses on its own actor as a page of rows is
+    /// built, while the composer ranks them on the main thread at every
+    /// keystroke. With nothing between the two, a read that met a write
+    /// crashed the app, every run of this.
+    ///
+    /// The writer mostly updates, and now and then brings in a newcomer,
+    /// which the full book makes room for by evicting; a flush now and
+    /// then copies the entries too.
+    func testNotingOnOneThreadWhileAnotherAsksForSuggestionsIsSafe() {
+        let suite = UserDefaults(suiteName: #function)!
+        let book = RecipientBook(defaults: suite)
+        book.removeAll()
+
+        let written = Flag()
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            for i in 0..<5_000 {
+                let n = i % 50 == 0 ? 1_000 + i : i % 290
+                book.note(address: "person\(n)@example.com", name: "Person \(n)")
+                if i % 2_000 == 0 { book.flush() }
+            }
+            written.set()
+            done.signal()
+        }
+        var asked = 0
+        while !written.isSet {
+            _ = book.suggestions(for: "")
+            asked += 1
+        }
+        done.wait()
+
+        XCTAssertGreaterThan(asked, 0)
+        XCTAssertEqual(book.suggestions(for: "", limit: 1_000).count, RecipientBook.capacity)
+        suite.removePersistentDomain(forName: #function)
+    }
+
+    /// The repository flushes at the end of every page on its own actor,
+    /// while the app flushes on the main thread as it goes into the
+    /// background and after every letter sent. A flush copies the entries
+    /// and clears the dirty flag while another thread may be noting, so
+    /// both are under the same lock as the note. Without it this crashed
+    /// thirty runs out of thirty.
+    ///
+    /// Ten rounds, each from an empty book, because a copy that meets a
+    /// write fails soonest while the dictionary is still growing, as it
+    /// does on a first launch. The writer never brings in a newcomer past
+    /// the book's capacity: the eviction sorts the whole book and would
+    /// slow it to a crawl. The writes are counted and dropped, so the
+    /// flushes come as fast as they can be encoded.
+    func testFlushingOnOneThreadWhileAnotherNotesIsSafe() {
+        let defaults = DiscardingDefaults(suiteName: #function)!
+        let book = RecipientBook(defaults: defaults)
+
+        let written = Flag()
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            for _ in 0..<10 {
+                book.removeAll()
+                for i in 0..<500 {
+                    let n = i % 290
+                    book.note(address: "person\(n)@example.com", name: "Person \(n)")
+                }
+            }
+            written.set()
+            done.signal()
+        }
+        var flushes = 0
+        while !written.isSet {
+            book.flush()
+            flushes += 1
+        }
+        done.wait()
+        book.flush()
+
+        XCTAssertGreaterThan(flushes, 0)
+        XCTAssertGreaterThan(defaults.writes.value, 0)
+        XCTAssertEqual(book.suggestions(for: "", limit: 1_000).count, 290)
+    }
+
+    /// Two flushes at once, the repository's at the end of a page and the
+    /// app's going into the background, write in the order they copied the
+    /// book. The first has copied it without Jane and is still writing
+    /// when she is noted and the second starts; the second, which has her,
+    /// must be the one left on disk.
+    ///
+    /// The second waits its turn for at most 20 ms here, long enough to
+    /// finish first if nothing made it wait, and in the app for as long as
+    /// the first takes.
+    func testTwoFlushesAtOnceLeaveTheLaterCopyOnDisk() {
+        let suite = "RecipientBookTests.twoFlushes"
+        let defaults = GatedDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let book = RecipientBook(defaults: defaults)
+        book.note(address: "sam@example.com", name: "Sam Example")
+
+        let firstDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            book.flush()
+            firstDone.signal()
+        }
+        XCTAssertEqual(defaults.firstWriteStarted.wait(timeout: .now() + 5), .success)
+
+        book.note(address: "jane@example.com", name: "Jane Example")
+        let secondDone = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            book.flush()
+            secondDone.signal()
+        }
+        let secondFinishedFirst = secondDone.wait(timeout: .now() + .milliseconds(20)) == .success
+        defaults.firstWriteMayFinish.signal()
+        XCTAssertEqual(firstDone.wait(timeout: .now() + 5), .success)
+        if !secondFinishedFirst {
+            XCTAssertEqual(secondDone.wait(timeout: .now() + 5), .success)
+        }
+
+        XCTAssertFalse(secondFinishedFirst, "the second flush did not wait for the first")
+        XCTAssertEqual(Set(RecipientBook(defaults: defaults).suggestions(for: "").map(\.address)),
+                       ["jane@example.com", "sam@example.com"])
+    }
+
     // MARK: - Filling the field
 
     func testChoosingAnAddressReplacesOnlyTheHalfTypedOne() {
@@ -171,5 +292,32 @@ final class RecipientBookTests: XCTestCase {
         XCTAssertEqual(MailFormat.currentRecipientToken(in: "a@b.com, mar"), "mar")
         XCTAssertEqual(MailFormat.currentRecipientToken(in: "mar"), "mar")
         XCTAssertEqual(MailFormat.currentRecipientToken(in: ""), "")
+    }
+}
+
+/// Defaults whose first write stops half way until the test lets it go:
+/// a flush caught in the middle of writing the book out.
+private final class GatedDefaults: UserDefaults, @unchecked Sendable {
+    let firstWriteStarted = DispatchSemaphore(value: 0)
+    let firstWriteMayFinish = DispatchSemaphore(value: 0)
+    private let first = Flag()
+
+    override func set(_ value: Any?, forKey defaultName: String) {
+        if !first.isSet {
+            first.set()
+            firstWriteStarted.signal()
+            _ = firstWriteMayFinish.wait(timeout: .now() + 5)
+        }
+        super.set(value, forKey: defaultName)
+    }
+}
+
+/// Defaults that count the writes and keep none of them: a flush as cheap
+/// as its encoding, so a test can run as many as possible.
+private final class DiscardingDefaults: UserDefaults, @unchecked Sendable {
+    let writes = Counter()
+
+    override func set(_ value: Any?, forKey defaultName: String) {
+        writes.add()
     }
 }

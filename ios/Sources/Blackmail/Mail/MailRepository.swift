@@ -13,7 +13,15 @@ import Foundation
 /// 3. `Attachment` had no way to get its bytes, so "view/download/share" was
 ///    unimplementable as specified.
 protocol MailRepository {
+    /// Every folder with its unread count: LIST, and a STATUS per folder.
+    /// The sidebar's sweep.
     func listMailboxes() async throws -> [Mailbox]
+
+    /// The folders without their counts, from what the last LIST said, or
+    /// from a LIST alone when nothing has been listed yet. Every count reads
+    /// 0. For what shows names only, the Move sheet, and the folder pane
+    /// while the first page of the Inbox is still on its way.
+    func folders() async throws -> [Mailbox]
 
     /// Newest first. `beforeUID` nil means "from the top".
     ///

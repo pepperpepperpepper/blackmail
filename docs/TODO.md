@@ -18,17 +18,31 @@ this host. Ordered by value, not by size.
       `show(thread:)` at :229 already does exactly this and its comment says
       why. Also fixes the case where, after a delete, the next tap re-reveals
       the letter he just deleted. Most-hit action in the app. (B-038 #1)
-- [ ] **P2. Batch `RecipientBook`'s flush.** `RecipientBook.swift:92` —
+- [x] **P2. Batch `RecipientBook`'s flush.** `RecipientBook.swift:92` —
       `record()` re-encodes and rewrites the whole address book per harvested
       address, ~150-190 ms per 50-row page, 1000+ calls on a wide search.
       Drop `save()` from `record()`, dirty-flag it, flush once at the end of
       `summaries()`. Do **not** hoist the `JSONEncoder` — measured, it buys
       nothing. (B-038 #2)
-- [ ] **P3. Lock `RecipientBook.entries`.** Same file, correctness not
+      *Done: `note()` only marks the book dirty and the repository flushes
+      once per set of rows it builds (`rows(from:…)`, which every page,
+      jump and search goes through); `used()` still writes at once, and
+      the app writes whatever is left when it goes into the background.
+      A 50-row page is one write, not a hundred (`RepositoryTrafficTests`).
+      Release build on this host: 4.5 ms per page against 382 ms, of which
+      the device-honest encoding part was about 128 ms.*
+- [x] **P3. Lock `RecipientBook.entries`.** Same file, correctness not
       performance: mutated from the repository actor, read on the MainActor
       per keystroke, SIGSEGV reproduced 8/8. `NSLock` around the dictionary
       access **only** — never held across `save()`, and do not make it an
       actor. Do it with P2, same file. (B-038 #10)
+      *Done: the dictionary and the dirty flag are under one `NSLock`, held
+      for the insert or the copy and never across the encode or the write.
+      Flushes queue behind a second lock of their own, which nothing on the
+      keystroke path takes. `RecipientBookTests` notes on one thread while
+      another asks for suggestions, and while another flushes; without the
+      lock either crashes every run. Two flushes caught at once leave the
+      later copy on disk, and without the flush lock the older.*
 - [x] **P4. Delete the duplicate cold-launch reload.**
       `RootViewController.swift:141`. Beyond the wasted round trips it blanks
       out previews that already landed and **erases a search typed in the
@@ -57,6 +71,19 @@ this host. Ordered by value, not by size.
       `[UInt8]` + `withUnsafeBytes`, exactly as `decodeQuotedPrintable` above
       it already learned to. 5.7-11x on attachment and inline-image decode.
       (B-038 #5)
+- [x] **Less of the connection spent on work he did not ask for.**
+      *Done: cold launch sends LOGIN, one LIST shared by the folder names
+      and the Inbox's role, and the Inbox's first page, and only then the
+      unread counts (`PERFORMANCE.md` #6), and not at all if that page
+      could not be fetched. The counts' sweeps run one at a time, and
+      requests made during one become exactly one more, as does a letter
+      read during one (`SweepCoalescer`). The Move sheet lists the folders
+      from the last LIST, or a LIST alone, with no STATUS. A folder opened
+      to jump to a day loads the day instead of loading today first, and a
+      jump that fails after the list has moved on leaves it alone
+      (`ListOpening`).
+      Checked on the scripted server in `RepositoryTrafficTests`; see
+      B-040 for what changed that he could notice.*
 - [x] **Every UID command in its own mailbox, and the letter he opens
       first.** A SELECT and the command after it took the connection
       separately, so a Delete during a search could bin another letter
@@ -117,6 +144,21 @@ this host. Ordered by value, not by size.
       interactive line are checked on the scripted server, which knows
       nothing of Gmail's own SEARCH time on Trash and Spam, and that time
       decides what the binned half of a search still costs.
+- [ ] Watch a cold launch in the connection log: LOGIN, one LIST, the
+      Inbox's SELECT, SEARCH and FETCH, and only then a STATUS per folder.
+      Then move an unread letter out of the Inbox from the reading pane and
+      check both folders' counts come right, which they must within one
+      sweep of the MOVE (B-040). The order and the counts are checked on the
+      scripted server; the folder pane drawing names first and counts a
+      moment later has not been seen on glass.
+      The host suite checks the rules, not the UIKit wiring that applies
+      them, which it cannot compile, so on glass also check: the counts do
+      appear after launch (the folder pane holds them until
+      `onFirstLoadFinished` lets them go, and nothing else would), and do
+      not after a launch with Wi-Fi off; tapping the newest unread letter
+      the moment the Inbox appears leaves the Inbox's count right once the
+      counts have settled (`adjustUnreadCounts` asking for one more); and
+      the Move sheet opens with its folders at once.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

@@ -22,10 +22,19 @@ final class MailboxListViewController: UITableViewController {
 
     private let repository: MailRepository
     private var mailboxes: [Mailbox] = []
-    /// Bumped on every reload, so two overlapping server sweeps cannot land
-    /// oldest-last and visibly revert the counts. The message list already
-    /// guards the identical hazard with `previewGeneration`.
-    private var reloadGeneration = 0
+    /// The folder the highlight is on, so a sweep's `reloadData`, which
+    /// drops the selection, can put it back.
+    private var highlightedID: String?
+    /// The counts, one sweep at a time; see `SweepCoalescer`. That is also
+    /// what keeps two sweeps from landing oldest-last and visibly reverting
+    /// the counts, which a generation number used to guard here.
+    ///
+    /// Held from the start: at launch the Inbox's first page goes before
+    /// any count. The container lets them go (`releaseSweeps`) once that
+    /// page has been tried, and drops the launch's sweep if it failed.
+    private lazy var sweeps = SweepCoalescer(held: true) { [weak self] in
+        await self?.sweepOnce()
+    }
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -55,23 +64,50 @@ final class MailboxListViewController: UITableViewController {
         // not a control.
     }
 
+    /// The folders' names from LIST alone, drawn while the counts wait.
+    ///
+    /// At launch the pane was empty until every folder's STATUS had come
+    /// back, and those went before the Inbox. The names cost nothing extra
+    /// now: the Inbox needs the same LIST to find its role, and shares it.
+    /// Never over a sweep that has landed, which has the counts as well.
     @MainActor
-    func reload() async {
-        reloadGeneration += 1
-        let generation = reloadGeneration
+    func showFolders() async {
+        guard let names = try? await repository.folders(), mailboxes.isEmpty else { return }
+        show(names)
+    }
+
+    /// Asks for the unread counts: LIST and a STATUS per folder. Merged with
+    /// a sweep already running, and with every other request made while it
+    /// runs, into at most one more.
+    @MainActor
+    func refreshCounts() {
+        sweeps.request()
+    }
+
+    /// Lets the counts go at launch, once the Inbox's first page has been
+    /// tried. A request made before this waits for it, and is dropped if
+    /// the page could not be fetched: the sweep would only connect again
+    /// straight after the connect that failed. See
+    /// `SweepCoalescer.release(runningOwed:)`.
+    @MainActor
+    func releaseSweeps(firstPageCame: Bool) {
+        sweeps.release(runningOwed: firstPageCame)
+    }
+
+    @MainActor
+    private func sweepOnce() async {
         do {
-            let fresh = try await repository.listMailboxes()
-            // A newer sweep started while this one was in flight. Its
-            // snapshot is closer to the truth, so this one is discarded
-            // rather than allowed to overwrite it — LIST plus one STATUS per
-            // folder is nine round trips, and completion order is not
-            // submission order.
-            guard generation == reloadGeneration else { return }
-            mailboxes = fresh
-            tableView.reloadData()
+            show(try await repository.listMailboxes())
         } catch {
             ErrorPresenter.show(.cannotConnect, on: self)
         }
+    }
+
+    @MainActor
+    private func show(_ fresh: [Mailbox]) {
+        mailboxes = fresh
+        tableView.reloadData()
+        if let highlightedID { select(mailboxID: highlightedID) }
     }
 
     /// Applies a local change to one or more folders' unread counts.
@@ -86,8 +122,15 @@ final class MailboxListViewController: UITableViewController {
     /// provide would vanish the instant the first message in a folder was
     /// read. The visible cell is patched directly instead, exactly as
     /// `MessageListViewController.apply(_:)` does for the same reason.
+    ///
+    /// A sweep still on its way may have counted these folders before the
+    /// change reached the server, and would put the old count back when it
+    /// lands; so one more is asked for, whether or not the arithmetic
+    /// changed anything here. At launch it often does not: the letter he
+    /// reads first is read while the pane still has names and no counts.
     @MainActor
     func adjustUnreadCounts(_ mailboxIDs: [String], by delta: Int) {
+        sweeps.requestIfRunning()
         for id in mailboxIDs {
             guard let i = mailboxes.firstIndex(matchingMailboxID: id) else { continue }
             let updated = max(0, mailboxes[i].unreadCount + delta)
@@ -187,12 +230,18 @@ final class MailboxListViewController: UITableViewController {
     /// the row and clearing it, which is right for a pane that gets pushed
     /// away, would throw that away.
     override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
-        onSelectMailbox?(groups[ip.section][ip.row])
+        let chosen = groups[ip.section][ip.row]
+        highlightedID = chosen.id
+        onSelectMailbox?(chosen)
     }
 
-    /// Restores the highlight after a reload, since `reloadData` drops it.
+    /// Moves the highlight to a folder, and keeps it there across the
+    /// reloads that follow, since `reloadData` drops it. Remembered even
+    /// when the folder is not on screen yet, as at launch before the first
+    /// LIST, so the first reload puts it on.
     @MainActor
     func select(mailboxID: String) {
+        highlightedID = mailboxID
         // Matching, not `==`. The caller passes whatever the message pane is
         // holding, which at launch is the role word "inbox" while this array
         // holds the LIST name "INBOX" — so this silently did nothing and the
