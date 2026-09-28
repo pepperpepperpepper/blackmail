@@ -12,12 +12,15 @@ Last revised 2026-09-22, with the iPad offline.
 Everything here is verifiable by the 366-test suite and a cross-compile on
 this host. Ordered by value, not by size.
 
-- [ ] **P1. The reading pane shows the previous letter for the whole fetch.**
+- [x] **P1. The reading pane shows the previous letter for the whole fetch.**
       `MessageDetailViewController.swift:165`. Configure the header from
       `summary` and load a "Loading…" document *before* the await;
       `show(thread:)` at :229 already does exactly this and its comment says
       why. Also fixes the case where, after a delete, the next tap re-reveals
       the letter he just deleted. Most-hit action in the app. (B-038 #1)
+      *Done: `PaneLoads.show` draws the stand-in, the row's sender, subject
+      and date over "Loading…", before the body is asked for, and emptying
+      the pane now clears the web view as well as hiding it. See B-041.*
 - [x] **P2. Batch `RecipientBook`'s flush.** `RecipientBook.swift:92` —
       `record()` re-encodes and rewrites the whole address book per harvested
       address, ~150-190 ms per 50-row page, 1000+ calls on a wide search.
@@ -94,6 +97,33 @@ this host. Ordered by value, not by size.
       the connection once for its three mailboxes and is cancelled when its
       list is replaced; a search cancelled on its way back draws nothing
       (`SearchAnswer`).*
+- [x] **What he sees when he acts (the lag fixes, batch 4, first half).**
+      *Done: a superseded letter's download is called off, and one called
+      off draws nothing (`PaneLoads`); Delete, Move and Flag from the
+      reading pane edit the list in place and sweep the counts only when
+      one may have changed (`PaneActions`, and `ListLetters`, the list's
+      letters, with `RemovedLetters` and `ReadBilling`); a page short of a
+      letter binned since the list was fetched is made up from further
+      down (`IMAPMailRepository.page(olderThan:)`); a regroup keeps every
+      tick of a multi-select (`ListEdit.selectedRows`); Refresh keeps the
+      previews already drawn; coming back to the Inbox
+      after fifteen minutes fetches it again in the list on screen
+      (`Sitting`); and a connection quiet for ninety seconds is probed as
+      the app comes back and replaced if it has died
+      (`IMAPMailRepository.warmUp`). Checked on the scripted server in
+      `PaneLoadsTests`, `PaneActionsTests` and `ComingBackTests`; see B-041
+      for what he could notice.*
+- [ ] **The rest of the lag fixes' batch 4.** Scroll resets when a result set
+      replaces the list, and the folder's offset restored when a search is
+      cancelled; an anchor row and the selection captured before a rebuild,
+      so paging upward after a jump neither slips nor moves the highlight;
+      folder previews asked for again after a cancelled search; a "Going to
+      <day>…" status for
+      jumps and Moves, with any alert held until the sheet has gone; the
+      conversation header sized for its attachments before the body lands;
+      and a guard on Drafts taps. Then batch 5, the reading pane's CPU:
+      `callAsyncJavaScript` in place of the escaper, the letter's
+      preparation off the main thread, and P8.
 - [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -159,6 +189,65 @@ this host. Ordered by value, not by size.
       the moment the Inbox appears leaves the Inbox's count right once the
       counts have settled (`adjustUnreadCounts` asking for one more); and
       the Move sheet opens with its folders at once.
+- [ ] **B-041, the reading pane at the tap.** Tap from letter to letter
+      in the Inbox: the header must change at the tap to the new sender,
+      subject and date with "Loading…" under it, and the previous letter
+      must never be on screen beside the new selection, not even for a
+      frame. Delete a letter, then tap the next: the binned one must not
+      appear at all. Tap four letters about a third of a second apart,
+      one of them large: the connection log should show two
+      `BODY.PEEK[]` fetches, the first and the last, and the pane should
+      end on the last. Tap Reply while a large letter is loading: nothing
+      should open until it is there. The web view's first paint of
+      "Loading…" and of the letter after it is the part the host cannot
+      see: look for a white flash or a blank frame between them, and for
+      the header's height jumping when a letter with attachments lands
+      (expected; that is the rest of batch 4).
+- [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
+      down a few pages, with previews filled: Delete a read letter. The
+      pane empties and the row goes at the tap, nothing else on the list
+      moves or blanks, and the connection log shows `UID MOVE` and nothing
+      after it. Delete stays grey until it lands. Delete an unread letter:
+      the counts drop at once, and the log shows one LIST and a STATUS per
+      folder after the MOVE; Trash's count comes right with them. With an
+      All Mailboxes search showing, open a hit that is also in the Inbox's
+      first page, Delete it, then cancel the search: it must not be in the
+      Inbox, and the search's text, results and scroll must have stayed
+      until the cancel. With the Inbox's first page only loaded, search the
+      Current Mailbox for a letter a few pages down, Delete it from the pane,
+      cancel the search and scroll to the bottom: the list must go on to the
+      oldest letter, not stop at the page the binned one was in. In All
+      Mail, Move a letter to Inbox: the row stays. Flag an All Mailboxes hit
+      that is also in the Inbox's first page and cancel the search: the
+      Inbox row is flagged. Flag one letter with Wi-Fi off, open another at
+      once and Flag it: both flags appear, and both go back with "Can't
+      connect". With Edit on and three rows ticked, open a letter inside
+      the conversation still in the pane, and Flag from the pane: the three
+      ticks stay, and no other row is ticked.
+      Flag, and the row's flag appears at once; flag with Wi-Fi turned off,
+      within a minute and a half of the last thing he did: the flag goes
+      back and "Can't connect" is said (at once, or after the 30 s read
+      deadline if the socket is left half open). In a conversation, open
+      an unread collapsed letter: the dot and one count go, and the list
+      does not reload. The host suite checks the rules; the table view's
+      reaction to them, row removal, highlight and empty state, is only
+      visible here.
+- [ ] **B-041, coming back.** With the Inbox showing, scrolled down, a
+      letter open and Edit on, leave the app for more than fifteen minutes
+      (or shorten `Sitting.awayBeforeReturningToInbox` for the test, as
+      B-003 was checked): the list must be at the top, out of Edit, with its
+      old rows and previews on screen until the new page lands, never
+      black, the letter still in the reading pane, and the counts' LIST
+      and STATUS after the page's SEARCH and FETCH in the log. From another
+      folder, the Inbox opens as before. Lock the iPad for two minutes
+      after reading a letter, unlock, and before touching anything read the
+      log: one NOOP, and after a night away a LOGIN on a new connection
+      after it; then the first letter opened should be SELECT and FETCH
+      only. After a night away, unlock and Delete the letter in the pane at
+      once: the log should show the NOOP, a LOGIN, a second NOOP and the
+      MOVE, and the row must not come back. Lock for thirty seconds straight
+      after tapping a letter: nothing at all should be sent on the way out
+      or on the way back.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

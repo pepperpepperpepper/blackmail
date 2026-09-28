@@ -170,6 +170,9 @@ final class MockMailRepository: MailRepository {
         Data("mock attachment".utf8)
     }
 
+    /// No connection to keep alive.
+    func warmUp() async {}
+
     // MARK: - Fixtures
 
     private func buildFixtures() {

@@ -1824,3 +1824,136 @@ composer ranks them for a keystroke, or while the book was being written
 out, could crash the app (B-038). Two writes at once, one at the end of a
 page and one as the app goes into the background, take turns, so the
 older copy cannot land last.
+
+---
+
+## B-041 — CHANGED 2026-09-28. What he sees when he acts
+
+Behaviour he could notice, from the first half of the fourth batch of the
+lag fixes: what the reading pane and the list do the moment he taps,
+deletes, moves or flags, comes back to the app, or picks the iPad up.
+The rules are checked on the scripted server and in host tests
+(`PaneLoadsTests`, `PaneActionsTests`, `ComingBackTests`); the screens
+that apply them are UIKit, which the host cannot build, and none of it
+has been seen on the iPad yet. The TODO says what to look at.
+
+**The letter he taps is on screen at the tap.** The reading pane used to
+be drawn only once the letter's body had come, and for that whole time it
+held the previous letter, header and body, beside a selection that had
+already moved: a plausible letter that was not the one he tapped. The
+header now changes at the tap to the new letter's sender, subject and date,
+with "Loading…" where the body will be, and "To: me" until the letter's
+own recipients arrive with it. A conversation's stack already worked this
+way. Loading that page also starts the web view's content process while
+the body is on its way, rather than after it.
+
+Two things went with the old way. Reply, tapped while a letter was still
+loading, opened a reply to the PREVIOUS letter, because the pane still
+held it; it now does nothing until the letter is there. And emptying the
+pane, after a Delete or a folder change, only hid the web view: the next
+letter he tapped unhid it, and the letter just binned was back on screen
+under the next one's header until that one's body came. The pane is now
+emptied properly.
+
+**Tapping through letters downloads the one he stops on.** Tap four in
+quick succession and the first, if its body is already on its way, still
+arrives and is thrown away, the two in between are never asked for, and
+the fourth comes next. Each used to be downloaded whole, one after another,
+the one he wanted last; with a photo letter among them that was seconds.
+Every letter he tapped is still marked read, as Mail marks a letter read
+when it is selected, however briefly, so the unread dots and counts are
+exactly what they were. What that costs: the letter he stops on waits for
+the read marks of the unread ones he tapped past, one short exchange each.
+
+**Delete, Move and Flag from the reading pane change the list in place.**
+All three used to reload the whole list and count every folder again,
+about fourteen commands for one letter binned: every preview blanked and
+refilled, a search he was in was cleared with its text, a date jump went
+back to today, the list went back to the top, and the binned row stayed
+on screen for most of a second. Now:
+
+- Delete empties the pane and takes the row off at the tap, and the
+  previews, the search, the date and his place in the list all stay. The
+  Delete button stays grey until the server has the first one, so a
+  second tap cannot bin the next letter he opens meanwhile. If the server
+  refuses, the row comes back and he is told the app could not connect.
+- A letter binned while still unread comes off every folder's count at
+  once; a read one changes no count, and nothing is swept for it. Unread
+  from the Inbox, the counts are swept once after the MOVE, for Trash's.
+  Inside Trash, Delete marks the letter deleted and nothing else, as
+  before, and the one off Trash's count is the whole change.
+- Move empties the pane and takes the row off in the same way once he
+  has chosen the folder. An unread letter moved is counted by one sweep
+  afterwards, the only way to know the count of the folder it went to.
+  Moved out of All Mail, a letter is still in All Mail, and its row
+  stays there. Moved to Trash or Spam, it is a Delete.
+- Binned from All Mailboxes search results, a letter also goes from the
+  Inbox's rows under them, so cancelling the search does not bring back a
+  row that would open empty.
+- Binned from search results, a letter further down the folder than the
+  list has paged no longer stops the folder short. Its page used to come
+  back one letter short, which the list takes for the end of the folder,
+  and after cancelling the search nothing older could be scrolled to until
+  Refresh. A page short of letters the folder has gone on to hold is now
+  made up from further down, one more FETCH, which also covers letters
+  removed from another client since the list was fetched; upward after a
+  date jump too.
+- Flag shows on the row at once, and on an All Mailboxes hit, on the same
+  letter's Inbox row under the search as well, so cancelling the search
+  shows it. If the server refuses, the flag goes back and he is told; it
+  used to stay on screen with nothing said, although Gmail did not have
+  it. A second tap on Flag for the same letter while the first is on its
+  way is ignored as a double tap; Flag on another letter he has opened
+  meanwhile goes as usual.
+- Opening an unread letter inside a conversation marks it read at the
+  tap, as a tap on a row does, and takes one off the counts; it used to
+  wait for the letter's body and then reload the list and count every
+  folder again.
+- In Edit mode, whatever the pane does to the list leaves his ticks
+  alone. Opening a letter in the conversation still in the pane used to
+  tick that conversation for him, and a Flag, Delete or read from the pane
+  kept only one of his ticks, so a bulk Delete straight after acted on
+  the wrong letters. A page loaded as he scrolled in Edit mode used to
+  drop all but one of them too.
+
+Refresh is still the whole reconciliation: whatever was done locally, it
+fetches the list and every count again. It now keeps the previews already
+drawn, fetching only the new letters', and keeps the open letter's row
+highlighted if it is still there.
+
+**Coming back after more than fifteen minutes, to the Inbox he left.** He
+still lands on the Inbox, at the top (B-003). If the Inbox was already
+showing it is no longer thrown away and rebuilt: the list scrolls to the
+top and leaves Edit, the rows he left stay, previews and all, until the
+newest page replaces them, and the letter in the reading pane stays there.
+It used to be a black list under "Updated Just Now" for a second or two,
+and an empty reading pane. From any other folder the Inbox opens as before.
+Either way the folder counts are asked for once the Inbox's first page has
+come, launch's order, and not at all if it could not be fetched.
+
+**Picking the iPad up.** If the connection has been quiet for more than
+ninety seconds when he comes back, the same threshold the write probe uses
+(B-024), a NOOP goes at once. It waits behind anything he has already
+tapped, but the connection is usually free as he comes back, so it is
+normally on the wire straight away, and a letter tapped then waits for
+its answer: a round trip, or on a half-open socket the 30 s read deadline,
+which is what the letter's own command would have waited without it. A
+connection that died while the iPad slept is found and replaced then,
+before he taps anything, rather than by the first letter he opens, which
+used to pay a failed command and a whole reconnect, 0.6 to 1.1 s. A
+Delete, Move or Flag made while the NOOP is out probes the connection for
+itself, as any write after ninety seconds of quiet does, and goes once, on
+the replacement if there is one. After a shorter quiet nothing is sent.
+Nothing is sent as he leaves either: a LOGOUT there would cost a reconnect
+on every return. If Gmail refuses the password while the connection is
+being replaced, nothing he does sends it again for a minute: each tap fails
+at once, with the "Can't connect to mail server." these screens give for a
+refused password today. Otherwise his first tap would send the same
+refused password a second time within seconds of the first. After the
+minute, a tap or a Refresh tries again, once; Gmail refuses a correct app
+password now and then, and the refusal used to stand until he next came
+back to the app, with nothing to tell him so.
+
+**The connection log** no longer notes "webview: load failed -999" when a
+page in the reading pane is replaced before it has finished, which now
+happens whenever a letter arrives while "Loading…" is still being drawn.

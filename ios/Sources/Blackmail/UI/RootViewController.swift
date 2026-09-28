@@ -164,23 +164,6 @@ final class RootViewController: UIViewController {
 
     // MARK: - Coming back to it
 
-    /// How long away counts as a NEW SITTING rather than an interruption.
-    ///
-    /// B-003. A judgement call, because it turns on his habit, not on
-    /// anything in the code. `PRODUCT_SPEC.md` calls for two things that
-    /// disagree — "the app opens into Inbox" and "preserve scroll position
-    /// where practical" — and the answer is that both are right at
-    /// different timescales.
-    ///
-    /// Fifteen minutes, erring SHORT on purpose. The two failures are not
-    /// equal. Resetting too eagerly loses his place, which is a nuisance
-    /// and now a cheap one to undo: the calendar button and search both
-    /// exist to get back. Resetting too rarely means picking the iPad up
-    /// the next morning and finding himself somewhere in last June with no
-    /// idea how he got there or how to leave — which does not read as a
-    /// preserved position, it reads as the app having lost his mail.
-    private static let awayBeforeReturningToInbox: TimeInterval = 15 * 60
-
     private var wentAwayAt: Date?
 
     private func watchForReturn() {
@@ -193,30 +176,52 @@ final class RootViewController: UIViewController {
                            object: nil, queue: .main) { [weak self] _ in
             // The queue is `.main`, but that is not the same promise as
             // MainActor isolation as far as the compiler is concerned.
-            Task { @MainActor in self?.returnedFromAway() }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                // A connection quiet long enough to have died while the iPad
+                // slept is probed now, and replaced if it has, rather than by
+                // the first thing he taps. Nothing waits for it.
+                let repository = self.repository
+                Task { await repository.warmUp() }
+                self.returnedFromAway()
+            }
         }
     }
 
+    /// B-003: after a while away, back to the Inbox, at the top. See
+    /// `Sitting`, which decides.
     @MainActor
     private func returnedFromAway() {
         guard let away = wentAwayAt else { return }
         wentAwayAt = nil
-        guard Date().timeIntervalSince(away) > Self.awayBeforeReturningToInbox else {
-            // A short interruption. He is still doing the same thing, so
-            // leave him where he was.
+        switch Sitting.onReturn(after: Date().timeIntervalSince(away),
+                                showingInbox: list.shownMailbox.role == .inbox,
+                                sheetOpen: presentedViewController != nil) {
+        case .stay:
             return
+        case .refreshInbox:
+            // The list on screen, fetched again from the top, and the letter
+            // in the reading pane left where it is. This used to build a
+            // new, empty list and empty the pane, to land him in the Inbox
+            // he was already in.
+            mailboxList.select(mailboxID: list.mailboxID)
+            let list = self.list
+            Task { @MainActor in
+                await Sitting.refresh(newest: { await list.returnToNewest() },
+                                      counts: { [weak self] in self?.mailboxList.refreshCounts() })
+            }
+        case .openInbox:
+            let inbox = mailboxList.mailbox(for: .inbox)
+                ?? Mailbox(id: "inbox", name: "Inbox", unreadCount: 0, role: .inbox)
+            openMailbox(inbox)
+            mailboxList.select(mailboxID: inbox.id)
+            // The counts once the Inbox's first page has come, and not at
+            // all if it could not be fetched: the rule `Sitting.refresh`
+            // follows, for a page this list fetches itself.
+            list.onFirstLoadFinished = { [weak self] came in
+                Sitting.afterNewest(came: came, counts: { self?.mailboxList.refreshCounts() })
+            }
         }
-        // NOT while something is open over the top. A half-written letter
-        // is the one piece of state in this app he cannot get back, and
-        // pulling the folder out from under a compose sheet to be tidy
-        // would be the worst trade in the product.
-        guard presentedViewController == nil else { return }
-
-        let inbox = mailboxList.mailbox(for: .inbox)
-            ?? Mailbox(id: "inbox", name: "Inbox", unreadCount: 0, role: .inbox)
-        openMailbox(inbox)
-        mailboxList.select(mailboxID: inbox.id)
-        mailboxList.refreshCounts()
     }
 
     override func viewWillTransition(to size: CGSize, with c: UIViewControllerTransitionCoordinator) {
@@ -234,16 +239,23 @@ final class RootViewController: UIViewController {
         mailboxList.onSelectMailbox = { [weak self] mailbox in
             self?.openMailbox(mailbox)
         }
-        detail.onNeedsListRefresh = { [weak self] in
-            guard let self else { return }
-            Task { await self.list.reload() }
-            // The folder counts too. This was missing, and it was a live bug
-            // rather than an oversight introduced here: moving or deleting a
-            // message from the DETAIL pane's toolbar changes two folders'
-            // unread counts and never touched the sidebar at all. It also
-            // matters more now, because this is one of the few remaining
-            // events that reconciles the local counter against the server.
-            self.refreshMailboxes()
+        // Delete, Move and Flag from the reading pane edit the list on
+        // screen in place, and ask for the folder counts only when one may
+        // have changed; see `PaneActions`. They used to reload the whole
+        // list and sweep every count, which blanked the previews and threw
+        // away a search, a date jump and his place in the list. The counts
+        // were missing from this path once, a live bug: moving an unread
+        // letter from the pane changes two folders' counts.
+        detail.perform = { [weak self] action, letter in
+            guard let self else { return false }
+            let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            return await PaneActions.run(
+                action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
+                list: self.list.letters, repository: self.repository,
+                requestSweep: { [weak self] in self?.refreshMailboxes() })
+        }
+        detail.onLetterOpened = { [weak self] letter in
+            self?.list.markRead(letter)
         }
         bindList()
     }

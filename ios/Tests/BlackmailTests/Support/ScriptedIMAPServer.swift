@@ -296,6 +296,14 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.greeting = newValue } }
     }
 
+    /// Every LOGIN from now on is refused as a wrong password, the way
+    /// Gmail refuses an app password revoked since the session began.
+    /// Connections already logged in carry on.
+    var passwordRevoked: Bool {
+        get { locked { $0.passwordRevoked } }
+        set { locked { $0.passwordRevoked = newValue } }
+    }
+
     /// Mailboxes that LIST still names but that SELECT and EXAMINE answer
     /// NO, the way a folder deleted from another client looks until the next
     /// LIST. Canonical names, e.g. `ScriptedIMAPServer.trash`.
@@ -678,6 +686,7 @@ private extension ScriptedIMAPServer {
         var loginCapabilities: LoginCapabilities = .inTaggedOK
         var greeting: Greeting = .ready
         var refusedMailboxes: Set<String> = []
+        var passwordRevoked = false
         var timeout: Duration = .seconds(1)
         var uploadReplyTimeout: Duration = .seconds(5)
         var uplinkDelay: Duration = .zero
@@ -899,7 +908,7 @@ private extension ScriptedIMAPServer.State {
             r.bad("Could not parse command")
             return
         }
-        guard user == username, pass == password else {
+        guard user == username, pass == password, !passwordRevoked else {
             r.no("[AUTHENTICATIONFAILED] Invalid credentials (Failure)")
             return
         }

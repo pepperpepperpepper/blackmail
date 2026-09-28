@@ -163,6 +163,10 @@ final class MailboxListViewController: UITableViewController {
         mailboxes.first { $0.role == role }
     }
 
+    /// Every folder the pane last listed, for finding which one a letter
+    /// was listed from.
+    var folders: [Mailbox] { mailboxes }
+
     override func numberOfSections(in t: UITableView) -> Int { groups.count }
 
     override func tableView(_ t: UITableView, numberOfRowsInSection s: Int) -> Int {

@@ -312,9 +312,14 @@ actor IMAPClient {
         await teardown()
     }
 
-    func noop() async throws {
-        // The probe in front of a write, so it waits in the write's line.
-        let result = try await sendCommand("NOOP", priority: .interactive)
+    /// In the interactive line by default, because the usual NOOP is the
+    /// probe in front of a write and waits in the write's line. The one sent
+    /// as the app comes back to the foreground waits in the background line:
+    /// nothing is waiting for it, and a letter he taps while it is still
+    /// waiting for the connection goes first. Once it is on the wire, the
+    /// letter waits for its answer like anything else.
+    func noop(_ priority: Priority = .interactive) async throws {
+        let result = try await sendCommand("NOOP", priority: priority)
         guard result.status == .ok else { throw MailError.cannotConnect }
     }
 

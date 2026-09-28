@@ -207,6 +207,14 @@ actor IMAPMailRepository: MailRepository {
     private func connected() async throws -> IMAPClient {
         lastContact = now()
         if await imap.isConnected { return imap }
+        // The warm-up has sent the password a moment ago, since he picked
+        // the iPad up, and Gmail refused it. See `warmUp`.
+        if let refused = refusedAtWarmUp {
+            guard now().timeIntervalSince(refused) >= Self.refusalStands else {
+                throw MailError.passwordNeedsUpdating
+            }
+            refusedAtWarmUp = nil
+        }
         // A new session starts with nothing selected. The client clears its
         // own selection as it connects; there used to be a copy of it here,
         // cleared only once this returned, and a tap in between, with the
@@ -214,6 +222,94 @@ actor IMAPMailRepository: MailRepository {
         // answered BAD.
         try await imap.connect(password: password)
         return imap
+    }
+
+    /// When the connection `warmUp` made in place of a dead one had its
+    /// password refused, nil if it has not been. For `refusalStands` after
+    /// that no call connects; the next `warmUp` clears it.
+    private var refusedAtWarmUp: Date?
+
+    /// How long a password refused at the warm-up is the answer to every
+    /// call without being sent again: long enough to cover the tap he makes
+    /// once he has found the letter he wants, short enough that anything
+    /// after it is him trying again. That is `IMAPClient.connect`'s rule,
+    /// and Gmail refuses a correct app password now and then, so a latch
+    /// that held until he next came back left a Refresh an hour later
+    /// failing without an attempt, with nothing on screen to say that
+    /// locking and unlocking the iPad was the way out.
+    private static let refusalStands: TimeInterval = 60
+
+    /// Probes the connection as the app comes back to the foreground, and
+    /// replaces it if it has died, so that the first thing he taps does not
+    /// find out for him.
+    ///
+    /// A socket left while the iPad sleeps is usually dead by the time he
+    /// picks it up, and nothing finds that out until a command is written
+    /// into it: then his first tap paid a failed command, the teardown, and a
+    /// whole reconnect, 0.6 to 1.1 s on the first letter he opened, and a
+    /// date jump or a search in one folder could fail outright. Now a NOOP
+    /// goes as he comes back, and a dead socket is replaced while he is
+    /// still finding the letter he wants.
+    ///
+    /// The same ninety seconds as the probe in front of a write
+    /// (`quietBeforeProbe`), measured the same way, from the last command
+    /// rather than from when he left: the socket's own quiet is what Gmail
+    /// and the network drop it for. So a return after a short interruption
+    /// sends nothing, and one after a long spell sends one NOOP. It waits in
+    /// the background line, so what he taps while it is still waiting for
+    /// the connection goes first. Priority only decides who goes next,
+    /// though, and at the return the connection is usually free, so the
+    /// NOOP is on the wire at once, and a letter tapped then waits for its
+    /// answer: a round trip, or on a half-open socket the whole read
+    /// deadline, which is what the letter's own command would have waited
+    /// without the probe. A connection is made only in place of one that
+    /// the NOOP found dead, never where there was none: that is a launch
+    /// that could not connect, or a refused password, and neither is this
+    /// call's to try again.
+    ///
+    /// `lastContact` is stamped only once the connection has been proven,
+    /// by the NOOP's answer or by the new connection, and not as the NOOP
+    /// goes. Stamped as it went, a write he made while it was out took the
+    /// connection for proven, skipped its own probe (`readyForWrite`) and
+    /// queued behind the NOOP; when the NOOP found the socket dead, the
+    /// write reached a connection already torn down, and a write is never
+    /// retried, so a Delete or a Flag failed on the one connection B-024
+    /// exists to prove first. Unstamped, the write probes for itself: its
+    /// NOOP fails with this one, reconnects, and the write goes once, on the
+    /// new connection.
+    ///
+    /// A replacement's password refused stands as the answer to every call
+    /// for `refusalStands`, rather than being sent again by the first thing
+    /// he taps a moment later. Without the probe his first tap sent it;
+    /// with it and no latch, the probe sent it and then his first tap sent
+    /// it again, seconds apart. Calls queued behind a refused LOGIN already
+    /// share its answer (`IMAPClient.connect`), but a tap comes after the
+    /// probe has finished, and is two calls, the letter and its read mark.
+    /// The password cannot change under a running repository in any case;
+    /// Settings reaches it at the next launch.
+    ///
+    /// Nothing is sent as the app goes into the background. A LOGOUT there
+    /// would cost a whole reconnect on every return, however short.
+    func warmUp() async {
+        refusedAtWarmUp = nil
+        guard now().timeIntervalSince(lastContact) > Self.quietBeforeProbe,
+              await imap.isConnected else { return }
+        do {
+            try await imap.noop(.background)
+            lastContact = now()
+            return
+        } catch {
+            // Answered NO on a connection still up is not a dead socket.
+            guard await imap.isConnected == false else { return }
+        }
+        do {
+            try await imap.connect(password: password)
+            lastContact = now()
+        } catch MailError.passwordNeedsUpdating {
+            refusedAtWarmUp = now()
+        } catch {
+            // Unreachable, most likely. The next call tries for itself.
+        }
     }
 
     /// Makes sure the connection is alive BEFORE doing something that must
@@ -466,9 +562,8 @@ actor IMAPMailRepository: MailRepository {
             // cut from it.
             guard cursor.validity == listing.validity else { throw MailError.cannotConnect }
 
-            let page = PageWindow.older(than: cursor.uid, in: listing.uids, limit: limit)
-            summaries = try await self.summaries(for: page, in: mailboxID, name: name,
-                                                 validity: listing.validity, client: client)
+            summaries = try await page(olderThan: cursor.uid, in: listing, limit: limit,
+                                       mailboxID: mailboxID, name: name, client: client)
         } else {
             // From the top: a folder he has just opened, or refreshed, with
             // nothing on screen until this lands. The SEARCH and the page's
@@ -541,10 +636,9 @@ actor IMAPMailRepository: MailRepository {
               let cursor = try? Self.parseID(afterUID),
               cursor.validity == listing.validity else { return [] }
 
-        let page = PageWindow.newer(than: cursor.uid, in: listing.uids, limit: limit)
         do {
-            return try await summaries(for: page, in: mailboxID, name: name,
-                                       validity: listing.validity, client: client)
+            return try await page(newerThan: cursor.uid, in: listing, limit: limit,
+                                  mailboxID: mailboxID, name: name, client: client)
         } catch {
             // The fetch's own SELECT can be what finds the renumbering, when
             // it is the first thing sent after a reconnect. Then there is no
@@ -555,6 +649,53 @@ actor IMAPMailRepository: MailRepository {
                   now != listing.validity else { throw error }
             return []
         }
+    }
+
+    /// The `limit` letters of the snapshot below `cursor`, or every one left
+    /// when there are fewer: a short page still means the oldest has been
+    /// reached, and nothing else does.
+    ///
+    /// Some of the snapshot's UIDs may name nothing by now. It is taken when
+    /// the list starts from the top, and a letter can leave the folder after
+    /// that: binned or moved from the reading pane as a search hit below the
+    /// pages loaded so far, as an All Mailboxes hit whose Inbox copy is down
+    /// there, or by another client. The FETCH answers nothing for such a
+    /// UID, and the page used to come back that much short, which the list
+    /// takes for the end of the folder, so everything older was out of reach
+    /// until the next Refresh. Now a page that comes back short asks for the
+    /// UIDs after it, the shortfall at a time, until it is whole or the
+    /// snapshot has run out, the way a search's page already does
+    /// (`nextMergedPage`). The extra FETCH is paid only when a UID has gone.
+    private func page(olderThan cursor: UInt32, in listing: IMAPMailboxUIDs, limit: Int,
+                      mailboxID: String, name: String,
+                      client: IMAPClient) async throws -> [MessageSummary] {
+        var page: [MessageSummary] = []
+        var below = cursor
+        while page.count < limit {
+            let uids = PageWindow.older(than: below, in: listing.uids, limit: limit - page.count)
+            guard let oldest = uids.last else { break }
+            page += try await summaries(for: uids, in: mailboxID, name: name,
+                                        validity: listing.validity, client: client)
+            below = oldest
+        }
+        return page
+    }
+
+    /// The same upward, after a date jump: a short page there means the
+    /// newest has been reached, and the list stops asking.
+    private func page(newerThan cursor: UInt32, in listing: IMAPMailboxUIDs, limit: Int,
+                      mailboxID: String, name: String,
+                      client: IMAPClient) async throws -> [MessageSummary] {
+        var page: [MessageSummary] = []
+        var above = cursor
+        while page.count < limit {
+            let uids = PageWindow.newer(than: above, in: listing.uids, limit: limit - page.count)
+            guard let newest = uids.first else { break }
+            page = try await summaries(for: uids, in: mailboxID, name: name,
+                                       validity: listing.validity, client: client) + page
+            above = newest
+        }
+        return page
     }
 
     /// One page of UIDs turned into rows.

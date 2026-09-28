@@ -103,6 +103,12 @@ protocol MailRepository {
                 beforeUID: String?, limit: Int) async throws -> [MessageSummary]
 
     func fetchAttachmentData(_ attachmentID: String, of messageID: String, mailboxID: String) async throws -> Data
+
+    /// Called as the app comes back to the foreground. Finds out whether a
+    /// connection quiet for long enough to have died still works, and
+    /// replaces it if not, before he taps anything. Never fails: nobody is
+    /// waiting for it.
+    func warmUp() async
 }
 
 /// Where a search looks — the two scopes Mail itself offers.

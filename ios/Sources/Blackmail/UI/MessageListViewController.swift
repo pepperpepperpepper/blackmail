@@ -31,22 +31,21 @@ final class MessageListViewController: UITableViewController {
     /// more folders. Several, on Gmail, where one message wears many labels.
     var onUnreadCountChanged: (([String], Int) -> Void)?
 
-    /// Messages already billed to the folder counters.
-    ///
-    /// Never cleared. It is scoped to this controller, and the controller is
-    /// rebuilt whenever the folder changes, so it cannot outgrow a page of
-    /// mail. A full sidebar refresh installs server truth regardless of what
-    /// is in here, so keeping an id forever costs nothing and dropping one
-    /// risks billing the same message twice.
-    private var countedRead: Set<String> = []
+    /// The folder's letters and a search's hits, the ones taken off by a
+    /// Delete or Move from the reading pane, and the reads billed to the
+    /// folder counts. Scoped to this controller, which is rebuilt whenever
+    /// the folder changes. The reading pane edits it directly (`PaneActions`).
+    let letters = ListLetters()
 
     /// Lets the container restore the folder highlight after a reload.
     var mailboxID: String { mailbox.id }
 
+    /// The folder this list is, for the container: whether it is the Inbox
+    /// already, and the role of a letter listed from it.
+    var shownMailbox: Mailbox { mailbox }
+
     private let repository: MailRepository
     private let mailbox: Mailbox
-    private var messages: [MessageSummary] = []
-    private var filtered: [MessageSummary]?
     private var searchBar: SearchHeaderView!
     private let emptyLabel = UILabel()
     private let statusLabel = UILabel()
@@ -95,7 +94,7 @@ final class MessageListViewController: UITableViewController {
     /// Cancels the previous keystroke's pending search. See `runSearch`.
     private var searchDebounce: Task<Void, Never>?
 
-    private var visible: [MessageSummary] { filtered ?? messages }
+    private var visible: [MessageSummary] { letters.visible }
 
     /// What a row actually is, now that the list groups.
     ///
@@ -126,8 +125,8 @@ final class MessageListViewController: UITableViewController {
         // `organizeByThread` is Mail's own switch and defaults ON; turning
         // it off gives every letter its own row without a code change.
         rows = MessageThread.rows(
-            for: visible,
-            grouped: filtered == nil && ConversationSettings.organizeByThread
+            for: letters.shown,
+            grouped: !letters.isSearching && ConversationSettings.organizeByThread
         ).map(Row.thread)
     }
 
@@ -154,19 +153,6 @@ final class MessageListViewController: UITableViewController {
         return nil
     }
 
-    private func indexPath(forIdentifier id: String) -> IndexPath? {
-        for (i, row) in rows.enumerated() {
-            switch row {
-            // A conversation stands for every letter in it, so a selection
-            // held by the id of one of its messages still finds its row.
-            case let .thread(t) where t.id == id || t.messages.contains(where: { $0.id == id }):
-                return IndexPath(row: i, section: 0)
-            default: continue
-            }
-        }
-        return nil
-    }
-
     /// Regroups and redraws, putting the selection back where it was.
     ///
     /// `reloadData` rather than `insertRows`, and this is the cost of
@@ -174,14 +160,24 @@ final class MessageListViewController: UITableViewController {
     /// conversation already on screen instead of adding rows after it, so
     /// "the new rows are the last N" stopped being true. Reload drops the
     /// selection, and the selected row is the letter open in the pane to
-    /// the right, so it is restored by id.
+    /// the right, or in Edit mode every row he has ticked, so it is
+    /// restored by id, all of it (`ListEdit.selectedRows`). `opened` is a
+    /// letter just marked read as the one open in the pane, whose row is
+    /// highlighted with it.
     @MainActor
-    private func regroup() {
-        let selected = tableView.indexPathForSelectedRow.flatMap(identifier(at:))
+    private func regroup(highlighting opened: String? = nil) {
+        let kept = (tableView.indexPathsForSelectedRows ?? []).compactMap(identifier(at:))
         rebuildRows()
         tableView.reloadData()
-        if let selected, let path = indexPath(forIdentifier: selected) {
-            tableView.selectRow(at: path, animated: false, scrollPosition: .none)
+        let threads = rows.map { row -> MessageThread in
+            switch row {
+            case let .thread(t): return t
+            }
+        }
+        for row in ListEdit.selectedRows(in: threads, kept: kept, opened: opened,
+                                         editing: tableView.isEditing) {
+            tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false,
+                                scrollPosition: .none)
         }
     }
 
@@ -190,6 +186,14 @@ final class MessageListViewController: UITableViewController {
         self.mailbox = mailbox
         super.init(style: .plain)
         title = mailbox.name
+        letters.changed = { [weak self] in
+            self?.regroup()
+            self?.updateEmptyState()
+        }
+        letters.onLetGo = { [weak self] letter in self?.letGo(letter) }
+        letters.onUnreadCountChanged = { [weak self] folders, delta in
+            self?.onUnreadCountChanged?(folders, delta)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -378,25 +382,39 @@ final class MessageListViewController: UITableViewController {
         do {
             let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
                                                           limit: Self.pageSize)
-            messages = first
+            // Previews already on screen go across to the same letters, and
+            // only the rest are fetched; see `ListLetters.fetchedAfresh`.
+            let unpreviewed = letters.fetchedAfresh(first)
             // A short first page means the whole folder fits in one, so no
             // footer and no scroll trigger.
             reachedOldestMessage = first.count < Self.pageSize
-            filtered = nil
             searchQuery = ""
             searchBar.clear()
             statusLabel.text = "Updated Just Now"
             statusLabel.sizeToFit()
-            rebuildRows()
-            tableView.reloadData()
+            // Regrouped, which puts the highlight back on the letter open in
+            // the reading pane if its row is still here.
+            regroup()
             updateEmptyState()
             updatePageFooter()
-            loadPreviews(for: first)
+            loadPreviews(for: unpreviewed)
             return true
         } catch {
             ErrorPresenter.show(.cannotConnect, on: self)
             return false
         }
+    }
+
+    /// Back to the newest mail after a while away, in this list rather than
+    /// a new one (`Sitting.onReturn`): out of Edit, to the top at once over
+    /// the rows already here, and those rows kept, previews and all, until
+    /// the new page replaces them. Returns whether it came.
+    @MainActor
+    func returnToNewest() async -> Bool {
+        if tableView.isEditing { editTapped() }
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
+                                   animated: false)
+        return await reload()
     }
 
     // MARK: - Opening the folder at a day
@@ -485,11 +503,10 @@ final class MessageListViewController: UITableViewController {
     private func show(_ window: MessageWindow) {
         // Leaving search on would hide the window we just fetched
         // behind the previous result set.
-        filtered = nil
+        letters.showWindow(window.messages)
         searchQuery = ""
         searchBar.clear()
 
-        messages = window.messages
         reachedNewestMessage = window.reachedNewest
         reachedOldestMessage = window.reachedOldest
         rebuildRows()
@@ -551,7 +568,7 @@ final class MessageListViewController: UITableViewController {
         // Captured now, because both can change while the fetch is in
         // flight and the page that comes back must be filed against the
         // question that was asked.
-        let searching = filtered != nil
+        let searching = letters.isSearching
         let query = searchQuery
         let scope = searchScope
 
@@ -594,12 +611,9 @@ final class MessageListViewController: UITableViewController {
             // but a message MOVED into this folder by another client can
             // still appear twice across two pages, and a duplicated row is
             // a letter that cannot be told from its twin.
-            let known = Set(self.visible.map(\.id))
-            let fresh = older.filter { !known.contains($0.id) }
+            let fresh = self.letters.appendPage(older, toResults: searching)
             guard !fresh.isEmpty else { return }
 
-            if searching { self.filtered?.append(contentsOf: fresh) }
-            else { self.messages.append(contentsOf: fresh) }
             // Regroup rather than insert at the tail. A message in this
             // page can belong to a conversation already on screen, in
             // which case it does not add a row at the bottom at all — it
@@ -625,8 +639,8 @@ final class MessageListViewController: UITableViewController {
     /// remembering a row and re-scrolling to it.
     @MainActor
     private func loadPreviousPage() {
-        guard !isLoadingPrevious, !reachedNewestMessage, filtered == nil,
-              let cursor = messages.first?.id else { return }
+        guard !isLoadingPrevious, !reachedNewestMessage, !letters.isSearching,
+              let cursor = letters.folder.first?.id else { return }
 
         isLoadingPrevious = true
         let generation = listGeneration
@@ -650,8 +664,8 @@ final class MessageListViewController: UITableViewController {
 
             if newer.count < Self.pageSize { self.reachedNewestMessage = true }
 
-            let known = Set(self.messages.map(\.id))
-            let fresh = newer.filter { !known.contains($0.id) }
+            let before = self.rows.count
+            let fresh = self.letters.prependPage(newer)
             guard !fresh.isEmpty else { return }
 
             // Measured, not assumed. Fifty newer messages do not
@@ -659,8 +673,6 @@ final class MessageListViewController: UITableViewController {
             // conversation already on screen join it instead. So the
             // scroll correction is the change in ROW count, not in
             // message count.
-            let before = self.rows.count
-            self.messages.insert(contentsOf: fresh, at: 0)
             self.rebuildRows()
             let added = CGFloat(self.rows.count - before) * self.tableView.rowHeight
 
@@ -767,14 +779,7 @@ final class MessageListViewController: UITableViewController {
     /// are next dequeued.
     @MainActor
     private func apply(_ previews: [String: String]) {
-        for i in messages.indices {
-            if let text = previews[messages[i].id] { messages[i].preview = text }
-        }
-        if filtered != nil {
-            for i in filtered!.indices {
-                if let text = previews[filtered![i].id] { filtered![i].preview = text }
-            }
-        }
+        letters.apply(previews: previews)
 
         // Regrouped first so the rows hold the new text; the row COUNT
         // cannot change, since a preview does not decide what threads
@@ -794,7 +799,7 @@ final class MessageListViewController: UITableViewController {
         // An empty folder must say so. A blank white rectangle is how an app
         // looks broken, and this user cannot tell the two apart.
         emptyLabel.isHidden = !rows.isEmpty
-        if filtered == nil {
+        if !letters.isSearching {
             emptyLabel.text = "No messages"
         } else if searchFailed {
             emptyLabel.text = "Could not search. Check the connection."
@@ -961,7 +966,7 @@ final class MessageListViewController: UITableViewController {
     /// Sets or clears `\Seen` on a selection, and keeps the folder counters
     /// honest about it.
     ///
-    /// The counter arithmetic is the fiddly half. `countedRead` remembers
+    /// The counter arithmetic is the fiddly half. `ListLetters` remembers
     /// which messages this screen has already billed as a -1, so that a
     /// reload deriving `isRead` from pre-STORE server flags cannot bill the
     /// same letter twice. Marking something unread has to UNDO that
@@ -979,16 +984,8 @@ final class MessageListViewController: UITableViewController {
                 } catch {
                     continue          // leave this one as it was
                 }
-                self.setRead(m.id, read: read)
-                let folders = m.countedFolderIDs.isEmpty ? [m.mailboxID] : m.countedFolderIDs
-                if read {
-                    if self.countedRead.insert(m.id).inserted {
-                        self.onUnreadCountChanged?(folders, -1)
-                    }
-                } else {
-                    self.countedRead.remove(m.id)
-                    self.onUnreadCountChanged?(folders, 1)
-                }
+                self.letters.setRead(m.id, read: read)
+                if read { self.letters.read(m) } else { self.letters.unread(m) }
             }
             if self.tableView.isEditing { self.editTapped() }
             self.regroup()
@@ -1094,11 +1091,11 @@ final class MessageListViewController: UITableViewController {
     private func showUnfilteredList() {
         searchDebounce?.cancel()
         listGeneration += 1
-        filtered = nil
+        letters.endSearch()
         // The folder's own end state comes back with it. Search may have
         // set `reachedOldestMessage` from a short page of HITS, which says
         // nothing about how much mail is left in the folder.
-        reachedOldestMessage = messages.count < Self.pageSize
+        reachedOldestMessage = letters.folder.count < Self.pageSize
         regroup()
         updateEmptyState()
         updatePageFooter()
@@ -1136,7 +1133,7 @@ final class MessageListViewController: UITableViewController {
             // empty array and rendered it as "No results" — so a dropped
             // connection told him the letter did not exist. It does exist;
             // we could not look.
-            filtered = []
+            letters.showResults([])
             searchFailed = true
             regroup()
             updateEmptyState()
@@ -1147,7 +1144,7 @@ final class MessageListViewController: UITableViewController {
         }
 
         searchFailed = false
-        filtered = hits
+        letters.showResults(hits)
         reachedOldestMessage = hits.count < Self.pageSize
         regroup()
         updateEmptyState()
@@ -1314,18 +1311,29 @@ final class MessageListViewController: UITableViewController {
     /// Lifted out of `open` so the conversation path can use it for the one
     /// letter it actually shows open. Doing it twice in two places is how
     /// the counter arithmetic drifts.
+    ///
+    /// At the tap, and a letter tapped and left at once counts as read. The
+    /// reading pane calls off the body of a letter he taps past
+    /// (`PaneLoads`), but not this: it is the letter's own task, and nothing
+    /// cancels it. Mail marks a letter read when it is selected, however
+    /// briefly, and his hands know Mail. The dot has gone at the tap, and
+    /// putting it back as he moves on would change a row he has just left.
+    /// The pane showed its sender, subject and date from the tap. And the
+    /// STORE is one short exchange, where the body is the download worth
+    /// calling off. What it costs: a letter he stops on after tapping past
+    /// three unread ones waits for their three STOREs, which went into the
+    /// line before its body did.
     @MainActor
     private func markReadIfNeeded(_ summary: MessageSummary) {
         var m = summary
         guard !m.isRead else { return }
         m.isRead = true
-        setRead(m.id)
+        letters.setRead(m.id, read: true)
         // Regroup rather than reload the one row: the thread this letter
-        // belongs to may have just lost its unread dot.
-        regroup()
-        if let path = indexPath(forIdentifier: m.id) {
-            tableView.selectRow(at: path, animated: false, scrollPosition: .none)
-        }
+        // belongs to may have just lost its unread dot. Its row is
+        // highlighted as the one open in the pane, except in Edit mode; see
+        // `ListEdit.selectedRows`.
+        regroup(highlighting: m.id)
 
         Task { @MainActor in
             do {
@@ -1338,7 +1346,7 @@ final class MessageListViewController: UITableViewController {
                 // when there is. That is the failure this pane exists to
                 // prevent, so the decrement is only ever committed after the
                 // server has actually taken the flag.
-                self.setRead(m.id, read: false)
+                self.letters.setRead(m.id, read: false)
                 self.regroup()
                 return
             }
@@ -1346,17 +1354,35 @@ final class MessageListViewController: UITableViewController {
             // server FLAGS that predate this STORE and put the unread dot
             // back, which re-arms the `guard !m.isRead` above — so the guard
             // alone would let one message be billed twice.
-            guard self.countedRead.insert(m.id).inserted else { return }
-            let folders = m.countedFolderIDs.isEmpty ? [self.mailbox.id] : m.countedFolderIDs
-            self.onUnreadCountChanged?(folders, -1)
+            self.letters.read(m)
         }
     }
 
-    private func setRead(_ id: String, read: Bool = true) {
-        if let i = messages.firstIndex(where: { $0.id == id }) { messages[i].isRead = read }
-        if filtered != nil, let i = filtered!.firstIndex(where: { $0.id == id }) {
-            filtered![i].isRead = read
-        }
+    /// A letter read in the reading pane without a tap on its row: one he
+    /// opened inside a conversation. It goes the way a tap on its row goes,
+    /// so the dot, the STORE and the folder counts are dealt with here and
+    /// once. Asked with the pane's copy, which may be older than this
+    /// list's: the conversation was handed its rows before the tap that
+    /// opened it marked the newest read.
+    ///
+    /// The pane can do this while the list is in Edit mode, which leaves
+    /// the pane as it was: a row tap never could, since in Edit mode a tap
+    /// ticks. So it must leave his ticks as they are.
+    @MainActor
+    func markRead(_ letter: MessageSummary) {
+        markReadIfNeeded(letters.letter(letter.id) ?? letter)
+    }
+
+    /// The pane was emptied at the tap of a Delete or a Move, and a
+    /// highlighted row beside an empty pane says he is reading a letter he
+    /// is not. The row may stay: a conversation that has lost one letter,
+    /// or a letter moved out of All Mail, which is still in All Mail. Not
+    /// in Edit mode, where a selected row is a tick of his and not the
+    /// letter in the pane.
+    @MainActor
+    private func letGo(_ letter: MessageSummary) {
+        guard !tableView.isEditing, let row = rowIndex(showing: letter.id) else { return }
+        tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
     }
 }
 

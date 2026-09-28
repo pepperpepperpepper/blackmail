@@ -19,7 +19,12 @@ import QuickLook
 final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                           WKScriptMessageHandler {
 
-    var onNeedsListRefresh: (() -> Void)?
+    /// Runs a Delete, Move or Flag and edits the list beside the pane to
+    /// match (`PaneActions`). Returns whether the server took it.
+    var perform: ((PaneAction, MessageSummary) async -> Bool)?
+    /// A letter opened inside a conversation, to be marked read the way a
+    /// tap on its row marks it.
+    var onLetterOpened: ((MessageSummary) -> Void)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -48,6 +53,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private var actionItems: [Theme.ToolbarAction: UIBarButtonItem] = [:]
     /// Answers the `cid:` images inside whatever message is on screen.
     private let inlineImages = InlineImageLoader()
+    /// The body fetches for what the pane shows, called off when it shows
+    /// something else. See `PaneLoads`.
+    private let loads = PaneLoads()
+    /// The Delete and the Flags on their way to the server, which decide
+    /// what the next tap on either does. See `PaneWrites`.
+    private var writes = PaneWrites()
+    /// Whether the web view holds a document of this pane's, which emptying
+    /// the pane has to clear. False until the first letter, so launch does
+    /// not start WebKit's content process for an empty page.
+    private var holdsDocument = false
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -141,12 +156,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     private func setActionsEnabled(_ enabled: Bool) {
         // Disabled, never hidden. A greyed button still teaches where it is.
         for item in actionItems.values { item.isEnabled = enabled }
+        actionItems[.delete]?.isEnabled = enabled && !writes.deleting
         actionItems[.compose]?.isEnabled = true   // compose never depends on a selection
     }
 
     // MARK: - Content
 
     func showEmpty() {
+        loads.supersede()
         summary = nil
         message = nil
         entries = []
@@ -156,6 +173,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         title = ""
         header.isHidden = true
         webView.isHidden = true
+        // Emptied as well as hidden. Hidden only, the web view kept the
+        // letter, and the next letter's pane unhid it: after a Delete, the
+        // letter just binned was back on screen under the next one's header
+        // until that one's body came.
+        if holdsDocument {
+            webView.loadHTMLString(PaneNotice.html([]), baseURL: nil)
+            holdsDocument = false
+        }
         placeholder.isHidden = false
         setActionsEnabled(false)
     }
@@ -164,38 +189,60 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func show(summary: MessageSummary) {
         self.summary = summary
+        message = nil
+        entries = []
+        loaded = [:]
+        threadSummaries = [:]
+        focused = nil
         placeholder.isHidden = true
         header.isHidden = false
         webView.isHidden = false
         setActionsEnabled(true)
 
-        Task { @MainActor in
-            do {
-                let m = try await repository.loadMessage(id: summary.id, mailboxID: summary.mailboxID)
-                guard self.summary?.id == summary.id else { return }   // user moved on
-                self.message = m
-                header.configure(with: m)
-                header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
-                render(m)
-            } catch {
-                guard self.summary?.id == summary.id else { return }
-                // Say so IN THE PANE, not only in an alert.
-                //
-                // The header is drawn from the summary before the body is
-                // fetched, so a failed load used to leave a letter with a
-                // sender, a subject, a date and nothing under them — which
-                // does not look like an error, it looks like an empty
-                // letter. Measured on device: a reply whose body was four
-                // paragraphs of quoted text appeared blank, and the only
-                // way to tell the difference was to tap it again.
-                //
-                // The alert stays as well, because it is dismissible and
-                // this is not: he may well tap OK before reading it.
-                self.message = nil
-                self.renderLoadFailure()
-                ErrorPresenter.show(.cannotConnect, on: self)
-            }
-        }
+        let repository = self.repository
+        loads.show(
+            standIn: {
+                // The letter he tapped, from the row, before its body is
+                // asked for, and "Loading…" in place of the body. This pane
+                // used to be drawn only once the body had come, and for the
+                // whole fetch it held the previous letter, header and body,
+                // beside a selection that had already moved on: a plausible
+                // letter that was not the one he tapped. The header is sized
+                // before the document goes in, as the conversation's is; see
+                // `show(thread:)`. Loading any document also starts WebKit's
+                // content process while the body is on its way.
+                header.configure(with: .heading(for: summary))
+                header.onSelectAttachment = nil
+                view.layoutIfNeeded()
+                renderNotice(PaneNotice.loading)
+            },
+            fetch: { try await repository.loadMessage(id: summary.id, mailboxID: summary.mailboxID) },
+            settle: { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .success(let m):
+                    self.message = m
+                    self.header.configure(with: m)
+                    self.header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
+                    self.render(m)
+                case .failure:
+                    // Say so IN THE PANE, not only in an alert.
+                    //
+                    // The header is drawn from the summary before the body is
+                    // fetched, so a failed load used to leave a letter with a
+                    // sender, a subject, a date and nothing under them — which
+                    // does not look like an error, it looks like an empty
+                    // letter. Measured on device: a reply whose body was four
+                    // paragraphs of quoted text appeared blank, and the only
+                    // way to tell the difference was to tap it again.
+                    //
+                    // The alert stays as well, because it is dismissible and
+                    // this is not: he may well tap OK before reading it.
+                    self.message = nil
+                    self.renderLoadFailure()
+                    ErrorPresenter.show(.cannotConnect, on: self)
+                }
+            })
     }
 
     // MARK: - A whole conversation
@@ -221,19 +268,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         webView.isHidden = false
         setActionsEnabled(true)
 
-        // The header is given its content BEFORE the stack is rendered, the
-        // same order the single-message path uses. It is not cosmetic: the
-        // header's height is content-driven and the web view is pinned to
-        // the bottom of it, so loading a document into a pane whose header
-        // has not been sized yet gives the web view nothing to occupy.
-        header.configure(with: Message(
-            id: thread.newest.id, mailboxID: thread.newest.mailboxID,
-            sender: thread.newest.sender,
-            senderAddress: MailFormat.bareAddress(thread.newest.sender),
-            to: [], cc: [], subject: thread.subject, date: thread.newest.date,
-            textBody: nil, htmlBody: nil, attachments: []))
-        view.layoutIfNeeded()
-
         entries = thread.messages.map { m in
             ConversationDocument.Entry(
                 id: m.id, sender: m.sender, date: m.date, body: nil,
@@ -243,15 +277,33 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 isExpanded: m.id == thread.newest.id,
                 preview: m.preview)
         }
-        renderConversation()
 
         // Only the letter that is actually open is fetched. Fetching all of
         // them would be a round trip each for text he cannot see, down one
         // IMAP connection that everything else in the app is queuing on.
-        Task { @MainActor in await self.loadBody(for: thread.newest.id, focus: true) }
+        let newest = thread.newest
+        let repository = self.repository
+        loads.show(
+            standIn: {
+                // The header is given its content BEFORE the stack is
+                // rendered, the same order the single-message path uses. It
+                // is not cosmetic: the header's height is content-driven and
+                // the web view is pinned to the bottom of it, so loading a
+                // document into a pane whose header has not been sized yet
+                // gives the web view nothing to occupy.
+                header.configure(with: .heading(for: newest, subject: thread.subject))
+                header.onSelectAttachment = nil
+                view.layoutIfNeeded()
+                renderConversation()
+            },
+            fetch: { try await repository.loadMessage(id: newest.id, mailboxID: newest.mailboxID) },
+            settle: { [weak self] result in
+                self?.settleBody(result, for: newest.id, focus: true)
+            })
     }
 
     private func renderConversation() {
+        holdsDocument = true
         webView.loadHTMLString(
             ConversationDocument.html(entries: entries,
                                       inset: Int(Theme.detailContentInsetLeft),
@@ -261,32 +313,39 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// Fetches one letter of the conversation and puts it in its section.
+    /// Called off with the rest if the pane moves on first; see `PaneLoads`.
     @MainActor
-    private func loadBody(for id: String, focus: Bool) async {
+    private func loadBody(for id: String, focus: Bool) {
         guard let row = threadSummaries[id] else { return }
-
-        let m: Message
         if let already = loaded[id] {
-            m = already
-        } else {
-            do {
-                m = try await repository.loadMessage(id: id, mailboxID: row.mailboxID)
-            } catch {
-                // Said in the section rather than only in an alert, for the
-                // same reason as the single-message path: a letter that
-                // silently stays empty looks like a letter with nothing in
-                // it. See B-026.
-                fill(id: id, html: "<span class=\"bm-waiting\">This message could not "
-                     + "be downloaded. Tap the line above twice to try again.</span>",
-                     isHTML: false)
-                return
-            }
-            // Still the same conversation? He may have moved on while this
-            // was in flight.
-            guard threadSummaries[id] != nil else { return }
-            loaded[id] = m
+            drawBody(already, focus: focus)
+            return
         }
+        let repository = self.repository
+        loads.start({ try await repository.loadMessage(id: id, mailboxID: row.mailboxID) },
+                    settle: { [weak self] result in
+                        self?.settleBody(result, for: id, focus: focus)
+                    })
+    }
 
+    private func settleBody(_ result: Result<Message, Error>, for id: String, focus: Bool) {
+        switch result {
+        case .success(let m):
+            loaded[id] = m
+            drawBody(m, focus: focus)
+        case .failure:
+            // Said in the section rather than only in an alert, for the
+            // same reason as the single-message path: a letter that
+            // silently stays empty looks like a letter with nothing in
+            // it. See B-026.
+            fill(id: id, html: "<span class=\"bm-waiting\">This message could not "
+                 + "be downloaded. Tap the line above twice to try again.</span>",
+                 isHTML: false)
+        }
+    }
+
+    private func drawBody(_ m: Message, focus: Bool) {
+        let id = m.id
         let known = prepareInlineImages(for: m)
         let isHTML = m.htmlBody != nil
         let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
@@ -334,25 +393,29 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
               })
         else { return }
 
-        Task { @MainActor in
-            await self.loadBody(for: id, focus: true)
-            // Reading a letter marks THAT letter read, not the thread. The
-            // unread count is how he knows what is still waiting, and
-            // emptying it for a conversation he has read one line of would
-            // take that away.
-            // Read back, mutated, written back, rather than
-            // `threadSummaries[id]?.isRead = true`. The optional-chained
-            // subscript compiles to a `_modify` coroutine accessor, and
-            // this toolchain's iOS 16.5 runtime has no
-            // `swift_coroFrameAlloc` to link it against — the same wall
-            // that makes debug builds of this app unlinkable.
-            if var row = self.threadSummaries[id], !row.isRead {
-                row.isRead = true
-                self.threadSummaries[id] = row
-                try? await self.repository.setRead(true, id: id,
-                                                   mailboxID: row.mailboxID)
-                self.onNeedsListRefresh?()
-            }
+        loadBody(for: id, focus: true)
+        // Reading a letter marks THAT letter read, not the thread. The
+        // unread count is how he knows what is still waiting, and
+        // emptying it for a conversation he has read one line of would
+        // take that away.
+        //
+        // At the tap that opens it, the way a tap on a row marks its letter,
+        // and by the list, which clears the dot, sends the STORE and takes
+        // the one off the folder counts, once (`ReadBilling`). This used to
+        // send the STORE from here once the body had come, and then reload
+        // the whole list and sweep every folder's count to show it.
+        //
+        // Read back, mutated, written back, rather than
+        // `threadSummaries[id]?.isRead = true`. The optional-chained
+        // subscript compiles to a `_modify` coroutine accessor, and
+        // this toolchain's iOS 16.5 runtime has no
+        // `swift_coroFrameAlloc` to link it against — the same wall
+        // that makes debug builds of this app unlinkable.
+        if let row = threadSummaries[id], !row.isRead {
+            var read = row
+            read.isRead = true
+            threadSummaries[id] = read
+            onLetterOpened?(row)
         }
     }
 
@@ -374,17 +437,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// same presentation for both, because the difference that matters is
     /// in the WORDS — and the words are the whole point.
     private func renderNotice(_ lines: String...) {
-        let paragraphs = lines
-            .map { "<p style=\"font-size:17px;\">\(ConversationDocument.escape($0))</p>" }
-            .joined()
-        let html = """
-        <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-        <body style="margin:0;background:#000;">
-        <div style="font:-apple-system-body;color:#8e8e8e;padding:24px;">
-        \(paragraphs)
-        </div></body></html>
-        """
-        webView.loadHTMLString(html, baseURL: nil)
+        holdsDocument = true
+        webView.loadHTMLString(PaneNotice.html(lines), baseURL: nil)
     }
 
     // MARK: - Attachments
@@ -519,11 +573,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
           \(smartInvert)
         </style></head><body><div id="bm">\(content)</div></body></html>
         """
+        holdsDocument = true
         webView.loadHTMLString(wrapped, baseURL: nil)
     }
 
     func webView(_ w: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {
+        // Not a failure: the pane's "Loading…" is replaced by the letter as
+        // soon as the letter comes, and tapping on before that replaces it
+        // again, so a document is often cancelled before it has finished.
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         Diagnostics.log(.note, "webview: load failed \((error as NSError).code)")
     }
 
@@ -548,12 +607,38 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     // MARK: - Actions
 
+    /// Flags the letter at once, in the pane and in the list, and puts the
+    /// flag back and says so if the server refuses. It used to be sent
+    /// with `try?`, so a refused STORE left a flag on screen that Gmail did
+    /// not have, and nothing said so until the next Refresh.
+    ///
+    /// A second tap on the same letter while its STORE is on its way is a
+    /// double tap, and ignored; another letter's Flag goes. See `PaneWrites`.
     @objc private func flagTapped() {
-        guard var s = summary else { return }
-        s.isFlagged.toggle()
-        summary = s
-        Task { try? await repository.setFlagged(s.isFlagged, id: s.id, mailboxID: s.mailboxID) }
-        onNeedsListRefresh?()
+        guard let s = summary, writes.startFlag(s.id) else { return }
+        let flagged = !s.isFlagged
+        setFlagged(flagged, on: s.id)
+        Task { @MainActor in
+            let done = await self.perform?(.flag(flagged), s) ?? false
+            self.writes.flagAnswered(s.id)
+            guard !done else { return }
+            self.setFlagged(s.isFlagged, on: s.id)
+            ErrorPresenter.show(.cannotConnect, on: self)
+        }
+    }
+
+    /// The pane's own copies of a letter's flag: the letter on screen, and
+    /// its row in the conversation if the pane is showing one.
+    private func setFlagged(_ flagged: Bool, on id: String) {
+        if var s = summary, s.id == id {
+            s.isFlagged = flagged
+            summary = s
+        }
+        // Read back, mutated, written back; see `userContentController`.
+        if var row = threadSummaries[id] {
+            row.isFlagged = flagged
+            threadSummaries[id] = row
+        }
     }
 
     @objc private func moveTapped() {
@@ -561,12 +646,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let move = MoveMessageViewController(repository: repository,
                                              excluding: s.mailboxID) { [weak self] destination in
             guard let self else { return }
+            // Emptied as he chooses the folder, as a Delete empties it at
+            // the tap, rather than once the server has answered.
+            if self.summary?.id == s.id { self.showEmpty() }
             Task { @MainActor in
-                do {
-                    try await self.repository.move(s.id, from: s.mailboxID, to: destination.id)
-                    self.showEmpty()
-                    self.onNeedsListRefresh?()
-                } catch {
+                if await self.perform?(.move(to: destination), s) != true {
                     ErrorPresenter.show(.cannotConnect, on: self)
                 }
             }
@@ -576,16 +660,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         present(nav, animated: true)
     }
 
+    /// Empties the pane at the tap, and the row leaves the list at the same
+    /// moment (`PaneActions`). Both used to wait for the MOVE, and then for
+    /// a reload of the whole list, with the letter still on screen and
+    /// Delete still live, so a second tap sent a second MOVE after the
+    /// first. If the server refuses, the row comes back and he is told.
     @objc private func deleteTapped() {
-        guard let s = summary else { return }
+        guard let s = summary, writes.startDelete() else { return }
+        showEmpty()
         Task { @MainActor in
-            do {
-                try await repository.delete(s.id, from: s.mailboxID)
-                showEmpty()
-                onNeedsListRefresh?()
-            } catch {
-                ErrorPresenter.show(.cannotConnect, on: self)
-            }
+            let done = await self.perform?(.delete, s) ?? false
+            self.writes.deleteAnswered()
+            self.setActionsEnabled(self.summary != nil)
+            if !done { ErrorPresenter.show(.cannotConnect, on: self) }
         }
     }
 
