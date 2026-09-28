@@ -8,17 +8,21 @@ import Foundation
 ///
 /// Swift actors are REENTRANT. Isolation guarantees no two tasks run actor
 /// code at the same instant; it does NOT hold the actor across an `await`. So
-/// `select()` followed by a fetch is not indivisible here: another screen can
-/// enter between them and re-SELECT a different folder, and the fetch then
-/// reads from the wrong mailbox. The same mistake in `IMAPClient` let a
+/// a SELECT sent from here followed by a fetch sent from here was never
+/// indivisible, however close together the two lines sat: another screen
+/// could enter between them and re-SELECT a different folder, and the fetch
+/// then read from the wrong mailbox. The same mistake in `IMAPClient` let a
 /// `UID STORE` eat a `UID FETCH`'s tagged reply — reachable from this app's
 /// own UI, where tapping a message fires setRead and loadMessage together.
 ///
-/// What actually serialises the wire is `IMAPClient`'s own exchange gate, one
-/// command-and-reply at a time. This actor's job is narrower: it keeps the
-/// mailbox/UIDVALIDITY bookkeeping consistent, and it is why `select()` and
-/// the command that depends on it are always adjacent in one method rather
-/// than split across a suspension the caller controls.
+/// What actually serialises the wire is `IMAPClient`'s exchange gate, and the
+/// client is also what keeps each UID command in its mailbox: it owns the
+/// selection, and every UID command goes out in one hold of the gate with the
+/// SELECT it needs, and with a check that the mailbox still has the
+/// UIDVALIDITY the UIDs came from (B-039). This actor keeps no record of what
+/// is selected, because a record kept on this side of the gate is exactly
+/// what went stale. Its job is narrower: turning ids into UIDVALIDITY and UID
+/// and back, and the snapshots and search sessions that paging walks.
 actor IMAPMailRepository: MailRepository {
 
     private let account: MailAccount
@@ -31,16 +35,10 @@ actor IMAPMailRepository: MailRepository {
     /// runs on.
     private let recipients: RecipientBook
 
-    /// The IMAP name currently SELECTed, so we do not re-select on every call.
-    private var selected: String?
     /// Role → real IMAP name, learned from LIST's special-use attributes.
     /// Never hard-code "Trash": Gmail calls it "[Gmail]/Trash", and on an
     /// account in another language it is not an English word at all.
     private var roleNames: [Mailbox.Role: String] = [:]
-    /// UIDVALIDITY per mailbox, which is what makes a stored UID meaningful.
-    private var uidValidity: [String: UInt32] = [:]
-    /// EXISTS as of the last SELECT, per folder — B-033's session identity.
-    private var existsCount: [String: Int] = [:]
     /// The last whole message downloaded, kept so opening an attachment does
     /// not re-fetch the entire message it came from.
     private var lastBody: (messageID: String, raw: Data)?
@@ -54,10 +52,11 @@ actor IMAPMailRepository: MailRepository {
     /// attributes RFC 6154 never defined, so they have no `Mailbox.Role` and
     /// cannot be found through `roleNames` at all.
     private var folderForAttribute: [String: String] = [:]
-    /// The ascending UID list per mailbox, as of the last time the list was
-    /// started from the top. Paging walks this rather than re-issuing
-    /// SEARCH ALL for every page. See `listMessages`.
-    private var uidListing: [String: [UInt32]] = [:]
+    /// The ascending UID list per mailbox, and its UIDVALIDITY, as of the
+    /// last time the list was started from the top. Paging walks this rather
+    /// than re-issuing SEARCH ALL for every page. See `listMessages`, and
+    /// `snapshot(of:client:)` for when it is thrown away.
+    private var uidListing: [String: IMAPMailboxUIDs] = [:]
 
     /// One factory for both protocols: it is told the host and port, which
     /// is all that tells an IMAP connection from an SMTP one.
@@ -114,18 +113,17 @@ actor IMAPMailRepository: MailRepository {
         "\(validity)/\(uid)"
     }
 
-    private func parseID(_ id: String, mailbox: String) throws -> UInt32 {
+    /// Both halves, because every command that acts on the UID hands the
+    /// validity to the client with it. If the mailbox has been renumbered
+    /// under us the client refuses rather than guesses, with nothing sent;
+    /// the caller's next reload will rebuild with fresh ids.
+    private static func parseID(_ id: String) throws -> (validity: UInt32, uid: UInt32) {
         let parts = id.split(separator: "/", maxSplits: 1)
         guard parts.count == 2,
               let validity = UInt32(parts[0]), let uid = UInt32(parts[1]) else {
             throw MailError.cannotConnect
         }
-        if let known = uidValidity[mailbox], known != validity {
-            // The mailbox has been renumbered under us. Refuse rather than
-            // guess; the caller's next reload will rebuild with fresh ids.
-            throw MailError.cannotConnect
-        }
-        return uid
+        return (validity, uid)
     }
 
     // MARK: - Connection
@@ -193,11 +191,21 @@ actor IMAPMailRepository: MailRepository {
 
     private let now: @Sendable () -> Date
 
+    /// How many calls are waiting for the connection behind the one using
+    /// it. How a test knows a call has joined the line without sleeping on it.
+    var waitingForExchange: Int {
+        get async { await imap.waitingForExchange }
+    }
+
     private func connected() async throws -> IMAPClient {
         lastContact = now()
         if await imap.isConnected { return imap }
+        // A new session starts with nothing selected. The client clears its
+        // own selection as it connects; there used to be a copy of it here,
+        // cleared only once this returned, and a tap in between, with the
+        // client already reporting connected, skipped its SELECT and was
+        // answered BAD.
         try await imap.connect(password: password)
-        selected = nil                    // a new session has nothing selected
         return imap
     }
 
@@ -232,40 +240,6 @@ actor IMAPMailRepository: MailRepository {
             let client = try await self.connected()
             try await client.noop()
         }
-    }
-
-    @discardableResult
-    private func select(_ mailboxID: String) async throws -> String {
-        let client = try await connected()
-        let name = try await resolve(mailboxID)
-        if selected != name {
-            let state: IMAPMailboxState
-            do {
-                state = try await client.select(name)
-            } catch {
-                // A refused SELECT leaves the server with NOTHING selected
-                // (RFC 3501 §6.3.1), not with the mailbox that was open
-                // before. Keeping the old name here skipped the SELECT the
-                // next time that mailbox was wanted, and every UID command
-                // after it was answered BAD on a connection that was still
-                // up, so no retry ever fired: one label deleted in another
-                // client, tapped once, and the folder he came from said
-                // "Can't connect" until the socket happened to drop.
-                selected = nil
-                throw error
-            }
-            if let known = uidValidity[name], known != state.uidValidity {
-                // Renumbered. Every UID remembered for it now names a
-                // different letter, or none, so the snapshot goes, and a
-                // page asked for from an old cursor is refused rather than
-                // cut from numbers that no longer mean what they did.
-                uidListing[name] = nil
-            }
-            uidValidity[name] = state.uidValidity
-            existsCount[name] = state.exists
-            selected = name
-        }
-        return name
     }
 
     /// Turns an interface-level id into a real IMAP mailbox name.
@@ -369,14 +343,13 @@ actor IMAPMailRepository: MailRepository {
     }
 
     private func listMessagesOnce(in mailboxID: String, beforeUID: String?, limit: Int) async throws -> [MessageSummary] {
-        let name = try await select(mailboxID)
         let client = try await connected()
-        let validity = uidValidity[name] ?? 0
+        let name = try await resolve(mailboxID)
         // Parsed before anything is sent, and thrown rather than dropped: a
         // cursor from before a renumbering used to become nil, and nil
         // means "from the top", so the next page was the first page again,
         // cut from the new numbers.
-        let cursor = try beforeUID.map { try parseID($0, mailbox: name) }
+        let cursor = try beforeUID.map(Self.parseID)
 
         // SEARCH ALL returns every UID ascending. One round trip, and it is
         // the only way to page by UID rather than by sequence number —
@@ -394,39 +367,74 @@ actor IMAPMailRepository: MailRepository {
         // while he is reading back through last year must not renumber what
         // is under his thumb; it appears at the next refresh, which is when
         // he asked for it.
-        // `.sorted()` because the parser preserves the server's wire order
-        // and RFC 3501 does not promise SEARCH results are ordered. Gmail
-        // happens to answer ascending; every walk below assumes it, and an
-        // unsorted snapshot would scramble the list rather than fail.
-        let ascending: [UInt32]
-        if beforeUID == nil {
-            ascending = try await client.searchAll().sorted()
-            uidListing[name] = ascending
-        } else if let cached = uidListing[name] {
-            ascending = cached
+        let listing: IMAPMailboxUIDs
+        let summaries: [MessageSummary]
+        if let cursor {
+            if let cached = await snapshot(of: name, client: client) {
+                listing = cached
+            } else {
+                // Paging without a snapshot — only reachable if it was
+                // dropped underneath us. Re-reading is correct and merely
+                // costs the round trip the snapshot exists to avoid.
+                listing = try await client.searchAll(in: name)
+                uidListing[name] = listing
+            }
+            // A cursor from another numbering than the snapshot's names some
+            // other letter in it, or none, so the page is refused rather than
+            // cut from it.
+            guard cursor.validity == listing.validity else { throw MailError.cannotConnect }
+
+            let page = PageWindow.older(than: cursor.uid, in: listing.uids, limit: limit)
+            summaries = try await self.summaries(for: page, in: mailboxID, name: name,
+                                                 validity: listing.validity, client: client)
         } else {
-            // Paging without a preceding first page — only reachable if the
-            // snapshot was dropped underneath us. Re-reading is correct and
-            // merely costs the round trip this cache exists to avoid.
-            ascending = try await client.searchAll().sorted()
-            uidListing[name] = ascending
+            // From the top: a folder he has just opened, or refreshed, with
+            // nothing on screen until this lands. The SEARCH and the page's
+            // FETCH go in one hold of the connection, ahead of work he did
+            // not ask for; see `IMAPClient.page`.
+            let opened = try await client.page(in: name, searching: ["ALL"]) { found in
+                PageWindow.older(than: nil, in: found[0], limit: limit)
+            }
+            listing = opened.found[0]
+            uidListing[name] = listing
+            summaries = rows(from: opened.summaries, in: mailboxID, name: name,
+                             validity: listing.validity)
         }
-        let page = PageWindow.older(than: cursor, in: ascending, limit: limit)
-        let summaries = try await summaries(for: page, in: mailboxID, name: name,
-                                            validity: validity, client: client)
         // B-033: the session's identity, pinned with numbers rather than
         // read off glass. The SELECTed folder, its UIDVALIDITY, how many
         // messages the server says exist, and the Message-ID of the newest
         // row this listing drew — enough to match this session against one
         // real mailbox, server-side, beyond argument.
+        let exists = await client.lastReport(for: name)?.exists ?? -1
         let newestID = summaries.first?.threadID ?? summaries.first?.id ?? "-"
         Diagnostics.log(.note, "SESSION-IDENT folder=\(name) "
-                        + "uidv=\(validity) "
-                        + "exists=\(existsCount[name] ?? -1) "
-                        + "uids=\(ascending.count) "
+                        + "uidv=\(listing.validity) "
+                        + "exists=\(exists) "
+                        + "uids=\(listing.uids.count) "
                         + "first-row=\(newestID) "
                         + "sender=\(summaries.first?.sender ?? "?")")
         return summaries
+    }
+
+    /// The snapshot a listing of `name` is paging through, unless the
+    /// mailbox has been renumbered since it was taken.
+    ///
+    /// Renumbered, every UID remembered for it now names a different letter,
+    /// or none, so the snapshot goes, and a page asked for from an old cursor
+    /// is refused rather than cut from numbers that no longer mean what they
+    /// did. The client's SELECTs are where a renumbering shows (see
+    /// `IMAPClient.lastReport`); this used to be done by this actor's own
+    /// SELECT, which the client now sends.
+    private func snapshot(of name: String, client: IMAPClient) async -> IMAPMailboxUIDs? {
+        let now = await client.lastReport(for: name)?.uidValidity
+        // Read after the await, not before: another listing may have
+        // replaced the snapshot meanwhile, and that one is not stale.
+        guard let listing = uidListing[name] else { return nil }
+        if let now, now != listing.validity {
+            uidListing[name] = nil
+            return nil
+        }
+        return listing
     }
 
     /// The upward half of the walk. See `PageWindow.newer`.
@@ -439,41 +447,56 @@ actor IMAPMailRepository: MailRepository {
 
     private func listMessagesOnce(in mailboxID: String, afterUID: String,
                                   limit: Int) async throws -> [MessageSummary] {
-        let name = try await select(mailboxID)
         let client = try await connected()
-        let validity = uidValidity[name] ?? 0
+        let name = try await resolve(mailboxID)
 
         // Never re-reads the snapshot. Loading upward only ever happens
         // after a jump, which built the snapshot on its way in; re-reading
         // here would pick up mail that has arrived since and insert it above
         // him mid-scroll, which is the jumping-list bug the cache exists to
         // prevent.
-        guard let ascending = uidListing[name],
-              let cursor = try? parseID(afterUID, mailbox: name) else { return [] }
+        guard let listing = await snapshot(of: name, client: client),
+              let cursor = try? Self.parseID(afterUID),
+              cursor.validity == listing.validity else { return [] }
 
-        let page = PageWindow.newer(than: cursor, in: ascending, limit: limit)
-        return try await summaries(for: page, in: mailboxID, name: name,
-                                   validity: validity, client: client)
+        let page = PageWindow.newer(than: cursor.uid, in: listing.uids, limit: limit)
+        do {
+            return try await summaries(for: page, in: mailboxID, name: name,
+                                       validity: listing.validity, client: client)
+        } catch {
+            // The fetch's own SELECT can be what finds the renumbering, when
+            // it is the first thing sent after a reconnect. Then there is no
+            // more to load above him, as when it was known beforehand, and
+            // the list stops asking. Only then: anything else, a lost
+            // connection above all, is thrown for the read retry to act on.
+            guard let now = await client.lastReport(for: name)?.uidValidity,
+                  now != listing.validity else { throw error }
+            return []
+        }
     }
 
     /// One page of UIDs turned into rows.
-    ///
-    /// Factored out of `listMessages` when the upward direction, the date
-    /// jump and paged search all needed the identical twenty lines. Sharing
-    /// it is not tidiness: `rememberPreviewPart` and `countedFolders` are
-    /// both easy to leave out of a copy, and leaving either out fails
-    /// invisibly — blank previews, or a sidebar count that drifts.
     private func summaries(for uids: [UInt32], in mailboxID: String, name: String,
                            validity: UInt32,
                            client: IMAPClient) async throws -> [MessageSummary] {
         guard !uids.isEmpty else { return [] }
+        let fetched = try await client.fetchSummaries(uids: uids, in: name, validity: validity)
+        return rows(from: fetched, in: mailboxID, name: name, validity: validity)
+    }
 
-        let fetched = try await client.fetchSummaries(uids: uids)
-        let byUID = Dictionary(fetched.compactMap { r in r.uid.map { ($0, r) } },
-                               uniquingKeysWith: { a, _ in a })
-
-        return uids.compactMap { uid -> MessageSummary? in
-            guard let r = byUID[uid] else { return nil }
+    /// Fetched summaries turned into rows, in the order they are given.
+    ///
+    /// Factored out of `listMessages` when the upward direction, the date
+    /// jump and paged search all needed the identical twenty lines, and
+    /// shared again by the binned half of a search, whose summaries arrive
+    /// with its SEARCH. Sharing it is not tidiness: `rememberPreviewPart` and
+    /// `countedFolders` are both easy to leave out of a copy, and leaving
+    /// either out fails invisibly — blank previews, or a sidebar count that
+    /// drifts.
+    private func rows(from fetched: [IMAPFetchResult], in mailboxID: String, name: String,
+                      validity: UInt32) -> [MessageSummary] {
+        fetched.compactMap { r -> MessageSummary? in
+            guard let uid = r.uid else { return nil }
             let env = r.envelope
             // Harvested here because it is FREE here. The list already asks
             // for ENVELOPE to draw a row, so every address he corresponds
@@ -521,24 +544,34 @@ actor IMAPMailRepository: MailRepository {
 
     private func messagesOnce(around date: Date, in mailboxID: String,
                               limit: Int) async throws -> MessageWindow? {
-        let name = try await select(mailboxID)
         let client = try await connected()
-        let validity = uidValidity[name] ?? 0
+        let name = try await resolve(mailboxID)
 
-        // Both round trips are issued here, adjacent to the SELECT, and the
-        // snapshot is refreshed rather than reused: a jump is him asking to
-        // be moved, so this is exactly the moment it is safe to pick up mail
-        // that has arrived. Every page loaded afterwards walks THIS snapshot.
-        let matches = try await client.search(IMAPDate.sentOnOrAfter(date))
-        let ascending = try await client.searchAll().sorted()
-        uidListing[name] = ascending
+        // Both SEARCHes and the window's FETCH go in one hold of the
+        // connection, ahead of work he did not ask for (see
+        // `IMAPClient.page`), and the snapshot is refreshed rather than
+        // reused: a jump is him asking to be moved, so this is exactly the
+        // moment it is safe to pick up mail that has arrived. Every page
+        // loaded afterwards walks THIS snapshot. One hold is also what puts
+        // the matches and the snapshot in one numbering: in two, a
+        // reconnect could fall between them onto a renumbered folder, and
+        // the anchor would be some other letter.
+        let opened = try await client.page(in: name, searching: [IMAPDate.sentOnOrAfter(date), "ALL"]) {
+            found in
+            guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
+            return PageWindow.window(around: anchor, in: found[1], limit: limit).uids
+        }
+        let listing = opened.found[1]
+        uidListing[name] = listing
+        let validity = listing.validity
 
-        guard let anchor = PageWindow.anchor(forMatches: matches, in: ascending) else {
+        // Worked out again from the same two lists, which is cheap and
+        // cannot come out differently.
+        guard let anchor = PageWindow.anchor(forMatches: opened.found[0].uids, in: listing.uids) else {
             return nil
         }
-        let window = PageWindow.window(around: anchor, in: ascending, limit: limit)
-        let rows = try await summaries(for: window.uids, in: mailboxID, name: name,
-                                       validity: validity, client: client)
+        let window = PageWindow.window(around: anchor, in: listing.uids, limit: limit)
+        let rows = self.rows(from: opened.summaries, in: mailboxID, name: name, validity: validity)
 
         // The anchor can be dropped by `summaries` if the server declines to
         // FETCH it, which would silently scroll him to the wrong letter.
@@ -690,39 +723,43 @@ actor IMAPMailRepository: MailRepository {
 
     private func previewsOnce(for ids: [String], in mailboxID: String) async throws -> [String: String] {
         guard !ids.isEmpty else { return [:] }
-        let name = try await select(mailboxID)
         let client = try await connected()
+        let name = try await resolve(mailboxID)
+        let known = await client.lastReport(for: name)?.uidValidity
 
         struct Request: Hashable {
+            let validity: UInt32
             let section: String
             let byteCount: Int
         }
 
-        var parts: [UInt32: MIMEPart] = [:]
-        var messageIDs: [UInt32: String] = [:]
+        var parts: [String: MIMEPart] = [:]
         var grouped: [Request: [UInt32]] = [:]
 
         for id in ids {
             // A message listed before the last refresh, or one whose mailbox
             // has been renumbered under us, simply has no preview. Both are
-            // ordinary, so neither is an error.
-            guard let part = previewParts[id],
-                  let uid = try? parseID(id, mailbox: name) else { continue }
+            // ordinary, so neither is an error. A renumbering nobody has seen
+            // yet is found by the fetch's own SELECT, and the client sends
+            // nothing for those.
+            guard let part = previewParts[id], let message = try? Self.parseID(id),
+                  known == nil || known == message.validity else { continue }
             if part.size == 0 { continue }
-            parts[uid] = part
-            messageIDs[uid] = id
+            parts[id] = part
             let isHTML = part.subtype == "html"
-            grouped[Request(section: part.section,
+            grouped[Request(validity: message.validity, section: part.section,
                             byteCount: isHTML ? Self.htmlPreviewBytes : Self.plainPreviewBytes),
-                    default: []].append(uid)
+                    default: []].append(message.uid)
         }
 
         var out: [String: String] = [:]
         for (request, uids) in grouped {
             let bodies = try await client.fetchPartialBodies(
-                uids: uids, section: request.section, byteCount: request.byteCount)
+                uids: uids, section: request.section, byteCount: request.byteCount,
+                in: name, validity: request.validity)
             for (uid, raw) in bodies {
-                guard let part = parts[uid], let id = messageIDs[uid] else { continue }
+                let id = Self.makeID(validity: request.validity, uid: uid)
+                guard let part = parts[id] else { continue }
                 let text = Self.preview(from: raw, part: part)
                 if !text.isEmpty { out[id] = text }
             }
@@ -754,11 +791,12 @@ actor IMAPMailRepository: MailRepository {
     }
 
     private func loadMessageOnce(id: String, mailboxID: String) async throws -> Message {
-        let name = try await select(mailboxID)
         let client = try await connected()
-        let uid = try parseID(id, mailbox: name)
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(id)
 
-        let raw = try await client.fetchBody(uid: uid, section: nil)
+        let raw = try await client.fetchBody(uid: message.uid, section: nil,
+                                             in: name, validity: message.validity)
         lastBody = (id, raw)
 
         let decoded = MIMEDecoder.decodeMessage(raw)
@@ -827,27 +865,33 @@ actor IMAPMailRepository: MailRepository {
 
     func setRead(_ read: Bool, id: String, mailboxID: String) async throws {
         try await readyForWrite()
-        let name = try await select(mailboxID)
         let client = try await connected()
-        try await client.store(uid: try parseID(id, mailbox: name), flag: "\\Seen", set: read)
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(id)
+        try await client.store(uid: message.uid, flag: "\\Seen", set: read,
+                               in: name, validity: message.validity)
     }
 
     func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
         try await readyForWrite()
-        let name = try await select(mailboxID)
         let client = try await connected()
-        try await client.store(uid: try parseID(id, mailbox: name), flag: "\\Flagged", set: flagged)
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(id)
+        try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
+                               in: name, validity: message.validity)
     }
 
     // MARK: - Moving and deleting
 
     func move(_ id: String, from sourceMailboxID: String, to destinationMailboxID: String) async throws {
         try await readyForWrite()
-        let source = try await select(sourceMailboxID)
         let client = try await connected()
+        let source = try await resolve(sourceMailboxID)
         let destination = try await resolve(destinationMailboxID)
         guard source != destination else { return }
-        try await client.move(uid: try parseID(id, mailbox: source), to: destination)
+        let message = try Self.parseID(id)
+        try await client.move(uid: message.uid, from: source, validity: message.validity,
+                              to: destination)
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
         if lastBody?.messageID == id { lastBody = nil }
@@ -862,7 +906,8 @@ actor IMAPMailRepository: MailRepository {
     /// attribute, and deleting inside Trash marks \Deleted instead.
     func delete(_ id: String, from mailboxID: String) async throws {
         try await readyForWrite()
-        let source = try await select(mailboxID)
+        let client = try await connected()
+        let source = try await resolve(mailboxID)
         // Not `?? try await …` — `??`'s right side is an autoclosure, which
         // cannot be async or throwing.
         let trash: String
@@ -870,9 +915,9 @@ actor IMAPMailRepository: MailRepository {
         else { trash = try await resolve("trash") }
 
         if source == trash {
-            let client = try await connected()
-            try await client.store(uid: try parseID(id, mailbox: source),
-                                   flag: "\\Deleted", set: true)
+            let message = try Self.parseID(id)
+            try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
+                                   in: source, validity: message.validity)
             return
         }
         try await move(id, from: mailboxID, to: trash)
@@ -996,14 +1041,14 @@ actor IMAPMailRepository: MailRepository {
 
     func deleteDraft(_ id: String) async throws {
         try await readyForWrite()
-        let drafts = try await draftsFolder()
-        let name = try await select(drafts)
         let client = try await connected()
+        let name = try await resolve(try await draftsFolder())
+        let draft = try Self.parseID(id)
         // Expunged, not moved to Trash. Now that an "All Mailboxes" search
         // reaches the Trash, a superseded draft binned rather than removed
         // would come back as a hit for every half-finished sentence he ever
         // saved.
-        try await client.expunge(uid: try parseID(id, mailbox: name))
+        try await client.expunge(uid: draft.uid, in: name, validity: draft.validity)
         // The snapshot still lists the UID we just removed.
         uidListing[name] = nil
     }
@@ -1136,38 +1181,29 @@ actor IMAPMailRepository: MailRepository {
     }
 
     /// Runs the search in every mailbox the scope covers.
-    private func startSearch(key: String, primaryID: String, criteria: String,
-                             scope: MailSearchScope) async throws -> SearchSession? {
-        // Trash and Spam FIRST, while their own SELECT is cheap to reach,
-        // and before the paged folder is selected and left selected for
-        // every page after this one.
-        var binned: [MessageSummary] = []
-        if scope == .allMailboxes {
-            for attribute in ["\\trash", "\\junk"] {
-                guard let folder = folderForAttribute[attribute] else { continue }
-                binned += try await binnedHits(in: folder, criteria: criteria)
-                try Task.checkCancellation()
-            }
-            binned.sort(by: SearchMerge.isOrderedBefore)
-        }
-
-        let name = try await select(primaryID)
-        try Task.checkCancellation()
-        let client = try await connected()
-        let uids = try await client.search(criteria).sorted()
-        try Task.checkCancellation()
-
-        return SearchSession(key: key, primaryID: primaryID, primaryName: name,
-                             primaryValidity: uidValidity[name] ?? 0,
-                             primaryUIDs: uids, primaryCursor: nil,
-                             binned: binned, primaryExhausted: uids.isEmpty)
-    }
-
-    /// One binned folder's hits, fetched whole.
+    ///
+    /// All of them in one call to the client, which takes the gate once for
+    /// the lot, so the search's commands go back to back instead of each
+    /// queueing behind every other screen's (see `IMAPClient.search(_:across:)`).
+    /// Trash and Spam FIRST, their summaries fetched while each is still
+    /// selected, and the paged folder last, so that it is the one left
+    /// selected for every page after this one.
+    ///
+    /// The summaries of the binned hits are fetched whole here, as B-011
+    /// decided, not a page at a time as they are shown. Which binned hits a
+    /// page shows depends on their dates, and a date comes only with the
+    /// summary: ENVELOPE's, which is the merge key, falling back to
+    /// INTERNALDATE. Fetching dates first and summaries later would mean a
+    /// second source for that key that has to agree with the first to the
+    /// second, or the merge reorders or repeats hits across a page boundary,
+    /// plus a SELECT of Trash or Spam and back in the middle of paging All
+    /// Mail. For the handful of binned hits a term finds in a personal
+    /// account that is more round trips, not fewer.
     ///
     /// A Trash that will not open is swallowed on purpose: it must not cost
     /// him the All Mail results as well. Losing the binned half of a search
-    /// is a gap, losing all of it is the feature not working.
+    /// is a gap, losing all of it is the feature not working. The client
+    /// hands such a mailbox back with no hits.
     ///
     /// A dead connection and a cancelled search are not swallowed. Both
     /// used to be, and each did its own damage. After a dropped socket the
@@ -1179,31 +1215,42 @@ actor IMAPMailRepository: MailRepository {
     /// around `search`, and the second stops where it is.
     ///
     /// A cancelled search is reported as cancelled whatever else went wrong
-    /// on the way, a Trash refused while the cancel landed included. Nobody
-    /// is waiting for the refusal, and `CancellationError` is the one answer
-    /// the list knows to leave the screen alone for.
-    private func binnedHits(in folder: String, criteria: String) async throws
-        -> [MessageSummary] {
-        do {
-            let name = try await select(folder)
-            try Task.checkCancellation()
-            let client = try await connected()
-            let uids = try await client.search(criteria).sorted()
-            try Task.checkCancellation()
-            guard !uids.isEmpty else { return [] }
-            let newest = Array(uids.suffix(Self.maximumBinnedHits).reversed())
-            let hits = try await summaries(for: newest, in: folder, name: name,
-                                           validity: uidValidity[name] ?? 0, client: client)
-            try Task.checkCancellation()
-            return hits
-        } catch {
-            try Task.checkCancellation()
-            // The client tears the connection down on any transport failure
-            // and keeps it on a NO, so this tells a lost socket from a
-            // folder the server refused.
-            if await imap.isConnected == false { throw error }
-            return []
+    /// on the way, a Trash refused or the connection lost while the cancel
+    /// landed included. Nobody is waiting to hear about either, and
+    /// `CancellationError` is the one answer the list knows to leave the
+    /// screen alone for.
+    private func startSearch(key: String, primaryID: String, criteria: String,
+                             scope: MailSearchScope) async throws -> SearchSession? {
+        let client = try await connected()
+        let primary = try await resolve(primaryID)
+
+        var targets: [IMAPSearchTarget] = []
+        if scope == .allMailboxes {
+            for attribute in ["\\trash", "\\junk"] {
+                guard let folder = folderForAttribute[attribute] else { continue }
+                targets.append(IMAPSearchTarget(mailbox: folder,
+                                                summariesOfNewest: Self.maximumBinnedHits))
+            }
         }
+        targets.append(IMAPSearchTarget(mailbox: primary, summariesOfNewest: 0))
+
+        let searched = try await client.search(criteria, across: targets)
+        try Task.checkCancellation()
+        // The paged folder refusing is the search failing, not a gap in it.
+        guard let found = searched.last?.hits else { throw MailError.cannotConnect }
+
+        var binned: [MessageSummary] = []
+        for folder in searched.dropLast() {
+            guard let hits = folder.hits else { continue }
+            binned += rows(from: folder.summaries, in: folder.mailbox, name: folder.mailbox,
+                           validity: hits.validity)
+        }
+        binned.sort(by: SearchMerge.isOrderedBefore)
+
+        return SearchSession(key: key, primaryID: primaryID, primaryName: primary,
+                             primaryValidity: found.validity,
+                             primaryUIDs: found.uids, primaryCursor: nil,
+                             binned: binned, primaryExhausted: found.uids.isEmpty)
     }
 
     /// Replays a page already handed out, if `beforeUID` names something
@@ -1228,19 +1275,15 @@ actor IMAPMailRepository: MailRepository {
                 if next.isEmpty {
                     session.primaryExhausted = true
                 } else {
-                    let name = try await select(session.primaryID)
-                    try Task.checkCancellation()
+                    let client = try await connected()
                     // The session's UIDs are in the numbering it started
                     // with. If the folder has been renumbered since, a
                     // reconnect's SELECT is where that shows, and fetching
                     // the old numbers would drop hits or return other
-                    // letters. Refused; a new search starts clean.
-                    guard uidValidity[name] == session.primaryValidity else {
-                        throw MailError.cannotConnect
-                    }
-                    let client = try await connected()
+                    // letters. The client refuses with nothing sent; a new
+                    // search starts clean.
                     session.buffered = try await summaries(
-                        for: next, in: session.primaryID, name: name,
+                        for: next, in: session.primaryID, name: session.primaryName,
                         validity: session.primaryValidity, client: client)
                     try Task.checkCancellation()
                     session.primaryCursor = next.last
@@ -1294,21 +1337,24 @@ actor IMAPMailRepository: MailRepository {
             }
         }
 
-        let name = try await select(mailboxID)
         let client = try await connected()
-        let uid = try parseID(messageID, mailbox: name)
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(messageID)
 
         // The structure first, because a section fetch returns bytes with no
         // hint of how they are wrapped. Refusing when it cannot be read is
         // deliberate: guessing base64 would shred a 7bit text part, and
         // guessing 7bit is exactly the bug above. A failure the user can
-        // retry beats a file that silently is not the file.
-        guard let structure = try await client.fetchStructure(uid: uid)?.bodyStructure,
-              let part = MIMEDecoder.part(at: attachmentID, in: structure) else {
+        // retry beats a file that silently is not the file. The client
+        // refuses before it asks for the bytes.
+        guard let fetched = try await client.fetchPart(
+            uid: message.uid, section: attachmentID, in: name, validity: message.validity,
+            describedBy: { MIMEDecoder.part(at: attachmentID, in: $0) }) else {
             throw MailError.attachmentFailed
         }
 
-        let raw = try await client.fetchBody(uid: uid, section: attachmentID)
+        let part = fetched.part
+        let raw = fetched.bytes
         guard !raw.isEmpty else { throw MailError.attachmentFailed }
         let decoded = MIMEDecoder.decodeTransfer(raw, encoding: part.encoding)
         guard !decoded.isEmpty else { throw MailError.attachmentFailed }

@@ -57,6 +57,16 @@ this host. Ordered by value, not by size.
       `[UInt8]` + `withUnsafeBytes`, exactly as `decodeQuotedPrintable` above
       it already learned to. 5.7-11x on attachment and inline-image decode.
       (B-038 #5)
+- [x] **Every UID command in its own mailbox, and the letter he opens
+      first.** A SELECT and the command after it took the connection
+      separately, so a Delete during a search could bin another letter
+      (B-039). *Done: the client owns the selection and sends each UID
+      command in one hold with its SELECT and a UIDVALIDITY check; the
+      letter he opens, the attachment he taps, a folder's first page and
+      his writes go ahead of background work; an All Mailboxes search takes
+      the connection once for its three mailboxes and is cancelled when its
+      list is replaced; a search cancelled on its way back draws nothing
+      (`SearchAnswer`).*
 - [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -102,6 +112,11 @@ this host. Ordered by value, not by size.
       No host test sends over TLS, though (the scripted server refuses port
       465), `TLSConnection`'s `NWConnection` glue only runs on the device,
       and nothing has been sent through any of this on the device yet.
+- [ ] Time an All Mailboxes search on the device, and a letter tapped
+      while it runs, from the connection log. The one-hold search and the
+      interactive line are checked on the scripted server, which knows
+      nothing of Gmail's own SEARCH time on Trash and Spam, and that time
+      decides what the binned half of a search still costs.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
@@ -136,3 +151,9 @@ transcript probe now records every send to a file), B-013 (no debug build for
 the device), B-024's bounded write-retry residue, and the "record and leave"
 half of `PERFORMANCE.md` — each of which is real and none of which is worth
 changing working code for today.
+
+Two ways to make an All Mailboxes search faster were weighed and left:
+fetching the binned hits' summaries a page at a time, which needs their
+dates, the merge key, from a second source before the first page can be
+cut (see `IMAPMailRepository.startSearch`), and pipelining its SELECT and
+SEARCH pairs (see `IMAPClient.search(_:across:)`).

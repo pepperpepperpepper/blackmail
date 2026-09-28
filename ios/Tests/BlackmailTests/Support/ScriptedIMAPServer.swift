@@ -348,6 +348,31 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.handshakeStalls = newValue } }
     }
 
+    /// Keeps the TLS handshake of every connection opened from now on from
+    /// finishing until `releaseHandshakes()`: a connection still being
+    /// made, for exactly as long as the test wants. The transport's own
+    /// connect deadline still runs.
+    func holdHandshakes() {
+        locked { $0.handshakesHeld = true }
+    }
+
+    /// Lets every held handshake finish, greeting and all, and stops holding.
+    func releaseHandshakes() async {
+        let live: [ScriptedTransport] = locked { s in
+            s.handshakesHeld = false
+            return s.transports.keys.sorted().compactMap { s.transports[$0]?.transport }
+        }
+        for transport in live { await transport.finishHeldHandshake() }
+    }
+
+    /// Capabilities left out of the post-login list, for a server that has
+    /// not got them: `["UIDPLUS"]` is one that can only EXPUNGE the lot.
+    /// The commands themselves are still answered.
+    var withheldCapabilities: Set<String> {
+        get { locked { $0.withheldCapabilities } }
+        set { locked { $0.withheldCapabilities = newValue } }
+    }
+
     // MARK: - Inspection
 
     /// Every command received, in order, across all connections.
@@ -443,6 +468,8 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         locked { $0.held.contains(reply.verb) }
     }
 
+    fileprivate var handshakesAreHeld: Bool { locked { $0.handshakesHeld } }
+
     fileprivate func noteViolation(_ text: String) {
         locked { $0.violations.append(text) }
     }
@@ -467,7 +494,7 @@ final class ScriptedIMAPServer: @unchecked Sendable {
             case .preauthenticated(let announcing):
                 s.sessions[id]?.authenticated = true
                 line = announcing
-                    ? "* PREAUTH [CAPABILITY \(Self.postLoginCapabilities)] Logged in as \(s.username)"
+                    ? "* PREAUTH [CAPABILITY \(s.advertisedAfterLogin)] Logged in as \(s.username)"
                     : "* PREAUTH Logged in as \(s.username)"
             }
             return Reply(bytes: Data((line + "\r\n").utf8), delay: s.defaultDelay)
@@ -655,6 +682,8 @@ private extension ScriptedIMAPServer {
         var uploadReplyTimeout: Duration = .seconds(5)
         var uplinkDelay: Duration = .zero
         var handshakeStalls = false
+        var handshakesHeld = false
+        var withheldCapabilities: Set<String> = []
         var held: Set<String> = []
         var transports: [Int: Server.WeakTransport] = [:]
         /// Every transport ever made, for `transportsInMemory`.
@@ -673,6 +702,13 @@ private extension ScriptedIMAPServer {
 private extension ScriptedIMAPServer.State {
 
     typealias Server = ScriptedIMAPServer
+
+    /// Gmail's post-login list, less `withheldCapabilities`.
+    var advertisedAfterLogin: String {
+        Server.postLoginCapabilities.split(separator: " ")
+            .filter { !withheldCapabilities.contains(String($0)) }
+            .joined(separator: " ")
+    }
 
     mutating func addFolder(_ name: String, attributes: [String], label: String?,
                             validity: UInt32, firstUID: UInt32, selectable: Bool = true) {
@@ -809,7 +845,7 @@ private extension ScriptedIMAPServer.State {
 
         switch verb {
         case "CAPABILITY":
-            r.untagged("CAPABILITY " + (session.authenticated ? Server.postLoginCapabilities
+            r.untagged("CAPABILITY " + (session.authenticated ? advertisedAfterLogin
                                                                : Server.preLoginCapabilities))
             r.ok("Thats all she wrote! (Success)")
         case "NOOP":
@@ -870,9 +906,9 @@ private extension ScriptedIMAPServer.State {
         sessions[id]?.authenticated = true
         switch loginCapabilities {
         case .inTaggedOK:
-            r.ok("[CAPABILITY \(Server.postLoginCapabilities)] \(user) authenticated (Success)")
+            r.ok("[CAPABILITY \(advertisedAfterLogin)] \(user) authenticated (Success)")
         case .untagged:
-            r.untagged("CAPABILITY \(Server.postLoginCapabilities)")
+            r.untagged("CAPABILITY \(advertisedAfterLogin)")
             r.ok("\(user) authenticated (Success)")
         case .omitted:
             r.ok("\(user) authenticated (Success)")
@@ -1720,6 +1756,9 @@ actor ScriptedTransport: LinkTransport {
     var stream = LinkStream()
     /// The handshake has finished and the link has not been let go of.
     private var linkUp = false
+    /// How to report a handshake `holdHandshakes()` is holding, once it is
+    /// let go.
+    private var heldHandshake: (@Sendable (Error?) -> Void)?
 
     private enum Arrival: Sendable {
         case bytes(Data)
@@ -1784,6 +1823,20 @@ actor ScriptedTransport: LinkTransport {
             return
         }
         guard !server.handshakeStalls else { return }
+        guard !server.handshakesAreHeld else {
+            heldHandshake = report
+            return
+        }
+        linkUp = true
+        report(nil)
+        if let greeting = server.accept(connection) { deliver(greeting) }
+    }
+
+    /// Finishes a handshake `holdHandshakes()` held, as `startLink` would
+    /// have.
+    fileprivate func finishHeldHandshake() {
+        guard let report = heldHandshake else { return }
+        heldHandshake = nil
         linkUp = true
         report(nil)
         if let greeting = server.accept(connection) { deliver(greeting) }
@@ -1823,6 +1876,7 @@ actor ScriptedTransport: LinkTransport {
     /// pending ends now, with an error, and the server hears the hang-up.
     func closeLink() {
         finishSending(failing: .closed)
+        heldHandshake = nil
         guard linkUp else { return }
         linkUp = false
         arrived.removeAll()

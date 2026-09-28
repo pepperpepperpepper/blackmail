@@ -13,14 +13,16 @@ import Foundation
 /// them fetches whatever happens to wear those numbers there, or nothing.
 ///
 /// And one mailbox at a time. The list used to start a task per mailbox,
-/// and the groups raced: each one's SELECT and the FETCH after it take the
+/// and the groups raced: each one's SELECT and the FETCH after it took the
 /// connection separately, so another group's SELECT could land between
 /// them and the FETCH asked the wrong folder for those UIDs. Under an "All
 /// Mailboxes" search that left most previews blank. Going one after another
-/// removes the race between the groups. It does not stop a SELECT from
-/// anything else, the next page's previews included, landing in the same
-/// gap; that needs the SELECT and the FETCH to share one hold on the
-/// connection.
+/// removed the race between the groups, but not a SELECT from anything
+/// else landing in the same gap. That is now closed where it opened: the
+/// client sends each FETCH in one hold of the connection with the SELECT
+/// it needs (B-039), so previews fetched concurrently land too. The pass
+/// stays one mailbox at a time because that is the order the rows are
+/// drawn in, and it can stop as soon as the list is replaced.
 enum PreviewPass {
 
     struct Group: Equatable {

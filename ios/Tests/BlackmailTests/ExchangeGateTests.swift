@@ -29,10 +29,12 @@ final class ExchangeGateTests: XCTestCase {
     private func connectedClient() async throws -> IMAPClient {
         let client = IMAPClient(account: server.account, transport: server.transportFactory)
         try await client.connect(password: server.password)
-        try await client.select(Server.inbox)
+        _ = try await client.searchAll(in: Server.inbox)
         server.clearLog()
         return client
     }
+
+    private var inboxValidity: UInt32 { server.uidValidity(of: Server.inbox) }
 
     /// A millisecond at a time, for a second at most.
     private func until(file: StaticString = #filePath, line: UInt = #line,
@@ -56,7 +58,7 @@ final class ExchangeGateTests: XCTestCase {
     func testACommandCancelledOnTheWireStillGetsItsReplyAndTheConnectionStaysUp() async throws {
         let client = try await connectedClient()
         server.holdReplies(to: "UID SEARCH")
-        let search = Task { try await client.search("SUBJECT \"garden\"") }
+        let search = Task { try await client.search("SUBJECT \"garden\"", in: Server.inbox).uids }
         try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
 
         search.cancel()
@@ -71,7 +73,7 @@ final class ExchangeGateTests: XCTestCase {
         let connected = await client.isConnected
         XCTAssertTrue(connected, "cancelling a command cost the connection")
 
-        let all = try await finishing { try await client.searchAll() }
+        let all = try await finishing { try await client.searchAll(in: Server.inbox).uids }
         XCTAssertEqual(all, server.uids(in: Server.inbox))
         XCTAssertEqual(server.connectionsOpened, 1)
         XCTAssertEqual(server.log.map(\.status), ["OK", "OK"])
@@ -86,13 +88,17 @@ final class ExchangeGateTests: XCTestCase {
     func testAWaiterCancelledInLineNeverWritesItsCommandAndTheRestKeepTheirOrder() async throws {
         let client = try await connectedClient()
         let uids = server.uids(in: Server.inbox)
+        let validity = inboxValidity
         server.holdReplies(to: "UID SEARCH")
-        let first = Task { try await client.searchAll() }
+        let first = Task { try await client.searchAll(in: Server.inbox).uids }
         try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
 
         var queued: [Task<Void, Error>] = []
         for (position, uid) in uids.prefix(3).enumerated() {
-            queued.append(Task { try await client.store(uid: uid, flag: "\\Flagged", set: true) })
+            queued.append(Task {
+                try await client.store(uid: uid, flag: "\\Flagged", set: true,
+                                       in: Server.inbox, validity: validity)
+            })
             try await until { await client.waitingForExchange == position + 1 }
         }
         let taps = queued
@@ -122,8 +128,79 @@ final class ExchangeGateTests: XCTestCase {
         XCTAssertEqual([flagged(uids[0]), flagged(uids[1]), flagged(uids[2])], [true, false, true])
 
         // Leaving the line did not wedge the gate.
-        try await finishing { try await client.store(uid: uids[1], flag: "\\Flagged", set: true) }
+        try await finishing {
+            try await client.store(uid: uids[1], flag: "\\Flagged", set: true,
+                                   in: Server.inbox, validity: validity)
+        }
         XCTAssertTrue(flagged(uids[1]))
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Two lines behind the command on the wire. Queued in the order
+    /// background, interactive, background, interactive, background, then
+    /// the rest of the writes, a MOVE, the NOOP that probes before a
+    /// write and a draft's EXPUNGE, and last a close. They go interactive
+    /// first and first come first served within each line, so the writes
+    /// reach the server in the order they were made. The close waits for
+    /// the background commands asked for before it. The last background
+    /// command is cancelled in line and leaves without writing, as it would
+    /// from a line of one.
+    func testTheInteractiveLineGoesFirstAndEachLineKeepsItsOwnOrder() async throws {
+        let client = try await connectedClient()
+        let uids = server.uids(in: Server.inbox)
+        let validity = inboxValidity
+        server.holdReplies(to: "UID SEARCH")
+        let first = Task { try await client.searchAll(in: Server.inbox).uids }
+        try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
+
+        let work: [@Sendable () async throws -> Void] = [
+            { _ = try await client.fetchSummaries(uids: [uids[0]], in: Server.inbox, validity: validity) },
+            { try await client.store(uid: uids[1], flag: "\\Flagged", set: true,
+                                     in: Server.inbox, validity: validity) },
+            { _ = try await client.status(Server.sent, items: ["UNSEEN"]) },
+            { _ = try await client.fetchBody(uid: uids[2], section: nil, in: Server.inbox,
+                                             validity: validity) },
+            { _ = try await client.fetchSummaries(uids: [uids[3]], in: Server.inbox, validity: validity) },
+            { try await client.move(uid: uids[4], from: Server.inbox, validity: validity, to: Server.sent) },
+            { try await client.noop() },
+            { try await client.expunge(uid: uids[5], in: Server.inbox, validity: validity) },
+            { await client.disconnect() },
+        ]
+        var queued: [Task<Void, Error>] = []
+        for (position, run) in work.enumerated() {
+            queued.append(Task { try await run() })
+            try await until { await client.waitingForExchange == position + 1 }
+        }
+        let tasks = queued
+
+        tasks[4].cancel()
+        do {
+            try await finishing(within: 1) { try await tasks[4].value }
+            XCTFail("a background command cancelled in line was sent anyway")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.verb), ["UID SEARCH"])
+
+        await server.releaseReplies(to: "UID SEARCH")
+        _ = try await finishing { try await first.value }
+        for (position, task) in tasks.enumerated() where position != 4 {
+            try await finishing { try await task.value }
+        }
+
+        XCTAssertEqual(server.log.map(\.command).dropFirst(), [
+            "UID STORE \(uids[1]) +FLAGS.SILENT (\\Flagged)",
+            "UID FETCH \(uids[2]) (UID BODY.PEEK[])",
+            "UID MOVE \(uids[4]) \"[Gmail]/Sent Mail\"",
+            "NOOP",
+            "UID STORE \(uids[5]) +FLAGS.SILENT (\\Deleted)",
+            "UID EXPUNGE \(uids[5])",
+            "UID FETCH \(uids[0]) (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE "
+                + "X-GM-LABELS X-GM-THRID)",
+            "STATUS \"[Gmail]/Sent Mail\" (UNSEEN)",
+            "LOGOUT",
+        ])
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
         XCTAssertEqual(server.connectionsOpened, 1)
     }
 
@@ -133,9 +210,11 @@ final class ExchangeGateTests: XCTestCase {
     func testACallerAlreadyCancelledSendsNothingEvenWhenTheSocketIsFree() async throws {
         let client = try await connectedClient()
         let uid = try XCTUnwrap(server.uids(in: Server.inbox).first)
+        let validity = inboxValidity
         let tap = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            try await client.store(uid: uid, flag: "\\Flagged", set: true)
+            try await client.store(uid: uid, flag: "\\Flagged", set: true,
+                                   in: Server.inbox, validity: validity)
         }
         do {
             try await finishing { try await tap.value }
@@ -156,7 +235,7 @@ final class ExchangeGateTests: XCTestCase {
     func testACancelledCallerStillLogsOutAndStillWaitsItsTurnToDoIt() async throws {
         let client = try await connectedClient()
         server.holdReplies(to: "UID SEARCH")
-        let search = Task { try await client.searchAll() }
+        let search = Task { try await client.searchAll(in: Server.inbox).uids }
         try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
 
         let leaving = Task {

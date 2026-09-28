@@ -210,29 +210,41 @@ final class RepositoryWireTests: XCTestCase {
 
     // MARK: - The fake's own guarantees, through the real client
 
-    func testAUIDCommandWithNoMailboxSelectedIsRefusedOnThatConnection() async throws {
-        let client = IMAPClient(account: server.account, transport: server.transportFactory)
-        try await client.connect(password: server.password)
-        do {
-            _ = try await client.searchAll()
-            XCTFail("a UID SEARCH with nothing selected must not succeed")
-        } catch {
-            XCTAssertEqual(error as? MailError, .cannotConnect)
+    /// Writes `command` down `link` as it stands and reads to its tagged
+    /// answer, which it returns. No client in between.
+    private func exchange(_ link: any MailTransport, _ tag: String,
+                          _ command: String) async throws -> String {
+        try await link.writeLine("\(tag) \(command)")
+        while true {
+            let line = try await link.readLine()
+            if line.hasPrefix(tag + " ") { return line }
         }
+    }
+
+    func testAUIDCommandWithNoMailboxSelectedIsRefusedOnThatConnection() async throws {
+        // Written straight down a connection of its own, because the client
+        // no longer sends a UID command without the SELECT it needs.
+        let link = server.transportFactory(server.account.imapHost, server.port)
+        try await link.open()
+        _ = try await link.readLine()
+        _ = try await exchange(link, "a1", "LOGIN \"\(server.username)\" \"\(server.password)\"")
+        let refused = try await exchange(link, "a2", "UID SEARCH ALL")
+        XCTAssertTrue(refused.hasPrefix("a2 BAD"), refused)
         XCTAssertEqual(server.log.last, Server.LogEntry(connection: 1, selected: nil,
                                                         command: "UID SEARCH ALL", status: "BAD"))
 
-        try await client.select(Server.inbox)
-        let all = try await client.searchAll()
-        XCTAssertEqual(all, server.uids(in: Server.inbox))
+        let client = IMAPClient(account: server.account, transport: server.transportFactory)
+        try await client.connect(password: server.password)
+        let all = try await client.searchAll(in: Server.inbox)
+        XCTAssertEqual(all, IMAPMailboxUIDs(validity: server.uidValidity(of: Server.inbox),
+                                            uids: server.uids(in: Server.inbox)))
 
-        // Selection belongs to the connection, not the server: a second one
-        // starts with nothing selected, whatever the first has open.
-        let other = IMAPClient(account: server.account, transport: server.transportFactory)
-        try await other.connect(password: server.password)
-        _ = try? await other.searchAll()
-        XCTAssertEqual(server.log.last?.connection, 2)
-        XCTAssertEqual(server.log.last?.status, "BAD")
+        // Selection belongs to the connection, not the server: the first one
+        // still has nothing selected, whatever the second has open.
+        let again = try await exchange(link, "a3", "UID SEARCH ALL")
+        XCTAssertTrue(again.hasPrefix("a3 BAD"), again)
+        XCTAssertEqual(server.log.last?.connection, 1)
+        await link.close()
     }
 
     func testASocketThatDiedWhileTheIPadSleptCostsOneReconnectAndTheReadStillLands() async throws {
@@ -393,11 +405,19 @@ final class RepositoryWireTests: XCTestCase {
         }
         XCTAssertEqual(again.map(\.id), inbox.map(\.id))
 
-        // The same through a preview pass that is refused, then the next
-        // page of the Inbox, which walks the snapshot and sends only a FETCH.
+        // The same through a preview pass that is refused, for rows listed
+        // while the Trash would still open. Its SELECT is refused and the
+        // FETCH that depended on it is not sent. Then the next page of the
+        // Inbox, which walks the snapshot and sends only a FETCH, after
+        // the SELECT the refusal made necessary.
+        server.refusedMailboxes = []
+        let binned = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 5)
+        _ = try await repository.loadMessage(id: again[0].id, mailboxID: "inbox")
         server.refusedMailboxes = [Server.trash]
-        _ = try? await repository.previews(for: ["\(server.uidValidity(of: Server.trash))/80"],
-                                           in: Server.trash)
+        let mark = server.log.count
+        let previews = try? await repository.previews(for: binned.map(\.id), in: Server.trash)
+        XCTAssertNil(previews)
+        XCTAssertEqual(server.log.dropFirst(mark).map(\.command), ["SELECT \"[Gmail]/Trash\""])
         let next = try await expectingMailbox(Server.inbox) {
             try await repository.listMessages(in: "inbox", beforeUID: again.last?.id, limit: 20)
         }
@@ -503,6 +523,91 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.map(\.command), ["SELECT \"[Gmail]/Trash\""])
         XCTAssertEqual(server.log.map(\.status), ["NO"])
         XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled once its Trash was open, before the Trash SEARCH, Gmail's
+    /// slow step, was sent. Nothing more goes: the SEARCH would only hold up
+    /// the search that replaced it.
+    func testASearchCancelledAsItsTrashOpensSendsNoSearchThere() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        server.holdReplies(to: "SELECT")
+        server.clearLog()
+
+        let superseded = Task { try await self.searchEverywhere(repository, for: "garden") }
+        try await waitForCommand { $0.command == "SELECT \"[Gmail]/Trash\"" }
+        superseded.cancel()
+        await server.releaseReplies(to: "SELECT")
+        do {
+            _ = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search came back with results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.command), ["SELECT \"[Gmail]/Trash\""])
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled while its Trash summaries were on their way back. Spam is
+    /// not opened after them.
+    func testASearchCancelledDuringItsBinnedSummariesGoesNoFurther() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        server.holdReplies(to: "UID FETCH")
+        server.clearLog()
+
+        let superseded = Task { try await self.searchEverywhere(repository, for: "garden") }
+        try await waitForCommand { $0.verb == "UID FETCH" }
+        superseded.cancel()
+        await server.releaseReplies(to: "UID FETCH")
+        do {
+            _ = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search came back with results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH"])
+        XCTAssertEqual(server.log.last?.selected, Server.trash)
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled, and then the connection dies under the Trash SEARCH it
+    /// had on the wire. It is reported as cancelled, not as the lost
+    /// connection, and nothing reconnects for it.
+    func testASearchCancelledAsItsConnectionDiesEndsCancelled() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        server.holdReplies(to: "UID SEARCH")
+        server.clearLog()
+
+        let superseded = Task { try await self.searchEverywhere(repository, for: "garden") }
+        try await waitForCommand { $0.verb == "UID SEARCH" }
+        superseded.cancel()
+        await server.resetConnections()
+        do {
+            _ = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search came back with results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        await server.releaseReplies(to: "UID SEARCH")
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH"])
+        XCTAssertEqual(server.connectionsOpened, 1)
+
+        let hits = try await finishing { try await self.searchEverywhere(repository, for: "garden") }
+        XCTAssertTrue(hits.contains { $0.subject == "Binned: old garden" })
+        XCTAssertEqual(server.connectionsOpened, 2)
+    }
+
+    /// Waits, a millisecond at a time and never for more than a second,
+    /// until `condition` holds.
+    private func until(file: StaticString = #filePath, line: UInt = #line,
+                       _ condition: () async -> Bool) async throws {
+        for _ in 0..<1_000 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("never happened", file: file, line: line)
     }
 
     /// Waits, a millisecond at a time and never for more than a second,
@@ -864,6 +969,55 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.map(\.verb), ["UID STORE"])
     }
 
+    /// A flag set after a quiet spell, with a search on the wire and
+    /// previews and the folder sweep queued behind it. The probe goes as
+    /// soon as the search's answer is in, and the write after it, ahead of
+    /// the sweep. Probe and write are two holds of the connection, so the
+    /// one queued exchange at the head of the line when the probe ends, the
+    /// previews' FETCH here, goes between them; nothing else does.
+    func testAProbedWriteGoesAheadOfWorkQueuedBeforeIt() async throws {
+        let clock = TestClock()
+        let repository = makeRepository(now: { clock.now() })
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        server.clearLog()
+        server.holdReplies(to: "UID SEARCH")
+
+        let search = Task {
+            try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                        beforeUID: nil, limit: 10)
+        }
+        try await waitForCommand { $0.verb == "UID SEARCH" }
+        let previews = Task { try await repository.previews(for: rows.map(\.id), in: "inbox") }
+        try await until { await repository.waitingForExchange == 1 }
+        let sweep = Task { try await repository.listMailboxes() }
+        try await until { await repository.waitingForExchange == 2 }
+
+        clock.advance(by: 91)
+        let flag = Task { try await repository.setFlagged(true, id: rows[0].id, mailboxID: "inbox") }
+        try await until { await repository.waitingForExchange == 3 }
+        server.holdReplies(to: "UID FETCH")
+        await server.releaseReplies(to: "UID SEARCH")
+        // The probe has gone and the previews have the connection; the
+        // write, the sweep and the search's page are waiting.
+        try await waitForCommand { $0.verb == "UID FETCH" }
+        try await until { await repository.waitingForExchange == 3 }
+        await server.releaseReplies(to: "UID FETCH")
+
+        try await finishing { try await flag.value }
+        _ = try await finishing { try await search.value }
+        _ = try await finishing { try await previews.value }
+        _ = try await finishing { try await sweep.value }
+
+        XCTAssertEqual(Array(server.log.map(\.verb).prefix(5)),
+                       ["UID SEARCH", "NOOP", "UID FETCH", "UID STORE", "LIST"])
+        XCTAssertTrue(server.log[2].command.contains("BODY.PEEK[1]<0."), "\(server.log[2])")
+        XCTAssertTrue(server.flags(uid: try XCTUnwrap(UInt32(rows[0].id.split(separator: "/").last ?? "")),
+                                   in: Server.inbox).contains("\\Flagged"))
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
     // MARK: - A refused password is sent once
 
     func testARefusedPasswordIsSentOnceAndNotRetried() async throws {
@@ -892,6 +1046,45 @@ final class RepositoryWireTests: XCTestCase {
             // same wrong password again, and with a revoked app password
             // every search he typed cost two, which is how an account gets
             // throttled.
+            XCTAssertEqual(server.log.map(\.verb), ["LOGIN"], label)
+            XCTAssertEqual(server.connectionsOpened, 1, label)
+        }
+    }
+
+    /// A second screen wants the connection while the first is still
+    /// making it, with a password Gmail refuses: once during the TLS
+    /// handshake, when the client does not yet call itself connected and
+    /// the second call asks to connect as well, and once while LOGIN is on
+    /// its way, when it does and the second call queues its command
+    /// instead. Either way the refusal is both calls' answer, and the
+    /// password goes once. The second call used to send it again, on a
+    /// connection of its own.
+    func testAPasswordRefusedWhileAnotherCallWaitsForTheConnectionIsStillSentOnce() async throws {
+        let windows: [(label: String, hold: (ScriptedIMAPServer) -> Void,
+                       underway: (ScriptedIMAPServer) -> Bool,
+                       release: (ScriptedIMAPServer) async -> Void)] = [
+            ("handshake", { $0.holdHandshakes() }, { _ in true }, { await $0.releaseHandshakes() }),
+            ("login", { $0.holdReplies(to: "LOGIN") }, { $0.log.contains { $0.verb == "LOGIN" } },
+             { await $0.releaseReplies(to: "LOGIN") }),
+        ]
+        for (label, hold, underway, release) in windows {
+            server = ScriptedIMAPServer()
+            hold(server)
+            let repository = makeRepository(password: "not-the-password")
+            let first = Task { _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20) }
+            try await until { underway(self.server) }
+            let second = Task { _ = try await repository.listMailboxes() }
+            try await until { await repository.waitingForExchange == 1 }
+            await release(server)
+
+            for (call, task) in [("first", first), ("second", second)] {
+                do {
+                    try await finishing { try await task.value }
+                    XCTFail("\(label), \(call): nothing can be read with the wrong password")
+                } catch {
+                    XCTAssertEqual(error as? MailError, .passwordNeedsUpdating, "\(label), \(call)")
+                }
+            }
             XCTAssertEqual(server.log.map(\.verb), ["LOGIN"], label)
             XCTAssertEqual(server.connectionsOpened, 1, label)
         }
@@ -1052,6 +1245,87 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(again.map(\.subject), first.map(\.subject))
         XCTAssertTrue(again.filter { $0.mailboxID == Server.allMail }
                         .allSatisfy { $0.id.hasPrefix("700002/") })
+    }
+
+    /// Loading upward after a jump, the Inbox renumbered behind a dead
+    /// socket. The fetch's own SELECT, on the new connection, is what
+    /// finds it, and there is nothing more to load above him: an empty
+    /// page, which is what stops the list asking, not an error it would
+    /// meet again at every scroll to the top.
+    func testLoadingUpwardIntoAFolderRenumberedBehindADeadSocketFindsNothingMore() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let before = try await repository.listMessages(in: "inbox", afterUID: rows[30].id, limit: 10)
+        XCTAssertEqual(before.map(\.id), rows[20..<30].map(\.id))
+
+        await server.resetConnections()
+        server.renumber(Server.inbox, validity: 700_001, firstUID: 990)
+        server.clearLog()
+        let after = try await repository.listMessages(in: "inbox", afterUID: rows[30].id, limit: 10)
+
+        XCTAssertEqual(after.map(\.id), [])
+        XCTAssertEqual(server.lostWrites.map(\.verb), ["UID FETCH"])
+        XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "SELECT"])
+        XCTAssertEqual(server.connectionsOpened, 2)
+    }
+
+    /// Rows drawn before the Inbox was renumbered, asked about once
+    /// something else has already seen the new numbering, with another
+    /// folder selected by then. The page above them is empty and the
+    /// previews are simply missing, neither costing a command; the page
+    /// below is refused rather than cut from the new numbers with an old
+    /// cursor, which drew other letters.
+    func testRowsFromBeforeARenumberingThatHasBeenSeenAreNeitherPagedNorPreviewed() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+
+        await server.resetConnections()
+        server.renumber(Server.inbox, validity: 700_001, firstUID: 990)
+        do {
+            _ = try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox")
+            XCTFail("opened a letter by a UID from the old numbering")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 5)
+        server.clearLog()
+
+        let above = try await repository.listMessages(in: "inbox", afterUID: rows[30].id, limit: 10)
+        XCTAssertEqual(above.map(\.id), [])
+        XCTAssertEqual(server.log, [], "paging upward sent something")
+
+        let previews = try await repository.previews(for: rows.prefix(10).map(\.id), in: "inbox")
+        XCTAssertEqual(previews, [:])
+        XCTAssertEqual(server.log, [], "previews sent something")
+
+        do {
+            let page = try await repository.listMessages(in: "inbox", beforeUID: rows.last?.id, limit: 20)
+            XCTFail("paged from a cursor in the old numbering: \(page.map(\.subject))")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertFalse(server.log.contains { $0.verb == "UID FETCH" }, "\(server.log)")
+        XCTAssertEqual(server.connectionsOpened, 2)
+    }
+
+    // MARK: - An attachment the letter does not have
+
+    /// Refused on the letter's structure, before the part's bytes are
+    /// asked for.
+    func testAnAttachmentTheLetterHasNoPartForIsRefusedBeforeAnyBytesAreFetched() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
+        server.clearLog()
+
+        do {
+            _ = try await repository.fetchAttachmentData("9", of: rows[3].id, mailboxID: "inbox")
+            XCTFail("fetched a part the letter does not have")
+        } catch {
+            XCTAssertEqual(error as? MailError, .attachmentFailed)
+        }
+        XCTAssertEqual(server.log.map(\.verb), ["UID FETCH"])
+        XCTAssertFalse(server.log.contains { $0.command.contains("BODY.PEEK") }, "\(server.log)")
     }
 }
 

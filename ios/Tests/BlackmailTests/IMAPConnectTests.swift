@@ -40,8 +40,8 @@ final class IMAPConnectTests: XCTestCase {
             // in that list, and without it this delete would be a plain
             // EXPUNGE of the whole folder rather than of this one draft.
             let draft = try XCTUnwrap(server.uids(in: Server.drafts).first, c.label)
-            try await client.select(Server.drafts)
-            try await client.expunge(uid: draft)
+            try await client.expunge(uid: draft, in: Server.drafts,
+                                     validity: server.uidValidity(of: Server.drafts))
             XCTAssertEqual(server.log.dropFirst(c.handshake.count).map(\.command),
                            ["SELECT \"[Gmail]/Drafts\"",
                             "UID STORE \(draft) +FLAGS.SILENT (\\Deleted)",

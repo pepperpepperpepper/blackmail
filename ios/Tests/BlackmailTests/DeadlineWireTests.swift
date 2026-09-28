@@ -28,9 +28,11 @@ final class DeadlineWireTests: XCTestCase {
     private func connectedClient() async throws -> IMAPClient {
         let client = IMAPClient(account: server.account, transport: server.transportFactory)
         try await client.connect(password: server.password)
-        try await client.select(Server.inbox)
+        _ = try await client.searchAll(in: Server.inbox)
         return client
     }
+
+    private var inboxValidity: UInt32 { server.uidValidity(of: Server.inbox) }
 
     // MARK: - Silence
 
@@ -42,11 +44,14 @@ final class DeadlineWireTests: XCTestCase {
         server.timeout = .milliseconds(20)
         let client = try await connectedClient()
         let uids = server.uids(in: Server.inbox)
+        let validity = inboxValidity
         server.holdReplies(to: "UID FETCH")
 
         let started = ContinuousClock.now
         do {
-            _ = try await finishing(within: 1) { try await client.fetchBody(uid: uids[0], section: nil) }
+            _ = try await finishing(within: 1) {
+                try await client.fetchBody(uid: uids[0], section: nil, in: Server.inbox, validity: validity)
+            }
             XCTFail("a reply that never came cannot have been read")
         } catch {
             XCTAssertEqual(error as? MailError, .cannotConnect)
@@ -61,8 +66,8 @@ final class DeadlineWireTests: XCTestCase {
         let password = server.password
         let raw = try await finishing {
             try await client.connect(password: password)
-            try await client.select(Server.inbox)
-            return try await client.fetchBody(uid: uids[1], section: nil)
+            return try await client.fetchBody(uid: uids[1], section: nil, in: Server.inbox,
+                                              validity: validity)
         }
         let body = String(decoding: raw, as: UTF8.self)
         XCTAssertTrue(body.contains("<letter-2@example.org>"), body)
@@ -130,12 +135,14 @@ final class DeadlineWireTests: XCTestCase {
         server.timeout = .milliseconds(20)
         let client = try await connectedClient()
         let uid = try XCTUnwrap(server.uids(in: Server.inbox).first)
+        let validity = inboxValidity
         server.clearLog()
         server.uplinkDelay = .seconds(30)
 
         do {
             try await finishing(within: 1) {
-                try await client.store(uid: uid, flag: "\\Flagged", set: true)
+                try await client.store(uid: uid, flag: "\\Flagged", set: true,
+                                       in: Server.inbox, validity: validity)
             }
             XCTFail("a write that never left cannot have been answered")
         } catch {

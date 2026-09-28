@@ -348,6 +348,7 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func reload() async {
         listGeneration += 1
+        stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
         reachedOldestMessage = false
@@ -406,6 +407,7 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func jump(to date: Date) {
         listGeneration += 1
+        stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
         let generation = listGeneration
@@ -1028,6 +1030,17 @@ final class MessageListViewController: UITableViewController {
         }
     }
 
+    /// Calls off a search still running, whose results nothing would draw:
+    /// the list has moved on, to a refresh or a date here, or to another
+    /// folder that replaces it. A search takes the connection for a
+    /// mailbox at a time (see `IMAPClient.search(_:across:)`), so one left
+    /// running holds up whatever is next in line until it is done; cancelled,
+    /// it stops after the command it has on the wire.
+    @MainActor
+    func stopSearching() {
+        searchDebounce?.cancel()
+    }
+
     /// Leaves search behind and puts the folder back, without a round trip.
     @MainActor
     private func showUnfilteredList() {
@@ -1054,35 +1067,37 @@ final class MessageListViewController: UITableViewController {
         let generation = listGeneration
         let scope = searchScope
 
-        let hits: [MessageSummary]
+        let outcome: Result<[MessageSummary], Error>
         do {
-            hits = try await repository.search(in: mailbox.id, query: text, scope: scope,
-                                               beforeUID: nil, limit: Self.pageSize)
+            outcome = .success(try await repository.search(
+                in: mailbox.id, query: text, scope: scope, beforeUID: nil, limit: Self.pageSize))
         } catch {
-            // A search the next keystroke cancelled has not failed, it has
-            // been replaced, and it has no business changing the screen. The
-            // generation check below does not cover it: the replacement
-            // bumps `listGeneration` only when its own debounce runs out, so
-            // in the gap between two keystrokes a cancelled search used to
-            // empty the list and say "Could not search" while he was still
-            // typing. A CancellationError is treated the same even with this
-            // task's own flag clear, because it can only mean a search was
-            // called off, never that one could not be run.
-            guard !Task.isCancelled, !(error is CancellationError) else { return }
+            outcome = .failure(error)
+        }
+
+        // A search the next keystroke cancelled has not failed and has not
+        // found anything: it has been replaced, and it has no business
+        // changing the screen, whichever way it ended. See `SearchAnswer`.
+        let hits: [MessageSummary]
+        switch SearchAnswer.settle(outcome, cancelled: Task.isCancelled,
+                                   current: generation == listGeneration) {
+        case .ignore:
+            return
+        case .failed:
             // This used to be `try?`, which turned every failure into an
             // empty array and rendered it as "No results" — so a dropped
             // connection told him the letter did not exist. It does exist;
             // we could not look.
-            guard generation == listGeneration else { return }
             filtered = []
             searchFailed = true
             regroup()
             updateEmptyState()
             updatePageFooter()
             return
+        case .draw(let found):
+            hits = found
         }
 
-        guard generation == listGeneration else { return }
         searchFailed = false
         filtered = hits
         reachedOldestMessage = hits.count < Self.pageSize

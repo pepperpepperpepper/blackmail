@@ -1657,3 +1657,78 @@ but not measured), and `LayoutAudit`, which ships in release and runs 90
 whole-window main-thread sweeps over the first three minutes of every launch.
 That one is unmeasurable from Linux and costs one `#if DEBUG` to remove. (Since
 done as a runtime switch, off by default, instead of `#if DEBUG`; see B-030.)
+
+---
+
+## B-039 — A UID command could run in the wrong mailbox, and act on another letter
+
+**RESOLVED 2026-09-28.** Found in simulation, never seen on the iPad, which
+is not the same as never having happened: a read mark or a flag landing on
+the wrong letter looks like nothing at all.
+
+**What it was.** A UID means nothing outside the mailbox that issued it, and
+Gmail numbers each mailbox on its own, so one UID can name three different
+letters in Trash, Spam and All Mail. The repository sent a SELECT and then
+the command that depended on it, but the two took the connection
+separately, with actor hops between them, and the SELECT was skipped
+whenever the repository's own note said that mailbox was already open.
+Any other screen's SELECT could land in between: a preview pass for another
+mailbox, a search on its way through Trash, Spam and All Mail, the next
+page of the list. The FETCH, STORE, MOVE or EXPUNGE then ran wherever that
+had left the connection. The same note was also wrong for a moment after
+every reconnect: the client reported itself connected before LOGIN was
+answered, the note was cleared only once the connect returned, and a tap in
+between skipped its SELECT and was answered BAD.
+
+**What it could do.** Reads came back empty or wrong: blank previews under
+search results, a letter that opened empty or as a different letter.
+Writes acted on whatever letter wore the same UID in the mailbox left
+selected. A Delete tapped during an All Mailboxes search could bin a letter
+he never chose.
+
+**How it was found.** By running the real `IMAPClient` and
+`IMAPMailRepository` against a scripted Gmail-shaped server while measuring
+where the lag came from: a Delete issued during an All Mailboxes search ran
+its UID MOVE in
+the wrong mailbox in 19 of 30 trials, and 196 of 250 previews under search
+results came back blank. `MailboxAtomicityTests` reproduces it against the
+previous code: 10 or 11 of its 30 writes run in Trash, Spam or All Mail
+instead of the Inbox, none of those changes the letter he chose, and one
+moves a different letter to Trash.
+
+**The fix.** `IMAPClient` now owns the selection for its connection,
+cleared on every connect and teardown, and the repository keeps no note of
+it. Every UID command names the mailbox it must run in and goes out in one
+hold of the exchange gate with the SELECT it needs; a command sent in
+chunks takes a hold per chunk and checks again each time. Every command
+that acts on a UID also names the UIDVALIDITY the UID came from, which the
+id already carried, and is checked in the same hold after the SELECT: a
+mailbox renumbered since the row was drawn refuses the command with nothing
+sent. A refused SELECT still sends nothing that depended on it and keeps
+the connection. The pairs that were two calls, an attachment's structure
+and its bytes, a draft's `\Deleted` and its EXPUNGE, now go in one hold
+each as well, and so do a folder's first page and a date jump, whose two
+SEARCHes must come from one numbering.
+
+**The same reconnect window sent a refused password twice.** A call that
+found the connection being made either asked to connect as well, during
+the TLS handshake, or queued its command, once the client called itself
+connected. When the LOGIN was refused, the first made an attempt of its
+own and the second read the closed connection as a dropped socket and
+retried into a new one: with a revoked app password, two failed logins
+for one moment of use. Every call already waiting when an attempt fails
+now gets that failure, and the password goes once.
+
+**Tested** in `MailboxAtomicityTests`, over mailboxes that number their
+letters from the same UID so that a write in the wrong one changes some
+other letter: previews for three mailboxes fetched at once beside a search
+and a letter being opened; thirty writes landing at different points of an
+All Mailboxes search, each changing its own letter and nothing else; a tap
+while the connection is being made again; every kind of write against a
+renumbered mailbox; every kind of call against a refused SELECT; a draft
+discarded as a letter is opened, with and without UIDPLUS; a folder and a
+date jump opened mid-search; a search cancelled while it waits to take the
+connection back. `RepositoryWireTests` has the rows drawn before a
+renumbering, paged both ways and previewed, and the refused password in
+both halves of the reconnect window; `ExchangeGateTests` has which line
+each command waits in. Each fails with its part of the fix reverted.

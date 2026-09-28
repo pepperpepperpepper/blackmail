@@ -51,6 +51,35 @@ struct IMAPMailboxState {
     let readOnly: Bool
 }
 
+/// UIDs from a SEARCH, ascending, with the UIDVALIDITY they were issued
+/// under.
+///
+/// Never one without the other. A UID names a letter only within one
+/// numbering of one mailbox, and every command that later acts on these
+/// hands the validity back so the client can refuse it if the mailbox has
+/// been renumbered in between.
+struct IMAPMailboxUIDs: Equatable {
+    let validity: UInt32
+    let uids: [UInt32]
+}
+
+/// One mailbox of a search run in several. See `IMAPClient.search(_:across:)`.
+struct IMAPSearchTarget {
+    let mailbox: String
+    /// How many of the newest hits to fetch summaries for while the mailbox
+    /// is selected. Zero for none.
+    let summariesOfNewest: Int
+}
+
+/// What one mailbox of such a search came to.
+struct IMAPMailboxSearch {
+    let mailbox: String
+    /// Nil when the server would not open the mailbox, or would not search it.
+    let hits: IMAPMailboxUIDs?
+    /// Summaries of the newest hits, newest first, as many as were asked for.
+    let summaries: [IMAPFetchResult]
+}
+
 /// One row of a LIST response.
 struct IMAPMailboxListing {
     let name: String

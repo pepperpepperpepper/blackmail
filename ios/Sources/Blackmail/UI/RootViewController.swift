@@ -299,6 +299,10 @@ final class RootViewController: UIViewController {
     /// rather than a push: the stack stays exactly one deep, so no back button
     /// ever appears and the folder list never slides away.
     private func openMailbox(_ mailbox: Mailbox) {
+        // The list going away may still be searching. Nothing will draw
+        // what it finds, and until it stops it is ahead of the new folder's
+        // later pages and previews.
+        list.stopSearching()
         list = MessageListViewController(repository: repository, mailbox: mailbox)
         bindList()
         listNav.setViewControllers([list], animated: false)
