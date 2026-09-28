@@ -532,6 +532,36 @@ final class PaneActionsTests: XCTestCase {
         XCTAssertEqual(twinAfter?.isFlagged, false)
     }
 
+    func testUnflaggingAHitAfterItsSearchEndedReachesTheFolderCopy() async throws {
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let hits = try await repository.search(in: "inbox", query: "Letter 112",
+                                               scope: .allMailboxes, beforeUID: nil, limit: 50)
+        let hit = try XCTUnwrap(hits.first { $0.mailboxID == Server.allMail })
+        let twin = try XCTUnwrap(rows.first { $0.subject == hit.subject })
+        let (list, _) = await makeList(folder: rows, results: hits)
+
+        let flagged = await PaneActions.run(.flag(true), on: hit, inFolderWithRole: .archive,
+                                            list: list, repository: repository, requestSweep: {})
+        XCTAssertTrue(flagged)
+        // The search is cancelled; the pane still holds the hit, now flagged.
+        await list.endSearch()
+        let gone = await list.letter(hit.id)
+        XCTAssertNil(gone)
+        var held = hit
+        held.isFlagged = true
+        server.clearLog()
+
+        let unflagged = await PaneActions.run(.flag(false), on: held, inFolderWithRole: .archive,
+                                              list: list, repository: repository, requestSweep: {})
+        XCTAssertTrue(unflagged)
+        XCTAssertEqual(server.log.map(\.verb), ["UID STORE"])
+        let inboxRow = await list.letter(twin.id)
+        XCTAssertEqual(inboxRow?.isFlagged, false,
+                       "the folder's copy follows an unflag made after the search ended")
+        XCTAssertFalse(server.flags(uid: uid(twin.id), in: Server.inbox).contains("\\Flagged"))
+    }
+
     // MARK: - The rules underneath
 
     func testRemovedLettersAreHiddenUntilPutBackOrTheListIsFetchedAgain() {

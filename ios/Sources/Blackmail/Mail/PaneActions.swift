@@ -28,7 +28,10 @@ protocol PaneActionList: AnyObject {
     /// The write landed. A letter that has left every folder while still
     /// unread comes off their counts, once.
     func removalLanded(_ letter: MessageSummary, fromEveryFolder: Bool)
-    func setFlagged(_ flagged: Bool, id: String)
+    /// Takes the letter itself, not its id: the pane can still hold a
+    /// search hit after the search has ended, and its copies in the folder
+    /// underneath are found from the letter, not from a row that is gone.
+    func setFlagged(_ flagged: Bool, on letter: MessageSummary)
     /// A letter that stays on the list, now filed in `folder` as well, so
     /// reading it later takes one off there too.
     func addCountedFolder(_ folder: String, to id: String)
@@ -126,7 +129,7 @@ enum PaneActions {
 
         switch action {
         case .flag(let flagged):
-            list?.setFlagged(flagged, id: letter.id)
+            list?.setFlagged(flagged, on: before)
         case .delete, .move:
             list?.letGo(before)
             if effect.removesRow { list?.take(before, fromEveryFolder: effect.leavesEveryFolder) }
@@ -144,7 +147,7 @@ enum PaneActions {
         } catch {
             switch action {
             case .flag:
-                list?.setFlagged(before.isFlagged, id: letter.id)
+                list?.setFlagged(before.isFlagged, on: before)
             case .delete, .move:
                 if effect.removesRow { list?.putBack(before) }
             }

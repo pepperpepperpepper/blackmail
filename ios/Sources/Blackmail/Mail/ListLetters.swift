@@ -171,9 +171,16 @@ final class ListLetters: PaneActionList {
     /// hit, the Inbox row under the search used to keep the old flag, and
     /// cancelling the search puts that row back without a round trip, so
     /// it said the letter was not flagged until the next Refresh.
-    func setFlagged(_ flagged: Bool, id: String) {
-        let twins = letter(id).map { ListEdit.twins(of: $0, among: everything) } ?? []
-        for copy in [id] + twins.map(\.id) {
+    ///
+    /// Matched from the letter the pane holds, falling back to it when this
+    /// list no longer has a row with its id. Unflagged from a hit after the
+    /// search had been cancelled, the lookup by id found nothing, so nothing
+    /// was patched and the Inbox row kept its flag until the next Refresh
+    /// (seen on the iPad; the STORE itself had landed).
+    func setFlagged(_ flagged: Bool, on letter: MessageSummary) {
+        let known = self.letter(letter.id) ?? letter
+        let twins = ListEdit.twins(of: known, among: everything)
+        for copy in [letter.id] + twins.map(\.id) {
             change(copy) { $0.isFlagged = flagged }
         }
         changed()
