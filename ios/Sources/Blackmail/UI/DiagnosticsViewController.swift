@@ -47,8 +47,38 @@ final class DiagnosticsViewController: UIViewController {
         navigationItem.rightBarButtonItems = [
             UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(share)),
             UIBarButtonItem(title: "Clear", style: .plain, target: self, action: #selector(clear)),
+            layoutAuditButton,
         ]
+        updateLayoutAuditButton()
 
+        reload()
+    }
+
+    /// The one writer of `LayoutAudit.enabledKey`. The audit is off for him
+    /// and costs main-thread time while it runs, so whoever is developing
+    /// turns it on here, on the one screen he never sees. See
+    /// `LayoutAudit.enabledKey`.
+    private lazy var layoutAuditButton = UIBarButtonItem(
+        title: nil, style: .plain, target: self, action: #selector(toggleLayoutAudit))
+
+    private func updateLayoutAuditButton() {
+        layoutAuditButton.title = LayoutAudit.isEnabled ? "Layout: On" : "Layout: Off"
+    }
+
+    @objc private func toggleLayoutAudit() {
+        if LayoutAudit.isEnabled {
+            UserDefaults.standard.removeObject(forKey: LayoutAudit.enabledKey)
+            LayoutAudit.stopSweeping()
+            Diagnostics.log(.note, "layout: audit switched off")
+        } else {
+            UserDefaults.standard.set(true, forKey: LayoutAudit.enabledKey)
+            let found = LayoutAudit.sweepNow()
+            Diagnostics.log(.note, "layout: audit switched on, \(found) new finding(s) "
+                            + "on this screen; sweeping for three minutes, and at every "
+                            + "launch until it is switched off")
+            LayoutAudit.beginSweeping()
+        }
+        updateLayoutAuditButton()
         reload()
     }
 

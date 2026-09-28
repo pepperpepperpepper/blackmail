@@ -1,15 +1,11 @@
-// Guarded so this file compiles away on a host without Network.
-// The library is built for Linux too, so the MIME and IMAP parsers
-// can be tested in seconds instead of through a device cycle.
-#if canImport(Network)
-
 import Foundation
 
 /// The IMAP command layer: tags, literals, capabilities, and the dozen
 /// commands this client actually issues.
 ///
 /// Everything above this line is domain code that has never heard of IMAP;
-/// everything below it is `TLSConnection`, which has never heard of anything
+/// everything below it is a `MailTransport` (`TLSConnection` on the device,
+/// a scripted server in the host tests), which has never heard of anything
 /// but bytes. This type owns the protocol and nothing else — it does not
 /// interpret a response beyond routing it, because parsing lives in
 /// `IMAPParser` where it can be tested without a server.
@@ -67,7 +63,10 @@ actor IMAPClient {
     // MARK: - State
 
     private let account: MailAccount
-    private var connection: TLSConnection?
+    /// Called once per connection, because a dropped socket is replaced
+    /// rather than reopened.
+    private let makeTransport: MailTransportFactory
+    private var connection: (any MailTransport)?
     private var connected = false
     private var tagCounter = 0
 
@@ -86,9 +85,17 @@ actor IMAPClient {
     private var exchangeInProgress = false
     private var exchangeWaiters: [CheckedContinuation<Void, Never>] = []
 
-    init(account: MailAccount) {
+    init(account: MailAccount, transport: @escaping MailTransportFactory) {
         self.account = account
+        self.makeTransport = transport
     }
+
+    #if canImport(Network)
+    /// The app's own: the real TLS stack.
+    init(account: MailAccount) {
+        self.init(account: account, transport: TLSConnection.factory)
+    }
+    #endif
 
     var isConnected: Bool { connected }
 
@@ -104,7 +111,7 @@ actor IMAPClient {
 
         guard !connected else { return }
 
-        let conn = TLSConnection(host: account.imapHost, port: account.imapPort)
+        let conn = makeTransport(account.imapHost, account.imapPort)
         do {
             try await conn.open()
         } catch {
@@ -130,9 +137,25 @@ actor IMAPClient {
             // error, so honour it rather than assume.
             let preAuthenticated = upperGreeting.hasPrefix("* PREAUTH")
 
-            capabilities = try await requestCapabilities()
-
-            if !preAuthenticated {
+            // No CAPABILITY before LOGIN. It used to be asked for here, and
+            // the answer was overwritten a few lines further down without
+            // anything having read it: the pre-login list is the wrong one to
+            // make MOVE and UIDPLUS decisions from, so it was a round trip on
+            // every connect bought for nothing. The one thing a pre-login list
+            // could be for is LOGINDISABLED, and this client has never
+            // honoured it. Over implicit TLS a server has no reason to
+            // advertise it, and one that did would refuse the LOGIN, which
+            // ends in the same "Can't connect" a check here would have given.
+            if preAuthenticated {
+                // Already past login, so a list in the greeting is the
+                // post-login one.
+                let advertised = Self.capabilities(in: greeting)
+                if advertised.isEmpty {
+                    capabilities = try await requestCapabilities()
+                } else {
+                    capabilities = advertised
+                }
+            } else {
                 // Both arguments are quoted. An app password is sixteen
                 // lowercase letters today, but a password containing a quote or
                 // a backslash sent unquoted fails in a way that is
@@ -150,13 +173,14 @@ actor IMAPClient {
                 }
 
                 // Gmail returns the post-login capability list inside the
-                // tagged OK, which saves a round trip; anything that does not
-                // gets asked again, because the pre-login list is the wrong one
-                // to make MOVE and UIDPLUS decisions from.
+                // tagged OK, which saves a round trip. A server that sends it
+                // as an untagged `* CAPABILITY` line ahead of the OK instead
+                // saves the same round trip, so that is read too. Only a
+                // server that does neither gets asked.
                 // Spelled out rather than as a ternary: a `try` inside one
                 // branch of `?:` covers only that branch, which the compiler
                 // warns about and a reader has to stop and check.
-                let advertised = Self.capabilities(inText: result.detail)
+                let advertised = Self.capabilities(in: result)
                 if advertised.isEmpty {
                     capabilities = try await requestCapabilities()
                 } else {
@@ -641,12 +665,7 @@ actor IMAPClient {
     private func requestCapabilities() async throws -> Set<String> {
         let result = try await performCommand("CAPABILITY")
         guard result.status == .ok else { return [] }
-        var caps = Set<String>()
-        for line in result.untagged {
-            caps.formUnion(Self.capabilities(in: line))
-        }
-        caps.formUnion(Self.capabilities(inText: result.detail))
-        return caps
+        return Self.capabilities(in: result)
     }
 }
 
@@ -655,8 +674,8 @@ actor IMAPClient {
 private extension IMAPClient {
 
     /// `MailError` straight through, everything else flattened to "Can't
-    /// connect". A `TLSConnection.ConnectionError` says "POSIX 54", which is
-    /// true, unhelpful, and exactly the sort of thing `PRODUCT_SPEC.md` forbids
+    /// connect". A `MailTransportError` says "POSIX 54", which is true,
+    /// unhelpful, and exactly the sort of thing `PRODUCT_SPEC.md` forbids
     /// reaching the user.
     static func userFacing(_ error: Error) -> MailError {
         (error as? MailError) ?? .cannotConnect
@@ -701,6 +720,18 @@ private extension IMAPClient {
     /// inside a tagged OK go down the same path.
     static func capabilities(in line: IMAPResponseLine) -> Set<String> {
         capabilities(inText: line.text)
+    }
+
+    /// Everything one command's response said about capabilities, whether
+    /// in untagged lines or in a code on its tagged completion. Empty when
+    /// it said nothing, which is the caller's cue to ask.
+    static func capabilities(in result: IMAPCommandResult) -> Set<String> {
+        var caps = Set<String>()
+        for line in result.untagged {
+            caps.formUnion(capabilities(in: line))
+        }
+        caps.formUnion(capabilities(inText: result.detail))
+        return caps
     }
 
     static func capabilities(inText text: String) -> Set<String> {
@@ -853,5 +884,3 @@ private extension IMAPClient {
             .map(Character.init))
     }
 }
-
-#endif

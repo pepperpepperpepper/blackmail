@@ -3,9 +3,9 @@ import Foundation
 /// The arithmetic that turns a mailbox's UID snapshot into the page the list
 /// shows.
 ///
-/// Extracted from `IMAPMailRepository` so it can be TESTED. The repository is
-/// behind `#if canImport(Network)` and does not exist on the machine the test
-/// suite runs on, which meant `PagingTests` had to re-implement the cursor
+/// Extracted from `IMAPMailRepository` so it could be TESTED. The repository
+/// was behind `#if canImport(Network)` and did not exist on the machine the
+/// test suite runs on, which meant `PagingTests` had to re-implement the cursor
 /// walk by hand and then assert against its own copy — green tests exercising
 /// logic the product did not run. Now both call this.
 ///

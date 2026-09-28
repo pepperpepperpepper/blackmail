@@ -135,10 +135,16 @@ final class RootViewController: UIViewController {
         wireNavigation()
         watchForReturn()
 
+        // The folder list only. The Inbox loads itself: the list controller
+        // starts its own reload from its `viewDidLoad`, as it does for every
+        // folder opened, and `select(mailboxID:)` only highlights, so it
+        // opens nothing. A second `list.reload()` here used to fetch
+        // the whole first page again, blank the previews that had already
+        // landed, and clear a search typed in the first seconds after
+        // launch, keyboard and all.
         Task { @MainActor in
             await mailboxList.reload()
             mailboxList.select(mailboxID: "inbox")   // opens into Inbox, and shows that it did
-            await list.reload()
         }
     }
 

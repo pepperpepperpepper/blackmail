@@ -1,8 +1,3 @@
-// Guarded so this file compiles away on a host without Network.
-// The library is built for Linux too, so the MIME and IMAP parsers
-// can be tested in seconds instead of through a device cycle.
-#if canImport(Network)
-
 import Foundation
 
 /// Submission over implicit TLS on port 465, which is all this app ever needs
@@ -20,6 +15,7 @@ import Foundation
 actor SMTPClient {
 
     private let account: MailAccount
+    private let makeTransport: MailTransportFactory
 
     /// Recipients this server refused while it accepted others.
     ///
@@ -37,9 +33,17 @@ actor SMTPClient {
     /// reading forever.
     private static let maxReplyLines = 256
 
-    init(account: MailAccount) {
+    init(account: MailAccount, transport: @escaping MailTransportFactory) {
         self.account = account
+        self.makeTransport = transport
     }
+
+    #if canImport(Network)
+    /// The app's own: the real TLS stack.
+    init(account: MailAccount) {
+        self.init(account: account, transport: TLSConnection.factory)
+    }
+    #endif
 
     // MARK: - The one public operation
 
@@ -66,7 +70,7 @@ actor SMTPClient {
             "ENVELOPE from=\(envelopeFrom) rcpt=\(envelopeTo.count) "
             + "host=\(account.smtpHost):\(account.smtpPort)")
 
-        let connection = TLSConnection(host: account.smtpHost, port: account.smtpPort)
+        let connection = makeTransport(account.smtpHost, account.smtpPort)
         // `close()` is isolated to the connection actor and `defer` cannot
         // await, so the unstructured task is how every exit path - return,
         // throw, or cancellation - still lets go of the socket.
@@ -124,7 +128,7 @@ actor SMTPClient {
 
     /// EHLO, with the multiline reply parsed into the extensions we care
     /// about.
-    private func handshake(_ connection: TLSConnection) async throws -> SMTPClientCapabilities {
+    private func handshake(_ connection: any MailTransport) async throws -> SMTPClientCapabilities {
         let name = Self.ehloName(for: account)
         Diagnostics.log(.sent, "EHLO \(name)")
         try await connection.writeLine("EHLO \(name)")
@@ -143,7 +147,7 @@ actor SMTPClient {
         return SMTPClientCapabilities()
     }
 
-    private func authenticate(_ connection: TLSConnection,
+    private func authenticate(_ connection: any MailTransport,
                               capabilities: SMTPClientCapabilities,
                               password: String) async throws {
         let mechanisms = capabilities.authMechanisms
@@ -175,7 +179,7 @@ actor SMTPClient {
     }
 
     /// One base64 blob of `\0user\0pass`, sent with the command.
-    private func authenticatePlain(_ connection: TLSConnection, password: String) async throws {
+    private func authenticatePlain(_ connection: any MailTransport, password: String) async throws {
         var credential = Data([0])
         credential.append(contentsOf: Array(account.username.utf8))
         credential.append(0)
@@ -196,7 +200,7 @@ actor SMTPClient {
     }
 
     /// Username then password, each base64, each after its own 334 challenge.
-    private func authenticateLogin(_ connection: TLSConnection, password: String) async throws {
+    private func authenticateLogin(_ connection: any MailTransport, password: String) async throws {
         Diagnostics.log(.sent, "AUTH LOGIN")
         try await connection.writeLine("AUTH LOGIN")
         var reply = try await readReply(connection)
@@ -214,7 +218,7 @@ actor SMTPClient {
     }
 
     /// MAIL FROM / RCPT TO / DATA, and the message itself.
-    private func transmit(_ connection: TLSConnection,
+    private func transmit(_ connection: any MailTransport,
                           raw: Data,
                           from: String,
                           to recipients: [String],
@@ -301,7 +305,7 @@ actor SMTPClient {
     /// single-line leaves the leftovers in the buffer and every subsequent
     /// command reads the previous command's answer, which presents as the
     /// session mysteriously succeeding one step behind itself.
-    private func readReply(_ connection: TLSConnection) async throws -> SMTPClientReply {
+    private func readReply(_ connection: any MailTransport) async throws -> SMTPClientReply {
         var lines: [String] = []
         var code = 0
         var sawCode = false
@@ -557,5 +561,3 @@ fileprivate extension Data {
         count >= 2 && suffix(2) == Data([0x0D, 0x0A])
     }
 }
-
-#endif

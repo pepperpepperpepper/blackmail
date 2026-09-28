@@ -1,8 +1,3 @@
-// Guarded so this file compiles away on a host without Network.
-// The library is built for Linux too, so the MIME and IMAP parsers
-// can be tested in seconds instead of through a device cycle.
-#if canImport(Network)
-
 import Foundation
 
 /// The real `MailRepository`: the seam where the hand-rolled IMAP/SMTP engine
@@ -30,6 +25,11 @@ actor IMAPMailRepository: MailRepository {
     private let password: String
     private let imap: IMAPClient
     private let smtp: SMTPClient
+    /// Where the addresses walking past in envelopes are remembered. The
+    /// app's one shared book; the host tests hand in a throwaway one so a
+    /// test run neither reads nor writes the defaults of the machine it
+    /// runs on.
+    private let recipients: RecipientBook
 
     /// The IMAP name currently SELECTed, so we do not re-select on every call.
     private var selected: String?
@@ -59,26 +59,46 @@ actor IMAPMailRepository: MailRepository {
     /// SEARCH ALL for every page. See `listMessages`.
     private var uidListing: [String: [UInt32]] = [:]
 
-    init(account: MailAccount, password: String) {
+    /// One factory for both protocols: it is told the host and port, which
+    /// is all that tells an IMAP connection from an SMTP one.
+    ///
+    /// `now` is the clock the write probe measures quiet by. The app's is the
+    /// real one; a test hands in one it can move, because the probe only
+    /// happens after ninety seconds of it.
+    init(account: MailAccount, password: String,
+         transport: @escaping MailTransportFactory,
+         recipients: RecipientBook = .shared,
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.account = account
         self.password = password
-        self.imap = IMAPClient(account: account)
-        self.smtp = SMTPClient(account: account)
+        self.imap = IMAPClient(account: account, transport: transport)
+        self.smtp = SMTPClient(account: account, transport: transport)
+        self.recipients = recipients
+        self.now = now
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
         // book cannot learn by watching his mail go past — a letter to
         // himself only teaches it after he has already typed it once.
-        RecipientBook.shared.note(address: account.address,
-                                  name: account.displayName)
+        recipients.note(address: account.address, name: account.displayName)
     }
 
+    #if canImport(Network)
+    /// The app's own: the real TLS stack.
+    init(account: MailAccount, password: String) {
+        self.init(account: account, password: password, transport: TLSConnection.factory)
+    }
+    #endif
+
+    #if canImport(Network) && canImport(Security)
     /// Builds from stored credentials, or nil on first launch before the
-    /// account has been set up.
+    /// account has been set up. Guarded twice: the credentials live in the
+    /// keychain, and the connection they open is the real one.
     static func fromStoredCredentials() -> IMAPMailRepository? {
         guard let account = CredentialStore.loadAccount(),
               let password = CredentialStore.loadPassword(for: account) else { return nil }
         return IMAPMailRepository(account: account, password: password)
     }
+    #endif
 
     // MARK: - Identity
 
@@ -125,17 +145,36 @@ actor IMAPMailRepository: MailRepository {
     /// Observed rather than theorised: opening a reply gave "Can't connect
     /// to mail server", and tapping the identical row again loaded it.
     ///
-    /// Only retried when the client actually tore the connection down. A
+    /// Only retried when a connection that was up when the read began has
+    /// since been torn down, which is the dropped socket this exists for. A
     /// UIDVALIDITY mismatch and a server NO throw too, and repeating those
     /// just fails twice as slowly. READS only — a STORE or a MOVE may have
     /// been carried out before the socket died, and doing it again is not
     /// free of consequences.
+    ///
+    /// Not when the read had to connect first and the connect failed. A
+    /// refused LOGIN is the case that matters: retrying it sends the same
+    /// wrong password a second time, so with a revoked app password every
+    /// search he typed cost two failed logins, and Gmail throttles an account
+    /// that keeps failing to authenticate. A server that could not be
+    /// reached a moment ago will not be reached by asking again at once
+    /// either, and on the device each attempt can take the whole connect
+    /// timeout. `passwordNeedsUpdating` is never retried, however it arose.
+    ///
+    /// Nor for a caller that has been cancelled. Only a search is ever
+    /// cancelled, by the next keystroke, and a cancelled read currently ends
+    /// with the client tearing the socket down. Retrying that would open a
+    /// fresh connection for an answer nobody is waiting for, and the search
+    /// that replaced it reconnects anyway.
     private func retryingIfDisconnected<T>(
         _ body: () async throws -> T) async throws -> T {
+        let wasConnected = await imap.isConnected
         do {
             return try await body()
         } catch {
-            guard await imap.isConnected == false else { throw error }
+            guard wasConnected, !Task.isCancelled,
+                  (error as? MailError) != .passwordNeedsUpdating,
+                  await imap.isConnected == false else { throw error }
             return try await body()
         }
     }
@@ -151,8 +190,10 @@ actor IMAPMailRepository: MailRepository {
     /// to measure how long the socket has been unused.
     private var lastContact = Date.distantPast
 
+    private let now: @Sendable () -> Date
+
     private func connected() async throws -> IMAPClient {
-        lastContact = Date()
+        lastContact = now()
         if await imap.isConnected { return imap }
         try await imap.connect(password: password)
         selected = nil                    // a new session has nothing selected
@@ -185,7 +226,7 @@ actor IMAPMailRepository: MailRepository {
     /// Sending is not on this path at all: `SMTPClient` opens a fresh
     /// connection per letter, so it was never exposed to this.
     private func readyForWrite() async throws {
-        guard Date().timeIntervalSince(lastContact) > Self.quietBeforeProbe else { return }
+        guard now().timeIntervalSince(lastContact) > Self.quietBeforeProbe else { return }
         try await retryingIfDisconnected {
             let client = try await self.connected()
             try await client.noop()
@@ -197,7 +238,28 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         if selected != name {
-            let state = try await client.select(name)
+            let state: IMAPMailboxState
+            do {
+                state = try await client.select(name)
+            } catch {
+                // A refused SELECT leaves the server with NOTHING selected
+                // (RFC 3501 §6.3.1), not with the mailbox that was open
+                // before. Keeping the old name here skipped the SELECT the
+                // next time that mailbox was wanted, and every UID command
+                // after it was answered BAD on a connection that was still
+                // up, so no retry ever fired: one label deleted in another
+                // client, tapped once, and the folder he came from said
+                // "Can't connect" until the socket happened to drop.
+                selected = nil
+                throw error
+            }
+            if let known = uidValidity[name], known != state.uidValidity {
+                // Renumbered. Every UID remembered for it now names a
+                // different letter, or none, so the snapshot goes, and a
+                // page asked for from an old cursor is refused rather than
+                // cut from numbers that no longer mean what they did.
+                uidListing[name] = nil
+            }
             uidValidity[name] = state.uidValidity
             existsCount[name] = state.exists
             selected = name
@@ -309,6 +371,11 @@ actor IMAPMailRepository: MailRepository {
         let name = try await select(mailboxID)
         let client = try await connected()
         let validity = uidValidity[name] ?? 0
+        // Parsed before anything is sent, and thrown rather than dropped: a
+        // cursor from before a renumbering used to become nil, and nil
+        // means "from the top", so the next page was the first page again,
+        // cut from the new numbers.
+        let cursor = try beforeUID.map { try parseID($0, mailbox: name) }
 
         // SEARCH ALL returns every UID ascending. One round trip, and it is
         // the only way to page by UID rather than by sequence number —
@@ -343,7 +410,6 @@ actor IMAPMailRepository: MailRepository {
             ascending = try await client.searchAll().sorted()
             uidListing[name] = ascending
         }
-        let cursor = beforeUID.flatMap { try? parseID($0, mailbox: name) }
         let page = PageWindow.older(than: cursor, in: ascending, limit: limit)
         let summaries = try await summaries(for: page, in: mailboxID, name: name,
                                             validity: validity, client: client)
@@ -365,6 +431,13 @@ actor IMAPMailRepository: MailRepository {
     /// The upward half of the walk. See `PageWindow.newer`.
     func listMessages(in mailboxID: String, afterUID: String,
                       limit: Int) async throws -> [MessageSummary] {
+        try await retryingIfDisconnected {
+            try await self.listMessagesOnce(in: mailboxID, afterUID: afterUID, limit: limit)
+        }
+    }
+
+    private func listMessagesOnce(in mailboxID: String, afterUID: String,
+                                  limit: Int) async throws -> [MessageSummary] {
         let name = try await select(mailboxID)
         let client = try await connected()
         let validity = uidValidity[name] ?? 0
@@ -409,7 +482,7 @@ actor IMAPMailRepository: MailRepository {
             // framework.
             if let env {
                 for a in env.from + env.to + env.cc {
-                    RecipientBook.shared.note(address: a.address, name: a.name)
+                    recipients.note(address: a.address, name: a.name)
                 }
             }
             let from = env?.from.first
@@ -440,6 +513,13 @@ actor IMAPMailRepository: MailRepository {
 
     func messages(around date: Date, in mailboxID: String,
                   limit: Int) async throws -> MessageWindow? {
+        try await retryingIfDisconnected {
+            try await self.messagesOnce(around: date, in: mailboxID, limit: limit)
+        }
+    }
+
+    private func messagesOnce(around date: Date, in mailboxID: String,
+                              limit: Int) async throws -> MessageWindow? {
         let name = try await select(mailboxID)
         let client = try await connected()
         let validity = uidValidity[name] ?? 0
@@ -822,7 +902,7 @@ actor IMAPMailRepository: MailRepository {
         // failed to reach above one that works would put a bad address at
         // the top of the list.
         for address in draft.to + draft.cc + draft.bcc {
-            RecipientBook.shared.used(address: MailFormat.bareAddress(address))
+            self.recipients.used(address: MailFormat.bareAddress(address))
         }
 
         // No APPEND to Sent. Gmail files SMTP-sent mail into Sent itself, and
@@ -1010,6 +1090,17 @@ actor IMAPMailRepository: MailRepository {
         // the letter he is after.
         guard let criteria = SearchCriteria.imap(for: trimmed) else { return [] }
 
+        // Safe to run twice: the session is written back only once a step
+        // has fully succeeded, so a run cut short by a dead socket leaves
+        // nothing half-advanced for the second one to trip over.
+        return try await retryingIfDisconnected {
+            try await self.searchOnce(in: mailboxID, criteria: criteria, scope: scope,
+                                      beforeUID: beforeUID, limit: limit)
+        }
+    }
+
+    private func searchOnce(in mailboxID: String, criteria: String, scope: MailSearchScope,
+                            beforeUID: String?, limit: Int) async throws -> [MessageSummary] {
         // The paged folder. For "all mailboxes" that is Gmail's All Mail,
         // which holds everything except Trash and Spam; those two are
         // searched separately below because their UIDs cannot be compared
@@ -1059,10 +1150,18 @@ actor IMAPMailRepository: MailRepository {
 
     /// One binned folder's hits, fetched whole.
     ///
-    /// Failure here is swallowed on purpose. A Trash that will not open
-    /// must not cost him the All Mail results as well — losing the binned
-    /// half of a search is a gap, losing all of it is the feature not
-    /// working.
+    /// A Trash that will not open is swallowed on purpose: it must not cost
+    /// him the All Mail results as well. Losing the binned half of a search
+    /// is a gap, losing all of it is the feature not working.
+    ///
+    /// A dead connection and a cancelled search are not swallowed. Both
+    /// used to be, and each did its own damage. After a dropped socket the
+    /// Trash hits vanished without a word while the Spam search quietly
+    /// reconnected, so the first search after picking the iPad up could
+    /// simply not find a letter he had binned. And a search cancelled by
+    /// the next keystroke carried on into Spam and All Mail, reconnecting
+    /// for each. Thrown, the first is repeated whole by the read retry
+    /// around `search`, and the second stops where it is.
     private func binnedHits(in folder: String, criteria: String) async throws
         -> [MessageSummary] {
         do {
@@ -1074,6 +1173,11 @@ actor IMAPMailRepository: MailRepository {
             return try await summaries(for: newest, in: folder, name: name,
                                        validity: uidValidity[name] ?? 0, client: client)
         } catch {
+            if error is CancellationError || Task.isCancelled { throw error }
+            // The client tears the connection down on any transport failure
+            // and keeps it on a NO, so this tells a lost socket from a
+            // folder the server refused.
+            if await imap.isConnected == false { throw error }
             return []
         }
     }
@@ -1101,6 +1205,14 @@ actor IMAPMailRepository: MailRepository {
                     session.primaryExhausted = true
                 } else {
                     let name = try await select(session.primaryID)
+                    // The session's UIDs are in the numbering it started
+                    // with. If the folder has been renumbered since, a
+                    // reconnect's SELECT is where that shows, and fetching
+                    // the old numbers would drop hits or return other
+                    // letters. Refused; a new search starts clean.
+                    guard uidValidity[name] == session.primaryValidity else {
+                        throw MailError.cannotConnect
+                    }
                     let client = try await connected()
                     session.buffered = try await summaries(
                         for: next, in: session.primaryID, name: name,
@@ -1174,5 +1286,3 @@ actor IMAPMailRepository: MailRepository {
         return decoded
     }
 }
-
-#endif

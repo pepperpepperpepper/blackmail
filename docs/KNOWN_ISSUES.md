@@ -661,6 +661,16 @@ height (**the shape of B-027** — a `WKWebView` at 613x0), and our own
 views mixing an autoresizing mask with constraints. Findings go to the
 same connection log as the protocol transcript.
 
+**It now runs only when switched on** (B-038 #7). It is main-thread work
+through the first minutes of every launch and does nothing for him, so it
+is off by default, and `#if DEBUG` could not be the gate because there is
+no debug build for the device (B-013). The switch is the **Layout** button
+on the connection log (five taps on the list's status line): on, it
+sweeps once there and then, keeps sweeping for three minutes, and does
+the same at every launch until it is switched off. A launch with
+`-blackmail.layoutAudit YES` also turns it on for that launch. On an
+iPad where nobody has pressed the button, the audit reports nothing.
+
 **Found, and fixed:**
 
 1. **`ComposeViewController.attachmentsStack`** — the same empty
@@ -1564,9 +1574,11 @@ Two-panel mode is those constraints plus `divider1` changing, animated.
 
 1. **Hide the pane, do not zero its width.** A view with children and no
    width is *exactly* the B-027 shape — the ambiguous-layout class that cost
-   two bugs and produced `LayoutAudit` — and the audit will report it every
-   two seconds for three minutes. Set `isHidden` on the mailbox nav and the
-   divider, and deactivate rather than zero the constraint.
+   two bugs and produced `LayoutAudit` — and the audit, once switched on
+   from the connection log's Layout button (it is off by default), will
+   report it every two seconds for three minutes. Set `isHidden` on the
+   mailbox nav and the divider, and deactivate rather than zero the
+   constraint.
 2. **Follow Mail for the control.** Mail's answer is a sidebar toggle in the
    leading toolbar position, and the north star is to match Mail wherever
    Mail has an answer (see D-012). It should not be
@@ -1643,4 +1655,5 @@ seconds.
 number (it rests on CFPreferences coalescing being cheap, which is documented
 but not measured), and `LayoutAudit`, which ships in release and runs 90
 whole-window main-thread sweeps over the first three minutes of every launch.
-That one is unmeasurable from Linux and costs one `#if DEBUG` to remove.
+That one is unmeasurable from Linux and costs one `#if DEBUG` to remove. (Since
+done as a runtime switch, off by default, instead of `#if DEBUG`; see B-030.)

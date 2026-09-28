@@ -683,22 +683,28 @@ final class MessageListViewController: UITableViewController {
     /// happens to wear those numbers there, or nothing — which is what the
     /// first device run showed: every search result came up with two blank
     /// grey lines under it.
+    ///
+    /// One mailbox at a time, in ONE task, stopping as soon as the list has
+    /// been replaced: `PreviewPass`, which is where the order and the reasons
+    /// for it live, and where they are tested.
     @MainActor
     private func loadPreviews(for rows: [MessageSummary]) {
         guard !rows.isEmpty else { return }
         let generation = listGeneration
-        for (mailboxID, group) in Dictionary(grouping: rows, by: \.mailboxID) {
-            let ids = group.map(\.id)
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                guard let previews = try? await self.repository.previews(for: ids,
-                                                                         in: mailboxID),
-                      !previews.isEmpty,
-                      // The list has been replaced while we were waiting.
-                      // These previews belong to rows no longer on screen.
-                      generation == self.listGeneration else { return }
-                self.apply(previews)
-            }
+        let groups = PreviewPass.groups(for: rows)
+        let repository = self.repository
+        Task { @MainActor [weak self] in
+            await PreviewPass.run(
+                groups,
+                fetch: { ids, mailboxID in
+                    try await repository.previews(for: ids, in: mailboxID)
+                },
+                isCurrent: { @MainActor in
+                    generation == self?.listGeneration
+                },
+                apply: { @MainActor previews in
+                    self?.apply(previews)
+                })
         }
     }
 
@@ -1053,6 +1059,16 @@ final class MessageListViewController: UITableViewController {
             hits = try await repository.search(in: mailbox.id, query: text, scope: scope,
                                                beforeUID: nil, limit: Self.pageSize)
         } catch {
+            // A search the next keystroke cancelled has not failed, it has
+            // been replaced, and it has no business changing the screen. The
+            // generation check below does not cover it: the replacement
+            // bumps `listGeneration` only when its own debounce runs out, so
+            // in the gap between two keystrokes a cancelled search used to
+            // empty the list and say "Could not search" while he was still
+            // typing. A CancellationError is treated the same even with this
+            // task's own flag clear, because it can only mean a search was
+            // called off, never that one could not be run.
+            guard !Task.isCancelled, !(error is CancellationError) else { return }
             // This used to be `try?`, which turned every failure into an
             // empty array and rendered it as "No results" — so a dropped
             // connection told him the letter did not exist. It does exist;

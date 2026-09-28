@@ -391,8 +391,8 @@ enum MailFormat {
     /// the bare address; sending to the display-name form bounces.
     ///
     /// Lives here rather than on the repository because `Draft.replying` uses
-    /// it and must stay Foundation-only — the repository is behind
-    /// `#if canImport(Network)` and does not exist on the test host.
+    /// it and must stay Foundation-only — the repository was behind
+    /// `#if canImport(Network)` and did not exist on the test host.
     static func bareAddress(_ header: String) -> String {
         if let open = header.lastIndex(of: "<"), let close = header.lastIndex(of: ">"),
            open < close {

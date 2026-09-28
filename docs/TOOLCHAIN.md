@@ -75,6 +75,19 @@ One coupling had to be broken to make this possible: `TLSConnection.decode`
 (which imports Network) was the only Apple-only reference inside the parsers.
 It moved to `MailText.decode`, four Foundation-only lines.
 
+The protocol clients and the repository used to compile away as well,
+because they held a `TLSConnection` directly. They now hold a `MailTransport`
+(`Net/MailTransport.swift`), which `TLSConnection` implements on the device,
+so `IMAPClient`, `SMTPClient` and `IMAPMailRepository` build on Linux too.
+Still guarded: `TLSConnection` itself, the initialisers that default to it,
+and `IMAPMailRepository.fromStoredCredentials`, which reads the keychain.
+`Tests/BlackmailTests/Support/ScriptedIMAPServer.swift` is a Gmail-shaped IMAP
+server with its own in-memory transport, and `RepositoryWireTests` runs the
+real repository against it, recording which mailbox every command ran in.
+The transport reads through `Net/ReadBuffer.swift`, which is `TLSConnection`'s
+own framing and read-deadline race moved out of the guarded file, so what the
+tests see on cancellation or a silent peer is what the device does.
+
 **The `swiftUIKit` link flag is `.when(platforms: [.iOS])`.** Without the
 condition the host link fails with `cannot find -lswiftUIKit`.
 

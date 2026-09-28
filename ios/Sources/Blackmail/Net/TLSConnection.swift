@@ -1,6 +1,7 @@
 // Guarded so this file compiles away on a host without Network.
-// The library is built for Linux too, so the MIME and IMAP parsers
-// can be tested in seconds instead of through a device cycle.
+// The library is built for Linux too, so the parsers and the protocol
+// clients can be tested in seconds instead of through a device cycle;
+// there the clients run over a `MailTransport` fake instead of this.
 #if canImport(Network)
 
 import Foundation
@@ -27,19 +28,19 @@ import Network
 /// An actor, because `NWConnection` calls back on its own queue and every
 /// caller here is `async`. Serialising access also means a command and its
 /// response cannot interleave with another command's.
-actor TLSConnection {
+///
+/// The clients see it only as a `MailTransport`, which is what lets them build
+/// and run on the Linux host against a scripted server.
+actor TLSConnection: MailTransport {
 
-    enum ConnectionError: Error {
-        case notConnected
-        case closed
-        case timedOut
-        case tls(String)
-        case posix(String)
+    /// What the app itself runs on: implicit TLS through `Network.framework`.
+    static let factory: MailTransportFactory = { host, port in
+        TLSConnection(host: host, port: port)
     }
 
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "wtf.uhoh.blackmail.net")
-    private var buffer = Data()
+    private var buffer = ReadBuffer()
     private var isOpen = false
 
     /// `timeout` bounds every individual read. A mail server that accepts the
@@ -90,7 +91,7 @@ actor TLSConnection {
                     c.resume(throwing: Self.map(error))
                 case .cancelled:
                     resumed = true
-                    c.resume(throwing: ConnectionError.closed)
+                    c.resume(throwing: MailTransportError.closed)
                 default:
                     break
                 }
@@ -109,7 +110,7 @@ actor TLSConnection {
     // MARK: - Writing
 
     func write(_ data: Data) async throws {
-        guard isOpen else { throw ConnectionError.notConnected }
+        guard isOpen else { throw MailTransportError.notConnected }
         // B-034 instrumentation. Length only, and only for bulk writes: every
         // command line goes through here too, including `AUTH PLAIN <secret>`,
         // and the length of that line is the length of the credential. A
@@ -144,52 +145,38 @@ actor TLSConnection {
     /// bytes uses `read(exactly:)` instead.
     func readLine() async throws -> String {
         while true {
-            if let range = buffer.range(of: Data([0x0D, 0x0A])) {
-                let line = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
-                buffer.removeSubrange(buffer.startIndex..<range.upperBound)
-                return Self.decode(line)
-            }
+            if let line = buffer.takeLine() { return Self.decode(line) }
             try await fill()
         }
     }
 
-    /// Exactly `count` bytes, for an IMAP literal. The literal's length comes
-    /// from the `{n}` the server just sent, so this must not stop at a CRLF —
-    /// a message body is full of them.
+    /// Exactly `count` bytes, for an IMAP literal. See `ReadBuffer`, which
+    /// also lets go of the storage once it has been read to the end.
     func read(exactly count: Int) async throws -> Data {
-        while buffer.count < count {
+        while true {
+            if let out = buffer.take(exactly: count) { return out }
             try await fill()
         }
-        let out = buffer.prefix(count)
-        buffer.removeFirst(count)
-        return Data(out)
     }
 
-    /// Pulls one chunk from the socket into the buffer, or throws.
+    /// Pulls one chunk from the socket into the buffer, or throws. The race
+    /// against `timeout`, and what it does and does not do yet, is
+    /// `ReadBuffer.receiveChunk`.
     private func fill() async throws {
-        guard isOpen else { throw ConnectionError.notConnected }
-        let chunk: Data = try await withThrowingTaskGroup(of: Data.self) { group in
-            group.addTask { [connection] in
-                try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data, Error>) in
-                    connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
-                        data, _, isComplete, error in
-                        if let error { c.resume(throwing: Self.map(error)); return }
-                        if let data, !data.isEmpty { c.resume(returning: data); return }
-                        // No data and no error: the peer closed. Surfacing this
-                        // as .closed rather than looping is what stops a
-                        // half-open connection spinning the CPU forever.
-                        c.resume(throwing: isComplete ? ConnectionError.closed
-                                                      : ConnectionError.closed)
-                    }
+        guard isOpen else { throw MailTransportError.notConnected }
+        let chunk = try await ReadBuffer.receiveChunk(within: timeout) { [connection] in
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data, Error>) in
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
+                    data, _, isComplete, error in
+                    if let error { c.resume(throwing: Self.map(error)); return }
+                    if let data, !data.isEmpty { c.resume(returning: data); return }
+                    // No data and no error: the peer closed. Surfacing this
+                    // as .closed rather than looping is what stops a
+                    // half-open connection spinning the CPU forever.
+                    c.resume(throwing: isComplete ? MailTransportError.closed
+                                                  : MailTransportError.closed)
                 }
             }
-            group.addTask { [timeout] in
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw ConnectionError.timedOut
-            }
-            defer { group.cancelAll() }
-            guard let first = try await group.next() else { throw ConnectionError.closed }
-            return first
         }
         buffer.append(chunk)
     }
@@ -200,7 +187,7 @@ actor TLSConnection {
     /// also need it can be compiled and tested on a host without `Network`.
     static func decode(_ data: Data) -> String { MailText.decode(data) }
 
-    private static func map(_ error: NWError) -> ConnectionError {
+    private static func map(_ error: NWError) -> MailTransportError {
         switch error {
         case .tls(let status):  return .tls("TLS status \(status)")
         case .posix(let code):  return .posix("POSIX \(code.rawValue)")

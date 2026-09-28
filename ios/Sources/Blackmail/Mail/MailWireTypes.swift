@@ -200,8 +200,8 @@ struct DecodedBody {
 /// The `[APPENDUID <uidvalidity> <uid>]` a server volunteers on a
 /// successful APPEND, when it supports UIDPLUS.
 ///
-/// Out here rather than on `IMAPClient` so it can be TESTED: the client is
-/// behind `#if canImport(Network)` and does not exist on the machine the
+/// Out here rather than on `IMAPClient` so it could be TESTED: the client
+/// was behind `#if canImport(Network)` and did not exist on the machine the
 /// suite runs on.
 ///
 /// Without this response code the only way to learn where a message just

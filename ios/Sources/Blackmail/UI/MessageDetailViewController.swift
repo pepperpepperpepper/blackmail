@@ -293,7 +293,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
-               ? InlineImageRewriter.rewrite(stripDocumentWrapper(m.htmlBody!), known: known)
+               ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!), known: known)
                : ConversationDocument.escape(leadingBlankLinesTrimmed(m.textBody ?? "")))
         fill(id: id, html: content, isHTML: isHTML && !empty)
 
@@ -425,26 +425,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    /// Strips a sender's own `<html>`/`<head>`/`<body>` wrapper.
-    ///
-    /// This is not tidiness, it is the fix for a real and near-universal bug.
-    /// WebKit merges an inner `<body>`'s attributes onto the outer one, and an
-    /// inline style beats a stylesheet — so a message whose body tag carries
-    /// `style="padding: 0"` silently cancelled our padding and the letter
-    /// rendered flush against the pane divider while the header above it stayed
-    /// inset. Almost every real HTML email ships a styled body tag, so this was
-    /// not an edge case. With the wrapper gone a sender cannot set the letter's
-    /// margin or type size at all.
-    private func stripDocumentWrapper(_ html: String) -> String {
-        var s = html
-        for pattern in ["<!DOCTYPE[^>]*>", "</?html[^>]*>", "<head[^>]*>[\\s\\S]*?</head>",
-                        "</?body[^>]*>"] {
-            s = s.replacingOccurrences(of: pattern, with: "",
-                                       options: [.regularExpression, .caseInsensitive])
-        }
-        return s
-    }
-
     /// Points the loader at this message's parts, and returns the ids it can
     /// actually serve.
     ///
@@ -496,7 +476,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         let content = isHTML
-            ? InlineImageRewriter.rewrite(stripDocumentWrapper(m.htmlBody!), known: known)
+            ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!), known: known)
             : (m.textBody ?? "")
                 .drop(while: { $0 == "\n" || $0 == "\r" })
                 .replacingOccurrences(of: "&", with: "&amp;")

@@ -46,7 +46,9 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Hunts for views Auto Layout has not actually been told the size
         // of. Two bugs of exactly that shape have now reached the device
         // (B-027, B-029), both invisible until something unrelated moved.
-        // Bounded to three minutes after launch; see LayoutAudit.
+        // Bounded to three minutes after launch, and only when switched on
+        // from the connection log's Layout button: it does nothing for him
+        // and runs on the main thread. See LayoutAudit.enabledKey.
         LayoutAudit.beginSweeping()
         return true
     }

@@ -29,11 +29,12 @@ this host. Ordered by value, not by size.
       per keystroke, SIGSEGV reproduced 8/8. `NSLock` around the dictionary
       access **only** — never held across `save()`, and do not make it an
       actor. Do it with P2, same file. (B-038 #10)
-- [ ] **P4. Delete the duplicate cold-launch reload.**
+- [x] **P4. Delete the duplicate cold-launch reload.**
       `RootViewController.swift:141`. Beyond the wasted round trips it blanks
       out previews that already landed and **erases a search typed in the
       first seconds after launch, dismissing the keyboard**. Delete that line,
       not the list VC's own task at :334 — folder taps depend on it. (B-038 #3)
+      *Done: the line is gone; the list VC's own task is untouched.*
 - [ ] **P5. Fix the send path's CPU.** `SMTPClient.dotStuffed:390` (rewrite
       over an unsafe buffer into a preallocated `[UInt8]`, 40-70x) and
       `RFC5322Builder.uniqueBoundary:658` (stop substring-scanning base64
@@ -43,10 +44,15 @@ this host. Ordered by value, not by size.
 - [ ] **P6. Give Send some feedback.** `ComposeViewController.sendTapped:539`
       — today there is no spinner, no disabled button, and the sheet stays
       live and re-pressable through a multi-second upload. (B-038 #4c)
-- [ ] **P7. `#if DEBUG` around `LayoutAudit.beginSweeping()`.**
+- [x] **P7. `#if DEBUG` around `LayoutAudit.beginSweeping()`.**
       `AppDelegate.swift:50`. It ships in release and runs 90 whole-window
       main-thread sweeps over the first three minutes of *every* launch, for
       no user-facing benefit. One line. (B-038 #7)
+      *Done as a runtime switch instead, OFF by default: B-013 means there is
+      no debug build for the device, so `#if DEBUG` would have removed the
+      sweep for the developer too. Turn it on with the Layout button on the
+      connection log (five taps on the list's status line), which also
+      sweeps once at the tap; see `LayoutAudit.enabledKey`.*
 - [ ] **P8. `MIMEDecoder.decodeBase64` accumulates into `Data`.** :53 —
       `[UInt8]` + `withUnsafeBytes`, exactly as `decodeQuotedPrintable` above
       it already learned to. 5.7-11x on attachment and inline-image decode.
@@ -54,7 +60,9 @@ this host. Ordered by value, not by size.
 - [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
-      `LayoutAudit` will report it every two seconds. Follow Mail and put the
+      `LayoutAudit` will report it every two seconds, once it is switched on
+      with the Layout button on the connection log (it is off by default and
+      silent until then). Follow Mail and put the
       control in the leading toolbar slot, persist it like `organizeByThread`,
       and do not let B-003's away-timer re-expand a pane he collapsed.
       *Writable now, not confirmable until the iPad is back.*
@@ -80,6 +88,12 @@ this host. Ordered by value, not by size.
 - [ ] Register and test the share extension — also needs `ideviceinstaller`,
       which is on neither machine. (B-036 blocker 2)
 - [ ] Anything else touching the send path.
+- [ ] Send one letter to confirm the send path still works now that
+      `SMTPClient` runs over the `MailTransport` seam and `TLSConnection`
+      reads through `ReadBuffer`. The change is types and a moved read loop
+      only, and the B-034 WIRE-OUT/WIRE-ACK lines are untouched, but no host
+      test sends (the scripted server refuses port 465) and nothing has
+      been sent through it on the device yet.
 
 ## Blocked on the owner
 

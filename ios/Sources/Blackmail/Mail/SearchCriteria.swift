@@ -2,12 +2,13 @@ import Foundation
 
 /// What "search" means, as an IMAP SEARCH key.
 ///
-/// Pulled out of `IMAPMailRepository` so it can be tested. The repository is
-/// behind `#if canImport(Network)`, and this is the one string in the app
-/// that is BOTH assembled from user input AND concatenated into a protocol
-/// command — `IMAPClient.sanitizedCommandText` strips only NUL/CR/LF and
-/// deliberately leaves the caller's quoting alone, so the escaping here is
-/// the only thing between a typed apostrophe and a malformed command.
+/// Pulled out of `IMAPMailRepository` so it could be tested while the
+/// repository was behind `#if canImport(Network)`. This is the one string
+/// in the app that is BOTH assembled from user input AND concatenated into
+/// a protocol command — `IMAPClient.sanitizedCommandText` strips only
+/// NUL/CR/LF and deliberately leaves the caller's quoting alone, so the
+/// escaping here is the only thing between a typed apostrophe and a
+/// malformed command.
 enum SearchCriteria {
 
     /// The fields a search looks at.

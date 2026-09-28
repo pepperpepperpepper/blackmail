@@ -129,10 +129,35 @@ enum LayoutAudit {
     /// still ticking at bedtime. Three minutes covers opening every screen.
     private static let runFor: TimeInterval = 180
 
+    /// The defaults key that turns the launch sweep on. OFF when absent.
+    ///
+    /// The sweep is for whoever is developing, not for him. It is main-thread
+    /// work every two seconds through the first three minutes of a launch,
+    /// which is when he is waiting for his mail and making his first taps,
+    /// and the SDK files `hasAmbiguousLayout` under "debugging only, never
+    /// in shipping code". `#if DEBUG` cannot be the gate: there is no debug
+    /// build for the device (B-013), so it would switch the sweep off for
+    /// the developer too. Hence a switch in `UserDefaults`, read at launch:
+    ///
+    /// - The Layout button on the connection log (five taps on the list's
+    ///   status line) flips it. Switching it on also sweeps once there and
+    ///   then, and keeps sweeping for three minutes from that moment, so the
+    ///   screens can be walked straight away; it then stays on for every
+    ///   launch until it is switched off again.
+    /// - For one launch, a launch argument does the same without touching
+    ///   the stored value: `-blackmail.layoutAudit YES`. The deploy script
+    ///   opens the app with `uiopen`, which cannot pass one, so this is for
+    ///   a launch made some other way.
+    static let enabledKey = "blackmail.layoutAudit"
+
+    static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: enabledKey)
+    }
+
     /// Starts sweeping the key window every couple of seconds, reporting
-    /// each distinct finding once.
+    /// each distinct finding once. Does nothing unless `isEnabled`.
     static func beginSweeping() {
-        guard timer == nil else { return }
+        guard isEnabled, timer == nil else { return }
         started = Date()
         Diagnostics.log(.note, "layout: sweep started")
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
@@ -149,7 +174,17 @@ enum LayoutAudit {
         }
     }
 
-    /// One pass, now. Also the entry point for the diagnostics screen.
+    /// Stops a sweep before its three minutes are up. For the switch on the
+    /// connection log.
+    static func stopSweeping() {
+        guard let running = timer else { return }
+        running.invalidate()
+        timer = nil
+        Diagnostics.log(.note, "layout: sweep stopped, \(seen.count) finding(s) total")
+    }
+
+    /// One pass, now. Also what the connection log's switch runs when it is
+    /// turned on.
     @MainActor
     @discardableResult
     static func sweepNow() -> Int {
