@@ -152,7 +152,10 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var transportFactory: MailTransportFactory {
         { [self] _, port in
             let transport = ScriptedTransport(server: self, port: port)
-            locked { $0.transports[transport.connection] = WeakTransport(transport: transport) }
+            locked { s in
+                s.transports[transport.connection] = WeakTransport(transport: transport)
+                s.made.append(WeakTransport(transport: transport))
+            }
             return transport
         }
     }
@@ -206,7 +209,7 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Stops answering, greeting included. Commands still reach the log;
     /// no reply ever comes back. What a read then does is what the device's
-    /// read does, see `readTimeout`.
+    /// read does, see `timeout`.
     var isSilent: Bool {
         get { locked { $0.isSilent } }
         set { locked { $0.isSilent = newValue } }
@@ -301,21 +304,48 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusedMailboxes = newValue } }
     }
 
-    /// The deadline each read is raced against, in place of
-    /// `TLSConnection`'s 30 seconds.
+    /// The transport's ordinary deadline, in place of `TLSConnection`'s 30
+    /// seconds: for the connect, for each read of an ordinary reply, and for
+    /// each piece of a write.
     ///
-    /// The race is `ReadBuffer.receiveChunk`, the one `TLSConnection.fill()`
-    /// runs, so this deadline does exactly what the device's does and no
-    /// more. Today that means it does NOT end a read on a peer that has gone
-    /// quiet: the timeout throws on time and then waits for the receive,
-    /// which ends only when bytes arrive or the connection dies. Likewise a
-    /// read made by a cancelled task waits for its chunk, drops it and
-    /// throws, and `IMAPClient` tears the connection down. Nothing here has
-    /// its own opinion about either, so when the race changes these tests
-    /// see the change.
-    var readTimeout: Duration {
-        get { locked { $0.readTimeout } }
-        set { locked { $0.readTimeout = newValue } }
+    /// Everything that decides what a deadline does is the device's own
+    /// code, `LinkTransport`, so this deadline does exactly what the
+    /// device's does and no more. A peer that says nothing for this long is
+    /// cut off: the connection is closed, which fails the receive left
+    /// waiting on it, and the read fails with `.timedOut`. A read made by a
+    /// task that is then cancelled is not cut off; it gets its reply. Nothing
+    /// here has its own opinion about either, so when that code changes
+    /// these tests see the change.
+    var timeout: Duration {
+        get { locked { $0.timeout } }
+        set { locked { $0.timeout = newValue } }
+    }
+
+    /// The deadline for the reply to an upload (`ReplyWait.afterUpload`), in
+    /// place of `TLSConnection`'s ten minutes.
+    var uploadReplyTimeout: Duration {
+        get { locked { $0.uploadReplyTimeout } }
+        set { locked { $0.uploadReplyTimeout = newValue } }
+    }
+
+    /// How long each `TransportDeadline.writeChunkBytes` of a write takes to
+    /// leave: a slow uplink, or with a long enough value one that has
+    /// stopped. Charged by size, so a write handed to the link in one lump
+    /// takes as long as the pieces it should have gone in. A piece still
+    /// going out when the connection is closed fails, as a pending send does
+    /// when an `NWConnection` is cancelled.
+    var uplinkDelay: Duration {
+        get { locked { $0.uplinkDelay } }
+        set { locked { $0.uplinkDelay = newValue } }
+    }
+
+    /// Connections opened after it is set never finish their TLS handshake,
+    /// so `open()` ends only at its deadline. The handshake never reports
+    /// anything afterwards either, closed or not: whatever ends it is the
+    /// transport's own doing.
+    var handshakeStalls: Bool {
+        get { locked { $0.handshakeStalls } }
+        set { locked { $0.handshakeStalls = newValue } }
     }
 
     // MARK: - Inspection
@@ -329,6 +359,11 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Connections that got as far as `open()`, refused ones excluded.
     var connectionsOpened: Int { locked { $0.connectionsOpened } }
+
+    /// Transports made by `transportFactory` that still exist. Once the
+    /// client has let go of one, only something left waiting on it can be
+    /// holding it.
+    var transportsInMemory: Int { locked { $0.made.filter { $0.transport != nil }.count } }
 
     /// Every time the client used a connection in a way it never should:
     /// a command written while the reply to the one before was unread, or
@@ -616,9 +651,14 @@ private extension ScriptedIMAPServer {
         var loginCapabilities: LoginCapabilities = .inTaggedOK
         var greeting: Greeting = .ready
         var refusedMailboxes: Set<String> = []
-        var readTimeout: Duration = .seconds(1)
+        var timeout: Duration = .seconds(1)
+        var uploadReplyTimeout: Duration = .seconds(5)
+        var uplinkDelay: Duration = .zero
+        var handshakeStalls = false
         var held: Set<String> = []
         var transports: [Int: Server.WeakTransport] = [:]
+        /// Every transport ever made, for `transportsInMemory`.
+        var made: [Server.WeakTransport] = []
         var violations: [String] = []
 
         init(username: String, password: String) {
@@ -1658,21 +1698,28 @@ private extension ScriptedIMAPServer {
 /// One connection to a `ScriptedIMAPServer`, standing where `TLSConnection`
 /// stands on the device.
 ///
-/// The read side is `TLSConnection`'s own rather than a likeness of it: the
-/// same `ReadBuffer` for framing, refilled a chunk at a time through the same
-/// `ReadBuffer.receiveChunk` race, and each server reply is one chunk. Only
-/// the receive is this type's, and it behaves as `NWConnection.receive` does:
-/// it ends when bytes arrive or the connection dies, and cancellation does
-/// not end it. That matters because what the client does on cancellation and
-/// on a quiet peer lives in that race, and a fake that answered either on
-/// its own terms would test the fake.
-actor ScriptedTransport: MailTransport {
+/// Only the link is this type's. Everything above it, the framing, the
+/// deadlines and what each does when it fires, what `close()` ends and the
+/// B-034 probes, is `LinkTransport`'s, the same code `TLSConnection` runs,
+/// so a wire test that exercises it exercises the device's. The link behaves
+/// as `NWConnection` does: a receive ends when bytes arrive or the link
+/// dies, and a send when its piece has gone or the link dies; cancellation
+/// ends neither, and letting go of the link ends both with an error. A
+/// handshake that `handshakeStalls` holds up never reports at all, not even
+/// once the link has been let go of, which is the most `NWConnection`
+/// promises about a connect whose state handler has been cleared. Each
+/// server reply is one chunk.
+///
+/// It also watches its writes, which is the one thing it does above the
+/// link: see `write(_:)`.
+actor ScriptedTransport: LinkTransport {
 
     nonisolated let connection: Int
     private let server: ScriptedIMAPServer
     private let port: UInt16
-    private var isOpen = false
-    private var buffer = ReadBuffer()
+    var stream = LinkStream()
+    /// The handshake has finished and the link has not been let go of.
+    private var linkUp = false
 
     private enum Arrival: Sendable {
         case bytes(Data)
@@ -1691,6 +1738,13 @@ actor ScriptedTransport: MailTransport {
     /// Replies held by `holdReplies(to:)`, and anything sent after them,
     /// which has to stay behind them.
     private var parked: [ScriptedIMAPServer.Reply] = []
+    /// A write is being handed over. A second one starting meanwhile is two
+    /// commands in flight.
+    private var isWriting = false
+    /// The piece of a write still going out over `uplinkDelay`, and the
+    /// timer that lets it go.
+    private var sending: CheckedContinuation<Void, Error>?
+    private var sendTimer: Task<Void, Never>?
 
     fileprivate init(server: ScriptedIMAPServer, port: UInt16) {
         self.server = server
@@ -1698,72 +1752,91 @@ actor ScriptedTransport: MailTransport {
         self.connection = server.newConnectionID()
     }
 
-    func open() async throws {
-        guard !isOpen else { return }
-        // ECONNREFUSED, as for anything but the IMAP port.
-        guard port == server.port else { throw MailTransportError.posix("POSIX 61") }
-        isOpen = true
-        if let greeting = server.accept(connection) { deliver(greeting) }
-    }
+    var ordinaryDeadline: TimeInterval { server.timeout.timeInterval }
+    var uploadReplyDeadline: TimeInterval { server.uploadReplyTimeout.timeInterval }
 
-    func close() {
-        guard isOpen else { return }
-        isOpen = false
-        arrived.removeAll()
-        parked.removeAll()
-        buffer = ReadBuffer()
-        wake(with: .failed(.closed))
-        server.hangUp(connection)
-    }
-
+    /// `LinkTransport`'s write, watched. A write while the reply to the
+    /// command before it is still unread, or while another write is being
+    /// handed over, is two commands in flight, and is recorded. The server
+    /// takes the bytes once the last piece has gone: a command, or a
+    /// literal, means nothing to it until its last byte anyway.
     func write(_ data: Data) async throws {
-        guard isOpen else { throw MailTransportError.notConnected }
-        if !buffer.isEmpty || !arrived.isEmpty || inFlight > 0 || !parked.isEmpty || waiter != nil {
+        if stream.isOpen, isWriting || !stream.buffer.isEmpty || !arrived.isEmpty || inFlight > 0
+            || !parked.isEmpty || waiter != nil {
             let text = String(decoding: data.prefix(60), as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             server.noteViolation("c\(connection): \"\(text)\" was written before "
                                  + "the reply to the command before it had been read")
         }
+        isWriting = true
+        defer { isWriting = false }
+        try await writeThroughLink(data)
         for reply in server.receive(data, on: connection) { deliver(reply) }
     }
 
-    func writeLine(_ line: String) async throws {
-        try await write(Data((line + "\r\n").utf8))
-    }
+    // MARK: - The link
 
-    func readLine() async throws -> String {
-        while true {
-            if let line = buffer.takeLine() { return MailText.decode(line) }
-            try await fill()
+    /// Refused for anything but the IMAP port, as ECONNREFUSED. Accepted,
+    /// the server greets at once, unless it is silent.
+    func startLink(reporting report: @escaping @Sendable (Error?) -> Void) {
+        guard port == server.port else {
+            report(MailTransportError.posix("POSIX 61"))
+            return
         }
-    }
-
-    func read(exactly count: Int) async throws -> Data {
-        while true {
-            if let out = buffer.take(exactly: count) { return out }
-            try await fill()
-        }
-    }
-
-    private func fill() async throws {
-        guard isOpen else { throw MailTransportError.notConnected }
-        let deadline = server.readTimeout.components
-        let seconds = Double(deadline.seconds) + Double(deadline.attoseconds) / 1e18
-        let chunk = try await ReadBuffer.receiveChunk(within: seconds) { [self] in
-            try await self.receive()
-        }
-        buffer.append(chunk)
+        guard !server.handshakeStalls else { return }
+        linkUp = true
+        report(nil)
+        if let greeting = server.accept(connection) { deliver(greeting) }
     }
 
     /// `NWConnection.receive`'s part: the next reply, or the reason there
     /// will not be one. Cancellation does not end it.
-    private func receive() async throws -> Data {
-        guard isOpen else { throw MailTransportError.closed }
+    func receiveFromLink() async throws -> Data {
+        guard linkUp else { throw MailTransportError.closed }
         if let reset = server.resetError(for: connection) { throw reset }
         switch await nextArrival() {
         case .bytes(let data):     return data
         case .failed(let error):   throw error
         }
+    }
+
+    /// `NWConnection.send`'s part: one piece, taken after `uplinkDelay` for
+    /// every `TransportDeadline.writeChunkBytes` of it, so a write handed
+    /// over in one lump takes as long as the pieces it should have gone in.
+    /// Cancellation does not end it; letting go of the link does.
+    func sendToLink(_ piece: Data) async throws {
+        guard linkUp else { throw MailTransportError.closed }
+        let chunks = (piece.count + TransportDeadline.writeChunkBytes - 1)
+            / TransportDeadline.writeChunkBytes
+        let delay = server.uplinkDelay * max(1, chunks)
+        guard delay > .zero else { return }
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+            sending = c
+            sendTimer = Task.detached { [weak self] in
+                try? await Task.sleep(for: delay)
+                await self?.finishSending(failing: nil)
+            }
+        }
+    }
+
+    /// As `NWConnection.cancel()`: a piece of a write or a receive still
+    /// pending ends now, with an error, and the server hears the hang-up.
+    func closeLink() {
+        finishSending(failing: .closed)
+        guard linkUp else { return }
+        linkUp = false
+        arrived.removeAll()
+        parked.removeAll()
+        wake(with: .failed(.closed))
+        server.hangUp(connection)
+    }
+
+    private func finishSending(failing error: MailTransportError?) {
+        guard let pending = sending else { return }
+        sending = nil
+        sendTimer?.cancel()
+        sendTimer = nil
+        if let error { pending.resume(throwing: error) } else { pending.resume() }
     }
 
     /// One waiter at most. A second read while one is already waiting means
@@ -1783,11 +1856,25 @@ actor ScriptedTransport: MailTransport {
 
     /// The connection was reset under a read that is waiting: it fails now,
     /// as a pending receive does on an RST, and whatever had arrived or was
-    /// still on its way is gone.
+    /// still on its way is gone. So does a piece of a write still going out.
     fileprivate func interrupt(with error: MailTransportError) {
         arrived.removeAll()
         parked.removeAll()
+        finishSending(failing: error)
         wake(with: .failed(error))
+    }
+
+    /// A read is waiting on the link for bytes.
+    var isAwaitingBytes: Bool { waiter != nil }
+
+    /// Bytes that land in the same moment the transport is closed: the
+    /// receive waiting on the link has them, and the transport is closed
+    /// before that receive can hand them on. That is another task closing
+    /// the transport under a read, which the exchange gate keeps the clients
+    /// from doing, and which the transport has to come through anyway.
+    func landAndClose(_ bytes: Data) {
+        arrive(.bytes(bytes))
+        close()
     }
 
     fileprivate func releaseParked() {
@@ -1825,8 +1912,8 @@ actor ScriptedTransport: MailTransport {
     }
 
     private func arrive(_ arrival: Arrival) {
-        // Nothing reaches a socket that has been closed or reset.
-        guard isOpen, server.resetError(for: connection) == nil else { return }
+        // Nothing reaches a link that has been let go of or reset.
+        guard linkUp, server.resetError(for: connection) == nil else { return }
         if waiter != nil {
             wake(with: arrival)
         } else {
@@ -1838,5 +1925,11 @@ actor ScriptedTransport: MailTransport {
         guard let waiter else { return }
         self.waiter = nil
         waiter.resume(returning: arrival)
+    }
+}
+
+private extension Duration {
+    var timeInterval: TimeInterval {
+        Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }

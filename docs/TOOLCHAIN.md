@@ -84,12 +84,27 @@ and `IMAPMailRepository.fromStoredCredentials`, which reads the keychain.
 `Tests/BlackmailTests/Support/ScriptedIMAPServer.swift` is a Gmail-shaped IMAP
 server with its own in-memory transport, and `RepositoryWireTests` runs the
 real repository against it, recording which mailbox every command ran in.
-The transport reads through `Net/ReadBuffer.swift`, which is `TLSConnection`'s
-own framing and read-deadline race moved out of the guarded file, so what the
-tests see on cancellation or a silent peer is what the device does.
+Its transport supplies only the link, like `TLSConnection` on the device;
+everything above the link is `Net/LinkTransport.swift`, which both run: the
+framing (`Net/ReadBuffer.swift`), the deadlines and what each does when it
+fires (`Net/TransportDeadline.swift`), what `close()` ends, and the B-034
+`WIRE-OUT`/`WIRE-ACK` probes. So what the tests see on cancellation, a silent
+peer or a stalled uplink is what the device does, and a mistake in any of it
+fails a host test. What stays device-only is `TLSConnection`'s own glue:
+which `NWConnection` states count as up or failed, the receive and send
+callbacks, the `NWError` mapping, and the TCP options.
 
 **The `swiftUIKit` link flag is `.when(platforms: [.iOS])`.** Without the
 condition the host link fails with `cannot find -lswiftUIKit`.
+
+**Nothing may compile to an OS version check.** There is no compiler-rt for
+iOS in this toolchain, so `if #available(...)`, and any stdlib API that is
+back-deployed past the 16.0 deployment target, builds for the host and for the
+device and then fails the device link with `undefined symbol:
+__isPlatformVersionAtLeast`. `withTaskCancellationHandler` is one: every
+spelling of it in the iOS 16.5 SDK is back-deployed from 16.4.
+`IMAPClient.beginExchange` watches for cancellation with an `async let` child
+instead. Only the device build finds this; the host tests pass either way.
 
 **`package.sh` copies `BlackmailApp`, not `Blackmail`.** The target rename
 meant the old path silently packaged whatever stale binary was left from a

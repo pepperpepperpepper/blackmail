@@ -29,9 +29,16 @@ import Network
 /// caller here is `async`. Serialising access also means a command and its
 /// response cannot interleave with another command's.
 ///
+/// Only the link is here: starting the connection, a receive, a send, a
+/// cancel. The framing, the deadlines and what each one does when it fires,
+/// what `close()` ends, and the B-034 probes are `LinkTransport`'s, which
+/// the host tests run through the scripted server's link. This file does not
+/// compile on the host, so anything that can be decided without `Network`
+/// belongs there, not here.
+///
 /// The clients see it only as a `MailTransport`, which is what lets them build
 /// and run on the Linux host against a scripted server.
-actor TLSConnection: MailTransport {
+actor TLSConnection: LinkTransport {
 
     /// What the app itself runs on: implicit TLS through `Network.framework`.
     static let factory: MailTransportFactory = { host, port in
@@ -40,17 +47,39 @@ actor TLSConnection: MailTransport {
 
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "wtf.uhoh.blackmail.net")
-    private var buffer = ReadBuffer()
-    private var isOpen = false
+    var stream = LinkStream()
 
-    /// `timeout` bounds every individual read. A mail server that accepts the
-    /// TCP connection and then says nothing must not hang the app forever —
-    /// that failure mode looks exactly like a frozen screen to the user, which
-    /// is the single worst thing this product can do.
-    private let timeout: TimeInterval
+    /// Bounds every individual step: the connect with its TLS handshake, each
+    /// read, and each piece of a write. A mail server that accepts the TCP
+    /// connection and then says nothing must not hang the app forever — that
+    /// failure mode looks exactly like a frozen screen to the user, which is
+    /// the single worst thing this product can do.
+    ///
+    /// Tighter, on purpose, than the TCP bounds set below. The connect's
+    /// bound covers the TCP and the TLS handshakes together in the time
+    /// `connectionTimeout` gives TCP alone, and a piece of a write gets half
+    /// of `connectionDropTime`. A path that is alive but stalls for longer
+    /// than this, a long handover in the middle of a photo upload, is cut
+    /// off where TCP would have waited it out. That is accepted: the
+    /// transport cannot tell that stall from a dead path, and a write cut
+    /// off fails cleanly. A letter's terminating dot goes only once the
+    /// whole of it has, so a letter cut off is "not sent" and is not
+    /// delivered, and a draft cut off is not saved.
+    let ordinaryDeadline: TimeInterval
 
-    init(host: String, port: UInt16, timeout: TimeInterval = 30) {
-        self.timeout = timeout
+    /// The bound on a read of `ReplyWait.afterUpload`. Ten minutes is RFC
+    /// 5321's figure (§4.5.3.2.6) for the reply to DATA's terminating dot,
+    /// given there for the same reason: a spurious timeout at that point
+    /// delivers the letter twice. It only ever runs its course against a
+    /// server that is alive and silent. A path that has died while the tail
+    /// of the upload was still unacknowledged is dropped by
+    /// `connectionDropTime` below well before it.
+    let uploadReplyDeadline: TimeInterval
+
+    init(host: String, port: UInt16, timeout: TimeInterval = 30,
+         uploadReplyTimeout: TimeInterval = 600) {
+        self.ordinaryDeadline = timeout
+        self.uploadReplyDeadline = uploadReplyTimeout
         // Implicit TLS (IMAPS 993, SMTPS 465) rather than STARTTLS. One fewer
         // state to get wrong, and no window in which credentials could be sent
         // over a plaintext socket because an upgrade silently failed.
@@ -58,6 +87,36 @@ actor TLSConnection: MailTransport {
         let tcp = NWProtocolTCP.Options()
         tcp.noDelay = true
         tcp.connectionTimeout = Int(timeout)
+
+        // Keepalive, so that a socket which dies while he is reading a letter
+        // (a Wi-Fi roam, a router forgetting the NAT mapping) is found dead by
+        // the stack during the quiet rather than by his next tap. Without it
+        // that tap wrote into a dead socket and waited out the whole read
+        // deadline before anything reconnected. With it the connection has
+        // already failed, the command fails at once, and the read retry
+        // reconnects without the wait.
+        //
+        // The numbers are conservative on purpose. The first probe goes after
+        // a minute of quiet, about as long as he spends on a letter, and a
+        // live peer answers it, so the steady cost is one small packet per
+        // quiet minute while the app holds a connection. It does not keep the
+        // session alive: Gmail ends an idle IMAP session after about thirty
+        // minutes whatever TCP does, and the probes stop with it, so an iPad
+        // left on the table pays for at most half an hour of them. Three
+        // misses twenty seconds apart, not one, so a dropped packet or a brief
+        // handover is not a dropped connection; a dead peer is declared two
+        // minutes after the last traffic.
+        tcp.enableKeepalive = true
+        tcp.keepaliveIdle = 60
+        tcp.keepaliveInterval = 20
+        tcp.keepaliveCount = 3
+        // Keepalive only probes a connection with nothing outstanding. This
+        // covers the other case: bytes sent and left unacknowledged for a
+        // minute, retransmissions and all, mean the path is gone. That is a
+        // command written into a dead socket, or the tail of an upload whose
+        // reply is waiting on `uploadReplyDeadline`. A slow uplink is not
+        // affected: its segments are acknowledged, only slowly.
+        tcp.connectionDropTime = 60
         let params = NWParameters(tls: tls, tcp: tcp)
         self.connection = NWConnection(
             host: NWEndpoint.Host(host),
@@ -65,120 +124,63 @@ actor TLSConnection: MailTransport {
             using: params)
     }
 
-    // MARK: - Lifecycle
+    // MARK: - The link
 
-    func open() async throws {
-        guard !isOpen else { return }
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            // `resumed` guards against NWConnection reporting .failed after
-            // .ready, or .waiting repeatedly: a continuation resumed twice is
-            // a crash, not an error.
-            var resumed = false
-            connection.stateUpdateHandler = { state in
-                guard !resumed else { return }
-                switch state {
-                case .ready:
-                    resumed = true
-                    c.resume()
-                case .failed(let error):
-                    resumed = true
-                    c.resume(throwing: Self.map(error))
-                case .waiting(let error):
-                    // .waiting means "no route / cannot reach it yet". For a
-                    // mail client that is a failure to report, not something
-                    // to sit in: the user is owed "Can't connect" promptly.
-                    resumed = true
-                    c.resume(throwing: Self.map(error))
-                case .cancelled:
-                    resumed = true
-                    c.resume(throwing: MailTransportError.closed)
-                default:
-                    break
-                }
+    func startLink(reporting report: @escaping @Sendable (Error?) -> Void) {
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                report(nil)
+            case .failed(let error):
+                report(Self.map(error))
+            case .waiting(let error):
+                // .waiting means "no route / cannot reach it yet". For a mail
+                // client that is a failure to report, not something to sit
+                // in: the user is owed "Can't connect" promptly.
+                report(Self.map(error))
+            case .cancelled:
+                report(MailTransportError.closed)
+            default:
+                break
             }
-            connection.start(queue: queue)
         }
-        isOpen = true
+        connection.start(queue: queue)
     }
 
-    func close() {
-        isOpen = false
-        connection.stateUpdateHandler = nil
-        connection.cancel()
+    func receiveFromLink() async throws -> Data {
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data, Error>) in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
+                data, _, _, error in
+                if let error { c.resume(throwing: Self.map(error)); return }
+                if let data, !data.isEmpty { c.resume(returning: data); return }
+                // No data and no error: the peer closed. Surfacing this as
+                // .closed rather than looping is what stops a half-open
+                // connection spinning the CPU forever.
+                c.resume(throwing: MailTransportError.closed)
+            }
+        }
     }
 
-    // MARK: - Writing
-
-    func write(_ data: Data) async throws {
-        guard isOpen else { throw MailTransportError.notConnected }
-        // B-034 instrumentation. Length only, and only for bulk writes: every
-        // command line goes through here too, including `AUTH PLAIN <secret>`,
-        // and the length of that line is the length of the credential. A
-        // 1 KB floor logs the DATA payload and nothing else.
-        let watched = data.count > 1024
-        if watched { Diagnostics.log(.note, "WIRE-OUT bytes=\(data.count)") }
+    func sendToLink(_ piece: Data) async throws {
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            connection.send(content: data, completion: .contentProcessed { error in
-                // The ACK is the half that matters for "the transport is lying
-                // to its own log": a transcript showing the 250 that follows,
-                // with no ACK before it, means this continuation never
-                // resumed — a different bug with a different next step.
-                if watched {
-                    Diagnostics.log(.note, "WIRE-ACK err=\(error.map(String.init(describing:)) ?? "none")")
-                }
-                if let error { c.resume(throwing: Self.map(error)) } else { c.resume() }
+            connection.send(content: piece, completion: .contentProcessed { error in
+                // Unmapped, so the WIRE-ACK line reads as it always has; see
+                // `transportError`.
+                if let error { c.resume(throwing: error) } else { c.resume() }
             })
         }
     }
 
-    func writeLine(_ line: String) async throws {
-        try await write(Data((line + "\r\n").utf8))
+    /// `cancel()` completes a pending receive or send with an error, and a
+    /// pending connect is settled by `close()` itself, so the state handler
+    /// has nothing left to do.
+    func closeLink() {
+        connection.stateUpdateHandler = nil
+        connection.cancel()
     }
 
-    // MARK: - Reading
-
-    /// One CRLF-terminated line, without the terminator.
-    ///
-    /// Returns the bytes as a `String` decoded leniently: a server may send a
-    /// header in any charset, and throwing on invalid UTF-8 would turn one
-    /// badly-encoded message into a dead mailbox. Anything that needs the raw
-    /// bytes uses `read(exactly:)` instead.
-    func readLine() async throws -> String {
-        while true {
-            if let line = buffer.takeLine() { return Self.decode(line) }
-            try await fill()
-        }
-    }
-
-    /// Exactly `count` bytes, for an IMAP literal. See `ReadBuffer`, which
-    /// also lets go of the storage once it has been read to the end.
-    func read(exactly count: Int) async throws -> Data {
-        while true {
-            if let out = buffer.take(exactly: count) { return out }
-            try await fill()
-        }
-    }
-
-    /// Pulls one chunk from the socket into the buffer, or throws. The race
-    /// against `timeout`, and what it does and does not do yet, is
-    /// `ReadBuffer.receiveChunk`.
-    private func fill() async throws {
-        guard isOpen else { throw MailTransportError.notConnected }
-        let chunk = try await ReadBuffer.receiveChunk(within: timeout) { [connection] in
-            try await withCheckedThrowingContinuation { (c: CheckedContinuation<Data, Error>) in
-                connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) {
-                    data, _, isComplete, error in
-                    if let error { c.resume(throwing: Self.map(error)); return }
-                    if let data, !data.isEmpty { c.resume(returning: data); return }
-                    // No data and no error: the peer closed. Surfacing this
-                    // as .closed rather than looping is what stops a
-                    // half-open connection spinning the CPU forever.
-                    c.resume(throwing: isComplete ? MailTransportError.closed
-                                                  : MailTransportError.closed)
-                }
-            }
-        }
-        buffer.append(chunk)
+    static func transportError(_ sendError: Error) -> Error {
+        (sendError as? NWError).map(map) ?? sendError
     }
 
     // MARK: - Helpers

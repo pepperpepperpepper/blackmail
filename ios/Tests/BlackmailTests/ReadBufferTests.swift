@@ -65,60 +65,64 @@ final class ReadBufferTests: XCTestCase {
         XCTAssertEqual(text(buffer.bytes), "* 4 EXISTS")
     }
 
-    // MARK: - The read deadline, as it behaves today
+    // MARK: - The read deadline
 
     func testAChunkThatArrivesInTimeIsReturned() async throws {
-        let chunk = try await ReadBuffer.receiveChunk(within: 5) { Data("* OK\r\n".utf8) }
+        let expired = Counter()
+        let chunk = try await ReadBuffer.receiveChunk(within: 5, onExpiry: { expired.add() }) {
+            Data("* OK\r\n".utf8)
+        }
         XCTAssertEqual(text(chunk), "* OK\r\n")
+        XCTAssertEqual(expired.value, 0)
     }
 
     func testAFailedReceiveFailsTheRead() async {
         do {
-            _ = try await ReadBuffer.receiveChunk(within: 5) { throw MailTransportError.closed }
+            _ = try await ReadBuffer.receiveChunk(within: 5, onExpiry: {}) {
+                throw MailTransportError.closed
+            }
             XCTFail("a receive that failed cannot produce a chunk")
         } catch {
             XCTAssertEqual(error as? MailTransportError, .closed)
         }
     }
 
-    /// What the device does today, not what it should. The deadline throws
-    /// on time, but the task group then waits for the receive, which does
-    /// not answer cancellation; on a peer that never answers at all, that is
-    /// a read with no end. When the deadline is made to end the read on its
-    /// own, this turns round: the read should fail at about the deadline,
-    /// long before the receive answers.
-    func testTheDeadlineDoesNotEndAReadUntilTheReceiveAnswers() async throws {
-        let gate = Gate()
-        let finished = Flag()
-        let read = Task {
-            defer { finished.set() }
-            return try await ReadBuffer.receiveChunk(within: 0.002) {
-                await gate.wait()
-                return Data("late\r\n".utf8)
-            }
-        }
-        try await Task.sleep(for: .milliseconds(20))
-        XCTAssertFalse(finished.isSet, "the read ended at its deadline, which it does not do yet")
-
-        gate.open()
+    /// A peer that has gone quiet. The receive, like `NWConnection`'s, ends
+    /// only when bytes come or the connection is cancelled, and nothing is
+    /// coming. The deadline has to end the read on its own, and it does it
+    /// by closing the connection, which ends the receive too: nothing is
+    /// left waiting on a socket nobody will read again.
+    func testASilentPeerIsCutOffAtTheDeadlineAndItsReceiveIsEnded() async throws {
+        let socket = SilentSocket()
+        let started = ContinuousClock.now
         do {
-            _ = try await finishing { try await read.value }
-            XCTFail("a chunk that came after the deadline is not returned")
+            _ = try await finishing(within: 1) {
+                try await ReadBuffer.receiveChunk(within: 0.02, onExpiry: { socket.cancel() }) {
+                    try await socket.receive()
+                }
+            }
+            XCTFail("nothing was sent, so nothing can have been read")
         } catch {
             XCTAssertEqual(error as? MailTransportError, .timedOut)
         }
+        let elapsed = ContinuousClock.now - started
+        XCTAssertGreaterThanOrEqual(elapsed, .milliseconds(20), "cut off before its deadline")
+        XCTAssertEqual(socket.cancels, 1)
+        try await socket.untilReceiveEnded()
     }
 
-    /// Also today's behaviour. A read made by a task that is then cancelled
-    /// (a search the next keystroke replaced) waits for the chunk it was
-    /// after, drops it, and throws; `IMAPClient` then has to tear the
-    /// connection down, because that reply is gone from the stream.
-    func testACancelledReadWaitsForItsChunkAndThenDropsIt() async throws {
+    /// A read made by a task that is then cancelled: a search the next
+    /// keystroke replaced. It is not cut short. It waits for its chunk and
+    /// hands it back, so the reply it belongs to is read whole and the next
+    /// command on the connection reads its own. It used to throw once the
+    /// chunk came and drop it, and `IMAPClient` then had to tear the
+    /// connection down, because that reply was gone from the stream.
+    func testACancelledReadStillGetsItsChunk() async throws {
         let gate = Gate()
         let finished = Flag()
         let read = Task {
             defer { finished.set() }
-            return try await ReadBuffer.receiveChunk(within: 5) {
+            return try await ReadBuffer.receiveChunk(within: 5, onExpiry: {}) {
                 await gate.wait()
                 return Data("a004 OK\r\n".utf8)
             }
@@ -129,12 +133,70 @@ final class ReadBufferTests: XCTestCase {
         XCTAssertFalse(finished.isSet, "the read ended before its chunk arrived")
 
         gate.open()
-        do {
-            _ = try await finishing { try await read.value }
-            XCTFail("a cancelled read does not hand its chunk back")
-        } catch {
-            XCTAssertTrue(error is CancellationError, "\(error)")
+        let chunk = try await finishing { try await read.value }
+        XCTAssertEqual(text(chunk), "a004 OK\r\n")
+    }
+
+    /// The chunk and the deadline landing together, many times over, on the
+    /// two different threads they come from. Each read ends exactly once,
+    /// one way or the other: a checked continuation resumed twice kills the
+    /// process. And the connection is closed exactly when the read was told
+    /// it timed out, never when it got its chunk.
+    func testAChunkAndADeadlineThatLandTogetherEndTheReadOnce() async throws {
+        for _ in 0..<100 {
+            let expired = Counter()
+            do {
+                let chunk = try await finishing {
+                    try await ReadBuffer.receiveChunk(within: 0.001, onExpiry: { expired.add() }) {
+                        try await Task.sleep(for: .microseconds(1_000))
+                        return Data("a005 OK\r\n".utf8)
+                    }
+                }
+                XCTAssertEqual(text(chunk), "a005 OK\r\n")
+                XCTAssertEqual(expired.value, 0, "closed a connection whose read succeeded")
+            } catch {
+                XCTAssertEqual(error as? MailTransportError, .timedOut)
+                XCTAssertEqual(expired.value, 1)
+            }
         }
+    }
+}
+
+/// A receive on a connection that the peer has stopped talking on: it ends
+/// only when the connection is cancelled, and then with an error, as a
+/// pending `NWConnection.receive` does.
+private final class SilentSocket: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = 0
+    private var ended = false
+    private let gate = Gate()
+
+    var cancels: Int { locked { cancelled } }
+
+    func receive() async throws -> Data {
+        defer { locked { ended = true } }
+        await gate.wait()
+        throw MailTransportError.posix("POSIX 89")
+    }
+
+    func cancel() {
+        locked { cancelled += 1 }
+        gate.open()
+    }
+
+    /// A second at most.
+    func untilReceiveEnded() async throws {
+        for _ in 0..<1_000 {
+            if locked({ ended }) { return }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("the receive was left waiting on a closed connection")
+    }
+
+    private func locked<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
     }
 }
 

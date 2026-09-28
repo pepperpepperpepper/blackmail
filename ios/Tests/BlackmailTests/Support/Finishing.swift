@@ -77,3 +77,21 @@ final class Flag: @unchecked Sendable {
         lock.unlock()
     }
 }
+
+/// How many times something happened, from any thread.
+final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return count
+    }
+
+    func add() {
+        lock.lock()
+        count += 1
+        lock.unlock()
+    }
+}

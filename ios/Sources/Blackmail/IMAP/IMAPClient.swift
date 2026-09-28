@@ -83,7 +83,20 @@ actor IMAPClient {
 
     /// True while one command owns the socket. See `beginExchange()`.
     private var exchangeInProgress = false
-    private var exchangeWaiters: [CheckedContinuation<Void, Never>] = []
+    /// Everyone waiting for the socket, first come first served. Keyed so a
+    /// waiter whose task is cancelled can be found and taken out of the line.
+    private var exchangeWaiters: [(id: UInt64, turn: ExchangeTurn)] = []
+    private var lastWaiterID: UInt64 = 0
+
+    /// How a waiter is told its turn has come.
+    private enum ExchangeTurn {
+        /// A command, which leaves the line with `CancellationError` if its
+        /// task is cancelled first.
+        case command(CheckedContinuation<Void, Error>)
+        /// Closing, which waits its turn whatever happens to its task, and
+        /// so cannot be told anything but "go".
+        case closing(CheckedContinuation<Void, Never>)
+    }
 
     init(account: MailAccount, transport: @escaping MailTransportFactory) {
         self.account = account
@@ -99,6 +112,10 @@ actor IMAPClient {
 
     var isConnected: Bool { connected }
 
+    /// How many commands are waiting behind the one on the wire. How a test
+    /// knows a command has joined the line without sleeping on it.
+    var waitingForExchange: Int { exchangeWaiters.count }
+
     // MARK: - Session
 
     func connect(password: String) async throws {
@@ -106,7 +123,7 @@ actor IMAPClient {
         // socket suspends, so without this two tasks that both decide they are
         // disconnected would each open a connection and the second would
         // overwrite (and leak) the first.
-        await beginExchange()
+        try await beginExchange()
         defer { endExchange() }
 
         guard !connected else { return }
@@ -194,7 +211,10 @@ actor IMAPClient {
     }
 
     func disconnect() async {
-        await beginExchange()
+        // Waits its turn even for a caller that has been cancelled. Closing is
+        // what a caller does on its way out, and a started NWConnection that
+        // is never cancelled is never let go of.
+        await beginClosingExchange()
         defer { endExchange() }
 
         if connected {
@@ -429,8 +449,11 @@ actor IMAPClient {
         // and the EXPUNGE at a different folder entirely — and the last-resort
         // plain EXPUNGE there would take every \Deleted message in it. This is
         // the one sequence in the client that can destroy mail, so it is the
-        // one that must be indivisible.
-        await beginExchange()
+        // one that must be indivisible. Cancelled while waiting for the gate,
+        // none of it is sent, unless the cancel lands as the gate is handed
+        // over (see `beginExchange`); cancelled once it has the gate, all of
+        // it is.
+        try await beginExchange()
         defer { endExchange() }
 
         let destination = Self.mailboxArgument(mailbox)
@@ -522,27 +545,119 @@ actor IMAPClient {
     /// Holding this gate for a whole command/response exchange is the only
     /// thing that makes one socket safe for the several overlapping `Task`s the
     /// interface starts.
-    private func beginExchange() async {
-        // A loop rather than an if: a waiter that is resumed can still lose the
-        // gate to a task that arrived while it was being scheduled.
-        while exchangeInProgress {
-            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
-                exchangeWaiters.append(c)
-            }
+    ///
+    /// It is also where a cancelled task stops sending. A task cancelled
+    /// before it reaches the gate, or while it waits in line, throws
+    /// `CancellationError` and writes nothing, and one cancelled after it has
+    /// the gate finishes the exchange, reply and all. Nothing below this
+    /// throws for cancellation, because the transport's reads do not, so a
+    /// search that the next keystroke replaces mid-reply leaves the stream in
+    /// step and the connection up, and learns it was cancelled when it comes
+    /// back for its next command.
+    ///
+    /// The one overlap is a cancel that lands while the holder is finishing
+    /// its exchange on this actor. The waiter's watcher reaches the actor only
+    /// after that, by when the holder has handed the gate over, so it finds
+    /// the waiter out of line and the command goes out. Nothing throws once
+    /// the gate is held, so that command is sent and its reply read like any
+    /// other, and the stream stays in step.
+    ///
+    /// The gate is handed from one holder straight to the next waiter in line
+    /// rather than released for whoever gets there first, so the line is
+    /// strictly first come, first served, and each waiter is resumed exactly
+    /// once: either with the gate or, if its task is cancelled first, with the
+    /// error. That order holds by construction. No test can put a newcomer
+    /// inside the hand-over, so none would notice if it were lost.
+    private func beginExchange() async throws {
+        try Task.checkCancellation()
+        guard exchangeInProgress else {
+            exchangeInProgress = true
+            return
         }
-        exchangeInProgress = true
+        lastWaiterID += 1
+        let id = lastWaiterID
+        // A child task that watches for the cancel, since a waiter parked on
+        // a continuation cannot see it. Being a child, it is cancelled with
+        // this task; it is also cancelled, and awaited, when this scope
+        // exits, and by then the waiter has left the line one way or the
+        // other, so its request finds nothing to do. It reaches the actor
+        // only after the waiter is in line, however early the cancel came:
+        // this actor is not free again until `waitInLine` has suspended.
+        //
+        // Not `withTaskCancellationHandler`. Every spelling of it in the iOS
+        // 16.5 SDK is back-deployed, from 16.4, so on a 16.0 target a call
+        // compiles to an OS version check, which needs compiler-rt's
+        // `__isPlatformVersionAtLeast`, and this toolchain has no compiler-rt
+        // for iOS: the device link fails.
+        async let _: Void = leaveLineWhenCancelled(id)
+        try await waitInLine(id)
+    }
+
+    /// The gate for closing the connection, which has to happen whatever
+    /// the caller's state: it waits its turn and cannot be turned away, so
+    /// it returns only holding the gate.
+    private func beginClosingExchange() async {
+        guard exchangeInProgress else {
+            exchangeInProgress = true
+            return
+        }
+        lastWaiterID += 1
+        let id = lastWaiterID
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            exchangeWaiters.append((id, .closing(c)))
+        }
+    }
+
+    /// Returns holding the gate, or throws if `leaveLine` got there first.
+    private func waitInLine(_ id: UInt64) async throws {
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+            exchangeWaiters.append((id, .command(c)))
+        }
+    }
+
+    /// Sleeps until the task it runs in is cancelled, then takes waiter `id`
+    /// out of line if it is still there.
+    ///
+    /// A second at a time rather than one long sleep, although only the
+    /// cancel ever matters. A sleep cut short by a cancel leaves its timer
+    /// with the runtime until the time it was set for, about half a kilobyte
+    /// each, and every watcher is cut short, by its waiter's turn coming if
+    /// not by a cancel. Timers set an hour ahead would hold on to every wait
+    /// of the last hour; set a second ahead, only those of the last second.
+    private nonisolated func leaveLineWhenCancelled(_ id: UInt64) async {
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        await leaveLine(id)
+    }
+
+    /// A waiter whose task was cancelled before its turn. If it is no longer
+    /// in line it has already been given the gate, and an exchange that has
+    /// begun is not interrupted.
+    private func leaveLine(_ id: UInt64) {
+        guard let index = exchangeWaiters.firstIndex(where: { $0.id == id }),
+              case .command(let waiter) = exchangeWaiters[index].turn else { return }
+        exchangeWaiters.remove(at: index)
+        waiter.resume(throwing: CancellationError())
     }
 
     private func endExchange() {
-        exchangeInProgress = false
-        if !exchangeWaiters.isEmpty { exchangeWaiters.removeFirst().resume() }
+        guard !exchangeWaiters.isEmpty else {
+            exchangeInProgress = false
+            return
+        }
+        // Still in progress: it now belongs to the waiter.
+        switch exchangeWaiters.removeFirst().turn {
+        case .command(let waiter):  waiter.resume()
+        case .closing(let waiter):  waiter.resume()
+        }
     }
 
     /// Writes one tagged command and reads until its tagged completion, taking
     /// the exchange gate for the duration.
     private func sendCommand(_ command: String,
                              continuationPayload: Data? = nil) async throws -> IMAPCommandResult {
-        await beginExchange()
+        try await beginExchange()
         defer { endExchange() }
         return try await performCommand(command, continuationPayload: continuationPayload)
     }
@@ -577,9 +692,10 @@ actor IMAPClient {
     private func awaitResult(tag: String, continuationPayload: Data?) async throws -> IMAPCommandResult {
         var untagged: [IMAPResponseLine] = []
         var pending = continuationPayload
+        var wait = ReplyWait.ordinary
 
         while true {
-            let line = try await readResponse()
+            let line = try await readResponse(wait)
             let text = line.text
 
             if text.hasPrefix("+") {
@@ -592,6 +708,9 @@ actor IMAPClient {
                     pending = nil
                     try await conn.write(payload)
                     try await conn.write(Data("\r\n".utf8))
+                    // APPEND's answer comes only once the whole letter has
+                    // crossed his uplink and Gmail has filed it.
+                    wait = .afterUpload
                 }
                 continue
             }
@@ -621,10 +740,13 @@ actor IMAPClient {
     /// literal. The loop below keeps consuming until a line ends without one,
     /// leaving the text with a `\u{0}<index>\u{0}` marker wherever a literal
     /// stood so the tokenizer can find the bytes again.
-    private func readResponse() async throws -> IMAPResponseLine {
+    ///
+    /// `wait` applies to the first line, the one the server may be slow to
+    /// start; the rest of a response follows on its heels.
+    private func readResponse(_ wait: ReplyWait = .ordinary) async throws -> IMAPResponseLine {
         guard connected, let conn = connection else { throw MailError.cannotConnect }
 
-        var text = try await conn.readLine()
+        var text = try await conn.readLine(wait)
         var literals: [Data] = []
 
         while let length = Self.trailingLiteralLength(of: text) {

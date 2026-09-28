@@ -19,9 +19,10 @@ import Foundation
 /// **What this may never write.**
 ///
 /// - **No credentials.** `Diagnostics.transcript()` is already redacted, and
-///   `TLSConnection.write`'s probe logs a LENGTH and only above 1 KB, because
-///   the `AUTH PLAIN` line goes through that same function and the length of
-///   that line is the length of the password.
+///   the transport's write probe (`LinkTransport.writeThroughLink`) logs a
+///   LENGTH and only above 1 KB, because the `AUTH PLAIN` line goes through
+///   that same function and the length of that line is the length of the
+///   password.
 /// - **No message content.** An earlier revision of this file dumped the
 ///   built letter and the dot-stuffed wire payload to disk, which is how
 ///   B-034 was settled. That is a debugging tool, not a shipping one: it

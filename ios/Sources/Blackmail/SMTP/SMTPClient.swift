@@ -285,7 +285,9 @@ actor SMTPClient {
         Diagnostics.log(.note, "WIRE-PAYLOAD bytes=\(payload.count) raw=\(raw.count)")
         try await connection.write(payload)
 
-        let final = try await readReply(connection)
+        // Waited for on the long bound: see `ReplyWait.afterUpload`. The
+        // write returning means the stack has the bytes, not that Gmail does.
+        let final = try await readReply(connection, .afterUpload)
         // The reply code as a bare number: reading protocol replies out of
         // screenshots is testimony, not evidence (B-033).
         Diagnostics.log(.note, "DATA-REPLY-CODE \(final.code)")
@@ -305,13 +307,14 @@ actor SMTPClient {
     /// single-line leaves the leftovers in the buffer and every subsequent
     /// command reads the previous command's answer, which presents as the
     /// session mysteriously succeeding one step behind itself.
-    private func readReply(_ connection: any MailTransport) async throws -> SMTPClientReply {
+    private func readReply(_ connection: any MailTransport,
+                           _ wait: ReplyWait = .ordinary) async throws -> SMTPClientReply {
         var lines: [String] = []
         var code = 0
         var sawCode = false
 
         for _ in 0..<Self.maxReplyLines {
-            let line = try await connection.readLine()
+            let line = try await connection.readLine(wait)
             Diagnostics.log(.received, line)
             let parsed = SMTPClientReply.parse(line)
             if let parsedCode = parsed.code {

@@ -409,13 +409,6 @@ final class RepositoryWireTests: XCTestCase {
     func testASearchCancelledByTheNextKeystrokeStopsWithoutReconnecting() async throws {
         let repository = makeRepository()
         _ = try await repository.listMailboxes()
-        // Every reply takes a couple of milliseconds, as every reply on the
-        // device takes at least a round trip. That is what decides the race
-        // in `ReadBuffer.receiveChunk` for a read started after the cancel:
-        // its deadline, cancelled with it, throws at once and the reply is
-        // not there yet. With replies that took no time at all the race
-        // would be a coin toss the device never plays.
-        server.defaultDelay = .milliseconds(2)
         server.holdReplies(to: "UID SEARCH")
         server.clearLog()
 
@@ -432,32 +425,217 @@ final class RepositoryWireTests: XCTestCase {
             _ = try await finishing { try await superseded.value }
             XCTFail("a search cancelled mid-flight must not come back with results")
         } catch {
-            // What the list sees. Only its own cancellation check keeps
-            // this from being drawn as "Could not search".
-            XCTAssertEqual(error as? MailError, .cannotConnect)
+            XCTAssertTrue(error is CancellationError, "\(error)")
         }
-        // It stopped where it was. It used to carry on into Spam and All
-        // Mail and open a new connection for each, just to fail again.
-        XCTAssertEqual(server.connectionsOpened, 1)
-        XCTAssertEqual(server.log.filter { $0.verb == "UID SEARCH" }.map(\.selected), [Server.trash])
+        // It read the answer to the command it had on the wire and sent
+        // nothing after it. It used to drop that answer, which cost the
+        // connection, and before that it carried on into Spam and All Mail
+        // and opened a new connection for each.
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH"])
+        XCTAssertEqual(server.log.last?.selected, Server.trash)
+        XCTAssertEqual(server.log.map(\.status), ["OK", "OK"])
 
-        // The search that replaced it reconnects once and is complete.
-        server.defaultDelay = .zero
-        server.delays = [:]
-        let hits = try await searchEverywhere(repository, for: "garden")
+        // The search that replaced it runs straight away, on the same
+        // connection, and is complete.
+        let hits = try await finishing { try await self.searchEverywhere(repository, for: "garden") }
         XCTAssertTrue(hits.contains { $0.subject == "Binned: old garden" })
-        XCTAssertEqual(server.connectionsOpened, 2)
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled while the last command it needed was on its way back: the
+    /// FETCH of its first page. The FETCH is read whole, and the search
+    /// still throws rather than handing back a page for a query he has
+    /// already typed past. The list drops a superseded search's results only
+    /// once the replacement's debounce has run, so a page returned in that
+    /// gap would be drawn under the new query.
+    func testASearchCancelledAsItsLastFetchComesBackStillEndsCancelled() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
+        server.clearLog()
+        server.holdReplies(to: "UID FETCH")
+
+        let superseded = Task {
+            try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                        beforeUID: nil, limit: 20)
+        }
+        try await waitForCommand { $0.verb == "UID FETCH" }
+        superseded.cancel()
+        await server.releaseReplies(to: "UID FETCH")
+        do {
+            let page = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search handed back \(page.count) results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.verb), ["UID SEARCH", "UID FETCH"])
+        XCTAssertEqual(server.log.map(\.status), ["OK", "OK"])
+
+        let hits = try await finishing {
+            try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                        beforeUID: nil, limit: 20)
+        }
+        XCTAssertFalse(hits.isEmpty)
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled while its Trash was being refused: a folder deleted in
+    /// another client, and a keystroke landing as the NO came back. The
+    /// search is reported as cancelled, not as the refusal. A refused Trash
+    /// on its own is swallowed so the rest of the search survives; in a
+    /// cancelled search it used to come out as "Could not search" instead.
+    func testASearchCancelledAsItsTrashIsRefusedEndsCancelledAndSendsNothingMore() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        server.refusedMailboxes = [Server.trash]
+        server.holdReplies(to: "SELECT")
+        server.clearLog()
+
+        let superseded = Task { try await self.searchEverywhere(repository, for: "garden") }
+        try await waitForCommand { $0.command == "SELECT \"[Gmail]/Trash\"" }
+        superseded.cancel()
+        await server.releaseReplies(to: "SELECT")
+        do {
+            _ = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search came back with results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.command), ["SELECT \"[Gmail]/Trash\""])
+        XCTAssertEqual(server.log.map(\.status), ["NO"])
+        XCTAssertEqual(server.connectionsOpened, 1)
     }
 
     /// Waits, a millisecond at a time and never for more than a second,
-    /// until the server has received a command matching `matches`.
-    private func waitForCommand(file: StaticString = #filePath, line: UInt = #line,
+    /// until the server has received a command matching `matches`, looking
+    /// only at what arrived after the first `since` entries of the log.
+    private func waitForCommand(since: Int = 0,
+                                file: StaticString = #filePath, line: UInt = #line,
                                 _ matches: (Server.LogEntry) -> Bool) async throws {
         for _ in 0..<1_000 {
-            if server.log.contains(where: matches) { return }
+            if server.log.dropFirst(since).contains(where: matches) { return }
             try await Task.sleep(for: .milliseconds(1))
         }
         XCTFail("the command never reached the server", file: file, line: line)
+    }
+
+    // MARK: - Typing a search
+
+    /// "photo" typed a key a second, the way he types, with the list's
+    /// debounce in front of every search and each search cancelled by the
+    /// next key, as the list's search field does it.
+    ///
+    /// Replies take Gmail's times over a 50 ms round trip, at a fiftieth of
+    /// the scale: a round trip is 1 ms, a text SEARCH 7 ms, a FETCH of
+    /// summaries 2 ms, and the 350 ms debounce 7 ms. At a key a second an
+    /// All Mailboxes search, 1.7 s on Gmail, is still on the wire when the
+    /// next key lands. Where it has got to depends on the timing, so here
+    /// each key lands on a named command, a different mailbox each time,
+    /// rather than on a timer the scheduler could stretch.
+    ///
+    /// While the third search is in All Mail he taps a letter there, which
+    /// opens it and marks it read.
+    ///
+    /// What used to happen: every cancelled search tore the connection
+    /// down, each search after it reconnected, a false "Could not search"
+    /// was drawn between keys, and the letter's read mark failed.
+    func testTypingASearchAKeyASecondKeepsOneConnectionAndOnlyTheLastSearchAnswers() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        server.defaultDelay = .milliseconds(1)
+        server.delays = ["UID SEARCH": .milliseconds(7), "UID FETCH": .milliseconds(2)]
+        server.clearLog()
+
+        let outcomes = SearchOutcomes()
+        var debounce: Task<Void, Never>?
+        func key(_ text: String) {
+            debounce?.cancel()
+            debounce = Task {
+                try? await Task.sleep(for: .milliseconds(7))
+                guard !Task.isCancelled else { return }
+                do {
+                    outcomes.record(text, .success(try await self.searchEverywhere(repository, for: text)))
+                } catch {
+                    outcomes.record(text, .failure(error))
+                }
+            }
+        }
+
+        // Each key but the last lands while the search before it has a
+        // SEARCH in this mailbox on the wire.
+        let landsDuring = [Server.trash, Server.spam, Server.allMail, Server.trash]
+        let word = Array("photo")
+        var tapped: Task<(Message, Void), Error>?
+        let letterUID = try XCTUnwrap(server.uids(in: Server.allMail).last)
+        let letterID = id(letterUID, in: Server.allMail)
+
+        for (index, mailbox) in landsDuring.enumerated() {
+            let mark = server.log.count
+            key(String(word[...index]))
+            try await waitForCommand(since: mark) { $0.verb == "UID SEARCH" && $0.selected == mailbox }
+            if mailbox == Server.allMail {
+                tapped = Task {
+                    async let opened = repository.loadMessage(id: letterID, mailboxID: Server.allMail)
+                    async let marked: Void = repository.setRead(true, id: letterID,
+                                                                mailboxID: Server.allMail)
+                    return try await (opened, marked)
+                }
+            }
+        }
+        key(String(word))
+        let last = try XCTUnwrap(debounce)
+        try await finishing { await last.value }
+
+        // Every search but the last was cancelled, and said so.
+        let results = outcomes.all
+        XCTAssertEqual(results.map(\.query), ["p", "ph", "pho", "phot", "photo"])
+        for result in results.dropLast() {
+            switch result.outcome {
+            case .success(let hits):
+                XCTFail("\(result.query): a superseded search returned \(hits.count) results")
+            case .failure(let error):
+                XCTAssertTrue(error is CancellationError, "\(result.query): \(error)")
+            }
+        }
+
+        // The last one found what a search nobody interrupted finds.
+        let reference = ScriptedIMAPServer()
+        let fresh = IMAPMailRepository(account: reference.account, password: reference.password,
+                                       transport: reference.transportFactory, recipients: book)
+        _ = try await fresh.listMailboxes()
+        let expected = try await searchEverywhere(fresh, for: "photo")
+        XCTAssertTrue(expected.contains { $0.mailboxID == Server.trash })
+        guard case .success(let hits) = results.last?.outcome else {
+            return XCTFail("the last search failed: \(String(describing: results.last))")
+        }
+        XCTAssertEqual(hits.map(\.id), expected.map(\.id))
+
+        // The letter he tapped opened, and its read mark landed.
+        let tap = try XCTUnwrap(tapped)
+        let (message, _) = try await finishing { try await tap.value }
+        XCTAssertEqual(message.subject, server.letter(uid: letterUID, in: Server.allMail)?.subject)
+        XCTAssertTrue(server.flags(uid: letterUID, in: Server.allMail).contains("\\Seen"))
+        let letterCommands = server.log.filter {
+            $0.command == "UID FETCH \(letterUID) (UID BODY.PEEK[])"
+                || $0.command == "UID STORE \(letterUID) +FLAGS.SILENT (\\Seen)"
+        }
+        // Opening and marking go out together and either may reach the gate
+        // first; both ran in the mailbox the letter is in.
+        XCTAssertEqual(letterCommands.map(\.verb).sorted(), ["UID FETCH", "UID STORE"])
+        XCTAssertEqual(letterCommands.map(\.selected), [Server.allMail, Server.allMail])
+
+        // One connection throughout, nothing lost into a dead one, every
+        // command answered OK, and no two ever in flight at once (tearDown).
+        // Each superseded search stopped at the SEARCH it had on the wire;
+        // only the last got as far as All Mail.
+        XCTAssertEqual(server.connectionsOpened, 1)
+        XCTAssertEqual(server.lostWrites, [])
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+        XCTAssertEqual(server.log.filter { $0.verb == "UID SEARCH" }.map(\.selected),
+                       [Server.trash,
+                        Server.trash, Server.spam,
+                        Server.trash, Server.spam, Server.allMail,
+                        Server.trash,
+                        Server.trash, Server.spam, Server.allMail])
     }
 
     // MARK: - Previews for results from several mailboxes
@@ -490,36 +668,59 @@ final class RepositoryWireTests: XCTestCase {
         }
     }
 
-    /// What the device does today, not what it should: see
-    /// `ReadBuffer.receiveChunk`. The deadline throws on time and then waits
-    /// for a receive that a silent peer never answers, so the call hangs
-    /// until the socket itself dies. When the deadline is made to end the
-    /// read on its own, turn this round: the call should fail at about the
-    /// deadline with no reset needed.
-    func testASilentServerIsNotCutOffAtTheReadDeadlineYet() async throws {
-        server.readTimeout = .milliseconds(2)
+    /// A server that accepts the connection and never says a word. The
+    /// greeting's read is cut off at its deadline, with no reset needed to
+    /// end it, and the call fails. It used to hang until the socket itself
+    /// died.
+    func testASilentServerIsCutOffAtTheReadDeadline() async throws {
+        server.timeout = .milliseconds(20)
         server.isSilent = true
         let repository = makeRepository()
 
-        let finished = Flag()
-        let call = Task {
-            defer { finished.set() }
-            return try await repository.listMailboxes()
-        }
-        try await Task.sleep(for: .milliseconds(20))
-        XCTAssertFalse(finished.isSet, "the read ended at its deadline, which it does not do yet")
-
-        await server.resetConnections()
+        let started = ContinuousClock.now
         do {
-            _ = try await finishing { try await call.value }
+            _ = try await finishing(within: 1) { try await repository.listMailboxes() }
             XCTFail("a server that never answers cannot produce a folder list")
         } catch {
             XCTAssertEqual(error as? MailError, .cannotConnect)
         }
+        XCTAssertGreaterThanOrEqual(ContinuousClock.now - started, .milliseconds(20))
         // The greeting never came, so nothing got as far as a command. And
         // that connection was never up, so the read retry left it there.
         XCTAssertEqual(server.log, [])
         XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// The same silence arriving mid-session, as after a Wi-Fi roam: the
+    /// letter's FETCH is cut off at its deadline, the read retry's new
+    /// connection is cut off at its greeting, and once the server answers
+    /// again the next tap connects cleanly and gets its own letter.
+    func testAServerThatGoesQuietMidSessionIsCutOffAndTheNextCallReconnects() async throws {
+        server.timeout = .milliseconds(20)
+        let repository = makeRepository()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+
+        server.isSilent = true
+        do {
+            _ = try await finishing(within: 1) {
+                try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox")
+            }
+            XCTFail("a server that stopped answering cannot have sent a letter")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(server.connectionsOpened, 2)
+        XCTAssertEqual(server.log.last?.verb, "UID FETCH")
+        XCTAssertNil(server.log.last?.status)
+
+        server.isSilent = false
+        let message = try await finishing {
+            try await repository.loadMessage(id: rows[1].id, mailboxID: "inbox")
+        }
+        XCTAssertEqual(message.subject, rows[1].subject)
+        XCTAssertEqual(server.connectionsOpened, 3)
+        XCTAssertEqual(server.log.filter { $0.connection == 3 }.map(\.verb),
+                       ["LOGIN", "SELECT", "UID FETCH"])
     }
 
     func testUIDPLUSIsLearnedWhereverLoginPutsTheCapabilities() async throws {
@@ -739,6 +940,69 @@ final class RepositoryWireTests: XCTestCase {
         }
     }
 
+    /// Some pages of that search are merged entirely from what earlier
+    /// pages fetched and send nothing, so no command on the wire is there to
+    /// notice a cancel. A caller cancelled by then still gets no page, and
+    /// the search does not move on without him: asked again, the page is the
+    /// one an uninterrupted run hands out.
+    func testACancelledCallerGetsNoPageEvenWhenThePageNeedsNoCommand() async throws {
+        let clean = try await pagesOfTheGardenSearch(resettingBefore: nil)
+
+        // Which page needs no command, found on one run and cancelled on
+        // the next.
+        var quiet: Int?
+        server = ScriptedIMAPServer()
+        var repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        var cursor: String?
+        for (k, expected) in clean.enumerated() {
+            let before = server.log.count
+            let page = try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
+                                                   beforeUID: cursor, limit: 3)
+            XCTAssertEqual(page.map(\.id), expected)
+            if k > 0, server.log.count == before {
+                quiet = k
+                break
+            }
+            cursor = page.last?.id
+        }
+        let k = try XCTUnwrap(quiet, "every page sent a command, so the case is never reached")
+
+        server = ScriptedIMAPServer()
+        repository = makeRepository()
+        _ = try await repository.listMailboxes()
+        cursor = nil
+        for expected in clean.prefix(k) {
+            let page = try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
+                                                   beforeUID: cursor, limit: 3)
+            XCTAssertEqual(page.map(\.id), expected)
+            cursor = page.last?.id
+        }
+        let before = server.log.count
+        let from = cursor
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
+                                               beforeUID: from, limit: 3)
+        }
+        do {
+            let page = try await finishing { try await cancelled.value }
+            XCTFail("a cancelled caller was handed page \(k + 1): \(page.map(\.id))")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.count, before)
+
+        let again = try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
+                                                beforeUID: from, limit: 3)
+        XCTAssertEqual(again.map(\.id), clean[k])
+        if k + 1 < clean.count {
+            let next = try await repository.search(in: "inbox", query: "garden", scope: .allMailboxes,
+                                                   beforeUID: again.last?.id, limit: 3)
+            XCTAssertEqual(next.map(\.id), clean[k + 1])
+        }
+    }
+
     // MARK: - A mailbox renumbered while the connection was down
 
     func testAListingRenumberedBehindADeadSocketIsRefusedRatherThanCutFromOldUIDs() async throws {
@@ -805,6 +1069,29 @@ private final class TestClock: @unchecked Sendable {
     func advance(by seconds: TimeInterval) {
         lock.lock()
         current += seconds
+        lock.unlock()
+    }
+}
+
+/// What each search in a typing run came to, in the order they ended.
+private final class SearchOutcomes: @unchecked Sendable {
+    struct Entry {
+        let query: String
+        let outcome: Result<[MessageSummary], Error>
+    }
+
+    private let lock = NSLock()
+    private var entries: [Entry] = []
+
+    var all: [Entry] {
+        lock.lock()
+        defer { lock.unlock() }
+        return entries.sorted { $0.query.count < $1.query.count }
+    }
+
+    func record(_ query: String, _ outcome: Result<[MessageSummary], Error>) {
+        lock.lock()
+        entries.append(Entry(query: query, outcome: outcome))
         lock.unlock()
     }
 }

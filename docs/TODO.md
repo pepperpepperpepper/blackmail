@@ -90,10 +90,22 @@ this host. Ordered by value, not by size.
 - [ ] Anything else touching the send path.
 - [ ] Send one letter to confirm the send path still works now that
       `SMTPClient` runs over the `MailTransport` seam and `TLSConnection`
-      reads through `ReadBuffer`. The change is types and a moved read loop
-      only, and the B-034 WIRE-OUT/WIRE-ACK lines are untouched, but no host
-      test sends (the scripted server refuses port 465) and nothing has
-      been sent through it on the device yet.
+      reads through `ReadBuffer`, and now that the transport has real
+      deadlines: a write goes to the stack in 64 KB pieces, each with the
+      30 s bound, the reply after DATA's dot waits up to ten minutes, and
+      TCP keepalive and `connectionDropTime` are on. Send a letter with
+      several photos, and check the transcript still shows exactly one
+      `WIRE-OUT` and one `WIRE-ACK err=none` before the 250. The pieces, the
+      probes and the choice of bound are `LinkTransport`, which the host
+      tests run (`LinkTransportTests`, `DeadlineWireTests`), and
+      `SMTPReplyWaitTests` checks which SMTP reply asks for the long bound.
+      No host test sends over TLS, though (the scripted server refuses port
+      465), `TLSConnection`'s `NWConnection` glue only runs on the device,
+      and nothing has been sent through any of this on the device yet.
+- [ ] Watch keepalive find a dead socket during the quiet: open a letter,
+      restart the router (the iPad itself stays on Wi-Fi, so only the path
+      dies), wait three minutes, then tap another letter. It should load
+      after one reconnect, not after a 30 s stall.
 
 ## Blocked on the owner
 

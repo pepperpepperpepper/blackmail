@@ -30,16 +30,52 @@ protocol MailTransport: Actor {
     /// path does, and it must not be able to fail in turn.
     func close()
 
+    /// Hands `data` to the stack a piece at a time, each piece allowed the
+    /// transport's ordinary deadline. A large write that is still moving is
+    /// never cut off for its size; one that has stopped is. See
+    /// `TransportDeadline.writeChunkBytes`.
     func write(_ data: Data) async throws
 
     /// `line` plus CRLF.
     func writeLine(_ line: String) async throws
 
     /// One CRLF-terminated line, without the terminator, decoded leniently.
-    func readLine() async throws -> String
+    /// `wait` is how long the server may take to start answering.
+    func readLine(_ wait: ReplyWait) async throws -> String
 
     /// Exactly `count` bytes, CRLFs and all, for an IMAP literal.
     func read(exactly count: Int) async throws -> Data
+}
+
+extension MailTransport {
+
+    /// A line of an ordinary reply.
+    func readLine() async throws -> String {
+        try await readLine(.ordinary)
+    }
+}
+
+/// How long a read may wait for the server to start answering.
+///
+/// Chosen per call rather than per connection, because only the caller knows
+/// what it has just sent. Every read of either kind is cut off if the peer
+/// stays silent past its bound: the transport closes the connection and the
+/// read fails with `MailTransportError.timedOut`.
+enum ReplyWait: Sendable {
+    /// The reply to a command line: a round trip and the server's own time.
+    /// Silence past the transport's ordinary deadline is a dead peer.
+    case ordinary
+
+    /// The reply to a large upload: SMTP's after DATA's terminating dot, and
+    /// IMAP's tagged reply after an APPEND literal.
+    ///
+    /// A write returns once the stack has taken the bytes, and the stack can
+    /// still be holding a lot of them that a slow uplink has not carried yet.
+    /// The server answers only once all of it has arrived and been dealt
+    /// with, so the ordinary bound would fire on a letter that is going out
+    /// perfectly well. That is the worst timeout to get wrong: the letter
+    /// arrives, he is told it did not, and he sends it again.
+    case afterUpload
 }
 
 /// Makes an UNOPENED transport to one host and port.

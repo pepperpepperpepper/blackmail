@@ -68,32 +68,22 @@ struct ReadBuffer {
 extension ReadBuffer {
 
     /// One chunk from `receive`, raced against a read deadline: the half of
-    /// `TLSConnection.fill()` that decides when a read gives up.
+    /// `LinkTransport`'s read that decides when it gives up.
     ///
-    /// Shared for the same reason as the buffer. The scripted transport runs
-    /// its reads through this exact race, with a receive that ignores
-    /// cancellation the way `NWConnection.receive` does, so a wire test sees
-    /// what the device does when a caller is cancelled or a peer goes quiet.
+    /// Both transports read through it, the scripted one with a receive that
+    /// ignores cancellation the way `NWConnection.receive` does and that
+    /// fails once the connection is closed, so a wire test sees what the
+    /// device does when a caller is cancelled or a peer goes quiet.
     ///
-    /// What it does today, which is not what it should do: a task group does
-    /// not return until every child has finished, and the receive child does
-    /// not answer cancellation. So the deadline throws on time and then waits
-    /// for the receive anyway, and a caller's cancellation throws only after
-    /// the chunk it was waiting for has arrived and been dropped. On a peer
-    /// that has gone silent that is a read with no end. `ReadBufferTests`
-    /// pins both, so the change that fixes them has to say so.
+    /// A cancelled caller still gets its chunk: the reply it was reading
+    /// stays whole and the next command reads its own. A peer that says
+    /// nothing is cut off at `timeout`: `expire` closes the connection, which
+    /// ends the receive, and the read fails with `.timedOut`. See
+    /// `TransportDeadline` for why neither of those is a task group.
     static func receiveChunk(within timeout: TimeInterval,
+                             onExpiry expire: @escaping @Sendable () -> Void,
                              from receive: @escaping @Sendable () async throws -> Data)
         async throws -> Data {
-        try await withThrowingTaskGroup(of: Data.self) { group in
-            group.addTask { try await receive() }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw MailTransportError.timedOut
-            }
-            defer { group.cancelAll() }
-            guard let first = try await group.next() else { throw MailTransportError.closed }
-            return first
-        }
+        try await TransportDeadline.race(within: timeout, onExpiry: expire, receive)
     }
 }

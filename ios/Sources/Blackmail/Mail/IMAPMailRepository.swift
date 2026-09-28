@@ -162,10 +162,11 @@ actor IMAPMailRepository: MailRepository {
     /// timeout. `passwordNeedsUpdating` is never retried, however it arose.
     ///
     /// Nor for a caller that has been cancelled. Only a search is ever
-    /// cancelled, by the next keystroke, and a cancelled read currently ends
-    /// with the client tearing the socket down. Retrying that would open a
-    /// fresh connection for an answer nobody is waiting for, and the search
-    /// that replaced it reconnects anyway.
+    /// cancelled, by the next keystroke, and cancelling one no longer costs
+    /// the connection: the command it had on the wire finishes and the next
+    /// is refused at the client's exchange gate. What reaches here from a
+    /// cancelled caller is that refusal, or a real failure nobody is waiting
+    /// to hear about, and neither is worth a fresh connection.
     private func retryingIfDisconnected<T>(
         _ body: () async throws -> T) async throws -> T {
         let wasConnected = await imap.isConnected
@@ -1093,6 +1094,15 @@ actor IMAPMailRepository: MailRepository {
         // Safe to run twice: the session is written back only once a step
         // has fully succeeded, so a run cut short by a dead socket leaves
         // nothing half-advanced for the second one to trip over.
+        //
+        // A search cancelled by the next keystroke finishes the command it
+        // had on the wire, then stops at the next cancellation check, in the
+        // steps below or at the client's exchange gate, and throws
+        // `CancellationError`. That includes a search whose last command
+        // came back after the cancel: the list only discards a superseded
+        // search's results once the replacement's debounce has run, so
+        // results handed back in that gap would be drawn, and the session
+        // they would have written is not his current search's either.
         return try await retryingIfDisconnected {
             try await self.searchOnce(in: mailboxID, criteria: criteria, scope: scope,
                                       beforeUID: beforeUID, limit: limit)
@@ -1109,8 +1119,10 @@ actor IMAPMailRepository: MailRepository {
         let key = "\(primaryID)\u{0}\(scope.rawValue)\u{0}\(criteria)"
 
         if beforeUID == nil || searchSession?.key != key {
-            searchSession = try await startSearch(key: key, primaryID: primaryID,
-                                                  criteria: criteria, scope: scope)
+            let started = try await startSearch(key: key, primaryID: primaryID,
+                                                criteria: criteria, scope: scope)
+            try Task.checkCancellation()
+            searchSession = started
         }
         guard searchSession != nil else { return [] }
 
@@ -1134,13 +1146,16 @@ actor IMAPMailRepository: MailRepository {
             for attribute in ["\\trash", "\\junk"] {
                 guard let folder = folderForAttribute[attribute] else { continue }
                 binned += try await binnedHits(in: folder, criteria: criteria)
+                try Task.checkCancellation()
             }
             binned.sort(by: SearchMerge.isOrderedBefore)
         }
 
         let name = try await select(primaryID)
+        try Task.checkCancellation()
         let client = try await connected()
         let uids = try await client.search(criteria).sorted()
+        try Task.checkCancellation()
 
         return SearchSession(key: key, primaryID: primaryID, primaryName: name,
                              primaryValidity: uidValidity[name] ?? 0,
@@ -1162,18 +1177,27 @@ actor IMAPMailRepository: MailRepository {
     /// the next keystroke carried on into Spam and All Mail, reconnecting
     /// for each. Thrown, the first is repeated whole by the read retry
     /// around `search`, and the second stops where it is.
+    ///
+    /// A cancelled search is reported as cancelled whatever else went wrong
+    /// on the way, a Trash refused while the cancel landed included. Nobody
+    /// is waiting for the refusal, and `CancellationError` is the one answer
+    /// the list knows to leave the screen alone for.
     private func binnedHits(in folder: String, criteria: String) async throws
         -> [MessageSummary] {
         do {
             let name = try await select(folder)
+            try Task.checkCancellation()
             let client = try await connected()
             let uids = try await client.search(criteria).sorted()
+            try Task.checkCancellation()
             guard !uids.isEmpty else { return [] }
             let newest = Array(uids.suffix(Self.maximumBinnedHits).reversed())
-            return try await summaries(for: newest, in: folder, name: name,
-                                       validity: uidValidity[name] ?? 0, client: client)
+            let hits = try await summaries(for: newest, in: folder, name: name,
+                                           validity: uidValidity[name] ?? 0, client: client)
+            try Task.checkCancellation()
+            return hits
         } catch {
-            if error is CancellationError || Task.isCancelled { throw error }
+            try Task.checkCancellation()
             // The client tears the connection down on any transport failure
             // and keeps it on a NO, so this tells a lost socket from a
             // folder the server refused.
@@ -1205,6 +1229,7 @@ actor IMAPMailRepository: MailRepository {
                     session.primaryExhausted = true
                 } else {
                     let name = try await select(session.primaryID)
+                    try Task.checkCancellation()
                     // The session's UIDs are in the numbering it started
                     // with. If the folder has been renumbered since, a
                     // reconnect's SELECT is where that shows, and fetching
@@ -1217,6 +1242,7 @@ actor IMAPMailRepository: MailRepository {
                     session.buffered = try await summaries(
                         for: next, in: session.primaryID, name: name,
                         validity: session.primaryValidity, client: client)
+                    try Task.checkCancellation()
                     session.primaryCursor = next.last
                     // A short walk means the UID list is spent, but the
                     // rows it produced still have to be merged out.
@@ -1236,6 +1262,9 @@ actor IMAPMailRepository: MailRepository {
         }
 
         session.emitted += page
+        // Also reachable with no await at all, when the page is merged from
+        // what earlier pages fetched, so checked here and not only above.
+        try Task.checkCancellation()
         searchSession = session
         return page
     }
