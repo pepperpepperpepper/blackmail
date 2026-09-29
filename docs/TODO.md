@@ -488,7 +488,11 @@ this host. Ordered by value, not by size.
       "Inbox" at launch and after tapping it. The Move sheet says "Inbox"
       too. With VoiceOver on, the first row reads "Inbox, N unread", or
       "Inbox" with nothing unread.
-- [ ] **B-048, two panes or three.** Switch the Layout button on in the
+- [ ] **B-048, two panes or three.** *Partly seen 2026-09-29: both ways
+      with a letter open and a search up, "< Mailboxes" and the open
+      folder, the choice kept across a relaunch; see B-048. Still to see:
+      Edit mode, another folder from "< Mailboxes", VoiceOver, the layout
+      sweep.* Switch the Layout button on in the
       connection log first. Open a letter, scroll the list a few pages
       down, and tap the view button both ways: the letter stays drawn with
       no "Loading…" and nothing new in the connection log, the list keeps

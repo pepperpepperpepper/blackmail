@@ -2514,7 +2514,7 @@ the Move sheet have not been looked at.
 
 ---
 
-## B-048 — CHANGED 2026-09-29, not yet seen on the iPad. Two panes or three, with Mail's view button
+## B-048 — CHANGED 2026-09-29, seen on the iPad. Two panes or three, with Mail's view button
 
 **Asked for by the owner, 2026-09-29**, and by B-037 since 2026-09-22:
 "there should be a 2 pane and three pane view (switchable)". iOS 10 Mail
@@ -2589,3 +2589,17 @@ screens actually draw is for the iPad.
 
 **Not yet seen on the iPad.** The TODO says what to look at, the layout
 sweep in both arrangements included.
+
+**Seen on the iPad, 2026-09-29**, on carlo's mailbox. It launched in
+three panes as before, the view button in the Mailboxes bar's corner.
+With a newsletter open, the button made two panes: the list at the left
+edge with the view button, "< Mailboxes", the calendar, "Inbox" and Edit
+on one bar, nothing cut short, the newsletter still open and its row
+still selected, now 818 pt wide. "< Mailboxes" showed the folders with
+the Inbox highlighted and the letter still open; tapping the Inbox
+brought its list back as it was. A search typed in two panes, keyboard
+up, came through a switch to three panes with its words, scope, results
+and keyboard. Two panes survived killing and reopening the app, and the
+switch back to three after that sent nothing on the connection. Not yet
+tried: Edit mode across a switch, another folder opened from "< Mailboxes",
+VoiceOver on the button, the layout sweep in both.
