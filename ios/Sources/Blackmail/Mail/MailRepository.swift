@@ -72,7 +72,11 @@ protocol MailRepository {
     func move(_ id: String, from sourceMailboxID: String, to destinationMailboxID: String) async throws
     func delete(_ id: String, from mailboxID: String) async throws
 
-    func send(_ draft: Draft) async throws
+    /// Returns once the server has taken the letter, its 250 after DATA,
+    /// and not after anything that follows it; see `SMTPClient.send`.
+    /// `progress` hears how much of the built letter has been handed to the
+    /// network, while it goes.
+    func send(_ draft: Draft, progress: UploadProgress?) async throws
 
     /// Saves to the Drafts folder, REPLACING the copy named by
     /// `draft.savedID` if there is one, and returns the id of the copy now
@@ -182,5 +186,13 @@ enum MailError: LocalizedError {
         case .passwordNeedsUpdating: return "Password needs to be updated in Settings."
         case .messageTooLarge:      return "This message is too big to send. Try sending fewer attachments."
         }
+    }
+}
+
+extension MailRepository {
+
+    /// `send`, with nobody told how the upload is getting on.
+    func send(_ draft: Draft) async throws {
+        try await send(draft, progress: nil)
     }
 }

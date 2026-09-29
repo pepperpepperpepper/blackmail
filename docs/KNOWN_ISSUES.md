@@ -1345,7 +1345,8 @@ as md5 `9b0d4ba…`.
 ls -t <container>/tmp/blackmail-send-*.txt | head -1
 ```
 
-A `-fail` suffix means the send threw; `-ok` means it reached 221. Read
+A `-fail` suffix means the send threw; `-ok` means it reached the
+letter's 250 (it meant the 221 until B-044, which stopped waiting for it). Read
 `WIRE-ACK` first. Only if that line is missing while a later `250` is
 present does the transport become a suspect again, and only then is the
 sink worth building — the scoping for it is done and needs nothing
@@ -1720,6 +1721,24 @@ own and the second read the closed connection as a dropped socket and
 retried into a new one: with a revoked app password, two failed logins
 for one moment of use. Every call already waiting when an attempt fails
 now gets that failure, and the password goes once.
+
+**And any other failure in that window, once (2026-09-29).** The read
+retry still took a connect that failed some other way for a dropped
+socket, when the read had queued its command after the client called
+itself connected: a server that accepts the connection and never greets,
+or a socket that dies during the LOGIN. The read connected again, and
+against a server that says nothing that is a second connect timeout at
+launch. A read no longer retries when an attempt to connect has failed
+while it waited. `RepositoryTrafficTests` caught it now and then, as two
+connections where it expected one: whether the Inbox's first page asked
+before or after the socket came up was the order two tasks ran in. With
+eight copies of that test running at once on the development computer it
+failed 72 times in 320; with this, once, where the second call started
+only after the attempt had failed, which the client rightly takes for
+another attempt. The launch test now holds the handshake until both calls
+are waiting, as they are at launch, and failed 0 times in 960.
+`RepositoryWireTests` holds both halves of the window for a failure that
+is not a refusal.
 
 **Confirmed on the iPad, 2026-09-28**, on carlo's mailbox, driving the real
 UI: open a letter in the Inbox, type an All Mailboxes search for a word with hits in Trash and All Mail,
@@ -2129,3 +2148,124 @@ tapped a third of a second apart drew only the last. The list's times read
 a letter of a megabyte, a conversation of twenty letters, a body with
 backslashes or `</script>` in it, a change of time zone or 24-hour clock,
 and the fill's own time on the iPad.
+
+---
+
+## B-044 — CHANGED 2026-09-29. Sending says so, goes once, and closes when it has gone
+
+Behaviour he could notice, from the sixth and last batch of the lag fixes:
+the send path. The rules are checked in host tests (`ComposeActionsTests`,
+`SMTPSendTests`, `DataPayloadTests`, `BoundaryTests`,
+`TransportDeadlineTests`, `LinkTransportTests`); the sheet that applies
+them is UIKit, and so is the Drafts list, and the time iOS gives an app in
+the background is iOS's, none of which the host can run. None of it has
+been seen on the iPad yet. The TODO says what to look at.
+
+**What the iPad showed before it**, on the development iPad on 2026-09-29,
+with the build before this batch and the test account writing to itself. A
+plain letter: nothing changed on screen after Send, and the sheet closed
+about 1.6 s later; Gmail's goodbye came 21 ms after its 250. Two taps on
+Send half a second apart: two letters went, and both arrived. A draft
+reopened after a minute and a half and sent: after the 250 the sheet
+waited about half a second more for the Drafts cleanup (NOOP, STORE,
+EXPUNGE). A letter with five pictures, 4.3 MB on the wire: about 4 s with
+nothing on screen, 1.35 s of it before the app so much as connected to
+Gmail, and 146 ms stuffing the letter. The same letter with the iPad
+locked 0.3 s after Send and unlocked a minute later: the upload stopped
+with the app, the write deadline fired as it woke, "Message was not sent."
+was shown, and nothing was delivered.
+
+**Send says it is sending.** Tapping Send used to change nothing on screen
+until the letter had gone or failed: seconds for a letter with photographs,
+a minute or more on a poor line, and Send was there to be tapped all that
+time. A tap that seems to have missed gets tapped again, and every tap sent
+the letter again. Now Send gives way at the tap to a spinner and
+"Sending…", and for a letter of a megabyte or more, how much of it has gone:
+"Sending… 40%". Cancel, Attach Photo and each Remove are greyed, and the
+sheet cannot be swiped away, until the letter has gone or failed. A second
+tap sends nothing. The figure is of what the iPad has handed to the
+network, which runs a little ahead of what has arrived, so it stops at 99%
+and the sheet closes when Gmail says it has the letter.
+
+**The sheet closes as soon as the letter has gone.** After Gmail had taken
+the letter the sheet used to wait for Gmail's goodbye and for the
+connection log to be written to its file, and for a letter finished from
+Drafts, for the draft to be taken out of Drafts as well: a check that the
+connection was alive, often a new connection, and three commands more. It
+now closes at Gmail's answer to the letter; the draft is removed after
+that, and then Drafts is drawn again, as before. The goodbye is still said
+and the file still written, after (B-034; a file named `-ok` now means
+Gmail's answer to the letter was read, and the goodbye is not in it).
+Nothing that happens once Gmail has the letter could make it an error
+before either; what has gone is the wait. A line that died after Gmail's
+answer used to hold the sheet up, with Send live, for the whole 30 s read
+deadline before the letter was reported sent, and a tap on Send in that
+time sent it again. Still one connection per letter (B-024).
+
+A letter finished from Drafts leaves the Drafts list as the sheet closes,
+before its draft has been removed from Gmail. The sheet used to cover the
+list until the draft had gone; closing sooner uncovers it for as long as
+the cleanup takes, about half a second and more with a reconnect, and a
+tap on the row in that time opened the letter just sent as a draft, with
+a Send that would send it again. The row stays off until Drafts has been
+fetched again after the cleanup, which has the say: gone if the draft was
+removed, back if it could not be.
+
+**If it did not go, nothing is lost.** The sheet stays with the letter in
+it as he wrote it, everything is live again, and the reason is said as
+before.
+
+**Photos chosen just before Send go with the letter.** The photo picker
+hands its photos over after it has closed, one at a time as each is read
+in and made a JPEG, which for a few large ones takes seconds. Send or Save
+Draft tapped in that time took the letter as it stood at the tap: the
+photos appeared in the sheet after it, the letter went without them, and
+the sheet closed as though they had gone too. This was so before B-044;
+with the new "Sending…" it would have been watched happening. Now Send
+shows its spinner at once and sends when the last photo is in, and Save
+Draft keeps the draft once they are all in it.
+
+**Nothing closes the sheet under a letter, or leaves it up after.** The
+Cancel sheet's Save Draft and Delete Draft do nothing once a letter is on
+its way, and Send puts the Cancel sheet away if it is still open, which
+on the iPad it can be: it hangs from the bar Send is on, and leaves that
+bar live. Either would have closed the sheet in the middle of a send,
+leaving a failure nowhere to be said, and with Delete Draft a letter
+neither sent nor kept. The sheet does one of Send, Save Draft and Delete
+Draft, once; only a Send that fails puts it back. And when the letter has
+gone the sheet closes whatever it has up over itself at that moment: an
+alert about a photo that could not be added, or the Share or Look Up the
+text menu offers. It used to be told to close itself, and a sheet that
+is showing something closes that instead; with Cancel and the swipe held
+while a letter goes, it would have stayed up, held, with no way out but
+quitting the app.
+
+**Locking the iPad does not stop a letter halfway.** The app now asks iOS
+for time to finish a send, from the tap until Drafts has been tidied, and
+a Save Draft, from the tap until the save is answered. Without it, locking
+the iPad straight after Send suspended the upload, as above: the letter
+failed when he came back. It could as well have waited on a connection
+that had died meanwhile, or gone and been reported as not sent. iOS
+decides how long it gives. If that runs out first, the app gives the time
+back when asked and does nothing else: the sheet stays, nothing is said,
+the letter carries on if iOS lets the app run, and whatever becomes of it
+is shown when he comes back. A Save Draft cut off the same way could leave
+no draft, and no sheet to say so.
+
+**Less of the iPad's own work before the letter goes.** Getting a letter
+with five large photographs, 27 MB on the wire, ready to send took about
+4.9 s on the development computer, which is about as fast as an A12 iPad,
+before a byte of it went: most of it copying the letter a byte at a time to
+check for lines that start with a dot, and three searches of every
+photograph for text that cannot occur in one. It now takes about 0.28 s
+there, and the letter is the same letter, byte for byte. The rest is the
+photographs being encoded, which it always paid. The 1.35 s the iPad took
+before connecting, above, has not been timed again.
+
+**Not taken.** Sending the envelope and DATA in one round trip (SMTP
+pipelining) would save about a tenth of a second a letter, now behind the
+spinner, at the cost of a path where every recipient is refused that is
+easy to get wrong and cannot be checked against Gmail from here
+(PERFORMANCE.md, Record and leave). Delete Draft, from Cancel, removes the
+draft after the sheet has gone as before, without asking iOS for time: cut
+off, the draft is simply still there.

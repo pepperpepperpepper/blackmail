@@ -165,6 +165,12 @@ final class RepositoryTrafficTests: XCTestCase {
     /// after a failed one for him trying again, so the same wrong password
     /// would go a second time, and an unreachable server would cost a
     /// second connect timeout, thirty seconds each on the iPad.
+    ///
+    /// The connection is held in its handshake until both calls are waiting
+    /// for it, as they are at launch, where they ask in the same instant.
+    /// Left to the scheduler, the second call now and then started only
+    /// after the attempt had failed, which the client rightly takes for
+    /// another attempt, and the test failed with two connections.
     func testALaunchThatCannotConnectTriesOnceAndLeavesTheCountsUnasked() async throws {
         let failures: [(label: String, password: String?, silent: Bool)] = [
             ("refused password", "not-the-password", false),
@@ -172,8 +178,8 @@ final class RepositoryTrafficTests: XCTestCase {
         ]
         for (label, password, silent) in failures {
             server = ScriptedIMAPServer()
-            server.timeout = .milliseconds(20)
             server.isSilent = silent
+            server.holdHandshakes()
             let repository = makeRepository(password: password)
             let sweeps = await SweepCoalescer(held: true) {
                 _ = try? await repository.listMailboxes()
@@ -182,6 +188,11 @@ final class RepositoryTrafficTests: XCTestCase {
             await sweeps.request()
             async let names = try? repository.folders()
             async let firstPage = try? repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+            try await until { await repository.waitingForExchange == 1 }
+            // Short only from here: the connect's own deadline, which runs
+            // while the handshake is held, keeps the ordinary one.
+            server.timeout = .milliseconds(20)
+            await server.releaseHandshakes()
             let (folders, rows) = await (names, firstPage)
             await sweeps.release(runningOwed: rows != nil)
             try await finishing { await sweeps.idle() }

@@ -44,6 +44,42 @@ final class TransportDeadlineTests: XCTestCase {
         XCTAssertEqual(small.all, [Data("a001 NOOP\r\n".utf8)])
     }
 
+    /// After each piece is taken, the running total of the whole, counted
+    /// from the write's own start when it is a slice of something larger;
+    /// and nothing for a piece that was never taken.
+    func testEachPieceTakenReportsTheRunningTotal() async throws {
+        let data = Data(repeating: 0x43, count: 2 * piece + 10)
+        let reports = Reports()
+        try await TransportDeadline.write(data, within: 5, onExpiry: {},
+                                          progress: { reports.add($0, $1) }) { _ in }
+        XCTAssertEqual(reports.all.map(\.written), [piece, 2 * piece, 2 * piece + 10])
+        XCTAssertEqual(Set(reports.all.map(\.total)), [data.count])
+
+        let larger = Data(repeating: 0x44, count: piece + 100)
+        let slice = Reports()
+        try await TransportDeadline.write(larger[50...], within: 5, onExpiry: {},
+                                          progress: { slice.add($0, $1) }) { _ in }
+        XCTAssertEqual(slice.all.map(\.written), [piece, piece + 50])
+        XCTAssertEqual(Set(slice.all.map(\.total)), [piece + 50])
+
+        let line = StalledLine(stallingAt: 2)
+        let stalled = Reports()
+        do {
+            try await finishing(within: 1) {
+                try await TransportDeadline.write(Data(repeating: 0x45, count: 3 * self.piece),
+                                                  within: 0.02, onExpiry: { line.cancel() },
+                                                  progress: { stalled.add($0, $1) }) {
+                    try await line.send($0)
+                }
+            }
+            XCTFail("a write that stopped moving cannot have finished")
+        } catch {
+            XCTAssertEqual(error as? MailTransportError, .timedOut)
+        }
+        XCTAssertEqual(stalled.all.map(\.written), [piece], "only the piece that was taken")
+        try await line.untilStalledSendEnded()
+    }
+
     /// A line that has stopped: the second piece is never taken. The write
     /// fails at the deadline, the connection is closed, which ends the send
     /// that was left waiting, and nothing after it is handed over.
@@ -79,6 +115,24 @@ final class TransportDeadlineTests: XCTestCase {
         writer.cancel()
         try await finishing { try await writer.value }
         XCTAssertEqual(sent.all.reduce(Data(), +), data)
+    }
+}
+
+/// Progress reports, in order, from any thread.
+private final class Reports: @unchecked Sendable {
+    private let lock = NSLock()
+    private var reports: [(written: Int, total: Int)] = []
+
+    var all: [(written: Int, total: Int)] {
+        lock.lock()
+        defer { lock.unlock() }
+        return reports
+    }
+
+    func add(_ written: Int, _ total: Int) {
+        lock.lock()
+        reports.append((written, total))
+        lock.unlock()
     }
 }
 

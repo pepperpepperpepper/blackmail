@@ -122,6 +122,39 @@ final class LinkTransportTests: XCTestCase {
         XCTAssertLessThan(ack, answer)
     }
 
+    /// A bulk write asked how it is getting on says so after each piece the
+    /// link takes, the running total of the whole; the probes are still one
+    /// WIRE-OUT and one WIRE-ACK for all of it.
+    func testABulkWriteReportsEachPieceTheLinkTakes() async throws {
+        let transport = try await greeted()
+        server.uplinkDelay = .milliseconds(1)
+        let piece = TransportDeadline.writeChunkBytes
+        let data = Data(repeating: 0x41, count: 2 * piece + 100)
+        let reports = Progress()
+
+        try await finishing { try await transport.write(data, progress: { reports.add($0, $1) }) }
+
+        XCTAssertEqual(reports.all.map(\.written), [piece, 2 * piece, 2 * piece + 100])
+        XCTAssertEqual(Set(reports.all.map(\.total)), [data.count])
+        XCTAssertEqual(notes.filter { $0.hasPrefix("WIRE-") },
+                       ["WIRE-OUT bytes=\(data.count)", "WIRE-ACK err=none"])
+    }
+
+    /// The same through `LinkTransport`'s own `write`, which is what
+    /// `TLSConnection` runs: the scripted transport has a `write` of its own
+    /// that watches the client, so it would not notice this one dropping the
+    /// progress on the floor.
+    func testTheSharedWriteHandsTheProgressOn() async throws {
+        let link = BareLink()
+        try await link.open()
+        let piece = TransportDeadline.writeChunkBytes
+        let reports = Progress()
+        try await link.write(Data(repeating: 0x42, count: piece + 1), progress: { reports.add($0, $1) })
+        XCTAssertEqual(reports.all.map(\.written), [piece, piece + 1])
+        let taken = await link.taken
+        XCTAssertEqual(taken, piece + 1)
+    }
+
     /// A bulk write whose uplink stops: one WIRE-ACK, carrying the timeout,
     /// after the line naming the deadline, and the transport closed.
     func testABulkWriteCutOffAtItsDeadlineSaysSoInItsProbe() async throws {
@@ -188,4 +221,36 @@ final class LinkTransportTests: XCTestCase {
                                "DEADLINE read ordinary bound=0.02s",
                                "DEADLINE read afterUpload bound=0.03s"])
     }
+}
+
+/// Progress reports, from any thread.
+private final class Progress: @unchecked Sendable {
+    private let lock = NSLock()
+    private var reports: [(written: Int, total: Int)] = []
+
+    var all: [(written: Int, total: Int)] {
+        lock.lock()
+        defer { lock.unlock() }
+        return reports
+    }
+
+    func add(_ written: Int, _ total: Int) {
+        lock.lock()
+        reports.append((written, total))
+        lock.unlock()
+    }
+}
+
+/// A link with nothing above it but `LinkTransport`: it comes up at once,
+/// takes every piece at once, and never has anything to say.
+private actor BareLink: LinkTransport {
+    var stream = LinkStream()
+    let ordinaryDeadline: TimeInterval = 5
+    let uploadReplyDeadline: TimeInterval = 5
+    private(set) var taken = 0
+
+    func startLink(reporting report: @escaping @Sendable (Error?) -> Void) { report(nil) }
+    func receiveFromLink() async throws -> Data { throw MailTransportError.closed }
+    func sendToLink(_ piece: Data) async throws { taken += piece.count }
+    func closeLink() {}
 }

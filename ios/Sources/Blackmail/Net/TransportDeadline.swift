@@ -75,8 +75,12 @@ enum TransportDeadline {
     /// The pieces are slices of `data`, not copies, and go one after another:
     /// the stack buffers well past one piece, so waiting for each completion
     /// before handing over the next costs nothing in throughput.
+    ///
+    /// `progress` hears the running total after each piece has been taken,
+    /// and nothing for a piece that failed.
     static func write(_ data: Data, within seconds: TimeInterval,
                       onExpiry expire: @escaping @Sendable () -> Void,
+                      progress: UploadProgress? = nil,
                       through send: @escaping @Sendable (Data) async throws -> Void) async throws {
         var start = data.startIndex
         repeat {
@@ -85,6 +89,7 @@ enum TransportDeadline {
             let piece = data[start..<end]
             try await race(within: seconds, onExpiry: expire) { try await send(piece) }
             start = end
+            progress?(start - data.startIndex, data.count)
         } while start < data.endIndex
     }
 }

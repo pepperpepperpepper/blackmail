@@ -125,8 +125,8 @@ extension LinkTransport {
 
     // MARK: - Writing
 
-    func write(_ data: Data) async throws {
-        try await writeThroughLink(data)
+    func write(_ data: Data, progress: UploadProgress?) async throws {
+        try await writeThroughLink(data, progress: progress)
     }
 
     /// `write`, by a name a conformer that watches its writes can call from
@@ -135,7 +135,7 @@ extension LinkTransport {
     /// A piece at a time, each with the ordinary deadline; see
     /// `TransportDeadline.writeChunkBytes`. A write that times out leaves
     /// the transport closed: how much of it reached the server is unknown.
-    func writeThroughLink(_ data: Data) async throws {
+    func writeThroughLink(_ data: Data, progress: UploadProgress? = nil) async throws {
         guard stream.isOpen else { throw MailTransportError.notConnected }
         // B-034 instrumentation. Length only, and only for bulk writes: every
         // command line goes through here too, including `AUTH PLAIN <secret>`,
@@ -145,7 +145,8 @@ extension LinkTransport {
         if watched { Diagnostics.log(.note, "WIRE-OUT bytes=\(data.count)") }
         do {
             try await TransportDeadline.write(data, within: ordinaryDeadline,
-                                              onExpiry: { Task { await self.close() } }) {
+                                              onExpiry: { Task { await self.close() } },
+                                              progress: progress) {
                 try await self.sendToLink($0)
             }
         } catch {

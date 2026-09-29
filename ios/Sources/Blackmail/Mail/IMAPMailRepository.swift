@@ -166,6 +166,18 @@ actor IMAPMailRepository: MailRepository {
     /// either, and on the device each attempt can take the whole connect
     /// timeout. `passwordNeedsUpdating` is never retried, however it arose.
     ///
+    /// Nor when an attempt to connect failed while the read waited, whoever
+    /// made it. The client calls itself connected from the moment the socket
+    /// is up, before the greeting and the LOGIN, so a read that began in that
+    /// window found a connection that was up and queued behind the rest of
+    /// its making. When that failed, a greeting that never came or a socket
+    /// that died during the LOGIN, the read took it for a dropped socket and
+    /// connected again: at launch, against a server that accepts and then
+    /// says nothing, a second connect timeout, the one the attempt's own
+    /// answer exists to spare (`IMAPClient.connect`). Whether the read began
+    /// in that window or just before it was the order two tasks happened to
+    /// run in, so the suite caught it now and then.
+    ///
     /// Nor for a caller that has been cancelled. Only a search is ever
     /// cancelled, by the next keystroke, and cancelling one no longer costs
     /// the connection: the command it had on the wire finishes and the next
@@ -175,12 +187,14 @@ actor IMAPMailRepository: MailRepository {
     private func retryingIfDisconnected<T>(
         _ body: () async throws -> T) async throws -> T {
         let wasConnected = await imap.isConnected
+        let failuresBefore = await imap.failedConnects
         do {
             return try await body()
         } catch {
             guard wasConnected, !Task.isCancelled,
                   (error as? MailError) != .passwordNeedsUpdating,
-                  await imap.isConnected == false else { throw error }
+                  await imap.isConnected == false,
+                  await imap.failedConnects == failuresBefore else { throw error }
             return try await body()
         }
     }
@@ -1153,7 +1167,7 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - Sending
 
-    func send(_ draft: Draft) async throws {
+    func send(_ draft: Draft, progress: UploadProgress?) async throws {
         let recipients = (draft.to + draft.cc + draft.bcc)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -1171,7 +1185,8 @@ actor IMAPMailRepository: MailRepository {
                                        attachments: try await loadAttachments(for: draft),
                                        htmlBody: AppleMailHTML.part(for: draft, account: account),
                                        inlineImages: SignatureImages.parts())
-        try await smtp.send(raw, from: account.address, to: recipients, password: password)
+        try await smtp.send(raw, from: account.address, to: recipients, password: password,
+                            progress: progress)
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
         // the top of the list.

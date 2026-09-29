@@ -1147,10 +1147,22 @@ final class MessageListViewController: UITableViewController {
                 return
             }
             let compose = ComposeViewController(repository: self.repository, draft: draft)
+            // Sent, the draft's row goes as the sheet closes, before its
+            // copy has been removed from the server: a tap on it meanwhile
+            // reopened the letter just sent, to be sent again. Taken off as
+            // a removal on its way, like a Delete from the reading pane.
+            compose.onDraftSent = { [weak self] _ in
+                self?.letters.take(summary, fromEveryFolder: false)
+            }
             // Saving, sending or deleting all change what is in this very
-            // folder, so the list behind has to be rebuilt.
+            // folder, so the list behind has to be rebuilt. A sent draft's
+            // row stays off only until then: the folder fetched afresh has
+            // the say, without it if the cleanup removed it, with it if not.
             compose.onDraftsChanged = { [weak self] in
-                Task { @MainActor in await self?.reload(keepingPlace: true) }
+                Task { @MainActor in
+                    self?.letters.removalLanded(summary, fromEveryFolder: false)
+                    await self?.reload(keepingPlace: true)
+                }
             }
             let nav = UINavigationController(rootViewController: compose)
             nav.modalPresentationStyle = .formSheet

@@ -52,15 +52,40 @@ this host. Ordered by value, not by size.
       first seconds after launch, dismissing the keyboard**. Delete that line,
       not the list VC's own task at :334 — folder taps depend on it. (B-038 #3)
       *Done: the line is gone; the list VC's own task is untouched.*
-- [ ] **P5. Fix the send path's CPU.** `SMTPClient.dotStuffed:390` (rewrite
+- [x] **P5. Fix the send path's CPU.** `SMTPClient.dotStuffed:390` (rewrite
       over an unsafe buffer into a preallocated `[UInt8]`, 40-70x) and
       `RFC5322Builder.uniqueBoundary:658` (stop substring-scanning base64
       payloads — `_` is not in the base64 alphabet, so the scan is provably
       vacuous). Both verified byte-identical. Takes a five-photo send from
       ~3.5 s of local CPU to under 50 ms. (B-038 #4a/4b)
-- [ ] **P6. Give Send some feedback.** `ComposeViewController.sendTapped:539`
+      *Done: the stuffing is `SMTPClient.dataPayload`, a line at a time into
+      one byte array with the terminator, 3.4 s → 22 ms at 27 MB; and `build`
+      no longer offers the base64 payloads to `uniqueBoundary`, while the
+      text parts, names, types and ids are still scanned, 1.5 s → 0.26 s for
+      five photographs. Release build here, a five-photo letter's local work
+      4.9 s → 0.28 s, not the 50 ms hoped for: what is left is `build`'s
+      own base64 wrapping and joins (PERFORMANCE.md Record and leave).
+      Byte for byte the same letter and payload for the same randomness,
+      compared with `cmp` against the old code at 1, 5 and 20 MB, and in
+      `DataPayloadTests` and `BoundaryTests` against the old functions kept
+      as references; PERFORMANCE.md #4.*
+- [x] **P6. Give Send some feedback.** `ComposeViewController.sendTapped:539`
       — today there is no spinner, no disabled button, and the sheet stays
       live and re-pressable through a multi-second upload. (B-038 #4c)
+      *Done: at the tap Send gives way to a spinner and "Sending…", with
+      the share handed to the network for a letter of a megabyte or more
+      ("Sending… 40%", from the 64 KB pieces the write already goes in,
+      `UploadProgress`); Send, Cancel, Attach Photo and Remove are held and
+      the sheet cannot be swiped away until the send is answered, and a
+      second tap sends nothing. The sheet closes as soon as the letter has
+      gone; a draft's old copy is removed and Drafts told after that, in
+      that order. A failure puts everything back, the letter still in the
+      sheet, with the reason. `SMTPClient.send` returns at the letter's
+      250, leaving QUIT, the close and the transcript to follow unwaited;
+      the send and Save Draft run inside background time from iOS. The
+      order is `ComposeActions`, checked in `ComposeActionsTests` and
+      `SMTPSendTests`; the sheet itself is UIKit, and B-044 below is what
+      to look at on the iPad.*
 - [x] **P7. `#if DEBUG` around `LayoutAudit.beginSweeping()`.**
       `AppDelegate.swift:50`. It ships in release and runs 90 whole-window
       main-thread sweeps over the first three minutes of *every* launch, for
@@ -196,7 +221,9 @@ this host. Ordered by value, not by size.
       send.
 - [ ] Register and test the share extension — also needs `ideviceinstaller`,
       which is on neither machine. (B-036 blocker 2)
-- [ ] Anything else touching the send path.
+- [ ] Anything else touching the send path. Batch 6 of the lag fixes
+      (B-044) went in before the iPad was back; its checks below come
+      first.
 - [ ] Send one letter to confirm the send path still works now that
       `SMTPClient` runs over the `MailTransport` seam and `TLSConnection`
       reads through `ReadBuffer`, and now that the transport has real
@@ -397,6 +424,36 @@ this host. Ordered by value, not by size.
       app to serialize the body, and once warm. The host's 0.1-0.6 ms is the
       app's part only. Watch the app's memory for those 10 s alongside
       B-042's WebContent terminations.
+- [ ] **B-044, sending.** None of it seen on the device yet; B-044 has
+      the same checks on the build before it, to compare with. Write a
+      plain letter to himself and Send: Send gives way at once to a spinner
+      and "Sending…", Cancel and Attach Photo are grey, the sheet will not
+      swipe down, and it closes the moment the letter has gone; the letter
+      arrives once. The newest `blackmail-send-*-ok.txt` in the container's
+      tmp shows `WIRE-OUT`, `WIRE-ACK err=none` and the 250, and no 221.
+      Tap Send twice quickly: one letter arrives. Reopen a saved draft from
+      Drafts and send it: the sheet closes before the connection log shows
+      the Drafts cleanup (NOOP or LOGIN, SELECT, STORE, EXPUNGE), and the
+      draft has gone from Drafts afterwards. Attach five photos and send:
+      "Sending… n%" climbs while it goes, the sheet closes, and it arrives
+      once with all five. Turn Wi-Fi off and Send: "Can't connect to mail
+      server.", the letter still in the sheet as written, and Send, Cancel,
+      Attach Photo and each Remove live again. Send a photo letter and lock
+      the iPad at once; unlock after a minute: either the letter went, once,
+      and the sheet is gone, or it failed with the letter still in the sheet
+      and the reason on screen. A letter that went must not be reported as
+      failed, and none may arrive twice. Then Save Draft on a photo letter
+      and lock at once: the draft is in Drafts when he comes back.
+      Choose five photos and tap Send the moment the picker closes: the
+      spinner at once, and the letter arrives with all five; the same with
+      Save Draft, and the draft has all five. Reopen a saved draft, send
+      it, and tap where its row was as the sheet closes: the row has gone,
+      nothing opens, and after the cleanup Drafts no longer has it. On a
+      photo letter, select a word in the body while it sends and open Look
+      Up or Share from the menu: the sheet still closes at Gmail's answer,
+      taking it along, and nothing is left held on screen. Tap Cancel on a
+      letter with text, and with that sheet still open tap Send: the Cancel
+      sheet goes and the letter is sent once.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

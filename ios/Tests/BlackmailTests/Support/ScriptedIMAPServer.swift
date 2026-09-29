@@ -1810,7 +1810,7 @@ private extension ScriptedIMAPServer {
 /// server reply is one chunk.
 ///
 /// It also watches its writes, which is the one thing it does above the
-/// link: see `write(_:)`.
+/// link: see `write(_:progress:)`.
 actor ScriptedTransport: LinkTransport {
 
     nonisolated let connection: Int
@@ -1862,7 +1862,7 @@ actor ScriptedTransport: LinkTransport {
     /// handed over, is two commands in flight, and is recorded. The server
     /// takes the bytes once the last piece has gone: a command, or a
     /// literal, means nothing to it until its last byte anyway.
-    func write(_ data: Data) async throws {
+    func write(_ data: Data, progress: UploadProgress?) async throws {
         if stream.isOpen, isWriting || !stream.buffer.isEmpty || !arrived.isEmpty || inFlight > 0
             || !parked.isEmpty || waiter != nil {
             let text = String(decoding: data.prefix(60), as: UTF8.self)
@@ -1872,7 +1872,7 @@ actor ScriptedTransport: LinkTransport {
         }
         isWriting = true
         defer { isWriting = false }
-        try await writeThroughLink(data)
+        try await writeThroughLink(data, progress: progress)
         for reply in server.receive(data, on: connection) { deliver(reply) }
     }
 

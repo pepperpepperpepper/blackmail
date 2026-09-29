@@ -44,15 +44,21 @@ enum CaptureProbe {
     /// at launch and would take the evidence with it.
     private static var directory: String { NSTemporaryDirectory() }
 
-    static func beginSession() {
+    /// `token` is the time in seconds unless a test names one, to tell two
+    /// sessions apart that begin within the same second.
+    static func beginSession(_ token: String = String(Int(Date().timeIntervalSince1970))) {
         lock.lock()
         defer { lock.unlock() }
-        session = String(Int(Date().timeIntervalSince1970))
+        session = token
     }
 
     /// The redacted transcript. Called at BOTH exits of a send, because the
     /// failing case is the one worth having and it is the one that throws.
-    static func dumpTranscript(_ tag: String) {
+    ///
+    /// `session` is the send's own, taken when it ended: the file is written
+    /// after `send` has returned, and a letter sent straight after would
+    /// otherwise have its token put on this one's transcript.
+    static func dumpTranscript(_ tag: String, session: String = CaptureProbe.session) {
         let text = Diagnostics.transcript()
         write(Data(text.utf8), name: "blackmail-send-\(session)-\(tag).txt")
     }

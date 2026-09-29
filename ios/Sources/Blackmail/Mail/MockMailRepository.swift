@@ -115,7 +115,7 @@ final class MockMailRepository: MailRepository {
         try await move(id, from: mailboxID, to: "trash")
     }
 
-    func send(_ draft: Draft) async throws {}
+    func send(_ draft: Draft, progress: UploadProgress?) async throws {}
 
     /// Keyed by the id handed back, so the fixture replaces rather than
     /// accumulates, like the real one.

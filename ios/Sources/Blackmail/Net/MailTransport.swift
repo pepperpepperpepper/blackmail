@@ -34,7 +34,11 @@ protocol MailTransport: Actor {
     /// transport's ordinary deadline. A large write that is still moving is
     /// never cut off for its size; one that has stopped is. See
     /// `TransportDeadline.writeChunkBytes`.
-    func write(_ data: Data) async throws
+    ///
+    /// `progress`, if given, hears after each piece how much of `data` the
+    /// stack has taken so far. See `UploadProgress` for what that does and
+    /// does not say.
+    func write(_ data: Data, progress: UploadProgress?) async throws
 
     /// `line` plus CRLF.
     func writeLine(_ line: String) async throws
@@ -48,6 +52,12 @@ protocol MailTransport: Actor {
 }
 
 extension MailTransport {
+
+    /// `data`, with nobody told how it is getting on: a command line, or a
+    /// draft going up.
+    func write(_ data: Data) async throws {
+        try await write(data, progress: nil)
+    }
 
     /// A line of an ordinary reply.
     func readLine() async throws -> String {
@@ -77,6 +87,21 @@ enum ReplyWait: Sendable {
     /// arrives, he is told it did not, and he sends it again.
     case afterUpload
 }
+
+/// How much of a write the stack has taken, `written` of `total` bytes,
+/// told once for each piece of it (`TransportDeadline.writeChunkBytes`) as
+/// the stack takes it. Called from whatever thread the write resumes on
+/// after the piece, not on the transport's actor: `TransportDeadline.write`
+/// is not isolated to it. A listener with state of its own hops to its own
+/// actor, as the composer does to the main one.
+///
+/// Taken, not delivered. The stack holds what it has taken until the far end
+/// acknowledges it, and on a slow uplink that can be the last few hundred
+/// kilobytes of a letter, so the count runs ahead of the line by about that
+/// much and reaches the total before the server has the letter. What it
+/// measures is the part that takes the time on a photo letter, the upload
+/// itself, and it costs nothing: the pieces already exist for the deadline.
+typealias UploadProgress = @Sendable (_ written: Int, _ total: Int) -> Void
 
 /// Makes an UNOPENED transport to one host and port.
 ///

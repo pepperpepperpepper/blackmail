@@ -18,6 +18,11 @@ final class ComposeViewController: UIViewController,
     /// showing it can catch up.
     var onDraftsChanged: (() -> Void)?
 
+    /// Fired as the sheet closes on a letter reopened from Drafts and sent,
+    /// with the id of its copy there, before that copy has been removed.
+    /// See `ComposeActions.send`.
+    var onDraftSent: ((String) -> Void)?
+
     private let toField = UITextField()
     private let ccField = UITextField()
     private let bccField = UITextField()
@@ -63,6 +68,44 @@ final class ComposeViewController: UIViewController,
     private weak var activeAddressField: UITextField?
     private static let suggestionRowHeight: CGFloat = Theme.suggestionRowHeight
 
+    /// Send and Save Draft, in the order each has to happen, and what the
+    /// sheet shows while a letter goes. See `ComposeActions`.
+    private lazy var actions = ComposeActions(
+        sendLetter: { [repository] draft, progress in
+            try await repository.send(draft, progress: progress)
+        },
+        saveDraft: { [repository] draft in _ = try await repository.saveDraft(draft) },
+        deleteDraft: { [repository] id in try await repository.deleteDraft(id) },
+        dismiss: { [weak self] in self?.close() },
+        showError: { [weak self] error in
+            guard let self else { return }
+            ErrorPresenter.show(error, on: self)
+        },
+        draw: { [weak self] look in self?.draw(look) },
+        background: .app)
+
+    private lazy var sendItem = UIBarButtonItem(
+        title: "Send", style: .done, target: self, action: #selector(sendTapped))
+    /// What stands where Send was while the letter goes: its words, greyed
+    /// and not a button, and a spinner beside them. Two ordinary bar items,
+    /// so the bar sizes them the way it sizes Send, and the words can change
+    /// in place as the letter goes.
+    private lazy var sendingWordsItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(title: nil, style: .plain, target: nil, action: nil)
+        item.isEnabled = false
+        // Figures of one width, so "Sending… 40%" does not shuffle sideways
+        // as the number changes.
+        item.setTitleTextAttributes(
+            [.font: UIFont.monospacedDigitSystemFont(ofSize: Theme.fontBarButton.pointSize,
+                                                     weight: .regular)],
+            for: .disabled)
+        return item
+    }()
+    private let sendingSpinner = UIActivityIndicatorView(style: .medium)
+    private lazy var sendingSpinnerItem = UIBarButtonItem(customView: sendingSpinner)
+    /// Held while a letter goes, with the Remove buttons.
+    private weak var attachButton: UIButton?
+
     init(repository: MailRepository, draft: Draft) {
         self.repository = repository
         self.draft = draft
@@ -78,8 +121,7 @@ final class ComposeViewController: UIViewController,
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "Cancel", style: .plain, target: self, action: #selector(cancelTapped))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Send", style: .done, target: self, action: #selector(sendTapped))
+        navigationItem.rightBarButtonItem = sendItem
         for item in [navigationItem.leftBarButtonItem, navigationItem.rightBarButtonItem] {
             item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
         }
@@ -185,6 +227,7 @@ final class ComposeViewController: UIViewController,
         button.configuration = config
         button.contentHorizontalAlignment = .leading
         button.addTarget(self, action: #selector(attachTapped), for: .touchUpInside)
+        attachButton = button
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
@@ -249,6 +292,9 @@ final class ComposeViewController: UIViewController,
         remove.setTitleColor(Theme.destructive, for: .normal)
         remove.tag = index
         remove.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
+        // A photo that lands from the picker while a letter goes rebuilds
+        // the rows; its Remove is held with the rest.
+        remove.isEnabled = !actions.isSending
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
@@ -310,6 +356,10 @@ final class ComposeViewController: UIViewController,
             let provider = result.itemProvider
             guard provider.canLoadObject(ofClass: UIImage.self) else { continue }
             let suggested = provider.suggestedName ?? "Photo"
+            // Counted until it is in the letter or has failed, so that a
+            // Send or a Save Draft tapped meanwhile waits for it rather than
+            // going without it. See `ComposeActions.photosLanded`.
+            actions.photoComing()
             provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
                 // Re-encoded as JPEG rather than passed through. iPads
                 // store photos as HEIC, which a good many recipients
@@ -318,10 +368,11 @@ final class ComposeViewController: UIViewController,
                 // neither end knows. Full resolution is kept: the size
                 // ceiling is already refused loudly at send (B-007), so
                 // there is no need to quietly shrink what he chose.
-                guard let image = object as? UIImage,
-                      let data = image.jpegData(compressionQuality: 0.85) else { return }
-                Task { @MainActor in
-                    self?.attach(data, named: suggested + ".jpg")
+                let data = (object as? UIImage)?.jpegData(compressionQuality: 0.85)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let data { self.attach(data, named: suggested + ".jpg") }
+                    self.actions.photoLanded()
                 }
             }
         }
@@ -498,71 +549,88 @@ final class ComposeViewController: UIViewController,
         sheet.addAction(UIAlertAction(title: "Save Draft", style: .default) { [weak self] _ in
             guard let self else { return }
             self.collect()
-            // Everything the work needs is captured BEFORE dismissing, so
-            // the save outlives this window without holding it alive.
-            //
-            // And the refresh fires AFTER the await, not beside it. Racing
-            // them showed the folder mid-save — the replacement appended
-            // and the old copy not yet gone — so a saved draft appeared
-            // briefly as two near-identical letters. Measured on device:
-            // a manual Refresh a moment later showed one, which is how the
-            // race was told apart from a replacement that had failed.
-            let draft = self.draft
-            let repository = self.repository
-            let changed = self.onDraftsChanged
-            self.dismiss(animated: true)
-            Task { @MainActor in
-                try? await repository.saveDraft(draft)
-                changed?()
-            }
+            // The order, the background time around the save, and the wait
+            // for photos still on their way in are
+            // `ComposeActions.saveAndClose`, which also refuses once a
+            // letter is on its way. The draft is asked for after the sheet
+            // has gone, so the save keeps this controller until it has it.
+            self.actions.saveAndClose({ self.draft }, then: self.onDraftsChanged)
         })
         sheet.addAction(UIAlertAction(title: "Delete Draft", style: .destructive) { [weak self] _ in
             guard let self else { return }
-            // Deletes the SAVED copy too. Previously this only dismissed
-            // the window, so "Delete Draft" on a draft reopened from the
-            // Drafts folder left it sitting there — the button said the
-            // one thing it did not do.
-            let saved = self.draft.savedID
-            let repository = self.repository
-            let changed = self.onDraftsChanged
-            self.dismiss(animated: true)
-            guard let saved else { changed?(); return }
-            Task { @MainActor in
-                try? await repository.deleteDraft(saved)
-                changed?()
-            }
+            // `ComposeActions.deleteAndClose`, which also refuses once a
+            // letter is on its way.
+            self.actions.deleteAndClose(self.draft.savedID, then: self.onDraftsChanged)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(sheet, animated: true)
     }
 
     @objc private func sendTapped() {
+        // A second tap, or one while the letter is on its way, sends
+        // nothing; Send has already given way to the spinner, and this is
+        // for a tap that got in first.
+        guard !actions.isSending else { return }
+        // The Cancel sheet hangs from the bar Send is on, and a popover
+        // from a bar button leaves its bar live, so Send can be tapped with
+        // that sheet still open. It goes first. Its Save Draft and Delete
+        // Draft would do nothing now, and a failure has to be said over
+        // this sheet, which cannot put up an alert while it has something
+        // else up.
+        if let shown = presentedViewController, !shown.isBeingDismissed {
+            shown.dismiss(animated: true)
+        }
+        // The fields as they are at the tap; the letter itself is taken
+        // once any photo still on its way in has landed in it.
         collect()
-        Task { @MainActor in
-            do {
-                try await repository.send(draft)
-                // A sent letter must not stay in Drafts. Without this,
-                // finishing a draft left the half-written version behind
-                // and he would find it again tomorrow, indistinguishable
-                // from something still owed.
-                if let saved = draft.savedID {
-                    try? await repository.deleteDraft(saved)
-                }
-                onDraftsChanged?()
-                dismiss(animated: true)
-            } catch {
-                // Pass the real reason through. Flattening everything to
-                // "Message was not sent." was fine while that was the only
-                // thing the layers below could say; now they can distinguish
-                // a letter too large to send from a network that dropped,
-                // and collapsing the two would throw away the one piece of
-                // information that tells him what to do differently.
-                //
-                // The sheet is deliberately NOT dismissed on failure — the
-                // letter he wrote is still in it.
-                ErrorPresenter.show(error as? MailError ?? .notSent, on: self)
+        actions.send({ self.draft }, then: onDraftsChanged, draftSent: onDraftSent)
+    }
+
+    /// Puts the sheet away, with whatever it has up over itself.
+    ///
+    /// Told to whatever presented the sheet, not to the sheet. A view
+    /// controller told to dismiss while it is presenting something
+    /// dismisses that instead and stays. With an alert over the sheet when
+    /// the letter went, about a photo that could not be staged, or the
+    /// Share or Look Up the text menu offers, that was all that closed, and
+    /// the sheet stayed with Send gone, Cancel held and the swipe refused,
+    /// which only quitting the app undid. Told to the presenter, UIKit takes
+    /// the sheet and everything over it.
+    private func close() {
+        (presentingViewController ?? self).dismiss(animated: true)
+    }
+
+    /// The sheet as `ComposeActions` says it should be. While a letter goes:
+    /// the spinner and its words where Send was, Cancel, Attach Photo and
+    /// every Remove held, and the sheet kept from being swiped away, since
+    /// the one thing that must not happen then is the letter being lost or
+    /// sent twice. After a failure everything is live again.
+    private func draw(_ look: ComposeActions.Look) {
+        let sending: Bool
+        switch look {
+        case .writing:
+            sending = false
+            sendingSpinner.stopAnimating()
+            navigationItem.rightBarButtonItems = [sendItem]
+        case .sending(let words):
+            sending = true
+            sendingWordsItem.title = words
+            if navigationItem.rightBarButtonItems?.first !== sendingWordsItem {
+                sendingSpinner.startAnimating()
+                // The first is the one at the edge, where Send was.
+                navigationItem.rightBarButtonItems = [sendingWordsItem, sendingSpinnerItem]
             }
         }
+        navigationItem.leftBarButtonItem?.isEnabled = !sending
+        attachButton?.isEnabled = !sending
+        for row in attachmentsStack.arrangedSubviews {
+            for case let remove as UIButton in row.subviews { remove.isEnabled = !sending }
+        }
+        // On the navigation controller as well as here: it is the one
+        // presented, and this is what keeps the sheet from being swiped
+        // away whichever of the two UIKit asks.
+        isModalInPresentation = sending
+        navigationController?.isModalInPresentation = sending
     }
 
     private func collect() {
@@ -580,6 +648,21 @@ final class ComposeViewController: UIViewController,
         draft.subject = subjectField.text ?? ""
         draft.body = bodyView.text ?? ""
     }
+}
+
+extension BackgroundTime {
+
+    /// The app's own: `UIApplication`'s background tasks. The handler is
+    /// called on the main thread and gives the time back before returning,
+    /// which is what iOS requires of it.
+    static let app = BackgroundTime(
+        begin: { name, expired in
+            let id = UIApplication.shared.beginBackgroundTask(withName: name) { expired() }
+            return id == .invalid ? nil : id.rawValue
+        },
+        end: { id in
+            UIApplication.shared.endBackgroundTask(UIBackgroundTaskIdentifier(rawValue: id))
+        })
 }
 
 #endif

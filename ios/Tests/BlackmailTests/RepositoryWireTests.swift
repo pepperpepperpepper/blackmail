@@ -1090,6 +1090,53 @@ final class RepositoryWireTests: XCTestCase {
         }
     }
 
+    /// The same two windows with a connect that fails some other way: a
+    /// server that accepts the connection and never greets, and a socket
+    /// that dies while LOGIN is on its way. The failure is both calls'
+    /// answer, and there is one connection. In the LOGIN window the second
+    /// call has found the client calling itself connected and queued its
+    /// command; its read retry used to take the failure for a dropped
+    /// socket and connect again, which against a server that says nothing
+    /// is a second connect timeout.
+    func testAConnectThatFailsWhileAnotherCallWaitsForItIsMadeOnce() async throws {
+        let windows: [(label: String, hold: (ScriptedIMAPServer) -> Void,
+                       underway: (ScriptedIMAPServer) -> Bool,
+                       fail: (ScriptedIMAPServer) async -> Void, commands: [String])] = [
+            ("handshake", { $0.holdHandshakes() }, { _ in true },
+             { server in
+                 server.isSilent = true
+                 server.timeout = .milliseconds(20)
+                 await server.releaseHandshakes()
+             }, []),
+            ("login", { $0.holdReplies(to: "LOGIN") }, { $0.log.contains { $0.verb == "LOGIN" } },
+             { server in
+                 await server.resetConnections()
+                 await server.releaseReplies(to: "LOGIN")
+             }, ["LOGIN"]),
+        ]
+        for (label, hold, underway, fail, commands) in windows {
+            server = ScriptedIMAPServer()
+            hold(server)
+            let repository = makeRepository()
+            let first = Task { _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20) }
+            try await until { underway(self.server) }
+            let second = Task { _ = try await repository.listMailboxes() }
+            try await until { await repository.waitingForExchange == 1 }
+            await fail(server)
+
+            for (call, task) in [("first", first), ("second", second)] {
+                do {
+                    try await finishing { try await task.value }
+                    XCTFail("\(label), \(call): read without a connection")
+                } catch {
+                    XCTAssertEqual(error as? MailError, .cannotConnect, "\(label), \(call)")
+                }
+            }
+            XCTAssertEqual(server.log.map(\.verb), commands, label)
+            XCTAssertEqual(server.connectionsOpened, 1, label)
+        }
+    }
+
     // MARK: - Searches paged across a dead socket
 
     /// Every page of an "All Mailboxes" search for "garden", three at a time,

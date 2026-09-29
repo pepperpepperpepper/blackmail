@@ -98,9 +98,12 @@ actor IMAPClient {
     private var reportedStates: [String: IMAPMailboxState] = [:]
 
     /// How the last attempt to connect failed, nil if it did not, and how
-    /// many attempts have failed. See `connect`.
+    /// many attempts have failed. See `connect`. The count is also how the
+    /// repository tells a read that failed on a connection still being
+    /// made from one whose connection dropped
+    /// (`IMAPMailRepository.retryingIfDisconnected`).
     private var connectFailure: MailError?
-    private var failedConnects = 0
+    private(set) var failedConnects = 0
 
     /// True while one command owns the socket. See `beginExchange()`.
     private var exchangeInProgress = false

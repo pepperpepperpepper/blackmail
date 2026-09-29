@@ -47,7 +47,8 @@ actor SMTPClient {
 
     // MARK: - The one public operation
 
-    /// Runs the whole conversation and closes the connection.
+    /// Runs the conversation up to the server's verdict on the letter, and
+    /// returns with it.
     ///
     /// Throws `MailError.cannotConnect` if the socket never came up,
     /// `MailError.passwordNeedsUpdating` if the credentials were refused, and
@@ -55,7 +56,23 @@ actor SMTPClient {
     /// this file; a 90-year-old reading "550 5.7.1 Our system has detected an
     /// unusual rate of unsolicited mail" learns only that he has done
     /// something wrong, which he has not.
-    func send(_ raw: Data, from: String, to recipients: [String], password: String) async throws {
+    ///
+    /// Returns at the 250 after DATA, not after QUIT. That 250 is the server
+    /// taking the letter over (RFC 5321 §6.1), and from then on nothing
+    /// it says or fails to say can undo it. `send` used to go on to write
+    /// QUIT, wait for the 221 and write the transcript file before
+    /// returning, all while the composer sat there with the letter already
+    /// gone: a round trip at least, and the whole read deadline on a line
+    /// that died after the 250. The QUIT, the close and the transcript now
+    /// follow on their own (`letGo`), and none of them can make a delivered
+    /// letter an error. RFC 5321 §4.1.1.10 says a client SHOULD wait for the
+    /// 221; this one does not, because the only thing the wait decides is
+    /// how long he is kept looking at a letter that has already gone.
+    ///
+    /// `progress` hears how much of the letter itself has been handed to the
+    /// network, from the DATA write; see `UploadProgress`.
+    func send(_ raw: Data, from: String, to recipients: [String], password: String,
+              progress: UploadProgress? = nil) async throws {
         rejectedRecipients = []
 
         let envelopeFrom = Self.envelopeAddress(from)
@@ -71,23 +88,20 @@ actor SMTPClient {
             + "host=\(account.smtpHost):\(account.smtpPort)")
 
         let connection = makeTransport(account.smtpHost, account.smtpPort)
-        // `close()` is isolated to the connection actor and `defer` cannot
-        // await, so the unstructured task is how every exit path - return,
-        // throw, or cancellation - still lets go of the socket.
-        //
-        // This is armed *before* the connect attempt, not after it. A failed
-        // `open()` leaves the underlying NWConnection started and never
-        // cancelled - it sits in .waiting retrying the route forever, holding
-        // its handler and its queue - so a man tapping Send with no signal
-        // would strand one of them per attempt.
-        defer { Task { await connection.close() } }
 
         do {
             try await connection.open()
         } catch {
+            // Closed even though it never opened. A failed `open()` leaves
+            // the underlying NWConnection started and never cancelled - it
+            // sits in .waiting retrying the route forever, holding its
+            // handler and its queue - so a man tapping Send with no signal
+            // would strand one of them per attempt.
+            //
             // Nothing has been written yet, so this is the one failure that is
             // honestly "can't reach the server" rather than "your mail did not
             // go out".
+            letGo(connection, quitting: false, transcript: nil)
             throw MailError.cannotConnect
         }
 
@@ -105,22 +119,45 @@ actor SMTPClient {
                                raw: raw,
                                from: envelopeFrom,
                                to: envelopeTo,
-                               capabilities: capabilities)
-
-            // Polite shutdown. The 221 is read so the server sees a clean end
-            // to the session, but its content cannot change what already
-            // happened, so a failure here is not the user's problem.
-            try? await connection.writeLine("QUIT")
-            _ = try? await readReply(connection)
-            CaptureProbe.dumpTranscript("ok")     // B-034 instrumentation
+                               capabilities: capabilities,
+                               progress: progress)
         } catch {
-            CaptureProbe.dumpTranscript("fail")   // B-034 instrumentation
             // Best effort QUIT on the way out, and deliberately no read: if
             // the failure was the server going away, waiting for a reply that
             // is never coming would stall for the full read timeout before we
             // could show the error.
-            try? await connection.writeLine("QUIT")
+            letGo(connection, quitting: true, transcript: "fail")
             throw Self.userFacing(error)
+        }
+
+        // Delivered. The 221 is not read: see above.
+        letGo(connection, quitting: true, transcript: "ok")
+    }
+
+    /// The last connection being let go of, for a test to wait on.
+    private(set) var lettingGo: Task<Void, Never>?
+
+    /// Ends the session without anyone waiting on it: QUIT, if there is a
+    /// session to end, then the close, then the transcript (B-034).
+    ///
+    /// The transcript file is written on every exit that got past the
+    /// connect, as it was, but after `send` has returned rather than on the
+    /// way to returning: formatting the connection log and writing it out
+    /// is work he used to wait for. A file named `-ok` now means the
+    /// letter's 250 was read; the 221 is not in it.
+    ///
+    /// Unstructured, so the caller's cancellation does not reach it and a
+    /// socket is let go of whichever way `send` ended; and not isolated to
+    /// this actor, so a transcript being written does not hold up the next
+    /// letter. Every step is allowed to fail. The QUIT is written before
+    /// the close, not beside it, so that it goes at all; a close that came
+    /// first would take it with the connection.
+    private func letGo(_ connection: any MailTransport, quitting: Bool, transcript tag: String?) {
+        let session = CaptureProbe.session
+        lettingGo = Task.detached {
+            if quitting { try? await connection.writeLine("QUIT") }
+            await connection.close()
+            if let tag { CaptureProbe.dumpTranscript(tag, session: session) }
         }
     }
 
@@ -222,7 +259,8 @@ actor SMTPClient {
                           raw: Data,
                           from: String,
                           to recipients: [String],
-                          capabilities: SMTPClientCapabilities) async throws {
+                          capabilities: SMTPClientCapabilities,
+                          progress: UploadProgress?) async throws {
         // BODY=8BITMIME only when the server said it could take it. The
         // composer is responsible for encoding a body that needs it
         // (quoted-printable or base64); nothing here re-encodes the bytes it
@@ -277,13 +315,9 @@ actor SMTPClient {
             throw SMTPClientError.rejected(code: dataReply.code, text: dataReply.text)
         }
 
-        var payload = Self.dotStuffed(raw)
-        // The terminator is a bare "." on its own line, so the message must be
-        // sitting at the start of a line before we write it.
-        if !payload.hasCRLFSuffix { payload.append(contentsOf: [0x0D, 0x0A]) }
-        payload.append(contentsOf: [0x2E, 0x0D, 0x0A])
+        let payload = Self.dataPayload(raw)
         Diagnostics.log(.note, "WIRE-PAYLOAD bytes=\(payload.count) raw=\(raw.count)")
-        try await connection.write(payload)
+        try await connection.write(payload, progress: progress)
 
         // Waited for on the long bound: see `ReplyWait.afterUpload`. The
         // write returning means the stack has the bytes, not that Gmail does.
@@ -386,41 +420,65 @@ actor SMTPClient {
         return String(scalars)
     }
 
-    /// Normalises line endings to CRLF and stuffs a leading dot.
+    /// What goes after DATA's 354: the letter with its line endings made
+    /// CRLF and a leading dot stuffed, then the terminator.
     ///
-    /// Both halves matter. A line consisting of just "." ends the DATA phase,
-    /// so an unstuffed message that happens to contain one is delivered
-    /// truncated at that point and nothing anywhere reports an error - the
-    /// recipient simply gets half a letter. And SMTP counts line ends as CRLF
-    /// only, so a body built with bare newlines can leave the terminator
-    /// unrecognised and hang the transaction until the server times out.
-    private static func dotStuffed(_ raw: Data) -> Data {
+    /// Both halves of the stuffing matter. A line consisting of just "."
+    /// ends the DATA phase, so an unstuffed message that happens to contain
+    /// one is delivered truncated at that point and nothing anywhere reports
+    /// an error - the recipient simply gets half a letter. And SMTP counts
+    /// line ends as CRLF only, so a body built with bare newlines can leave
+    /// the terminator unrecognised and hang the transaction until the server
+    /// times out. The terminator is a bare "." on its own line, so the
+    /// message must be sitting at the start of a line before it goes.
+    ///
+    /// Read through a raw buffer into a byte array, for the reason
+    /// `MIMEDecoder.decodeBase64` gives. This used to walk the letter a byte
+    /// at a time through `Data`, which has no `append` for one byte: each
+    /// went through the generic `replaceSubrange`, an opaque call into
+    /// Foundation per byte, and each read cost a call too. A five-photo
+    /// letter spent about 3.5 s here before a byte of it was sent, most of
+    /// the local work of a send. It now goes a line at a time: everything up
+    /// to the next CR or LF is copied in one piece, and only the line breaks
+    /// and a dot at the start of a line are looked at on their own, which on
+    /// a letter of base64 lines is one step for every 76 bytes. The
+    /// terminator goes into the same array, with room kept for it, because
+    /// appending it to the finished `Data` copied the whole letter again.
+    ///
+    /// `Data(out)` at the end is one copy of the letter, and for that moment
+    /// it is in memory three times. Building the `Data` itself a line at a
+    /// time, to save the copy, was four times slower on a photo letter here
+    /// and fourteen on the worst case, each append a call into Foundation.
+    static func dataPayload(_ raw: Data) -> Data {
         let cr: UInt8 = 0x0D, lf: UInt8 = 0x0A, dot: UInt8 = 0x2E
-        var out = Data()
+        var out: [UInt8] = []
         out.reserveCapacity(raw.count + (raw.count / 64) + 16)
 
-        var atLineStart = true
-        var index = raw.startIndex
-        while index < raw.endIndex {
-            let byte = raw[index]
-            if byte == cr || byte == lf {
+        raw.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
+            let input = buffer.bindMemory(to: UInt8.self)
+            let count = input.count
+            // Always at the start of a line here.
+            var start = 0
+            while start < count {
+                if input[start] == dot { out.append(dot) }
+                var end = start
+                while end < count, input[end] != cr, input[end] != lf { end += 1 }
+                out.append(contentsOf: UnsafeBufferPointer(rebasing: input[start..<end]))
+                guard end < count else { break }
+                // Any line break, CR, LF or the pair, goes out as CRLF. The
+                // pair is taken whole so it does not count as two line
+                // breaks and double-space the whole message.
                 out.append(cr)
                 out.append(lf)
-                // Swallow the LF of a CRLF pair so the pair does not count as
-                // two line breaks and double-space the whole message.
-                let next = raw.index(after: index)
-                if byte == cr, next < raw.endIndex, raw[next] == lf {
-                    index = next
-                }
-                atLineStart = true
-            } else {
-                if atLineStart && byte == dot { out.append(dot) }
-                out.append(byte)
-                atLineStart = false
+                let pair = input[end] == cr && end + 1 < count && input[end + 1] == lf
+                start = end + (pair ? 2 : 1)
             }
-            index = raw.index(after: index)
         }
-        return out
+
+        let endsALine = out.count >= 2 && out[out.count - 2] == cr && out[out.count - 1] == lf
+        if !endsALine { out += [cr, lf] }
+        out += [dot, cr, lf]
+        return Data(out)
     }
 
     /// 535 is "username and password not accepted". 534 is Gmail's
@@ -555,12 +613,4 @@ fileprivate enum SMTPClientError: Error {
     case malformedReply
     /// The message is larger than the server will accept.
     case tooLarge
-}
-
-fileprivate extension Data {
-    /// Whether the buffer already ends at a line boundary, which decides
-    /// whether the DATA terminator needs its own CRLF in front of it.
-    var hasCRLFSuffix: Bool {
-        count >= 2 && suffix(2) == Data([0x0D, 0x0A])
-    }
 }

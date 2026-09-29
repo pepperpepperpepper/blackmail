@@ -52,6 +52,8 @@ enum RFC5322Builder {
     ///     so the order is not cosmetic. Left nil, nothing about the output
     ///     changes, which is what keeps the quarter of his mail that has
     ///     nothing rich in it going out as plain text the way Mail sends it.
+    ///   - boundaryToken: where the boundaries' randomness comes from. Pass
+    ///     one only to make a build reproducible; see `uniqueBoundary`.
     static func build(draft: Draft,
                       from: MailAccount,
                       date: Date = Date(),
@@ -61,7 +63,8 @@ enum RFC5322Builder {
                       includeBcc: Bool = false,
                       htmlBody: String? = nil,
                       inlineImages: [(contentID: String, filename: String,
-                                      mimeType: String, data: Data)] = []) -> Data {
+                                      mimeType: String, data: Data)] = [],
+                      boundaryToken: () -> String = randomToken) -> Data {
         // Inline images are the HTML twin's companions — a `cid:` reference
         // only means anything inside markup — so without an `htmlBody` there
         // is nowhere for them to be referred from and they are dropped
@@ -117,15 +120,23 @@ enum RFC5322Builder {
         // Every payload the boundaries have to avoid, in one place, so a
         // boundary can never collide with content in a part that was added
         // after the check was written.
+        //
+        // Except the base64 payloads, and only because a boundary provably
+        // cannot occur in one: every boundary has `_` in it, and base64 is
+        // letters, digits, `+`, `/` and `=`, wrapped with CRLF
+        // (`base64Wrapped`, the standard alphabet, never base64url). Scanning
+        // them anyway was most of the time a photo letter took to build, a
+        // pass over every byte of every picture for each boundary, and it
+        // could never find anything. The text parts, and the names and types
+        // that go into the part headers, are still scanned: they hold what he
+        // typed or what a file was called, and either can hold anything.
         var candidates = [encodedBody]
         if let encodedHTML { candidates.append(encodedHTML) }
         for att in encodedAttachments {
-            candidates.append(att.base64)
             candidates.append(att.filename)
             candidates.append(att.mimeType)
         }
         for img in encodedInline {
-            candidates.append(img.base64)
             candidates.append(img.contentID)
             candidates.append(img.filename)
             candidates.append(img.mimeType)
@@ -142,12 +153,14 @@ enum RFC5322Builder {
         // references them — that is what "related" means, and it is why a
         // client is entitled to treat the pair as one displayable unit
         // rather than a letter with a stray picture stapled to it.
-        let alternativeBoundary = encodedHTML == nil ? nil : uniqueBoundary(avoiding: candidates)
+        let alternativeBoundary = encodedHTML == nil
+            ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
         if let alternativeBoundary { candidates.append(alternativeBoundary) }
         let relatedBoundary = (encodedHTML == nil || encodedInline.isEmpty)
-            ? nil : uniqueBoundary(avoiding: candidates)
+            ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
         if let relatedBoundary { candidates.append(relatedBoundary) }
-        let boundary = encodedAttachments.isEmpty ? nil : uniqueBoundary(avoiding: candidates)
+        let boundary = encodedAttachments.isEmpty
+            ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
 
         // MARK: Headers
 
@@ -655,17 +668,27 @@ enum RFC5322Builder {
     /// grows by another 32 random hex characters. Growth is what makes the
     /// loop terminate rather than merely being unlikely to spin: a string
     /// longer than the longest content cannot be a substring of it.
-    static func uniqueBoundary(avoiding contents: [String]) -> String {
+    ///
+    /// The `_` is load-bearing as well as traditional: it is what keeps a
+    /// boundary out of base64, which is why `build` does not scan base64
+    /// payloads. A boundary without one would have to scan them again.
+    static func uniqueBoundary(avoiding contents: [String],
+                               token: () -> String = randomToken) -> String {
         var extra = 0
         while true {
             var candidate = "=_Blackmail_"
             for _ in 0...extra {
-                candidate += UUID().uuidString.replacingOccurrences(of: "-", with: "")
+                candidate += token()
             }
             candidate += "_="
             if !contents.contains(where: { $0.contains(candidate) }) { return candidate }
             extra += 1
         }
+    }
+
+    /// 32 random hex digits: a UUID without its hyphens.
+    static func randomToken() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
 
     // MARK: - Sanitising
