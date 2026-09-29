@@ -18,10 +18,15 @@ final class MailboxAtomicityTests: XCTestCase {
 
     private var server: ScriptedIMAPServer!
     private var book: RecipientBook!
+    /// Never moved. What the repository sends can depend on how long ago it
+    /// last asked about a folder (B-045), so on the wall clock a stalled
+    /// host would add a NOOP to the exact traffic these tests pin.
+    private var clock: ManualClock!
 
     override func setUp() {
         super.setUp()
         server = ScriptedIMAPServer()
+        clock = ManualClock()
         let defaults = UserDefaults(suiteName: Self.suite)!
         defaults.removePersistentDomain(forName: Self.suite)
         book = RecipientBook(defaults: defaults)
@@ -32,13 +37,16 @@ final class MailboxAtomicityTests: XCTestCase {
         UserDefaults(suiteName: Self.suite)?.removePersistentDomain(forName: Self.suite)
         server = nil
         book = nil
+        clock = nil
         super.tearDown()
     }
 
     private func makeRepository(on server: ScriptedIMAPServer? = nil) -> IMAPMailRepository {
         let server = server ?? self.server!
+        let clock = self.clock!
         return IMAPMailRepository(account: server.account, password: server.password,
-                                  transport: server.transportFactory, recipients: book)
+                                  transport: server.transportFactory, recipients: book,
+                                  now: { clock.now() })
     }
 
     private static let mailboxes = [Server.inbox, Server.allMail, Server.drafts, Server.sent,

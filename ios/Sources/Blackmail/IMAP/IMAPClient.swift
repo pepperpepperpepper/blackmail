@@ -90,11 +90,27 @@ actor IMAPClient {
     private(set) var selectedMailbox: String?
     private(set) var mailboxState: IMAPMailboxState?
 
+    /// When the session last asked for the selected mailbox's news and was
+    /// answered: its SELECT, or a NOOP since. Set by every SELECT, so it
+    /// never outlives the selection it belongs to. See `catchUp`.
+    private var newsAskedAt: Date?
+
+    /// When the question went whose answer the searches he is typing in the
+    /// selected mailbox go on: the one the first search of the burst sent,
+    /// or found a moment old. Only a search sets it, and every SELECT clears
+    /// it. See `Freshness.typing`.
+    private var typingAskedAt: Date?
+
+    /// The clock `newsAskedAt` is measured by. The app's is the real one; a
+    /// test hands in one it can move.
+    private let now: @Sendable () -> Date
+
     /// What the last SELECT of each mailbox reported, on this connection or
-    /// an earlier one. UIDVALIDITY belongs to the mailbox rather than to the
-    /// session, so this survives a reconnect, and it is how the repository
-    /// learns that a mailbox has been renumbered and its remembered UIDs
-    /// have gone stale.
+    /// an earlier one, with its message count kept as the EXISTS and EXPUNGE
+    /// responses since have left it. UIDVALIDITY belongs to the mailbox
+    /// rather than to the session, so this survives a reconnect, and it is
+    /// how the repository learns that a mailbox has been renumbered and its
+    /// remembered UIDs have gone stale.
     private var reportedStates: [String: IMAPMailboxState] = [:]
 
     /// How the last attempt to connect failed, nil if it did not, and how
@@ -155,9 +171,11 @@ actor IMAPClient {
         case closing(CheckedContinuation<Void, Never>)
     }
 
-    init(account: MailAccount, transport: @escaping MailTransportFactory) {
+    init(account: MailAccount, transport: @escaping MailTransportFactory,
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.account = account
         self.makeTransport = transport
+        self.now = now
     }
 
     #if canImport(Network)
@@ -173,7 +191,7 @@ actor IMAPClient {
     /// knows a command has joined the line without sleeping on it.
     var waitingForExchange: Int { exchangeWaiters.count }
 
-    /// What the last SELECT of `mailbox` reported, nil if it has never been
+    /// What the server last said of `mailbox`, nil if it has never been
     /// selected. See `reportedStates`.
     func lastReport(for mailbox: String) -> IMAPMailboxState? {
         reportedStates[mailbox]
@@ -321,9 +339,24 @@ actor IMAPClient {
     /// nothing is waiting for it, and a letter he taps while it is still
     /// waiting for the connection goes first. Once it is on the wire, the
     /// letter waits for its answer like anything else.
+    ///
+    /// Either one, answered, is also the selected mailbox's news asked for,
+    /// so a listing of it straight after does not ask again (`catchUp`).
     func noop(_ priority: Priority = .interactive) async throws {
-        let result = try await sendCommand("NOOP", priority: priority)
-        guard result.status == .ok else { throw MailError.cannotConnect }
+        try await beginExchange(priority)
+        defer { endExchange() }
+        guard try await performNOOP() else { throw MailError.cannotConnect }
+    }
+
+    /// A NOOP, true if it was answered OK. The caller holds the gate.
+    private func performNOOP() async throws -> Bool {
+        // When the question went, not when it was answered: mail that lands
+        // while it is out may or may not be in the answer.
+        let asked = now()
+        let result = try await performCommand("NOOP")
+        guard result.status == .ok else { return false }
+        if selectedMailbox != nil { newsAskedAt = asked }
+        return true
     }
 
     // MARK: - Mailboxes
@@ -375,37 +408,46 @@ actor IMAPClient {
     /// SELECT is where a renumbering shows: it is the first thing sent after
     /// the reconnect that finds it. A refused SELECT sends nothing either,
     /// and leaves the connection up with nothing selected.
+    ///
+    /// `catchingUp` is for a command that lists what the mailbox holds, a
+    /// SEARCH: the mailbox's news is asked for first, in the same hold,
+    /// unless the session has it already. See `catchUp`.
     private func inMailbox<T>(_ mailbox: String, validity: UInt32?, _ priority: Priority,
+                              catchingUp freshness: Freshness? = nil,
                               _ body: (IMAPMailboxState) async throws -> T) async throws -> T {
         try await beginExchange(priority)
         defer { endExchange() }
-        let state = try await select(mailbox)
+        let (state, selected) = try await select(mailbox)
         if let validity, state.uidValidity != validity {
             Diagnostics.log(.note, "UIDVALIDITY-CHANGED folder=\(mailbox) "
                             + "expected=\(validity) now=\(state.uidValidity) nothing-sent")
             throw MailError.cannotConnect
         }
+        if let freshness { try await catchUp(freshness, selected: selected) }
         return try await body(state)
     }
 
     /// `mailbox`'s state, SELECTing it first unless it is already the one
-    /// selected on this connection. The caller holds the gate.
-    private func select(_ mailbox: String) async throws -> IMAPMailboxState {
-        if selectedMailbox == mailbox, let state = mailboxState { return state }
+    /// selected on this connection, and whether a SELECT went. The caller
+    /// holds the gate.
+    private func select(_ mailbox: String) async throws -> (state: IMAPMailboxState, selected: Bool) {
+        if selectedMailbox == mailbox, let state = mailboxState { return (state, false) }
 
+        // Nothing is selected from the moment the SELECT goes, as RFC 3501
+        // §6.3.1 has it: a refused SELECT leaves the server with NOTHING
+        // selected, not with the mailbox that was open before. Keeping the
+        // old name skipped the SELECT the next time that mailbox was wanted,
+        // and every UID command after it was answered BAD on a connection
+        // that was still up, so no retry ever fired: one label deleted in
+        // another client, tapped once, and the folder he came from said
+        // "Can't connect" until the socket happened to drop. Cleared before
+        // rather than after, the SELECT's own EXISTS is not taken for news
+        // of the mailbox it leaves (`noteSizeChanges`).
+        selectedMailbox = nil
+        mailboxState = nil
+        let asked = now()
         let result = try await performCommand("SELECT \(Self.mailboxArgument(mailbox))")
-        guard result.status == .ok else {
-            // A refused SELECT leaves the server with NOTHING selected, not
-            // with the mailbox that was open before. Keeping the old name
-            // skipped the SELECT the next time that mailbox was wanted, and
-            // every UID command after it was answered BAD on a connection
-            // that was still up, so no retry ever fired: one label deleted
-            // in another client, tapped once, and the folder he came from
-            // said "Can't connect" until the socket happened to drop.
-            selectedMailbox = nil
-            mailboxState = nil
-            throw MailError.cannotConnect
-        }
+        guard result.status == .ok else { throw MailError.cannotConnect }
 
         let parsed = IMAPParser.parseSelect(result.untagged)
         // READ-ONLY normally arrives as a response code on the *tagged* OK
@@ -428,7 +470,112 @@ actor IMAPClient {
         selectedMailbox = mailbox
         mailboxState = state
         reportedStates[mailbox] = state
-        return state
+        newsAskedAt = asked
+        typingAskedAt = nil
+        return (state, true)
+    }
+
+    // MARK: - News of the selected mailbox
+
+    /// How recently the session must have asked for the selected mailbox's
+    /// news for a SEARCH in it to go without asking again. See `catchUp`.
+    enum Freshness {
+        /// A listing he asked for: Refresh, the folder opened again while it
+        /// is open, a date jump, the reload after a Delete or a draft. The
+        /// question has to have gone as he asked, so only one a moment old
+        /// (`moment`) will do: the warm-up's NOOP as he picks the iPad up,
+        /// before the Inbox is fetched again; a write's probe, before the
+        /// list is fetched again after a Delete from Edit mode; the SELECT
+        /// of a folder he opened and at once refreshed. Any longer and a
+        /// second Refresh tapped while he waits for a letter would not ask,
+        /// and would not show it.
+        case asked
+        /// A search as he types. The letter he is looking for came before he
+        /// started typing, so the first search of a burst asks, as a listing
+        /// does, and the rest ride on the answer it had while that is under
+        /// `burst` old: at a key a second, a NOOP on every search would add
+        /// a round trip to each. Only a search starts a burst. Measured from
+        /// the Refresh or the folder's SELECT, a search five seconds after
+        /// either would not ask, and would not find a letter that came in
+        /// between. A letter that lands while he types is found by the first
+        /// search once the burst's answer is ten seconds old, or by the next
+        /// Refresh.
+        case typing
+
+        /// How old a question may be and still count as asked now.
+        static let moment: TimeInterval = 2
+        /// How long the searches of a burst go on its first one's answer.
+        static let burst: TimeInterval = 10
+    }
+
+    /// Asks the server for the selected mailbox's news, with a NOOP, unless
+    /// the session has asked within `freshness`. The caller holds the gate,
+    /// has just selected the mailbox, and sends a SEARCH next; `selected`
+    /// says a SELECT went for it in this hold.
+    ///
+    /// A SEARCH answers from the session's view of the mailbox, and that
+    /// view takes in new mail only once the server has announced it to the
+    /// session with EXISTS. Gmail, like most servers, announces it when it
+    /// chooses: in the answer to a SELECT or a NOOP, or riding on some later
+    /// command. A mailbox already selected is not SELECTed again, so nothing
+    /// asked. On the iPad (B-045) a Refresh of the open Inbox SEARCHed and
+    /// listed the seventeen letters the session knew of; Gmail announced the
+    /// three that had arrived only during the page's FETCH, after the
+    /// SEARCH, and the list showed them at the second Refresh. The NOOP has
+    /// the server say what it has before the SEARCH, in the same hold, so no
+    /// other command comes between them.
+    ///
+    /// The same answer carries EXPUNGE for a letter removed from another
+    /// client, so the SEARCH stops listing that too.
+    ///
+    /// Not before every SEARCH. A SELECT in the same hold has asked, however
+    /// long its answer took, and nothing can have come between it and the
+    /// SEARCH; timed from when it went, a SELECT of All Mail answered slowly
+    /// was followed by a NOOP it had made pointless. A NOOP a moment before
+    /// has asked too: this one, the warm-up's or a write's probe
+    /// (`performNOOP`). A NOOP refused leaves the SEARCH to go as it did
+    /// before any of this; a lost connection fails the call, as any command
+    /// does, and a read's retry SELECTs the mailbox afresh.
+    private func catchUp(_ freshness: Freshness, selected: Bool) async throws {
+        let answered: Date?
+        if selected {
+            answered = newsAskedAt
+        } else if case .typing = freshness, let burst = typingAskedAt,
+                  isRecent(burst, within: Freshness.burst) {
+            return
+        } else if let asked = newsAskedAt, isRecent(asked, within: Freshness.moment) {
+            answered = asked
+        } else {
+            let asked = now()
+            answered = try await performNOOP() ? asked : nil
+        }
+        if case .typing = freshness { typingAskedAt = answered }
+    }
+
+    /// Whether `asked` was less than `seconds` ago. A time after now is not
+    /// recent: the clock has been set back since, by the network's time
+    /// after a flat battery or by hand, and taken as recent it would skip
+    /// every question until the clock caught up, an hour of Refreshes that
+    /// missed new mail for an hour's step.
+    private func isRecent(_ asked: Date, within seconds: TimeInterval) -> Bool {
+        let age = now().timeIntervalSince(asked)
+        return age >= 0 && age < seconds
+    }
+
+    /// Keeps the selected mailbox's message count as the server last left
+    /// it. EXISTS and EXPUNGE can ride on any answer, a NOOP's above all,
+    /// and the count is what the connection log's SESSION-IDENT line reports
+    /// beside the listing's, which is how a listing that missed mail shows.
+    private func noteSizeChanges(_ result: IMAPCommandResult) {
+        guard let mailbox = selectedMailbox, var state = mailboxState,
+              let count = IMAPParser.messageCount(after: result.untagged, from: state.exists) else { return }
+        // Written back whole, not as `reportedStates[mailbox]?.exists = count`.
+        // A change made in place inside a Dictionary compiles, with this
+        // toolchain, to a coroutine that needs `swift_coroFrameAlloc`, which
+        // the iOS 16 runtime does not have, and the device link fails.
+        state.exists = count
+        mailboxState = state
+        reportedStates[mailbox] = state
     }
 
     // MARK: - Searching
@@ -442,6 +589,13 @@ actor IMAPClient {
     /// empty result is indistinguishable in the interface from "this folder
     /// has no mail", and quietly showing an empty inbox is worse than
     /// saying so.
+    ///
+    /// Not behind a NOOP for the mailbox's news (`catchUp`). Its one caller
+    /// is a page whose snapshot has gone, cut strictly below a letter
+    /// already on screen: mail the NOOP would announce comes above that,
+    /// and a letter removed elsewhere is left to the next Refresh, as it is
+    /// on a page walked from a snapshot. So it asks for nothing, like any
+    /// page, and a round trip on it would buy nothing.
     func search(_ criteria: String, in mailbox: String) async throws -> IMAPMailboxUIDs {
         try await inMailbox(mailbox, validity: nil, .background) { state in
             guard let uids = try await self.performSearch(criteria) else {
@@ -491,6 +645,13 @@ actor IMAPClient {
     /// and the connection stays up. Cancellation is reported whatever else
     /// went wrong on the way, a refusal or a lost connection included,
     /// because nobody is waiting to hear about either.
+    ///
+    /// A mailbox the connection already has open is asked for its news
+    /// first, as a keystroke's search asks (`Freshness.typing`), so a letter
+    /// that arrived after it was opened is found. That is the one mailbox of
+    /// a Current Mailbox search, usually, and the Trash that an "All
+    /// Mailboxes" search starts in when the Trash is the folder he has open;
+    /// every other mailbox is SELECTed, which asks.
     func search(_ criteria: String, across targets: [IMAPSearchTarget]) async throws -> [IMAPMailboxSearch] {
         try await beginExchange(.background)
         var holding = true
@@ -512,7 +673,9 @@ actor IMAPClient {
 
                 var hits: IMAPMailboxUIDs?
                 do {
-                    let state = try await select(target.mailbox)
+                    let (state, selected) = try await select(target.mailbox)
+                    try Task.checkCancellation()
+                    try await catchUp(.typing, selected: selected)
                     try Task.checkCancellation()
                     if let uids = try await performSearch(criteria) {
                         hits = IMAPMailboxUIDs(validity: state.uidValidity, uids: uids)
@@ -620,10 +783,16 @@ actor IMAPClient {
     ///
     /// A refused SEARCH is thrown, as in `search(_:in:)`. A refused FETCH is
     /// thrown only if nothing at all came back, as in `fetchSummaries`.
+    ///
+    /// When the mailbox is already open on the connection, which is every
+    /// Refresh, every reload from the top after a Delete, a Move or a
+    /// draft, and a folder opened that other work left selected, the server
+    /// is asked for its news first, in the same hold, or the SEARCHes would
+    /// not see mail it had not yet announced (B-045, `catchUp`).
     func page(in mailbox: String, searching criteria: [String],
               picking pick: @Sendable ([[UInt32]]) -> [UInt32])
         async throws -> (found: [IMAPMailboxUIDs], summaries: [IMAPFetchResult]) {
-        try await inMailbox(mailbox, validity: nil, .interactive) { state in
+        try await inMailbox(mailbox, validity: nil, .interactive, catchingUp: .asked) { state in
             var found: [IMAPMailboxUIDs] = []
             for criterion in criteria {
                 guard let uids = try await self.performSearch(criterion) else {
@@ -1049,7 +1218,9 @@ actor IMAPClient {
             // call site cannot forget it. LOGIN's password is stripped there.
             Diagnostics.log(.sent, "\(tag) \(command)")
             try await conn.writeLine("\(tag) \(command)")
-            return try await awaitResult(tag: tag, continuationPayload: continuationPayload)
+            let result = try await awaitResult(tag: tag, continuationPayload: continuationPayload)
+            noteSizeChanges(result)
+            return result
         } catch let error as MailError {
             throw error
         } catch {

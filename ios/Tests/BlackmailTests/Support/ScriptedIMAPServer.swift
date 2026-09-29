@@ -44,6 +44,10 @@ import Foundation
 /// - Trash and Spam are exclusive: moving a letter into either takes it out
 ///   of everything else. Moving out of All Mail keeps it in All Mail.
 /// - A UID command with no mailbox selected on that connection is BAD.
+/// - A connection's SEARCH and FETCH answer from what it has been told of
+///   the mailbox it has selected. Mail that `arrive`s is not in them until
+///   an EXISTS has announced it, on a NOOP or riding on a UID FETCH, and a
+///   letter taken out elsewhere stays in them until a NOOP's EXPUNGE.
 ///
 /// Not modelled: Starred follows `\Flagged` on Gmail, here it is fixed at
 /// delivery; an APPENDed letter is described as one text part whatever its
@@ -458,6 +462,10 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Adds a letter to each of `mailboxes` and returns its UID in each.
     /// A name that is not a selectable mailbox here is left out.
+    ///
+    /// Seen at once by every connection, the ones with the mailbox already
+    /// selected included, as if each had been told of it. For a letter that
+    /// comes in the way Gmail tells of one, see `arrive`.
     @discardableResult
     func deliver(_ letter: Letter, to mailboxes: [String]) -> [String: UInt32] {
         locked { s in
@@ -467,6 +475,52 @@ final class ScriptedIMAPServer: @unchecked Sendable {
                 if let uid = s.file(key, in: name) { out[name] = uid }
             }
             return out
+        }
+    }
+
+    /// Adds a letter to each of `mailboxes`, as mail reaches Gmail from
+    /// outside a session, and returns its UID in each.
+    ///
+    /// A connection that has one of them selected does not see it, in a
+    /// SEARCH or a FETCH, until it has been told with an EXISTS. It is told
+    /// where Gmail was seen to tell (B-045): in the answer to a NOOP, and at
+    /// the end of the answer to a UID FETCH, but never in a SEARCH's. A
+    /// connection that SELECTs the mailbox afterwards sees it at once, and
+    /// STATUS counts it at once, as Gmail's did.
+    @discardableResult
+    func arrive(_ letter: Letter, in mailboxes: [String]) -> [String: UInt32] {
+        locked { s in
+            let key = s.store(letter)
+            var out: [String: UInt32] = [:]
+            for name in mailboxes.map(Self.canonical) {
+                guard let uid = s.file(key, in: name) else { continue }
+                out[name] = uid
+                for id in s.sessions.keys where s.sessions[id]?.selected == name {
+                    s.sessions[id]?.unannounced.insert(uid)
+                }
+            }
+            return out
+        }
+    }
+
+    /// Takes the letter at `uid` out of `mailbox`, as another client does
+    /// when it archives or bins it.
+    ///
+    /// A connection that has the mailbox selected goes on seeing it, in a
+    /// SEARCH and a FETCH, as it was, until it has been told with an
+    /// EXPUNGE: RFC 3501 does not let a letter leave a session's view
+    /// unannounced. It is told in the answer to a NOOP, the command RFC 3501
+    /// gives a client to poll for exactly this, and nowhere else here. A
+    /// connection that SELECTs the mailbox afterwards no longer sees it.
+    func removeElsewhere(uid: UInt32, from mailbox: String) {
+        locked { s in
+            let name = Self.canonical(mailbox)
+            guard let key = s.folders[name]?.keys[uid], var stored = s.letters[key] else { return }
+            stored.mailboxes.remove(name)
+            for id in s.sessions.keys where s.sessions[id]?.selected == name {
+                s.sessions[id]?.unexpunged[uid] = (key, stored)
+            }
+            s.unfile(uid, from: name)
         }
     }
 
@@ -674,6 +728,12 @@ private extension ScriptedIMAPServer {
         var authenticated = false
         var selected: String?
         var readOnly = false
+        /// Letters `arrive` has filed in the selected mailbox that this
+        /// connection has not been told of.
+        var unannounced: Set<UInt32> = []
+        /// Letters `removeElsewhere` has taken out of the selected mailbox
+        /// that this connection has not been told of, as they were.
+        var unexpunged: [UInt32: (key: Int, stored: Stored)] = [:]
         /// Bytes written but not yet a whole command.
         var inbound = Data()
         /// An APPEND waiting for the literal it announced.
@@ -770,6 +830,49 @@ private extension ScriptedIMAPServer.State {
         folders[name] = folder
         letters[key]?.mailboxes.remove(name)
         if letters[key]?.mailboxes.isEmpty == true { letters[key] = nil }
+    }
+
+    /// The UIDs of `name` as connection `id` has been told of them,
+    /// ascending: what `arrive` has filed there that it has not been told
+    /// of left out, and what `removeElsewhere` has taken out that it has not
+    /// been told of left in. Its sequence numbers count along this.
+    func view(of name: String, on id: Int) -> [UInt32] {
+        guard let folder = folders[name] else { return [] }
+        guard let session = sessions[id], session.selected == name,
+              !session.unannounced.isEmpty || !session.unexpunged.isEmpty else { return folder.uids }
+        return (folder.uids.filter { !session.unannounced.contains($0) }
+                + session.unexpunged.keys).sorted()
+    }
+
+    /// The letter at `uid` in `name` as connection `id` sees it, one taken
+    /// out elsewhere included.
+    func letter(_ uid: UInt32, in name: String, on id: Int) -> (key: Int, stored: Server.Stored)? {
+        if let key = folders[name]?.keys[uid] { return letters[key].map { (key, $0) } }
+        return sessions[id]?.unexpunged[uid]
+    }
+
+    /// Tells connection `id` what has changed in its mailbox since it was
+    /// last told: an EXPUNGE for each letter taken out elsewhere, from the
+    /// highest sequence number down so that each is still right when the
+    /// client applies it, when `expunging`, and then one EXISTS for
+    /// everything that has arrived.
+    mutating func announce(on id: Int, expunging: Bool, into r: inout Server.Response) {
+        guard var session = sessions[id], let name = session.selected,
+              let folder = folders[name] else { return }
+        if expunging, !session.unexpunged.isEmpty {
+            var seen = view(of: name, on: id)
+            for uid in session.unexpunged.keys.sorted(by: >) {
+                guard let index = seen.firstIndex(of: uid) else { continue }
+                r.untagged("\(index + 1) EXPUNGE")
+                seen.remove(at: index)
+            }
+            session.unexpunged = [:]
+        }
+        if !session.unannounced.isEmpty {
+            session.unannounced = []
+            r.untagged("\(folder.uids.count + session.unexpunged.count) EXISTS")
+        }
+        sessions[id] = session
     }
 
     /// Gmail's labels for a letter seen from `selected`: every other mailbox
@@ -872,6 +975,7 @@ private extension ScriptedIMAPServer.State {
                                                                : Server.preLoginCapabilities))
             r.ok("Thats all she wrote! (Success)")
         case "NOOP":
+            announce(on: id, expunging: true, into: &r)
             r.ok("Success")
         case "LOGOUT":
             r.untagged("BYE LOGOUT Requested")
@@ -900,8 +1004,8 @@ private extension ScriptedIMAPServer.State {
                 return
             }
             switch verb {
-            case "UID SEARCH": search(args, in: selected, into: &r)
-            case "UID FETCH":  fetch(args, in: selected, into: &r)
+            case "UID SEARCH": search(args, in: selected, on: id, into: &r)
+            case "UID FETCH":  fetch(args, in: selected, on: id, into: &r)
             case "UID STORE":  storeFlags(args, in: selected, readOnly: session.readOnly, into: &r)
             case "UID MOVE":   copy(args, from: selected, removing: true, into: &r)
             case "UID COPY":   copy(args, from: selected, removing: false, into: &r)
@@ -991,6 +1095,10 @@ private extension ScriptedIMAPServer.State {
             return
         }
         let name = Server.canonical(raw)
+        // Whatever it was told of the mailbox it leaves goes with it, and
+        // the one it opens it sees as it is.
+        sessions[id]?.unannounced = []
+        sessions[id]?.unexpunged = [:]
         guard let folder = folders[name], folder.selectable, !refusedMailboxes.contains(name) else {
             // RFC 3501: a failed SELECT leaves NO mailbox selected, not the
             // old one, which is exactly the state a stale cache gets wrong.
@@ -1011,23 +1119,30 @@ private extension ScriptedIMAPServer.State {
         r.ok("[\(readOnly ? "READ-ONLY" : "READ-WRITE")] \(name) selected. (Success)")
     }
 
-    func search(_ args: [Server.Token], in name: String, into r: inout Server.Response) {
+    /// Over what the connection has been told of, and it is told nothing
+    /// here: Gmail answered the SEARCH on the iPad with the letters it had
+    /// announced and announced the rest on the FETCH after it (B-045).
+    func search(_ args: [Server.Token], in name: String, on id: Int, into r: inout Server.Response) {
         var keys = args[...]
         if keys.first?.text?.uppercased() == "CHARSET" { keys = keys.dropFirst(2) }
         guard let folder = folders[name], let key = Server.SearchKey.parse(Array(keys)) else {
             r.bad("Could not parse command")
             return
         }
-        let hits = folder.uids.filter { uid in
-            guard let stored = folder.keys[uid].flatMap({ letters[$0] }) else { return false }
+        let seen = view(of: name, on: id)
+        let hits = seen.filter { uid in
+            guard let stored = letter(uid, in: name, on: id)?.stored else { return false }
             return key.matches(stored, uid: uid, deleted: folder.deleted.contains(uid),
-                               highest: folder.highestUID())
+                               highest: seen.last ?? 0)
         }
         r.untagged("SEARCH" + hits.map { " \($0)" }.joined())
         r.ok("SEARCH completed (Success)")
     }
 
-    mutating func fetch(_ args: [Server.Token], in name: String, into r: inout Server.Response) {
+    /// Over what the connection has been told of, and then tells it of
+    /// what has arrived, as Gmail did on the iPad (B-045).
+    mutating func fetch(_ args: [Server.Token], in name: String, on id: Int,
+                        into r: inout Server.Response) {
         guard args.count == 2, let setText = args[0].text, let folder = folders[name],
               let set = Server.UIDSet(setText) else {
             r.bad("Could not parse command")
@@ -1045,9 +1160,11 @@ private extension ScriptedIMAPServer.State {
         // UID FETCH always answers with the UID, asked for or not.
         if !items.contains(.uid) { items.insert(.uid, at: 0) }
 
-        for uid in folder.uids where set.contains(uid, highest: folder.highestUID()) {
-            guard let key = folder.keys[uid], var stored = letters[key],
-                  let seq = folder.sequenceNumber(of: uid) else { continue }
+        let seen = view(of: name, on: id)
+        for (position, uid) in seen.enumerated() where set.contains(uid, highest: seen.last ?? 0) {
+            guard let (key, found) = letter(uid, in: name, on: id) else { continue }
+            var stored = found
+            let seq = position + 1
             var wire = Server.Wire()
             wire.text("* \(seq) FETCH (")
             for (index, item) in items.enumerated() {
@@ -1092,9 +1209,12 @@ private extension ScriptedIMAPServer.State {
                 }
             }
             wire.text(")\r\n")
-            letters[key] = stored
+            // A letter taken out elsewhere is served as it was, and not
+            // kept: it is no longer in this mailbox to be marked.
+            if folder.keys[uid] != nil { letters[key] = stored }
             r.wire.data.append(wire.data)
         }
+        announce(on: id, expunging: false, into: &r)
         r.ok("Success")
     }
 

@@ -454,6 +454,17 @@ this host. Ordered by value, not by size.
       taking it along, and nothing is left held on screen. Tap Cancel on a
       letter with text, and with that sheet still open tap Send: the Cancel
       sheet goes and the letter is sent once.
+- [ ] **B-045, new mail in the open folder.** With the Inbox open, send
+      a letter to himself, give it a few seconds to arrive, and tap Refresh
+      once: it must be at the top after that one Refresh. The connection
+      log should show a `NOOP`, answered with `* n EXISTS`, before the
+      `UID SEARCH`, with n the SEARCH's count of UIDs. SESSION-IDENT's
+      `exists` can still come out one above its `uids` without anything
+      being wrong: a letter that lands after the NOOP is told of on the
+      FETCH, as the iPad's log showed, and the next Refresh lists it. Then
+      search at once for a word from it: it is found, in All Mailboxes and
+      in Current Mailbox. Archive a letter in the Inbox from Gmail on the
+      web or the phone, and tap Refresh: it leaves the list.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
