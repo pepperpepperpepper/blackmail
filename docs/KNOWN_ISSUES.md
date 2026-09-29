@@ -2129,3 +2129,96 @@ tapped a third of a second apart drew only the last. The list's times read
 a letter of a megabyte, a conversation of twenty letters, a body with
 backslashes or `</script>` in it, a change of time zone or 24-hour clock,
 and the fill's own time on the iPad.
+
+## B-046 — FIXED 2026-09-29, not yet seen on the iPad. A reopened draft carried the signature's logo as a file
+
+**Found on the iPad, 2026-09-29**, on carlo's mailbox, the test account,
+build 3fc7b91. He wrote a new letter, with the signature the composer puts
+in, whose logo is an inline picture; tapped Cancel, then Save Draft; opened
+Drafts and tapped the draft. The composer listed "logo.png - 8 KB" as an
+attachment row with Remove, though he had attached nothing. He tapped Send,
+and the letter that arrived showed the logo as a file, a paperclip in the
+list and a file row in the header, besides the one in the signature. The
+same letter sent fresh was 18,134 bytes; sent from the reopened draft,
+28,883, about one more base64 copy of the logo.
+
+**What it was.** A saved draft is stored as the letter it will become, so
+it carries the signature's logo as an inline part under `cid:sig-logo`,
+which is what makes its markup show the picture. `loadDraft` turned every
+part of the stored letter into an attachment, that one included, and
+`saveDraft` and `send` then added the logo from `SignatureImages` again,
+inline, as they always do; the reopened copy went beside it as an ordinary
+file. Each further save and reopen added one more. On the scripted server
+the stored draft holds one logo after the first save, two after the
+second and three after the third, and the composer lists one, two, then
+three "logo.png" rows.
+
+**The fix.** Reopening leaves out any part whose Content-ID is one of the
+signature's pictures (`Draft.reopening`, `SignatureImages.contains`).
+Saving and sending add them afresh as before, so the letter he sends from
+a reopened draft is the one he would have sent fresh: the logo once,
+inline, and his own files once each. Matched by Content-ID, the identity
+the builder writes them under, rather than by file name, which a photo
+called "logo.png" could share, and rather than by leaving out every part
+with a Content-ID.
+
+**A picture in the body of a draft begun in another client** still comes
+back as a file row and goes as a file. The composer is plain text with an
+HTML twin made at send (D-013), so there is nowhere in the body to keep
+it. As a file it still goes with the letter, where he can see it and
+remove it; left out, the letter would go without it and nothing on the
+sending screen would say so.
+
+**Not undone:** a draft that was reopened and saved again under the old
+build already holds the extra copies as ordinary files with no Content-ID,
+which nothing tells apart from a file he attached. They reopen as
+"logo.png" rows he can Remove. Only drafts on the test account can have
+them.
+
+**Tested** in `DraftSignatureImagesTests`, over the scripted server, with a
+submission server on port 465 that keeps what it is sent. A new letter
+with the signature and a photo, saved and reopened, lists only the photo.
+Sent, it carries the logo once, inline, and the photo once: the same parts
+as the same letter sent fresh. Saved and reopened three times, the stored
+draft holds one logo and one photo every time, and Drafts one copy. Each
+fails with the fix reverted. A draft begun elsewhere, with a picture in
+its body and a PDF, reopens and sends with both as files.
+
+**Not yet confirmed on the iPad with the fix.** The TODO says what to look
+at.
+
+## B-047 — FIXED 2026-09-29, not yet seen on the iPad. The Inbox was called "INBOX"
+
+**Found on the iPad, 2026-09-29**, on carlo's mailbox, the test account,
+build 3fc7b91. The sidebar's first row read "INBOX", and after he tapped
+it the list's title read "INBOX" too, while at launch the same list is
+titled "Inbox". Mail calls it "Inbox" everywhere, and he knows Mail.
+
+**What it was.** The screens showed a folder's `name`, which for a listed
+folder is the last part of its IMAP name, and IMAP names the inbox
+"INBOX". The list opened at launch, before the server has been heard
+from, is made by hand as "Inbox", so the same folder had two names
+depending on how he had reached it.
+
+**The fix.** `Mailbox.displayName`: "Inbox" for the inbox, however the
+server spells it, and the folder's own name for everything else, so
+Gmail's "Sent Mail", "All Mail", "Starred" and the rest read as before.
+The sidebar row and what VoiceOver reads for it (`Mailbox.accessibilityLabel`),
+the list's title and the Move sheet show it. The id, which is what goes on
+the wire, and the name stay the server's. The Inbox the list opens on at
+launch is one value, `Mailbox.inboxBeforeListing`, rather than a copy made
+by hand in each of the two places that need it. Search's scope buttons say
+"Current Mailbox" and "All Mailboxes", and the reading pane names no
+folder, so neither changed.
+
+**Tested** in `MailboxNameTests`: the rule for each spelling of the inbox,
+the launch folder and the listed one called the same, what VoiceOver reads
+for a row, and the folders the scripted server lists, the inbox "Inbox"
+with its id and name still "INBOX" and the rest as LIST names them. Those
+about the inbox fail with the rule reverted to the folder's own name. The
+screens themselves are UIKit and never run on this host, so one test reads
+their source: no line in `UI/` shows a folder's `name`, and the sidebar,
+the list and the Move sheet each show `displayName`. It fails with any one
+of the four places put back to `name`.
+
+**Not yet confirmed on the iPad with the fix.**

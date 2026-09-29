@@ -343,6 +343,18 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.timeout = newValue } }
     }
 
+    /// `timeout` for connection `id` alone, every other connection keeping
+    /// the one they share: a socket that stalls cut off quickly, and the
+    /// connection that replaces it given the usual deadline, however long
+    /// the test then takes to let its replies go.
+    func setTimeout(_ timeout: Duration, on id: Int) {
+        locked { $0.timeouts[id] = timeout }
+    }
+
+    fileprivate func timeout(on id: Int) -> Duration {
+        locked { $0.timeouts[id] ?? $0.timeout }
+    }
+
     /// The deadline for the reply to an upload (`ReplyWait.afterUpload`), in
     /// place of `TLSConnection`'s ten minutes.
     var uploadReplyTimeout: Duration {
@@ -406,6 +418,11 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Connections that got as far as `open()`, refused ones excluded.
     var connectionsOpened: Int { locked { $0.connectionsOpened } }
+
+    /// Connections the client has asked `transportFactory` for, counted as
+    /// it asks, so one whose handshake `holdHandshakes()` is holding counts
+    /// too, as `connectionsOpened` does not.
+    var connectionsBegun: Int { locked { $0.made.count } }
 
     /// Transports made by `transportFactory` that still exist. Once the
     /// client has let go of one, only something left waiting on it can be
@@ -702,6 +719,7 @@ private extension ScriptedIMAPServer {
         var refusedMailboxes: Set<String> = []
         var passwordRevoked = false
         var timeout: Duration = .seconds(1)
+        var timeouts: [Int: Duration] = [:]
         var uploadReplyTimeout: Duration = .seconds(5)
         var uplinkDelay: Duration = .zero
         var handshakeStalls = false
@@ -709,7 +727,8 @@ private extension ScriptedIMAPServer {
         var withheldCapabilities: Set<String> = []
         var held: Set<String> = []
         var transports: [Int: Server.WeakTransport] = [:]
-        /// Every transport ever made, for `transportsInMemory`.
+        /// Every transport ever made, for `transportsInMemory` and
+        /// `connectionsBegun`.
         var made: [Server.WeakTransport] = []
         var violations: [String] = []
 
@@ -1854,7 +1873,7 @@ actor ScriptedTransport: LinkTransport {
         self.connection = server.newConnectionID()
     }
 
-    var ordinaryDeadline: TimeInterval { server.timeout.timeInterval }
+    var ordinaryDeadline: TimeInterval { server.timeout(on: connection).timeInterval }
     var uploadReplyDeadline: TimeInterval { server.uploadReplyTimeout.timeInterval }
 
     /// `LinkTransport`'s write, watched. A write while the reply to the

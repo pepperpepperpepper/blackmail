@@ -132,24 +132,37 @@ final class ComingBackTests: XCTestCase {
     /// network dropped it while the iPad slept: the warm-up's NOOP gets no
     /// answer and is cut off at the read deadline, and the Flag he made
     /// meanwhile still lands, once, on the new connection.
+    ///
+    /// The short deadline is the stalled connection's alone. The one that
+    /// replaces it used to be read under it too, with the Flag's own NOOP
+    /// held until the test next looked, and on a busy machine that could
+    /// take longer than 40 ms: the probe was cut off, and the Flag with it,
+    /// since a write is never sent twice. The new connection now has the
+    /// usual deadline and waits at its handshake until the NOOPs are
+    /// answered again, so however late the Flag is made or the test looks,
+    /// the Flag waits for that connection and sends its probe on it.
     func testAFlagMadeWhileTheWarmUpNOOPStallsOnAHalfOpenSocketStillLands() async throws {
         let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
         let letter = rows[3]
         XCTAssertFalse(letter.isFlagged)
         clock.advance(by: 91)
-        server.timeout = .milliseconds(40)
+        server.setTimeout(.milliseconds(40), on: 1)
         server.clearLog()
 
         server.holdReplies(to: "NOOP")
+        server.holdHandshakes()
         let warm = Task { await repository.warmUp() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
         let flagged = Task {
             try await repository.setFlagged(true, id: letter.id, mailboxID: letter.mailboxID)
         }
         try await until { await repository.waitingForExchange == 1 }
-        try await until { self.server.log.contains { $0.verb == "LOGIN" } }
+        // Begun only once the stalled NOOP has been cut off and its
+        // connection let go of, so nothing on that one can be answered now.
+        try await until { self.server.connectionsBegun == 2 }
         await server.releaseReplies(to: "NOOP")
+        await server.releaseHandshakes()
 
         try await finishing { try await flagged.value }
         await warm.value

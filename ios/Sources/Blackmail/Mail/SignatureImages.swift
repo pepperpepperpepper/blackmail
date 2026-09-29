@@ -52,11 +52,28 @@ enum SignatureImages {
     /// is the thing this exists to replace.
     static func parts(defaults: UserDefaults = .standard)
         -> [(contentID: String, filename: String, mimeType: String, data: Data)] {
-        load(defaults: defaults).compactMap { img in
+        parts(of: load(defaults: defaults))
+    }
+
+    static func parts(of images: [InlineImage])
+        -> [(contentID: String, filename: String, mimeType: String, data: Data)] {
+        images.compactMap { img in
             guard let data = Data(base64Encoded: img.dataBase64), !data.isEmpty else {
                 return nil
             }
             return (img.contentID, img.filename, img.mimeType, data)
         }
+    }
+
+    /// Whether a part read back out of a letter is one of these pictures.
+    ///
+    /// By `Content-ID`, which is the identity the builder writes them under
+    /// and the one thing a part keeps whatever it is called: the file name
+    /// is shared with any photo called "logo.png", and the bytes are not
+    /// to hand until the part is fetched. Compared as the reading side
+    /// spells it, brackets and a `cid:` prefix stripped.
+    static func contains(_ attachment: Attachment, in images: [InlineImage]) -> Bool {
+        guard let id = attachment.contentID else { return false }
+        return images.contains { MIMEDecoder.strippedContentID($0.contentID) == id }
     }
 }

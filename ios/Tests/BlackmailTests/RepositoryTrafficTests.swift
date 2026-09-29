@@ -165,6 +165,14 @@ final class RepositoryTrafficTests: XCTestCase {
     /// after a failed one for him trying again, so the same wrong password
     /// would go a second time, and an unreachable server would cost a
     /// second connect timeout, thirty seconds each on the iPad.
+    ///
+    /// Both calls are made at launch, and on the iPad the attempt they share
+    /// takes a TLS handshake and more, so the second is always waiting for it
+    /// before it fails. Here the server answers at once, and a busy machine
+    /// could let the first call's attempt fail before the second had asked:
+    /// that second call is then a new attempt by the client's rule, and the
+    /// test failed now and then for it. So the handshake is held until both
+    /// are waiting, as they are on the iPad.
     func testALaunchThatCannotConnectTriesOnceAndLeavesTheCountsUnasked() async throws {
         let failures: [(label: String, password: String?, silent: Bool)] = [
             ("refused password", "not-the-password", false),
@@ -172,8 +180,8 @@ final class RepositoryTrafficTests: XCTestCase {
         ]
         for (label, password, silent) in failures {
             server = ScriptedIMAPServer()
-            server.timeout = .milliseconds(20)
             server.isSilent = silent
+            server.holdHandshakes()
             let repository = makeRepository(password: password)
             let sweeps = await SweepCoalescer(held: true) {
                 _ = try? await repository.listMailboxes()
@@ -182,6 +190,12 @@ final class RepositoryTrafficTests: XCTestCase {
             await sweeps.request()
             async let names = try? repository.folders()
             async let firstPage = try? repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+            try await until { await repository.waitingForExchange == 1 }
+            // Short only where the silence is the point: the greeting that
+            // never comes. The refused password's replies come at once, and
+            // a short deadline on them could fire first on a busy machine.
+            if silent { server.timeout = .milliseconds(20) }
+            await server.releaseHandshakes()
             let (folders, rows) = await (names, firstPage)
             await sweeps.release(runningOwed: rows != nil)
             try await finishing { await sweeps.idle() }

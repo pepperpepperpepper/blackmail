@@ -259,7 +259,7 @@ final class MessageListViewController: UITableViewController {
         self.repository = repository
         self.mailbox = mailbox
         super.init(style: .plain)
-        title = mailbox.name
+        title = mailbox.displayName
         letters.changed = { [weak self] in
             self?.regroup()
             self?.updateEmptyState()

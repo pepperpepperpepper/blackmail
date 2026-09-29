@@ -196,7 +196,7 @@ final class MailboxListViewController: UITableViewController {
     /// repaint a cell in place without going through a reload.
     private func configure(_ cell: UITableViewCell, with mailbox: Mailbox) {
         var content = cell.defaultContentConfiguration()
-        content.text = mailbox.name
+        content.text = mailbox.displayName
         content.textProperties.font = Theme.fontMailboxName
         content.textProperties.color = Theme.primaryText
         content.image = UIImage(systemName: icon(for: mailbox.role))
@@ -222,9 +222,7 @@ final class MailboxListViewController: UITableViewController {
         selected.backgroundColor = Theme.selection
         cell.selectedBackgroundView = selected
 
-        cell.accessibilityLabel = mailbox.unreadCount > 0
-            ? "\(mailbox.name), \(mailbox.unreadCount) unread"
-            : mailbox.name
+        cell.accessibilityLabel = mailbox.accessibilityLabel
     }
 
     /// The selected folder STAYS selected. In the reference "Junk" is still

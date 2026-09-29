@@ -18,6 +18,33 @@ struct Mailbox: Identifiable, Hashable {
     enum Role: String, Codable {
         case inbox, sent, drafts, trash, archive, junk
     }
+
+    /// What the screens call the folder: its own name, except the inbox,
+    /// which is "Inbox" whatever the server calls it.
+    ///
+    /// IMAP spells the inbox "INBOX", and the sidebar and the list's title
+    /// used to show it that way, while the list opened at launch, before
+    /// the server has been heard from, said "Inbox" (B-047). Mail says
+    /// "Inbox" everywhere, and he knows Mail. Keyed on the role rather than
+    /// on the spelling, so it covers a server that writes it "Inbox" or
+    /// "inbox" too. `id` and `name` stay the server's: `id` is what goes on
+    /// the wire.
+    var displayName: String { role == .inbox ? "Inbox" : name }
+
+    /// What VoiceOver reads for the folder's row in the sidebar: the name
+    /// the row shows, and the unread count the row shows beside it as a
+    /// bare number.
+    var accessibilityLabel: String {
+        unreadCount > 0 ? "\(displayName), \(unreadCount) unread" : displayName
+    }
+
+    /// The Inbox before LIST has named it: what the message list opens on
+    /// at launch, and what opening the Inbox falls back to while the folder
+    /// pane has nothing listed. Its id is the role word, which
+    /// `IMAPMailRepository` resolves and `firstIndex(matchingMailboxID:)`
+    /// matches against the real "INBOX".
+    static let inboxBeforeListing = Mailbox(id: "inbox", name: "Inbox", unreadCount: 0,
+                                            role: .inbox)
 }
 
 struct MessageSummary: Identifiable, Hashable {
@@ -314,6 +341,49 @@ extension Draft {
         // with a new recipient, and claiming the original as its parent
         // would file it into a thread they have never seen.
         return draft
+    }
+
+    /// A saved draft, read back out of Drafts, as the composer takes it up
+    /// again.
+    ///
+    /// Every part the letter carries comes back as a file row EXCEPT the
+    /// signature's own pictures (B-046). Those are not files he attached:
+    /// saving and sending both add them afresh, inline, from
+    /// `SignatureImages`, so the copy stored with the draft is only there
+    /// to make the stored markup's `cid:` resolve. Taken up as an
+    /// attachment it showed as a "logo.png" row he had never added, went
+    /// out as a second, stapled-on copy of the logo, and was saved again
+    /// with every save, one more copy each time the draft was put down and
+    /// picked up.
+    ///
+    /// Any OTHER inline picture, such as a photograph placed in the body of
+    /// a draft begun in another client, stays a file row. The composer is
+    /// plain text with an HTML twin built at send (D-013), so there is
+    /// nowhere in the body to keep it; as a file it still goes with the
+    /// letter, and he can see it and remove it. Dropping it would send a
+    /// letter that says "here is the photo" without the photo, and nothing
+    /// on the sending screen would say so.
+    static func reopening(_ m: Message,
+                          signatureImages: [SignatureImages.InlineImage]) -> Draft {
+        Draft(to: m.to,
+              cc: m.cc,
+              bcc: m.bcc,
+              subject: m.subject,
+              // `quotableText` rather than `textBody`, so a draft
+              // written in another client as HTML reopens with its
+              // words in it instead of empty.
+              body: m.textBody ?? m.quotableText,
+              attachments: m.attachments
+                  .filter { !SignatureImages.contains($0, in: signatureImages) }
+                  .map {
+                      DraftAttachment(source: .messagePart(messageID: m.id,
+                                                           mailboxID: m.mailboxID,
+                                                           section: $0.id),
+                                      filename: $0.filename,
+                                      mimeType: $0.mimeType,
+                                      size: $0.size)
+                  },
+              savedID: m.id)
     }
 }
 
