@@ -5,7 +5,9 @@
 
 import UIKit
 
-/// The three-pane shell: Mailboxes | message list | message.
+/// The shell: Mailboxes | message list | message, or, if he has chosen two
+/// panes, the Mailboxes and the list taking turns in one column beside the
+/// message (D-015). The view button in the top-left corner switches.
 ///
 /// Not a `UISplitViewController`. That class — and especially its
 /// `.tripleColumn` style — *is* the iPadOS 14 sidebar redesign: adaptive by
@@ -14,10 +16,21 @@ import UIKit
 /// on context. Every one of those is a thing this product exists to prevent.
 /// A plain container with hard constraints does what it is told.
 ///
-/// Nothing here is a navigation stack, and that is the point of three panes
-/// rather than two: there is no back button anywhere, because nothing is ever
-/// covered up. The folder list is always on screen in the same place, so
-/// "where am I" is answered by looking rather than by remembering.
+/// In three panes nothing here is a navigation stack, and that is the point
+/// of three panes rather than two: there is no back button anywhere, because
+/// nothing is ever covered up. The folder list is always on screen in the
+/// same place, so "where am I" is answered by looking rather than by
+/// remembering.
+///
+/// In two panes the left column works as a stack of two, as D-003 laid it
+/// out: the Mailboxes at the root, a folder's list over them, "< Mailboxes"
+/// to go back. It is not a `UINavigationController` push. The list stays in
+/// its own navigation controller in both arrangements and the two
+/// controllers take turns in the column, so a switch moves the list and
+/// never takes its view out of the window. Moved into the Mailboxes' stack
+/// it would leave the window at every switch, and the search field with it,
+/// keyboard and all; and a pushed list's own back button always takes the
+/// corner, which is where the view button has to be in both arrangements.
 final class RootViewController: UIViewController {
 
     private let repository: MailRepository
@@ -33,6 +46,34 @@ final class RootViewController: UIViewController {
     private let divider2 = UIView()
     private var mailboxWidth: NSLayoutConstraint!
     private var listWidth: NSLayoutConstraint!
+    /// The list's left edge: against the Mailboxes' divider in three panes,
+    /// at the screen's edge in two, where it shares the column with them.
+    private var listBesideMailboxes: NSLayoutConstraint!
+    private var listInLeftColumn: NSLayoutConstraint!
+    private var screenWidth: CGFloat = 0
+
+    /// Two panes or three, which of the Mailboxes and the list is in front
+    /// in two, and what each button and tap does to them; see `PaneShell`.
+    /// Launched in what he chose last, and kept at every switch. Made once
+    /// and never again: made afresh, by a return from a while away or
+    /// anything else, it would undo his choice (B-037).
+    private let shell = PaneShell(launching: PaneArrangement.saved)
+    /// The arrangement last laid out, so the layout sweep runs each time
+    /// what is on screen changes: at a switch, and in two panes at
+    /// "< Mailboxes" and at a folder tapped there, whose new list it sees
+    /// before any rows have come. Not when nothing has moved, as at a tap in
+    /// three panes or a return to the list already in front.
+    private var arranged: PaneArrangement?
+
+    /// The view button in the Mailboxes' bar, and the one in the list's bar
+    /// in two panes, with "< Mailboxes" beside it. Two view buttons because
+    /// a bar item's view can be in only one bar, and both bars are there,
+    /// one hidden, in two panes. Both sit first in a bar whose left edge is
+    /// the screen's, so they are in the same place.
+    private var mailboxesViewButton: UIButton!
+    private var listViewButton: UIButton!
+    private var listViewItem: UIBarButtonItem!
+    private var backItem: UIBarButtonItem!
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -107,18 +148,25 @@ final class RootViewController: UIViewController {
             view.addSubview(d)
         }
 
-        let w = UIScreen.main.bounds.width
-        mailboxWidth = mailboxNav.view.widthAnchor.constraint(
-            equalToConstant: Theme.mailboxColumnWidth(forScreenWidth: w))
-        listWidth = listNav.view.widthAnchor.constraint(
-            equalToConstant: Theme.listColumnWidth(forScreenWidth: w))
+        // Sized by `sizeColumns`, for the arrangement he chose.
+        screenWidth = UIScreen.main.bounds.width
+        mailboxWidth = mailboxNav.view.widthAnchor.constraint(equalToConstant: 0)
+        listWidth = listNav.view.widthAnchor.constraint(equalToConstant: 0)
+        listBesideMailboxes = listNav.view.leadingAnchor.constraint(
+            equalTo: divider1.trailingAnchor)
+        listInLeftColumn = listNav.view.leadingAnchor.constraint(equalTo: view.leadingAnchor)
+        sizeColumns(shell.arrangement.panes)
 
+        // Every view keeps a full set of constraints in both arrangements;
+        // only the list's left edge changes. A view with some of its
+        // constraints taken away is ambiguous, which `LayoutAudit` reports
+        // whether or not the view is hidden.
         var constraints: [NSLayoutConstraint] = [
             mailboxNav.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             mailboxWidth,
             divider1.leadingAnchor.constraint(equalTo: mailboxNav.view.trailingAnchor),
             divider1.widthAnchor.constraint(equalToConstant: Theme.paneDividerWidth),
-            listNav.view.leadingAnchor.constraint(equalTo: divider1.trailingAnchor),
+            shell.arrangement.listAtScreenEdge ? listInLeftColumn : listBesideMailboxes,
             listWidth,
             divider2.leadingAnchor.constraint(equalTo: listNav.view.trailingAnchor),
             divider2.widthAnchor.constraint(equalToConstant: Theme.paneDividerWidth),
@@ -132,7 +180,15 @@ final class RootViewController: UIViewController {
         }
         NSLayoutConstraint.activate(constraints)
 
+        mailboxesViewButton = makeViewButton()
+        mailboxList.navigationItem.leftBarButtonItem =
+            UIBarButtonItem(customView: mailboxesViewButton)
+        listViewButton = makeViewButton()
+        listViewItem = UIBarButtonItem(customView: listViewButton)
+        backItem = UIBarButtonItem(customView: makeBackButton())
+
         wireNavigation()
+        arrange(shell.arrangement)
         watchForReturn()
 
         // The folder list only. The Inbox loads itself: the list controller
@@ -205,6 +261,9 @@ final class RootViewController: UIViewController {
             // new, empty list and empty the pane, to land him in the Inbox
             // he was already in.
             mailboxList.select(mailboxID: list.mailboxID)
+            // In front, in two panes: he is back in the Inbox, not in the
+            // folders. Two panes stay two.
+            shell.showList()
             let list = self.list
             Task { @MainActor in
                 await Sitting.refresh(newest: { await list.returnToNewest() },
@@ -213,7 +272,7 @@ final class RootViewController: UIViewController {
         case .openInbox:
             let inbox = mailboxList.mailbox(for: .inbox)
                 ?? .inboxBeforeListing
-            openMailbox(inbox)
+            shell.open(inbox)
             mailboxList.select(mailboxID: inbox.id)
             // The counts once the Inbox's first page has come, and not at
             // all if it could not be fetched: the rule `Sitting.refresh`
@@ -227,8 +286,153 @@ final class RootViewController: UIViewController {
     override func viewWillTransition(to size: CGSize, with c: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: c)
         // Widths follow the screen; order and content never do.
-        mailboxWidth.constant = Theme.mailboxColumnWidth(forScreenWidth: size.width)
-        listWidth.constant = Theme.listColumnWidth(forScreenWidth: size.width)
+        screenWidth = size.width
+        sizeColumns(shell.arrangement.panes)
+    }
+
+    // MARK: - Two panes or three
+
+    private func sizeColumns(_ panes: PaneArrangement.Panes) {
+        let columns = PaneArrangement.columns(panes, screenWidth: screenWidth)
+        mailboxWidth.constant = columns.mailboxes
+        listWidth.constant = columns.list
+    }
+
+    /// Lays the panes out as `panes` says, at once: what `PaneShell` hands
+    /// over after each thing he does.
+    ///
+    /// No animation, deliberately. Animated, the switch would slide the list
+    /// sideways and reflow the letter and every row's text through a quarter
+    /// of a second, all of it moving at once; as it is, there is one step
+    /// and then stillness. Nothing moves up or down either way: the rows are
+    /// a fixed height and the list keeps its scroll offset, so the rows he
+    /// was looking at are the rows he is looking at, a pane further left or
+    /// right.
+    ///
+    /// Hidden, never zero wide: a view with children and no width is the
+    /// B-027 shape `LayoutAudit` hunts.
+    private func arrange(_ panes: PaneArrangement) {
+        sizeColumns(panes.panes)
+        let edge = panes.listAtScreenEdge
+        // Off before on, or for a moment the list would have two left edges.
+        NSLayoutConstraint.deactivate([edge ? listBesideMailboxes : listInLeftColumn])
+        NSLayoutConstraint.activate([edge ? listInLeftColumn : listBesideMailboxes])
+        mailboxNav.view.isHidden = !panes.mailboxesOnScreen
+        listNav.view.isHidden = !panes.listOnScreen
+        divider1.isHidden = !panes.mailboxDividerOnScreen
+        for button in [mailboxesViewButton, listViewButton] {
+            button?.accessibilityLabel = panes.viewButtonLabel
+        }
+        dressList(panes)
+        defer { arranged = panes }
+        guard view.window != nil else { return }
+        UIView.performWithoutAnimation { view.layoutIfNeeded() }
+        if let arranged, arranged != panes { LayoutAudit.panesChanged(to: describe(panes)) }
+    }
+
+    /// The controls `itemsBeforeCalendar` names, in front of the list's
+    /// calendar: in two panes the view button and "< Mailboxes"; in three
+    /// nothing, since the list is in the middle and the corner belongs to
+    /// the Mailboxes' bar. The calendar keeps the list's leading slot in
+    /// both and is never replaced, and Edit and the title are the list's own
+    /// and not touched.
+    private func dressList(_ panes: PaneArrangement) {
+        list.itemsBeforeCalendar = panes.itemsBeforeCalendar.map { item -> UIBarButtonItem in
+            switch item {
+            case .viewButton: return listViewItem
+            case .back: return backItem
+            }
+        }
+    }
+
+    /// The view button (D-015), two panes or three. `sidebar.left`, the
+    /// symbol later iPadOS draws for the same control; which glyph iOS 10
+    /// drew is not known here.
+    private func makeViewButton() -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "sidebar.left",
+                                withConfiguration: UIImage.SymbolConfiguration(
+                                    font: Theme.fontBarButton, scale: .large)),
+                        for: .normal)
+        button.tintColor = Theme.tintBlue
+        // The glyph at the bar's margin, where UIKit puts a leading glyph of
+        // its own, and the rest of the target to the right of it.
+        button.contentHorizontalAlignment = .leading
+        button.addTarget(self, action: #selector(viewButtonTapped), for: .touchUpInside)
+        // Taken only while nothing else is being touched. The switch moves
+        // the list and the letter sideways, and a finger already down on
+        // either would have it moved out from under it.
+        button.isExclusiveTouch = true
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            button.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+        ])
+        return button
+    }
+
+    /// "< Mailboxes", in the list's bar in two panes. Made here, because a
+    /// list that is not pushed gets no back button from UIKit, and UIKit's
+    /// own shortens itself to "Back", or to the chevron alone, when the bar
+    /// is full. The word is the point of it (D-003), so this one keeps its
+    /// width and the title gives way.
+    private func makeBackButton() -> UIButton {
+        let button = UIButton(type: .system)
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "chevron.backward",
+                               withConfiguration: UIImage.SymbolConfiguration(
+                                   font: Theme.fontBarButton, scale: .large)
+                                   .applying(UIImage.SymbolConfiguration(weight: .semibold)))
+        config.imagePadding = 5
+        config.baseForegroundColor = Theme.tintBlue
+        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+        var title = AttributedString("Mailboxes")
+        title.font = Theme.fontBarButton
+        config.attributedTitle = title
+        button.configuration = config
+        // Not "Mailboxes" alone, beside a view button that says "Show
+        // Mailboxes".
+        button.accessibilityLabel = "Back to Mailboxes"
+        button.addTarget(self, action: #selector(backToMailboxes), for: .touchUpInside)
+        button.isExclusiveTouch = true
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget),
+            button.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+        ])
+        return button
+    }
+
+    /// Two panes or three. Nothing is fetched and nothing is closed: the
+    /// folder, its list with its search and Edit mode, the letter in the
+    /// pane and any sheet over them are the same objects afterwards, moved
+    /// or hidden. The choice is kept for the next launch.
+    @objc private func viewButtonTapped() {
+        // In three panes the folders are back, and the open one says so.
+        mailboxList.select(mailboxID: list.mailboxID)
+        shell.switchPanes()
+        // The button VoiceOver was on may now be in a hidden bar. Its twin
+        // is in the same corner, and says the other thing.
+        UIAccessibility.post(notification: .layoutChanged,
+                             argument: shell.arrangement.leftColumn == .list
+                                ? listViewButton : mailboxesViewButton)
+    }
+
+    /// The folders, in front of the list. The keyboard goes with the list,
+    /// as it would with a pushed one; the search stays in it, and is there
+    /// when he taps the same folder to go back.
+    @objc private func backToMailboxes() {
+        list.view.endEditing(true)
+        mailboxList.select(mailboxID: list.mailboxID)
+        shell.back()
+        UIAccessibility.post(notification: .screenChanged, argument: nil)
+    }
+
+    private func describe(_ panes: PaneArrangement) -> String {
+        switch (panes.panes, panes.leftColumn) {
+        case (.three, _): return "three panes"
+        case (.two, .mailboxes): return "two panes, the Mailboxes in front"
+        case (.two, .list): return "two panes, the list in front"
+        }
     }
 
     // MARK: - Wiring
@@ -236,8 +440,19 @@ final class RootViewController: UIViewController {
     /// The only object that connects the panes. The table controllers stay
     /// ignorant of each other, so a change here cannot ripple into them.
     private func wireNavigation() {
+        // What `PaneShell` cannot do on the host: a new list for a folder,
+        // and the panes laid out. Everything that opens a folder or moves
+        // the panes goes through it, and it calls these.
+        shell.openList = { [weak self] mailbox in self?.openMailbox(mailbox) }
+        shell.layOut = { [weak self] panes in self?.arrange(panes) }
         mailboxList.onSelectMailbox = { [weak self] mailbox in
-            self?.openMailbox(mailbox)
+            guard let self else { return }
+            self.shell.tapped(mailbox, showing: self.list.shownMailbox)
+            // In two panes the folders VoiceOver was reading have gone
+            // behind the list, as after a push.
+            if self.shell.arrangement.panes == .two {
+                UIAccessibility.post(notification: .screenChanged, argument: nil)
+            }
         }
         // Delete, Move and Flag from the reading pane edit the list on
         // screen in place, and ask for the folder counts only when one may
@@ -274,7 +489,7 @@ final class RootViewController: UIViewController {
     /// agree with what is on screen.
     private func jumpAcrossMailboxes(to date: Date) {
         guard let all = mailboxList.mailbox(for: .archive) else { return }
-        openMailbox(all)
+        shell.open(all)
         list.pendingJump = date
         mailboxList.select(mailboxID: all.id)
     }
@@ -325,14 +540,21 @@ final class RootViewController: UIViewController {
         mailboxList.refreshCounts()
     }
 
-    /// Swaps the middle pane's contents. Deliberately `setViewControllers`
-    /// rather than a push: the stack stays exactly one deep, so no back button
-    /// ever appears and the folder list never slides away.
+    /// Swaps the list's contents, in the middle in three panes and in the
+    /// left column in two. Deliberately `setViewControllers` rather than a
+    /// push: the stack stays exactly one deep, so UIKit's back button never
+    /// appears and the folder list never slides away.
+    ///
+    /// The list's half of opening a folder, and called only as
+    /// `shell.openList`: `PaneShell.open` then puts the new list in front
+    /// and lays the panes out, which dresses its bar.
     private func openMailbox(_ mailbox: Mailbox) {
         // The list going away may still be searching. Nothing will draw
         // what it finds, and until it stops it is ahead of the new folder's
         // later pages and previews.
         list.stopSearching()
+        // The view button and "< Mailboxes" go across to the new list.
+        list.itemsBeforeCalendar = []
         list = MessageListViewController(repository: repository, mailbox: mailbox)
         bindList()
         listNav.setViewControllers([list], animated: false)
