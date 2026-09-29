@@ -183,6 +183,19 @@ enum LayoutAudit {
         Diagnostics.log(.note, "layout: sweep stopped, \(seen.count) finding(s) total")
     }
 
+    /// One pass as the panes change (D-015), when the sweep is switched on,
+    /// whether or not its three minutes are up. The view button swaps a
+    /// constraint and hides a pane, the kind of change this exists to check,
+    /// and each arrangement has views the other hides, so a launch in one
+    /// says nothing about the other. The log line says which arrangement
+    /// the findings after it are in.
+    @MainActor
+    static func panesChanged(to arrangement: String) {
+        guard isEnabled else { return }
+        Diagnostics.log(.note, "layout: \(arrangement)")
+        sweepNow()
+    }
+
     /// One pass, now. Also what the connection log's switch runs when it is
     /// turned on.
     @MainActor

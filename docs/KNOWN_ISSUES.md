@@ -1557,7 +1557,9 @@ second copy of the composer.
 
 ---
 
-## B-037 — OPEN. No way to switch between the two-panel and three-panel view
+## B-037 — BUILT 2026-09-29 as B-048, not yet seen on the iPad. No way to switch between the two-panel and three-panel view
+
+**Built as B-048; the decision is D-015.** What follows is the request as it stood.
 
 **Requested 2026-09-22.** The shell is hard-wired to three panes:
 Mailboxes | list | message. There is no way to drop to two and give the
@@ -2222,3 +2224,79 @@ the list and the Move sheet each show `displayName`. It fails with any one
 of the four places put back to `name`.
 
 **Not yet confirmed on the iPad with the fix.**
+
+## B-048 — CHANGED 2026-09-29, not yet seen on the iPad. Two panes or three, with Mail's view button
+
+**Asked for by the owner, 2026-09-29**, and by B-037 since 2026-09-22:
+"there should be a 2 pane and three pane view (switchable)". iOS 10 Mail
+had exactly that on the 12.9-inch iPad; D-015 has the sources and the
+reasoning.
+
+**What he sees.** A button in the top-left corner, over the folders, drawn
+as a sidebar. Nothing else changes until he taps it: the app still opens in
+three panes. Tapped, the folders go and the list he was reading moves to
+the left edge, 375 pt wide, with `< Mailboxes` and the calendar before its
+title, and the letter takes the rest, 818 pt of the 11-inch screen where it
+had 613. Tapped again, the three panes come back. `< Mailboxes` shows the
+folders with the open one highlighted; a folder tapped there shows its
+list, fetched as a tap in the three-pane sidebar fetches it; the folder
+already open, tapped, brings back its list as he left it and fetches
+nothing. The button is in the same corner either way, and VoiceOver reads
+it "Hide Mailboxes" or "Show Mailboxes".
+
+**What a switch keeps: everything.** The folder and its highlight, his
+place in the list and the letter selected in it, a search with its text,
+scope, results and keyboard, Edit mode with his ticks, the letter in the
+reading pane, which is neither fetched nor drawn again, and a sheet or the
+composer. Nothing moves up or down and nothing is animated. A tap on the
+button while another finger is on the screen is not taken, so nothing
+slides out from under that finger. `< Mailboxes` puts the keyboard away, as
+leaving any screen does; the search stays in the list for when he comes
+back to it.
+
+**Kept** from one launch to the next. Coming back after a while (B-003)
+lands him in the Inbox's list and leaves two panes two.
+
+**What two panes cost.** The list's bar holds five things in 375 pt, and
+the folder's name gets what is left: about 75 to 85 pt at 1194, by the
+font's metrics, which Gmail's own names fit, "Sent Mail" only just, and a
+longer name of his own does not; it ends in "…". The name is whole in the
+folders behind `< Mailboxes`, and in three panes, where it has about
+185 pt. The bottom bar, with Refresh and Settings, belongs to the list, so
+it is not there while the folders are in front, as it is not under the
+folders in three panes.
+
+**Tested** in `PaneArrangementTests`, in three layers.
+
+- `PaneArrangement`, by value: three panes by default, and three for
+  anything under the key that is not one of the two words; both
+  arrangements' widths at 1194 and 1366, filling every landscape iPad with
+  no pane zero wide; and what is on screen at launch in each, after a switch
+  either way, after `< Mailboxes`, after a tap on another folder and on the
+  one already open (the Inbox the list opens on before LIST has named it
+  included), and after a return from a while away. That covers which
+  column is shown, the list's left edge, the divider, and the view button
+  and `< Mailboxes` before the calendar, in that order.
+- `PaneShell`, which the container calls from the view button,
+  `< Mailboxes`, a folder tap, B-003's return and the date jump. With the
+  container's two parts written down, it checks what each of these lays
+  out, which of them opens a list, that a switch is kept, and that a
+  folder opened by any route comes in front. With the opening bound to the
+  repository over the scripted server, it checks that switches,
+  `< Mailboxes`, taps on the open folder and a return, in any order, send
+  nothing, while a tap on another folder sends its SELECT, UID SEARCH and
+  UID FETCH and nothing more.
+- `RootViewController`, which is UIKit and is not built on this host, is
+  read function by function. It makes the shell once and never again. Each
+  button and tap hands over to the shell and sends nothing itself. Every
+  folder is opened through the shell, and the list is swapped nowhere
+  else. `arrange` sets each width, edge, hidden flag and bar item from the
+  arrangement's own value, runs the layout sweep and animates nothing. And
+  the list puts the calendar after the container's items, unanimated.
+
+Each of 29 sabotages (the rule reverted, or the container made to fetch,
+skip, swap or animate) fails at least one of these tests. What the
+screens actually draw is for the iPad.
+
+**Not yet seen on the iPad.** The TODO says what to look at, the layout
+sweep in both arrangements included.

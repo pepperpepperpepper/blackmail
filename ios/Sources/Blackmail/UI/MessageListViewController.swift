@@ -5,12 +5,14 @@
 
 import UIKit
 
-/// The middle pane: the messages in one folder.
+/// The middle pane: the messages in one folder. In two panes (D-015), the
+/// left column's, in turn with the folder list.
 ///
 /// Swapped wholesale by `RootViewController` when a folder is chosen, never
-/// pushed, so its navigation stack is always exactly one deep and no back
-/// button ever appears. The folder list it came from is still on screen to
-/// its left.
+/// pushed, so its navigation stack is always exactly one deep and UIKit's
+/// back button never appears. In three panes the folder list it came from is
+/// still on screen to its left; in two the container puts its own
+/// "< Mailboxes" in front of the calendar (`itemsBeforeCalendar`).
 final class MessageListViewController: UITableViewController {
 
     var onSelectMessage: ((MessageSummary) -> Void)?
@@ -55,6 +57,23 @@ final class MessageListViewController: UITableViewController {
     private var selectAllItem: UIBarButtonItem!
     private var browseItems: [UIBarButtonItem] = []
     private var editItems: [UIBarButtonItem] = []
+    private var jumpItem: UIBarButtonItem?
+
+    /// What the container puts in the leading slot in front of the
+    /// calendar: in two panes the view button and "< Mailboxes", in three
+    /// nothing. The calendar stays the last of them, beside the title, and
+    /// is never replaced.
+    var itemsBeforeCalendar: [UIBarButtonItem] = [] {
+        didSet {
+            guard itemsBeforeCalendar != oldValue else { return }
+            placeLeadingItems()
+        }
+    }
+
+    private func placeLeadingItems() {
+        navigationItem.setLeftBarButtonItems(itemsBeforeCalendar + [jumpItem].compactMap { $0 },
+                                             animated: false)
+    }
 
     /// Bumped when the list is REPLACED — a reload, or a search changing
     /// what is on screen. Deliberately NOT bumped when a page is appended:
@@ -373,16 +392,18 @@ final class MessageListViewController: UITableViewController {
         // months and two thousand letters up.
         //
         // The nav bar's leading slot because it is the one permanently
-        // empty, permanently visible place in this pane: no back button
-        // ever appears here (the folder list is always on screen to the
-        // left), so nothing can displace it and it is never one tap deep in
-        // anything. "Easy to access" is the requirement,
-        // and this is the whole of it.
+        // empty, permanently visible place in this pane: UIKit's back button
+        // never appears here, so nothing can displace it and it is never one
+        // tap deep in anything. "Easy to access" is the requirement,
+        // and this is the whole of it. In two panes (D-015) the view button
+        // and "< Mailboxes" come before it in the same slot, and it stays
+        // the one beside the title.
         let jump = UIBarButtonItem(image: UIImage(systemName: "calendar"),
                                    style: .plain, target: self,
                                    action: #selector(jumpToDateTapped))
         jump.accessibilityLabel = "Go to a date"
-        navigationItem.leftBarButtonItem = jump
+        jumpItem = jump
+        placeLeadingItems()
 
         // The bottom bar from the reference. It looks decorative and is not:
         // "Updated Just Now" is the only thing on screen that answers "is this

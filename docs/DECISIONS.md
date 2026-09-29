@@ -142,6 +142,7 @@ prohibits, and the starter is wrong rather than the brief.
 ## D-003 — TWO panes
 
 **Status:** RESOLVED 2026-09-19 by the owner: two panes
+**See D-015:** since 2026-09-29 this arrangement is back, as his choice beside D-009's three.
 **History:** I closed this once on the wrong reasoning, reopened it, and it is
 now answered by the only authority that counts.
 
@@ -334,6 +335,8 @@ and says nothing the name beside it does not. Easy to add if he misses it.
 
 ## D-009 — Three panes. D-003 is reversed, by the owner.
 
+**See D-015:** since 2026-09-29 these three are the default of two arrangements, his choice.
+
 **Decision:** Mailboxes | message list | message, all three permanently on
 screen, at 20.9% / 27.6% / 51.5% of the screen width.
 
@@ -462,6 +465,8 @@ value of *this* credential and not about passwords in general.
 ---
 
 ## D-012 — The calendar button, and Mail's habits beating our doctrine
+
+**See D-015:** in two panes the view button and `< Mailboxes` come before the calendar in this slot, and the calendar is one tap away while the folders are in front.
 
 **Decided 2026-09-20.** Three ratified rules bent at
 once, so all three are written down together rather than discovered later as
@@ -612,3 +617,104 @@ is its own trap. The list regroups while the sheet is still up.
 
 **Search stays ungrouped whichever way the switch points.** The two
 rules compose at the seam; a test pins it.
+
+## D-015 — Two panes or three, his choice, three by default
+
+**Decided 2026-09-29 by the owner:** "there should be a 2 pane and three
+pane view (switchable), I believe Apple Mail had that at one point as
+well." It did, and on the very layout D-009's three panes were measured
+from.
+
+**The authority.** iOS 10 Mail on the 12.9-inch iPad Pro: "A new view
+button in the top-left corner toggles between two-pane and three-pane
+appearances. Tapping the button adds and removes the additional column"
+(9to5Mac, 2016-06-14,
+https://9to5mac.com/2016/06/14/ios-10-adds-three-pane-appearance-for-mail-and-notes-on-ipad-pro-12-9-inch/).
+MacStories' iOS 10 review says the same: "it can be disabled by tapping a
+button in the top left of the title bar". So D-003 and D-009 stop being
+rivals. Mail had both and a button between them, and D-012's rule, that
+Mail's habits beat our doctrine, puts both here and the button where Mail
+put it.
+
+**Three panes** are D-009 exactly: 20.9% / 27.6% / the rest, which is
+250 / 330 / 613 pt at 1194 (11-inch) and 285 / 377 / 703 at 1366
+(12.9-inch). They are the default, so nothing changes for him until he
+taps the button.
+
+**Two panes** are D-003: the left column holds the Mailboxes or a folder's
+list in turn, and the message takes the rest and never navigates. A folder
+tapped brings its list in front, loaded exactly as a tap in the three-pane
+sidebar loads it, with `< Mailboxes` top-left; `< Mailboxes` shows the
+folders again with the open one highlighted; the folder already open,
+tapped, brings back its list as he left it and fetches nothing. The left
+column is D-003's 375 pt, fixed: 375 | 818.5 at 1194, 375 | 990.5 at 1366.
+375 is the list's width on the 12.9-inch reference (377 measured), so there
+the switch really does just add and remove the Mailboxes column. The
+owner's own photo, a two-pane iPad at 1024 pt, puts the divider at 31%,
+which is 370 on the 11-inch. A fraction was not taken because what the
+column holds does not grow with the screen, and 31% of a 1024 pt iPad is
+317.
+
+**The view button** is `sidebar.left`, the symbol later iPadOS draws for
+the same control (which glyph iOS 10 drew is not known here), with a 44 pt
+target. It is the first item in the bar whose left edge is the screen's,
+so it is in the same place in both arrangements: the Mailboxes' bar in
+three panes, and in two the left column's bar, whichever of the two is in
+front. VoiceOver reads "Hide Mailboxes" in three panes and "Show
+Mailboxes" in two.
+
+**Every control in the two bars, both ways:**
+
+| | three panes | two, folders in front | two, a list in front |
+|---|---|---|---|
+| Mailboxes' bar | view button · "Mailboxes" centred | view button · "Mailboxes" centred | hidden |
+| list's bar | calendar · folder name · Edit | hidden | view button · `< Mailboxes` · calendar · folder name · Edit |
+
+The calendar is not displaced (D-012). It stays the list's leading item,
+the one beside the title, never replaced and never a tap deep; in two panes
+the view button and `< Mailboxes` come before it in the same slot. Edit
+stays at the trailing edge and the title between. When the bar is full it
+is the title that gives way, cut short with an ellipsis, never a button
+and never the word "Mailboxes": at 1194 in two panes the title has about
+75 to 85 pt, less with Done than with Edit, which Gmail's own folder names
+fit, "Sent Mail" only just, and a long name of his own does not. In three
+panes it has about 185. These are estimates from the font's metrics; the
+iPad has to confirm them.
+
+**A switch moves things and changes nothing else.** Nothing is fetched.
+The folder, its list with his place in it, a search with its text, scope,
+results and keyboard, Edit mode and his ticks, the letter in the reading
+pane and whatever sheet is open are the same objects afterwards. Edit mode
+is kept rather than ended: it is his work in progress, and the switch is
+about the room, not the work. From two to three with the folders in
+front, the open folder's list goes back in the middle. There is no
+animation: an animated switch would slide the list and reflow the letter
+and every row for a quarter of a second, where this is one step. Nothing
+moves up or down, since the rows are a fixed height and the list keeps
+its offset. And the button takes a tap only when nothing else is being
+touched, so nothing slides out from under a finger already down.
+
+**Not a navigation controller push, though it works like one.** The list
+stays in its own navigation controller in both arrangements and the two
+controllers take turns in the left column. Pushed, the list would leave
+the window at every switch, and the search field with it, keyboard and
+all; and a pushed list's back button is UIKit's, which always takes the
+corner the view button needs, and shortens itself to "Back" or a bare
+chevron when the bar is full. `< Mailboxes` is the app's own, and keeps
+its word.
+
+**Kept across launches**, in `UserDefaults` under `blackmail.panes`, read
+with `object(forKey:)`: missing, or anything but "two" or "three", is
+three. Later versions of Mail did not keep the choice, and people who used
+them complained.
+
+**Unchanged:** row heights and every other metric inside the panes, the
+reading pane's toolbar and its order, portrait (there is none, D-008), and
+B-003. Coming back after a while lands him on the Inbox's list, in front
+in two panes, and leaves two panes two.
+
+**The cost, stated plainly, is D-009's argument run backwards.** In two
+panes, while he reads, the folder he is in is a title and not a
+highlighted row, and the folders are a tap away rather than in sight. The
+letter gets a third more room. Which matters more to him is his to find
+out, which is why it is a button and not a decision made here.

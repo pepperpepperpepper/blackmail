@@ -7,10 +7,13 @@ import UIKit
 
 /// The permanent first pane: the folder list.
 ///
-/// Always on screen, never pushed over and never returned to, so there is no
-/// `< Mailboxes` button and no state in which the folder you are reading is
-/// hidden from you. That is the whole argument for the third pane: "which
-/// folder am I in" becomes a thing you look at rather than remember.
+/// Always on screen in three panes, never pushed over and never returned
+/// to, so there is no `< Mailboxes` button and no state in which the folder
+/// you are reading is hidden from you. That is the whole argument for the
+/// third pane: "which folder am I in" becomes a thing you look at rather
+/// than remember. In two panes, his choice (D-015), it shares the left
+/// column with the list, behind "< Mailboxes", 375 pt wide, with the open
+/// folder still highlighted when he goes back to it.
 ///
 /// The cost is width — 250 pt on an 1194 pt iPad against the 370 pt the
 /// two-pane layout gave it — so a long subfolder name truncates sooner here

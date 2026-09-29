@@ -1,9 +1,9 @@
-// Guarded so this file compiles away on a host without UIKit: it is all
-// UIColor and UIFont. The pure-data parsers below it are what the host
-// build exists to test.
-#if canImport(UIKit)
-
-import UIKit
+// The pane widths come first and are plain arithmetic, so the host builds
+// them and `PaneArrangementTests` checks them: which arrangement gets which
+// width is the logic the view button switches (D-015). Everything after
+// them is UIColor and UIFont, and is guarded to compile away on a host
+// without UIKit.
+import Foundation
 
 /// Every layout number in the app. Nothing else may hard-code one.
 ///
@@ -29,7 +29,8 @@ enum Theme {
     /// deliberately — the two-pane build was itself a correction to an earlier
     /// three-pane attempt, so the history here is not a drift but a decision
     /// taken twice. What changed is the arrival of the iOS 10 12.9-inch
-    /// reference showing all three.
+    /// reference showing all three. Two panes came back beside them as his
+    /// choice (D-015); see `twoPaneLeftColumnWidth`.
     ///
     /// FRACTIONS, not copied absolutes — the lesson from the two-pane list,
     /// where 320 pt was right only on the 1024 pt screen it came off and read
@@ -66,6 +67,32 @@ enum Theme {
     }
 
     static let paneDividerWidth: CGFloat = 0.5
+
+    /// TWO panes, D-015's other arrangement and his choice: the left column
+    /// holds the Mailboxes or a folder's list in turn, and the message takes
+    /// the rest. Three stay the default.
+    ///
+    /// 375, D-003's figure, and fixed rather than a fraction. It is the
+    /// list's width on the 12.9-inch reference (377 measured), so on that
+    /// iPad the list keeps its width across the switch, to 2 pt, and only
+    /// the Mailboxes column comes and goes, which is what iOS 10's button
+    /// did. The owner's own photo, a two-pane iPad at 1024 pt, puts the
+    /// divider at 31%, which is 370 on the 11-inch: within 5 pt. Not the
+    /// fraction, because what the column has to hold does not grow with the
+    /// screen: with a folder open its bar carries the view button,
+    /// "< Mailboxes", the calendar, the folder's name and Edit, and 31% of
+    /// a 1024 pt iPad is 317.
+    ///
+    ///     1194 pt (11-inch)    375 | 818.5 for the message
+    ///     1366 pt (12.9-inch)  375 | 990.5
+    static let twoPaneLeftColumnWidth: CGFloat = 375
+}
+
+#if canImport(UIKit)
+
+import UIKit
+
+extension Theme {
 
     // MARK: - Chrome (binding)
 

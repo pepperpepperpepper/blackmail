@@ -166,7 +166,7 @@ this host. Ordered by value, not by size.
       id, as Refresh does. Also left as it was: a letter reopened in the
       stack whose body is already kept takes the header at once, so a letter
       opened before it and still coming takes the header back when it lands.
-- [ ] **B-037. The two/three-panel switch.** Small — `RootViewController`
+- [x] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
       `LayoutAudit` will report it every two seconds, once it is switched on
@@ -174,7 +174,11 @@ this host. Ordered by value, not by size.
       silent until then). Follow Mail and put the
       control in the leading toolbar slot, persist it like `organizeByThread`,
       and do not let B-003's away-timer re-expand a pane he collapsed.
-      *Writable now, not confirmable until the iPad is back.*
+      *Done: the view button, top-left in both arrangements; two panes as
+      D-003 laid them out, three as D-009 did and by default; kept across
+      launches (`PaneArrangement`, D-015). Checked in
+      `PaneArrangementTests`; see B-048 for what he could notice. Not yet
+      seen on the iPad, below.*
 - [ ] **B-035. Ship the signature as a compile-time default.** Needs the
       owner's decision first (it puts the end user's phone number and address
       in the source). Without it the rich signature and inline logo cannot reach
@@ -189,7 +193,7 @@ this host. Ordered by value, not by size.
 
 ## Blocked on the iPad coming back
 
-- [ ] See B-037 rendered at all.
+- [ ] See B-037 rendered at all: now B-048, below.
 - [ ] Confirm the signature's white sheet **in the reading pane** — the
       outgoing half is verified by tests and Chromium renders, but the in-app
       half only applies to letters carrying the new marker, so it needs one
@@ -409,6 +413,28 @@ this host. Ordered by value, not by size.
       "Inbox" at launch and after tapping it. The Move sheet says "Inbox"
       too. With VoiceOver on, the first row reads "Inbox, N unread", or
       "Inbox" with nothing unread.
+- [ ] **B-048, two panes or three.** Switch the Layout button on in the
+      connection log first. Open a letter, scroll the list a few pages
+      down, and tap the view button both ways: the letter stays drawn with
+      no "Loading…" and nothing new in the connection log, the list keeps
+      its rows and the selected one where they were on screen, and the
+      folder keeps its highlight. Again with a search active and the
+      keyboard up (text, scope, results and keyboard all stay), and with
+      Edit mode on and two rows ticked (still in Edit, ticks and Done
+      kept). Pane widths: 250 / 330 / 613 in three and 375 / 818.5 in two
+      on the 11-inch; the button in the same spot in both. `< Mailboxes`
+      shows the folders with the open one highlighted; the open folder
+      tapped shows its list where he left it, with no new commands in the
+      log; another folder loads as it does in three panes. With the
+      folders in front, the view button puts the list back in the middle.
+      Nothing truncates in the list's bar in two panes but a long folder
+      name, which ends in "…"; "Sent Mail" should fit, and `< Mailboxes`
+      is never shortened. Relaunch in two panes: it opens in two, on the
+      Inbox's list. VoiceOver reads "Hide Mailboxes" and "Show
+      Mailboxes", and lands on the button after a switch. A tap on the
+      button with a thumb resting on the list does nothing. The connection
+      log shows `layout: three panes`, `layout: two panes, …` and no
+      finding after either.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
