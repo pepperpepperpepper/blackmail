@@ -34,6 +34,10 @@ actor IMAPMailRepository: MailRepository {
     /// test run neither reads nor writes the defaults of the machine it
     /// runs on.
     private let recipients: RecipientBook
+    /// The signature's pictures, read at each use as account setup left
+    /// them. The app's come from the standard defaults; the host tests hand
+    /// in their own, for the same reason as the recipient book's.
+    private let signatureImages: @Sendable () -> [SignatureImages.InlineImage]
 
     /// Role → real IMAP name, learned from LIST's special-use attributes.
     /// Never hard-code "Trash": Gmail calls it "[Gmail]/Trash", and on an
@@ -75,13 +79,16 @@ actor IMAPMailRepository: MailRepository {
     init(account: MailAccount, password: String,
          transport: @escaping MailTransportFactory,
          recipients: RecipientBook = .shared,
-         now: @escaping @Sendable () -> Date = { Date() }) {
+         now: @escaping @Sendable () -> Date = { Date() },
+         signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
+            = { SignatureImages.load() }) {
         self.account = account
         self.password = password
         self.imap = IMAPClient(account: account, transport: transport, now: now)
         self.smtp = SMTPClient(account: account, transport: transport)
         self.recipients = recipients
         self.now = now
+        self.signatureImages = signatureImages
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
         // book cannot learn by watching his mail go past — a letter to
@@ -1187,7 +1194,7 @@ actor IMAPMailRepository: MailRepository {
                                        inReplyToHeaders: Self.threadHeaders(for: draft),
                                        attachments: try await loadAttachments(for: draft),
                                        htmlBody: AppleMailHTML.part(for: draft, account: account),
-                                       inlineImages: SignatureImages.parts())
+                                       inlineImages: SignatureImages.parts(of: signatureImages()))
         try await smtp.send(raw, from: account.address, to: recipients, password: password,
                             progress: progress)
         // Only after the server took it. Ranking an address he tried and
@@ -1271,7 +1278,7 @@ actor IMAPMailRepository: MailRepository {
                                        // draft too: a draft is reopened by
                                        // parsing it back, and the parts are
                                        // what make its markup's cid: resolve.
-                                       inlineImages: SignatureImages.parts())
+                                       inlineImages: SignatureImages.parts(of: signatureImages()))
         let appended = try await client.append(raw, to: drafts,
                                                flags: ["\\Draft", "\\Seen"])
 
@@ -1299,25 +1306,12 @@ actor IMAPMailRepository: MailRepository {
         uidListing[name] = nil
     }
 
+    /// Without the signature's pictures among its files: `saveDraft` stored
+    /// them only so the markup resolves, and saving or sending adds them
+    /// again. See `Draft.reopening` (B-046).
     func loadDraft(id: String, mailboxID: String) async throws -> Draft {
         let message = try await loadMessage(id: id, mailboxID: mailboxID)
-        return Draft(to: message.to,
-                     cc: message.cc,
-                     bcc: message.bcc,
-                     subject: message.subject,
-                     // `quotableText` rather than `textBody`, so a draft
-                     // written in another client as HTML reopens with its
-                     // words in it instead of empty.
-                     body: message.textBody ?? message.quotableText,
-                     attachments: message.attachments.map {
-                         DraftAttachment(source: .messagePart(messageID: id,
-                                                             mailboxID: mailboxID,
-                                                             section: $0.id),
-                                         filename: $0.filename,
-                                         mimeType: $0.mimeType,
-                                         size: $0.size)
-                     },
-                     savedID: id)
+        return Draft.reopening(message, signatureImages: signatureImages())
     }
 
     private func draftsFolder() async throws -> String {

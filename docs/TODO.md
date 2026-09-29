@@ -465,6 +465,18 @@ this host. Ordered by value, not by size.
       search at once for a word from it: it is found, in All Mailboxes and
       in Current Mailbox. Archive a letter in the Inbox from Gmail on the
       web or the phone, and tap Refresh: it leaves the list.
+- [ ] **B-046, the signature's logo in a reopened draft.** A new letter,
+      Cancel, Save Draft; open Drafts and tap the draft: no attachment row.
+      Send it: it arrives with no paperclip in the list and no file row in
+      the header, and with the logo in the signature; the connection log's
+      `WIRE-PAYLOAD raw=` for it should be about what the same letter sent
+      fresh gives, not ten kilobytes more. Then a draft with a photo he
+      attached: Save Draft, reopen it, the photo's row is there once; send
+      it: it arrives with the photo once, and the logo in the signature.
+- [ ] **B-047, "Inbox".** The sidebar's first row and the list's title read
+      "Inbox" at launch and after tapping it. The Move sheet says "Inbox"
+      too. With VoiceOver on, the first row reads "Inbox, N unread", or
+      "Inbox" with nothing unread.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

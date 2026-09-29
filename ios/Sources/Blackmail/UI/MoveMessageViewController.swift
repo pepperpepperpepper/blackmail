@@ -62,7 +62,7 @@ final class MoveMessageViewController: UITableViewController {
     override func tableView(_ t: UITableView, cellForRowAt ip: IndexPath) -> UITableViewCell {
         let cell = t.dequeueReusableCell(withIdentifier: "Mailbox", for: ip)
         var content = cell.defaultContentConfiguration()
-        content.text = mailboxes[ip.row].name
+        content.text = mailboxes[ip.row].displayName
         content.textProperties.font = Theme.fontMailboxName
         cell.contentConfiguration = content
         return cell

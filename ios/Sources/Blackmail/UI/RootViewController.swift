@@ -42,7 +42,7 @@ final class RootViewController: UIViewController {
         // wholesale when another folder is chosen.
         self.list = MessageListViewController(
             repository: repository,
-            mailbox: Mailbox(id: "inbox", name: "Inbox", unreadCount: 0, role: .inbox))
+            mailbox: .inboxBeforeListing)
         self.listNav = UINavigationController(rootViewController: list)
         self.detail = MessageDetailViewController(repository: repository)
         super.init(nibName: nil, bundle: nil)
@@ -212,7 +212,7 @@ final class RootViewController: UIViewController {
             }
         case .openInbox:
             let inbox = mailboxList.mailbox(for: .inbox)
-                ?? Mailbox(id: "inbox", name: "Inbox", unreadCount: 0, role: .inbox)
+                ?? .inboxBeforeListing
             openMailbox(inbox)
             mailboxList.select(mailboxID: inbox.id)
             // The counts once the Inbox's first page has come, and not at

@@ -189,9 +189,10 @@ final class RepositoryTrafficTests: XCTestCase {
             async let names = try? repository.folders()
             async let firstPage = try? repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
             try await until { await repository.waitingForExchange == 1 }
-            // Short only from here: the connect's own deadline, which runs
-            // while the handshake is held, keeps the ordinary one.
-            server.timeout = .milliseconds(20)
+            // Short only where the silence is the point: the greeting that
+            // never comes. The refused password's replies come at once, and
+            // a short deadline on them could fire first on a busy machine.
+            if silent { server.timeout = .milliseconds(20) }
             await server.releaseHandshakes()
             let (folders, rows) = await (names, firstPage)
             await sweeps.release(runningOwed: rows != nil)
