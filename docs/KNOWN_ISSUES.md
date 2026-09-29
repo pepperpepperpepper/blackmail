@@ -2270,9 +2270,37 @@ easy to get wrong and cannot be checked against Gmail from here
 draft after the sheet has gone as before, without asking iOS for time: cut
 off, the draft is simply still there.
 
+**Confirmed on the iPad, 2026-09-29**, on carlo's mailbox, each letter to
+the account itself, the same five checks as on the build before it:
+
+- A plain letter: "Sending…" and the spinner at the tap, Cancel and
+  Attach Photo grey; the sheet closed at the 250, 1.2 s from the envelope,
+  with no wait for the 221. Before: nothing on screen for 1.6 s.
+- Send tapped twice half a second apart: one envelope, one letter. Before:
+  two envelopes, two letters.
+- A draft reopened after 95 s of quiet: the sheet closed at the 250, and
+  1.2 s after the tap the row had left Drafts; NOOP, STORE and EXPUNGE
+  followed in the 0.56 s after the 250. Before: the sheet waited for them,
+  0.48 s.
+- Five pictures, 4.3 MB on the wire: "Sending… 60%" during the upload; the
+  payload was ready 15 ms after the 354 against 146 ms before, and it
+  arrived once with all five.
+- Five pictures, the lock button pressed 0.48 s after Send: the envelope
+  went 0.72 s after the tap (1.35 s before), the upload and the 250 came
+  with the screen off, and on unlocking a minute later the sheet was gone
+  and the letter had arrived once. Before: suspended mid-upload, "Message
+  was not sent." on unlocking, nothing delivered.
+- Wi-Fi off in Control Center: "Can't connect to mail server." at once,
+  the letter still in the sheet and every control live; Wi-Fi on again,
+  the same Send delivered it once.
+
+Two things were changed after it: "Sending…" is drawn in the text's white
+rather than a disabled item's grey, which read faint, and a held Remove is
+drawn grey rather than staying red.
+
 ---
 
-## B-045 — FIXED on the host 2026-09-29, not yet on the iPad. Refresh did not show mail that had come into the open folder
+## B-045 — FIXED 2026-09-29, confirmed on the iPad. Refresh did not show mail that had come into the open folder
 
 **Found on the iPad, 2026-09-29**, on the test account, build 3fc7b91.
 Fixed on the scripted server the same day; the fixed build has not been
@@ -2371,9 +2399,17 @@ clock nothing moves, so a stalled host cannot add a NOOP to them. Each
 fails with its part of the fix taken out: without the NOOP, the Refresh
 lists the old top rows exactly as the iPad's log had it.
 
+**Confirmed on the iPad, 2026-09-29**, the same account and the same
+steps: with the Inbox open, two letters sent to itself, then one Refresh.
+`a019 NOOP` was answered `* 24 EXISTS`, the `UID SEARCH ALL` after it
+listed 24 UIDs with the two new ones, SESSION-IDENT said `exists=24
+uids=24`, and both letters were at the top after that one Refresh. It did
+the same after the picture letters and after the letter sent once Wi-Fi
+came back.
+
 ---
 
-## B-046 — FIXED 2026-09-29, not yet seen on the iPad. A reopened draft carried the signature's logo as a file
+## B-046 — FIXED 2026-09-29, confirmed on the iPad. A reopened draft carried the signature's logo as a file
 
 **Found on the iPad, 2026-09-29**, on carlo's mailbox, the test account,
 build 3fc7b91. He wrote a new letter, with the signature the composer puts
@@ -2430,7 +2466,7 @@ its body and a PDF, reopens and sends with both as files.
 **Not yet confirmed on the iPad with the fix.** The TODO says what to look
 at.
 
-## B-047 — FIXED 2026-09-29, not yet seen on the iPad. The Inbox was called "INBOX"
+## B-047 — FIXED 2026-09-29, confirmed on the iPad. The Inbox was called "INBOX"
 
 **Found on the iPad, 2026-09-29**, on carlo's mailbox, the test account,
 build 3fc7b91. The sidebar's first row read "INBOX", and after he tapped
@@ -2465,3 +2501,12 @@ the list and the Move sheet each show `displayName`. It fails with any one
 of the four places put back to `name`.
 
 **Not yet confirmed on the iPad with the fix.**
+
+**Confirmed on the iPad, 2026-09-29**: a new letter, Save Draft, reopened
+from Drafts: no attachment row. Sent from there it went as 18,131 bytes,
+the same as a fresh letter (the build before sent 28,883), and arrived
+with no paperclip. The draft with a photo he attached has not been tried.
+
+**Confirmed on the iPad, 2026-09-29**: the sidebar's first row and the
+list's title read "Inbox" at launch and after tapping it. VoiceOver and
+the Move sheet have not been looked at.

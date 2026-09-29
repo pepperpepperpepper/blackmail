@@ -424,7 +424,11 @@ this host. Ordered by value, not by size.
       app to serialize the body, and once warm. The host's 0.1-0.6 ms is the
       app's part only. Watch the app's memory for those 10 s alongside
       B-042's WebContent terminations.
-- [ ] **B-044, sending.** None of it seen on the device yet; B-044 has
+- [ ] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
+      draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
+      see: Save Draft then lock, Send the moment the picker closes, a tap
+      on the sent draft's row as the sheet closes, Look Up or Share during
+      a send, Send with the Cancel sheet open.* None of it seen on the device yet; B-044 has
       the same checks on the build before it, to compare with. Write a
       plain letter to himself and Send: Send gives way at once to a spinner
       and "Sending…", Cancel and Attach Photo are grey, the sheet will not
@@ -454,7 +458,8 @@ this host. Ordered by value, not by size.
       taking it along, and nothing is left held on screen. Tap Cancel on a
       letter with text, and with that sheet still open tap Send: the Cancel
       sheet goes and the letter is sent once.
-- [ ] **B-045, new mail in the open folder.** With the Inbox open, send
+- [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
+      B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
       once: it must be at the top after that one Refresh. The connection
       log should show a `NOOP`, answered with `* n EXISTS`, before the
@@ -465,7 +470,8 @@ this host. Ordered by value, not by size.
       search at once for a word from it: it is found, in All Mailboxes and
       in Current Mailbox. Archive a letter in the Inbox from Gmail on the
       web or the phone, and tap Refresh: it leaves the list.
-- [ ] **B-046, the signature's logo in a reopened draft.** A new letter,
+- [ ] **B-046, the signature's logo in a reopened draft.** *First half
+      seen 2026-09-29; the draft with a photo is still to try.* A new letter,
       Cancel, Save Draft; open Drafts and tap the draft: no attachment row.
       Send it: it arrives with no paperclip in the list and no file row in
       the header, and with the logo in the signature; the connection log's
@@ -473,7 +479,8 @@ this host. Ordered by value, not by size.
       fresh gives, not ten kilobytes more. Then a draft with a photo he
       attached: Save Draft, reopen it, the photo's row is there once; send
       it: it arrives with the photo once, and the logo in the signature.
-- [ ] **B-047, "Inbox".** The sidebar's first row and the list's title read
+- [ ] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
+      sheet and VoiceOver still to look at.* The sidebar's first row and the list's title read
       "Inbox" at launch and after tapping it. The Move sheet says "Inbox"
       too. With VoiceOver on, the first row reads "Inbox, N unread", or
       "Inbox" with nothing unread.

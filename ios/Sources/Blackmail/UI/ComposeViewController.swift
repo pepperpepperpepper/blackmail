@@ -86,10 +86,15 @@ final class ComposeViewController: UIViewController,
 
     private lazy var sendItem = UIBarButtonItem(
         title: "Send", style: .done, target: self, action: #selector(sendTapped))
-    /// What stands where Send was while the letter goes: its words, greyed
-    /// and not a button, and a spinner beside them. Two ordinary bar items,
-    /// so the bar sizes them the way it sizes Send, and the words can change
-    /// in place as the letter goes.
+    /// What stands where Send was while the letter goes: its words, not a
+    /// button, and a spinner beside them. Two ordinary bar items, so the bar
+    /// sizes them the way it sizes Send, and the words can change in place
+    /// as the letter goes.
+    ///
+    /// In the text's own white, not the grey a disabled item draws in. The
+    /// grey read on the iPad as faint, the one thing on the sheet saying the
+    /// tap had taken; white is not blue, so it does not look like a button
+    /// either.
     private lazy var sendingWordsItem: UIBarButtonItem = {
         let item = UIBarButtonItem(title: nil, style: .plain, target: nil, action: nil)
         item.isEnabled = false
@@ -97,7 +102,8 @@ final class ComposeViewController: UIViewController,
         // as the number changes.
         item.setTitleTextAttributes(
             [.font: UIFont.monospacedDigitSystemFont(ofSize: Theme.fontBarButton.pointSize,
-                                                     weight: .regular)],
+                                                     weight: .regular),
+             .foregroundColor: Theme.primaryText],
             for: .disabled)
         return item
     }()
@@ -290,6 +296,10 @@ final class ComposeViewController: UIViewController,
         remove.setTitle("Remove", for: .normal)
         remove.titleLabel?.font = Theme.fontDetailMeta
         remove.setTitleColor(Theme.destructive, for: .normal)
+        // Grey while a letter goes, when it is held: a system button with
+        // its own colour for .normal keeps that colour when disabled, and on
+        // the iPad the held Removes still looked live in red.
+        remove.setTitleColor(Theme.secondaryText, for: .disabled)
         remove.tag = index
         remove.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
         // A photo that lands from the picker while a letter goes rebuilds
