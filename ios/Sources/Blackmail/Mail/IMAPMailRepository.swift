@@ -68,16 +68,17 @@ actor IMAPMailRepository: MailRepository {
     /// One factory for both protocols: it is told the host and port, which
     /// is all that tells an IMAP connection from an SMTP one.
     ///
-    /// `now` is the clock the write probe measures quiet by. The app's is the
-    /// real one; a test hands in one it can move, because the probe only
-    /// happens after ninety seconds of it.
+    /// `now` is the clock the write probe measures quiet by, and the client
+    /// how long ago it asked for a mailbox's news (`IMAPClient.catchUp`).
+    /// The app's is the real one; a test hands in one it can move, because
+    /// the probe only happens after ninety seconds of it.
     init(account: MailAccount, password: String,
          transport: @escaping MailTransportFactory,
          recipients: RecipientBook = .shared,
          now: @escaping @Sendable () -> Date = { Date() }) {
         self.account = account
         self.password = password
-        self.imap = IMAPClient(account: account, transport: transport)
+        self.imap = IMAPClient(account: account, transport: transport, now: now)
         self.smtp = SMTPClient(account: account, transport: transport)
         self.recipients = recipients
         self.now = now
@@ -568,7 +569,9 @@ actor IMAPMailRepository: MailRepository {
             // From the top: a folder he has just opened, or refreshed, with
             // nothing on screen until this lands. The SEARCH and the page's
             // FETCH go in one hold of the connection, ahead of work he did
-            // not ask for; see `IMAPClient.page`.
+            // not ask for, with a NOOP before them when the folder was
+            // already open, so the SEARCH sees mail that has arrived since
+            // (B-045); see `IMAPClient.page`.
             let opened = try await client.page(in: name, searching: ["ALL"]) { found in
                 PageWindow.older(than: nil, in: found[0], limit: limit)
             }

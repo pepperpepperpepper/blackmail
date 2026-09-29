@@ -14,12 +14,12 @@ final class ComingBackTests: XCTestCase {
 
     private var server: ScriptedIMAPServer!
     private var book: RecipientBook!
-    private var clock: Clock!
+    private var clock: ManualClock!
 
     override func setUp() {
         super.setUp()
         server = ScriptedIMAPServer()
-        clock = Clock()
+        clock = ManualClock()
         let defaults = UserDefaults(suiteName: Self.suite)!
         defaults.removePersistentDomain(forName: Self.suite)
         book = RecipientBook(defaults: defaults)
@@ -393,23 +393,5 @@ final class ComingBackTests: XCTestCase {
         XCTAssertEqual(counted.value, 0)
         XCTAssertEqual(server.log.map(\.verb), ["LOGIN"])
         XCTAssertEqual(server.connectionsOpened, 2)
-    }
-}
-
-/// A clock a test moves by hand.
-private final class Clock: @unchecked Sendable {
-    private let lock = NSLock()
-    private var current = Date(timeIntervalSince1970: 1_790_000_000)
-
-    func now() -> Date {
-        lock.lock()
-        defer { lock.unlock() }
-        return current
-    }
-
-    func advance(by seconds: TimeInterval) {
-        lock.lock()
-        current += seconds
-        lock.unlock()
     }
 }

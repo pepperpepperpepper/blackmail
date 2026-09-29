@@ -19,10 +19,16 @@ final class RepositoryWireTests: XCTestCase {
 
     private var server: ScriptedIMAPServer!
     private var book: RecipientBook!
+    /// The repository's clock. Only a test about a quiet spell moves it:
+    /// what the repository sends can depend on how long ago it last asked
+    /// about a folder (B-045), so on the wall clock a stalled host would add
+    /// a NOOP to the exact traffic these tests pin.
+    private var clock: ManualClock!
 
     override func setUp() {
         super.setUp()
         server = ScriptedIMAPServer()
+        clock = ManualClock()
         let defaults = UserDefaults(suiteName: Self.suite)!
         defaults.removePersistentDomain(forName: Self.suite)
         book = RecipientBook(defaults: defaults)
@@ -35,14 +41,15 @@ final class RepositoryWireTests: XCTestCase {
         UserDefaults(suiteName: Self.suite)?.removePersistentDomain(forName: Self.suite)
         server = nil
         book = nil
+        clock = nil
         super.tearDown()
     }
 
-    private func makeRepository(password: String? = nil,
-                                now: @escaping @Sendable () -> Date = { Date() })
-        -> IMAPMailRepository {
-        IMAPMailRepository(account: server.account, password: password ?? server.password,
-                           transport: server.transportFactory, recipients: book, now: now)
+    private func makeRepository(password: String? = nil) -> IMAPMailRepository {
+        let clock = self.clock!
+        return IMAPMailRepository(account: server.account, password: password ?? server.password,
+                                  transport: server.transportFactory, recipients: book,
+                                  now: { clock.now() })
     }
 
     /// The repository's id for a letter: "<uidvalidity>/<uid>".
@@ -295,6 +302,10 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
     }
 
+    /// Straight after the folder was listed, so the SEARCH is the first
+    /// thing written into the dead socket. After a quiet spell, which is
+    /// how a socket dies on the iPad, it is the NOOP in front of it
+    /// (`ArrivingMailTests`).
     func testTheFirstSearchInAFolderAfterADeadSocketCostsOneReconnect() async throws {
         let repository = makeRepository()
         _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
@@ -315,6 +326,7 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.connectionsOpened, 2)
     }
 
+    /// Straight after the folder was listed, as above.
     func testAJumpToADayAfterADeadSocketStillLands() async throws {
         let repository = makeRepository()
         _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
@@ -459,6 +471,41 @@ final class RepositoryWireTests: XCTestCase {
         // connection, and is complete.
         let hits = try await finishing { try await self.searchEverywhere(repository, for: "garden") }
         XCTAssertTrue(hits.contains { $0.subject == "Binned: old garden" })
+        XCTAssertEqual(server.connectionsOpened, 1)
+    }
+
+    /// Cancelled while the NOOP that asks for the open folder's news (B-045)
+    /// was on its way back, a minute after the folder was listed. It reads
+    /// the NOOP's answer and sends nothing after it: the SEARCH, Gmail's
+    /// slow step, would only hold up the search that replaced it.
+    func testASearchCancelledAsItsNOOPComesBackSendsNoSearch() async throws {
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
+        clock.advance(by: 60)
+        server.holdReplies(to: "NOOP")
+        server.clearLog()
+
+        let superseded = Task {
+            try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                        beforeUID: nil, limit: 20)
+        }
+        try await waitForCommand { $0.verb == "NOOP" }
+        superseded.cancel()
+        await server.releaseReplies(to: "NOOP")
+        do {
+            let page = try await finishing { try await superseded.value }
+            XCTFail("a cancelled search handed back \(page.count) results")
+        } catch {
+            XCTAssertTrue(error is CancellationError, "\(error)")
+        }
+        XCTAssertEqual(server.log.map(\.verb), ["NOOP"])
+        XCTAssertEqual(server.log.map(\.status), ["OK"])
+
+        let hits = try await finishing {
+            try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                        beforeUID: nil, limit: 20)
+        }
+        XCTAssertFalse(hits.isEmpty)
         XCTAssertEqual(server.connectionsOpened, 1)
     }
 
@@ -932,8 +979,7 @@ final class RepositoryWireTests: XCTestCase {
     }
 
     func testAWriteAfterAQuietSpellProbesTheConnectionFirstAndIsStillSentOnce() async throws {
-        let clock = TestClock()
-        let repository = makeRepository(now: { clock.now() })
+        let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
         let newest = try XCTUnwrap(server.uids(in: Server.inbox).last)
         XCTAssertFalse(rows[0].isRead)
@@ -959,8 +1005,7 @@ final class RepositoryWireTests: XCTestCase {
     }
 
     func testAWriteSoonAfterTheLastCommandIsNotProbed() async throws {
-        let clock = TestClock()
-        let repository = makeRepository(now: { clock.now() })
+        let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
 
         clock.advance(by: 89)
@@ -976,8 +1021,7 @@ final class RepositoryWireTests: XCTestCase {
     /// one queued exchange at the head of the line when the probe ends, the
     /// previews' FETCH here, goes between them; nothing else does.
     func testAProbedWriteGoesAheadOfWorkQueuedBeforeIt() async throws {
-        let clock = TestClock()
-        let repository = makeRepository(now: { clock.now() })
+        let repository = makeRepository()
         _ = try await repository.listMailboxes()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
         server.clearLog()
@@ -1326,24 +1370,6 @@ final class RepositoryWireTests: XCTestCase {
         }
         XCTAssertEqual(server.log.map(\.verb), ["UID FETCH"])
         XCTAssertFalse(server.log.contains { $0.command.contains("BODY.PEEK") }, "\(server.log)")
-    }
-}
-
-/// A clock a test moves by hand, so ninety seconds of quiet cost nothing.
-private final class TestClock: @unchecked Sendable {
-    private let lock = NSLock()
-    private var current = Date(timeIntervalSince1970: 1_790_000_000)
-
-    func now() -> Date {
-        lock.lock()
-        defer { lock.unlock() }
-        return current
-    }
-
-    func advance(by seconds: TimeInterval) {
-        lock.lock()
-        current += seconds
-        lock.unlock()
     }
 }
 

@@ -467,6 +467,31 @@ enum IMAPParser {
         return out
     }
 
+    /// The selected mailbox's message count once the `* 20 EXISTS` and
+    /// `* 3 EXPUNGE` lines among `untagged` have been applied to `count`, in
+    /// the order they came, or nil if there are none.
+    ///
+    /// Either can ride on the answer to any command, so this sees every
+    /// answer, and most of what it sees is FETCH lines that can run to
+    /// kilobytes. So nothing is tokenized: a line long enough to be anything
+    /// else is passed over on its length, which is free, and only a short
+    /// one is split into words.
+    static func messageCount(after untagged: [IMAPResponseLine], from count: Int) -> Int? {
+        var current: Int?
+        for line in untagged {
+            // "* 4294967295 EXPUNGE" is 20 bytes.
+            guard line.text.utf8.count <= 32 else { continue }
+            let words = line.text.split(separator: " ")
+            guard words.count == 3, words[0] == "*", let number = Int(words[1]) else { continue }
+            switch words[2].uppercased() {
+            case "EXISTS":  current = number
+            case "EXPUNGE": current = max(0, (current ?? count) - 1)
+            default:        continue
+            }
+        }
+        return current
+    }
+
     /// `* STATUS "INBOX" (MESSAGES 231 UNSEEN 3)` -> `["MESSAGES": 231, "UNSEEN": 3]`.
     /// Keys are uppercased. A 64-bit HIGHESTMODSEQ does not fit `UInt32` and is
     /// dropped rather than truncated to a wrong number.

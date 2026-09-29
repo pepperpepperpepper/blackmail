@@ -146,6 +146,29 @@ final class IMAPParserTests: XCTestCase {
         XCTAssertEqual(state?.readOnly, false)
     }
 
+    /// EXISTS sets the count and each EXPUNGE takes one off it, in the order
+    /// they came, whatever else is in the answer; an answer with neither
+    /// leaves it alone (B-045).
+    func testMessageCountFollowsExistsAndExpungeInTheOrderTheyCame() {
+        let answer = [
+            line("* 12 FETCH (UID 1004 FLAGS (\\Seen))"),
+            line("* 3 EXPUNGE"),
+            line("* 20 EXISTS"),
+            line("* 7 expunge"),
+            line("* SEARCH 1 2 3"),
+        ]
+        XCTAssertEqual(IMAPParser.messageCount(after: answer, from: 17), 19)
+        XCTAssertEqual(IMAPParser.messageCount(after: [line("* 3 EXPUNGE"), line("* 1 EXPUNGE")],
+                                               from: 17), 15)
+        XCTAssertNil(IMAPParser.messageCount(after: [answer[0], answer[4],
+                                                     line("* OK [UIDNEXT 9] Predicted next UID")],
+                                             from: 17))
+        // The words inside a FETCH are not a count, however they read.
+        XCTAssertNil(IMAPParser.messageCount(
+            after: [line(#"* 12 FETCH (UID 1004 ENVELOPE (NIL "* 20 EXISTS" NIL NIL NIL NIL NIL NIL NIL NIL))"#)],
+            from: 17))
+    }
+
     func testSearchAndResponseCode() {
         XCTAssertEqual(IMAPParser.parseSearch([line("* SEARCH 1 2 3 55")]), [1, 2, 3, 55])
         XCTAssertEqual(IMAPParser.parseSearch([line("* SEARCH")]), [])

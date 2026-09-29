@@ -2129,3 +2129,104 @@ tapped a third of a second apart drew only the last. The list's times read
 a letter of a megabyte, a conversation of twenty letters, a body with
 backslashes or `</script>` in it, a change of time zone or 24-hour clock,
 and the fill's own time on the iPad.
+
+---
+
+## B-045 — FIXED on the host 2026-09-29, not yet on the iPad. Refresh did not show mail that had come into the open folder
+
+**Found on the iPad, 2026-09-29**, on the test account, build 3fc7b91.
+Fixed on the scripted server the same day; the fixed build has not been
+seen on the iPad yet, and the TODO says what to look for.
+
+**What he saw.** With the Inbox open, he sent three letters to himself from
+the iPad and tapped Refresh. The list kept its seventeen rows under
+"Updated Just Now", while the folder pane beside it said the Inbox had 4
+unread. A second Refresh showed the three.
+
+**What the connection log showed.** The Refresh's `UID SEARCH ALL` was
+answered with the seventeen old UIDs, and the page's `UID FETCH` asked for
+those seventeen. Gmail's `* 20 EXISTS`, announcing the three, came at the
+end of the FETCH's answer, after the SEARCH. SESSION-IDENT then said
+`exists=17 uids=17`, and the STATUS of the Inbox that followed said
+UNSEEN 4.
+
+**The cause.** A SEARCH answers from the session's view of the mailbox, and
+Gmail, like most servers, adds new mail to that view only once it has
+announced it to the session with EXISTS, which it does when it chooses: in
+the answer to a SELECT or a NOOP, or riding on some later command, here the
+FETCH. The client does not SELECT a mailbox that is already open on its
+connection, and did not before B-039 either, and nothing else asked the
+server for news before listing. So a Refresh of the folder already open
+listed what Gmail had told the session of, and no more. Opening a folder
+the connection did not have open SELECTs it and was never affected; one it
+still had open from other work, All Mail after an All Mailboxes search,
+was. Nor was the Inbox after picking the iPad up after a while, where the
+warm-up's NOOP (B-041) had already asked. A letter archived or binned from
+another client stayed on the list the same way, until Gmail got round to
+its EXPUNGE. The SESSION-IDENT count was the SELECT's, so the log could not
+show the listing was short.
+
+**The fix.** A SEARCH in a mailbox already open now goes behind a NOOP, in
+the same hold of the connection, so Gmail announces what it has before the
+SEARCH and no other command comes between them. Not when a SELECT of it
+went in the same hold, however long its answer took, and not when the
+session has asked for that mailbox's news in the last two seconds, by its
+SELECT or by any NOOP, the warm-up's and a write's probe (B-024) included.
+A Refresh tapped again three seconds later while he waits for a letter asks
+again. A search as he types asks as a listing does, and the rest of its
+burst then go on the answer the first had while that is under ten seconds
+old, so a burst of typing asks once. Only a search starts a burst: a search
+five seconds after a Refresh or after the folder was opened still asks, for
+the letter he is after may have come in between. A question dated after
+now, the clock having been set back, counts as old, not as a moment ago.
+The same NOOP's EXPUNGEs take a letter removed elsewhere out of the same
+SEARCH, for nothing more. The count SESSION-IDENT reports now follows every
+EXISTS and EXPUNGE, so a listing that did miss mail shows as `exists` above
+`uids`.
+
+**What it costs.** One NOOP per listing from the top of the folder already
+open, unless one has just gone: a Refresh, a date jump, and the reload
+after a Delete or a Move from Edit mode or after a draft is saved, sent or
+deleted. Nothing for a folder he opens that the connection does not have
+open, which is SELECTed; one it still has open from other work, All Mail
+after an All Mailboxes search, pays it like a Refresh. For a search in the
+Current Mailbox, one NOOP for the first keystroke's search and nothing for
+the rest while that answer is under ten seconds old. An All Mailboxes
+search SELECTs each of its mailboxes and adds nothing, except when the
+Trash is the folder open: its first mailbox is then already open and asks
+as a Current Mailbox search does. Nothing per page: scrolling walks the
+listing the Refresh took, as before, and a page whose listing has gone
+SEARCHes again without asking, since it is cut below a letter already on
+screen.
+
+**What it does not cover.** A letter that lands less than two seconds after
+the last question and before a Refresh is shown by the Refresh after that
+one, and a letter that lands while he types is found by the first search
+once the burst's answer is ten seconds old, or after a Refresh. Pages
+loaded as he scrolls still ask for nothing, because the list is meant to
+hold still under him: a letter removed elsewhere further down than the last
+Refresh reached stays listed until the next one, if Gmail goes on serving
+it, as before.
+
+**Tested** in `ArrivingMailTests`, over a scripted server that now tells a
+connection with the mailbox open of new mail only on a NOOP or at the end
+of a UID FETCH, never on a SEARCH, and of a letter removed elsewhere only
+on a NOOP, as Gmail did here: a Refresh after three letters to himself
+lists them on the first reload with one NOOP added; a letter removed
+elsewhere leaves the list; a second Refresh three seconds on asks again,
+and one under two seconds after the folder's SELECT does not; the warm-up's
+NOOP and a write's probe are shared; a page adds nothing; a date jump lands
+on a letter that arrived after the folder was opened; a Current Mailbox
+search finds one, and so does the first search a few seconds after the
+folder was opened or refreshed; a burst of five keystroke searches sends
+one NOOP, and All Mailboxes none; a SELECT answered after two seconds is
+not followed by a NOOP; a clock set back an hour does not stop a Refresh or
+a search asking; a page whose listing has gone asks for nothing; the count
+follows the EXISTS and EXPUNGE, an EXPUNGE counting down from the last
+EXISTS; and, after a socket that died in the quiet, the NOOP is the write
+it loses and the Refresh, the date jump and the search each land on one
+reconnect. `RepositoryWireTests` has a search cancelled while its NOOP is
+out send nothing after it. The tests that pin exact traffic now run on a
+clock nothing moves, so a stalled host cannot add a NOOP to them. Each
+fails with its part of the fix taken out: without the NOOP, the Refresh
+lists the old top rows exactly as the iPad's log had it.

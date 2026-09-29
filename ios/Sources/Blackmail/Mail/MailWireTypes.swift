@@ -45,7 +45,9 @@ struct IMAPCommandResult {
 struct IMAPMailboxState {
     let uidValidity: UInt32
     let uidNext: UInt32
-    let exists: Int
+    /// The only one that changes after the SELECT: every EXISTS and EXPUNGE
+    /// the server sends while the mailbox is selected moves it.
+    var exists: Int
     let flags: [String]
     let permanentFlags: [String]
     let readOnly: Bool
