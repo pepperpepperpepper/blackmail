@@ -80,7 +80,7 @@ final class MockMailRepository: MailRepository {
         return out
     }
 
-    func loadMessage(id: String, mailboxID: String) async throws -> Message {
+    func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message {
         if let m = bodies[id] { return m }
         let s = (messages[mailboxID] ?? []).first { $0.id == id }
         return Message(id: id, mailboxID: mailboxID,
@@ -92,27 +92,29 @@ final class MockMailRepository: MailRepository {
                        textBody: s?.preview ?? "", htmlBody: nil, attachments: [])
     }
 
-    func setRead(_ read: Bool, id: String, mailboxID: String) async throws {
+    func setRead(_ read: Bool, id: String, gmailMessageID: UInt64?, mailboxID: String) async throws {
         guard var list = messages[mailboxID], let i = list.firstIndex(where: { $0.id == id }) else { return }
         list[i].isRead = read
         messages[mailboxID] = list
     }
 
-    func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
+    func setFlagged(_ flagged: Bool, id: String, gmailMessageID: UInt64?,
+                    mailboxID: String) async throws {
         guard var list = messages[mailboxID], let i = list.firstIndex(where: { $0.id == id }) else { return }
         list[i].isFlagged = flagged
         messages[mailboxID] = list
     }
 
-    func move(_ id: String, from source: String, to destination: String) async throws {
+    func move(_ id: String, gmailMessageID: UInt64?, from source: String,
+              to destination: String) async throws {
         guard var from = messages[source], let i = from.firstIndex(where: { $0.id == id }) else { return }
         let m = from.remove(at: i)
         messages[source] = from
         messages[destination, default: []].insert(m, at: 0)
     }
 
-    func delete(_ id: String, from mailboxID: String) async throws {
-        try await move(id, from: mailboxID, to: "trash")
+    func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
+        try await move(id, gmailMessageID: gmailMessageID, from: mailboxID, to: "trash")
     }
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {}
@@ -154,7 +156,7 @@ final class MockMailRepository: MailRepository {
     @discardableResult
     func deleteDrafts(uploadedAs versions: [String]) async throws -> [String] { [] }
 
-    func loadDraft(id: String, mailboxID: String) async throws -> Draft {
+    func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
         guard let draft = savedDrafts[id] else { throw MailError.cannotConnect }
         return draft
     }

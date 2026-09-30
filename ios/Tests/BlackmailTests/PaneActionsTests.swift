@@ -212,7 +212,7 @@ final class PaneActionsTests: XCTestCase {
         let (list, counts) = await makeList(folder: rows)
         let sweeps = Counter()
         let coalescer = await makeSweeps(repository, counted: sweeps)
-        try await repository.setRead(true, id: letter.id, mailboxID: letter.mailboxID)
+        try await repository.setRead(true, on: letter)
         // What the list does at the tap, and once the read mark has landed.
         await list.setRead(letter.id, read: true)
         await list.read(letter)

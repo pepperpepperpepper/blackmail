@@ -781,6 +781,42 @@ this host. Ordered by value, not by size.
       copy, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
+- [ ] **B-053, every write and every open naming its letter.** Seen
+      2026-09-30: the everyday wire after the page (open, Flag, Edit's
+      Mark), and a copy made another mailbox's by hand refused under held
+      ticks with nothing sent (B-053). Still to see, with Wi-Fi on and
+      after "Updated Just Now": move a letter and delete another: the
+      connection log shows each as it did, the `UID MOVE` with no `(UID
+      X-GM-MSGID)` FETCH before it, and no `KEPT-` line. The same for a row on a page scrolled down to, a day jumped
+      to, a search hit, a letter opened inside a conversation, a draft
+      reopened, and Edit mode's Mark, Move and Delete. Then open Sent Mail,
+      opened before, and before its page lands, if it can be caught, open a
+      row and flag it from the pane: the letter's own FETCH with
+      `X-GM-MSGID` beside `BODY.PEEK[]`, where it used to be the plain one
+      once the Inbox had been listed, then the `UID STORE` alone, the FETCH
+      having asked. For the question before a STORE, tap an unread row the
+      same way, before its page lands, in a folder opened before that has
+      unread mail: the read mark's `UID FETCH n (UID X-GM-MSGID)` before its
+      `UID STORE`, beside the letter's FETCH with the id, and its dot stays
+      off. Sent Mail's rows are his own letters, read, so a tap there sends
+      no read mark; on the slower connection the swap under ticks needs,
+      Edit, a tick on a Sent Mail row and Mark as Unread can all be made
+      before its page lands: `UID FETCH n (UID X-GM-MSGID)` before
+      `UID STORE n -FLAGS.SILENT (\Seen)`, then Mark as Read to put it back.
+      On that connection too: send the account two letters, force-quit, open
+      it, and before the page lands tick, in Edit, the last row of the kept
+      Inbox, a read one (read it on an earlier launch if it is not), and a
+      read one near the top. Once the page has come and waits for the ticks,
+      the last row is one the new letters pushed off it: Mark as Unread
+      sends `UID FETCH n (UID X-GM-MSGID)` before that row's `UID STORE`,
+      where it used to go unasked, and the STORE alone for the other. The
+      Mark ends Edit mode and lets the fresh page on, so the row pushed off
+      leaves the list; scroll down until the page below brings it back, then
+      tick it and the row near the top in Edit and Mark as Read: the two
+      STOREs alone, the page below having named it. Another mailbox's copy
+      is made by hand by giving kept rows ids of no letter there, with the
+      app ended (B-053); a letter opened from one needs the slower
+      connection too.
 - [ ] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox

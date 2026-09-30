@@ -64,13 +64,20 @@ protocol MailRepository {
     /// preview, which is not an error.
     func previews(for ids: [String], in mailboxID: String) async throws -> [String: String]
 
-    func loadMessage(id: String, mailboxID: String) async throws -> Message
+    /// The letter a row stands for. `gmailMessageID` is the row's own
+    /// (`MessageSummary.gmailMessageID`), nil when it has none: nothing of
+    /// the letter is shown unless the server has it under the row's UID
+    /// (D-016), and `MailShelf.NotTheKeptLetter` is thrown otherwise.
+    func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message
 
-    func setRead(_ read: Bool, id: String, mailboxID: String) async throws
-    func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws
+    /// Every write on a row names the row's Gmail message id as
+    /// `loadMessage` does, and goes onto that letter or not at all.
+    func setRead(_ read: Bool, id: String, gmailMessageID: UInt64?, mailboxID: String) async throws
+    func setFlagged(_ flagged: Bool, id: String, gmailMessageID: UInt64?, mailboxID: String) async throws
 
-    func move(_ id: String, from sourceMailboxID: String, to destinationMailboxID: String) async throws
-    func delete(_ id: String, from mailboxID: String) async throws
+    func move(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
+              to destinationMailboxID: String) async throws
+    func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws
 
     /// Returns once the server has taken the letter, its 250 after DATA,
     /// and not after anything that follows it; see `SMTPClient.send`.
@@ -118,6 +125,15 @@ protocol MailRepository {
     func saveDraft(_ draft: Draft, as upload: DraftUpload) async throws -> DraftSaved
 
     /// Removes a saved draft outright rather than binning it.
+    ///
+    /// Names no Gmail message id, unlike the writes above. It is never a
+    /// row he tapped: it is the copy a draft was reopened from, or a copy
+    /// put in Drafts or found there. Within one launch that copy was
+    /// vouched for as it opened, or is this launch's own. A letter kept in
+    /// Local Drafts from an earlier launch names its copy by folder and UID
+    /// alone, and after a password saved in Settings that opens another
+    /// mailbox under the same address (B-033) that id can be another
+    /// draft's: not covered (B-051).
     func deleteDraft(_ id: String) async throws
 
     /// Removes the copies in Drafts of a letter kept on the iPad, found by
@@ -127,8 +143,9 @@ protocol MailRepository {
     @discardableResult
     func deleteDrafts(uploadedAs versions: [String]) async throws -> [String]
 
-    /// Reopens a saved draft for editing.
-    func loadDraft(id: String, mailboxID: String) async throws -> Draft
+    /// Reopens a saved draft for editing, the row's Gmail message id named
+    /// as `loadMessage` names it.
+    func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft
 
     /// Newest first, and PAGED exactly like `listMessages` — `beforeUID` nil
     /// is the first page, a short page is the last one.

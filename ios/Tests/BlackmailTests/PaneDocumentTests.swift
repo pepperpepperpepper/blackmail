@@ -348,20 +348,20 @@ final class PaneDocumentTests: XCTestCase {
 
         let roof = try XCTUnwrap(page.first { $0.subject == "The roof" })
         XCTAssertTrue(roof.hasAttachment)
-        let landed = try await repository.loadMessage(id: roof.id, mailboxID: roof.mailboxID)
+        let landed = try await repository.open(roof)
         XCTAssertEqual(files(landed), ["2 Roof quote.pdf application/pdf", "3 notes.txt text/plain"])
         XCTAssertEqual(files(Message.heading(for: roof)), files(landed))
         XCTAssertEqual(files(Message.heading(for: roof, subject: "Re: The roof")), files(landed),
                        "a conversation's header too")
 
         let one = try XCTUnwrap(page.first { $0.subject == "One file" })
-        let oneLanded = try await repository.loadMessage(id: one.id, mailboxID: one.mailboxID)
+        let oneLanded = try await repository.open(one)
         XCTAssertEqual(files(oneLanded), ["2 Roof quote.pdf application/pdf"])
         XCTAssertEqual(files(Message.heading(for: one)), files(oneLanded))
 
         // A letter with no files: nothing to list either way.
         let plain = try XCTUnwrap(page.first { $0.attachments.isEmpty && !$0.hasAttachment })
-        let plainLanded = try await repository.loadMessage(id: plain.id, mailboxID: plain.mailboxID)
+        let plainLanded = try await repository.open(plain)
         XCTAssertEqual(files(plainLanded), [])
         XCTAssertEqual(files(Message.heading(for: plain)), [])
     }

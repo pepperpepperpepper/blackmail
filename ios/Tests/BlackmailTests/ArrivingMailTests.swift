@@ -165,7 +165,7 @@ final class ArrivingMailTests: XCTestCase {
         clock.advance(by: 91)
         lettersToHimself(1, about: "probe")
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[3].id, mailboxID: rows[3].mailboxID)
+        try await repository.setFlagged(true, on: rows[3])
         let afterWrite = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         XCTAssertEqual(verbs, ["NOOP", "UID STORE", "UID SEARCH", "UID FETCH"])
         XCTAssertEqual(afterWrite.first?.subject, "A probe to self 1")

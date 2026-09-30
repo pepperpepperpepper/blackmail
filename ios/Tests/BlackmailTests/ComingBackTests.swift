@@ -72,7 +72,7 @@ final class ComingBackTests: XCTestCase {
         XCTAssertEqual(server.connectionsOpened, 2)
 
         server.clearLog()
-        let letter = try await repository.loadMessage(id: rows[0].id, mailboxID: rows[0].mailboxID)
+        let letter = try await repository.open(rows[0])
         XCTAssertEqual(letter.subject, rows[0].subject)
         XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID FETCH"])
         XCTAssertEqual(server.log.map(\.connection), [2, 2])
@@ -92,7 +92,7 @@ final class ComingBackTests: XCTestCase {
         XCTAssertEqual(server.log.map(\.verb), ["NOOP"])
         // Just probed, so a write straight after it is not probed again.
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[3].id, mailboxID: rows[3].mailboxID)
+        try await repository.setFlagged(true, on: rows[3])
         XCTAssertEqual(server.log.map(\.verb), ["UID STORE"])
     }
 
@@ -114,7 +114,7 @@ final class ComingBackTests: XCTestCase {
         server.holdReplies(to: "NOOP")
         let warm = Task { await repository.warmUp() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
-        let deleted = Task { try await repository.delete(letter.id, from: letter.mailboxID) }
+        let deleted = Task { try await repository.delete(letter) }
         try await until { await repository.waitingForExchange == 1 }
         await server.resetConnections()
         await server.releaseReplies(to: "NOOP")
@@ -155,7 +155,7 @@ final class ComingBackTests: XCTestCase {
         let warm = Task { await repository.warmUp() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
         let flagged = Task {
-            try await repository.setFlagged(true, id: letter.id, mailboxID: letter.mailboxID)
+            try await repository.setFlagged(true, on: letter)
         }
         try await until { await repository.waitingForExchange == 1 }
         // Begun only once the stalled NOOP has been cut off and its
@@ -250,8 +250,8 @@ final class ComingBackTests: XCTestCase {
         XCTAssertEqual(server.log.first?.status, "NO")
 
         let letter = rows[0]
-        async let opened: Message = repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID)
-        async let read: Void = repository.setRead(true, id: letter.id, mailboxID: letter.mailboxID)
+        async let opened: Message = repository.open(letter)
+        async let read: Void = repository.setRead(true, on: letter)
         var failures: [MailError?] = []
         do { _ = try await opened } catch { failures.append(error as? MailError) }
         do { try await read } catch { failures.append(error as? MailError) }
@@ -263,7 +263,7 @@ final class ComingBackTests: XCTestCase {
         await repository.warmUp()
         XCTAssertEqual(server.log.map(\.verb), ["LOGIN"])
         do {
-            _ = try await repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID)
+            _ = try await repository.open(letter)
             XCTFail("the password is still refused")
         } catch {
             XCTAssertEqual(error as? MailError, .passwordNeedsUpdating)
@@ -286,7 +286,7 @@ final class ComingBackTests: XCTestCase {
         clock.advance(by: 91)
         let warm = Task { await repository.warmUp() }
         try await until { await repository.waitingForExchange == 1 }
-        let open = Task { try await repository.loadMessage(id: rows[0].id, mailboxID: rows[0].mailboxID) }
+        let open = Task { try await repository.open(rows[0]) }
         try await until { await repository.waitingForExchange == 2 }
         await server.releaseReplies(to: "LIST")
 

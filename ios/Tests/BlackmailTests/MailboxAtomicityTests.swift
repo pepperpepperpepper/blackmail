@@ -154,7 +154,7 @@ final class MailboxAtomicityTests: XCTestCase {
             Task { try await repository.previews(for: group.ids, in: group.mailboxID) }
         }
         let dinner = Task { try await self.searchEverywhere(repository, for: "dinner") }
-        let letter = Task { try await repository.loadMessage(id: inbox[3].id, mailboxID: "inbox") }
+        let letter = Task { try await repository.open(inbox[3]) }
 
         var previews: [String: String] = [:]
         for task in previewTasks {
@@ -197,10 +197,10 @@ final class MailboxAtomicityTests: XCTestCase {
     func testWritesTappedDuringASearchEverywhereChangeOnlyTheirOwnLetter() async throws {
         let writes: [(label: String, verb: String,
                       run: (IMAPMailRepository, MessageSummary) async throws -> Void)] = [
-            ("delete", "UID MOVE", { try await $0.delete($1.id, from: "inbox") }),
-            ("move", "UID MOVE", { try await $0.move($1.id, from: "inbox", to: Server.sent) }),
-            ("read", "UID STORE", { try await $0.setRead(true, id: $1.id, mailboxID: "inbox") }),
-            ("flag", "UID STORE", { try await $0.setFlagged(true, id: $1.id, mailboxID: "inbox") }),
+            ("delete", "UID MOVE", { try await $0.delete($1) }),
+            ("move", "UID MOVE", { try await $0.move($1, to: Server.sent) }),
+            ("read", "UID STORE", { try await $0.setRead(true, on: $1) }),
+            ("flag", "UID STORE", { try await $0.setFlagged(true, on: $1) }),
         ]
         func holding(_ messageID: String) -> Set<String> {
             Set(Self.mailboxes.filter { mailbox in
@@ -296,7 +296,7 @@ final class MailboxAtomicityTests: XCTestCase {
             try await repository.listMessages(in: "inbox", beforeUID: rows.last?.id, limit: 10)
         }
         try await until { self.server.log.contains { $0.verb == "LOGIN" && $0.connection == 2 } }
-        let tap = Task { try await repository.loadMessage(id: rows[2].id, mailboxID: "inbox") }
+        let tap = Task { try await repository.open(rows[2]) }
         try await until { await repository.waitingForExchange == 1 }
         await server.releaseReplies(to: "LOGIN")
 
@@ -326,11 +326,11 @@ final class MailboxAtomicityTests: XCTestCase {
     func testAWriteToAMailboxRenumberedSinceItsRowWasDrawnWritesNothing() async throws {
         let writes: [(label: String, mailbox: String,
                       run: (IMAPMailRepository, MessageSummary) async throws -> Void)] = [
-            ("read", Server.inbox, { try await $0.setRead(true, id: $1.id, mailboxID: "inbox") }),
-            ("flag", Server.inbox, { try await $0.setFlagged(true, id: $1.id, mailboxID: "inbox") }),
-            ("delete", Server.inbox, { try await $0.delete($1.id, from: "inbox") }),
-            ("move", Server.inbox, { try await $0.move($1.id, from: "inbox", to: Server.sent) }),
-            ("delete in Trash", Server.trash, { try await $0.delete($1.id, from: Server.trash) }),
+            ("read", Server.inbox, { try await $0.setRead(true, on: $1) }),
+            ("flag", Server.inbox, { try await $0.setFlagged(true, on: $1) }),
+            ("delete", Server.inbox, { try await $0.delete($1) }),
+            ("move", Server.inbox, { try await $0.move($1, to: Server.sent) }),
+            ("delete in Trash", Server.trash, { try await $0.delete($1) }),
             ("discard a draft", Server.drafts, { try await $0.deleteDraft($1.id) }),
         ]
         for (label, mailbox, write) in writes {
@@ -379,7 +379,7 @@ final class MailboxAtomicityTests: XCTestCase {
         server.refusedMailboxes = [Server.starred]
 
         let calls: [(label: String, run: () async throws -> Void)] = [
-            ("open", { _ = try await repository.loadMessage(id: starred[0].id, mailboxID: Server.starred) }),
+            ("open", { _ = try await repository.open(starred[0]) }),
             ("attachment", {
                 _ = try await repository.fetchAttachmentData("1", of: starred[1].id,
                                                              mailboxID: Server.starred)
@@ -393,10 +393,10 @@ final class MailboxAtomicityTests: XCTestCase {
                 _ = try await repository.search(in: Server.starred, query: "garden",
                                                 scope: .currentMailbox, beforeUID: nil, limit: 5)
             }),
-            ("read", { try await repository.setRead(true, id: starred[0].id, mailboxID: Server.starred) }),
-            ("flag", { try await repository.setFlagged(false, id: starred[0].id, mailboxID: Server.starred) }),
-            ("delete", { try await repository.delete(starred[0].id, from: Server.starred) }),
-            ("move", { try await repository.move(starred[0].id, from: Server.starred, to: Server.sent) }),
+            ("read", { try await repository.setRead(true, on: starred[0]) }),
+            ("flag", { try await repository.setFlagged(false, on: starred[0]) }),
+            ("delete", { try await repository.delete(starred[0]) }),
+            ("move", { try await repository.move(starred[0], to: Server.sent) }),
         ]
         for (label, call) in calls {
             let mark = server.log.count
@@ -410,7 +410,7 @@ final class MailboxAtomicityTests: XCTestCase {
             XCTAssertEqual(server.log.last?.status, "NO", label)
         }
 
-        let letter = try await repository.loadMessage(id: inbox[0].id, mailboxID: "inbox")
+        let letter = try await repository.open(inbox[0])
         XCTAssertEqual(letter.subject, inbox[0].subject)
         XCTAssertEqual(server.connectionsOpened, 1)
     }
@@ -451,7 +451,7 @@ final class MailboxAtomicityTests: XCTestCase {
         background.append(Task { _ = try await repository.listMailboxes() })
         try await until { await repository.waitingForExchange == 3 }
 
-        let open = Task { try await repository.loadMessage(id: sent[1].id, mailboxID: Server.sent) }
+        let open = Task { try await repository.open(sent[1]) }
         try await until { await repository.waitingForExchange == 4 }
         let attachment = Task {
             try await repository.fetchAttachmentData("2", of: withParts.id, mailboxID: "inbox")
@@ -508,7 +508,7 @@ final class MailboxAtomicityTests: XCTestCase {
 
         let search = Task { try await self.searchEverywhere(repository, for: "garden") }
         try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
-        let open = Task { try await repository.loadMessage(id: rows[1].id, mailboxID: "inbox") }
+        let open = Task { try await repository.open(rows[1]) }
         try await until { await repository.waitingForExchange == 1 }
         let previews = Task { try await repository.previews(for: rows.map(\.id), in: "inbox") }
         try await until { await repository.waitingForExchange == 2 }
@@ -550,7 +550,7 @@ final class MailboxAtomicityTests: XCTestCase {
 
         let search = Task { try await self.searchEverywhere(repository, for: "garden") }
         try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
-        let open = Task { try await repository.loadMessage(id: rows[1].id, mailboxID: "inbox") }
+        let open = Task { try await repository.open(rows[1]) }
         try await until { await repository.waitingForExchange == 1 }
         server.holdReplies(to: "SELECT")
         await server.releaseReplies(to: "UID SEARCH")
@@ -668,7 +668,7 @@ final class MailboxAtomicityTests: XCTestCase {
 
             let discard = Task { try await repository.deleteDraft(drafts[0].id) }
             try await until { self.server.log.contains { $0.verb == "UID STORE" } }
-            let open = Task { try await repository.loadMessage(id: inbox[0].id, mailboxID: "inbox") }
+            let open = Task { try await repository.open(inbox[0]) }
             try await until { await repository.waitingForExchange == 1 }
             await server.releaseReplies(to: "UID STORE")
             try await finishing { try await discard.value }

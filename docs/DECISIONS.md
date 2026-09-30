@@ -824,14 +824,23 @@ decided, and six choices made in building them:
   ids, or the row's own folder has been listed. In practice the Inbox's
   first page proves it within seconds; after that a UID kept for any folder
   names the letter it did or none, since every write names its UIDVALIDITY
-  (B-039), and a search hit written on later costs no FETCH.
+  (B-039), and a search hit written on later costs no FETCH. Since
+  2026-09-30 this holds only for a call that names no letter: a draft
+  removed, a letter kept in Local Drafts that has gone up, opened from its
+  row, and a row from a server without Gmail's extension. A call that names
+  its row's letter, which is every other, goes by what the server has named
+  under the UID in this launch, proven mailbox or not (below).
 - **Opening is vouched for by the FETCH that brings the letter.** X-GM-MSGID
   is asked beside BODY.PEEK[] in the one FETCH the letter costs anyway, and
   compared before anything of it is shown: no round trip more, and the
   FETCH still marks nothing read. Another id, or none, and nothing of it is
   shown, no STORE goes, the pane empties and the row leaves the list, as a
   write's refusal does. A letter from a proven row is fetched byte for byte
-  as before.
+  as before. Since 2026-09-30 that is so for an opening that names no
+  letter; one that names its row's letter is fetched byte for byte once the
+  server has named that letter under its UID in this launch, and asks for
+  the id in its FETCH while the server has named nothing there yet; with
+  another letter named there, nothing is fetched.
 - **The watch fetches the kept page afresh** at its first check that
   reaches the server, and does not search from the kept rows: they are an
   earlier launch's word, and news found from their lowest UID would go on
@@ -849,6 +858,21 @@ vouching FETCH, or the letter's own FETCH with its id asked beside the body,
 PEEK. The write waits for the answer, nothing of the letter is shown until
 it has come, and a row the server has disowned stays disowned for the
 launch, whichever of a tap's read mark and its FETCH is answered first.
+Since 2026-09-30 every write and every letter opened names the Gmail
+message id of the row he acted on, and the repository holds it against
+what the server has named under that UID in this launch, in a row it sent
+or in answer to the question: the same letter goes as before, another is
+refused with neither the write nor the question sent, and none yet is
+asked. So the kept row still drawn after a listing has thrown the copy
+away, which the rule of a proven mailbox above let through unasked, is
+refused, and that rule now covers only a call that names no letter (B-053,
+"Never the wrong mailbox"). The same holds in the copy's own mailbox,
+where it asks more than the rule did: a kept row the fresh page lacks,
+pushed off it by mail come since, is still drawn while the swap waits for
+his ticks or a finger, and in a conversation opened from the kept page at
+launch; a write on it is asked about once, at one round trip, and its
+letter opened asks in its own FETCH, at none more, where the proven mailbox
+let both go unasked. That stays: asking is the safer, and it is rare.
 Not built: the letters (phase 2).
 
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can

@@ -321,7 +321,7 @@ final class RepositoryTrafficTests: XCTestCase {
         try await until { self.server.log.contains { $0.verb == "STATUS" } }
         XCTAssertEqual(server.log.last?.command, "STATUS \"INBOX\" (UNSEEN)")
         server.holdReplies(to: "UID STORE")
-        async let read: Void = repository.setRead(true, id: letter.id, mailboxID: letter.mailboxID)
+        async let read: Void = repository.setRead(true, on: letter)
         try await until { await repository.waitingForExchange > 0 }
         await server.releaseReplies(to: "STATUS")
         try await until { self.server.log.contains { $0.verb == "UID STORE" } }

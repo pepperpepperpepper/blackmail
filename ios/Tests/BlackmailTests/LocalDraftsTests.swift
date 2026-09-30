@@ -455,9 +455,9 @@ final class LocalDraftsTests: XCTestCase {
         // long as the photos take, the letter he taps would wait behind it.
         server.holdReplies(to: "APPEND")
         await kept.uploadWaiting(to: repository)?.value
-        let (id, mailbox) = (rows[0].id, rows[0].mailboxID)
+        let tapped = rows[0]
         let opened = try await finishing(within: 2) {
-            try await repository.loadMessage(id: id, mailboxID: mailbox)
+            try await repository.open(tapped)
         }
         XCTAssertEqual(opened.subject, rows[0].subject, "his tap is answered at once")
         XCTAssertEqual(appends, 1, "nothing large went while he was here")

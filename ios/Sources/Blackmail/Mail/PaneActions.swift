@@ -123,11 +123,21 @@ enum PaneActions {
     /// Whether the letter was unread is read off the list's copy once the
     /// write has landed, not off the pane's: the pane was handed the row
     /// before the tap that opened it marked it read.
+    ///
+    /// The write names the pane's letter by its Gmail message id, and goes
+    /// onto that letter or not at all (D-016). The list is edited only while
+    /// its row under that id is the same letter: the pane can still hold a
+    /// row kept on the iPad after the list's page has been fetched afresh
+    /// and put the server's own letter under that id, which the write is
+    /// not made on, and which is neither flagged, taken off nor put back
+    /// for it.
     static func run(_ action: PaneAction, on letter: MessageSummary,
                     inFolderWithRole role: Mailbox.Role?,
-                    list: PaneActionList?, repository: MailRepository,
+                    list shown: PaneActionList?, repository: MailRepository,
                     requestSweep: @MainActor () -> Void) async -> Bool {
         let effect = effect(of: action, onLetterIn: role)
+        let listed = shown?.letter(letter.id)
+        let list = listed.map { ListEdit.sameLetter($0, letter) } == false ? nil : shown
         let before = list?.letter(letter.id) ?? letter
 
         switch action {
@@ -141,11 +151,15 @@ enum PaneActions {
         do {
             switch action {
             case .delete:
-                try await repository.delete(letter.id, from: letter.mailboxID)
+                try await repository.delete(letter.id, gmailMessageID: letter.gmailMessageID,
+                                            from: letter.mailboxID)
             case .move(let destination):
-                try await repository.move(letter.id, from: letter.mailboxID, to: destination.id)
+                try await repository.move(letter.id, gmailMessageID: letter.gmailMessageID,
+                                          from: letter.mailboxID, to: destination.id)
             case .flag(let flagged):
-                try await repository.setFlagged(flagged, id: letter.id, mailboxID: letter.mailboxID)
+                try await repository.setFlagged(flagged, id: letter.id,
+                                                gmailMessageID: letter.gmailMessageID,
+                                                mailboxID: letter.mailboxID)
             }
         } catch {
             switch action {

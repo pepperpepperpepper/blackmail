@@ -306,7 +306,7 @@ final class NewMailTests: XCTestCase {
         // last check.
         clock.advance(by: 80)
         server.clearLog()
-        try await repository.setFlagged(true, id: before[3].id, mailboxID: before[3].mailboxID)
+        try await repository.setFlagged(true, on: before[3])
         XCTAssertEqual(verbs, ["UID STORE"])
 
         clock.advance(by: MailWatch.interval)
@@ -350,7 +350,7 @@ final class NewMailTests: XCTestCase {
 
         clock.advance(by: 80)
         server.clearLog()
-        try await repository.setFlagged(true, id: sent[0].id, mailboxID: sent[0].mailboxID)
+        try await repository.setFlagged(true, on: sent[0])
         XCTAssertEqual(verbs, ["UID STORE"])
     }
 
@@ -400,7 +400,7 @@ final class NewMailTests: XCTestCase {
         clock.advance(by: MailWatch.interval)
         let checking = Task { await watch.check() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
-        let tap = Task { try await repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID) }
+        let tap = Task { try await repository.open(letter) }
         try await until { await repository.waitingForExchange == 1 }
         await server.releaseReplies(to: "NOOP")
         let opened = try await finishing { try await tap.value }
@@ -417,7 +417,7 @@ final class NewMailTests: XCTestCase {
         clock.advance(by: MailWatch.interval)
         let checkingAgain = Task { await watch.check() }
         try await until { await repository.waitingForExchange == 1 }
-        let tapAgain = Task { try await repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID) }
+        let tapAgain = Task { try await repository.open(letter) }
         try await until { await repository.waitingForExchange == 2 }
         await server.releaseReplies(to: "STATUS")
         _ = try await finishing { try await tapAgain.value }
@@ -448,7 +448,7 @@ final class NewMailTests: XCTestCase {
         server.holdReplies(to: "NOOP")
         let checking = Task { await watch.check() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
-        let deleted = Task { try await repository.delete(letter.id, from: letter.mailboxID) }
+        let deleted = Task { try await repository.delete(letter) }
         try await until { await repository.waitingForExchange == 1 }
         await server.resetConnections()
         await server.releaseReplies(to: "NOOP")
@@ -487,7 +487,7 @@ final class NewMailTests: XCTestCase {
         server.holdReplies(to: "NOOP")
         let checking = Task { await watch.check() }
         try await until { self.server.log.contains { $0.verb == "NOOP" } }
-        let deleted = Task { try await repository.delete(letter.id, from: letter.mailboxID) }
+        let deleted = Task { try await repository.delete(letter) }
         try await until { await repository.waitingForExchange == 1 }
         await server.resetConnections()
         await server.releaseReplies(to: "NOOP")
@@ -518,7 +518,7 @@ final class NewMailTests: XCTestCase {
         server.clearLog()
 
         do {
-            try await repository.setFlagged(true, id: letter.id, mailboxID: letter.mailboxID)
+            try await repository.setFlagged(true, on: letter)
             XCTFail("a Flag written into a dead socket cannot have been answered")
         } catch {
             XCTAssertEqual(error as? MailError, .cannotConnect)
@@ -768,7 +768,7 @@ final class NewMailTests: XCTestCase {
 
         clock.advance(by: 10)
         do {
-            _ = try await repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID)
+            _ = try await repository.open(letter)
             XCTFail("opened with a refused password")
         } catch {
             XCTAssertEqual(error as? MailError, .passwordNeedsUpdating)
@@ -884,7 +884,7 @@ final class NewMailTests: XCTestCase {
         server.refusedVerbs = []
         clock.advance(by: 80)
         server.clearLog()
-        try await repository.setFlagged(true, id: letter.id, mailboxID: letter.mailboxID)
+        try await repository.setFlagged(true, on: letter)
         XCTAssertEqual(verbs, ["SELECT", "UID STORE"])
     }
 

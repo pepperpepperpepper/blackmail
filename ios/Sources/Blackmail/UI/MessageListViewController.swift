@@ -1509,7 +1509,8 @@ final class MessageListViewController: UITableViewController {
                 if let key = LocalDraft.key(ofRow: m.id) {
                     await kept.delete(key, from: repository)
                 } else {
-                    try? await repository.delete(m.id, from: m.mailboxID)
+                    try? await repository.delete(m.id, gmailMessageID: m.gmailMessageID,
+                                                 from: m.mailboxID)
                 }
             }
             editTapped()
@@ -1553,7 +1554,8 @@ final class MessageListViewController: UITableViewController {
             guard let self else { return }
             for m in chosen where m.isRead != read {
                 do {
-                    try await self.repository.setRead(read, id: m.id, mailboxID: m.mailboxID)
+                    try await self.repository.setRead(read, id: m.id, gmailMessageID: m.gmailMessageID,
+                                                      mailboxID: m.mailboxID)
                 } catch is MailShelf.NotTheKeptLetter {
                     // A kept row the server says is another letter: off the
                     // list, if it is still that row, and nothing sent (D-016).
@@ -1586,7 +1588,8 @@ final class MessageListViewController: UITableViewController {
             let moving = self.working(StatusLine.moving)
             Task { @MainActor in
                 for m in chosen {
-                    try? await self.repository.move(m.id, from: m.mailboxID, to: destination.id)
+                    try? await self.repository.move(m.id, gmailMessageID: m.gmailMessageID,
+                                                    from: m.mailboxID, to: destination.id)
                 }
                 self.editTapped()
                 await self.reload(keepingPlace: true)
@@ -1637,7 +1640,12 @@ final class MessageListViewController: UITableViewController {
             var draft: Draft?
             var notKept = false
             do {
-                draft = try await self.repository.loadDraft(id: id, mailboxID: summary.mailboxID)
+                // Named by the row's Gmail message id. A letter kept on the
+                // iPad that has gone up since its row was drawn has none,
+                // and its copy is one this launch put in Drafts.
+                draft = try await self.repository.loadDraft(id: id,
+                                                            gmailMessageID: summary.gmailMessageID,
+                                                            mailboxID: summary.mailboxID)
             } catch {
                 notKept = error is MailShelf.NotTheKeptLetter
             }
@@ -2063,7 +2071,8 @@ final class MessageListViewController: UITableViewController {
 
         Task { @MainActor in
             do {
-                try await repository.setRead(true, id: m.id, mailboxID: m.mailboxID)
+                try await repository.setRead(true, id: m.id, gmailMessageID: m.gmailMessageID,
+                                             mailboxID: m.mailboxID)
             } catch is MailShelf.NotTheKeptLetter {
                 // A row kept on the iPad that the server says is another
                 // letter now: nothing was sent, and it comes off the list if
@@ -2104,9 +2113,28 @@ final class MessageListViewController: UITableViewController {
     /// The pane can do this while the list is in Edit mode, which leaves
     /// the pane as it was: a row tap never could, since in Edit mode a tap
     /// ticks. So it must leave his ticks as they are.
+    ///
+    /// The list's copy only while it is the letter he opened, by its Gmail
+    /// message id. A conversation drawn from rows kept on the iPad (D-016)
+    /// can outlast the list's swap to the fresh page, which may have put
+    /// another letter under the same id: marked from the list's copy, the
+    /// STORE named that letter and went onto it. Now the read mark names
+    /// the letter he opened, and the repository refuses it or sends it by
+    /// that id; the list's row is another letter's, and is left as it is,
+    /// dot and counts, as the letter's own FETCH decides what the pane shows.
     @MainActor
     func markRead(_ letter: MessageSummary) {
-        markReadIfNeeded(letters.letter(letter.id) ?? letter)
+        let listed = letters.letter(letter.id)
+        guard let another = listed, !ListEdit.sameLetter(another, letter) else {
+            markReadIfNeeded(listed ?? letter)
+            return
+        }
+        guard !letter.isRead else { return }
+        let repository = self.repository
+        Task {
+            try? await repository.setRead(true, id: letter.id, gmailMessageID: letter.gmailMessageID,
+                                          mailboxID: letter.mailboxID)
+        }
     }
 
     /// The pane was emptied at the tap of a Delete or a Move, and a
