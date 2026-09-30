@@ -102,7 +102,8 @@ final class LocalDraftsTests: XCTestCase {
             },
             recipients: book,
             now: { clock.now() },
-            signatureImages: { [] })
+            signatureImages: { [] },
+            shelf: keptShelf(for: server.account))
     }
 
     /// The app's `LocalDrafts`, over this test's directory, for the account

@@ -35,7 +35,8 @@ final class PaneActionsTests: XCTestCase {
 
     private func makeRepository() -> IMAPMailRepository {
         IMAPMailRepository(account: server.account, password: server.password,
-                           transport: server.transportFactory, recipients: book)
+                           transport: server.transportFactory, recipients: book,
+                           shelf: keptShelf(for: server.account))
     }
 
     private func until(file: StaticString = #filePath, line: UInt = #line,

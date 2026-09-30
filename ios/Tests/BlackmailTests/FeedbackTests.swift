@@ -118,6 +118,25 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(said(line, after: 60), "Updated Just Now")
     }
 
+    /// The kept page on screen at launch (D-016): "Checking for Mail…"
+    /// while the server is asked, as before any list has come, not the age
+    /// of the kept rows, which would read as the check having been made.
+    /// With no connection the rows stay and the line says how old they are,
+    /// over what went wrong; once the fresh page lands, "Updated Just Now".
+    func testOverTheKeptPageTheLineChecksAndThenSaysHowOldOrJustNow() {
+        var line = UpdatedLine()
+        line.showingKept(since: checked)
+        XCTAssertEqual(said(line, after: 86_400), "Checking for Mail…")
+        line.failed(.cannotConnect)
+        XCTAssertEqual(said(line, after: 86_400), "Updated Yesterday\nNo Connection")
+        XCTAssertEqual(said(line, after: 2 * 3_600), "Updated at 14:13\nNo Connection")
+        line.succeeded(at: checked.addingTimeInterval(86_400))
+        XCTAssertEqual(said(line, after: 86_400 + 5), "Updated Just Now")
+        line.showingKept(since: checked)
+        line.failed(.passwordNeedsUpdating)
+        XCTAssertEqual(said(line, after: 3 * 86_400), "Updated 21/09/2026\nPassword Needs Updating")
+    }
+
     /// A check of the Inbox's list brings that list up to date. The same
     /// check with another list in front, or one of the Inbox's count, says
     /// only that the server can be reached, and leaves the age of the list

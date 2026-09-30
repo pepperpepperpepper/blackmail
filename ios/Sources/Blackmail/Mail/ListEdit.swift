@@ -49,17 +49,40 @@ enum ListEdit {
     /// preview already on screen is the preview, and fetching it again only
     /// blanks the row for as long as that takes. Refreshing a list used to
     /// do exactly that to every row.
+    ///
+    /// And not when both rows carry a Gmail message id and the ids differ.
+    /// Within a launch they always agree; a row kept on the iPad from an
+    /// earlier one (D-016) can be another mailbox's under the same id,
+    /// since every Gmail Inbox reports UIDVALIDITY 1, and its preview is
+    /// not this letter's. A row with no id carries: the server's copy of a
+    /// letter kept in Drafts is drawn from the letter (`LocalDrafts`), with
+    /// none, and refusing it blanked the preview of every draft that had
+    /// just reached the server and fetched it again at the next listing.
     static func carryingPreviews(from shown: [MessageSummary],
                                  into fetched: [MessageSummary]) -> [MessageSummary] {
-        var known: [String: String] = [:]
-        for letter in shown where !letter.preview.isEmpty { known[letter.id] = letter.preview }
+        var known: [String: MessageSummary] = [:]
+        for letter in shown where !letter.preview.isEmpty { known[letter.id] = letter }
         guard !known.isEmpty else { return fetched }
         return fetched.map { letter in
-            guard letter.preview.isEmpty, let text = known[letter.id] else { return letter }
+            guard letter.preview.isEmpty, let was = known[letter.id],
+                  sameLetter(was, letter) else { return letter }
             var carried = letter
-            carried.preview = text
+            carried.preview = was.preview
             return carried
         }
+    }
+
+    /// Whether two rows under one id are the same letter, as far as their
+    /// Gmail message ids say: unless both have one and they differ. What a
+    /// preview, a read mark and a flag go across by, from a row kept on the
+    /// iPad (D-016) or one on screen, to a row a listing brings.
+    static func sameLetter(_ one: MessageSummary, _ other: MessageSummary) -> Bool {
+        sameLetter(one.gmailMessageID, other.gmailMessageID)
+    }
+
+    static func sameLetter(_ one: UInt64?, _ other: UInt64?) -> Bool {
+        guard let one, let other else { return true }
+        return one == other
     }
 
     /// `letters` with the previews of their copies under other mailboxes'

@@ -359,7 +359,8 @@ final class PaneArrangementTests: XCTestCase {
         defaults.removePersistentDomain(forName: Self.suite)
         let repository = IMAPMailRepository(account: server.account, password: server.password,
                                             transport: server.transportFactory,
-                                            recipients: RecipientBook(defaults: defaults))
+                                            recipients: RecipientBook(defaults: defaults),
+                                            shelf: keptShelf(for: server.account))
         let shell = PaneShell(launching: .two)
         var shown = Mailbox.inboxBeforeListing
         var opened: [String] = []

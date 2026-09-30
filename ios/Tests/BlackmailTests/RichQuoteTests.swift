@@ -706,7 +706,8 @@ final class RichQuoteRepositoryTests: XCTestCase {
             transport: { host, port in port == 465 ? submission.next() : imap(host, port) },
             recipients: book,
             now: { clock.now() },
-            signatureImages: { [logo] })
+            signatureImages: { [logo] },
+            shelf: keptShelf(for: account))
     }
 
     /// Jane's letter in the Inbox: a photograph shown by `cid:` and a PDF.

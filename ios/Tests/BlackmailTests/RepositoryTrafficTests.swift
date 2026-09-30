@@ -36,7 +36,8 @@ final class RepositoryTrafficTests: XCTestCase {
 
     private func makeRepository(password: String? = nil) -> IMAPMailRepository {
         IMAPMailRepository(account: server.account, password: password ?? server.password,
-                           transport: server.transportFactory, recipients: book)
+                           transport: server.transportFactory, recipients: book,
+                           shelf: keptShelf(for: server.account))
     }
 
     /// Waits, a millisecond at a time and never for more than a second,

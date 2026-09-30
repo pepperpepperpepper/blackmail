@@ -44,6 +44,14 @@ final class ListLetters: PaneActionList {
 
     var isSearching: Bool { results != nil }
 
+    /// The folder's letters are its page kept on the iPad (D-016), drawn
+    /// before the server has been heard from, and not yet replaced by the
+    /// page it gives now. Paging is off while they are, and the watch
+    /// checks only the Inbox's count: the kept rows are an earlier launch's,
+    /// and nothing is searched for below them until the fresh page has
+    /// landed.
+    private(set) var fromShelf = false
+
     /// What paging walks and what the rows are cut from: the hits while a
     /// search is showing, the folder otherwise.
     var visible: [MessageSummary] { results ?? folder }
@@ -75,10 +83,41 @@ final class ListLetters: PaneActionList {
     /// the rest are asked for (`ListEdit.carryingPreviews`). A refresh used
     /// to blank every preview and fetch them all again. And what was taken
     /// off by hand, the server now has the say on (`RemovedLetters`).
-    func fetchedAfresh(_ page: [MessageSummary]) -> [MessageSummary] {
-        folder = ListEdit.carryingPreviews(from: everything, into: page)
+    ///
+    /// His own read marks and flags stay on over it where the listing was
+    /// asked before the server had them (`asked`, from `askingAfresh`; by
+    /// default a listing asked now). See `holdingHisMarks`.
+    func fetchedAfresh(_ page: [MessageSummary], asked: Int? = nil) -> [MessageSummary] {
+        folder = holdingHisMarks(ListEdit.carryingPreviews(from: everything, into: page),
+                                 asked: asked)
         results = nil
+        fromShelf = false
         removed.listReplaced()
+        dropNews()
+        return folder.filter { $0.preview.isEmpty }
+    }
+
+    /// The folder's page kept on the iPad, in place of everything, before
+    /// the server has been asked (D-016).
+    func showKept(_ page: [MessageSummary]) {
+        folder = page
+        results = nil
+        fromShelf = true
+        dropNews()
+    }
+
+    /// The folder's newest page, fetched afresh while a search is showing
+    /// or being typed over its kept page: in place of the folder's letters
+    /// under the search, which is left as it is, hits, field and all. The
+    /// folder comes back as this page when the search ends. Returns the
+    /// letters whose previews still have to be fetched.
+    ///
+    /// What was taken off by hand stays off until the list is next fetched
+    /// afresh with no search showing: the hits can hold the same letters.
+    /// His own read marks and flags stay on over it, as in `fetchedAfresh`.
+    func fetchedUnderSearch(_ page: [MessageSummary], asked: Int? = nil) -> [MessageSummary] {
+        folder = holdingHisMarks(ListEdit.carryingPreviews(from: folder, into: page), asked: asked)
+        fromShelf = false
         dropNews()
         return folder.filter { $0.preview.isEmpty }
     }
@@ -87,6 +126,7 @@ final class ListLetters: PaneActionList {
     func showWindow(_ letters: [MessageSummary]) {
         folder = letters
         results = nil
+        fromShelf = false
         dropNews()
     }
 
@@ -220,8 +260,14 @@ final class ListLetters: PaneActionList {
     /// would SELECT the Inbox every half minute, and each page of results
     /// after it would SELECT All Mail again. The first check after the
     /// search ends finds what came meanwhile.
+    ///
+    /// Nor for the folder's page kept on the iPad (D-016), whose rows are an
+    /// earlier launch's word: a check would search from the lowest of them
+    /// and put new letters on top of a page the server has not vouched for.
+    /// The first check that reaches the server fetches the page afresh
+    /// instead (`MessageListViewController.checked`).
     func toWatch(fromNewest: Bool, fetched: Bool) -> [String]? {
-        guard fromNewest, !isSearching, fetched || !folder.isEmpty else { return nil }
+        guard fromNewest, !isSearching, !fromShelf, fetched || !folder.isEmpty else { return nil }
         return watched
     }
 
@@ -328,6 +374,100 @@ final class ListLetters: PaneActionList {
         change(id) { $0.isRead = read }
     }
 
+    /// His read mark on its way to the server: the dot now, wherever the
+    /// list holds the letter, and held over what a listing brings until
+    /// the server has answered (`readAnswered`) and a listing asked after
+    /// that has come. See `holdingHisMarks`.
+    func reading(_ id: String, read: Bool) {
+        let row = letter(id)
+        reads[id] = Mark(value: read, before: row?.isRead ?? !read, letter: row?.gmailMessageID)
+        setRead(id, read: read)
+    }
+
+    /// The server has answered his read mark on `id`. Taken, it stays on
+    /// over a listing asked before now, and one asked after has the say.
+    /// Refused, the dot goes back as it was, on the letter he made it on
+    /// and not on another the same id names now, and nothing is held.
+    func readAnswered(_ id: String, landed: Bool) {
+        guard var mark = reads[id] else { return }
+        guard !landed else {
+            mark.takenAt = asked
+            reads[id] = mark
+            return
+        }
+        reads[id] = nil
+        change(id, ifStill: mark.letter) { $0.isRead = mark.before }
+    }
+
+    // MARK: - His own marks over a listing
+
+    /// His read marks and flags on the list's letters, by id, from the
+    /// moment he makes each until a listing from the top asked after the
+    /// server took it has come.
+    ///
+    /// A listing asked before brings the letter's flags from before his
+    /// STORE, and fetched afresh it put the unread dot back on the letter
+    /// he had just opened, or took off the flag he had just set, while the
+    /// server had what he did; the dot stayed until the next Refresh. A
+    /// Refresh made while a STORE was on its way did it; with the copy kept
+    /// on the iPad (D-016) it is the ordinary launch, a tap on a kept row
+    /// made while the first page is on the wire, and the STORE queued
+    /// behind it.
+    private var reads: [String: Mark] = [:]
+    private var flags: [String: Mark] = [:]
+    /// The ids each Flag on its way was set on: the letter's, and its
+    /// copies' under other mailboxes' ids (`setFlagged`).
+    private var flagging: [String: [String]] = [:]
+    /// Listings from the top asked for this list, counted, so a mark knows
+    /// which of them were asked after the server took it.
+    private var asked = 0
+
+    private struct Mark {
+        /// What he made it, and what the row said before, for a refusal.
+        var value: Bool
+        var before: Bool
+        /// Gmail's id for the letter he made it on: it goes on that letter
+        /// alone, and not on another the same id names in a listing that
+        /// has thrown a kept page away (`ListEdit.sameLetter`).
+        var letter: UInt64?
+        /// `asked` when the server took it; nil while it is on its way.
+        var takenAt: Int?
+
+        /// Whether the listing `asked` was asked after the server took it,
+        /// and so brings it: the listing has the say from then on.
+        func seen(by asked: Int) -> Bool {
+            takenAt.map { asked > $0 } ?? false
+        }
+    }
+
+    /// A listing of the folder from the top is being asked for: what it
+    /// brings goes to `fetchedAfresh` or `fetchedUnderSearch` with this.
+    func askingAfresh() -> Int {
+        asked += 1
+        return asked
+    }
+
+    /// `page`, with his marks on it where the listing it came from was
+    /// asked before the server took them, or while they are still on their
+    /// way; the marks a listing asked since has seen go, and it has the
+    /// say. Only on the letter each was made on.
+    private func holdingHisMarks(_ page: [MessageSummary], asked listing: Int?) -> [MessageSummary] {
+        let listing = listing ?? asked + 1
+        reads = reads.filter { !$0.value.seen(by: listing) }
+        flags = flags.filter { !$0.value.seen(by: listing) }
+        guard !reads.isEmpty || !flags.isEmpty else { return page }
+        return page.map { row in
+            var row = row
+            if let mark = reads[row.id], ListEdit.sameLetter(mark.letter, row.gmailMessageID) {
+                row.isRead = mark.value
+            }
+            if let mark = flags[row.id], ListEdit.sameLetter(mark.letter, row.gmailMessageID) {
+                row.isFlagged = mark.value
+            }
+            return row
+        }
+    }
+
     /// The server has the letter as read: one off every folder it is
     /// counted in, once per letter however often it is asked (`ReadBilling`).
     func read(_ letter: MessageSummary) {
@@ -382,13 +522,36 @@ final class ListLetters: PaneActionList {
     /// search had been cancelled, the lookup by id found nothing, so nothing
     /// was patched and the Inbox row kept its flag until the next Refresh
     /// (seen on the iPad; the STORE itself had landed).
+    ///
+    /// Held over what a listing brings, as a read mark is (`reading`),
+    /// until the server has answered (`flagAnswered`).
     func setFlagged(_ flagged: Bool, on letter: MessageSummary) {
         let known = self.letter(letter.id) ?? letter
         let twins = ListEdit.twins(of: known, among: everything)
-        for copy in [letter.id] + twins.map(\.id) {
-            change(copy) { $0.isFlagged = flagged }
+        for copy in [known] + twins {
+            flags[copy.id] = Mark(value: flagged, before: copy.isFlagged, letter: copy.gmailMessageID)
+            change(copy.id) { $0.isFlagged = flagged }
         }
+        flagging[letter.id] = [known.id] + twins.map(\.id)
         changed()
+    }
+
+    /// The server has answered his Flag on `letter`. Taken, it stays on
+    /// over a listing asked before now. Refused, it goes back as it was on
+    /// every copy it was set on that is still that letter, and nothing is
+    /// held.
+    func flagAnswered(_ letter: MessageSummary, landed: Bool) {
+        for id in flagging.removeValue(forKey: letter.id) ?? [letter.id] {
+            guard var mark = flags[id] else { continue }
+            if landed {
+                mark.takenAt = asked
+                flags[id] = mark
+            } else {
+                flags[id] = nil
+                change(id, ifStill: mark.letter) { $0.isFlagged = mark.before }
+            }
+        }
+        if !landed { changed() }
     }
 
     func addCountedFolder(_ name: String, to id: String) {
@@ -407,4 +570,13 @@ final class ListLetters: PaneActionList {
         ListEdit.change(&hits, id: id, edit)
         results = hits
     }
+
+    /// `change`, where the row under `id` is still the letter `letter`.
+    private func change(_ id: String, ifStill letter: UInt64?,
+                        _ edit: (inout MessageSummary) -> Void) {
+        change(id) { row in
+            if ListEdit.sameLetter(letter, row.gmailMessageID) { edit(&row) }
+        }
+    }
 }
+

@@ -25,6 +25,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// A letter opened inside a conversation, to be marked read the way a
     /// tap on its row marks it.
     var onLetterOpened: ((MessageSummary) -> Void)?
+    /// A letter opened from a row kept on the iPad that the server says is
+    /// another letter now (D-016): the pane has emptied, and the list is to
+    /// take the row off (`PaneActions.notTheKeptLetter`).
+    var onNotTheKeptLetter: ((MessageSummary) -> Void)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -191,6 +195,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func clearIfShowingDeletedMessage() { showEmpty() }
 
+    /// A letter opened from a row kept on the iPad, before this launch has
+    /// shown the server to be the mailbox the copy was kept from, and the
+    /// FETCH that brought it has said the UID names another letter now
+    /// (D-016): nothing of it is shown, not its body under the kept row's
+    /// header, and the pane empties, as the read mark of the same tap
+    /// empties it. The list takes the row off. No alert: nothing he asked
+    /// for failed, the row was not his letter.
+    private func notTheKeptLetter(_ row: MessageSummary) {
+        showEmpty()
+        onNotTheKeptLetter?(row)
+    }
+
     func show(summary: MessageSummary) {
         self.summary = summary
         message = nil
@@ -234,6 +250,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     self.header.configure(with: m)
                     self.header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
                     self.draw(m, page: page)
+                case .failure(let error) where error is MailShelf.NotTheKeptLetter:
+                    self.notTheKeptLetter(summary)
                 case .failure:
                     // Say so IN THE PANE, not only in an alert.
                     //
@@ -366,6 +384,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         case .success(let (m, body)):
             loaded[id] = m
             drawBody(m, body, focus: focus)
+        case .failure(let error) where error is MailShelf.NotTheKeptLetter:
+            if let row = threadSummaries[id] { notTheKeptLetter(row) }
         case .failure:
             // Said in the section rather than only in an alert, for the
             // same reason as the single-message path: a letter that

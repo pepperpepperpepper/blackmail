@@ -169,6 +169,11 @@ protocol MailRepository {
     /// The Inbox's unread count as the server has it now, nil if it will not
     /// say. For `MailWatch` while another folder is in front of him.
     func inboxUnread() async throws -> Int?
+
+    /// The copy of his mail kept on the iPad (D-016), which the screens draw
+    /// before anything has been sent, and which this repository keeps as it
+    /// lists and writes. Nil where nothing is kept.
+    var shelf: MailShelf? { get }
 }
 
 /// Where a search looks — the two scopes Mail itself offers.
@@ -309,6 +314,9 @@ enum MailError: LocalizedError {
 }
 
 extension MailRepository {
+
+    /// Nothing kept, unless the repository keeps it.
+    var shelf: MailShelf? { nil }
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

@@ -69,6 +69,13 @@ actor IMAPMailRepository: MailRepository {
     /// `snapshot(of:client:)` for when it is thrown away.
     private var uidListing: [String: IMAPMailboxUIDs] = [:]
 
+    /// The copy of his mail kept on the iPad (D-016): each folder's newest
+    /// page as a listing from the top gives it, the folder list from every
+    /// sweep, and his writes once the server has taken them. Nil in a test
+    /// that does not look at it. Read by the screens as well, for what they
+    /// draw before anything has been sent.
+    nonisolated let shelf: MailShelf?
+
     /// One factory for both protocols: it is told the host and port, which
     /// is all that tells an IMAP connection from an SMTP one.
     ///
@@ -81,7 +88,8 @@ actor IMAPMailRepository: MailRepository {
          recipients: RecipientBook = .shared,
          now: @escaping @Sendable () -> Date = { Date() },
          signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
-            = { SignatureImages.load() }) {
+            = { SignatureImages.load() },
+         shelf: MailShelf? = nil) {
         self.account = account
         self.password = password
         self.imap = IMAPClient(account: account, transport: transport, now: now)
@@ -89,6 +97,7 @@ actor IMAPMailRepository: MailRepository {
         self.recipients = recipients
         self.now = now
         self.signatureImages = signatureImages
+        self.shelf = shelf
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
         // book cannot learn by watching his mail go past — a letter to
@@ -97,9 +106,13 @@ actor IMAPMailRepository: MailRepository {
     }
 
     #if canImport(Network)
-    /// The app's own: the real TLS stack.
+    /// The app's own: the real TLS stack, and the copy of his mail kept in
+    /// Application Support, which is this account's alone. Made at launch,
+    /// so another account's copy goes then.
     init(account: MailAccount, password: String) {
-        self.init(account: account, password: password, transport: TLSConnection.factory)
+        self.init(account: account, password: password, transport: TLSConnection.factory,
+                  shelf: MailShelf(root: MailShelf.appRoot, address: account.address,
+                                   host: account.imapHost))
     }
     #endif
 
@@ -677,7 +690,11 @@ actor IMAPMailRepository: MailRepository {
                 unread[l.name] = Int(n)
             }
         }
-        return Self.mailboxes(from: listings, unread: unread)
+        let folders = Self.mailboxes(from: listings, unread: unread)
+        // What the folder pane draws at the next launch before it has asked
+        // anything (D-016).
+        shelf?.took(folders: folders)
+        return folders
     }
 
     /// The roles and the attribute table, from one LIST.
@@ -801,6 +818,18 @@ actor IMAPMailRepository: MailRepository {
             // not ask for, with a NOOP before them when the folder was
             // already open, so the SEARCH sees mail that has arrived since
             // (B-045); see `IMAPClient.page`.
+            //
+            // After the LIST, whatever the folder. The roles and the
+            // attribute table say which folders a row is counted in
+            // (`countedFolders`), and a folder tapped in the folder pane
+            // drawn from the copy kept on the iPad (D-016) can be listed
+            // before the launch's LIST has landed: its rows were drawn, and
+            // kept, without All Mail or Important among them, so reading
+            // one left those counts high until the next sweep, at every
+            // launch after until the folder was listed again. Nothing is
+            // sent once the LIST is known, a LIST on the wire is joined, and
+            // at launch the Inbox's own name has asked for it already.
+            _ = try await knownListing()
             let opened = try await client.page(in: name, searching: ["ALL"]) { found in
                 PageWindow.older(than: nil, in: found[0], limit: limit)
             }
@@ -808,6 +837,14 @@ actor IMAPMailRepository: MailRepository {
             uidListing[name] = listing
             summaries = rows(from: opened.summaries, in: mailboxID, name: name,
                              validity: listing.validity)
+            // The folder's page kept on the iPad, replaced whole by this one
+            // (D-016), unless this listing says the kept one was not this
+            // mailbox's, when the whole copy goes first. Numbers and a
+            // reason only: nothing kept is ever written to this log.
+            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity) {
+                Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
+                                + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
+            }
         }
         // B-033: the session's identity, pinned with numbers rather than
         // read off glass. The SELECTed folder, its UIDVALIDITY, how many
@@ -1228,6 +1265,9 @@ actor IMAPMailRepository: MailRepository {
                 if !text.isEmpty { out[id] = text }
             }
         }
+        // On the kept page too, for the rows that are on it, so the next
+        // launch draws them as he saw them (D-016).
+        shelf?.previews(out, in: name)
         return out
     }
 
@@ -1259,8 +1299,22 @@ actor IMAPMailRepository: MailRepository {
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
 
-        let raw = try await client.fetchBody(uid: message.uid, section: nil,
+        let raw: Data
+        if let kept = shelf?.unproven(id, in: name) {
+            // A row kept on the iPad, opened before this launch has shown the
+            // server to be the mailbox it was kept from: the FETCH that
+            // brings the letter asks for its Gmail message id as well, and
+            // nothing of it is shown, or kept for a Forward, unless the id is
+            // the kept row's (D-016). Every other letter's FETCH is as it
+            // always was.
+            let answer = try await client.fetchBodyNamingLetter(uid: message.uid, in: name,
+                                                                validity: message.validity)
+            try settle(answer.letter, askedOf: id, keptAs: kept, in: name, sayingSo: "nothing-shown")
+            raw = answer.raw
+        } else {
+            raw = try await client.fetchBody(uid: message.uid, section: nil,
                                              in: name, validity: message.validity)
+        }
         lastBody = (id, raw)
 
         let decoded = MIMEDecoder.decodeMessage(raw)
@@ -1325,17 +1379,74 @@ actor IMAPMailRepository: MailRepository {
         return rfc2822.date(from: s) ?? rfc2822NoDay.date(from: s)
     }
 
+    // MARK: - Vouching for a row kept on the iPad
+
+    /// Before a write on a row kept on the iPad from an earlier launch, made
+    /// before anything in this one has shown the server to be the mailbox
+    /// the copy was kept from (`MailShelf.unproven`): one `UID FETCH` of the
+    /// row's Gmail message id (D-016). The same id as the kept row's and the
+    /// write goes; any other, or none, and nothing is sent, the row leaves
+    /// the kept page, and the caller is told (`MailShelf.NotTheKeptLetter`),
+    /// so the list takes it off too (`PaneActions.notTheKeptLetter`).
+    ///
+    /// A kept row is the server's word of an earlier launch, and a UID means
+    /// nothing without the mailbox it came from: Gmail gives every Inbox
+    /// UIDVALIDITY 1, and the app-password trap (B-033) can open another
+    /// mailbox under his address, where the same UID is another letter. In
+    /// practice this is a tap in the first seconds after launch, before the
+    /// Inbox's first page has landed, which proves the rest by itself.
+    ///
+    /// A read, retried into a new connection as reads are; the write's own
+    /// rules are untouched. Nothing for any other row, and nothing on a
+    /// server without Gmail's extension, where the UIDVALIDITY the write
+    /// names is what tells. A letter opened from a kept row is vouched for
+    /// by the FETCH that brings it (`loadMessageOnce`), by the same rules.
+    private func vouch(for id: String, uid: UInt32, validity: UInt32,
+                       in name: String) async throws {
+        guard let kept = shelf?.unproven(id, in: name) else { return }
+        let found = try await retryingIfDisconnected {
+            try await self.connected().gmailMessageID(uid: uid, in: name, validity: validity)
+        }
+        try settle(found, askedOf: id, keptAs: kept, in: name, sayingSo: "nothing-sent")
+    }
+
+    /// What the server has said the kept row `id` is, `found`, against the
+    /// Gmail message id it was kept with. The same, and the row is vouched
+    /// for and not asked about again. Another, or none, and the caller is
+    /// told (`MailShelf.NotTheKeptLetter`) and goes no further, the row
+    /// leaves the kept page, and the connection log says so in the folder's
+    /// name and `note` alone.
+    ///
+    /// Whatever has landed while the question was out. The launch's
+    /// listing can come meanwhile and throw the copy away, the row under
+    /// that id is then the server's own letter, and it stays
+    /// (`MailShelf.refuse`); but the write, or the opening, was made on the
+    /// kept row, and the server has just said the UID names another letter.
+    private func settle(_ found: UInt64?, askedOf id: String, keptAs kept: UInt64,
+                        in name: String, sayingSo note: String) throws {
+        guard found == kept else {
+            shelf?.refuse(id, in: name, keptAs: kept)
+            Diagnostics.log(.note, "KEPT-UNVOUCHED folder=\(name) \(note)")
+            throw MailShelf.NotTheKeptLetter()
+        }
+        shelf?.vouched(id, in: name)
+    }
+
     // MARK: - Flags
 
+    /// Kept on the iPad once the server has it, on the letter wherever it
+    /// is kept (`MailShelf.read`); not if the server refuses.
     func setRead(_ read: Bool, id: String, mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
+        try await vouch(for: id, uid: message.uid, validity: message.validity, in: name)
         try await sendingOnce {
             try await client.store(uid: message.uid, flag: "\\Seen", set: read,
                                    in: name, validity: message.validity)
         }
+        shelf?.read(read, id: id, in: name)
     }
 
     func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
@@ -1343,10 +1454,12 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
+        try await vouch(for: id, uid: message.uid, validity: message.validity, in: name)
         try await sendingOnce {
             try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
                                    in: name, validity: message.validity)
         }
+        shelf?.flagged(flagged, id: id, in: name)
     }
 
     // MARK: - Moving and deleting
@@ -1358,6 +1471,7 @@ actor IMAPMailRepository: MailRepository {
         let destination = try await resolve(destinationMailboxID)
         guard source != destination else { return }
         let message = try Self.parseID(id)
+        try await vouch(for: id, uid: message.uid, validity: message.validity, in: source)
         try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
                                   to: destination)
@@ -1365,6 +1479,15 @@ actor IMAPMailRepository: MailRepository {
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
         if lastBody?.messageID == id { lastBody = nil }
+        // Off the kept pages as Gmail takes it off its folders (D-016): out
+        // of every one but the Trash or Spam it went to, which are
+        // exclusive; out of none when it leaves All Mail for a label, since
+        // All Mail is every letter not binned; out of its own otherwise.
+        if destination == roleNames[.trash] || destination == roleNames[.junk] {
+            shelf?.gone(id, from: source, andEveryFolderBut: destination)
+        } else if source != folderForAttribute["\\all"] {
+            shelf?.gone(id, from: source)
+        }
     }
 
     /// Delete means "move to Trash" — except in Trash, where it means gone.
@@ -1386,10 +1509,12 @@ actor IMAPMailRepository: MailRepository {
 
         if source == trash {
             let message = try Self.parseID(id)
+            try await vouch(for: id, uid: message.uid, validity: message.validity, in: source)
             try await sendingOnce {
                 try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
                                        in: source, validity: message.validity)
             }
+            shelf?.gone(id, from: source)
             return
         }
         try await move(id, from: mailboxID, to: trash)
@@ -1723,6 +1848,7 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(try await draftsFolder())
         let draft = try Self.parseID(id)
+        try await vouch(for: id, uid: draft.uid, validity: draft.validity, in: name)
         // Expunged, not moved to Trash. Now that an "All Mailboxes" search
         // reaches the Trash, a superseded draft binned rather than removed
         // would come back as a hit for every half-finished sentence he ever
@@ -1732,6 +1858,7 @@ actor IMAPMailRepository: MailRepository {
         }
         // The snapshot still lists the UID we just removed.
         uidListing[name] = nil
+        shelf?.gone(id, from: name)
     }
 
     /// Without the signature's pictures among its files: `saveDraft` stored

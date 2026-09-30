@@ -118,7 +118,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
       itself is the owner's (D-016). Phase 1, the kept folders and first
-      pages: next. Phase 2, the last 300 letters he opened.
+      pages: *built 2026-09-30, not yet seen on the iPad: the Inbox and the
+      counted folders in the first frame under "Checking for Mail…", every
+      folder opened before drawn at once, the kept pages and their age with
+      no connection, the copy thrown away when it is not this mailbox's,
+      an early write and an early letter opened vouched for. See B-053, and
+      its check under "Blocked on the iPad coming back".* Phase 2, the last
+      300 letters he opened.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
@@ -761,6 +767,38 @@ this host. Ordered by value, not by size.
       old copy is gone from Drafts on the web. Tap a letter in the Outbox,
       Cancel untouched: it is back in the Outbox. In two panes, the Outbox
       is in the Mailboxes' column and opens like any folder.
+- [ ] **B-053, the copy kept on the iPad.** None of it seen on the iPad yet.
+      With Wi-Fi on, open the Inbox and a couple of folders, then force-quit
+      the app in the app switcher and open it again: the Inbox, previews and
+      all, and the folders with their counts are there in the first frame, the
+      line says "Checking for Mail…", then "Updated Just Now" as the fresh
+      page takes its place, new letters coming in at the top as the watch's
+      do. Do it again scrolled a little way down before the page comes, and
+      with a finger resting on the list: the rows he is looking at stay put,
+      and with the finger the swap waits for it to lift. The connection log at
+      launch is LOGIN, LIST, `SELECT "INBOX"`, `UID SEARCH ALL`, the page's
+      `UID FETCH`, then the STATUS sweep, as before, with no `KEPT-` line. Tap
+      an unread letter in the first second, before the fresh page comes: the
+      log shows one `UID FETCH n (UID X-GM-MSGID)` before its `UID STORE`, the
+      letter's own FETCH as `UID FETCH n (UID X-GM-MSGID BODY.PEEK[])`, or as
+      the plain `(UID BODY.PEEK[])` if the read mark's question was answered
+      first, and no `KEPT-UNVOUCHED`; the letter opens, and its dot stays off
+      when the fresh page lands. Flag a kept row from the pane in that second:
+      the flag stays too. Open a letter after the page has landed: its FETCH
+      is the plain `(UID BODY.PEEK[])`. Relaunch, tap Edit before the page
+      comes and tick two rows: nothing moves under the ticks until Done. Turn
+      Wi-Fi off, force-quit and open it again: the Inbox and every folder
+      opened before show their last page, the line says how old ("Updated at
+      …", or "Updated Yesterday" the next day) over "No Connection", and there
+      is one "Can't connect to mail server." alert; a folder never opened is
+      empty; a letter tapped shows its header, then the failure. Send a letter
+      to the account from the phone while Wi-Fi is still off, then turn Wi-Fi
+      on and wait up to half a minute, or tap Refresh: the fresh page replaces
+      the kept one, and the letter from the phone is on it. Save the password
+      again in Settings, force-quit and open it: the Inbox is empty for a
+      moment, as before the copy, and the letters kept in Drafts ("On this
+      iPad only") and the Outbox are still there. Time the first frame if a
+      screen recording can: the design asks under 500 ms.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
