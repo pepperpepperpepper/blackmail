@@ -1157,8 +1157,21 @@ final class MessageListViewController: UITableViewController {
 
     private func showStatus() {
         statusLabel.text = status.text
-        statusLabel.sizeToFit()
+        // Measured against a fixed width, not `sizeToFit()`: a label of more
+        // than one line fits itself to the width it already has, so after a
+        // short line such as "No Connection" it never grew back, and
+        // "Updated Just Now" came out on three lines and "1 Unsent Message"
+        // cut short (seen on the iPad). The width is what the bar leaves
+        // between Refresh and Settings in the narrowest list, three panes on
+        // an 11-inch iPad.
+        let fit = statusLabel.sizeThatFits(CGSize(width: Self.statusWidth,
+                                                  height: .greatestFiniteMagnitude))
+        statusLabel.frame.size = CGSize(width: ceil(min(fit.width, Self.statusWidth)),
+                                        height: ceil(fit.height))
     }
+
+    /// The widest the status line may be; see `showStatus`.
+    private static let statusWidth: CGFloat = 150
 
     /// The bottom bar uses the navigation controller's own toolbar rather than
     /// a subview. In a UITableViewController `self.view` IS the table view, so

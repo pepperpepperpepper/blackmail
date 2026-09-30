@@ -3491,7 +3491,7 @@ line with Wi-Fi off.
 
 ---
 
-## B-052 — CHANGED 2026-09-30, not yet seen on the iPad. A letter that could not be sent lasted only as long as its sheet
+## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
 
 **Found in the gap review of 2026-09-30** ("No Outbox" under "Ways a letter
 is lost" in the TODO), in the code, not on the iPad. Send with no
@@ -3815,3 +3815,33 @@ tested (`LocalDrafts.outbox`, `LocalDraft.outboxRow`, `Outbox.mailbox`,
 `UpdatedLine.text`).
 
 **Not yet seen on the iPad.** The TODO says what to look at.
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged, each letter to the account itself:
+
+- Wi-Fi off in Control Center, Send: the sheet closed, "Message is in the
+  Outbox. It will be sent when the iPad is connected and Blackmail is
+  open." once, Outbox with 1 at the foot of the sidebar, and the line
+  "Updated Just Now / 1 Unsent Message / No Connection". The log says
+  `OUTBOX-WAITING error=cannotConnect`, nothing sent. Wi-Fi on, nothing
+  tapped: about a minute later one envelope, one 250, the Outbox gone and
+  the letter in the Inbox once.
+- Gmail filed that letter in Sent Mail under the Message-ID the app gave
+  it (the ENVELOPE of the Sent Mail row carries it), so the look before a
+  second attempt has something to find.
+- Five pictures (4.3 MB on the wire), the lock button pressed 0.48 s
+  after Send: the upload finished with the screen off, one envelope, the
+  250 4.7 s after the tap, and on unlocking a minute later the sheet was
+  gone, no Outbox, and the letter arrived once.
+- To "nobody": Gmail answered RCPT TO with 553 5.1.3; the sheet stayed
+  with "Message was not sent." and the letter in it, and nothing went to
+  the Outbox.
+
+Found there and fixed before the merge: the line under the list fitted
+itself to the width it already had, so after a short line it never grew
+back, "Updated Just Now" wrapped onto three lines and "1 Unsent Message"
+was cut short. It is now measured against the width the bar leaves
+between Refresh and Settings; seen right in both states.
+
+Not yet tried: a DATA cut off before the 250 (the Sent Mail look on the
+device), a letter opened from the Outbox and changed, and Delete there.
