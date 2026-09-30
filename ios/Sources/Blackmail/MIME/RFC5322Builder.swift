@@ -564,11 +564,33 @@ enum RFC5322Builder {
     /// space or tab that would otherwise sit at the end of a line — trailing
     /// whitespace is the classic loss, because relays are entitled to strip it
     /// and then the decoded text no longer matches what was typed.
+    ///
+    /// Line breaks are CRLF, LF or a lone CR on the way in, as
+    /// `normalisedLineEndings` reads them, and CRLF on the way out.
+    ///
+    /// Written into bytes rather than built up a `String` at a time. It was
+    /// the latter, which is nothing for a letter he types and a third of a
+    /// second, in a release build on this host, for the megabyte of markup a
+    /// forwarded newsletter carries; this takes about 0.02 s for the same
+    /// megabyte and writes the same bytes, which `QuotedPrintableTests`
+    /// holds it to against the old encoder.
     static func quotedPrintable(_ text: String) -> String {
-        normalisedLineEndings(text)
-            .components(separatedBy: crlf)
-            .map { quotedPrintableLine(Array($0.utf8)) }
-            .joined(separator: crlf)
+        let bytes = Array(text.utf8)
+        var out: [UInt8] = []
+        out.reserveCapacity(bytes.count + bytes.count / 8 + 16)
+        var start = 0
+        var k = 0
+        while k < bytes.count {
+            let c = bytes[k]
+            guard c == 0x0D || c == 0x0A else { k += 1; continue }
+            quotedPrintableLine(bytes, start..<k, into: &out)
+            out.append(0x0D)
+            out.append(0x0A)
+            k += c == 0x0D && k + 1 < bytes.count && bytes[k + 1] == 0x0A ? 2 : 1
+            start = k
+        }
+        quotedPrintableLine(bytes, start..<bytes.count, into: &out)
+        return String(decoding: out, as: UTF8.self)
     }
 
     /// The soft-wrap budget for one encoded line's content. 73 leaves room for
@@ -576,32 +598,29 @@ enum RFC5322Builder {
     /// then the `=` soft break) to land on exactly 76, which is the hard limit.
     private static let qpLineBudget = 73
 
-    private static func quotedPrintableLine(_ bytes: [UInt8]) -> String {
-        var out = ""
+    private static func quotedPrintableLine(_ bytes: [UInt8], _ line: Range<Int>,
+                                            into out: inout [UInt8]) {
         var length = 0
-
-        for (index, byte) in bytes.enumerated() {
+        for index in line {
+            let byte = bytes[index]
             let isBlank = byte == 0x20 || byte == 0x09
-            var atom: String
+            var escape = byte == 0x3D || byte > 126 || (byte < 32 && !isBlank)
+                || (isBlank && index == line.upperBound - 1)
 
-            if byte == 0x3D || byte > 126 || (byte < 32 && !isBlank) {
-                atom = escaped(byte)
-            } else if isBlank && index == bytes.count - 1 {
-                atom = escaped(byte)
-            } else {
-                atom = String(Character(UnicodeScalar(byte)))
-            }
-
-            if length + atom.count > qpLineBudget {
+            if length + (escape ? 3 : 1) > qpLineBudget {
                 // A soft break must not be preceded by whitespace: the space
                 // would be at the end of a transmitted line in all but name,
-                // and decoders disagree about whether to keep it.
-                if let last = out.last, last == " " || last == "\t" {
+                // and decoders disagree about whether to keep it. (`length`
+                // is above zero here, so the last byte written is this
+                // line's.)
+                if let last = out.last, last == 0x20 || last == 0x09 {
                     out.removeLast()
-                    out += last == " " ? "=20" : "=09"
+                    appendEscaped(last, to: &out)
                     length += 2
                 }
-                out += "=" + crlf
+                out.append(0x3D)
+                out.append(0x0D)
+                out.append(0x0A)
                 length = 0
             }
 
@@ -612,22 +631,26 @@ enum RFC5322Builder {
             // emits can ever be mistaken for the end of DATA by anything in
             // between. Note this has to happen after the soft wrap, because
             // the wrap is what decides where a line begins.
-            if length == 0 && byte == 0x2E && atom.count == 1 {
-                atom = escaped(byte)
-            }
+            if length == 0 && byte == 0x2E { escape = true }
 
-            out += atom
-            length += atom.count
+            if escape {
+                appendEscaped(byte, to: &out)
+                length += 3
+            } else {
+                out.append(byte)
+                length += 1
+            }
         }
-        return out
     }
 
-    private static let hexDigits: [Character] = Array("0123456789ABCDEF")
+    private static let hexDigits: [UInt8] = Array("0123456789ABCDEF".utf8)
 
-    private static func escaped(_ byte: UInt8) -> String {
+    private static func appendEscaped(_ byte: UInt8, to out: inout [UInt8]) {
         // Uppercase, because RFC 2045 says so and a few decoders are literal
         // about it.
-        "=" + String(hexDigits[Int(byte >> 4)]) + String(hexDigits[Int(byte & 0x0F)])
+        out.append(0x3D)
+        out.append(hexDigits[Int(byte >> 4)])
+        out.append(hexDigits[Int(byte & 0x0F)])
     }
 
     /// Base64 in 76-character lines. Wrapped by hand rather than with

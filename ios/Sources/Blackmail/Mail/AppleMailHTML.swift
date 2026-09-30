@@ -143,10 +143,139 @@ enum AppleMailHTML {
 
     /// The HTML part for a letter, or nil when it should go out as text.
     static func part(for draft: Draft, account: MailAccount) -> String? {
+        letter(for: draft, account: account).html
+    }
+
+    // MARK: - The whole letter, quote and all
+
+    /// What a letter sends besides its plain text. Worked out together,
+    /// because each depends on the others: which of the original's pictures
+    /// go is decided by what the quote's markup still shows, and a forward's
+    /// picture that goes in the quote no longer goes as a file.
+    struct Letter {
+        /// The HTML part, or nil when the letter goes as text.
+        var html: String?
+        /// The quoted original's pictures the HTML shows, each under the
+        /// Content-ID it shows it by. A forward's only: a reply sends none.
+        var pictures: [(contentID: String, picture: QuotedOriginal.Picture)] = []
+        /// The files: the draft's own, less any that now go in the quote.
+        var files: [DraftAttachment] = []
+    }
+
+    /// The most of an original's markup a quote carries: 4 MB.
+    ///
+    /// A newsletter is 50 to 200 kB of markup and a large one a megabyte;
+    /// its pictures are on the web and stay there, so its markup is nearly
+    /// all a forward of it adds, and quoted-printable adds about a tenth to
+    /// that on the wire. What runs to several megabytes is markup with
+    /// pictures pasted into it as `data:` addresses. Past this, the quote is
+    /// the plain rendering of its words with the addresses linked, as when
+    /// he has changed it, and the pasted pictures, which are by then most of
+    /// the weight, stay behind. Chosen well under Gmail's 35 MB so that the
+    /// original's own look is never what makes a letter too big to send.
+    static let largestQuotedMarkup = 4 << 20
+
+    /// The letter `draft` makes: its HTML, the original's pictures that the
+    /// HTML shows, and the files.
+    ///
+    /// `taken` are Content-IDs the letter already uses, the signature's
+    /// pictures', so none of the original's is renamed onto one of them.
+    /// `forDraft` marks where the quote begins, with its fingerprint, for
+    /// `QuotedOriginal.recovered` to find when the draft is reopened; a
+    /// letter that is sent carries no such mark.
+    static func letter(for draft: Draft, account: MailAccount,
+                       reserving taken: Set<String> = [], forDraft: Bool = false) -> Letter {
+        guard let quote = draft.quote, quote.isIntact(in: draft.body),
+              let quoted = layout(of: quote.region, signature: "").quote else {
+            return changedLetter(draft, account: account, forDraft: forDraft)
+        }
+
+        // Everything above the quote, less the line break that ends it,
+        // which is where `layout` would have divided the body too.
+        let cut = quote.region.utf8.count
+            + (draft.body.utf8.count > quote.region.utf8.count ? 1 : 0)
+        let above = layout(of: String(decoding: draft.body.utf8.dropLast(cut), as: UTF8.self),
+                           signature: account.signature)
+        let fingerprint = QuotedOriginal.fingerprint(quote.region)
+
+        // A forward's pictures are file rows he can see and take off; one he
+        // took off does not go, in the quote or anywhere.
+        //
+        // A reply carries none of them, as a reply has never carried the
+        // original's parts (INVESTIGATIONS, "Forwarding now carries the
+        // files"): every reply to a letter of photographs would send the
+        // photographs back, with no row to show they were going or what
+        // they weighed, and Send and Save Draft would each have to fetch
+        // them first, which fails once the original has been archived
+        // elsewhere and there is nothing on screen he could take off. The
+        // `<img>` that showed one goes with it (`QuotedMarkup.made`); the
+        // original's words, links, tables and pictures on the web stay.
+        let candidates = quote.kind == .forward
+            ? quote.pictures.filter { picture in draft.attachments.contains(where: picture.isSource) }
+            : []
+        var names: [String: String] = [:]
+        var used = taken
+        var renamed: [(contentID: String, picture: QuotedOriginal.Picture)] = []
+        for (n, picture) in candidates.enumerated() {
+            var id = "bmquote\(n + 1).\(fingerprint.prefix(12))"
+            while used.contains(id) { id += "x" }
+            used.insert(id)
+            names[picture.contentID] = id
+            renamed.append((id, picture))
+        }
+
+        var inner = ""
+        var shown = Set<String>()
+        if let markup = quote.html, markup.utf8.count <= largestQuotedMarkup {
+            (inner, shown) = QuotedMarkup.made(markup, pictures: names)
+        }
+        // The words he saw, their addresses linked, when there is no markup
+        // to carry, when it is past the ceiling, or when nothing of it shows
+        // once it is safe: a text/html part with nothing in it, or one made
+        // of nothing the pass keeps. An empty quote under the attribution,
+        // where the composer showed him words, would not be what he saw.
+        if !QuotedMarkup.showsAnything(inner) {
+            inner = paragraphs(quoted.body, firstLineBare: true, linked: true)
+            shown = []
+        }
+        let pictures = renamed.filter { shown.contains($0.contentID) }
+        let files = draft.attachments.filter { row in
+            !pictures.contains { $0.picture.isSource(of: row) }
+        }
+
+        var out = documentOpen + head(above, signatureHTML: account.signatureHTML)
+        if let own = above.quote {
+            out += quoteBlock(own, inner: paragraphs(own.body, firstLineBare: true), marker: nil)
+        }
+        out += quoteBlock(quoted, inner: inner, marker: forDraft ? fingerprint : nil)
+        return Letter(html: out + documentClose, pictures: pictures, files: files)
+    }
+
+    /// The letter when he has changed the quote, or there is none to keep.
+    ///
+    /// Exactly the HTML this app made before the original's markup was
+    /// carried, from the body as it stands, so the HTML holds only what the
+    /// plain text holds. For a letter that did quote something, its
+    /// addresses are made links, and a draft is marked so the same rendering
+    /// is taken up again when it is reopened. The files go as files.
+    private static func changedLetter(_ draft: Draft, account: MailAccount,
+                                      forDraft: Bool) -> Letter {
         guard isNeeded(body: draft.body, signature: account.signature,
-                       signatureHTML: account.signatureHTML) else { return nil }
-        return document(body: draft.body, signature: account.signature,
-                        signatureHTML: account.signatureHTML)
+                       signatureHTML: account.signatureHTML) else {
+            return Letter(html: nil, files: draft.attachments)
+        }
+        let layout = layout(of: draft.body, signature: account.signature)
+        let quoting = draft.quote != nil
+        var out = documentOpen + head(layout, signatureHTML: account.signatureHTML)
+        if let quote = layout.quote {
+            let marker = forDraft && quoting
+                ? quoteRegion(of: draft.body).map { QuotedOriginal.fingerprint($0.region) }
+                : nil
+            out += quoteBlock(quote, inner: paragraphs(quote.body, firstLineBare: true,
+                                                       linked: quoting),
+                              marker: marker)
+        }
+        return Letter(html: out + documentClose, files: draft.attachments)
     }
 
     // MARK: - Reading the plain body back
@@ -162,10 +291,17 @@ enum AppleMailHTML {
     enum Quote: Equatable {
         /// A reply: one attribution line, then the original.
         case reply(attribution: String, body: String)
-        /// A forward: the `From:`/`Date:`/`To:`/`Subject:` block, then the
-        /// original. Held as pairs so the labels can be bolded the way Mail
-        /// bolds them.
+        /// A forward: the `From:`/`Date:`/`To:`/`Cc:`/`Subject:` block, then
+        /// the original. Held as pairs so the labels can be bolded the way
+        /// Mail bolds them.
         case forward(fields: [(String, String)], body: String)
+
+        /// The original's words, without the attribution or header block.
+        var body: String {
+            switch self {
+            case let .reply(_, body), let .forward(_, body): return body
+            }
+        }
 
         static func == (a: Quote, b: Quote) -> Bool {
             switch (a, b) {
@@ -250,8 +386,21 @@ enum AppleMailHTML {
         lines.firstIndex(of: "Begin forwarded message:")
     }
 
+    /// Where the quote begins in a body and everything from there on, found
+    /// as `layout` finds it; nil when there is none.
+    static func quoteRegion(of body: String) -> (kind: QuotedOriginal.Kind, region: String)? {
+        let lines = body.components(separatedBy: "\n")
+        if let start = forwardStart(lines) {
+            return (.forward, lines[start...].joined(separator: "\n"))
+        }
+        if let start = replyStart(lines) {
+            return (.reply, lines[start...].joined(separator: "\n"))
+        }
+        return nil
+    }
+
     private static func parseForward(_ lines: [String], from start: Int) -> Quote {
-        let labels = ["From:", "Date:", "To:", "Subject:"]
+        let labels = ["From:", "Date:", "To:", "Cc:", "Subject:"]
         var fields: [(String, String)] = []
         var i = start + 1
 
@@ -281,9 +430,17 @@ enum AppleMailHTML {
     /// The whole document.
     static func document(body: String, signature: String, signatureHTML: String) -> String {
         let layout = layout(of: body, signature: signature)
-        var out = documentOpen
+        var out = documentOpen + head(layout, signatureHTML: signatureHTML)
+        if let quote = layout.quote {
+            out += quoteBlock(quote, inner: paragraphs(quote.body, firstLineBare: true),
+                              marker: nil)
+        }
+        return out + documentClose
+    }
 
-        out += paragraphs(layout.typed, firstLineBare: true)
+    /// What he typed, then his signature.
+    private static func head(_ layout: Layout, signatureHTML: String) -> String {
+        var out = paragraphs(layout.typed, firstLineBare: true)
 
         if !layout.signature.isEmpty {
             out += signatureAnchor
@@ -300,19 +457,34 @@ enum AppleMailHTML {
             }
             out += signatureClose
         }
+        return out
+    }
 
-        switch layout.quote {
-        case let .reply(attribution, quoted):
+    /// The quote: the attribution or the forwarded-message header, then
+    /// `inner`, the original, in Mail's cite blockquote.
+    ///
+    /// The blockquotes are bare, as his device writes them. The blue bar a
+    /// reader of Mail sees is drawn by Mail for `type="cite"`, not sent: no
+    /// style is written on them, so each reader's client draws its own
+    /// quote, as it does for his letters from Mail.
+    ///
+    /// `marker`, in a saved draft only, is the fingerprint of the plain
+    /// quote this was made for, written as a comment just before the
+    /// original. A comment, because it is the one thing no reader shows and
+    /// `QuotedMarkup` takes out of any original, so the mark can only ever
+    /// be this app's own and only this one.
+    private static func quoteBlock(_ quote: Quote, inner: String, marker: String?) -> String {
+        var out = ""
+        switch quote {
+        case let .reply(attribution, _):
             // Two blockquotes, siblings, the attribution in its own — which
             // looks wrong written down and is exactly what his device
             // produces. Reproduced rather than tidied, because his
             // correspondents' clients already collapse this shape.
             out += "<div dir=\"ltr\"><br><blockquote type=\"cite\">"
                 + escape(attribution) + "<br><br></blockquote></div>"
-            out += "<blockquote type=\"cite\"><div dir=\"ltr\">"
-                + paragraphs(quoted, firstLineBare: true) + "</div></blockquote>"
 
-        case let .forward(fields, quoted):
+        case let .forward(fields, _):
             out += "<div dir=\"ltr\"><br><br><br>Begin forwarded message:<br><br></div>"
             out += "<blockquote type=\"cite\"><div dir=\"ltr\">"
             for (label, value) in fields {
@@ -322,23 +494,42 @@ enum AppleMailHTML {
                 out += "<b>" + label + "</b> " + shown + "<br>"
             }
             out += "<br></div></blockquote>"
-            out += "<blockquote type=\"cite\"><div dir=\"ltr\">"
-                + paragraphs(quoted, firstLineBare: true) + "</div></blockquote>"
-
-        case nil:
-            break
         }
+        if let marker { out += quoteMarkOpen + marker + "-->" }
+        return out + quoteOpen + inner + quoteClose
+    }
 
-        return out + documentClose
+    private static let quoteOpen = "<blockquote type=\"cite\"><div dir=\"ltr\">"
+    private static let quoteClose = "</div></blockquote>"
+    private static let quoteMarkOpen = "<!--bm-quote:"
+
+    /// The quote a saved draft's HTML carries: the fingerprint it was
+    /// marked with and the original's markup as stored. Nil unless the HTML
+    /// is this app's own, marked, and ends with the quote as this app ends
+    /// it.
+    static func savedQuote(in html: String) -> (fingerprint: String, markup: String)? {
+        guard let mark = html.range(of: quoteMarkOpen, options: .backwards) else { return nil }
+        let after = html[mark.upperBound...]
+        guard let close = after.range(of: "-->") else { return nil }
+        let fingerprint = String(after[after.startIndex..<close.lowerBound])
+        let rest = after[close.upperBound...].utf8
+        let open = quoteOpen.utf8
+        let end = (quoteClose + documentClose).utf8
+        guard rest.starts(with: open), rest.count >= open.count + end.count,
+              rest.suffix(end.count).elementsEqual(end) else { return nil }
+        let markup = String(decoding: rest.dropFirst(open.count).dropLast(end.count),
+                            as: UTF8.self)
+        return (fingerprint, markup)
     }
 
     /// Plain lines as Mail lays them out: the first bare, the rest each in a
-    /// `<div>`, and an empty line as a `<div><br></div>`.
-    static func paragraphs(_ text: String, firstLineBare: Bool) -> String {
+    /// `<div>`, and an empty line as a `<div><br></div>`. `linked` makes the
+    /// web addresses in them links (`QuotedMarkup.linked`).
+    static func paragraphs(_ text: String, firstLineBare: Bool, linked: Bool = false) -> String {
         guard !text.isEmpty else { return "" }
         var out = ""
         for (i, line) in text.components(separatedBy: "\n").enumerated() {
-            let content = line.isEmpty ? "<br>" : escape(line)
+            let content = line.isEmpty ? "<br>" : (linked ? escapeLinking(line) : escape(line))
             if i == 0 && firstLineBare {
                 out += content
             } else {
@@ -354,17 +545,22 @@ enum AppleMailHTML {
     /// `&` first, or the ampersands introduced by the other two get escaped
     /// a second time and the reader sees `&amp;lt;`.
     static func escape(_ text: String) -> String {
-        var out = text
+        keepingTrailingSpace(text
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-        // A run of spaces collapses to one in HTML and a trailing one
-        // vanishes, so the deliberate space at the end of a line — which is
-        // how people separate a sign-off from what follows — has to be
-        // written as a non-breaking one. Mail does the same.
-        if out.hasSuffix(" ") {
-            out = String(out.dropLast()) + "&nbsp;"
-        }
-        return out
+            .replacingOccurrences(of: ">", with: "&gt;"))
+    }
+
+    /// `escape`, with the web addresses in the line made links.
+    static func escapeLinking(_ text: String) -> String {
+        keepingTrailingSpace(QuotedMarkup.linked(text))
+    }
+
+    /// A run of spaces collapses to one in HTML and a trailing one vanishes,
+    /// so the deliberate space at the end of a line — which is how people
+    /// separate a sign-off from what follows — has to be written as a
+    /// non-breaking one. Mail does the same.
+    private static func keepingTrailingSpace(_ html: String) -> String {
+        html.hasSuffix(" ") ? String(html.dropLast()) + "&nbsp;" : html
     }
 }

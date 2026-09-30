@@ -72,8 +72,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 - [ ] **New mail arrives on its own** while the app is open, and "Updated
       Just Now" ages. Today only Refresh fetches it (no IDLE, no polling).
-- [ ] **Reply and Forward keep the original's pictures and links.** Today
+- [x] **Reply and Forward keep the original's pictures and links.** Today
       both flatten it to plain text (`quotableText`, `HTMLText.plainText`).
+      *Done 2026-09-30, not yet seen on the iPad: the letter's HTML carries
+      the original's own markup while the quote is untouched, and a
+      forward its pictures; a reply leaves out the pictures the original
+      carried itself, as below ("Reply with the original's attachments").
+      See B-050, and its check under "Blocked on the iPad coming back".*
 - [ ] **The share sheet** (B-036): his main way of making mail. Patch zsign
       for the extension's own entitlements, the extension's own small
       compose sheet, the Keychain mirror, then one real install.
@@ -616,6 +621,28 @@ this host. Ordered by value, not by size.
       button with a thumb resting on the list does nothing. The connection
       log shows `layout: three panes`, `layout: two panes, …` and no
       finding after either.
+- [ ] **B-050, Reply and Forward as the original looked.** Read what
+      arrives in Mail on another device and in Gmail on the web, not in
+      Blackmail, whose pane draws no bar beside a quote yet. Forward a
+      newsletter with pictures to himself: it arrives looking like the
+      original under "Begin forwarded message:" and the From, Date, To and
+      Subject lines, its pictures showing and its links working, and the
+      connection log's `WIRE-PAYLOAD raw=` for it is about one and a half
+      times the size of its markup. Reply to an HTML letter: the quote shows
+      with the blue bar, its own formatting and working links. Edit the
+      quote before sending, one word changed and one paragraph cut: what
+      arrives matches what he saw, with the paragraph gone and the quote as
+      plain text, its addresses still links. Delete the quote: nothing of
+      the original arrives. Forward a letter with a photograph in its body
+      and a PDF: the composer lists both with their weights; it arrives with
+      the photograph in the letter and the PDF as a file, no paperclip for
+      the photograph. Reply to the same letter: the letter as it looked but
+      for the photograph, which is left out, and no paperclip. Forward a
+      letter that had a Cc: the Cc line is under To.
+      Save a reply to an HTML letter as a draft and reopen it: no attachment
+      rows; send it: it arrives as the same reply sent fresh would. Reply to
+      one of his own shared links, a plain-text letter: the link in the
+      quote can be tapped.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
