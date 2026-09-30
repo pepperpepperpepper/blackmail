@@ -71,6 +71,12 @@ struct LocalDraft {
     /// names on the server by folder and UID alone may be in another
     /// mailbox under the same address (B-033).
     var passwordSaves = 0
+    /// The same count as the launch that wrote down the latest attempt
+    /// found it (`LocalDraftStore.noteSending`); 0 for one written down by
+    /// a build before this was kept. Fewer than now, and Sent Mail, asked
+    /// whether an `unsettled` attempt reached Gmail, may be another
+    /// mailbox's (`LocalDraftStore.unsettledBeforeASave`).
+    var unsettledSaves = 0
 
     /// Where it stands in the Outbox: nil for a letter that is not there.
     var outboxState: OutboxState? {
@@ -331,6 +337,18 @@ final class LocalDraftStore {
         letter.passwordSaves < passwordSaves
     }
 
+    /// Whether an attempt at `letter` that may have reached Gmail, its DATA
+    /// gone and no 250 back, was made before a password was saved since.
+    /// Sent Mail, asked for it now, is the new password's, and that can be
+    /// another mailbox under the same address (B-033): the attempt is not
+    /// there to be found, is taken for one Gmail never had, and the letter
+    /// goes again. By when the attempt was written down, not when the
+    /// letter was kept: a letter sent offline before a save and cut off by
+    /// the first pass after it was cut off under the new password.
+    func unsettledBeforeASave(_ letter: LocalDraft) -> Bool {
+        !letter.unsettled.isEmpty && letter.unsettledSaves < passwordSaves
+    }
+
     // MARK: Reading
 
     /// Every letter that can be read, newest first, for a list: each
@@ -426,6 +444,7 @@ final class LocalDraftStore {
                             account: account, draft: draft, files: kept)
         letter.unsettled = before?.unsettled
         letter.cutOff = before?.cutOff
+        letter.unsettledSaves = before?.unsettledSaves
         letter.passwordSaves = passwordSaves
         try write(letter)
         removeFiles(in: folder, keeping: names)
@@ -468,6 +487,10 @@ final class LocalDraftStore {
     func noteSending(_ key: String, _ messageID: String) throws {
         guard var letter = stored(key), letter.gone != true,
               letter.outbox == messageID else { throw NotKept() }
+        // Which mailbox it goes to. Every earlier attempt has been found or
+        // settled by now, since Sent Mail is asked before a letter goes
+        // again (`LocalDrafts.deliver`), so this one is the only one.
+        letter.unsettledSaves = passwordSaves
         if !(letter.unsettled ?? []).contains(messageID) {
             letter.unsettled = (letter.unsettled ?? []) + [messageID]
         }
@@ -616,6 +639,10 @@ final class LocalDraftStore {
         var unsettled: [String]?
         /// `LocalDraft.cutOff`, absent when nothing is unsettled.
         var cutOff: Date?
+        /// `LocalDraft.unsettledSaves`, absent until an attempt is written
+        /// down, and from a letter whose attempts were written down before
+        /// the count was, which reads as 0, so no new format.
+        var unsettledSaves: Int?
         /// `LocalDraft.passwordSaves`, absent from a letter kept before the
         /// count was kept, which reads as 0, so no new format.
         var passwordSaves: Int?
@@ -680,7 +707,8 @@ final class LocalDraftStore {
                               unfinished: unfinished, keptAt: keptAt, account: account,
                               gone: gone ?? false, outbox: outbox, unsettled: unsettled ?? [],
                               cutOff: cutOff, markupBytes: quote?.markup ?? 0,
-                              passwordSaves: passwordSaves ?? 0)
+                              passwordSaves: passwordSaves ?? 0,
+                              unsettledSaves: unsettledSaves ?? 0)
         }
     }
 
@@ -883,12 +911,37 @@ final class LocalDrafts {
     }
 
     /// Drafts' rows for the letters kept here (`waiting`), each saying under
-    /// its mark why the last try did not take it to the server, when that
-    /// is one he can do something about (`whyNotSent`): a file it carries
-    /// from a letter that cannot be found. What the list draws, so the
-    /// words a pass left are on the row he sees and not only in the model.
+    /// its mark when the last try did not take it to the server because a
+    /// file it carries from a letter cannot be found (`whyNotSent`), which
+    /// he can take off. What the list draws, so the words a pass left are on
+    /// the row he sees and not only in the model.
+    ///
+    /// That and nothing else. A letter a pass refused in the Outbox, taken
+    /// back into the sheet by a Send that failed as it stood, and closed,
+    /// is a draft still carrying the Outbox's refusal: its row said "This
+    /// message is too big to send" under "On this iPad only", of a letter
+    /// nobody was sending. The composer's Send keeps the letter as a new
+    /// version first, which no pass has refused, so it stands as it stood
+    /// only when that keep could not be written.
     func draftsRows(in mailboxID: String, from sender: String) -> [MessageSummary] {
-        waiting.map { $0.row(in: mailboxID, from: sender, notice: whyNotSent($0.key)) }
+        waiting.map {
+            let missing = whyNotSent($0.key) == .attachmentsMissing
+            return $0.row(in: mailboxID, from: sender, notice: missing ? .attachmentsMissing : nil)
+        }
+    }
+
+    /// The Outbox's rows (`outbox`), each with "Sending…" while it goes, or
+    /// why it has not gone: the reason a pass refused it for
+    /// (`whyNotSent`), or, for a letter no pass takes because an attempt at
+    /// it may have reached Gmail before a password was saved since
+    /// (`LocalDraftStore.unsettledBeforeASave`), that it may already have
+    /// gone. What the list draws.
+    var outboxRows: [MessageSummary] {
+        outbox.map {
+            let reason = store.unsettledBeforeASave($0)
+                ? Outbox.mayHaveGone : whyNotSent($0.key)?.errorDescription
+            return $0.outboxRow(sending: isGoing($0.key), saying: reason)
+        }
     }
 
     /// Whether the letter kept as `key` is on its way to the server now.
@@ -1413,15 +1466,25 @@ final class LocalDrafts {
     /// Whether a pass takes `letter`: not while the composer has it open,
     /// and, but for the leftovers of one sent or deleted, only a letter of
     /// this account that names nothing by folder and UID alone across a
-    /// password saved since (`goesFromHere`), not refused since launch as
+    /// password saved since (`goesFromHere`), with no attempt that may have
+    /// reached Gmail from before one either, not refused since launch as
     /// it stands, and small unless `largeToo`. A letter in the Outbox not
     /// after a password the submission server refused (`sendingRefused`),
     /// and small by what it has to fetch from Gmail
     /// (`LocalDraft.fetchesLarge`).
+    ///
+    /// Such an attempt is looked for in Sent Mail before the letter goes
+    /// again, and after a save Sent Mail can be another mailbox's, where it
+    /// is not found (`LocalDraftStore.unsettledBeforeASave`): the pass
+    /// would settle it and send the letter a second time. It waits, listed
+    /// in the Outbox as one that may have gone (`outboxRows`), for him to
+    /// open it and send it, which asks Sent Mail as ever and is his to
+    /// choose; a draft, for him to send or save it.
     private func isDue(_ letter: LocalDraft, largeToo: Bool) -> Bool {
         guard open[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
-        guard goesFromHere(letter), refused[letter.key] != letter.version else { return false }
+        guard goesFromHere(letter), !store.unsettledBeforeASave(letter),
+              refused[letter.key] != letter.version else { return false }
         if letter.outbox != nil {
             return !sendingRefused && (largeToo || !letter.fetchesLarge)
         }

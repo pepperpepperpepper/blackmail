@@ -3198,20 +3198,32 @@ UID holds that letter, by B-053's rules:
   gone: nothing is noted of it, and the letter waits for the connection as
   any other does.
 - Not found in All Mail either, nothing of the letter goes (`CARRIED-PART
-  not-found nothing-sent`): it stays on the iPad saying "One or more
-  attachments failed to load.", in Drafts on the line under "On this iPad
-  only" (`LocalDrafts.draftsRows`, which the list draws), in the Outbox as
-  its reason (B-052), and in the sheet if he sends it, and is not tried
-  again unasked until he changes it or the app is launched again; the
-  letters after it go. Changed since and refused again for a reason a
-  draft's row does not give, it says nothing: each refusal sets its own
-  reason, or none, and an earlier one's does not stay behind. The words are
-  Mail's, as its users quote the alert iOS Mail puts up when a forward's
-  attachments cannot be had ("Unable to Attach", "One or more attachments
-  failed to load.", Apple's forums, thread 254851082, iOS 16.4.1). Mail
-  offers Continue Anyway there; nothing here sends a letter short of a file.
-  A sixth string beside the spec's four, as "This message is too big to
-  send" is (`MailError.attachmentsMissing`).
+  not-found nothing-sent`): it stays on the iPad saying "Attachment could
+  not be downloaded.", in Drafts on the line under "On this iPad only"
+  (`LocalDrafts.draftsRows`, which the list draws), in the Outbox as its
+  reason (B-052), and in the sheet if he sends it, and is not tried again
+  unasked until he changes it or the app is launched again; the letters
+  after it go. Changed since and refused again for a reason a draft's row
+  does not give, it says nothing: each refusal sets its own reason, or
+  none, and an earlier one's does not stay behind. It is the only reason a
+  row in Drafts gives. A letter a pass refused in the Outbox, too big or
+  not sent, and taken back into the sheet as it stood by a Send that failed
+  and closed, is a draft still carrying that refusal, and its row said the
+  Outbox's reason under "On this iPad only"; it now says nothing there.
+  (The composer's Send keeps the letter as a new version first, which no
+  pass has refused, so it stands as it stood only when that keep could not
+  be written.) The words are the spec's, the same as for a forward's file
+  gone from Gmail, which a file named by folder and UID alone says, and as
+  for a letter found in All Mail without the part it named
+  (`MailError.attachmentsMissing` is a case of its own for the Drafts row,
+  and reads as `attachmentFailed`). The first version used Mail's, as its
+  users quote the alert iOS Mail puts up when a forward's attachments
+  cannot be had ("Unable to Attach", "One or more attachments failed to
+  load.", Apple's forums, thread 254851082, iOS 16.4.1): a sixth sentence
+  beside the spec's four and the letter too big to send, and the same
+  missing file read one way or the other by how it had been named. Mail
+  offers Continue Anyway there; nothing here sends a letter short of a
+  file.
 
 A letter kept by a build before the ids were names things by folder and UID
 alone, and goes as it always did until a password is saved.
@@ -3229,7 +3241,37 @@ rule holds for a letter kept from a server without Gmail's extension, whose
 rows carry no id; with no password saved, such a server goes by folder and
 UID as it always did. Nothing is said on such a letter's row, as nothing
 is said on another account's: it is listed, and opened it shows what it
-has lost.
+has lost. The Outbox goes by the same count for an attempt that may have
+reached Gmail, whose look in Sent Mail asks the new password's mailbox
+(B-052, "Across a password save").
+
+**What it sends.** A first Save Draft, an autosave and a launch send what
+they always did, and a letter made and sent in one launch asks for nothing
+more. What is added, each only where a kept letter names something on the
+server:
+
+- The look in Drafts before an upload of a letter tried before, `UID SEARCH
+  HEADER Message-ID`, once per version tried ("Never twice in Drafts").
+- `UID FETCH n (UID X-GM-MSGID)` in Drafts, after the APPEND and before
+  the `UID STORE` and `UID EXPUNGE` of the copy a letter replaces, when
+  nothing has been named under that UID in this launch. Another letter
+  there, and the STORE and EXPUNGE are not sent.
+- For a file or picture whose letter is not under its UID, `UID SEARCH
+  X-GM-MSGID n` in All Mail, then the letter described and the part fetched
+  there, in place of the part's FETCH in the folder it named; the FETCH
+  that describes the letter in that folder is the one it always sent.
+  Under a UID this launch has seen to hold another letter, nothing goes to
+  that folder at all.
+- The one change to a command that went before: reopening a copy the app
+  itself put in Drafts in this launch, one its APPEND landed or one the
+  search by its version's Message-ID found, sends `UID FETCH n (UID
+  X-GM-MSGID BODY.PEEK[])` in place of `UID FETCH n (UID BODY.PEEK[])`, the
+  id asked in the same FETCH, at no round trip more. Without Gmail's
+  extension it sends `(UID BODY.PEEK[])` as before.
+  `KeptReferencesTests.testACopyThisLaunchUploadedIsNamedWhenReopened` and
+  `testACopyFoundByItsMessageIDIsNamedWhenReopened` pin the first, and
+  `testWithoutGmailsExtensionNothingIsNamedAndItAllGoesAsBefore` the
+  second.
 
 **Tested** in `KeptReferencesTests`, over the shipping repository and
 `LocalDrafts`, the scripted server and a submission server, a later launch
@@ -3283,7 +3325,14 @@ list hiding by UID alone, never hiding a named copy, or not handed the
 letters; an earlier refusal's words left behind; every letter kept before a
 save held, or what names its letter dropped with the rest after one; and a
 line lost in the look in All Mail, or in the describing FETCH, taken for the
-original's being gone).
+original's being gone). Then three more, each failing the tests named:
+Mail's sentence put back for a file found nowhere
+(`MessageSizeTests.testEveryErrorIsOneOfFiveSentences`, and the two here
+that read the words on a row), a Drafts row given whatever reason its
+letter was last refused for
+(`OutboxTests.testADraftsRowNeverGivesTheOutboxsReason`), and the copy this
+launch put in Drafts reopened with its plain FETCH (the two tests that pin
+the FETCH, and the forward reopened from a copy found by its Message-ID).
 
 **Not yet seen on the iPad.** The TODO says how to make each case by hand.
 
@@ -3353,17 +3402,17 @@ asks the server. `HEADER Message-ID` has not been tried against Gmail's own
 SEARCH. A kept letter carries a forward's files, and a reopened draft's, as
 parts of a letter on the server; if that letter is deleted from Gmail before
 the kept one goes up, and is not in All Mail, the upload fails, and the
-letter stays in Drafts on the iPad saying "One or more attachments failed to
-load.", where he can open it and take the file out (above, "Another mailbox
-under the same address"). One kept before the ids were says nothing. A large
-letter on a slow uplink may not finish in the time iOS gives as he leaves,
-and then goes again from the start, looked for first, at the next departure;
-Save Draft in the composer sends it at once. Move and Mark in Edit pass over
-kept letters without saying so. The Edit-mode routing and the list's handling
-of a landing are UIKit, and only the pieces under them are tested here
-(`LocalDrafts.delete`, `ListLetters.landed`). A Send cut off by iOS ending
-the app comes back as a draft, and may be a letter that went: that is the
-Outbox's to settle, next, on this store (TODO).
+letter stays in Drafts on the iPad saying "Attachment could not be
+downloaded.", where he can open it and take the file out (above, "Another
+mailbox under the same address"). One kept before the ids were says nothing.
+A large letter on a slow uplink may not finish in the time iOS gives as he
+leaves, and then goes again from the start, looked for first, at the next
+departure; Save Draft in the composer sends it at once. Move and Mark in
+Edit pass over kept letters without saying so. The Edit-mode routing and the
+list's handling of a landing are UIKit, and only the pieces under them are
+tested here (`LocalDrafts.delete`, `ListLetters.landed`). A Send cut off by
+iOS ending the app comes back as a draft, and may be a letter that went:
+that is the Outbox's to settle, next, on this store (TODO).
 
 **Not yet seen on the iPad.** The TODO says what to look at.
 
@@ -3743,8 +3792,9 @@ pass before the letters after it). Since 2026-09-30 that is a file named
 by folder and UID alone, kept before the ids were or from a server without
 Gmail's extension; one that names its letter by Gmail's id is looked for
 in All Mail when it is not under its UID, and goes from there, and found
-nowhere it is `attachmentsMissing`, "One or more attachments failed to
-load.", its row's first line, which keeps the sheet as well (B-051).
+nowhere it is `attachmentsMissing`, read out as the same "Attachment could
+not be downloaded.", its row's first line, which keeps the sheet as well
+(B-051).
 Anything else, a photo's file that cannot be read, is "Message was not
 sent." as it always was. `SMTPClient`
 used to throw `notSent` for all of it past the connect; it now tells a line
@@ -3835,6 +3885,33 @@ nothing looked for. Found, or not yet answered, it stays on the iPad,
 listed in Drafts, and a Send from there asks first; found, no pass asks
 again until he changes it or the app is launched again.
 
+**Across a password save, 2026-09-30.** The look asks whatever mailbox the
+password opens, and a password saved in Settings can open another mailbox
+under the same address (B-033). An attempt cut off after its DATA under the
+old password, looked for there, was not found, was taken for one Gmail never
+had, and the letter went a second time. Found in the code, not on the iPad.
+Now each attempt written down is stamped with the count of passwords saved
+that its launch found (`unsettledSaves` in `letter.json`, written with the
+attempt, which is then the only one unsettled since Sent Mail is asked
+before a letter goes again, and carried when the letter is kept again;
+absent, so 0, in a letter an older build kept), the count B-051 keeps beside
+the letters. From the launch after a save, a letter with an attempt from
+before it is not taken by a pass (`LocalDraftStore.unsettledBeforeASave`):
+nothing is looked for and nothing sent, and the letters after it go. It
+stays in the Outbox, its row's first line "May already have been sent.", and
+counts among the unsent. The attempt is compared, not the letter: a letter
+sent offline before a save, and cut off by the first pass after it, was cut
+off under the new password, and goes as any other. Tapped and sent it goes,
+his choice: Sent Mail is asked first as for any such letter, which is still
+worth asking, since a password saved is usually the same mailbox, and found,
+nothing more goes. Opened and put away as a draft, it keeps its attempt and
+its stamp, and no pass takes it to Drafts either, where a Send later would
+go with nothing looked for; Save Draft of his own takes it there once Sent
+Mail has not got it, as before. The words are the app's own, where a refused
+letter's reason goes: "Message was not sent." may be untrue here, and would
+have him send it again for that reason. In the launch that saved the
+password nothing changes, as its repository still has the old one.
+
 **When a waiting letter goes.** By B-051's pass, and at its moments: after
 a folder's newest page, on coming back after the warm-up, and as he leaves
 the app, inside background time; and at one more, the first check of the
@@ -3851,7 +3928,9 @@ has gone, or the app is launched again: each page would otherwise send the
 refused password again. A letter refused for its own reason stays, the
 reason as the first line of its row ("Message was not sent."), and is not
 tried again unasked until the app is launched again; the letters after it
-go. A submission server that cannot be reached while IMAP works ends the
+go. One with an attempt from before a password save is not taken at all,
+and says it may already have gone (above, "Across a password save"). A
+submission server that cannot be reached while IMAP works ends the
 Outbox's part of the pass, as does a "not now" from it; the drafts after it
 still go up: each letter after it would cost a connect for the same
 failure. Size: an Outbox letter goes over a connection of its own, so its
@@ -3931,7 +4010,13 @@ and an unreachable server leaves the draft to go; his own Send refused for
 its password stops the pass; a pass sending a letter after a cut-off upload
 leaves nothing in Drafts; a quote's markup is kept beside the letter and
 counted in its size; a forward's quoted pictures are counted once; the
-notice's words. Each of these fails with its part undone in a scratch copy:
+notice's words; across a password save, an attempt cut off before it is
+neither looked for nor sent by a pass, and the letter after it goes, its row
+says "May already have been sent." and it counts as unsent, and sent by him
+it goes once, Sent Mail asked first; an attempt cut off by the first pass
+after the save goes as before; put away as a draft, a letter with an attempt
+from before the save is not taken to Drafts, and one with an attempt from
+after it is. Each of these fails with its part undone in a scratch copy:
 thirty-seven sabotages at first, each failing at least the test named for it
 (the queued branch, the entry into the Outbox, a lost line keeping the
 sheet, the SMTP split, the look, a refused look taken as none, the write
@@ -3957,7 +4042,11 @@ pass's discard a plain remove, and no tidy after it; his own Send's refused
 password not latched; only a clean close taken as a lost line; no retry for
 the look; a refused password at the look taken as unsettled; drafts before
 the Outbox; an unreachable server ending the drafts too; the write before
-DATA made before MAIL FROM as well).
+DATA made before MAIL FROM as well), and eight for the password save, each
+failing the test named for it (a pass taking a letter held across a save;
+the row without its words; his own Send held as well; the letter's stamp
+compared rather than the attempt's; the attempt not stamped, or its stamp
+not read back; a keep stamping it afresh, or dropping it).
 
 **Not taken, and still to do.** That Gmail files a letter taken over SMTP
 in Sent Mail under the Message-ID the app gave it has not been checked
@@ -3976,9 +4065,13 @@ a letter waits for the app to be open (above). A letter a pass cannot send
 because neither Sent Mail nor All Mail is listed can never go from the
 Outbox; that needs "Show in IMAP" turned back on in Gmail. Deleting from the Outbox a letter
 reopened from Drafts leaves its old copy in Drafts, as deleting a kept
-draft does (B-051). The sidebar's row, the Outbox's list, the notice and the
-watch's trigger are UIKit and not on the host; the pieces under them are
-tested (`LocalDrafts.outbox`, `LocalDraft.outboxRow`, `Outbox.mailbox`,
+draft does (B-051). A letter held across a password save is held whichever
+mailbox the new password opens, the same one included, which is the usual
+case, where the look would have settled it: the app has no sure way to tell
+the two apart, and it waits for his tap rather than risk a second copy. The
+sidebar's row, the Outbox's list, the notice and the watch's trigger are
+UIKit and not on the host; the pieces under them are tested
+(`LocalDrafts.outboxRows`, `LocalDraft.outboxRow`, `Outbox.mailbox`,
 `UpdatedLine.text`).
 
 **Not yet seen on the iPad.** The TODO says what to look at.

@@ -890,7 +890,11 @@ letter already, which for a part is the one that describes it). Where this
 copy is wiped at a password save, a letter cannot be: it may be the only
 copy of what he wrote. The save is counted beside the letters instead, and
 from the next launch what a letter kept before it names by folder and UID
-alone is left out of it.
+alone is left out of it. The Outbox's look in Sent Mail (B-052) asks the
+same mailbox, and goes by the same count: an attempt cut off after its DATA
+before a save is not looked for by a pass, which would find nothing in
+another mailbox and send the letter again. It waits in the Outbox, "May
+already have been sent.", for him to send it or not.
 
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can
 be old. It always says how old, and offline it is exactly as current as the

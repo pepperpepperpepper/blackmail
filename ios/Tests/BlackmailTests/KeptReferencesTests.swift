@@ -733,10 +733,9 @@ final class KeptReferencesTests: XCTestCase {
                        "nothing asked of the letter the listing named under the UID")
         XCTAssertEqual(later.outbox.map(\.key), ["forward"])
         XCTAssertEqual(later.whyNotSent("forward"), .attachmentsMissing)
-        let row = try XCTUnwrap(later.outbox.first)
-            .outboxRow(sending: false, notSent: later.whyNotSent("forward"))
+        let row = try XCTUnwrap(later.outboxRows.first)
         XCTAssertEqual(row.preview.components(separatedBy: "\n").first,
-                       "One or more attachments failed to load.")
+                       "Attachment could not be downloaded.")
         XCTAssertEqual(notes("CARRIED-PART"),
                        ["CARRIED-PART folder=INBOX reason=another-letter",
                         "CARRIED-PART not-found nothing-sent"])
@@ -956,7 +955,7 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(kept.waiting.map(\.key), ["forward"])
         let row = try XCTUnwrap(kept.draftsRows(in: Server.drafts, from: "Owner").first)
         XCTAssertEqual(Array(row.preview.components(separatedBy: "\n").prefix(2)),
-                       [LocalDraft.mark, "One or more attachments failed to load."])
+                       [LocalDraft.mark, "Attachment could not be downloaded."])
 
         server.clearLog()
         await kept.uploadWaiting(to: repository)?.value
@@ -990,7 +989,7 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(kept.waiting.map(\.key), ["forward"])
         XCTAssertNil(kept.whyNotSent("forward"))
         let row = try XCTUnwrap(kept.draftsRows(in: Server.drafts, from: "Owner").first)
-        XCTAssertFalse(row.preview.contains("One or more attachments failed to load."))
+        XCTAssertFalse(row.preview.contains("Attachment could not be downloaded."))
     }
 
     // MARK: - Letters kept before the ids were

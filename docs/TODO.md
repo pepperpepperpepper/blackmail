@@ -812,7 +812,7 @@ this host. Ordered by value, not by size.
       the file of whatever letter had that UID, or failed.
       3. A file nowhere. As 2, but write the file's `"letter":` number one
       higher instead, an id no letter has: the letter stays in the Outbox,
-      its row reading "One or more attachments failed to load.", nothing is
+      its row reading "Attachment could not be downloaded.", nothing is
       sent, and the log ends `CARRIED-PART not-found nothing-sent`; a letter
       sent offline after it goes. Open it and Send: the sheet stays with the
       same words. Take the file off and Send: it goes. The same with Save
@@ -842,6 +842,19 @@ this host. Ordered by value, not by size.
       ids out, then, the app still ended, raise `password-saves` by one by
       hand, `echo 1 > password-saves` where there is none, and open the
       app.)
+      5. A letter cut off after its DATA before a password save (B-052,
+      "Across a password save"). Wi-Fi off, Send a letter to himself: the
+      Outbox. End the app. In its `letter.json`, write its Message-ID down
+      as an attempt that went, `sed -i 's/"outbox":"\([^"]*\)"/&,"unsettled":["\1"]/'
+      letter.json`; with no stamp beside it, the attempt reads as made
+      before any save. Make sure `password-saves` reads 1 or more (4 leaves
+      it so; else `echo 1 > password-saves`). Wi-Fi on, open the app:
+      nothing goes for it, no `UID SEARCH HEADER Message-ID` and no
+      `ENVELOPE`, and its row in the Outbox reads "May already have been
+      sent.", with "1 Unsent Message" under the list. Tap it, Send: the log
+      shows the look in Sent Mail, then one `ENVELOPE`, and the letter
+      arrives once. With no `password-saves` file at all, the same edit
+      makes the pass look in Sent Mail and send it by itself.
 - [ ] **B-053, the copy kept on the iPad.** Seen 2026-09-30: the first
       frame with Wi-Fi on and off, an unread letter tapped in the first
       second (both vouching FETCHes, the dot staying off), the kept pages

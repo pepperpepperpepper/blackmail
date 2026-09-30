@@ -654,6 +654,156 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(kept.store.letters().count, 0)
     }
 
+    // MARK: - Never twice across a password save
+
+    /// DATA went under the old password and the line died before the 250.
+    /// Then a password is saved, and it opens another mailbox under the
+    /// same address (B-033), whose Sent Mail has never had the letter. From
+    /// the next launch no pass takes it, however long after the cut:
+    /// nothing is asked of that Sent Mail and nothing sent, and the letter
+    /// after it goes. Before, the pass asked, found nothing, settled the
+    /// attempt and sent the letter a second time.
+    func testAnAttemptCutOffBeforeAPasswordSaveIsNotSentAgainByAPass() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentAndCutOff(letter(), kept: kept, repository: repository)
+        await sentOffline(letter("Another"), as: "another", kept: kept, repository: repository)
+        LocalDraftStore.notePasswordSaved(in: root)
+        settle()
+
+        let relaunched = makeKept()
+        let later = makeRepository()
+        try await afterAPage(relaunched, later)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "the cut-off attempt, and the letter after it")
+        XCTAssertTrue(sent.last?.contains("Subject: Another") == true)
+        XCTAssertEqual(searches, [], "nothing asked of the new Sent Mail")
+        XCTAssertEqual(relaunched.outbox.map(\.key), ["letter-1"])
+        XCTAssertEqual(relaunched.outbox.first?.outboxState, .beingSent)
+        XCTAssertNil(relaunched.uploadWaiting(to: later), "nor by any pass after")
+    }
+
+    /// Such a letter is listed in the Outbox saying it may already have
+    /// gone, over its words, and is not a letter refused. In the launch
+    /// that saved the password its row is as it was: that launch still
+    /// sends with the old one.
+    func testALetterHeldAcrossAPasswordSaveSaysItMayAlreadyHaveGone() async throws {
+        let kept = makeKept()
+        await sentAndCutOff(letter(), kept: kept, repository: makeRepository())
+        LocalDraftStore.notePasswordSaved(in: root)
+        XCTAssertEqual(kept.outboxRows.first?.preview, "Lunch at one?")
+
+        let relaunched = makeKept()
+        let row = try XCTUnwrap(relaunched.outboxRows.first)
+        XCTAssertEqual(row.preview.components(separatedBy: "\n"),
+                       ["May already have been sent.", "Lunch at one?"])
+        XCTAssertNil(relaunched.whyNotSent("letter-1"), "held, not refused")
+        XCTAssertEqual(Outbox.unsent(relaunched.outbox.count), "1 Unsent Message")
+    }
+
+    /// Tapped and sent, it goes: his choice, not a pass's. Sent Mail is
+    /// asked first, as for any letter with an attempt out, and not finding
+    /// it there the letter goes once, under the Message-ID it had.
+    func testALetterHeldAcrossAPasswordSaveGoesOnceWhenHeSendsIt() async throws {
+        let kept = makeKept()
+        await sentAndCutOff(letter(), kept: kept, repository: makeRepository())
+        let messageID = try XCTUnwrap(kept.store.letter("letter-1")?.outbox)
+        LocalDraftStore.notePasswordSaved(in: root)
+        settle()
+
+        let relaunched = makeKept()
+        let later = makeRepository()
+        try await afterAPage(relaunched, later)
+        dismissals = 0
+        queued = 0
+        let opened = try XCTUnwrap(relaunched.letter("letter-1")).draft
+        await makeActions("letter-1", kept: relaunched, repository: later)
+            .send({ opened }, then: nil)?.value
+        XCTAssertEqual(errors, [])
+        XCTAssertEqual(queued, 0, "it went, and did not wait")
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertEqual(searches.count, 1, "Sent Mail asked first")
+        await relaunched.uploadWaiting(to: later)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "the cut-off attempt, and his Send")
+        XCTAssertEqual(sent.map(OutboxSubmissions.messageID), [messageID, messageID])
+        XCTAssertEqual(relaunched.store.letters().count, 0)
+    }
+
+    /// A letter sent offline before the save, whose attempt was cut off by
+    /// the first pass after it, was cut off under the new password: Sent
+    /// Mail is asked for it as ever, and not finding it the pass sends it
+    /// once more. The letter was kept before the save; its attempt says
+    /// when it was made.
+    func testAnAttemptCutOffAfterAPasswordSaveGoesAsBefore() async throws {
+        await sentOffline(letter(), kept: makeKept(), repository: makeRepository())
+        LocalDraftStore.notePasswordSaved(in: root)
+
+        let relaunched = makeKept()
+        submissions.then { ScriptedSubmission(hangsUpBeforeLetterReply: true) }
+        try await afterAPage(relaunched, makeRepository())
+        XCTAssertEqual(relaunched.outbox.first?.outboxState, .beingSent)
+        settle()
+
+        let third = makeKept()
+        try await afterAPage(third, makeRepository())
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "the cut-off attempt and one more")
+        XCTAssertEqual(searches.count, 1)
+        XCTAssertEqual(third.outbox.count, 0)
+        XCTAssertEqual(third.store.letters().count, 0)
+    }
+
+    /// Opened from the Outbox, changed and put away, a letter with an
+    /// attempt from before the save is a draft that still carries it: no
+    /// pass takes it to Drafts, where the look in the new Sent Mail would
+    /// have settled the attempt, and a Send from Drafts gone with nothing
+    /// looked for. It stays on the iPad, listed in Drafts.
+    func testADraftWithAnAttemptFromBeforeAPasswordSaveIsNotTakenUp() async throws {
+        await sentAndCutOff(letter(), kept: makeKept(), repository: makeRepository())
+        LocalDraftStore.notePasswordSaved(in: root)
+        settle()
+
+        let relaunched = makeKept()
+        let later = makeRepository()
+        var changed = try XCTUnwrap(relaunched.letter("letter-1")).draft
+        changed.body = "Lunch at two?"
+        let actions = makeActions("letter-1", kept: relaunched, repository: later)
+        actions.edited { changed }
+        actions.sheetGone { changed }
+        XCTAssertEqual(relaunched.waiting.map(\.key), ["letter-1"], "a draft")
+
+        try await afterAPage(relaunched, later)
+        XCTAssertEqual(searches, [])
+        XCTAssertEqual(appends.count, 0, "not taken to Drafts")
+        XCTAssertEqual(relaunched.store.letter("letter-1")?.unsettled.count, 1)
+    }
+
+    /// The same with the attempt cut off after the save, then the letter
+    /// opened and put away as a draft: it goes to Drafts as any such draft
+    /// does, once Sent Mail has not got it.
+    func testADraftWithAnAttemptFromAfterAPasswordSaveGoesUpAsBefore() async throws {
+        await sentOffline(letter(), kept: makeKept(), repository: makeRepository())
+        LocalDraftStore.notePasswordSaved(in: root)
+
+        let relaunched = makeKept()
+        let later = makeRepository()
+        submissions.then { ScriptedSubmission(hangsUpBeforeLetterReply: true) }
+        try await afterAPage(relaunched, later)
+        var changed = try XCTUnwrap(relaunched.letter("letter-1")).draft
+        changed.body = "Lunch at two?"
+        let actions = makeActions("letter-1", kept: relaunched, repository: later)
+        actions.edited { changed }
+        actions.sheetGone { changed }
+        settle()
+
+        let third = makeKept()
+        try await afterAPage(third, makeRepository())
+        XCTAssertEqual(searches.count, 1)
+        XCTAssertEqual(appends.count, 1)
+        XCTAssertEqual(third.store.letters().count, 0)
+    }
+
     // MARK: - The letter's own failures keep the sheet
 
     /// A recipient refused, a letter too big, a password refused: the sheet
@@ -781,8 +931,7 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(sent.count, 1, "the one after it went")
         XCTAssertEqual(kept.outbox.map(\.key), ["stuck"])
         XCTAssertEqual(kept.whyNotSent("stuck"), .notSent)
-        let row = try XCTUnwrap(kept.outbox.first)
-            .outboxRow(sending: false, notSent: kept.whyNotSent("stuck"))
+        let row = try XCTUnwrap(kept.outboxRows.first)
         XCTAssertTrue(row.preview.hasPrefix("Message was not sent."), row.preview)
 
         let before = submissions.made
@@ -1052,7 +1201,7 @@ final class OutboxTests: XCTestCase {
         await sentOffline(letter("Second", to: "jane@example.com"), as: "second",
                           kept: kept, repository: repository)
 
-        let rows = kept.outbox.map { $0.outboxRow(sending: false, notSent: nil) }
+        let rows = kept.outboxRows
         XCTAssertEqual(rows.map(\.subject), ["Second", "First"])
         XCTAssertEqual(rows.map(\.sender), ["jane@example.com", "Carlo"])
         XCTAssertEqual(rows.first?.preview, "Lunch at one?")
@@ -1080,6 +1229,41 @@ final class OutboxTests: XCTestCase {
         await kept.delete("first", from: repository)
         XCTAssertEqual(kept.outbox.count, 0)
         XCTAssertNil(kept.store.letter("first"))
+    }
+
+    /// A letter a pass refused in the Outbox as too big, taken back into
+    /// the sheet as it stood by a Send refused the same way, and closed: a
+    /// draft, still carrying the pass's refusal. Its row in Drafts says
+    /// "On this iPad only" over its words, and not the Outbox's reason,
+    /// which is not a draft's to give: Drafts' rows say only that a file
+    /// cannot be found.
+    ///
+    /// Driven through `LocalDrafts.send` with the letter as kept. The
+    /// composer keeps the letter as a new version before it sends, and
+    /// that version was never refused; it stands as it stood only when
+    /// that keep could not be written and the Outbox's own writes could.
+    func testADraftsRowNeverGivesTheOutboxsReason() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter(), kept: kept, repository: repository)
+        submissions.then { ScriptedSubmission(letterReply: "552 5.3.4 Message too big") }
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(kept.whyNotSent("letter-1"), .messageTooLarge)
+
+        submissions.then { ScriptedSubmission(letterReply: "552 5.3.4 Message too big") }
+        let stood = try XCTUnwrap(kept.letter("letter-1")).draft
+        kept.opened("letter-1")
+        do {
+            try await kept.send(stood, as: "letter-1", to: repository, progress: nil)
+            XCTFail("the server refused it")
+        } catch {
+            XCTAssertEqual(error as? MailError, .messageTooLarge)
+        }
+        kept.closed("letter-1")
+        XCTAssertEqual(kept.waiting.map(\.key), ["letter-1"], "a draft")
+        XCTAssertEqual(kept.whyNotSent("letter-1"), .messageTooLarge, "the refusal it carries")
+        let row = try XCTUnwrap(kept.draftsRows(in: Server.drafts, from: "Owner").first)
+        XCTAssertEqual(row.preview.components(separatedBy: "\n"), [LocalDraft.mark, "Lunch at one?"])
     }
 
     /// Sent again from the composer after opening it from the Outbox, a

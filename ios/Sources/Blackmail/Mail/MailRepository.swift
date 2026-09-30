@@ -331,21 +331,21 @@ enum MailError: LocalizedError {
     /// The letter does not go, rather than go with another letter's file
     /// under its file's name, or without the file.
     ///
-    /// A SIXTH string, recorded as `messageTooLarge` is. Mail's own, as its
-    /// users quote the alert iOS Mail puts up when a forward's attachments
-    /// cannot be had ("Unable to Attach", "One or more attachments failed
-    /// to load.", Apple's forums, thread 254851082, iOS 16.4.1). Mail offers
-    /// Continue Anyway there; nothing here sends a letter short of a file.
-    /// It is the first line of the letter's row in the Outbox or Drafts,
-    /// and what the sheet says if he sends it.
+    /// Not a new sentence: he reads "Attachment could not be downloaded.",
+    /// the spec's, as for a forward's file gone from Gmail. A case of its
+    /// own because it is the one refusal a draft's row in Drafts shows
+    /// (`LocalDrafts.draftsRows`). It first had Mail's words, as its users
+    /// quote the alert iOS Mail puts up when a forward's attachments cannot
+    /// be had ("One or more attachments failed to load.", Apple's forums,
+    /// thread 254851082); that was a sixth sentence, and the same missing
+    /// file read one way or the other depending on how it had been named.
     case attachmentsMissing
 
     var errorDescription: String? {
         switch self {
         case .cannotConnect:        return "Can't connect to mail server."
         case .notSent, .connectionLost, .refusedForNow: return "Message was not sent."
-        case .attachmentFailed:     return "Attachment could not be downloaded."
-        case .attachmentsMissing:   return "One or more attachments failed to load."
+        case .attachmentFailed, .attachmentsMissing: return "Attachment could not be downloaded."
         case .passwordNeedsUpdating: return "Password needs to be updated in Settings."
         case .messageTooLarge:      return "This message is too big to send. Try sending fewer attachments."
         }
