@@ -38,7 +38,7 @@ final class ComingBackTests: XCTestCase {
         let clock = self.clock!
         return IMAPMailRepository(account: server.account, password: password ?? server.password,
                                   transport: server.transportFactory, recipients: book,
-                                  now: { clock.now() })
+                                  now: { clock.now() }, shelf: keptShelf(for: server.account))
     }
 
     private func until(file: StaticString = #filePath, line: UInt = #line,

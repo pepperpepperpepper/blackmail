@@ -61,8 +61,13 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// addresses noted since the last page, if any, are written here, while
     /// the app is still allowed to run. A suspended app can be ended without
     /// being told.
+    ///
+    /// The copy of his mail kept on the iPad the same (D-016): what has
+    /// changed since its last write, the Inbox's page listed a moment ago
+    /// or a letter just read, is written now.
     public func applicationDidEnterBackground(_ application: UIApplication) {
         RecipientBook.shared.flush()
+        (window?.rootViewController as? RootViewController)?.repository.shelf?.flush()
         Self.syncShareMirror()
     }
 

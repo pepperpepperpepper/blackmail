@@ -455,6 +455,11 @@ final class MessageListViewController: UITableViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
                                                name: LocalDrafts.changed, object: kept)
 
+        // The folder's page kept on the iPad, before anything is sent
+        // (D-016): at launch the Inbox is in the first frame, and so is
+        // every folder he has opened before, with a connection or without.
+        showKeptPage()
+
         Task { @MainActor in
             // A jump asked for before this pane existed — the container
             // opened All Mail in order to serve it — runs INSTEAD of the
@@ -475,7 +480,12 @@ final class MessageListViewController: UITableViewController {
                 jump: { date in
                     await self.landWindow(around: date, generation: self.startReplacingList())
                 },
-                newest: { came = await self.reload() })
+                newest: {
+                    // Over the kept page, by `KeptSwap`'s rules rather than
+                    // a Refresh's: he did not ask, and may be reading it.
+                    came = self.letters.fromShelf
+                        ? await self.fetchOverKept(quietly: false) : await self.reload()
+                })
             if let day, let fellBack { self.report(fellBack, jumpingTo: day) }
             going?()
             self.onFirstLoadFinished?(came)
@@ -523,13 +533,16 @@ final class MessageListViewController: UITableViewController {
         // after a date jump must clear this or the list would keep trying
         // to load mail newer than the newest message there is.
         reachedNewestMessage = true
+        let asked = letters.askingAfresh()
         do {
             let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
                                                           limit: Self.pageSize)
             if quietly, generation != listGeneration || isSearchingOrTyping { return false }
             // Previews already on screen go across to the same letters, and
-            // only the rest are fetched; see `ListLetters.fetchedAfresh`.
-            let unpreviewed = letters.fetchedAfresh(first)
+            // only the rest are fetched, and his read marks and flags the
+            // server had not taken when this was asked for stay on; see
+            // `ListLetters.fetchedAfresh`.
+            let unpreviewed = letters.fetchedAfresh(first, asked: asked)
             // A short first page means the whole folder fits in one, so no
             // footer and no scroll trigger.
             reachedOldestMessage = first.count < Self.pageSize
@@ -565,6 +578,169 @@ final class MessageListViewController: UITableViewController {
             if showingAge { sayAge() }
             if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
             return false
+        }
+    }
+
+    // MARK: - The copy of his mail kept on the iPad (D-016)
+
+    /// The fetch of the folder's fresh first page over the kept one, one at
+    /// a time, and the page once it has come, while it waits for a finger
+    /// to lift or his ticks to go. See `OverKept` and `KeptSwap`.
+    private var overKept = OverKept()
+    /// Looks every so often for the finger to have lifted, while a fresh
+    /// page waits for it: a finger lifted from a tap, which never dragged,
+    /// tells the list nothing.
+    private var liftWatch: Task<Void, Never>?
+    private static let liftCheck = Duration.milliseconds(250)
+
+    /// Draws the folder's page kept on the iPad, if there is one and the
+    /// list is not opened to jump to a day (`ListOpening.kept`), and says
+    /// "Checking for Mail…" under it until the server has answered. No
+    /// paging below it until then: the pages below are not kept, and the
+    /// kept rows are an earlier launch's.
+    @MainActor
+    private func showKeptPage() {
+        guard let page = ListOpening.kept(for: mailbox, jumpingTo: pendingJump,
+                                          from: repository.shelf) else { return }
+        letters.showKept(page.rows)
+        listKept()
+        updated.showingKept(since: page.keptAt)
+        reachedOldestMessage = true
+        rebuildRows()
+        tableView.reloadData()
+        updateEmptyState()
+        updatePageFooter()
+        sayAge()
+    }
+
+    /// The folder's newest page, fetched over the kept one on screen, and
+    /// put in its place by `KeptSwap`: at the top in place, scrolled with
+    /// the rows he can see held, under a search left alone, and not while a
+    /// finger is on the list. At launch and on opening a folder, and
+    /// `quietly` when the watch has found the connection working again
+    /// after a launch without one, which puts up no alert if it fails.
+    /// Returns whether the page came. One at a time, the folder's own and
+    /// the watch's (`OverKept`): not while another is out or a page waits.
+    ///
+    /// Nothing else on the list is touched meanwhile, a search above all:
+    /// unlike `reload`, which is a Refresh he asked for, this neither
+    /// clears the field nor calls off a search on its way.
+    @MainActor
+    @discardableResult
+    private func fetchOverKept(quietly: Bool) async -> Bool {
+        guard overKept.fetch(showingKept: letters.fromShelf, quietly: quietly) else { return false }
+        let asked = letters.askingAfresh()
+        do {
+            let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
+                                                          limit: Self.pageSize)
+            overKept.came(first, asked: asked)
+            landFreshPage()
+            kept.uploadWaiting(to: repository)
+            return true
+        } catch {
+            overKept.failed()
+            // Something he asked for has replaced the kept rows meanwhile,
+            // and said how it went.
+            guard letters.fromShelf else { return false }
+            if mailbox.role == .drafts {
+                listKept()
+                regroup()
+                updateEmptyState()
+            }
+            // The kept rows stay, and the line says how old they are, with
+            // what went wrong under it.
+            updated.failed((error as? MailError) ?? .cannotConnect)
+            if showingAge { sayAge() }
+            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
+            return false
+        }
+    }
+
+    /// Puts the fresh page in place of the kept one, where `KeptSwap` says,
+    /// or leaves it waiting for a finger to lift or his ticks to go. Called
+    /// as it comes, and again whenever the finger may have lifted, and at
+    /// Done and the last tick taken off.
+    @MainActor
+    private func landFreshPage() {
+        guard overKept.waiting != nil, isViewLoaded else { return }
+        let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
+        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
+        let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
+                                       topInset: Double(tableView.adjustedContentInset.top))
+        let swap = KeptSwap.swap(atTop: atTop, searching: isSearchingOrTyping, ticked: ticked,
+                                 touching: touching)
+        // Replaced meanwhile by something he asked for, a Refresh or a day,
+        // the page is dropped: that list has the say.
+        guard let fresh = overKept.landing(showingKept: letters.fromShelf, swap) else {
+            // A finger lifted from a tap tells the list nothing, so it is
+            // looked for; Done and the last tick taken off call this again.
+            if swap == .waitForLift, overKept.waiting != nil { waitForLift() } else { stopWaitingForLift() }
+            return
+        }
+        stopWaitingForLift()
+        let first = fresh.page
+        let unpreviewed: [MessageSummary]
+        switch swap {
+        case .waitForLift, .waitForTicks:
+            return
+        case .top:
+            unpreviewed = letters.fetchedAfresh(first, asked: fresh.asked)
+            listKept()
+            regroup(to: places.replaced())
+        case .holdingPlace:
+            let here = place()
+            unpreviewed = letters.fetchedAfresh(first, asked: fresh.asked)
+            listKept()
+            regroup(to: places.refetched(here: here))
+        case .underSearch:
+            let showingResults = letters.isSearching
+            let here = place()
+            unpreviewed = letters.fetchedUnderSearch(first, asked: fresh.asked)
+            listKept()
+            // Typed and not yet run, the rows on screen are the folder's.
+            if !showingResults { regroup(to: .back(here)) }
+        }
+        // Paging below the fresh page, as below any; a search showing has
+        // its own paging, and the folder's comes back with it.
+        if !letters.isSearching { reachedOldestMessage = first.count < Self.pageSize }
+        updated.succeeded(at: Date())
+        showingAge = true
+        sayAge()
+        updateEmptyState()
+        updatePageFooter()
+        updateSelectAllTitle()
+        loadPreviews(for: unpreviewed)
+    }
+
+    @MainActor
+    private func waitForLift() {
+        guard liftWatch == nil else { return }
+        liftWatch = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.liftCheck)
+                guard let self, !Task.isCancelled, self.overKept.waiting != nil else { return }
+                self.landFreshPage()
+            }
+        }
+    }
+
+    @MainActor
+    private func stopWaitingForLift() {
+        liftWatch?.cancel()
+        liftWatch = nil
+    }
+
+    /// The watch has reached the server while the kept page is still on
+    /// screen, a launch that could not connect having left it there: the
+    /// page is fetched afresh now, quietly, rather than waiting for a
+    /// Refresh, and a letter that came while there was no connection is
+    /// on it. Not while the folder's own fetch is out, or has brought a
+    /// page that waits (`OverKept`).
+    @MainActor
+    private func fetchOverKeptQuietly() {
+        guard letters.fromShelf else { return }
+        Task { @MainActor [weak self] in
+            await self?.fetchOverKept(quietly: true)
         }
     }
 
@@ -664,6 +840,10 @@ final class MessageListViewController: UITableViewController {
     func checked(_ outcome: MailWatch.Outcome) {
         updated.checked(outcome, listing: mailboxID)
         showAge()
+        // Over the kept page, the connection working again is the moment
+        // to fetch it afresh (D-016).
+        if case .failed = outcome { return }
+        fetchOverKeptQuietly()
     }
 
     /// The line at rest said again as of now, if it is saying how fresh the
@@ -722,14 +902,18 @@ final class MessageListViewController: UITableViewController {
     }
 
     override func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        landFreshPage()
         showNewsIfAtTop()
     }
 
     override func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        if !decelerate { showNewsIfAtTop() }
+        guard !decelerate else { return }
+        landFreshPage()
+        showNewsIfAtTop()
     }
 
     override func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+        landFreshPage()
         showNewsIfAtTop()
     }
 
@@ -882,7 +1066,9 @@ final class MessageListViewController: UITableViewController {
     /// was about to tap becomes a different letter.
     @MainActor
     private func loadNextPage() {
-        guard !isLoadingPage, !reachedOldestMessage,
+        // Not below the kept page (D-016): nothing under it is kept, and its
+        // rows are an earlier launch's until the fresh page has landed.
+        guard !isLoadingPage, !reachedOldestMessage, letters.isSearching || !letters.fromShelf,
               let cursor = visible.last?.id else { return }
 
         isLoadingPage = true
@@ -1255,8 +1441,12 @@ final class MessageListViewController: UITableViewController {
         navigationItem.rightBarButtonItem?.title = editing ? "Done" : "Edit"
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
-        // His ticks have gone with Edit mode: what the watch held can go on.
-        if !editing { showNewsIfAtTop() }
+        // His ticks have gone with Edit mode: what the watch held can go on,
+        // and a fresh page that waited over the kept one (D-016).
+        if !editing {
+            landFreshPage()
+            showNewsIfAtTop()
+        }
     }
 
     /// Ticks, or unticks, every conversation in the list.
@@ -1278,6 +1468,7 @@ final class MessageListViewController: UITableViewController {
         }
         updateSelectAllTitle()
         // Deselect All is the last tick taken off too.
+        landFreshPage()
         showNewsIfAtTop()
     }
 
@@ -1363,10 +1554,18 @@ final class MessageListViewController: UITableViewController {
             for m in chosen where m.isRead != read {
                 do {
                     try await self.repository.setRead(read, id: m.id, mailboxID: m.mailboxID)
+                } catch is MailShelf.NotTheKeptLetter {
+                    // A kept row the server says is another letter: off the
+                    // list, if it is still that row, and nothing sent (D-016).
+                    PaneActions.notTheKeptLetter(m, list: self.letters)
+                    continue
                 } catch {
                     continue          // leave this one as it was
                 }
-                self.letters.setRead(m.id, read: read)
+                // Taken: held over a listing asked before now, whose flags
+                // are from before this STORE.
+                self.letters.reading(m.id, read: read)
+                self.letters.readAnswered(m.id, landed: true)
                 if read { self.letters.read(m) } else { self.letters.unread(m) }
             }
             if self.tableView.isEditing { self.editTapped() }
@@ -1435,13 +1634,25 @@ final class MessageListViewController: UITableViewController {
         showDraftSpinners()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let draft = try? await self.repository.loadDraft(id: id,
-                                                             mailboxID: summary.mailboxID)
+            var draft: Draft?
+            var notKept = false
+            do {
+                draft = try await self.repository.loadDraft(id: id, mailboxID: summary.mailboxID)
+            } catch {
+                notKept = error is MailShelf.NotTheKeptLetter
+            }
             // Another draft tapped since is the one he wants now.
             guard self.drafts.landed(summary.id) else { return }
             self.showDraftSpinners()
             if let row = self.rowIndex(showing: summary.id) {
                 self.tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
+            }
+            // A row kept on the iPad that the server says is another letter
+            // (D-016): nothing of it is opened, and the row comes off, as a
+            // letter opened in the reading pane does.
+            if notKept {
+                PaneActions.notTheKeptLetter(summary, list: self.letters)
+                return
             }
             guard let draft else {
                 ErrorPresenter.show(.cannotConnect, on: self)
@@ -1575,8 +1786,9 @@ final class MessageListViewController: UITableViewController {
         let unpreviewed = letters.endSearch()
         // The folder's own end state comes back with it. Search may have
         // set `reachedOldestMessage` from a short page of HITS, which says
-        // nothing about how much mail is left in the folder.
-        reachedOldestMessage = letters.folder.count < Self.pageSize
+        // nothing about how much mail is left in the folder. Still the kept
+        // page, nothing below it (D-016).
+        reachedOldestMessage = letters.fromShelf || letters.folder.count < Self.pageSize
         regroup(to: places.searchEnded(showingResults: showingResults))
         updateEmptyState()
         updatePageFooter()
@@ -1765,6 +1977,7 @@ final class MessageListViewController: UITableViewController {
         guard t.isEditing else { return }
         updateSelectAllTitle()
         // The last tick taken off.
+        landFreshPage()
         showNewsIfAtTop()
     }
 
@@ -1838,7 +2051,10 @@ final class MessageListViewController: UITableViewController {
         var m = summary
         guard !m.isRead else { return }
         m.isRead = true
-        letters.setRead(m.id, read: true)
+        // Held over a listing already on its way, whose flags are from
+        // before this STORE: at launch, the first page, when the tap is on a
+        // row kept on the iPad (D-016). See `ListLetters.reading`.
+        letters.reading(m.id, read: true)
         // Regroup rather than reload the one row: the thread this letter
         // belongs to may have just lost its unread dot. Its row is
         // highlighted as the one open in the pane, except in Edit mode; see
@@ -1848,6 +2064,15 @@ final class MessageListViewController: UITableViewController {
         Task { @MainActor in
             do {
                 try await repository.setRead(true, id: m.id, mailboxID: m.mailboxID)
+            } catch is MailShelf.NotTheKeptLetter {
+                // A row kept on the iPad that the server says is another
+                // letter now: nothing was sent, and it comes off the list if
+                // it is still that row, and the pane that was showing it
+                // empties (D-016).
+                self.letters.readAnswered(m.id, landed: false)
+                PaneActions.notTheKeptLetter(m, list: self.letters)
+                self.onMessagesChanged?()
+                return
             } catch {
                 // Put the dot back. Before the sidebar counter existed a
                 // failed STORE merely left the folder count stale HIGH,
@@ -1856,10 +2081,11 @@ final class MessageListViewController: UITableViewController {
                 // when there is. That is the failure this pane exists to
                 // prevent, so the decrement is only ever committed after the
                 // server has actually taken the flag.
-                self.letters.setRead(m.id, read: false)
+                self.letters.readAnswered(m.id, landed: false)
                 self.regroup()
                 return
             }
+            self.letters.readAnswered(m.id, landed: true)
             // Once per message, ever. A reload can re-derive `isRead` from
             // server FLAGS that predate this STORE and put the unread dot
             // back, which re-arms the `guard !m.isRead` above — so the guard

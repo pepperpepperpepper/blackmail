@@ -208,6 +208,11 @@ final class RootViewController: UIViewController {
         arrange(shell.arrangement)
         watchForReturn()
 
+        // The Inbox highlighted among the folders kept on the iPad, in the
+        // first frame, beside its kept list (D-016); with nothing kept this
+        // only remembers it for the rows to come.
+        mailboxList.select(mailboxID: "inbox")
+
         // The folder list only. The Inbox loads itself: the list controller
         // starts its own reload from its `viewDidLoad`, as it does for every
         // folder opened, and `select(mailboxID:)` only highlights, so it
@@ -529,6 +534,13 @@ final class RootViewController: UIViewController {
         }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
+        }
+        // A letter opened from a row kept on the iPad that the server says
+        // is another letter now (D-016): off the list, if it is still that
+        // row there.
+        detail.onNotTheKeptLetter = { [weak self] letter in
+            guard let self else { return }
+            PaneActions.notTheKeptLetter(letter, list: self.list.letters)
         }
         bindList()
     }

@@ -3845,3 +3845,287 @@ between Refresh and Settings; seen right in both states.
 
 Not yet tried: a DATA cut off before the 250 (the Sent Mail look on the
 device), a letter opened from the Outbox and changed, and Delete there.
+
+---
+
+## B-053 — CHANGED 2026-09-30, seen on the iPad. A launch drew an empty Inbox, and with no connection nothing at all
+
+**From D-016, phase 1.** Every launch after iOS had ended the app, which
+is most times he picks the iPad up, drew an empty Inbox under "Checking
+for Mail…" for a second or more, and a folder pane of names with no counts.
+With no connection the Inbox stayed empty for good, with one "Can't connect
+to mail server.", and so did every folder he opened. The spec asks for the
+opposite ("Cached Inbox appears within 500 ms", "Offline launch still shows
+cached messages"). Built and checked on the scripted server, then seen on
+the iPad before the branch was merged (below).
+
+**What he sees now.** At launch, the Inbox as the last listing of it left
+it, previews, dots and flags, and the folders with the counts the last
+sweep gave them, in the first frame, before anything has been sent. The
+line under the list says "Checking for Mail…". A second or two later the
+fresh page takes the kept one's place and the line says "Updated Just
+Now"; only the new letters' previews are fetched. Where it goes, by the
+rules the watch's letters follow (B-049) and B-042's:
+
+- At the top: in place, the list staying at the top.
+- Scrolled down the kept rows: the rows he can see stay where they are on
+  screen, found again by their letters, and the letter open in the pane
+  keeps its highlight.
+- A search showing, or typed and not yet run: left alone, field, hits and
+  all. The folder's letters under it are the fresh page when it ends, where
+  he was in them.
+- A finger on the list: nothing until it lifts. A finger lifted from a tap,
+  which tells the list nothing, is looked for four times a second.
+- Rows ticked in Edit mode: nothing until Done, or the last tick taken off,
+  as the watch's letters wait. Rows moved under his ticks would be a Delete
+  of letters he did not choose.
+
+A letter he opens, flags or marks in the second before the fresh page
+comes keeps what he did when it lands: the page was asked for before his
+STORE and says unread or unflagged, and it used to put the dot back on the
+letter he had just read, until the next Refresh. His mark stays over any
+listing asked before the server took it, a Refresh's included, and one
+asked after has the say (`ListLetters.reading`, `holdingHisMarks`).
+
+Until the fresh page has landed the list does not page below the kept
+rows, and the watch checks only the Inbox's count. Every folder he has
+opened before draws its kept page the same way the moment he opens it,
+with a connection or without. A folder never opened is empty, as before.
+One listing over the kept page at a time: the folder's own as it opens,
+and the watch's only once that has failed (`OverKept`); a folder opened
+while a check was out used to send its SEARCH and page twice. A folder
+tapped in the kept folder pane before the launch's LIST has landed waits
+for it, so its rows are counted in All Mail and Important as Gmail counts
+them, and kept so; they used to be drawn and kept without, and reading one
+left those counts high.
+
+With no connection the kept pages stay, and once the first page has failed
+the line says how old they are, "Updated Yesterday" or "Updated at 10:42",
+with "No Connection" under it, and the one alert comes as before, kept by
+D-016 as the strongest cue that the list is old. A letter he taps shows
+its header and then the failure, as before; Search, Go to Date, Delete,
+Move and Flag fail and put things back, as before. The watch's first check
+to reach the server once the connection is back fetches the page afresh,
+as does a Refresh, and a letter that came meanwhile is on it. The first
+launch, and the first after a password is saved, are as before.
+
+**What is kept, and when.** `MailShelf`, in
+`Application Support/Kept/<hash of the address and the IMAP server>/`: a
+`folders.json`, and a `page-<hash of the folder name>.json` per folder, each
+saying its format, out of iCloud backup. The folder list from every sweep
+of the counts (not from the names-only LIST, whose counts are zeros). A
+folder's newest page from every listing from the top: opening it, Refresh,
+the reload after a Delete or Move in Edit mode or a draft, the return after
+a while away. Replaced whole, and the previews added as they come, for the
+rows on it. Not kept: the pages below it, a day jumped to, a search's hits,
+the letters the watch puts on (the next listing has them), the letters
+themselves (phase 2), and the Outbox and the letters `LocalDrafts` keeps,
+which are in `Local Drafts/` beside it and which nothing here touches.
+Between listings, only his writes, once the server has answered OK: a read
+mark or a flag on the letter wherever it is kept, by its Gmail message id,
+since Gmail's flags belong to the letter; a move off its folder's page, and
+off none when it leaves All Mail for a label; a delete, or a move to Trash
+or Spam, off every kept page but that one; a draft removed off Drafts'.
+The folder counts move as the folder pane's own do for his read and unread
+marks and an unread letter binned (`MailShelf.counted`), so a launch draws
+the counts he last saw. A write the server refuses changes nothing. Written behind, on a queue of its
+own, a moment after each change, and at once as the app goes into the
+background (`AppDelegate.applicationDidEnterBackground`). A launch reads the
+folder list and the page of the folder it opens, nothing more.
+
+**Never the wrong mailbox.** Every Gmail Inbox reports UIDVALIDITY 1, and
+the app-password trap (B-033) can open another mailbox under his address,
+so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
+
+- The copy is the account's: its directory is named for the address and
+  the server, and every other one under `Kept/` is removed at launch.
+- A password saved, in setup or Settings, or the account cleared
+  (`CredentialStore.save`, `clear`): the whole of `Kept/` goes, and the
+  shelf running keeps nothing more until the next launch.
+- A listing from the top whose folder has another UIDVALIDITY than its kept
+  page, or a row whose X-GM-MSGID is not the kept row's under the same UID:
+  the whole copy goes, every page and the folder list, before the fresh
+  page is kept, and no kept preview goes across to it, on the shelf or on
+  the list. The connection log says `KEPT-DISCARDED folder=INBOX
+  reason=uidvalidity` or `reason=msgid`.
+- A write on a kept row before anything in this launch has shown the server
+  to be the mailbox the copy was kept from (in practice a tap in the first
+  seconds, before the Inbox's first page): one `UID FETCH <uid> (UID
+  X-GM-MSGID)` first, in the same hold as its SELECT and UIDVALIDITY check
+  (B-039). The same id and the write goes, and that row is not asked about
+  again; another, or none, and nothing is written, the row leaves the kept
+  page and the list, and the log says `KEPT-UNVOUCHED folder=INBOX
+  nothing-sent`. From the reading pane the row comes off rather than back,
+  and the pane says "Can't connect to mail server." as for any write that
+  did not go; the read mark of a tap empties the pane. The mailbox is shown
+  to be the same once a listing from the top finds kept rows under the same
+  UIDs with the same ids, or the row's own folder has been listed; after
+  that nothing is asked. Not on a server without Gmail's extension, whose
+  UIDVALIDITY is taken at its word, as it always was.
+- A letter opened from such a row, in the reading pane, a conversation or
+  Drafts' composer, is vouched for too, by the FETCH that brings it and at
+  no round trip more: `UID FETCH <uid> (UID X-GM-MSGID BODY.PEEK[])` in
+  place of `(UID BODY.PEEK[])`, still PEEK, so the FETCH marks nothing
+  read. The id is compared before anything of the letter is shown or kept
+  for a Forward. The same id and it opens, and the row is vouched for;
+  another, or none, and nothing of it is shown, no STORE goes for it, the
+  pane empties, the row leaves the kept page and the list, and the log
+  says `KEPT-UNVOUCHED folder=INBOX nothing-shown`. A row the server has
+  disowned stays disowned for the launch, whichever of the tap's read mark
+  and its FETCH is answered first: the other is asked again, and nothing
+  goes unasked because the row has left the kept page. A letter from a
+  vouched or proven row is fetched as it always was, byte for byte. A copy
+  of Gmail kept and a server now without the extension: nothing is asked
+  and nothing opened or written on a kept row, as for a write.
+- Whatever lands while the question is out. The launch's listing can come
+  first and throw the copy away; the row under that id is then the
+  server's own letter, and a "not the kept letter" answered after it
+  leaves that letter on the kept page and on the list. What is taken off
+  is only a row still carrying the kept row's message id.
+- The question is asked on a connection shown to be up, holding the gate:
+  a torn-down connection is a read to go again on a new one, never
+  "another letter".
+- A file of another format, cut off, or not JSON reads as nothing kept, is
+  deleted, and never stops a launch.
+
+**What it sends.** At launch, what it always did: LOGIN, the one LIST, the
+Inbox's SELECT, SEARCH and page, then the counts. Drawing the kept pages
+sends nothing and begins no connection. The additions are the vouching
+FETCH above, only for an early write on a kept row, and X-GM-MSGID in the
+FETCH of a letter opened from one then. A folder listed before the LIST
+sends the LIST first; at launch the Inbox has asked for it already.
+
+**What it costs.** A launch's read of the folder list and a fifty-row page
+of 27 KB, a fresh shelf included, took a median 1.1 ms on the development
+computer in the debug build (PERFORMANCE.md), on the main thread, far under
+the 30 ms at which D-016 would move it off. On disk about 27 KB a page and
+2 KB for the folders. Nothing kept is written to the connection log: the
+two notes above name the folder and the reason, and drawing the kept pages
+writes nothing. The files are out of iCloud backup, and on an iPad with no
+passcode (D-011) they are not encrypted at rest.
+
+**What it does not cover.** The counts kept are the last sweep's, moved by
+his own marks since: offline they can be off by the letters that came, or
+were read on the phone, after it. A letter read or flagged on the
+phone keeps its old look on the kept pages until its folder is listed
+again, and a letter moved into a folder is not on the folder's kept page
+until then. The swap, the first frame, the folder pane drawn from the copy,
+the pane emptied for a disowned row and the write as the app goes into the
+background are UIKit and not on the host; the pieces under them are tested
+(`ListOpening.kept`, `ListLetters`, `KeptSwap`, `OverKept`,
+`PaneActions.notTheKeptLetter`, `UpdatedLine`, `MailShelf.flush`).
+
+**Tested** in `KeptCopyTests`, over the shipping repository and client, the
+scripted server and a shelf in a directory of the test's own: a launch
+draws the kept Inbox with its previews before any command or connection,
+and the first page replaces it with the letter that came overnight on top
+and only its preview to fetch; a launch with no connection keeps the Inbox
+and Sent pages and the counted folders, draws nothing for a folder never
+opened, and says "Updated Yesterday" over "No Connection"; only a listing
+from the top keeps a page, and the next replaces it whole, a letter come and
+a letter gone; a read mark, a flag, a move and a delete each change the
+kept pages as Gmail changes the letter, and refused, nothing; so do a
+delete in Trash, a draft removed, a move to Spam and a move out of All Mail,
+after a relaunch too; a renumbered Inbox and another mailbox under the same
+numbers each throw the copy away and carry no preview, and the same mailbox
+keeps it; an early write is vouched for once, a second row in turn, and
+nothing after the Inbox's listing, in the Inbox or All Mail; with nothing
+kept, a listing proves its own rows and a write sends the write alone; a
+mismatch writes nothing from the pane, a read mark or a delete, and the
+rows go until the next listing, which puts the server's letter back under
+that id; the Trash's Delete and a draft removed on a kept row that is
+another letter destroy nothing; the vouching FETCH goes again on a new
+connection, and Gmail's id is not read off a torn-down one; a vouch that
+loses the race to the first page leaves the server's letter on the kept
+page and the list; a letter opened from a kept row is vouched for by its
+own FETCH, PEEK, and not asked about again; one from a proven row, or with
+nothing kept, is fetched byte for byte as before; a mismatched one shows
+nothing and writes nothing, whichever of the read mark and the FETCH is
+answered first; a server without the extension neither opens nor writes a
+kept row; a folder listed before the LIST is counted as Gmail counts it,
+and kept so; a launch with a copy sends the commands a launch without one
+sends; nothing kept reaches the log. In `MailShelfTests`: a file of another
+format, one cut off and one not JSON are nothing kept and deleted; a saved
+password wipes `Kept/`, leaves the letters in `Local Drafts/`, and ends the
+running shelf; another account's copy goes as the shelf is made; the
+launch's read, timed and printed. In `KeptPlaceTests`: the swap under a
+finger, under ticks, scrolled, at the top and under a search; the page held
+for a finger or ticks and put on when they go, and dropped when he has
+replaced the kept rows; one fetch over the kept page at a time, the
+folder's own first; a day jumped to no longer the kept page; his read mark
+and flag staying over a page asked before the server took them, going back
+when refused, and never onto another letter under the same id; a preview
+going across from a row with no message id, as a landed draft's; a
+disowned row taken off only while it is still the kept one; the watch
+leaving the kept rows alone; a kept preview going only to the same letter.
+In `FeedbackTests`: the line over the kept page. The suites that pin the
+repository's command sequences build it with a shelf, as the app always
+has one (`KeptShelves`): `RepositoryWireTests`, `RepositoryTrafficTests`,
+`ComingBackTests`, `NewMailTests`, `ArrivingMailTests`,
+`MailboxAtomicityTests`, the pane's, the drafts', the Outbox's and the
+rest. Each of these fails with its part undone in a scratch copy, one
+sabotage at a time, each failing the test named for it. Thirty in the first
+build: no page kept, every page kept, the read mark not kept, the flag kept
+before the server's OK, a binned letter left on other pages, a flag not
+kept on the same letter elsewhere, no discard for a new UIDVALIDITY or for
+another message id, the previews not carried to the kept page, the list
+carrying them whatever the message id, no vouching, a mismatch written
+anyway, vouching after the mailbox is proven or twice for one row, the pane
+putting a mismatched row back, a wipe that removes nothing or leaves the
+running shelf keeping, another format read, a bad file left on disk,
+another account's copy kept, the folder list not kept, the previews not
+kept, a kept page drawn for a jump and the Outbox, the line saying the age
+while it checks, the watch checking the kept rows, a swap to the top when
+scrolled or under a finger, a swap that clears the search, a listing that
+vouches the kept page at launch, and a kept subject in the discard note.
+Thirty-one since: a letter opened unvouched, a proven row's letter fetched
+with the id, a disowned row forgotten, the opening FETCH without PEEK, a
+kept row dropped whatever has landed, the list's row taken whatever it now
+is, the extension read outside the hold, a server without it asked anyway,
+his marks not held over a listing, put onto another letter, and a refused
+read mark or flag put back onto another letter, a row with no message id
+refusing a preview, a second fetch over the kept page while one is out, the
+watch's before the folder's own, a fetch while a page waits, a held page
+put on under a finger or ticks, or over rows he has replaced, a folder
+listed before the LIST, ticks ignored, the Trash's Delete and a draft
+removed unvouched, a listing that does not prove its own rows (which fails
+twenty-nine tests across the wire suites as well as its own), a delete in
+Trash or a draft removed left on its page, a move to Spam left on All
+Mail's, a move out of All Mail taken off it, a disowned row left hidden
+after the next listing, a day jumped to still the kept page, the vouch not
+retried, and the flag not held. One after the iPad: the kept counts left at
+the last sweep's (`MailShelfTests`).
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged; force-quit is the app sent to the background, then ended:
+
+- Wi-Fi on, force-quit, open it: the first frame caught, under a second
+  in, had the Inbox as it was left, previews and dots, the folders with
+  their counts, and "Checking for Mail…"; the next, "Updated Just Now"
+  over the same rows. The log is LOGIN, LIST, `SELECT "INBOX"`, `UID
+  SEARCH ALL`, the page's `UID FETCH`, then the counts, as before, the page
+  in 0.55 s from Gmail's greeting, so the kept rows stand alone for about a
+  second of a launch on Wi-Fi.
+- An unread letter tapped at once, before the launch's page had been taken:
+  `UID FETCH 21 (UID X-GM-MSGID)` before its `UID STORE`, and the letter's
+  own FETCH as `UID FETCH 21 (UID X-GM-MSGID BODY.PEEK[])`, which Gmail
+  answers with the id ahead of the body; the ids matched, the letter
+  opened, no `KEPT-` line, and its dot stayed off when the fresh page
+  landed. Tapped a moment later, after the page, its FETCH is the plain
+  `(UID BODY.PEEK[])`.
+- The kept Inbox count was the last sweep's: a letter marked unread was
+  counted in the pane and not on the copy, so the next launch drew 1 for 2,
+  and reading that letter at once left the Inbox with no count until the
+  sweep. The copy's counts now follow the pane's (above).
+- Wi-Fi off in Control Center, a letter sent to the account itself just
+  before, force-quit, open it: the kept Inbox, dots and all, "Updated 6
+  minutes ago" over "No Connection", and one "Can't connect to mail
+  server."; Sent Mail, opened before, its kept page with "Updated 12
+  minutes ago", Spam, never opened, empty with "No Connection". Each folder
+  opened offline brings the alert again, as it did before the copy. Wi-Fi
+  on, Refresh: the fresh page, the letter sent before the cut on top of it,
+  "Updated Just Now", and every count Gmail's.
+
+Not tried yet, and in the TODO: the swap under a finger, scrolled or under
+ticks, the page lands too soon on Wi-Fi to be caught by hand; a flag in the
+first second; a letter tapped with no connection; the password saved again.

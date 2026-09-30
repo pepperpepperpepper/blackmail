@@ -254,11 +254,26 @@ struct UpdatedLine: Equatable {
     private(set) var updated: Date?
     /// Why the last try failed, nil if it did not.
     private(set) var failure: Failure?
+    /// The list on screen is the copy kept on the iPad (D-016) and the
+    /// server is being asked for the fresh one: "Checking for Mail…", as
+    /// before any list has come, until it lands or cannot be fetched.
+    private(set) var checking = false
 
     /// The list is up to date with the server as of `time`.
     mutating func succeeded(at time: Date) {
         updated = time
         failure = nil
+        checking = false
+    }
+
+    /// The list on screen is the copy kept on the iPad, as the listing made
+    /// at `time` gave it, and the fresh one has been asked for. The age is
+    /// said once the asking is over, and only if it failed: with no
+    /// connection the kept rows stay, and the line says how old they are.
+    mutating func showingKept(since time: Date) {
+        updated = time
+        failure = nil
+        checking = true
     }
 
     /// The server answered, but nothing was listed: the check of the Inbox's
@@ -271,6 +286,7 @@ struct UpdatedLine: Equatable {
 
     mutating func failed(_ error: MailError) {
         failure = error == .passwordNeedsUpdating ? .password : .noConnection
+        checking = false
     }
 
     /// How the watch's check went, for the line under the list of
@@ -296,7 +312,8 @@ struct UpdatedLine: Equatable {
     /// then the account error.
     func text(now: Date, unsent: Int = 0, calendar: Calendar = .current,
               locale: Locale = .current) -> String {
-        let age = updated.map { Self.age(of: $0, now: now, calendar: calendar, locale: locale) }
+        let age = checking ? nil
+            : updated.map { Self.age(of: $0, now: now, calendar: calendar, locale: locale) }
         let said = failure.map { $0 == .password ? "Password Needs Updating" : "No Connection" }
         let lines = [age ?? (failure == nil ? "Checking for Mail…" : nil),
                      Outbox.unsent(unsent), said]

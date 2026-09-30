@@ -800,6 +800,57 @@ that numbers do not, what the server actually said about a letter (a
 subject that decodes wrong, a sender that parses wrong), and would mean
 parsing every line before logging it.
 
+**Phase 1, built 2026-09-30 and seen on the iPad the same day** (B-053). The kept
+folders and first pages, in `MailShelf`: its own record types, format 1,
+one JSON file for the folders and one per page under
+`Application Support/Kept/<hash of the address and the IMAP server>/`, out
+of backup, written behind a moment after each change and at once as the
+app goes into the background, another account's directory removed at
+launch, and the whole of `Kept/` wiped by `CredentialStore.save` and
+`clear`, never `Local Drafts/` beside it. The rules above as they were
+decided, and six choices made in building them:
+
+- **A read mark and a flag are patched on the letter wherever it is kept**,
+  by its Gmail message id, since Gmail's flags are the letter's and not the
+  folder's; a delete or a move to Trash or Spam takes it off every kept
+  page but that one; a move out of All Mail to a label takes it off none.
+  "His own writes after the server's OK", as Gmail itself applies them.
+- **The previews are kept** as they arrive for rows on a kept page, and go
+  across to the same letter, by UID and message id, when the next listing
+  replaces the page. "The page as he saw it" includes its grey lines.
+- **Vouching stops once the mailbox is proven.** A write on a kept row, and
+  a letter opened from one, is vouched for until a listing from the top in
+  this launch has found kept rows under the same UIDs with the same message
+  ids, or the row's own folder has been listed. In practice the Inbox's
+  first page proves it within seconds; after that a UID kept for any folder
+  names the letter it did or none, since every write names its UIDVALIDITY
+  (B-039), and a search hit written on later costs no FETCH.
+- **Opening is vouched for by the FETCH that brings the letter.** X-GM-MSGID
+  is asked beside BODY.PEEK[] in the one FETCH the letter costs anyway, and
+  compared before anything of it is shown: no round trip more, and the
+  FETCH still marks nothing read. Another id, or none, and nothing of it is
+  shown, no STORE goes, the pane empties and the row leaves the list, as a
+  write's refusal does. A letter from a proven row is fetched byte for byte
+  as before.
+- **The watch fetches the kept page afresh** at its first check that
+  reaches the server, and does not search from the kept rows: they are an
+  earlier launch's word, and news found from their lowest UID would go on
+  top of a page nobody has vouched for. That is also the "letter that
+  arrived while offline" appearing once the connection is back.
+- **The read stays on the main thread.** A launch reads the folder list and
+  the Inbox's page, 27 KB for fifty rows, in a median 1.1 ms on the
+  development computer in the debug build, a fresh shelf included
+  (`MailShelfTests`), far under the 30 ms at which it was to move off it.
+
+"Nothing is sent on a kept row until the server has vouched for it" holds
+for a write and for a letter opened alike. What goes before the server has
+vouched is the question alone, a read that changes nothing: the write's
+vouching FETCH, or the letter's own FETCH with its id asked beside the body,
+PEEK. The write waits for the answer, nothing of the letter is shown until
+it has come, and a row the server has disowned stays disowned for the
+launch, whichever of a tap's read mark and its FETCH is answered first.
+Not built: the letters (phase 2).
+
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can
 be old. It always says how old, and offline it is exactly as current as the
 last time he had a connection. On an iPad with no passcode (D-011) the files

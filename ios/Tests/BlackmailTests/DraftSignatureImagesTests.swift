@@ -89,7 +89,8 @@ final class DraftSignatureImagesTests: XCTestCase {
             account: account, password: server.password,
             transport: { host, port in port == 465 ? submission.next() : imap(host, port) },
             recipients: book,
-            signatureImages: { [logo] })
+            signatureImages: { [logo] },
+            shelf: keptShelf(for: account))
     }
 
     /// A new letter as the composer makes one: his words above the

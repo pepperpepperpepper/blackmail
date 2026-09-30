@@ -211,3 +211,108 @@ struct ListPlaces {
         return .back(folder ?? here)
     }
 }
+
+/// Where the folder's fresh first page goes when it lands over the page
+/// kept on the iPad (D-016), which the list drew before anything had been
+/// sent. By `ListPlaces`' rules, since it is the list replaced under him,
+/// whatever he has done in the second or two it took.
+enum KeptSwap: Equatable {
+    /// A finger on the list: nothing yet. The page waits until it lifts, as
+    /// the watch's letters do, since a row that moves under a finger is a
+    /// tap on the neighbouring letter.
+    case waitForLift
+    /// Rows ticked in Edit mode: nothing until Done, or the last tick taken
+    /// off, as the watch's letters wait (B-049). Rows moved under his ticks
+    /// are a Delete or a Move of letters he did not choose, and a ticked
+    /// kept row the fresh page does not have would lose its tick without a
+    /// word.
+    case waitForTicks
+    /// At the top: replaced in place, and the list stays at the top, where
+    /// new mail comes in as he watches.
+    case top
+    /// Scrolled down the kept rows: replaced, and the rows he can see stay
+    /// where they are on screen, found again by their letters (B-042).
+    case holdingPlace
+    /// A search showing, or typed and not yet run: left alone. The folder's
+    /// letters under it are replaced, and come back as the fresh page when
+    /// it ends (`ListLetters.fetchedUnderSearch`).
+    case underSearch
+
+    /// `ticked` as the watch's letters take it: in Edit mode with at least
+    /// one row ticked.
+    static func swap(atTop: Bool, searching: Bool, ticked: Bool, touching: Bool) -> KeptSwap {
+        if touching { return .waitForLift }
+        if ticked { return .waitForTicks }
+        if searching { return .underSearch }
+        return atTop ? .top : .holdingPlace
+    }
+
+    /// Whether the page waits, for a finger or for his ticks.
+    var waits: Bool { self == .waitForLift || self == .waitForTicks }
+}
+
+/// The folder's fresh first page, fetched over the page kept on the iPad
+/// (D-016): the fetch, one at a time, and the page, once it has come, held
+/// until `KeptSwap` lets it go on. The list's, as `MessageListViewController`
+/// drives it, out of the controller for the reason `SearchAnswer` is.
+///
+/// One fetch at a time. The folder's own goes as the list opens; the watch
+/// starts one when a check reaches the server with the kept rows still up,
+/// after a launch that could not connect (`checked`). The watch runs from
+/// the launch's first page onwards, so a folder with a page kept, opened
+/// while a check was out, used to send its SEARCH and page FETCH twice,
+/// the second answer thrown away. The watch's goes only once the folder's
+/// own has been tried and has failed, and never while one is out or a
+/// page has come and waits.
+struct OverKept {
+
+    /// A fetch over the kept page is out.
+    private(set) var fetching = false
+    /// The folder's own fetch has gone, as the list opened.
+    private(set) var opened = false
+    /// The page, come while it had to wait, and the listing it came from
+    /// (`ListLetters.askingAfresh`).
+    private(set) var waiting: Fresh?
+
+    struct Fresh: Equatable {
+        let page: [MessageSummary]
+        let asked: Int
+    }
+
+    /// Whether a fetch over the kept page goes now, and it is out from now
+    /// if so: only over kept rows still on the list (`showingKept`), not
+    /// while one is out or a page waits, and the watch's (`quietly`) only
+    /// once the folder's own has gone.
+    mutating func fetch(showingKept: Bool, quietly: Bool) -> Bool {
+        guard showingKept, !fetching, waiting == nil, opened || !quietly else { return false }
+        fetching = true
+        opened = true
+        return true
+    }
+
+    /// The fetch has brought the folder's first page, from listing `asked`.
+    mutating func came(_ page: [MessageSummary], asked: Int) {
+        fetching = false
+        waiting = Fresh(page: page, asked: asked)
+    }
+
+    /// The fetch failed, and the kept rows stay.
+    mutating func failed() {
+        fetching = false
+    }
+
+    /// The page to put on the list now, by `swap`, and nothing waiting
+    /// after it; nil while it is to wait, and when nothing waits. A page
+    /// whose kept rows he has replaced meanwhile, with a Refresh or a day,
+    /// is dropped: that list has the say.
+    mutating func landing(showingKept: Bool, _ swap: KeptSwap) -> Fresh? {
+        guard let fresh = waiting else { return nil }
+        guard showingKept else {
+            waiting = nil
+            return nil
+        }
+        guard !swap.waits else { return nil }
+        waiting = nil
+        return fresh
+    }
+}

@@ -43,6 +43,20 @@ enum ListOpening {
         }
     }
 
+    /// The folder's page kept on the iPad (D-016), for the list to draw as
+    /// it opens, before anything has been sent: at launch the Inbox in the
+    /// first frame, and every folder he has opened before at once, with a
+    /// connection or without one. Nil for a list opened to jump to a day,
+    /// which is not the newest page and does not draw it first; for the
+    /// Outbox, whose letters are on the iPad already, in their own store;
+    /// and for a folder with nothing kept, which opens empty as it always
+    /// did.
+    static func kept(for mailbox: Mailbox, jumpingTo day: Date?,
+                     from shelf: MailShelf?) -> MailShelf.Page? {
+        guard day == nil, mailbox.role != .outbox else { return nil }
+        return shelf?.page(of: mailbox.id)
+    }
+
     /// The first rows of a list opened at `day`, or at its newest mail when
     /// there is no day.
     ///

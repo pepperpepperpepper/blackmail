@@ -46,7 +46,7 @@ final class MailboxAtomicityTests: XCTestCase {
         let clock = self.clock!
         return IMAPMailRepository(account: server.account, password: server.password,
                                   transport: server.transportFactory, recipients: book,
-                                  now: { clock.now() })
+                                  now: { clock.now() }, shelf: keptShelf(for: server.account))
     }
 
     private static let mailboxes = [Server.inbox, Server.allMail, Server.drafts, Server.sent,

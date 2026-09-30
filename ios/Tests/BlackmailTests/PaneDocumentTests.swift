@@ -311,7 +311,8 @@ final class PaneDocumentTests: XCTestCase {
 
     private func makeRepository() -> IMAPMailRepository {
         IMAPMailRepository(account: server.account, password: server.password,
-                           transport: server.transportFactory, recipients: book)
+                           transport: server.transportFactory, recipients: book,
+                           shelf: keptShelf(for: server.account))
     }
 
     private func files(_ letter: Message) -> [String] {

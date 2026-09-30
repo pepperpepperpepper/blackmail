@@ -72,11 +72,17 @@ struct MessageSummary: Identifiable, Hashable {
     /// one. Nil on a server without the extension.
     ///
     /// The letter's rather than the folder's: the same letter listed from
-    /// the Inbox and from All Mail has two UIDs and this one id. Nothing
-    /// reads it yet; the copy of his mail kept on the iPad is to be keyed
-    /// on it (D-016), because every Gmail Inbox reports UIDVALIDITY 1 and a
-    /// folder, a UIDVALIDITY and a UID alone cannot tell two mailboxes
-    /// apart.
+    /// the Inbox and from All Mail has two UIDs and this one id. The copy
+    /// of his mail kept on the iPad is keyed on it (D-016), because every
+    /// Gmail Inbox reports UIDVALIDITY 1 and a folder, a UIDVALIDITY and a
+    /// UID alone cannot tell two mailboxes apart: `MailShelf` throws the
+    /// copy away when a listing's rows carry other ids under the kept UIDs,
+    /// and patches a read mark or a flag on every kept row of the letter;
+    /// the repository vouches for a kept row by it before a write or the
+    /// letter's FETCH; and the list carries a preview, a read mark or a
+    /// flag across to a fetched row only when the ids do not disagree
+    /// (`ListEdit.sameLetter`), and takes a row the server has disowned off
+    /// only while it still carries the kept one (`PaneActions`).
     var gmailMessageID: UInt64? = nil
     /// Every folder whose unread count this message contributes to.
     ///

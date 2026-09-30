@@ -303,7 +303,8 @@ final class ListPlaceTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let repository = IMAPMailRepository(account: server.account, password: server.password,
                                             transport: server.transportFactory,
-                                            recipients: RecipientBook(defaults: defaults))
+                                            recipients: RecipientBook(defaults: defaults),
+                                            shelf: keptShelf(for: server.account))
         let list = ListLetters()
         let page = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 20)
         let unpreviewed = list.fetchedAfresh(page)

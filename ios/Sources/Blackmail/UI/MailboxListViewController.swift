@@ -62,6 +62,17 @@ final class MailboxListViewController: UITableViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(outboxChanged),
                                                name: LocalDrafts.changed,
                                                object: LocalDrafts.shared)
+        // The folders as the last sweep counted them, kept on the iPad
+        // (D-016), in the first frame and with no connection. They stand
+        // until a sweep lands; the names alone never go over them
+        // (`showFolders`), and they are not counts the watch compares with
+        // the server's (`inboxUnread`).
+        if let kept = repository.shelf?.folders {
+            mailboxes = kept
+            // Loaded now, so the highlight the container puts on the Inbox
+            // straight after has a row to go on.
+            tableView.reloadData()
+        }
 
         // Refresh is NOT here. It used to be, and in a 250 pt pane it left only
         // 8.5 pt between "Mailboxes" and the button — measured on device. It
@@ -143,6 +154,8 @@ final class MailboxListViewController: UITableViewController {
     @MainActor
     func adjustUnreadCounts(_ mailboxIDs: [String], by delta: Int) {
         sweeps.requestIfRunning()
+        // The kept counts too, so the next launch draws these (D-016).
+        repository.shelf?.counted(mailboxIDs, by: delta)
         for id in mailboxIDs {
             guard let i = mailboxes.firstIndex(matchingMailboxID: id) else { continue }
             let updated = max(0, mailboxes[i].unreadCount + delta)

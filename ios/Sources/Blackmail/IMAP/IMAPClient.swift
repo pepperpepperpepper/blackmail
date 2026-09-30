@@ -1067,6 +1067,66 @@ actor IMAPClient {
         }
     }
 
+    /// Gmail's id for the letter at `uid` now (X-GM-MSGID), or nil when the
+    /// server names none: no letter at that UID any more, or no Gmail
+    /// extension to ask. For a write on a row kept on the iPad from an
+    /// earlier launch, before this one has shown the server to be the
+    /// mailbox it was kept from (D-016): the row is the letter it was kept
+    /// as only if the ids agree, and nothing is written otherwise.
+    ///
+    /// In the interactive line, as the write it comes before is, and in one
+    /// hold with the SELECT and the UIDVALIDITY check, as every UID command
+    /// is (B-039). Not asked at all of a server without the extension: one
+    /// Gmail item it does not know and it refuses the FETCH.
+    func gmailMessageID(uid: UInt32, in mailbox: String, validity: UInt32) async throws -> UInt64? {
+        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+            guard try self.namesLetters() else { return nil }
+            let result = try await self.performCommand("UID FETCH \(uid) (UID X-GM-MSGID)")
+            guard result.status == .ok else { throw MailError.cannotConnect }
+            return IMAPParser.parseFetch(result.untagged).first { $0.uid == uid }?.gmailMessageID
+        }
+    }
+
+    /// The whole letter at `uid`, as `fetchBody` gives it, with Gmail's id
+    /// for the letter asked in the same FETCH, X-GM-MSGID beside
+    /// BODY.PEEK[]: for a letter opened from a row kept on the iPad before
+    /// this launch has shown the server to be the mailbox the copy was kept
+    /// from (D-016). The one FETCH the letter costs anyway vouches for it,
+    /// at no round trip more, and the caller shows nothing of it unless the
+    /// id is the kept row's.
+    ///
+    /// `letter` is nil when the server names none: no letter at that UID
+    /// any more, or no Gmail extension to ask, when nothing is fetched at
+    /// all and there are no bytes, as `gmailMessageID` asks nothing. PEEK,
+    /// as every body here is fetched, so the FETCH itself marks nothing
+    /// read.
+    func fetchBodyNamingLetter(uid: UInt32, in mailbox: String,
+                               validity: UInt32) async throws -> (letter: UInt64?, raw: Data) {
+        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+            guard try self.namesLetters() else { return (nil, Data()) }
+            let result = try await self.performCommand("UID FETCH \(uid) (UID X-GM-MSGID BODY.PEEK[])")
+            guard result.status == .ok else { throw MailError.cannotConnect }
+            let parsed = IMAPParser.parseFetch(result.untagged)
+            let row = parsed.first { $0.uid == uid }
+            // A whole-letter fetch that came back empty is the letter with
+            // no body, as in `performBodyFetch`; the id says whose it is.
+            return (row?.gmailMessageID, row?.body ?? Data())
+        }
+    }
+
+    /// Whether the server can be asked for Gmail's id for a letter. Asked
+    /// holding the gate, after the SELECT has shown the connection to be
+    /// up: before it, a connection another holder's failed command had just
+    /// torn down had no capabilities left, and read as a server with no
+    /// extension, so a letter was taken for another one when the read
+    /// should have gone again on a new connection. A set that could not be
+    /// read at all is not a server without the extension either, and nothing
+    /// is concluded from it.
+    private func namesLetters() throws -> Bool {
+        guard connected, !capabilities.isEmpty else { throw MailError.cannotConnect }
+        return capabilities.contains("X-GM-EXT-1")
+    }
+
     /// The whole message, or one section of it, from the selected mailbox.
     /// The caller holds the gate.
     private func performBodyFetch(uid: UInt32, section: String?) async throws -> Data {

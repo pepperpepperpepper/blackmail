@@ -118,7 +118,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
       itself is the owner's (D-016). Phase 1, the kept folders and first
-      pages: next. Phase 2, the last 300 letters he opened.
+      pages: *built 2026-09-30 and seen on the iPad the same day: the Inbox
+      and the counted folders in the first frame under "Checking for
+      Mail…", every folder opened before drawn at once, the kept pages and
+      their age with no connection, the copy thrown away when it is not
+      this mailbox's, an early write and an early letter opened vouched for.
+      See B-053, and what is left to try under "Blocked on the iPad coming
+      back".* Phase 2, the last 300 letters he opened.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
@@ -761,6 +767,33 @@ this host. Ordered by value, not by size.
       old copy is gone from Drafts on the web. Tap a letter in the Outbox,
       Cancel untouched: it is back in the Outbox. In two panes, the Outbox
       is in the Mailboxes' column and opens like any folder.
+- [ ] **B-053, the copy kept on the iPad.** Seen 2026-09-30: the first
+      frame with Wi-Fi on and off, an unread letter tapped in the first
+      second (both vouching FETCHes, the dot staying off), the kept pages
+      and their age offline, a folder never opened, and Refresh bringing a
+      letter that came meanwhile. Still to see: the swap scrolled a little
+      way down, with a finger resting on the list, and under two rows
+      ticked in Edit, which needs a slower connection than the house Wi-Fi,
+      the page landing about a second in; a flag from the pane in the first
+      second staying on; a letter tapped with no connection showing its
+      header, then the failure; the password saved again in Settings,
+      force-quit and open: the Inbox empty for a moment, as before the
+      copy, and the letters kept in Drafts ("On this iPad only") and the
+      Outbox still there. Time the first frame if a screen recording can:
+      the design asks under 500 ms.
+- [ ] A folder count asked just before his read mark reaches the server
+      puts the old count back for a second: at launch, a letter read while
+      the STATUS sweep that follows the first page is out shows the Inbox
+      as 1, then 2, then 1 when the sweep `adjustUnreadCounts` asks for
+      lands. Seen on the iPad 2026-09-30; older than the kept copy, which
+      only makes a tap that early likelier.
+- [ ] The folder pane redraws only the Inbox's count after a read mark:
+      `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
+      0)`, `i` an index into the flat list of folders, and the pane has had
+      two sections since the Inbox got a block of its own, so All Mail,
+      Important and Sent Mail keep their old number on screen until the
+      next sweep, though the count under them is right (and kept so). Seen
+      on the iPad 2026-09-30; older than the kept copy.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

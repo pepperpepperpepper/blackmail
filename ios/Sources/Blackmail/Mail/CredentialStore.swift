@@ -111,6 +111,12 @@ enum CredentialStore {
 
         let status = writePassword(secret, address: clean.address, host: clean.imapHost)
         guard status == errSecSuccess else { throw StoreError.keychain(status) }
+        // The copy of his mail kept on the iPad goes, every account's
+        // (D-016): a new app password can open another mailbox under the
+        // same address (B-033), and a copy kept under the old one would be
+        // drawn as this one's at the next launch. The letters kept by
+        // `LocalDrafts` are not in it and stay.
+        MailShelf.wipe(root: MailShelf.appRoot)
 
         // The normalised account is what gets stored, so that the address this
         // password was filed under is byte-for-byte the address a later
@@ -190,6 +196,8 @@ enum CredentialStore {
         // leave the password orphaned and undeletable.
         _ = SecItemDelete([kSecClass as String: kSecClassInternetPassword] as CFDictionary)
         defaults.removeObject(forKey: accountDefaultsKey)
+        // And the copy of his mail kept on the iPad (D-016).
+        MailShelf.wipe(root: MailShelf.appRoot)
         // And the extension's copy, or a share would go on sending as an
         // account that has been taken out of the app.
         ShareMirror.app?.clear()

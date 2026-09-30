@@ -32,6 +32,9 @@ protocol PaneActionList: AnyObject {
     /// search hit after the search has ended, and its copies in the folder
     /// underneath are found from the letter, not from a row that is gone.
     func setFlagged(_ flagged: Bool, on letter: MessageSummary)
+    /// The server has answered the Flag set on `letter`: taken, or refused
+    /// and put back as it was, on the copies that are still that letter.
+    func flagAnswered(_ letter: MessageSummary, landed: Bool)
     /// A letter that stays on the list, now filed in `folder` as well, so
     /// reading it later takes one off there too.
     func addCountedFolder(_ folder: String, to id: String)
@@ -147,19 +150,42 @@ enum PaneActions {
         } catch {
             switch action {
             case .flag:
-                list?.setFlagged(before.isFlagged, on: before)
+                list?.flagAnswered(before, landed: false)
             case .delete, .move:
                 if effect.removesRow { list?.putBack(before) }
             }
+            if error is MailShelf.NotTheKeptLetter { notTheKeptLetter(before, list: list) }
             return false
         }
 
+        if case .flag = action { list?.flagAnswered(before, landed: true) }
         let landed = list?.letter(letter.id) ?? before
         if effect.removesRow {
             list?.removalLanded(landed, fromEveryFolder: effect.leavesEveryFolder)
         }
         if let folder = effect.alsoFiledIn { list?.addCountedFolder(folder, to: letter.id) }
         if effect.sweepsIfUnread && !landed.isRead { requestSweep() }
+        return true
+    }
+
+    /// A row kept on the iPad that the server has said is not the letter it
+    /// was kept as (`MailShelf.NotTheKeptLetter`), from a write or from the
+    /// letter opened: nothing was sent and nothing of it shown, and it comes
+    /// off the list until the list is next fetched afresh, which has the say
+    /// (D-016). For the reading pane's Delete, Move and Flag, the read mark
+    /// of a tap and of Edit mode's Mark, and the letter opened.
+    ///
+    /// Only while the list's row under that id is still the kept one, by
+    /// its Gmail message id. The launch's listing can land while the server
+    /// is being asked, and a fresh page that has taken the kept one's place
+    /// has put the server's own letter under that id, which stays. Returns
+    /// whether the row came off.
+    @discardableResult
+    static func notTheKeptLetter(_ letter: MessageSummary, list: PaneActionList?) -> Bool {
+        guard let list, let row = list.letter(letter.id),
+              row.gmailMessageID == letter.gmailMessageID else { return false }
+        list.take(row, fromEveryFolder: false)
+        list.removalLanded(row, fromEveryFolder: false)
         return true
     }
 }

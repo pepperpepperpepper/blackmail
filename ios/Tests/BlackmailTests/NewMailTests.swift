@@ -40,7 +40,7 @@ final class NewMailTests: XCTestCase {
         let clock = self.clock!
         return IMAPMailRepository(account: server.account, password: server.password,
                                   transport: server.transportFactory, recipients: book,
-                                  now: { clock.now() })
+                                  now: { clock.now() }, shelf: keptShelf(for: server.account))
     }
 
     private func uid(_ id: String) -> UInt32 { UInt32(id.split(separator: "/").last ?? "")! }
