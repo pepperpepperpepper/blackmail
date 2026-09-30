@@ -26,7 +26,8 @@ import Foundation
 ///
 /// The letter is kept on the iPad while he writes it, and by Save Draft
 /// before the sheet goes, and taken off it once it has been sent or deleted
-/// (`DraftKeeping`, B-051).
+/// (`DraftKeeping`, B-051). A Send that cannot reach the server leaves it
+/// in the Outbox, and the sheet closes (B-052).
 @MainActor
 final class ComposeActions {
 
@@ -71,6 +72,7 @@ final class ComposeActions {
     private let draw: (Look) -> Void
     private let background: BackgroundTime
     private let keeping: DraftKeeping
+    private let queued: () -> Void
 
     /// The autosave waiting for him to stop, and whether he has changed the
     /// letter since the sheet opened.
@@ -83,7 +85,9 @@ final class ComposeActions {
     /// has to close the sheet whatever it has up over itself at the time:
     /// after it nothing puts the sheet back, so one left open would be left
     /// held as it was drawn last. `keeping` is where the letter is kept on
-    /// the iPad; the composer's is `LocalDrafts`.
+    /// the iPad; the composer's is `LocalDrafts`. `queued` is told, just
+    /// before `dismiss`, that the letter did not go and waits in the Outbox:
+    /// `sendLetter` threw `Outbox.Waiting`.
     init(sendLetter: @escaping (Draft, @escaping UploadProgress) async throws -> Void,
          saveDraft: @escaping (Draft) async throws -> Void,
          deleteDraft: @escaping (String) async throws -> Void,
@@ -91,7 +95,8 @@ final class ComposeActions {
          showError: @escaping (MailError) -> Void,
          draw: @escaping (Look) -> Void,
          background: BackgroundTime,
-         keeping: DraftKeeping = .nowhere) {
+         keeping: DraftKeeping = .nowhere,
+         queued: @escaping () -> Void = {}) {
         self.sendLetter = sendLetter
         self.saveDraft = saveDraft
         self.deleteDraft = deleteDraft
@@ -100,6 +105,7 @@ final class ComposeActions {
         self.draw = draw
         self.background = background
         self.keeping = keeping
+        self.queued = queued
     }
 
     /// Whether a letter is on its way, or has gone.
@@ -170,9 +176,16 @@ final class ComposeActions {
     /// failed for having been interrupted, and one that fails when he comes
     /// back says so then.
     ///
-    /// The letter is kept on the iPad as it is taken, so one whose send is
-    /// cut off by iOS ending the app is in Drafts at the next launch, and
-    /// taken off it once it has gone, before the sheet closes.
+    /// The letter is kept on the iPad as it is taken, and put in the Outbox
+    /// by `sendLetter`, so one whose send is cut off by iOS ending the app is
+    /// in the Outbox at the next launch, and taken off the iPad once it has
+    /// gone, before the sheet closes.
+    ///
+    /// A letter that could not reach the server, `Outbox.Waiting` from
+    /// `sendLetter`, waits in the Outbox: the sheet closes as for a letter
+    /// that went, `queued` says so once, and nothing is drawn after it or
+    /// taken out of Drafts, since nothing has gone. Anything else it throws
+    /// is about the letter or the account, and the sheet stays with it.
     @discardableResult
     func send(_ letter: @escaping () -> Draft, then draftsChanged: (() -> Void)?,
               draftSent: ((String) -> Void)? = nil) -> Task<Void, Never>? {
@@ -198,6 +211,14 @@ final class ComposeActions {
             changed = true
             do {
                 try await sendLetter(draft, report)
+            } catch is Outbox.Waiting {
+                // In the Outbox, to go when the server can be reached. The
+                // sheet is done with it, and from now on the pass takes it.
+                stage = .sent
+                keeping.letGo()
+                queued()
+                dismiss()
+                return
             } catch {
                 // Pass the real reason through. Flattening everything to
                 // "Message was not sent." was fine while that was the only

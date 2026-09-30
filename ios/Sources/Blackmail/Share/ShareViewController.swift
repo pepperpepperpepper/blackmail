@@ -11,8 +11,8 @@ import UniformTypeIdentifiers
 /// Mail's share sheet is the model. A small composer comes up over the app
 /// he is in, with the page's title as the subject and the link in the body
 /// above his signature; he picks who it goes to and taps Send, and the
-/// letter goes from here, by the app's own `Outbox`, without the app being
-/// opened. It is not a second copy of the app's composer: To, Cc/Bcc,
+/// letter goes from here, by the app's own `Submission`, without the app
+/// being opened. It is not a second copy of the app's composer: To, Cc/Bcc,
 /// Subject, the body and what was shared, and nothing else.
 ///
 /// The principal class named in ShareInfo.plist, hence `public` and the

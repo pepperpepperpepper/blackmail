@@ -88,6 +88,9 @@ final class RootViewController: UIViewController {
     /// Whether the launch's first page has been tried, after which the
     /// watch starts, and starts again at every return to the app.
     private var firstPageTried = false
+    /// Whether the watch's last check could not reach the server. See
+    /// `checked`.
+    private var lastCheckFailed = false
 
     init(repository: MailRepository) {
         self.repository = repository
@@ -641,6 +644,19 @@ extension RootViewController: MailWatchTarget {
 
     func checked(_ outcome: MailWatch.Outcome) {
         list.checked(outcome)
+        if case .failed = outcome {
+            lastCheckFailed = true
+            return
+        }
+        // The first check to reach the server after one that could not:
+        // the connection has come back, and what waits on the iPad, the
+        // Outbox first, goes over it now, as Mail's Outbox does, rather than
+        // at the next page he opens or the next return to the app. Only
+        // then: a pass after every check would try a letter the server will
+        // not take for its own reasons every half minute.
+        guard lastCheckFailed else { return }
+        lastCheckFailed = false
+        LocalDrafts.shared.uploadWaiting(to: repository)
     }
 }
 

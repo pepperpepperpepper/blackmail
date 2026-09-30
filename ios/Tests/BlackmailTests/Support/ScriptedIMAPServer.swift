@@ -345,6 +345,14 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusedMailboxes = newValue } }
     }
 
+    /// Mailboxes Gmail's "Show in IMAP" has been turned off for: LIST does
+    /// not name them, and SELECT, EXAMINE and STATUS answer NO, as for a
+    /// mailbox that does not exist. Canonical names.
+    var unlistedMailboxes: Set<String> {
+        get { locked { $0.unlistedMailboxes } }
+        set { locked { $0.unlistedMailboxes = newValue } }
+    }
+
     /// Search keys a UID SEARCH is answered BAD for, as by a server that
     /// does not know them: `["HEADER"]`. Upper case.
     var refusedSearchKeys: Set<String> {
@@ -811,6 +819,7 @@ private extension ScriptedIMAPServer {
         var loginCapabilities: LoginCapabilities = .inTaggedOK
         var greeting: Greeting = .ready
         var refusedMailboxes: Set<String> = []
+        var unlistedMailboxes: Set<String> = []
         var refusedSearchKeys: Set<String> = []
         var refusedVerbs: Set<String> = []
         var passwordRevoked = false
@@ -1110,7 +1119,7 @@ private extension ScriptedIMAPServer.State {
             r.bad("Could not parse command")
             return
         }
-        for name in order {
+        for name in order where !unlistedMailboxes.contains(name) {
             guard let folder = folders[name] else { continue }
             let matches = pattern == "*"
                 || (pattern == "%" && !name.contains("/"))
@@ -1128,7 +1137,7 @@ private extension ScriptedIMAPServer.State {
             return
         }
         let name = Server.canonical(raw)
-        guard let folder = folders[name], folder.selectable else {
+        guard let folder = folders[name], folder.selectable, !unlistedMailboxes.contains(name) else {
             r.no("[NONEXISTENT] Unknown Mailbox: \(raw) (Failure)")
             return
         }
@@ -1162,7 +1171,8 @@ private extension ScriptedIMAPServer.State {
         // the one it opens it sees as it is.
         sessions[id]?.unannounced = []
         sessions[id]?.unexpunged = [:]
-        guard let folder = folders[name], folder.selectable, !refusedMailboxes.contains(name) else {
+        guard let folder = folders[name], folder.selectable, !refusedMailboxes.contains(name),
+              !unlistedMailboxes.contains(name) else {
             // RFC 3501: a failed SELECT leaves NO mailbox selected, not the
             // old one, which is exactly the state a stale cache gets wrong.
             sessions[id]?.selected = nil

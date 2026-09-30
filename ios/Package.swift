@@ -44,7 +44,7 @@ let package = Package(
         // Blackmail.app/PlugIns/, built on this Xcode-less pipeline and signed
         // with its own entitlements by the patched zsign (TOOLCHAIN.md). It
         // depends on the library rather than carrying code of its own, so a
-        // shared letter goes out through the app's Outbox and SMTPClient.
+        // shared letter goes out through the app's Submission and SMTPClient.
         .executableTarget(
             name: "BlackmailShare",
             dependencies: ["Blackmail"],

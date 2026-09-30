@@ -27,7 +27,8 @@ final class MessageSizeTests: XCTestCase {
         // The rule the four fixed strings exist to enforce, now that there
         // are five. "552 5.2.3" must never reach him.
         let errors: [MailError] = [.cannotConnect, .notSent, .attachmentFailed,
-                                   .passwordNeedsUpdating, .messageTooLarge]
+                                   .passwordNeedsUpdating, .messageTooLarge, .connectionLost,
+                                   .refusedForNow]
         for error in errors {
             let text = error.errorDescription ?? ""
             XCTAssertFalse(text.isEmpty, "every case needs a sentence")

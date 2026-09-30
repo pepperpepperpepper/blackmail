@@ -85,7 +85,14 @@ final class ComposeViewController: UIViewController,
             ErrorPresenter.show(error, on: self)
         },
         draw: { [weak self] look in self?.draw(look) },
-        background: .app)
+        background: .app,
+        queued: { [weak self] in self?.queuedOnClose = true })
+
+    /// Send could not reach the server and the letter waits in the Outbox:
+    /// the sheet closes with one notice over what it came from
+    /// (`Outbox.notice`), as Mail says its letter "has been placed in your
+    /// Outbox".
+    private var queuedOnClose = false
 
     private lazy var sendItem = UIBarButtonItem(
         title: "Send", style: .done, target: self, action: #selector(sendTapped))
@@ -659,8 +666,19 @@ final class ComposeViewController: UIViewController,
     /// the sheet stayed with Send gone, Cancel held and the swipe refused,
     /// which only quitting the app undid. Told to the presenter, UIKit takes
     /// the sheet and everything over it.
+    ///
+    /// For a letter left in the Outbox the notice is put over the presenter,
+    /// held until the sheet has gone (`ErrorPresenter.sheetLeaving`): UIKit
+    /// drops an alert asked for over a sheet on its way out.
     private func close() {
-        (presentingViewController ?? self).dismiss(animated: true)
+        let presenter = presentingViewController ?? self
+        guard queuedOnClose, presentingViewController != nil else {
+            presenter.dismiss(animated: true)
+            return
+        }
+        let gone = ErrorPresenter.sheetLeaving()
+        presenter.dismiss(animated: true, completion: gone)
+        ErrorPresenter.tell(Outbox.notice, on: presenter)
     }
 
     /// The sheet as `ComposeActions` says it should be. While a letter goes:

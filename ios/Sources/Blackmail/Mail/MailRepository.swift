@@ -78,6 +78,24 @@ protocol MailRepository {
     /// network, while it goes.
     func send(_ draft: Draft, progress: UploadProgress?) async throws
 
+    /// `send`, for a letter from the Outbox (`LocalDrafts.send`): it goes
+    /// under `letter.messageID`, the same at every attempt, and
+    /// `letter.beforeData` is called once the server has taken the envelope,
+    /// before DATA (`SMTPClient.send`).
+    func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws
+
+    /// Which of `messageIDs` Sent Mail holds a letter under, asked with
+    /// `UID SEARCH HEADER Message-ID`: whether an attempt at a letter whose
+    /// DATA went, and whose 250 never came back, reached Gmail. Gmail files
+    /// what it takes over SMTP in Sent Mail itself.
+    ///
+    /// Throws when it cannot be answered: no connection, a refused password,
+    /// a search the server refuses, and `Outbox.NoSentMail` when the server
+    /// lists no folder to ask. Never takes a refusal for "not there", as
+    /// `deleteDrafts(uploadedAs:)` does: a second copy in Drafts can be
+    /// removed, a letter sent twice cannot be taken back.
+    func sentMail(holds messageIDs: [String]) async throws -> Set<String>
+
     /// Saves to the Drafts folder, REPLACING the copy named by
     /// `draft.savedID` if there is one, and returns the id of the copy now
     /// on the server so the next save replaces this one in turn.
@@ -203,6 +221,17 @@ struct DraftUpload: Sendable {
     var appending: @Sendable () async throws -> Void = {}
 }
 
+/// A letter from the Outbox on its way to the server (`LocalDrafts.send`).
+struct OutgoingLetter: Sendable {
+    /// Fixed when the letter entered the Outbox, and the same at every
+    /// attempt, so an attempt cut off after the server had it can be looked
+    /// for in Sent Mail.
+    let messageID: String
+    /// Writes the attempt down as on its way. DATA waits for it, and is not
+    /// sent if it throws.
+    var beforeData: @Sendable () async throws -> Void = {}
+}
+
 /// What a letter kept on the iPad became in Drafts.
 struct DraftSaved: Equatable, Sendable {
     /// Its copy there, or nil when the server took it without saying where
@@ -254,11 +283,24 @@ enum MailError: LocalizedError {
     /// nothing told him the letter itself is the problem or that removing
     /// something would fix it.
     case messageTooLarge
+    /// The connection to the submission server went, or stopped answering,
+    /// before the server had said whether it took the letter. Not a new
+    /// sentence: he reads "Message was not sent." as before. What is new is
+    /// that the app can tell it from a letter the server refused, since this
+    /// one may go later as it is, and the composer puts it in the Outbox
+    /// rather than keeping the sheet (`Outbox.waits(after:)`, B-052).
+    case connectionLost
+    /// The submission server said "not now": a 4yz reply, RFC 5321's
+    /// transient negative completion, such as Gmail's "421 4.7.0 Try again
+    /// later" or "451 4.3.0" after DATA. Nothing was delivered, and the same
+    /// letter may go later as it is, so it waits in the Outbox as for a lost
+    /// connection. Read out as "Message was not sent.", as before.
+    case refusedForNow
 
     var errorDescription: String? {
         switch self {
         case .cannotConnect:        return "Can't connect to mail server."
-        case .notSent:              return "Message was not sent."
+        case .notSent, .connectionLost, .refusedForNow: return "Message was not sent."
         case .attachmentFailed:     return "Attachment could not be downloaded."
         case .passwordNeedsUpdating: return "Password needs to be updated in Settings."
         case .messageTooLarge:      return "This message is too big to send. Try sending fewer attachments."

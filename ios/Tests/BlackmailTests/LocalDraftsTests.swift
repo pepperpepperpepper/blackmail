@@ -640,6 +640,29 @@ final class LocalDraftsTests: XCTestCase {
         XCTAssertEqual(sent, 1)
     }
 
+    /// Sent from the Outbox by a pass after an upload of it was cut off: the
+    /// copy that upload left goes from Drafts too, and nothing of the letter
+    /// is left on the iPad, as for one sent from the composer (B-052).
+    func testALetterSentByAPassAfterACutOffUploadLeavesNothingInDrafts() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        try await savedAndCutOff(letter(), kept: kept, repository: repository)
+        XCTAssertEqual(copies("Sunday").count, 1)
+
+        let reopened = try XCTUnwrap(kept.letter("letter-1")).draft
+        line.isUp = false
+        await makeActions("letter-1", kept: kept, repository: repository)
+            .send({ reopened }, then: nil)?.value
+        line.isUp = true
+        XCTAssertEqual(kept.outbox.map(\.key), ["letter-1"], "waiting in the Outbox")
+
+        try await afterAPage(kept, repository)
+        let sent = await submissions.count()
+        XCTAssertEqual(sent, 1)
+        XCTAssertEqual(copies("Sunday").count, 0, "nothing of it left in Drafts")
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
     /// Deleted with no connection after a cut-off upload: off the iPad at
     /// once, never listed again, and the copy goes with the next pass.
     func testADeleteThatCannotReachDraftsIsFinishedByTheNextPass() async throws {

@@ -17,6 +17,10 @@ struct Mailbox: Identifiable, Hashable {
 
     enum Role: String, Codable {
         case inbox, sent, drafts, trash, archive, junk
+        /// The letters Send could not take to the server, kept on the iPad
+        /// (`Outbox`, B-052). Never a folder on the server: nothing LIST
+        /// says maps to it.
+        case outbox
     }
 
     /// What the screens call the folder: its own name, except the inbox,
@@ -33,9 +37,12 @@ struct Mailbox: Identifiable, Hashable {
 
     /// What VoiceOver reads for the folder's row in the sidebar: the name
     /// the row shows, and the unread count the row shows beside it as a
-    /// bare number.
+    /// bare number. The Outbox's number is of letters waiting to go.
     var accessibilityLabel: String {
-        unreadCount > 0 ? "\(displayName), \(unreadCount) unread" : displayName
+        if role == .outbox, let waiting = Outbox.unsent(unreadCount) {
+            return "\(displayName), \(waiting)"
+        }
+        return unreadCount > 0 ? "\(displayName), \(unreadCount) unread" : displayName
     }
 
     /// The Inbox before LIST has named it: what the message list opens on
