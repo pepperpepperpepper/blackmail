@@ -201,6 +201,10 @@ struct Draft {
     /// this app, being interrupted mid-letter is not an edge case, and an
     /// unfinishable letter is a failure of the thing he mostly does here.
     var savedID: String?
+    /// The letter a reply or forward quotes, as it arrived, so the HTML
+    /// twin can show it as it looked while he edits it as plain text. Nil
+    /// for a new letter. See `QuotedOriginal` for when it is used.
+    var quote: QuotedOriginal?
 }
 
 extension Array where Element == Mailbox {
@@ -316,10 +320,11 @@ extension Draft {
         // Signature ABOVE the quoted text, which is where Mail puts it and
         // where a reader looks for it. Below the quote it is buried under
         // however much of the original he kept.
-        draft.body = signatureBlock(signature)
-            + "\n\n" + MailFormat.quoteAttribution(m.date, sender: m.sender)
+        let region = MailFormat.quoteAttribution(m.date, sender: m.sender)
             + "\n> "
             + m.quotableText.replacingOccurrences(of: "\n", with: "\n> ")
+        draft.body = signatureBlock(signature) + "\n\n" + region
+        draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region)
 
         // Deliberately NO attachments. Quoting somebody's text back is
         // normal; posting their files back to them is not, and doing it by
@@ -336,18 +341,30 @@ extension Draft {
         // "---------- Forwarded message ----------" with only From and
         // Subject under it, which is Gmail's wording and drops the two
         // fields a forward is usually sent to establish: WHEN it arrived and
-        // WHO else already had it. Field order is Apple's own.
-        draft.body = signatureBlock(signature)
-            + "\n\nBegin forwarded message:\n\n"
+        // WHO else already had it. Field order is the iPad's own: From,
+        // Date, To, Subject, as his forwards show, with Cc after To when the
+        // original had one (B-050 says where that placement comes from).
+        // Mail on the Mac writes Subject second instead.
+        var region = "Begin forwarded message:\n\n"
             + "From: \(MailFormat.addressForQuoting(m.sender))\n"
             + "Date: \(MailFormat.forwardedDate(m.date))\n"
             + "To: \(m.to.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
-            + "Subject: \(m.subject)\n\n"
-            + m.quotableText
+        if !m.cc.isEmpty {
+            region += "Cc: \(m.cc.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
+        }
+        region += "Subject: \(m.subject)\n\n" + m.quotableText
+        draft.body = signatureBlock(signature) + "\n\n" + region
+        draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region)
         // The files come too. Forwarding a receipt and leaving its two PDFs
         // behind sends a letter about nothing, and does it silently — which
         // is the part that matters, because nothing on the sending screen
         // said they had been dropped.
+        //
+        // Every part is a row, the pictures the original shows in its body
+        // included, so he can see what the forward weighs and take any of
+        // it off. At Send the pictures its quote still shows go in the quote
+        // rather than as files (`AppleMailHTML.letter`); if he has changed
+        // the quote, they go as files, as they always did.
         draft.attachments = m.attachments.map {
             DraftAttachment(source: .messagePart(messageID: m.id,
                                                  mailboxID: m.mailboxID,
@@ -381,27 +398,36 @@ extension Draft {
     /// letter, and he can see it and remove it. Dropping it would send a
     /// letter that says "here is the photo" without the photo, and nothing
     /// on the sending screen would say so.
+    ///
+    /// A draft of a reply or forward this app saved comes back with its
+    /// quote (`QuotedOriginal.recovered`), so the letter sent from it is the
+    /// one he would have sent before putting it down: the original as it
+    /// looked, if he has still not touched the quote. A forward's pictures
+    /// are rows, as they were when he began it; a reply has none to bring
+    /// back, as it carries none of the original's parts.
     static func reopening(_ m: Message,
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
-        Draft(to: m.to,
-              cc: m.cc,
-              bcc: m.bcc,
-              subject: m.subject,
-              // `quotableText` rather than `textBody`, so a draft
-              // written in another client as HTML reopens with its
-              // words in it instead of empty.
-              body: m.textBody ?? m.quotableText,
-              attachments: m.attachments
-                  .filter { !SignatureImages.contains($0, in: signatureImages) }
-                  .map {
-                      DraftAttachment(source: .messagePart(messageID: m.id,
-                                                           mailboxID: m.mailboxID,
-                                                           section: $0.id),
-                                      filename: $0.filename,
-                                      mimeType: $0.mimeType,
-                                      size: $0.size)
-                  },
-              savedID: m.id)
+        // `quotableText` rather than `textBody`, so a draft written in
+        // another client as HTML reopens with its words in it instead of
+        // empty.
+        let body = m.textBody ?? m.quotableText
+        return Draft(to: m.to,
+                     cc: m.cc,
+                     bcc: m.bcc,
+                     subject: m.subject,
+                     body: body,
+                     attachments: m.attachments
+                         .filter { !SignatureImages.contains($0, in: signatureImages) }
+                         .map {
+                             DraftAttachment(source: .messagePart(messageID: m.id,
+                                                                  mailboxID: m.mailboxID,
+                                                                  section: $0.id),
+                                             filename: $0.filename,
+                                             mimeType: $0.mimeType,
+                                             size: $0.size)
+                         },
+                     savedID: m.id,
+                     quote: QuotedOriginal.recovered(from: m, body: body))
     }
 }
 

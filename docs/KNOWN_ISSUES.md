@@ -2800,3 +2800,175 @@ and keyboard. Two panes survived killing and reopening the app, and the
 switch back to three after that sent nothing on the connection. Not yet
 tried: Edit mode across a switch, another folder opened from "< Mailboxes",
 VoiceOver on the button, the layout sweep in both.
+
+---
+
+## B-050 — CHANGED 2026-09-30, not yet seen on the iPad. Reply and Forward send the original as it looked
+
+**What was wrong.** Reply, Reply All and Forward quoted the original as
+plain text, in the composer and in the letter's HTML alike: `quotableText`
+takes the text part, or `HTMLText.plainText` of the markup, which keeps the
+words and drops every link, picture and table. A forwarded newsletter
+arrived as a column of words with its addresses gone, a reply handed people
+their own letter back flattened, and a forward's pictures went as files
+under the letter. Mail sends the original as it looked. He replies to about
+436 letters a month and forwards about 168.
+
+**What he sees while he writes: nothing new.** The composer is plain text
+(D-013) and still shows the quote as words he can edit, and the letter's
+text/plain part is what it was, byte for byte, with one exception below.
+What changed is the HTML twin, which is what most people read.
+
+- **Reply and Reply All.** Mail's attribution in its own
+  `<blockquote type="cite">`, and in the one beside it the original's own
+  markup, the shape his device writes (INVESTIGATIONS, "The skeleton, read
+  off his own device"). No style is written on the blockquotes, as his
+  device writes none: the bar beside a quote, blue in Mail, is drawn by the
+  reader's client for `type="cite"`.
+- **Forward.** "Begin forwarded message:", then the header block with bold
+  labels and a bold subject, then the original's markup. The order is the
+  iPad's, From, Date, To, Subject, as read off his own forwards. A **Cc**
+  line now follows To when the original had one, in the text as well as the
+  HTML; that placement is from an iOS forward among the Apple Mail samples
+  of the crisp-oss/email-forward-parser project
+  (`test/fixtures/apple_mail_en_body_variant_13.txt`, whose labels are
+  French), so the English line is inferred, not seen. Mail on the Mac
+  writes From, Subject, Date, To, Cc (the same project's other Apple Mail
+  samples). The Cc line is the one change to the text part, and only for a
+  forward of a letter that had a Cc.
+- **A plain-text original** is quoted as HTML with its `http://`,
+  `https://` and `www.` addresses made links; a Wikipedia address keeps its
+  brackets and a sentence keeps its full stop.
+- **Pictures on the web** stay on the web, in a reply and a forward alike:
+  nothing is fetched to embed.
+- **A reply carries none of the original's parts**, the pictures it shows by
+  `cid:` included, as a reply never has (INVESTIGATIONS, "Forwarding now
+  carries the files"). Such a picture is left out of the quote with its
+  `<img>`; the rest of the letter goes as it looked. Carrying them back
+  would make a one-line reply to a letter of photographs upload every
+  photograph, with no row and no weight on screen, and would make Send and
+  Save Draft fetch them first, so a reply to a letter since archived on
+  another device, or sent after the socket had died, would fail where it
+  goes today, with nothing on screen he could take off. Carrying them is an
+  owner decision, and would want rows with their weight and a cap, as a
+  forward has.
+- **A forward's pictures** the original shows by `cid:` go inline, as
+  related parts beside the markup, each under a Content-ID of this letter's
+  own (`bmquote1.` and a fingerprint), so a sender's own `cid:sig-logo`
+  cannot land on his signature's logo, which still goes once. A picture the
+  markup shows by an id the letter does not carry is left out with its
+  `<img>`. A part the markup does not show goes as a file.
+- **A forward still lists every part of the original as a row with its
+  weight**, the pictures included, so he can see what it weighs and take
+  anything off. At Send, a picture the quote shows goes in the quote rather
+  than as a file; one he took off does not go at all. One that cannot be
+  fetched fails the Send, as a file always has, and it is a row he can take
+  off. The fetch is a read, so a socket that died while he wrote costs a
+  reconnect, not the first Send (B-023).
+
+**What he sees is what goes.** The quote is kept exactly as it went into the
+body (`QuotedOriginal.region`). At Send, if the body still ends with it,
+byte for byte, the HTML carries the original's markup. If he has changed it
+in any way, cut it short or deleted it, the HTML is what it was before this
+change, made from the body as it stands, with the quote's addresses linked;
+a forward then sends its pictures as files, as it always did. Nothing finer
+is attempted. The plain words are often not the markup's (a text part is a
+different rendering, or a stub), so an edit cannot be mapped back onto the
+markup faithfully, and a near miss would send, in the HTML most people read,
+words he had deleted from the letter he saw. What he types above the quote
+is not an edit of it; what he types onto the attribution line is, as the
+quote must start a line of its own. The same plain rendering goes when the
+original's markup, once made safe, shows nothing at all, an empty text/html
+part say, as an empty quote would not be what he saw.
+
+**The original is made safe first** (`QuotedMarkup`). Kept: text, links,
+pictures, tables, and styles written on the elements. Dropped: scripts,
+event handlers, forms, frames, embedded objects, `<meta>`, `<base>`,
+`<link>`, comments, `<style>` blocks, a link's `ping`, and any address that
+is not `http`, `https`, `mailto`, `tel`, `sms` or, for a picture, a `data:`
+picture that is not SVG, however it is spelt with entities or spaces. A
+`<style>` block applies to the whole letter rather than the part it came in,
+so a newsletter's sheet would restyle his words and his signature; senders
+who want their look kept in Gmail already write it inline. A stray closing
+tag in the original cannot close the quote around it, and a style that could
+draw the original over his words and signature is dropped: a `position`
+other than `static` or `relative`, an offset, a `z-index`, a transform or a
+negative margin. A newsletter that pulls itself into place with a negative
+margin loses that element's styling. The sender's document wrapper goes as
+`DocumentWrapper` takes it off for the reading pane, in the same pass:
+`DocumentWrapper`'s regular expressions cost more than the whole pass. A
+head its sender never closed, which HTML allows, ends where a browser ends
+it, at the `<body>` or the first thing a head cannot hold; it used to run to
+the end and take the letter with it.
+
+**Drafts.** A reply or forward saved to Drafts is marked, in the stored HTML
+only, with a comment holding a fingerprint of the plain quote
+(`<!--bm-quote:…-->`). Reopening takes the quote up again when the reopened
+text's quote has that fingerprint, so a draft sent after being put down is
+the letter that would have gone before: the same markup, and for a forward
+the same pictures, which live in the stored draft and are fetched from it
+before the old copy is replaced. A quote he had changed is marked too, and
+comes back as the same plain rendering with its addresses linked. A reopened
+reply lists no rows of the original's; a reopened forward lists its rows as
+before. A draft whose text was changed anywhere else, in Gmail or another
+client, comes back as plain text, as a draft begun elsewhere does. A letter
+that is sent carries no mark.
+
+**Size and time.** A forwarded newsletter now carries its markup,
+quoted-printable, beside the words. Measured on this host in a release
+build: 150 kB of markup goes out as 211 kB where it went as 114 kB, and a
+megabyte as 1.47 MB where it went as 0.79 MB, both far inside Gmail's 35 MB;
+a letter of a megabyte or more shows "Sending… N%" (B-044). Making a
+megabyte of markup safe takes about 0.08 s and building the letter 0.07 s;
+building used to take 0.34 s, nearly all of it quoted-printable, which is
+now written into bytes (below). Unchanged: making the plain quote from the
+markup when he taps Forward, 0.18 s for a megabyte, on the main thread.
+Markup over 4 MB, which is markup with pictures pasted into it as `data:`
+addresses, is not carried: that quote goes as its words with their addresses
+linked, and a forward's pictures as files. A reply adds nothing but the
+markup, as it carries none of the original's parts. Linking the addresses in
+a plain quote is one pass over each line; it searched the rest of the line
+again after every address, 12 s for a 200 kB line with an address every
+hundred bytes in a release build, on the actor Send and Save Draft wait on.
+
+**Quoted-printable, into bytes.** The encoder built its output a `String`
+at a time: 0.35 s for a megabyte in a release build on this host, which was
+nothing for a letter he types and a third of a second for a forwarded
+newsletter. It now writes bytes, about 0.02 s, and the same bytes as before
+for every input; the old encoder is kept in `QuotedPrintableTests` as the
+reference, over the awkward cases, every wrap point and 150 random texts.
+B-044's dot-stuffing and boundary scan are untouched.
+
+**Tested** in `RichQuoteTests` and `RichQuoteRepositoryTests`, letters built
+and read back with the app's own MIME reader, and sent and saved by the
+shipping repository over the scripted server; in `QuotedMarkupTests`, the
+sanitizer; and in `QuotedPrintableTests`. Some are guards that today's code
+passes by construction (no leak, the text part unchanged, the encoder's
+bytes). Each rule reverted on its own fails at least one test: the
+untouched-quote check and its rule that the quote starts a line, the
+sanitizer and each of its rules (handlers, schemes, styles, positioning,
+closing tags, the head and where an unclosed one ends, a self-closed `svg`
+or `math`, the empty comment `<!-->`, attribute names and repeats, `ping`,
+`srcset`), the renaming, of an id written in another case or percent-encoded
+and of every reference in a style, the forward's rows, the shown-only rule,
+the words when the markup shows nothing, the 4 MB ceiling, the links and
+linking in one pass, the Cc line, reopening, its fingerprint and the
+trailing newline it ignores, the draft's mark on an untouched quote and on a
+changed one, a reply carrying none of the original's parts and so never
+failing for want of them, a forward's fetch at Send, the refusal to send it
+without a picture, and its retry on a dead socket, and the encoder's dot and
+trailing-space rules. The megabyte timings above are bounds on the wall
+clock, so they are checked only when `BLACKMAIL_LARGE_TESTS` is set; linking
+holds a 100 kB line to a second, where the old search took three in the
+suite's build.
+
+**Not done.** The composer shows none of the pictures, and a reply's quote
+leaves out those the original carried as parts. The HTML shows the original
+as it looked, which can hold words its text part does not, a newsletter's
+especially; he did not remove them, but he did not see them in the composer
+either. A newsletter that relies on its `<style>` sheet loses that part of
+its look. Blackmail's own reading pane draws no bar beside a quote (TODO,
+"blue bars on quoted text"). A draft edited in Gmail or another client comes
+back as plain text.
+
+**Not yet seen on the iPad.** The TODO says what to look at.

@@ -1887,7 +1887,9 @@ The cost, recorded honestly: the quoted original is the FLATTENED text
 of the original inside a blockquote, not the original's own markup the
 way Mail nests it. A quoted table comes back as text. That is still
 strictly better than before, when it came back as text with no
-blockquote at all and with words broken in half.
+blockquote at all and with words broken in half. (Since 2026-09-30 a quote
+he has not touched carries the original's own markup instead, and the
+flattened text is what goes once he has changed it; see B-050.)
 
 ### The portrait in his signature is dead
 

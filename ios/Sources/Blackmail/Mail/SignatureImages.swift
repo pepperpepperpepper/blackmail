@@ -65,6 +65,12 @@ enum SignatureImages {
         }
     }
 
+    /// Their Content-IDs as a letter's markup writes them, so nothing else
+    /// in the letter is given one of them (`AppleMailHTML.letter`).
+    static func contentIDs(of images: [InlineImage]) -> Set<String> {
+        Set(images.map { MIMEDecoder.strippedContentID($0.contentID) ?? $0.contentID })
+    }
+
     /// Whether a part read back out of a letter is one of these pictures.
     ///
     /// By `Content-ID`, which is the identity the builder writes them under

@@ -1191,12 +1191,20 @@ actor IMAPMailRepository: MailRepository {
         // References and would have started a new conversation every time.
         //
         // Built and sent by `Outbox`, which the share extension sends
-        // through too.
+        // through too. The HTML twin and which of the original's parts go
+        // are the quote's (`AppleMailHTML.letter`, B-050). A forward's
+        // quoted pictures are fetched only once the letter is known to be
+        // going somewhere, as its files are.
+        let images = signatureImages()
+        let letter = AppleMailHTML.letter(for: draft, account: account,
+                                          reserving: SignatureImages.contentIDs(of: images))
+        guard !Outbox.recipients(of: draft).isEmpty else { throw MailError.notSent }
+        let pictures = try await loadPictures(letter.pictures)
         try await Outbox.send(draft, from: account, password: password, through: smtp,
                               threadHeaders: Self.threadHeaders(for: draft),
-                              attachments: { try await self.loadAttachments(for: draft) },
-                              htmlBody: AppleMailHTML.part(for: draft, account: account),
-                              inlineImages: SignatureImages.parts(of: signatureImages()),
+                              attachments: { try await self.loadAttachments(letter.files) },
+                              htmlBody: letter.html,
+                              inlineImages: SignatureImages.parts(of: images) + pictures,
                               progress: progress)
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
@@ -1222,11 +1230,11 @@ actor IMAPMailRepository: MailRepository {
     /// Usually free: the source message is still in `lastBody` from being
     /// displayed a moment ago, so `fetchAttachmentData` decodes it locally
     /// instead of going back to the server.
-    private func loadAttachments(for draft: Draft) async throws
+    private func loadAttachments(_ attachments: [DraftAttachment]) async throws
         -> [(filename: String, mimeType: String, data: Data)] {
         var loaded: [(filename: String, mimeType: String, data: Data)] = []
-        loaded.reserveCapacity(draft.attachments.count)
-        for attachment in draft.attachments {
+        loaded.reserveCapacity(attachments.count)
+        for attachment in attachments {
             let data: Data
             switch attachment.source {
             case let .messagePart(messageID, mailboxID, section):
@@ -1241,6 +1249,29 @@ actor IMAPMailRepository: MailRepository {
             loaded.append((filename: attachment.filename,
                            mimeType: attachment.mimeType,
                            data: data))
+        }
+        return loaded
+    }
+
+    /// The bytes of the quoted original's pictures, as inline parts under
+    /// the names the letter's markup shows them by. A forward's only: a
+    /// reply carries none (`AppleMailHTML.letter`), so it never waits on
+    /// the original or fails for want of it.
+    ///
+    /// Throws as `loadAttachments` does, for the same reason: a letter sent
+    /// without a picture its markup shows arrives with a broken box where
+    /// the picture was. Each is one of the forward's rows, so the failure
+    /// names something he can take off. Usually free, as there: the
+    /// original is still in `lastBody`.
+    private func loadPictures(_ pictures: [(contentID: String, picture: QuotedOriginal.Picture)])
+        async throws -> [(contentID: String, filename: String, mimeType: String, data: Data)] {
+        var loaded: [(contentID: String, filename: String, mimeType: String, data: Data)] = []
+        loaded.reserveCapacity(pictures.count)
+        for (contentID, picture) in pictures {
+            let data = try await fetchAttachmentData(picture.section, of: picture.messageID,
+                                                     mailboxID: picture.mailboxID)
+            loaded.append((contentID: contentID, filename: picture.filename,
+                           mimeType: picture.mimeType, data: data))
         }
         return loaded
     }
@@ -1266,7 +1297,16 @@ actor IMAPMailRepository: MailRepository {
         // Resolved BEFORE the old copy is removed, because a draft reopened
         // from the server carries attachments that live inside that very
         // copy: delete it first and the files it is carrying go with it.
-        let loaded = try await loadAttachments(for: draft)
+        let images = signatureImages()
+        // Marked where the quote begins, so reopening can take the quote up
+        // again (`QuotedOriginal.recovered`).
+        let letter = AppleMailHTML.letter(for: draft, account: account,
+                                          reserving: SignatureImages.contentIDs(of: images),
+                                          forDraft: true)
+        let loaded = try await loadAttachments(letter.files)
+        // The quote's pictures too, and for the same reason: a reopened
+        // draft's live in the copy about to be replaced.
+        let pictures = try await loadPictures(letter.pictures)
         let raw = RFC5322Builder.build(draft: draft, from: account,
                                        inReplyToHeaders: Self.threadHeaders(for: draft),
                                        attachments: loaded,
@@ -1274,12 +1314,12 @@ actor IMAPMailRepository: MailRepository {
                                        // A draft is stored as the message it
                                        // will become, markup and all, so what
                                        // he sees on reopening is what will go.
-                                       htmlBody: AppleMailHTML.part(for: draft, account: account),
+                                       htmlBody: letter.html,
                                        // The signature's pictures go with the
                                        // draft too: a draft is reopened by
                                        // parsing it back, and the parts are
                                        // what make its markup's cid: resolve.
-                                       inlineImages: SignatureImages.parts(of: signatureImages()))
+                                       inlineImages: SignatureImages.parts(of: images) + pictures)
         let appended = try await client.append(raw, to: drafts,
                                                flags: ["\\Draft", "\\Seen"])
 
@@ -1577,7 +1617,17 @@ actor IMAPMailRepository: MailRepository {
                 return MIMEDecoder.decodeTransfer(bytes, encoding: part.encoding)
             }
         }
+        // A read, so a socket that died while he wrote costs a reconnect
+        // rather than the Send (B-023): a forward fetches its files here
+        // when the letter on screen is no longer the one it forwards.
+        return try await retryingIfDisconnected {
+            try await self.fetchAttachmentDataOnce(attachmentID, of: messageID,
+                                                   mailboxID: mailboxID)
+        }
+    }
 
+    private func fetchAttachmentDataOnce(_ attachmentID: String, of messageID: String,
+                                         mailboxID: String) async throws -> Data {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(messageID)
