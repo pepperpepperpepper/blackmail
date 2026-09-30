@@ -3132,7 +3132,8 @@ reopened draft's: those are named by folder and UID, and Gmail gives every
 Inbox the same UIDVALIDITY (D-016), so in another account they can be parts
 of another letter. Not covered: a password saved in Settings that opens
 another mailbox under the same address (B-033). Telling the two mailboxes
-apart needs D-016's identity rule, X-GM-MSGID, which is not built yet.
+apart needs D-016's identity rule, X-GM-MSGID, which the rows on screen
+carry since 2026-09-30 (B-053) and these kept references do not yet.
 
 **Tested** in `LocalDraftsTests`, with the composer's own wiring
 (`ComposeActions(letter:…)`), the shipping `LocalDrafts` and the repository
@@ -3948,35 +3949,82 @@ so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
   page is kept, and no kept preview goes across to it, on the shelf or on
   the list. The connection log says `KEPT-DISCARDED folder=INBOX
   reason=uidvalidity` or `reason=msgid`.
-- A write on a kept row before anything in this launch has shown the server
-  to be the mailbox the copy was kept from (in practice a tap in the first
-  seconds, before the Inbox's first page): one `UID FETCH <uid> (UID
-  X-GM-MSGID)` first, in the same hold as its SELECT and UIDVALIDITY check
-  (B-039). The same id and the write goes, and that row is not asked about
-  again; another, or none, and nothing is written, the row leaves the kept
-  page and the list, and the log says `KEPT-UNVOUCHED folder=INBOX
-  nothing-sent`. From the reading pane the row comes off rather than back,
-  and the pane says "Can't connect to mail server." as for any write that
-  did not go; the read mark of a tap empties the pane. The mailbox is shown
-  to be the same once a listing from the top finds kept rows under the same
-  UIDs with the same ids, or the row's own folder has been listed; after
-  that nothing is asked. Not on a server without Gmail's extension, whose
+- Every write on a row, and every letter opened from one, names the row's
+  Gmail message id, from the list, Edit mode, the reading pane, a
+  conversation, Drafts' composer and a search's hits alike, and the
+  repository holds it against what the server has named under that UID in
+  this launch (`IMAPMailRepository.seen`): in every row it has sent, from a
+  listing from the top, a page below, a day jumped to, a search, the
+  watch's news or All Mail's copy of a letter, and in every answer to the
+  question below; a folder's is forgotten when its UIDVALIDITY changes.
+  The same letter there, and the write or the letter's FETCH goes as it
+  always did, byte for byte. Another letter there, and neither the write
+  nor the question is sent (what goes ahead of any write still goes: the
+  NOOP after a quiet spell, B-024, and the LOGIN or LIST a connection or
+  unknown folder roles need): the row leaves the kept page and the list,
+  nothing is shown, and the log says `KEPT-UNVOUCHED folder=INBOX
+  nothing-sent`, or `nothing-shown` for a letter opened. Nothing named
+  there yet, and the question is asked, for the row's id.
+- The question, for a write: one `UID FETCH <uid> (UID X-GM-MSGID)` first,
+  in the same hold as its SELECT and UIDVALIDITY check (B-039). The same id
+  and the write goes, and that UID is not asked about again; another, or
+  none, and nothing is written, the row leaves the kept page and the list,
+  and the log says `KEPT-UNVOUCHED folder=INBOX nothing-sent`; the next
+  write naming the same letter under that UID is refused at once, the server
+  having named another letter there, or asked again if it named none. From
+  the reading pane the row comes off rather than back, and the pane says
+  "Can't connect to mail server." as for any write that did not go; the read
+  mark of a tap empties the pane. In practice it is asked of a kept row the
+  server has named nothing under yet, once a row, at one round trip. One
+  tapped before its own folder's first page has come: in the Inbox in the
+  first second of a launch, and in a folder opened before in the first
+  second after he opens it, however long the Inbox has been listed. And, in
+  the copy's own mailbox, one the fresh page lacks, the oldest kept rows
+  pushed off it by mail come since, acted on after that page has landed: in
+  Edit mode while the swap waits for his ticks, in the quarter second while
+  the list looks for a lifted finger, or from a conversation opened from the
+  kept page at launch whose earlier letter he flags or reads after the
+  listing. Until 2026-09-30 it stopped as soon as a listing from the top had
+  found kept rows under the same UIDs with the same ids, or the row's own
+  folder had been listed, so a kept row the fresh page lacked went unasked;
+  that rule now covers only a call that names no letter: a draft removed, a
+  letter kept in Local Drafts that has gone up, opened in the composer from
+  its row (`openDraft`, which names its copy in Drafts by folder and UID
+  alone), and a row from a server without Gmail's extension, whose
   UIDVALIDITY is taken at its word, as it always was.
-- A letter opened from such a row, in the reading pane, a conversation or
-  Drafts' composer, is vouched for too, by the FETCH that brings it and at
-  no round trip more: `UID FETCH <uid> (UID X-GM-MSGID BODY.PEEK[])` in
-  place of `(UID BODY.PEEK[])`, still PEEK, so the FETCH marks nothing
-  read. The id is compared before anything of the letter is shown or kept
-  for a Forward. The same id and it opens, and the row is vouched for;
-  another, or none, and nothing of it is shown, no STORE goes for it, the
-  pane empties, the row leaves the kept page and the list, and the log
-  says `KEPT-UNVOUCHED folder=INBOX nothing-shown`. A row the server has
-  disowned stays disowned for the launch, whichever of the tap's read mark
-  and its FETCH is answered first: the other is asked again, and nothing
-  goes unasked because the row has left the kept page. A letter from a
-  vouched or proven row is fetched as it always was, byte for byte. A copy
-  of Gmail kept and a server now without the extension: nothing is asked
-  and nothing opened or written on a kept row, as for a write.
+- The question, for a letter opened, in the reading pane, a conversation or
+  Drafts' composer: asked by the FETCH that brings it and at no round trip
+  more: `UID FETCH <uid> (UID X-GM-MSGID BODY.PEEK[])` in place of `(UID
+  BODY.PEEK[])`, still PEEK, so the FETCH marks nothing read. The id is
+  compared before anything of the letter is shown or kept for a Forward. The
+  same id and it opens, and the row is vouched for; another, or none, and
+  nothing of it is shown, no STORE goes for it, the pane empties, the row
+  leaves the kept page and the list, and the log says `KEPT-UNVOUCHED
+  folder=INBOX nothing-shown`. A row the server has disowned stays disowned
+  for the launch, whichever of the tap's read mark and its FETCH is answered
+  first: the other is refused too, and nothing goes unasked because the row
+  has left the kept page. A letter the server has named under its UID in
+  this launch is fetched as it always was, byte for byte. A copy of Gmail
+  kept and a server now without the extension: nothing is asked and nothing
+  opened or written on a kept row, as for a write.
+- A kept row still drawn after the copy is thrown away. The listing that
+  throws the copy away does not take the kept rows off the screen: its page
+  waits for a finger to lift or for his ticks to go (`KeptSwap`,
+  `OverKept`), and reaches the list a moment after it has landed in any
+  case. The folder counted as listed from then, so a tap, the pane's Flag,
+  Move or Delete, or Edit mode's Mark, Move or Delete on one of those rows
+  went unasked onto whatever letter this mailbox has under that UID, and a
+  letter opened then was fetched as the kept row's. Found by reading the
+  code, not on the iPad. Now the fresh page has named the letter under each
+  of its UIDs: a kept row under one of them, carrying another letter's id,
+  is refused at once with nothing sent, and one under a UID the page does
+  not have is asked about and refused. The row comes off the list while it
+  still carries the kept id, and the fresh page, when it goes on, shows the
+  server's letter under that id. The reading pane can still hold the kept
+  letter after the swap: its Flag, Move or Delete is refused the same way,
+  and the list's row under that id, the server's letter, is neither
+  flagged, taken off nor put back for it; a letter of a conversation opened
+  there sends its read mark by its own id and leaves the list's row alone.
 - Whatever lands while the question is out. The launch's listing can come
   first and throw the copy away; the row under that id is then the
   server's own letter, and a "not the kept letter" answered after it
@@ -3991,9 +4039,17 @@ so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
 **What it sends.** At launch, what it always did: LOGIN, the one LIST, the
 Inbox's SELECT, SEARCH and page, then the counts. Drawing the kept pages
 sends nothing and begins no connection. The additions are the vouching
-FETCH above, only for an early write on a kept row, and X-GM-MSGID in the
-FETCH of a letter opened from one then. A folder listed before the LIST
-sends the LIST first; at launch the Inbox has asked for it already.
+FETCH above, only for a write on a row whose UID the server has named
+nothing under yet in this launch, and X-GM-MSGID in the FETCH of a letter
+opened from such a row, at no round trip more: a kept row before its
+folder's first page, and a kept row the fresh page lacks, pushed off it by
+new mail, acted on while the swap is held for his ticks or a finger, or
+from a conversation opened from the kept page at launch. One round trip for
+each write, once a row, and none more for a letter opened; the Inbox's
+listing used to let the second kind go unasked. A write, or a letter opened,
+on a row any listing, page, day, search or check of this launch has brought
+sends what it always did. A folder listed before the LIST sends the LIST
+first; at launch the Inbox has asked for it already.
 
 **What it costs.** A launch's read of the folder list and a fifty-row page
 of 27 KB, a fresh shelf included, took a median 1.1 ms on the development
@@ -4028,22 +4084,45 @@ kept pages as Gmail changes the letter, and refused, nothing; so do a
 delete in Trash, a draft removed, a move to Spam and a move out of All Mail,
 after a relaunch too; a renumbered Inbox and another mailbox under the same
 numbers each throw the copy away and carry no preview, and the same mailbox
-keeps it; an early write is vouched for once, a second row in turn, and
-nothing after the Inbox's listing, in the Inbox or All Mail; with nothing
-kept, a listing proves its own rows and a write sends the write alone; a
-mismatch writes nothing from the pane, a read mark or a delete, and the
-rows go until the next listing, which puts the server's letter back under
-that id; the Trash's Delete and a draft removed on a kept row that is
-another letter destroy nothing; the vouching FETCH goes again on a new
-connection, and Gmail's id is not read off a torn-down one; a vouch that
-loses the race to the first page leaves the server's letter on the kept
-page and the list; a letter opened from a kept row is vouched for by its
-own FETCH, PEEK, and not asked about again; one from a proven row, or with
-nothing kept, is fetched byte for byte as before; a mismatched one shows
-nothing and writes nothing, whichever of the read mark and the FETCH is
-answered first; a server without the extension neither opens nor writes a
-kept row; a folder listed before the LIST is counted as Gmail counts it,
-and kept so; a launch with a copy sends the commands a launch without one
+keeps it; an early write is vouched for once, a second row in turn,
+nothing after the Inbox's listing in the Inbox, and a kept All Mail row
+once, its folder not yet listed; with nothing kept, a listing proves its
+own rows and a write sends the write alone; a mismatch writes nothing
+from the pane, a read mark or a delete, and the rows go until the next
+listing, which puts the server's letter back under that id; the Trash's
+Delete and a draft removed on a kept row that is another letter destroy
+nothing, and a landed draft refused on reopening is asked about again
+when removed, its copy not expunged; the vouching FETCH goes again on a
+new connection, and Gmail's id is not read off a torn-down one; a vouch
+that loses the race to the first page leaves the server's letter on the
+kept page and the list; a letter opened from a kept row is vouched for
+by its own FETCH, PEEK, and not asked about again; one from a proven
+row, or with nothing kept, is fetched byte for byte as before; a
+mismatched one shows nothing and writes nothing, whichever of the read
+mark and the FETCH is asked first, the second refused with nothing sent;
+a server without the extension neither opens nor writes a kept row; with
+the copy thrown away by another mailbox under the same numbers and the
+kept rows still shown under his ticks, Edit mode's Mark and Delete, the
+pane's Flag and a letter opened write and show nothing, only the row the
+fresh page lacks asked about, and the fresh page then shows the server's
+letters; a write naming a kept row's letter under a UID the fresh page
+has as another letter sends nothing at all, a Mark, a Flag, a Move and a
+Delete; one under a UID it lacks is asked once and writes nothing; the
+same two for a letter opened, in the pane and in Drafts' composer; a tap
+right after the listing has thrown the copy away, before the swap, is
+refused, and the pane's Flag on a kept letter after the swap leaves the
+server's row as it is; in the copy's own mailbox, a kept row pushed off
+the fresh page by new mail is asked about once, before Edit mode's Mark
+and the pane's Flag under his ticks, in its own FETCH when opened, and
+before the Flag from a conversation opened at launch after the swap, and
+a kept row the page has sends the STORE alone; writes and letters
+opened on rows from the first page, a conversation, a page below, a day, a
+search, the watch, All Mail's copy of an Inbox row, the Trash and Drafts
+send exactly what they did (the same test passes on master, 5bacbda, its
+calls naming nothing); a write naming no letter, and a server without the
+extension, go as they did; a renumbered folder forgets what its old
+numbers named; a folder listed before the LIST is counted as Gmail counts
+it, and kept so; a launch with a copy sends the commands a launch without one
 sends; nothing kept reaches the log. In `MailShelfTests`: a file of another
 format, one cut off and one not JSON are nothing kept and deleted; a saved
 password wipes `Kept/`, leaves the letters in `Local Drafts/`, and ends the
@@ -4063,13 +4142,18 @@ repository's command sequences build it with a shelf, as the app always
 has one (`KeptShelves`): `RepositoryWireTests`, `RepositoryTrafficTests`,
 `ComingBackTests`, `NewMailTests`, `ArrivingMailTests`,
 `MailboxAtomicityTests`, the pane's, the drafts', the Outbox's and the
-rest. Each of these fails with its part undone in a scratch copy, one
-sabotage at a time, each failing the test named for it. Thirty in the first
-build: no page kept, every page kept, the read mark not kept, the flag kept
-before the server's OK, a binned letter left on other pages, a flag not
-kept on the same letter elsewhere, no discard for a new UIDVALIDITY or for
-another message id, the previews not carried to the kept page, the list
-carrying them whatever the message id, no vouching, a mismatch written
+rest. Where they have a row at hand its writes and its letter opened name
+the row's Gmail message id, as the app's do (`NamingTheLetter`); only a
+draft reopened by the id its upload gave it, a letter taken by its UID with
+no row, and the one test of a write naming no letter on Gmail's rows name
+none (`NamingNoLetter`). A row listed from a server without the extension
+has no id to name. Each of these fails with its part undone in a scratch
+copy, one sabotage at a time, each failing the test named for it. Thirty in
+the first build: no page kept, every page kept, the read mark not kept, the
+flag kept before the server's OK, a binned letter left on other pages, a
+flag not kept on the same letter elsewhere, no discard for a new UIDVALIDITY
+or for another message id, the previews not carried to the kept page, the
+list carrying them whatever the message id, no vouching, a mismatch written
 anyway, vouching after the mailbox is proven or twice for one row, the pane
 putting a mismatched row back, a wipe that removes nothing or leaves the
 running shelf keeping, another format read, a bad file left on disk,
@@ -4094,7 +4178,29 @@ Trash or a draft removed left on its page, a move to Spam left on All
 Mail's, a move out of All Mail taken off it, a disowned row left hidden
 after the next listing, a day jumped to still the kept page, the vouch not
 retried, and the flag not held. One after the iPad: the kept counts left at
-the last sweep's (`MailShelfTests`).
+the last sweep's (`MailShelfTests`). Thirteen for every write and every
+open naming its letter: the row's id ignored; another letter under the
+UID asked about rather than refused; a UID named nothing yet taken as
+vouched once its folder has been listed; the server's answer not
+remembered; only a matching answer remembered; the pane editing the
+list's row whatever letter it is; no row remembered, which fails eleven
+of the pane's tests too, their pinned wire gaining a FETCH; only a
+listing from the top remembered, which fails the page below, the day, the
+search hit, the watch's letter and All Mail's copy; a write naming no
+letter never asked, or asked whenever its UID is unnamed; a new
+UIDVALIDITY keeping the old letters; the proven mailbox still trusted for
+a named letter; and the pane naming no letter. Three of them run again
+once the suites named their rows: the proven mailbox trusted for a named
+letter the server has named nothing under fails the test of kept rows
+pushed off the fresh page at each of its four questions, and five others;
+no row remembered fails thirty of the pane's and the wire suites' tests
+where it failed eleven, their pinned wire gaining a FETCH; and another
+letter under the UID asked about rather than refused fails the letter
+opened from a kept row that is another letter, which pins the two FETCHes
+the app sends where it pinned four. And a disowned row forgotten, which no
+test caught once a tap's read mark and FETCH named their letter, fails a
+landed draft refused on reopening and then removed, its copy's EXPUNGE
+sent unasked onto the other draft.
 
 **Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
 was merged; force-quit is the app sent to the background, then ended:
@@ -4129,3 +4235,8 @@ was merged; force-quit is the app sent to the background, then ended:
 Not tried yet, and in the TODO: the swap under a finger, scrolled or under
 ticks, the page lands too soon on Wi-Fi to be caught by hand; a flag in the
 first second; a letter tapped with no connection; the password saved again.
+
+**Every write and every open naming its letter, built 2026-09-30, not yet
+seen on the iPad.** The TODO says what to look at. The case it closes, a
+copy from another mailbox, cannot be made on his mailbox by hand, and is
+seen only on the scripted server.

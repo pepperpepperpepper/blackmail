@@ -22,7 +22,8 @@ import Foundation
 /// UIDVALIDITY the UIDs came from (B-039). This actor keeps no record of what
 /// is selected, because a record kept on this side of the gate is exactly
 /// what went stale. Its job is narrower: turning ids into UIDVALIDITY and UID
-/// and back, and the snapshots and search sessions that paging walks.
+/// and back, the snapshots and search sessions that paging walks, and which
+/// letter the server has named under each UID in this launch (`seen`).
 actor IMAPMailRepository: MailRepository {
 
     private let account: MailAccount
@@ -68,6 +69,32 @@ actor IMAPMailRepository: MailRepository {
     /// than re-issuing SEARCH ALL for every page. See `listMessages`, and
     /// `snapshot(of:client:)` for when it is thrown away.
     private var uidListing: [String: IMAPMailboxUIDs] = [:]
+
+    /// Gmail's id for the letter under each UID of each folder, as the
+    /// server has named it in this launch: in every row it has sent, from
+    /// whichever listing, page, day, search or check for news (`rows`), and
+    /// in every answer to a question about a row it had not sent
+    /// (`settle`). By folder name, under the UIDVALIDITY it was named in;
+    /// a new one forgets the folder's (`saw`).
+    ///
+    /// What a write, or a letter opened, that names its row's Gmail message
+    /// id is decided by (`question`): where the server has named that
+    /// letter under the row's UID in this launch it goes as it always did,
+    /// where it has named another it goes nowhere, and where it has named
+    /// none yet the server is asked. It used to be decided by whether the
+    /// folder had been listed, which is not the same. The folder's page kept
+    /// on the iPad (D-016) is still drawn after a listing has thrown it
+    /// away, while the fresh page waits for a finger to lift or for his
+    /// ticks to go (`KeptSwap`), and in the moment before the swap reaches
+    /// the screen, and a write on one of those rows went unasked, onto
+    /// whatever letter this mailbox has under that UID.
+    private var seen: [String: SeenLetters] = [:]
+
+    /// One folder's part of `seen`.
+    private struct SeenLetters {
+        let validity: UInt32
+        var letters: [UInt32: UInt64] = [:]
+    }
 
     /// The copy of his mail kept on the iPad (D-016): each folder's newest
     /// page as a listing from the top gives it, the folder list from every
@@ -997,11 +1024,18 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// The addresses it notes are written out once, when the page is done,
     /// and not once per address. See `RecipientBook.note`.
+    ///
+    /// Every row on its way to the screen passes here, and the Gmail id
+    /// each carries is what this launch has seen under its UID (`seen`), so
+    /// a write on it, or its letter opened, goes as it always did.
     private func rows(from fetched: [IMAPFetchResult], in mailboxID: String, name: String,
                       validity: UInt32) -> [MessageSummary] {
         defer { recipients.flush() }
+        var named: [UInt32: UInt64] = [:]
+        defer { saw(named, validity: validity, in: name) }
         return fetched.compactMap { r -> MessageSummary? in
             guard let uid = r.uid else { return nil }
+            if let letter = r.gmailMessageID { named[uid] = letter }
             let env = r.envelope
             // Harvested here because it is FREE here. The list already asks
             // for ENVELOPE to draw a row, so every address he corresponds
@@ -1288,28 +1322,29 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - One message
 
-    func loadMessage(id: String, mailboxID: String) async throws -> Message {
+    func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message {
         try await retryingIfDisconnected {
-            try await self.loadMessageOnce(id: id, mailboxID: mailboxID)
+            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID)
         }
     }
 
-    private func loadMessageOnce(id: String, mailboxID: String) async throws -> Message {
+    private func loadMessageOnce(id: String, letter: UInt64?, mailboxID: String) async throws -> Message {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
 
         let raw: Data
-        if let kept = shelf?.unproven(id, in: name) {
-            // A row kept on the iPad, opened before this launch has shown the
-            // server to be the mailbox it was kept from: the FETCH that
-            // brings the letter asks for its Gmail message id as well, and
-            // nothing of it is shown, or kept for a Forward, unless the id is
-            // the kept row's (D-016). Every other letter's FETCH is as it
-            // always was.
+        if let asked = try question(about: id, named: letter, uid: message.uid,
+                                    validity: message.validity, in: name, sayingSo: "nothing-shown") {
+            // A row this launch has not had from the server, a row kept on
+            // the iPad above all: the FETCH that brings the letter asks for
+            // its Gmail message id as well, and nothing of it is shown, or
+            // kept for a Forward, unless the id is the row's (D-016). Every
+            // other letter's FETCH is as it always was.
             let answer = try await client.fetchBodyNamingLetter(uid: message.uid, in: name,
                                                                 validity: message.validity)
-            try settle(answer.letter, askedOf: id, keptAs: kept, in: name, sayingSo: "nothing-shown")
+            try settle(answer.letter, askedOf: id, uid: message.uid, validity: message.validity,
+                       as: asked, in: name, sayingSo: "nothing-shown")
             raw = answer.raw
         } else {
             raw = try await client.fetchBody(uid: message.uid, section: nil,
@@ -1379,69 +1414,125 @@ actor IMAPMailRepository: MailRepository {
         return rfc2822.date(from: s) ?? rfc2822NoDay.date(from: s)
     }
 
-    // MARK: - Vouching for a row kept on the iPad
+    // MARK: - Vouching for a row
 
-    /// Before a write on a row kept on the iPad from an earlier launch, made
-    /// before anything in this one has shown the server to be the mailbox
-    /// the copy was kept from (`MailShelf.unproven`): one `UID FETCH` of the
-    /// row's Gmail message id (D-016). The same id as the kept row's and the
-    /// write goes; any other, or none, and nothing is sent, the row leaves
-    /// the kept page, and the caller is told (`MailShelf.NotTheKeptLetter`),
-    /// so the list takes it off too (`PaneActions.notTheKeptLetter`).
+    /// Before a write on a row: the Gmail message id it names, `letter`,
+    /// held against what the server has named under its UID in this launch
+    /// (`question`). The same letter, and the write goes as it always did;
+    /// another, and neither the write nor a question goes (only what the
+    /// write's caller sent ahead of it: a NOOP after a quiet spell, B-024,
+    /// or the LOGIN a connection needs). Nothing named there yet, and one
+    /// `UID FETCH` of the id there goes first (D-016), in the same hold as
+    /// its SELECT and UIDVALIDITY check (B-039): the row's own, and the
+    /// write goes; any other, or none, and it is not sent. Refused, the row
+    /// leaves the kept page, and the caller is told
+    /// (`MailShelf.NotTheKeptLetter`), so the list takes it off too
+    /// (`PaneActions.notTheKeptLetter`).
     ///
-    /// A kept row is the server's word of an earlier launch, and a UID means
-    /// nothing without the mailbox it came from: Gmail gives every Inbox
-    /// UIDVALIDITY 1, and the app-password trap (B-033) can open another
-    /// mailbox under his address, where the same UID is another letter. In
-    /// practice this is a tap in the first seconds after launch, before the
-    /// Inbox's first page has landed, which proves the rest by itself.
+    /// A row this launch has not had is one kept on the iPad from an
+    /// earlier launch, the server's word of then, and a UID means nothing
+    /// without the mailbox it came from: Gmail gives every Inbox UIDVALIDITY
+    /// 1, and the app-password trap (B-033) can open another mailbox under
+    /// his address, where the same UID is another letter. In practice it is
+    /// a tap in the first second of a folder opened, before its first page
+    /// has landed; one on a kept row still drawn after that page has thrown
+    /// the copy away (`seen`); and, in the copy's own mailbox, one on a kept
+    /// row the page lacks, pushed off it by new mail, made while the swap
+    /// waits for his ticks or a lifted finger, or from a conversation opened
+    /// from the kept page at launch. The Inbox's listing, which shows the
+    /// copy to be this mailbox's, used to let that last go unasked; asking
+    /// is the safer, and costs one round trip a row, once.
     ///
     /// A read, retried into a new connection as reads are; the write's own
-    /// rules are untouched. Nothing for any other row, and nothing on a
-    /// server without Gmail's extension, where the UIDVALIDITY the write
-    /// names is what tells. A letter opened from a kept row is vouched for
-    /// by the FETCH that brings it (`loadMessageOnce`), by the same rules.
-    private func vouch(for id: String, uid: UInt32, validity: UInt32,
+    /// rules are untouched. A letter opened is vouched for by the FETCH that
+    /// brings it (`loadMessageOnce`), by the same rules.
+    private func vouch(for id: String, named letter: UInt64?, uid: UInt32, validity: UInt32,
                        in name: String) async throws {
-        guard let kept = shelf?.unproven(id, in: name) else { return }
+        guard let asked = try question(about: id, named: letter, uid: uid, validity: validity,
+                                       in: name, sayingSo: "nothing-sent") else { return }
         let found = try await retryingIfDisconnected {
             try await self.connected().gmailMessageID(uid: uid, in: name, validity: validity)
         }
-        try settle(found, askedOf: id, keptAs: kept, in: name, sayingSo: "nothing-sent")
+        try settle(found, askedOf: id, uid: uid, validity: validity, as: asked, in: name,
+                   sayingSo: "nothing-sent")
     }
 
-    /// What the server has said the kept row `id` is, `found`, against the
-    /// Gmail message id it was kept with. The same, and the row is vouched
-    /// for and not asked about again. Another, or none, and the caller is
-    /// told (`MailShelf.NotTheKeptLetter`) and goes no further, the row
-    /// leaves the kept page, and the connection log says so in the folder's
-    /// name and `note` alone.
+    /// The Gmail message id the server is to be asked for under the row
+    /// `id` before a write on it goes, or its letter is shown: nil when
+    /// nothing is to be asked. Throws `MailShelf.NotTheKeptLetter`, with
+    /// nothing sent, when this launch has had another letter from the
+    /// server under its UID.
+    ///
+    /// `letter` is the Gmail message id of the row he acted on
+    /// (`MessageSummary.gmailMessageID`), and decides it exactly, whatever
+    /// has landed and whatever has not yet reached the screen: the server
+    /// has named that letter under the UID in this launch, and nothing is
+    /// asked; it has named another, and the row is not that letter; it has
+    /// named none, and it is asked, for `letter`. A call naming no letter,
+    /// for a row from a server without Gmail's extension, a draft drawn
+    /// from what went up or a draft removed, goes by the kept copy's own
+    /// rule (`MailShelf.unproven`), as every call did before they named
+    /// their letters.
+    private func question(about id: String, named letter: UInt64?, uid: UInt32, validity: UInt32,
+                          in name: String, sayingSo note: String) throws -> UInt64? {
+        guard let letter else { return shelf?.unproven(id, in: name) }
+        guard let known = seen[name], known.validity == validity,
+              let there = known.letters[uid] else { return letter }
+        guard there == letter else { throw disowned(id, as: letter, in: name, sayingSo: note) }
+        return nil
+    }
+
+    /// What the server has said the row `id` is, `found`, against the Gmail
+    /// message id it was asked for as, `asked`. The same, and the row is
+    /// vouched for and not asked about again. Another, or none, and the
+    /// caller is told (`MailShelf.NotTheKeptLetter`) and goes no further.
+    /// Either way what the server named is what this launch has seen under
+    /// the UID (`seen`).
     ///
     /// Whatever has landed while the question was out. The launch's
     /// listing can come meanwhile and throw the copy away, the row under
     /// that id is then the server's own letter, and it stays
     /// (`MailShelf.refuse`); but the write, or the opening, was made on the
     /// kept row, and the server has just said the UID names another letter.
-    private func settle(_ found: UInt64?, askedOf id: String, keptAs kept: UInt64,
-                        in name: String, sayingSo note: String) throws {
-        guard found == kept else {
-            shelf?.refuse(id, in: name, keptAs: kept)
-            Diagnostics.log(.note, "KEPT-UNVOUCHED folder=\(name) \(note)")
-            throw MailShelf.NotTheKeptLetter()
-        }
+    private func settle(_ found: UInt64?, askedOf id: String, uid: UInt32, validity: UInt32,
+                        as asked: UInt64, in name: String, sayingSo note: String) throws {
+        if let found { saw([uid: found], validity: validity, in: name) }
+        guard found == asked else { throw disowned(id, as: asked, in: name, sayingSo: note) }
         shelf?.vouched(id, in: name)
+    }
+
+    /// The row `id`, drawn as the letter `letter`, is not that letter: it
+    /// leaves the kept page if it is still there as that letter, and the
+    /// connection log says so in the folder's name and `note` alone.
+    private func disowned(_ id: String, as letter: UInt64, in name: String,
+                          sayingSo note: String) -> MailShelf.NotTheKeptLetter {
+        shelf?.refuse(id, in: name, keptAs: letter)
+        Diagnostics.log(.note, "KEPT-UNVOUCHED folder=\(name) \(note)")
+        return MailShelf.NotTheKeptLetter()
+    }
+
+    /// The server has named these letters under these UIDs of `name`, in
+    /// its `validity`. A new UIDVALIDITY forgets what was seen under the
+    /// last: every UID then names another letter now, or none.
+    private func saw(_ letters: [UInt32: UInt64], validity: UInt32, in name: String) {
+        var folder = seen[name] ?? SeenLetters(validity: validity)
+        if folder.validity != validity { folder = SeenLetters(validity: validity) }
+        folder.letters.merge(letters) { _, now in now }
+        seen[name] = folder
     }
 
     // MARK: - Flags
 
     /// Kept on the iPad once the server has it, on the letter wherever it
     /// is kept (`MailShelf.read`); not if the server refuses.
-    func setRead(_ read: Bool, id: String, mailboxID: String) async throws {
+    func setRead(_ read: Bool, id: String, gmailMessageID: UInt64?,
+                 mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
-        try await vouch(for: id, uid: message.uid, validity: message.validity, in: name)
+        try await vouch(for: id, named: gmailMessageID, uid: message.uid,
+                        validity: message.validity, in: name)
         try await sendingOnce {
             try await client.store(uid: message.uid, flag: "\\Seen", set: read,
                                    in: name, validity: message.validity)
@@ -1449,12 +1540,14 @@ actor IMAPMailRepository: MailRepository {
         shelf?.read(read, id: id, in: name)
     }
 
-    func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
+    func setFlagged(_ flagged: Bool, id: String, gmailMessageID: UInt64?,
+                    mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
-        try await vouch(for: id, uid: message.uid, validity: message.validity, in: name)
+        try await vouch(for: id, named: gmailMessageID, uid: message.uid,
+                        validity: message.validity, in: name)
         try await sendingOnce {
             try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
                                    in: name, validity: message.validity)
@@ -1464,14 +1557,16 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - Moving and deleting
 
-    func move(_ id: String, from sourceMailboxID: String, to destinationMailboxID: String) async throws {
+    func move(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
+              to destinationMailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
         let source = try await resolve(sourceMailboxID)
         let destination = try await resolve(destinationMailboxID)
         guard source != destination else { return }
         let message = try Self.parseID(id)
-        try await vouch(for: id, uid: message.uid, validity: message.validity, in: source)
+        try await vouch(for: id, named: gmailMessageID, uid: message.uid,
+                        validity: message.validity, in: source)
         try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
                                   to: destination)
@@ -1497,7 +1592,7 @@ actor IMAPMailRepository: MailRepository {
     /// in Trash moved it to Trash again and it reappeared at the top of the
     /// list. Here the destination is resolved from the \Trash special-use
     /// attribute, and deleting inside Trash marks \Deleted instead.
-    func delete(_ id: String, from mailboxID: String) async throws {
+    func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
         let source = try await resolve(mailboxID)
@@ -1509,7 +1604,8 @@ actor IMAPMailRepository: MailRepository {
 
         if source == trash {
             let message = try Self.parseID(id)
-            try await vouch(for: id, uid: message.uid, validity: message.validity, in: source)
+            try await vouch(for: id, named: gmailMessageID, uid: message.uid,
+                            validity: message.validity, in: source)
             try await sendingOnce {
                 try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
                                        in: source, validity: message.validity)
@@ -1517,7 +1613,7 @@ actor IMAPMailRepository: MailRepository {
             shelf?.gone(id, from: source)
             return
         }
-        try await move(id, from: mailboxID, to: trash)
+        try await move(id, gmailMessageID: gmailMessageID, from: mailboxID, to: trash)
     }
 
     // MARK: - Sending
@@ -1848,7 +1944,14 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(try await draftsFolder())
         let draft = try Self.parseID(id)
-        try await vouch(for: id, uid: draft.uid, validity: draft.validity, in: name)
+        // Named by no row: the copy a draft was reopened from, or one put
+        // in Drafts or found there, which within one launch was vouched
+        // for as it opened or is this launch's own. The kept copy's own
+        // rule covers it (`question`). A copy named by a letter kept in
+        // Local Drafts from an earlier launch is not covered: after a
+        // password save that opens another mailbox under the same address
+        // (B-033), its folder and UID can name another draft (B-051).
+        try await vouch(for: id, named: nil, uid: draft.uid, validity: draft.validity, in: name)
         // Expunged, not moved to Trash. Now that an "All Mailboxes" search
         // reaches the Trash, a superseded draft binned rather than removed
         // would come back as a hit for every half-finished sentence he ever
@@ -1864,8 +1967,9 @@ actor IMAPMailRepository: MailRepository {
     /// Without the signature's pictures among its files: `saveDraft` stored
     /// them only so the markup resolves, and saving or sending adds them
     /// again. See `Draft.reopening` (B-046).
-    func loadDraft(id: String, mailboxID: String) async throws -> Draft {
-        let message = try await loadMessage(id: id, mailboxID: mailboxID)
+    func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
+        let message = try await loadMessage(id: id, gmailMessageID: gmailMessageID,
+                                            mailboxID: mailboxID)
         return Draft.reopening(message, signatureImages: signatureImages())
     }
 

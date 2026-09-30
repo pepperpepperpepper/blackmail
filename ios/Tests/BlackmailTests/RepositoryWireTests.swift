@@ -137,7 +137,7 @@ final class RepositoryWireTests: XCTestCase {
 
         // One letter, whole. Letter 117 is unread and multipart/alternative.
         let target = rows[3]
-        let message = try await repository.loadMessage(id: target.id, mailboxID: "inbox")
+        let message = try await repository.open(target)
         XCTAssertEqual(message.subject, "Letter 117: dinner")
         XCTAssertEqual(message.senderAddress, "sam@example.com")
         XCTAssertEqual(message.messageID, "<letter-117@example.org>")
@@ -173,14 +173,14 @@ final class RepositoryWireTests: XCTestCase {
             try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 20)
         }
         let reply = try await expectingMailbox(Server.sent) {
-            try await repository.loadMessage(id: sent[0].id, mailboxID: Server.sent)
+            try await repository.open(sent[0])
         }
         XCTAssertEqual(reply.subject, sent[0].subject)
 
         // Back to the Inbox. The SELECT itself is logged against the mailbox
         // it left, which is what "selected at the time" means.
         let letter = try await expectingMailbox(Server.inbox) {
-            try await repository.loadMessage(id: inbox[2].id, mailboxID: "inbox")
+            try await repository.open(inbox[2])
         }
         XCTAssertEqual(letter.subject, inbox[2].subject)
         let reselect = server.log.last { $0.verb == "SELECT" }
@@ -188,7 +188,7 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(reselect?.selected, Server.sent)
 
         try await expectingMailbox(Server.inbox) {
-            try await repository.setRead(true, id: inbox[2].id, mailboxID: "inbox")
+            try await repository.setRead(true, on: inbox[2])
         }
         let readUID = Array(server.uids(in: Server.inbox).reversed())[2]
         XCTAssertTrue(server.flags(uid: readUID, in: Server.inbox).contains("\\Seen"))
@@ -205,7 +205,7 @@ final class RepositoryWireTests: XCTestCase {
         let doomedUID = Array(server.uids(in: Server.inbox).reversed())[4]
         let subject = try XCTUnwrap(server.letter(uid: doomedUID, in: Server.inbox)?.subject)
         try await expectingMailbox(Server.inbox) {
-            try await repository.delete(doomed.id, from: "inbox")
+            try await repository.delete(doomed)
         }
         XCTAssertEqual(server.log.last?.command, "UID MOVE \(doomedUID) \"[Gmail]/Trash\"")
         XCTAssertFalse(server.uids(in: Server.inbox).contains(doomedUID))
@@ -259,7 +259,7 @@ final class RepositoryWireTests: XCTestCase {
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
 
         await server.resetConnections()
-        let message = try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox")
+        let message = try await repository.open(rows[0])
 
         XCTAssertEqual(message.subject, rows[0].subject)
         XCTAssertEqual(server.connectionsOpened, 2)
@@ -424,7 +424,7 @@ final class RepositoryWireTests: XCTestCase {
         // the SELECT the refusal made necessary.
         server.refusedMailboxes = []
         let binned = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 5)
-        _ = try await repository.loadMessage(id: again[0].id, mailboxID: "inbox")
+        _ = try await repository.open(again[0])
         server.refusedMailboxes = [Server.trash]
         let mark = server.log.count
         let previews = try? await repository.previews(for: binned.map(\.id), in: Server.trash)
@@ -855,7 +855,7 @@ final class RepositoryWireTests: XCTestCase {
         server.isSilent = true
         do {
             _ = try await finishing(within: 1) {
-                try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox")
+                try await repository.open(rows[0])
             }
             XCTFail("a server that stopped answering cannot have sent a letter")
         } catch {
@@ -867,7 +867,7 @@ final class RepositoryWireTests: XCTestCase {
 
         server.isSilent = false
         let message = try await finishing {
-            try await repository.loadMessage(id: rows[1].id, mailboxID: "inbox")
+            try await repository.open(rows[1])
         }
         XCTAssertEqual(message.subject, rows[1].subject)
         XCTAssertEqual(server.connectionsOpened, 3)
@@ -931,10 +931,10 @@ final class RepositoryWireTests: XCTestCase {
         // it the server records the overlap (see tearDown) and the second
         // read fails at once, so a broken gate turns this red rather than
         // hanging the suite.
-        let tapped = rows[1].id
+        let tapped = rows[1]
         let message = try await finishing {
-            async let opened = repository.loadMessage(id: tapped, mailboxID: "inbox")
-            async let marked: Void = repository.setRead(true, id: tapped, mailboxID: "inbox")
+            async let opened = repository.open(tapped)
+            async let marked: Void = repository.setRead(true, on: tapped)
             try await marked
             return try await opened
         }
@@ -947,10 +947,10 @@ final class RepositoryWireTests: XCTestCase {
 
     func testAWriteIntoADeadSocketGoesOutOnceAndIsNotRepeatedOnANewConnection() async throws {
         let writes: [(verb: String, run: (IMAPMailRepository, MessageSummary) async throws -> Void)] = [
-            ("UID MOVE", { try await $0.delete($1.id, from: "inbox") }),
-            ("UID STORE", { try await $0.setRead(true, id: $1.id, mailboxID: "inbox") }),
-            ("UID STORE", { try await $0.setFlagged(true, id: $1.id, mailboxID: "inbox") }),
-            ("UID MOVE", { try await $0.move($1.id, from: "inbox", to: Server.sent) }),
+            ("UID MOVE", { try await $0.delete($1) }),
+            ("UID STORE", { try await $0.setRead(true, on: $1) }),
+            ("UID STORE", { try await $0.setFlagged(true, on: $1) }),
+            ("UID MOVE", { try await $0.move($1, to: Server.sent) }),
         ]
         for (verb, write) in writes {
             server = ScriptedIMAPServer()
@@ -988,7 +988,7 @@ final class RepositoryWireTests: XCTestCase {
         // NOOP, then the write.
         clock.advance(by: 91)
         server.clearLog()
-        try await repository.setRead(true, id: rows[0].id, mailboxID: "inbox")
+        try await repository.setRead(true, on: rows[0])
         XCTAssertEqual(server.log.map(\.verb), ["NOOP", "UID STORE"])
 
         // And on one that died while he was away. The NOOP finds it dead and,
@@ -997,7 +997,7 @@ final class RepositoryWireTests: XCTestCase {
         clock.advance(by: 91)
         await server.resetConnections()
         server.clearLog()
-        try await repository.setRead(false, id: rows[0].id, mailboxID: "inbox")
+        try await repository.setRead(false, on: rows[0])
         XCTAssertEqual(server.lostWrites.map(\.command), ["NOOP"])
         XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "NOOP", "SELECT", "UID STORE"])
         XCTAssertEqual(server.log.map(\.connection), [2, 2, 2, 2])
@@ -1010,7 +1010,7 @@ final class RepositoryWireTests: XCTestCase {
 
         clock.advance(by: 89)
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[0].id, mailboxID: "inbox")
+        try await repository.setFlagged(true, on: rows[0])
         XCTAssertEqual(server.log.map(\.verb), ["UID STORE"])
     }
 
@@ -1038,7 +1038,7 @@ final class RepositoryWireTests: XCTestCase {
         try await until { await repository.waitingForExchange == 2 }
 
         clock.advance(by: 91)
-        let flag = Task { try await repository.setFlagged(true, id: rows[0].id, mailboxID: "inbox") }
+        let flag = Task { try await repository.setFlagged(true, on: rows[0]) }
         try await until { await repository.waitingForExchange == 3 }
         server.holdReplies(to: "UID FETCH")
         await server.releaseReplies(to: "UID SEARCH")
@@ -1374,7 +1374,7 @@ final class RepositoryWireTests: XCTestCase {
         await server.resetConnections()
         server.renumber(Server.inbox, validity: 700_001, firstUID: 990)
         do {
-            _ = try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox")
+            _ = try await repository.open(rows[0])
             XCTFail("opened a letter by a UID from the old numbering")
         } catch {
             XCTAssertEqual(error as? MailError, .cannotConnect)

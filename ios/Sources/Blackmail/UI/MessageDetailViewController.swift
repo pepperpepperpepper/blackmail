@@ -237,7 +237,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 view.layoutIfNeeded()
                 renderNotice(PaneNotice.loading)
             },
-            fetch: { try await repository.loadMessage(id: summary.id, mailboxID: summary.mailboxID) },
+            fetch: {
+                try await repository.loadMessage(id: summary.id, gmailMessageID: summary.gmailMessageID,
+                                                 mailboxID: summary.mailboxID)
+            },
             // The page is built away from the main thread, and drawn only
             // if he is still on this letter when it is ready; see
             // `PaneLoads`.
@@ -328,7 +331,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 view.layoutIfNeeded()
                 renderConversation(entries)
             },
-            fetch: { try await repository.loadMessage(id: newest.id, mailboxID: newest.mailboxID) },
+            fetch: {
+                try await repository.loadMessage(id: newest.id, gmailMessageID: newest.gmailMessageID,
+                                                 mailboxID: newest.mailboxID)
+            },
             prepare: { m in (m, PanePage.stackBody(m)) },
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
@@ -371,7 +377,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         let repository = self.repository
-        loads.start({ try await repository.loadMessage(id: id, mailboxID: row.mailboxID) },
+        loads.start({ try await repository.loadMessage(id: id, gmailMessageID: row.gmailMessageID,
+                                                       mailboxID: row.mailboxID) },
                     prepare: { m in (m, PanePage.stackBody(m)) },
                     settle: { [weak self] result in
                         self?.settleBody(result, for: id, focus: focus)

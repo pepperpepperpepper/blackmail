@@ -9,8 +9,12 @@ import XCTest
 /// shelf in a directory of the test's own: what a launch draws before it has
 /// sent anything, with a connection and without; which listings replace a
 /// kept page and which writes patch it; the copy thrown away when it is not
-/// this mailbox's; a write on a kept row vouched for first; a launch that
-/// sends what it always did; and nothing kept in the log.
+/// this mailbox's; a write on a kept row vouched for first; every write and
+/// every letter opened naming its row's letter, so that a kept row still
+/// drawn after the copy is thrown away writes and shows nothing, one the
+/// fresh page lacks is asked about once, and a row this launch has brought
+/// goes as it always did; a launch that sends what it always did; and
+/// nothing kept in the log.
 ///
 /// The screens are UIKit and not on the host. What they do with the shelf
 /// is `ListOpening.kept`, `ListLetters`, `KeptSwap` and `UpdatedLine`, as
@@ -433,10 +437,10 @@ final class KeptCopyTests: XCTestCase {
         for letter in [unread, plain, moving, binned] { XCTAssertNotNil(inAllMail(letter)) }
 
         server.refusedVerbs = ["UID STORE", "UID MOVE", "UID COPY"]
-        _ = try? await repository.setRead(true, id: unread.id, mailboxID: "inbox")
-        _ = try? await repository.setFlagged(true, id: other.id, mailboxID: "inbox")
-        _ = try? await repository.move(moving.id, from: "inbox", to: Server.starred)
-        _ = try? await repository.delete(binned.id, from: "inbox")
+        _ = try? await repository.setRead(true, on: unread)
+        _ = try? await repository.setFlagged(true, on: other)
+        _ = try? await repository.move(moving, to: Server.starred)
+        _ = try? await repository.delete(binned)
         // The move and the delete's move are each refused twice, MOVE and
         // the COPY it falls back to.
         XCTAssertEqual(server.log.filter { $0.status == "NO" }.count, 6)
@@ -447,10 +451,10 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(shelf.page(of: "inbox")?.rows.map(\.id), inbox.map(\.id))
 
         server.refusedVerbs = []
-        try await repository.setRead(true, id: unread.id, mailboxID: "inbox")
-        try await repository.setFlagged(true, id: plain.id, mailboxID: "inbox")
-        try await repository.move(moving.id, from: "inbox", to: Server.starred)
-        try await repository.delete(binned.id, from: "inbox")
+        try await repository.setRead(true, on: unread)
+        try await repository.setFlagged(true, on: plain)
+        try await repository.move(moving, to: Server.starred)
+        try await repository.delete(binned)
 
         XCTAssertEqual(row(unread)?.isRead, true)
         XCTAssertEqual(inAllMail(unread)?.isRead, true)
@@ -527,12 +531,15 @@ final class KeptCopyTests: XCTestCase {
     // MARK: - Phase 1: a write on a kept row
 
     /// A tap on a kept row before the Inbox's first page has come: its read
-    /// mark goes after one `UID FETCH` of the row's Gmail message id, which
-    /// matches, and nothing more is asked of that row. Another kept row is
-    /// asked for in turn. Once the Inbox has been listed from the top and
-    /// found to be the mailbox the copy was kept from, a write on a row
-    /// kept from before goes as it always did, in the Inbox and in any
-    /// other folder kept.
+    /// mark, naming the row's letter as every write does, goes after one
+    /// `UID FETCH` of the row's Gmail message id, which matches, and nothing
+    /// more is asked of that row. Another kept row is asked for in turn.
+    /// Once the Inbox has been listed from the top, a write on a row it
+    /// brought goes as it always did. A row kept for All Mail, which nothing
+    /// in this launch has brought, is asked about once like any other kept
+    /// row, though the Inbox's listing has shown the copy to be this
+    /// mailbox's: what decides is whether the server has named the row's
+    /// letter under its UID in this launch.
     func testAnEarlyWriteOnAKeptRowIsVouchedForOnceBeforeItGoes() async throws {
         try await earlierLaunch(listing: [Server.allMail])
         let shelf = makeShelf()
@@ -541,26 +548,30 @@ final class KeptCopyTests: XCTestCase {
         let allMail = try XCTUnwrap(shelf.page(of: Server.allMail)).rows
         server.clearLog()
 
-        try await repository.setRead(true, id: rows[0].id, mailboxID: "inbox")
+        try await repository.setRead(true, on: rows[0])
         XCTAssertEqual(verbs, ["LOGIN", "NOOP", "LIST", "SELECT", "UID FETCH", "UID STORE"])
         XCTAssertEqual(command(4), "UID FETCH \(uid(rows[0].id)) (UID X-GM-MSGID)")
         XCTAssertTrue(server.flags(uid: uid(rows[0].id), in: Server.inbox).contains("\\Seen"))
 
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[0].id, mailboxID: "inbox")
+        try await repository.setFlagged(true, on: rows[0])
         XCTAssertEqual(verbs, ["UID STORE"], "vouched for once")
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[1].id, mailboxID: "inbox")
+        try await repository.setFlagged(true, on: rows[1])
         XCTAssertEqual(verbs, ["UID FETCH", "UID STORE"])
 
         _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         server.clearLog()
-        try await repository.setFlagged(true, id: rows[2].id, mailboxID: "inbox")
-        try await repository.delete(rows[3].id, from: "inbox")
+        try await repository.setFlagged(true, on: rows[2])
+        try await repository.delete(rows[3])
         XCTAssertEqual(verbs, ["UID STORE", "UID MOVE"], "the Inbox is listed: nothing to vouch for")
         server.clearLog()
-        try await repository.setFlagged(true, id: allMail[5].id, mailboxID: Server.allMail)
-        XCTAssertEqual(verbs, ["SELECT", "UID STORE"], "nor in All Mail, the same mailbox")
+        try await repository.setFlagged(true, on: allMail[5])
+        XCTAssertEqual(verbs, ["SELECT", "UID FETCH", "UID STORE"], "All Mail's, not yet brought")
+        XCTAssertEqual(command(1), "UID FETCH \(uid(allMail[5].id)) (UID X-GM-MSGID)")
+        server.clearLog()
+        try await repository.setFlagged(false, on: allMail[5])
+        XCTAssertEqual(verbs, ["UID STORE"], "and asked once")
         XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
     }
 
@@ -591,8 +602,8 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(list.shown.count, 49)
 
         server.clearLog()
-        for write in [{ try await repository.setRead(true, id: read.id, mailboxID: "inbox") },
-                      { try await repository.delete(deleted.id, from: "inbox") }] {
+        for write in [{ try await repository.setRead(true, on: read) },
+                      { try await repository.delete(deleted) }] {
             do {
                 try await write()
                 XCTFail("sent")
@@ -641,7 +652,7 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertTrue(drafts.contains(uid(draft.id)), "another draft under the kept UID")
         server.clearLog()
 
-        let deleted = await refusal { try await repository.delete(binned.id, from: Server.trash) }
+        let deleted = await refusal { try await repository.delete(binned) }
         XCTAssertEqual(deleted as? MailShelf.NotTheKeptLetter, Self.notKept)
         let removed = await refusal { try await repository.deleteDraft(draft.id) }
         XCTAssertEqual(removed as? MailShelf.NotTheKeptLetter, Self.notKept)
@@ -655,6 +666,39 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(server.uids(in: Server.trash), trash)
         XCTAssertEqual(trash.map { server.flags(uid: $0, in: Server.trash) }, trashFlags)
         XCTAssertEqual(server.uids(in: Server.drafts), drafts)
+    }
+
+    /// A landed draft reopened by its copy's folder and UID alone, naming
+    /// no letter (`openDraft`), on a kept Drafts row whose UID names
+    /// another draft now: refused, and the row leaves the kept page. The
+    /// copy removed after that names no letter either, and has no row left
+    /// on the page to be asked about by: it is asked about again as the
+    /// letter it was kept as (`MailShelf.unproven`), refused, and the draft
+    /// the server has under that UID is not expunged.
+    func testACopyRefusedOnReopeningIsAskedAboutAgainWhenRemovedAndNothingIsExpunged() async throws {
+        try await earlierLaunch(listing: [Server.drafts])
+        let first = try XCTUnwrap(server.uids(in: Server.drafts).first)
+        server.renumber(Server.drafts, validity: server.uidValidity(of: Server.drafts), firstUID: first + 2)
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        let draft = try XCTUnwrap(shelf.page(of: Server.drafts)).rows[0]
+        let drafts = server.uids(in: Server.drafts)
+        XCTAssertTrue(drafts.contains(uid(draft.id)), "another draft under the kept UID")
+        server.clearLog()
+
+        let reopened = await refusal { _ = try await repository.loadDraft(id: draft.id, mailboxID: Server.drafts) }
+        XCTAssertEqual(reopened as? MailShelf.NotTheKeptLetter, Self.notKept)
+        XCTAssertFalse(try XCTUnwrap(shelf.page(of: Server.drafts)).rows.contains { $0.id == draft.id })
+        let removed = await refusal { try await repository.deleteDraft(draft.id) }
+        XCTAssertEqual(removed as? MailShelf.NotTheKeptLetter, Self.notKept)
+
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
+                       ["UID FETCH \(uid(draft.id)) (UID X-GM-MSGID BODY.PEEK[])",
+                        "UID FETCH \(uid(draft.id)) (UID X-GM-MSGID)"])
+        XCTAssertFalse(server.log.contains { $0.verb == "EXPUNGE" })
+        XCTAssertEqual(server.uids(in: Server.drafts), drafts)
+        XCTAssertEqual(keptNotes, ["KEPT-UNVOUCHED folder=\(Server.drafts) nothing-shown",
+                                   "KEPT-UNVOUCHED folder=\(Server.drafts) nothing-sent"])
     }
 
     /// A launch with nothing kept, the first, and the first after a
@@ -671,8 +715,8 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(shelf.page(of: "inbox")?.rows.map(\.id), rows.map(\.id), "kept now")
         server.clearLog()
 
-        try await repository.setFlagged(true, id: rows[0].id, mailboxID: "inbox")
-        _ = try await repository.loadMessage(id: rows[1].id, mailboxID: "inbox")
+        try await repository.setFlagged(true, on: rows[0])
+        _ = try await repository.open(rows[1])
         XCTAssertEqual(server.log.map(\.command),
                        ["UID STORE \(uid(rows[0].id)) +FLAGS.SILENT (\\Flagged)",
                         "UID FETCH \(uid(rows[1].id)) (UID BODY.PEEK[])"])
@@ -698,10 +742,10 @@ final class KeptCopyTests: XCTestCase {
         let filed = try XCTUnwrap(allMail.first { $0.gmailMessageID != spammed.gmailMessageID })
         XCTAssertTrue(allMail.contains { $0.gmailMessageID == spammed.gmailMessageID })
 
-        try await repository.delete(trash[0].id, from: Server.trash)
+        try await repository.delete(trash[0])
         try await repository.deleteDraft(drafts[0].id)
-        try await repository.move(spammed.id, from: "inbox", to: Server.spam)
-        try await repository.move(filed.id, from: Server.allMail, to: Server.starred)
+        try await repository.move(spammed, to: Server.spam)
+        try await repository.move(filed, to: Server.starred)
         shelf.flush()
 
         for (label, kept) in [("now", shelf), ("relaunched", makeShelf())] {
@@ -730,7 +774,7 @@ final class KeptCopyTests: XCTestCase {
         await server.resetConnections()
         server.clearLog()
 
-        try await repository.setFlagged(true, id: row.id, mailboxID: "inbox")
+        try await repository.setFlagged(true, on: row)
         XCTAssertEqual(server.connectionsOpened, opened + 1, "one new connection")
         XCTAssertEqual(server.log.filter { $0.verb == "UID STORE" }.count, 1)
         XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.last?.command,
@@ -812,12 +856,12 @@ final class KeptCopyTests: XCTestCase {
 
     // MARK: - Phase 1: a letter opened from a kept row
 
-    /// A kept row opened before anything in this launch has shown the
-    /// server to be the mailbox the copy was kept from: the FETCH that
-    /// brings the letter asks for its Gmail message id beside the body, one
-    /// round trip as ever, and the letter is shown as the id matches. PEEK:
-    /// the FETCH marks nothing read. Vouched for, the row is not asked
-    /// about again, opened or written.
+    /// A kept row opened before anything in this launch has brought it
+    /// from the server, naming the row's letter as the reading pane does:
+    /// the FETCH that brings the letter asks for its Gmail message id beside
+    /// the body, one round trip as ever, and the letter is shown as the id
+    /// matches. PEEK: the FETCH marks nothing read. Vouched for, the row is
+    /// not asked about again, opened or written.
     func testALetterOpenedFromAKeptRowIsVouchedForByTheFetchThatBringsIt() async throws {
         try await earlierLaunch()
         let shelf = makeShelf()
@@ -826,7 +870,7 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertFalse(tapped.isRead)
         server.clearLog()
 
-        let letter = try await repository.loadMessage(id: tapped.id, mailboxID: "inbox")
+        let letter = try await repository.open(tapped)
         XCTAssertEqual(verbs, ["LOGIN", "LIST", "SELECT", "UID FETCH"])
         XCTAssertEqual(command(3), "UID FETCH \(uid(tapped.id)) (UID X-GM-MSGID BODY.PEEK[])")
         XCTAssertEqual(letter.subject, tapped.subject)
@@ -835,42 +879,46 @@ final class KeptCopyTests: XCTestCase {
                        "PEEK: the FETCH marks nothing read")
 
         server.clearLog()
-        _ = try await repository.loadMessage(id: tapped.id, mailboxID: "inbox")
-        try await repository.setRead(true, id: tapped.id, mailboxID: "inbox")
+        _ = try await repository.open(tapped)
+        try await repository.setRead(true, on: tapped)
         XCTAssertEqual(server.log.map(\.command),
                        ["UID FETCH \(uid(tapped.id)) (UID BODY.PEEK[])",
                         "UID STORE \(uid(tapped.id)) +FLAGS.SILENT (\\Seen)"])
         XCTAssertEqual(Diagnostics.entries.filter { $0.text.hasPrefix("KEPT-") }.map(\.text), [])
     }
 
-    /// Once the Inbox's listing has proven the mailbox, a letter opened
-    /// from a row kept from before is fetched byte for byte as every letter
-    /// is, and so is one opened with no copy kept at all: the wire does not
-    /// change for a row the server has vouched for.
+    /// A kept row the Inbox's listing has brought again, the same letter
+    /// under the same UID: a letter opened from it after the listing is
+    /// fetched byte for byte as every letter is, and so is one opened with
+    /// no copy kept at all, from a row that launch's own listing brought.
+    /// The wire does not change for a row the server has named in this
+    /// launch.
     func testALetterFromAProvenRowIsFetchedAsItAlwaysWas() async throws {
         try await earlierLaunch()
         let shelf = makeShelf()
         let repository = makeRepository(shelf: shelf)
         let kept = try XCTUnwrap(shelf.page(of: "inbox")).rows
-        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        XCTAssertEqual(first.first { $0.id == kept[4].id }?.gmailMessageID, kept[4].gmailMessageID)
         let plain = makeRepository()
-        _ = try await plain.folders()
+        let listed = try await plain.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         server.clearLog()
 
-        _ = try await repository.loadMessage(id: kept[4].id, mailboxID: "inbox")
-        _ = try await plain.loadMessage(id: kept[5].id, mailboxID: "inbox")
+        _ = try await repository.open(kept[4])
+        _ = try await plain.open(listed[5])
         XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.command),
                        ["UID FETCH \(uid(kept[4].id)) (UID BODY.PEEK[])",
-                        "UID FETCH \(uid(kept[5].id)) (UID BODY.PEEK[])"])
+                        "UID FETCH \(uid(listed[5].id)) (UID BODY.PEEK[])"])
     }
 
     /// Kept rows whose UIDs name other letters now, as in another mailbox
     /// under the same numbers. Opened, the FETCH says so and nothing of the
-    /// letter comes back, and the tap's read mark after it asks again and
-    /// writes nothing. The other way round, the read mark answered first
-    /// and the row gone from the kept page, the letter is still asked about
-    /// and not shown: a row the server has disowned is never taken for one
-    /// that was never kept.
+    /// letter comes back, and the tap's read mark after it is refused with
+    /// nothing sent, the server having named another letter under that
+    /// UID. The other way round, the read mark asked about first and
+    /// refused, the letter is refused too, and nothing of it is fetched:
+    /// a row the server has disowned is never taken for one that was never
+    /// kept, and is not asked about again.
     func testALetterOpenedFromAKeptRowThatIsAnotherLetterShowsNothingAndNothingIsWritten() async throws {
         try await earlierLaunch()
         server.renumber(Server.inbox, validity: server.uidValidity(of: Server.inbox), firstUID: 1_002)
@@ -881,21 +929,19 @@ final class KeptCopyTests: XCTestCase {
         let flags = [opened, readFirst].map { server.flags(uid: uid($0.id), in: Server.inbox) }
         server.clearLog()
 
-        let open = await refusal { _ = try await repository.loadMessage(id: opened.id, mailboxID: "inbox") }
+        let open = await refusal { _ = try await repository.open(opened) }
         XCTAssertEqual(open as? MailShelf.NotTheKeptLetter, Self.notKept)
-        let mark = await refusal { try await repository.setRead(true, id: opened.id, mailboxID: "inbox") }
+        let mark = await refusal { try await repository.setRead(true, on: opened) }
         XCTAssertEqual(mark as? MailShelf.NotTheKeptLetter, Self.notKept)
 
-        let first = await refusal { try await repository.setRead(true, id: readFirst.id, mailboxID: "inbox") }
+        let first = await refusal { try await repository.setRead(true, on: readFirst) }
         XCTAssertEqual(first as? MailShelf.NotTheKeptLetter, Self.notKept)
-        let then = await refusal { _ = try await repository.loadMessage(id: readFirst.id, mailboxID: "inbox") }
+        let then = await refusal { _ = try await repository.open(readFirst) }
         XCTAssertEqual(then as? MailShelf.NotTheKeptLetter, Self.notKept)
 
-        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.command),
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
                        ["UID FETCH \(uid(opened.id)) (UID X-GM-MSGID BODY.PEEK[])",
-                        "UID FETCH \(uid(opened.id)) (UID X-GM-MSGID)",
-                        "UID FETCH \(uid(readFirst.id)) (UID X-GM-MSGID)",
-                        "UID FETCH \(uid(readFirst.id)) (UID X-GM-MSGID BODY.PEEK[])"])
+                        "UID FETCH \(uid(readFirst.id)) (UID X-GM-MSGID)"])
         XCTAssertFalse(server.log.contains { $0.verb == "UID STORE" })
         XCTAssertEqual([opened, readFirst].map { server.flags(uid: uid($0.id), in: Server.inbox) }, flags)
         XCTAssertEqual(Diagnostics.entries.map(\.text).filter { $0.hasPrefix("KEPT-") },
@@ -908,9 +954,10 @@ final class KeptCopyTests: XCTestCase {
     }
 
     /// The copy kept from Gmail, and the server now without Gmail's
-    /// extension to ask: a kept row is vouched for by nothing, so a letter
-    /// opened from it shows nothing and a write on it goes nowhere, as the
-    /// write's vouching does, and nothing is fetched to find out.
+    /// extension to ask: a kept row names the letter it was kept as, as the
+    /// app's calls do, and the server can name none under its UID, so a
+    /// letter opened from it shows nothing and a write on it goes nowhere,
+    /// as the write's vouching does, and nothing is fetched to find out.
     func testAKeptRowOnAServerWithoutGmailsExtensionIsNeitherOpenedNorWritten() async throws {
         try await earlierLaunch()
         server.withheldCapabilities = ["X-GM-EXT-1"]
@@ -918,13 +965,569 @@ final class KeptCopyTests: XCTestCase {
         let repository = makeRepository(shelf: shelf)
         let rows = try XCTUnwrap(shelf.page(of: "inbox")).rows
         XCTAssertNotNil(rows[0].gmailMessageID)
+        XCTAssertNotNil(rows[1].gmailMessageID)
         server.clearLog()
 
-        let open = await refusal { _ = try await repository.loadMessage(id: rows[0].id, mailboxID: "inbox") }
+        let open = await refusal { _ = try await repository.open(rows[0]) }
         XCTAssertEqual(open as? MailShelf.NotTheKeptLetter, Self.notKept)
-        let flag = await refusal { try await repository.setFlagged(true, id: rows[1].id, mailboxID: "inbox") }
+        let flag = await refusal { try await repository.setFlagged(true, on: rows[1]) }
         XCTAssertEqual(flag as? MailShelf.NotTheKeptLetter, Self.notKept)
         XCTAssertEqual(verbs.filter { $0.hasPrefix("UID") }, [])
+    }
+
+    // MARK: - Phase 1: every write and every open names its letter
+
+    /// The kept Inbox, as an earlier launch left it, and a server that has
+    /// another mailbox under the same numbers, as the app-password trap can
+    /// open: every kept UID names the letter before its own now, and the
+    /// oldest kept UID is below the fresh page.
+    private func anotherMailboxUnderTheKeptNumbers(
+        listing others: [String] = []) async throws -> (MailShelf, IMAPMailRepository, [MessageSummary]) {
+        try await earlierLaunch(listing: others)
+        server.renumber(Server.inbox, validity: server.uidValidity(of: Server.inbox), firstUID: 1_002)
+        let shelf = makeShelf()
+        return (shelf, makeRepository(shelf: shelf), try XCTUnwrap(shelf.page(of: "inbox")).rows)
+    }
+
+    private var keptNotes: [String] {
+        Diagnostics.entries.map(\.text).filter { $0.hasPrefix("KEPT-") }
+    }
+
+    /// His ticks on the kept rows as the launch's first page lands from
+    /// another mailbox under the same numbers: the listing throws the copy
+    /// away and its page waits for the ticks to go (`OverKept`, `KeptSwap`),
+    /// so the kept rows are still what he sees and acts on. Edit mode's Mark
+    /// as Read and Delete, the reading pane's Flag and a letter opened each
+    /// name the kept row's letter, and write nothing and show nothing,
+    /// whether the fresh page has the row's UID or not; only the row it
+    /// lacks is asked about. The rows the Mark, the Flag and the letter
+    /// opened were refused on come off the list; Edit mode's Delete leaves
+    /// its row to the reload after it, as ever. When the ticks go, the
+    /// fresh page goes on with the server's letters under those ids.
+    @MainActor
+    func testADiscardWithTheKeptRowsStillShownWritesAndShowsNothingOnThem() async throws {
+        let (_, repository, kept) = try await anotherMailboxUnderTheKeptNumbers()
+        let list = ListLetters()
+        list.showKept(kept)
+        var over = OverKept()
+        XCTAssertTrue(over.fetch(showingKept: list.fromShelf, quietly: false))
+        let asked = list.askingAfresh()
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        over.came(first, asked: asked)
+        let ticked = KeptSwap.swap(atTop: true, searching: false, ticked: true, touching: false)
+        XCTAssertNil(over.landing(showingKept: list.fromShelf, ticked), "the page waits for his ticks")
+        XCTAssertEqual(list.shown.map(\.id), kept.map(\.id), "the kept rows are what he sees")
+        XCTAssertEqual(keptNotes, ["KEPT-DISCARDED folder=INBOX reason=msgid"])
+
+        let (marked, binned, flagged, opened) = (kept[0], kept[1], kept[2], kept[3])
+        let lacked = try XCTUnwrap(kept.last)
+        let onPage = Set(first.map(\.id))
+        XCTAssertTrue([marked, binned, flagged, opened].allSatisfy { onPage.contains($0.id) })
+        XCTAssertFalse(onPage.contains(lacked.id))
+        let refused = [marked, binned, flagged, opened, lacked]
+        let flags = refused.map { server.flags(uid: uid($0.id), in: Server.inbox) }
+        let trash = server.uids(in: Server.trash)
+        server.clearLog()
+
+        // Edit mode's Mark as Read, as `applyRead` makes it, and Delete.
+        for m in [marked, lacked] {
+            do {
+                try await repository.setRead(true, on: m)
+                XCTFail("marked")
+            } catch is MailShelf.NotTheKeptLetter {
+                PaneActions.notTheKeptLetter(m, list: list)
+            }
+        }
+        try? await repository.delete(binned)
+        // The reading pane's Flag, and a letter opened there.
+        let done = await PaneActions.run(.flag(true), on: flagged, inFolderWithRole: .inbox,
+                                         list: list, repository: repository, requestSweep: {})
+        XCTAssertFalse(done)
+        let open = await refusal { _ = try await repository.open(opened) }
+        XCTAssertEqual(open as? MailShelf.NotTheKeptLetter, Self.notKept)
+        PaneActions.notTheKeptLetter(opened, list: list)
+
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(lacked.id)) (UID X-GM-MSGID)"],
+                       "asked only of the row the fresh page lacks, and nothing written")
+        XCTAssertEqual(refused.map { server.flags(uid: uid($0.id), in: Server.inbox) }, flags)
+        XCTAssertEqual(server.uids(in: Server.trash), trash)
+        let taken = Set([marked, flagged, opened, lacked].map(\.id))
+        XCTAssertEqual(list.shown.map(\.id), kept.map(\.id).filter { !taken.contains($0) })
+        XCTAssertEqual(keptNotes.dropFirst(), ["KEPT-UNVOUCHED folder=INBOX nothing-sent",
+                                               "KEPT-UNVOUCHED folder=INBOX nothing-sent",
+                                               "KEPT-UNVOUCHED folder=INBOX nothing-sent",
+                                               "KEPT-UNVOUCHED folder=INBOX nothing-sent",
+                                               "KEPT-UNVOUCHED folder=INBOX nothing-shown"])
+
+        // Done: the fresh page goes on, the server's letters under the ids.
+        let unticked = KeptSwap.swap(atTop: true, searching: false, ticked: false, touching: false)
+        let fresh = try XCTUnwrap(over.landing(showingKept: list.fromShelf, unticked))
+        _ = list.fetchedAfresh(fresh.page, asked: fresh.asked)
+        XCTAssertEqual(list.shown.map(\.id), first.map(\.id))
+        for m in [marked, binned, flagged, opened] {
+            let theirs = try XCTUnwrap(list.letter(m.id))
+            XCTAssertEqual(theirs.gmailMessageID, server.gmailMessageID(uid: uid(m.id), in: Server.inbox))
+            XCTAssertNotEqual(theirs.gmailMessageID, m.gmailMessageID)
+        }
+    }
+
+    /// The fresh page landed from another mailbox under the same numbers,
+    /// and a write naming a kept row's letter under a UID the page has as
+    /// another letter: the Mark, the Flag, the Move and the Delete are each
+    /// refused at once, and nothing at all is sent, not even a question. The
+    /// server has named that UID's letter in this launch already. The
+    /// letters it has there are as they were, and stay on the kept page.
+    func testAWriteOnAKeptRowWhoseUIDTheFreshPageHasAsAnotherLetterSendsNothingAtAll() async throws {
+        let (shelf, repository, kept) = try await anotherMailboxUnderTheKeptNumbers()
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let rows = Array(kept.prefix(4))
+        for row in rows {
+            let theirs = try XCTUnwrap(first.first { $0.id == row.id })
+            XCTAssertNotEqual(theirs.gmailMessageID, row.gmailMessageID)
+        }
+        let flags = rows.map { server.flags(uid: uid($0.id), in: Server.inbox) }
+        let (trash, starred) = (server.uids(in: Server.trash), server.uids(in: Server.starred))
+        server.clearLog()
+
+        let writes: [(String, () async throws -> Void)] = [
+            ("mark", { try await repository.setRead(true, on: rows[0]) }),
+            ("flag", { try await repository.setFlagged(true, on: rows[1]) }),
+            ("move", { try await repository.move(rows[2], to: Server.starred) }),
+            ("delete", { try await repository.delete(rows[3]) }),
+        ]
+        for (label, write) in writes {
+            let refused = await refusal { try await write() }
+            XCTAssertEqual(refused as? MailShelf.NotTheKeptLetter, Self.notKept, label)
+        }
+        XCTAssertEqual(server.log.map(\.command), [], "nothing at all")
+        XCTAssertEqual(rows.map { server.flags(uid: uid($0.id), in: Server.inbox) }, flags)
+        XCTAssertEqual(server.uids(in: Server.trash), trash)
+        XCTAssertEqual(server.uids(in: Server.starred), starred)
+        XCTAssertEqual(keptNotes, ["KEPT-DISCARDED folder=INBOX reason=msgid"]
+                       + Array(repeating: "KEPT-UNVOUCHED folder=INBOX nothing-sent", count: 4))
+        XCTAssertEqual(shelf.page(of: "inbox")?.rows.map(\.id), first.map(\.id))
+        XCTAssertEqual(shelf.page(of: "inbox")?.rows.map(\.gmailMessageID), first.map(\.gmailMessageID))
+    }
+
+    /// The same, under a UID the fresh page does not have: one `UID FETCH`
+    /// of the Gmail message id there, which names another letter, and
+    /// nothing written. Asked once: a second write on the row is refused at
+    /// once, the server having named the letter under that UID.
+    func testAWriteOnAKeptRowWhoseUIDTheFreshPageLacksIsAskedAboutOnceAndWritesNothing() async throws {
+        let (_, repository, kept) = try await anotherMailboxUnderTheKeptNumbers()
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let row = try XCTUnwrap(kept.last)
+        XCTAssertFalse(first.contains { $0.id == row.id })
+        let there = try XCTUnwrap(server.gmailMessageID(uid: uid(row.id), in: Server.inbox))
+        XCTAssertNotEqual(there, row.gmailMessageID, "another letter under it")
+        let flags = server.flags(uid: uid(row.id), in: Server.inbox)
+        server.clearLog()
+
+        let flag = await refusal { try await repository.setFlagged(true, on: row) }
+        XCTAssertEqual(flag as? MailShelf.NotTheKeptLetter, Self.notKept)
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(row.id)) (UID X-GM-MSGID)"])
+        server.clearLog()
+        let mark = await refusal { try await repository.setRead(true, on: row) }
+        XCTAssertEqual(mark as? MailShelf.NotTheKeptLetter, Self.notKept)
+        XCTAssertEqual(server.log.map(\.command), [], "asked once")
+        XCTAssertEqual(server.flags(uid: uid(row.id), in: Server.inbox), flags)
+    }
+
+    /// The kept Inbox and Drafts, and another mailbox under the same
+    /// numbers in both, each listed afresh.
+    private func anotherMailboxWithDraftsListed() async throws
+        -> (repository: IMAPMailRepository, inbox: [MessageSummary], drafts: [MessageSummary],
+            fresh: (inbox: [MessageSummary], drafts: [MessageSummary])) {
+        let (shelf, repository, inbox) = try await anotherMailboxUnderTheKeptNumbers(listing: [Server.drafts])
+        let drafts = try XCTUnwrap(shelf.page(of: Server.drafts)).rows
+        let first = try XCTUnwrap(server.uids(in: Server.drafts).first)
+        server.renumber(Server.drafts, validity: server.uidValidity(of: Server.drafts), firstUID: first + 2)
+        let freshInbox = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let freshDrafts = try await repository.listMessages(in: Server.drafts, beforeUID: nil, limit: 50)
+        return (repository, inbox, drafts, (freshInbox, freshDrafts))
+    }
+
+    /// A letter opened from a kept row whose UID the fresh page has as
+    /// another letter, in the reading pane or in Drafts' composer: refused
+    /// at once, and nothing is fetched, not the letter under that UID nor
+    /// its id, so nothing of it can be shown, kept for a Forward or marked.
+    func testALetterOpenedFromAKeptRowWhoseUIDTheFreshPageHasAsAnotherLetterFetchesNothing() async throws {
+        let (repository, inbox, drafts, fresh) = try await anotherMailboxWithDraftsListed()
+        let (tapped, draft) = (inbox[1], drafts[0])
+        XCTAssertNotEqual(fresh.inbox.first { $0.id == tapped.id }?.gmailMessageID, tapped.gmailMessageID)
+        let there = try XCTUnwrap(fresh.drafts.first { $0.id == draft.id })
+        XCTAssertNotEqual(there.gmailMessageID, draft.gmailMessageID)
+        Diagnostics.clear()
+        server.clearLog()
+
+        let letter = await refusal { _ = try await repository.open(tapped) }
+        XCTAssertEqual(letter as? MailShelf.NotTheKeptLetter, Self.notKept)
+        let reopened = await refusal { _ = try await repository.reopen(draft) }
+        XCTAssertEqual(reopened as? MailShelf.NotTheKeptLetter, Self.notKept)
+        XCTAssertEqual(server.log.map(\.command), [], "nothing at all")
+        XCTAssertEqual(keptNotes, ["KEPT-UNVOUCHED folder=INBOX nothing-shown",
+                                   "KEPT-UNVOUCHED folder=\(Server.drafts) nothing-shown"])
+    }
+
+    /// The same, under a UID the fresh page does not have: the one FETCH
+    /// of the letter asks for its Gmail message id beside the body, PEEK,
+    /// and nothing of it is shown when the server names another letter
+    /// there, or, for the draft, none at all. No STORE goes.
+    func testALetterOpenedFromAKeptRowWhoseUIDTheFreshPageLacksIsAskedAboutByItsOwnFetch() async throws {
+        let (repository, inbox, drafts, fresh) = try await anotherMailboxWithDraftsListed()
+        let tapped = try XCTUnwrap(inbox.last)
+        let draft = try XCTUnwrap(drafts.last)
+        XCTAssertFalse(fresh.inbox.contains { $0.id == tapped.id })
+        XCTAssertFalse(fresh.drafts.contains { $0.id == draft.id })
+        XCTAssertNotNil(server.letter(uid: uid(tapped.id), in: Server.inbox), "another letter under it")
+        XCTAssertNil(server.letter(uid: uid(draft.id), in: Server.drafts), "no draft under it")
+        server.clearLog()
+
+        let letter = await refusal { _ = try await repository.open(tapped) }
+        XCTAssertEqual(letter as? MailShelf.NotTheKeptLetter, Self.notKept)
+        let reopened = await refusal { _ = try await repository.reopen(draft) }
+        XCTAssertEqual(reopened as? MailShelf.NotTheKeptLetter, Self.notKept)
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
+                       ["UID FETCH \(uid(tapped.id)) (UID X-GM-MSGID BODY.PEEK[])",
+                        "UID FETCH \(uid(draft.id)) (UID X-GM-MSGID BODY.PEEK[])"])
+    }
+
+    /// The launch's first page lands from another mailbox under the same
+    /// numbers and throws the copy away, and his tap on a kept row comes
+    /// right after, before the swap has reached the list, as does the
+    /// reading pane's Flag on another: each names the kept row's letter, is
+    /// refused at once with nothing sent, and its row comes off the list.
+    /// Once the fresh page is on the list the pane can still hold a kept
+    /// letter: its Flag is refused the same way, and the server's letter the
+    /// list now has under that id is left as it is, neither flagged nor
+    /// taken off.
+    @MainActor
+    func testAWriteNamingAKeptLetterRightAfterTheListingHasThrownTheCopyAwayIsRefused() async throws {
+        let (_, repository, kept) = try await anotherMailboxUnderTheKeptNumbers()
+        let list = ListLetters()
+        list.showKept(kept)
+        let (tapped, flagged, inPane) = (kept[0], kept[1], kept[2])
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+
+        // The tap's read mark, as `markReadIfNeeded` makes it.
+        list.reading(tapped.id, read: true)
+        let read = await refusal { try await repository.setRead(true, on: tapped) }
+        XCTAssertEqual(read as? MailShelf.NotTheKeptLetter, Self.notKept)
+        list.readAnswered(tapped.id, landed: false)
+        XCTAssertTrue(PaneActions.notTheKeptLetter(tapped, list: list))
+        let flagging = await PaneActions.run(.flag(true), on: flagged, inFolderWithRole: .inbox,
+                                             list: list, repository: repository, requestSweep: {})
+        XCTAssertFalse(flagging)
+        XCTAssertFalse(list.shown.contains { [tapped.id, flagged.id].contains($0.id) })
+        XCTAssertEqual(server.log.map(\.command), [])
+
+        _ = list.fetchedAfresh(first)
+        let theirs = try XCTUnwrap(list.letter(inPane.id))
+        XCTAssertNotEqual(theirs.gmailMessageID, inPane.gmailMessageID)
+        XCTAssertFalse(theirs.isFlagged)
+        let fromPane = await PaneActions.run(.flag(true), on: inPane, inFolderWithRole: .inbox,
+                                             list: list, repository: repository, requestSweep: {})
+        XCTAssertFalse(fromPane)
+        XCTAssertEqual(server.log.map(\.command), [])
+        XCTAssertEqual(list.letter(inPane.id)?.gmailMessageID, theirs.gmailMessageID)
+        XCTAssertEqual(list.letter(inPane.id)?.isFlagged, false, "the server's letter, not flagged")
+        XCTAssertEqual(list.shown.map(\.id), first.map(\.id), "and not taken off")
+        XCTAssertFalse(server.flags(uid: uid(inPane.id), in: Server.inbox).contains("\\Flagged"))
+    }
+
+    /// Once his rows come from this launch's listings, a write names the
+    /// row's letter and sends exactly what it always sent, and so does a
+    /// letter opened, whichever way the row came: the Inbox's first page
+    /// (a Mark, a Flag, a Move and a Delete), a conversation on it, a page
+    /// below, a day jumped to, a search hit, a letter the watch found, an
+    /// All Mailboxes hit from All Mail whose Inbox row is on the list, the
+    /// Trash (deleted there for good) and Drafts (reopened and removed).
+    /// Each row is one that way brought first, after a launch with a copy
+    /// kept, of All Mail's page too. The SELECTs follow the folder, as ever,
+    /// and are left out.
+    func testOrdinaryWritesAndOpensSendWhatTheyAlwaysDidWhicheverWayTheRowCame() async throws {
+        let newest = try XCTUnwrap(server.uids(in: Server.inbox).last
+            .flatMap { server.letter(uid: $0, in: Server.inbox) })
+        server.deliver(Server.Letter(from: Server.jane, to: [Server.owner], subject: "Re: " + newest.subject,
+                                     date: Server.newestDate.addingTimeInterval(600),
+                                     text: "Agreed.\r\n", flags: ["\\Seen"],
+                                     messageID: "<agreed@example.com>", inReplyTo: newest.messageID,
+                                     joins: newest.messageID),
+                       to: [Server.inbox, Server.allMail])
+        try await earlierLaunch(listing: [Server.allMail, Server.trash, Server.drafts])
+        let repository = makeRepository(shelf: makeShelf())
+        _ = try await repository.listMailboxes()
+        var brought: Set<String> = []
+        func firstBroughtBy(_ rows: [MessageSummary], file: StaticString = #filePath,
+                            line: UInt = #line) throws -> MessageSummary {
+            defer { brought.formUnion(rows.map(\.id)) }
+            return try XCTUnwrap(rows.first { !brought.contains($0.id) }, file: file, line: line)
+        }
+        func sent() -> [String] { server.log.filter { $0.verb != "SELECT" }.map(\.command) }
+        func opensAndFlagsAsEver(_ row: MessageSummary, _ label: String) async throws {
+            server.clearLog()
+            _ = try await repository.open(row)
+            try await repository.setFlagged(true, on: row)
+            XCTAssertEqual(sent(), ["UID FETCH \(uid(row.id)) (UID BODY.PEEK[])",
+                                    "UID STORE \(uid(row.id)) +FLAGS.SILENT (\\Flagged)"], label)
+        }
+
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        brought.formUnion(first.map(\.id))
+        try await opensAndFlagsAsEver(first[4], "the first page")
+        server.clearLog()
+        try await repository.setRead(true, on: first[5])
+        try await repository.move(first[6], to: Server.starred)
+        try await repository.delete(first[7])
+        XCTAssertEqual(sent(), ["UID STORE \(uid(first[5].id)) +FLAGS.SILENT (\\Seen)",
+                                "UID MOVE \(uid(first[6].id)) \"\(Server.starred)\"",
+                                "UID MOVE \(uid(first[7].id)) \"\(Server.trash)\""], "the first page")
+        let stack = try XCTUnwrap(MessageThread.rows(for: first, grouped: true)
+            .first { $0.messages.count == 2 })
+        try await opensAndFlagsAsEver(try XCTUnwrap(stack.messages.first { $0.id != stack.newest.id }),
+                                      "a conversation's earlier letter")
+
+        let below = try await repository.listMessages(in: "inbox", beforeUID: first.last?.id, limit: 50)
+        try await opensAndFlagsAsEver(try firstBroughtBy(below), "a page below")
+
+        let day = try XCTUnwrap(below.last?.date).addingTimeInterval(-15 * 86_400)
+        let window = try await repository.messages(around: day, in: "inbox", limit: 10)
+        try await opensAndFlagsAsEver(try firstBroughtBy(try XCTUnwrap(window).messages), "a day")
+
+        let hits = try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
+                                               beforeUID: nil, limit: 50)
+        try await opensAndFlagsAsEver(try firstBroughtBy(hits), "a search hit")
+
+        server.arrive(Server.Letter(from: Server.sam, to: [Server.owner], subject: "Just come",
+                                    date: Server.newestDate.addingTimeInterval(1_200),
+                                    text: "Hello.\r\n", messageID: "<just@example.com>"),
+                      in: [Server.inbox, Server.allMail])
+        let news = try await repository.news(in: "inbox", known: (first + below).map(\.id),
+                                             searchingAnyway: false)
+        try await opensAndFlagsAsEver(try firstBroughtBy(news.arrived), "a letter the watch found")
+
+        let everywhere = try await repository.search(in: "inbox", query: "tickets", scope: .allMailboxes,
+                                                     beforeUID: nil, limit: 50)
+        let twin = try XCTUnwrap(everywhere.first { hit in
+            hit.mailboxID == Server.allMail && !brought.contains(hit.id)
+                && first.contains { $0.gmailMessageID == hit.gmailMessageID }
+        })
+        brought.formUnion(everywhere.map(\.id))
+        try await opensAndFlagsAsEver(twin, "All Mail's copy of an Inbox row")
+
+        let trash = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        try await opensAndFlagsAsEver(trash[1], "the Trash")
+        server.clearLog()
+        try await repository.delete(trash[0])
+        XCTAssertEqual(sent(), ["UID STORE \(uid(trash[0].id)) +FLAGS.SILENT (\\Deleted)"], "the Trash")
+
+        let drafts = try await repository.listMessages(in: Server.drafts, beforeUID: nil, limit: 50)
+        server.clearLog()
+        _ = try await repository.reopen(drafts[0])
+        try await repository.deleteDraft(drafts[0].id)
+        XCTAssertEqual(sent(), ["UID FETCH \(uid(drafts[0].id)) (UID BODY.PEEK[])",
+                                "UID STORE \(uid(drafts[0].id)) +FLAGS.SILENT (\\Deleted)",
+                                "UID EXPUNGE \(uid(drafts[0].id))"], "Drafts")
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+        XCTAssertEqual(keptNotes, [])
+    }
+
+    /// The copy's own mailbox, with mail come since the copy was kept: the
+    /// launch's first page has the new letters on top, and the oldest kept
+    /// rows are not on it. The copy stays, and those rows are still drawn
+    /// while the page waits for his ticks or for a finger to lift
+    /// (`KeptSwap`), and in a conversation opened from the kept page before
+    /// the listing, which outlasts the swap. The server has named no letter
+    /// under their UIDs in this launch, so each is asked about once, at one
+    /// round trip: Edit mode's Mark and the pane's Flag send one `UID FETCH`
+    /// of the Gmail message id before the STORE, and a second write on the
+    /// row the STORE alone; a letter opened asks for the id in its own
+    /// FETCH; and the conversation's earlier letter, flagged after the swap,
+    /// is asked about first too. A kept row the page has sends the STORE
+    /// alone. The Inbox's listing, which showed the copy to be this
+    /// mailbox's, used to let all of them go unasked (`MailShelf.unproven`);
+    /// a call naming its letter goes by what the server has named under the
+    /// UID in this launch.
+    @MainActor
+    func testAKeptRowPushedOffTheFreshPageByNewMailIsAskedAboutOnce() async throws {
+        // A reply to the oldest letter the kept page will have beside it:
+        // a conversation on that page, its earlier letter at the bottom.
+        let before = server.uids(in: Server.inbox)
+        let earlier = try XCTUnwrap(server.letter(uid: before[before.count - 49], in: Server.inbox))
+        server.deliver(Server.Letter(from: Server.jane, to: [Server.owner], subject: "Re: " + earlier.subject,
+                                     date: Server.newestDate.addingTimeInterval(600),
+                                     text: "Agreed.\r\n", flags: ["\\Seen"],
+                                     messageID: "<agreed@example.com>", inReplyTo: earlier.messageID,
+                                     joins: earlier.messageID),
+                       to: [Server.inbox, Server.allMail])
+        try await earlierLaunch()
+        // Four letters come while the app is closed.
+        for n in 1...4 {
+            server.arrive(Server.Letter(from: Server.sam, to: [Server.owner], subject: "Come since \(n)",
+                                        date: Server.newestDate.addingTimeInterval(TimeInterval(600 + 600 * n)),
+                                        text: "Hello.\r\n", messageID: "<since-\(n)@example.org>"),
+                          in: [Server.inbox, Server.allMail])
+        }
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        let kept = try XCTUnwrap(shelf.page(of: "inbox")).rows
+        let stack = try XCTUnwrap(MessageThread.rows(for: kept, grouped: true)
+            .first { $0.messages.count == 2 })
+        let inConversation = try XCTUnwrap(stack.messages.first { $0.id != stack.newest.id })
+        XCTAssertEqual(inConversation.id, kept.last?.id)
+
+        // The conversation opened at launch, before the listing: its newest
+        // letter is asked about by its own FETCH, as it always was.
+        _ = try await repository.open(stack.newest)
+
+        let list = ListLetters()
+        list.showKept(kept)
+        var over = OverKept()
+        XCTAssertTrue(over.fetch(showingKept: list.fromShelf, quietly: false))
+        let asked = list.askingAfresh()
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        over.came(first, asked: asked)
+        XCTAssertEqual(keptNotes, [], "the same mailbox: the copy stays")
+        for (ticked, touching) in [(true, false), (false, true)] {
+            let held = KeptSwap.swap(atTop: true, searching: false, ticked: ticked, touching: touching)
+            XCTAssertNil(over.landing(showingKept: list.fromShelf, held), "the page waits")
+        }
+        XCTAssertEqual(list.shown.map(\.id), kept.map(\.id), "the kept rows are what he sees")
+        let onPage = Set(first.map(\.id))
+        let lacked = kept.filter { !onPage.contains($0.id) }
+        XCTAssertEqual(lacked.count, 4)
+        let (marked, flagged, opened) = (lacked[0], lacked[1], lacked[2])
+        XCTAssertEqual(lacked[3].id, inConversation.id)
+        let listed = try XCTUnwrap(kept.dropFirst(5).first { onPage.contains($0.id) })
+
+        // Edit mode's Mark as Unread under his ticks, as `applyRead` makes it.
+        server.clearLog()
+        XCTAssertTrue(marked.isRead)
+        try await repository.setRead(false, on: marked)
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(marked.id)) (UID X-GM-MSGID)",
+                                                   "UID STORE \(uid(marked.id)) -FLAGS.SILENT (\\Seen)"])
+
+        // The pane's Flag, and its Flag again: asked once.
+        server.clearLog()
+        let done = await PaneActions.run(.flag(true), on: flagged, inFolderWithRole: .inbox,
+                                         list: list, repository: repository, requestSweep: {})
+        XCTAssertTrue(done)
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(flagged.id)) (UID X-GM-MSGID)",
+                                                   "UID STORE \(uid(flagged.id)) +FLAGS.SILENT (\\Flagged)"])
+        server.clearLog()
+        try await repository.setFlagged(false, on: flagged)
+        XCTAssertEqual(server.log.map(\.command), ["UID STORE \(uid(flagged.id)) -FLAGS.SILENT (\\Flagged)"])
+
+        // A letter opened, its id asked in its own FETCH.
+        server.clearLog()
+        let letter = try await repository.open(opened)
+        XCTAssertEqual(letter.subject, opened.subject)
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(opened.id)) (UID X-GM-MSGID BODY.PEEK[])"])
+
+        // A kept row the fresh page has: the STORE alone.
+        server.clearLog()
+        try await repository.setFlagged(true, on: listed)
+        XCTAssertEqual(server.log.map(\.command), ["UID STORE \(uid(listed.id)) +FLAGS.SILENT (\\Flagged)"])
+
+        // The ticks go and the fresh page is on the list; the conversation
+        // opened at launch still has its earlier letter, and flags it.
+        let unticked = KeptSwap.swap(atTop: true, searching: false, ticked: false, touching: false)
+        let fresh = try XCTUnwrap(over.landing(showingKept: list.fromShelf, unticked))
+        _ = list.fetchedAfresh(fresh.page, asked: fresh.asked)
+        XCTAssertEqual(list.shown.map(\.id), first.map(\.id))
+        server.clearLog()
+        let fromConversation = await PaneActions.run(.flag(true), on: inConversation, inFolderWithRole: .inbox,
+                                                     list: list, repository: repository, requestSweep: {})
+        XCTAssertTrue(fromConversation)
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID FETCH \(uid(inConversation.id)) (UID X-GM-MSGID)",
+                        "UID STORE \(uid(inConversation.id)) +FLAGS.SILENT (\\Flagged)"])
+
+        XCTAssertFalse(server.flags(uid: uid(marked.id), in: Server.inbox).contains("\\Seen"))
+        XCTAssertTrue(server.flags(uid: uid(inConversation.id), in: Server.inbox).contains("\\Flagged"))
+        XCTAssertEqual(keptNotes, [])
+    }
+
+    /// A write or a letter opened that names no letter goes by the rules it
+    /// always did. On Gmail, a kept row before the Inbox's listing is asked
+    /// about by the id it was kept with, and after it a row kept for All
+    /// Mail is not, the mailbox having been shown to be the copy's
+    /// (`MailShelf.unproven`). On a server without Gmail's extension no row
+    /// has an id to name, kept or listed, and nothing is asked: the
+    /// UIDVALIDITY each write names is what tells, as it always was.
+    func testAWriteNamingNoLetterAndAServerWithoutGmailsExtensionGoAsTheyDid() async throws {
+        try await earlierLaunch(listing: [Server.allMail])
+        var shelf = makeShelf()
+        var repository = makeRepository(shelf: shelf)
+        let rows = try XCTUnwrap(shelf.page(of: "inbox")).rows
+        let allMail = try XCTUnwrap(shelf.page(of: Server.allMail)).rows
+        server.clearLog()
+        try await repository.setRead(true, id: rows[0].id, mailboxID: "inbox")
+        XCTAssertEqual(verbs, ["LOGIN", "NOOP", "LIST", "SELECT", "UID FETCH", "UID STORE"])
+        XCTAssertEqual(command(4), "UID FETCH \(uid(rows[0].id)) (UID X-GM-MSGID)")
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        try await repository.setFlagged(true, id: allMail[5].id, mailboxID: Server.allMail)
+        _ = try await repository.loadMessage(id: allMail[6].id, mailboxID: Server.allMail)
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
+                       ["UID STORE \(uid(allMail[5].id)) +FLAGS.SILENT (\\Flagged)",
+                        "UID FETCH \(uid(allMail[6].id)) (UID BODY.PEEK[])"], "Gmail, naming nothing")
+
+        server = ScriptedIMAPServer()
+        server.withheldCapabilities = ["X-GM-EXT-1"]
+        MailShelf.wipe(root: kept)
+        let before = try await earlierLaunch()
+        XCTAssertEqual(before.compactMap(\.gmailMessageID), [])
+        shelf = makeShelf()
+        repository = makeRepository(shelf: shelf)
+        let plain = try XCTUnwrap(shelf.page(of: "inbox")).rows
+        XCTAssertEqual(plain.compactMap(\.gmailMessageID), [], "kept with none")
+        server.clearLog()
+        _ = try await repository.open(plain[1])
+        try await repository.setFlagged(true, on: plain[1])
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
+                       ["UID FETCH \(uid(plain[1].id)) (UID BODY.PEEK[])",
+                        "UID STORE \(uid(plain[1].id)) +FLAGS.SILENT (\\Flagged)"], "a kept row")
+        let listed = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        _ = try await repository.open(listed[2])
+        try await repository.setRead(true, on: listed[2])
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID FETCH \(uid(listed[2].id)) (UID BODY.PEEK[])",
+                        "UID STORE \(uid(listed[2].id)) +FLAGS.SILENT (\\Seen)"], "a listed row")
+    }
+
+    /// A folder renumbered in this launch: what the server named under its
+    /// UIDs is forgotten with the numbering. A row under the new numbers
+    /// that no listing has brought yet is asked about, and goes once the
+    /// server names its letter there, rather than being refused on what the
+    /// old numbers said under the same UID. A row under the old numbers is
+    /// refused with nothing sent, by the UIDVALIDITY it names (B-039).
+    func testANewUIDValidityForgetsWhatTheOldNumbersNamed() async throws {
+        let repository = makeRepository(shelf: makeShelf())
+        _ = try await repository.folders()
+        let before = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let old = try XCTUnwrap(before.first)
+        // Renumbered while the connection was down, where a SELECT shows it.
+        await server.resetConnections()
+        server.renumber(Server.inbox, validity: 700_001, firstUID: 1_002)
+        let after = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 1)
+        XCTAssertEqual(after.map { uid($0.id) }, [uid(old.id) + 2], "the new newest, alone")
+        let there = try XCTUnwrap(server.gmailMessageID(uid: uid(old.id), in: Server.inbox))
+        XCTAssertNotEqual(there, old.gmailMessageID, "the old newest's UID names the letter before it")
+        let renumbered = MessageSummary(id: "700001/\(uid(old.id))", mailboxID: "inbox", sender: "",
+                                        subject: "", preview: "", date: old.date, isRead: true,
+                                        isFlagged: false, gmailMessageID: there)
+        server.clearLog()
+
+        try await repository.setFlagged(true, on: renumbered)
+        XCTAssertEqual(server.log.map(\.command), ["UID FETCH \(uid(old.id)) (UID X-GM-MSGID)",
+                                                   "UID STORE \(uid(old.id)) +FLAGS.SILENT (\\Flagged)"])
+        server.clearLog()
+        let stale = await refusal { try await repository.setFlagged(true, on: old) }
+        XCTAssertEqual(stale as? MailError, .cannotConnect)
+        XCTAssertEqual(server.log.map(\.command), [])
     }
 
     /// A folder tapped in the kept folder pane before the launch's LIST
@@ -1010,7 +1613,7 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(folders.count, 7)
         XCTAssertEqual(Diagnostics.entries.count, 0, "drawing them logs nothing")
 
-        _ = try? await repository.setFlagged(true, id: inbox.rows[1].id, mailboxID: "inbox")
+        _ = try? await repository.setFlagged(true, on: inbox.rows[1])
         _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
 
         // His correspondence as kept, less his own address, which is the
@@ -1030,3 +1633,4 @@ final class KeptCopyTests: XCTestCase {
         XCTAssertEqual(leaks.map(\.text), [])
     }
 }
+

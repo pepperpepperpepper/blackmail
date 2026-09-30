@@ -22,9 +22,12 @@ import Foundation
 /// whole copy: every Gmail Inbox reports UIDVALIDITY 1, and the app-password
 /// trap (B-033) can open another mailbox under his address, so the message
 /// id is what tells two of them apart. A write on a kept row, or a letter
-/// opened from one, before its folder has been listed this launch is
-/// vouched for first, by the repository (`unproven`). Saving a password
-/// throws the whole of `Kept/` away (`wipe`).
+/// opened from one, names the row's Gmail message id, and the repository
+/// asks the server for it under the UID unless this launch has had that
+/// letter or another from the server there (`IMAPMailRepository.seen`);
+/// a call that names no id, a draft removed or a landed draft reopened,
+/// goes by `unproven`. Saving a password throws the whole of `Kept/` away
+/// (`wipe`).
 ///
 /// JSON files, one for the folders and one per page, read whole and
 /// written whole, atomically, as D-016 chose: nothing kept is ever queried,
@@ -95,7 +98,11 @@ final class MailShelf: @unchecked Sendable {
     /// page under the same UIDs with the same Gmail message ids: this is
     /// the mailbox the copy was kept from, and a UID kept for any folder
     /// names the letter it did or none, since the write names the
-    /// UIDVALIDITY it came from. Nothing is vouched for after that.
+    /// UIDVALIDITY it came from. Nothing that names no letter is vouched
+    /// for after that (`unproven`). A write, or a letter opened, that names
+    /// its row's letter goes by what the server has named under the UID in
+    /// this launch (`IMAPMailRepository.question`), and a kept row it has
+    /// named nothing under is asked about, this mailbox or not.
     private var sameMailbox = false
 
     /// `wipe`'s count for `root` when this shelf was made. Once it moves on
@@ -330,23 +337,34 @@ final class MailShelf: @unchecked Sendable {
     struct NotTheKeptLetter: Error, Equatable {}
 
     /// The Gmail message id the row `id` of `folder` was kept with, when a
-    /// write on it has to be vouched for before it is sent, or the letter
-    /// before it is shown: the row is on the page kept from an earlier
-    /// launch, and nothing in this one has shown the server to be the
-    /// mailbox it was kept from, neither a listing of the folder from the
-    /// top nor one of any folder that found its kept rows under the same
-    /// ids (`sameMailbox`). In practice, a tap in the first seconds, before
-    /// the Inbox's first page has come.
+    /// write on it that names no letter has to be vouched for before it is
+    /// sent, or the letter before it is shown: the row is on the page kept
+    /// from an earlier launch, and nothing in this one has shown the server
+    /// to be the mailbox it was kept from, neither a listing of the folder
+    /// from the top nor one of any folder that found its kept rows under
+    /// the same ids (`sameMailbox`).
     /// Nil for anything else, and for a row kept without an id, from a
     /// server without Gmail's extension, where the UIDVALIDITY the write is
     /// sent under is what tells.
     ///
+    /// Only for a write or an opening that names no Gmail message id: a
+    /// draft removed, the copy of a letter that has just gone up, a row
+    /// from a server without the extension. The rest name the row's own,
+    /// and the repository decides them by what this launch has had from
+    /// the server under the UID (`IMAPMailRepository.question`), which a
+    /// listing from the top does not settle for a kept row still drawn
+    /// after the listing has thrown the copy away, nor, in the copy's own
+    /// mailbox, for a kept row the fresh page lacks.
+    ///
     /// Still the id it was kept with for a row the server has already said
-    /// is another letter (`refuse`), though it is off the page: a tap sends
-    /// the read mark and the letter's FETCH together, and whichever is
-    /// answered second would otherwise find the row unkept and go unasked,
-    /// the STORE onto the other letter, or its body under the kept row's
-    /// header.
+    /// is another letter (`refuse`), though it is off the page: a second
+    /// call on it that names no letter, a landed draft's copy removed after
+    /// its reopening was refused, would otherwise find the row unkept and
+    /// go unasked, the EXPUNGE onto the other draft. A call that names its
+    /// letter, a tap's read mark and FETCH among them, does not come here:
+    /// the server's answer is what this launch has seen under the UID
+    /// (`IMAPMailRepository.seen`), so the next is refused with nothing
+    /// sent, or asked again when the server named no letter there.
     func unproven(_ id: String, in folder: String) -> UInt64? {
         let key = Self.key(id, folder)
         guard isAlive else { return nil }

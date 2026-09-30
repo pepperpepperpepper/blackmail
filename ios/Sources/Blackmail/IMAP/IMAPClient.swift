@@ -1069,10 +1069,10 @@ actor IMAPClient {
 
     /// Gmail's id for the letter at `uid` now (X-GM-MSGID), or nil when the
     /// server names none: no letter at that UID any more, or no Gmail
-    /// extension to ask. For a write on a row kept on the iPad from an
-    /// earlier launch, before this one has shown the server to be the
-    /// mailbox it was kept from (D-016): the row is the letter it was kept
-    /// as only if the ids agree, and nothing is written otherwise.
+    /// extension to ask. For a write on a row this launch has not had from
+    /// the server, one kept on the iPad from an earlier launch (D-016): the
+    /// row is the letter it names only if the ids agree, and nothing is
+    /// written otherwise.
     ///
     /// In the interactive line, as the write it comes before is, and in one
     /// hold with the SELECT and the UIDVALIDITY check, as every UID command
@@ -1089,11 +1089,11 @@ actor IMAPClient {
 
     /// The whole letter at `uid`, as `fetchBody` gives it, with Gmail's id
     /// for the letter asked in the same FETCH, X-GM-MSGID beside
-    /// BODY.PEEK[]: for a letter opened from a row kept on the iPad before
-    /// this launch has shown the server to be the mailbox the copy was kept
-    /// from (D-016). The one FETCH the letter costs anyway vouches for it,
-    /// at no round trip more, and the caller shows nothing of it unless the
-    /// id is the kept row's.
+    /// BODY.PEEK[]: for a letter opened from a row this launch has not had
+    /// from the server, one kept on the iPad from an earlier launch
+    /// (D-016). The one FETCH the letter costs anyway vouches for it, at no
+    /// round trip more, and the caller shows nothing of it unless the id is
+    /// the row's.
     ///
     /// `letter` is nil when the server names none: no letter at that UID
     /// any more, or no Gmail extension to ask, when nothing is fetched at

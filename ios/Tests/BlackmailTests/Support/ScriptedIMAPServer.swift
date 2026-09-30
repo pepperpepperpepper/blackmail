@@ -98,6 +98,11 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var inReplyTo: String?
         /// Files after the words, which make it multipart/mixed.
         var files: [File] = []
+        /// The Message-ID of a letter already here whose conversation this
+        /// one joins, as Gmail threads a reply: the two carry one
+        /// X-GM-THRID. Nil for a conversation of its own, as every seeded
+        /// letter is.
+        var joins: String?
     }
 
     /// A file carried by a letter, base64 on the wire.
@@ -940,6 +945,15 @@ private extension ScriptedIMAPServer.State {
         sessions[id] = session
     }
 
+    /// Gmail's thread id for a letter: its own, or that of the letter whose
+    /// conversation it joins (`Letter.joins`).
+    func thread(of key: Int) -> UInt64 {
+        guard let joins = letters[key]?.letter.joins,
+              let first = letters.first(where: { $0.value.letter.messageID == joins })?.key
+        else { return Server.gmailThreadID(key: key) }
+        return Server.gmailThreadID(key: first)
+    }
+
     /// Gmail's labels for a letter seen from `selected`: every other mailbox
     /// holding it, All Mail excepted because it is not a label.
     func labels(of key: Int, seenFrom selected: String) -> [String] {
@@ -1267,7 +1281,7 @@ private extension ScriptedIMAPServer.State {
                     let labels = labels(of: key, seenFrom: name).map(Server.quoted)
                     wire.text("X-GM-LABELS (\(labels.joined(separator: " ")))")
                 case .threadID:
-                    wire.text("X-GM-THRID \(Server.gmailThreadID(key: key))")
+                    wire.text("X-GM-THRID \(thread(of: key))")
                 case .messageID:
                     wire.text("X-GM-MSGID \(Server.gmailMessageID(key: key))")
                 case let .section(section, peek, partial):
@@ -1515,7 +1529,8 @@ private extension ScriptedIMAPServer {
     }
 
     /// X-GM-THRID and X-GM-MSGID, from the letter's key. Every letter here
-    /// is a conversation of its own, so the two numbers are drawn from
+    /// is a conversation of its own, unless it was delivered into another's
+    /// (`Letter.joins`), so the two numbers are drawn from
     /// ranges that never meet: a client that took the one for the other is
     /// left holding a number this server never gave that letter as its id.
     static func gmailThreadID(key: Int) -> UInt64 { 1_700_000_000_000_000_000 + UInt64(key) }

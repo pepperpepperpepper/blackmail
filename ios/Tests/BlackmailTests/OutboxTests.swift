@@ -1423,21 +1423,25 @@ private final class HeldQuestion: MailRepository, @unchecked Sendable {
     func previews(for ids: [String], in mailboxID: String) async throws -> [String: String] {
         try await base.previews(for: ids, in: mailboxID)
     }
-    func loadMessage(id: String, mailboxID: String) async throws -> Message {
-        try await base.loadMessage(id: id, mailboxID: mailboxID)
+    func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message {
+        try await base.loadMessage(id: id, gmailMessageID: gmailMessageID, mailboxID: mailboxID)
     }
-    func setRead(_ read: Bool, id: String, mailboxID: String) async throws {
-        try await base.setRead(read, id: id, mailboxID: mailboxID)
+    func setRead(_ read: Bool, id: String, gmailMessageID: UInt64?,
+                 mailboxID: String) async throws {
+        try await base.setRead(read, id: id, gmailMessageID: gmailMessageID, mailboxID: mailboxID)
     }
-    func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
-        try await base.setFlagged(flagged, id: id, mailboxID: mailboxID)
+    func setFlagged(_ flagged: Bool, id: String, gmailMessageID: UInt64?,
+                    mailboxID: String) async throws {
+        try await base.setFlagged(flagged, id: id, gmailMessageID: gmailMessageID,
+                                  mailboxID: mailboxID)
     }
-    func move(_ id: String, from sourceMailboxID: String,
+    func move(_ id: String, gmailMessageID: UInt64?, from sourceMailboxID: String,
               to destinationMailboxID: String) async throws {
-        try await base.move(id, from: sourceMailboxID, to: destinationMailboxID)
+        try await base.move(id, gmailMessageID: gmailMessageID, from: sourceMailboxID,
+                            to: destinationMailboxID)
     }
-    func delete(_ id: String, from mailboxID: String) async throws {
-        try await base.delete(id, from: mailboxID)
+    func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
+        try await base.delete(id, gmailMessageID: gmailMessageID, from: mailboxID)
     }
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
         try await base.send(draft, progress: progress)
@@ -1456,8 +1460,8 @@ private final class HeldQuestion: MailRepository, @unchecked Sendable {
     func deleteDrafts(uploadedAs versions: [String]) async throws -> [String] {
         try await base.deleteDrafts(uploadedAs: versions)
     }
-    func loadDraft(id: String, mailboxID: String) async throws -> Draft {
-        try await base.loadDraft(id: id, mailboxID: mailboxID)
+    func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
+        try await base.loadDraft(id: id, gmailMessageID: gmailMessageID, mailboxID: mailboxID)
     }
     func search(in mailboxID: String, query: String, scope: MailSearchScope,
                 beforeUID: String?, limit: Int) async throws -> [MessageSummary] {

@@ -338,7 +338,7 @@ final class PaneLoadsTests: XCTestCase {
         func tap(_ letter: MessageSummary) async {
             await loads.show(
                 standIn: {},
-                fetch: { try await repository.loadMessage(id: letter.id, mailboxID: letter.mailboxID) },
+                fetch: { try await repository.open(letter) },
                 settle: { result in
                     drawn.add((try? result.get()).map { "\($0.subject)" } ?? "failed")
                 })
@@ -346,7 +346,7 @@ final class PaneLoadsTests: XCTestCase {
             // its own on the main actor, started after the pane's.
             guard !letter.isRead else { return }
             reads.append(Task { @MainActor in
-                try await repository.setRead(true, id: letter.id, mailboxID: letter.mailboxID)
+                try await repository.setRead(true, on: letter)
             })
         }
 
