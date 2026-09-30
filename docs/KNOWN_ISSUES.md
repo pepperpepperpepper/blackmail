@@ -3221,7 +3221,7 @@ photos in a kept letter, and a letter opened while it uploads.
 
 ---
 
-## B-049 — CHANGED 2026-09-30, not yet seen on the iPad. New mail arrives on its own
+## B-049 — CHANGED 2026-09-30, seen on the iPad. New mail arrives on its own
 
 **From the gap review of 2026-09-30.** New mail appeared only when he
 tapped Refresh. Nothing asked the server for it: no IDLE, no polling, and
@@ -3479,3 +3479,11 @@ its part of the change taken out; the controllers' own calls (the quiet
 fetch's one-at-a-time and search checks, the first page's hold on the
 watch at a return, the quiet sweep's alert) are UIKit and are not on the
 host.
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox. With the Inbox open
+at the top, a letter sent from the app to the account itself went on at
+the top of the list by itself between 35 and 50 seconds after Send,
+Gmail's delivery included, and the Inbox's count in the sidebar went from
+1 to 2; nothing was tapped. Not yet tried: a letter arriving while he is
+scrolled down or in Edit mode, the line's aging over minutes, and the
+line with Wi-Fi off.

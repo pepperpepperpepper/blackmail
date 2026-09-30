@@ -93,7 +93,7 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       connection every half minute while the Inbox is in front, a STATUS of
       the Inbox otherwise, new rows held while he is not at the top; the
       line ages as Mail's does and says when a check failed. See B-049;
-      not yet seen on the iPad.*
+      seen on the iPad 2026-09-30.*
 - [x] **Reply and Forward keep the original's pictures and links.** Today
       both flatten it to plain text (`quotableText`, `HTMLText.plainText`).
       *Done 2026-09-30, not yet seen on the iPad: the letter's HTML carries
