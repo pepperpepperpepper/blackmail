@@ -110,3 +110,66 @@ instead. Only the device build finds this; the host tests pass either way.
 meant the old path silently packaged whatever stale binary was left from a
 previous build and reported success. There is now a guard that refuses to
 package a binary older than the newest source file.
+
+## Signing: zsign, patched for per-bundle entitlements
+
+The app is signed on this host with zsign, no Xcode and no `codesign`.
+Stock zsign takes ONE `-e` for the whole archive, so a share extension came
+out claiming the app's `application-identifier` (`…blackmail`) while its
+bundle id is `…blackmail.share`, which iOS refuses (B-036). Signing the
+extension alone first does not help: signing the app re-signs everything
+nested in it. So zsign is patched.
+
+| Piece | Where |
+|---|---|
+| upstream | https://github.com/zhlynn/zsign, tag v1.1.2, commit `614caa8` |
+| the patch | `tools/zsign/bundle-entitlements.patch` (76 changed lines, 3 files) |
+| rebuild | `tools/zsign/build.sh` (clone, check out the commit, apply, `make`) |
+| the binary | `/mnt/build/zsign-blackmail/bin/zsign`, version `1.1.2+bundle-entitlements` |
+
+The patch adds one option:
+
+    -X, --bundle_entitlements KEY=FILE
+
+KEY is a nested bundle's bundle id, or its path inside the `.app`
+(`PlugIns/BlackmailShare.appex`); that bundle's executable is signed with
+FILE's entitlements instead of `-e`'s, and the profile is written into the
+bundle before it is sealed, as Xcode builds an extension. Repeatable. A KEY
+that matches no bundle fails the signing: a typo would otherwise sign that
+bundle as the app without a word. Everything else is untouched, so without
+`-X` the patched zsign signs exactly as stock.
+
+It needs git, g++, make, pkg-config and OpenSSL 3's headers, and takes
+about fifteen seconds. Nothing is installed system-wide. A laptop that runs
+`provision-ipad.sh` needs it too, once the IPA carries the extension; its
+`--check` says so.
+
+**Signing goes through `tools/sign-ipa.sh UNSIGNED.ipa SIGNED.ipa`**, which
+deploy and provision both call. It signs with the entitlements in
+`ios/Resources` (the app's `Blackmail.entitlements`, or with the extension
+the app's `BlackmailWithShare.entitlements` and, with `-X`, the extension's
+`BlackmailShare.entitlements`), refuses an IPA with an extension
+if the zsign it finds has no `-X`, keeps zsign's temporary files beside the
+output rather than in `/tmp`, and then runs `tools/check-signature.py` on
+the result, which reads every bundle's signature out of its Mach-O and
+fails unless each names itself (see B-036 for what it checks). A signed IPA
+that does not pass is deleted.
+
+**The app's entitlements change only with the extension.** Without it,
+`Blackmail.entitlements` is byte for byte the signing directory's
+`blackmail.entitlements`, which is no longer read: no
+`keychain-access-groups`, as every build proven on his iPad was signed.
+With it, `BlackmailWithShare.entitlements` lists
+`JGLH7HX44Y.wtf.uhoh.blackmail` first and
+`JGLH7HX44Y.wtf.uhoh.blackmail.shared` second. The first keeps the app
+password where every earlier build put it (an item added without a group
+goes into the first one listed); the second is where the share extension
+reads the account (`ShareMirror`). The wildcard profile allows both
+(`JGLH7HX44Y.*`). `check-signature.py` fails an app without an extension
+that claims any `keychain-access-groups`, so the two cannot be mixed up.
+
+**The share extension is opt-in** (`BLACKMAIL_SHARE_EXT=1` for
+`package.sh`) until it has been seen registered on a device. The IPA for
+that check is `tools/build-share-ipa.sh`, and it has to be installed
+through installd (`ideviceinstaller -i`, or TrollStore), since the dev
+deploy's copy into an installed bundle never registers a plugin.

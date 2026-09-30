@@ -259,6 +259,14 @@ extension Draft {
         return draft
     }
 
+    /// Whether the composer opens with its Cc and Bcc rows showing: when
+    /// the letter arrives with anyone in either. Those rows are otherwise
+    /// behind the Cc/Bcc toggle, and an address in a hidden row still gets
+    /// the letter.
+    var showsCcAndBcc: Bool {
+        (cc + bcc).contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
     /// The draft a Reply or Reply All starts from.
     ///
     /// Pure, and living here rather than in the view controller it is called
@@ -427,6 +435,14 @@ struct DraftAttachment {
 // MARK: - Formatting
 
 enum MailFormat {
+
+    /// The addresses in a recipient field as he left it: split on the
+    /// commas the suggestions put between them, blanks dropped.
+    static func addresses(in field: String) -> [String] {
+        field.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
 
     /// The address currently being typed in a recipient field —
     /// everything after the last comma, since a field can hold several.

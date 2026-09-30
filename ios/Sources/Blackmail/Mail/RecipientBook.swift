@@ -154,6 +154,16 @@ final class RecipientBook {
         return Self.rank(all, matching: query, limit: limit)
     }
 
+    /// Every entry, as it stands. What the share extension is handed
+    /// (`ShareMirror`): it cannot read these defaults, and without them his
+    /// own second address, the one most of his shared links go to, would
+    /// have to be typed out in full on every share.
+    func snapshot() -> [KnownRecipient] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(entries.values)
+    }
+
     /// The pure half, so the ordering can be tested without a store.
     ///
     /// An EMPTY query is deliberately not empty-handed: it offers the

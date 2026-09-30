@@ -38,16 +38,20 @@
 		<string>ShareViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
+			<!-- Five, as the composer's photo picker allows: every photo is
+			     decoded whole to be re-encoded, in an extension allowed far
+			     less memory than the app. Files are counted the same way,
+			     since a photo may arrive as either. -->
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
-				<integer>10</integer>
+				<integer>5</integer>
 				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
 				<integer>1</integer>
 				<key>NSExtensionActivationSupportsWebPageWithMaxCount</key>
 				<integer>1</integer>
 				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
-				<integer>10</integer>
+				<integer>5</integer>
 				<key>NSExtensionActivationSupportsText</key>
 				<true/>
 			</dict>

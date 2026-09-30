@@ -50,6 +50,10 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // from the connection log's Layout button: it does nothing for him
         // and runs on the main thread. See LayoutAudit.enabledKey.
         LayoutAudit.beginSweeping()
+        // An account set up by a build from before the share extension had
+        // never been handed to it, and the book and the signature's pictures
+        // change without passing through the setup form.
+        Self.syncShareMirror()
         return true
     }
 
@@ -59,6 +63,57 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// being told.
     public func applicationDidEnterBackground(_ application: UIApplication) {
         RecipientBook.shared.flush()
+        Self.syncShareMirror()
+    }
+
+    /// Back from the background, where he may have shared from Safari: who
+    /// those letters went to is taken into the book here.
+    public func applicationWillEnterForeground(_ application: UIApplication) {
+        Self.syncShareMirror()
+    }
+
+    /// A `mailto:` link, from another app or from a letter, opens this app's
+    /// composer with the link's fields in it (B-036). Only once an account
+    /// is set up: the setup form has nothing to write the letter in.
+    ///
+    /// Whether iOS hands another app's link here at all is its business: it
+    /// sends `mailto:` to the default mail app, which a sideloaded app cannot
+    /// become. A link in one of his own letters is handled in the reading
+    /// pane and does not come through here.
+    public func application(_ app: UIApplication, open url: URL,
+                            options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        guard url.scheme?.lowercased() == "mailto",
+              let root = window?.rootViewController as? RootViewController,
+              let draft = MailtoLink.draft(from: url,
+                                           signature: CredentialStore.loadAccount()?.signature ?? "")
+        else { return false }
+        // Over whatever is showing, as a link tapped in a letter opens it.
+        var top: UIViewController = root
+        while let shown = top.presentedViewController, !shown.isBeingDismissed { top = shown }
+        let compose = ComposeViewController(repository: root.repository, draft: draft)
+        let nav = UINavigationController(rootViewController: compose)
+        nav.modalPresentationStyle = .formSheet
+        top.present(nav, animated: true)
+        return true
+    }
+
+    /// Hands the share extension what it needs to send as the app would
+    /// (`ShareMirror`), and takes in who it has sent to; nothing at all in a
+    /// build without the extension (`ShareMirror.app`). Off the main
+    /// thread: a handful of Keychain reads and an encode of the book have no
+    /// business in front of the first frame. One at a time, in order.
+    private static let mirrorQueue = DispatchQueue(label: "wtf.uhoh.blackmail.share-mirror",
+                                                   qos: .utility)
+
+    private static func syncShareMirror() {
+        mirrorQueue.async {
+            guard let mirror = ShareMirror.app else { return }
+            let account = CredentialStore.loadAccount()
+            mirror.sync(account: account,
+                        password: account.flatMap(CredentialStore.loadPassword(for:)),
+                        signatureImages: SignatureImages.load(),
+                        book: .shared)
+        }
     }
 
     /// Real mail if an account has been set up, the setup form if not.

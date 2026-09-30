@@ -55,11 +55,25 @@ enum AttachmentStore {
     /// name the reader sees at the top of the preview should be the name the
     /// sender gave it, not "scan-2.pdf".
     static func write(_ data: Data, named filename: String) throws -> URL {
-        let directory = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent(safeFilename(filename))
+        let url = try place(for: filename)
         try data.write(to: url, options: .atomic)
         return url
+    }
+
+    /// A file another app handed over, copied in the way `write` writes
+    /// bytes, without being read into memory on the way: a share extension
+    /// is allowed far less of it than the app, and a shared file can be
+    /// larger than all of it.
+    static func copy(_ source: URL, named filename: String) throws -> URL {
+        let url = try place(for: filename)
+        try FileManager.default.copyItem(at: source, to: url)
+        return url
+    }
+
+    private static func place(for filename: String) throws -> URL {
+        let directory = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent(safeFilename(filename))
     }
 
     /// Deletes everything written so far.

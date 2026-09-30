@@ -40,14 +40,14 @@ let package = Package(
             dependencies: ["Blackmail"],
             path: "Sources/BlackmailApp"
         ),
-        // SPIKE (B-036): the share extension. An app extension is a second
-        // signed bundle in Blackmail.app/PlugIns/, and nothing on this
-        // pipeline has ever produced one — the whole project is SwiftPM on
-        // Linux with xtool's linker and zsign, deliberately no Xcode. Whether
-        // that can emit a loadable .appex is the question the whole of B-036
-        // depends on, so it is being answered before anything is designed.
+        // The share extension (B-036): a second signed bundle in
+        // Blackmail.app/PlugIns/, built on this Xcode-less pipeline and signed
+        // with its own entitlements by the patched zsign (TOOLCHAIN.md). It
+        // depends on the library rather than carrying code of its own, so a
+        // shared letter goes out through the app's Outbox and SMTPClient.
         .executableTarget(
             name: "BlackmailShare",
+            dependencies: ["Blackmail"],
             path: "Sources/BlackmailShare",
             linkerSettings: [
                 .linkedLibrary("swiftUIKit", .when(platforms: [.iOS])),

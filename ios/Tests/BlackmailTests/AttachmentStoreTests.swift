@@ -94,6 +94,19 @@ final class AttachmentStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: second), Data("two".utf8))
     }
 
+    /// A file handed over by another app is copied in under a safe name,
+    /// as bytes are written, and the original is left where it was.
+    func testACopiedFileLandsInsideTheStore() throws {
+        let original = try AttachmentStore.write(Data("%PDF-1.4 scan".utf8), named: "handed-over")
+        let url = try AttachmentStore.copy(original, named: "../Scan.pdf")
+
+        XCTAssertEqual(try Data(contentsOf: url), Data("%PDF-1.4 scan".utf8))
+        XCTAssertEqual(url.lastPathComponent, "Scan.pdf")
+        XCTAssertTrue(url.standardizedFileURL.path
+            .hasPrefix(AttachmentStore.root.standardizedFileURL.path), url.path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
+    }
+
     func testPurgeRemovesEverything() throws {
         let url = try AttachmentStore.write(Data("x".utf8), named: "a.txt")
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))

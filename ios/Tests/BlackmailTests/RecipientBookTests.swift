@@ -288,6 +288,14 @@ final class RecipientBookTests: XCTestCase {
                        "and the next address starts from empty")
     }
 
+    /// A field as he leaves it, which the suggestions leave with a comma
+    /// and a space after the last address: the addresses, and no blank.
+    func testAFieldIsItsAddresses() {
+        XCTAssertEqual(MailFormat.addresses(in: "a@b.com, Carlo <c@d.org>, "),
+                       ["a@b.com", "Carlo <c@d.org>"])
+        XCTAssertEqual(MailFormat.addresses(in: " , "), [])
+    }
+
     func testTheTokenIsWhatIsAfterTheLastCommaOnly() {
         XCTAssertEqual(MailFormat.currentRecipientToken(in: "a@b.com, mar"), "mar")
         XCTAssertEqual(MailFormat.currentRecipientToken(in: "mar"), "mar")

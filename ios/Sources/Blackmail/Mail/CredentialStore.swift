@@ -75,12 +75,14 @@ enum CredentialStore {
     /// first, add only when there is nothing to update, and fall back to
     /// delete-then-add if an add still collides with a stale item whose
     /// primary-key attributes differ from ours.
-    /// Saves the account WITHOUT touching the stored password.
+    /// Saves the account WITHOUT writing the stored password.
     ///
-    /// Changing a name or a signature must not go near the keychain. The
-    /// password write is the one operation in this type that can fail in a
-    /// way that locks him out of his own mail, and editing a sign-off has
-    /// no business being able to do that.
+    /// Changing a name or a signature must never write the password item.
+    /// That write is the one operation in this type that can fail in a way
+    /// that locks him out of his own mail, and editing a sign-off has no
+    /// business being able to do that. The item is READ here, in a build
+    /// that carries the share extension, so the extension's copy of the
+    /// account can be handed the new signature with it.
     static func saveAccountOnly(_ account: MailAccount) throws {
         let clean = normalised(account)
         guard !clean.address.isEmpty else { throw StoreError.emptyAddress }
@@ -89,6 +91,11 @@ enum CredentialStore {
             defaults.set(data, forKey: accountDefaultsKey)
         } catch {
             throw StoreError.accountNotEncodable(error)
+        }
+        // The share extension signs with the signature it is handed, so a
+        // changed one is handed over now rather than at the next launch.
+        if let mirror = ShareMirror.app, let password = loadPassword(for: clean) {
+            mirror.publish(account: clean, password: password)
         }
     }
 
@@ -116,6 +123,10 @@ enum CredentialStore {
         } catch {
             throw StoreError.accountNotEncodable(error)
         }
+        // Where the share extension can read them (B-036). A new app
+        // password has to reach it at once: sharing with the old one would
+        // be refused, and he would be told so in a sheet over Safari.
+        ShareMirror.app?.publish(account: clean, password: secret)
     }
 
     /// Whitespace off every field a typist or a paste can ruin, and a username
@@ -179,6 +190,9 @@ enum CredentialStore {
         // leave the password orphaned and undeletable.
         _ = SecItemDelete([kSecClass as String: kSecClassInternetPassword] as CFDictionary)
         defaults.removeObject(forKey: accountDefaultsKey)
+        // And the extension's copy, or a share would go on sending as an
+        // account that has been taken out of the app.
+        ShareMirror.app?.clear()
     }
 
     // MARK: - Keychain plumbing
