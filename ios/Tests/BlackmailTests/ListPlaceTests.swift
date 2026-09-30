@@ -332,4 +332,239 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertEqual(list.folder.filter { $0.preview.isEmpty }.map(\.id), [])
         XCTAssertEqual(server.violations, [])
     }
+
+    // MARK: - New mail the watch has found (B-049)
+
+    /// What a check brought: K and L new, a reply in G's conversation, and
+    /// E taken out elsewhere.
+    private var news: FolderNews {
+        FolderNews(arrived: [letter(160, thread: "K"), letter(159, thread: "G"),
+                             letter(158, thread: "L")],
+                   gone: ["7/145"])
+    }
+
+    /// Every row, as the letters in it.
+    private func letters(of rows: [MessageThread]) -> [[String]] {
+        rows.map { $0.messages.map(\.id) }
+    }
+
+    /// The folder's letters on the list, as the first page leaves them.
+    @MainActor
+    private func listed() -> ListLetters {
+        let list = ListLetters()
+        _ = list.fetchedAfresh(folder)
+        return list
+    }
+
+    /// Scrolled down, D at the top of the pane and F open in the reading
+    /// pane: the news is held, and nothing on the list changes, not a row,
+    /// not where it sits on screen, not the highlight. Put on, it would have
+    /// taken G's row up out from under him and closed E's gap, and every
+    /// row he could see below D would have been another letter.
+    @MainActor
+    func testWhileHeIsScrolledDownNewsIsHeldAndNothingMoves() throws {
+        let list = listed()
+        let before = grouped(list.shown)
+        let place = ListPlace(rows: before, visible: onScreen(from: 3, count: 7, offset: -30),
+                              selected: [5])
+
+        XCTAssertFalse(ListPlaces.showsNews(atTop: false, searching: false, ticked: false,
+                                            touching: false))
+        XCTAssertTrue(list.hold(news))
+        let after = grouped(list.shown)
+        XCTAssertEqual(letters(of: after), letters(of: before))
+        let landing = try XCTUnwrap(place.landing(in: after))
+        XCTAssertEqual(landing.row, 3)
+        XCTAssertEqual(landing.offset, -30)
+        XCTAssertEqual(place.selection(in: after, opened: nil, editing: false), [5])
+
+        // What putting it on there and then would have done.
+        let putOn = listed()
+        putOn.hold(news)
+        putOn.showNews()
+        let moved = grouped(putOn.shown)
+        XCTAssertNotEqual(moved[4..<9].map(\.id), before[4..<9].map(\.id))
+    }
+
+    /// Edit mode with ticks, at the top: held, and every tick stays on its
+    /// letter. Without a tick Edit mode holds nothing.
+    @MainActor
+    func testWhileHeTicksInEditModeNewsIsHeldAndTheTicksStay() {
+        let list = listed()
+        let before = grouped(list.shown)
+        let place = ListPlace(rows: before, visible: onScreen(from: 0, count: 8, offset: 0),
+                              selected: [0, 2, 6])
+        XCTAssertFalse(ListPlaces.showsNews(atTop: true, searching: false, ticked: true,
+                                            touching: false))
+        list.hold(news)
+        XCTAssertEqual(letters(of: grouped(list.shown)), letters(of: before))
+        XCTAssertEqual(place.selection(in: grouped(list.shown), opened: nil, editing: true),
+                       [0, 2, 6])
+        XCTAssertTrue(ListPlaces.showsNews(atTop: true, searching: false, ticked: false,
+                                           touching: false))
+    }
+
+    /// A search showing, or a finger on the list, holds it too. The search
+    /// ended with the folder back at its top, and the news goes on.
+    @MainActor
+    func testASearchOrAFingerOnTheListHoldsNewsUntilHeIsBackAtTheTop() {
+        let list = listed()
+        var places = ListPlaces()
+        let top = ListPlace(rows: grouped(list.shown), visible: onScreen(from: 0, count: 6, offset: 0),
+                            selected: [])
+        XCTAssertEqual(places.resultsShown(overFolder: true, here: top), .top)
+        let hits = [letter(148, thread: "C")]
+        list.showResults(hits)
+
+        XCTAssertFalse(ListPlaces.showsNews(atTop: true, searching: true, ticked: false,
+                                            touching: false))
+        XCTAssertFalse(ListPlaces.showsNews(atTop: true, searching: false, ticked: false,
+                                            touching: true))
+        list.hold(news)
+        XCTAssertEqual(list.shown, hits, "the results are left alone")
+
+        list.endSearch()
+        XCTAssertEqual(places.searchEnded(showingResults: true), .back(top))
+        let added = list.showNews()
+        XCTAssertEqual(added.map(\.id), ["7/160", "7/159", "7/158"])
+        XCTAssertEqual(grouped(list.shown).prefix(4).map(\.id), ["7/160", "7/159", "7/158", "7/150"])
+        XCTAssertFalse(list.shown.contains { $0.id == "7/145" }, "E has gone")
+    }
+
+    /// At the top, the new rows go on above and the list stays at the top,
+    /// where he sees them. The letter open in the reading pane keeps its
+    /// highlight, on its row wherever that now is; F's is two rows down,
+    /// and G's, joined by the reply, is second from the top.
+    @MainActor
+    func testAtTheTopTheNewRowsGoOnAboveAndTheOpenLetterKeepsItsHighlight() throws {
+        XCTAssertTrue(ListPlaces.showsNews(atTop: true, searching: false, ticked: false,
+                                           touching: false))
+        for (open, opened) in [(5, "7/144"), (6, "7/143")] {
+            let list = listed()
+            let before = grouped(list.shown)
+            let place = ListPlace(rows: before, visible: onScreen(from: 0, count: 8, offset: 0),
+                                  selected: [open])
+            list.hold(news)
+            list.showNews()
+            let after = grouped(list.shown)
+            XCTAssertEqual(after.map { $0.newest.threadID }, ["K", "G", "L", "A", "B", "C", "D",
+                                                              "F", "H", "I", "J"])
+            let selected = place.selection(in: after, opened: nil, editing: false)
+            XCTAssertEqual(selected.count, 1)
+            XCTAssertTrue(after[try XCTUnwrap(selected.first)].messages.contains { $0.id == opened })
+        }
+    }
+
+    /// Only what is new to the list counts, which is when the folder counts
+    /// are swept: the same news again is not, nor a letter gone that is off
+    /// the list already. A letter that came and went while he was scrolled
+    /// down never goes on at all.
+    @MainActor
+    func testNewsAlreadyHeldOrShownIsNotNewsAgain() {
+        let list = listed()
+        XCTAssertTrue(list.hold(news))
+        XCTAssertFalse(list.hold(news))
+        list.showNews()
+        XCTAssertFalse(list.hold(news))
+        XCTAssertFalse(list.holdsNews)
+
+        XCTAssertTrue(list.hold(FolderNews(arrived: [letter(170, thread: "M")])))
+        XCTAssertTrue(list.hold(FolderNews(gone: ["7/170"])))
+        XCTAssertEqual(list.showNews(), [])
+        XCTAssertFalse(list.shown.contains { $0.id == "7/170" })
+        XCTAssertEqual(list.watched.first, "7/160", "the next check goes by what is on the list")
+    }
+
+    /// A Refresh, or anything else that fetches the list afresh, lists what
+    /// was held with the rest, and a day jumped to has a top of its own:
+    /// either drops what was held, a fetch afresh owed included. Kept, the
+    /// held letters went on the top again when he was next there, a second
+    /// row each, and a fetch afresh owed and already made was made again at
+    /// every return to the top.
+    @MainActor
+    func testFetchingAfreshOrJumpingToADayDropsWhatWasHeld() {
+        let list = listed()
+        list.hold(news)
+        list.hold(FolderNews(refetch: true))
+        let page = news.arrived + folder.filter { $0.id != "7/145" }
+        _ = list.fetchedAfresh(page)
+        XCTAssertFalse(list.holdsNews)
+        XCTAssertFalse(list.refetchOwed)
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false),
+                       .wait)
+        XCTAssertEqual(list.shown.map(\.id), page.map(\.id))
+
+        list.hold(FolderNews(arrived: [letter(170, thread: "M")], refetch: true))
+        let day = Array(folder.suffix(4))
+        list.showWindow(day)
+        XCTAssertFalse(list.holdsNews)
+        XCTAssertFalse(list.refetchOwed)
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false),
+                       .wait)
+        XCTAssertEqual(list.shown.map(\.id), day.map(\.id))
+    }
+
+    /// What the watch checks the folder against: every letter the list
+    /// holds, the held ones first, while it starts at the folder's newest
+    /// letter. Nothing for a day jumped to, whose lowest letter is not the
+    /// folder's and above which every letter would come back as new; for a
+    /// search showing; or for a list whose first page never came, which
+    /// would search the whole folder. For those only the Inbox's count is
+    /// checked. An Inbox fetched and empty is checked from nothing.
+    @MainActor
+    func testTheWatchChecksOnlyAListThatStartsAtTheNewestLetter() {
+        let empty = ListLetters()
+        XCTAssertNil(empty.toWatch(fromNewest: true, fetched: false), "the first page never came")
+        XCTAssertEqual(empty.toWatch(fromNewest: true, fetched: true), [])
+
+        let list = listed()
+        XCTAssertEqual(list.toWatch(fromNewest: true, fetched: true), folder.map(\.id))
+        XCTAssertNil(list.toWatch(fromNewest: false, fetched: true), "a day")
+        list.hold(FolderNews(arrived: [letter(170, thread: "M")]))
+        XCTAssertEqual(list.toWatch(fromNewest: true, fetched: true), ["7/170"] + folder.map(\.id))
+        list.showResults([letter(148, thread: "C")])
+        XCTAssertNil(list.toWatch(fromNewest: true, fetched: true), "a search")
+    }
+
+    /// A day jumped to while the check was out does not take its news and
+    /// holds none of it; the watch searches for it again at the next check
+    /// of the list. The list at the folder's newest takes it, and says
+    /// whether any of it was new. What is held goes on only at the top with
+    /// nothing in the way; a list owed a fetch afresh is fetched instead,
+    /// and until it has been, nothing goes on.
+    @MainActor
+    func testNewsIsTakenByTheFoldersNewestAndPutOnOnlyAtTheTop() {
+        let list = listed()
+        XCTAssertEqual(list.take(news, fromNewest: false), .notTaken)
+        XCTAssertFalse(list.holdsNews)
+        XCTAssertEqual(list.take(FolderNews(), fromNewest: true), .known)
+        XCTAssertEqual(list.take(news, fromNewest: true), .new)
+        XCTAssertEqual(list.take(news, fromNewest: true), .known)
+
+        XCTAssertEqual(list.putNewsOn(atTop: false, searching: false, ticked: false, touching: false),
+                       .wait)
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: true),
+                       .wait)
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false),
+                       .shown(news.arrived))
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false),
+                       .wait, "nothing is held")
+
+        XCTAssertEqual(list.take(FolderNews(arrived: [letter(170, thread: "M")], refetch: true),
+                                 fromNewest: true), .new)
+        for _ in 1...2 {
+            XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false,
+                                          touching: false), .refetch)
+        }
+        XCTAssertFalse(list.shown.contains { $0.id == "7/170" })
+    }
+
+    /// The top is the offset of the table's top inset, to half a point.
+    func testTheTopIsWhereTheFirstRowIsAgainstThePane() {
+        XCTAssertTrue(ListPlaces.isAtTop(offset: -64, topInset: 64))
+        XCTAssertTrue(ListPlaces.isAtTop(offset: -63.6, topInset: 64))
+        XCTAssertTrue(ListPlaces.isAtTop(offset: -104, topInset: 64), "pulled down past it")
+        XCTAssertFalse(ListPlaces.isAtTop(offset: -63, topInset: 64))
+        XCTAssertFalse(ListPlaces.isAtTop(offset: 200, topInset: 64))
+    }
 }

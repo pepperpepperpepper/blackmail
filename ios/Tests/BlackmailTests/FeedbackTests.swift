@@ -49,6 +49,98 @@ final class FeedbackTests: XCTestCase {
         XCTAssertEqual(line.text, "Updated Just Now", "finishing twice changes nothing")
     }
 
+    // MARK: - How fresh the list is (B-049)
+
+    private static let utc: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+
+    /// 21 September 2026, 14:13:20 UTC.
+    private let checked = Date(timeIntervalSince1970: 1_790_000_000)
+
+    private func said(_ line: UpdatedLine, after seconds: TimeInterval) -> String {
+        line.text(now: checked.addingTimeInterval(seconds), calendar: Self.utc,
+                  locale: Locale(identifier: "en_GB"))
+    }
+
+    /// "Updated Just Now" used to be said at every fetch and never again,
+    /// whatever the time, so an hour-old list said it had just been fetched.
+    /// It ages now, as Mail's does: just now for the first minute, then the
+    /// minutes, then the time of day, then yesterday, then the date. A clock
+    /// set back is not taken for just now.
+    func testTheLineAgesAsMailsDoes() {
+        var line = UpdatedLine()
+        line.succeeded(at: checked)
+        XCTAssertEqual(said(line, after: 0), "Updated Just Now")
+        XCTAssertEqual(said(line, after: 59), "Updated Just Now")
+        XCTAssertEqual(said(line, after: 60), "Updated 1 minute ago")
+        XCTAssertEqual(said(line, after: 119), "Updated 1 minute ago")
+        XCTAssertEqual(said(line, after: 120), "Updated 2 minutes ago")
+        XCTAssertEqual(said(line, after: 59 * 60 + 59), "Updated 59 minutes ago")
+        XCTAssertEqual(said(line, after: 3_600), "Updated at 14:13")
+        XCTAssertEqual(said(line, after: 9 * 3_600), "Updated at 14:13")
+        XCTAssertEqual(said(line, after: 10 * 3_600), "Updated Yesterday")
+        XCTAssertEqual(said(line, after: 3 * 86_400), "Updated 21/09/2026")
+        XCTAssertEqual(said(line, after: -600), "Updated at 14:13")
+    }
+
+    /// A check that failed says so under the age, as Mail puts an account's
+    /// error under its "Updated" line, rather than the line going on saying
+    /// the list is fresh. A check that works again takes it away.
+    func testAFailedCheckIsSaidUnderTheAge() {
+        var line = UpdatedLine()
+        line.succeeded(at: checked)
+        line.failed(.cannotConnect)
+        XCTAssertEqual(said(line, after: 5 * 60), "Updated 5 minutes ago\nNo Connection")
+        line.failed(.passwordNeedsUpdating)
+        XCTAssertEqual(said(line, after: 5 * 60), "Updated 5 minutes ago\nPassword Needs Updating")
+        line.reached()
+        XCTAssertEqual(said(line, after: 6 * 60), "Updated 6 minutes ago")
+        line.failed(.cannotConnect)
+        line.succeeded(at: checked.addingTimeInterval(7 * 60))
+        XCTAssertEqual(said(line, after: 7 * 60), "Updated Just Now")
+    }
+
+    /// Before the list's first page it is being checked for, as Mail says.
+    /// A first page that could not be fetched says why the list is empty,
+    /// and goes on saying it while only the Inbox's count can be checked:
+    /// nothing has brought this list up to date.
+    func testAListNeverFetchedSaysItIsBeingCheckedOrWhyNot() {
+        var line = UpdatedLine()
+        XCTAssertEqual(said(line, after: 0), "Checking for Mail…")
+        line.failed(.cannotConnect)
+        XCTAssertEqual(said(line, after: 0), "No Connection")
+        line.reached()
+        XCTAssertEqual(said(line, after: 30), "No Connection")
+        line.succeeded(at: checked.addingTimeInterval(60))
+        XCTAssertEqual(said(line, after: 60), "Updated Just Now")
+    }
+
+    /// A check of the Inbox's list brings that list up to date. The same
+    /// check with another list in front, or one of the Inbox's count, says
+    /// only that the server can be reached, and leaves the age of the list
+    /// in front as it was. A check that failed says why, under the age.
+    func testEachCheckSaysOnTheLineOnlyWhatItShowed() {
+        let later = checked.addingTimeInterval(120)
+        var inbox = UpdatedLine()
+        inbox.succeeded(at: checked)
+        inbox.failed(.cannotConnect)
+        inbox.checked(.listed(mailboxID: "inbox", at: later), listing: "inbox")
+        XCTAssertEqual(said(inbox, after: 150), "Updated Just Now")
+
+        var sent = UpdatedLine()
+        sent.succeeded(at: checked)
+        sent.failed(.cannotConnect)
+        sent.checked(.listed(mailboxID: "inbox", at: later), listing: "sent")
+        XCTAssertEqual(said(sent, after: 150), "Updated 2 minutes ago")
+        sent.checked(.failed(.passwordNeedsUpdating, at: later), listing: "sent")
+        XCTAssertEqual(said(sent, after: 150), "Updated 2 minutes ago\nPassword Needs Updating")
+        sent.checked(.reached(at: later), listing: "sent")
+        XCTAssertEqual(said(sent, after: 150), "Updated 2 minutes ago")
+    }
+
     // MARK: - Alerts over a sheet on its way out
 
     /// A jump or a Move now starts at the tap, and one that fails fast, with

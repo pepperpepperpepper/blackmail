@@ -137,6 +137,20 @@ protocol MailRepository {
     /// connection of its own: where there is none, a launch could not
     /// connect or a password was refused, and trying again is his to do.
     var isConnected: Bool { get async }
+
+    /// What has come into a folder, and gone from it, since its list was
+    /// fetched, for `MailWatch`. `known` is every letter the list holds from
+    /// the folder, the ones it has not drawn yet included. The new letters
+    /// come as rows, newest first, with `preview` empty as `listMessages`
+    /// gives them; the ones gone as ids. `searchingAnyway` when what the
+    /// last call found never reached the list, which the server, having
+    /// told the session of it, will not tell again.
+    func news(in mailboxID: String, known: [String],
+              searchingAnyway: Bool) async throws -> FolderNews
+
+    /// The Inbox's unread count as the server has it now, nil if it will not
+    /// say. For `MailWatch` while another folder is in front of him.
+    func inboxUnread() async throws -> Int?
 }
 
 /// Where a search looks — the two scopes Mail itself offers.

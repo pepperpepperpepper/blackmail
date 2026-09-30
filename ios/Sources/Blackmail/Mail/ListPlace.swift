@@ -168,6 +168,38 @@ struct ListPlaces {
         return .top
     }
 
+    /// Whether letters the watch has found go on the list now, at the top,
+    /// or are held (`ListLetters.hold`, B-049).
+    ///
+    /// Now only when he is at the very top of the folder's letters, with no
+    /// search showing, nothing ticked in Edit mode, and no finger on the
+    /// list. Then they go on as they do in Mail: the new rows at the top,
+    /// the rows below moved down by as many, and the list left at the top,
+    /// where he sees them come. The letter open in the reading pane stays
+    /// open and its row highlighted, wherever it now is; that is his
+    /// selection, and it is found again by its letter (`ListPlace`).
+    ///
+    /// Anywhere else nothing on the list changes at all, not a row, not a
+    /// tick, not the highlight: scrolled down, a row joined by a newer letter
+    /// would move up out from under him, and a row taken out elsewhere would
+    /// close the gap under his thumb. The letters wait, and go on the moment
+    /// he is back at the top: scrolled there, the search ended with the
+    /// folder at its top, out of Edit mode or the last tick taken off, the
+    /// finger lifted from a drag; a finger lifted from a tap, which tells
+    /// the list nothing, at the next check. A Refresh, or anything else that
+    /// fetches the list afresh, lists them with the rest.
+    static func showsNews(atTop: Bool, searching: Bool, ticked: Bool, touching: Bool) -> Bool {
+        atTop && !searching && !ticked && !touching
+    }
+
+    /// Whether a table scrolled to `offset` is at its top, the first row's
+    /// top against the top of the pane: `topInset` is the table's top
+    /// content inset, which the offset is measured from. Within half a
+    /// point, as `ListPlace.contentOffset` compares.
+    static func isAtTop(offset: Double, topInset: Double) -> Bool {
+        offset <= -topInset + 0.5
+    }
+
     /// The list fetched afresh after an edit of his own: a Delete or a Move
     /// from Edit mode, or a draft saved, sent or deleted in Drafts. He was
     /// working where he was, and the rows he could see stay there, `here`,

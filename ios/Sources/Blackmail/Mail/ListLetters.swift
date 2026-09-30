@@ -79,6 +79,7 @@ final class ListLetters: PaneActionList {
         folder = ListEdit.carryingPreviews(from: everything, into: page)
         results = nil
         removed.listReplaced()
+        dropNews()
         return folder.filter { $0.preview.isEmpty }
     }
 
@@ -86,6 +87,7 @@ final class ListLetters: PaneActionList {
     func showWindow(_ letters: [MessageSummary]) {
         folder = letters
         results = nil
+        dropNews()
     }
 
     /// A page from further down, after the folder's letters or the hits'.
@@ -186,6 +188,137 @@ final class ListLetters: PaneActionList {
             if let text = previews[hits[i].id] { hits[i].preview = text }
         }
         results = hits
+    }
+
+    // MARK: - News from the watch
+
+    /// Letters that have come into the folder since it was fetched, newest
+    /// first, and ones taken out of it elsewhere, found by the watch
+    /// (`MailWatch`) and not on the list yet: held while he is anywhere but
+    /// at the top of the folder's letters with nothing ticked
+    /// (`ListPlaces.showsNews`), and put on by `showNews`.
+    private var arriving: [MessageSummary] = []
+    private var leaving: Set<String> = []
+
+    /// The list is to be fetched afresh rather than added to, when he is
+    /// back at the top (`FolderNews.refetch`).
+    private(set) var refetchOwed = false
+
+    var holdsNews: Bool { !arriving.isEmpty || !leaving.isEmpty || refetchOwed }
+
+    /// Every letter of the folder the list holds, the ones it has not drawn
+    /// yet included: what the watch checks the folder against, so a letter
+    /// held is not fetched again, and the next one is fetched on its own.
+    var watched: [String] { arriving.map(\.id) + folder.map(\.id) }
+
+    /// `watched`, when the watch is to check the folder's letters, or nil
+    /// when it is to check only the Inbox's count: a list whose top is not
+    /// the folder's newest letter (`fromNewest`), one whose first page never
+    /// came (`fetched`, false, and nothing on it), and one showing a search.
+    /// What a check found could not go on until the search ended, and an All
+    /// Mailboxes search leaves All Mail open on the connection: the check
+    /// would SELECT the Inbox every half minute, and each page of results
+    /// after it would SELECT All Mail again. The first check after the
+    /// search ends finds what came meanwhile.
+    func toWatch(fromNewest: Bool, fetched: Bool) -> [String]? {
+        guard fromNewest, !isSearching, fetched || !folder.isEmpty else { return nil }
+        return watched
+    }
+
+    /// The watch's news, for this list if it still starts at the folder's
+    /// newest letter (`fromNewest`): held, to go on when he is at the top
+    /// (`putNewsOn`). A day jumped to while the check was out has another
+    /// top, and does not take it; the next check searches for it again.
+    func take(_ news: FolderNews, fromNewest: Bool) -> NewsTaken {
+        guard fromNewest else { return .notTaken }
+        return hold(news) ? .new : .known
+    }
+
+    /// Takes the watch's news, to go on the list when `showNews` is called.
+    /// Returns whether any of it was news to the list. A letter already
+    /// held, or already on the list, is not, and nor is a letter gone that
+    /// is already off it: the watch reports it again whenever something
+    /// else changes, since it goes by the letters the list holds, and a
+    /// letter taken off is still held for paging (`RemovedLetters`).
+    @discardableResult
+    func hold(_ news: FolderNews) -> Bool {
+        var changed = false
+        if news.refetch, !refetchOwed {
+            refetchOwed = true
+            changed = true
+        }
+        let known = Set(watched)
+        let fresh = news.arrived.filter { !known.contains($0.id) }
+        if !fresh.isEmpty {
+            arriving = fresh + arriving
+            changed = true
+        }
+        for id in news.gone {
+            if let held = arriving.firstIndex(where: { $0.id == id }) {
+                // Came and went while he was scrolled down: never shown.
+                arriving.remove(at: held)
+                changed = true
+            } else if folder.contains(where: { $0.id == id }), !removed.hides(id),
+                      leaving.insert(id).inserted {
+                changed = true
+            }
+        }
+        return changed
+    }
+
+    /// What becomes of the news held, with him where he is now.
+    enum NewsStep: Equatable {
+        /// Nothing yet: nothing is held, or he is somewhere it would move
+        /// something under him (`ListPlaces.showsNews`).
+        case wait
+        /// The list is to be fetched afresh (`refetchOwed`), which puts on
+        /// what is held with the rest.
+        case refetch
+        /// The new letters have gone on, these, whose previews are still to
+        /// be fetched, and the ones gone elsewhere have come off.
+        case shown([MessageSummary])
+    }
+
+    /// Puts what is held on the list if he is where that moves nothing under
+    /// him: at the top of the folder's letters, no search showing or typed,
+    /// nothing ticked, no finger on the list. For the message list at every
+    /// check, and whenever one of those may have just become true.
+    func putNewsOn(atTop: Bool, searching: Bool, ticked: Bool, touching: Bool) -> NewsStep {
+        guard holdsNews,
+              ListPlaces.showsNews(atTop: atTop, searching: searching, ticked: ticked,
+                                   touching: touching) else { return .wait }
+        if refetchOwed { return .refetch }
+        return .shown(showNews())
+    }
+
+    /// Puts what is held on the list: the new letters at the top of the
+    /// folder's, and the ones gone elsewhere off it. Returns the letters put
+    /// on, whose previews are still to be fetched.
+    ///
+    /// A letter gone is taken off as a removal the server has made, the way
+    /// a Delete from the reading pane is once its MOVE has landed: hidden,
+    /// and kept for paging, which asks for the next page from the last
+    /// letter the last page gave (`RemovedLetters`). The next Refresh has
+    /// the say, as it has over every letter taken off.
+    @discardableResult
+    func showNews() -> [MessageSummary] {
+        let added = arriving
+        folder.insert(contentsOf: added, at: 0)
+        for id in leaving {
+            removed.take(id)
+            removed.land(id)
+        }
+        arriving = []
+        leaving = []
+        return added
+    }
+
+    /// The list fetched afresh, or replaced by a day: whatever was held
+    /// belongs to letters that are gone, and the new list has its own.
+    private func dropNews() {
+        arriving = []
+        leaving = []
+        refetchOwed = false
     }
 
     // MARK: - Read and unread

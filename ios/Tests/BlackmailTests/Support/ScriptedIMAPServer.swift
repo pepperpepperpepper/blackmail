@@ -322,6 +322,21 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.passwordRevoked = newValue } }
     }
 
+    /// What a refused LOGIN says after its NO. Gmail's for a wrong password
+    /// by default; Gmail also refuses with `[ALERT]` and `[UNAVAILABLE]`,
+    /// which say nothing about the password.
+    var loginRefusal: String {
+        get { locked { $0.loginRefusal } }
+        set { locked { $0.loginRefusal = newValue } }
+    }
+
+    /// Verbs answered NO on a connection that stays up, as Gmail answers a
+    /// command now and then with `[UNAVAILABLE]`: `["UID SEARCH"]`.
+    var refusedVerbs: Set<String> {
+        get { locked { $0.refusedVerbs } }
+        set { locked { $0.refusedVerbs = newValue } }
+    }
+
     /// Mailboxes that LIST still names but that SELECT and EXAMINE answer
     /// NO, the way a folder deleted from another client looks until the next
     /// LIST. Canonical names, e.g. `ScriptedIMAPServer.trash`.
@@ -797,7 +812,9 @@ private extension ScriptedIMAPServer {
         var greeting: Greeting = .ready
         var refusedMailboxes: Set<String> = []
         var refusedSearchKeys: Set<String> = []
+        var refusedVerbs: Set<String> = []
         var passwordRevoked = false
+        var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
         var timeout: Duration = .seconds(1)
         var timeouts: [Int: Duration] = [:]
         var uploadReplyTimeout: Duration = .seconds(5)
@@ -1011,6 +1028,10 @@ private extension ScriptedIMAPServer.State {
             args.removeFirst()
         }
 
+        if refusedVerbs.contains(verb) {
+            r.no("[UNAVAILABLE] Temporary System Problem. Try again later. (Failure)")
+            return
+        }
         switch verb {
         case "CAPABILITY":
             r.untagged("CAPABILITY " + (session.authenticated ? advertisedAfterLogin
@@ -1069,7 +1090,7 @@ private extension ScriptedIMAPServer.State {
             return
         }
         guard user == username, pass == password, !passwordRevoked else {
-            r.no("[AUTHENTICATIONFAILED] Invalid credentials (Failure)")
+            r.no(loginRefusal)
             return
         }
         sessions[id]?.authenticated = true

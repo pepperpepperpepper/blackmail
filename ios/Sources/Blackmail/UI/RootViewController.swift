@@ -77,6 +77,18 @@ final class RootViewController: UIViewController {
     private var listViewItem: UIBarButtonItem!
     private var backItem: UIBarButtonItem!
 
+    /// New mail without a tap, while the app is in front (B-049). Started
+    /// once the Inbox's first page has been tried, stopped as the app goes
+    /// into the background and started again as it comes back.
+    private lazy var watch: MailWatch = {
+        let watch = MailWatch(repository: repository)
+        watch.target = self
+        return watch
+    }()
+    /// Whether the launch's first page has been tried, after which the
+    /// watch starts, and starts again at every return to the app.
+    private var firstPageTried = false
+
     init(repository: MailRepository) {
         self.repository = repository
         self.mailboxList = MailboxListViewController(repository: repository)
@@ -217,6 +229,13 @@ final class RootViewController: UIViewController {
         mailboxList.refreshCounts()
         list.onFirstLoadFinished = { [weak self] came in
             self?.mailboxList.releaseSweeps(firstPageCame: came)
+            // Once the first page has been tried, so a check never goes
+            // beside it: the first is half a minute on, after the counts.
+            // Started whether or not the page came, so that with no
+            // connection at launch the counts come of themselves once there
+            // is one. It sends no password that has been refused.
+            self?.firstPageTried = true
+            self?.watch.start()
         }
     }
 
@@ -229,6 +248,9 @@ final class RootViewController: UIViewController {
         centre.addObserver(forName: UIApplication.didEnterBackgroundNotification,
                            object: nil, queue: .main) { [weak self] _ in
             self?.wentAwayAt = Date()
+            // Nothing is checked while the app is away. A check on the wire
+            // is answered and nothing after it is sent.
+            Task { @MainActor [weak self] in _ = self?.watch.stop() }
         }
         centre.addObserver(self, selector: #selector(leavingTheApp),
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -251,6 +273,13 @@ final class RootViewController: UIViewController {
                     LocalDrafts.shared.uploadWaiting(to: repository)
                 }
                 self.returnedFromAway()
+                // How long ago the list was brought up to date, as of now,
+                // and the checks again from half a minute on, the warm-up and
+                // a return to the Inbox having gone first. Not if he is back
+                // before the launch's first page has been tried: that starts
+                // them, and a check started now could go beside the page.
+                self.list.showAge()
+                if self.firstPageTried { self.watch.start() }
             }
         }
     }
@@ -554,10 +583,11 @@ final class RootViewController: UIViewController {
     /// is reading. The folder pane puts it back after each sweep.
     ///
     /// Requests that overlap are merged into at most one more sweep, which
-    /// starts after the latest of them; see `SweepCoalescer`.
-    private func refreshMailboxes() {
+    /// starts after the latest of them; see `SweepCoalescer`. `quietly` for
+    /// the watch's, which puts up no alert if it fails.
+    private func refreshMailboxes(quietly: Bool = false) {
         mailboxList.select(mailboxID: list.mailboxID)
-        mailboxList.refreshCounts()
+        mailboxList.refreshCounts(quietly: quietly)
     }
 
     /// Swaps the list's contents, in the middle in three panes and in the
@@ -579,6 +609,38 @@ final class RootViewController: UIViewController {
         bindList()
         listNav.setViewControllers([list], animated: false)
         detail.showEmpty()
+    }
+}
+
+// MARK: - The watch
+
+/// What `MailWatch` asks of the screens: the list in front of him if it is
+/// the Inbox's, the folder pane's count, and where what it finds goes.
+extension RootViewController: MailWatchTarget {
+
+    var watchedInbox: (mailboxID: String, letters: [String])? {
+        guard list.shownMailbox.role == .inbox, let letters = list.lettersToWatch else { return nil }
+        return (list.mailboxID, letters)
+    }
+
+    var shownInboxUnread: Int? { mailboxList.inboxUnread }
+
+    func found(_ news: FolderNews, in mailboxID: String) -> NewsTaken {
+        // Another folder opened while the check was out: the news is for a
+        // list that has gone, and the counts still have to follow it.
+        guard list.shownMailbox.role == .inbox, list.mailboxID == mailboxID else { return .notTaken }
+        return list.newsFound(news)
+    }
+
+    /// A sweep he did not ask for: a failure leaves the counts as they were,
+    /// with no alert over the letter he is reading. The line under the list
+    /// already says when the connection has gone.
+    func countsChanged() {
+        refreshMailboxes(quietly: true)
+    }
+
+    func checked(_ outcome: MailWatch.Outcome) {
+        list.checked(outcome)
     }
 }
 
