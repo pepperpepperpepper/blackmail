@@ -337,7 +337,9 @@ this host. Ordered by value, not by size.
       outgoing half is verified by tests and Chromium renders, but the in-app
       half only applies to letters carrying the new marker, so it needs one
       send.
-- [ ] Register and test the share extension — also needs `ideviceinstaller`,
+- [ ] Register and test the share extension. *Registered and seen
+      2026-09-30 through TrollStore's installd path: a Safari link shares,
+      sends and arrives; see B-036. Still to try is below.* It also needs `ideviceinstaller`,
       which is on neither machine, or TrollStore. (B-036 blocker 2) The IPA
       is `tools/build-share-ipa.sh` → `ios/Blackmail-share.ipa`, installed
       through installd, not the copy-based deploy. Open the app once, then

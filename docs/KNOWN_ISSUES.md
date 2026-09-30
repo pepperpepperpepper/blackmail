@@ -1452,7 +1452,7 @@ someone who cannot fix it, is the worst failure mode this project has.
 
 ---
 
-## B-036 — BUILT 2026-09-30, not yet seen on a device. He shares to email constantly, and the app cannot receive a share
+## B-036 — BUILT 2026-09-30, seen working on the iPad. He shares to email constantly, and the app cannot receive a share
 
 **2026-09-22: he shares to email a lot, and none of the share routes
 is implemented.** Measured
@@ -1720,6 +1720,21 @@ to happen.
 
 It stays opt-in (`BLACKMAIL_SHARE_EXT=1`) until the first of those has been
 seen.
+
+**Seen on the iPad, 2026-09-30**, the jailbroken test iPad, on carlo's
+mailbox. The build with the extension was first copy-deployed: the app
+opened and read the Inbox, so its password item survived the new keychain
+groups. Then the same signed IPA was installed through installd with
+TrollStore's helper (`trollstorehelper install installd force <ipa>`, the
+IPA path last; with it first the helper returns 166 and does nothing).
+After opening the app once, Safari's share sheet on a Wikipedia page
+listed Blackmail second in its row. Its sheet came up with the page's title
+as the subject, the address in the body with his signature under it, and
+the recipient suggestions from the app's book, his second address among
+them. Send gave way to "Sending…", the sheet closed at the server's
+answer and left him in Safari, and the letter arrived in the Inbox with the
+link blue and tappable. Not yet tried: YouTube, a shared photo (five at
+once), Cancel with text in it, a failed send, and a `mailto:` link.
 
 ---
 
