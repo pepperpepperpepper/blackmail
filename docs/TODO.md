@@ -3,7 +3,107 @@
 One ordered list of what is actually left. Detail lives in
 `KNOWN_ISSUES.md` (B-nnn) and `PERFORMANCE.md`; this is the running order.
 
-Last revised 2026-09-22, with the iPad offline.
+Last revised 2026-09-30, after the gap review below.
+
+---
+
+## Gap review, 2026-09-30 — what is still missing
+
+A read of the ledger, Apple Mail's everyday features, his own mailbox, and
+what it takes to get the app onto his iPad, each claim checked against the
+code. **His real volume, from his mailbox over the last 30 days:** 2,535
+letters sent (about 71 a day) and about 1,586 received; about half of what
+he sends is a link shared from Safari to a second address of his own
+(1,186 YouTube, 256 Wikipedia); he never archives (the Inbox goes back
+before 2016), deletes about 10 a day, and has about 1,900 drafts. Figures
+elsewhere in these docs ("715 sent", "1 of 433") were samples.
+
+**Before it goes on his iPad** (see also "Blocked on the owner" below):
+
+- [ ] His Google account has no app password yet. *Owner.*
+- [ ] How the signature and its logo reach his iPad. Compiling it in is
+      ruled out (B-035); the old item below is dead. *Owner.*
+- [ ] How updates reach him after install; today every fix is a visit.
+      *Owner.*
+- [ ] A trial install on an ordinary, non-jailbroken iPad: every install so
+      far was an SSH copy onto the jailbroken one. *Owner.*
+- [ ] Try it against a mailbox his size: Go to Date back to before 2016, an
+      All Mailboxes search, ~1,900 Drafts. The test account has 24 letters.
+- [ ] Buildable now, for the install-day build:
+      - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
+      - [ ] "Password needs updating" on a read, not "Can't connect to mail
+            server." for every failure (`MessageListViewController` :504,
+            :580, :1167 and the pane's handlers flatten it)
+      - [ ] setup and Settings check sending (SMTP) too, so Gmail's
+            wrong-account trap cannot pass setup
+      - [ ] take out the B-033 `PAIR` probe, which logs subject lines
+      - [ ] a build number he or a helper can read out
+      - [ ] a guard so the signature cannot be wiped by accident
+      - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
+            all of 16.7.x)
+- [ ] On the day: Smart Invert off, what to do about Apple Mail's badges,
+      the six-task test with him.
+
+**Ways a letter is lost** (all confirmed in the code):
+
+- [ ] Save Draft with no connection throws the letter away silently
+      (`ComposeActions.saveAndClose`; a test pins the silence). Mail keeps
+      the draft on the iPad.
+- [ ] Delete inside Trash erases for good with no confirmation, which the
+      spec asks for (`IMAPMailRepository` :1169).
+- [ ] Delete and Move of several letters in Edit mode fail silently
+      (`MessageListViewController` :1070, :1133); Delete shows no progress.
+- [ ] No autosave: iOS ending the app loses the letter being written.
+- [ ] No Outbox: a letter that cannot go stays in the sheet, but only while
+      the sheet does.
+
+**Small, every day:**
+
+- [ ] Links in plain-text letters cannot be tapped (`PanePage` escapes and
+      nothing links them; WebKit's data detectors are off). About a third of
+      his own shared links are plain text.
+- [ ] Sent and Drafts rows show his own name, not the recipient's.
+- [ ] The reading pane never shows Cc, nor any bare address.
+- [ ] Reply ignores Reply-To; replying to his own letter addresses it to
+      himself; Reply All misses his second address.
+- [ ] `mailto:` links in letters open Apple Mail.
+
+**Larger:**
+
+- [ ] **New mail arrives on its own** while the app is open, and "Updated
+      Just Now" ages. Today only Refresh fetches it (no IDLE, no polling).
+- [ ] **Reply and Forward keep the original's pictures and links.** Today
+      both flatten it to plain text (`quotableText`, `HTMLText.plainText`).
+- [ ] **The share sheet** (B-036): his main way of making mail. Patch zsign
+      for the extension's own entitlements, the extension's own small
+      compose sheet, the Keychain mirror, then one real install.
+- [ ] **A copy of the mail kept on the iPad**, so a launch without a
+      connection is not an empty Inbox. The spec asks for it
+      (ACCEPTANCE_TESTS: cached Inbox within 500 ms); PERFORMANCE.md calls
+      its absence a deliberate trade. *Owner decision.*
+- [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
+      *Owner decision* (D-007).
+- [ ] His own replies missing from Inbox conversations (Mail's Complete
+      Threads).
+- [ ] Replied and forwarded arrows on rows.
+- [ ] Search: several words may be searched as one phrase (not yet checked
+      against Gmail); no suggestions or recent searches.
+
+**Probably used, smaller:**
+
+- [ ] Saving a received photo may crash: no Photos usage description in
+      Info.plist. Needs a device check.
+- [ ] Mark as Unread and Move to Junk from the Flag menu.
+- [ ] Reply with the original's attachments.
+- [ ] Attach documents from Files, and video.
+- [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
+      app badge and notifications. *Owner decisions.*
+- [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
+      status bar to go to the top, Print.
+
+**Not needed, by his mailbox:** folders and labels, Archive, invitation
+buttons (1 of 53 answered in a year), formatting (D-013). **Decided
+against:** Mail's filter button (D-009), portrait (D-008).
 
 ---
 
@@ -204,7 +304,9 @@ this host. Ordered by value, not by size.
       launches (`PaneArrangement`, D-015). Checked in
       `PaneArrangementTests`; see B-048 for what he could notice. Not yet
       seen on the iPad, below.*
-- [ ] **B-035. Ship the signature as a compile-time default.** Needs the
+- [x] ~~**B-035. Ship the signature as a compile-time default.**~~ *Ruled
+      out by the owner, 2026-09-26: his signature never goes in the repo.
+      See the gap review above.* Needs the
       owner's decision first (it puts the end user's phone number and address
       in the source). Without it the rich signature and inline logo cannot reach
       a sideloaded install at all, because they have only ever been installed

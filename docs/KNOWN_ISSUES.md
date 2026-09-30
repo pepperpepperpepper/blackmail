@@ -1846,6 +1846,11 @@ out, could crash the app (B-038). Two writes at once, one at the end of a
 page and one as the app goes into the background, take turns, so the
 older copy cannot land last.
 
+**Seen on the iPad, 2026-09-28**, on carlo's mailbox (recorded 2026-09-30,
+from that day's connection logs): a cold launch sent two commands before
+`SELECT "INBOX"`, where the build before sent about twenty. The rest of
+what the TODO lists for B-040 has not been looked at.
+
 ---
 
 ## B-041 — CHANGED 2026-09-28. What he sees when he acts
@@ -1978,6 +1983,13 @@ back to the app, with nothing to tell him so.
 **The connection log** no longer notes "webview: load failed -999" when a
 page in the reading pane is replaced before it has finished, which now
 happens whenever a letter arrives while "Loading…" is still being drawn.
+
+**Seen on the iPad, 2026-09-28** (recorded 2026-09-30): Delete from the
+reading pane went as one command, where the build before sent about
+fourteen; the warm-up NOOP found a dead socket and replaced it before the
+first tap; coming back after more than fifteen minutes refreshed the list
+in place. A flag set on a search hit and cleared after the search ended
+missed the folder's copy; that was found there and fixed (`1477ee1`).
 
 ---
 
@@ -2150,6 +2162,11 @@ tapped a third of a second apart drew only the last. The list's times read
 a letter of a megabyte, a conversation of twenty letters, a body with
 backslashes or `</script>` in it, a change of time zone or 24-hour clock,
 and the fill's own time on the iPad.
+
+**Seen on the iPad, 2026-09-28** (recorded 2026-09-30): with WebKit's
+process killed, the pane drew the letter again; new search results started
+at the top once the list laid out first (found there, fixed in `b7e1333`),
+and cancelling a search brought the folder back to the row he was on.
 
 ---
 
