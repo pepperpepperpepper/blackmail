@@ -66,7 +66,7 @@ final class ComposeActions {
 
     private let sendLetter: (Draft, @escaping UploadProgress) async throws -> Void
     private let saveDraft: (Draft) async throws -> Void
-    private let deleteDraft: (String) async throws -> Void
+    private let deleteDraft: (String, UInt64?) async throws -> Void
     private let dismiss: () -> Void
     private let showError: (MailError) -> Void
     private let draw: (Look) -> Void
@@ -79,18 +79,20 @@ final class ComposeActions {
     private var autosave: Task<Void, Never>?
     private var changed = false
 
-    /// The first three go to the repository. `dismiss`, `showError` and
-    /// `draw` are the sheet's, and are called only while it is up: nothing
-    /// is drawn on a sheet that has closed. `dismiss` is called once, and
-    /// has to close the sheet whatever it has up over itself at the time:
-    /// after it nothing puts the sheet back, so one left open would be left
-    /// held as it was drawn last. `keeping` is where the letter is kept on
-    /// the iPad; the composer's is `LocalDrafts`. `queued` is told, just
-    /// before `dismiss`, that the letter did not go and waits in the Outbox:
-    /// `sendLetter` threw `Outbox.Waiting`.
+    /// The first three go to the repository; `deleteDraft` is handed the
+    /// copy's id and Gmail's id for the letter it is (`Draft.savedLetter`).
+    /// `dismiss`, `showError` and `draw` are the sheet's, and are called
+    /// only while it is up: nothing is drawn on a sheet that has closed.
+    /// `dismiss` is called once, and has to close the sheet whatever it has
+    /// up over itself at the time: after it nothing puts the sheet back, so
+    /// one left open would be left held as it was drawn last. `keeping` is
+    /// where the letter is kept on the iPad; the composer's is
+    /// `LocalDrafts`. `queued` is told, just before `dismiss`, that the
+    /// letter did not go and waits in the Outbox: `sendLetter` threw
+    /// `Outbox.Waiting`.
     init(sendLetter: @escaping (Draft, @escaping UploadProgress) async throws -> Void,
          saveDraft: @escaping (Draft) async throws -> Void,
-         deleteDraft: @escaping (String) async throws -> Void,
+         deleteDraft: @escaping (String, UInt64?) async throws -> Void,
          dismiss: @escaping () -> Void,
          showError: @escaping (MailError) -> Void,
          draw: @escaping (Look) -> Void,
@@ -244,7 +246,7 @@ final class ComposeActions {
             // tidying is a probe, often a reconnect, and three commands more.
             if let saved = draft.savedID {
                 draftSent?(saved)
-                try? await deleteDraft(saved)
+                try? await deleteDraft(saved, draft.savedLetter)
             }
             // And any copy an upload of it from the iPad left there.
             await keeping.tidy()
@@ -312,15 +314,20 @@ final class ComposeActions {
     /// the letter would have been neither sent nor kept. Takes the letter
     /// off the iPad as well, before the sheet goes, and after the copy any
     /// upload of it from there left in Drafts.
+    ///
+    /// `letter` is Gmail's id for the letter the copy is, as the draft
+    /// names it (`Draft.savedLetter`): the copy goes only if the server
+    /// shows its UID to hold that letter.
     @discardableResult
-    func deleteAndClose(_ saved: String?, then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
+    func deleteAndClose(_ saved: String?, letter: UInt64?,
+                        then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
         guard stage == .writing else { return nil }
         stage = .closed
         stopAutosave()
         keeping.forget()
         dismiss()
         return Task {
-            if let saved { try? await deleteDraft(saved) }
+            if let saved { try? await deleteDraft(saved, letter) }
             await keeping.tidy()
             draftsChanged?()
         }

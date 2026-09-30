@@ -29,10 +29,11 @@ final class ListLetters: PaneActionList {
     private var billing = ReadBilling()
 
     /// Drafts only: the letters kept on the iPad that the server does not
-    /// have yet, as rows, and the ids of the server's copies they replace.
-    /// See `keep(_:replacing:)`.
+    /// have yet, as rows, and the ids of the server's copies they replace,
+    /// each with Gmail's id for the letter named there. See
+    /// `keep(_:replacing:)`.
     private(set) var kept: [MessageSummary] = []
-    private var replaced: Set<String> = []
+    private var replaced: [String: UInt64?] = [:]
 
     /// A letter the pane changed, or took off or put back: the rows are to
     /// be regrouped and redrawn.
@@ -62,7 +63,18 @@ final class ListLetters: PaneActionList {
         guard !isSearching, !kept.isEmpty || !replaced.isEmpty else {
             return removed.remaining(visible)
         }
-        return removed.remaining(kept + folder.filter { !replaced.contains($0.id) })
+        return removed.remaining(kept + folder.filter { !isReplaced($0) })
+    }
+
+    /// Whether a letter kept on the iPad stands in for `row`: it names the
+    /// row's id as its copy and, where both it and the listing name Gmail's
+    /// id for the letter there, the same letter. Another draft under that
+    /// UID, in a Drafts renumbered under the same UIDVALIDITY or another
+    /// mailbox under the same address (B-051), is not its copy and stays.
+    private func isReplaced(_ row: MessageSummary) -> Bool {
+        guard let copy = replaced[row.id] else { return false }
+        guard let named = copy, let listed = row.gmailMessageID else { return true }
+        return named == listed
     }
 
     /// Where the next page down is asked for from: the last letter the last
@@ -157,13 +169,15 @@ final class ListLetters: PaneActionList {
     /// Drafts' letters kept on the iPad and not yet on the server
     /// (`LocalDrafts`), at the top, newest first, above the folder's own
     /// letters, and in place of the copies on the server they will replace
-    /// (`replacing`, the `savedID` of each): a letter reopened from Drafts
-    /// and saved again without a connection is one letter, not two.
+    /// (`replacing`, the `savedID` of each, with its `savedLetter`): a letter
+    /// reopened from Drafts and saved again without a connection is one
+    /// letter, not two. A row whose listing names another letter than the
+    /// one the kept letter names there is not replaced (`isReplaced`).
     ///
     /// Only ever above the folder's letters, whose order it leaves alone,
     /// and never among a search's hits. Paging walks the folder's letters
     /// as before (`cursor`), since these are not the server's to page.
-    func keep(_ rows: [MessageSummary], replacing: Set<String>) {
+    func keep(_ rows: [MessageSummary], replacing: [String: UInt64?]) {
         kept = rows
         replaced = replacing
     }

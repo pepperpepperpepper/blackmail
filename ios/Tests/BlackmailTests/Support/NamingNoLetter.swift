@@ -3,16 +3,18 @@ import Foundation
 
 /// A write and a letter opened naming no Gmail message id, as the app makes
 /// them only where it has none to name: a draft reopened by the id its
-/// upload gave it, before Drafts is listed again. A draft removed names
-/// none by its own signature (`deleteDraft`), and a row listed from a
-/// server without Gmail's extension has no id, so `NamingTheLetter` names
-/// none for it. Such calls go by the kept copy's own rule
-/// (`MailShelf.unproven`), which `KeptCopyTests` pins with these on Gmail's
-/// rows in one test, the write naming no letter's. Also for the few calls
-/// with no row at hand at all, a letter taken by its UID straight from the
-/// scripted server where nothing has listed it: nothing of it is kept, so
-/// it sends what naming a row this launch has listed sends. Every call
-/// with a row names it, as the app does (`NamingTheLetter`).
+/// upload gave it, before Drafts is listed again, and a draft removed that
+/// was found by its Message-ID or whose draft names no letter
+/// (`Draft.savedLetter`, nil on a server without Gmail's extension and in
+/// a letter kept before the ids were). A row listed from a server without
+/// Gmail's extension has no id, so `NamingTheLetter` names none for it.
+/// Such calls go by the kept copy's own rule (`MailShelf.unproven`), which
+/// `KeptCopyTests` pins with these on Gmail's rows in one test, the write
+/// naming no letter's. Also for the few calls with no row at hand at all,
+/// a letter taken by its UID straight from the scripted server where
+/// nothing has listed it: nothing of it is kept, so it sends what naming a
+/// row this launch has listed sends. Every call with a row names it, as
+/// the app does (`NamingTheLetter`).
 extension MailRepository {
 
     func loadMessage(id: String, mailboxID: String) async throws -> Message {
@@ -38,5 +40,9 @@ extension MailRepository {
 
     func loadDraft(id: String, mailboxID: String) async throws -> Draft {
         try await loadDraft(id: id, gmailMessageID: nil, mailboxID: mailboxID)
+    }
+
+    func deleteDraft(_ id: String) async throws {
+        try await deleteDraft(id, gmailMessageID: nil)
     }
 }

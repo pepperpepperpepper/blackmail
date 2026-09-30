@@ -60,7 +60,7 @@ final class ShareSheet {
             // Never asked: Cancel puts a share away without keeping a
             // draft, and a share has no copy in Drafts to tidy.
             saveDraft: { _ in },
-            deleteDraft: { _ in },
+            deleteDraft: { _, _ in },
             dismiss: { [weak self] in
                 guard let self else { return }
                 self.cancelled ? cancel() : finish()
@@ -90,7 +90,7 @@ final class ShareSheet {
     func cancel() -> Task<Void, Never>? {
         guard !actions.isSending else { return nil }
         cancelled = true
-        return actions.deleteAndClose(nil, then: nil)
+        return actions.deleteAndClose(nil, letter: nil, then: nil)
     }
 
     /// Whether Cancel asks before putting the share away: when `letter`,

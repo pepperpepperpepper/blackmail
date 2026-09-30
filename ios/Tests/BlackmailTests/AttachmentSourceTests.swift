@@ -32,7 +32,7 @@ final class AttachmentSourceTests: XCTestCase {
         let draft = Draft.forwarding(m)
 
         XCTAssertEqual(draft.attachments.count, 1)
-        guard case let .messagePart(messageID, mailboxID, section) =
+        guard case let .messagePart(messageID, mailboxID, section, _) =
                 draft.attachments[0].source else {
             return XCTFail("a forward must reference the original message")
         }

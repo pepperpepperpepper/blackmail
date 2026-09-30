@@ -133,6 +133,19 @@ struct Message: Identifiable {
     /// The parent's own `References`, so a reply extends the ancestry
     /// instead of starting it over from one hop.
     var references: String?
+    /// Gmail's id for the letter (X-GM-MSGID), when the server has named it
+    /// in this launch: the row's own that it was opened by, once the server
+    /// has said the UID holds that letter, or what the server named there.
+    /// Nil on a server without Gmail's extension, and where nothing named
+    /// it.
+    ///
+    /// What a forward, a reply or a reopened draft made from it carries
+    /// beside every folder-and-UID it names (`DraftAttachment.Source`,
+    /// `QuotedOriginal.Picture`, `Draft.savedLetter`). Kept on the iPad
+    /// (B-051) until a later launch, those names can be another letter's:
+    /// Gmail gives every Inbox UIDVALIDITY 1, and a password saved in
+    /// Settings can open another mailbox under the same address (B-033).
+    var gmailMessageID: UInt64? = nil
 }
 
 extension Message {
@@ -214,6 +227,13 @@ struct Draft {
     /// this app, being interrupted mid-letter is not an edge case, and an
     /// unfinishable letter is a failure of the thing he mostly does here.
     var savedID: String?
+    /// Gmail's id for the letter `savedID` names (X-GM-MSGID), nil when the
+    /// server named none. The copy is removed only if the server shows that
+    /// UID to hold this letter (`MailRepository.deleteDraft`): a letter
+    /// kept on the iPad from an earlier launch names its copy by folder and
+    /// UID, and in another mailbox under the same address, or a Drafts
+    /// renumbered under the same UIDVALIDITY, that UID is another draft.
+    var savedLetter: UInt64?
     /// The letter a reply or forward quotes, as it arrived, so the HTML
     /// twin can show it as it looked while he edits it as plain text. Nil
     /// for a new letter. See `QuotedOriginal` for when it is used.
@@ -378,10 +398,15 @@ extension Draft {
         // it off. At Send the pictures its quote still shows go in the quote
         // rather than as files (`AppleMailHTML.letter`); if he has changed
         // the quote, they go as files, as they always did.
+        //
+        // Each names the original by Gmail's id as well as by folder and
+        // UID, so a forward kept on the iPad and sent in a later launch
+        // carries its own files or none (`Message.gmailMessageID`).
         draft.attachments = m.attachments.map {
             DraftAttachment(source: .messagePart(messageID: m.id,
                                                  mailboxID: m.mailboxID,
-                                                 section: $0.id),
+                                                 section: $0.id,
+                                                 letter: m.gmailMessageID),
                             filename: $0.filename,
                             mimeType: $0.mimeType, size: $0.size)
         }
@@ -434,12 +459,14 @@ extension Draft {
                          .map {
                              DraftAttachment(source: .messagePart(messageID: m.id,
                                                                   mailboxID: m.mailboxID,
-                                                                  section: $0.id),
+                                                                  section: $0.id,
+                                                                  letter: m.gmailMessageID),
                                              filename: $0.filename,
                                              mimeType: $0.mimeType,
                                              size: $0.size)
                          },
                      savedID: m.id,
+                     savedLetter: m.gmailMessageID,
                      quote: QuotedOriginal.recovered(from: m, body: body))
     }
 }
@@ -464,8 +491,17 @@ struct DraftAttachment {
     /// rather than copied, so nothing is downloaded until send. A photo he
     /// chose is a FILE on this device. Both end up as the same MIME part
     /// on the wire; only the fetch differs.
+    ///
+    /// A part names its letter by folder and UID, `messageID` and
+    /// `mailboxID`, and by Gmail's id for it, `letter` (X-GM-MSGID), nil
+    /// where the server named none: on a server without Gmail's extension,
+    /// and in a letter kept on the iPad by a build before the id was kept.
+    /// The folder and UID are how it is fetched; the id is how the bytes
+    /// are known to be that letter's once the letter has waited on the iPad
+    /// into a later launch (`IMAPMailRepository.fetchCarried`).
     enum Source {
-        case messagePart(messageID: String, mailboxID: String, section: String)
+        case messagePart(messageID: String, mailboxID: String, section: String,
+                         letter: UInt64? = nil)
         case localFile(URL)
     }
 

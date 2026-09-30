@@ -76,6 +76,9 @@ enum Outbox {
     /// - `MailError.attachmentFailed`: a forward's file gone from Gmail, or
     ///   one that could not be read, or its folder renumbered or gone since.
     ///   He can take it off the letter.
+    /// - `MailError.attachmentsMissing`: a file or quoted picture that names
+    ///   its original by Gmail's id, and that letter is neither where it
+    ///   was named nor in All Mail. The same.
     /// - `NoSentMail`, and anything else, a photo's file that could not be
     ///   read: shown as "Message was not sent." as it always was.
     static func waits(after error: Error) -> Bool {
@@ -83,7 +86,8 @@ enum Outbox {
         switch error as? MailError {
         case .cannotConnect?, .connectionLost?, .refusedForNow?:
             return true
-        case .passwordNeedsUpdating?, .messageTooLarge?, .notSent?, .attachmentFailed?, nil:
+        case .passwordNeedsUpdating?, .messageTooLarge?, .notSent?, .attachmentFailed?,
+             .attachmentsMissing?, nil:
             return false
         }
     }
@@ -105,6 +109,15 @@ enum Outbox {
     /// had been told to do about it.
     static let notice = "Message is in the Outbox. It will be sent when the iPad is connected "
         + "and Blackmail is open."
+
+    /// The first line of the row of a letter no pass will send: an attempt
+    /// at it was cut off after its DATA before a password was saved, so
+    /// Gmail may have it, and Sent Mail, which would say, may now be
+    /// another mailbox's (`LocalDraftStore.unsettledBeforeASave`). Not
+    /// "Message was not sent.", which may be untrue, and would have him send
+    /// it again for that reason. What he does about it is his: tapped and
+    /// sent, it goes.
+    static let mayHaveGone = "May already have been sent."
 
     /// The line under a list while letters wait: Mail's "1 Unsent Message",
     /// as its status bar is quoted and pictured (OS X Daily, 2014 and 2016).
@@ -143,12 +156,13 @@ enum Outbox {
 extension LocalDraft {
 
     /// Its row in the Outbox: whom it is to and its subject, and under them,
-    /// while it goes, "Sending…", or why the last try did not send it, then
-    /// its words. Its id is the one a row in Drafts gives a kept letter, so
-    /// opening and deleting it go by `LocalDraft.key(ofRow:)` as there.
-    func outboxRow(sending: Bool, notSent reason: MailError?) -> MessageSummary {
+    /// while it goes, "Sending…", or `reason`, why it has not gone
+    /// (`LocalDrafts.outboxRows`), then its words. Its id is the one a row
+    /// in Drafts gives a kept letter, so opening and deleting it go by
+    /// `LocalDraft.key(ofRow:)` as there.
+    func outboxRow(sending: Bool, saying reason: String?) -> MessageSummary {
         let text = PreviewText.fromPlainText(draft.body)
-        let first = sending ? "Sending…" : reason?.errorDescription
+        let first = sending ? "Sending…" : reason
         let preview = [first, text.isEmpty ? nil : text].compactMap { $0 }.joined(separator: "\n")
         let row = self.row(in: Outbox.mailboxID, from: "")
         return MessageSummary(id: row.id, mailboxID: Outbox.mailboxID,

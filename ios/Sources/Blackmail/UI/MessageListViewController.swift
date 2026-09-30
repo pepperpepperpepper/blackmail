@@ -751,18 +751,16 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func listKept() {
         guard mailbox.role == .drafts else { return }
-        letters.keep(kept.waiting.map { $0.row(in: mailbox.id, from: keptSender) },
+        letters.keep(kept.draftsRows(in: mailbox.id, from: keptSender),
                      replacing: kept.replacedInDrafts)
     }
 
     /// The Outbox's rows: the letters waiting there, newest first, each
-    /// with "Sending…" while it goes or why the last try did not send it.
+    /// with "Sending…" while it goes or why it has not gone.
     @MainActor
     private func listOutbox() {
         _ = letters.fetchedAfresh([])
-        letters.keep(kept.outbox.map {
-            $0.outboxRow(sending: kept.isGoing($0.key), notSent: kept.whyNotSent($0.key))
-        }, replacing: [])
+        letters.keep(kept.outboxRows, replacing: [:])
         reachedOldestMessage = true
         regroup()
         updateEmptyState()

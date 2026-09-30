@@ -126,15 +126,21 @@ protocol MailRepository {
 
     /// Removes a saved draft outright rather than binning it.
     ///
-    /// Names no Gmail message id, unlike the writes above. It is never a
-    /// row he tapped: it is the copy a draft was reopened from, or a copy
-    /// put in Drafts or found there. Within one launch that copy was
-    /// vouched for as it opened, or is this launch's own. A letter kept in
-    /// Local Drafts from an earlier launch names its copy by folder and UID
-    /// alone, and after a password saved in Settings that opens another
-    /// mailbox under the same address (B-033) that id can be another
-    /// draft's: not covered (B-051).
-    func deleteDraft(_ id: String) async throws
+    /// Never a row he tapped: the copy a draft was reopened from, or a copy
+    /// put in Drafts or found there. `gmailMessageID` is Gmail's id for the
+    /// letter the copy is (`Draft.savedLetter`), nil where none is known,
+    /// and it goes by the rules the writes above go by: removed only if the
+    /// server shows that UID to hold that letter, asked first if it has
+    /// named nothing there in this launch, and nothing sent if it has named
+    /// another, `MailShelf.NotTheKeptLetter` thrown. A letter kept in Local
+    /// Drafts from an earlier launch names its copy by folder and UID, and
+    /// after a password saved in Settings that opens another mailbox under
+    /// the same address (B-033), or a Drafts renumbered under the same
+    /// UIDVALIDITY, that UID can be another draft (B-051). Named by no
+    /// letter, a copy found by its Message-ID or one from a server without
+    /// Gmail's extension goes by the kept copy's own rule, as every copy
+    /// did before its letter was named.
+    func deleteDraft(_ id: String, gmailMessageID: UInt64?) async throws
 
     /// Removes the copies in Drafts of a letter kept on the iPad, found by
     /// the Message-IDs its `versions` went up under, and returns their ids.
@@ -318,12 +324,28 @@ enum MailError: LocalizedError {
     /// letter may go later as it is, so it waits in the Outbox as for a lost
     /// connection. Read out as "Message was not sent.", as before.
     case refusedForNow
+    /// A letter kept on the iPad carries a file, or a picture in its quote,
+    /// from a letter on Gmail that is no longer where it named it, and not
+    /// in All Mail either: after a password saved that opens another
+    /// mailbox under the same address (B-033), or the original deleted.
+    /// The letter does not go, rather than go with another letter's file
+    /// under its file's name, or without the file.
+    ///
+    /// Not a new sentence: he reads "Attachment could not be downloaded.",
+    /// the spec's, as for a forward's file gone from Gmail. A case of its
+    /// own because it is the one refusal a draft's row in Drafts shows
+    /// (`LocalDrafts.draftsRows`). It first had Mail's words, as its users
+    /// quote the alert iOS Mail puts up when a forward's attachments cannot
+    /// be had ("One or more attachments failed to load.", Apple's forums,
+    /// thread 254851082); that was a sixth sentence, and the same missing
+    /// file read one way or the other depending on how it had been named.
+    case attachmentsMissing
 
     var errorDescription: String? {
         switch self {
         case .cannotConnect:        return "Can't connect to mail server."
         case .notSent, .connectionLost, .refusedForNow: return "Message was not sent."
-        case .attachmentFailed:     return "Attachment could not be downloaded."
+        case .attachmentFailed, .attachmentsMissing: return "Attachment could not be downloaded."
         case .passwordNeedsUpdating: return "Password needs to be updated in Settings."
         case .messageTooLarge:      return "This message is too big to send. Try sending fewer attachments."
         }

@@ -630,7 +630,8 @@ final class ComposeViewController: UIViewController,
             guard let self else { return }
             // `ComposeActions.deleteAndClose`, which also refuses once a
             // letter is on its way.
-            self.actions.deleteAndClose(self.draft.savedID, then: self.onDraftsChanged)
+            self.actions.deleteAndClose(self.draft.savedID, letter: self.draft.savedLetter,
+                                        then: self.onDraftsChanged)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(sheet, animated: true)

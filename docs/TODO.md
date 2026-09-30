@@ -767,6 +767,97 @@ this host. Ordered by value, not by size.
       old copy is gone from Drafts on the web. Tap a letter in the Outbox,
       Cancel untouched: it is back in the Outbox. In two panes, the Outbox
       is in the Mailboxes' column and opens like any folder.
+- [ ] **B-051, what a kept letter names, by its Gmail id.** Cases 1 to 3
+      seen on the iPad 2026-09-30 (B-051); case 4 is for an iPad that had
+      letters from before the ids, which his fresh install will not. A draft
+      in Gmail cannot be opened with no connection: in case 1, open it, then
+      cut the Wi-Fi, then change it. Each case is made by hand in the store, with the
+      app ended (swiped away in the app switcher, so nothing writes a letter
+      under the edit). The store is `Library/Application Support/Local
+      Drafts/` in the app's data container; over SSH, `find
+      /var/mobile/Containers/Data/Application -maxdepth 5 -type d -name
+      'Local Drafts'`. One directory per letter, named by a UUID, holding
+      `letter.json`: one line of JSON, its keys in no fixed order and its
+      slashes written `\/`, so a UID reads `"messageID":"1\/2345"`. `grep -l
+      '"subject":"Test two"' */letter.json` finds the letter. Copy it aside
+      first (`cp letter.json /var/tmp/`) and put it back after; an edit that
+      breaks the JSON only drops that letter from the lists. `password-saves`
+      beside the directories is the count of passwords saved, once one has
+      been.
+      1. The copy a draft was reopened from. Write "Test one" to himself,
+      Save Draft; open it from Drafts, then Wi-Fi off, change the subject to
+      "Test two", Cancel, Save Draft: "On this iPad only". End the app. In
+      its `letter.json`, `grep -o '"savedLetter":[0-9]*'` gives Gmail's id
+      for "Test one"; write it one higher (`sed -i` with the two numbers
+      spelled out; BSD sed wants `-i ''`). Open the app with Wi-Fi off and
+      go to Drafts: "Test two" at the top, "On this iPad only", and "Test
+      one" listed below it, since the row under its UID names another letter
+      than the one the letter now names; before the edit only "Test two" was
+      listed. End the app. Wi-Fi on, open the app: the pass after the
+      Inbox's first page takes it. The connection log: the `APPEND` of "Test
+      two" (after a `UID SEARCH HEADER Message-ID` if the offline save
+      reached its APPEND), then `UID FETCH n (UID X-GM-MSGID)` in Drafts,
+      not yet listed in this launch, and no `UID STORE` or `UID EXPUNGE`;
+      the notes `KEPT-UNVOUCHED folder=[Gmail]/Drafts nothing-sent` and
+      `DRAFT-SUPERSEDED folder=[Gmail]/Drafts not-that-letter left`. Drafts
+      on the web has both; delete them there. Again with no edit: one copy,
+      "Test two", the `UID STORE` and `UID EXPUNGE` after that FETCH as Save
+      Draft always sent them.
+      2. A forward's file found in All Mail. Forward to himself an Inbox
+      letter that carries a PDF, Wi-Fi off, Send: the Outbox. End the app.
+      In its `letter.json`, the file's `"messageID":"1\/U"`: write U one
+      lower, which is another letter's UID or none. Wi-Fi on, open the app:
+      it goes by itself, and the log shows no `BODY.PEEK[2]` in the Inbox,
+      `CARRIED-PART folder=INBOX reason=another-letter` (or `reason=gone`),
+      `UID SEARCH X-GM-MSGID …` in All Mail, the part fetched there, and
+      `CARRIED-PART found folder=[Gmail]/All Mail`. The letter arrives with
+      the PDF that was forwarded, under its own name. Before, it went with
+      the file of whatever letter had that UID, or failed.
+      3. A file nowhere. As 2, but write the file's `"letter":` number one
+      higher instead, an id no letter has: the letter stays in the Outbox,
+      its row reading "Attachment could not be downloaded.", nothing is
+      sent, and the log ends `CARRIED-PART not-found nothing-sent`; a letter
+      sent offline after it goes. Open it and Send: the sheet stays with the
+      same words. Take the file off and Send: it goes. The same with Save
+      Draft in place of Send: its row in Drafts reads "On this iPad only",
+      then the words on the line under it. A forward whose quote shows a
+      picture (a letter from Mail with a photo in its words) the same, by
+      its entry under `"pictures"`, which has its own `"messageID"` and
+      `"letter"`.
+      4. A letter kept before the ids were, and a password saved. Make one:
+      a draft reopened from Drafts and saved offline, as in 1, then take its
+      ids out, `sed -i -E 's/,"(savedLetter|letter)":[0-9]+//g;
+      s/"(savedLetter|letter)":[0-9]+,//g' letter.json`. Open the app with
+      Wi-Fi on: it goes as before, its old copy removed. Then the save,
+      which has to come before the letter it is to hold: Settings checks a
+      new password with Gmail, so the app is open with Wi-Fi on, and a
+      letter already kept without its ids would go up at the Inbox's first
+      page before Settings could be reached. Wi-Fi on, Settings, type the
+      same app password into the password field and tap Save (a blank field
+      keeps the password and counts nothing); `password-saves` now reads one
+      more. In the same launch, Wi-Fi off, reopen a draft, change it, Save
+      Draft: it is stamped with the count this launch found, from before the
+      save. End the app, take its ids out with the same `sed`, and open the
+      app with Wi-Fi on: the letter stays "On this iPad only", no APPEND for
+      it, its old copy listed beside it; opened and saved, it goes up as a
+      new copy and the old one stays. A letter written in this launch goes
+      up by itself. (Or leave Settings alone: make the letter and take its
+      ids out, then, the app still ended, raise `password-saves` by one by
+      hand, `echo 1 > password-saves` where there is none, and open the
+      app.)
+      5. A letter cut off after its DATA before a password save (B-052,
+      "Across a password save"). Wi-Fi off, Send a letter to himself: the
+      Outbox. End the app. In its `letter.json`, write its Message-ID down
+      as an attempt that went, `sed -i 's/"outbox":"\([^"]*\)"/&,"unsettled":["\1"]/'
+      letter.json`; with no stamp beside it, the attempt reads as made
+      before any save. Make sure `password-saves` reads 1 or more (4 leaves
+      it so; else `echo 1 > password-saves`). Wi-Fi on, open the app:
+      nothing goes for it, no `UID SEARCH HEADER Message-ID` and no
+      `ENVELOPE`, and its row in the Outbox reads "May already have been
+      sent.", with "1 Unsent Message" under the list. Tap it, Send: the log
+      shows the look in Sent Mail, then one `ENVELOPE`, and the letter
+      arrives once. With no `password-saves` file at all, the same edit
+      makes the pass look in Sent Mail and send it by itself.
 - [ ] **B-053, the copy kept on the iPad.** Seen 2026-09-30: the first
       frame with Wi-Fi on and off, an unread letter tapped in the first
       second (both vouching FETCHes, the dot staying off), the kept pages
@@ -823,6 +914,14 @@ this host. Ordered by value, not by size.
       as 1, then 2, then 1 when the sweep `adjustUnreadCounts` asks for
       lands. Seen on the iPad 2026-09-30; older than the kept copy, which
       only makes a tap that early likelier.
+- [ ] Save Draft with no connection, with Drafts open: the list keeps the
+      Gmail copy's row, and the new "On this iPad only" row takes its place
+      only some eight seconds later, once the save's upload has failed.
+      Seen on the iPad 2026-09-30. Nothing is lost; the row should come at
+      once, as the letter is kept before the sheet goes.
+- [ ] A forward with several files found in All Mail searches for the
+      original once per file (`UID SEARCH X-GM-MSGID` before each part);
+      once would do. Seen on the iPad 2026-09-30.
 - [ ] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had

@@ -28,7 +28,7 @@ final class MessageSizeTests: XCTestCase {
         // are five. "552 5.2.3" must never reach him.
         let errors: [MailError] = [.cannotConnect, .notSent, .attachmentFailed,
                                    .passwordNeedsUpdating, .messageTooLarge, .connectionLost,
-                                   .refusedForNow]
+                                   .refusedForNow, .attachmentsMissing]
         for error in errors {
             let text = error.errorDescription ?? ""
             XCTAssertFalse(text.isEmpty, "every case needs a sentence")
@@ -36,6 +36,26 @@ final class MessageSizeTests: XCTestCase {
                            "a status code reached the user: \(text)")
             XCTAssertTrue(text.hasSuffix("."), "it is a sentence: \(text)")
         }
+    }
+
+    /// Every case reads as one of five sentences: the spec's four and the
+    /// one for a letter too big. A file a kept letter carries that cannot
+    /// be found anywhere reads as any other file that could not be had.
+    /// It had Mail's "One or more attachments failed to load." for a
+    /// while, a sixth sentence for the same missing file.
+    func testEveryErrorIsOneOfFiveSentences() {
+        let errors: [MailError] = [.cannotConnect, .notSent, .attachmentFailed,
+                                   .passwordNeedsUpdating, .messageTooLarge, .connectionLost,
+                                   .refusedForNow, .attachmentsMissing]
+        XCTAssertEqual(Set(errors.compactMap(\.errorDescription)), [
+            "Can't connect to mail server.",
+            "Message was not sent.",
+            "Attachment could not be downloaded.",
+            "Password needs to be updated in Settings.",
+            "This message is too big to send. Try sending fewer attachments.",
+        ])
+        XCTAssertEqual(MailError.attachmentsMissing.errorDescription,
+                       MailError.attachmentFailed.errorDescription)
     }
 
     // MARK: - The limit itself
