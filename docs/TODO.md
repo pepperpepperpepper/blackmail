@@ -781,13 +781,13 @@ this host. Ordered by value, not by size.
       copy, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
-- [ ] **B-053, every write and every open naming its letter.** Not yet
-      seen on the iPad. Open the app with Wi-Fi on and wait for "Updated
-      Just Now", then tap an unread letter, flag it from the pane, move
-      another and delete a third: the connection log shows each as it did,
-      the letter's `UID FETCH n (UID BODY.PEEK[])`, then `UID STORE` or
-      `UID MOVE` with no `(UID X-GM-MSGID)` FETCH before it, and no `KEPT-`
-      line. The same for a row on a page scrolled down to, a day jumped
+- [ ] **B-053, every write and every open naming its letter.** Seen
+      2026-09-30: the everyday wire after the page (open, Flag, Edit's
+      Mark), and a copy made another mailbox's by hand refused under held
+      ticks with nothing sent (B-053). Still to see, with Wi-Fi on and
+      after "Updated Just Now": move a letter and delete another: the
+      connection log shows each as it did, the `UID MOVE` with no `(UID
+      X-GM-MSGID)` FETCH before it, and no `KEPT-` line. The same for a row on a page scrolled down to, a day jumped
       to, a search hit, a letter opened inside a conversation, a draft
       reopened, and Edit mode's Mark, Move and Delete. Then open Sent Mail,
       opened before, and before its page lands, if it can be caught, open a
@@ -813,9 +813,10 @@ this host. Ordered by value, not by size.
       Mark ends Edit mode and lets the fresh page on, so the row pushed off
       leaves the list; scroll down until the page below brings it back, then
       tick it and the row near the top in Edit and Mark as Read: the two
-      STOREs alone, the page below having named it. A copy from another
-      mailbox, the case this closes, cannot be made on his mailbox by hand;
-      the scripted server stands for it.
+      STOREs alone, the page below having named it. Another mailbox's copy
+      is made by hand by giving kept rows ids of no letter there, with the
+      app ended (B-053); a letter opened from one needs the slower
+      connection too.
 - [ ] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox

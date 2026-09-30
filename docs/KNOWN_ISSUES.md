@@ -4236,7 +4236,22 @@ Not tried yet, and in the TODO: the swap under a finger, scrolled or under
 ticks, the page lands too soon on Wi-Fi to be caught by hand; a flag in the
 first second; a letter tapped with no connection; the password saved again.
 
-**Every write and every open naming its letter, built 2026-09-30, not yet
-seen on the iPad.** The TODO says what to look at. The case it closes, a
-copy from another mailbox, cannot be made on his mailbox by hand, and is
-seen only on the scripted server.
+**Every write and every open naming its letter, built 2026-09-30, seen on
+the iPad the same day**, on carlo's mailbox, before the branch was merged:
+
+- After "Updated Just Now", a letter opened, flagged and unflagged from the
+  pane, Edit mode's Mark as Unread and Mark as Read, and a letter opened in
+  Sent Mail each sent what they always did: `UID FETCH 21 (UID
+  BODY.PEEK[])`, the `UID STORE`s alone, no `(UID X-GM-MSGID)` FETCH and no
+  `KEPT-` line.
+- Another mailbox's copy, made by hand: with the app ended, two rows of the
+  kept Inbox page were given Gmail message ids of no letter there, UIDs 23
+  and 20, as the same UIDs would carry in another mailbox. Wi-Fi off, open
+  it, the kept rows; Edit, a tick on row 23; Wi-Fi on. The listing that
+  followed at once said `KEPT-DISCARDED folder=INBOX reason=msgid`, and the
+  tick held the kept rows on screen. Mark as Unread then: `KEPT-UNVOUCHED
+  folder=INBOX nothing-sent`, no command at all for it, and the letter
+  under UID 23 still read on Gmail when the fresh page came on.
+
+Not caught by hand: a letter opened from such a row, which the listing at
+reconnect beats, and Edit mode ticks rather than opens.
