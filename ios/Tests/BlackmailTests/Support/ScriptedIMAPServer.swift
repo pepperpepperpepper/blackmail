@@ -330,6 +330,13 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusedMailboxes = newValue } }
     }
 
+    /// Search keys a UID SEARCH is answered BAD for, as by a server that
+    /// does not know them: `["HEADER"]`. Upper case.
+    var refusedSearchKeys: Set<String> {
+        get { locked { $0.refusedSearchKeys } }
+        set { locked { $0.refusedSearchKeys = newValue } }
+    }
+
     /// The transport's ordinary deadline, in place of `TLSConnection`'s 30
     /// seconds: for the connect, for each read of an ordinary reply, and for
     /// each piece of a write.
@@ -789,6 +796,7 @@ private extension ScriptedIMAPServer {
         var loginCapabilities: LoginCapabilities = .inTaggedOK
         var greeting: Greeting = .ready
         var refusedMailboxes: Set<String> = []
+        var refusedSearchKeys: Set<String> = []
         var passwordRevoked = false
         var timeout: Duration = .seconds(1)
         var timeouts: [Int: Duration] = [:]
@@ -956,9 +964,12 @@ private extension ScriptedIMAPServer.State {
             if let count = Server.trailingLiteralLength(line) {
                 session.literal = (line, count)
                 sessions[id] = session
+                // Not held with the command's own reply: `holdReplies(to:
+                // "APPEND")` keeps back the tagged answer to a letter the
+                // server has taken, not the "+" that lets it be sent.
                 if !isSilent {
                     replies.append(Server.Reply(bytes: Data("+ go ahead\r\n".utf8), delay: .zero,
-                                                verb: Server.verb(of: Server.untagged(line))))
+                                                verb: "+ " + Server.verb(of: Server.untagged(line))))
                 }
                 continue
             }
@@ -1156,7 +1167,9 @@ private extension ScriptedIMAPServer.State {
     func search(_ args: [Server.Token], in name: String, on id: Int, into r: inout Server.Response) {
         var keys = args[...]
         if keys.first?.text?.uppercased() == "CHARSET" { keys = keys.dropFirst(2) }
-        guard let folder = folders[name], let key = Server.SearchKey.parse(Array(keys)) else {
+        let refused = keys.contains { refusedSearchKeys.contains($0.text?.uppercased() ?? "") }
+        guard !refused, let folder = folders[name],
+              let key = Server.SearchKey.parse(Array(keys)) else {
             r.bad("Could not parse command")
             return
         }
@@ -1844,6 +1857,8 @@ private extension ScriptedIMAPServer {
         case or(SearchKey, SearchKey)
         case not(SearchKey)
         case field(String, String)
+        /// `HEADER name value`: a header of that name holding the value.
+        case header(String, String)
         case sent(Comparison, Date)
         case received(Comparison, Date)
         case flag(String, present: Bool)
@@ -1890,6 +1905,9 @@ private extension ScriptedIMAPServer {
                 return parseOne(tokens, &index).map { .not($0) }
             case "FROM", "TO", "CC", "BCC", "SUBJECT", "BODY", "TEXT":
                 return argument().map { .field(word, $0) }
+            case "HEADER":
+                guard let name = argument(), let value = argument() else { return nil }
+                return .header(name, value)
             case "SENTSINCE":  return day().map { .sent(.since, $0) }
             case "SENTBEFORE": return day().map { .sent(.before, $0) }
             case "SENTON":     return day().map { .sent(.on, $0) }
@@ -1933,6 +1951,19 @@ private extension ScriptedIMAPServer {
                 default:        haystack = String(decoding: stored.raw, as: UTF8.self)
                 }
                 return haystack.range(of: needle, options: .caseInsensitive) != nil
+            case let .header(name, needle):
+                // RFC 3501: the field's text after the colon contains the
+                // string, compared without regard to case. Folded lines are
+                // not unfolded; nothing the repository searches for folds.
+                let header = String(decoding: stored.sections["HEADER"] ?? Data(), as: UTF8.self)
+                return header.components(separatedBy: "\r\n").contains { line in
+                    guard let colon = line.firstIndex(of: ":"),
+                          line[..<colon].caseInsensitiveCompare(name) == .orderedSame else {
+                        return false
+                    }
+                    return line[line.index(after: colon)...]
+                        .range(of: needle, options: .caseInsensitive) != nil
+                }
             case let .sent(comparison, day), let .received(comparison, day):
                 // Both by the day in UTC, which is the zone every seeded
                 // Date header is written in.

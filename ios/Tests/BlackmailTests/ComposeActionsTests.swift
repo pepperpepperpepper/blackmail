@@ -25,10 +25,20 @@ final class ComposeActionsTests: XCTestCase {
     private var progress: [(Int, Int)] = []
     /// The last send's progress report, to be called after it has ended.
     private var lastReport: UploadProgress?
+    /// The pauses before an autosave, each waiting until the test lets it
+    /// go, so no test waits the real seconds.
+    private var pauses = Held()
+
+    /// An autosave's pause a test left waiting ends with it.
+    override func tearDown() async throws {
+        pauses.release()
+        try await super.tearDown()
+    }
 
     /// Everything as a fresh test finds it, for a test that tries more than
     /// one way through.
     private func reset() {
+        pauses.release()
         log = []
         draws = []
         errors = []
@@ -41,10 +51,20 @@ final class ComposeActionsTests: XCTestCase {
         holdSave = nil
         progress = []
         lastReport = nil
+        pauses = Held()
     }
 
-    private func makeActions() -> ComposeActions {
+    /// With `keeping`, what the letter is kept as on the iPad, and taken
+    /// off it, is written into the log as well.
+    private func makeActions(keeping: Bool = false) -> ComposeActions {
         background.log = { [unowned self] in log.append($0) }
+        let kept = DraftKeeping(
+            keep: { [unowned self] _, finished in log.append(finished ? "keep" : "keep unfinished") },
+            forget: { [unowned self] in log.append("forget") },
+            abandon: { [unowned self] in log.append("abandon") },
+            letGo: { [unowned self] in log.append("let go") },
+            tidy: { [unowned self] in log.append("tidy") },
+            wait: { [pauses] _ in try await pauses.wait() })
         return ComposeActions(
             sendLetter: { [unowned self] _, report in
                 sends += 1
@@ -66,7 +86,8 @@ final class ComposeActionsTests: XCTestCase {
             dismiss: { [unowned self] in log.append("dismiss") },
             showError: { [unowned self] in errors.append($0); log.append("error") },
             draw: { [unowned self] in draws.append($0) },
-            background: background.time)
+            background: background.time,
+            keeping: keeping ? kept : .nowhere)
     }
 
     private func draft(savedAs id: String? = nil) -> Draft {
@@ -263,31 +284,42 @@ final class ComposeActionsTests: XCTestCase {
 
     // MARK: - Save Draft
 
-    /// The sheet goes at once, the save follows with time asked of iOS for
-    /// it, then the folder is told, then the time is given back. If the time
-    /// runs out first it is given back then, once, and the save carries on.
-    func testSaveDraftClosesFirstAndHoldsTimeUntilTheSaveIsAnswered() async throws {
+    /// The letter is kept on the iPad at the tap, then the sheet goes at
+    /// once, the save follows with time asked of iOS for it, then the sheet
+    /// lets the letter go, then the folder is told, then the time is given
+    /// back. If the time runs out first it is given back then, once, and
+    /// the save carries on.
+    ///
+    /// A save the server does not answer leaves the letter kept: nothing
+    /// takes it off the iPad. It used to go to the server and nowhere else,
+    /// after the sheet had gone, and a save that failed then lost the letter
+    /// with nothing said (B-051).
+    func testSaveDraftKeepsTheLetterClosesAndHoldsTimeUntilTheSaveIsAnswered() async throws {
         holdSave = Held()
-        let actions = makeActions()
+        let actions = makeActions(keeping: true)
         let saving = try XCTUnwrap(actions.saveAndClose(draft(),
                                                         then: { [unowned self] in log.append("drafts changed") }))
-        XCTAssertEqual(log, ["begin Save Draft", "dismiss"])
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss"],
+                       "kept on the iPad before the sheet goes")
         try await until { holdSave?.waiting == 1 }
         holdSave?.release()
         await saving.value
-        XCTAssertEqual(log, ["begin Save Draft", "dismiss", "save", "drafts changed", "end 1"])
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss", "save", "let go",
+                             "drafts changed", "end 1"])
         XCTAssertEqual(background.ended, [1])
 
         reset()
         holdSave = Held()
-        let again = try XCTUnwrap(makeActions().saveAndClose(draft(),
-                                                             then: { [unowned self] in log.append("drafts changed") }))
+        let again = try XCTUnwrap(makeActions(keeping: true).saveAndClose(
+            draft(), then: { [unowned self] in log.append("drafts changed") }))
         try await until { holdSave?.waiting == 1 }
         background.expire(1)
         XCTAssertEqual(background.ended, [1])
         holdSave?.release(.failure(MailError.cannotConnect))
         await again.value
-        XCTAssertEqual(log, ["begin Save Draft", "dismiss", "save", "end 1", "drafts changed"])
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss", "save", "end 1", "let go",
+                             "drafts changed"])
+        XCTAssertFalse(log.contains("forget"), "a save that failed leaves the letter kept")
         XCTAssertEqual(background.ended, [1])
         XCTAssertEqual(saves, 1)
     }
@@ -410,12 +442,15 @@ final class ComposeActionsTests: XCTestCase {
             return draft()
         }, then: nil))
         await settled()
-        XCTAssertEqual(log, ["begin Save Draft", "dismiss"])
+        // Taken at the tap as well, to be kept on the iPad as it stands
+        // before the sheet goes.
+        XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "dismiss"])
 
         landed = 1
         actions.photoLanded()
         await saving.value
-        XCTAssertEqual(log, ["begin Save Draft", "dismiss", "letter with 1", "save", "end 1"])
+        XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "dismiss", "letter with 1",
+                             "save", "end 1"])
 
         reset()
         let other = makeActions()
@@ -423,6 +458,158 @@ final class ComposeActionsTests: XCTestCase {
         await other.send({ [unowned self] in log.append("letter"); return draft() }, then: nil)?.value
         XCTAssertEqual(log, ["begin Send", "letter", "send", "dismiss", "end 1"],
                        "a photo landing that was never counted holds nothing up")
+    }
+
+    // MARK: - Kept on the iPad
+
+    /// Send keeps the letter as it takes it, so a send cut off by iOS ending
+    /// the app leaves it in Drafts, and takes it off the iPad once it has
+    /// gone, before the sheet closes; after the sheet, any copy an upload of
+    /// it from the iPad left in Drafts goes, after the copy it was reopened
+    /// from. One that fails leaves it kept, and the sheet holding it.
+    func testSendKeepsTheLetterAsItGoesAndTakesItOffOnceItHasGone() async throws {
+        await makeActions(keeping: true).send(draft(savedAs: "600003/7"), then: nil)?.value
+        XCTAssertEqual(log, ["begin Send", "keep unfinished", "send", "forget", "dismiss",
+                             "delete 600003/7", "tidy", "end 1"])
+
+        reset()
+        sendOutcome = .failure(MailError.cannotConnect)
+        await makeActions(keeping: true).send(draft(), then: nil)?.value
+        XCTAssertEqual(log, ["begin Send", "keep unfinished", "send", "error", "end 1"])
+    }
+
+    /// Delete Draft takes the letter off the iPad before the sheet goes,
+    /// and any copy an upload of it left in Drafts after the one named.
+    func testDeleteDraftTakesTheLetterOffTheIPadBeforeTheSheetGoes() async throws {
+        await makeActions(keeping: true).deleteAndClose(
+            "600003/7", then: { [unowned self] in log.append("drafts changed") })?.value
+        XCTAssertEqual(log, ["forget", "dismiss", "delete 600003/7", "tidy", "drafts changed"])
+    }
+
+    /// Kept a pause after he stops, once however many changes came before
+    /// it, and taken as it stands then.
+    func testAutosaveKeepsTheLetterOnceHeHasStopped() async throws {
+        let actions = makeActions(keeping: true)
+        var taken = 0
+        for _ in 0..<3 {
+            actions.edited { [unowned self] in taken += 1; return draft() }
+        }
+        try await until { pauses.waiting == 3 }
+        XCTAssertEqual(log, [], "nothing kept while he is still typing")
+
+        pauses.release()
+        try await until { log.count == 1 }
+        await settled()
+        XCTAssertEqual(log, ["keep unfinished"])
+        XCTAssertEqual(taken, 1, "the two changes before the last waited for nothing")
+    }
+
+    /// An autosave still waiting when Send, Save Draft or Delete Draft is
+    /// tapped keeps nothing when it comes due: a letter sent, saved or
+    /// deleted leaves no autosave behind.
+    func testAnAutosaveDueAfterSendSaveOrDeleteKeepsNothing() async throws {
+        for ending in ["send", "save", "delete"] {
+            reset()
+            let actions = makeActions(keeping: true)
+            actions.edited { [unowned self] in draft() }
+            try await until { pauses.waiting == 1 }
+            switch ending {
+            case "send": await actions.send(draft(), then: nil)?.value
+            case "save": await actions.saveAndClose(draft(), then: nil)?.value
+            default: await actions.deleteAndClose(nil, then: nil)?.value
+            }
+            let before = log
+            pauses.release()
+            await settled()
+            await settled()
+            XCTAssertEqual(log, before, ending)
+            actions.edited { [unowned self] in draft() }
+            XCTAssertEqual(pauses.waiting, 0, "\(ending): no autosave after it")
+        }
+    }
+
+    /// Leaving the app keeps the letter at once, inside background time
+    /// given back once it is kept; the autosave that was waiting keeps
+    /// nothing more. With a photo still on its way in, the time is held
+    /// until it has landed and the letter is kept again with it.
+    func testLeavingTheAppKeepsTheLetterAtOnceInsideBackgroundTime() async throws {
+        var actions = makeActions(keeping: true)
+        actions.edited { [unowned self] in draft() }
+        try await until { pauses.waiting == 1 }
+        XCTAssertNil(actions.putAside { [unowned self] in draft() })
+        XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished", "end 1"])
+        pauses.release()
+        await settled()
+        XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished", "end 1"])
+
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { [unowned self] in draft() }
+        actions.photoComing()
+        let aside = try XCTUnwrap(actions.putAside { [unowned self] in draft() })
+        XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished"])
+        actions.photoLanded()
+        await aside.value
+        XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished", "keep unfinished", "end 1"])
+        XCTAssertEqual(background.ended, [1])
+
+        // iOS wanting the time back first gets it, once.
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { [unowned self] in draft() }
+        actions.photoComing()
+        let expiring = try XCTUnwrap(actions.putAside { [unowned self] in draft() })
+        background.expire(1)
+        actions.photoLanded()
+        await expiring.value
+        XCTAssertEqual(background.ended, [1])
+    }
+
+    /// A letter he has not touched is not kept on leaving the app, and a
+    /// sheet closed on it keeps nothing of its own. One he changed and then
+    /// swiped away stays on the iPad, to go to Drafts, and nothing is sent,
+    /// saved or deleted from the sheet after it.
+    func testASheetSwipedAwayKeepsWhatHeWroteAndNothingHeDidNot() async throws {
+        var actions = makeActions(keeping: true)
+        XCTAssertNil(actions.putAside { [unowned self] in draft() })
+        actions.sheetGone { draft() }
+        XCTAssertEqual(log, ["abandon"])
+
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { [unowned self] in draft() }
+        actions.sheetGone { draft() }
+        XCTAssertEqual(log, ["keep unfinished", "let go"])
+        XCTAssertNil(actions.send(draft(), then: nil))
+        XCTAssertNil(actions.saveAndClose(draft(), then: nil))
+        XCTAssertNil(actions.deleteAndClose(nil, then: nil))
+        pauses.release()
+        await settled()
+        XCTAssertEqual(log, ["keep unfinished", "let go"])
+
+        // Emptied by hand: nothing worth keeping.
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { Draft() }
+        actions.sheetGone { Draft() }
+        XCTAssertEqual(log, ["abandon"])
+    }
+
+    /// A letter he has emptied is not kept, by the autosave nor on leaving
+    /// the app: kept, the empty letter would take the place of the one kept
+    /// before, and go to Drafts in place of the copy it was reopened from.
+    func testAnEmptiedLetterIsNotKeptOverTheOneBefore() async throws {
+        let actions = makeActions(keeping: true)
+        actions.edited { Draft() }
+        try await until { pauses.waiting == 1 }
+        pauses.release()
+        await settled()
+        await settled()
+        XCTAssertEqual(log, [], "the autosave keeps nothing")
+
+        actions.edited { Draft() }
+        XCTAssertNil(actions.putAside { Draft() })
+        XCTAssertEqual(log, ["begin Keep Draft", "end 1"], "nor does leaving the app")
     }
 
     // MARK: - How much has gone
@@ -498,57 +685,5 @@ private extension ComposeActions {
     @discardableResult
     func saveAndClose(_ draft: Draft, then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
         saveAndClose({ draft }, then: draftsChanged)
-    }
-}
-
-/// Something asked for that waits until the test answers it.
-@MainActor
-private final class Held {
-    private var parked: [CheckedContinuation<Void, Error>] = []
-
-    var waiting: Int { parked.count }
-
-    func wait() async throws {
-        try await withCheckedThrowingContinuation { parked.append($0) }
-    }
-
-    func release(_ outcome: Result<Void, Error> = .success(())) {
-        let waiting = parked
-        parked = []
-        for continuation in waiting { continuation.resume(with: outcome) }
-    }
-}
-
-/// iOS's background time as the tests hand it out: numbered from 1, each
-/// asking and giving back written down, and running out when told to.
-@MainActor
-private final class FakeBackground {
-    var begun: [String] = []
-    var ended: [Int] = []
-    /// Whether iOS gives any time at all.
-    var grants = true
-    var log: (String) -> Void = { _ in }
-    private var expiries: [Int: @MainActor () -> Void] = [:]
-    private var last = 0
-
-    var time: BackgroundTime {
-        BackgroundTime(
-            begin: { [unowned self] name, expired in
-                begun.append(name)
-                log("begin \(name)")
-                guard grants else { return nil }
-                last += 1
-                expiries[last] = expired
-                return last
-            },
-            end: { [unowned self] id in
-                ended.append(id)
-                log("end \(id)")
-            })
-    }
-
-    /// iOS wants time `id` back.
-    func expire(_ id: Int) {
-        expiries[id]?()
     }
 }

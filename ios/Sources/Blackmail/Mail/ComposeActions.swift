@@ -23,6 +23,10 @@ import Foundation
 /// A sheet does one of three things, once: Send, Save Draft or Delete
 /// Draft. Whichever comes first is the one; the other two do nothing after
 /// it, a Send that failed aside, which puts the sheet back as it was.
+///
+/// The letter is kept on the iPad while he writes it, and by Save Draft
+/// before the sheet goes, and taken off it once it has been sent or deleted
+/// (`DraftKeeping`, B-051).
 @MainActor
 final class ComposeActions {
 
@@ -66,20 +70,28 @@ final class ComposeActions {
     private let showError: (MailError) -> Void
     private let draw: (Look) -> Void
     private let background: BackgroundTime
+    private let keeping: DraftKeeping
+
+    /// The autosave waiting for him to stop, and whether he has changed the
+    /// letter since the sheet opened.
+    private var autosave: Task<Void, Never>?
+    private var changed = false
 
     /// The first three go to the repository. `dismiss`, `showError` and
     /// `draw` are the sheet's, and are called only while it is up: nothing
     /// is drawn on a sheet that has closed. `dismiss` is called once, and
     /// has to close the sheet whatever it has up over itself at the time:
     /// after it nothing puts the sheet back, so one left open would be left
-    /// held as it was drawn last.
+    /// held as it was drawn last. `keeping` is where the letter is kept on
+    /// the iPad; the composer's is `LocalDrafts`.
     init(sendLetter: @escaping (Draft, @escaping UploadProgress) async throws -> Void,
          saveDraft: @escaping (Draft) async throws -> Void,
          deleteDraft: @escaping (String) async throws -> Void,
          dismiss: @escaping () -> Void,
          showError: @escaping (MailError) -> Void,
          draw: @escaping (Look) -> Void,
-         background: BackgroundTime) {
+         background: BackgroundTime,
+         keeping: DraftKeeping = .nowhere) {
         self.sendLetter = sendLetter
         self.saveDraft = saveDraft
         self.deleteDraft = deleteDraft
@@ -87,6 +99,7 @@ final class ComposeActions {
         self.showError = showError
         self.draw = draw
         self.background = background
+        self.keeping = keeping
     }
 
     /// Whether a letter is on its way, or has gone.
@@ -156,10 +169,15 @@ final class ComposeActions {
     /// answered, however it is: a letter that went is not reported as
     /// failed for having been interrupted, and one that fails when he comes
     /// back says so then.
+    ///
+    /// The letter is kept on the iPad as it is taken, so one whose send is
+    /// cut off by iOS ending the app is in Drafts at the next launch, and
+    /// taken off it once it has gone, before the sheet closes.
     @discardableResult
     func send(_ letter: @escaping () -> Draft, then draftsChanged: (() -> Void)?,
               draftSent: ((String) -> Void)? = nil) -> Task<Void, Never>? {
         guard stage == .writing else { return nil }
+        stopAutosave()
         sends += 1
         let attempt = sends
         stage = .sending(attempt)
@@ -176,6 +194,8 @@ final class ComposeActions {
             defer { time.end() }
             await photosLanded()
             let draft = letter()
+            keeping.keep(draft, false)
+            changed = true
             do {
                 try await sendLetter(draft, report)
             } catch {
@@ -194,6 +214,7 @@ final class ComposeActions {
                 return
             }
             stage = .sent
+            keeping.forget()
             dismiss()
             // A sent letter must not stay in Drafts. Without this, finishing
             // a draft left the half-written version behind and he would find
@@ -204,6 +225,8 @@ final class ComposeActions {
                 draftSent?(saved)
                 try? await deleteDraft(saved)
             }
+            // And any copy an upload of it from the iPad left there.
+            await keeping.tidy()
             draftsChanged?()
         }
     }
@@ -229,17 +252,29 @@ final class ComposeActions {
     /// letter is on its way or the sheet has been put away: from the Cancel
     /// sheet, still open when Send was tapped, it closed the sheet under the
     /// letter, and a failure then had nowhere to be said.
+    ///
+    /// The letter is kept on the iPad as it stands at the tap, before the
+    /// sheet goes, and `saveDraft` keeps it again once any photos are in it
+    /// and takes it to the server. That used to be all there was, and with
+    /// no connection the save failed after the sheet had gone, with nothing
+    /// to say so and nothing kept: the letter was lost. Now a save the
+    /// server does not take leaves it on the iPad, in Drafts, to go later.
+    /// The sheet is let go of once the save has been answered, so nothing
+    /// else takes the letter to the server meanwhile.
     @discardableResult
     func saveAndClose(_ letter: @escaping () -> Draft,
                       then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
         guard stage == .writing else { return nil }
         stage = .closed
+        stopAutosave()
         let time = BackgroundStretch("Save Draft", from: background)
+        keeping.keep(letter(), true)
         dismiss()
         return Task {
             defer { time.end() }
             await photosLanded()
             try? await saveDraft(letter())
+            keeping.letGo()
             draftsChanged?()
         }
     }
@@ -253,16 +288,95 @@ final class ComposeActions {
     /// No background time: cut off, the draft is simply still there.
     /// Returns nil, and does nothing, once a letter is on its way or the
     /// sheet has been put away, for the reason `saveAndClose` gives; here
-    /// the letter would have been neither sent nor kept.
+    /// the letter would have been neither sent nor kept. Takes the letter
+    /// off the iPad as well, before the sheet goes, and after the copy any
+    /// upload of it from there left in Drafts.
     @discardableResult
     func deleteAndClose(_ saved: String?, then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
         guard stage == .writing else { return nil }
         stage = .closed
+        stopAutosave()
+        keeping.forget()
         dismiss()
         return Task {
             if let saved { try? await deleteDraft(saved) }
+            await keeping.tidy()
             draftsChanged?()
         }
+    }
+
+    // MARK: - Kept while he writes
+
+    /// He has changed the letter. It is kept on the iPad once he has stopped
+    /// for `keeping.pause`, a few seconds, so that iOS ending the app while
+    /// he writes loses at most those seconds. Nothing is kept while a letter
+    /// is on its way, nor once the sheet has been put away: Send keeps the
+    /// letter itself, and a letter sent, saved or deleted must not be put
+    /// back by an autosave that lands after it. A letter he has emptied is
+    /// not kept over the one kept before: an empty draft would replace the
+    /// copy on the server it was reopened from.
+    func edited(_ letter: @escaping () -> Draft) {
+        guard stage == .writing else { return }
+        changed = true
+        autosave?.cancel()
+        let keeping = self.keeping
+        autosave = Task {
+            do { try await keeping.wait(keeping.pause) } catch { return }
+            guard !Task.isCancelled, stage == .writing else { return }
+            autosave = nil
+            let draft = letter()
+            if !draft.isEmptyLetter { keeping.keep(draft, false) }
+        }
+    }
+
+    /// The app is going into the background with the sheet up: the letter,
+    /// if he has changed it, is kept now rather than after the pause, which
+    /// a suspended app never reaches.
+    ///
+    /// Inside background time, as Send and Save Draft are, given back once
+    /// it is kept. With photos still being read in, the time is held until
+    /// they have landed and the letter is kept again with them, or until
+    /// iOS wants it back.
+    @discardableResult
+    func putAside(_ letter: @escaping () -> Draft) -> Task<Void, Never>? {
+        guard stage == .writing, changed else { return nil }
+        stopAutosave()
+        let time = BackgroundStretch("Keep Draft", from: background)
+        let draft = letter()
+        if !draft.isEmptyLetter { keeping.keep(draft, false) }
+        guard photosComing > 0 else {
+            time.end()
+            return nil
+        }
+        return Task {
+            defer { time.end() }
+            await photosLanded()
+            guard stage == .writing else { return }
+            keeping.keep(letter(), false)
+        }
+    }
+
+    /// The sheet has gone without Send, Save Draft or Delete Draft: swiped
+    /// away, or Cancel on a letter with nothing in it. Nothing is sent or
+    /// saved from it after this. A letter he changed stays on the iPad, and
+    /// goes to Drafts with the rest; one he emptied, or never touched, is
+    /// left as it was before the sheet opened.
+    func sheetGone(_ letter: () -> Draft) {
+        guard stage == .writing else { return }
+        stage = .closed
+        stopAutosave()
+        let draft = letter()
+        if changed, !draft.isEmptyLetter {
+            keeping.keep(draft, false)
+            keeping.letGo()
+        } else {
+            keeping.abandon()
+        }
+    }
+
+    private func stopAutosave() {
+        autosave?.cancel()
+        autosave = nil
     }
 
     /// A progress report from send `attempt`, now on the main thread. Drawn

@@ -230,6 +230,8 @@ final class RootViewController: UIViewController {
                            object: nil, queue: .main) { [weak self] _ in
             self?.wentAwayAt = Date()
         }
+        centre.addObserver(self, selector: #selector(leavingTheApp),
+                           name: UIApplication.didEnterBackgroundNotification, object: nil)
         centre.addObserver(forName: UIApplication.willEnterForegroundNotification,
                            object: nil, queue: .main) { [weak self] _ in
             // The queue is `.main`, but that is not the same promise as
@@ -238,12 +240,28 @@ final class RootViewController: UIViewController {
                 guard let self else { return }
                 // A connection quiet long enough to have died while the iPad
                 // slept is probed now, and replaced if it has, rather than by
-                // the first thing he taps. Nothing waits for it.
+                // the first thing he taps. Nothing waits for it. Then the
+                // letters kept on the iPad that could not go before (B-051),
+                // over the connection the warm-up has proven or made, and
+                // not at all if it has none; with none waiting, nothing is
+                // sent.
                 let repository = self.repository
-                Task { await repository.warmUp() }
+                Task { @MainActor in
+                    await repository.warmUp()
+                    LocalDrafts.shared.uploadWaiting(to: repository)
+                }
                 self.returnedFromAway()
             }
         }
+    }
+
+    /// The letters kept on the iPad go as he leaves the app, large ones as
+    /// well, inside background time: nothing he taps is waiting for the
+    /// connection then (`LocalDrafts.uploadWaiting`). Asked for here, on
+    /// the main thread as the notification is posted, so the time is asked
+    /// for before iOS can suspend the app.
+    @objc private func leavingTheApp() {
+        LocalDrafts.shared.uploadWaiting(to: repository, largeToo: true)
     }
 
     /// B-003: after a while away, back to the Inbox, at the top. See

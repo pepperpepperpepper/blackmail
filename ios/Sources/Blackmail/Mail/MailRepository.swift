@@ -88,8 +88,26 @@ protocol MailRepository {
     @discardableResult
     func saveDraft(_ draft: Draft) async throws -> String?
 
+    /// `saveDraft`, for a letter kept on the iPad (`LocalDrafts`): it goes up
+    /// under a Message-ID made from `upload.version`, and does not go up at
+    /// all if Drafts already holds a copy under that Message-ID, left by an
+    /// upload cut off after the server had it; that copy is taken as this
+    /// save's. Copies of the `upload.earlier` versions are removed along
+    /// with the copy named by `draft.savedID`, once this one is there.
+    /// `upload.appending` is called once nothing is left to do but the
+    /// APPEND, and the APPEND waits for it.
+    @discardableResult
+    func saveDraft(_ draft: Draft, as upload: DraftUpload) async throws -> DraftSaved
+
     /// Removes a saved draft outright rather than binning it.
     func deleteDraft(_ id: String) async throws
+
+    /// Removes the copies in Drafts of a letter kept on the iPad, found by
+    /// the Message-IDs its `versions` went up under, and returns their ids.
+    /// For a letter sent or deleted after an upload of it was cut off: the
+    /// copy that upload left is known only by its Message-ID.
+    @discardableResult
+    func deleteDrafts(uploadedAs versions: [String]) async throws -> [String]
 
     /// Reopens a saved draft for editing.
     func loadDraft(id: String, mailboxID: String) async throws -> Draft
@@ -113,6 +131,12 @@ protocol MailRepository {
     /// replaces it if not, before he taps anything. Never fails: nobody is
     /// waiting for it.
     func warmUp() async
+
+    /// Whether there is a connection up now. What work nobody asked for
+    /// looks at before it sends anything, so that it never makes a
+    /// connection of its own: where there is none, a launch could not
+    /// connect or a password was refused, and trying again is his to do.
+    var isConnected: Bool { get async }
 }
 
 /// Where a search looks — the two scopes Mail itself offers.
@@ -134,6 +158,45 @@ enum MailSearchScope: String, CaseIterable {
         case .allMailboxes:   return "All Mailboxes"
         }
     }
+}
+
+/// A letter kept on the iPad on its way to Drafts: the version going, and
+/// the versions of it whose upload began before and which may be there
+/// already (`LocalDraft.tried`).
+///
+/// Why a Message-ID per version and a look before sending again, rather
+/// than simply trying again: an APPEND whose answer is lost, to a dropped
+/// line or iOS suspending the app, may or may not have reached the server,
+/// and nothing on this side can tell which. Sent again blind, the letter
+/// could be in Drafts twice; not sent again, it could be nowhere. Asking
+/// Drafts for the Message-ID settles it. A new one for each version, not one
+/// for the letter's whole life, so a copy found is known to be this very
+/// text and not an older one, and so the server is never handed two
+/// different letters under one Message-ID, which Gmail may take for the
+/// same message.
+///
+/// A version is written down as tried (`appending`) only once nothing is
+/// left but the APPEND: after the connection, the look in Drafts and the
+/// files, any of which can fail with nothing sent. Written down before
+/// that, a letter that never reached the server was looked for in Drafts at
+/// every later upload, and a forward whose original has gone, which fails
+/// at its files every time, cost a search each time as well.
+struct DraftUpload: Sendable {
+    let version: String
+    let earlier: [String]
+    /// Writes `version` down as tried. The APPEND waits for it, and does
+    /// not go if it throws.
+    var appending: @Sendable () async throws -> Void = {}
+}
+
+/// What a letter kept on the iPad became in Drafts.
+struct DraftSaved: Equatable, Sendable {
+    /// Its copy there, or nil when the server took it without saying where
+    /// (no UIDPLUS).
+    let id: String?
+    /// The copies it took the place of that were removed: the one it was
+    /// reopened from, and any an earlier upload of it left.
+    let replaced: [String]
 }
 
 /// A list opened somewhere other than the top.
