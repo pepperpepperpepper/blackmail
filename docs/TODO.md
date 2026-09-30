@@ -767,8 +767,11 @@ this host. Ordered by value, not by size.
       old copy is gone from Drafts on the web. Tap a letter in the Outbox,
       Cancel untouched: it is back in the Outbox. In two panes, the Outbox
       is in the Mailboxes' column and opens like any folder.
-- [ ] **B-051, what a kept letter names, by its Gmail id.** None of it
-      seen on the iPad yet. Each case is made by hand in the store, with the
+- [ ] **B-051, what a kept letter names, by its Gmail id.** Cases 1 to 3
+      seen on the iPad 2026-09-30 (B-051); case 4 is for an iPad that had
+      letters from before the ids, which his fresh install will not. A draft
+      in Gmail cannot be opened with no connection: in case 1, open it, then
+      cut the Wi-Fi, then change it. Each case is made by hand in the store, with the
       app ended (swiped away in the app switcher, so nothing writes a letter
       under the edit). The store is `Library/Application Support/Local
       Drafts/` in the app's data container; over SSH, `find
@@ -782,7 +785,7 @@ this host. Ordered by value, not by size.
       beside the directories is the count of passwords saved, once one has
       been.
       1. The copy a draft was reopened from. Write "Test one" to himself,
-      Save Draft; open it from Drafts, Wi-Fi off, change the subject to
+      Save Draft; open it from Drafts, then Wi-Fi off, change the subject to
       "Test two", Cancel, Save Draft: "On this iPad only". End the app. In
       its `letter.json`, `grep -o '"savedLetter":[0-9]*'` gives Gmail's id
       for "Test one"; write it one higher (`sed -i` with the two numbers
@@ -911,6 +914,14 @@ this host. Ordered by value, not by size.
       as 1, then 2, then 1 when the sweep `adjustUnreadCounts` asks for
       lands. Seen on the iPad 2026-09-30; older than the kept copy, which
       only makes a tap that early likelier.
+- [ ] Save Draft with no connection, with Drafts open: the list keeps the
+      Gmail copy's row, and the new "On this iPad only" row takes its place
+      only some eight seconds later, once the save's upload has failed.
+      Seen on the iPad 2026-09-30. Nothing is lost; the row should come at
+      once, as the letter is kept before the sheet goes.
+- [ ] A forward with several files found in All Mail searches for the
+      original once per file (`UID SEARCH X-GM-MSGID` before each part);
+      once would do. Seen on the iPad 2026-09-30.
 - [ ] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had

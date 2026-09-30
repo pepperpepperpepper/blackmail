@@ -3334,7 +3334,30 @@ letter was last refused for
 launch put in Drafts reopened with its plain FETCH (the two tests that pin
 the FETCH, and the forward reopened from a copy found by its Message-ID).
 
-**Not yet seen on the iPad.** The TODO says how to make each case by hand.
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged, each case made by hand in the store with the app ended:
+
+- A draft saved to Gmail as "test one", reopened with a connection, the
+  Wi-Fi cut, changed to "test two" and saved: "On this iPad only", the
+  Gmail copy under it hidden. Its `savedLetter` written one higher: Drafts
+  offline listed both. Wi-Fi on, the pass: `UID SEARCH HEADER Message-ID`,
+  the `APPEND` of "test two", `UID FETCH 9 (UID X-GM-MSGID)`, then
+  `KEPT-UNVOUCHED folder=[Gmail]/Drafts nothing-sent` and
+  `DRAFT-SUPERSEDED … not-that-letter left`, no STORE, no EXPUNGE, and both
+  in Drafts. The same again with no edit ("test three"): the `APPEND`, the
+  question, then `UID STORE 10 +FLAGS.SILENT (\Deleted)` and `UID EXPUNGE
+  10`, one copy left.
+- A forward of a letter with two PDFs sent offline, its files' UID written
+  as another Inbox letter's: `CARRIED-PART folder=INBOX
+  reason=another-letter`, `UID SEARCH X-GM-MSGID …` in All Mail, both parts
+  fetched there, `CARRIED-PART found`, and the letter arrived with the two
+  PDFs forwarded, at their own sizes.
+- The same with the files' letter id written as one no letter has:
+  `CARRIED-PART not-found nothing-sent`, no envelope, and the Outbox row
+  "Attachment could not be downloaded."
+
+A letter kept before the ids (the fourth case in the TODO) cannot exist on
+an iPad the app is installed on fresh, and was left to the scripted server.
 
 **Tested** in `LocalDraftsTests`, with the composer's own wiring
 (`ComposeActions(letter:…)`), the shipping `LocalDrafts` and the repository
