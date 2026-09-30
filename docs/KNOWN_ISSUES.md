@@ -2803,7 +2803,7 @@ VoiceOver on the button, the layout sweep in both.
 
 ---
 
-## B-050 — CHANGED 2026-09-30, not yet seen on the iPad. Reply and Forward send the original as it looked
+## B-050 — CHANGED 2026-09-30, seen on the iPad. Reply and Forward send the original as it looked
 
 **What was wrong.** Reply, Reply All and Forward quoted the original as
 plain text, in the composer and in the letter's HTML alike: `quotableText`
@@ -2971,9 +2971,19 @@ its look. Blackmail's own reading pane draws no bar beside a quote (TODO,
 "blue bars on quoted text"). A draft edited in Gmail or another client comes
 back as plain text.
 
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, each letter to the
+account itself. A newsletter with pictures, tables and links, forwarded:
+it arrived under "Begin forwarded message:" with From and Date, looking
+as the original did, its pictures, table and links intact, where before
+it came as flattened text. A reply, with one word typed above the quote,
+to a letter of his own carrying a link: it arrived with the attribution
+line, the original's link blue and tappable, and the original's
+signature, indented under his. This app's reading pane indents a quote
+but draws no blue bar. Not yet tried: a reply with the quote edited.
+
 ---
 
-## B-051 — CHANGED 2026-09-30, not yet seen on the iPad. Save Draft with no connection lost the letter, and nothing he was writing was kept
+## B-051 — CHANGED 2026-09-30, seen on the iPad. Save Draft with no connection lost the letter, and nothing he was writing was kept
 
 **Found in the gap review of 2026-09-30** ("Ways a letter is lost" in the
 TODO), in the code, not on the iPad. Two ways a letter he had written was
@@ -3197,3 +3207,11 @@ iOS ending the app comes back as a draft, and may be a letter that went:
 that is the Outbox's to settle, next, on this store (TODO).
 
 **Not yet seen on the iPad.** The TODO says what to look at.
+
+**Seen on the iPad, 2026-09-30.** Wi-Fi off in Control Center, a letter
+written, Cancel, Save Draft: Drafts listed it at the top, "On this iPad
+only", beside the one "Can't connect to mail server." alert. Wi-Fi on,
+Refresh: one copy on the server, the mark gone. A letter written and left
+for five seconds, then the app force-quit and relaunched: the letter was
+in Drafts, already uploaded after the Drafts page loaded. Not yet tried:
+photos in a kept letter, and a letter opened while it uploads.
