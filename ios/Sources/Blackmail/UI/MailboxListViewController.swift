@@ -154,6 +154,8 @@ final class MailboxListViewController: UITableViewController {
     @MainActor
     func adjustUnreadCounts(_ mailboxIDs: [String], by delta: Int) {
         sweeps.requestIfRunning()
+        // The kept counts too, so the next launch draws these (D-016).
+        repository.shelf?.counted(mailboxIDs, by: delta)
         for id in mailboxIDs {
             guard let i = mailboxes.firstIndex(matchingMailboxID: id) else { continue }
             let updated = max(0, mailboxes[i].unreadCount + delta)

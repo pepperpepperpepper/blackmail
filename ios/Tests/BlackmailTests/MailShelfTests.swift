@@ -116,6 +116,36 @@ final class MailShelfTests: XCTestCase {
         XCTAssertEqual(shelf().page(of: "inbox")?.rows.count, 50)
     }
 
+    // MARK: - His own counts
+
+    /// His read and unread marks move the kept counts as they move the
+    /// folder pane's, by the pane's ids (the role word or the LIST name),
+    /// never below none, and the next launch reads them: a letter marked
+    /// unread is on the count it draws, not off it until a sweep lands.
+    func testHisOwnMarksMoveTheKeptCountsAsTheyMoveThePanes() throws {
+        let one = shelf()
+        one.took(folders: Self.folders)
+        one.counted(["inbox", "[Gmail]/All Mail"], by: 1)
+        one.counted(["INBOX", "[Gmail]/Drafts", "[Gmail]/Nowhere"], by: -1)
+        one.counted(["[Gmail]/Drafts"], by: -1)
+        one.counted(["[Gmail]/Sent Mail"], by: 1)
+        one.flush()
+
+        let counts = (shelf().folders ?? []).reduce(into: [String: Int]()) {
+            $0[$1.id] = $1.unreadCount
+        }
+        XCTAssertEqual(counts, ["INBOX": 6, "[Gmail]/Drafts": 0,
+                                "[Gmail]/Sent Mail": 1, "[Gmail]/All Mail": 7])
+    }
+
+    /// With nothing kept there is nothing to move, and nothing is made up.
+    func testWithNoFoldersKeptAMarkKeepsNoCounts() {
+        let one = shelf()
+        one.counted(["INBOX"], by: 1)
+        one.flush()
+        XCTAssertNil(shelf().folders)
+    }
+
     // MARK: - A saved password
 
     /// Saving a password throws away the whole of `Kept/`, and nothing else

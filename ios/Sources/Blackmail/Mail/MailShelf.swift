@@ -266,6 +266,34 @@ final class MailShelf: @unchecked Sendable {
         changeLetter(id, in: folder) { $0.read = read }
     }
 
+    /// One off, or one back on, the kept counts of `mailboxIDs`, as the
+    /// folder pane has just done to its own for his read or unread mark, or
+    /// an unread letter binned (`MailboxListViewController.adjustUnreadCounts`),
+    /// so a launch draws the counts he last saw. Left to the sweeps alone,
+    /// the counts stood at the last one's until the next: a letter marked
+    /// unread was kept off the Inbox's count, the next launch said 1 where
+    /// the pane had said 2, and reading that letter at once took it to none.
+    func counted(_ mailboxIDs: [String], by delta: Int) {
+        guard isAlive else { return }
+        readFolders()
+        locked {
+            guard var list = folderList else { return }
+            let mailboxes = list.folders.map(\.mailbox)
+            var changed = false
+            for id in mailboxIDs {
+                guard let i = mailboxes.firstIndex(matchingMailboxID: id) else { continue }
+                let updated = max(0, list.folders[i].unread + delta)
+                guard updated != list.folders[i].unread else { continue }
+                list.folders[i].unread = updated
+                changed = true
+            }
+            guard changed else { return }
+            folderList = list
+            foldersChanged = true
+            queueWrite()
+        }
+    }
+
     /// The server has taken his flag, on the letter wherever it is kept.
     func flagged(_ flagged: Bool, id: String, in folder: String) {
         changeLetter(id, in: folder) { $0.flagged = flagged }

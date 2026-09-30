@@ -3848,7 +3848,7 @@ device), a letter opened from the Outbox and changed, and Delete there.
 
 ---
 
-## B-053 — CHANGED 2026-09-30, not yet seen on the iPad. A launch drew an empty Inbox, and with no connection nothing at all
+## B-053 — CHANGED 2026-09-30, seen on the iPad. A launch drew an empty Inbox, and with no connection nothing at all
 
 **From D-016, phase 1.** Every launch after iOS had ended the app, which
 is most times he picks the iPad up, drew an empty Inbox under "Checking
@@ -3856,8 +3856,8 @@ for Mail…" for a second or more, and a folder pane of names with no counts.
 With no connection the Inbox stayed empty for good, with one "Can't connect
 to mail server.", and so did every folder he opened. The spec asks for the
 opposite ("Cached Inbox appears within 500 ms", "Offline launch still shows
-cached messages"). Built and checked on the scripted server; nothing of it
-has been seen on the iPad, and the TODO says what to look at.
+cached messages"). Built and checked on the scripted server, then seen on
+the iPad before the branch was merged (below).
 
 **What he sees now.** At launch, the Inbox as the last listing of it left
 it, previews, dots and flags, and the folders with the counts the last
@@ -3925,8 +3925,10 @@ Between listings, only his writes, once the server has answered OK: a read
 mark or a flag on the letter wherever it is kept, by its Gmail message id,
 since Gmail's flags belong to the letter; a move off its folder's page, and
 off none when it leaves All Mail for a label; a delete, or a move to Trash
-or Spam, off every kept page but that one; a draft removed off Drafts'. A
-write the server refuses changes nothing. Written behind, on a queue of its
+or Spam, off every kept page but that one; a draft removed off Drafts'.
+The folder counts move as the folder pane's own do for his read and unread
+marks and an unread letter binned (`MailShelf.counted`), so a launch draws
+the counts he last saw. A write the server refuses changes nothing. Written behind, on a queue of its
 own, a moment after each change, and at once as the app goes into the
 background (`AppDelegate.applicationDidEnterBackground`). A launch reads the
 folder list and the page of the folder it opens, nothing more.
@@ -4002,8 +4004,9 @@ two notes above name the folder and the reason, and drawing the kept pages
 writes nothing. The files are out of iCloud backup, and on an iPad with no
 passcode (D-011) they are not encrypted at rest.
 
-**What it does not cover.** The counts kept are the last sweep's: offline
-they can be off by the letters read since. A letter read or flagged on the
+**What it does not cover.** The counts kept are the last sweep's, moved by
+his own marks since: offline they can be off by the letters that came, or
+were read on the phone, after it. A letter read or flagged on the
 phone keeps its old look on the kept pages until its folder is listed
 again, and a letter moved into a folder is not on the folder's kept page
 until then. The swap, the first frame, the folder pane drawn from the copy,
@@ -4090,6 +4093,39 @@ twenty-nine tests across the wire suites as well as its own), a delete in
 Trash or a draft removed left on its page, a move to Spam left on All
 Mail's, a move out of All Mail taken off it, a disowned row left hidden
 after the next listing, a day jumped to still the kept page, the vouch not
-retried, and the flag not held.
+retried, and the flag not held. One after the iPad: the kept counts left at
+the last sweep's (`MailShelfTests`).
 
-**Not yet seen on the iPad.** The TODO says what to look at.
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged; force-quit is the app sent to the background, then ended:
+
+- Wi-Fi on, force-quit, open it: the first frame caught, under a second
+  in, had the Inbox as it was left, previews and dots, the folders with
+  their counts, and "Checking for Mail…"; the next, "Updated Just Now"
+  over the same rows. The log is LOGIN, LIST, `SELECT "INBOX"`, `UID
+  SEARCH ALL`, the page's `UID FETCH`, then the counts, as before, the page
+  in 0.55 s from Gmail's greeting, so the kept rows stand alone for about a
+  second of a launch on Wi-Fi.
+- An unread letter tapped at once, before the launch's page had been taken:
+  `UID FETCH 21 (UID X-GM-MSGID)` before its `UID STORE`, and the letter's
+  own FETCH as `UID FETCH 21 (UID X-GM-MSGID BODY.PEEK[])`, which Gmail
+  answers with the id ahead of the body; the ids matched, the letter
+  opened, no `KEPT-` line, and its dot stayed off when the fresh page
+  landed. Tapped a moment later, after the page, its FETCH is the plain
+  `(UID BODY.PEEK[])`.
+- The kept Inbox count was the last sweep's: a letter marked unread was
+  counted in the pane and not on the copy, so the next launch drew 1 for 2,
+  and reading that letter at once left the Inbox with no count until the
+  sweep. The copy's counts now follow the pane's (above).
+- Wi-Fi off in Control Center, a letter sent to the account itself just
+  before, force-quit, open it: the kept Inbox, dots and all, "Updated 6
+  minutes ago" over "No Connection", and one "Can't connect to mail
+  server."; Sent Mail, opened before, its kept page with "Updated 12
+  minutes ago", Spam, never opened, empty with "No Connection". Each folder
+  opened offline brings the alert again, as it did before the copy. Wi-Fi
+  on, Refresh: the fresh page, the letter sent before the cut on top of it,
+  "Updated Just Now", and every count Gmail's.
+
+Not tried yet, and in the TODO: the swap under a finger, scrolled or under
+ticks, the page lands too soon on Wi-Fi to be caught by hand; a flag in the
+first second; a letter tapped with no connection; the password saved again.

@@ -800,7 +800,7 @@ that numbers do not, what the server actually said about a letter (a
 subject that decodes wrong, a sender that parses wrong), and would mean
 parsing every line before logging it.
 
-**Phase 1, built 2026-09-30, not yet seen on the iPad** (B-053). The kept
+**Phase 1, built 2026-09-30 and seen on the iPad the same day** (B-053). The kept
 folders and first pages, in `MailShelf`: its own record types, format 1,
 one JSON file for the folders and one per page under
 `Application Support/Kept/<hash of the address and the IMAP server>/`, out
