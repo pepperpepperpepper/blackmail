@@ -32,6 +32,13 @@ import Foundation
 ///   and should not gate it on a marker file — a code path that changes
 ///   behaviour because a file exists is exactly what `AppDelegate` deleted
 ///   the bootstrap import for.
+///
+///   That covers the letter as built and sent, not the transcript. The
+///   transcript holds the wire as it went (`Diagnostics`, rule 2), and the
+///   wire carries his correspondence: the subjects, names and addresses in
+///   a FETCH's ENVELOPE, the addresses on RCPT TO, the words of a search.
+///   Whether to take those out of the log, and so out of these files, is
+///   an open question in D-016.
 enum CaptureProbe {
 
     /// Groups the files from one send under a common token.

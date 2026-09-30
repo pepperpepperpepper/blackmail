@@ -838,6 +838,21 @@ belonged to a different Gmail account entirely. What shipped:
   round trip so it stays that way.
 - Clean-install provisioning proven end to end with a real credential.
 
+**2026-09-30 (D-016 phase 0): the probes no longer name anyone.** The
+`PAIR` probe, which wrote each listed letter's sender and subject into
+the connection log (`PAIR uid=23 sender=… subject=…`), is out of the
+tree, and `SESSION-IDENT` no longer ends with the first row's sender. Its
+folder, uidv, exists, uids and first-row stay, which is all B-045's
+device checks read, and it ends instead with `msgid=`, Gmail's id for
+the first row's letter, which tells apart the letters of one
+conversation the way the sender did in addendum 6 without naming anyone.
+Addendum 4 says both probes "print identities and pairings, never
+content"; a subject is content, and the log they wrote to is made to be
+copied out to someone else and is written to a file on every send.
+`KeptCopyTests` fails if a listing leaves a subject or a correspondent
+anywhere in the log but in the server's own lines. The addenda quote
+both probes as they were.
+
 **One question outlived the entry** — app letters that Gmail 250-accepts
 yet which appear on no server — and it moves to **B-034** with its full
 elimination table, the IMAP and display sides exonerated by numbers and
@@ -1270,8 +1285,8 @@ handed to `send`, and of the completion's byte count).
 takes `IPAD_SSH_PORT`; the typing harness takes `IPAD_SSH_PORT` and
 `IPAD_FLIPPED` (the device is currently flipped 180°). Verification sends go
 to owner-mail, at most two, one with a cc. The permanent probes in the tree (`SESSION-IDENT`,
-`PAIR`, `DATA-REPLY-CODE`, `BUILD-SIZE`-era learnings) exist to keep
-this investigation in numbers.
+`DATA-REPLY-CODE`, `BUILD-SIZE`-era learnings; `PAIR` until 2026-09-30,
+see B-033) exist to keep this investigation in numbers.
 
 ---
 
