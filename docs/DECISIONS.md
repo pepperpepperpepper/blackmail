@@ -718,3 +718,65 @@ panes, while he reads, the folder he is in is a title and not a
 highlighted row, and the folders are a tap away rather than in sight. The
 letter gets a third more room. Which matters more to him is his to find
 out, which is why it is a button and not a decision made here.
+
+---
+
+## D-016 — A copy of his mail is kept on the iPad, and it is only ever what the server last said
+
+**Decided 2026-09-30 by the owner**, choosing the smallest of three designs
+compared (the smallest, Mail's own with a database and a background keeper,
+and a correctness-first one whose identity rules are taken in here).
+The performance review called having no persistence "a deliberate and
+defensible trade" (PERFORMANCE.md, What is fine). For him it is not: every
+launch after iOS has ended the app is an empty Inbox for seconds, and with
+no connection an empty Inbox full stop. The spec asks for the cache (BRIEF,
+ACCEPTANCE_TESTS: "Cached Inbox appears within 500 ms", "Offline launch
+still shows cached messages", PRODUCT_SPEC: cached reading offline).
+
+**What is kept:** the folder list with its last counts; the newest page of
+each folder, as the last listing from the top gave it; and the whole of the
+last 300 letters he opened, at most 64 MB, none over 8 MB, never a draft.
+**Not kept:** pages below the first, date jumps, searches, letters he never
+opened, and any queue of offline changes.
+
+**The rules.** A page is replaced whole by each listing from the top of its
+folder, and changed in between only by his own writes after the server's
+OK. A letter is served only for the exact folder, UIDVALIDITY, UID and
+Gmail message id (X-GM-MSGID) it was fetched under; Gmail Inboxes report
+UIDVALIDITY 1, so the message id is what tells two mailboxes apart. A
+changed UIDVALIDITY or a mismatched message id on the first page discards
+the account's copy. Nothing is sent on a kept row until the server has
+vouched for it. The copy is wiped whenever a password is saved (the Gmail
+app-password trap, B-033), is excluded from backup, and never appears in a
+log. The wire is unchanged except for X-GM-MSGID in the summary FETCH.
+
+**What he sees.** At launch, the kept Inbox and folders in the first frame,
+"Checking for Mail…" until the fresh page replaces them, then "Updated Just
+Now"; the swap waits for a finger to lift and keeps a place he has
+scrolled to (B-042). With no connection, the kept pages stay, the status
+line says how old they are ("Updated Yesterday"), and the same one "Can't
+connect to mail server." alert as today is kept, as the strongest cue that
+the list is old.
+
+**Format: Codable JSON files, not SQLite or Core Data.** This departs from
+ARCHITECTURE.md, which asks for a choice and a reason. The reason: nothing
+kept is ever queried, only read whole and replaced whole, and JSON runs in
+the Linux host suite with nothing added. There is no migration: a file of
+another version is deleted, and costs one launch like today's. It owns the
+migration, corruption and staleness bug classes the performance review
+said the app had avoided.
+
+**Phases.** 0: take out the logging of his correspondence (the B-033
+`PAIR` probe, the sender in `SESSION-IDENT`) and add X-GM-MSGID to the
+summary FETCH; he notices nothing. 1: the kept folder list and first pages.
+2: the kept letters. **Each needs its own decision later:** fetching unread
+mail ahead for offline reading, keeping more than one page, offline search.
+**Alongside, not inside it:** a local Save Draft with autosave, then an
+Outbox (the gap review's "Ways a letter is lost"). They may share the
+directory and its atomic write; the cache's wipe and eviction must never
+touch them.
+
+**The cost:** under 66 MB, none of it in iCloud backup, and a list that can
+be old. It always says how old, and offline it is exactly as current as the
+last time he had a connection. On an iPad with no passcode (D-011) the files
+are not encrypted at rest.

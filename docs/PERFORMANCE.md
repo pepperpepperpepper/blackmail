@@ -165,7 +165,7 @@ This is not a codebase with a performance problem. I went looking for main-threa
 - **`markReadIfNeeded` clears the unread dot locally before any network**, and the `countedRead` set (`MessageListViewController.swift:1265-1271`) already solves the double-billing bug that a naive unread-count optimisation would reintroduce.
 - **`AttachmentStore.purge()` at launch** bounds attachment disk, with a comment that reasons correctly about a device that is never restarted.
 - **The house pattern for formatters already exists** (`IMAPParser.swift:1011`) with the right calibration written down. It just was not applied to the display path. (It is now, as `DisplayDates`; see Record and leave.)
-- **No persistence layer** means no migration, corruption or staleness bug class. The cost is cold fetches, which is a deliberate and defensible trade for one user with one device.
+- **No persistence layer** means no migration, corruption or staleness bug class. The cost is cold fetches, which is a deliberate and defensible trade for one user with one device. (Superseded 2026-09-30 by D-016: a bounded copy of his mail is now to be kept on the iPad, and those bug classes come with it.)
 - **366 tests in ~2 s**, and every proposed byte-level rewrite in this review was verified byte-identical against them on this host.
 
 ---

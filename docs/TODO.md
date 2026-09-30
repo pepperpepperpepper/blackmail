@@ -77,10 +77,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] **The share sheet** (B-036): his main way of making mail. Patch zsign
       for the extension's own entitlements, the extension's own small
       compose sheet, the Keychain mirror, then one real install.
-- [ ] **A copy of the mail kept on the iPad**, so a launch without a
-      connection is not an empty Inbox. The spec asks for it
-      (ACCEPTANCE_TESTS: cached Inbox within 500 ms); PERFORMANCE.md calls
-      its absence a deliberate trade. *Owner decision.*
+- [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
+      the smallest design). Phase 0, the logging of his correspondence out
+      and X-GM-MSGID in: under way. Phase 1, the kept folders and first
+      pages: next. Phase 2, the last 300 letters he opened.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
