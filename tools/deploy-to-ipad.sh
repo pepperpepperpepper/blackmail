@@ -50,12 +50,13 @@ echo "==> build"
   swift build --swift-sdk ios165 -c release 2>&1 | grep -E 'error:|Build complete' )
 
 echo "==> package and sign"
+# Signed by tools/sign-ipa.sh, with the entitlements in ios/Resources, and
+# read back before it goes anywhere: each bundle has to name itself and the
+# seal has to hold, or this stops here.
 ( cd "$IOS" && source /mnt/build/apple-toolchain/env.sh 2>/dev/null
-  bash package.sh >/dev/null
-  zsign -q -k "$SIGN/ios_distribution.key" -c "$SIGN/ios_distribution.pem" \
-        -m "$SIGN/${PROFILE_FILE:-adhoc.mobileprovision}" -e "$SIGN/blackmail.entitlements" \
-        -o Blackmail.ipa Blackmail-unsigned.ipa >/dev/null 2>&1
-  python3 "$SIGN/verify-ipa.py" Blackmail.ipa | tail -1 )
+  bash package.sh >/dev/null )
+SIGN_DIR="$SIGN" tools/sign-ipa.sh "$IOS/Blackmail-unsigned.ipa" "$IOS/Blackmail.ipa"
+( cd "$IOS" && python3 "$SIGN/verify-ipa.py" Blackmail.ipa | tail -1 )
 
 # The binary inside the SIGNED ipa, which is literally what gets copied to
 # the device. Two earlier attempts at this comparison were wrong and both

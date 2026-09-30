@@ -33,7 +33,9 @@ import UIKit
 /// corner, which is where the view button has to be in both arrangements.
 final class RootViewController: UIViewController {
 
-    private let repository: MailRepository
+    /// Not private: a `mailto:` link opened from outside the app writes
+    /// its letter on the same repository (`AppDelegate.application(_:open:)`).
+    let repository: MailRepository
 
     private let mailboxNav: UINavigationController
     private let listNav: UINavigationController

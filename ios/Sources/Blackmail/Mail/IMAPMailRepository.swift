@@ -1182,11 +1182,6 @@ actor IMAPMailRepository: MailRepository {
     // MARK: - Sending
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
-        let recipients = (draft.to + draft.cc + draft.bcc)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        guard !recipients.isEmpty else { throw MailError.notSent }
-
         // The threading headers, which used to be dropped on the floor.
         // `Draft.inReplyTo` was set faithfully by the compose screen and read
         // by nobody, so every reply this app sent went out with no
@@ -1194,13 +1189,15 @@ actor IMAPMailRepository: MailRepository {
         // to thread in Gmail only because Gmail falls back to matching
         // subject lines; Apple Mail, Outlook and Thunderbird thread on
         // References and would have started a new conversation every time.
-        let raw = RFC5322Builder.build(draft: draft, from: account,
-                                       inReplyToHeaders: Self.threadHeaders(for: draft),
-                                       attachments: try await loadAttachments(for: draft),
-                                       htmlBody: AppleMailHTML.part(for: draft, account: account),
-                                       inlineImages: SignatureImages.parts(of: signatureImages()))
-        try await smtp.send(raw, from: account.address, to: recipients, password: password,
-                            progress: progress)
+        //
+        // Built and sent by `Outbox`, which the share extension sends
+        // through too.
+        try await Outbox.send(draft, from: account, password: password, through: smtp,
+                              threadHeaders: Self.threadHeaders(for: draft),
+                              attachments: { try await self.loadAttachments(for: draft) },
+                              htmlBody: AppleMailHTML.part(for: draft, account: account),
+                              inlineImages: SignatureImages.parts(of: signatureImages()),
+                              progress: progress)
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
         // the top of the list.

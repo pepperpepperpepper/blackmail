@@ -68,7 +68,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] The reading pane never shows Cc, nor any bare address.
 - [ ] Reply ignores Reply-To; replying to his own letter addresses it to
       himself; Reply All misses his second address.
-- [ ] `mailto:` links in letters open Apple Mail.
+- [x] `mailto:` links in letters open Apple Mail. *Done: they open this
+      app's composer with the link's To, Cc, Bcc, Subject and Body and his
+      signature (`MailtoLink`, B-036), and the app declares the scheme for
+      other apps' links, which iOS may not send it. Not yet seen on the
+      iPad.*
 
 **Larger:**
 
@@ -76,9 +80,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Just Now" ages. Today only Refresh fetches it (no IDLE, no polling).
 - [ ] **Reply and Forward keep the original's pictures and links.** Today
       both flatten it to plain text (`quotableText`, `HTMLText.plainText`).
-- [ ] **The share sheet** (B-036): his main way of making mail. Patch zsign
-      for the extension's own entitlements, the extension's own small
-      compose sheet, the Keychain mirror, then one real install.
+- [ ] **The share sheet** (B-036): his main way of making mail. *Built
+      2026-09-30: zsign patched for the extension's own entitlements, the
+      Keychain mirror, the extension's own small compose sheet sending
+      through the app's `Outbox`. Left: one real install to see it
+      registered (below, "Blocked on the iPad"); opt-in until then.*
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
@@ -314,10 +320,13 @@ this host. Ordered by value, not by size.
       in the source). Without it the rich signature and inline logo cannot reach
       a sideloaded install at all, because they have only ever been installed
       by writing the plist into the app container.
-- [ ] **B-036. Patch zsign for per-bundle entitlements.** Unblocks the share
+- [x] **B-036. Patch zsign for per-bundle entitlements.** Unblocks the share
       extension. zsign takes one `-e` for the whole archive, so the `.appex`
       currently gets the app's `application-identifier` while its bundle id is
       `…blackmail.share`. Two-pass signing does not survive — measured.
+      *Done 2026-09-30: `-X KEY=FILE` (`tools/zsign/`, TOOLCHAIN.md), signing
+      through `tools/sign-ipa.sh`, and `tools/check-signature.py` failing any
+      IPA whose extension is not signed as itself.*
 - [ ] **B-025. Insert a photo at the cursor** (`NSTextAttachment` in the
       composer). Last, deliberately: exactly 1 of his 433 sent messages did it.
 
@@ -329,7 +338,16 @@ this host. Ordered by value, not by size.
       half only applies to letters carrying the new marker, so it needs one
       send.
 - [ ] Register and test the share extension — also needs `ideviceinstaller`,
-      which is on neither machine. (B-036 blocker 2)
+      which is on neither machine, or TrollStore. (B-036 blocker 2) The IPA
+      is `tools/build-share-ipa.sh` → `ios/Blackmail-share.ipa`, installed
+      through installd, not the copy-based deploy. Open the app once, then
+      share from Safari and from YouTube: that Blackmail is in the row, that
+      the title is the subject, that his second address is offered in To,
+      that it sends and arrives with the link tappable, that five full-size
+      photos shared at once arrive, and that the app's own password still
+      works after the extension build's keychain groups (copy-deploy that
+      build to the dev iPad first). Then take `BLACKMAIL_SHARE_EXT` out of
+      `package.sh`.
 - [ ] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first.

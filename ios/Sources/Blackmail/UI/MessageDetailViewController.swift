@@ -633,12 +633,26 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Links open in Safari after a confirmation, and never navigate the pane
     /// itself. A message view that silently turns into a web page is how
     /// someone ends up lost with no way back.
+    ///
+    /// A `mailto:` link is the exception, and writes the letter here, as
+    /// Mail's own do. It used to go through the same confirmation to Apple
+    /// Mail, and the letter went from there, missing from this app's Sent
+    /// (B-036).
     func webView(_ w: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard action.navigationType == .linkActivated, let url = action.request.url else {
             decisionHandler(.allow); return
         }
         decisionHandler(.cancel)
+        if url.scheme?.lowercased() == "mailto",
+           let draft = MailtoLink.draft(from: url,
+                                        signature: CredentialStore.loadAccount()?.signature ?? "") {
+            let compose = ComposeViewController(repository: repository, draft: draft)
+            let nav = UINavigationController(rootViewController: compose)
+            nav.modalPresentationStyle = .formSheet
+            present(nav, animated: true)
+            return
+        }
         let alert = UIAlertController(title: "Open this link?",
                                       message: url.host ?? url.absoluteString,
                                       preferredStyle: .alert)

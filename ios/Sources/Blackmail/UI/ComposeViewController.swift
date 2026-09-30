@@ -31,7 +31,8 @@ final class ComposeViewController: UIViewController,
     private let subjectField = UITextField()
     private let bodyView = UITextView()
     private var ccVisible = false
-    /// The Cc row itself, hidden until the toggle is pressed.
+    /// The Cc row itself, hidden until the toggle is pressed, unless the
+    /// letter arrives with a Cc or a Bcc (`Draft.showsCcAndBcc`).
     ///
     /// Assigned rather than constructed here because it must be the view
     /// `row()` returns and go STRAIGHT into the stack. It used to be an
@@ -139,9 +140,14 @@ final class ComposeViewController: UIViewController,
         view.addSubview(stack)
 
         stack.addArrangedSubview(row(label: "To:", field: toField, text: draft.to.joined(separator: ", ")))
+        // Open when the letter arrives with someone in them: a Reply All,
+        // a reopened draft, or a `mailto:` link in a letter, which is a
+        // stranger's to fill. A Bcc he cannot see is a copy going somewhere
+        // he never agreed to.
+        ccVisible = draft.showsCcAndBcc
         ccRow = row(label: "Cc:", field: ccField, text: draft.cc.joined(separator: ", "))
         stack.addArrangedSubview(ccRow)
-        ccRow.isHidden = true
+        ccRow.isHidden = !ccVisible
 
         // A real field, not a rename. The button has said "Cc/Bcc" since
         // the composer was written and only ever revealed Cc — the app
@@ -150,7 +156,7 @@ final class ComposeViewController: UIViewController,
         bccRow = row(label: "Bcc:", field: bccField,
                      text: draft.bcc.joined(separator: ", "))
         stack.addArrangedSubview(bccRow)
-        bccRow.isHidden = true
+        bccRow.isHidden = !ccVisible
 
         // Cc/Bcc hidden behind an explicit labelled toggle rather than always
         // present: two fewer boxes on screen for someone who will never use
@@ -644,17 +650,12 @@ final class ComposeViewController: UIViewController,
     }
 
     private func collect() {
-        func addresses(_ s: String?) -> [String] {
-            (s ?? "").split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty }
-        }
         // `savedID` is deliberately untouched here: `collect` rebuilds the
         // draft from the form, and the form has no field for which copy on
         // the server this is.
-        draft.to = addresses(toField.text)
-        draft.cc = addresses(ccField.text)
-        draft.bcc = addresses(bccField.text)
+        draft.to = MailFormat.addresses(in: toField.text ?? "")
+        draft.cc = MailFormat.addresses(in: ccField.text ?? "")
+        draft.bcc = MailFormat.addresses(in: bccField.text ?? "")
         draft.subject = subjectField.text ?? ""
         draft.body = bodyView.text ?? ""
     }

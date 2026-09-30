@@ -47,32 +47,40 @@ llvm-strip --strip-all "$APP/Blackmail" 2>/dev/null || strip "$APP/Blackmail" 2>
 cp Resources/Info.plist "$APP/"
 cp Resources/AppIcon*.png "$APP/"
 
-# The share extension (B-036 spike). A second signed bundle inside PlugIns/,
-# which nothing on this Xcode-less pipeline had ever produced. Its executable
-# is linked with `-e _NSExtensionMain` (see Package.swift) so the entry point
-# is Foundation's, not the one SwiftPM generates.
+# The share extension (B-036). A second bundle inside PlugIns/, its
+# executable linked with `-e _NSExtensionMain` (see Package.swift) so the
+# entry point is Foundation's, not the one SwiftPM generates. All its code is
+# the Blackmail library's, so it is stale whenever the library is.
 #
 # Guarded rather than assumed: if the extension did not build, the app is
 # still packaged and installable, because an app that ships without its share
 # sheet beats no app at all.
 #
-# OPT-IN, and that is not caution for its own sake. zsign takes ONE `-e` for
-# the whole archive, so the extension is currently signed with the APP's
-# `application-identifier` (`…blackmail`) while its bundle id is
-# `…blackmail.share`. iOS wants those to match. The copy-based deploy to the
-# dev iPad never exercises that — it writes files into an existing bundle and
-# installd is never involved — but `provision-ipad.sh` does a REAL install on
-# his iPad, and an extension with a mismatched identifier is exactly the sort
-# of thing installd rejects. Shipping an unverified .appex by default would
-# risk the one install that matters, to gain a feature that does not work yet.
+# Still OPT-IN, for one reason now. Signing is solved: tools/sign-ipa.sh
+# gives the extension its own application-identifier with the patched zsign's
+# -X and refuses any IPA where a bundle does not name itself. What has never
+# happened is the extension being REGISTERED on a device, because the dev
+# iPad's copy-based deploy never goes through installd, which is where
+# plugins are registered. Until one real install has shown it in the share
+# sheet, his iPad's install (provision-ipad.sh) is not where to find out.
 EXT_BIN=".build/arm64-apple-ios/release/BlackmailShare"
 if [ "${BLACKMAIL_SHARE_EXT:-0}" = 1 ] && [ -f "$EXT_BIN" ]; then
-    stale_against "$EXT_BIN" Sources/BlackmailShare
+    stale_against "$EXT_BIN" Sources/Blackmail Sources/BlackmailShare
     APPEX="$APP/PlugIns/BlackmailShare.appex"
     mkdir -p "$APPEX"
     cp "$EXT_BIN" "$APPEX/BlackmailShare"
     llvm-strip --strip-all "$APPEX/BlackmailShare" 2>/dev/null || true
     cp Resources/ShareInfo.plist "$APPEX/Info.plist"
+    # The app's version numbers, which an extension's have to match. Taken
+    # from the app's Info.plist at packaging so the two cannot drift.
+    python3 - "$APP/Info.plist" "$APPEX/Info.plist" <<'PY'
+import plistlib, sys
+app = plistlib.load(open(sys.argv[1], "rb"))
+ext = plistlib.load(open(sys.argv[2], "rb"))
+for key in ("CFBundleShortVersionString", "CFBundleVersion"):
+    ext[key] = app[key]
+plistlib.dump(ext, open(sys.argv[2], "wb"))
+PY
     echo "==> bundled PlugIns/BlackmailShare.appex"
 elif [ "${BLACKMAIL_SHARE_EXT:-0}" = 1 ]; then
     echo "==> WARNING: BLACKMAIL_SHARE_EXT=1 but no $EXT_BIN — packaging WITHOUT it" >&2

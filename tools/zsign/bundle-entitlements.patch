@@ -1,0 +1,182 @@
+diff --git a/src/bundle.cpp b/src/bundle.cpp
+index 177388a..cc07aff 100644
+--- a/src/bundle.cpp
++++ b/src/bundle.cpp
+@@ -421,6 +421,18 @@ bool ZBundle::SignNode(jvalue& jvNode)
+ 		}
+ 	}
+ 
++	// A nested bundle given its own entitlements carries the profile too, as
++	// Xcode builds one, so installd can check them against it. Written before
++	// the seal below for the reason given above.
++	if ("/" != strFolder && NULL == m_pSignAssets && !m_pSignAsset->m_strProvData.empty() &&
++		(m_mapBundleEntitlements.count(strBundleId) || m_mapBundleEntitlements.count(strFolder))) {
++		if (!ZFile::WriteFileV(m_pSignAsset->m_strProvData, "%s/embedded.mobileprovision", strBaseFolder.c_str())) {
++			ZLog::ErrorV(">>> Can't write embedded.mobileprovision!\n");
++			return false;
++		}
++		bForceSign = true;
++	}
++
+ 	ZFile::CreateFolderV("%s/_CodeSignature", strBaseFolder.c_str());
+ 	string strCodeResFile = strBaseFolder + "/_CodeSignature/CodeResources";
+ 
+@@ -466,11 +478,30 @@ bool ZBundle::SignNode(jvalue& jvNode)
+ 		return false;
+ 	}
+ 
+-	if (!macho.Sign(m_pSignAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData)) {
+-		return false;
++	return SignBundleExecutable(macho, bForceSign, strFolder, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData);
++}
++
++// Signs a bundle's main executable, with its own entitlements when -X names
++// the bundle. The asset's entitlements are swapped for the one signature and
++// put back, so everything else in the archive still gets -e's.
++bool ZBundle::SignBundleExecutable(ZMachO& macho, bool bForceSign, const string& strFolder, const string& strBundleId,
++								const string& strInfoSHA1, const string& strInfoSHA256, const string& strCodeResData)
++{
++	auto it = m_mapBundleEntitlements.find(strBundleId);
++	if (it == m_mapBundleEntitlements.end()) {
++		it = m_mapBundleEntitlements.find(strFolder);
++	}
++	if (it == m_mapBundleEntitlements.end()) {
++		return macho.Sign(m_pSignAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData);
+ 	}
+ 
+-	return true;
++	ZLog::PrintV(">>> Entitlements: \t%s (-X %s)\n", strFolder.c_str(), it->first.c_str());
++	m_setUsedBundleEntitlements.insert(it->first);
++	string strSaved = m_pSignAsset->m_strEntitleData;
++	m_pSignAsset->m_strEntitleData = it->second;
++	bool bRet = macho.Sign(m_pSignAsset, bForceSign, strBundleId, strInfoSHA1, strInfoSHA256, strCodeResData);
++	m_pSignAsset->m_strEntitleData = strSaved;
++	return bRet;
+ }
+ 
+ bool ZBundle::ModifyPluginsBundleId(const string& strOldBundleId, const string& strNewBundleId)
+@@ -879,7 +910,16 @@ bool ZBundle::SignFolder(ZSignAsset* pSignAsset,
+ 	ZLog::PrintV(">>> SubjectCN: \t%s\n", m_pSignAsset->m_strSubjectCN.c_str());
+ 	ZLog::PrintV(">>> ReadCache: \t%s\n", m_bForceSign ? "NO" : "YES");
+ 
++	m_setUsedBundleEntitlements.clear();
+ 	if (SignNode(jvRoot)) {
++		// A -X that matched nothing is a typo, and signing on regardless
++		// would give that bundle -e's entitlements without a word.
++		for (const auto& entry : m_mapBundleEntitlements) {
++			if (0 == m_setUsedBundleEntitlements.count(entry.first)) {
++				ZLog::ErrorV(">>> -X %s matched no bundle in %s\n", entry.first.c_str(), m_strAppFolder.c_str());
++				return false;
++			}
++		}
+ 		if (bEnableCache) {
+ 			ZFile::CreateFolder("./.zsign_cache");
+ 			jvRoot.style_write_to_file("./.zsign_cache/%s.json", strCacheName.c_str());
+diff --git a/src/bundle.h b/src/bundle.h
+index ce16c79..0feda3b 100644
+--- a/src/bundle.h
++++ b/src/bundle.h
+@@ -5,6 +5,9 @@
+ #include <vector>
+ #include <list>
+ #include <set>
++#include <map>
++
++class ZMachO;
+ 
+ class ZBundle
+ {
+@@ -43,6 +46,8 @@ private:
+ 	bool ModifyPluginsBundleId(const string& strOldBundleId, const string& strNewBundleId);
+ 	bool ModifyBundleInfo(const string& strBundleId, const string& strBundleVersion, const string& strDisplayName);
+ 	bool ChangeAppIcon();
++	bool SignBundleExecutable(ZMachO& macho, bool bForceSign, const string& strFolder, const string& strBundleId,
++							const string& strInfoSHA1, const string& strInfoSHA256, const string& strCodeResData);
+ 
+ private:
+ 	bool FindAppFolder(const string& strFolder, string& strAppFolder);
+@@ -61,6 +66,7 @@ private:
+ 	vector<string>	m_arrInjectDylibs;
+ 	vector<string>	m_arrInjectDylibNames;
+ 	set<string>		m_setRemoveDylibs;
++	set<string>		m_setUsedBundleEntitlements;
+ 
+ private:
+ 	void ApplyAppModifications();
+@@ -73,5 +79,7 @@ public:
+ 	bool		m_bRemoveWatchApp;
+ 	bool		m_bRemoveUISupportedDevices;
+ 	bool		m_bInjectExtensions;
++	// -X: bundle id or path relative to the .app -> entitlements plist.
++	map<string, string>	m_mapBundleEntitlements;
+ 	string			m_strAppFolder;
+ };
+diff --git a/src/zsign.cpp b/src/zsign.cpp
+index a5ce7e6..6fca4a9 100644
+--- a/src/zsign.cpp
++++ b/src/zsign.cpp
+@@ -55,6 +55,7 @@ const struct option options[] = {
+ 	{"rm_watch", no_argument, NULL, 'W'},
+ 	{"rm_uisd", no_argument, NULL, 'U'},
+ 	{"inject_extensions", no_argument, NULL, 'P'},
++	{"bundle_entitlements", required_argument, NULL, 'X'},
+ 	{"help", no_argument, NULL, 'h'},
+ 	{}
+ };
+@@ -153,6 +154,7 @@ int usage()
+ 	ZLog::Print("-W, --rm_watch\t\tRemove watch app from the bundle.\n");
+ 	ZLog::Print("-U, --rm_uisd\t\tRemove UISupportedDevices from Info.plist.\n");
+ 	ZLog::Print("-P, --inject_extensions\tAlso inject -l dylibs into app extensions (PlugIns/Extensions).\n");
++	ZLog::Print("-X, --bundle_entitlements\tKEY=FILE: sign the nested bundle whose bundle id or path (relative to the .app) is KEY with the entitlements in FILE instead of -e. Repeatable.\n");
+ 	ZLog::Print("-v, --version\t\tShows version.\n");
+ 	ZLog::Print("-h, --help\t\tShows help (this message).\n");
+ 
+@@ -192,12 +194,13 @@ int main(int argc, char* argv[])
+ 	string strIconFile;
+ 	vector<string> arrDylibFiles;
+ 	vector<string> arrRemoveDylibNames;
++	map<string, string> mapBundleEntitlements;
+ 	string strMetadataDir;
+ 	string strTempFolder = ZFile::GetTempFolder();
+ 
+ 	int opt = 0;
+ 	int argslot = -1;
+-	while (-1 != (opt = getopt_long(argc, argv, "dfva2LhiqwCRSEWUPc:k:m:o:p:e:b:n:z:l:D:t:r:x:M:I:",
++	while (-1 != (opt = getopt_long(argc, argv, "dfva2LhiqwCRSEWUPc:k:m:o:p:e:b:n:z:l:D:t:r:x:M:I:X:",
+ 		options, &argslot))) {
+ 		switch (opt) {
+ 		case 'd':
+@@ -295,6 +298,25 @@ int main(int argc, char* argv[])
+ 		case 'P':
+ 			bInjectExtensions = true;
+ 			break;
++		case 'X': {
++			// One -e covers the whole archive, so without this an app
++			// extension is signed with the containing app's
++			// application-identifier and iOS refuses it.
++			string strArg = optarg;
++			size_t pos = strArg.find('=');
++			if (string::npos == pos || 0 == pos || pos + 1 == strArg.size()) {
++				ZLog::ErrorV(">>> Invalid -X value, expected KEY=FILE: %s\n", optarg);
++				return -1;
++			}
++			string strEntitleData;
++			string strFile = ZFile::GetFullPath(strArg.substr(pos + 1).c_str());
++			if (!ZFile::ReadFile(strFile.c_str(), strEntitleData) || strEntitleData.empty()) {
++				ZLog::ErrorV(">>> Can't read entitlements file for %s: %s\n", strArg.substr(0, pos).c_str(), strFile.c_str());
++				return -1;
++			}
++			mapBundleEntitlements[strArg.substr(0, pos)] = strEntitleData;
++			}
++			break;
+ 		case 'v': {
+ 			printf("version: %s\n", ZSIGN_VERSION_STR);
+ 			return 0;
+@@ -453,6 +475,7 @@ int main(int argc, char* argv[])
+ 	bundle.m_bRemoveWatchApp = bRemoveWatchApp;
+ 	bundle.m_bRemoveUISupportedDevices = bRemoveUISupportedDevices;
+ 	bundle.m_bInjectExtensions = bInjectExtensions;
++	bundle.m_mapBundleEntitlements = mapBundleEntitlements;
+ 
+ 	bool bRet;
+ 	if (arrProvFiles.size() > 1) {

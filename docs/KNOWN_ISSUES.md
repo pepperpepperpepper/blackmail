@@ -1452,7 +1452,7 @@ someone who cannot fix it, is the worst failure mode this project has.
 
 ---
 
-## B-036 — OPEN. He shares to email constantly, and the app cannot receive a share
+## B-036 — BUILT 2026-09-30, not yet seen on a device. He shares to email constantly, and the app cannot receive a share
 
 **2026-09-22: he shares to email a lot, and none of the share routes
 is implemented.** Measured
@@ -1570,6 +1570,156 @@ builds or it doesn't, and everything depends on that), then the Keychain
 mirror, then the extension's own compose sheet — which should be the smallest
 thing that works: recipient, subject, the shared item attached, Send. Not a
 second copy of the composer.
+
+### BUILT 2026-09-30 — signed as itself, the account handed over, a sheet that sends
+
+All of the order of work above except the install. What the host checks
+is listed with each part; what only a device can show is listed last.
+
+**Blocker 1 is gone: zsign is patched.** `tools/zsign/bundle-entitlements.patch`
+adds `-X KEY=FILE` to zsign 1.1.2 (the installed version, and the newest
+upstream tag): the nested bundle whose bundle id, or whose path inside the
+`.app`, is KEY is signed with FILE's entitlements instead of `-e`'s, gets
+the profile embedded in it as Xcode would, and a KEY that matches nothing
+fails the signing rather than quietly signing that bundle as the app.
+`tools/zsign/build.sh` rebuilds it into `/mnt/build/zsign-blackmail`
+(TOOLCHAIN.md). The entitlements are now the repo's, in `ios/Resources`.
+Without the extension the app is signed with `Blackmail.entitlements`,
+byte for byte the signing directory's `blackmail.entitlements` that every
+build proven on his iPad was signed with, no `keychain-access-groups` at
+all. Only an IPA carrying the extension signs the app with
+`BlackmailWithShare.entitlements`, which adds the shared group, and the
+extension with `BlackmailShare.entitlements`. So the default build, the
+one `provision-ipad.sh` would put on his iPad, is signed exactly as before
+until the extension build has been seen on the dev iPad.
+
+`tools/sign-ipa.sh` is the one way deploy and provision sign, and it
+refuses to sign an IPA carrying the extension with a zsign that has no
+`-X`. It then reads every signature back with `tools/check-signature.py`,
+out of the Mach-O itself: each bundle's `application-identifier` is the
+team plus its own bundle id, the team is JGLH7HX44Y, both carry the shared
+keychain group when there is an extension and the app claims no
+`keychain-access-groups` when there is not, the DER and XML entitlements
+agree, the CodeDirectory's identifier and team are right, every page and
+special-slot hash matches, the CMS signature is over the CodeDirectory, the
+profile allows what each bundle claims, and the app's seal matches every
+file in it, the extension's signed executable included. Measured on the
+same unsigned IPA:
+
+| Signed with | Extension's application-identifier | Check |
+|---|---|---|
+| stock zsign 1.1.2, one `-e` | `JGLH7HX44Y.wtf.uhoh.blackmail` | FAILS, and no profile in the extension |
+| patched zsign, `-X` | `JGLH7HX44Y.wtf.uhoh.blackmail.share` | passes, all 41 checks |
+| patched, then the extension re-signed alone | its own | FAILS: the app's seal no longer matches |
+
+The last row is the two-pass approach, and why it could not work.
+
+`provision-ipad.sh` could not have signed anything with the zsign here: it
+handed zsign the IPA with no `-o`, which 1.1.2 refuses for an archive. It
+signs through `sign-ipa.sh` now.
+
+**The Keychain mirror (`ShareMirror`).** No App Groups, as expected: the
+profile's entitlements are `application-identifier`, `keychain-access-groups
+[JGLH7HX44Y.*, com.apple.token]`, `get-task-allow` and the team, nothing
+else. So there is no shared container, and everything the extension needs
+goes through one shared keychain group, `JGLH7HX44Y.wtf.uhoh.blackmail.shared`:
+the account (address, hosts, name, both forms of the signature) with its
+app password, the signature's pictures, and the recipient book, which is
+what puts his own second address one tap away in the extension too. The
+extension build's app lists its own group first in `keychain-access-groups`,
+so an item added without naming a group stays where every earlier build
+put the app password; `CredentialStore` names none and is unchanged. The
+mirror names the shared group in every query. It is written by
+`CredentialStore.save` and `saveAccountOnly`, cleared by `clear`, and
+brought up to date at launch, going into the background and coming back,
+off the main thread, each item written only when it has changed. All of
+that only in an app that carries the extension (`ShareMirror.app`): a
+build without it makes no Keychain call it did not make before. The other
+way, the extension leaves who it sent to, one item per letter, and the app
+takes those into its book as used, then removes exactly the items it read.
+One list read, changed and written back by both processes would lose a
+letter noted between the app's read and its delete. A Keychain that refuses
+logs to the connection log and costs the app nothing. Checked behind a
+`SharedKeychain` seam in `ShareMirrorTests`.
+
+**The extension's sheet.** `ShareViewController` (in the library, so the
+extension's executable is only an entry point and every line it runs is
+the app's) shows a small composer over the app he shared from: Cancel and
+Send, To with the book's suggestions, Cc/Bcc, Subject, the body, and a row
+per shared file with Remove. The letter is `ShareLetter`: the title the
+sharing app gives as the subject, the address alone above his signature as
+the app adds it, text as text, a photo re-encoded to JPEG and attached as
+the composer does. The HTML twin is Mail's envelope with the address as a
+real `<a href>`: his own shared letters, read in Mail's output, carry the
+address as bare text in a `<div>`, which this app's reading pane cannot
+tap. It sends through `Outbox`, which `IMAPMailRepository.send` now sends
+through as well, with `ComposeActions` deciding the order exactly as in the
+app's composer: "Sending…" at the tap, one letter however many taps, the
+share ended at the 250, everything left as it was with the reason when it
+fails, Cancel refused while it goes (`ShareSheetTests`, against the scripted
+submission server). No Save Draft: that needs the IMAP connection this sheet
+does not open, and a shared link is two taps to share again. With anything
+of his in it (words above the signature, an address, a subject of his own),
+Cancel asks before throwing it away, measured against the letter the share
+began as, so it still asks after a Send that did not go
+(`ShareSheet.asksBeforeCancelling`). The time iOS allows while it sends is
+asked of `ProcessInfo`, an extension having no `UIApplication`.
+
+What was shared is read one item at a time, and each photo or file is
+staged on disk before the next is begun (`ShareItems`): an extension runs
+under a far smaller memory ceiling than the app, and every photo decoding
+at once to be re-encoded as JPEG would have it killed before the sheet
+appeared. A file is copied rather than read, and one that would take the
+share's files past 25 MB, which Gmail would refuse anyway, is left out
+without being copied. The activation rule allows five images or files, as
+the composer's picker allows five photos.
+
+With no account mirrored it says "Open Blackmail once, then share this
+again." That is also what an install of this build shows until the app has
+been opened once, since the mirror is written by the app.
+
+**`mailto:`.** `CFBundleURLTypes` declares the scheme, `MailtoLink` reads
+RFC 6068 (addresses before `?` and in `to=`, `cc=`, `bcc=`, repeats kept,
+percent-decoding, `+` left a plus, CRLF to line breaks), and the composer
+opens with his signature under the body. A link's Cc and Bcc open their
+rows in the composer (`Draft.showsCcAndBcc`): a link in a letter is a
+stranger's, and a Bcc in a hidden row would get the letter unseen. Reply
+All and a reopened draft with a Cc or Bcc open the same way. A link tapped
+in a letter no longer asks "Open this link?" and goes to Apple Mail: it
+opens this app's composer. One in another app arrives only if iOS sends it
+here, which it does for the default mail app; that is still expected not
+to happen.
+
+**Still unseen, all of it needing a device:**
+
+- That the extension is registered and appears in the share sheet at all.
+  It needs an install through installd: `tools/build-share-ipa.sh` builds
+  and signs `ios/Blackmail-share.ipa`, to go on with `ideviceinstaller -i`
+  or through TrollStore, never the copy-based deploy.
+- That it loads: the principal class is found by its Objective-C name
+  (`ShareViewController`, present in the binary), and the entry point is
+  `_NSExtensionMain`, both read from the Mach-O, neither run.
+- That the Keychain reads work across the two on a device, and that the
+  app's password item is untouched by the extension build's
+  `keychain-access-groups`: copy-deploy it to the dev iPad, relaunch, and
+  check the app still signs in with its existing password, before any
+  extension build goes near `provision-ipad.sh`.
+- The app's side of the mirror, which lives in `CredentialStore` and
+  `AppDelegate` and runs only against the real Keychain: a signature
+  changed in Settings reaches the next share, and removing the account
+  leaves the extension saying "Open Blackmail once".
+- Memory: share five full-size photos from Photos at once, and a video,
+  and see the sheet come up with them attached (or the video left out if
+  it is over 25 MB), then send. The letter is still built whole in memory
+  at Send, as in the app.
+- What Safari and YouTube put in the extension item: the title is taken
+  from `attributedTitle`, then `attributedContentText`.
+- The sheet's look beside the app's composer, and sending over TLS from the
+  extension.
+- Whether iOS hands another app's `mailto:` link here.
+
+It stays opt-in (`BLACKMAIL_SHARE_EXT=1`) until the first of those has been
+seen.
 
 ---
 

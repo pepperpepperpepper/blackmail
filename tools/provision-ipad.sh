@@ -56,7 +56,28 @@ fi
 [ -f "$SIGN/ios_distribution.key" ] && ok "signing key" || bad "no $SIGN/ios_distribution.key — copy the signing directory from the build host"
 [ -f "$SIGN/ios_distribution.pem" ] && ok "signing cert" || bad "no $SIGN/ios_distribution.pem"
 [ -f "$PROFILE" ]                   && ok "provisioning profile" || bad "no $PROFILE"
-[ -f "$SIGN/blackmail.entitlements" ] && ok "entitlements" || bad "no $SIGN/blackmail.entitlements"
+# Signing reads the repo beside this script, not the signing directory: the
+# entitlements in ios/Resources, sign-ipa.sh and the checker it runs. A
+# partial copy on the laptop would otherwise pass here and fail at "Signing",
+# after the iPad has been registered.
+TOOLS="$(cd "$(dirname "$0")" && pwd)"
+for f in "$TOOLS/sign-ipa.sh" "$TOOLS/check-signature.py" \
+         "$TOOLS/../ios/Resources/Blackmail.entitlements" \
+         "$TOOLS/../ios/Resources/BlackmailWithShare.entitlements" \
+         "$TOOLS/../ios/Resources/BlackmailShare.entitlements"; do
+    [ -f "$f" ] && ok "$(basename "$f")" || bad "no $f — copy the whole repo, not just tools/"
+done
+# An IPA carrying the share extension can only be signed by the patched
+# zsign: stock zsign signs the extension as the app, which installd refuses
+# (B-036).
+if [ -f "$IPA" ] && unzip -Z1 "$IPA" 2>/dev/null | grep -q '\.appex/Info\.plist$'; then
+    if case "$("${ZSIGN:-/mnt/build/zsign-blackmail/bin/zsign}" -h 2>&1 || true)$(zsign -h 2>&1 || true)" in
+         *--bundle_entitlements*) true ;; *) false ;; esac; then
+        ok "zsign with -X (the IPA carries the share extension)"
+    else
+        bad "the IPA carries the share extension and no zsign here has -X — run tools/zsign/build.sh"
+    fi
+fi
 [ -f "$IPA" ] && ok "IPA to install ($(du -h "$IPA" | cut -f1))" \
              || bad "no IPA at $IPA — build one first and copy it here (IPA=… to override)"
 
@@ -186,10 +207,13 @@ fi
 # -------------------------------------------------------------- sign, install
 
 step "Signing"
-cp -f "$IPA" "$OUT/Blackmail-signed.ipa"
-zsign -q -k "$SIGN/ios_distribution.key" -c "$SIGN/ios_distribution.pem" \
-      -m "$PROFILE" -e "$SIGN/blackmail.entitlements" \
-      "$OUT/Blackmail-signed.ipa" || { echo "zsign failed"; exit 1; }
+# Through tools/sign-ipa.sh, which signs every bundle as itself and reads the
+# result back. This used to hand zsign the IPA with no -o, which zsign 1.1.2
+# refuses for an archive ("Use -o option to specify the output file"), so
+# with the zsign on the build host the step could not succeed.
+SIGN_DIR="$SIGN" PROFILE_FILE="$(basename "$PROFILE")" \
+    "$(dirname "$0")/sign-ipa.sh" "$IPA" "$OUT/Blackmail-signed.ipa" \
+    || { echo "signing failed"; exit 1; }
 ok "signed"
 
 step "Installing"
