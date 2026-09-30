@@ -10,7 +10,7 @@ import Foundation
 /// it was, with the reason. A sheet over Safari is where a tap that seems
 /// to have missed is most likely to be tried again.
 ///
-/// The letter goes by `Outbox`, which the app's repository sends through,
+/// The letter goes by `Submission`, which the app's repository sends through,
 /// on the account `ShareMirror` handed over. Out of the extension's view
 /// controller, as `ComposeActions` is out of the composer's, so the suite
 /// can run it against `ScriptedSubmission`.
@@ -43,7 +43,7 @@ final class ShareSheet {
         let account = shared.account
         actions = ComposeActions(
             sendLetter: { draft, progress in
-                try await Outbox.send(
+                try await Submission.send(
                     draft, from: account, password: shared.password,
                     through: SMTPClient(account: account, transport: transport),
                     threadHeaders: nil,
@@ -55,7 +55,7 @@ final class ShareSheet {
                     progress: progress)
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
-                noteSent(Outbox.recipients(of: draft).map(MailFormat.bareAddress))
+                noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))
             },
             // Never asked: Cancel puts a share away without keeping a
             // draft, and a share has no copy in Drafts to tidy.
@@ -107,7 +107,7 @@ final class ShareSheet {
         return AppleMailHTML.layout(of: letter.body, signature: signature).typed
                 != AppleMailHTML.layout(of: started.body, signature: signature).typed
             || letter.subject != started.subject
-            || Outbox.recipients(of: letter) != Outbox.recipients(of: started)
+            || Submission.recipients(of: letter) != Submission.recipients(of: started)
     }
 
     /// What the address field he is in offers, from the app's own book as

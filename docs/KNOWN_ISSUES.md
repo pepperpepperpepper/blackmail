@@ -1655,7 +1655,8 @@ the app adds it, text as text, a photo re-encoded to JPEG and attached as
 the composer does. The HTML twin is Mail's envelope with the address as a
 real `<a href>`: his own shared letters, read in Mail's output, carry the
 address as bare text in a `<div>`, which this app's reading pane cannot
-tap. It sends through `Outbox`, which `IMAPMailRepository.send` now sends
+tap. It sends through `Submission` (called `Outbox` until B-052 gave the
+app an Outbox of its own), which `IMAPMailRepository.send` now sends
 through as well, with `ComposeActions` deciding the order exactly as in the
 app's composer: "Sending…" at the tap, one letter however many taps, the
 share ended at the 250, everything left as it was with the reason when it
@@ -3487,3 +3488,330 @@ Gmail's delivery included, and the Inbox's count in the sidebar went from
 1 to 2; nothing was tapped. Not yet tried: a letter arriving while he is
 scrolled down or in Edit mode, the line's aging over minutes, and the
 line with Wi-Fi off.
+
+---
+
+## B-052 — CHANGED 2026-09-30, not yet seen on the iPad. A letter that could not be sent lasted only as long as its sheet
+
+**Found in the gap review of 2026-09-30** ("No Outbox" under "Ways a letter
+is lost" in the TODO), in the code, not on the iPad. Send with no
+connection kept the sheet with "Can't connect to mail server." (B-044),
+and nothing was lost while the sheet was up; but the sheet was the only
+place the letter was. He had to leave it open until the connection came
+back and tap Send again. Swiped away, or ended by iOS while it waited, it
+was at best a draft (B-051). And a send whose DATA had gone when the line
+died, before Gmail's 250 came back, said "Message was not sent." when Gmail
+may well have had it: tapped again, it went twice. A Send cut off by iOS
+ending the app came back as a draft that may have been a letter that went
+(B-051, "Not taken").
+
+**What Mail does.** Apple's page "If you can't send email on your iPhone or
+iPad" (support.apple.com/en-us/102556, 15 September 2026): "If you get a
+message that says your email wasn't sent, then that email goes to your
+Outbox", which is in "your list of mailboxes"; "If you don't see an Outbox,
+then your email was sent"; to send it again, tap it there, check the
+address, tap Send. While one waits Mail's bar says "1 Unsent Message"
+(pictured by OS X Daily in 2014 and 2016, and quoted in Apple's forums,
+thread 5962939; a user on JustAnswer read the bar out as "updated at 12:18
+PM with 1 unsent message", then the account error), and it sends the letter
+by itself once there is a connection, usually (OS X Daily). Its alert, as users quote
+it, is "Cannot Send Mail" and "A copy has been placed in your Outbox." over
+the reason, "The connection to the outgoing server … failed" or "The
+recipient … was rejected by the server" (Apple's forums, threads 8473284
+and 8269994). Mail puts a letter the server refused in the Outbox as well;
+this app does not (below). Guessed, not checked on a device: where Mail's
+list puts the Outbox, "2 Unsent Messages" for the plural, what VoiceOver
+says for it, and whether Mail says anything at all as its composer closes
+with no connection.
+
+**What he sees now.** Send with no connection, or on a line that goes
+before Gmail has answered, or on a Gmail that says "not now": "Sending…"
+as before, then the sheet closes, and one notice says "Message is in the
+Outbox. It will be sent when the iPad is connected and Blackmail is open."
+Mail's "a copy" and the name of Gmail's server would tell him nothing, so
+the words are the app's own. "And Blackmail is open" because nothing sends
+it while the app is put away: every pass is the app's own doing, and there
+is no background task, so a Wi-Fi that comes back while it is put away
+sends nothing until he opens it (the first wording, "when the iPad is
+connected", promised what it could not keep). An "Outbox" row with a
+tray-and-arrow icon comes into the Mailboxes, a block of its own below the
+folders, with how many letters wait beside it, so nothing above it moves;
+in two panes it is in the same column (D-015). The line under every list
+says how many wait, under the age and over a failure: "Updated 3 minutes
+ago", "1 Unsent Message", "No Connection". The Outbox lists each letter by
+whom it is to, as he wrote their names, and its subject, newest first, with
+"Sending…" under them while it goes; it has no search, no calendar, and
+Refresh there takes what waits over a connection already up. When the
+connection is back, with the app open, the letter goes by itself, once, and
+leaves, and the Outbox leaves the Mailboxes with its last letter.
+
+Tapped, a letter opens in the composer and is out of the Outbox while it is
+there: Send sends it, and puts it back if it cannot go; closed untouched it
+is back as it was; changed and swiped away, or saved, it is a draft. A
+letter on its way cannot be opened: gone while the composer had it, a Send
+there would send it again. Nor can one a pass has just sent: it leaves the
+Outbox at its 250, before its old copy in Drafts is removed, and that copy
+is told to the list as gone then too. The first version removed the copy
+first, and for those round trips the row was back without "Sending…", to
+be opened and sent a second time. A pass never takes a letter the composer
+has open, looked at as the letter goes, not before the pass asks whether
+the connection is up. In Edit, Delete takes it off the iPad. A letter
+reopened from Drafts and sent with no connection is not listed in Drafts
+while it waits, where a tap would open it to be sent a second time, and
+its copy there is removed once it has gone, as Send in the composer
+removes it.
+
+**What waits and what keeps the sheet** (`Outbox.waits(after:)`). Waits,
+since nothing was said about the letter and it may go later as it is:
+`MailError.cannotConnect` (no connection, the submission server not
+reached, or a forward's files or the Sent Mail look below failing for want
+of the IMAP connection), the new `MailError.connectionLost` (the line
+went, or stopped answering, before the server's verdict: a peer that hung
+up, a link that failed, a deadline that passed) and the new
+`MailError.refusedForNow` (a 4yz reply at any step, RFC 5321's "not now":
+Gmail's "421 4.7.0 Try again later" at the greeting, "454 4.7.0" to AUTH,
+"451 4.3.0" after DATA; AUTH LOGIN is not tried after a 4yz to AUTH PLAIN,
+which would only send the password again). Keeps the sheet
+with the reason, as B-044 has it, since sent again as it is it would fail
+again: `passwordNeedsUpdating` (the account: the same password would be
+refused at every pass, and each refusal counts toward Google's lockout),
+`messageTooLarge` (something has to come off the letter), `notSent` (every
+other refusal the server makes with a code, a 5yz: every recipient
+refused, the letter refused after DATA, a sender refused, and a letter to
+nobody; every recipient refused with a 4yz is "not now") and
+`attachmentFailed` (a forward's file gone from Gmail, or its original's
+folder renumbered or deleted since, which the IMAP client says as "Can't
+connect" and the repository now tells from a connection that is down: taken
+for one, such a forward waited for good and, as the oldest, ended every
+pass before the letters after it). Anything else, a photo's file that
+cannot be read, is "Message was not sent." as it always was. `SMTPClient`
+used to throw `notSent` for all of it past the connect; it now tells a line
+that went, a transport error, and a "not now" from a refusal. Both are
+read out as "Message was not sent.", so the share extension says what it
+said before.
+
+iOS taking back the time it gave for a send, with the 250 still to come:
+the time is given back and nothing else happens, as before (B-044). If iOS
+then suspends the app, the send fails as he comes back, at the write or
+read deadline, a lost connection: the letter waits in the Outbox, being
+sent, and the sheet closes with the notice. If iOS ends the app, the letter
+is in the Outbox at the next launch, since it was put there before a byte
+went.
+
+**How it is kept.** On B-051's store, in the same `Local Drafts/` in
+Application Support, out of iCloud backup, never under D-016's `Kept/`, its
+photos hard links of its own. A letter in the Outbox is a kept letter with
+two more fields in `letter.json`: `outbox`, the Message-ID it goes under,
+and `unsettled`, the Message-IDs of attempts whose DATA went and whose 250
+never came back. Both absent from a letter an older build kept, which
+reads as a draft, so no new format; and `cutOff`, when the latest of those
+attempts was last known to be on its way. At the tap on Send the letter is
+kept, as B-051 had it, and put in the Outbox under a Message-ID made then
+on the account's domain, which `RFC5322Builder` is handed at every
+attempt, so every attempt is the same message; sent again from the
+composer with an attempt still unsettled, it keeps that attempt's
+Message-ID rather than taking a new one. Kept as a draft again, by the
+composer that has it open, it leaves the Outbox and keeps its `unsettled`.
+What a reply or forward quotes, B-050's markup and pictures, is kept with
+the letter now, a draft's too, so a letter sent later looks as it would
+have at once. The markup is a file of its own, `quote.html`, beside
+`letter.json`: a newsletter's is a megabyte, and inside the JSON every
+write of the letter's state (the one between RCPT and DATA among them)
+decoded and encoded it again, about 25 ms on the host, and every list that
+counts the Outbox decoded it. It is read only when the letter is opened or
+goes; a list reads the letters without it. It counts toward the megabyte
+that holds a draft's upload back (`LocalDraft.isLarge`), since it goes in
+the APPEND. Another account's letters are listed and never sent from this one,
+and open without the quote or the parts they name on the server (B-051).
+
+**Never twice.** A letter is waiting until its attempt is about to send
+DATA; just before, once the server has taken the envelope, the attempt is
+written down (`SMTPClient.send`'s `beforeData`, `LocalDraftStore.
+noteSending`), and from then on it is being sent. Before a letter with such
+an attempt goes again, Sent Mail is asked for it, `UID SEARCH HEADER
+Message-ID`, since Gmail files there what it takes over SMTP
+(`MailRepository.sentMail(holds:)`). Found, it went: nothing is sent, and it
+leaves the Outbox. Not found, it goes again, under the same Message-ID, but
+only once ten minutes have passed since the cut (`Outbox.settling`): a
+server may take that long over a letter after its terminating dot (RFC 5321
+§4.5.3.2.6, which is also how long the app waits for the 250), and Gmail
+files it in Sent Mail only once it has taken it, so a look a moment after
+the cut, from the Outbox opened or the connection coming back, proves
+nothing; until then the letter waits, still being sent. Each look asks for
+Sent Mail's news first, with a NOOP in the same hold, unless the SELECT
+went in it (`IMAPClient.searchNow`): a SEARCH in a mailbox already open on
+the connection answers from what the session was last told (B-045), and
+with Sent Mail left open by his own visit to it, a letter Gmail filed since
+was not found and went again. A NOOP refused fails the look. The look is
+made in the folder LIST gives the \Sent role, or in All Mail when LIST names
+no Sent Mail ("Show in IMAP" off for it), never in a name guessed; with
+neither listed, the letter cannot be looked for and is not sent blind: its
+row says "Message was not sent.", and so does the sheet if he sends it.
+The look is a read, retried once on a new connection when the socket dies
+under it, as every read is (B-023), a pass's too: the pass began on a
+connection that was up. A search the server refuses, or that cannot run,
+sends nothing: the letter waits, still being sent, for the next pass to ask
+again, and the letters after it go. Taken as "not there", as a refused
+search in Drafts is (B-051), the letter could go twice, which cannot be
+taken back; waiting costs a pass. A letter whose attempts never reached
+DATA is simply sent. A verdict after DATA, a refusal or a "not now",
+settles that attempt, since the server said it did not take it. Deleted
+from the Outbox while a pass has it on its way, before its DATA, the write
+before DATA finds it gone and DATA is never sent. Sent again from the
+composer, a letter opened from the Outbox asks Sent Mail first too: found,
+the sheet closes as for a letter sent, and nothing more goes, whatever he
+changed; a password refused for the look keeps the sheet with "Password
+needs to be updated", as for a Send refused for it. Saved as a draft
+instead, a letter with an attempt unsettled goes to Drafts only once Sent
+Mail has said it does not have it: taken there before, it left the iPad
+and the record with it, and sent later from Drafts it went again with
+nothing looked for. Found, or not yet answered, it stays on the iPad,
+listed in Drafts, and a Send from there asks first; found, no pass asks
+again until he changes it or the app is launched again.
+
+**When a waiting letter goes.** By B-051's pass, and at its moments: after
+a folder's newest page, on coming back after the warm-up, and as he leaves
+the app, inside background time; and at one more, the first check of the
+watch (B-049) to reach the server after one that could not, which is the
+connection coming back while he reads. That one takes drafts too; it is
+not every check, so a letter the server refuses is not tried every half
+minute. The Outbox first, oldest first, in the order he sent them, then the
+drafts. One letter at a time, and only while the IMAP connection is up,
+which says the network works and the password was taken, and which the
+look in Sent Mail needs; the SMTP connection is then made for a letter he
+asked to send, as every letter makes its own. A refused password ends the
+pass, and nothing more goes from the Outbox unasked until a Send of his own
+has gone, or the app is launched again: each page would otherwise send the
+refused password again. A letter refused for its own reason stays, the
+reason as the first line of its row ("Message was not sent."), and is not
+tried again unasked until the app is launched again; the letters after it
+go. A submission server that cannot be reached while IMAP works ends the
+Outbox's part of the pass, as does a "not now" from it; the drafts after it
+still go up: each letter after it would cost a connect for the same
+failure. Size: an Outbox letter goes over a connection of its own, so its
+photos hold nothing he taps and it goes at once; what a forward or a
+reopened draft has to fetch from Gmail first comes over the one IMAP
+connection, and a megabyte or more of that waits for him to leave the app,
+as a large draft does (`LocalDraft.fetchesLarge`). That is its rows from
+Gmail and nothing else: a forward's quoted pictures that go are ones that
+are also its rows, fetched once, and counting them again held a forward of
+600 kB of photographs back as 1.2 MB. Nothing sends while the app is put
+away (above).
+
+**The share extension** keeps its sheet with the reason when a letter
+cannot go. It has no app group, only the shared keychain group, so it
+cannot reach the store. The keychain mirror could carry a small letter, but
+then two processes would write the one thing that must never go twice: the
+extension, suspended mid-send by iOS, cannot say whether its DATA went, and
+the app, taking the letter over, would have to look for an attempt it never
+wrote down. A photo would not fit, and a shared link is two taps to share
+again.
+
+**Names.** The enum the app and the extension send through, which was
+called `Outbox`, is `Submission` (`SMTP/Submission.swift`); the Outbox he
+sees is `Outbox` (`Mail/Outbox.swift`), its letters kept by `LocalDrafts`,
+and its mailbox's role `.outbox`.
+
+**Tested** in `OutboxTests`, with the composer's own wiring, the shipping
+`LocalDrafts` over a directory of the test's own, the repository over the
+scripted server, and a scripted submission server per connection that can
+fail to open, hang up after the letter before its 250 (closed, reset, or at
+a deadline), hold that reply, let it go late or let its deadline pass,
+refuse the password, refuse a recipient, or say "not now" at the greeting,
+at AUTH or after DATA; in `LocalDraftsTests`; and in `ComposeActionsTests`.
+Send with no connection closes the sheet once, says so once, draws nothing
+after, gives the time back once, and leaves the letter waiting in the
+Outbox and not in Drafts, there after a relaunch; a later pass sends it
+once however many ask, under the Message-ID it entered with, with no look
+in Sent Mail; no pass connects. A DATA cut off before the 250 is being
+sent, is looked for in Sent Mail after a relaunch, found and not sent
+again; not found, it goes once more under the same Message-ID; a refused
+search sends nothing, lets the next letter go, and the next pass asks
+again; deleted while its look was out, its DATA never goes; opened from the
+Outbox and sent, the earlier attempt is looked for first. A recipient
+refused, a letter too big after DATA, and a refused password keep the
+sheet, out of the Outbox, with nothing to look for. The time taken back
+before the 250 leaves the sheet, and the line dying after leaves the letter
+in the Outbox. A refused password goes once, whatever pages and returns
+follow, until his own Send goes. A stuck letter lets the next go, says why
+on its row, is not tried again until a relaunch. Letters go oldest first.
+An unreachable submission server ends the Outbox's part of the pass. The
+reopened draft's copy is not listed while the letter waits, and is removed
+after it goes. Photos do not hold a letter back and a forward's files do.
+Another account's letter is not sent, and opens without its quote. The rows,
+count, VoiceOver label, open, close untouched, swipe to a draft, and
+Delete. With nowhere to keep it, Send goes straight and a failure keeps the
+sheet. The submission client tells a lost line from a refusal; DATA waits
+for the write before it and never goes when that throws; the quote
+survives the store; the line's three lines. Also: a letter Gmail filed
+in a Sent Mail already open is found; nothing found a moment after
+the cut sends nothing, from a pass or the composer, and the composer's
+Send keeps the Message-ID; the look goes to All Mail with no Sent Mail
+listed, and with neither the letter is refused with its reason and no
+folder is guessed; a look cut off goes once more on a new connection; a
+look refused for its password keeps the sheet; a letter saved as a draft
+with an attempt unsettled is not taken to Drafts while Gmail has it, and a
+Send from it sends nothing, and is taken there once Sent Mail has not got
+it; a letter a pass sent leaves the Outbox and its Drafts copy's row before
+the copy is removed; a pass leaves a letter opened as its turn comes; a
+forward whose original's folder was renumbered is refused with its reason
+and lets the next letter go; a "not now" at three steps waits, settles the
+attempt, and does not try AUTH LOGIN; a lost line at a deadline and at a
+reset is a lost line; the attempt is written down after the last RCPT and
+not at all when every recipient is refused; the Outbox goes before a draft,
+and an unreachable server leaves the draft to go; his own Send refused for
+its password stops the pass; a pass sending a letter after a cut-off
+upload leaves nothing in Drafts; a quote's markup is kept beside the
+letter and counted in its size; a forward's quoted pictures are counted
+once; the notice's words. Each of these fails with its part undone in a
+scratch copy: thirty-seven sabotages at first, each failing at least the
+test named for it (the queued branch, the entry into the Outbox, a lost
+line keeping the sheet, the SMTP split, the look, a refused look taken as
+none, the write before DATA, a deleted letter's DATA, the Message-ID, the
+password latch and its clearing, a refusal stopping the pass or not being
+recorded, the Drafts copy kept or listed, the Outbox in Drafts, an open
+letter in the Outbox, a keep leaving it in the Outbox, photos holding it,
+another account's letters sent or their quote kept, the letter not taken
+back or its attempt not settled after a refusal, the unsent line, the
+quote, the pass skipping the Outbox, `unsettled` dropped at a keep, the
+sheet not letting go or staying live, the count read as unread, the row's
+reason, the order, an unreachable server tried for every letter, a refused
+look stopping the pass, the look made in Drafts, the fallback queuing, the
+row's name), and twenty-six more for what followed, each failing the test
+named for it (the look without its NOOP, or with the NOOP skipped inside
+two seconds; the Drafts copy removed before the letter left the Outbox; the
+pass's open check and its order; a forward's refused folder taken for no
+connection; a 4yz read as a refusal, AUTH LOGIN after one, a verdict after
+DATA left unsettled; no settle time; a new Message-ID at every Send; Sent
+Mail guessed; the markup in the JSON, not counted, or written at every
+keep; the old notice; a forward's pictures counted twice; a letter saved as
+a draft taken to Drafts unlooked; the pass's discard a plain remove, and no
+tidy after it; his own Send's refused password not latched; only a clean
+close taken as a lost line; no retry for the look; a refused password at
+the look taken as unsettled; drafts before the Outbox; an unreachable
+server ending the drafts too; the write before DATA made before MAIL FROM
+as well).
+
+**Not taken, and still to do.** That Gmail files a letter taken over SMTP
+in Sent Mail under the Message-ID the app gave it has not been checked
+against Gmail, nor has `HEADER Message-ID` against Gmail's SEARCH (B-051),
+nor how long after its 250 it is there (the ten minutes are RFC 5321's,
+not measured); `RFC5322Builder`'s own comment says Gmail rewrites the id on
+submission. If
+it does, the look finds nothing, and a letter cut off after its DATA goes
+again, twice, which is what happened before this change and no worse; the
+first device check below settles it. A letter the pass cannot send for its
+own reason says so on its row and nowhere else: there is no alert while he
+reads. No "Sending 1 of 2" as Mail has. A letter found in Sent Mail after he
+changed it in the composer went as it was; saved as a draft instead, it
+stays on the iPad, since Gmail has the letter already. No background task:
+a letter waits for the app to be open (above). A letter a pass cannot send
+because neither Sent Mail nor All Mail is listed can never go from the
+Outbox; that needs "Show in IMAP" turned back on in Gmail. Deleting from the Outbox a letter
+reopened from Drafts leaves its old copy in Drafts, as deleting a kept
+draft does (B-051). The sidebar's row, the Outbox's list, the notice and the
+watch's trigger are UIKit and not on the host; the pieces under them are
+tested (`LocalDrafts.outbox`, `LocalDraft.outboxRow`, `Outbox.mailbox`,
+`UpdatedLine.text`).
+
+**Not yet seen on the iPad.** The TODO says what to look at.

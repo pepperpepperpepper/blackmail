@@ -548,6 +548,15 @@ actor IMAPClient {
         /// search once the burst's answer is ten seconds old, or by the next
         /// Refresh.
         case typing
+        /// A search whose finding nothing is acted on as proof: the look in
+        /// Sent Mail for a letter whose 250 never came (`searchNow`), where
+        /// nothing found sends the letter again. The news is asked for
+        /// whenever the SELECT did not go in this very hold, however
+        /// recently it was asked: a letter Gmail filed a second after the
+        /// last question is exactly the one looked for. And a NOOP refused
+        /// fails the search rather than letting it answer from what the
+        /// session knew.
+        case now
 
         /// How old a question may be and still count as asked now.
         static let moment: TimeInterval = 2
@@ -581,8 +590,8 @@ actor IMAPClient {
     /// was followed by a NOOP it had made pointless. A NOOP a moment before
     /// has asked too: this one, the warm-up's or a write's probe
     /// (`performNOOP`). A NOOP refused leaves the SEARCH to go as it did
-    /// before any of this; a lost connection fails the call, as any command
-    /// does, and a read's retry SELECTs the mailbox afresh.
+    /// before any of this, but for `.now`; a lost connection fails the call,
+    /// as any command does, and a read's retry SELECTs the mailbox afresh.
     private func catchUp(_ freshness: Freshness, selected: Bool) async throws {
         let answered: Date?
         if selected {
@@ -590,11 +599,14 @@ actor IMAPClient {
         } else if case .typing = freshness, let burst = typingAskedAt,
                   isRecent(burst, within: Freshness.burst) {
             return
-        } else if let asked = newsAskedAt, isRecent(asked, within: Freshness.moment) {
+        } else if freshness != .now, let asked = newsAskedAt,
+                  isRecent(asked, within: Freshness.moment) {
             answered = asked
         } else {
             let asked = now()
-            answered = try await performNOOP() ? asked : nil
+            let told = try await performNOOP()
+            if !told, freshness == .now { throw MailError.cannotConnect }
+            answered = told ? asked : nil
         }
         if case .typing = freshness { typingAskedAt = answered }
     }
@@ -704,18 +716,41 @@ actor IMAPClient {
     /// has no mail", and quietly showing an empty inbox is worse than
     /// saying so.
     ///
-    /// Not behind a NOOP for the mailbox's news (`catchUp`). Its one caller
-    /// is a page whose snapshot has gone, cut strictly below a letter
-    /// already on screen: mail the NOOP would announce comes above that,
-    /// and a letter removed elsewhere is left to the next Refresh, as it is
-    /// on a page walked from a snapshot. So it asks for nothing, like any
-    /// page, and a round trip on it would buy nothing.
+    /// Not behind a NOOP for the mailbox's news (`catchUp`). Its callers are
+    /// a page whose snapshot has gone, cut strictly below a letter already
+    /// on screen, where mail the NOOP would announce comes above that and a
+    /// letter removed elsewhere is left to the next Refresh, as it is on a
+    /// page walked from a snapshot; and the look in Drafts for a kept
+    /// letter's earlier uploads, where a copy missed costs at worst a second
+    /// copy in Drafts (`IMAPMailRepository.copies`). A search whose empty
+    /// answer sends a letter is `searchNow`.
     func search(_ criteria: String, in mailbox: String) async throws -> IMAPMailboxUIDs {
         try await inMailbox(mailbox, validity: nil, .background) { state in
             guard let uids = try await self.performSearch(criteria) else {
                 throw MailError.cannotConnect
             }
             return IMAPMailboxUIDs(validity: state.uidValidity, uids: uids)
+        }
+    }
+
+    /// `search(_:in:)` over the mailbox as the server has it now: its news
+    /// asked for first in the same hold, with a NOOP, unless a SELECT went
+    /// in it (`Freshness.now`). For the look in Sent Mail for a letter whose
+    /// 250 never came back (`IMAPMailRepository.sentMail`), where nothing
+    /// found sends the letter again.
+    ///
+    /// A SEARCH in a mailbox already selected answers from the session's
+    /// view of it, which takes in a letter only once the server has
+    /// announced it (B-045). With Sent Mail left open on the connection, by
+    /// a look before or by his own visit to it, a letter Gmail filed there
+    /// after the session last heard would not be found, and would be sent a
+    /// second time.
+    func searchNow(_ criteria: String, in mailbox: String) async throws -> [UInt32] {
+        try await inMailbox(mailbox, validity: nil, .background, catchingUp: .now) { _ in
+            guard let uids = try await self.performSearch(criteria) else {
+                throw MailError.cannotConnect
+            }
+            return uids
         }
     }
 

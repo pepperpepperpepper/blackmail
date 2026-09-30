@@ -132,8 +132,14 @@ final class MessageListViewController: UITableViewController {
     private var drafts = DraftOpening()
 
     /// The letters kept on the iPad (B-051): listed at the top of Drafts,
-    /// and taken to the server whenever a page here has come.
+    /// and taken to the server whenever a page here has come. The Outbox's
+    /// are among them (B-052): its list is these alone.
     private let kept = LocalDrafts.shared
+
+    /// The Outbox, which is on the iPad and not on the server: its rows are
+    /// the letters waiting there, it has no search, no day to jump to and
+    /// no pages, and a tap opens the letter in the composer.
+    private var isOutbox: Bool { mailbox.role == .outbox }
 
     private var visible: [MessageSummary] { letters.visible }
 
@@ -414,7 +420,8 @@ final class MessageListViewController: UITableViewController {
                                    style: .plain, target: self,
                                    action: #selector(jumpToDateTapped))
         jump.accessibilityLabel = "Go to a date"
-        jumpItem = jump
+        // Not in the Outbox, which holds a handful of letters from today.
+        jumpItem = isOutbox ? nil : jump
         placeLeadingItems()
 
         // The bottom bar from the reference. It looks decorative and is not:
@@ -424,9 +431,10 @@ final class MessageListViewController: UITableViewController {
         statusLabel.font = Theme.fontToolbarStatus
         statusLabel.textColor = Theme.secondaryText
         statusLabel.textAlignment = .center
-        // Two lines when the last try failed, as Mail's bar has them: how old
-        // the list is over what went wrong (`UpdatedLine`).
-        statusLabel.numberOfLines = 2
+        // Up to three lines, as Mail's bar has them: how old the list is,
+        // the letters waiting in the Outbox, and what went wrong
+        // (`UpdatedLine`).
+        statusLabel.numberOfLines = 3
         showStatus()
         // Five taps here opens the connection log. Hidden on purpose:
         // `PRODUCT_SPEC.md` forbids showing protocol text to him, but whoever is helping
@@ -442,10 +450,10 @@ final class MessageListViewController: UITableViewController {
         pageFooter.addTarget(self, action: #selector(loadMoreTapped), for: .touchUpInside)
         buildBottomBar()
 
-        if mailbox.role == .drafts {
-            NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
-                                                   name: LocalDrafts.changed, object: kept)
-        }
+        // Every list: Drafts and the Outbox list what is kept, and the line
+        // under each counts the letters waiting in the Outbox.
+        NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
+                                               name: LocalDrafts.changed, object: kept)
 
         Task { @MainActor in
             // A jump asked for before this pane existed — the container
@@ -498,6 +506,13 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     @discardableResult
     func reload(keepingPlace: Bool = false, quietly: Bool = false) async -> Bool {
+        // Nothing to fetch: what is on the iPad, and a pass over the
+        // connection if one is up, as after a page.
+        if isOutbox {
+            listOutbox()
+            kept.uploadWaiting(to: repository)
+            return true
+        }
         listGeneration += 1
         let generation = listGeneration
         stopSearching()
@@ -560,9 +575,23 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func listKept() {
         guard mailbox.role == .drafts else { return }
-        let waiting = kept.waiting
-        letters.keep(waiting.map { $0.row(in: mailbox.id, from: keptSender) },
-                     replacing: Set(waiting.compactMap(\.draft.savedID)))
+        letters.keep(kept.waiting.map { $0.row(in: mailbox.id, from: keptSender) },
+                     replacing: kept.replacedInDrafts)
+    }
+
+    /// The Outbox's rows: the letters waiting there, newest first, each
+    /// with "Sending…" while it goes or why the last try did not send it.
+    @MainActor
+    private func listOutbox() {
+        _ = letters.fetchedAfresh([])
+        letters.keep(kept.outbox.map {
+            $0.outboxRow(sending: kept.isGoing($0.key), notSent: kept.whyNotSent($0.key))
+        }, replacing: [])
+        reachedOldestMessage = true
+        regroup()
+        updateEmptyState()
+        updatePageFooter()
+        sayAge()
     }
 
     /// Who a letter kept on the iPad is from, as its row says it.
@@ -577,6 +606,13 @@ final class MessageListViewController: UITableViewController {
     /// without fetching the folder again, so a search, his ticks, the
     /// pages he has scrolled through and where he is in them all stay.
     @objc private func keptChanged(_ note: Notification) {
+        if isOutbox {
+            listOutbox()
+            return
+        }
+        // How many letters wait in the Outbox, under the age.
+        if showingAge { sayAge() }
+        guard mailbox.role == .drafts else { return }
         if let landing = note.userInfo?[LocalDrafts.landingKey] as? DraftLanding {
             var copy: MessageSummary?
             if let letter = landing.letter, let id = landing.id {
@@ -1098,10 +1134,12 @@ final class MessageListViewController: UITableViewController {
         showStatus()
     }
 
-    /// The line at rest says how fresh the list is, as of now.
+    /// The line at rest says how fresh the list is, as of now, and how many
+    /// letters wait in the Outbox. The Outbox's own says only that.
     @MainActor
     private func sayAge() {
-        say(updated.text(now: Date()))
+        let unsent = kept.outbox.count
+        say(isOutbox ? Outbox.unsent(unsent) ?? "" : updated.text(now: Date(), unsent: unsent))
     }
 
     /// Says `text` on the status line while something he asked for is on
@@ -1400,6 +1438,22 @@ final class MessageListViewController: UITableViewController {
         }
     }
 
+    /// A letter in the Outbox, opened in the composer to be changed or sent
+    /// again. Out of the Outbox while the composer has it: Send puts it
+    /// back if it cannot go, closed untouched it is back as it was, and
+    /// saved it is a draft. Not while it is on its way, its row saying
+    /// "Sending…": gone while the composer had it, a Send there would send
+    /// it a second time.
+    @MainActor
+    private func openWaiting(_ summary: MessageSummary) {
+        if let row = rowIndex(showing: summary.id) {
+            tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
+        }
+        guard let key = LocalDraft.key(ofRow: summary.id), !kept.isGoing(key),
+              let letter = kept.letter(key) else { return }
+        presentComposer(letter.draft, key: key, from: summary)
+    }
+
     /// The composer on a draft from this folder, `summary` the row tapped.
     @MainActor
     private func presentComposer(_ draft: Draft, key: String?, from summary: MessageSummary) {
@@ -1592,7 +1646,7 @@ final class MessageListViewController: UITableViewController {
 
     /// The search band, pinned. See `viewDidLoad`.
     override func tableView(_ t: UITableView, viewForHeaderInSection s: Int) -> UIView? {
-        searchBar
+        isOutbox ? nil : searchBar
     }
 
     override func tableView(_ t: UITableView, heightForHeaderInSection s: Int) -> CGFloat {
@@ -1600,8 +1654,9 @@ final class MessageListViewController: UITableViewController {
         // frame: the table resets a section header's frame during layout,
         // so reading the frame back here returns the previous height and
         // the scope bar gets drawn over the first message instead of
-        // pushing it down.
-        searchBar.wantedHeight
+        // pushing it down. None in the Outbox, whose letters are not on the
+        // server to be searched.
+        isOutbox ? 0 : searchBar.wantedHeight
     }
 
     /// Starts the next page while there is still a screenful to read.
@@ -1662,7 +1717,8 @@ final class MessageListViewController: UITableViewController {
             cell.configure(with: thread.displayRow())
             cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
             cell.accessibilityLabel = [
-                LocalDraft.key(ofRow: thread.id) == nil ? nil : LocalDraft.mark,
+                mailbox.role != .drafts || LocalDraft.key(ofRow: thread.id) == nil
+                    ? nil : LocalDraft.mark,
                 thread.isRead ? nil : "Unread",
                 thread.participants.joined(separator: ", "),
                 thread.count > 1 ? "\(thread.count) messages" : nil,
@@ -1714,6 +1770,10 @@ final class MessageListViewController: UITableViewController {
             openDraft(thread.newest)
             return
         }
+        if isOutbox {
+            openWaiting(thread.newest)
+            return
+        }
 
         onSelectThread?(thread)
         markReadIfNeeded(thread.newest)
@@ -1731,6 +1791,10 @@ final class MessageListViewController: UITableViewController {
         // a letter he had been interrupted writing could never be finished.
         if mailbox.role == .drafts {
             openDraft(m)
+            return
+        }
+        if isOutbox {
+            openWaiting(m)
             return
         }
 

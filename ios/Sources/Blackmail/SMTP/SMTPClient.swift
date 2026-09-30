@@ -51,11 +51,21 @@ actor SMTPClient {
     /// returns with it.
     ///
     /// Throws `MailError.cannotConnect` if the socket never came up,
-    /// `MailError.passwordNeedsUpdating` if the credentials were refused, and
-    /// `MailError.notSent` for everything else. Raw server text never escapes
-    /// this file; a 90-year-old reading "550 5.7.1 Our system has detected an
+    /// `MailError.connectionLost` if it went, or stopped answering, before
+    /// the server's verdict on the letter, `MailError.passwordNeedsUpdating`
+    /// if the credentials were refused, `MailError.messageTooLarge` for a
+    /// letter over the server's size, `MailError.refusedForNow` for a 4yz
+    /// reply, the server's "not now", and `MailError.notSent` for every
+    /// other refusal the server made. Raw server text never escapes this
+    /// file; a 90-year-old reading "550 5.7.1 Our system has detected an
     /// unusual rate of unsolicited mail" learns only that he has done
     /// something wrong, which he has not.
+    ///
+    /// The first two and "not now" say nothing against the letter going
+    /// later as it is, and the rest say something about it or the account,
+    /// which is what decides whether a letter from the composer waits in the
+    /// Outbox or stays in the sheet (`Outbox.waits(after:)`). All three used
+    /// to be `notSent`.
     ///
     /// Returns at the 250 after DATA, not after QUIT. That 250 is the server
     /// taking the letter over (RFC 5321 §6.1), and from then on nothing
@@ -71,8 +81,18 @@ actor SMTPClient {
     ///
     /// `progress` hears how much of the letter itself has been handed to the
     /// network, from the DATA write; see `UploadProgress`.
+    ///
+    /// `beforeData` is called once the server has taken the envelope and
+    /// before DATA is written, and the letter waits for it. Up to then
+    /// nothing the server has can become a letter; from then on a
+    /// connection that goes before the 250 leaves no way to tell from here
+    /// whether it did. A letter in the Outbox is written down as on its way
+    /// at this point, so that one cut off afterwards is looked for before it
+    /// is sent again (`LocalDrafts.send`). If it throws, DATA is never
+    /// written, the session is ended, and its error is what `send` throws.
     func send(_ raw: Data, from: String, to recipients: [String], password: String,
-              progress: UploadProgress? = nil) async throws {
+              progress: UploadProgress? = nil,
+              beforeData: (@Sendable () async throws -> Void)? = nil) async throws {
         rejectedRecipients = []
 
         let envelopeFrom = Self.envelopeAddress(from)
@@ -120,13 +140,15 @@ actor SMTPClient {
                                from: envelopeFrom,
                                to: envelopeTo,
                                capabilities: capabilities,
-                               progress: progress)
+                               progress: progress,
+                               beforeData: beforeData)
         } catch {
             // Best effort QUIT on the way out, and deliberately no read: if
             // the failure was the server going away, waiting for a reply that
             // is never coming would stall for the full read timeout before we
             // could show the error.
             letGo(connection, quitting: true, transcript: "fail")
+            if let withheld = error as? Withheld { throw withheld.reason }
             throw Self.userFacing(error)
         }
 
@@ -203,8 +225,11 @@ actor SMTPClient {
                 // A refused password is final. AUTH LOGIN would send the same
                 // secret and get the same answer, and a second wrong attempt
                 // counts against Google's lockout. Only a mechanism-level
-                // refusal (504, 502, 538…) is worth retrying differently.
+                // refusal (504, 502, 538…) is worth retrying differently. A
+                // 4yz is neither: the server said "not now", and would say
+                // it to LOGIN too.
                 if case .authRejected = error { throw error }
+                if case .rejected(let code, _) = error, Self.isTransient(code) { throw error }
                 guard loginAllowed else { throw error }
             }
         }
@@ -260,7 +285,8 @@ actor SMTPClient {
                           from: String,
                           to recipients: [String],
                           capabilities: SMTPClientCapabilities,
-                          progress: UploadProgress?) async throws {
+                          progress: UploadProgress?,
+                          beforeData: (@Sendable () async throws -> Void)?) async throws {
         // BODY=8BITMIME only when the server said it could take it. The
         // composer is responsible for encoding a body that needs it
         // (quoted-printable or base64); nothing here re-encodes the bytes it
@@ -290,6 +316,7 @@ actor SMTPClient {
         }
 
         var accepted = 0
+        var refusals: [Int] = []
         for recipient in recipients {
             Diagnostics.log(.sent, "RCPT TO:<\(recipient)>")
             try await connection.writeLine("RCPT TO:<\(recipient)>")
@@ -297,15 +324,25 @@ actor SMTPClient {
             if reply.isPositive {
                 accepted += 1
             } else {
-                // 4xx here is "try later" and 5xx is "never", but the app has
-                // no retry queue, so both mean the same thing to this address
-                // right now: it does not get the message, and the others still
-                // do. See `rejectedRecipients`.
+                // 4xx here is "try later" and 5xx is "never", but the letter
+                // goes once, to whoever was taken, so both mean the same
+                // thing to this address: it does not get the message, and
+                // the others still do. See `rejectedRecipients`.
                 rejectedRecipients.append(recipient)
+                refusals.append(reply.code)
             }
         }
         guard accepted > 0 else {
-            throw SMTPClientError.rejected(code: 0, text: "every recipient refused")
+            // Every one of them "not now" is the letter's "not now": it can
+            // go later, to all of them, from the Outbox.
+            let code = refusals.allSatisfy(Self.isTransient) ? refusals.first ?? 0 : 0
+            throw SMTPClientError.rejected(code: code, text: "every recipient refused")
+        }
+
+        do {
+            try await beforeData?()
+        } catch {
+            throw Withheld(reason: error)
         }
 
         Diagnostics.log(.sent, "DATA")
@@ -508,14 +545,34 @@ actor SMTPClient {
                 // 552 is "message too large" and 523 its enhanced sibling;
                 // 554 is generic, so it is NOT claimed here.
                 if code == 552 || code == 523 { return .messageTooLarge }
+                // RFC 5321's transient negative completion, at any step: a
+                // greeting of 421, a 454 to AUTH, a 451 after DATA. The
+                // server has said it did not take the letter and may later.
+                if isTransient(code) { return .refusedForNow }
             default:
                 break
             }
         }
-        // Everything else - a refused code, a dropped socket mid-transaction,
-        // a read timeout - reduces to the same fact for him: the message did
-        // not go.
+        // A dropped socket mid-transaction or a read that timed out: the
+        // server never gave its verdict, and the letter may go later as it
+        // is. Said as "Message was not sent." all the same.
+        if error is MailTransportError { return .connectionLost }
+        // Everything else is a refusal with a code, or an answer that was
+        // not SMTP: the server was reached and would not take this letter,
+        // or would not take it from this account.
         return .notSent
+    }
+
+    /// A 4yz reply (RFC 5321 §4.2.1): the command was not accepted, and
+    /// the same request may succeed later.
+    private static func isTransient(_ code: Int) -> Bool {
+        (400..<500).contains(code)
+    }
+
+    /// `beforeData` threw, and the letter was kept back: its error, as it
+    /// was, for `send` to throw.
+    private struct Withheld: Error {
+        let reason: Error
     }
 }
 
@@ -533,12 +590,10 @@ fileprivate struct SMTPClientReply {
 
     var text: String { lines.joined(separator: " ") }
 
-    /// 2xx succeeded, 4xx is temporary, 5xx is permanent. This client has no
-    /// retry queue, so only success is acted on; the distinction survives in
-    /// the code for whoever adds one.
+    /// 2xx succeeded; anything else is a refusal, carried in
+    /// `SMTPClientError.rejected` with its code, which is where a 4yz is
+    /// told from a 5xx (`SMTPClient.isTransient`).
     var isPositive: Bool { (200..<300).contains(code) }
-    var isTemporary: Bool { (400..<500).contains(code) }
-    var isPermanent: Bool { code >= 500 }
 
     /// Splits `250-AUTH PLAIN LOGIN` into its code, its "more to come" flag
     /// and its text. A line that does not begin with three digits yields a nil

@@ -87,7 +87,8 @@ final class ComposeActionsTests: XCTestCase {
             showError: { [unowned self] in errors.append($0); log.append("error") },
             draw: { [unowned self] in draws.append($0) },
             background: background.time,
-            keeping: keeping ? kept : .nowhere)
+            keeping: keeping ? kept : .nowhere,
+            queued: { [unowned self] in log.append("queued") })
     }
 
     private func draft(savedAs id: String? = nil) -> Draft {
@@ -221,6 +222,27 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(sends, 2, "Send is live again after a failure")
         XCTAssertEqual(errors, [.messageTooLarge, .notSent],
                        "a failure that is not a MailError says the letter was not sent")
+    }
+
+    // MARK: - Waiting in the Outbox
+
+    /// A send that could not reach the server, `Outbox.Waiting`: the sheet
+    /// closes with the notice, the letter is let go to the pass, and nothing
+    /// is taken out of Drafts, since nothing has gone. The time is given
+    /// back once, and nothing is drawn on the sheet after it.
+    func testALetterLeftInTheOutboxClosesTheSheetAndTouchesNothingInDrafts() async throws {
+        sendOutcome = .failure(Outbox.Waiting())
+        let actions = makeActions(keeping: true)
+        await actions.send({ [unowned self] in draft(savedAs: "600003/7") }, then: {
+            [unowned self] in log.append("drafts changed")
+        }, draftSent: { [unowned self] in log.append("sent \($0)") })?.value
+        XCTAssertEqual(log, ["begin Send", "keep unfinished", "send", "let go", "queued", "dismiss",
+                             "end 1"])
+        XCTAssertEqual(errors, [])
+        XCTAssertEqual(draws, [.sending("Sending…")])
+        XCTAssertTrue(actions.isSending, "done with: nothing more goes from it")
+        XCTAssertNil(actions.send({ [unowned self] in draft() }, then: nil))
+        XCTAssertEqual(sends, 1)
     }
 
     // MARK: - Background time

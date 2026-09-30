@@ -12,7 +12,10 @@ import Foundation
 /// bytes come from (a forward's parts are on the server, a shared photo is
 /// on disk), and the HTML twin, which a shared link needs with the link in
 /// it (`ShareLetter.html`).
-enum Outbox {
+///
+/// Called `Outbox` until the app had an Outbox of its own (B-052), which is
+/// what he sees under that name; this is only the handing over.
+enum Submission {
 
     typealias File = (filename: String, mimeType: String, data: Data)
     typealias InlineImage = (contentID: String, filename: String, mimeType: String, data: Data)
@@ -30,21 +33,30 @@ enum Outbox {
     /// A letter addressed to nobody is refused here, before `attachments`
     /// is asked for anything: fetching a forward's files for a letter that
     /// cannot go would cost a download for nothing.
+    ///
+    /// `messageID`, for a letter in the Outbox, is the one it goes under at
+    /// every attempt, so an attempt cut off after the server had it can be
+    /// found by it (`LocalDrafts.send`); nil makes a new one. `beforeData`
+    /// is called once the server has taken the envelope and nothing is left
+    /// but the letter itself (`SMTPClient.send`).
     static func send(_ draft: Draft, from account: MailAccount, password: String,
                      through smtp: SMTPClient,
                      threadHeaders: (messageID: String, references: String?)?,
                      attachments: () async throws -> [File],
                      htmlBody: String?,
                      inlineImages: [InlineImage],
+                     messageID: String? = nil,
+                     beforeData: (@Sendable () async throws -> Void)? = nil,
                      progress: UploadProgress?) async throws {
         let recipients = recipients(of: draft)
         guard !recipients.isEmpty else { throw MailError.notSent }
         let raw = RFC5322Builder.build(draft: draft, from: account,
+                                       messageID: messageID,
                                        inReplyToHeaders: threadHeaders,
                                        attachments: try await attachments(),
                                        htmlBody: htmlBody,
                                        inlineImages: inlineImages)
         try await smtp.send(raw, from: account.address, to: recipients, password: password,
-                            progress: progress)
+                            progress: progress, beforeData: beforeData)
     }
 }

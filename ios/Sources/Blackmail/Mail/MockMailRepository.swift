@@ -117,6 +117,13 @@ final class MockMailRepository: MailRepository {
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {}
 
+    func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
+        try await letter.beforeData()
+    }
+
+    /// Nothing is ever cut off here, so no attempt is ever found.
+    func sentMail(holds messageIDs: [String]) async throws -> Set<String> { [] }
+
     /// Keyed by the id handed back, so the fixture replaces rather than
     /// accumulates, like the real one.
     private(set) var savedDrafts: [String: Draft] = [:]

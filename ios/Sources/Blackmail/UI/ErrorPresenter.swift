@@ -19,13 +19,17 @@ enum ErrorPresenter {
     private static var hold = AlertHold<() -> Bool>()
 
     static func show(_ error: MailError, on vc: UIViewController) {
+        tell(error.errorDescription ?? "", on: vc)
+    }
+
+    /// Says something that is not a failure, the same way: a letter left in
+    /// the Outbox (`Outbox.notice`). Held like an error while a sheet goes.
+    static func tell(_ text: String, on vc: UIViewController) {
         let present = { [weak vc] () -> Bool in
             // Gone from the screen while the alert was held, as a list is
             // when the folder changes: there is nothing to put it over.
             guard let vc, vc.viewIfLoaded?.window != nil else { return false }
-            let alert = UIAlertController(title: nil,
-                                          message: error.errorDescription,
-                                          preferredStyle: .alert)
+            let alert = UIAlertController(title: nil, message: text, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             vc.present(alert, animated: true)
             return true

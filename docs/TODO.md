@@ -62,7 +62,7 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Done 2026-09-30, not yet seen on the iPad: kept three seconds after
       he stops and on leaving the app, and in Drafts at the next launch.
       See B-051.*
-- [ ] No Outbox: a letter that cannot go stays in the sheet, but only while
+- [x] No Outbox: a letter that cannot go stays in the sheet, but only while
       the sheet does. Next, on B-051's store. It will need a state per
       letter (a draft, or waiting to be sent), written before the DATA goes;
       the Message-ID the letter is sent under fixed when it enters the
@@ -70,6 +70,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Gmail's 250 is looked for in Sent Mail before it is sent again, as a
       cut-off draft is looked for in Drafts; its own list; and the pass
       that takes kept letters to Drafts taking these to Gmail as well.
+      *Done 2026-09-30, not yet seen on the iPad: Send that cannot reach
+      Gmail closes the sheet with one notice, the letter waits in an
+      Outbox listed in the Mailboxes while it holds anything, and goes by
+      itself, once, when the connection is back; one cut off after its
+      DATA is looked for in Sent Mail first. A letter Gmail refuses keeps
+      the sheet as before. See B-052, and its check under "Blocked on the
+      iPad coming back".*
 
 **Small, every day:**
 
@@ -104,8 +111,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] **The share sheet** (B-036): his main way of making mail. *Built
       2026-09-30: zsign patched for the extension's own entitlements, the
       Keychain mirror, the extension's own small compose sheet sending
-      through the app's `Outbox`. Seen registered and sending on the iPad
-      the same day (B-036); opt-in until the rest of its checks.*
+      through the app's `Submission`, then called `Outbox`. Seen
+      registered and sending on the iPad the same day (B-036); opt-in
+      until the rest of its checks.*
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
@@ -727,6 +735,32 @@ this host. Ordered by value, not by size.
       while it is locked. A letter opened, flagged or deleted just after a
       check behaves as before. Hold a finger on a row as a letter arrives:
       it goes on within half a minute of lifting it.
+- [ ] **B-052, the Outbox.** None of it seen on the iPad yet. Turn Wi-Fi
+      off in Control Center, write a letter to himself, Send: "Sending…",
+      then the sheet closes with "Message is in the Outbox. It will be sent
+      when the iPad is connected and Blackmail is open.", an Outbox row
+      with 1 appears below the folders and nothing above it moves, and the
+      line under the list reads "1 Unsent Message". Open the Outbox: the row shows whom it is to and
+      the subject. Turn Wi-Fi on and wait up to half a minute, or tap
+      Refresh: it goes, once (one `ENVELOPE` in the connection log), it
+      arrives once, and the Outbox row disappears. Send a letter with
+      several photos and press the lock button at once, unlock after a
+      minute: it has arrived once, or it waits in the Outbox and then
+      arrives once; never twice. If it waited as being sent, the log shows
+      `UID SEARCH HEADER Message-ID` in Sent Mail before any second
+      `ENVELOPE`. Either way, check in Gmail on the web ("Show original") that
+      a letter the app sent is in Sent Mail under the Message-ID the app
+      gave it, which is what the look depends on and has never been seen,
+      and note how many seconds after Send it is there: the app gives Gmail
+      ten minutes after a cut before it takes "not in Sent Mail" as final
+      (`Outbox.settling`), a figure from RFC 5321, not from Gmail.
+      Send a letter to an address with no domain, `nobody@`, which Gmail
+      refuses at RCPT: the sheet stays with "Message was not sent." and the
+      letter, as before. Reopen a draft from Drafts, Wi-Fi off,
+      Send: it leaves Drafts' list, waits in the Outbox, and once sent its
+      old copy is gone from Drafts on the web. Tap a letter in the Outbox,
+      Cancel untouched: it is back in the Outbox. In two panes, the Outbox
+      is in the Mailboxes' column and opens like any folder.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

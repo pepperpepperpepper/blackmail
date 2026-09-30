@@ -43,6 +43,40 @@ struct LocalDraft {
     /// its words and files have gone, and only `tried` is left, to find and
     /// remove the copies those uploads left in Drafts.
     var gone: Bool
+    /// In the Outbox, to go under this Message-ID: Send could not reach the
+    /// server (B-052). Nil for a draft, and for a letter taken back into the
+    /// composer. Made when the letter enters the Outbox and handed to the
+    /// builder at every attempt, so each is the same message.
+    var outbox: String? = nil
+    /// The Message-IDs of attempts whose DATA went and whose 250 never came
+    /// back, which may therefore have reached Gmail. Written just before
+    /// DATA, so an app ended mid-send still knows to look, and kept, whatever
+    /// becomes of the letter, until Sent Mail has been asked
+    /// (`LocalDrafts.send`). A letter with any is not taken to Drafts until
+    /// then either (`LocalDrafts.upload`).
+    var unsettled: [String] = []
+    /// When the latest of those attempts was last known to be on its way:
+    /// as its DATA was about to go, and again when it was cut off. Sent
+    /// Mail's not having it counts only once `Outbox.settling` has passed
+    /// since (`LocalDraftStore.isSettling`).
+    var cutOff: Date? = nil
+    /// The size of its quote's markup (B-050), which goes with it to
+    /// Drafts, in bytes. Known from `letter.json` whether or not the markup
+    /// itself was read (`LocalDraftStore.letters`).
+    var markupBytes = 0
+
+    /// Where it stands in the Outbox: nil for a letter that is not there.
+    var outboxState: OutboxState? {
+        outbox.map { unsettled.contains($0) ? .beingSent : .waiting }
+    }
+
+    enum OutboxState: Equatable {
+        /// Not yet sent as far as DATA: it goes as it is.
+        case waiting
+        /// Its DATA went and no 250 came back: Sent Mail is asked before it
+        /// goes again.
+        case beingSent
+    }
 }
 
 extension LocalDraft {
@@ -95,11 +129,38 @@ extension LocalDraft {
     /// Big enough that an upload nobody asked for waits (`LocalDrafts.
     /// uploadWaiting`): files of a megabyte or more between them, the size
     /// from which a letter takes a while to go (`ComposeActions.countsFrom`),
-    /// or a file whose size is not known.
+    /// or a file whose size is not known. The quote's markup counts with
+    /// them: it goes in the APPEND too, and a newsletter's is a megabyte.
     var isLarge: Bool {
-        var total: Int64 = 0
+        let markup = max(markupBytes, draft.quote?.html?.utf8.count ?? 0)
+        return Self.isLarge(draft.attachments.map(\.size) + [Int64(markup)])
+    }
+
+    /// The same for a letter in the Outbox, which goes to the submission
+    /// server over a connection of its own, so its own photos hold nothing
+    /// he taps. What does is a forward's files, or a reopened draft's,
+    /// fetched from Gmail over the one IMAP connection before the letter can
+    /// be built: a megabyte or more of those, or one of unknown size, waits
+    /// for him to leave the app, as a large draft does.
+    ///
+    /// Those rows are all it fetches. A forward's quoted pictures that go
+    /// are only ones that are also its rows, each fetched once, in the
+    /// quote rather than as a file (`AppleMailHTML.letter`); counted again
+    /// beside the rows, a forward of 600 kB of photographs was held back
+    /// as 1.2 MB, and one whose pictures he had taken off as more than it
+    /// sent.
+    var fetchesLarge: Bool {
+        var sizes: [Int64?] = []
         for file in draft.attachments {
-            guard let size = file.size else { return true }
+            if case .messagePart = file.source { sizes.append(file.size) }
+        }
+        return Self.isLarge(sizes)
+    }
+
+    private static func isLarge(_ sizes: [Int64?]) -> Bool {
+        var total: Int64 = 0
+        for size in sizes {
+            guard let size else { return true }
             total += size
         }
         return total >= Int64(ComposeActions.countsFrom)
@@ -120,7 +181,8 @@ extension Draft {
 // MARK: - On disk
 
 /// Where kept letters live: one directory per letter under `root`, holding
-/// `letter.json` and the letter's photos.
+/// `letter.json`, the letter's photos, and the markup its quote carries,
+/// `quote.html`.
 ///
 /// JSON rather than a database, as D-016 chose for the copy of his mail and
 /// for the same reasons: nothing here is queried, a letter is read whole and
@@ -132,7 +194,12 @@ extension Draft {
 ///
 /// Used only on the main thread. A letter's JSON is a few kilobytes and its
 /// photos are linked, not copied, so keeping one costs about what writing
-/// the address book does.
+/// the address book does. The quote's markup is a file of its own for the
+/// same reason: a newsletter's is a megabyte, and inside the JSON it was
+/// decoded and encoded again, 25 ms on the host, by every write of the
+/// letter's state, the one between RCPT and DATA included, and decoded by
+/// every list that counts the Outbox. It is written when the letter is
+/// kept and read only when the letter is opened or goes (`letter(_:)`).
 @MainActor
 final class LocalDraftStore {
 
@@ -142,6 +209,9 @@ final class LocalDraftStore {
 
     /// The file in each letter's directory that says what the letter is.
     private static let letterFile = "letter.json"
+    /// The quote's markup, beside it. A photo's file is named by a UUID, so
+    /// never this.
+    private static let markupFile = "quote.html"
     /// Bumped only for a change an older build could misread. A file of any
     /// other format is passed over.
     private static let format = 1
@@ -164,16 +234,40 @@ final class LocalDraftStore {
 
     // MARK: Reading
 
-    /// Every letter that can be read, newest first.
+    /// Every letter that can be read, newest first, for a list: each
+    /// without its quote's markup, which only `letter(_:)` reads. Nothing
+    /// is kept or sent from one of these.
     func letters() -> [LocalDraft] {
         let keys = (try? files.contentsOfDirectory(atPath: root.path)) ?? []
-        return keys.compactMap(letter).sorted { $0.keptAt > $1.keptAt }
+        return keys.compactMap { key in
+            stored(key).map { $0.letter(in: folder(for: key), markup: nil) }
+        }.sorted { $0.keptAt > $1.keptAt }
     }
 
-    /// The letter kept as `key`, or nil when there is none, or none that
-    /// can be read.
+    /// The letter kept as `key`, whole, or nil when there is none, or none
+    /// that can be read. A quote whose markup cannot be read goes without
+    /// it, as the plain words he saw, rather than losing the letter.
     func letter(_ key: String) -> LocalDraft? {
-        stored(key).map { $0.letter(in: folder(for: key)) }
+        guard let stored = stored(key) else { return nil }
+        let folder = folder(for: key)
+        var markup: String?
+        if stored.quote?.markup != nil,
+           let data = try? Data(contentsOf: folder.appendingPathComponent(Self.markupFile)) {
+            markup = String(decoding: data, as: UTF8.self)
+        }
+        return stored.letter(in: folder, markup: markup)
+    }
+
+    /// Whether the latest attempt at `letter` that was cut off after its
+    /// DATA is too recent for Sent Mail's not having it to say that Gmail
+    /// never took it (`Outbox.settling`). A time after now is not recent:
+    /// the clock has been set back since, and how long ago the cut came is
+    /// not known, and a letter held back until the clock caught up could
+    /// wait a day.
+    func isSettling(_ letter: LocalDraft) -> Bool {
+        guard let cutOff = letter.cutOff else { return false }
+        let age = now().timeIntervalSince(cutOff)
+        return age >= 0 && age < Outbox.settling
     }
 
     // MARK: Writing
@@ -210,13 +304,31 @@ final class LocalDraftStore {
             }
             kept.append(file)
         }
-        let letter = Stored(format: Self.format, key: key,
+        // Before the JSON that says it is there, as a photo is, and only
+        // when it is not there already: a letter's quote is the same at
+        // every autosave, and a megabyte written again at each pause cost it
+        // several milliseconds for nothing.
+        var names = kept.compactMap(\.name)
+        if let markup = draft.quote?.html {
+            let data = Data(markup.utf8)
+            let file = folder.appendingPathComponent(Self.markupFile)
+            if before?.quote?.markup != data.count || (try? Data(contentsOf: file)) != data {
+                try data.write(to: file, options: .atomic)
+            }
+            names.append(Self.markupFile)
+        }
+        // Kept as a draft: out of the Outbox if it was there, which only a
+        // composer that has it open can do. What may already have reached
+        // Gmail is carried, to be looked for before it goes.
+        var letter = Stored(format: Self.format, key: key,
                             version: UUID().uuidString.lowercased(),
                             tried: before?.tried ?? [], unfinished: unfinished, keptAt: now(),
                             account: account, draft: draft, files: kept)
+        letter.unsettled = before?.unsettled
+        letter.cutOff = before?.cutOff
         try write(letter)
-        removeFiles(in: folder, keeping: kept.compactMap(\.name))
-        return letter.letter(in: folder)
+        removeFiles(in: folder, keeping: names)
+        return letter.letter(in: folder, markup: draft.quote?.html)
     }
 
     /// Writes down that `version` of the letter is about to go to the
@@ -228,6 +340,63 @@ final class LocalDraftStore {
         guard !letter.tried.contains(version) else { return }
         letter.tried.append(version)
         try write(letter)
+    }
+
+    /// Puts the letter kept as `key` in the Outbox, under a Message-ID made
+    /// now on its account's domain, as the builder makes one, and returns
+    /// it. Throws when it is not kept.
+    ///
+    /// Sent again from the composer with an attempt still unsettled, it goes
+    /// under that attempt's Message-ID rather than a new one. It is sent
+    /// only once Sent Mail has been asked and has not got it; should that
+    /// copy ever turn up after all, the two are then one message to every
+    /// client that goes by Message-ID, Gmail's among them.
+    func enterOutbox(_ key: String) throws -> String {
+        guard var letter = stored(key), letter.gone != true else { throw NotKept() }
+        let domain = letter.account?.split(separator: "@").last.map(String.init) ?? ""
+        let messageID = letter.unsettled?.last
+            ?? "<\(UUID().uuidString.lowercased())@\(domain.isEmpty ? "localhost" : domain)>"
+        letter.outbox = messageID
+        try write(letter)
+        return messageID
+    }
+
+    /// Writes down that the attempt under `messageID` is about to send its
+    /// DATA, before it can. Throws when the letter is no longer in the
+    /// Outbox under it, deleted meanwhile, so the DATA must not go.
+    func noteSending(_ key: String, _ messageID: String) throws {
+        guard var letter = stored(key), letter.gone != true,
+              letter.outbox == messageID else { throw NotKept() }
+        if !(letter.unsettled ?? []).contains(messageID) {
+            letter.unsettled = (letter.unsettled ?? []) + [messageID]
+        }
+        letter.cutOff = now()
+        try write(letter)
+    }
+
+    /// The attempt on its way for the letter kept as `key` has been cut off
+    /// before its 250: the time Sent Mail is given from (`isSettling`).
+    func noteCutOff(_ key: String) {
+        guard var letter = stored(key), !(letter.unsettled ?? []).isEmpty else { return }
+        letter.cutOff = now()
+        try? write(letter)
+    }
+
+    /// The attempts under `messageIDs` are known not to have reached Gmail:
+    /// Sent Mail does not have them, or the server refused the letter.
+    func settled(_ key: String, _ messageIDs: [String]) {
+        guard var letter = stored(key), let before = letter.unsettled else { return }
+        letter.unsettled = before.filter { !messageIDs.contains($0) }
+        if letter.unsettled?.isEmpty == true { letter.cutOff = nil }
+        try? write(letter)
+    }
+
+    /// Out of the Outbox and back to the composer, which has it open: its
+    /// Send failed for a reason of its own, and the sheet stays with it.
+    func takeBack(_ key: String) {
+        guard var letter = stored(key), letter.outbox != nil else { return }
+        letter.outbox = nil
+        try? write(letter)
     }
 
     /// Sent or deleted with copies of it perhaps in Drafts: its words and
@@ -339,6 +508,13 @@ final class LocalDraftStore {
         var account: String?
         /// Only ever true, when present (`LocalDraft.gone`).
         var gone: Bool?
+        /// `LocalDraft.outbox` and `unsettled`: absent from a letter kept
+        /// before the Outbox, which reads as a draft with nothing to look
+        /// for, so no new format.
+        var outbox: String?
+        var unsettled: [String]?
+        /// `LocalDraft.cutOff`, absent when nothing is unsettled.
+        var cutOff: Date?
         var to: [String]
         var cc: [String]
         var bcc: [String]
@@ -347,6 +523,11 @@ final class LocalDraftStore {
         var inReplyTo: String?
         var references: String?
         var savedID: String?
+        /// The original a reply or forward quotes, so that one sent later
+        /// from the Outbox, or taken to Drafts, carries its look as one
+        /// sent at once does (B-050). Absent for a letter quoting nothing.
+        /// Its markup is in `quote.html`.
+        var quote: StoredQuote?
         var files: [StoredFile]
 
         init(format: Int, key: String, version: String, tried: [String], unfinished: Bool,
@@ -366,10 +547,13 @@ final class LocalDraftStore {
             inReplyTo = draft.inReplyTo
             references = draft.references
             savedID = draft.savedID
+            quote = draft.quote.map(StoredQuote.init)
             self.files = files
         }
 
-        func letter(in folder: URL) -> LocalDraft {
+        /// The letter, its quote with `markup`, which is read from its own
+        /// file by the caller that wants it.
+        func letter(in folder: URL, markup: String?) -> LocalDraft {
             var draft = Draft()
             draft.to = to
             draft.cc = cc
@@ -379,10 +563,60 @@ final class LocalDraftStore {
             draft.inReplyTo = inReplyTo
             draft.references = references
             draft.savedID = savedID
+            draft.quote = quote?.original(markup: markup)
             draft.attachments = files.compactMap { $0.attachment(in: folder) }
             return LocalDraft(key: key, draft: draft, version: version, tried: tried,
                               unfinished: unfinished, keptAt: keptAt, account: account,
-                              gone: gone ?? false)
+                              gone: gone ?? false, outbox: outbox, unsettled: unsettled ?? [],
+                              cutOff: cutOff, markupBytes: quote?.markup ?? 0)
+        }
+    }
+
+    /// `QuotedOriginal`, field by field, for the reason `Stored` is, but
+    /// for its markup, which is `quote.html` beside the letter.
+    private struct StoredQuote: Codable {
+        var forward: Bool
+        var region: String
+        /// The markup's size in bytes, nil when it has none.
+        var markup: Int?
+        var pictures: [StoredPicture]
+
+        init(_ quote: QuotedOriginal) {
+            forward = quote.kind == .forward
+            region = quote.region
+            markup = quote.html?.utf8.count
+            pictures = quote.pictures.map(StoredPicture.init)
+        }
+
+        func original(markup html: String?) -> QuotedOriginal {
+            QuotedOriginal(kind: forward ? .forward : .reply, region: region, html: html,
+                           pictures: pictures.map(\.picture))
+        }
+    }
+
+    private struct StoredPicture: Codable {
+        var contentID: String
+        var filename: String
+        var mimeType: String
+        var size: Int64?
+        var messageID: String
+        var mailboxID: String
+        var section: String
+
+        init(_ picture: QuotedOriginal.Picture) {
+            contentID = picture.contentID
+            filename = picture.filename
+            mimeType = picture.mimeType
+            size = picture.size
+            messageID = picture.messageID
+            mailboxID = picture.mailboxID
+            section = picture.section
+        }
+
+        var picture: QuotedOriginal.Picture {
+            QuotedOriginal.Picture(contentID: contentID, filename: filename, mimeType: mimeType,
+                                   size: size, messageID: messageID, mailboxID: mailboxID,
+                                   section: section)
         }
     }
 
@@ -427,15 +661,18 @@ final class LocalDraftStore {
 // MARK: - Keeping, and taking them to the server
 
 /// The letters kept on the iPad, which of them the composer has open, and
-/// taking the rest to the server's Drafts.
+/// taking the rest to the server: drafts to its Drafts, and the letters in
+/// the Outbox to their recipients (B-052).
 ///
 /// A letter goes up when he taps Save Draft, and one that could not go then
 /// goes later, once, over a connection that is working: each time a
 /// folder's newest page has just been fetched (at launch, at a Refresh, on
 /// opening a folder, on coming back after a while), each time the app comes
-/// back to the foreground, and as he leaves it (`uploadWaiting`). One at a
-/// time, and never one the composer has open, which is his to finish, nor
-/// one already on its way.
+/// back to the foreground, after each of the watch's checks that reaches
+/// the server, and as he leaves it (`uploadWaiting`). One at a time, and
+/// never one the composer has open, which is his to finish, nor one already
+/// on its way. A letter whose Send could not reach the server waits in the
+/// Outbox and goes by the same pass (`send`).
 @MainActor
 final class LocalDrafts {
 
@@ -471,6 +708,14 @@ final class LocalDrafts {
     /// Letters the server has taken since launch, and the id of the copy
     /// each became there, for a row in Drafts drawn before it went.
     private(set) var landed: [String: String] = [:]
+    /// Why each letter in `refused` that is in the Outbox was not sent: the
+    /// first line of its row there.
+    private var reasons: [String: MailError] = [:]
+    /// The submission server refused the password during a send. Nothing
+    /// more goes from the Outbox unasked until a Send of his own has gone,
+    /// or the app is launched again: each pass would send the refused
+    /// password again, as every page loads.
+    private var sendingRefused = false
 
     init(store: LocalDraftStore, account: String?, background: BackgroundTime) {
         self.store = store
@@ -479,10 +724,44 @@ final class LocalDrafts {
     }
 
     /// The letters Drafts lists above the server's: every one kept here but
-    /// those open in the composer, newest first. A letter written in another
-    /// account is listed with the rest, and goes nowhere until he opens it.
+    /// those open in the composer and those in the Outbox, newest first. A
+    /// letter written in another account is listed with the rest, and goes
+    /// nowhere until he opens it.
     var waiting: [LocalDraft] {
-        store.letters().filter { open[$0.key] == nil && !$0.gone }
+        store.letters().filter { open[$0.key] == nil && !$0.gone && $0.outbox == nil }
+    }
+
+    /// The letters in the Outbox, newest first, but the ones open in the
+    /// composer: what the Outbox lists, and counts in the sidebar. One of
+    /// another account is listed, and goes nowhere until he opens it and
+    /// sends it.
+    var outbox: [LocalDraft] {
+        store.letters().filter { open[$0.key] == nil && !$0.gone && $0.outbox != nil }
+    }
+
+    /// The copies in Drafts that letters kept here stand in for, the drafts'
+    /// and the Outbox's. A draft reopened from Drafts and sent with no
+    /// connection is in the Outbox, and its old copy, still on the server,
+    /// is not listed: tapped, it would open the letter to be sent a second
+    /// time.
+    var replacedInDrafts: Set<String> {
+        Set(store.letters().filter { open[$0.key] == nil && !$0.gone }
+            .compactMap(\.draft.savedID))
+    }
+
+    /// Whether the letter kept as `key` is on its way to the server now.
+    /// A letter in the Outbox cannot be opened while it goes: sent while
+    /// the composer had it, a Send there would send it again.
+    func isGoing(_ key: String) -> Bool {
+        going.contains(key)
+    }
+
+    /// Why the letter in the Outbox kept as `key` was not sent by the last
+    /// pass that tried it, if it was refused for a reason of its own and is
+    /// as it was then. Nil for one simply waiting.
+    func whyNotSent(_ key: String) -> MailError? {
+        guard let letter = store.letter(key), refused[key] == letter.version else { return nil }
+        return reasons[key]
     }
 
     /// The letter kept as `key`, for the composer.
@@ -498,6 +777,9 @@ final class LocalDrafts {
                 if case .messagePart = $0.source { return true }
                 return false
             }
+            // The quote's pictures are named the same way. Without them its
+            // markup would show broken boxes, so the letter goes plain.
+            letter.draft.quote = nil
         }
         return letter
     }
@@ -635,12 +917,35 @@ final class LocalDrafts {
     /// does next finds the copy that landed. Taken off here then, the
     /// photos went from under the open letter, and its next save put a
     /// second copy in Drafts.
+    ///
+    /// A letter he sent whose attempt was cut off after its DATA, then
+    /// kept as a draft, goes up only once Sent Mail has said it does not
+    /// have that attempt (`wentEarlier`). Taken to Drafts before, it left
+    /// the iPad, and the record that it may have gone with it: sent later
+    /// from Drafts, it went again with nothing looked for. Found there, or
+    /// not yet answered, it stays here, listed at the top of Drafts, and a
+    /// Send from it asks first and sends nothing if it went. Found, no pass
+    /// asks again until he changes it or the app is launched again.
     func upload(_ key: String, to repository: MailRepository) async throws {
         await whileGoing(key)
         guard let letter = store.letter(key), !letter.gone else { return }
         going.insert(key)
         defer { done(key) }
         let version = letter.version
+        if !letter.unsettled.isEmpty {
+            do {
+                if try await wentEarlier(letter, via: repository) {
+                    refused[key] = version
+                    return
+                }
+            } catch {
+                if (error as? MailError) == .passwordNeedsUpdating || error is CancellationError {
+                    throw error
+                }
+                if error is Outbox.NoSentMail { refused[key] = version }
+                return
+            }
+        }
         let store = self.store
         let saved = try await repository.saveDraft(letter.draft, as: DraftUpload(
             version: version, earlier: letter.tried,
@@ -656,10 +961,208 @@ final class LocalDrafts {
         announce(DraftLanding(letter: letter, id: saved.id, replaced: saved.replaced))
     }
 
+    // MARK: The Outbox
+
+    /// Send's, from the composer: the letter into the Outbox on the iPad,
+    /// then to the server. Returns once it has gone.
+    ///
+    /// Into the Outbox first, before a byte goes, under a Message-ID made
+    /// now (`LocalDraftStore.enterOutbox`), so a Send cut off anywhere, by a
+    /// dropped line or by iOS ending the app, finds the letter in the
+    /// Outbox and not lost, and every later attempt at it is the same
+    /// message. The composer keeps the letter just before this.
+    ///
+    /// When the server cannot be reached, or the connection goes before its
+    /// verdict, the letter stays in the Outbox and this throws
+    /// `Outbox.Waiting`: the sheet closes, and the letter goes with the next
+    /// pass (`uploadWaiting`). When the server refuses the letter or the
+    /// password it is taken back out of the Outbox, and the error is thrown
+    /// as it came: the sheet stays with the letter, as it always did
+    /// (`Outbox.waits(after:)`). A letter the iPad cannot keep goes straight
+    /// to the server, as every letter did before the Outbox, and a failure
+    /// stays in the sheet.
+    func send(_ draft: Draft, as key: String, to repository: MailRepository,
+              progress: UploadProgress?) async throws {
+        if store.letter(key) == nil { keep(draft, as: key, unfinished: true) }
+        guard (try? store.enterOutbox(key)) != nil else {
+            try await repository.send(draft, progress: progress)
+            sendingRefused = false
+            return
+        }
+        do {
+            try await deliver(key, draft, via: repository, progress: progress)
+            sendingRefused = false
+        } catch {
+            if (error as? MailError) == .passwordNeedsUpdating { sendingRefused = true }
+            guard Outbox.waits(after: error) else {
+                store.takeBack(key)
+                throw error
+            }
+            Diagnostics.log(.note, "OUTBOX-WAITING error=\(error)")
+            throw Outbox.Waiting()
+        }
+    }
+
+    /// One attempt at the letter in the Outbox kept as `key`, as `draft` if
+    /// given, as kept if not. Returns once it has gone, by this attempt or
+    /// an earlier one.
+    ///
+    /// Never twice. An attempt whose DATA went and whose 250 never came
+    /// back may have reached Gmail, and nothing on the iPad can tell; sent
+    /// again blind, the letter would reach him twice, and everyone it was
+    /// addressed to. Such an attempt is written down just before its DATA
+    /// (`LocalDraftStore.noteSending`), and before the letter goes again
+    /// Sent Mail is asked for it (`wentEarlier`). Found, the letter went,
+    /// and nothing is sent. Not found, it goes again, under the same
+    /// Message-ID. A letter whose attempts never reached DATA is simply
+    /// sent.
+    ///
+    /// A verdict from the server after DATA, a refusal or "not now",
+    /// settles that attempt: nothing was delivered. Only a cut before the
+    /// verdict leaves it unsettled, with the time of the cut.
+    ///
+    /// A pass's, with no `draft`, never takes a letter the composer has
+    /// open: looked at here, after any wait for another attempt at it, with
+    /// nothing awaited between the look and its going, and once it is going
+    /// it cannot be opened (`isGoing`). The pass used to look only before it
+    /// asked the repository whether the connection was up, and a tap in that
+    /// hop opened the letter: sent by the pass as well, a Send in the
+    /// composer sent it again with nothing to look for.
+    private func deliver(_ key: String, _ draft: Draft?, via repository: MailRepository,
+                         progress: UploadProgress?) async throws {
+        await whileGoing(key)
+        guard let letter = store.letter(key), !letter.gone, let messageID = letter.outbox,
+              draft != nil || open[key] == nil else {
+            throw LocalDraftStore.NotKept()
+        }
+        going.insert(key)
+        announce()
+        defer {
+            done(key)
+            announce()
+        }
+        if try await wentEarlier(letter, via: repository) { return }
+        let store = self.store
+        do {
+            try await repository.send(draft ?? letter.draft, as: OutgoingLetter(
+                messageID: messageID,
+                beforeData: { try await store.noteSending(key, messageID) }),
+                progress: progress)
+        } catch {
+            if (error as? MailError) == .connectionLost {
+                store.noteCutOff(key)
+            } else {
+                store.settled(key, [messageID])
+            }
+            throw error
+        }
+    }
+
+    /// Whether an earlier attempt at `letter`, one whose DATA went and
+    /// whose 250 never came back, reached Gmail: Sent Mail asked for it by
+    /// its Message-ID (`MailRepository.sentMail(holds:)`), since Gmail files
+    /// there what it takes over SMTP. False at once for a letter with no
+    /// such attempt. False, with its attempts settled, when Sent Mail has
+    /// none of them and the latest was cut off long enough ago for that to
+    /// mean Gmail never took it (`Outbox.settling`).
+    ///
+    /// Throws `Outbox.Unsettled` when it cannot say: a search the server
+    /// refuses or that cannot run, or nothing found too soon after the cut.
+    /// Taken as "not there", as a refused search is for Drafts, a letter
+    /// could go twice, which cannot be undone; waiting costs a pass. A
+    /// refused password, cancellation and `Outbox.NoSentMail` are thrown as
+    /// they came.
+    private func wentEarlier(_ letter: LocalDraft, via repository: MailRepository)
+        async throws -> Bool {
+        guard !letter.unsettled.isEmpty else { return false }
+        let found: Set<String>
+        do {
+            found = try await repository.sentMail(holds: letter.unsettled)
+        } catch {
+            if (error as? MailError) == .passwordNeedsUpdating || error is CancellationError
+                || error is Outbox.NoSentMail {
+                throw error
+            }
+            Diagnostics.log(.note, "OUTBOX-UNSETTLED error=\(type(of: error))")
+            throw Outbox.Unsettled()
+        }
+        guard found.isEmpty else {
+            Diagnostics.log(.note, "OUTBOX-FOUND in Sent Mail, not sent again")
+            return true
+        }
+        guard !store.isSettling(letter) else {
+            Diagnostics.log(.note, "OUTBOX-UNSETTLED not in Sent Mail yet")
+            throw Outbox.Unsettled()
+        }
+        store.settled(letter.key, letter.unsettled)
+        return false
+    }
+
+    /// A pass's attempt at the letter in the Outbox kept as `key`, and what
+    /// follows it. Returns whether the pass goes on with the Outbox.
+    ///
+    /// Gone, it leaves the Outbox, and as for Send in the composer the copy
+    /// in Drafts it was reopened from is removed after it, and any copy an
+    /// upload of it from the iPad left (B-051). It leaves before either is
+    /// awaited: from the 250 it is no longer going, and while the removal
+    /// took its round trips its row was back in the Outbox without
+    /// "Sending…", to be opened in the composer, where a Send sent it a
+    /// second time and its photos went from under the open letter.
+    ///
+    /// A letter refused for a reason of its own, too big, a recipient
+    /// refused, a file of a forward gone from Gmail, stays in the Outbox
+    /// with the reason on its row, and is not tried again unasked until he
+    /// changes it or the app is launched again; the letters after it go. A
+    /// refused password ends the pass, and nothing goes from the Outbox
+    /// unasked after it (`sendingRefused`). A submission server that cannot
+    /// be reached, or that says "not now", ends the Outbox's part of the
+    /// pass, which would only fail the same way for every letter; one whose
+    /// Sent Mail cannot be asked waits for the next pass and lets the others
+    /// go.
+    private func sendWaiting(_ key: String, via repository: MailRepository) async -> Bool {
+        let version = store.letter(key)?.version
+        do {
+            try await deliver(key, nil, via: repository, progress: nil)
+        } catch {
+            if error is CancellationError { return false }
+            if (error as? MailError) == .passwordNeedsUpdating {
+                sendingRefused = true
+                return false
+            }
+            if error is Outbox.Unsettled || error is LocalDraftStore.NotKept { return true }
+            if Outbox.waits(after: error) { return false }
+            refused[key] = version
+            reasons[key] = error as? MailError ?? .notSent
+            Diagnostics.log(.note, "OUTBOX-SEND refused error=\(type(of: error))")
+            announce()
+            return true
+        }
+        // Told to a list as gone before its removal, as the composer tells
+        // it (`ComposeActions.send`'s `draftSent`), so the copy is never
+        // listed to be opened and sent again.
+        let saved = store.letter(key)?.draft.savedID
+        discard(key)
+        announce(saved.map { DraftLanding(letter: nil, id: nil, replaced: [$0]) })
+        if let saved, (try? await repository.deleteDraft(saved)) == nil {
+            // Left in Drafts, as a Send from the composer leaves it when the
+            // line goes after the 250.
+            Diagnostics.log(.note, "OUTBOX-SENT draft copy left")
+        }
+        await tidy(key, in: repository)
+        return true
+    }
+
     /// Takes every letter waiting here to the server, one at a time, and
     /// removes the copies a letter sent or deleted left. Returns the pass,
     /// or nil when there is nothing to take or a pass is already running,
     /// so however many ask at once each letter goes once.
+    ///
+    /// The Outbox's letters go first, oldest first, in the order he sent
+    /// them, then the drafts, newest first. A letter in the Outbox goes to
+    /// the submission server over a connection of its own, made for a
+    /// letter he asked to send; the pass still goes only while the IMAP
+    /// connection is up, which says the network works and the password was
+    /// taken, and which asking Sent Mail needs.
     ///
     /// Nobody asked for it, so it never makes a connection: it goes only
     /// while one is up, and stops once none is. After a launch that could
@@ -687,7 +1190,9 @@ final class LocalDrafts {
     @discardableResult
     func uploadWaiting(to repository: MailRepository, largeToo: Bool = false) -> Task<Void, Never>? {
         guard !passing else { return nil }
-        let due = store.letters().filter { isDue($0, largeToo: largeToo) }.map(\.key)
+        let kept = store.letters()
+        let due = (kept.filter { $0.outbox != nil }.reversed() + kept.filter { $0.outbox == nil })
+            .filter { isDue($0, largeToo: largeToo) }.map(\.key)
         guard !due.isEmpty else { return nil }
         passing = true
         let time = BackgroundStretch("Upload Drafts", from: background)
@@ -696,15 +1201,23 @@ final class LocalDrafts {
                 passing = false
                 time.end()
             }
+            var sending = true
             // Each looked at again at its turn: it may have been opened,
-            // changed or sent since the pass began.
+            // changed or sent since the pass began. After the question to
+            // the repository, which is a hop to it, so nothing is awaited
+            // between the look and the letter's going.
             for key in due {
+                guard await repository.isConnected else { return }
                 guard let letter = store.letter(key), isDue(letter, largeToo: largeToo) else {
                     continue
                 }
-                guard await repository.isConnected else { return }
                 if letter.gone {
                     await tidy(key, in: repository)
+                    continue
+                }
+                if letter.outbox != nil {
+                    if sending { sending = await sendWaiting(key, via: repository) }
+                    if sendingRefused { return }
                     continue
                 }
                 do {
@@ -723,12 +1236,17 @@ final class LocalDrafts {
     /// Whether a pass takes `letter`: not while the composer has it open,
     /// and, but for the leftovers of one sent or deleted, only a letter of
     /// this account, not refused since launch as it stands, and small
-    /// unless `largeToo`.
+    /// unless `largeToo`. A letter in the Outbox not after a password the
+    /// submission server refused (`sendingRefused`), and small by what it
+    /// has to fetch from Gmail (`LocalDraft.fetchesLarge`).
     private func isDue(_ letter: LocalDraft, largeToo: Bool) -> Bool {
         guard open[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
-        return isMine(letter) && refused[letter.key] != letter.version
-            && (largeToo || !letter.isLarge)
+        guard isMine(letter), refused[letter.key] != letter.version else { return false }
+        if letter.outbox != nil {
+            return !sendingRefused && (largeToo || !letter.fetchesLarge)
+        }
+        return largeToo || !letter.isLarge
     }
 
     /// Returns once nothing is on its way for `key`.
@@ -794,20 +1312,25 @@ extension ComposeActions {
     /// The composer's, for letter `key`: Send and Save Draft go to
     /// `repository`, and the letter is kept on the iPad in `kept` from his
     /// first change until it has been sent, deleted, or taken by the server.
-    /// `wait` stands in for the pause before an autosave, for a test.
+    /// A Send that cannot reach the server leaves it in the Outbox, and
+    /// `queued` is told as the sheet closes (`LocalDrafts.send`). `wait`
+    /// stands in for the pause before an autosave, for a test.
     convenience init(letter key: String, repository: MailRepository, kept: LocalDrafts,
                      dismiss: @escaping () -> Void,
                      showError: @escaping (MailError) -> Void,
                      draw: @escaping (Look) -> Void,
                      background: BackgroundTime,
+                     queued: @escaping () -> Void = {},
                      wait: (@Sendable (Duration) async throws -> Void)? = nil) {
         var keeping = kept.keeping(key, in: repository)
         if let wait { keeping.wait = wait }
         self.init(
-            sendLetter: { draft, progress in try await repository.send(draft, progress: progress) },
+            sendLetter: { draft, progress in
+                try await kept.send(draft, as: key, to: repository, progress: progress)
+            },
             saveDraft: { draft in try await kept.save(draft, as: key, to: repository) },
             deleteDraft: { id in try await repository.deleteDraft(id) },
             dismiss: dismiss, showError: showError, draw: draw, background: background,
-            keeping: keeping)
+            keeping: keeping, queued: queued)
     }
 }

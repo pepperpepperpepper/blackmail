@@ -1398,6 +1398,17 @@ actor IMAPMailRepository: MailRepository {
     // MARK: - Sending
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
+        try await send(draft, messageID: nil, beforeData: nil, progress: progress)
+    }
+
+    func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
+        try await send(draft, messageID: letter.messageID, beforeData: letter.beforeData,
+                       progress: progress)
+    }
+
+    private func send(_ draft: Draft, messageID: String?,
+                      beforeData: (@Sendable () async throws -> Void)?,
+                      progress: UploadProgress?) async throws {
         // The threading headers, which used to be dropped on the floor.
         // `Draft.inReplyTo` was set faithfully by the compose screen and read
         // by nobody, so every reply this app sent went out with no
@@ -1406,7 +1417,7 @@ actor IMAPMailRepository: MailRepository {
         // subject lines; Apple Mail, Outlook and Thunderbird thread on
         // References and would have started a new conversation every time.
         //
-        // Built and sent by `Outbox`, which the share extension sends
+        // Built and sent by `Submission`, which the share extension sends
         // through too. The HTML twin and which of the original's parts go
         // are the quote's (`AppleMailHTML.letter`, B-050). A forward's
         // quoted pictures are fetched only once the letter is known to be
@@ -1414,14 +1425,16 @@ actor IMAPMailRepository: MailRepository {
         let images = signatureImages()
         let letter = AppleMailHTML.letter(for: draft, account: account,
                                           reserving: SignatureImages.contentIDs(of: images))
-        guard !Outbox.recipients(of: draft).isEmpty else { throw MailError.notSent }
+        guard !Submission.recipients(of: draft).isEmpty else { throw MailError.notSent }
         let pictures = try await loadPictures(letter.pictures)
-        try await Outbox.send(draft, from: account, password: password, through: smtp,
-                              threadHeaders: Self.threadHeaders(for: draft),
-                              attachments: { try await self.loadAttachments(letter.files) },
-                              htmlBody: letter.html,
-                              inlineImages: SignatureImages.parts(of: images) + pictures,
-                              progress: progress)
+        try await Submission.send(draft, from: account, password: password, through: smtp,
+                                  threadHeaders: Self.threadHeaders(for: draft),
+                                  attachments: { try await self.loadAttachments(letter.files) },
+                                  htmlBody: letter.html,
+                                  inlineImages: SignatureImages.parts(of: images) + pictures,
+                                  messageID: messageID,
+                                  beforeData: beforeData,
+                                  progress: progress)
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
         // the top of the list.
@@ -1432,6 +1445,44 @@ actor IMAPMailRepository: MailRepository {
         // No APPEND to Sent. Gmail files SMTP-sent mail into Sent itself, and
         // appending as well produces two copies of every letter he sends —
         // which looks exactly like the app sending twice.
+    }
+
+    func sentMail(holds messageIDs: [String]) async throws -> Set<String> {
+        guard !messageIDs.isEmpty else { return [] }
+        // A read, retried once on a socket that died under it, as every
+        // read is (B-023), a pass's included: the pass began on a connection
+        // that was up, and the retry's LOGIN is the one that connection's
+        // was. Never for a refusal: a search refused, on a connection still
+        // up, is thrown as it is, and the letter waits (`LocalDrafts.send`).
+        //
+        // Each search asks for the mailbox's news first (`searchNow`): Sent
+        // Mail may be open on the connection from before, and a SEARCH
+        // there answers from what the session was last told.
+        return try await retryingIfDisconnected {
+            let client = try await self.connected()
+            let sent = try await self.sentMailFolder()
+            var found: Set<String> = []
+            for id in messageIDs {
+                let criteria = "HEADER Message-ID \"\(SearchCriteria.escape(id))\""
+                if !(try await client.searchNow(criteria, in: sent)).isEmpty {
+                    found.insert(id)
+                }
+            }
+            return found
+        }
+    }
+
+    /// Where Gmail files what it takes over SMTP: Sent Mail, by the role
+    /// LIST gives it, or All Mail, which holds every letter Sent Mail does,
+    /// when LIST names no Sent Mail, as when "Show in IMAP" is off for it in
+    /// Gmail's settings. Never a name guessed: a SELECT of one is refused,
+    /// and every look would fail the same way for good, with nothing on the
+    /// letter's row to say why. Throws `Outbox.NoSentMail` when LIST names
+    /// neither.
+    private func sentMailFolder() async throws -> String {
+        _ = try await knownListing()
+        if let sent = roleNames[.sent] ?? folderForAttribute["\\all"] { return sent }
+        throw Outbox.NoSentMail()
     }
 
     /// Pulls the bytes for everything the draft is carrying.
@@ -1454,8 +1505,7 @@ actor IMAPMailRepository: MailRepository {
             let data: Data
             switch attachment.source {
             case let .messagePart(messageID, mailboxID, section):
-                data = try await fetchAttachmentData(section, of: messageID,
-                                                     mailboxID: mailboxID)
+                data = try await fetchCarried(section, of: messageID, mailboxID: mailboxID)
             case let .localFile(url):
                 // A photo he chose. Read at BUILD time rather than held in
                 // the draft, so a composer left open for an hour is not
@@ -1484,12 +1534,34 @@ actor IMAPMailRepository: MailRepository {
         var loaded: [(contentID: String, filename: String, mimeType: String, data: Data)] = []
         loaded.reserveCapacity(pictures.count)
         for (contentID, picture) in pictures {
-            let data = try await fetchAttachmentData(picture.section, of: picture.messageID,
-                                                     mailboxID: picture.mailboxID)
+            let data = try await fetchCarried(picture.section, of: picture.messageID,
+                                              mailboxID: picture.mailboxID)
             loaded.append((contentID: contentID, filename: picture.filename,
                            mimeType: picture.mimeType, data: data))
         }
         return loaded
+    }
+
+    /// A part of a letter on the server that a letter being built carries,
+    /// a forward's file or picture or a reopened draft's.
+    ///
+    /// Refused with the connection still up, the part is the letter's own
+    /// failure, `MailError.attachmentFailed`, and not the connection's: the
+    /// original's folder renumbered since, so its UIDVALIDITY no longer
+    /// matches, or deleted or renamed in another client, so its SELECT is
+    /// refused. The client says `cannotConnect` for both, which for a
+    /// letter in the Outbox means "wait for the connection": a forward like
+    /// that waited for good, and, as the oldest, ended every pass before the
+    /// letters after it (B-052). A connection that is down stays
+    /// `cannotConnect`.
+    private func fetchCarried(_ section: String, of messageID: String,
+                              mailboxID: String) async throws -> Data {
+        do {
+            return try await fetchAttachmentData(section, of: messageID, mailboxID: mailboxID)
+        } catch MailError.cannotConnect {
+            guard await imap.isConnected else { throw MailError.cannotConnect }
+            throw MailError.attachmentFailed
+        }
     }
 
     /// `nil` for a fresh letter, so no In-Reply-To is written at all — a new

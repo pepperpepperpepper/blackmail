@@ -25,6 +25,9 @@ final class MailboxListViewController: UITableViewController {
 
     private let repository: MailRepository
     private var mailboxes: [Mailbox] = []
+    /// How many letters wait in the Outbox (B-052). Its row is listed only
+    /// while there are any, as Mail's is.
+    private var outboxCount = LocalDrafts.shared.outbox.count
     /// The folder the highlight is on, so a sweep's `reloadData`, which
     /// drops the selection, can put it back.
     private var highlightedID: String?
@@ -56,6 +59,9 @@ final class MailboxListViewController: UITableViewController {
         tableView.separatorInset = UIEdgeInsets(top: 0, left: Theme.mailboxSeparatorInset,
                                                 bottom: 0, right: 0)
         tableView.tableFooterView = UIView()
+        NotificationCenter.default.addObserver(self, selector: #selector(outboxChanged),
+                                               name: LocalDrafts.changed,
+                                               object: LocalDrafts.shared)
 
         // Refresh is NOT here. It used to be, and in a 250 pt pane it left only
         // 8.5 pt between "Mailboxes" and the button — measured on device. It
@@ -156,10 +162,28 @@ final class MailboxListViewController: UITableViewController {
     /// order the repository ranked it, and the folders block keeps that
     /// order exactly. Empty blocks are dropped so an account with nothing
     /// but an Inbox does not show a gap under it and nothing after.
+    ///
+    /// The Outbox, while letters wait in it, is a block of its own after
+    /// the folders, so that coming and going it moves nothing above it.
+    /// Where Mail puts it among its mailboxes was not checked.
     private var groups: [[Mailbox]] {
         let inbox = mailboxes.filter { $0.role == .inbox }
         let rest = mailboxes.filter { $0.role != .inbox }
-        return [inbox, rest].filter { !$0.isEmpty }
+        // Even with no folders listed, as after a launch with no
+        // connection, when it is the one thing here worth seeing.
+        let outbox = outboxCount > 0 ? [Outbox.mailbox(holding: outboxCount)] : []
+        return [inbox, rest, outbox].filter { !$0.isEmpty }
+    }
+
+    /// The letters kept on the iPad have changed: the Outbox's row comes,
+    /// goes or counts again. Drawn again only when its count has changed,
+    /// with the highlight put back as a sweep puts it back.
+    @objc private func outboxChanged() {
+        let count = LocalDrafts.shared.outbox.count
+        guard count != outboxCount else { return }
+        outboxCount = count
+        tableView.reloadData()
+        if let highlightedID { select(mailboxID: highlightedID) }
     }
 
     /// The folder playing a given role, for callers that need to open one
@@ -285,6 +309,7 @@ final class MailboxListViewController: UITableViewController {
         case .trash:   return "trash"
         case .archive: return "archivebox"
         case .junk:    return "xmark.bin"
+        case .outbox:  return "tray.and.arrow.up"
         case nil:      return "folder"
         }
     }

@@ -2,7 +2,7 @@ import XCTest
 @testable import Blackmail
 
 /// The share extension's sheet without the sheet (B-036): a shared link
-/// sent through the app's own `Outbox` to a scripted submission server, in
+/// sent through the app's own `Submission` to a scripted submission server, in
 /// `ComposeActions`' order. One letter however many taps, the share ended
 /// once the letter has gone, everything as it was when it has not, and
 /// Cancel refused while a letter is on its way. Nothing is sent anywhere.

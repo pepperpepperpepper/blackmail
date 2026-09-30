@@ -289,12 +289,18 @@ struct UpdatedLine: Equatable {
     }
 
     /// Two lines when the last try failed, the age over what failed, as
-    /// Mail's bar puts its account error under its "Updated" line.
-    func text(now: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {
+    /// Mail's bar puts its account error under its "Updated" line. With
+    /// letters waiting in the Outbox, how many, under the age and over any
+    /// failure: "1 Unsent Message" (`Outbox.unsent`), in the order a user
+    /// read Mail's bar out, "updated at 12:18 PM with 1 unsent message",
+    /// then the account error.
+    func text(now: Date, unsent: Int = 0, calendar: Calendar = .current,
+              locale: Locale = .current) -> String {
         let age = updated.map { Self.age(of: $0, now: now, calendar: calendar, locale: locale) }
-        guard let failure else { return age ?? "Checking for Mail…" }
-        let said = failure == .password ? "Password Needs Updating" : "No Connection"
-        return age.map { "\($0)\n\(said)" } ?? said
+        let said = failure.map { $0 == .password ? "Password Needs Updating" : "No Connection" }
+        let lines = [age ?? (failure == nil ? "Checking for Mail…" : nil),
+                     Outbox.unsent(unsent), said]
+        return lines.compactMap { $0 }.joined(separator: "\n")
     }
 
     /// "Updated Just Now" for the first minute, then the minutes, then the
