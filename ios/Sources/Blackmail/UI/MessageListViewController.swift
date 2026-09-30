@@ -118,7 +118,15 @@ final class MessageListViewController: UITableViewController {
     private var places = ListPlaces()
 
     /// What the line under the list says. See `StatusLine`.
-    private var status = StatusLine(resting: "Updated Just Now")
+    private var status = StatusLine(resting: UpdatedLine().text(now: Date()))
+
+    /// When this list was last brought up to date, and whether the last try
+    /// failed: what the line says at rest while it says how fresh the list
+    /// is (`showingAge`). See `UpdatedLine`.
+    private var updated = UpdatedLine()
+    /// Whether the line at rest says how fresh the list is, rather than
+    /// where he is in it: not after a jump to a day, until the next Refresh.
+    private var showingAge = true
 
     /// The draft on its way to the composer. See `DraftOpening`.
     private var drafts = DraftOpening()
@@ -412,6 +420,9 @@ final class MessageListViewController: UITableViewController {
         statusLabel.font = Theme.fontToolbarStatus
         statusLabel.textColor = Theme.secondaryText
         statusLabel.textAlignment = .center
+        // Two lines when the last try failed, as Mail's bar has them: how old
+        // the list is over what went wrong (`UpdatedLine`).
+        statusLabel.numberOfLines = 2
         showStatus()
         // Five taps here opens the connection log. Hidden on purpose:
         // `PRODUCT_SPEC.md` forbids showing protocol text to him, but whoever is helping
@@ -465,11 +476,17 @@ final class MessageListViewController: UITableViewController {
     var onFirstLoadFinished: ((Bool) -> Void)?
 
     /// Returns whether the page came. At the top, unless `keepingPlace`,
-    /// for an edit of his own; see `ListPlaces.refetched`.
+    /// for an edit of his own; see `ListPlaces.refetched`. `quietly` when he
+    /// did not ask for it, which puts up no alert if it fails, and whose
+    /// page is dropped if he has started a search while it was on its way,
+    /// or anything else has replaced the list: landing, it would clear the
+    /// field and the results under his fingers. The list stays owed its
+    /// fetch afresh, which goes again when he is next at the top.
     @MainActor
     @discardableResult
-    func reload(keepingPlace: Bool = false) async -> Bool {
+    func reload(keepingPlace: Bool = false, quietly: Bool = false) async -> Bool {
         listGeneration += 1
+        let generation = listGeneration
         stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
@@ -481,6 +498,7 @@ final class MessageListViewController: UITableViewController {
         do {
             let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
                                                           limit: Self.pageSize)
+            if quietly, generation != listGeneration || isSearchingOrTyping { return false }
             // Previews already on screen go across to the same letters, and
             // only the rest are fetched; see `ListLetters.fetchedAfresh`.
             let unpreviewed = letters.fetchedAfresh(first)
@@ -489,7 +507,9 @@ final class MessageListViewController: UITableViewController {
             reachedOldestMessage = first.count < Self.pageSize
             searchQuery = ""
             searchBar.clear()
-            say("Updated Just Now")
+            updated.succeeded(at: Date())
+            showingAge = true
+            sayAge()
             // Regrouped, which puts the highlight back on the letter open in
             // the reading pane if its row is still here. At the top: this is
             // the newest page, and a Refresh from far down a folder used to
@@ -502,7 +522,11 @@ final class MessageListViewController: UITableViewController {
             loadPreviews(for: unpreviewed)
             return true
         } catch {
-            ErrorPresenter.show(.cannotConnect, on: self)
+            // The line says so too, and goes on saying so under the age of
+            // what is on screen until something brings it up to date.
+            updated.failed((error as? MailError) ?? .cannotConnect)
+            if showingAge { sayAge() }
+            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
             return false
         }
     }
@@ -516,6 +540,103 @@ final class MessageListViewController: UITableViewController {
         if tableView.isEditing { editTapped() }
         scrollToTop()
         return await reload()
+    }
+
+    // MARK: - New mail, without a tap (B-049)
+
+    /// Every letter this list holds from its folder, for the watch to check
+    /// the folder against (`MailWatch`), or nil when it is to check only the
+    /// Inbox's count: a day jumped to, a search showing, a list whose first
+    /// page never came. See `ListLetters.toWatch`.
+    var lettersToWatch: [String]? {
+        letters.toWatch(fromNewest: reachedNewestMessage, fetched: updated.updated != nil)
+    }
+
+    /// News of this folder from the watch, at every check of it, none
+    /// included: on the list now if he is at the top of it, with what was
+    /// held before; held until he is otherwise (`ListPlaces.showsNews`); and
+    /// not taken by a day jumped to since the check began, whose top is not
+    /// the folder's (`ListLetters.take`).
+    @MainActor
+    func newsFound(_ news: FolderNews) -> NewsTaken {
+        let taken = letters.take(news, fromNewest: reachedNewestMessage)
+        showNewsIfAtTop()
+        return taken
+    }
+
+    /// How the watch's last check went, for the line under the list
+    /// (`UpdatedLine.checked`).
+    @MainActor
+    func checked(_ outcome: MailWatch.Outcome) {
+        updated.checked(outcome, listing: mailboxID)
+        showAge()
+    }
+
+    /// The line at rest said again as of now, if it is saying how fresh the
+    /// list is: at each check, and as the app comes back to the front.
+    @MainActor
+    func showAge() {
+        if showingAge { sayAge() }
+    }
+
+    /// Puts what the watch has found on the list, if he is where that moves
+    /// nothing under him: at the top, with no search, no ticks, and no
+    /// finger on the list (`ListLetters.putNewsOn`). Called at every check,
+    /// and whenever one of those may have just become true. A list owed a
+    /// fetch afresh, since renumbered or since more came than one check puts
+    /// on, is fetched then, quietly: he did not ask, so a failure is said on
+    /// the line and not in an alert. One such fetch at a time; one that
+    /// fails, or is dropped for a search he has started, leaves it owed.
+    @MainActor
+    private func showNewsIfAtTop() {
+        // Asked first: `tableView` loads the view.
+        guard letters.holdsNews, isViewLoaded else { return }
+        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
+        let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
+        let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
+                                       topInset: Double(tableView.adjustedContentInset.top))
+        switch letters.putNewsOn(atTop: atTop, searching: isSearchingOrTyping, ticked: ticked,
+                                 touching: touching) {
+        case .wait:
+            return
+        case .refetch:
+            guard !refetchingQuietly else { return }
+            refetchingQuietly = true
+            Task { @MainActor [weak self] in
+                await self?.reload(quietly: true)
+                self?.refetchingQuietly = false
+            }
+        case .shown(let added):
+            // At the top, where the new rows are: regrouped at the offset he
+            // had, the rows he could see would be kept in place and the new
+            // ones left above the top of the pane. The selection goes with
+            // its letters.
+            regroup(to: .top)
+            updateEmptyState()
+            updateSelectAllTitle()
+            loadPreviews(for: added)
+        }
+    }
+
+    /// A quiet fetch afresh for the watch's news is on its way.
+    private var refetchingQuietly = false
+
+    /// A search showing, or one typed and not yet run: either way a fetch
+    /// afresh would clear the field under his fingers.
+    private var isSearchingOrTyping: Bool {
+        letters.isSearching || !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    override func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        showNewsIfAtTop()
+    }
+
+    override func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { showNewsIfAtTop() }
+    }
+
+    override func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+        showNewsIfAtTop()
     }
 
     // MARK: - Opening the folder at a day
@@ -579,6 +700,7 @@ final class MessageListViewController: UITableViewController {
         case .failed:
             ErrorPresenter.show(.cannotConnect, on: self)
         case .nothingThatRecent:
+            showingAge = false
             say("No mail on or after \(IMAPDate.spokenDay(date))")
         case .landed, .superseded:
             break
@@ -649,6 +771,7 @@ final class MessageListViewController: UITableViewController {
         // WHERE HE IS, which for a list that no longer starts at today
         // is the more urgent of the two. It goes back to "Updated Just
         // Now" on the next refresh.
+        showingAge = false
         say("Showing \(IMAPDate.spokenDay(window.landedOn))")
 
         loadPreviews(for: window.messages)
@@ -917,6 +1040,12 @@ final class MessageListViewController: UITableViewController {
         showStatus()
     }
 
+    /// The line at rest says how fresh the list is, as of now.
+    @MainActor
+    private func sayAge() {
+        say(updated.text(now: Date()))
+    }
+
     /// Says `text` on the status line while something he asked for is on
     /// its way: a jump, or a Move from here or from the reading pane.
     /// Returns what to call when it is done, whichever way it went.
@@ -1017,6 +1146,8 @@ final class MessageListViewController: UITableViewController {
         navigationItem.rightBarButtonItem?.title = editing ? "Done" : "Edit"
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
+        // His ticks have gone with Edit mode: what the watch held can go on.
+        if !editing { showNewsIfAtTop() }
     }
 
     /// Ticks, or unticks, every conversation in the list.
@@ -1037,6 +1168,8 @@ final class MessageListViewController: UITableViewController {
             }
         }
         updateSelectAllTitle()
+        // Deselect All is the last tick taken off too.
+        showNewsIfAtTop()
     }
 
     private func updateSelectAllTitle() {
@@ -1273,6 +1406,9 @@ final class MessageListViewController: UITableViewController {
         updateEmptyState()
         updatePageFooter()
         loadPreviews(for: unpreviewed)
+        // Back in the folder, where he was: letters the watch found while
+        // the search showed go on if that was the top.
+        showNewsIfAtTop()
     }
 
     @objc private func cancelSearch() {
@@ -1448,7 +1584,10 @@ final class MessageListViewController: UITableViewController {
     }
 
     override func tableView(_ t: UITableView, didDeselectRowAt ip: IndexPath) {
-        if t.isEditing { updateSelectAllTitle() }
+        guard t.isEditing else { return }
+        updateSelectAllTitle()
+        // The last tick taken off.
+        showNewsIfAtTop()
     }
 
     /// Opens a whole conversation in the reading pane.

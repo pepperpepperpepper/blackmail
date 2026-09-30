@@ -477,7 +477,10 @@ could not arise and does not need defending against.
 
 **What is still not airtight**, recorded rather than implied. A
 half-open socket can stall the probe for the read timeout, and a command
-whose reply is lost in flight remains ambiguous. The residue is small and
+whose reply is lost in flight remains ambiguous. (Since B-049, a write
+whose turn at the connection comes after the command ahead of it has torn
+the connection down, with not a byte of the write sent, goes once on a new
+connection; one that went out is still never sent again.) The residue is small and
 bounded: the flags are idempotent; a UID is never reused within a
 UIDVALIDITY, so a repeated MOVE or EXPUNGE either does the same thing or
 fails to find the message; and APPEND, the one genuinely duplicable
@@ -2620,3 +2623,264 @@ and keyboard. Two panes survived killing and reopening the app, and the
 switch back to three after that sent nothing on the connection. Not yet
 tried: Edit mode across a switch, another folder opened from "< Mailboxes",
 VoiceOver on the button, the layout sweep in both.
+
+---
+
+## B-049 — CHANGED 2026-09-30, not yet seen on the iPad. New mail arrives on its own
+
+**From the gap review of 2026-09-30.** New mail appeared only when he
+tapped Refresh. Nothing asked the server for it: no IDLE, no polling, and
+coming back to the app only warmed the connection up (B-041) and, after a
+while away, fetched the Inbox again (B-003). "Updated Just Now" was said at
+every fetch and never changed afterwards, so an hour-old list said it had
+just been fetched. About 99 letters a day reach his Inbox, half of them
+links he shares to himself from Safari. Checked on the scripted server
+(`NewMailTests`, `ListPlaceTests`, `FeedbackTests`); nothing of it has been
+seen on the iPad, and the TODO says what to look at.
+
+**What he sees.** With the Inbox's list in front of him, a letter that
+reaches Gmail is on the list within half a minute, fifteen seconds on
+average, with no tap, and the counts beside the folders follow it. A letter
+archived or binned on the phone leaves the list the same way. The line
+under the list ages: "Updated Just Now", "Updated 1 minute ago", "Updated
+12 minutes ago", "Updated at 14:13", "Updated Yesterday", then the date.
+When the last try failed it says so under the age: "No Connection", or
+"Password Needs Updating". Before a list's first page has come it says
+"Checking for Mail…"; it used to say "Updated Just Now" before there was
+any mail. After a jump to a day it says where he is, as before, until the
+next Refresh.
+
+Mail's words where they are known, from Mail's own bottom bar in published
+screenshots of iOS 8 ("Updated Just Now", "Updated 2 minutes ago", "Updated
+at 16:55", "Updated Yesterday", "Connecting...") and as users of later
+versions quote it ("Checking for Mail...", "Updated 5 minutes ago",
+"Account Error" under the "Updated" line when an account fails). Guessed:
+"1 minute", singular; minutes giving way to the time of day at the hour;
+the date's form; and the two failure lines, since "Account Error" would
+tell him nothing.
+
+**Where he is decides when the new rows go on.** Nothing he is looking at
+or touching moves:
+
+- At the top of the Inbox's list, no search, nothing ticked, no finger on
+  the list: at once. The new rows go on at the top, the rows below move
+  down by as many, and the list stays at the top, where he sees them come.
+  The letter open in the reading pane stays open and its row stays
+  highlighted wherever it now is; a reply to it takes its conversation's
+  row to the top, highlight and all. A letter taken out elsewhere comes
+  off; if it is the one open in the pane, the pane keeps it.
+- Scrolled down: nothing on the list changes, not a row, not where it sits,
+  not the highlight. The letters wait, and go on the moment he has
+  scrolled back to the top and the list has come to rest there. Put on at
+  once, a reply in a conversation he could see would have taken its row up
+  out from under him, and a letter gone would have closed its gap.
+- A finger resting on the list, a tap on a row as a letter comes: held
+  the same, and put on at the next check once the finger is lifted, since
+  a finger that never dragged tells the list nothing when it lifts.
+- Edit mode with ticks: the same, and every tick stays on its letter. They
+  go on at Done, or when the last tick is taken off. Edit mode with
+  nothing ticked is the top as usual.
+- A search showing: the Inbox's list is not checked at all while it
+  shows, only the Inbox's count. The first check after the search ends
+  finds what came, within half a minute; letters found just before it
+  began go on as it ends, if the folder comes back at its top.
+- A day jumped to: only the count, while the list does not reach the
+  Inbox's newest letter. A day whose window reaches it, or a list paged
+  back up to it, is checked as the top of the Inbox is. The next Refresh
+  lists it all. A letter a check found as he jumped is not put on the
+  day; it is searched for again once the list starts at the newest letter.
+
+Refresh, a Delete or Move from Edit mode and a return after a while away
+fetch the list afresh as before, and whatever was waiting with it. More
+than a page (50) waiting at once, or an Inbox renumbered, is not added to
+the list: it is fetched afresh when he is next at the top, without an
+alert if that fails, since he did not ask for it. One such fetch at a
+time; one that fails is made again at the next check that finds him at
+the top, and one that lands after he has started typing a search is
+dropped rather than clear the field under his fingers.
+
+**Another folder in front.** One STATUS of the Inbox a check, which leaves
+his folder selected, and the counts swept only when the Inbox's is not
+what the sidebar shows. Nothing else of the Inbox is fetched until he opens
+it.
+
+**The watch's sweeps are quiet.** A sweep of the counts that the watch
+asked for and that fails leaves the counts as they were, with no "Can't
+connect" put over the letter he is reading: he did nothing, and the line
+under the list already says "No Connection". Merged with a sweep he asked
+for, it is his, and fails as every sweep always has.
+
+**What it sends.** Every half minute, in the background line of the
+exchange gate, one command in a hold of its own:
+
+- The Inbox open on the connection: a NOOP. Nothing more when nothing has
+  changed, which is nearly every time.
+- Something arrived or left, told on that NOOP's answer or on any since (a
+  preview's FETCH can bring the EXISTS), or found by a check whose letters
+  never reached the list (below): a `UID SEARCH UID n:*` from the
+  lowest letter the list holds, which says both what is new above its
+  newest and which of its letters have gone; a `UID FETCH` of the new
+  letters' summaries alone; each new letter's preview as the list draws
+  it, within the usual 2 KB and 8 KB; and one sweep of the counts, merged
+  with any other (`SweepCoalescer`). No SEARCH ALL, and no page fetched
+  again.
+- The Inbox not open on the connection, after another folder's work: its
+  SELECT in place of the NOOP, and the SEARCH after it, since a SELECT is a
+  view nobody has searched.
+- Another folder, a search or a day in front: `STATUS "INBOX" (UNSEEN)`.
+
+A letter he opens while a check waits for the connection goes first; one
+he opens while the check's command is on the wire waits for that one
+answer, not for the SEARCH and FETCH after it. Checks never overlap; the
+next is half a minute after the last has finished.
+
+**What it keeps.** B-045: a NOOP answered is the Inbox's news asked for,
+so a Refresh within two seconds of a check sends no NOOP of its own, and a
+listing of the Inbox from the top counts as searched, so the check after
+it searches only if something has changed since; a date jump that found
+nothing, or a listing the server refused, does not, since the list on
+screen stays the one it was. B-024: a check's NOOP proves
+the connection only once it is answered, as the warm-up's does; answered,
+a write in the next ninety seconds goes without a probe. While the app is
+in front the connection is never ninety seconds quiet, so a write probes
+only in the moments after a return, and waits behind a check's NOOP like
+anything else. B-039: every UID command in one hold with its SELECT.
+B-041's warm-up and B-003's return are as they were. And while the app is
+in front the connection is never quiet long enough for Gmail to end the
+session, so his taps meet a connection proven a moment ago.
+
+**A write behind a check that finds the socket dead.** A Delete, a Flag or
+a read mark made while a check's NOOP is out waits for it. When the NOOP
+finds the socket dead it tears the connection down, and the write's turn
+comes with none: not a byte of it has gone, the SELECT included. It used to
+fail there, "Can't connect", and a write is never sent twice, so the letter
+stayed in the Inbox and a letter just opened had its dot put back; on a
+half-open socket that was every write made in the thirty seconds the NOOP
+waited for its answer. Now the client says the write was not sent
+(`IMAPClient.Unsent`) and it goes once, on a new connection
+(`IMAPMailRepository.sendingOnce`), by the rules a read's retry keeps: not
+after a refused password, and not when an attempt to connect failed while
+it waited. A write that went out on a socket that had died, whose command
+the server may have carried out, still fails and is not sent again.
+
+**Why a NOOP every half minute, and not IDLE.** IDLE on the one connection
+would put a DONE and its answer in front of every tap, a read with no end
+where every read has a deadline (`TransportDeadline`), and a gate that has
+to break an exchange it did not start. IDLE on a second connection would
+leave taps alone, but it is a second LOGIN at every return to the app, a
+revoked password sent twice, its own reconnects, and Gmail's end of IDLE
+after about half an hour; Gmail allows fifteen connections, so the count
+was never the problem. A NOOP is what the one connection already sends as
+the write's probe, the warm-up and the catch-up. It costs up to half a
+minute before a letter shows, where IDLE would take seconds.
+ARCHITECTURE.md asks for IDLE while the app is active "if stable with the
+provider"; this keeps what that asks for, mail arriving while he looks,
+and IDLE stays open for later if half a minute proves too slow. Mail itself
+does not have Gmail push to it: Settings offers a Gmail account Fetch and
+Manual only, which users have reported for years; how often Mail checks
+while it is open in front is not known here.
+
+**Nothing while the app is away.** The checks stop as it goes into the
+background and start again as it comes back, the first half a minute
+later, after the warm-up and B-003's return, and never before the launch's
+first page has been tried. A check on the wire as it goes is answered, as
+any command is, and nothing after it is sent: no FETCH, no sweep, no fetch
+of the list afresh, and nothing on the line.
+
+**What a check found and lost is searched for again.** Gmail tells a
+session of a letter once, on the first answer after it arrives, and the
+SEARCH that follows takes that as searched. A check whose letters never
+reached the list, stopped as the app went away with its SEARCH or FETCH on
+the wire, refused part-way (`[UNAVAILABLE]` to the SEARCH or the FETCH), or
+overtaken by a jump to a day, used to leave every NOOP after it saying
+nothing had changed: the letter stayed off the list under "Updated Just
+Now" until another came, or he tapped Refresh. The watch now remembers
+that it owes a search (`MailWatch.searchOwed`), and the next check of the
+list makes one, found or not by its NOOP. It costs a SEARCH, once.
+
+**A refused password stops them.** The check that finds the socket dead
+reconnects, as a read does; if its LOGIN is refused, that is the last
+password the watch sends until a LOGIN of his own has been accepted, and
+its refusal stands for every call for a minute, as the warm-up's does, so
+the letter he taps next does not send the same password straight after
+it. Any refusal, not only a wrong password: Gmail's
+`[ALERT]` asking for a sign-in on the web would otherwise be a failed LOGIN
+every half minute. The app has no sign-out; the watch belongs to the root
+view controller and ends with it.
+
+**With no connection** each check tries to connect, which with no network
+fails at once, before any TLS, and the line says "No Connection" under the
+age of what is on screen. The first check once the network is back
+connects and lists what came.
+
+**And a retry that did not go, found on the way.** A Delete or a Flag made
+while the warm-up's NOOP was out on a dead socket probes first (B-024), and
+its probe fails with the warm-up's. The probe was retried only if the
+connection was still down when it looked, and when the warm-up had already
+connected again it was not: the write failed, and a write is never sent
+twice, so the letter stayed. With eight copies of `ComingBackTests`' test
+running at once it failed in 7 of 320 runs on the code before this change.
+The check's NOOP would make that any half minute. A read or a probe is now
+retried when the connection it began on has been torn down, whether or not
+another call has connected since; the refusals are still never retried.
+The same test failed in 0 of 320 runs with this and in 3 of 320 without it,
+as did the check's own. Those two tests race, and pass without the rule on
+most runs; the rule itself is tested in every state a failed read can find
+the connection in (`IMAPMailRepository.retries`).
+
+**What it does not cover.** A letter read, flagged or moved between
+folders on the phone keeps its old look here until Refresh. Sent, Drafts
+and the other folders' lists are not checked, only the Inbox's count
+beside its name. An Inbox whose first page never came, with no connection
+at launch, stays empty until Refresh, and goes on saying "No Connection"
+though the counts come back. A tap landing just as new rows go on at the
+top can meet the row that moved, as in Mail. The connection log gains a
+NOOP and its answer every half minute, so its 500 lines hold about two
+hours of an idle app, where an idle app used to add nothing to it.
+
+**Tested** over the scripted server with a clock the test moves. In
+`NewMailTests`: a letter that arrives is listed at the half minute and not
+before, with a NOOP, a SEARCH from the list's lowest letter and a FETCH of
+it alone, and its preview is 2 KB; nothing arriving is one NOOP a check,
+proves the connection for a Flag eighty seconds on and spares a Refresh a
+moment later its NOOP; another folder is one STATUS a check, leaving its
+mailbox selected, the count follows, and the STATUS proves the connection
+for a Flag; a search showing is one STATUS and its next page needs no
+SELECT; a day jumped to, and a list whose first page never came, are one
+STATUS; the Inbox left closed by an All Mailboxes search is SELECTed and
+searched; two letters one check apart while he is scrolled down are each
+fetched once and held, and go on newest first with a letter gone elsewhere
+taken off; a letter held under a resting finger goes on at the next check
+once it is lifted; a letter removed elsewhere leaves; a tap during a
+check's NOOP goes before its SEARCH, and one made while the check waits
+goes before it; a Delete made while a check's NOOP is out on a dead socket
+goes once, on the new connection, whether the connection was quiet long
+enough for the Delete to probe or had been proven by the check before; a
+Flag that went out on a dead socket is not sent again; nothing is checked
+while the app is away, the watch started twice is one loop, and a check
+out as it goes sends nothing after its command, sweeps nothing and hands
+the list nothing, a renumbering included; a letter whose SEARCH or FETCH
+was out as the app went, whose SEARCH or FETCH was refused, or whose check
+a jump to a day overtook, is listed by the first check that can list it;
+a refused password, and a LOGIN refused for another reason, stop the
+checks until his own LOGIN, or a PREAUTH, is accepted, and after it a
+socket that dies is replaced by the next check; with no connection each
+check says so, the first after lists what came, and the connection it
+makes is proven for a Flag; more than a page at once, or a renumbering, is
+fetched afresh and not added to, and a renumbering seen check after check
+is swept once; a letter Gmail told of on the previews' FETCH rather than
+on a NOOP is listed by the next check, after a date jump that found nothing
+and after a refused Refresh too; the retry rule in each state a failed read
+can find the connection in; and the watch's sweeps are quiet unless merged
+with one of his. In `ListPlaceTests`: held while scrolled, ticking,
+searching or touched, nothing moving and every tick and highlight kept; at
+the top the open letter keeps its highlight; news already held or shown is
+not news again; a fetch afresh or a day drops what was held; only a list
+at the newest letter is checked, takes news, and puts it on at the top, or
+is fetched afresh. In `FeedbackTests`: the line's wording over time, a
+failure under the age, a list never fetched, and what each check's
+outcome says on the line of the list in front. Each of these fails with
+its part of the change taken out; the controllers' own calls (the quiet
+fetch's one-at-a-time and search checks, the first page's hold on the
+watch at a return, the quiet sweep's alert) are UIKit and are not on the
+host.

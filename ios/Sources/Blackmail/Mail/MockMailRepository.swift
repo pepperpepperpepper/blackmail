@@ -173,6 +173,14 @@ final class MockMailRepository: MailRepository {
     /// No connection to keep alive.
     func warmUp() async {}
 
+    /// Nothing ever arrives in fixtures.
+    func news(in mailboxID: String, known: [String],
+              searchingAnyway: Bool) async throws -> FolderNews { FolderNews() }
+
+    func inboxUnread() async throws -> Int? {
+        mailboxes.first { $0.role == .inbox }?.unreadCount
+    }
+
     // MARK: - Fixtures
 
     private func buildFixtures() {

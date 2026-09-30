@@ -70,8 +70,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 **Larger:**
 
-- [ ] **New mail arrives on its own** while the app is open, and "Updated
-      Just Now" ages. Today only Refresh fetches it (no IDLE, no polling).
+- [x] **New mail arrives on its own** while the app is open, and "Updated
+      Just Now" ages. *Done on the scripted server: a NOOP on the one
+      connection every half minute while the Inbox is in front, a STATUS of
+      the Inbox otherwise, new rows held while he is not at the top; the
+      line ages as Mail's does and says when a check failed. See B-049;
+      not yet seen on the iPad.*
 - [ ] **Reply and Forward keep the original's pictures and links.** Today
       both flatten it to plain text (`quotableText`, `HTMLText.plainText`).
 - [ ] **The share sheet** (B-036): his main way of making mail. Patch zsign
@@ -616,6 +620,27 @@ this host. Ordered by value, not by size.
       button with a thumb resting on the list does nothing. The connection
       log shows `layout: three panes`, `layout: two panes, …` and no
       finding after either.
+- [ ] **B-049, new mail on its own.** With the Inbox open and the list at
+      the top, send a letter to himself from the phone: within about half a
+      minute it is at the top of the list with no tap, and the Inbox's count
+      goes up. The connection log should show a `NOOP` answered `* n
+      EXISTS`, then `UID SEARCH UID …:*`, one `UID FETCH` of that letter,
+      and `NEWS folder=INBOX arrived=1 gone=0`; with nothing arriving, one
+      `NOOP` each half minute and nothing more. Scroll
+      a few pages down and send another: nothing on the list moves; scroll
+      back to the top and it goes on. The same with two rows ticked in Edit
+      mode (it goes on at Done), and with a search showing (it is at the top
+      within half a minute of Cancel). Archive a letter on the phone: it
+      leaves the list. Open Sent and send one more: the Inbox's count goes
+      up, the log shows `STATUS "INBOX" (UNSEEN)` each half minute and no
+      Inbox FETCH, and Sent's line ages, "Updated 1 minute ago", "Updated 2
+      minutes ago", on to "Updated at …" after an hour. Turn Wi-Fi off:
+      within a minute the line reads the age over "No Connection"; turn it
+      back on and the next check lists what came and the line reads "Updated
+      Just Now". Lock the iPad for a few minutes: no commands in the log
+      while it is locked. A letter opened, flagged or deleted just after a
+      check behaves as before. Hold a finger on a row as a letter arrives:
+      it goes on within half a minute of lifting it.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

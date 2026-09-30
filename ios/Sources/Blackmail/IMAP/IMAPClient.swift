@@ -101,6 +101,15 @@ actor IMAPClient {
     /// it. See `Freshness.typing`.
     private var typingAskedAt: Date?
 
+    /// Whether the selected mailbox may hold what the watch has not
+    /// searched for since it last looked: set by every SELECT, whose answer
+    /// is a view of the mailbox nobody has searched, and by every EXISTS or
+    /// EXPUNGE that changes the session's view of it, on whatever answer it
+    /// rides; cleared as the watch's SEARCH goes. See `askForNews`. What
+    /// that SEARCH found and never reached the list is the watch's to ask
+    /// for again (`MailWatch`), not this flag's.
+    private var unsearchedNews = false
+
     /// The clock `newsAskedAt` is measured by. The app's is the real one; a
     /// test hands in one it can move.
     private let now: @Sendable () -> Date
@@ -120,6 +129,35 @@ actor IMAPClient {
     /// (`IMAPMailRepository.retryingIfDisconnected`).
     private var connectFailure: MailError?
     private(set) var failedConnects = 0
+
+    /// How many connections have been torn down: after a transport failure,
+    /// a connect that failed after the socket opened, or a LOGOUT. How the
+    /// repository tells a read whose connection died under it from one
+    /// refused on a connection that is still up, whether or not another
+    /// call has connected again since (`IMAPMailRepository.retryingIfDisconnected`).
+    private(set) var connectionsLost = 0
+
+    /// How the last LOGIN was refused, nil once a connection has been made
+    /// since. Unlike `connectFailure` it outlives the next attempt that
+    /// fails some other way, a network that is not there, so the watch,
+    /// which never sends a password after a refusal, still knows there was
+    /// one (`IMAPMailRepository.watchedConnection`). Any refusal, not only
+    /// AUTHENTICATIONFAILED: a LOGIN answered NO for another reason and
+    /// tried again every half minute is the same loop of failed logins.
+    private(set) var loginRefusal: MailError?
+
+    /// A write whose turn at the gate came with no connection: whatever held
+    /// the connection ahead of it found the socket dead and tore it down, or
+    /// the attempt to connect it queued behind failed. Not a byte of it was
+    /// sent, so sending it on a new connection sends it once, where a write
+    /// that failed on the wire may already have been carried out and is
+    /// never sent again. `failure` is what the command would have thrown.
+    /// Only the writes throw it, and only `IMAPMailRepository`'s write paths
+    /// call them, which connect again or throw `failure` in its place
+    /// (`IMAPMailRepository.sendingOnce`).
+    struct Unsent: Error {
+        let failure: MailError
+    }
 
     /// True while one command owns the socket. See `beginExchange()`.
     private var exchangeInProgress = false
@@ -271,6 +309,7 @@ actor IMAPClient {
             if preAuthenticated {
                 // Already past login, so a list in the greeting is the
                 // post-login one.
+                loginRefusal = nil
                 let advertised = Self.capabilities(in: greeting)
                 if advertised.isEmpty {
                     capabilities = try await requestCapabilities()
@@ -288,11 +327,12 @@ actor IMAPClient {
 
                 guard result.status == .ok else {
                     let code = IMAPParser.responseCode(result.detail)?.uppercased()
-                    if result.status == .no, code == "AUTHENTICATIONFAILED" {
-                        throw MailError.passwordNeedsUpdating
-                    }
-                    throw MailError.cannotConnect
+                    let refusal: MailError = result.status == .no && code == "AUTHENTICATIONFAILED"
+                        ? .passwordNeedsUpdating : .cannotConnect
+                    loginRefusal = refusal
+                    throw refusal
                 }
+                loginRefusal = nil
 
                 // Gmail returns the post-login capability list inside the
                 // tagged OK, which saves a round trip. A server that sends it
@@ -412,11 +452,15 @@ actor IMAPClient {
     /// `catchingUp` is for a command that lists what the mailbox holds, a
     /// SEARCH: the mailbox's news is asked for first, in the same hold,
     /// unless the session has it already. See `catchUp`.
+    ///
+    /// `writing` for a write, which is turned away with `Unsent` when its
+    /// turn comes with no connection.
     private func inMailbox<T>(_ mailbox: String, validity: UInt32?, _ priority: Priority,
-                              catchingUp freshness: Freshness? = nil,
+                              catchingUp freshness: Freshness? = nil, writing: Bool = false,
                               _ body: (IMAPMailboxState) async throws -> T) async throws -> T {
         try await beginExchange(priority)
         defer { endExchange() }
+        if writing { try throwUnsentIfDisconnected() }
         let (state, selected) = try await select(mailbox)
         if let validity, state.uidValidity != validity {
             Diagnostics.log(.note, "UIDVALIDITY-CHANGED folder=\(mailbox) "
@@ -472,6 +516,7 @@ actor IMAPClient {
         reportedStates[mailbox] = state
         newsAskedAt = asked
         typingAskedAt = nil
+        unsearchedNews = true
         return (state, true)
     }
 
@@ -562,13 +607,80 @@ actor IMAPClient {
         return age >= 0 && age < seconds
     }
 
+    // MARK: - The watch
+
+    /// The watch's question, every half minute while he has the Inbox's
+    /// list in front of him (`MailWatch`): has `mailbox` changed since the
+    /// watch last searched it? Returns the mailbox's UIDVALIDITY with the
+    /// answer.
+    ///
+    /// ONE command in one hold of the gate, in the background line: a NOOP
+    /// when the connection has the mailbox open, whose answer carries what
+    /// has arrived and gone since the session was last told, or else its
+    /// SELECT, whose answer is the mailbox as it is now. So a letter he taps
+    /// while this waits for the connection goes first, and one he taps while
+    /// it is on the wire waits for its answer, one round trip, and not for
+    /// the SEARCH and FETCH that follow when something has changed: each is
+    /// a hold of its own (`searchNews`, `fetchSummaries`).
+    ///
+    /// The answer is not only this NOOP's. EXISTS and EXPUNGE ride on any
+    /// answer (`noteSizeChanges`), a preview's FETCH or a Delete's MOVE, and
+    /// once told, the session is not told again; so what counts is whether
+    /// anything has changed the session's view since the last `searchNews`.
+    ///
+    /// Answered, the NOOP is also the mailbox's news asked for (`catchUp`):
+    /// a Refresh within a moment of it sends no NOOP of its own.
+    func askForNews(of mailbox: String) async throws -> (validity: UInt32, changed: Bool) {
+        try await beginExchange(.background)
+        defer { endExchange() }
+        let (state, selected) = try await select(mailbox)
+        if !selected {
+            guard try await performNOOP() else { throw MailError.cannotConnect }
+        }
+        return (state.uidValidity, unsearchedNews)
+    }
+
+    /// The UIDs `mailbox` holds from `lowest` up, the lowest letter the
+    /// list holds, or all of them when it holds none: in one answer, the
+    /// letters that have arrived above the list's newest and which of its
+    /// own are still there. For the watch, once `askForNews` has said the
+    /// mailbox changed. In the background line, in a hold of its own, with
+    /// the SELECT when another command has left another mailbox open since.
+    ///
+    /// `n:*` and not SEARCH ALL: his Inbox goes back years, and SEARCH ALL
+    /// would be tens of thousands of UIDs on every letter that arrives,
+    /// where this is about as many as the list has loaded. RFC 3501 has `*`
+    /// mean the highest UID in use, so `n:*` includes that one even when it
+    /// is below `n`; the caller takes only what is above its newest as new.
+    func searchNews(in mailbox: String, validity: UInt32,
+                    from lowest: UInt32?) async throws -> [UInt32] {
+        try await inMailbox(mailbox, validity: validity, .background) { _ in
+            // Cleared as the SEARCH goes, not once it is answered: an EXISTS
+            // riding on its own answer may be for a letter it did not list,
+            // and has to be searched for next time. A SEARCH refused, or one
+            // whose letters never reach the list, leaves the watch to search
+            // again at its next check (`MailWatch`).
+            self.unsearchedNews = false
+            guard let uids = try await self.performSearch(lowest.map { "UID \($0):*" } ?? "ALL") else {
+                throw MailError.cannotConnect
+            }
+            return uids
+        }
+    }
+
     /// Keeps the selected mailbox's message count as the server last left
     /// it. EXISTS and EXPUNGE can ride on any answer, a NOOP's above all,
     /// and the count is what the connection log's SESSION-IDENT line reports
     /// beside the listing's, which is how a listing that missed mail shows.
+    ///
+    /// A change is also news for the watch (`unsearchedNews`): a letter
+    /// announced on the answer to a preview's FETCH is in the session's
+    /// view from then on, and a NOOP after it says nothing more of it.
     private func noteSizeChanges(_ result: IMAPCommandResult) {
         guard let mailbox = selectedMailbox, var state = mailboxState,
-              let count = IMAPParser.messageCount(after: result.untagged, from: state.exists) else { return }
+              let change = IMAPParser.sizeChanges(after: result.untagged, from: state.exists) else { return }
+        let count = change.count
+        if change.expunged || count != state.exists { unsearchedNews = true }
         // Written back whole, not as `reportedStates[mailbox]?.exists = count`.
         // A change made in place inside a Dictionary compiles, with this
         // toolchain, to a coroutine that needs `swift_coroFrameAlloc`, which
@@ -793,27 +905,42 @@ actor IMAPClient {
               picking pick: @Sendable ([[UInt32]]) -> [UInt32])
         async throws -> (found: [IMAPMailboxUIDs], summaries: [IMAPFetchResult]) {
         try await inMailbox(mailbox, validity: nil, .interactive, catchingUp: .asked) { state in
-            var found: [IMAPMailboxUIDs] = []
-            for criterion in criteria {
-                guard let uids = try await self.performSearch(criterion) else {
-                    throw MailError.cannotConnect
+            // A listing from the top has searched everything the session
+            // knows of the mailbox, and the list it becomes is the watch's to
+            // check from, so the watch's next NOOP need not search again
+            // unless something changes (`askForNews`). Cleared as the SEARCH
+            // goes, as `searchNews` clears it, and set again if the listing
+            // fails, when the list on screen stays the one it was. Not for a
+            // date jump, which leaves that list on screen when it finds
+            // nothing that recent.
+            let fromTheTop = criteria == ["ALL"]
+            if fromTheTop { self.unsearchedNews = false }
+            do {
+                var found: [IMAPMailboxUIDs] = []
+                for criterion in criteria {
+                    guard let uids = try await self.performSearch(criterion) else {
+                        throw MailError.cannotConnect
+                    }
+                    found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
                 }
-                found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
-            }
 
-            let wanted = pick(found.map(\.uids))
-            var fetched: [IMAPFetchResult] = []
-            var sawFailure = false
-            for chunk in Self.uidSetChunks(wanted) {
-                guard let answer = try await self.performSummaryFetch(chunk) else {
-                    sawFailure = true
-                    continue
+                let wanted = pick(found.map(\.uids))
+                var fetched: [IMAPFetchResult] = []
+                var sawFailure = false
+                for chunk in Self.uidSetChunks(wanted) {
+                    guard let answer = try await self.performSummaryFetch(chunk) else {
+                        sawFailure = true
+                        continue
+                    }
+                    fetched += answer
                 }
-                fetched += answer
+                let ordered = Self.ordered(fetched, as: wanted)
+                if ordered.isEmpty, sawFailure { throw MailError.cannotConnect }
+                return (found, ordered)
+            } catch {
+                if fromTheTop { self.unsearchedNews = true }
+                throw error
             }
-            let ordered = Self.ordered(fetched, as: wanted)
-            if ordered.isEmpty, sawFailure { throw MailError.cannotConnect }
-            return (found, ordered)
         }
     }
 
@@ -944,7 +1071,8 @@ actor IMAPClient {
         guard !cleaned.isEmpty else { return }
         // .SILENT suppresses the untagged FETCH echo we would only throw away.
         let op = set ? "+FLAGS.SILENT" : "-FLAGS.SILENT"
-        let result = try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+        let result = try await inMailbox(mailbox, validity: validity, .interactive,
+                                         writing: true) { _ in
             try await self.performCommand("UID STORE \(uid) \(op) (\(cleaned))")
         }
         guard result.status == .ok else { throw MailError.cannotConnect }
@@ -962,7 +1090,7 @@ actor IMAPClient {
         // Cancelled while waiting for the gate, none of it is sent, unless
         // the cancel lands as the gate is handed over (see `beginExchange`);
         // cancelled once it has the gate, all of it is.
-        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+        try await inMailbox(mailbox, validity: validity, .interactive, writing: true) { _ in
             let target = Self.mailboxArgument(destination)
 
             // An empty capability set means the CAPABILITY response could not
@@ -1009,7 +1137,7 @@ actor IMAPClient {
         // happening.
         let result = try await sendCommand(
             "APPEND \(Self.mailboxArgument(mailbox))\(flagPart) {\(raw.count)}",
-            continuationPayload: raw)
+            continuationPayload: raw, writing: true)
         guard result.status == .ok else { throw MailError.notSent }
         return IMAPAppend.uid(in: result.detail)
     }
@@ -1030,7 +1158,7 @@ actor IMAPClient {
     /// gate separately, so a SELECT in between could send that blunter
     /// instrument into another folder.
     func expunge(uid: UInt32, in mailbox: String, validity: UInt32) async throws {
-        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+        try await inMailbox(mailbox, validity: validity, .interactive, writing: true) { _ in
             let flagged = try await self.performCommand("UID STORE \(uid) +FLAGS.SILENT (\\Deleted)")
             guard flagged.status == .ok else { throw MailError.cannotConnect }
             let command = self.capabilities.contains("UIDPLUS") ? "UID EXPUNGE \(uid)" : "EXPUNGE"
@@ -1185,12 +1313,26 @@ actor IMAPClient {
 
     /// Writes one tagged command and reads until its tagged completion, taking
     /// the exchange gate for the duration. For commands that need no mailbox
-    /// selected; the rest go through `inMailbox`.
+    /// selected; the rest go through `inMailbox`. `writing` as there.
     private func sendCommand(_ command: String, priority: Priority = .background,
-                             continuationPayload: Data? = nil) async throws -> IMAPCommandResult {
+                             continuationPayload: Data? = nil,
+                             writing: Bool = false) async throws -> IMAPCommandResult {
         try await beginExchange(priority)
         defer { endExchange() }
+        if writing { try throwUnsentIfDisconnected() }
         return try await performCommand(command, continuationPayload: continuationPayload)
+    }
+
+    /// For a write that has just been given the gate: `Unsent` if there is
+    /// no connection to send it on. Asked before anything is written, the
+    /// SELECT included, so what it says is certain: nothing of the write
+    /// has gone. `performCommand` would throw the same failure a moment
+    /// later, and as a plain `MailError` the repository could not tell it
+    /// from a write that died on the wire.
+    private func throwUnsentIfDisconnected() throws {
+        guard connected, connection != nil else {
+            throw Unsent(failure: connectFailure ?? .cannotConnect)
+        }
     }
 
     /// The command itself. The caller must already hold the exchange gate,
@@ -1312,7 +1454,10 @@ actor IMAPClient {
     }
 
     private func teardown() async {
-        if let conn = connection { await conn.close() }
+        if let conn = connection {
+            connectionsLost += 1
+            await conn.close()
+        }
         connection = nil
         connected = false
         capabilities = []

@@ -163,7 +163,8 @@ actor IMAPMailRepository: MailRepository {
     /// UIDVALIDITY mismatch and a server NO throw too, and repeating those
     /// just fails twice as slowly. READS only — a STORE or a MOVE may have
     /// been carried out before the socket died, and doing it again is not
-    /// free of consequences.
+    /// free of consequences. A write goes again only when nothing of it was
+    /// sent at all (`sendingOnce`).
     ///
     /// Not when the read had to connect first and the connect failed. A
     /// refused LOGIN is the case that matters: retrying it sends the same
@@ -192,19 +193,57 @@ actor IMAPMailRepository: MailRepository {
     /// is refused at the client's exchange gate. What reaches here from a
     /// cancelled caller is that refusal, or a real failure nobody is waiting
     /// to hear about, and neither is worth a fresh connection.
+    ///
+    /// Torn down, not "not connected now". Asked that way, a call whose
+    /// connection had died found another call's reconnect already up, took
+    /// its own failure for a refusal, and did not go again: a Delete made
+    /// while the warm-up's NOOP, or the watch's, was out on a dead socket
+    /// probed, found the socket dead with it, and failed if the warm-up had
+    /// reconnected first, which it did in 7 of 320 runs with eight copies of
+    /// the suite's test running at once. A write is never retried, so the
+    /// letter stayed where it was. The watch sends such a NOOP every half
+    /// minute (`MailWatch`), so what was a return to the app is any moment.
     private func retryingIfDisconnected<T>(
         _ body: () async throws -> T) async throws -> T {
-        let wasConnected = await imap.isConnected
-        let failuresBefore = await imap.failedConnects
+        let before = Self.Attempt(connected: await imap.isConnected,
+                                  lost: await imap.connectionsLost,
+                                  failedConnects: await imap.failedConnects)
         do {
             return try await body()
         } catch {
-            guard wasConnected, !Task.isCancelled,
-                  (error as? MailError) != .passwordNeedsUpdating,
-                  await imap.isConnected == false,
-                  await imap.failedConnects == failuresBefore else { throw error }
+            guard !Task.isCancelled,
+                  Self.retries(error, began: before,
+                               after: Self.Attempt(connected: await imap.isConnected,
+                                                   lost: await imap.connectionsLost,
+                                                   failedConnects: await imap.failedConnects))
+            else { throw error }
             return try await body()
         }
+    }
+
+    /// The connection as a call found it, before it began and after it
+    /// failed: up or not, and how many connections had been torn down and
+    /// attempts to make one had failed by then.
+    struct Attempt: Equatable {
+        var connected: Bool
+        var lost: Int
+        var failedConnects: Int
+    }
+
+    /// Whether a read that failed with `error` goes again, by the rules
+    /// above: only when a connection it began on has been torn down since,
+    /// whether or not another call has connected again by the time it
+    /// looks, and no attempt to connect has failed meanwhile; never for a
+    /// refused password. Apart from the connection so the suite can put it
+    /// in each state it can be found in, which the calls themselves reach
+    /// only in orders two tasks happen to run in (the stress tests of the
+    /// Delete made while a NOOP is out, which pass without the rule on most
+    /// runs).
+    static func retries(_ error: Error, began before: Attempt, after: Attempt) -> Bool {
+        before.connected
+            && (error as? MailError) != .passwordNeedsUpdating
+            && after.lost != before.lost
+            && after.failedConnects == before.failedConnects
     }
 
     /// How long the connection may sit quiet before a WRITE probes it.
@@ -229,13 +268,13 @@ actor IMAPMailRepository: MailRepository {
     private func connected() async throws -> IMAPClient {
         lastContact = now()
         if await imap.isConnected { return imap }
-        // The warm-up has sent the password a moment ago, since he picked
-        // the iPad up, and Gmail refused it. See `warmUp`.
-        if let refused = refusedAtWarmUp {
+        // The warm-up or the watch has sent the password a moment ago, and
+        // Gmail refused it. See `warmUp`.
+        if let refused = refusedUnasked {
             guard now().timeIntervalSince(refused) >= Self.refusalStands else {
                 throw MailError.passwordNeedsUpdating
             }
-            refusedAtWarmUp = nil
+            refusedUnasked = nil
         }
         // A new session starts with nothing selected. The client clears its
         // own selection as it connects; there used to be a copy of it here,
@@ -246,10 +285,11 @@ actor IMAPMailRepository: MailRepository {
         return imap
     }
 
-    /// When the connection `warmUp` made in place of a dead one had its
-    /// password refused, nil if it has not been. For `refusalStands` after
-    /// that no call connects; the next `warmUp` clears it.
-    private var refusedAtWarmUp: Date?
+    /// When a connection made for work he did not ask for had its password
+    /// refused, nil if it has not been: the one `warmUp` made in place of a
+    /// dead one, or the watch's (`watchedConnection`). For `refusalStands`
+    /// after that no call connects; the next `warmUp` clears it.
+    private var refusedUnasked: Date?
 
     /// How long a password refused at the warm-up is the answer to every
     /// call without being sent again: long enough to cover the tap he makes
@@ -313,7 +353,7 @@ actor IMAPMailRepository: MailRepository {
     /// Nothing is sent as the app goes into the background. A LOGOUT there
     /// would cost a whole reconnect on every return, however short.
     func warmUp() async {
-        refusedAtWarmUp = nil
+        refusedUnasked = nil
         guard now().timeIntervalSince(lastContact) > Self.quietBeforeProbe,
               await imap.isConnected else { return }
         do {
@@ -328,7 +368,7 @@ actor IMAPMailRepository: MailRepository {
             try await imap.connect(password: password)
             lastContact = now()
         } catch MailError.passwordNeedsUpdating {
-            refusedAtWarmUp = now()
+            refusedUnasked = now()
         } catch {
             // Unreachable, most likely. The next call tries for itself.
         }
@@ -365,6 +405,170 @@ actor IMAPMailRepository: MailRepository {
             let client = try await self.connected()
             try await client.noop()
         }
+    }
+
+    /// Sends a WRITE once: again, on a new connection, only when its turn at
+    /// the connection came with none there, and nothing of it had gone
+    /// (`IMAPClient.Unsent`).
+    ///
+    /// The probe covers a write made after ninety seconds of quiet. It does
+    /// not cover one made while something else holds the connection and
+    /// finds the socket dead: the watch's NOOP every half minute (`MailWatch`),
+    /// or a preview's FETCH, with the connection proven a moment before so
+    /// no probe went. The write waited behind that command, and when the
+    /// command tore the connection down it met none, and failed with not a
+    /// byte of it sent. On a half-open socket that was every write made in
+    /// the thirty seconds the command waited for its answer. A write is
+    /// never sent twice, so the letter he binned stayed in the Inbox, and a
+    /// read mark came back off.
+    ///
+    /// Once more, by the rules a read's retry keeps: not for a refused
+    /// password, not when an attempt to connect failed while the write
+    /// waited, whoever made it, and not for a caller that has been
+    /// cancelled. The connection is made by `connected()`, which honours a
+    /// refusal the warm-up or the watch has just been given.
+    private func sendingOnce<T>(_ write: () async throws -> T) async throws -> T {
+        let failuresBefore = await imap.failedConnects
+        do {
+            return try await write()
+        } catch let unsent as IMAPClient.Unsent {
+            guard !Task.isCancelled, unsent.failure != .passwordNeedsUpdating,
+                  await imap.failedConnects == failuresBefore else { throw unsent.failure }
+            _ = try await connected()
+            do {
+                return try await write()
+            } catch let again as IMAPClient.Unsent {
+                throw again.failure
+            }
+        }
+    }
+
+    // MARK: - The watch
+
+    /// The most new letters one check puts on the list. More than a page
+    /// comes in between two checks only when the list has been held back
+    /// for hours, or the folder has been filled from elsewhere, and the
+    /// newest fifty of them on top of the list would leave a gap under them
+    /// that paging never fills; so the list is fetched afresh instead
+    /// (`FolderNews.refetch`).
+    static let mostNews = 50
+
+    /// What has come into the folder, and gone from it, since its list was
+    /// fetched: for `MailWatch`, every half minute while the Inbox's list is
+    /// in front of him (B-049).
+    ///
+    /// When nothing has changed, and that is nearly every time, this is one
+    /// NOOP (`IMAPClient.askForNews`). When something has, one SEARCH from
+    /// the lowest letter the list holds, which says both what has arrived
+    /// above its newest and which of its letters have gone, and a FETCH of
+    /// the new letters' summaries alone. Previews are the list's to ask for
+    /// once it shows them, within the usual byte caps. Each is a hold of the
+    /// connection of its own in the background line, so what he taps
+    /// meanwhile waits for one exchange at most. Nothing is listed afresh:
+    /// no SEARCH ALL and no page is fetched again.
+    ///
+    /// `searchingAnyway` when the last check's news never reached the list:
+    /// the session has been told of it, and says nothing has changed.
+    ///
+    /// A read, retried once into a new connection when its NOOP finds the
+    /// socket dead, which a check in the quiet is the likeliest thing to
+    /// find; the reconnect's SELECT then serves as the question. It connects
+    /// by the rules for work he did not ask for, `watchedConnection`.
+    func news(in mailboxID: String, known: [String],
+              searchingAnyway: Bool) async throws -> FolderNews {
+        try await retryingIfDisconnected {
+            try await self.newsOnce(in: mailboxID, known: known, searchingAnyway: searchingAnyway)
+        }
+    }
+
+    private func newsOnce(in mailboxID: String, known: [String],
+                          searchingAnyway: Bool) async throws -> FolderNews {
+        let client = try await watchedConnection()
+        let name = try await resolve(mailboxID)
+        let asked = try await client.askForNews(of: name)
+        // Proven by the answer, as the warm-up's NOOP proves it: a write in
+        // the next ninety seconds goes without a probe of its own (B-024).
+        lastContact = now()
+
+        let listed = known.compactMap { try? Self.parseID($0) }
+        // Renumbered since the list was fetched: every id on it names
+        // another letter now, or none.
+        if let validity = listed.first?.validity, validity != asked.validity {
+            return FolderNews(refetch: true)
+        }
+        guard asked.changed || searchingAnyway else { return FolderNews() }
+
+        let uids = listed.map(\.uid)
+        let present = try await client.searchNews(in: name, validity: asked.validity, from: uids.min())
+        let still = Set(present)
+        let gone = uids.filter { !still.contains($0) }
+            .map { Self.makeID(validity: asked.validity, uid: $0) }
+        let newest = uids.max()
+        let arriving = present.filter { uid in newest.map { uid > $0 } ?? true }
+        guard arriving.count <= Self.mostNews else {
+            Diagnostics.log(.note, "NEWS folder=\(name) arrived=\(arriving.count) refetch")
+            return FolderNews(gone: gone, refetch: true)
+        }
+        let arrived = try await summaries(for: arriving.reversed(), in: mailboxID, name: name,
+                                          validity: asked.validity, client: client)
+        Diagnostics.log(.note, "NEWS folder=\(name) arrived=\(arrived.count) gone=\(gone.count)")
+        return FolderNews(arrived: arrived, gone: gone)
+    }
+
+    /// The Inbox's unread count as the server has it now, one STATUS, or
+    /// nil if the server will not say. For the watch while another folder
+    /// is in front of him: the Inbox's count beside its name follows new
+    /// mail, and nothing else about the Inbox is fetched until he opens it.
+    /// A read, retried and connected as `news` is.
+    func inboxUnread() async throws -> Int? {
+        try await retryingIfDisconnected {
+            let client = try await self.watchedConnection()
+            let name = try await self.resolve("inbox")
+            let counts = try await client.status(name, items: ["UNSEEN"])
+            self.lastContact = self.now()
+            return counts["UNSEEN"].map { Int($0) }
+        }
+    }
+
+    /// The connection for the watch, made or not by the rules for work he
+    /// did not ask for.
+    ///
+    /// Not `connected()`, which stamps `lastContact` as the call starts. The
+    /// watch's NOOP is a probe, as the warm-up's is, and a write he makes
+    /// while it is out must not take the connection for proven before it
+    /// has been (see `warmUp`): the caller stamps it once an answer comes.
+    ///
+    /// It makes a connection where there is none, since new mail cannot be
+    /// found without one. After a socket that died and could not be
+    /// replaced at once, Wi-Fi off and on again, the next check reconnects
+    /// by itself. With no network at all each attempt fails at once, before
+    /// any TLS, since the transport takes `.waiting` for a failure.
+    ///
+    /// Never after a refused LOGIN, until a connection has been made since.
+    /// Every half minute that would be a loop of failed logins, and Gmail
+    /// locks out an account that keeps failing to authenticate. Only what he
+    /// does sends the password again, his next tap once `refusalStands` has
+    /// passed, and if that is accepted the watch carries on. A refusal of
+    /// the watch's own stands for every call for `refusalStands`, as the
+    /// warm-up's does, so the letter he taps a moment later does not send
+    /// the same password straight after it.
+    ///
+    /// The client's `loginRefusal` is the whole rule here, and
+    /// `refusedUnasked` is not asked. Every refusal that sets the one sets
+    /// the other, and the client's lasts until a LOGIN is accepted, longer
+    /// than the minute; so `refusedUnasked` without it is a refusal a LOGIN
+    /// has been accepted since, and a password that works now.
+    private func watchedConnection() async throws -> IMAPClient {
+        if await imap.isConnected { return imap }
+        if let refusal = await imap.loginRefusal { throw refusal }
+        do {
+            try await imap.connect(password: password)
+        } catch MailError.passwordNeedsUpdating {
+            refusedUnasked = now()
+            throw MailError.passwordNeedsUpdating
+        }
+        lastContact = now()
+        return imap
     }
 
     /// Turns an interface-level id into a real IMAP mailbox name.
@@ -1120,8 +1324,10 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
-        try await client.store(uid: message.uid, flag: "\\Seen", set: read,
-                               in: name, validity: message.validity)
+        try await sendingOnce {
+            try await client.store(uid: message.uid, flag: "\\Seen", set: read,
+                                   in: name, validity: message.validity)
+        }
     }
 
     func setFlagged(_ flagged: Bool, id: String, mailboxID: String) async throws {
@@ -1129,8 +1335,10 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
-        try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
-                               in: name, validity: message.validity)
+        try await sendingOnce {
+            try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
+                                   in: name, validity: message.validity)
+        }
     }
 
     // MARK: - Moving and deleting
@@ -1142,8 +1350,10 @@ actor IMAPMailRepository: MailRepository {
         let destination = try await resolve(destinationMailboxID)
         guard source != destination else { return }
         let message = try Self.parseID(id)
-        try await client.move(uid: message.uid, from: source, validity: message.validity,
-                              to: destination)
+        try await sendingOnce {
+            try await client.move(uid: message.uid, from: source, validity: message.validity,
+                                  to: destination)
+        }
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
         if lastBody?.messageID == id { lastBody = nil }
@@ -1168,8 +1378,10 @@ actor IMAPMailRepository: MailRepository {
 
         if source == trash {
             let message = try Self.parseID(id)
-            try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
-                                   in: source, validity: message.validity)
+            try await sendingOnce {
+                try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
+                                       in: source, validity: message.validity)
+            }
             return
         }
         try await move(id, from: mailboxID, to: trash)
@@ -1279,8 +1491,9 @@ actor IMAPMailRepository: MailRepository {
                                        // parsing it back, and the parts are
                                        // what make its markup's cid: resolve.
                                        inlineImages: SignatureImages.parts(of: signatureImages()))
-        let appended = try await client.append(raw, to: drafts,
-                                               flags: ["\\Draft", "\\Seen"])
+        let appended = try await sendingOnce {
+            try await client.append(raw, to: drafts, flags: ["\\Draft", "\\Seen"])
+        }
 
         // Only once the replacement is safely on the server. The other
         // order risks deleting the only copy of a letter and then failing
@@ -1301,7 +1514,9 @@ actor IMAPMailRepository: MailRepository {
         // reaches the Trash, a superseded draft binned rather than removed
         // would come back as a hit for every half-finished sentence he ever
         // saved.
-        try await client.expunge(uid: draft.uid, in: name, validity: draft.validity)
+        try await sendingOnce {
+            try await client.expunge(uid: draft.uid, in: name, validity: draft.validity)
+        }
         // The snapshot still lists the UID we just removed.
         uidListing[name] = nil
     }

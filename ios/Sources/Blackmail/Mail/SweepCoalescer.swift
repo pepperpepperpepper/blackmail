@@ -33,12 +33,19 @@ import Foundation
 ///
 /// Out of `MailboxListViewController` for the reason `SearchAnswer` is: the
 /// controller is UIKit and does not exist on the machine the suite runs on.
+///
+/// A sweep is quiet when nobody but the watch asked for it (B-049): one that
+/// fails then leaves the counts as they were rather than putting "Can't
+/// connect" over the letter he is reading, since he did nothing. Merged with
+/// one he did ask for, it is his, and says so when it fails, as every sweep
+/// always has.
 @MainActor
 final class SweepCoalescer {
 
     /// One sweep, delivery included, so each is on screen before the next
-    /// starts and a slower older one can never land over a newer one.
-    private let sweep: @MainActor () async -> Void
+    /// starts and a slower older one can never land over a newer one. Told
+    /// whether it is quiet.
+    private let sweep: @MainActor (_ quietly: Bool) async -> Void
     private var held: Bool
     /// From the moment a sweep is started until the last one has been
     /// delivered. Never false while an answer is still to land.
@@ -46,17 +53,26 @@ final class SweepCoalescer {
     /// Asked for since the running sweep started, or since the last one
     /// ended.
     private var owed = false
+    /// Some of what is owed was asked for by something other than the watch.
+    private var owedLoudly = false
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
 
-    init(held: Bool = false, sweep: @escaping @MainActor () async -> Void) {
+    init(held: Bool = false, sweep: @escaping @MainActor (_ quietly: Bool) async -> Void) {
         self.held = held
         self.sweep = sweep
     }
 
+    /// For a sweep that is the same whoever asked for it.
+    convenience init(held: Bool = false, sweep: @escaping @MainActor () async -> Void) {
+        self.init(held: held) { _ in await sweep() }
+    }
+
     /// Asks for a sweep. Starts one if none is running and nothing is
     /// holding them; otherwise it is owed, and one more runs afterwards.
-    func request() {
+    /// `quietly` for the watch's.
+    func request(quietly: Bool = false) {
         owed = true
+        if !quietly { owedLoudly = true }
         startIfDue()
     }
 
@@ -74,6 +90,7 @@ final class SweepCoalescer {
     func requestIfRunning() {
         guard running else { return }
         owed = true
+        owedLoudly = true
     }
 
     /// Lets the sweeps go. With `runningOwed`, a sweep asked for while they
@@ -87,7 +104,10 @@ final class SweepCoalescer {
     /// next Refresh sweeps, which is him trying again.
     func release(runningOwed: Bool) {
         held = false
-        if !runningOwed { owed = false }
+        if !runningOwed {
+            owed = false
+            owedLoudly = false
+        }
         startIfDue()
     }
 
@@ -106,8 +126,10 @@ final class SweepCoalescer {
 
     private func drain() async {
         while owed {
+            let quietly = !owedLoudly
             owed = false
-            await sweep()
+            owedLoudly = false
+            await sweep(quietly)
         }
         running = false
         let waiters = idleWaiters

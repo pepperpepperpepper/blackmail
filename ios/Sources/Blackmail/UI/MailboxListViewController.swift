@@ -35,8 +35,8 @@ final class MailboxListViewController: UITableViewController {
     /// Held from the start: at launch the Inbox's first page goes before
     /// any count. The container lets them go (`releaseSweeps`) once that
     /// page has been tried, and drops the launch's sweep if it failed.
-    private lazy var sweeps = SweepCoalescer(held: true) { [weak self] in
-        await self?.sweepOnce()
+    private lazy var sweeps = SweepCoalescer(held: true) { [weak self] quietly in
+        await self?.sweepOnce(quietly: quietly)
     }
 
     init(repository: MailRepository) {
@@ -81,10 +81,12 @@ final class MailboxListViewController: UITableViewController {
 
     /// Asks for the unread counts: LIST and a STATUS per folder. Merged with
     /// a sweep already running, and with every other request made while it
-    /// runs, into at most one more.
+    /// runs, into at most one more. `quietly` for a sweep he did not ask
+    /// for, the watch's, whose failure puts up no alert; see
+    /// `SweepCoalescer.request(quietly:)`.
     @MainActor
-    func refreshCounts() {
-        sweeps.request()
+    func refreshCounts(quietly: Bool = false) {
+        sweeps.request(quietly: quietly)
     }
 
     /// Lets the counts go at launch, once the Inbox's first page has been
@@ -98,11 +100,12 @@ final class MailboxListViewController: UITableViewController {
     }
 
     @MainActor
-    private func sweepOnce() async {
+    private func sweepOnce(quietly: Bool) async {
         do {
             show(try await repository.listMailboxes())
+            counted = true
         } catch {
-            ErrorPresenter.show(.cannotConnect, on: self)
+            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
         }
     }
 
@@ -169,6 +172,17 @@ final class MailboxListViewController: UITableViewController {
     /// Every folder the pane last listed, for finding which one a letter
     /// was listed from.
     var folders: [Mailbox] { mailboxes }
+
+    /// Whether a sweep has landed, so the numbers beside the folders are
+    /// counts and not the zeros of names drawn without them.
+    private var counted = false
+
+    /// The Inbox's unread count as the pane shows it, nil until a sweep has
+    /// given it one. What the watch compares the server's with while
+    /// another folder is in front (`MailWatch.check`).
+    var inboxUnread: Int? {
+        counted ? mailbox(for: .inbox)?.unreadCount : nil
+    }
 
     override func numberOfSections(in t: UITableView) -> Int { groups.count }
 

@@ -477,19 +477,32 @@ enum IMAPParser {
     /// else is passed over on its length, which is free, and only a short
     /// one is split into words.
     static func messageCount(after untagged: [IMAPResponseLine], from count: Int) -> Int? {
+        sizeChanges(after: untagged, from: count)?.count
+    }
+
+    /// `messageCount`, and whether any of the lines was an EXPUNGE. The
+    /// count alone cannot say a mailbox changed: a letter taken out
+    /// elsewhere and one arriving in the same answer leave it where it was.
+    static func sizeChanges(after untagged: [IMAPResponseLine],
+                            from count: Int) -> (count: Int, expunged: Bool)? {
         var current: Int?
+        var expunged = false
         for line in untagged {
             // "* 4294967295 EXPUNGE" is 20 bytes.
             guard line.text.utf8.count <= 32 else { continue }
             let words = line.text.split(separator: " ")
             guard words.count == 3, words[0] == "*", let number = Int(words[1]) else { continue }
             switch words[2].uppercased() {
-            case "EXISTS":  current = number
-            case "EXPUNGE": current = max(0, (current ?? count) - 1)
-            default:        continue
+            case "EXISTS":
+                current = number
+            case "EXPUNGE":
+                current = max(0, (current ?? count) - 1)
+                expunged = true
+            default:
+                continue
             }
         }
-        return current
+        return current.map { ($0, expunged) }
     }
 
     /// `* STATUS "INBOX" (MESSAGES 231 UNSEEN 3)` -> `["MESSAGES": 231, "UNSEEN": 3]`.
