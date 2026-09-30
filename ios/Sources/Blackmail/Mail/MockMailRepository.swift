@@ -150,7 +150,7 @@ final class MockMailRepository: MailRepository {
         return DraftSaved(id: try await saveDraft(draft), replaced: replaced)
     }
 
-    func deleteDraft(_ id: String) async throws { savedDrafts[id] = nil }
+    func deleteDraft(_ id: String, gmailMessageID: UInt64?) async throws { savedDrafts[id] = nil }
 
     /// Nothing is ever cut off here, so there is never such a copy.
     @discardableResult

@@ -45,15 +45,22 @@ struct QuotedOriginal {
         let mailboxID: String
         /// The IMAP section path of the part, as `DraftAttachment` names one.
         let section: String
+        /// Gmail's id for the original (X-GM-MSGID), nil where the server
+        /// named none, as `DraftAttachment.Source` carries it: the picture
+        /// goes only from that letter.
+        var letter: UInt64? = nil
 
         var source: DraftAttachment.Source {
-            .messagePart(messageID: messageID, mailboxID: mailboxID, section: section)
+            .messagePart(messageID: messageID, mailboxID: mailboxID, section: section,
+                         letter: letter)
         }
 
         /// True when `attachment` is this same part of the same letter: how
         /// a forward's file row is known to be one of the quote's pictures.
+        /// Both are made from the one letter at the one time, so they name
+        /// it by the same Gmail id or both by none.
         func isSource(of attachment: DraftAttachment) -> Bool {
-            guard case let .messagePart(m, box, s) = attachment.source else { return false }
+            guard case let .messagePart(m, box, s, _) = attachment.source else { return false }
             return m == messageID && box == mailboxID && s == section
         }
     }
@@ -94,7 +101,7 @@ struct QuotedOriginal {
                   seen.insert(id).inserted else { return nil }
             return Picture(contentID: id, filename: a.filename, mimeType: a.mimeType,
                            size: a.size, messageID: m.id, mailboxID: m.mailboxID,
-                           section: a.id)
+                           section: a.id, letter: m.gmailMessageID)
         }
     }
 

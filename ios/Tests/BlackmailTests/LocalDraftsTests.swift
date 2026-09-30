@@ -631,7 +631,8 @@ final class LocalDraftsTests: XCTestCase {
             if ending == "send" {
                 await actions.send({ reopened }, then: nil)?.value
             } else {
-                await actions.deleteAndClose(reopened.savedID, then: nil)?.value
+                await actions.deleteAndClose(reopened.savedID, letter: reopened.savedLetter,
+                                             then: nil)?.value
             }
             XCTAssertEqual(errors, [], ending)
             XCTAssertEqual(copies("Sunday").count, 0, "\(ending): nothing of it left in Drafts")
@@ -672,7 +673,7 @@ final class LocalDraftsTests: XCTestCase {
         try await savedAndCutOff(letter(), kept: kept, repository: repository)
         await takeLineDown()
         await makeActions("letter-1", kept: kept, repository: repository)
-            .deleteAndClose(nil, then: nil)?.value
+            .deleteAndClose(nil, letter: nil, then: nil)?.value
         XCTAssertEqual(kept.waiting.count, 0, "not listed")
         XCTAssertNil(kept.letter("letter-1"))
         XCTAssertEqual(kept.store.letter("letter-1")?.gone, true)
@@ -698,7 +699,7 @@ final class LocalDraftsTests: XCTestCase {
         try await until { server.log.contains { $0.verb == "NOOP" } }
 
         let deleting = makeActions("letter-1", kept: kept, repository: repository)
-            .deleteAndClose(nil, then: nil)
+            .deleteAndClose(nil, letter: nil, then: nil)
         await server.releaseReplies(to: "NOOP")
         await pass.value
         await deleting?.value
@@ -774,7 +775,7 @@ final class LocalDraftsTests: XCTestCase {
         let repository = makeRepository()
         let (actions, opened) = try await openedWhileItGoesUp(letter(), kept: kept,
                                                                repository: repository)
-        await actions.deleteAndClose(opened.savedID, then: nil)?.value
+        await actions.deleteAndClose(opened.savedID, letter: opened.savedLetter, then: nil)?.value
         XCTAssertEqual(copies("Sunday").count, 0)
         XCTAssertEqual(kept.store.letters().count, 0)
     }
@@ -1011,7 +1012,7 @@ final class LocalDraftsTests: XCTestCase {
             switch ending {
             case "send": await actions.send({ draft }, then: nil)?.value
             case "save": await actions.saveAndClose({ draft }, then: nil)?.value
-            default: await actions.deleteAndClose(nil, then: nil)?.value
+            default: await actions.deleteAndClose(nil, letter: nil, then: nil)?.value
             }
             pauses.release()
             for _ in 0..<5 { await Task.yield() }
@@ -1085,7 +1086,7 @@ final class LocalDraftsTests: XCTestCase {
                                account: server.username, gone: false)
             .row(in: Server.drafts, from: "Owner")
 
-        list.keep([local], replacing: ["1/8"])
+        list.keep([local], replacing: ["1/8": nil])
         XCTAssertEqual(list.shown.map(\.id), [local.id, "1/9", "1/7"])
         XCTAssertEqual(list.cursor, "1/7")
         XCTAssertEqual(MessageThread.rows(for: list.shown, grouped: true).map(\.id),
@@ -1097,7 +1098,7 @@ final class LocalDraftsTests: XCTestCase {
         list.endSearch()
         XCTAssertEqual(list.shown.map(\.id), [local.id, "1/9", "1/7"])
 
-        list.keep([], replacing: [])
+        list.keep([], replacing: [:])
         XCTAssertEqual(list.shown.map(\.id), ["1/9", "1/8", "1/7"])
     }
 

@@ -115,8 +115,11 @@ enum CredentialStore {
         // (D-016): a new app password can open another mailbox under the
         // same address (B-033), and a copy kept under the old one would be
         // drawn as this one's at the next launch. The letters kept by
-        // `LocalDrafts` are not in it and stay.
+        // `LocalDrafts` are not in it and stay; the save is counted beside
+        // them, so from the next launch what one kept before it names by
+        // folder and UID alone is not taken for this mailbox's (B-051).
         MailShelf.wipe(root: MailShelf.appRoot)
+        LocalDraftStore.notePasswordSaved(in: LocalDraftStore.appRoot)
 
         // The normalised account is what gets stored, so that the address this
         // password was filed under is byte-for-byte the address a later

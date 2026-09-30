@@ -308,7 +308,7 @@ final class DraftSignatureImagesTests: XCTestCase {
 
         // The photo is named, not copied: fetched from the saved copy at send.
         let photo = try XCTUnwrap(draft.attachments.first)
-        guard case let .messagePart(messageID, mailboxID, section) = photo.source else {
+        guard case let .messagePart(messageID, mailboxID, section, _) = photo.source else {
             return XCTFail("\(photo.source)")
         }
         XCTAssertEqual([messageID, mailboxID, section], ["600003/301", Server.drafts, "2"])

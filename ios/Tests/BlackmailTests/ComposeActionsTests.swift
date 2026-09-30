@@ -79,7 +79,7 @@ final class ComposeActionsTests: XCTestCase {
                 log.append("save")
                 try await holdSave?.wait()
             },
-            deleteDraft: { [unowned self] id in
+            deleteDraft: { [unowned self] id, _ in
                 log.append("delete \(id)")
                 try await holdDelete?.wait()
             },
@@ -354,7 +354,7 @@ final class ComposeActionsTests: XCTestCase {
     func testDeleteDraftClosesFirstThenRemovesTheSavedCopy() async throws {
         holdDelete = Held()
         let actions = makeActions()
-        let deleting = try XCTUnwrap(actions.deleteAndClose("600003/7",
+        let deleting = try XCTUnwrap(actions.deleteAndClose("600003/7", letter: nil,
                                                             then: { [unowned self] in log.append("drafts changed") }))
         XCTAssertEqual(log, ["dismiss"])
         try await until { holdDelete?.waiting == 1 }
@@ -363,7 +363,7 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(log, ["dismiss", "delete 600003/7", "drafts changed"])
 
         reset()
-        await makeActions().deleteAndClose(nil, then: { [unowned self] in log.append("drafts changed") })?.value
+        await makeActions().deleteAndClose(nil, letter: nil, then: { [unowned self] in log.append("drafts changed") })?.value
         XCTAssertEqual(log, ["dismiss", "drafts changed"])
     }
 
@@ -382,7 +382,7 @@ final class ComposeActionsTests: XCTestCase {
         try await until { holdSend?.waiting == 1 }
 
         XCTAssertNil(actions.saveAndClose(draft(savedAs: "600003/7"), then: nil))
-        XCTAssertNil(actions.deleteAndClose("600003/7", then: nil))
+        XCTAssertNil(actions.deleteAndClose("600003/7", letter: nil, then: nil))
         XCTAssertEqual(log, ["begin Send", "send"], "neither closed the sheet nor touched the draft")
 
         holdSend?.release(.failure(MailError.cannotConnect))
@@ -396,7 +396,7 @@ final class ComposeActionsTests: XCTestCase {
         sending = try XCTUnwrap(actions.send(draft(savedAs: "600003/7"), then: nil))
         await sending.value
         XCTAssertNil(actions.saveAndClose(draft(savedAs: "600003/7"), then: nil))
-        XCTAssertNil(actions.deleteAndClose("600003/7", then: nil))
+        XCTAssertNil(actions.deleteAndClose("600003/7", letter: nil, then: nil))
         XCTAssertEqual(log.filter { $0 == "dismiss" }.count, 1, "nothing after the letter has gone")
         XCTAssertEqual(saves, 0)
     }
@@ -407,12 +407,12 @@ final class ComposeActionsTests: XCTestCase {
         let actions = makeActions()
         await actions.saveAndClose(draft(), then: nil)?.value
         XCTAssertNil(actions.send(draft(), then: nil))
-        XCTAssertNil(actions.deleteAndClose(nil, then: nil))
+        XCTAssertNil(actions.deleteAndClose(nil, letter: nil, then: nil))
         XCTAssertFalse(actions.isSending)
 
         reset()
         let other = makeActions()
-        await other.deleteAndClose("600003/7", then: nil)?.value
+        await other.deleteAndClose("600003/7", letter: nil, then: nil)?.value
         XCTAssertNil(other.send(draft(savedAs: "600003/7"), then: nil))
         XCTAssertNil(other.saveAndClose(draft(savedAs: "600003/7"), then: nil))
         XCTAssertEqual(sends, 0)
@@ -504,7 +504,7 @@ final class ComposeActionsTests: XCTestCase {
     /// and any copy an upload of it left in Drafts after the one named.
     func testDeleteDraftTakesTheLetterOffTheIPadBeforeTheSheetGoes() async throws {
         await makeActions(keeping: true).deleteAndClose(
-            "600003/7", then: { [unowned self] in log.append("drafts changed") })?.value
+            "600003/7", letter: nil, then: { [unowned self] in log.append("drafts changed") })?.value
         XCTAssertEqual(log, ["forget", "dismiss", "delete 600003/7", "tidy", "drafts changed"])
     }
 
@@ -538,7 +538,7 @@ final class ComposeActionsTests: XCTestCase {
             switch ending {
             case "send": await actions.send(draft(), then: nil)?.value
             case "save": await actions.saveAndClose(draft(), then: nil)?.value
-            default: await actions.deleteAndClose(nil, then: nil)?.value
+            default: await actions.deleteAndClose(nil, letter: nil, then: nil)?.value
             }
             let before = log
             pauses.release()
@@ -604,7 +604,7 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(log, ["keep unfinished", "let go"])
         XCTAssertNil(actions.send(draft(), then: nil))
         XCTAssertNil(actions.saveAndClose(draft(), then: nil))
-        XCTAssertNil(actions.deleteAndClose(nil, then: nil))
+        XCTAssertNil(actions.deleteAndClose(nil, letter: nil, then: nil))
         pauses.release()
         await settled()
         XCTAssertEqual(log, ["keep unfinished", "let go"])
@@ -671,7 +671,7 @@ final class ComposeActionsTests: XCTestCase {
                 if reports.count == 1 { throw MailError.cannotConnect }
                 try await hold.wait()
             },
-            saveDraft: { _ in }, deleteDraft: { _ in }, dismiss: {},
+            saveDraft: { _ in }, deleteDraft: { _, _ in }, dismiss: {},
             showError: { [unowned self] in errors.append($0) },
             draw: { [unowned self] in draws.append($0) },
             background: background.time)

@@ -76,6 +76,9 @@ enum Outbox {
     /// - `MailError.attachmentFailed`: a forward's file gone from Gmail, or
     ///   one that could not be read, or its folder renumbered or gone since.
     ///   He can take it off the letter.
+    /// - `MailError.attachmentsMissing`: a file or quoted picture that names
+    ///   its original by Gmail's id, and that letter is neither where it
+    ///   was named nor in All Mail. The same.
     /// - `NoSentMail`, and anything else, a photo's file that could not be
     ///   read: shown as "Message was not sent." as it always was.
     static func waits(after error: Error) -> Bool {
@@ -83,7 +86,8 @@ enum Outbox {
         switch error as? MailError {
         case .cannotConnect?, .connectionLost?, .refusedForNow?:
             return true
-        case .passwordNeedsUpdating?, .messageTooLarge?, .notSent?, .attachmentFailed?, nil:
+        case .passwordNeedsUpdating?, .messageTooLarge?, .notSent?, .attachmentFailed?,
+             .attachmentsMissing?, nil:
             return false
         }
     }

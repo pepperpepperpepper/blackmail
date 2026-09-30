@@ -826,8 +826,9 @@ decided, and six choices made in building them:
   names the letter it did or none, since every write names its UIDVALIDITY
   (B-039), and a search hit written on later costs no FETCH. Since
   2026-09-30 this holds only for a call that names no letter: a draft
-  removed, a letter kept in Local Drafts that has gone up, opened from its
-  row, and a row from a server without Gmail's extension. A call that names
+  removed that was found by its Message-ID or whose draft names none, a
+  letter kept in Local Drafts that has gone up, opened from its row, and a
+  row from a server without Gmail's extension. A call that names
   its row's letter, which is every other, goes by what the server has named
   under the UID in this launch, proven mailbox or not (below).
 - **Opening is vouched for by the FETCH that brings the letter.** X-GM-MSGID
@@ -874,6 +875,22 @@ launch; a write on it is asked about once, at one round trip, and its
 letter opened asks in its own FETCH, at none more, where the proven mailbox
 let both go unasked. That stays: asking is the safer, and it is rare.
 Not built: the letters (phase 2).
+
+**Alongside it, the letters kept in `Local Drafts/`, 2026-09-30** (B-051).
+They are not this copy and are never wiped with it, but they name letters
+on the server as it did, by folder and UID, and fell to the same trap: a
+password saved that opens another mailbox under the same address, or a
+folder renumbered under the same UIDVALIDITY, and the copy a draft was
+reopened from, a forward's file or a quoted picture, is another letter. Each
+now names its letter by X-GM-MSGID as well, kept with the letter, and goes
+by the rules above: nothing is removed, fetched into a letter or sent by
+folder and UID alone unless the server has shown in this launch that the
+UID holds that letter (`seen`, the question, and a FETCH that names the
+letter already, which for a part is the one that describes it). Where this
+copy is wiped at a password save, a letter cannot be: it may be the only
+copy of what he wrote. The save is counted beside the letters instead, and
+from the next launch what a letter kept before it names by folder and UID
+alone is left out of it.
 
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can
 be old. It always says how old, and offline it is exactly as current as the

@@ -811,7 +811,8 @@ final class OutboxTests: XCTestCase {
 
         XCTAssertEqual(kept.outbox.first?.draft.savedID, oldID)
         XCTAssertEqual(kept.waiting.count, 0)
-        XCTAssertEqual(kept.replacedInDrafts, [oldID], "its old copy not listed in Drafts")
+        XCTAssertEqual(Array(kept.replacedInDrafts.keys), [oldID],
+                       "its old copy not listed in Drafts")
         XCTAssertTrue(server.uids(in: Server.drafts).contains(old), "not removed before it goes")
 
         try await afterAPage(kept, repository)
@@ -1113,7 +1114,7 @@ final class OutboxTests: XCTestCase {
         await actions.send({ [unowned self] in letter() }, then: nil)?.value
         XCTAssertNil(actions.send({ [unowned self] in letter() }, then: nil))
         XCTAssertNil(actions.saveAndClose({ [unowned self] in letter() }, then: nil))
-        XCTAssertNil(actions.deleteAndClose(nil, then: nil))
+        XCTAssertNil(actions.deleteAndClose(nil, letter: nil, then: nil))
         XCTAssertEqual(kept.outbox.count, 1)
         XCTAssertEqual(dismissals, 1)
     }
@@ -1456,7 +1457,9 @@ private final class HeldQuestion: MailRepository, @unchecked Sendable {
     func saveDraft(_ draft: Draft, as upload: DraftUpload) async throws -> DraftSaved {
         try await base.saveDraft(draft, as: upload)
     }
-    func deleteDraft(_ id: String) async throws { try await base.deleteDraft(id) }
+    func deleteDraft(_ id: String, gmailMessageID: UInt64?) async throws {
+        try await base.deleteDraft(id, gmailMessageID: gmailMessageID)
+    }
     func deleteDrafts(uploadedAs versions: [String]) async throws -> [String] {
         try await base.deleteDrafts(uploadedAs: versions)
     }

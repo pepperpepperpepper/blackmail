@@ -43,7 +43,7 @@ final class ReplyForwardTests: XCTestCase {
         // forward has to still be the OTHER kind: a part named inside the
         // original message, fetched only when the letter is built.
         let sources: [(String, String, String)] = draft.attachments.compactMap {
-            guard case let .messagePart(messageID, mailboxID, section) = $0.source
+            guard case let .messagePart(messageID, mailboxID, section, _) = $0.source
             else { return nil }
             return (messageID, mailboxID, section)
         }

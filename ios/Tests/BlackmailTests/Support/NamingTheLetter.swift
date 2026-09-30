@@ -6,8 +6,9 @@ import Foundation
 /// as the list, Edit mode, the reading pane, Drafts and `PaneActions` do
 /// (D-016). For every suite that has a row at hand, so the wire it pins is
 /// the wire the app sends for that row. A landed draft reopened by the id
-/// its upload gave it is `NamingNoLetter`'s; a draft removed names none by
-/// `deleteDraft`'s own signature.
+/// its upload gave it is `NamingNoLetter`'s. A draft removed names the
+/// letter its draft names (`Draft.savedLetter`), which a draft reopened
+/// from a row takes from the row.
 extension MailRepository {
 
     func open(_ row: MessageSummary) async throws -> Message {

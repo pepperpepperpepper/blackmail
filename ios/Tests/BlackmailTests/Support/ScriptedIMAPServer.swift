@@ -1212,7 +1212,12 @@ private extension ScriptedIMAPServer.State {
     func search(_ args: [Server.Token], in name: String, on id: Int, into r: inout Server.Response) {
         var keys = args[...]
         if keys.first?.text?.uppercased() == "CHARSET" { keys = keys.dropFirst(2) }
-        let refused = keys.contains { refusedSearchKeys.contains($0.text?.uppercased() ?? "") }
+        // Gmail's own key is unknown to a server without its extension.
+        let refused = keys.contains {
+            let word = $0.text?.uppercased() ?? ""
+            return refusedSearchKeys.contains(word)
+                || (word == "X-GM-MSGID" && withheldCapabilities.contains("X-GM-EXT-1"))
+        }
         guard !refused, let folder = folders[name],
               let key = Server.SearchKey.parse(Array(keys)) else {
             r.bad("Could not parse command")
@@ -1220,9 +1225,9 @@ private extension ScriptedIMAPServer.State {
         }
         let seen = view(of: name, on: id)
         let hits = seen.filter { uid in
-            guard let stored = letter(uid, in: name, on: id)?.stored else { return false }
-            return key.matches(stored, uid: uid, deleted: folder.deleted.contains(uid),
-                               highest: seen.last ?? 0)
+            guard let found = letter(uid, in: name, on: id) else { return false }
+            return key.matches(found.stored, key: found.key, uid: uid,
+                               deleted: folder.deleted.contains(uid), highest: seen.last ?? 0)
         }
         r.untagged("SEARCH" + hits.map { " \($0)" }.joined())
         r.ok("SEARCH completed (Success)")
@@ -1910,6 +1915,8 @@ private extension ScriptedIMAPServer {
         case flag(String, present: Bool)
         case deleted(Bool)
         case uids(UIDSet)
+        /// Gmail's `X-GM-MSGID n`: the letter Gmail knows by that id.
+        case gmailMessage(UInt64)
 
         enum Comparison { case since, before, on }
 
@@ -1966,24 +1973,27 @@ private extension ScriptedIMAPServer {
             case "DRAFT", "UNDRAFT":       return .flag("\\Draft", present: word == "DRAFT")
             case "DELETED", "UNDELETED":   return .deleted(word == "DELETED")
             case "UID":        return argument().flatMap(UIDSet.init).map { .uids($0) }
+            case "X-GM-MSGID": return argument().flatMap { UInt64($0) }.map { .gmailMessage($0) }
             default:           return nil
             }
         }
 
-        func matches(_ stored: Stored, uid: UInt32, deleted: Bool, highest: UInt32) -> Bool {
+        func matches(_ stored: Stored, key: Int, uid: UInt32, deleted: Bool,
+                     highest: UInt32) -> Bool {
             let letter = stored.letter
             switch self {
             case .all:
                 return true
             case .and(let keys):
                 return keys.allSatisfy {
-                    $0.matches(stored, uid: uid, deleted: deleted, highest: highest)
+                    $0.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
                 }
             case let .or(a, b):
-                return a.matches(stored, uid: uid, deleted: deleted, highest: highest)
-                    || b.matches(stored, uid: uid, deleted: deleted, highest: highest)
-            case .not(let key):
-                return !key.matches(stored, uid: uid, deleted: deleted, highest: highest)
+                return a.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
+                    || b.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
+            case .not(let inner):
+                return !inner.matches(stored, key: key, uid: uid, deleted: deleted,
+                                      highest: highest)
             case let .field(name, needle):
                 let haystack: String
                 switch name {
@@ -2027,6 +2037,8 @@ private extension ScriptedIMAPServer {
                 return deleted == wanted
             case .uids(let set):
                 return set.contains(uid, highest: highest)
+            case .gmailMessage(let id):
+                return ScriptedIMAPServer.gmailMessageID(key: key) == id
             }
         }
 

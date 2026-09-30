@@ -64,6 +64,13 @@ struct LocalDraft {
     /// Drafts, in bytes. Known from `letter.json` whether or not the markup
     /// itself was read (`LocalDraftStore.letters`).
     var markupBytes = 0
+    /// How many times a password had been saved on the iPad, as the launch
+    /// that last kept it found the count (`LocalDraftStore.passwordSaves`);
+    /// 0 for a letter kept by a build before the count was kept. Fewer
+    /// than now, and a password has been saved since it was kept: what it
+    /// names on the server by folder and UID alone may be in another
+    /// mailbox under the same address (B-033).
+    var passwordSaves = 0
 
     /// Where it stands in the Outbox: nil for a letter that is not there.
     var outboxState: OutboxState? {
@@ -92,10 +99,16 @@ extension LocalDraft {
     /// Its row in Drafts, above the drafts on the server. Its id and thread
     /// can never be a server letter's, so it is never grouped with one: a
     /// tap has to open this letter and not whichever was newest in a stack.
-    func row(in mailboxID: String, from sender: String) -> MessageSummary {
+    ///
+    /// `notice` is why the last try did not take it to the server, when it
+    /// is one he can do something about (`LocalDrafts.whyNotSent`), under
+    /// the mark: a file it carries from a letter that cannot be found.
+    func row(in mailboxID: String, from sender: String,
+             notice: MailError? = nil) -> MessageSummary {
         let text = PreviewText.fromPlainText(draft.body)
+        let lines = [Self.mark, notice?.errorDescription, text.isEmpty ? nil : text]
         return row(Self.rowPrefix + key, in: mailboxID, from: sender,
-                   preview: text.isEmpty ? Self.mark : Self.mark + "\n" + text)
+                   preview: lines.compactMap { $0 }.joined(separator: "\n"))
     }
 
     /// The row of the copy it became on the server, `id`, drawn from the
@@ -176,6 +189,39 @@ extension Draft {
             && body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && attachments.isEmpty
     }
+
+    /// Whether it names anything on the server by folder and UID alone,
+    /// with no Gmail id to tell that it is still that letter: the copy it
+    /// was reopened from, a forward's or a reopened draft's file, or a
+    /// picture of its quote. So kept from a server without Gmail's
+    /// extension, or by a build before the ids were kept.
+    var namesByUIDAlone: Bool {
+        (savedID != nil && savedLetter == nil)
+            || attachments.contains { $0.isPartByUIDAlone }
+            || (quote?.pictures.contains { $0.letter == nil } ?? false)
+    }
+
+    /// The letter without what it names by folder and UID alone
+    /// (`namesByUIDAlone`), as a letter of another account opens
+    /// (`LocalDrafts.letter`): no copy to replace, those files left out,
+    /// and a quote with such a picture gone, as without the picture its
+    /// markup would show a broken box.
+    var forgettingWhatItNamesByUIDAlone: Draft {
+        var draft = self
+        if savedLetter == nil { draft.savedID = nil }
+        draft.attachments.removeAll { $0.isPartByUIDAlone }
+        if quote?.pictures.contains(where: { $0.letter == nil }) == true { draft.quote = nil }
+        return draft
+    }
+}
+
+extension DraftAttachment {
+
+    /// A part of a letter on the server named with no Gmail id.
+    var isPartByUIDAlone: Bool {
+        if case .messagePart(_, _, _, nil) = source { return true }
+        return false
+    }
 }
 
 // MARK: - On disk
@@ -215,10 +261,22 @@ final class LocalDraftStore {
     /// Bumped only for a change an older build could misread. A file of any
     /// other format is passed over.
     private static let format = 1
+    /// How many times a password has been saved, beside the letters and
+    /// never one of them: a name no letter's directory has.
+    private nonisolated static let savesFile = "password-saves"
+
+    /// How many times a password has been saved on this iPad, as this
+    /// launch found it (`notePasswordSaved`). Every letter kept now is
+    /// stamped with it (`LocalDraft.passwordSaves`). Read once, as the
+    /// store is made: a password saved in Settings reaches the repository
+    /// only at the next launch, so a letter kept after the save, in the
+    /// same launch, still names what it names in the old password's mailbox.
+    let passwordSaves: Int
 
     init(root: URL, now: @escaping () -> Date = { Date() }) {
         self.root = root
         self.now = now
+        passwordSaves = Self.passwordSaves(in: root)
     }
 
     /// The app's: Application Support, never Caches or tmp, which iOS may
@@ -230,6 +288,47 @@ final class LocalDraftStore {
             ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
                 .appendingPathComponent("Library/Application Support", isDirectory: true)
         return support.appendingPathComponent("Local Drafts", isDirectory: true)
+    }
+
+    // MARK: A password saved
+
+    /// A password has been saved, in setup or Settings
+    /// (`CredentialStore.save`): the count goes up, and the letters kept
+    /// before it are known for such from the next launch
+    /// (`savedSince`). Nothing of the letters themselves is touched: they
+    /// may be the only copy of what he wrote.
+    ///
+    /// Why a count and not the time of the save: a clock set back would
+    /// make a letter kept before the save look kept after it. A count
+    /// cannot run backwards, and a letter kept by a build before the count
+    /// was kept reads as kept before any save.
+    nonisolated static func notePasswordSaved(in root: URL) {
+        let files = FileManager.default
+        if !files.fileExists(atPath: root.path) {
+            try? files.createDirectory(at: root, withIntermediateDirectories: true)
+            excludeFromBackup(root)
+        }
+        let count = passwordSaves(in: root) + 1
+        try? Data(String(count).utf8).write(to: root.appendingPathComponent(savesFile),
+                                            options: .atomic)
+    }
+
+    /// The count `notePasswordSaved` keeps: 0 when no password has been
+    /// saved since this build began keeping it. A file there that cannot be
+    /// read is at least one save, since only a save writes it.
+    nonisolated static func passwordSaves(in root: URL) -> Int {
+        let url = root.appendingPathComponent(savesFile)
+        guard FileManager.default.fileExists(atPath: url.path) else { return 0 }
+        guard let data = try? Data(contentsOf: url),
+              let count = Int(String(decoding: data, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)), count > 0 else { return 1 }
+        return count
+    }
+
+    /// Whether a password has been saved since `letter` was kept, so that
+    /// what it names by folder and UID alone may be another mailbox's.
+    func savedSince(_ letter: LocalDraft) -> Bool {
+        letter.passwordSaves < passwordSaves
     }
 
     // MARK: Reading
@@ -291,10 +390,11 @@ final class LocalDraftStore {
             var file = StoredFile(filename: attachment.filename, mimeType: attachment.mimeType,
                                   size: attachment.size)
             switch attachment.source {
-            case let .messagePart(messageID, mailboxID, section):
+            case let .messagePart(messageID, mailboxID, section, original):
                 file.messageID = messageID
                 file.mailboxID = mailboxID
                 file.section = section
+                file.letter = original
             case let .localFile(url):
                 guard let name = linked(url, into: folder, known: before?.files ?? []) else {
                     continue
@@ -326,6 +426,7 @@ final class LocalDraftStore {
                             account: account, draft: draft, files: kept)
         letter.unsettled = before?.unsettled
         letter.cutOff = before?.cutOff
+        letter.passwordSaves = passwordSaves
         try write(letter)
         removeFiles(in: folder, keeping: names)
         return letter.letter(in: folder, markup: draft.quote?.html)
@@ -437,7 +538,7 @@ final class LocalDraftStore {
     private func makeFolder(for key: String) throws -> URL {
         if !files.fileExists(atPath: root.path) {
             try files.createDirectory(at: root, withIntermediateDirectories: true)
-            excludeFromBackup(root)
+            Self.excludeFromBackup(root)
         }
         let folder = folder(for: key)
         try files.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -446,7 +547,7 @@ final class LocalDraftStore {
 
     /// Not in his iCloud backup, as D-016 has it for the copy of his mail:
     /// a restore should not bring back letters that went long ago.
-    private func excludeFromBackup(_ url: URL) {
+    private nonisolated static func excludeFromBackup(_ url: URL) {
         #if os(iOS)
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -515,6 +616,9 @@ final class LocalDraftStore {
         var unsettled: [String]?
         /// `LocalDraft.cutOff`, absent when nothing is unsettled.
         var cutOff: Date?
+        /// `LocalDraft.passwordSaves`, absent from a letter kept before the
+        /// count was kept, which reads as 0, so no new format.
+        var passwordSaves: Int?
         var to: [String]
         var cc: [String]
         var bcc: [String]
@@ -523,6 +627,11 @@ final class LocalDraftStore {
         var inReplyTo: String?
         var references: String?
         var savedID: String?
+        /// `Draft.savedLetter`: Gmail's id for the copy `savedID` names.
+        /// Absent from a letter kept before the ids were, and from one whose
+        /// server named none; so is `StoredFile.letter`, and
+        /// `StoredPicture.letter`.
+        var savedLetter: UInt64?
         /// The original a reply or forward quotes, so that one sent later
         /// from the Outbox, or taken to Drafts, carries its look as one
         /// sent at once does (B-050). Absent for a letter quoting nothing.
@@ -547,6 +656,7 @@ final class LocalDraftStore {
             inReplyTo = draft.inReplyTo
             references = draft.references
             savedID = draft.savedID
+            savedLetter = draft.savedLetter
             quote = draft.quote.map(StoredQuote.init)
             self.files = files
         }
@@ -563,12 +673,14 @@ final class LocalDraftStore {
             draft.inReplyTo = inReplyTo
             draft.references = references
             draft.savedID = savedID
+            draft.savedLetter = savedLetter
             draft.quote = quote?.original(markup: markup)
             draft.attachments = files.compactMap { $0.attachment(in: folder) }
             return LocalDraft(key: key, draft: draft, version: version, tried: tried,
                               unfinished: unfinished, keptAt: keptAt, account: account,
                               gone: gone ?? false, outbox: outbox, unsettled: unsettled ?? [],
-                              cutOff: cutOff, markupBytes: quote?.markup ?? 0)
+                              cutOff: cutOff, markupBytes: quote?.markup ?? 0,
+                              passwordSaves: passwordSaves ?? 0)
         }
     }
 
@@ -602,6 +714,7 @@ final class LocalDraftStore {
         var messageID: String
         var mailboxID: String
         var section: String
+        var letter: UInt64?
 
         init(_ picture: QuotedOriginal.Picture) {
             contentID = picture.contentID
@@ -611,12 +724,13 @@ final class LocalDraftStore {
             messageID = picture.messageID
             mailboxID = picture.mailboxID
             section = picture.section
+            letter = picture.letter
         }
 
         var picture: QuotedOriginal.Picture {
             QuotedOriginal.Picture(contentID: contentID, filename: filename, mimeType: mimeType,
                                    size: size, messageID: messageID, mailboxID: mailboxID,
-                                   section: section)
+                                   section: section, letter: letter)
         }
     }
 
@@ -635,6 +749,7 @@ final class LocalDraftStore {
         var messageID: String?
         var mailboxID: String?
         var section: String?
+        var letter: UInt64?
 
         init(filename: String, mimeType: String, size: Int64?) {
             self.filename = filename
@@ -648,7 +763,7 @@ final class LocalDraftStore {
                 source = .localFile(folder.appendingPathComponent(name))
             } else if let messageID, let mailboxID, let section {
                 source = .messagePart(messageID: messageID, mailboxID: mailboxID,
-                                      section: section)
+                                      section: section, letter: letter)
             } else {
                 return nil
             }
@@ -708,8 +823,9 @@ final class LocalDrafts {
     /// Letters the server has taken since launch, and the id of the copy
     /// each became there, for a row in Drafts drawn before it went.
     private(set) var landed: [String: String] = [:]
-    /// Why each letter in `refused` that is in the Outbox was not sent: the
-    /// first line of its row there.
+    /// Why each letter in `refused` was not sent or taken to Drafts, where
+    /// its row says so: the first line of its row in the Outbox, the line
+    /// under the mark in Drafts. Set with `refused`, always (`refuse`).
     private var reasons: [String: MailError] = [:]
     /// The submission server refused the password during a send. Nothing
     /// more goes from the Outbox unasked until a Send of his own has gone,
@@ -744,9 +860,35 @@ final class LocalDrafts {
     /// connection is in the Outbox, and its old copy, still on the server,
     /// is not listed: tapped, it would open the letter to be sent a second
     /// time.
-    var replacedInDrafts: Set<String> {
-        Set(store.letters().filter { open[$0.key] == nil && !$0.gone }
-            .compactMap(\.draft.savedID))
+    ///
+    /// Not a copy named by folder and UID alone across a password saved
+    /// since the letter was kept (`LocalDraftStore.savedSince`): that UID
+    /// may be another draft now, and the letter no longer names it.
+    ///
+    /// Each by its id, with Gmail's id for the letter the kept one names
+    /// there (`Draft.savedLetter`), nil where it names none: a row the
+    /// listing names another letter under is not its copy, and stays listed
+    /// (`ListLetters.keep`). Kept from an earlier launch, the UID can hold
+    /// another draft, in a Drafts renumbered under the same UIDVALIDITY or
+    /// another mailbox under the same address, and hidden it could not be
+    /// seen or opened for as long as the letter waited.
+    var replacedInDrafts: [String: UInt64?] {
+        var copies: [String: UInt64?] = [:]
+        for letter in store.letters() where open[letter.key] == nil && !letter.gone {
+            guard let id = letter.draft.savedID,
+                  letter.draft.savedLetter != nil || !store.savedSince(letter) else { continue }
+            copies.updateValue(letter.draft.savedLetter, forKey: id)
+        }
+        return copies
+    }
+
+    /// Drafts' rows for the letters kept here (`waiting`), each saying under
+    /// its mark why the last try did not take it to the server, when that
+    /// is one he can do something about (`whyNotSent`): a file it carries
+    /// from a letter that cannot be found. What the list draws, so the
+    /// words a pass left are on the row he sees and not only in the model.
+    func draftsRows(in mailboxID: String, from sender: String) -> [MessageSummary] {
+        waiting.map { $0.row(in: mailboxID, from: sender, notice: whyNotSent($0.key)) }
     }
 
     /// Whether the letter kept as `key` is on its way to the server now.
@@ -758,7 +900,10 @@ final class LocalDrafts {
 
     /// Why the letter in the Outbox kept as `key` was not sent by the last
     /// pass that tried it, if it was refused for a reason of its own and is
-    /// as it was then. Nil for one simply waiting.
+    /// as it was then. Nil for one simply waiting. For a draft, only a file
+    /// it carries from a letter that cannot be found
+    /// (`MailError.attachmentsMissing`), which he can take off; its row
+    /// says nothing of a draft's other refusals, as it never has.
     func whyNotSent(_ key: String) -> MailError? {
         guard let letter = store.letter(key), refused[key] == letter.version else { return nil }
         return reasons[key]
@@ -770,6 +915,13 @@ final class LocalDrafts {
     /// from letters on the server, a forward's or a reopened draft's. Those
     /// are named by folder and UID, which in this account can be another
     /// letter: Gmail gives every Inbox the same UIDVALIDITY (D-016).
+    ///
+    /// One of this account, kept before a password was saved since, comes
+    /// without what it names by folder and UID alone, with no Gmail id to
+    /// tell that it is still that letter (`Draft.namesByUIDAlone`): a new
+    /// app password can open another mailbox under the same address
+    /// (B-033), where those UIDs are other letters. What names its letter
+    /// comes as it was; its id is what the repository goes by.
     func letter(_ key: String) -> LocalDraft? {
         guard var letter = store.letter(key), !letter.gone else { return nil }
         if !isMine(letter) {
@@ -780,6 +932,8 @@ final class LocalDrafts {
             // The quote's pictures are named the same way. Without them its
             // markup would show broken boxes, so the letter goes plain.
             letter.draft.quote = nil
+        } else if store.savedSince(letter) {
+            letter.draft = letter.draft.forgettingWhatItNamesByUIDAlone
         }
         return letter
     }
@@ -787,6 +941,17 @@ final class LocalDrafts {
     private func isMine(_ letter: LocalDraft) -> Bool {
         guard let theirs = letter.account, let account else { return false }
         return theirs.caseInsensitiveCompare(account) == .orderedSame
+    }
+
+    /// Whether a pass may take `letter` to the server as it is kept: a
+    /// letter of this account that names nothing by folder and UID alone
+    /// across a password saved since it was kept. One that does is another
+    /// account's as far as those names go, and waits, listed, for him to
+    /// open it, as another account's letter does: sent or taken to Drafts
+    /// with them left out, a forward would go without its file and nothing
+    /// would say so.
+    private func goesFromHere(_ letter: LocalDraft) -> Bool {
+        isMine(letter) && !(store.savedSince(letter) && letter.draft.namesByUIDAlone)
     }
 
     // MARK: The composer
@@ -935,21 +1100,30 @@ final class LocalDrafts {
         if !letter.unsettled.isEmpty {
             do {
                 if try await wentEarlier(letter, via: repository) {
-                    refused[key] = version
+                    refuse(key, at: version)
                     return
                 }
             } catch {
                 if (error as? MailError) == .passwordNeedsUpdating || error is CancellationError {
                     throw error
                 }
-                if error is Outbox.NoSentMail { refused[key] = version }
+                if error is Outbox.NoSentMail { refuse(key, at: version) }
                 return
             }
         }
         let store = self.store
-        let saved = try await repository.saveDraft(letter.draft, as: DraftUpload(
-            version: version, earlier: letter.tried,
-            appending: { try await store.noteTried(key, version) }))
+        let saved: DraftSaved
+        do {
+            saved = try await repository.saveDraft(letter.draft, as: DraftUpload(
+                version: version, earlier: letter.tried,
+                appending: { try await store.noteTried(key, version) }))
+        } catch MailError.attachmentsMissing {
+            // A file it carries from a letter that cannot be found: it stays,
+            // its row saying so, and is not tried again until he changes it.
+            refuse(key, at: version, saying: .attachmentsMissing)
+            announce()
+            throw MailError.attachmentsMissing
+        }
         if let now = store.letter(key), !now.gone, now.version == version {
             if open[key] == nil {
                 store.remove(key)
@@ -1131,19 +1305,21 @@ final class LocalDrafts {
             }
             if error is Outbox.Unsettled || error is LocalDraftStore.NotKept { return true }
             if Outbox.waits(after: error) { return false }
-            refused[key] = version
-            reasons[key] = error as? MailError ?? .notSent
+            refuse(key, at: version, saying: error as? MailError ?? .notSent)
             Diagnostics.log(.note, "OUTBOX-SEND refused error=\(type(of: error))")
             announce()
             return true
         }
         // Told to a list as gone before its removal, as the composer tells
         // it (`ComposeActions.send`'s `draftSent`), so the copy is never
-        // listed to be opened and sent again.
-        let saved = store.letter(key)?.draft.savedID
+        // listed to be opened and sent again. Removed only if the server
+        // shows it to be the letter it names (`Draft.savedLetter`).
+        let sent = store.letter(key)?.draft
+        let saved = sent?.savedID
         discard(key)
         announce(saved.map { DraftLanding(letter: nil, id: nil, replaced: [$0]) })
-        if let saved, (try? await repository.deleteDraft(saved)) == nil {
+        if let saved,
+           (try? await repository.deleteDraft(saved, gmailMessageID: sent?.savedLetter)) == nil {
             // Left in Drafts, as a Send from the composer leaves it when the
             // line goes after the 250.
             Diagnostics.log(.note, "OUTBOX-SENT draft copy left")
@@ -1226,7 +1402,8 @@ final class LocalDrafts {
                     if error is CancellationError
                         || (error as? MailError) == .passwordNeedsUpdating { return }
                     guard await repository.isConnected else { return }
-                    refused[key] = letter.version
+                    let missing = (error as? MailError) == .attachmentsMissing
+                    refuse(key, at: letter.version, saying: missing ? .attachmentsMissing : nil)
                     Diagnostics.log(.note, "DRAFT-UPLOAD refused error=\(type(of: error))")
                 }
             }
@@ -1235,18 +1412,30 @@ final class LocalDrafts {
 
     /// Whether a pass takes `letter`: not while the composer has it open,
     /// and, but for the leftovers of one sent or deleted, only a letter of
-    /// this account, not refused since launch as it stands, and small
-    /// unless `largeToo`. A letter in the Outbox not after a password the
-    /// submission server refused (`sendingRefused`), and small by what it
-    /// has to fetch from Gmail (`LocalDraft.fetchesLarge`).
+    /// this account that names nothing by folder and UID alone across a
+    /// password saved since (`goesFromHere`), not refused since launch as
+    /// it stands, and small unless `largeToo`. A letter in the Outbox not
+    /// after a password the submission server refused (`sendingRefused`),
+    /// and small by what it has to fetch from Gmail
+    /// (`LocalDraft.fetchesLarge`).
     private func isDue(_ letter: LocalDraft, largeToo: Bool) -> Bool {
         guard open[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
-        guard isMine(letter), refused[letter.key] != letter.version else { return false }
+        guard goesFromHere(letter), refused[letter.key] != letter.version else { return false }
         if letter.outbox != nil {
             return !sendingRefused && (largeToo || !letter.fetchesLarge)
         }
         return largeToo || !letter.isLarge
+    }
+
+    /// The letter kept as `key` is not tried again unasked as it stands at
+    /// `version`, and its row says `reason`, or nothing: never what an
+    /// earlier refusal of it said. Changed since, or moved between the
+    /// Outbox and Drafts, a letter refused again for a reason its row does
+    /// not give would otherwise go on showing the old one.
+    private func refuse(_ key: String, at version: String?, saying reason: MailError? = nil) {
+        refused[key] = version
+        reasons[key] = reason
     }
 
     /// Returns once nothing is on its way for `key`.
@@ -1329,7 +1518,9 @@ extension ComposeActions {
                 try await kept.send(draft, as: key, to: repository, progress: progress)
             },
             saveDraft: { draft in try await kept.save(draft, as: key, to: repository) },
-            deleteDraft: { id in try await repository.deleteDraft(id) },
+            deleteDraft: { id, letter in
+                try await repository.deleteDraft(id, gmailMessageID: letter)
+            },
             dismiss: dismiss, showError: showError, draw: draw, background: background,
             keeping: keeping, queued: queued)
     }

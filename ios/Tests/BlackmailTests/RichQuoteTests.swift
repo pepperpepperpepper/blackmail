@@ -110,7 +110,7 @@ final class RichQuoteTests: XCTestCase {
                                           forDraft: forDraft)
         let parts = originalParts
         func bytes(_ source: DraftAttachment.Source) -> Data {
-            guard case let .messagePart(_, _, section) = source else { return Data() }
+            guard case let .messagePart(_, _, section, _) = source else { return Data() }
             return parts[section] ?? Data()
         }
         return RFC5322Builder.build(

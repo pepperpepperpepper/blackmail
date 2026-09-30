@@ -3130,10 +3130,162 @@ account is listed and goes nowhere until he opens it and saves or sends it,
 and it opens without the files it named on the server, a forward's or a
 reopened draft's: those are named by folder and UID, and Gmail gives every
 Inbox the same UIDVALIDITY (D-016), so in another account they can be parts
-of another letter. Not covered: a password saved in Settings that opens
-another mailbox under the same address (B-033). Telling the two mailboxes
-apart needs D-016's identity rule, X-GM-MSGID, which the rows on screen
-carry since 2026-09-30 (B-053) and these kept references do not yet.
+of another letter.
+
+**Another mailbox under the same address, built 2026-09-30.** A password
+saved in Settings can open another mailbox under his address (B-033), and a
+mailbox can be renumbered under the UIDVALIDITY it had; either way a folder
+and a UID a kept letter names can be another letter. Found in the code and
+made on the scripted server, not on the iPad: a draft reopened from its
+row and saved offline, taken up in a later launch with Drafts renumbered
+under the same UIDVALIDITY, sent `UID STORE 302 +FLAGS.SILENT (\Deleted)`
+and `UID EXPUNGE 302` onto another draft; and a forward of "Plans", sent
+offline, went in the next launch with the file of the letter now under the
+Plans' UID, "Medical results", as Plans.pdf.
+
+Now everything a kept letter names on the server names its letter by Gmail's
+id (X-GM-MSGID) as well as by folder and UID: the copy it was reopened from,
+each of a forward's or a reopened draft's files, and each picture of its
+quote, kept in `letter.json` beside them (`savedLetter`, and `letter` in
+each file and picture; absent from a letter kept before, which reads as it
+did). The id is that of the row the letter came from: a letter opened from a
+row is that letter once the server has said so (B-053), and a forward, a
+reply or a draft reopened from it carries its id (`Message.gmailMessageID`).
+A copy this launch put in Drafts itself, reopened from the row its upload
+drew, which names no letter, has its id asked in its own FETCH, `UID FETCH n
+(UID X-GM-MSGID BODY.PEEK[])` in place of `(UID BODY.PEEK[])`, at no round
+trip more. So has a copy an upload cut off after Gmail had it left there,
+which the next upload finds by its version's Message-ID and takes as its
+own: that search was made in this launch, so the copy is this launch's own
+as surely as one its APPEND named. Left out at first, such a copy was
+fetched plainly and named nothing, and a draft reopened from it and kept
+offline into a later launch removed, and sent the file of, whatever draft
+was then under its UID. Nothing is added to an upload, a Save Draft or an
+autosave: asking in the APPEND's hold would have cost a SELECT and a FETCH
+at every upload, and naming the copy by its version's Message-ID a second
+kind of name to vouch by. Nothing is removed, fetched into a letter or sent
+by folder and UID alone unless the server has shown in this launch that the
+UID holds that letter, by B-053's rules:
+
+- The copy a letter was reopened from goes as a write on a row goes
+  (`deleteDraft`): the same letter named under its UID in this launch, and
+  the `UID STORE` and `UID EXPUNGE` go as they always did; another, and
+  nothing is sent; none yet, and `UID FETCH n (UID X-GM-MSGID)` goes first.
+  Refused, nothing is expunged and the new version is in Drafts all the
+  same; the log says `KEPT-UNVOUCHED folder=[Gmail]/Drafts nothing-sent` and
+  `DRAFT-SUPERSEDED folder=[Gmail]/Drafts not-that-letter left`. The old
+  copy stays in Drafts for him to delete; it is not guessed at. The same for
+  the copy removed after Send or by Delete Draft in the composer, and after
+  the Outbox's pass has sent the letter. Drafts' list leaves out the copy a
+  kept letter stands in for only where the listing names, under its UID, the
+  letter the kept one names there (`ListLetters.keep`); another draft under
+  that UID stays listed. It used to be hidden by its UID alone for as long
+  as the letter waited, where he could neither see nor open it.
+- A file or a picture is taken from the letter the reading pane last
+  fetched only when that is its letter. Otherwise it is fetched as it
+  always was, and the FETCH that describes the letter, which on Gmail asks
+  X-GM-MSGID already, is compared before the part's bytes are asked for:
+  no round trip more, and nothing changed on the wire. Under a UID this
+  launch has seen to hold another letter, nothing is sent at all. Not
+  there, whether another letter is under the UID, none is, or its folder
+  is gone or renumbered, the letter is looked for by its id in All Mail,
+  `UID SEARCH X-GM-MSGID`, and the same part fetched there, that FETCH
+  naming the letter too; the log says `CARRIED-PART folder=INBOX
+  reason=another-letter` (or `gone`, or `folder`), then `CARRIED-PART found
+  folder=[Gmail]/All Mail`. A forward whose original has been archived
+  since is found the same way, where it used to fail. A line that goes
+  while the letter is described or looked for is not the letter's being
+  gone: nothing is noted of it, and the letter waits for the connection as
+  any other does.
+- Not found in All Mail either, nothing of the letter goes (`CARRIED-PART
+  not-found nothing-sent`): it stays on the iPad saying "One or more
+  attachments failed to load.", in Drafts on the line under "On this iPad
+  only" (`LocalDrafts.draftsRows`, which the list draws), in the Outbox as
+  its reason (B-052), and in the sheet if he sends it, and is not tried
+  again unasked until he changes it or the app is launched again; the
+  letters after it go. Changed since and refused again for a reason a
+  draft's row does not give, it says nothing: each refusal sets its own
+  reason, or none, and an earlier one's does not stay behind. The words are
+  Mail's, as its users quote the alert iOS Mail puts up when a forward's
+  attachments cannot be had ("Unable to Attach", "One or more attachments
+  failed to load.", Apple's forums, thread 254851082, iOS 16.4.1). Mail
+  offers Continue Anyway there; nothing here sends a letter short of a file.
+  A sixth string beside the spec's four, as "This message is too big to
+  send" is (`MailError.attachmentsMissing`).
+
+A letter kept by a build before the ids were names things by folder and UID
+alone, and goes as it always did until a password is saved.
+`CredentialStore.save` counts each save in `Local Drafts/password-saves`,
+beside the letters and touching none of them, and each letter is stamped
+with the count its launch found (`passwordSaves` in `letter.json`; absent,
+so 0, in one kept before). A password saved in Settings reaches the
+repository only at the next launch, so from then on a letter kept before
+the save opens without what it names by UID alone, as a letter of another
+account opens, is not taken to the server by a pass, and no longer hides
+its old copy in Drafts' list; a letter kept after the save names this
+mailbox's letters. A count rather than the time of the save: a clock set
+back would make a letter kept before the save look kept after it. The same
+rule holds for a letter kept from a server without Gmail's extension, whose
+rows carry no id; with no password saved, such a server goes by folder and
+UID as it always did. Nothing is said on such a letter's row, as nothing
+is said on another account's: it is listed, and opened it shows what it
+has lost.
+
+**Tested** in `KeptReferencesTests`, over the shipping repository and
+`LocalDrafts`, the scripted server and a submission server, a later launch
+being a new repository and store over the same directories, and another
+mailbox the same one renumbered under its UIDVALIDITY: the draft reopened
+and saved offline removes no other draft whether Drafts has been listed or
+not, the question asked in the second case, and removes its own copy, asked
+about only when unlisted; a copy this launch uploaded names itself when
+reopened; Send and Delete Draft in the composer, and the Outbox's pass,
+remove no other draft; a draft reopened, saved and sent in one launch sends
+what it did; the forward sends the Plans' own file, found in All Mail, never
+the other letter's, whether the listing named the other letter or the
+describing FETCH did, with the other letter on screen, or with its folder
+given a new UIDVALIDITY; nowhere to be found, it stays in the Outbox with
+the words, lets the next letter go, is not tried again, and keeps the sheet;
+a quoted picture the same; a draft whose file is nowhere stays in Drafts
+with the words; a forward made and sent in one launch, and one sent by the
+Outbox's pass in its launch, ask for nothing more, and one sent after
+another letter was opened sends the two FETCHes it always did; an autosave
+keeps the ids and sends nothing; an old `letter.json` reads and goes as it
+did, and after a password save, from the next launch, opens without what it
+names by UID alone, is not taken up and does not hide its copy, while one
+kept after the save keeps its names; letters kept before a save that name
+their letters, and a plain one, go as ever after it; on a server without the
+extension nothing is named and everything goes as before; a copy found by
+its Message-ID after a cut-off upload names itself when reopened, and
+neither the draft nor the forward reopened from it removes or sends another
+draft's; Drafts lists another draft under a kept letter's UID and leaves out
+its own copy; a draft refused again for another reason no longer shows the
+words; and a line lost while the original is described or looked for in All
+Mail leaves the forward waiting, saying nothing, and the next pass sends it.
+Each fails with its part undone in a scratch copy, one at a time:
+forty-three sabotages, each failing at least the test named for it (the
+superseded copy, the pass's copy, the composer's Send and Delete Draft
+naming no letter; the reopened draft not naming its copy; `savedLetter`, a
+file's id or a picture's id not kept; `deleteDraft` ignoring the letter; the
+part's FETCH not comparing; this launch's `seen` not asked before a part; no
+look in All Mail, or none for a renumbered folder; a forward or a quoted
+picture not naming its original; the letter opened not naming itself; the
+reading pane's copy not naming its letter, or taken whatever its letter;
+"not found" said as `attachmentFailed`; a draft's refusal not written down,
+or its row without the words; the password count never or always "saved
+since", not written, read at every call rather than at launch, or not
+stamped at a keep; a pass taking a letter naming by UID alone across a save,
+a letter opened keeping those names, Drafts hiding its copy; a copy this
+launch uploaded not remembered, or fetched by the FETCH that brings nothing
+without the extension; the copy or the part asked about by a FETCH of its
+own whatever this launch had seen; a copy found by its Message-ID not
+remembered as this launch's; the Drafts row drawn without the words; Drafts'
+list hiding by UID alone, never hiding a named copy, or not handed the
+letters; an earlier refusal's words left behind; every letter kept before a
+save held, or what names its letter dropped with the rest after one; and a
+line lost in the look in All Mail, or in the describing FETCH, taken for the
+original's being gone).
+
+**Not yet seen on the iPad.** The TODO says how to make each case by hand.
 
 **Tested** in `LocalDraftsTests`, with the composer's own wiring
 (`ComposeActions(letter:…)`), the shipping `LocalDrafts` and the repository
@@ -3200,16 +3352,18 @@ leftovers' removal doing nothing.
 asks the server. `HEADER Message-ID` has not been tried against Gmail's own
 SEARCH. A kept letter carries a forward's files, and a reopened draft's, as
 parts of a letter on the server; if that letter is deleted from Gmail before
-the kept one goes up, the upload fails, and the letter stays in Drafts on
-the iPad, where he can open it and take the file out; nothing says why. A
-large letter on a slow uplink may not finish in the time iOS gives as he
-leaves, and then goes again from the start, looked for first, at the next
-departure; Save Draft in the composer sends it at once. Move and Mark in
-Edit pass over kept letters without saying so. The Edit-mode routing and the
-list's handling of a landing are UIKit, and only the pieces under them are
-tested here (`LocalDrafts.delete`, `ListLetters.landed`). A Send cut off by
-iOS ending the app comes back as a draft, and may be a letter that went:
-that is the Outbox's to settle, next, on this store (TODO).
+the kept one goes up, and is not in All Mail, the upload fails, and the
+letter stays in Drafts on the iPad saying "One or more attachments failed to
+load.", where he can open it and take the file out (above, "Another mailbox
+under the same address"). One kept before the ids were says nothing. A large
+letter on a slow uplink may not finish in the time iOS gives as he leaves,
+and then goes again from the start, looked for first, at the next departure;
+Save Draft in the composer sends it at once. Move and Mark in Edit pass over
+kept letters without saying so. The Edit-mode routing and the list's handling
+of a landing are UIKit, and only the pieces under them are tested here
+(`LocalDrafts.delete`, `ListLetters.landed`). A Send cut off by iOS ending
+the app comes back as a draft, and may be a letter that went: that is the
+Outbox's to settle, next, on this store (TODO).
 
 **Not yet seen on the iPad.** The TODO says what to look at.
 
@@ -3560,7 +3714,8 @@ the connection is up. In Edit, Delete takes it off the iPad. A letter
 reopened from Drafts and sent with no connection is not listed in Drafts
 while it waits, where a tap would open it to be sent a second time, and
 its copy there is removed once it has gone, as Send in the composer
-removes it.
+removes it, and only if the server shows that UID still to hold the draft
+he reopened (B-051, "Another mailbox under the same address").
 
 **What waits and what keeps the sheet** (`Outbox.waits(after:)`). Waits,
 since nothing was said about the letter and it may go later as it is:
@@ -3584,8 +3739,14 @@ nobody; every recipient refused with a 4yz is "not now") and
 folder renumbered or deleted since, which the IMAP client says as "Can't
 connect" and the repository now tells from a connection that is down: taken
 for one, such a forward waited for good and, as the oldest, ended every
-pass before the letters after it). Anything else, a photo's file that
-cannot be read, is "Message was not sent." as it always was. `SMTPClient`
+pass before the letters after it). Since 2026-09-30 that is a file named
+by folder and UID alone, kept before the ids were or from a server without
+Gmail's extension; one that names its letter by Gmail's id is looked for
+in All Mail when it is not under its UID, and goes from there, and found
+nowhere it is `attachmentsMissing`, "One or more attachments failed to
+load.", its row's first line, which keeps the sheet as well (B-051).
+Anything else, a photo's file that cannot be read, is "Message was not
+sent." as it always was. `SMTPClient`
 used to throw `notSent` for all of it past the connect; it now tells a line
 that went, a transport error, and a "not now" from a refusal. Both are
 read out as "Message was not sent.", so the share extension says what it
@@ -3624,6 +3785,10 @@ goes; a list reads the letters without it. It counts toward the megabyte
 that holds a draft's upload back (`LocalDraft.isLarge`), since it goes in
 the APPEND. Another account's letters are listed and never sent from this one,
 and open without the quote or the parts they name on the server (B-051).
+So, since 2026-09-30, are this account's letters kept before a password was
+saved that name parts by folder and UID alone; every other part a letter
+in the Outbox carries names its letter by Gmail's id, and goes only from
+that letter (B-051).
 
 **Never twice.** A letter is waiting until its attempt is about to send
 DATA; just before, once the server has taken the envelope, the attempt is
@@ -3739,59 +3904,60 @@ on its row, is not tried again until a relaunch. Letters go oldest first.
 An unreachable submission server ends the Outbox's part of the pass. The
 reopened draft's copy is not listed while the letter waits, and is removed
 after it goes. Photos do not hold a letter back and a forward's files do.
-Another account's letter is not sent, and opens without its quote. The rows,
-count, VoiceOver label, open, close untouched, swipe to a draft, and
-Delete. With nowhere to keep it, Send goes straight and a failure keeps the
-sheet. The submission client tells a lost line from a refusal; DATA waits
-for the write before it and never goes when that throws; the quote
-survives the store; the line's three lines. Also: a letter Gmail filed
-in a Sent Mail already open is found; nothing found a moment after
-the cut sends nothing, from a pass or the composer, and the composer's
-Send keeps the Message-ID; the look goes to All Mail with no Sent Mail
-listed, and with neither the letter is refused with its reason and no
-folder is guessed; a look cut off goes once more on a new connection; a
-look refused for its password keeps the sheet; a letter saved as a draft
-with an attempt unsettled is not taken to Drafts while Gmail has it, and a
-Send from it sends nothing, and is taken there once Sent Mail has not got
-it; a letter a pass sent leaves the Outbox and its Drafts copy's row before
-the copy is removed; a pass leaves a letter opened as its turn comes; a
-forward whose original's folder was renumbered is refused with its reason
+Another account's letter is not sent, and opens without its quote. What a
+letter in the Outbox names on the server, its reopened draft's copy, its
+files and its quoted pictures, is tested with the drafts' in
+`KeptReferencesTests` (B-051). The rows, count, VoiceOver label, open,
+close untouched, swipe to a draft, and Delete. With nowhere to keep it,
+Send goes straight and a failure keeps the sheet. The submission client
+tells a lost line from a refusal; DATA waits for the write before it and
+never goes when that throws; the quote survives the store; the line's three
+lines. Also: a letter Gmail filed in a Sent Mail already open is found;
+nothing found a moment after the cut sends nothing, from a pass or the
+composer, and the composer's Send keeps the Message-ID; the look goes to All
+Mail with no Sent Mail listed, and with neither the letter is refused with
+its reason and no folder is guessed; a look cut off goes once more on a new
+connection; a look refused for its password keeps the sheet; a letter saved
+as a draft with an attempt unsettled is not taken to Drafts while Gmail has
+it, and a Send from it sends nothing, and is taken there once Sent Mail has
+not got it; a letter a pass sent leaves the Outbox and its Drafts copy's row
+before the copy is removed; a pass leaves a letter opened as its turn comes;
+a forward whose original's folder was renumbered is refused with its reason
 and lets the next letter go; a "not now" at three steps waits, settles the
 attempt, and does not try AUTH LOGIN; a lost line at a deadline and at a
 reset is a lost line; the attempt is written down after the last RCPT and
 not at all when every recipient is refused; the Outbox goes before a draft,
 and an unreachable server leaves the draft to go; his own Send refused for
-its password stops the pass; a pass sending a letter after a cut-off
-upload leaves nothing in Drafts; a quote's markup is kept beside the
-letter and counted in its size; a forward's quoted pictures are counted
-once; the notice's words. Each of these fails with its part undone in a
-scratch copy: thirty-seven sabotages at first, each failing at least the
-test named for it (the queued branch, the entry into the Outbox, a lost
-line keeping the sheet, the SMTP split, the look, a refused look taken as
-none, the write before DATA, a deleted letter's DATA, the Message-ID, the
-password latch and its clearing, a refusal stopping the pass or not being
-recorded, the Drafts copy kept or listed, the Outbox in Drafts, an open
-letter in the Outbox, a keep leaving it in the Outbox, photos holding it,
-another account's letters sent or their quote kept, the letter not taken
-back or its attempt not settled after a refusal, the unsent line, the
-quote, the pass skipping the Outbox, `unsettled` dropped at a keep, the
-sheet not letting go or staying live, the count read as unread, the row's
-reason, the order, an unreachable server tried for every letter, a refused
-look stopping the pass, the look made in Drafts, the fallback queuing, the
-row's name), and twenty-six more for what followed, each failing the test
-named for it (the look without its NOOP, or with the NOOP skipped inside
-two seconds; the Drafts copy removed before the letter left the Outbox; the
-pass's open check and its order; a forward's refused folder taken for no
-connection; a 4yz read as a refusal, AUTH LOGIN after one, a verdict after
-DATA left unsettled; no settle time; a new Message-ID at every Send; Sent
-Mail guessed; the markup in the JSON, not counted, or written at every
-keep; the old notice; a forward's pictures counted twice; a letter saved as
-a draft taken to Drafts unlooked; the pass's discard a plain remove, and no
-tidy after it; his own Send's refused password not latched; only a clean
-close taken as a lost line; no retry for the look; a refused password at
-the look taken as unsettled; drafts before the Outbox; an unreachable
-server ending the drafts too; the write before DATA made before MAIL FROM
-as well).
+its password stops the pass; a pass sending a letter after a cut-off upload
+leaves nothing in Drafts; a quote's markup is kept beside the letter and
+counted in its size; a forward's quoted pictures are counted once; the
+notice's words. Each of these fails with its part undone in a scratch copy:
+thirty-seven sabotages at first, each failing at least the test named for it
+(the queued branch, the entry into the Outbox, a lost line keeping the
+sheet, the SMTP split, the look, a refused look taken as none, the write
+before DATA, a deleted letter's DATA, the Message-ID, the password latch and
+its clearing, a refusal stopping the pass or not being recorded, the Drafts
+copy kept or listed, the Outbox in Drafts, an open letter in the Outbox, a
+keep leaving it in the Outbox, photos holding it, another account's letters
+sent or their quote kept, the letter not taken back or its attempt not
+settled after a refusal, the unsent line, the quote, the pass skipping the
+Outbox, `unsettled` dropped at a keep, the sheet not letting go or staying
+live, the count read as unread, the row's reason, the order, an unreachable
+server tried for every letter, a refused look stopping the pass, the look
+made in Drafts, the fallback queuing, the row's name), and twenty-six more
+for what followed, each failing the test named for it (the look without its
+NOOP, or with the NOOP skipped inside two seconds; the Drafts copy removed
+before the letter left the Outbox; the pass's open check and its order; a
+forward's refused folder taken for no connection; a 4yz read as a refusal,
+AUTH LOGIN after one, a verdict after DATA left unsettled; no settle time; a
+new Message-ID at every Send; Sent Mail guessed; the markup in the JSON, not
+counted, or written at every keep; the old notice; a forward's pictures
+counted twice; a letter saved as a draft taken to Drafts unlooked; the
+pass's discard a plain remove, and no tidy after it; his own Send's refused
+password not latched; only a clean close taken as a lost line; no retry for
+the look; a refused password at the look taken as unsettled; drafts before
+the Outbox; an unreachable server ending the drafts too; the write before
+DATA made before MAIL FROM as well).
 
 **Not taken, and still to do.** That Gmail files a letter taken over SMTP
 in Sent Mail under the Message-ID the app gave it has not been checked
@@ -3987,11 +4153,14 @@ so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
   listing. Until 2026-09-30 it stopped as soon as a listing from the top had
   found kept rows under the same UIDs with the same ids, or the row's own
   folder had been listed, so a kept row the fresh page lacked went unasked;
-  that rule now covers only a call that names no letter: a draft removed, a
+  that rule now covers only a call that names no letter: a draft removed
+  that was found by its Message-ID, or whose draft names no letter (a draft
+  removed names the letter its draft names since 2026-09-30, B-051), a
   letter kept in Local Drafts that has gone up, opened in the composer from
   its row (`openDraft`, which names its copy in Drafts by folder and UID
-  alone), and a row from a server without Gmail's extension, whose
-  UIDVALIDITY is taken at its word, as it always was.
+  alone, and asks its id in the same FETCH), and a row from a server
+  without Gmail's extension, whose UIDVALIDITY is taken at its word, as it
+  always was.
 - The question, for a letter opened, in the reading pane, a conversation or
   Drafts' composer: asked by the FETCH that brings it and at no round trip
   more: `UID FETCH <uid> (UID X-GM-MSGID BODY.PEEK[])` in place of `(UID
@@ -4145,62 +4314,61 @@ has one (`KeptShelves`): `RepositoryWireTests`, `RepositoryTrafficTests`,
 rest. Where they have a row at hand its writes and its letter opened name
 the row's Gmail message id, as the app's do (`NamingTheLetter`); only a
 draft reopened by the id its upload gave it, a letter taken by its UID with
-no row, and the one test of a write naming no letter on Gmail's rows name
-none (`NamingNoLetter`). A row listed from a server without the extension
-has no id to name. Each of these fails with its part undone in a scratch
-copy, one sabotage at a time, each failing the test named for it. Thirty in
-the first build: no page kept, every page kept, the read mark not kept, the
-flag kept before the server's OK, a binned letter left on other pages, a
-flag not kept on the same letter elsewhere, no discard for a new UIDVALIDITY
-or for another message id, the previews not carried to the kept page, the
-list carrying them whatever the message id, no vouching, a mismatch written
-anyway, vouching after the mailbox is proven or twice for one row, the pane
-putting a mismatched row back, a wipe that removes nothing or leaves the
-running shelf keeping, another format read, a bad file left on disk,
-another account's copy kept, the folder list not kept, the previews not
-kept, a kept page drawn for a jump and the Outbox, the line saying the age
-while it checks, the watch checking the kept rows, a swap to the top when
-scrolled or under a finger, a swap that clears the search, a listing that
-vouches the kept page at launch, and a kept subject in the discard note.
-Thirty-one since: a letter opened unvouched, a proven row's letter fetched
-with the id, a disowned row forgotten, the opening FETCH without PEEK, a
-kept row dropped whatever has landed, the list's row taken whatever it now
-is, the extension read outside the hold, a server without it asked anyway,
-his marks not held over a listing, put onto another letter, and a refused
-read mark or flag put back onto another letter, a row with no message id
-refusing a preview, a second fetch over the kept page while one is out, the
-watch's before the folder's own, a fetch while a page waits, a held page
-put on under a finger or ticks, or over rows he has replaced, a folder
-listed before the LIST, ticks ignored, the Trash's Delete and a draft
-removed unvouched, a listing that does not prove its own rows (which fails
-twenty-nine tests across the wire suites as well as its own), a delete in
-Trash or a draft removed left on its page, a move to Spam left on All
-Mail's, a move out of All Mail taken off it, a disowned row left hidden
+no row, a draft removed by its id alone, and the one test of a write naming
+no letter on Gmail's rows name none (`NamingNoLetter`). A row listed from a
+server without the extension has no id to name. Each of these fails with
+its part undone in a scratch copy, one sabotage at a time, each failing
+the test named for it. Thirty in the first build: no page kept, every page
+kept, the read mark not kept, the flag kept before the server's OK, a binned
+letter left on other pages, a flag not kept on the same letter elsewhere, no
+discard for a new UIDVALIDITY or for another message id, the previews not
+carried to the kept page, the list carrying them whatever the message id, no
+vouching, a mismatch written anyway, vouching after the mailbox is proven or
+twice for one row, the pane putting a mismatched row back, a wipe that
+removes nothing or leaves the running shelf keeping, another format read, a
+bad file left on disk, another account's copy kept, the folder list not
+kept, the previews not kept, a kept page drawn for a jump and the Outbox,
+the line saying the age while it checks, the watch checking the kept rows, a
+swap to the top when scrolled or under a finger, a swap that clears the
+search, a listing that vouches the kept page at launch, and a kept subject
+in the discard note. Thirty-one since: a letter opened unvouched, a proven
+row's letter fetched with the id, a disowned row forgotten, the opening
+FETCH without PEEK, a kept row dropped whatever has landed, the list's row
+taken whatever it now is, the extension read outside the hold, a server
+without it asked anyway, his marks not held over a listing, put onto another
+letter, and a refused read mark or flag put back onto another letter, a row
+with no message id refusing a preview, a second fetch over the kept page
+while one is out, the watch's before the folder's own, a fetch while a page
+waits, a held page put on under a finger or ticks, or over rows he has
+replaced, a folder listed before the LIST, ticks ignored, the Trash's Delete
+and a draft removed unvouched, a listing that does not prove its own rows
+(which fails twenty-nine tests across the wire suites as well as its own), a
+delete in Trash or a draft removed left on its page, a move to Spam left on
+All Mail's, a move out of All Mail taken off it, a disowned row left hidden
 after the next listing, a day jumped to still the kept page, the vouch not
 retried, and the flag not held. One after the iPad: the kept counts left at
-the last sweep's (`MailShelfTests`). Thirteen for every write and every
-open naming its letter: the row's id ignored; another letter under the
-UID asked about rather than refused; a UID named nothing yet taken as
-vouched once its folder has been listed; the server's answer not
-remembered; only a matching answer remembered; the pane editing the
-list's row whatever letter it is; no row remembered, which fails eleven
-of the pane's tests too, their pinned wire gaining a FETCH; only a
-listing from the top remembered, which fails the page below, the day, the
-search hit, the watch's letter and All Mail's copy; a write naming no
-letter never asked, or asked whenever its UID is unnamed; a new
-UIDVALIDITY keeping the old letters; the proven mailbox still trusted for
-a named letter; and the pane naming no letter. Three of them run again
-once the suites named their rows: the proven mailbox trusted for a named
-letter the server has named nothing under fails the test of kept rows
-pushed off the fresh page at each of its four questions, and five others;
-no row remembered fails thirty of the pane's and the wire suites' tests
-where it failed eleven, their pinned wire gaining a FETCH; and another
-letter under the UID asked about rather than refused fails the letter
-opened from a kept row that is another letter, which pins the two FETCHes
-the app sends where it pinned four. And a disowned row forgotten, which no
-test caught once a tap's read mark and FETCH named their letter, fails a
-landed draft refused on reopening and then removed, its copy's EXPUNGE
-sent unasked onto the other draft.
+the last sweep's (`MailShelfTests`). Thirteen for every write and every open
+naming its letter: the row's id ignored; another letter under the UID asked
+about rather than refused; a UID named nothing yet taken as vouched once its
+folder has been listed; the server's answer not remembered; only a matching
+answer remembered; the pane editing the list's row whatever letter it is; no
+row remembered, which fails eleven of the pane's tests too, their pinned
+wire gaining a FETCH; only a listing from the top remembered, which fails
+the page below, the day, the search hit, the watch's letter and All Mail's
+copy; a write naming no letter never asked, or asked whenever its UID is
+unnamed; a new UIDVALIDITY keeping the old letters; the proven mailbox still
+trusted for a named letter; and the pane naming no letter. Three of them run
+again once the suites named their rows: the proven mailbox trusted for a
+named letter the server has named nothing under fails the test of kept rows
+pushed off the fresh page at each of its four questions, and five others; no
+row remembered fails thirty of the pane's and the wire suites' tests where
+it failed eleven, their pinned wire gaining a FETCH; and another letter
+under the UID asked about rather than refused fails the letter opened from a
+kept row that is another letter, which pins the two FETCHes the app sends
+where it pinned four. And a disowned row forgotten, which no test caught
+once a tap's read mark and FETCH named their letter, fails a landed draft
+refused on reopening and then removed, its copy's EXPUNGE sent unasked onto
+the other draft.
 
 **Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
 was merged; force-quit is the app sent to the background, then ended:

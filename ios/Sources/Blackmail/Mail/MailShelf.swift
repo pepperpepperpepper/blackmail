@@ -25,9 +25,9 @@ import Foundation
 /// opened from one, names the row's Gmail message id, and the repository
 /// asks the server for it under the UID unless this launch has had that
 /// letter or another from the server there (`IMAPMailRepository.seen`);
-/// a call that names no id, a draft removed or a landed draft reopened,
-/// goes by `unproven`. Saving a password throws the whole of `Kept/` away
-/// (`wipe`).
+/// a call that names no id, a draft removed whose draft names no letter
+/// or a landed draft reopened, goes by `unproven`. Saving a password
+/// throws the whole of `Kept/` away (`wipe`).
 ///
 /// JSON files, one for the folders and one per page, read whole and
 /// written whole, atomically, as D-016 chose: nothing kept is ever queried,
@@ -348,8 +348,9 @@ final class MailShelf: @unchecked Sendable {
     /// sent under is what tells.
     ///
     /// Only for a write or an opening that names no Gmail message id: a
-    /// draft removed, the copy of a letter that has just gone up, a row
-    /// from a server without the extension. The rest name the row's own,
+    /// draft removed that was found by its Message-ID or whose draft names
+    /// no letter, the copy of a letter that has just gone up, a row from a
+    /// server without the extension. The rest name the row's own,
     /// and the repository decides them by what this launch has had from
     /// the server under the UID (`IMAPMailRepository.question`), which a
     /// listing from the top does not settle for a kept row still drawn

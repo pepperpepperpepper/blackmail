@@ -45,8 +45,20 @@ actor IMAPMailRepository: MailRepository {
     /// account in another language it is not an English word at all.
     private var roleNames: [Mailbox.Role: String] = [:]
     /// The last whole message downloaded, kept so opening an attachment does
-    /// not re-fetch the entire message it came from.
-    private var lastBody: (messageID: String, raw: Data)?
+    /// not re-fetch the entire message it came from, with Gmail's id for
+    /// the letter it is when the server has named it
+    /// (`Message.gmailMessageID`): a part a letter being built names by
+    /// that id is taken from here only when it is the same letter
+    /// (`carriedPart`).
+    private var lastBody: (messageID: String, letter: UInt64?, raw: Data)?
+    /// The copies this launch has put in Drafts itself, by folder name and
+    /// id, as APPENDUID gave them, or as the search by its version's
+    /// Message-ID found one a cut-off upload left (`saveDraft`). One
+    /// reopened is fetched with Gmail's id for it asked in the same FETCH
+    /// (`loadMessageOnce`), so the draft made from it names its copy, and
+    /// the files and pictures it carries in that copy, by the id as a draft
+    /// reopened from a listed row does.
+    private var appendedHere: Set<String> = []
     /// Which body part each listed message's preview should come from,
     /// remembered from the BODYSTRUCTURE the list fetch already paid for.
     /// Without it, `previews` would have to re-fetch every structure it was
@@ -72,10 +84,12 @@ actor IMAPMailRepository: MailRepository {
 
     /// Gmail's id for the letter under each UID of each folder, as the
     /// server has named it in this launch: in every row it has sent, from
-    /// whichever listing, page, day, search or check for news (`rows`), and
-    /// in every answer to a question about a row it had not sent
-    /// (`settle`). By folder name, under the UIDVALIDITY it was named in;
-    /// a new one forgets the folder's (`saw`).
+    /// whichever listing, page, day, search or check for news (`rows`), in
+    /// every answer to a question about a row it had not sent (`settle`),
+    /// in a copy this launch put in Drafts, reopened (`loadMessageOnce`),
+    /// and in the FETCH that describes a letter a part is carried from
+    /// (`carriedPart`). By folder name, under the UIDVALIDITY it was named
+    /// in; a new one forgets the folder's (`saw`).
     ///
     /// What a write, or a letter opened, that names its row's Gmail message
     /// id is decided by (`question`): where the server has named that
@@ -1334,6 +1348,9 @@ actor IMAPMailRepository: MailRepository {
         let message = try Self.parseID(id)
 
         let raw: Data
+        // Which letter it is, for what a Forward, a reply or a reopened
+        // draft made from it names beside its folder and UID.
+        var named = letter ?? seenLetter(message.uid, validity: message.validity, in: name)
         if let asked = try question(about: id, named: letter, uid: message.uid,
                                     validity: message.validity, in: name, sayingSo: "nothing-shown") {
             // A row this launch has not had from the server, a row kept on
@@ -1346,11 +1363,23 @@ actor IMAPMailRepository: MailRepository {
             try settle(answer.letter, askedOf: id, uid: message.uid, validity: message.validity,
                        as: asked, in: name, sayingSo: "nothing-shown")
             raw = answer.raw
+            named = asked
+        } else if named == nil, appendedHere.contains(Self.key(id, in: name)) {
+            // A copy this launch put in Drafts, reopened from the row its
+            // upload drew, which names no letter: Gmail's id for it asked in
+            // the same FETCH, at no round trip more.
+            let answer = try await client.fetchBodyAskingLetter(uid: message.uid, in: name,
+                                                                validity: message.validity)
+            if let found = answer.letter {
+                saw([message.uid: found], validity: message.validity, in: name)
+            }
+            raw = answer.raw
+            named = answer.letter
         } else {
             raw = try await client.fetchBody(uid: message.uid, section: nil,
                                              in: name, validity: message.validity)
         }
-        lastBody = (id, raw)
+        lastBody = (id, named, raw)
 
         let decoded = MIMEDecoder.decodeMessage(raw)
         let headers = MIMEDecoder.parseHeaders(raw)
@@ -1384,7 +1413,8 @@ actor IMAPMailRepository: MailRepository {
             messageID: MIMEDecoder.headerValue("Message-ID", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
             references: MIMEDecoder.headerValue("References", in: headers)?
-                .trimmingCharacters(in: .whitespaces))
+                .trimmingCharacters(in: .whitespaces),
+            gmailMessageID: named)
     }
 
     private static let rfc2822: DateFormatter = {
@@ -1470,8 +1500,9 @@ actor IMAPMailRepository: MailRepository {
     /// asked; it has named another, and the row is not that letter; it has
     /// named none, and it is asked, for `letter`. A call naming no letter,
     /// for a row from a server without Gmail's extension, a draft drawn
-    /// from what went up or a draft removed, goes by the kept copy's own
-    /// rule (`MailShelf.unproven`), as every call did before they named
+    /// from what went up, or a draft removed that was found by its
+    /// Message-ID or whose draft names no letter, goes by the kept copy's
+    /// own rule (`MailShelf.unproven`), as every call did before they named
     /// their letters.
     private func question(about id: String, named letter: UInt64?, uid: UInt32, validity: UInt32,
                           in name: String, sayingSo note: String) throws -> UInt64? {
@@ -1519,6 +1550,18 @@ actor IMAPMailRepository: MailRepository {
         if folder.validity != validity { folder = SeenLetters(validity: validity) }
         folder.letters.merge(letters) { _, now in now }
         seen[name] = folder
+    }
+
+    /// The letter the server has named under `uid` of `name`, in its
+    /// `validity`, in this launch, nil if none.
+    private func seenLetter(_ uid: UInt32, validity: UInt32, in name: String) -> UInt64? {
+        guard let folder = seen[name], folder.validity == validity else { return nil }
+        return folder.letters[uid]
+    }
+
+    /// A row's id in a folder, as one string, for `appendedHere`.
+    private static func key(_ id: String, in name: String) -> String {
+        name + "\n" + id
     }
 
     // MARK: - Flags
@@ -1725,8 +1768,9 @@ actor IMAPMailRepository: MailRepository {
         for attachment in attachments {
             let data: Data
             switch attachment.source {
-            case let .messagePart(messageID, mailboxID, section):
-                data = try await fetchCarried(section, of: messageID, mailboxID: mailboxID)
+            case let .messagePart(messageID, mailboxID, section, letter):
+                data = try await fetchCarried(section, of: messageID, mailboxID: mailboxID,
+                                              letter: letter)
             case let .localFile(url):
                 // A photo he chose. Read at BUILD time rather than held in
                 // the draft, so a composer left open for an hour is not
@@ -1756,7 +1800,7 @@ actor IMAPMailRepository: MailRepository {
         loaded.reserveCapacity(pictures.count)
         for (contentID, picture) in pictures {
             let data = try await fetchCarried(picture.section, of: picture.messageID,
-                                              mailboxID: picture.mailboxID)
+                                              mailboxID: picture.mailboxID, letter: picture.letter)
             loaded.append((contentID: contentID, filename: picture.filename,
                            mimeType: picture.mimeType, data: data))
         }
@@ -1775,13 +1819,117 @@ actor IMAPMailRepository: MailRepository {
     /// that waited for good, and, as the oldest, ended every pass before the
     /// letters after it (B-052). A connection that is down stays
     /// `cannotConnect`.
+    ///
+    /// `letter` is Gmail's id for the original (X-GM-MSGID), which a part
+    /// carries when the server named one (`DraftAttachment.Source`). A
+    /// letter kept on the iPad from an earlier launch names its parts by
+    /// folder and UID, and Gmail gives every Inbox UIDVALIDITY 1: after a
+    /// password saved that opens another mailbox under the same address
+    /// (B-033), or a folder renumbered under the same UIDVALIDITY, that UID
+    /// is another letter, and its file went out under the forward's file's
+    /// name. So a part that names its letter is fetched only from that
+    /// letter (`carriedPart`). Not there, whether another letter is under
+    /// the UID, none is, or its folder is gone or renumbered, and the
+    /// letter is looked for by its id in All Mail, and the same part
+    /// fetched from it there (`carriedPartElsewhere`). Not found there
+    /// either, and nothing of the letter goes:
+    /// `MailError.attachmentsMissing`, the letter's own failure, so it
+    /// stays in the Outbox or in Drafts saying so, and the letters after it
+    /// go.
+    ///
+    /// A part that names no letter, from a server without Gmail's
+    /// extension or kept by a build before the id was kept, is fetched by
+    /// folder and UID as it always was.
     private func fetchCarried(_ section: String, of messageID: String,
-                              mailboxID: String) async throws -> Data {
+                              mailboxID: String, letter: UInt64?) async throws -> Data {
+        guard let letter else {
+            do {
+                return try await fetchAttachmentData(section, of: messageID, mailboxID: mailboxID)
+            } catch MailError.cannotConnect {
+                guard await imap.isConnected else { throw MailError.cannotConnect }
+                throw MailError.attachmentFailed
+            }
+        }
+        let name = try await resolve(mailboxID)
+        let reason: String
         do {
-            return try await fetchAttachmentData(section, of: messageID, mailboxID: mailboxID)
+            return try await carriedPart(section, of: messageID, in: name, letter: letter)
+        } catch let other as IMAPClient.NotTheLetter {
+            reason = other.named == nil ? "gone" : "another-letter"
+            if let named = other.named, let at = try? Self.parseID(messageID) {
+                saw([at.uid: named], validity: at.validity, in: name)
+            }
+        } catch MailError.cannotConnect {
+            // Refused with the connection still up: its folder renumbered,
+            // deleted or renamed since.
+            guard await imap.isConnected else { throw MailError.cannotConnect }
+            reason = "folder"
+        }
+        Diagnostics.log(.note, "CARRIED-PART folder=\(name) reason=\(reason)")
+        if let found = try await carriedPartElsewhere(section, letter: letter) {
+            Diagnostics.log(.note, "CARRIED-PART found folder=\(found.folder)")
+            return found.data
+        }
+        Diagnostics.log(.note, "CARRIED-PART not-found nothing-sent")
+        throw MailError.attachmentsMissing
+    }
+
+    /// The part `section` of `letter`, from the letter at `id` in `name`
+    /// only if it is that letter. From the letter the reading pane last
+    /// fetched when that is it, as a forward made and sent in one launch
+    /// always was. Refused at once, with nothing sent, when this launch
+    /// has had another letter from the server under the UID (`seen`).
+    /// Otherwise fetched as ever, the FETCH that describes the letter
+    /// comparing the id it names before the part's bytes are asked for
+    /// (`IMAPClient.fetchPart`), at no round trip more.
+    private func carriedPart(_ section: String, of id: String, in name: String,
+                             letter: UInt64) async throws -> Data {
+        if let cached = lastBody, cached.messageID == id, cached.letter == letter,
+           let data = Self.part(section, of: cached.raw) {
+            return data
+        }
+        let at = try Self.parseID(id)
+        if let there = seenLetter(at.uid, validity: at.validity, in: name), there != letter {
+            throw IMAPClient.NotTheLetter(named: there)
+        }
+        let data = try await retryingIfDisconnected {
+            try await self.fetchAttachmentDataOnce(section, of: id, mailboxID: name, letter: letter)
+        }
+        saw([at.uid: letter], validity: at.validity, in: name)
+        return data
+    }
+
+    /// The part `section` of the letter Gmail knows as `letter`, from
+    /// wherever it is in All Mail: `UID SEARCH X-GM-MSGID`, then the part
+    /// fetched as `carriedPart` fetches one, its FETCH naming the letter
+    /// too. Nil when All Mail is not listed, the letter is not in it, or
+    /// the server cannot be asked; a connection that goes is thrown, and
+    /// the letter waits for it.
+    ///
+    /// All Mail, because it holds every letter that is not binned, which
+    /// is where an original forwarded from the Inbox is once it has been
+    /// archived, and where one is under a new UID in a folder renumbered.
+    private func carriedPartElsewhere(_ section: String, letter: UInt64)
+        async throws -> (data: Data, folder: String)? {
+        _ = try await knownListing()
+        guard let allMail = folderForAttribute["\\all"] else { return nil }
+        do {
+            let found = try await retryingIfDisconnected {
+                try await self.connected().findLetter(letter, in: allMail)
+            }
+            guard let found, let uid = found.uids.last else { return nil }
+            let data = try await retryingIfDisconnected {
+                try await self.fetchAttachmentDataOnce(
+                    section, of: Self.makeID(validity: found.validity, uid: uid),
+                    mailboxID: allMail, letter: letter)
+            }
+            saw([uid: letter], validity: found.validity, in: allMail)
+            return (data, allMail)
+        } catch is IMAPClient.NotTheLetter {
+            return nil
         } catch MailError.cannotConnect {
             guard await imap.isConnected else { throw MailError.cannotConnect }
-            throw MailError.attachmentFailed
+            return nil
         }
     }
 
@@ -1818,7 +1966,11 @@ actor IMAPMailRepository: MailRepository {
         if let already {
             // The server has this very version already, from an upload cut
             // off after it had it. Sending it again would be a second copy.
+            // Found a moment ago by the Message-ID only this version goes up
+            // under, it is this launch's own as surely as an APPENDUID's, and
+            // is reopened naming its letter as one of those is.
             saved = already
+            appendedHere.insert(Self.key(already, in: drafts))
         } else {
             saved = try await append(draft, as: upload.map { draftMessageID($0.version) },
                                      noting: upload?.appending, to: drafts, client: client)
@@ -1830,11 +1982,27 @@ actor IMAPMailRepository: MailRepository {
         // deleting the only copy of a letter and then failing to append,
         // which loses work he cannot get back. The ones that went are
         // handed back, for a list still showing them.
-        let superseded = [draft.savedID].compactMap { $0 }
-            + (upload?.earlier ?? []).flatMap { earlier[$0] ?? [] }
+        //
+        // The copy he reopened goes only if the server shows its UID to
+        // hold the letter the draft names (`Draft.savedLetter`). Kept on
+        // the iPad from an earlier launch, the draft's folder and UID can
+        // name another draft: in another mailbox under the same address, or
+        // a Drafts renumbered under the same UIDVALIDITY. That one stays,
+        // and the new version is in Drafts all the same. The earlier
+        // uploads' copies were found by their Message-IDs a moment ago.
+        var superseded: [(id: String, letter: UInt64?)] =
+            draft.savedID.map { [($0, draft.savedLetter)] } ?? []
+        superseded += (upload?.earlier ?? []).flatMap { earlier[$0] ?? [] }.map { ($0, nil) }
         var removed: [String] = []
-        for old in superseded where old != saved && !removed.contains(old) {
-            if (try? await deleteDraft(old)) != nil { removed.append(old) }
+        for old in superseded where old.id != saved && !removed.contains(old.id) {
+            do {
+                try await deleteDraft(old.id, gmailMessageID: old.letter)
+                removed.append(old.id)
+            } catch is MailShelf.NotTheKeptLetter {
+                Diagnostics.log(.note, "DRAFT-SUPERSEDED folder=\(drafts) not-that-letter left")
+            } catch {
+                // Left, as a copy the server will not remove always was.
+            }
         }
         return DraftSaved(id: saved, replaced: removed)
     }
@@ -1852,7 +2020,7 @@ actor IMAPMailRepository: MailRepository {
         var removed: [String] = []
         for id in versions.flatMap({ found[$0] ?? [] }) where !removed.contains(id) {
             do {
-                try await deleteDraft(id)
+                try await deleteDraft(id, gmailMessageID: nil)
                 removed.append(id)
             } catch {
                 guard await imap.isConnected else { throw error }
@@ -1936,22 +2104,30 @@ actor IMAPMailRepository: MailRepository {
             try await client.append(raw, to: drafts, flags: ["\\Draft", "\\Seen"])
         }
         guard let appended else { return nil }
-        return Self.makeID(validity: appended.validity, uid: appended.uid)
+        let id = Self.makeID(validity: appended.validity, uid: appended.uid)
+        appendedHere.insert(Self.key(id, in: drafts))
+        return id
     }
 
-    func deleteDraft(_ id: String) async throws {
+    func deleteDraft(_ id: String, gmailMessageID: UInt64?) async throws {
         try await readyForWrite()
         let client = try await connected()
         let name = try await resolve(try await draftsFolder())
         let draft = try Self.parseID(id)
-        // Named by no row: the copy a draft was reopened from, or one put
-        // in Drafts or found there, which within one launch was vouched
-        // for as it opened or is this launch's own. The kept copy's own
-        // rule covers it (`question`). A copy named by a letter kept in
-        // Local Drafts from an earlier launch is not covered: after a
-        // password save that opens another mailbox under the same address
-        // (B-033), its folder and UID can name another draft (B-051).
-        try await vouch(for: id, named: nil, uid: draft.uid, validity: draft.validity, in: name)
+        // The copy a draft was reopened from names its letter where the
+        // draft knows it (`Draft.savedLetter`), and goes by the rules every
+        // write naming its letter goes by (`question`): the same letter
+        // named under the UID in this launch, and the EXPUNGE goes as it
+        // always did; another, and nothing is sent; none yet, and the
+        // server is asked first. A letter kept in Local Drafts from an
+        // earlier launch names its copy by folder and UID, which after a
+        // password saved that opens another mailbox under the same address
+        // (B-033), or a Drafts renumbered under the same UIDVALIDITY, can
+        // be another draft (B-051). A copy named by no letter, one found by
+        // its Message-ID or one from a server without Gmail's extension,
+        // goes by the kept copy's own rule.
+        try await vouch(for: id, named: gmailMessageID, uid: draft.uid, validity: draft.validity,
+                        in: name)
         // Expunged, not moved to Trash. Now that an "All Mailboxes" search
         // reaches the Trash, a superseded draft binned rather than removed
         // would come back as a hit for every half-finished sentence he ever
@@ -2228,12 +2404,9 @@ actor IMAPMailRepository: MailRepository {
     /// `Attachment.id` is the MIME section path, so a part can still be
     /// pulled on its own rather than by re-downloading the message it is in.
     func fetchAttachmentData(_ attachmentID: String, of messageID: String, mailboxID: String) async throws -> Data {
-        if let cached = lastBody, cached.messageID == messageID {
-            let parsed = MIMEDecoder.parse(cached.raw)
-            if let bytes = parsed.bodies[attachmentID],
-               let part = MIMEDecoder.part(at: attachmentID, in: parsed.structure) {
-                return MIMEDecoder.decodeTransfer(bytes, encoding: part.encoding)
-            }
+        if let cached = lastBody, cached.messageID == messageID,
+           let data = Self.part(attachmentID, of: cached.raw) {
+            return data
         }
         // A read, so a socket that died while he wrote costs a reconnect
         // rather than the Send (B-023): a forward fetches its files here
@@ -2244,8 +2417,21 @@ actor IMAPMailRepository: MailRepository {
         }
     }
 
+    /// The part `section` of a whole letter already downloaded, decoded,
+    /// or nil when it has no such part.
+    private static func part(_ section: String, of raw: Data) -> Data? {
+        let parsed = MIMEDecoder.parse(raw)
+        guard let bytes = parsed.bodies[section],
+              let part = MIMEDecoder.part(at: section, in: parsed.structure) else { return nil }
+        return MIMEDecoder.decodeTransfer(bytes, encoding: part.encoding)
+    }
+
+    /// `letter`, when given, is Gmail's id for the letter the part is
+    /// wanted from, compared before the part's bytes are asked for
+    /// (`IMAPClient.fetchPart`).
     private func fetchAttachmentDataOnce(_ attachmentID: String, of messageID: String,
-                                         mailboxID: String) async throws -> Data {
+                                         mailboxID: String,
+                                         letter: UInt64? = nil) async throws -> Data {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(messageID)
@@ -2258,7 +2444,7 @@ actor IMAPMailRepository: MailRepository {
         // refuses before it asks for the bytes.
         guard let fetched = try await client.fetchPart(
             uid: message.uid, section: attachmentID, in: name, validity: message.validity,
-            describedBy: { MIMEDecoder.part(at: attachmentID, in: $0) }) else {
+            naming: letter, describedBy: { MIMEDecoder.part(at: attachmentID, in: $0) }) else {
             throw MailError.attachmentFailed
         }
 

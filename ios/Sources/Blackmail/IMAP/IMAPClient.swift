@@ -1008,18 +1008,61 @@ actor IMAPClient {
     /// "there is nothing to show", not "the connection is broken", so it is
     /// a nil and not a throw, and the part's bytes are not asked for: they
     /// could be megabytes, fetched only to be refused.
+    ///
+    /// `letter`, Gmail's id for the letter the part is wanted from, for a
+    /// part a letter kept on the iPad carries (`IMAPMailRepository.
+    /// fetchCarried`): the FETCH that describes the letter asks X-GM-MSGID
+    /// already, on Gmail, and the id it names is compared before the
+    /// part's bytes are asked for, so the check costs no round trip and
+    /// changes nothing on the wire. Another letter under the UID, or none,
+    /// or a server that cannot name one, and `NotTheLetter` is thrown with
+    /// nothing more sent.
     func fetchPart(uid: UInt32, section: String, in mailbox: String, validity: UInt32,
+                   naming letter: UInt64? = nil,
                    describedBy describe: @Sendable (MIMEPart) -> MIMEPart?)
         async throws -> (part: MIMEPart, bytes: Data)? {
         try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+            if letter != nil, try !self.namesLetters() { throw NotTheLetter(named: nil) }
             let described = try await self.performCommand("UID FETCH \(uid) \(self.summaryItems)")
-            guard described.status == .ok else { return nil }
-            let parsed = IMAPParser.parseFetch(described.untagged)
-            guard let structure = (parsed.first { $0.uid == uid } ?? parsed.first)?.bodyStructure,
+            let parsed = described.status == .ok ? IMAPParser.parseFetch(described.untagged) : []
+            if let letter {
+                let named = parsed.first { $0.uid == uid }?.gmailMessageID
+                guard named == letter else { throw NotTheLetter(named: named) }
+            }
+            guard described.status == .ok,
+                  let structure = (parsed.first { $0.uid == uid } ?? parsed.first)?.bodyStructure,
                   let part = describe(structure) else {
                 return nil
             }
             return (part, try await self.performBodyFetch(uid: uid, section: section))
+        }
+    }
+
+    /// The UID asked for holds another letter than the one named, `named`,
+    /// or none: nil when the server named no letter there, or cannot name
+    /// one. Nothing of it was fetched (`fetchPart`).
+    struct NotTheLetter: Error {
+        let named: UInt64?
+    }
+
+    /// Where the letter Gmail knows as `letter` (X-GM-MSGID) is in `mailbox`:
+    /// its UIDs there, under the UIDVALIDITY they mean something in, empty
+    /// when it is not there. `UID SEARCH X-GM-MSGID`, Gmail's own search
+    /// key, in one hold with its SELECT. Nil when the server cannot be
+    /// asked, having no Gmail extension, or refuses the search: then the
+    /// letter cannot be found, which its caller takes as not there.
+    ///
+    /// For a part a letter kept on the iPad carries whose original is no
+    /// longer under the UID it named, looked for in All Mail, which holds
+    /// every letter that is not in the Trash or Spam
+    /// (`IMAPMailRepository.fetchCarried`).
+    func findLetter(_ letter: UInt64, in mailbox: String) async throws -> IMAPMailboxUIDs? {
+        try await inMailbox(mailbox, validity: nil, .interactive) { state in
+            guard try self.namesLetters(),
+                  let uids = try await self.performSearch("X-GM-MSGID \(letter)") else {
+                return nil
+            }
+            return IMAPMailboxUIDs(validity: state.uidValidity, uids: uids)
         }
     }
 
@@ -1110,6 +1153,29 @@ actor IMAPClient {
             let row = parsed.first { $0.uid == uid }
             // A whole-letter fetch that came back empty is the letter with
             // no body, as in `performBodyFetch`; the id says whose it is.
+            return (row?.gmailMessageID, row?.body ?? Data())
+        }
+    }
+
+    /// The whole letter at `uid`, as `fetchBody` gives it, with Gmail's id
+    /// for it asked in the same FETCH when the server has the extension:
+    /// for a copy this launch put in Drafts itself, reopened by the id its
+    /// APPEND gave it (`IMAPMailRepository.loadMessageOnce`). Nothing is
+    /// compared: the UID came from the server a moment ago, in this
+    /// launch. What the server names is what the reopened draft names the
+    /// copy by, and its files and pictures by, should it be kept on the
+    /// iPad into a later launch. No round trip more than the letter's own
+    /// FETCH; on a server without the extension it is that FETCH as it
+    /// always was, and the id is nil.
+    func fetchBodyAskingLetter(uid: UInt32, in mailbox: String,
+                               validity: UInt32) async throws -> (letter: UInt64?, raw: Data) {
+        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+            guard try self.namesLetters() else {
+                return (nil, try await self.performBodyFetch(uid: uid, section: nil))
+            }
+            let result = try await self.performCommand("UID FETCH \(uid) (UID X-GM-MSGID BODY.PEEK[])")
+            guard result.status == .ok else { throw MailError.cannotConnect }
+            let row = IMAPParser.parseFetch(result.untagged).first { $0.uid == uid }
             return (row?.gmailMessageID, row?.body ?? Data())
         }
     }
