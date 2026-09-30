@@ -130,6 +130,15 @@ struct IMAPFetchResult {
     /// server already decided, and Gmail's answer is the one that agrees
     /// with what he sees in Gmail everywhere else.
     var threadID: String?
+    /// Gmail's own id for the letter, X-GM-MSGID, when the server advertised
+    /// X-GM-EXT-1.
+    ///
+    /// A number, where the thread id is kept as text, because it is to be a
+    /// key (see `MessageSummary.gmailMessageID`): read as a number, a value
+    /// that is not one is absent rather than a key that matches nothing.
+    /// Gmail documents it as an unsigned 64-bit number, which neither
+    /// UInt32 nor Int holds in full.
+    var gmailMessageID: UInt64?
     /// Gmail's X-GM-LABELS, when the server advertised X-GM-EXT-1.
     ///
     /// Note what is NOT in here: the label of the mailbox currently

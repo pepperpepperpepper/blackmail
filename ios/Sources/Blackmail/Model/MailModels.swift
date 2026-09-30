@@ -61,6 +61,16 @@ struct MessageSummary: Identifiable, Hashable {
     /// are one conversation. Nil on a server without the extension, where
     /// the subject is the fallback — see `MessageThread`.
     var threadID: String?
+    /// Gmail's own id for the letter (X-GM-MSGID), when the server offered
+    /// one. Nil on a server without the extension.
+    ///
+    /// The letter's rather than the folder's: the same letter listed from
+    /// the Inbox and from All Mail has two UIDs and this one id. Nothing
+    /// reads it yet; the copy of his mail kept on the iPad is to be keyed
+    /// on it (D-016), because every Gmail Inbox reports UIDVALIDITY 1 and a
+    /// folder, a UIDVALIDITY and a UID alone cannot tell two mailboxes
+    /// apart.
+    var gmailMessageID: UInt64? = nil
     /// Every folder whose unread count this message contributes to.
     ///
     /// More than one on Gmail, where a folder is a label and `\Seen` belongs

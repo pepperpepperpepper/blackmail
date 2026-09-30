@@ -36,7 +36,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             :580, :1167 and the pane's handlers flatten it)
       - [ ] setup and Settings check sending (SMTP) too, so Gmail's
             wrong-account trap cannot pass setup
-      - [ ] take out the B-033 `PAIR` probe, which logs subject lines
+      - [x] take out the B-033 `PAIR` probe, which logs subject lines
+            (done 2026-09-30, D-016 phase 0, with the sender in
+            `SESSION-IDENT`)
       - [ ] a build number he or a helper can read out
       - [ ] a guard so the signature cannot be wiped by accident
       - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
@@ -79,7 +81,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       compose sheet, the Keychain mirror, then one real install.
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
-      and X-GM-MSGID in: under way. Phase 1, the kept folders and first
+      and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
+      itself is the owner's (D-016). Phase 1, the kept folders and first
       pages: next. Phase 2, the last 300 letters he opened.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).

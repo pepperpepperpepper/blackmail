@@ -56,7 +56,7 @@ final class IMAPParserTests: XCTestCase {
 
     func testFetchItemsInAnyOrderWithUnknownItemsIgnored() {
         let l = line("""
-        * 12 FETCH (FLAGS (\\Seen \\Flagged) UID 345 X-GM-MSGID 99 RFC822.SIZE 4096 \
+        * 12 FETCH (FLAGS (\\Seen \\Flagged) UID 345 X-EXAMPLE-ID 99 RFC822.SIZE 4096 \
         INTERNALDATE "18-Sep-2026 09:14:03 +0100")
         """)
         let results = IMAPParser.parseFetch([l])
@@ -66,6 +66,68 @@ final class IMAPParserTests: XCTestCase {
         XCTAssertEqual(r?.isSeen, true)
         XCTAssertEqual(r?.isFlagged, true)
         XCTAssertNotNil(r?.internalDate, "INTERNALDATE must parse under en_US_POSIX")
+    }
+
+    // MARK: - Gmail's items
+
+    /// X-GM-MSGID as Gmail sends it, a bare decimal number.
+    func testGmailMessageIDIsRead() {
+        let r = IMAPParser.parseFetch([
+            line("* 1 FETCH (UID 4 X-GM-MSGID 1278455344230334865)")
+        ]).first
+        XCTAssertEqual(r?.uid, 4)
+        XCTAssertEqual(r?.gmailMessageID, 1_278_455_344_230_334_865)
+    }
+
+    /// A server without Gmail's extension sends none, and a row from it
+    /// has none: absent, not zero.
+    func testGmailMessageIDIsAbsentWhereTheServerSendsNone() {
+        let r = IMAPParser.parseFetch([
+            line(#"* 1 FETCH (UID 4 FLAGS (\Seen) RFC822.SIZE 2048)"#)
+        ]).first
+        XCTAssertEqual(r?.uid, 4)
+        XCTAssertNil(r?.gmailMessageID)
+        XCTAssertNil(r?.threadID)
+    }
+
+    /// Beside the thread id and the labels, as in the summary FETCH's own
+    /// answer, before the UID or after it, each item lands in its own
+    /// field. The two ids are the same kind of number, and one read as the
+    /// other would key a letter on its conversation.
+    func testGmailMessageIDAlongsideTheThreadIDAndLabels() {
+        let l = line("""
+        * 7 FETCH (X-GM-THRID 1278455344230334865 X-GM-MSGID 1278455344230334999 \
+        X-GM-LABELS (\\Important "Family") UID 1042 FLAGS (\\Seen) RFC822.SIZE 3000)
+        """)
+        let r = IMAPParser.parseFetch([l]).first
+        XCTAssertEqual(r?.uid, 1042)
+        XCTAssertEqual(r?.threadID, "1278455344230334865")
+        XCTAssertEqual(r?.gmailMessageID, 1_278_455_344_230_334_999)
+        XCTAssertEqual(r?.labels, ["\\Important", "Family"])
+        XCTAssertEqual(r?.size, 3000)
+
+        let reversed = IMAPParser.parseFetch([line("""
+        * 7 FETCH (UID 1042 X-GM-LABELS () X-GM-MSGID 1278455344230334999 \
+        X-GM-THRID 1278455344230334865)
+        """)]).first
+        XCTAssertEqual(reversed?.threadID, "1278455344230334865")
+        XCTAssertEqual(reversed?.gmailMessageID, 1_278_455_344_230_334_999)
+    }
+
+    /// The whole unsigned 64-bit range, past where UInt32 and Int stop,
+    /// and nothing past it: a number too big for 64 bits, or one that is
+    /// not a number, is no id at all rather than a wrapped or truncated one.
+    func testGmailMessageIDTakesTheWholeUnsigned64BitRange() {
+        func id(_ text: String) -> UInt64? {
+            IMAPParser.parseFetch([line("* 1 FETCH (UID 4 X-GM-MSGID \(text))")]).first?.gmailMessageID
+        }
+        XCTAssertEqual(id("4294967296"), 4_294_967_296)
+        XCTAssertEqual(id("9223372036854775808"), 9_223_372_036_854_775_808)
+        XCTAssertEqual(id("18446744073709551615"), UInt64.max)
+        XCTAssertNil(id("18446744073709551616"))
+        XCTAssertNil(id("-1"))
+        XCTAssertNil(id("NIL"))
+        XCTAssertEqual(id("0"), 0)
     }
 
     func testInternalDateParsesRegardlessOfDeviceLocale() {

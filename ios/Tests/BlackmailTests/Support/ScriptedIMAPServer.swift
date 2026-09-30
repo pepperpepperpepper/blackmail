@@ -405,7 +405,10 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Capabilities left out of the post-login list, for a server that has
     /// not got them: `["UIDPLUS"]` is one that can only EXPUNGE the lot.
-    /// The commands themselves are still answered.
+    /// The commands themselves are still answered. Gmail's FETCH items are
+    /// the exception: without `X-GM-EXT-1` a FETCH naming X-GM-LABELS,
+    /// X-GM-THRID or X-GM-MSGID is BAD, as on a server that has never heard
+    /// of them, so a client that asked for them ungated would lose the page.
     var withheldCapabilities: Set<String> {
         get { locked { $0.withheldCapabilities } }
         set { locked { $0.withheldCapabilities = newValue } }
@@ -464,6 +467,15 @@ final class ScriptedIMAPServer: @unchecked Sendable {
             var letter = stored.letter
             letter.flags = stored.flags
             return letter
+        }
+    }
+
+    /// Gmail's id for the letter at `uid`, the X-GM-MSGID a FETCH in
+    /// `mailbox` reports for it: the same from every folder the letter is
+    /// in, and never its thread's.
+    func gmailMessageID(uid: UInt32, in mailbox: String) -> UInt64? {
+        locked { s in
+            s.folders[Self.canonical(mailbox)]?.keys[uid].map { Self.gmailMessageID(key: $0) }
         }
     }
 
@@ -1170,7 +1182,10 @@ private extension ScriptedIMAPServer.State {
         let requested = args[1].items?.compactMap(\.text) ?? args[1].text.map { [$0] } ?? []
         var items: [Server.FetchItem] = []
         for text in requested {
-            guard let item = Server.FetchItem(text) else {
+            // Gmail's own items are unknown to a server without its
+            // extension, which refuses the whole FETCH over one of them.
+            guard let item = Server.FetchItem(text),
+                  !(item.isGmailExtension && withheldCapabilities.contains("X-GM-EXT-1")) else {
                 r.bad("Could not parse command")
                 return
             }
@@ -1208,9 +1223,9 @@ private extension ScriptedIMAPServer.State {
                     let labels = labels(of: key, seenFrom: name).map(Server.quoted)
                     wire.text("X-GM-LABELS (\(labels.joined(separator: " ")))")
                 case .threadID:
-                    wire.text("X-GM-THRID \(1_700_000_000_000_000_000 + UInt64(key))")
+                    wire.text("X-GM-THRID \(Server.gmailThreadID(key: key))")
                 case .messageID:
-                    wire.text("X-GM-MSGID \(1_800_000_000_000_000_000 + UInt64(key))")
+                    wire.text("X-GM-MSGID \(Server.gmailMessageID(key: key))")
                 case let .section(section, peek, partial):
                     // A plain BODY[] marks the letter read as a side effect,
                     // which is the reason the client only ever sends PEEK.
@@ -1454,6 +1469,13 @@ private extension ScriptedIMAPServer {
             wire.text("\(tag) \(word) \(text)\r\n")
         }
     }
+
+    /// X-GM-THRID and X-GM-MSGID, from the letter's key. Every letter here
+    /// is a conversation of its own, so the two numbers are drawn from
+    /// ranges that never meet: a client that took the one for the other is
+    /// left holding a number this server never gave that letter as its id.
+    static func gmailThreadID(key: Int) -> UInt64 { 1_700_000_000_000_000_000 + UInt64(key) }
+    static func gmailMessageID(key: Int) -> UInt64 { 1_800_000_000_000_000_000 + UInt64(key) }
 
     static func quoted(_ value: String) -> String {
         "\"" + value.replacingOccurrences(of: "\\", with: "\\\\")
@@ -1772,6 +1794,14 @@ private extension ScriptedIMAPServer {
         struct Partial: Equatable {
             let start: Int
             let count: Int
+        }
+
+        /// Asked for only behind X-GM-EXT-1.
+        var isGmailExtension: Bool {
+            switch self {
+            case .labels, .threadID, .messageID: return true
+            default: return false
+            }
         }
 
         init?(_ text: String) {

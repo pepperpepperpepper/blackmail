@@ -196,7 +196,7 @@ final class ExchangeGateTests: XCTestCase {
             "UID STORE \(uids[5]) +FLAGS.SILENT (\\Deleted)",
             "UID EXPUNGE \(uids[5])",
             "UID FETCH \(uids[0]) (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE "
-                + "X-GM-LABELS X-GM-THRID)",
+                + "X-GM-LABELS X-GM-THRID X-GM-MSGID)",
             "STATUS \"[Gmail]/Sent Mail\" (UNSEEN)",
             "LOGOUT",
         ])

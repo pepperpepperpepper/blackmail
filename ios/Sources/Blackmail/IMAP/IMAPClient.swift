@@ -59,10 +59,12 @@ actor IMAPClient {
     /// list rather than merely lose the labels.
     ///
     /// X-GM-LABELS rides the FETCH the list already issues, so knowing which
-    /// folders a message belongs to costs no extra round trip.
+    /// folders a message belongs to costs no extra round trip. X-GM-MSGID
+    /// rides it the same way, a number per row, for the copy of his mail
+    /// kept on the iPad to be keyed on (D-016).
     private var summaryItems: String {
         capabilities.contains("X-GM-EXT-1")
-            ? "(\(Self.baseSummaryItems) X-GM-LABELS X-GM-THRID)"
+            ? "(\(Self.baseSummaryItems) X-GM-LABELS X-GM-THRID X-GM-MSGID)"
             : "(\(Self.baseSummaryItems))"
     }
 

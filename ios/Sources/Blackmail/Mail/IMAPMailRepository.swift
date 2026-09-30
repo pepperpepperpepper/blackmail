@@ -603,17 +603,26 @@ actor IMAPMailRepository: MailRepository {
         }
         // B-033: the session's identity, pinned with numbers rather than
         // read off glass. The SELECTed folder, its UIDVALIDITY, how many
-        // messages the server says exist, and the Message-ID of the newest
-        // row this listing drew — enough to match this session against one
-        // real mailbox, server-side, beyond argument.
+        // messages the server says exist, and the ids of the newest row this
+        // listing drew — enough to match this session against one real
+        // mailbox, server-side, beyond argument.
+        //
+        // Numbers only. It named the first row's sender too until D-016,
+        // which is what told apart which letter of a conversation headed
+        // the list: on Gmail first-row is the thread id, which every letter
+        // of the conversation shares. msgid, Gmail's id for the letter
+        // itself, pins that without naming anyone; a sender is his
+        // correspondence, in a log made to be copied out to whoever is
+        // helping.
         let exists = await client.lastReport(for: name)?.exists ?? -1
         let newestID = summaries.first?.threadID ?? summaries.first?.id ?? "-"
+        let newestLetter = summaries.first?.gmailMessageID.map(String.init) ?? "-"
         Diagnostics.log(.note, "SESSION-IDENT folder=\(name) "
                         + "uidv=\(listing.validity) "
                         + "exists=\(exists) "
                         + "uids=\(listing.uids.count) "
                         + "first-row=\(newestID) "
-                        + "sender=\(summaries.first?.sender ?? "?")")
+                        + "msgid=\(newestLetter)")
         return summaries
     }
 
@@ -761,12 +770,6 @@ actor IMAPMailRepository: MailRepository {
                 }
             }
             let from = env?.from.first
-            // B-033: the raw pairing, uid->sender, straight off the parsed
-            // FETCH response — before threading, caching or display.
-            if uid >= 15 {
-                Diagnostics.log(.note, "PAIR uid=\(uid) sender=\(from?.formatted ?? "?") "
-                                + "subject=\(env?.subject ?? "?")")
-            }
             let id = Self.makeID(validity: validity, uid: uid)
             rememberPreviewPart(r.bodyStructure, for: id)
             return MessageSummary(
@@ -780,6 +783,7 @@ actor IMAPMailRepository: MailRepository {
                 isFlagged: r.isFlagged,
                 hasAttachment: r.bodyStructure.map(Self.hasAttachment) ?? false,
                 threadID: r.threadID,
+                gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
                 attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [])
         }

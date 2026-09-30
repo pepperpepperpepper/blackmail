@@ -776,6 +776,29 @@ Outbox (the gap review's "Ways a letter is lost"). They may share the
 directory and its atomic write; the cache's wipe and eviction must never
 touch them.
 
+**Phase 0, done 2026-09-30.** The `PAIR` probe is out of the tree, and
+`SESSION-IDENT` keeps its folder, uidv, exists, uids and first-row but no
+longer names a sender. It gains `msgid=`, the first row's X-GM-MSGID: on
+Gmail first-row is the thread id, which every letter of a conversation
+shares, and the sender was what told apart which of them headed the list
+(B-033 addendum 6). Nothing else written beside the wire named a
+correspondent or a subject. Every row carries X-GM-MSGID
+(`MessageSummary.gmailMessageID`, nil on a server without X-GM-EXT-1),
+asked for in the summary FETCH behind the same capability as the labels
+and the thread id, so a listing sends the commands it did.
+`KeptCopyTests` pins both. **Left for the owner:** the wire log itself
+still carries his correspondence, in the server's ENVELOPE lines
+(subjects, names, addresses), BODYSTRUCTURE's file names, X-GM-LABELS,
+RCPT TO and the words of a search, and `CaptureProbe` writes the last 500
+lines of it to `tmp/` on every send, where nothing deletes them. With
+`PAIR` gone those files are larger, by up to about three quarters where
+the traffic is mostly listings, because the ring fills with the FETCH
+lines its notes used to displace (`PERFORMANCE.md`, the `CaptureProbe`
+entry). Redacting the wire log would take from it the one thing it shows
+that numbers do not, what the server actually said about a letter (a
+subject that decodes wrong, a sender that parses wrong), and would mean
+parsing every line before logging it.
+
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can
 be old. It always says how old, and offline it is exactly as current as the
 last time he had a connection. On an iPad with no passcode (D-011) the files

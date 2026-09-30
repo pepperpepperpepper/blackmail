@@ -478,7 +478,7 @@ final class MailboxAtomicityTests: XCTestCase {
                         "UID FETCH \(sentUID) (UID BODY.PEEK[])",
                         "SELECT \"INBOX\"",
                         "UID FETCH \(partsUID) (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE "
-                            + "BODYSTRUCTURE X-GM-LABELS X-GM-THRID)",
+                            + "BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)",
                         "UID FETCH \(partsUID) (UID BODY.PEEK[2])"])
 
         // Then the background, first come first served: the previews, the

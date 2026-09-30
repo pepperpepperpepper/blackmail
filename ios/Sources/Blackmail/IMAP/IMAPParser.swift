@@ -557,6 +557,8 @@ enum IMAPParser {
                     if let list = value?.listItems { result.envelope = parseEnvelope(list, line) }
                 case "X-GM-THRID":
                     result.threadID = value?.text(line)
+                case "X-GM-MSGID":
+                    result.gmailMessageID = value?.uint64(line)
                 case "X-GM-LABELS":
                     // Folder names inside a label list are modified UTF-7,
                     // exactly as in LIST, so a German "Gelöscht" label needs
@@ -1028,6 +1030,10 @@ private extension IMAPToken {
 
     func uint32(_ line: IMAPResponseLine) -> UInt32? {
         text(line).flatMap { UInt32($0.trimmingCharacters(in: .whitespaces)) }
+    }
+
+    func uint64(_ line: IMAPResponseLine) -> UInt64? {
+        text(line).flatMap { UInt64($0.trimmingCharacters(in: .whitespaces)) }
     }
 }
 
