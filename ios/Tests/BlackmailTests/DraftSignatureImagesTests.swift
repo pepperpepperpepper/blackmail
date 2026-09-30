@@ -362,12 +362,15 @@ private final class Submissions: @unchecked Sendable {
         return server
     }
 
-    func letters() async -> [Data] {
+    private func servers() -> [ScriptedSubmission] {
         lock.lock()
-        let servers = made
-        lock.unlock()
+        defer { lock.unlock() }
+        return made
+    }
+
+    func letters() async -> [Data] {
         var all: [Data] = []
-        for server in servers {
+        for server in servers() {
             for stuffed in await server.letters {
                 var letter = String(decoding: stuffed, as: UTF8.self)
                     .replacingOccurrences(of: "\r\n..", with: "\r\n.")

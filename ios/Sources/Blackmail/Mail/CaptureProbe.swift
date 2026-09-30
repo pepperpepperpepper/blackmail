@@ -48,8 +48,9 @@ enum CaptureProbe {
 
     /// Files land at the ROOT of the container's tmp, not under
     /// `tmp/Attachments` — `AttachmentStore.purge()` clears that subdirectory
-    /// at launch and would take the evidence with it.
-    private static var directory: String { NSTemporaryDirectory() }
+    /// at launch and would take the evidence with it. A test points it at a
+    /// directory of its own.
+    static var directory = NSTemporaryDirectory()
 
     /// `token` is the time in seconds unless a test names one, to tell two
     /// sessions apart that begin within the same second.
@@ -67,7 +68,41 @@ enum CaptureProbe {
     /// otherwise have its token put on this one's transcript.
     static func dumpTranscript(_ tag: String, session: String = CaptureProbe.session) {
         let text = Diagnostics.transcript()
-        write(Data(text.utf8), name: "blackmail-send-\(session)-\(tag).txt")
+        write(Data(text.utf8), name: "\(prefix)\(session)-\(tag).txt")
+        prune(in: directory, keeping: kept)
+    }
+
+    /// How many transcripts stay on the iPad: the newest, one per send.
+    ///
+    /// Nothing used to delete them. At his volume, about seventy letters a
+    /// day, and a file of a hundred to three hundred kilobytes each, that
+    /// was up to twenty megabytes a day for as long as the app was
+    /// installed. A transcript is read, if at all, just after the send that
+    /// went wrong; ten covers that and the few before it.
+    static let kept = 10
+
+    private static let prefix = "blackmail-send-"
+
+    /// Deletes all but the newest `keeping` transcripts in `directory`,
+    /// newest by modification time, then by name. Nothing else in the
+    /// directory is touched. Failures are ignored, as for the write.
+    static func prune(in directory: String, keeping: Int) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: directory) else { return }
+        let transcripts: [(name: String, modified: Date)] = names
+            .filter { $0.hasPrefix(prefix) && $0.hasSuffix(".txt") }
+            .map { name in
+                let path = (directory as NSString).appendingPathComponent(name)
+                let modified = (try? fm.attributesOfItem(atPath: path)[.modificationDate]) as? Date
+                return (name, modified ?? .distantPast)
+            }
+        guard transcripts.count > keeping else { return }
+        let oldestFirst = transcripts.sorted {
+            $0.modified != $1.modified ? $0.modified < $1.modified : $0.name < $1.name
+        }
+        for old in oldestFirst.prefix(transcripts.count - keeping) {
+            try? fm.removeItem(atPath: (directory as NSString).appendingPathComponent(old.name))
+        }
     }
 
     private static func write(_ data: Data, name: String) {

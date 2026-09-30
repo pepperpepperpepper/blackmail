@@ -790,7 +790,8 @@ and the thread id, so a listing sends the commands it did.
 still carries his correspondence, in the server's ENVELOPE lines
 (subjects, names, addresses), BODYSTRUCTURE's file names, X-GM-LABELS,
 RCPT TO and the words of a search, and `CaptureProbe` writes the last 500
-lines of it to `tmp/` on every send, where nothing deletes them. With
+lines of it to `tmp/` on every send, now kept to the newest ten
+(2026-09-30, by the owner's word; `CaptureProbe.kept`). With
 `PAIR` gone those files are larger, by up to about three quarters where
 the traffic is mostly listings, because the ring fills with the FETCH
 lines its notes used to displace (`PERFORMANCE.md`, the `CaptureProbe`
