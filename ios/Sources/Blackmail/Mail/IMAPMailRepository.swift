@@ -226,6 +226,10 @@ actor IMAPMailRepository: MailRepository {
         get async { await imap.waitingForExchange }
     }
 
+    var isConnected: Bool {
+        get async { await imap.isConnected }
+    }
+
     private func connected() async throws -> IMAPClient {
         lastContact = now()
         if await imap.isConnected { return imap }
@@ -1254,10 +1258,109 @@ actor IMAPMailRepository: MailRepository {
 
     @discardableResult
     func saveDraft(_ draft: Draft) async throws -> String? {
+        try await saveDraft(draft, upload: nil).id
+    }
+
+    @discardableResult
+    func saveDraft(_ draft: Draft, as upload: DraftUpload) async throws -> DraftSaved {
+        try await saveDraft(draft, upload: upload)
+    }
+
+    private func saveDraft(_ draft: Draft, upload: DraftUpload?) async throws -> DraftSaved {
         try await readyForWrite()
         let client = try await connected()
         let drafts = try await draftsFolder()
 
+        // A letter kept on the iPad whose upload began before: what that
+        // left in Drafts. Only then, so a first save costs what it always
+        // did.
+        let earlier = try await copies(of: upload?.earlier ?? [], in: drafts, client: client)
+        let already = upload.flatMap { earlier[$0.version]?.last }
+
+        let saved: String?
+        if let already {
+            // The server has this very version already, from an upload cut
+            // off after it had it. Sending it again would be a second copy.
+            saved = already
+        } else {
+            saved = try await append(draft, as: upload.map { draftMessageID($0.version) },
+                                     noting: upload?.appending, to: drafts, client: client)
+        }
+
+        // The copy he reopened, and whatever earlier uploads of this letter
+        // left but this version's newest copy, and only once the
+        // replacement is safely on the server. The other order risks
+        // deleting the only copy of a letter and then failing to append,
+        // which loses work he cannot get back. The ones that went are
+        // handed back, for a list still showing them.
+        let superseded = [draft.savedID].compactMap { $0 }
+            + (upload?.earlier ?? []).flatMap { earlier[$0] ?? [] }
+        var removed: [String] = []
+        for old in superseded where old != saved && !removed.contains(old) {
+            if (try? await deleteDraft(old)) != nil { removed.append(old) }
+        }
+        return DraftSaved(id: saved, replaced: removed)
+    }
+
+    @discardableResult
+    func deleteDrafts(uploadedAs versions: [String]) async throws -> [String] {
+        guard !versions.isEmpty else { return [] }
+        try await readyForWrite()
+        let client = try await connected()
+        let drafts = try await draftsFolder()
+        let found = try await copies(of: versions, in: drafts, client: client)
+        // A copy the server will not remove, on a connection still up, is
+        // left, as a superseded copy is at a save; a lost connection fails
+        // the lot, so the letter's record stays to try again.
+        var removed: [String] = []
+        for id in versions.flatMap({ found[$0] ?? [] }) where !removed.contains(id) {
+            do {
+                try await deleteDraft(id)
+                removed.append(id)
+            } catch {
+                guard await imap.isConnected else { throw error }
+            }
+        }
+        return removed
+    }
+
+    /// The copies in Drafts of each of `versions`, by version, as ids,
+    /// oldest first.
+    ///
+    /// A search the server refuses, on a connection still up, is taken as
+    /// finding nothing: then the letter goes up again, and at worst Drafts
+    /// has it twice, which is better than a letter that can never go
+    /// because the server will not answer the question. A lost connection
+    /// fails the call, and what is kept on the iPad stays for the next time.
+    private func copies(of versions: [String], in drafts: String,
+                        client: IMAPClient) async throws -> [String: [String]] {
+        var found: [String: [String]] = [:]
+        for version in versions where found[version] == nil {
+            let criteria = "HEADER Message-ID \"\(SearchCriteria.escape(draftMessageID(version)))\""
+            do {
+                let hits = try await client.search(criteria, in: drafts)
+                found[version] = hits.uids.map { Self.makeID(validity: hits.validity, uid: $0) }
+            } catch {
+                guard await imap.isConnected, !(error is CancellationError) else { throw error }
+                found[version] = []
+            }
+        }
+        return found
+    }
+
+    /// The Message-ID a kept letter's version goes up under, on the sender's
+    /// domain as every other this app makes (`RFC5322Builder`).
+    private func draftMessageID(_ version: String) -> String {
+        let domain = account.address.split(separator: "@").last.map(String.init) ?? ""
+        return "<\(version)@\(domain.isEmpty ? "localhost" : domain)>"
+    }
+
+    /// Builds the draft and APPENDs it to Drafts. Returns its id there, or
+    /// nil when the server took it without saying where (no UIDPLUS).
+    /// `noting` goes last before the APPEND, once the files are in.
+    private func append(_ draft: Draft, as messageID: String?,
+                        noting: (@Sendable () async throws -> Void)?, to drafts: String,
+                        client: IMAPClient) async throws -> String? {
         // Attachments are resolved for a saved draft too, so reopening one
         // from another client shows the files rather than a bare note
         // referring to them.
@@ -1267,6 +1370,7 @@ actor IMAPMailRepository: MailRepository {
         // copy: delete it first and the files it is carrying go with it.
         let loaded = try await loadAttachments(for: draft)
         let raw = RFC5322Builder.build(draft: draft, from: account,
+                                       messageID: messageID,
                                        inReplyToHeaders: Self.threadHeaders(for: draft),
                                        attachments: loaded,
                                        includeBcc: true,
@@ -1279,15 +1383,9 @@ actor IMAPMailRepository: MailRepository {
                                        // parsing it back, and the parts are
                                        // what make its markup's cid: resolve.
                                        inlineImages: SignatureImages.parts(of: signatureImages()))
+        try await noting?()
         let appended = try await client.append(raw, to: drafts,
                                                flags: ["\\Draft", "\\Seen"])
-
-        // Only once the replacement is safely on the server. The other
-        // order risks deleting the only copy of a letter and then failing
-        // to append, which loses work he cannot get back.
-        if let old = draft.savedID {
-            try? await deleteDraft(old)
-        }
         guard let appended else { return nil }
         return Self.makeID(validity: appended.validity, uid: appended.uid)
     }

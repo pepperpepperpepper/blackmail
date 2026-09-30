@@ -123,6 +123,10 @@ final class MessageListViewController: UITableViewController {
     /// The draft on its way to the composer. See `DraftOpening`.
     private var drafts = DraftOpening()
 
+    /// The letters kept on the iPad (B-051): listed at the top of Drafts,
+    /// and taken to the server whenever a page here has come.
+    private let kept = LocalDrafts.shared
+
     private var visible: [MessageSummary] { letters.visible }
 
     /// What a row actually is, now that the list groups.
@@ -427,6 +431,11 @@ final class MessageListViewController: UITableViewController {
         pageFooter.addTarget(self, action: #selector(loadMoreTapped), for: .touchUpInside)
         buildBottomBar()
 
+        if mailbox.role == .drafts {
+            NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
+                                                   name: LocalDrafts.changed, object: kept)
+        }
+
         Task { @MainActor in
             // A jump asked for before this pane existed — the container
             // opened All Mail in order to serve it — runs INSTEAD of the
@@ -466,6 +475,10 @@ final class MessageListViewController: UITableViewController {
 
     /// Returns whether the page came. At the top, unless `keepingPlace`,
     /// for an edit of his own; see `ListPlaces.refetched`.
+    ///
+    /// A page that came means the connection works, so the letters waiting
+    /// on the iPad go to the server after it (`LocalDrafts.uploadWaiting`):
+    /// at launch, at a Refresh, on opening a folder, on coming back.
     @MainActor
     @discardableResult
     func reload(keepingPlace: Bool = false) async -> Bool {
@@ -489,6 +502,7 @@ final class MessageListViewController: UITableViewController {
             reachedOldestMessage = first.count < Self.pageSize
             searchQuery = ""
             searchBar.clear()
+            listKept()
             say("Updated Just Now")
             // Regrouped, which puts the highlight back on the letter open in
             // the reading pane if its row is still here. At the top: this is
@@ -500,11 +514,55 @@ final class MessageListViewController: UITableViewController {
             updateEmptyState()
             updatePageFooter()
             loadPreviews(for: unpreviewed)
+            kept.uploadWaiting(to: repository)
             return true
         } catch {
+            // The letters kept on the iPad are listed all the same: with no
+            // connection they are exactly the ones he needs to see.
+            if mailbox.role == .drafts {
+                listKept()
+                regroup()
+                updateEmptyState()
+            }
             ErrorPresenter.show(.cannotConnect, on: self)
             return false
         }
+    }
+
+    // MARK: - Letters kept on the iPad
+
+    /// Drafts' rows for the letters kept on the iPad, from what is kept
+    /// now; in any other folder nothing.
+    @MainActor
+    private func listKept() {
+        guard mailbox.role == .drafts else { return }
+        let waiting = kept.waiting
+        letters.keep(waiting.map { $0.row(in: mailbox.id, from: keptSender) },
+                     replacing: Set(waiting.compactMap(\.draft.savedID)))
+    }
+
+    /// Who a letter kept on the iPad is from, as its row says it.
+    private var keptSender: String {
+        let account = CredentialStore.loadAccount()
+        return account.map { $0.displayName.isEmpty ? $0.address : $0.displayName } ?? ""
+    }
+
+    /// A letter kept on the iPad has changed: its row, where he is. One
+    /// that has just reached the server is drawn as the copy it became
+    /// there, in place of the copies that went (`ListLetters.landed`),
+    /// without fetching the folder again, so a search, his ticks, the
+    /// pages he has scrolled through and where he is in them all stay.
+    @objc private func keptChanged(_ note: Notification) {
+        if let landing = note.userInfo?[LocalDrafts.landingKey] as? DraftLanding {
+            var copy: MessageSummary?
+            if let letter = landing.letter, let id = landing.id {
+                copy = letter.row(in: mailbox.id, from: keptSender, onServerAs: id)
+            }
+            letters.landed(copy, replacing: landing.replaced, atTop: reachedNewestMessage)
+        }
+        listKept()
+        regroup()
+        updateEmptyState()
     }
 
     /// Back to the newest mail after a while away, in this list rather than
@@ -1063,19 +1121,32 @@ final class MessageListViewController: UITableViewController {
         return out
     }
 
+    /// A letter kept on the iPad goes from the iPad, as Delete Draft in the
+    /// composer takes it (`LocalDrafts.delete`). Handed to the repository
+    /// with the rest, as it used to be, it was a write that could never
+    /// land, spent a probe and failed on its id, silently, and the row came
+    /// back with the reload.
     @objc private func deleteSelected() {
         let chosen = selectedMessages
         guard !chosen.isEmpty else { return }
         Task { @MainActor in
-            for m in chosen { try? await repository.delete(m.id, from: m.mailboxID) }
+            for m in chosen {
+                if let key = LocalDraft.key(ofRow: m.id) {
+                    await kept.delete(key, from: repository)
+                } else {
+                    try? await repository.delete(m.id, from: m.mailboxID)
+                }
+            }
             editTapped()
             await reload(keepingPlace: true)
             onMessagesChanged?()
         }
     }
 
+    /// Not the letters kept on the iPad, which are not on the server to be
+    /// marked, and are always read.
     @objc private func markSelected() {
-        let chosen = selectedMessages
+        let chosen = onServer(selectedMessages)
         guard !chosen.isEmpty else { return }
 
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -1119,8 +1190,10 @@ final class MessageListViewController: UITableViewController {
         }
     }
 
+    /// Not the letters kept on the iPad: there is nothing on the server to
+    /// move until they have gone to Drafts, and they stay in Drafts' list.
     @objc private func moveSelected() {
-        let chosen = selectedMessages
+        let chosen = onServer(selectedMessages)
         guard !chosen.isEmpty else { return }
         let move = MoveMessageViewController(repository: repository,
                                              excluding: mailbox.id) { [weak self] destination in
@@ -1143,19 +1216,42 @@ final class MessageListViewController: UITableViewController {
         present(nav, animated: true)
     }
 
+    /// `letters` without the ones kept on the iPad.
+    private func onServer(_ letters: [MessageSummary]) -> [MessageSummary] {
+        letters.filter { LocalDraft.key(ofRow: $0.id) == nil }
+    }
+
     /// Reopens a saved draft in the composer.
     ///
     /// The draft has to be downloaded first. Its row stays highlighted,
     /// with a spinner, until the composer opens, and a second tap on it
     /// meanwhile does nothing; see `DraftOpening`. The highlight used to go
     /// at the tap, with nothing on screen until the sheet came up.
+    ///
+    /// A letter kept on the iPad opens at once, with nothing to download,
+    /// even while it is on its way to the server: it stays on the iPad
+    /// until the composer is done with it (`LocalDrafts.upload`). One that
+    /// has gone to the server since its row was drawn opens as the copy it
+    /// became there.
     @MainActor
     private func openDraft(_ summary: MessageSummary) {
+        var id = summary.id
+        if let key = LocalDraft.key(ofRow: summary.id) {
+            if let letter = kept.letter(key) {
+                if let row = rowIndex(showing: summary.id) {
+                    tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
+                }
+                presentComposer(letter.draft, key: key, from: summary)
+                return
+            }
+            guard let landed = kept.landed[key] else { return }
+            id = landed
+        }
         guard drafts.tap(summary.id) else { return }
         showDraftSpinners()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let draft = try? await self.repository.loadDraft(id: summary.id,
+            let draft = try? await self.repository.loadDraft(id: id,
                                                              mailboxID: summary.mailboxID)
             // Another draft tapped since is the one he wants now.
             guard self.drafts.landed(summary.id) else { return }
@@ -1167,28 +1263,40 @@ final class MessageListViewController: UITableViewController {
                 ErrorPresenter.show(.cannotConnect, on: self)
                 return
             }
-            let compose = ComposeViewController(repository: self.repository, draft: draft)
-            // Sent, the draft's row goes as the sheet closes, before its
-            // copy has been removed from the server: a tap on it meanwhile
-            // reopened the letter just sent, to be sent again. Taken off as
-            // a removal on its way, like a Delete from the reading pane.
-            compose.onDraftSent = { [weak self] _ in
-                self?.letters.take(summary, fromEveryFolder: false)
-            }
-            // Saving, sending or deleting all change what is in this very
-            // folder, so the list behind has to be rebuilt. A sent draft's
-            // row stays off only until then: the folder fetched afresh has
-            // the say, without it if the cleanup removed it, with it if not.
-            compose.onDraftsChanged = { [weak self] in
-                Task { @MainActor in
-                    self?.letters.removalLanded(summary, fromEveryFolder: false)
-                    await self?.reload(keepingPlace: true)
-                }
-            }
-            let nav = UINavigationController(rootViewController: compose)
-            nav.modalPresentationStyle = .formSheet
-            self.present(nav, animated: true)
+            self.presentComposer(draft, key: nil, from: summary)
         }
+    }
+
+    /// The composer on a draft from this folder, `summary` the row tapped.
+    @MainActor
+    private func presentComposer(_ draft: Draft, key: String?, from summary: MessageSummary) {
+        let compose = ComposeViewController(repository: repository, draft: draft, key: key)
+        // Sent, the draft's row goes as the sheet closes, before its
+        // copy has been removed from the server: a tap on it meanwhile
+        // reopened the letter just sent, to be sent again. Taken off as
+        // a removal on its way, like a Delete from the reading pane. The
+        // copy is found by its id: for a letter reopened from the iPad it
+        // is not the row he tapped, which has gone with the letter kept.
+        var taken = summary
+        compose.onDraftSent = { [weak self] id in
+            guard let self else { return }
+            taken = self.letters.letter(id) ?? summary
+            self.letters.take(taken, fromEveryFolder: false)
+        }
+        // Sending or deleting changes what is in this very folder, so the
+        // list behind has to be rebuilt. A sent draft's row stays off only
+        // until then: the folder fetched afresh has the say, without it if
+        // the cleanup removed it, with it if not. A saved one is shown by
+        // `keptChanged`, as it is kept and again once the server has it.
+        compose.onDraftsChanged = { [weak self] in
+            Task { @MainActor in
+                self?.letters.removalLanded(taken, fromEveryFolder: false)
+                await self?.reload(keepingPlace: true)
+            }
+        }
+        let nav = UINavigationController(rootViewController: compose)
+        nav.modalPresentationStyle = .formSheet
+        present(nav, animated: true)
     }
 
     /// The spinner on the row of the draft being downloaded, and on no
@@ -1418,6 +1526,7 @@ final class MessageListViewController: UITableViewController {
             cell.configure(with: thread.displayRow())
             cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
             cell.accessibilityLabel = [
+                LocalDraft.key(ofRow: thread.id) == nil ? nil : LocalDraft.mark,
                 thread.isRead ? nil : "Unread",
                 thread.participants.joined(separator: ", "),
                 thread.count > 1 ? "\(thread.count) messages" : nil,

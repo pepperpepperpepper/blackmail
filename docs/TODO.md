@@ -46,16 +46,28 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 **Ways a letter is lost** (all confirmed in the code):
 
-- [ ] Save Draft with no connection throws the letter away silently
+- [x] Save Draft with no connection throws the letter away silently
       (`ComposeActions.saveAndClose`; a test pins the silence). Mail keeps
       the draft on the iPad.
+      *Done 2026-09-30, not yet seen on the iPad: kept on the iPad before
+      the sheet goes, listed in Drafts as "On this iPad only", taken to
+      Gmail once when the connection works, never twice. See B-051.*
 - [ ] Delete inside Trash erases for good with no confirmation, which the
       spec asks for (`IMAPMailRepository` :1169).
 - [ ] Delete and Move of several letters in Edit mode fail silently
       (`MessageListViewController` :1070, :1133); Delete shows no progress.
-- [ ] No autosave: iOS ending the app loses the letter being written.
+- [x] No autosave: iOS ending the app loses the letter being written.
+      *Done 2026-09-30, not yet seen on the iPad: kept three seconds after
+      he stops and on leaving the app, and in Drafts at the next launch.
+      See B-051.*
 - [ ] No Outbox: a letter that cannot go stays in the sheet, but only while
-      the sheet does.
+      the sheet does. Next, on B-051's store. It will need a state per
+      letter (a draft, or waiting to be sent), written before the DATA goes;
+      the Message-ID the letter is sent under fixed when it enters the
+      Outbox and handed to `RFC5322Builder`, so a send cut off after
+      Gmail's 250 is looked for in Sent Mail before it is sent again, as a
+      cut-off draft is looked for in Drafts; its own list; and the pass
+      that takes kept letters to Drafts taking these to Gmail as well.
 
 **Small, every day:**
 
@@ -616,6 +628,30 @@ this host. Ordered by value, not by size.
       button with a thumb resting on the list does nothing. The connection
       log shows `layout: three panes`, `layout: two panes, …` and no
       finding after either.
+- [ ] **B-051, letters kept on the iPad.** None of it seen on the iPad yet.
+      Turn Wi-Fi off in Control Center, write a letter to himself, Cancel,
+      Save Draft: the sheet goes with nothing said, and Drafts has it at
+      the top, its preview beginning "On this iPad only". Turn Wi-Fi on
+      and tap Refresh: it goes up once, the connection log shows one
+      APPEND for it, and Drafts shows it once, without the line. Again,
+      but come back to the app instead of tapping Refresh. Reopen a draft
+      from Drafts, turn Wi-Fi off, change it, Save Draft: it is listed
+      once, at the top, and the old copy is not beside it; with Wi-Fi on,
+      one copy, the new one. Write a letter, wait five seconds, and swipe the
+      app away in the app switcher; open it again: the letter is at the
+      top of Drafts with every word, and shortly after in Gmail's Drafts
+      on the web. The same with two photos attached before the swipe: both
+      come back, open in the composer, and go up with it. Write a letter
+      and swipe its sheet down: it is in Drafts. Send a letter, Save one
+      with Wi-Fi on, and Delete one: nothing "On this iPad only" is left.
+      Lock the iPad in the middle of a letter and unlock it: the letter is
+      still in the sheet as it was. With Wi-Fi off, Save Draft on a letter
+      with two photos; Wi-Fi on, open another folder: the connection log
+      shows no APPEND; go to the Home Screen: it shows one, and Drafts has
+      the letter once. In Drafts, Edit, tick a kept letter, Delete: it goes,
+      and does not come back at the next Refresh. Search Drafts, open a
+      draft from the hits, change it, Save Draft: the hit is the new copy,
+      and opens.
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load

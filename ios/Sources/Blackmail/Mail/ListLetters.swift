@@ -28,6 +28,12 @@ final class ListLetters: PaneActionList {
     private var removed = RemovedLetters()
     private var billing = ReadBilling()
 
+    /// Drafts only: the letters kept on the iPad that the server does not
+    /// have yet, as rows, and the ids of the server's copies they replace.
+    /// See `keep(_:replacing:)`.
+    private(set) var kept: [MessageSummary] = []
+    private var replaced: Set<String> = []
+
     /// A letter the pane changed, or took off or put back: the rows are to
     /// be regrouped and redrawn.
     var changed: () -> Void = {}
@@ -42,8 +48,14 @@ final class ListLetters: PaneActionList {
     /// search is showing, the folder otherwise.
     var visible: [MessageSummary] { results ?? folder }
 
-    /// `visible` without the letters taken off by hand: the rows.
-    var shown: [MessageSummary] { removed.remaining(visible) }
+    /// `visible` without the letters taken off by hand: the rows. Under the
+    /// letters kept on the iPad, when no search is showing.
+    var shown: [MessageSummary] {
+        guard !isSearching, !kept.isEmpty || !replaced.isEmpty else {
+            return removed.remaining(visible)
+        }
+        return removed.remaining(kept + folder.filter { !replaced.contains($0.id) })
+    }
 
     /// Where the next page down is asked for from: the last letter the last
     /// page gave, even when it has since been binned. See `RemovedLetters`.
@@ -98,6 +110,50 @@ final class ListLetters: PaneActionList {
 
     func showResults(_ hits: [MessageSummary]) {
         results = hits
+    }
+
+    /// Drafts' letters kept on the iPad and not yet on the server
+    /// (`LocalDrafts`), at the top, newest first, above the folder's own
+    /// letters, and in place of the copies on the server they will replace
+    /// (`replacing`, the `savedID` of each): a letter reopened from Drafts
+    /// and saved again without a connection is one letter, not two.
+    ///
+    /// Only ever above the folder's letters, whose order it leaves alone,
+    /// and never among a search's hits. Paging walks the folder's letters
+    /// as before (`cursor`), since these are not the server's to page.
+    func keep(_ rows: [MessageSummary], replacing: Set<String>) {
+        kept = rows
+        replaced = replacing
+    }
+
+    /// Drafts: a letter kept on the iPad has reached the server as `copy`
+    /// (`LocalDrafts`), and the copies in `gone` have been removed from
+    /// Drafts, those it replaced or those a letter sent or deleted left.
+    ///
+    /// The copies that went are taken off, from a search's hits as well,
+    /// until the list is next fetched afresh, as a removal of his own is
+    /// (`RemovedLetters`). The new copy stands where the one it replaced
+    /// stood among the hits, and at the top of the folder's letters when
+    /// they start at the top (`atTop`), since it is the newest there. None
+    /// of it is fetched. The newest page used to be fetched again after
+    /// every landing, which he had not asked for: it ended his search,
+    /// left the copy just removed among the hits of one it could not end,
+    /// and replaced the pages he had scrolled through with the first,
+    /// taking him back up to it.
+    func landed(_ copy: MessageSummary?, replacing gone: [String], atTop: Bool) {
+        for id in gone {
+            removed.take(id)
+            removed.land(id)
+        }
+        guard let copy else { return }
+        if var hits = results, !hits.contains(where: { $0.id == copy.id }),
+           let at = hits.firstIndex(where: { gone.contains($0.id) }) {
+            hits.insert(copy, at: at)
+            results = hits
+        }
+        if atTop, !folder.contains(where: { $0.id == copy.id }) {
+            folder.insert(copy, at: 0)
+        }
     }
 
     /// Back to the folder's letters, as they were, without a round trip.

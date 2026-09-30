@@ -133,7 +133,19 @@ final class MockMailRepository: MailRepository {
         return id
     }
 
+    /// Nothing is ever cut off here, so an earlier version is never found.
+    @discardableResult
+    func saveDraft(_ draft: Draft, as upload: DraftUpload) async throws -> DraftSaved {
+        let replaced = draft.savedID.map { [$0] } ?? []
+        try await upload.appending()
+        return DraftSaved(id: try await saveDraft(draft), replaced: replaced)
+    }
+
     func deleteDraft(_ id: String) async throws { savedDrafts[id] = nil }
+
+    /// Nothing is ever cut off here, so there is never such a copy.
+    @discardableResult
+    func deleteDrafts(uploadedAs versions: [String]) async throws -> [String] { [] }
 
     func loadDraft(id: String, mailboxID: String) async throws -> Draft {
         guard let draft = savedDrafts[id] else { throw MailError.cannotConnect }
@@ -172,6 +184,9 @@ final class MockMailRepository: MailRepository {
 
     /// No connection to keep alive.
     func warmUp() async {}
+
+    /// Always there.
+    var isConnected: Bool { get async { true } }
 
     // MARK: - Fixtures
 

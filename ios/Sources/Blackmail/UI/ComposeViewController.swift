@@ -13,6 +13,11 @@ final class ComposeViewController: UIViewController,
 
     private let repository: MailRepository
     private var draft: Draft
+    /// Which letter this is on the iPad, kept there as he writes it
+    /// (`LocalDrafts`): a new one for a new letter or a draft from the
+    /// server, the kept one's own for a letter reopened from the iPad.
+    private let key: String
+    private let kept: LocalDrafts
 
     /// Fired when the Drafts folder has changed underneath, so whatever is
     /// showing it can catch up.
@@ -68,14 +73,11 @@ final class ComposeViewController: UIViewController,
     private weak var activeAddressField: UITextField?
     private static let suggestionRowHeight: CGFloat = Theme.suggestionRowHeight
 
-    /// Send and Save Draft, in the order each has to happen, and what the
-    /// sheet shows while a letter goes. See `ComposeActions`.
+    /// Send and Save Draft, in the order each has to happen, what the sheet
+    /// shows while a letter goes, and the letter kept on the iPad meanwhile.
+    /// See `ComposeActions`.
     private lazy var actions = ComposeActions(
-        sendLetter: { [repository] draft, progress in
-            try await repository.send(draft, progress: progress)
-        },
-        saveDraft: { [repository] draft in _ = try await repository.saveDraft(draft) },
-        deleteDraft: { [repository] id in try await repository.deleteDraft(id) },
+        letter: key, repository: repository, kept: kept,
         dismiss: { [weak self] in self?.close() },
         showError: { [weak self] error in
             guard let self else { return }
@@ -112,11 +114,17 @@ final class ComposeViewController: UIViewController,
     /// Held while a letter goes, with the Remove buttons.
     private weak var attachButton: UIButton?
 
-    init(repository: MailRepository, draft: Draft) {
+    /// `key` is the letter's on the iPad when it was reopened from there;
+    /// any other letter is given a new one.
+    init(repository: MailRepository, draft: Draft, key: String? = nil) {
         self.repository = repository
         self.draft = draft
+        self.key = key ?? UUID().uuidString.lowercased()
+        self.kept = .shared
         super.init(nibName: nil, bundle: nil)
         title = draft.subject.isEmpty ? "New Message" : draft.subject
+        // Nothing else takes it to the server while it is open here.
+        kept.opened(self.key)
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -210,6 +218,37 @@ final class ComposeViewController: UIViewController,
 
         // Last, so it sits above the body it overlaps.
         configureSuggestions()
+
+        // Kept on the iPad a few seconds after he stops, and at once when
+        // he leaves the app. See `ComposeActions.edited` and `putAside`.
+        let centre = NotificationCenter.default
+        centre.addObserver(self, selector: #selector(letterEdited),
+                           name: UITextView.textDidChangeNotification, object: bodyView)
+        centre.addObserver(self, selector: #selector(leavingTheApp),
+                           name: UIApplication.didEnterBackgroundNotification, object: nil)
+    }
+
+    /// The letter as the fields have it now, for what keeps it.
+    private func currentLetter() -> Draft {
+        collect()
+        return draft
+    }
+
+    @objc private func letterEdited() {
+        actions.edited { self.currentLetter() }
+    }
+
+    @objc private func leavingTheApp() {
+        actions.putAside { self.currentLetter() }
+    }
+
+    /// Swiped away, or Cancel on a letter with nothing in it: the letter he
+    /// changed stays on the iPad, in Drafts, rather than going with the
+    /// sheet. After Send, Save Draft or Delete Draft this does nothing.
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard navigationController?.isBeingDismissed ?? isBeingDismissed else { return }
+        actions.sheetGone { currentLetter() }
     }
 
     /// The permanent "Attach Photo" control.
@@ -341,6 +380,7 @@ final class ComposeViewController: UIViewController,
         guard sender.tag < draft.attachments.count else { return }
         draft.attachments.remove(at: sender.tag)
         rebuildAttachments()
+        letterEdited()
     }
 
     // MARK: - Choosing a photo
@@ -394,7 +434,9 @@ final class ComposeViewController: UIViewController,
         // open for an hour should not also be holding several megabytes of
         // image in memory. Safe against the launch-time purge because a
         // SAVED draft embeds its bytes on the server and reopens as a
-        // message part, so nothing on disk has to outlive the session.
+        // message part, and a letter kept on the iPad links its photos
+        // into its own directory (`LocalDraftStore.keep`), so nothing in
+        // the staging has to outlive the session.
         guard let url = try? AttachmentStore.write(data, named: filename) else {
             ErrorPresenter.show(.attachmentFailed, on: self)
             return
@@ -404,6 +446,7 @@ final class ComposeViewController: UIViewController,
                                                  mimeType: "image/jpeg",
                                                  size: Int64(data.count)))
         rebuildAttachments()
+        letterEdited()
     }
 
     private func row(label text: String, field: UITextField, text value: String) -> UIView {
@@ -425,6 +468,7 @@ final class ComposeViewController: UIViewController,
         // address came out as "someone,example.org" and would have been
         // rejected as unparseable. A 90-year-old hunting for an @ sign is a
         // reason not to send the letter at all.
+        field.addTarget(self, action: #selector(letterEdited), for: .editingChanged)
         if field === toField || field === ccField || field === bccField {
             field.keyboardType = .emailAddress
             field.addTarget(self, action: #selector(addressEditingChanged(_:)),
@@ -564,7 +608,10 @@ final class ComposeViewController: UIViewController,
             // `ComposeActions.saveAndClose`, which also refuses once a
             // letter is on its way. The draft is asked for after the sheet
             // has gone, so the save keeps this controller until it has it.
-            self.actions.saveAndClose({ self.draft }, then: self.onDraftsChanged)
+            // Drafts catches up from `LocalDrafts.changed`, as the letter
+            // is kept and again once the server has it, rather than from
+            // here, which would fetch it a second time.
+            self.actions.saveAndClose({ self.draft }, then: nil)
         })
         sheet.addAction(UIAlertAction(title: "Delete Draft", style: .destructive) { [weak self] _ in
             guard let self else { return }
@@ -658,6 +705,15 @@ final class ComposeViewController: UIViewController,
         draft.subject = subjectField.text ?? ""
         draft.body = bodyView.text ?? ""
     }
+}
+
+extension LocalDrafts {
+
+    /// The app's own: in Application Support, for the account set up on
+    /// this iPad, inside `UIApplication`'s background time.
+    static let shared = LocalDrafts(store: LocalDraftStore(root: LocalDraftStore.appRoot),
+                                    account: CredentialStore.loadAccount()?.address,
+                                    background: .app)
 }
 
 extension BackgroundTime {

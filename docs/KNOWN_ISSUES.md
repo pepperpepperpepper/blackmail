@@ -2620,3 +2620,230 @@ and keyboard. Two panes survived killing and reopening the app, and the
 switch back to three after that sent nothing on the connection. Not yet
 tried: Edit mode across a switch, another folder opened from "< Mailboxes",
 VoiceOver on the button, the layout sweep in both.
+
+---
+
+## B-051 — CHANGED 2026-09-30, not yet seen on the iPad. Save Draft with no connection lost the letter, and nothing he was writing was kept
+
+**Found in the gap review of 2026-09-30** ("Ways a letter is lost" in the
+TODO), in the code, not on the iPad. Two ways a letter he had written was
+gone with nothing to say so:
+
+- Save Draft closed the sheet first and sent the draft to Gmail after it.
+  With no connection, or a password Gmail no longer took, the save failed
+  once the sheet had gone: nothing was said, and nothing had been kept on
+  the iPad. `ComposeActions.saveAndClose` ended in
+  `try? await saveDraft(…)`, and a test pinned the silence.
+- Nothing he was writing was kept anywhere until Send or Save Draft. If iOS
+  ended the app while he wrote, as it may once he has gone to Safari for a
+  link and stayed there, the letter was gone. Swiping the sheet down lost it
+  the same way, without a question.
+
+He writes about 70 letters a day and has about 1,900 drafts, so both
+happen to him. Mail keeps a draft on the device and puts it in Drafts when
+it can.
+
+**What he sees now.** Save Draft with no connection: the sheet goes as
+before and nothing is said, and the letter is at the top of Drafts, the
+first line of its preview reading "On this iPad only". When the connection
+works again it goes to Gmail's Drafts, once, and the line goes. A letter
+reopened from Drafts and saved again with no connection is listed once, in
+place of its copy on the server, which is removed after the new one is
+there, as Save Draft always did. With a connection, Save Draft is what it
+was, one APPEND and the old copy removed, and the letter is on the iPad
+only while the save takes.
+
+When a kept letter reaches Gmail, its row in Drafts becomes the copy there,
+without the folder being fetched again: a search he is in, the rows he has
+ticked in Edit and the place he has scrolled to all stay, and the copy it
+replaced leaves the list, a search's hits included. (The first version of
+this fetched the newest page after every landing, unasked, which ended a
+search, took him back to the top from the pages below it, and left the
+removed copy among the hits of a search it could not end.) In Edit, Delete
+takes a kept letter off the iPad as Delete Draft does; Move and Mark leave
+kept letters as they are, since there is nothing on the server to move or
+mark yet. They used to be handed to the repository under the row's own id,
+which failed silently, and the row came back.
+
+While he writes, the letter is kept on the iPad three seconds after he
+stops, and at once when he leaves the app, inside background time as Send
+and Save Draft are (B-044); with a photo still being read in, the time is
+held until it has landed and the letter is kept again with it. If iOS ends
+the app, the next launch has the letter at the top of Drafts, marked, with
+every word and photo, and takes it to Gmail's Drafts at the first chance.
+The same for a sheet swiped down with a letter he had changed, and for a
+letter whose Send was cut off by iOS ending the app. A letter he never
+touched is not kept, and one he emptied does not replace what was kept
+before. A letter he sent or deleted leaves nothing on the iPad; one he
+saved, nothing once Gmail has it. A letter open in the composer is never
+taken to the server behind it, and is not listed in Drafts until the sheet
+has gone.
+
+**When a kept letter goes up:** at Save Draft; each time a folder's newest
+page has just been fetched, which is at launch, at a Refresh, on opening a
+folder and on coming back after a while; each time the app comes back to
+the foreground, after the connection's check (B-024's probe, `warmUp`); and
+as he leaves the app. One letter at a time, inside background time, and with
+none waiting nothing is sent. Only Save Draft makes a connection: every
+other pass goes only over one already up, so after a launch that could not
+connect, or a password Gmail refused, nothing is sent until he does
+something that connects. The first version connected at every return to
+the app while a letter was kept, and sent a refused password each time; it
+said a password refused at the warm-up was not sent again, which held only
+for a refusal made by the warm-up itself. A letter that fails with the
+connection still up, a forward whose original has gone from Gmail or an
+APPEND Gmail refuses, is passed over, and not tried again unasked until he
+changes it or the app is launched again; the letters after it go. It used
+to stop the pass, and as the newest it held back every older letter for
+good, at the cost of its own round trips after every page. A letter
+carrying a megabyte or more of photos goes unasked only as he leaves the
+app, when nothing he taps waits behind its upload (PERFORMANCE.md, #4).
+
+**Mail's own behaviour, and what was chosen.** Apple's guide ("Save a draft
+in Mail on iPad") documents Save Draft and says nothing of a letter being
+written when the app is ended; what Mail does then was not checked on a
+device. Here the letter is not reopened in the composer at the next launch:
+it is in Drafts, at the top. A composer that opened by itself would stand
+over the Inbox he came to read, and a letter whose writing had made the
+app crash would crash it again at every launch. No mark of Mail's for a
+draft not yet on the server was found either, so "On this iPad only" is
+this app's own, in words, where the preview's first line would be; VoiceOver
+reads it first.
+
+**How it is kept.** In Application Support, `Local Drafts/`, one directory
+per letter: `letter.json`, written atomically, and its photos, which are
+hard links to the composer's staged copies, so `AttachmentStore.purge()`
+at launch leaves them. One letter is one entry however often it is kept.
+JSON for D-016's reasons, and alongside D-016's copy of his mail rather
+than inside it: never under `Kept/`, never wiped or evicted with it.
+Excluded from iCloud backup. A file cut short, unreadable, or of a format
+this build does not know is passed over and left where it is, never
+deleted, and never stops a launch: it may be the only copy of a letter.
+
+**Never twice in Drafts.** An APPEND whose answer is lost to a dropped line
+may or may not have reached Gmail, and nothing on the iPad can tell which;
+sent again blind, the letter could be in Drafts twice, and not sent again,
+nowhere. Each time the letter is kept it is a new version, which goes up
+under a Message-ID of its own, and is written down as tried just before
+the APPEND goes, once the connection, the look in Drafts and the files are
+done, so a save that failed before any of it was sent is never looked for.
+The next upload of a letter tried before first asks Drafts for those
+Message-IDs (`UID SEARCH HEADER Message-ID`): a copy of this very version
+is taken as the save's and nothing is sent; copies of older ones are
+removed with the old copy. A first save sends nothing it did not send
+before. One Message-ID per version rather than per letter, so a copy found
+is known to be this text and not an older one, and Gmail is never handed
+two different letters under one Message-ID. A search refused on a working
+connection is taken as nothing found: the letter goes up again, and at
+worst Drafts has it twice rather than it never going. Until the next pass
+has asked, a letter whose upload was cut off is listed twice: its row on
+the iPad, and the copy the cut-off upload left.
+
+Sent or deleted after an upload of it was cut off, the letter's copy in
+Drafts is known only by those Message-IDs. Its words and photos leave the
+iPad at once, and a record of the versions tried stays, never listed, until
+the copies have been found and removed, after the sheet has gone, or by the
+next pass if there is no connection then. The first version threw the
+record away with the letter, and the sent letter stayed in Drafts for good.
+A letter sent or deleted before its upload reached the APPEND never goes
+up at all.
+
+A kept letter can be opened from its row while a pass is taking it up. It
+stays on the iPad until the composer has done with it: its photos are its
+own files, the composer's copy still names the copy the upload has just
+replaced, and the versions tried are how its next Save Draft, Send or
+Delete finds the copy that landed. The first version took it off the iPad
+as the upload landed, photos and all, from under the open letter: Send then
+failed on the missing photo, Save Draft dropped the photo without a word
+and put a second copy in Drafts, and Delete left the copy that had landed.
+Closed untouched, it leaves the iPad then, since the server has it as it
+stands. A Save Draft made while its upload is still on the wire waits for
+that upload, then goes.
+
+**Another account.** A letter is kept with the address of the account it
+was written in, and goes only to that account's Drafts. One of another
+account is listed and goes nowhere until he opens it and saves or sends it,
+and it opens without the files it named on the server, a forward's or a
+reopened draft's: those are named by folder and UID, and Gmail gives every
+Inbox the same UIDVALIDITY (D-016), so in another account they can be parts
+of another letter. Not covered: a password saved in Settings that opens
+another mailbox under the same address (B-033). Telling the two mailboxes
+apart needs D-016's identity rule, X-GM-MSGID, which is not built yet.
+
+**Tested** in `LocalDraftsTests`, with the composer's own wiring
+(`ComposeActions(letter:…)`), the shipping `LocalDrafts` and the repository
+over the scripted server, and a submission server for Send; and in
+`ComposeActionsTests` with the keeping written into the log. Save Draft
+with the line down, and with the password refused (one LOGIN), keeps the
+letter, and a relaunch finds it; one the iPad cannot write goes straight to
+the server. A first Save Draft sends exactly what it used to, with no
+SEARCH. The later upload happens once however many ask at once, not while
+the composer has the letter open, and takes it off the iPad. Coming back
+three times with the password refused sends no LOGIN. A letter that cannot
+go on a working connection lets the older one go, and is not tried again
+until it changes. A large letter is not taken up while he is using the
+app, so a letter he opens is answered with its APPEND held, and goes as he
+leaves. A pass holds background time, given back once. A letter of another
+account is not taken up, and opens without its server parts. An APPEND cut
+off after the server had it is not sent again, a newer version replaces the
+copy it left, a reopened draft cut off replaces its old copy once, and a
+refused search lets the letter go up again. Sent or deleted after a cut-off,
+nothing is left in Drafts, with the line down the next pass finishes it,
+Delete in Edit does the same, and a letter deleted before its APPEND never
+goes. Opened while a pass takes it up, then saved, saved before the upload
+has landed, deleted, left alone, or with a photo sent or saved: one copy or
+none, and the photo intact. Kept again while it goes, the newer text stays
+and replaces it next time. A reopened draft saved offline replaces its
+server copy when it goes. A kept photo survives the launch purge and goes
+up with the letter, and one removed leaves its directory. Autosave keeps
+the letter after the pause, once however many changes came before it, and
+at once on leaving the app, inside background time given back once, held
+for a photo still coming, and keeps nothing he has emptied. Send, Save and
+Delete leave nothing behind, an autosave due after them included. A
+swiped-away sheet keeps what he wrote and nothing he did not; closed
+untouched, a letter reopened from the iPad stays kept. Letters are listed
+newest first. A store with a truncated file, a file that is not JSON, an
+empty directory, a stray file and a letter of an unknown format lists and
+uploads the good one. Drafts lists kept letters above its own, in place of
+the copies they replace, never grouped with them, and moves nothing else;
+a letter that lands is drawn as its copy, in a search's hits and at the
+top of a list that starts at the top, and the copies that went leave both.
+Each of twelve sabotages fails at least one of these: the letter not kept
+at Save Draft; not taken off once the server has it; no guard against two
+uploads at once; no search before sending again; the version not written
+down before it goes; the photo left as the staged file; no autosave; Send
+and Delete not taking it off; an autosave landing after them; a swiped
+sheet keeping nothing; one unreadable file emptying the list; Drafts
+listing only the server's letters. And each of thirty-two more, each one
+of the changes above undone in a scratch copy: the entry taken off while open,
+or not taken off as the composer closes; no record kept for a letter sent
+or deleted, or none finished by Send, Delete, Edit-mode Delete or the pass;
+the pass stopping at a failure, or retrying one refused; the version noted
+before the connection and the files, or after the APPEND; a letter gone
+before its APPEND still sent; the pass connecting; large letters taken
+unasked; no background time; another account's letters taken, or their
+parts kept; the current version searched for at a first save; `abandon`
+always or never removing; a landing ignoring a newer version; a refused
+search failing the save; a copy found skipping the old copy's removal; no
+fallback when the iPad cannot keep; an emptied letter kept by the autosave
+or on leaving; removed photos left on disk; the list oldest first; a save
+not waiting for the upload on its way; the copy that landed not drawn in
+the hits, not hidden, or drawn at the top of a list opened at a day; the
+leftovers' removal doing nothing.
+
+**Not taken, and still to do.** Letters kept here are not searched: search
+asks the server. `HEADER Message-ID` has not been tried against Gmail's own
+SEARCH. A kept letter carries a forward's files, and a reopened draft's, as
+parts of a letter on the server; if that letter is deleted from Gmail before
+the kept one goes up, the upload fails, and the letter stays in Drafts on
+the iPad, where he can open it and take the file out; nothing says why. A
+large letter on a slow uplink may not finish in the time iOS gives as he
+leaves, and then goes again from the start, looked for first, at the next
+departure; Save Draft in the composer sends it at once. Move and Mark in
+Edit pass over kept letters without saying so. The Edit-mode routing and the
+list's handling of a landing are UIKit, and only the pieces under them are
+tested here (`LocalDrafts.delete`, `ListLetters.landed`). A Send cut off by
+iOS ending the app comes back as a draft, and may be a letter that went:
+that is the Outbox's to settle, next, on this store (TODO).
+
+**Not yet seen on the iPad.** The TODO says what to look at.
