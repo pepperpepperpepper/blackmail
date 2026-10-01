@@ -107,6 +107,15 @@ struct MessageSummary: Identifiable, Hashable {
     /// then, pushing a conversation's stack down under him as he began to
     /// read it.
     var attachments: [Attachment] = []
+    /// Whom the letter was copied to, as the ENVELOPE the row is fetched
+    /// with names them: `Name <address>`, or the address where there is no
+    /// name, which the reading pane's header names as it names the Cc
+    /// header's (`MailFormat.recipientName`). Empty when it has none.
+    ///
+    /// Carried so the header has its Cc line from the tap, for the reason
+    /// `attachments` is: it used to gain it only when the letter came, and
+    /// push a conversation's stack down a line under him (B-042, B-055).
+    var cc: [String] = []
 }
 
 struct Message: Identifiable {
@@ -175,6 +184,21 @@ extension Message {
         }
         if let htmlBody { return HTMLText.plainText(from: htmlBody) }
         return ""
+    }
+
+    /// What a reply or a forward quotes: `quotableText`, and under it, for
+    /// a letter shown only in part (`isShortened`), a blank line and the
+    /// line the pane shows above it (`QuotedOriginal.shortenedEnding`).
+    /// Whoever the quote goes to would otherwise take the beginning of the
+    /// letter for the whole of it, and a forward would pass it on as such.
+    /// Nothing more of the letter is fetched for it.
+    ///
+    /// At the end of the quote rather than above it, where the pane has it:
+    /// these are words, not the sender's markup cut wherever the fetch
+    /// stopped, and the line closes the quote as the letter's own last line
+    /// would. The HTML twin draws it grey (`AppleMailHTML.letter`).
+    var quotedWords: String {
+        isShortened ? quotableText + QuotedOriginal.shortenedEnding : quotableText
     }
 }
 
@@ -361,7 +385,7 @@ extension Draft {
         // however much of the original he kept.
         let region = MailFormat.quoteAttribution(m.date, sender: m.sender)
             + "\n> "
-            + m.quotableText.replacingOccurrences(of: "\n", with: "\n> ")
+            + m.quotedWords.replacingOccurrences(of: "\n", with: "\n> ")
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region)
 
@@ -391,7 +415,7 @@ extension Draft {
         if !m.cc.isEmpty {
             region += "Cc: \(m.cc.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
         }
-        region += "Subject: \(m.subject)\n\n" + m.quotableText
+        region += "Subject: \(m.subject)\n\n" + m.quotedWords
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region)
         // The files come too. Forwarding a receipt and leaving its two PDFs

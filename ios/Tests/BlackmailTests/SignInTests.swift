@@ -14,6 +14,23 @@ final class SignInTests: XCTestCase {
     private static let suite = "SignInTests"
     private static let newPassword = "new-app-password"
 
+    /// Gmail's 534 for a sign-in it wants made on the web first, line for
+    /// line as its users quote it (Atlassian's help page for
+    /// AuthenticationFailedException, Esko's KB182042961): the sign-in
+    /// address in angle brackets broken over five lines, its ">" followed
+    /// by the sentence, the help page, the tag. The token in the address is
+    /// made up, as long as Gmail's.
+    private static let gmail534 = [
+        "534-5.7.14 <https://accounts.google.com/signin/continue?sarp=1&scc=1&plt=AKgnsbex",
+        "534-5.7.14 Ex4mpleT0kenAaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz01",
+        "534-5.7.14 23456789-_Ex4mpleT0kenAaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVv",
+        "534-5.7.14 WwXxYyZz0123456789-_Ex4mpleT0kenAaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQq",
+        "534-5.7.14 RrSsTtUuVvWwXxYyZz-ex> Please log in via your web browser and",
+        "534-5.7.14 then try again.",
+        "534-5.7.14  Learn more at",
+        "534 5.7.14  https://support.google.com/mail/answer/78754 a1sm2345678qkb.12 - gsmtp",
+    ]
+
     private var server: ScriptedIMAPServer!
     private var book: RecipientBook!
     private var clock: ManualClock!
@@ -154,8 +171,9 @@ final class SignInTests: XCTestCase {
 
     /// Each outcome: a password both take is kept; one IMAP refuses, for
     /// the password or for a reason of Google's own, is not, and is not
-    /// sent to SMTP as well; a submission server that cannot be reached
-    /// says nothing against a password IMAP took.
+    /// sent to SMTP as well; SMTP's 534 is a sign-in refused for sending
+    /// alone, with Gmail's words; a submission server that cannot be
+    /// reached says nothing against a password IMAP took.
     func testWhatTheCheckMakesOfEachAnswer() async throws {
         let taken = Submissions { ScriptedSubmission() }
         var verdict = await SignInCheck.run(account: server.account, password: server.password,
@@ -181,7 +199,7 @@ final class SignInTests: XCTestCase {
         }
         verdict = await SignInCheck.run(account: server.account, password: server.password,
                                         transport: transport(webLogin))
-        XCTAssertEqual(verdict, .signInRefused(alert: nil))
+        XCTAssertEqual(verdict, .sendingSignInRefused(text: "Please log in via your web browser."))
 
         let blocked = Submissions { ScriptedSubmission(failsToOpen: true) }
         verdict = await SignInCheck.run(account: server.account, password: server.password,
@@ -196,8 +214,10 @@ final class SignInTests: XCTestCase {
     }
 
     /// What each form says of each outcome. The wrong-account trap names the
-    /// Google account the password has to be made in; Google's own sentence
-    /// is given where it gave one; Settings says the old password is still
+    /// Google account the password has to be made in, and, since Gmail is
+    /// said to answer the same while it turns away sign-ins to send for a
+    /// while, what to do if it was made there; Google's own sentence is
+    /// given where it gave one; Settings says the old password is still
     /// there whenever the new one is not kept.
     func testWhatTheFormsSay() {
         let address = server.username
@@ -216,15 +236,201 @@ final class SignInTests: XCTestCase {
                        "Could not reach Gmail. Your old password is still in place.")
         XCTAssertEqual(said(.sendingRefused, .setup),
                        "Gmail took that password for reading mail but refused it for sending. "
-                       + "Make the app password while signed in to Google as owner@example.com.")
+                       + "Make the app password while signed in to Google as owner@example.com. "
+                       + "If you are sure it was made as owner@example.com, wait an hour and "
+                       + "try again.")
         XCTAssertEqual(said(.sendingRefused, .settings),
                        "Gmail took that password for reading mail but refused it for sending. "
                        + "Make the app password while signed in to Google as owner@example.com. "
-                       + "Your old password is still in place.")
+                       + "If you are sure it was made as owner@example.com, wait an hour and "
+                       + "try again. Your old password is still in place.")
         XCTAssertEqual(said(.signInRefused(alert: "Web login required."), .setup),
                        "Gmail refused the sign-in. The server returned the error: Web login required.")
         XCTAssertEqual(said(.signInRefused(alert: nil), .settings),
                        "Gmail refused the sign-in. Your old password is still in place.")
+
+        // What the form does: a password that works, or that only SMTP's 534
+        // turned away, is kept, the second with a word for the helper; any
+        // other is not, with its sentence under the button.
+        func done(_ verdict: SignInCheck.Verdict, _ form: SignInCheck.Form) -> SignInCheck.Outcome {
+            SignInCheck.outcome(of: verdict, address: address, in: form)
+        }
+        for form in [SignInCheck.Form.setup, .settings] {
+            XCTAssertEqual(done(.works, form), .keep(notice: nil))
+            XCTAssertEqual(done(.sendingSignInRefused(text: nil), form),
+                           .keep(notice: MailAlert(
+                               title: "Cannot Send Mail",
+                               message: "Gmail accepted the password for reading mail but is "
+                                   + "refusing to send for now.",
+                               offersSettings: false)))
+            for refused in [SignInCheck.Verdict.passwordRefused, .sendingRefused,
+                            .signInRefused(alert: "Web login required."), .unreachable] {
+                XCTAssertEqual(done(refused, form),
+                               .refuse(sentence: said(refused, form) ?? "none"), "\(refused)")
+            }
+        }
+    }
+
+    /// Gmail's 534 to a password IMAP has just taken: it wants a sign-in on
+    /// the web, or something else done, before it lets the account send.
+    /// The password is kept, and signed in with at once, as one that works
+    /// is; the helper is told, over the screens built again, that reading
+    /// works and sending does not for now, in Gmail's own words, its
+    /// sign-in link and its tag left out. The next LOGIN carries it. A
+    /// letter waiting in the Outbox meets the 534 at the next pass and stops
+    /// it, and his own Send says so, as each did before.
+    @MainActor
+    func testASignInRefusedForSendingAtTheCheckKeepsThePasswordAndSaysSo() async throws {
+        let gmail = Self.gmail534.joined(separator: "\r\n")
+        let submissions = Submissions { ScriptedSubmission(authReply: gmail) }
+        let background = FakeBackground()
+        let drafts = LocalDrafts(store: LocalDraftStore(root: root), account: server.username,
+                                 background: background.time)
+        let old = makeRepository(password: server.password, submissions: submissions)
+        _ = try await old.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        submissions.offline = true
+        do {
+            try await drafts.send(letter("Waiting"), as: "waiting", to: old, progress: nil)
+            XCTFail("with no connection it waits")
+        } catch {
+            XCTAssertTrue(error is Outbox.Waiting)
+        }
+        submissions.offline = false
+        server.replacePassword(with: Self.newPassword)
+
+        let verdict = await SignInCheck.run(account: server.account, password: Self.newPassword,
+                                            transport: transport(submissions))
+        let words = "Please log in via your web browser and then try again. Learn more at "
+            + "https://support.google.com/mail/answer/78754"
+        XCTAssertEqual(verdict, .sendingSignInRefused(text: words))
+        for form in [SignInCheck.Form.setup, .settings] {
+            XCTAssertEqual(SignInCheck.outcome(of: verdict, address: server.username, in: form),
+                           .keep(notice: MailAlert(
+                               title: "Cannot Send Mail",
+                               message: "Gmail accepted the password for reading mail but is "
+                                   + "refusing to send for now. The server returned the error: "
+                                   + words,
+                               offersSettings: false)))
+        }
+
+        // Saved (`CredentialStore.save` counts it) and signed in with at once.
+        LocalDraftStore.notePasswordSaved(in: root)
+        let fresh = await PasswordChange.handOver(from: old, drafts: drafts) {
+            self.makeRepository(password: Self.newPassword, submissions: submissions)
+        }
+        try await until { [server] in server!.log.contains { $0.verb == "LOGOUT" } }
+        server.clearLog()
+        _ = try await fresh.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        XCTAssertEqual(logins, ["LOGIN \"owner@example.com\" \"\(Self.newPassword)\""])
+
+        await drafts.uploadWaiting(to: fresh)?.value
+        XCTAssertEqual(drafts.outbox.map(\.key), ["waiting"])
+        XCTAssertNil(drafts.uploadWaiting(to: fresh), "the Outbox has stopped")
+        do {
+            try await drafts.send(letter("His own"), as: "own", to: fresh, progress: nil)
+            XCTFail("Gmail is not letting it send")
+        } catch {
+            XCTAssertEqual(error as? MailError, .sendingSignInRefused)
+        }
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent, [])
+    }
+
+    /// The forms and the screens are UIKit and never build on this host, so
+    /// their wiring is read from their source, as `ReadingPaneCcTests` reads
+    /// the header's: comments out, every run of spaces one space.
+    private func source(_ path: String) throws -> String {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()     // BlackmailTests
+            .deletingLastPathComponent()     // Tests
+            .deletingLastPathComponent()     // ios
+            .appendingPathComponent("Sources/Blackmail/\(path)")
+        return try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: " ")
+            .split(whereSeparator: { $0 == " " || $0 == "\t" })
+            .joined(separator: " ")
+    }
+
+    /// Settings and setup do what the outcome says: keep the password and
+    /// hand on the word for the helper, or keep what was there and say why
+    /// under the button. The word goes with the password to the screens
+    /// built again, which put it up once they are on the screen.
+    func testTheFormsKeepWhatTheCheckKeepsAndTheScreensSayIt() throws {
+        let wiring: [(String, [String])] = [
+            ("UI/SettingsViewController.swift", [
+                "switch SignInCheck.outcome(of: verdict, address: updated.address, in: .settings) { "
+                    + "case .keep(let notice): save(updated, password: newPassword, notice: notice) "
+                    + "case .refuse(let sentence): statusLabel.text = sentence }",
+                "dismiss(animated: true) { signIn?(updated, password, notice) }",
+            ]),
+            ("UI/AccountSetupViewController.swift", [
+                "switch SignInCheck.outcome(of: verdict, address: account.address, in: .setup) { "
+                    + "case .keep(let said): notice = said "
+                    + "case .refuse(let sentence): show(sentence) return }",
+                "try CredentialStore.save(account: account, password: password) "
+                    + "onConnected?(account, password, notice)",
+            ]),
+            ("UI/MessageListViewController.swift", [
+                "settings.onPasswordSaved = { [weak self] account, password, notice in "
+                    + "self?.onPasswordSaved?(account, password, notice) }",
+            ]),
+            ("UI/RootViewController.swift", [
+                "self?.signIn(as: account, password: password, saying: notice)",
+                "window.rootViewController = RootViewController(repository: fresh, saying: notice)",
+                "self.notice = notice",
+                "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
+                    + "guard let notice else { return } self.notice = nil "
+                    + "ErrorPresenter.say(notice, on: self) }",
+            ]),
+            ("App/AppDelegate.swift", [
+                "setup.onConnected = { [weak nav] account, password, notice in",
+                "RootViewController(repository: repository, saying: notice)",
+            ]),
+            ("UI/ErrorPresenter.swift", [
+                "put(alert.message, title: alert.title, offeringSettings: alert.offersSettings, on: vc)",
+            ]),
+        ]
+        for (file, lines) in wiring {
+            let code = try source(file)
+            for line in lines { XCTAssertTrue(code.contains(line), "\(file): \(line)") }
+        }
+    }
+
+    /// Gmail's words in a 534, kept as an ALERT's are: the codes, the
+    /// bracketed sign-in address and the server's tag go, the help page
+    /// stays, one line of printable characters, no longer than an ALERT's.
+    /// Where nothing is left, nil. The address goes whole however many
+    /// lines Gmail breaks it over, from its "<" to its ">"; a "<" nothing
+    /// closes is kept, and so is what a second "<" finds held.
+    func testA534IsReadForItsWords() {
+        // The lines as the reply hands them on, each without "534-" or "534 ".
+        XCTAssertEqual(SMTPClient.refusalText(Self.gmail534.map { String($0.dropFirst(4)) }),
+                       "Please log in via your web browser and then try again. Learn more at "
+                       + "https://support.google.com/mail/answer/78754")
+        XCTAssertEqual(SMTPClient.refusalText([
+                           "5.7.14 <https://accounts.google.com/signin/continue?sarp=1&plt=AKgnsbex",
+                           "5.7.14 Ex4mpleT0kenAaBbCcDdEeFf>",
+                           "5.7.14 Please log in via your web browser and then try again."]),
+                       "Please log in via your web browser and then try again.")
+        XCTAssertEqual(SMTPClient.refusalText(["5.7.14 Sign-ins <3 and", "5.7.14 more"]),
+                       "Sign-ins <3 and more")
+        XCTAssertEqual(SMTPClient.refusalText(["5.7.14 a <3 b <https://x", "5.7.14 y> c"]),
+                       "a <3 b c")
+        XCTAssertEqual(SMTPClient.refusalText([
+                           "5.7.9 Application-specific password required. Learn more at",
+                           "5.7.9  https://support.google.com/mail/?p=InvalidSecondFactor "
+                               + "x1sm123.4 - gsmtp"]),
+                       "Application-specific password required. Learn more at "
+                       + "https://support.google.com/mail/?p=InvalidSecondFactor")
+        XCTAssertEqual(SMTPClient.refusalText(["Please\tlog in\u{7}via the web"]),
+                       "Please log in via the web")
+        XCTAssertNil(SMTPClient.refusalText(["5.7.14 <https://accounts.google.com/signin/x>"]))
+        XCTAssertNil(SMTPClient.refusalText([""]))
+        let long = SMTPClient.refusalText([String(repeating: "word ", count: 100)])
+        XCTAssertEqual(long?.count, IMAPParser.alertLength + 1)
+        XCTAssertTrue(long?.hasSuffix("…") == true)
     }
 
     // MARK: - What the alerts say

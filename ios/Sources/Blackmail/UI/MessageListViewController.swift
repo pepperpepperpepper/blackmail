@@ -23,8 +23,9 @@ final class MessageListViewController: UITableViewController {
     var onRefreshRequested: (() -> Void)?
     /// A new password was checked and saved in Settings, and Settings has
     /// gone: the screens are to be built again over a repository that signs
-    /// in with it (`PasswordChange`).
-    var onPasswordSaved: ((MailAccount, String) -> Void)?
+    /// in with it (`PasswordChange`), and to put up what the check had to
+    /// say of it, if anything.
+    var onPasswordSaved: ((MailAccount, String, MailAlert?) -> Void)?
     /// He asked to jump across ALL mailboxes from a pane showing one.
     ///
     /// Handed up rather than handled here, because a list IS a folder: its
@@ -1934,8 +1935,8 @@ final class MessageListViewController: UITableViewController {
             // compose window opens, so the next letter already has it.
             self?.onRefreshRequested?()
         }
-        settings.onPasswordSaved = { [weak self] account, password in
-            self?.onPasswordSaved?(account, password)
+        settings.onPasswordSaved = { [weak self] account, password, notice in
+            self?.onPasswordSaved?(account, password, notice)
         }
         // The grouping switch acts immediately, so the list behind the
         // sheet has to hear about it the moment it flips.

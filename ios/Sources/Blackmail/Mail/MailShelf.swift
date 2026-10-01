@@ -730,6 +730,11 @@ final class MailShelf: @unchecked Sendable {
         /// without its files; absent for every other, and in a page kept
         /// before sizes were.
         var size: Int?
+        /// `MessageSummary.cc`: absent for a letter with none, and in a page
+        /// kept before the rows carried it, which reads as none, so no new
+        /// format. A row kept so has its Cc line when the letter lands, as
+        /// every row did.
+        var cc: [String]?
 
         init(_ row: MessageSummary, preview: String, size: Int? = nil) {
             id = row.id
@@ -745,13 +750,15 @@ final class MailShelf: @unchecked Sendable {
             counted = row.countedFolderIDs
             files = row.attachments.map(FileRecord.init)
             self.size = size
+            cc = row.cc.isEmpty ? nil : row.cc
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
             MessageSummary(id: id, mailboxID: mailboxID, sender: sender, subject: subject,
                            preview: preview, date: date, isRead: read, isFlagged: flagged,
                            hasAttachment: attachment, threadID: thread, gmailMessageID: message,
-                           countedFolderIDs: counted, attachments: files.map(\.attachment))
+                           countedFolderIDs: counted, attachments: files.map(\.attachment),
+                           cc: cc ?? [])
         }
     }
 

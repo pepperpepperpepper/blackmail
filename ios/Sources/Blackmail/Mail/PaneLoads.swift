@@ -185,22 +185,23 @@ enum PaneNotice {
 extension Message {
 
     /// What the reading pane's header can say about a letter before its
-    /// body has come: sender, subject and date, and the files it carries,
-    /// all of which the list row already has.
+    /// body has come: sender, subject and date, its Cc, and the files it
+    /// carries, all of which the list row already has.
     ///
-    /// No recipients, because the row has none, so the header reads "To: me"
-    /// until the letter lands; one line either way, so nothing moves when it
-    /// does. Nor a Cc, so a letter with one gains its Cc line as it lands,
-    /// one line of the meta type, the one thing in the header that moves
-    /// (B-055). The files are the row's, from the letter's structure, and they
-    /// are the ones the landed letter lists: a row each, at least 44 pt
-    /// tall, which the header used to gain only when the body came, pushing
-    /// the letter or a conversation's stack down under him. `subject` is the
-    /// thread's when the pane is showing a conversation.
+    /// No To, because the row has none, so the header reads "To: me" until
+    /// the letter lands; one line either way, so nothing moves when it does.
+    /// The Cc is the row's, from the ENVELOPE, so a letter with one has its
+    /// Cc line from the tap, where it used to gain it as the letter landed,
+    /// and move a conversation's stack down a line under him (B-055). The
+    /// files are the row's, from the letter's structure, and they are the
+    /// ones the landed letter lists: a row each, at least 44 pt tall, which
+    /// the header used to gain only when the body came, pushing the letter
+    /// or a conversation's stack down under him. `subject` is the thread's
+    /// when the pane is showing a conversation.
     static func heading(for row: MessageSummary, subject: String? = nil) -> Message {
         Message(id: row.id, mailboxID: row.mailboxID,
                 sender: row.sender, senderAddress: MailFormat.bareAddress(row.sender),
-                to: [], cc: [], subject: subject ?? row.subject, date: row.date,
+                to: [], cc: row.cc, subject: subject ?? row.subject, date: row.date,
                 textBody: nil, htmlBody: nil, attachments: row.attachments)
     }
 }

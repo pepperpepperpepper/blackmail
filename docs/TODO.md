@@ -104,7 +104,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [x] The reading pane never shows Cc, nor any bare address. *Done
       2026-09-30, not yet seen on the iPad: Cc under To, names, and the
       address where there is none, To the same; a name with a comma in it
-      is one recipient. See B-055.*
+      is one recipient; and since 2026-10-01 there from the tap, from the
+      row's ENVELOPE. See B-055.*
 - [ ] Reply ignores Reply-To; replying to his own letter addresses it to
       himself; Reply All misses his second address.
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
@@ -912,12 +913,26 @@ this host. Ordered by value, not by size.
       signed in to another Google account, and type it into Settings, and into
       setup with the stored password removed by hand as for a clean install
       (B-031): both refuse it with "Gmail took that password for reading mail
-      but refused it for sending…", Settings adding that the old password is
-      still in place, and nothing is sent. The password item is now written
-      before older ones are deleted, and they are deleted by persistent
-      reference, which has not run on a device: once the new password is
-      saved, a Keychain dump on the jailbroken iPad should show one item for
-      the account, as B-033's probe did. A refusal that is not the password,
+      but refused it for sending. Make the app password while signed in to
+      Google as <address>. If you are sure it was made as <address>, wait an
+      hour and try again.", the address the account's and the whole of it
+      readable under the button, Settings adding that the old password is
+      still in place, and nothing is sent. Gmail's 534 at the check cannot
+      be asked for; if one comes (Google wanting a sign-in on the web after
+      sign-ins it found odd): Save closes Settings, the new screens come
+      up, and "Cannot Send Mail" is put up over them at once while the
+      Inbox fills behind it, "Gmail accepted the password for reading mail
+      but is refusing to send for now. The server returned the error:
+      Please log in via your web browser…" with OK, Gmail's words whole
+      and no piece of its accounts.google.com sign-in address among them,
+      the log showing `smtp=sign-in-refused` then `PASSWORD-SAVED signed
+      in afresh`; a letter sent then keeps its sheet with "Gmail refused
+      the sign-in.", and goes once Google has been satisfied on the web.
+      The password item is now written before older ones are deleted, and
+      they are deleted by persistent reference, which has not run on a
+      device: once the new password is saved, a Keychain dump on the
+      jailbroken iPad should show one item for the account, as B-033's
+      probe did. A refusal that is not the password,
       if one can be had (a normal Google password in Settings gets Gmail's
       "Application-specific password required"): the sentence with Google's
       words under Save. Last, with the signature set: tap "Send my signature
@@ -988,13 +1003,19 @@ this host. Ordered by value, not by size.
       asks "Open this link?" with the site's name and Open goes to Safari;
       the `mailto:` opens the composer with its address. The same in a
       conversation, and an address written in an HTML letter's text.
-      Hold a finger on one: note what WebKit's menu offers and whether its
-      preview loads the page, for the owner's question below.
+      Hold a finger on one: WebKit's own menu and its preview, left as
+      Mail has them (decided 2026-10-01); note only that nothing else
+      happens, and that letting go leaves the letter as it was.
       *Cc.* A letter with a named Cc, an unnamed one, and one named
       `"Example, Pat"`: "Cc: …" under To in To's grey, the rule under it,
       Pat once; Reply All puts Pat in once. A letter with no Cc: the header
-      as it was. In a conversation mixing the two, the stack moves a line
-      when the Cc letter's header comes: say whether that is a nuisance.
+      as it was. The Cc line is there at the tap, under "Loading…", and
+      nothing in the header moves as the letter lands (since 2026-10-01).
+      Open a conversation whose newest letter has the Cc: the stack does not
+      move as its body comes. Force-quit and open, and tap the same letter
+      on the kept Inbox before the page lands: the line at the tap again,
+      once a page of this build has been kept; on the first launch of it the
+      kept page is the last build's, and the line comes with the letter.
       *A letter that tries to go somewhere.* HTML with `<meta
       http-equiv="refresh" content="0;url=https://example.com">`, an
       `<iframe src="https://example.com">`, a `<form
@@ -1049,7 +1070,11 @@ this host. Ordered by value, not by size.
       connection log shows the SEARCH as `* SEARCH {N uids}` and its screen
       scrolls without a stall. A letter whose HTML is over 2 MB, if one can
       be had, shows "Only the beginning of this message is shown." above
-      it.
+      it; Reply to it and Forward it to the second address: the composer's
+      quote ends with the same words under a blank line, and the letter
+      received ends its quote with them in grey, in Mail and on Gmail's web
+      page, once (since 2026-10-01). Save the reply as a draft, reopen it
+      and send it: the line still once.
 
 ## Blocked on the owner
 
@@ -1075,13 +1100,16 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Pictures from the web in letters** — they load, as they always
       have, and a tracking pixel tells its sender the letter was opened; the
       spec asks for them blocked by default if feasible (B-055)
-- [ ] **A long press on a link** — WebKit's own menu, whose preview loads
+- [x] **A long press on a link** — WebKit's own menu, whose preview loads
       the page without "Open this link?"; every address in a plain letter
       is a link now. Leave it, or `allowsLinkPreview` off (B-055)
-- [ ] **The Cc line arriving with the letter** — a conversation's stack
+      *Decided 2026-10-01: left as it is, as Mail has it.*
+- [x] **The Cc line arriving with the letter** — a conversation's stack
       moves down a line under him, against B-042's header of its final
       height from the tap. Let it stand and write it into B-042, or carry
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
+      *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
+      carry it, and the header has its line from the tap.*
 
 ## Open, recorded, not scheduled
 

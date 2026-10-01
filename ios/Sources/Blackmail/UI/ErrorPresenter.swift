@@ -42,6 +42,12 @@ enum ErrorPresenter {
         put(text, title: nil, offeringSettings: false, on: vc)
     }
 
+    /// Puts up `alert` as it is worded: the sign-in check's word on a
+    /// password it kept (`SignInCheck.Outcome`).
+    static func say(_ alert: MailAlert, on vc: UIViewController) {
+        put(alert.message, title: alert.title, offeringSettings: alert.offersSettings, on: vc)
+    }
+
     private static func put(_ text: String, title: String?, offeringSettings: Bool,
                             on vc: UIViewController) {
         let present = { [weak vc] () -> Bool in

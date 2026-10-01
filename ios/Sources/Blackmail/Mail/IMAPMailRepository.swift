@@ -1150,7 +1150,10 @@ actor IMAPMailRepository: MailRepository {
                 threadID: r.threadID,
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
-                attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [])
+                attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
+                // From the ENVELOPE the row is fetched with already, so the
+                // header has its Cc line from the tap; nothing more is asked.
+                cc: env?.cc.map(\.formatted) ?? [])
         }
     }
 

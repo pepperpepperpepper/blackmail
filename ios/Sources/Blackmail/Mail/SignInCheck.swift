@@ -19,15 +19,33 @@ enum SignInCheck {
         case works
         /// IMAP refused the password.
         case passwordRefused
-        /// IMAP or SMTP refused the sign-in for another reason, with IMAP's
-        /// ALERT text if it gave one (`MailError.signInRefused`,
-        /// `MailError.sendingSignInRefused`).
+        /// IMAP refused the sign-in for another reason, with its ALERT text
+        /// if it gave one (`MailError.signInRefused`).
         case signInRefused(alert: String?)
-        /// IMAP took it and SMTP refused it: a password of another Google
-        /// account (B-033).
+        /// IMAP took it and SMTP refused it, 535: a password of another
+        /// Google account (B-033), or, it is said, Gmail turning away
+        /// sign-ins to send for a while.
         case sendingRefused
+        /// IMAP took it and SMTP refused the sign-in for now, 534, with
+        /// Gmail's words where it gave any (`SMTPClient.SignInRefusal`):
+        /// most often a sign-in on the web wanted first. Kept, as a password
+        /// that works is: IMAP has just taken it, the one in place may be
+        /// revoked, and nothing a helper types next would be taken for
+        /// sending either until Gmail lets go. The letters say so as before
+        /// (`MailError.sendingSignInRefused`).
+        case sendingSignInRefused(text: String?)
         /// Gmail's IMAP could not be reached.
         case unreachable
+    }
+
+    /// What the form does with a verdict.
+    enum Outcome: Equatable {
+        /// Saves the password and signs in with it at once, as a password
+        /// that works is (`PasswordChange`), and once the screens are built
+        /// again puts up `notice`, where there is one.
+        case keep(notice: MailAlert?)
+        /// Keeps what was there, and says `sentence` under the button.
+        case refuse(sentence: String)
     }
 
     /// Which form is asking. Settings keeps the old password when the new
@@ -46,7 +64,10 @@ enum SignInCheck {
     /// does not stop the password being kept: IMAP has just taken it, the
     /// letters will say so if sending fails, and a Wi-Fi that blocks port
     /// 465 must not leave a revoked password in place with no mail at all.
-    /// Only a verdict against the account stops it.
+    /// Nor does SMTP's 534, a sign-in Gmail wants made some other way first,
+    /// which says nothing against the password either; it is kept, and the
+    /// helper told (`sendingSignInRefused`). Only a verdict against the
+    /// account stops it.
     static func run(account: MailAccount, password: String,
                     transport: @escaping MailTransportFactory) async -> Verdict {
         let imap = IMAPClient(account: account, transport: transport)
@@ -68,18 +89,47 @@ enum SignInCheck {
         } catch MailError.passwordNeedsUpdating {
             Diagnostics.log(.note, "SIGN-IN CHECK imap=ok smtp=refused")
             return .sendingRefused
-        } catch MailError.sendingSignInRefused {
+        } catch let refusal as SMTPClient.SignInRefusal {
             Diagnostics.log(.note, "SIGN-IN CHECK imap=ok smtp=sign-in-refused")
-            return .signInRefused(alert: nil)
+            return .sendingSignInRefused(text: refusal.text)
         } catch {
             Diagnostics.log(.note, "SIGN-IN CHECK imap=ok smtp=not-checked")
         }
         return .works
     }
 
-    /// What the form says under its button for `verdict`, nil for one that
-    /// works, where the form closes. `address` is the account's, for the
+    /// Whether the form keeps the password for `verdict`, and what it says.
+    static func outcome(of verdict: Verdict, address: String, in form: Form) -> Outcome {
+        switch verdict {
+        case .works:
+            return .keep(notice: nil)
+        case .sendingSignInRefused:
+            return .keep(notice: MailAlert(title: "Cannot Send Mail",
+                                           message: sentence(for: verdict, address: address,
+                                                             in: form) ?? "",
+                                           offersSettings: false))
+        default:
+            return .refuse(sentence: sentence(for: verdict, address: address, in: form) ?? "")
+        }
+    }
+
+    /// What the form says of `verdict`, nil for one that works, where the
+    /// form closes and says nothing. `address` is the account's, for the
     /// Google account a password has to be made in.
+    ///
+    /// A 535 to a password IMAP has just taken is most often Gmail's
+    /// wrong-account trap, and the sentence sends the helper to make it
+    /// again in the right account. But Gmail is said to answer 535 too
+    /// while it turns away an account's sign-ins to send for a while, and
+    /// then a password made in the right account would fail the same way,
+    /// and so would the next; so the sentence says what to do if it was
+    /// made there. B-033 first took an afternoon's 535s for that, before the
+    /// wrong account was found to explain every one of them.
+    ///
+    /// A 534 is said once the password is kept and the screens are built
+    /// again: reading works, sending does not for now, and Gmail's own
+    /// words where it gave any, after Mail's "The server returned the
+    /// error:" as for IMAP's refusal.
     static func sentence(for verdict: Verdict, address: String, in form: Form) -> String? {
         let kept = form == .settings ? " Your old password is still in place." : ""
         switch verdict {
@@ -93,7 +143,11 @@ enum SignInCheck {
             return (MailError.signInRefused(alert: alert).errorDescription ?? "") + kept
         case .sendingRefused:
             return "Gmail took that password for reading mail but refused it for sending. "
-                + "Make the app password while signed in to Google as \(address)." + kept
+                + "Make the app password while signed in to Google as \(address). "
+                + "If you are sure it was made as \(address), wait an hour and try again." + kept
+        case .sendingSignInRefused(let text):
+            return "Gmail accepted the password for reading mail but is refusing to send for now."
+                + (text.map { " The server returned the error: \($0)" } ?? "")
         case .unreachable:
             return form == .settings
                 ? "Could not reach Gmail. Your old password is still in place."

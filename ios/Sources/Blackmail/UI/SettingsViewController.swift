@@ -28,9 +28,11 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     var onSaved: ((MailAccount) -> Void)?
     /// Called once a new password has been checked and saved and this sheet
     /// has gone, for the screens to sign in with it at once
-    /// (`PasswordChange`). Not `onSaved` as well: anything done on the old
-    /// repository now would send the old password.
-    var onPasswordSaved: ((MailAccount, String) -> Void)?
+    /// (`PasswordChange`), and to put up what the check had to say of it,
+    /// if anything, once they are built again (`SignInCheck.Outcome`). Not
+    /// `onSaved` as well: anything done on the old repository now would
+    /// send the old password.
+    var onPasswordSaved: ((MailAccount, String, MailAlert?) -> Void)?
     /// Fired the moment the grouping switch moves. It acts immediately
     /// rather than waiting for Save, because it is a way of LOOKING at the
     /// mail rather than a fact about the account — and because leaving a
@@ -397,16 +399,18 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
             defer { navigationItem.rightBarButtonItem?.isEnabled = true }
             let verdict = await SignInCheck.run(account: updated, password: newPassword,
                                                 transport: TLSConnection.factory)
-            guard let refused = SignInCheck.sentence(for: verdict, address: updated.address,
-                                                     in: .settings) else {
-                save(updated, password: newPassword)
-                return
+            switch SignInCheck.outcome(of: verdict, address: updated.address, in: .settings) {
+            case .keep(let notice):
+                save(updated, password: newPassword, notice: notice)
+            case .refuse(let sentence):
+                statusLabel.text = sentence
             }
-            statusLabel.text = refused
         }
     }
 
-    private func save(_ updated: MailAccount, password: String?) {
+    /// `notice` is what the check had to say of a password it kept, put up
+    /// over the screens once they are built again: this sheet goes first.
+    private func save(_ updated: MailAccount, password: String?, notice: MailAlert? = nil) {
         do {
             if let password {
                 try CredentialStore.save(account: updated, password: password)
@@ -431,7 +435,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         // The screens are built again once the sheet has gone: replaced
         // under it, the sheet would be left over the new ones.
         let signIn = onPasswordSaved
-        dismiss(animated: true) { signIn?(updated, password) }
+        dismiss(animated: true) { signIn?(updated, password, notice) }
     }
 }
 

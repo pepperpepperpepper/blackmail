@@ -154,4 +154,56 @@ final class ReadingPaneCcTests: XCTestCase {
         XCTAssertEqual(Draft.replying(to: m, all: true, myAddress: "sam@example.com").cc,
                        ["jerome@example.com", "pat@example.com", "lee@example.com"])
     }
+
+    // MARK: - Cc from the tap
+
+    /// The list's row carries the Cc from the ENVELOPE it is fetched with
+    /// already, so the header drawn at the tap has the Cc line the landed
+    /// letter has, word for word, before anything of the letter is fetched,
+    /// and a conversation's stack does not move a line when it lands
+    /// (B-042). The list's FETCH is what it was: nothing more is asked. A
+    /// letter with no Cc has no line at the tap either.
+    func testTheHeaderHasItsCcLineFromTheTap() async throws {
+        let server = ScriptedIMAPServer()
+        defer { XCTAssertEqual(server.violations, []) }
+        let suite = "ReadingPaneCcTests.tap"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let repository = IMAPMailRepository(account: server.account, password: server.password,
+                                            transport: server.transportFactory,
+                                            recipients: RecipientBook(defaults: defaults),
+                                            shelf: keptShelf(for: server.account))
+        let uid = try XCTUnwrap(server.deliver(Server.Letter(
+            from: Server.Address(name: "Jane Example", address: "jane@example.com"),
+            to: [Server.sam],
+            cc: [Server.Address(name: "\"Example, Pat\"", address: "pat@example.com"),
+                 Server.Address(name: "=?UTF-8?Q?Example=2C_J=C3=A9r=C3=B4me?=",
+                                address: "jerome@example.com"),
+                 Server.Address(name: nil, address: "lee@example.com")],
+            subject: "The garden", date: Server.newestDate, text: "Roses.\r\n",
+            messageID: "<garden-cc-tap@example.com>"), to: [Server.inbox])[Server.inbox])
+
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let fetches = server.log.filter { $0.verb == "UID FETCH" }.map(\.command)
+        XCTAssertFalse(fetches.isEmpty)
+        for fetch in fetches {
+            XCTAssertTrue(fetch.hasSuffix(" (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE "
+                                          + "BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)"),
+                          fetch)
+        }
+        let row = try XCTUnwrap(rows.first { $0.id.hasSuffix("/\(uid)") })
+        let heading = Message.heading(for: row)
+        XCTAssertEqual(MailFormat.recipientsLine("Cc", heading.cc),
+                       "Cc: Example, Pat, Example, J\u{00E9}r\u{00F4}me, lee@example.com")
+
+        let landed = try await repository.loadMessage(id: row.id, mailboxID: Server.inbox)
+        XCTAssertEqual(MailFormat.recipientsLine("Cc", landed.cc),
+                       MailFormat.recipientsLine("Cc", heading.cc),
+                       "the line the letter lands with")
+
+        let plain = try XCTUnwrap(rows.first { !$0.id.hasSuffix("/\(uid)") })
+        XCTAssertEqual(plain.cc, [])
+        XCTAssertNil(MailFormat.recipientsLine("Cc", Message.heading(for: plain).cc))
+    }
 }

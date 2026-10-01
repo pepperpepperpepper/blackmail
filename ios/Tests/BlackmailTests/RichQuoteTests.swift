@@ -635,6 +635,73 @@ final class RichQuoteTests: XCTestCase {
         XCTAssertFalse(AppleMailHTML.part(for: draft, account: account)?
                         .contains("Second paragraph") ?? true)
     }
+
+    // MARK: - A letter shown only in part
+
+    private let notice = "Only the beginning of this message is shown."
+    private let greyLine = "<div><br></div><div style=\"color: #8e8e93;\">"
+        + "Only the beginning of this message is shown.</div>"
+    private let quoteEnd = "</div></blockquote></body></html>"
+
+    /// A reply or a forward of a letter the pane showed only the beginning
+    /// of (B-054) says so where its quote ends: in the plain part, the
+    /// pane's words under a blank line, marked as the quote is marked; in
+    /// the HTML, the same words in the pane's grey, after the original's
+    /// markup and inside its quote. A letter shown whole says nothing of
+    /// the kind in either.
+    func testAQuoteOfALetterShownOnlyInPartSaysSoAtItsEnd() {
+        var cut = original()
+        cut.isShortened = true
+        for (draft, ending) in [(reply(cut), "\n> Jane Example\n> \n> " + notice),
+                                (forward(cut), "\nJane Example\n\n" + notice)] {
+            XCTAssertTrue(draft.body.hasSuffix(ending), draft.body)
+            let sent = read(built(draft))
+            XCTAssertTrue(sent.plain.hasSuffix(ending), sent.plain)
+            XCTAssertEqual(occurrences(of: notice, in: sent.plain), 1)
+            XCTAssertTrue(sent.html.hasSuffix(greyLine + quoteEnd), sent.html)
+            XCTAssertEqual(occurrences(of: notice, in: sent.html), 1)
+            XCTAssertTrue(quoted(sent.html).contains("<p>Here is the <b>garden</b> in June.</p>"),
+                          "the original's markup is quoted as ever")
+        }
+        for draft in [reply(), forward()] {
+            let sent = read(built(draft))
+            XCTAssertFalse(draft.body.contains(notice))
+            XCTAssertFalse(sent.plain.contains(notice))
+            XCTAssertFalse(sent.html.contains(notice))
+            XCTAssertFalse(sent.html.contains("#8e8e93"))
+        }
+    }
+
+    /// A plain original shown only in part, whose quote's HTML is made from
+    /// its words: the line is there once, grey, and not also as one of the
+    /// words above it.
+    func testAPlainOriginalShownOnlyInPartSaysSoOnce() {
+        var cut = original(plainOnly: true)
+        cut.isShortened = true
+        for draft in [reply(cut), forward(cut)] {
+            let html = read(built(draft)).html
+            XCTAssertTrue(html.hasSuffix("<div>Jane Example</div>" + greyLine + quoteEnd), html)
+            XCTAssertEqual(occurrences(of: notice, in: html), 1, html)
+        }
+    }
+
+    /// Put down as a draft and taken up again, the quote still ends with
+    /// the line, once: it comes back in the stored markup, and is not added
+    /// to it a second time.
+    func testAQuoteShownOnlyInPartKeepsItsLineOnceAsADraft() throws {
+        var cut = original()
+        cut.isShortened = true
+        for fresh in [reply(cut), forward(cut)] {
+            let back = Draft.reopening(reopened(fresh), signatureImages: [logo])
+            let quote = try XCTUnwrap(back.quote)
+            XCTAssertTrue(quote.isIntact(in: back.body))
+            XCTAssertFalse(quote.isShortened)
+            let html = read(built(back)).html
+            XCTAssertTrue(html.hasSuffix(greyLine + quoteEnd), html)
+            XCTAssertEqual(occurrences(of: notice, in: html), 1, html)
+            XCTAssertEqual(occurrences(of: notice, in: back.body), 1)
+        }
+    }
 }
 
 // MARK: - Over the scripted server

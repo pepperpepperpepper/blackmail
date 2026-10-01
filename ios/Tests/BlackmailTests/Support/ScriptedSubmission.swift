@@ -40,7 +40,8 @@ actor ScriptedSubmission: MailTransport {
     /// The server's first words.
     private let greeting: String
     /// What AUTH PLAIN is answered with, in place of 235 or `refusesPassword`'s
-    /// 535: Gmail's "454 4.7.0" for a login it cannot deal with now.
+    /// 535: Gmail's "454 4.7.0" for a login it cannot deal with now, or its
+    /// 534 of several lines, CRLF between them.
     private let authReply: String?
     /// QUIT's 221 kept back until `releaseQuitReply()`: a server slow to say
     /// goodbye, or a line that has died since the letter's 250.
@@ -223,8 +224,11 @@ actor ScriptedSubmission: MailTransport {
         } else if command.hasPrefix("AUTH PLAIN") {
             let refused = refusesPassword
                 || takesOnly.map { $0 != Self.password(inPlain: line) } == true
-            pending.append(authReply ?? (refused ? "535 5.7.8 Username and Password not accepted"
-                                                 : "235 2.7.0 Accepted"))
+            // A reply of several lines, as Gmail's 534 is, is written with
+            // CRLF between them, and handed back a line at a time.
+            pending += (authReply ?? (refused ? "535 5.7.8 Username and Password not accepted"
+                                              : "235 2.7.0 Accepted"))
+                .components(separatedBy: "\r\n")
         } else if command.hasPrefix("RCPT TO"),
                   refusedRecipients.contains(where: { command.contains("<\($0)>") }) {
             pending.append("550 5.1.1 The email account that you tried to reach does not exist")

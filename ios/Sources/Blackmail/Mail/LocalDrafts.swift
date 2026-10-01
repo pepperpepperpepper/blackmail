@@ -728,17 +728,22 @@ final class LocalDraftStore {
         /// The markup's size in bytes, nil when it has none.
         var markup: Int?
         var pictures: [StoredPicture]
+        /// `QuotedOriginal.isShortened`. Only ever true, when present: absent
+        /// from every other quote, and from one kept before it was, which
+        /// reads as false, so no new format.
+        var shortened: Bool?
 
         init(_ quote: QuotedOriginal) {
             forward = quote.kind == .forward
             region = quote.region
             markup = quote.html?.utf8.count
             pictures = quote.pictures.map(StoredPicture.init)
+            shortened = quote.isShortened ? true : nil
         }
 
         func original(markup html: String?) -> QuotedOriginal {
             QuotedOriginal(kind: forward ? .forward : .reply, region: region, html: html,
-                           pictures: pictures.map(\.picture))
+                           pictures: pictures.map(\.picture), isShortened: shortened ?? false)
         }
     }
 

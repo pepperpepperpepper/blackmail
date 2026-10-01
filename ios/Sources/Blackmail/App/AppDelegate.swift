@@ -155,13 +155,14 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         let setup = AccountSetupViewController()
         let nav = UINavigationController(rootViewController: setup)
-        setup.onConnected = { [weak nav] account, password in
+        setup.onConnected = { [weak nav] account, password, notice in
             let repository = IMAPMailRepository(account: account, password: password)
             // Replace the whole root rather than dismissing back to nothing:
             // after setup there is no reason to be able to navigate back to
             // the password form, and a back button that reaches it is a way
             // to break a working account by accident.
-            nav?.view.window?.rootViewController = RootViewController(repository: repository)
+            nav?.view.window?.rootViewController = RootViewController(repository: repository,
+                                                                      saying: notice)
         }
         return nav
     }

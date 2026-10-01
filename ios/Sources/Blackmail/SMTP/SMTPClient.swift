@@ -166,10 +166,11 @@ actor SMTPClient {
     /// someone else read that account's mail and failed every letter.
     ///
     /// Throws as `send` does, up to its AUTH: `MailError.cannotConnect` for a
-    /// server not reached, `passwordNeedsUpdating` for 535,
-    /// `sendingSignInRefused` for 534, and the rest as a letter's would be.
-    /// EHLO, AUTH and QUIT are all that go: no MAIL FROM, so nothing is sent
-    /// to anyone. No transcript file is written, as none is for a read.
+    /// server not reached, `passwordNeedsUpdating` for 535, and the rest as
+    /// a letter's would be; but for 534, `SignInRefusal`, with Gmail's words,
+    /// which the check shows the helper as an ALERT's are shown. EHLO, AUTH
+    /// and QUIT are all that go: no MAIL FROM, so nothing is sent to anyone.
+    /// No transcript file is written, as none is for a read.
     func checkSignIn(password: String) async throws {
         Diagnostics.log(.note, "SIGN-IN CHECK host=\(account.smtpHost):\(account.smtpPort)")
         let connection = makeTransport(account.smtpHost, account.smtpPort)
@@ -188,9 +189,22 @@ actor SMTPClient {
             try await authenticate(connection, capabilities: capabilities, password: password)
         } catch {
             letGo(connection, quitting: true, transcript: nil)
+            if case SMTPClientError.signInRefused(let text) = error {
+                throw SignInRefusal(text: text)
+            }
             throw Self.userFacing(error)
         }
         letGo(connection, quitting: true, transcript: nil)
+    }
+
+    /// SMTP's 534 met by `checkSignIn`: Gmail will not let the account send
+    /// until something is done first, a sign-in on the web most often, with
+    /// what Gmail said of it (`refusalText`), nil where it said nothing that
+    /// is a sentence. Only the check carries the words, for the helper at
+    /// setup or in Settings; a letter's 534 is `MailError.sendingSignInRefused`,
+    /// and its words stay in the connection log, as they always did.
+    struct SignInRefusal: Error, Equatable {
+        let text: String?
     }
 
     /// The last connection being let go of, for a test to wait on.
@@ -567,8 +581,71 @@ actor SMTPClient {
     /// every rule a refused password has against trying again.
     private static func authFailure(_ reply: SMTPClientReply) -> SMTPClientError {
         if reply.code == 535 { return .authRejected }
-        if reply.code == 534 { return .signInRefused }
+        if reply.code == 534 { return .signInRefused(text: refusalText(reply.lines)) }
         return .rejected(code: reply.code, text: reply.text)
+    }
+
+    /// What a 534 says, kept as an IMAP ALERT's text is kept
+    /// (`IMAPParser.alert`): its lines without their codes and run together,
+    /// one line of printable characters and no more than
+    /// `IMAPParser.alertLength` of them, or nil where nothing is left.
+    ///
+    /// Gmail's runs over eight lines or so, the enhanced status code on each
+    /// ("5.7.14"): first a sign-in address for the account in angle
+    /// brackets, broken over as many lines as it needs, five in the reply
+    /// Atlassian's help pages quote, its ">" followed on the same line by
+    /// "Please log in via your web browser and"; then "then try again.
+    /// Learn more at" and a help page's address; then the server's own tag,
+    /// an id and "- gsmtp". The codes go, and so do the bracketed address, a
+    /// link into his Google account and not a sentence, as WEBALERT's is
+    /// left out, and the tag, which says nothing to anyone reading it; the
+    /// help page's address stays, as an ALERT's does. The address goes from
+    /// the word that opens it with "<" to the word that closes it with ">",
+    /// however many lines lie between: kept, its pieces would fill the 300
+    /// before Gmail's sentence began. A "<" that nothing closes, as in "<3",
+    /// is a word like any other, and so is what a second "<" finds held.
+    /// The connection log has every line as it came.
+    static func refusalText(_ lines: [String]) -> String? {
+        var words: [Substring] = []
+        // The words since a "<", until a ">" says they were an address.
+        var held: [Substring]?
+        for line in lines {
+            let printable = line.unicodeScalars.map { scalar -> Character in
+                scalar.properties.generalCategory == .control ? " " : Character(scalar)
+            }
+            var said = String(printable).split(whereSeparator: \.isWhitespace)
+            if let first = said.first, isEnhancedCode(first) { said.removeFirst() }
+            for word in said {
+                if word.hasPrefix("<") {
+                    words += held ?? []
+                    held = []
+                }
+                if held == nil {
+                    words.append(word)
+                } else if word.hasSuffix(">") {
+                    held = nil
+                } else {
+                    held?.append(word)
+                }
+            }
+        }
+        words += held ?? []
+        if words.count >= 3, words[words.count - 1] == "gsmtp", words[words.count - 2] == "-" {
+            words.removeLast(3)
+        }
+        let text = words.joined(separator: " ")
+        guard !text.isEmpty else { return nil }
+        let limit = IMAPParser.alertLength
+        return text.count > limit ? String(text.prefix(limit)) + "…" : text
+    }
+
+    /// RFC 3463's enhanced status code, "5.7.14": a class, a subject and a
+    /// detail, digits between full stops.
+    private static func isEnhancedCode(_ word: Substring) -> Bool {
+        let parts = word.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 3 && parts.allSatisfy { part in
+            (1...3).contains(part.count) && part.allSatisfy { $0.isASCII && $0.isNumber }
+        }
     }
 
     /// The single point where protocol detail is discarded and the user gets
@@ -580,8 +657,8 @@ actor SMTPClient {
             case .authRejected:
                 return .passwordNeedsUpdating
             case .signInRefused:
-                // Its text stays here, as every reply's does: the
-                // connection log has it.
+                // Its text stays here, as every reply's does but at the
+                // check (`SignInRefusal`): the connection log has it.
                 return .sendingSignInRefused
             case .tooLarge:
                 return .messageTooLarge
@@ -711,8 +788,9 @@ fileprivate enum SMTPClientError: Error {
     case rejected(code: Int, text: String)
     /// Credentials refused; the one failure with its own user-facing sentence.
     case authRejected
-    /// 534: the sign-in refused for a reason that is not the password.
-    case signInRefused
+    /// 534: the sign-in refused for a reason that is not the password,
+    /// with what the server said of it (`SMTPClient.refusalText`).
+    case signInRefused(text: String?)
     /// The far end is not speaking SMTP.
     case malformedReply
     /// The message is larger than the server will accept.

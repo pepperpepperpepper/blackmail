@@ -19,8 +19,10 @@ import LocalAuthentication
 /// fault — and no way to fix any of them.
 final class AccountSetupViewController: UIViewController, UITextFieldDelegate {
 
-    /// Called once credentials are stored and proven to work.
-    var onConnected: ((MailAccount, String) -> Void)?
+    /// Called once credentials are stored and proven to work, with what the
+    /// check had to say of them, if anything, for the screens it builds to
+    /// put up (`SignInCheck.Outcome`).
+    var onConnected: ((MailAccount, String, MailAlert?) -> Void)?
 
     private let stack = UIStackView()
     private let scrollView = UIScrollView()
@@ -395,14 +397,17 @@ final class AccountSetupViewController: UIViewController, UITextFieldDelegate {
             // Gmail's wrong-account trap (B-033).
             let verdict = await SignInCheck.run(account: account, password: password,
                                                 transport: TLSConnection.factory)
-            if let refused = SignInCheck.sentence(for: verdict, address: account.address,
-                                                  in: .setup) {
-                show(refused)
+            let notice: MailAlert?
+            switch SignInCheck.outcome(of: verdict, address: account.address, in: .setup) {
+            case .keep(let said):
+                notice = said
+            case .refuse(let sentence):
+                show(sentence)
                 return
             }
             do {
                 try CredentialStore.save(account: account, password: password)
-                onConnected?(account, password)
+                onConnected?(account, password, notice)
             } catch {
                 show((error as? LocalizedError)?.errorDescription
                      ?? "Password could not be saved.")

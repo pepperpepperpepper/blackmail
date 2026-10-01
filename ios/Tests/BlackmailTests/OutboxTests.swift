@@ -1589,6 +1589,28 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(back.pictures, draft.quote?.pictures)
     }
 
+    /// The quote of a letter shown only in part is kept as such, so the
+    /// letter sent later from the Outbox ends its quote with the grey line
+    /// as one sent at once does (B-054); any other quote is kept as it was,
+    /// its file saying nothing of it.
+    func testAQuoteOfALetterShownOnlyInPartIsKeptAsSuch() throws {
+        let store = LocalDraftStore(root: root)
+        var draft = letter()
+        draft.quote = QuotedOriginal(kind: .reply,
+                                     region: "On Sunday, Sam Example wrote:\n> Lunch\n> \n> "
+                                        + MailText.shortenedNotice,
+                                     html: "<p>Lunch", pictures: [], isShortened: true)
+        try store.keep(draft, as: "cut", unfinished: false, account: server.username)
+        XCTAssertEqual(store.letter("cut")?.draft.quote?.isShortened, true)
+
+        draft.quote?.isShortened = false
+        try store.keep(draft, as: "whole", unfinished: false, account: server.username)
+        XCTAssertEqual(store.letter("whole")?.draft.quote?.isShortened, false)
+        let file = try String(contentsOf: root.appendingPathComponent("whole/letter.json"),
+                              encoding: .utf8)
+        XCTAssertFalse(file.contains("shortened"), file)
+    }
+
     /// A reply quoting a newsletter's megabyte of markup. The markup is a
     /// file of its own beside the letter, so the letter's own file, written
     /// at every change of its state, the one between RCPT and DATA among
