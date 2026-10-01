@@ -41,6 +41,21 @@ enum SignatureImages {
         defaults.set(data, forKey: key)
     }
 
+    /// `save`, and the share extension's copy (`mirror`) brought up to date
+    /// at once: Restore Original Signature's pictures. The mirror is
+    /// otherwise synced only at launch and on the way to and from the
+    /// background (`ShareMirror.sync`), while the account it is saved with
+    /// is handed over at once (`CredentialStore`); a share made before the
+    /// app next went to the background, from an attachment's preview here
+    /// or from an app beside this one, went with the restored markup and
+    /// the pictures the extension had before. Nil `mirror` for a build
+    /// without the extension.
+    static func save(_ images: [InlineImage], defaults: UserDefaults = .standard,
+                     mirroringTo mirror: ShareMirror?) {
+        save(images, defaults: defaults)
+        mirror?.publish(signatureImages: images)
+    }
+
     static func removeAll(defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: key)
     }

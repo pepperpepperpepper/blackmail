@@ -21,6 +21,10 @@ final class MessageListViewController: UITableViewController {
     var onSelectThread: ((MessageThread) -> Void)?
     var onMessagesChanged: (() -> Void)?
     var onRefreshRequested: (() -> Void)?
+    /// A new password was checked and saved in Settings, and Settings has
+    /// gone: the screens are to be built again over a repository that signs
+    /// in with it (`PasswordChange`).
+    var onPasswordSaved: ((MailAccount, String) -> Void)?
     /// He asked to jump across ALL mailboxes from a pane showing one.
     ///
     /// Handed up rather than handled here, because a list IS a folder: its
@@ -576,7 +580,7 @@ final class MessageListViewController: UITableViewController {
             // what is on screen until something brings it up to date.
             updated.failed((error as? MailError) ?? .cannotConnect)
             if showingAge { sayAge() }
-            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
+            if !quietly { ErrorPresenter.show(reaching: error, on: self) }
             return false
         }
     }
@@ -651,7 +655,7 @@ final class MessageListViewController: UITableViewController {
             // what went wrong under it.
             updated.failed((error as? MailError) ?? .cannotConnect)
             if showingAge { sayAge() }
-            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
+            if !quietly { ErrorPresenter.show(reaching: error, on: self) }
             return false
         }
     }
@@ -975,8 +979,8 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func report(_ outcome: ListOpening.Jump, jumpingTo date: Date) {
         switch outcome {
-        case .failed:
-            ErrorPresenter.show(.cannotConnect, on: self)
+        case .failed(let error):
+            ErrorPresenter.show(reaching: error, on: self)
         case .nothingThatRecent:
             showingAge = false
             say("No mail on or after \(IMAPDate.spokenDay(date))")
@@ -1638,6 +1642,7 @@ final class MessageListViewController: UITableViewController {
         Task { @MainActor [weak self] in
             guard let self else { return }
             var draft: Draft?
+            var failure: Error = MailError.cannotConnect
             var notKept = false
             do {
                 // Named by the row's Gmail message id. A letter kept on the
@@ -1647,6 +1652,7 @@ final class MessageListViewController: UITableViewController {
                                                             gmailMessageID: summary.gmailMessageID,
                                                             mailboxID: summary.mailboxID)
             } catch {
+                failure = error
                 notKept = error is MailShelf.NotTheKeptLetter
             }
             // Another draft tapped since is the one he wants now.
@@ -1663,7 +1669,7 @@ final class MessageListViewController: UITableViewController {
                 return
             }
             guard let draft else {
-                ErrorPresenter.show(.cannotConnect, on: self)
+                ErrorPresenter.show(reaching: failure, on: self)
                 return
             }
             self.presentComposer(draft, key: nil, from: summary)
@@ -1913,13 +1919,25 @@ final class MessageListViewController: UITableViewController {
     }
 
     @objc private func settingsTapped() {
-        guard let account = CredentialStore.loadAccount() else { return }
-        let settings = SettingsViewController(account: account)
+        showSettings()
+    }
+
+    /// Settings, over the list; with `focusingPassword`, the keyboard up in
+    /// the password field, as the Settings button of a refused password's
+    /// alert opens it (`ErrorPresenter.openSettings`). Not while anything
+    /// else is over the list: a sheet can only be put over the screens.
+    func showSettings(focusingPassword: Bool = false) {
+        guard presentedViewController == nil,
+              let account = CredentialStore.loadAccount() else { return }
+        let settings = SettingsViewController(account: account, focusingPassword: focusingPassword)
         settings.onSaved = { [weak self] _ in
             // Nothing on this screen changes what is IN the mailbox, so the
             // list is not reloaded. The signature is read fresh every time a
             // compose window opens, so the next letter already has it.
             self?.onRefreshRequested?()
+        }
+        settings.onPasswordSaved = { [weak self] account, password in
+            self?.onPasswordSaved?(account, password)
         }
         // The grouping switch acts immediately, so the list behind the
         // sheet has to hear about it the moment it flips.

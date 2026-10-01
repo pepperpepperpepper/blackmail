@@ -58,6 +58,12 @@ enum Outbox {
     ///   send, which a write or a read deadline then ends as he comes back.
     /// - `MailError.refusedForNow`: the server said "not now", a 4yz reply
     ///   at any step, and nothing was delivered.
+    /// - `MailError.signInRefused`: IMAP's LOGIN refused for a reason that
+    ///   is not the password, "[UNAVAILABLE]" or too many connections, as a
+    ///   forward's files or the Sent Mail search wanted the connection. It
+    ///   read as no connection until 2026-09-30, and waits as one still:
+    ///   it says nothing about the submission server, and Google lets go of
+    ///   it by itself.
     /// - `Unsettled`: an earlier attempt may have gone, and could not be
     ///   looked for.
     ///
@@ -66,6 +72,9 @@ enum Outbox {
     /// - `MailError.passwordNeedsUpdating`: the account. The same password
     ///   would be refused at every pass, and each refusal counts toward
     ///   Google's lockout; Settings is where it is mended.
+    /// - `MailError.sendingSignInRefused`: the account too, the submission
+    ///   server's 534, a sign-in on the web wanted first. The same, as it
+    ///   was when it counted as the password's (`MailError.refusesSending`).
     /// - `MailError.messageTooLarge`: the letter itself; something has to
     ///   come off it.
     /// - `MailError.notSent`: every other refusal the server made with a
@@ -84,10 +93,10 @@ enum Outbox {
     static func waits(after error: Error) -> Bool {
         if error is Unsettled { return true }
         switch error as? MailError {
-        case .cannotConnect?, .connectionLost?, .refusedForNow?:
+        case .cannotConnect?, .connectionLost?, .refusedForNow?, .signInRefused?:
             return true
-        case .passwordNeedsUpdating?, .messageTooLarge?, .notSent?, .attachmentFailed?,
-             .attachmentsMissing?, nil:
+        case .passwordNeedsUpdating?, .sendingSignInRefused?, .messageTooLarge?, .notSent?,
+             .attachmentFailed?, .attachmentsMissing?, nil:
             return false
         }
     }

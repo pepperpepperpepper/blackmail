@@ -555,6 +555,9 @@ final class NewMailTests: XCTestCase {
         XCTAssertFalse(retries(.passwordNeedsUpdating,
                                after: Attempt(connected: false, lost: 4, failedConnects: 1)),
                        "a refused password")
+        XCTAssertFalse(retries(.signInRefused(alert: nil),
+                               after: Attempt(connected: false, lost: 4, failedConnects: 1)),
+                       "a sign-in refused for another reason")
     }
 
     // MARK: - Away, and a refused password
@@ -746,9 +749,10 @@ final class NewMailTests: XCTestCase {
     /// does, and its LOGIN is refused: said on the line, and that is the
     /// last password the watch sends. A letter he taps a moment later is
     /// told without the password going again; checks send nothing at all
-    /// for as long as he stays. What he does still tries: a Refresh after a
-    /// minute sends it once. Once Gmail takes it again and a Refresh of his
-    /// logs in, the checks go on.
+    /// for as long as he stays, past the wait after which a refusal for
+    /// another reason is tried again. What he does still tries: a Refresh
+    /// after a minute sends it once. Once Gmail takes it again and a Refresh
+    /// of his logs in, the checks go on.
     @MainActor
     func testARefusedPasswordStopsTheChecksUntilHisOwnLoginIsAccepted() async throws {
         let repository = makeRepository()
@@ -775,13 +779,16 @@ final class NewMailTests: XCTestCase {
         }
         XCTAssertEqual(logins, 1)
 
-        for _ in 1...6 {
+        // Past the wait after which a refusal for another reason is tried
+        // again (`refusedSignInWaits`): a refused password is not.
+        let checks = Int(IMAPMailRepository.refusedSignInWaits / MailWatch.interval) + 2
+        for _ in 1...checks {
             clock.advance(by: MailWatch.interval)
             await watch.check()
         }
         XCTAssertEqual(logins, 1)
         XCTAssertEqual(server.log.count, 1)
-        XCTAssertEqual(screen.outcomes.count, 7)
+        XCTAssertEqual(screen.outcomes.count, checks + 1)
         XCTAssertTrue(screen.outcomes.allSatisfy {
             if case .failed(.passwordNeedsUpdating, _) = $0 { return true }
             return false
@@ -889,10 +896,13 @@ final class NewMailTests: XCTestCase {
     }
 
     /// A LOGIN refused for a reason that is not the password, Gmail's
-    /// `[ALERT]` asking for a sign-in on the web, stops the checks just the
-    /// same: every half minute it would be the same loop of failed logins.
+    /// `[ALERT]` asking for a sign-in on the web, is said as what it is, with
+    /// Google's sentence, and not as "No Connection". It is not tried again
+    /// every half minute, which would be the same loop of failed logins, but
+    /// once `refusedSignInWaits` has passed since the refusal, so the mail
+    /// comes back by itself once a helper has signed in on the web.
     @MainActor
-    func testALoginRefusedForAnotherReasonStopsTheChecksToo() async throws {
+    func testALoginRefusedForAnotherReasonIsTriedAgainAfterAWhile() async throws {
         let repository = makeRepository()
         let screen = try await inboxOnScreen(repository)
         let watch = watch(repository, over: screen)
@@ -900,17 +910,43 @@ final class NewMailTests: XCTestCase {
         server.loginRefusal = "[ALERT] Please log in via your web browser (Failure)"
         await server.resetConnections()
         server.clearLog()
+        let refused = MailError.signInRefused(alert: "Please log in via your web browser (Failure)")
 
-        for _ in 1...5 {
+        // The refusal, and the checks inside the wait after it.
+        let checksInTheWait = Int(IMAPMailRepository.refusedSignInWaits / MailWatch.interval) - 1
+        for _ in 0...checksInTheWait {
             clock.advance(by: MailWatch.interval)
             await watch.check()
         }
         XCTAssertEqual(server.log.map { "\($0.verb) \($0.status ?? "-")" }, ["LOGIN NO"])
-        XCTAssertEqual(screen.outcomes.count, 5)
+        XCTAssertEqual(screen.outcomes.count, checksInTheWait + 1)
         XCTAssertTrue(screen.outcomes.allSatisfy {
-            if case .failed(.cannotConnect, _) = $0 { return true }
+            if case .failed(refused, _) = $0 { return true }
             return false
         })
+        var line = UpdatedLine()
+        line.succeeded(at: clock.now())
+        line.checked(screen.outcomes[0], listing: "inbox")
+        XCTAssertEqual(line.text(now: clock.now()), "Updated Just Now\nGmail Refused Sign-In")
+
+        // The wait over, the next check signs in again, once; still refused,
+        // it waits as long again.
+        clock.advance(by: MailWatch.interval)
+        await watch.check()
+        XCTAssertEqual(server.log.map { "\($0.verb) \($0.status ?? "-")" }, ["LOGIN NO", "LOGIN NO"])
+        for _ in 1...checksInTheWait {
+            clock.advance(by: MailWatch.interval)
+            await watch.check()
+        }
+        XCTAssertEqual(server.log.filter { $0.verb == "LOGIN" }.count, 2)
+
+        // Google lets go of it: the next try after the wait signs in, and
+        // the checks go on as before.
+        server.passwordRevoked = false
+        clock.advance(by: MailWatch.interval)
+        await watch.check()
+        XCTAssertEqual(server.log.filter { $0.verb == "LOGIN" }.map(\.status), ["NO", "NO", "OK"])
+        XCTAssertEqual(screen.outcomes.last, .listed(mailboxID: "inbox", at: clock.now()))
     }
 
     /// More than a page arrived between two checks, after hours of the list

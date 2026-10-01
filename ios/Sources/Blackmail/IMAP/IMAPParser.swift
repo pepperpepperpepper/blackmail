@@ -207,6 +207,44 @@ enum IMAPParser {
         bracketedCode(detail)?.name
     }
 
+    /// The text of an `[ALERT]` or `[WEBALERT …]` code, from the tagged
+    /// answer `detail` or from any untagged status line of the same command,
+    /// or nil if there is none. `"[ALERT] Please log in via your web browser
+    /// (Failure)"` -> `"Please log in via your web browser (Failure)"`.
+    ///
+    /// RFC 3501 §7.1 says an ALERT's text MUST be shown to the user, and it
+    /// is where Gmail says why it refused a sign-in that was not the
+    /// password: an app password required, a sign-in on the web required, an
+    /// account not enabled for IMAP. WEBALERT is Gmail's own, and its
+    /// argument, a sign-in address for the account, is left out: it is a
+    /// link into his Google account, not a sentence, and the connection log
+    /// has the whole line. One line of printable characters, and no more
+    /// than `alertLength` of them, since it goes into an alert.
+    static func alert(in detail: String, untagged: [IMAPResponseLine] = []) -> String? {
+        let statusWords: Set<String> = ["OK", "NO", "BAD", "BYE"]
+        let lines = [detail] + untagged.compactMap { line -> String? in
+            let words = line.text.split(separator: " ", maxSplits: 2)
+            guard words.count == 3, words[0] == "*",
+                  statusWords.contains(words[1].uppercased()) else { return nil }
+            return String(words[2])
+        }
+        for line in lines {
+            guard let code = bracketedCode(line), code.name == "ALERT" || code.name == "WEBALERT",
+                  let close = line.firstIndex(of: "]") else { continue }
+            let printable = line[line.index(after: close)...].unicodeScalars.map { scalar -> Character in
+                scalar.properties.generalCategory == .control ? " " : Character(scalar)
+            }
+            let text = String(printable).split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            guard !text.isEmpty else { continue }
+            return text.count > alertLength ? String(text.prefix(alertLength)) + "…" : text
+        }
+        return nil
+    }
+
+    /// Longer than any refusal Gmail is known to give, a sentence and a help
+    /// page's address; short enough for an alert on a screen he can read.
+    static let alertLength = 300
+
     /// Splits a leading `[NAME argument]` into its two halves. The argument is
     /// returned raw, because `[PERMANENTFLAGS (\Seen \*)]` needs re-tokenizing
     /// while `[UIDNEXT 42]` just needs an integer.

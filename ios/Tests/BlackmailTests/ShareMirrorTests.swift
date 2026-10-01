@@ -136,6 +136,22 @@ final class ShareMirrorTests: XCTestCase {
 
     // MARK: - The app's sync
 
+    /// Restore Original Signature's pictures are handed to the extension as
+    /// they are saved, as the account naming them is, and not only at the
+    /// next sync: until then a share went with the restored markup and the
+    /// pictures it had before.
+    func testRestoredSignaturePicturesReachTheExtensionAsTheyAreSaved() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: Self.suite))
+        let before = SignatureImages.InlineImage(contentID: "sig-logo", filename: "logo.png",
+                                                 mimeType: "image/png", dataBase64: "AAAA")
+        mirror.publish(account: account, password: "pw")
+        mirror.publish(signatureImages: [before])
+
+        SignatureImages.save([logo], defaults: defaults, mirroringTo: mirror)
+        XCTAssertEqual(SignatureImages.load(defaults: defaults), [logo])
+        XCTAssertEqual(mirror.load()?.signatureImages, [logo])
+    }
+
     func testSyncMirrorsTheAppsAccountBookAndPictures() throws {
         book.used(address: "owner@example.net")
         mirror.sync(account: account, password: "pw", signatureImages: [logo], book: book)

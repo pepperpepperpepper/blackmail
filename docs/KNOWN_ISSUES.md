@@ -3556,8 +3556,10 @@ its refusal stands for every call for a minute, as the warm-up's does, so
 the letter he taps next does not send the same password straight after
 it. Any refusal, not only a wrong password: Gmail's
 `[ALERT]` asking for a sign-in on the web would otherwise be a failed LOGIN
-every half minute. The app has no sign-out; the watch belongs to the root
-view controller and ends with it.
+every half minute. (Since B-056, only a refused password stops them: a
+LOGIN refused for another reason is tried again by the watch five minutes
+after the last refusal.) The app has no sign-out; the watch belongs to the
+root view controller and ends with it.
 
 **With no connection** each check tries to connect, which with no network
 fails at once, before any TLS, and the line says "No Connection" under the
@@ -3614,7 +3616,8 @@ the list nothing, a renumbering included; a letter whose SEARCH or FETCH
 was out as the app went, whose SEARCH or FETCH was refused, or whose check
 a jump to a day overtook, is listed by the first check that can list it;
 a refused password, and a LOGIN refused for another reason, stop the
-checks until his own LOGIN, or a PREAUTH, is accepted, and after it a
+checks until his own LOGIN, or a PREAUTH, is accepted (since B-056, a
+LOGIN refused for another reason only for five minutes), and after it a
 socket that dies is replaced by the next check; with no connection each
 check says so, the first after lists what came, and the connection it
 makes is proven for a Flag; more than a page at once, or a renumbering, is
@@ -4108,7 +4111,8 @@ so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
   the server, and every other one under `Kept/` is removed at launch.
 - A password saved, in setup or Settings, or the account cleared
   (`CredentialStore.save`, `clear`): the whole of `Kept/` goes, and the
-  shelf running keeps nothing more until the next launch.
+  shelf running keeps nothing more until the next launch, or, since
+  B-056, until the screens are built again over the new password.
 - A listing from the top whose folder has another UIDVALIDITY than its kept
   page, or a row whose X-GM-MSGID is not the kept row's under the same UID:
   the whole copy goes, every page and the folder list, before the fresh
@@ -4423,3 +4427,163 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
+
+---
+
+## B-056 — CHANGED 2026-09-30, not yet seen on the iPad. A new password waited for a relaunch, a refused sign-in read as "Can't connect", and the signature could be lost for good
+
+**Found in the code 2026-09-30**, going through what would stop the app for
+good once it is on his iPad with no way to update it. Google revokes every
+app password when the Google password changes, which over years is the
+likeliest thing to happen to this account, and the repair was the one
+place the app failed a helper:
+
+- **A new password saved in Settings was not used until the app was
+  ended.** `IMAPMailRepository` kept the password it was made with, and
+  Settings only asked for a Refresh, which ran on it (its own comment said
+  "Settings reaches it at the next launch"). The helper typed the new
+  password, Settings said nothing was wrong and closed, and the list went
+  on saying "Password Needs Updating", the Outbox stayed stopped, and every
+  tap sent the revoked password again. iPadOS keeps an app suspended for
+  days, so the fix could look like it had failed until someone knew to
+  swipe the app away.
+- **Settings and setup checked reading only.** The setup form's comment
+  said "Prove both halves before saving", and only IMAP was asked. An app
+  password made while signed in to another Google account passes IMAP,
+  which opens that account's mailbox, and fails every letter (B-033).
+  Settings had no line saying where a new password is made.
+- **Every refusal but one read as the network.** Only `NO
+  [AUTHENTICATIONFAILED]` to LOGIN counted as the password; every other NO
+  or BAD, Gmail's "[ALERT] Application-specific password required", "[WEBALERT
+  …] Web login required", "[ALERT] Too many simultaneous connections",
+  became "Can't connect to mail server." and "No Connection", which no change
+  of Wi-Fi or password mends. Google's ALERT text, which RFC 3501 §7.1 says
+  MUST be shown, went nowhere but the connection log. The list's, the
+  pane's and the folder pane's alerts said "Can't connect" whatever they had
+  caught, a refused password included. After any refusal the watch never
+  signed in again by itself. And SMTP's 534, "Please log in via your web
+  browser", was taken for the password, which sends a helper off to make
+  app password after app password while Google waits for a sign-in on the
+  web.
+- **The signature could be lost with no way back.** The formatted signature
+  reaches the iPad only from outside the app (B-035), and three things took
+  it away for good: "Send my signature as plain text instead", one tap with
+  no question, then Save; an emptied box saved; and setup shown again,
+  whose Connect built a new account and saved it over the stored one. Setup
+  is shown whenever the password cannot be read at launch, and the password
+  item was written by deleting every item for the account first and then
+  adding the new one, so a failed add, on a full disk, left no password,
+  while Settings said "Could not save. Nothing has been changed."
+
+**What he sees now.**
+
+- A new password saved in Settings is signed in with at once. The sheet
+  closes, the screens are built again over a new repository, as setup's are
+  once it has an account, and the list says "Checking for Mail…" and then
+  "Updated Just Now". The copy kept on the iPad goes as it did at any
+  password saved (D-016), so the Inbox is empty for a moment; the letters
+  kept in Drafts ("On this iPad only") and the Outbox stay, and the Outbox
+  goes at the first pass after the new page. The old repository's
+  connection is closed, and nothing still holding it signs in again or
+  sends a letter (`IMAPMailRepository.retire`).
+- Settings and setup check sending too. With IMAP's LOGIN, LIST and LOGOUT
+  done, a sign-in on the submission server, EHLO, AUTH and QUIT, and no
+  letter. A password IMAP takes and SMTP refuses is not kept: "Gmail took
+  that password for reading mail but refused it for sending. Make the app
+  password while signed in to Google as <his address>." A submission server
+  that cannot be reached, or says "not now", does not stop a password IMAP
+  has just taken: a Wi-Fi that blocks port 465 must not leave a revoked
+  password in place. Under the Settings password field: "Make one at
+  myaccount.google.com/apppasswords while signed in to Google as <his
+  address>." A setup Connect whose save fails now says "Password could not
+  be saved." rather than "Could not reach Gmail".
+- A refused password, in any alert about getting his mail or acting on it
+  (a folder, a letter, a Refresh, Go to Date, the pane's Flag, Move and
+  Delete, a draft reopened): Mail's "Cannot Get Mail", "The user name or
+  password for “Gmail” is incorrect.", with Settings and OK. Settings opens
+  over the list with the keyboard up in the password field.
+- A sign-in refused for any other reason is a third state beside the
+  password and the connection. The line under the list says "Gmail Refused
+  Sign-In"; the alert says "Cannot Get Mail" over "Gmail refused the
+  sign-in. The server returned the error: <Google's ALERT text>", or
+  "Gmail refused the sign-in." where there was none; setup and Settings say
+  the same under their button. WEBALERT's address, a sign-in link into his
+  account, is left out; the log keeps the whole line. The watch signs in
+  again five minutes after such a refusal, and every five minutes while it
+  lasts, twelve LOGINs an hour against the hundred and twenty a check every
+  half minute would send; a refused password is still never tried again
+  unasked. SMTP's 534 is this state too, and keeps every rule it had as the
+  password's: his own Send keeps the sheet, and the Outbox stops until a
+  Send of his goes, the app is launched again, or a password is saved.
+  IMAP's refusal does not take those rules, met as a forward's files are
+  fetched or as Sent Mail is asked: the letter waits in the Outbox, as it
+  did while such a refusal read as no connection, and goes with the first
+  pass once Gmail lets go.
+- "Send my signature as plain text instead" asks first: "Send Signature as
+  Plain Text?", "Your messages will no longer carry the formatted version of
+  your signature.", Cancel and Use Plain Text. Saving an emptied signature
+  asks: "Remove Signature?", "Nothing will be added to the bottom of your
+  messages.", Cancel and Remove.
+- The signature first set on this iPad, its text, its formatted twin and
+  the pictures the twin shows, is kept once in `Application
+  Support/Original Signature/signature.json` and never written again
+  (`OriginalSignature`): by the first launch that finds a signature, or the
+  first save of one. "Restore Original Signature" under the signature box,
+  only where one has been kept, asks "Restore Original Signature?", "The
+  signature first set up on this iPad will replace the one shown here.",
+  Cancel and Restore, and puts it in the form, to be saved with Save. The
+  share extension is handed the restored pictures as they are saved, as it
+  is the account.
+- Setup's Connect starts from the stored account when the address is the
+  same, trimmed and without case, and changes only the name.
+- The password item is written in place first, updated where there is one
+  and added where there is none, and every sibling under the account and
+  server goes only once that has worked (`PasswordWrite`). A write that
+  fails leaves the old password working.
+
+**Mail's words, and the app's.** "Cannot Get Mail" and "The user name or
+password for “Gmail” is incorrect." are iOS Mail's, as its users quote them
+(Apple's forums, threads 5452189 and 4202286; Google's Gmail community,
+thread 167880147), and one user quotes tapping OK on it (Microsoft's Q&A,
+question 4475893). "The server returned the error:" is Mail's on the Mac
+for this very refusal ("… Web login required", as Mac users quote it). The
+app's own: "Gmail Refused Sign-In" (Mail says "Account Error", which would
+tell him nothing, as for the other two), "Gmail refused the sign-in.", the
+sending sentence, the Settings line, and the three confirmations. Not found
+in anything quoted: whether Mail's alert has a Settings button, and where;
+this one has it first, then OK.
+
+**On the wire.** Nothing changes until a sign-in is refused or a password is
+saved; the everyday wire is as it was. The connection log gains
+`SIGN-IN CHECK host=smtp.gmail.com:465` and `SIGN-IN CHECK imap=ok
+smtp=refused`, `smtp=sign-in-refused` or `smtp=not-checked`, and
+`PASSWORD-SAVED signed in afresh`: no address, no password, nothing of a
+letter.
+
+**Left as it was.** The composer's own alert for a Send refused for its
+password still says "Password needs to be updated in Settings.": Mail's
+"Cannot Get Mail" is for getting mail. A letter kept on the iPad between the
+save and the new screens is stamped with the old count and treated as the
+old mailbox's, as one kept before a relaunch was (B-051). The original
+signature is the first one seen: a signature typed in Settings before the
+formatted one is put on the iPad would be the original, so the formatted one
+goes on first.
+
+**Tests.** `SignInTests` (the check against the scripted servers, the
+wrong-account trap, each form's words, the alerts' words and the third
+line, a pane write's refusal, a new password signed in with at once with the
+Outbox going and the old repository silent, a repository retired with a
+command still out, letters kept before the save, setup keeping the
+signature, the original kept once and restored, the emptied signature asked
+about, and the password item's order); `IMAPConnectTests` (the refusals and
+their ALERT text, and a retired client); `NewMailTests` (the watch trying
+again after five minutes, never sooner, a refused password never, past
+the five minutes too, and a refused sign-in never retried by a read);
+`OutboxTests` (534 keeps the sheet and stops the Outbox; IMAP's
+`[UNAVAILABLE]` to his Send's forward, and to a pass's look in Sent Mail,
+leaves the letter waiting and the Outbox going); `ShareMirrorTests` (the
+restored signature's pictures handed to the share extension as they are
+saved); `RepositoryTrafficTests` (Go to Date's alert says what was
+caught). Each fails with its part of the change undone.
+
+Not seen on the iPad: the TODO has the checks.

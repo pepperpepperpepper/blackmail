@@ -20,8 +20,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                           WKScriptMessageHandler {
 
     /// Runs a Delete, Move or Flag and edits the list beside the pane to
-    /// match (`PaneActions`). Returns whether the server took it.
-    var perform: ((PaneAction, MessageSummary) async -> Bool)?
+    /// match (`PaneActions`). Returns nil once the server has taken it, and
+    /// why not if it has not, for the alert to say.
+    var perform: ((PaneAction, MessageSummary) async -> MailError?)?
     /// A letter opened inside a conversation, to be marked read the way a
     /// tap on its row marks it.
     var onLetterOpened: ((MessageSummary) -> Void)?
@@ -255,7 +256,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     self.draw(m, page: page)
                 case .failure(let error) where error is MailShelf.NotTheKeptLetter:
                     self.notTheKeptLetter(summary)
-                case .failure:
+                case .failure(let error):
                     // Say so IN THE PANE, not only in an alert.
                     //
                     // The header is drawn from the summary before the body is
@@ -270,7 +271,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     // this is not: he may well tap OK before reading it.
                     self.message = nil
                     self.renderLoadFailure()
-                    ErrorPresenter.show(.cannotConnect, on: self)
+                    ErrorPresenter.show(reaching: error, on: self)
                 }
             })
     }
@@ -704,12 +705,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let flagged = !s.isFlagged
         setFlagged(flagged, on: s.id)
         Task { @MainActor in
-            let done = await self.perform?(.flag(flagged), s) ?? false
+            let refused = await self.performed(.flag(flagged), on: s)
             self.writes.flagAnswered(s.id)
-            guard !done else { return }
+            guard let refused else { return }
             self.setFlagged(s.isFlagged, on: s.id)
-            ErrorPresenter.show(.cannotConnect, on: self)
+            ErrorPresenter.show(reaching: refused, on: self)
         }
+    }
+
+    /// `perform`'s answer, or the connection's failure where nothing is
+    /// wired to run it, as it was.
+    private func performed(_ action: PaneAction, on letter: MessageSummary) async -> MailError? {
+        guard let perform else { return .cannotConnect }
+        return await perform(action, letter)
     }
 
     /// The pane's own copies of a letter's flag: the letter on screen, and
@@ -735,8 +743,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // the tap, rather than once the server has answered.
             if self.summary?.id == s.id { self.showEmpty() }
             Task { @MainActor in
-                if await self.perform?(.move(to: destination), s) != true {
-                    ErrorPresenter.show(.cannotConnect, on: self)
+                if let refused = await self.performed(.move(to: destination), on: s) {
+                    ErrorPresenter.show(reaching: refused, on: self)
                 }
             }
         }
@@ -754,10 +762,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         guard let s = summary, writes.startDelete() else { return }
         showEmpty()
         Task { @MainActor in
-            let done = await self.perform?(.delete, s) ?? false
+            let refused = await self.performed(.delete, on: s)
             self.writes.deleteAnswered()
             self.setActionsEnabled(self.summary != nil)
-            if !done { ErrorPresenter.show(.cannotConnect, on: self) }
+            if let refused { ErrorPresenter.show(reaching: refused, on: self) }
         }
     }
 

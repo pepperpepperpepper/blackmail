@@ -122,7 +122,7 @@ final class MailboxListViewController: UITableViewController {
             show(try await repository.listMailboxes())
             counted = true
         } catch {
-            if !quietly { ErrorPresenter.show(.cannotConnect, on: self) }
+            if !quietly { ErrorPresenter.show(reaching: error, on: self) }
         }
     }
 

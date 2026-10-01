@@ -53,8 +53,9 @@ actor SMTPClient {
     /// Throws `MailError.cannotConnect` if the socket never came up,
     /// `MailError.connectionLost` if it went, or stopped answering, before
     /// the server's verdict on the letter, `MailError.passwordNeedsUpdating`
-    /// if the credentials were refused, `MailError.messageTooLarge` for a
-    /// letter over the server's size, `MailError.refusedForNow` for a 4yz
+    /// if the credentials were refused, `MailError.sendingSignInRefused` if
+    /// the sign-in was refused for another reason, `MailError.messageTooLarge`
+    /// for a letter over the server's size, `MailError.refusedForNow` for a 4yz
     /// reply, the server's "not now", and `MailError.notSent` for every
     /// other refusal the server made. Raw server text never escapes this
     /// file; a 90-year-old reading "550 5.7.1 Our system has detected an
@@ -156,6 +157,42 @@ actor SMTPClient {
         letGo(connection, quitting: true, transcript: "ok")
     }
 
+    /// Signs in and says goodbye, sending no letter: whether the submission
+    /// server takes `password` for this account. Setup and Settings ask it
+    /// after IMAP has taken the password, because IMAP alone cannot tell
+    /// (B-033): Gmail's IMAP opens the mailbox an app password belongs to
+    /// whatever account the LOGIN names, while SMTP holds the two together
+    /// and refuses the pair. A password made while signed in to Google as
+    /// someone else read that account's mail and failed every letter.
+    ///
+    /// Throws as `send` does, up to its AUTH: `MailError.cannotConnect` for a
+    /// server not reached, `passwordNeedsUpdating` for 535,
+    /// `sendingSignInRefused` for 534, and the rest as a letter's would be.
+    /// EHLO, AUTH and QUIT are all that go: no MAIL FROM, so nothing is sent
+    /// to anyone. No transcript file is written, as none is for a read.
+    func checkSignIn(password: String) async throws {
+        Diagnostics.log(.note, "SIGN-IN CHECK host=\(account.smtpHost):\(account.smtpPort)")
+        let connection = makeTransport(account.smtpHost, account.smtpPort)
+        do {
+            try await connection.open()
+        } catch {
+            letGo(connection, quitting: false, transcript: nil)
+            throw MailError.cannotConnect
+        }
+        do {
+            let greeting = try await readReply(connection)
+            guard greeting.code == 220 else {
+                throw SMTPClientError.rejected(code: greeting.code, text: greeting.text)
+            }
+            let capabilities = try await handshake(connection)
+            try await authenticate(connection, capabilities: capabilities, password: password)
+        } catch {
+            letGo(connection, quitting: true, transcript: nil)
+            throw Self.userFacing(error)
+        }
+        letGo(connection, quitting: true, transcript: nil)
+    }
+
     /// The last connection being let go of, for a test to wait on.
     private(set) var lettingGo: Task<Void, Never>?
 
@@ -227,8 +264,10 @@ actor SMTPClient {
                 // counts against Google's lockout. Only a mechanism-level
                 // refusal (504, 502, 538…) is worth retrying differently. A
                 // 4yz is neither: the server said "not now", and would say
-                // it to LOGIN too.
+                // it to LOGIN too. Nor is a sign-in refused for the
+                // account's sake, which LOGIN would be refused the same.
                 if case .authRejected = error { throw error }
+                if case .signInRefused = error { throw error }
                 if case .rejected(let code, _) = error, Self.isTransient(code) { throw error }
                 guard loginAllowed else { throw error }
             }
@@ -518,13 +557,17 @@ actor SMTPClient {
         return Data(out)
     }
 
-    /// 535 is "username and password not accepted". 534 is Gmail's
-    /// "application-specific password required", which is the same instruction
-    /// to the user in different words, so both land on the message that tells
-    /// him to fix the password in Settings rather than on a generic failure he
-    /// can do nothing about.
+    /// 535 is "username and password not accepted": the password. 534 is
+    /// Gmail's for a sign-in it wants made some other way first, "5.7.14
+    /// Please log in via your web browser" or "5.7.9 Application-specific
+    /// password required". It used to land on the password's message too,
+    /// which sent a helper off to make app password after app password
+    /// while Google waited for a sign-in on the web; it is a refused
+    /// sign-in of its own now (`MailError.sendingSignInRefused`), which keeps
+    /// every rule a refused password has against trying again.
     private static func authFailure(_ reply: SMTPClientReply) -> SMTPClientError {
-        if reply.code == 535 || reply.code == 534 { return .authRejected }
+        if reply.code == 535 { return .authRejected }
+        if reply.code == 534 { return .signInRefused }
         return .rejected(code: reply.code, text: reply.text)
     }
 
@@ -536,6 +579,10 @@ actor SMTPClient {
             switch wire {
             case .authRejected:
                 return .passwordNeedsUpdating
+            case .signInRefused:
+                // Its text stays here, as every reply's does: the
+                // connection log has it.
+                return .sendingSignInRefused
             case .tooLarge:
                 return .messageTooLarge
             case .rejected(let code, _):
@@ -664,6 +711,8 @@ fileprivate enum SMTPClientError: Error {
     case rejected(code: Int, text: String)
     /// Credentials refused; the one failure with its own user-facing sentence.
     case authRejected
+    /// 534: the sign-in refused for a reason that is not the password.
+    case signInRefused
     /// The far end is not speaking SMTP.
     case malformedReply
     /// The message is larger than the server will accept.

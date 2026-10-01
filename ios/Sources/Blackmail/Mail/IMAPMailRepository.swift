@@ -227,7 +227,8 @@ actor IMAPMailRepository: MailRepository {
     /// that keeps failing to authenticate. A server that could not be
     /// reached a moment ago will not be reached by asking again at once
     /// either, and on the device each attempt can take the whole connect
-    /// timeout. `passwordNeedsUpdating` is never retried, however it arose.
+    /// timeout. A refused sign-in, the password's or another, is never
+    /// retried, however it arose.
     ///
     /// Nor when an attempt to connect failed while the read waited, whoever
     /// made it. The client calls itself connected from the moment the socket
@@ -288,14 +289,14 @@ actor IMAPMailRepository: MailRepository {
     /// above: only when a connection it began on has been torn down since,
     /// whether or not another call has connected again by the time it
     /// looks, and no attempt to connect has failed meanwhile; never for a
-    /// refused password. Apart from the connection so the suite can put it
+    /// refused sign-in. Apart from the connection so the suite can put it
     /// in each state it can be found in, which the calls themselves reach
     /// only in orders two tasks happen to run in (the stress tests of the
     /// Delete made while a NOOP is out, which pass without the rule on most
     /// runs).
     static func retries(_ error: Error, began before: Attempt, after: Attempt) -> Bool {
         before.connected
-            && (error as? MailError) != .passwordNeedsUpdating
+            && !MailError.refusesSignIn(error)
             && after.lost != before.lost
             && after.failedConnects == before.failedConnects
     }
@@ -319,11 +320,17 @@ actor IMAPMailRepository: MailRepository {
         get async { await imap.waitingForExchange }
     }
 
+    /// Never for a retired repository, whose connection is on its way to
+    /// its LOGOUT: work nobody asked for goes on the new one (`retire`).
     var isConnected: Bool {
-        get async { await imap.isConnected }
+        get async {
+            guard !retired else { return false }
+            return await imap.isConnected
+        }
     }
 
     private func connected() async throws -> IMAPClient {
+        guard !retired else { throw MailError.cannotConnect }
         lastContact = now()
         if await imap.isConnected { return imap }
         // The warm-up or the watch has sent the password a moment ago, and
@@ -405,12 +412,14 @@ actor IMAPMailRepository: MailRepository {
     /// it again, seconds apart. Calls queued behind a refused LOGIN already
     /// share its answer (`IMAPClient.connect`), but a tap comes after the
     /// probe has finished, and is two calls, the letter and its read mark.
-    /// The password cannot change under a running repository in any case;
-    /// Settings reaches it at the next launch.
+    /// The password cannot change under a running repository in any case:
+    /// one saved in Settings is signed in with at once, by a new repository
+    /// in this one's place (`PasswordChange`).
     ///
     /// Nothing is sent as the app goes into the background. A LOGOUT there
     /// would cost a whole reconnect on every return, however short.
     func warmUp() async {
+        guard !retired else { return }
         refusedUnasked = nil
         guard now().timeIntervalSince(lastContact) > Self.quietBeforeProbe,
               await imap.isConnected else { return }
@@ -430,6 +439,26 @@ actor IMAPMailRepository: MailRepository {
         } catch {
             // Unreachable, most likely. The next call tries for itself.
         }
+    }
+
+    /// Set by `retire`: this repository sends nothing more.
+    private var retired = false
+
+    /// A new password has been saved in Settings, and a new repository signs
+    /// in with it in this one's place (`PasswordChange`). The connection is
+    /// closed and no other is made (`IMAPClient.retire`), and no letter goes
+    /// through here from now on, so whatever still holds this one, the
+    /// screens it was drawn on until they go, a pass over the Outbox under
+    /// way, sends the old password nowhere and reaches the mailbox it opened
+    /// no more, which after the app-password trap (B-033) may be another's.
+    /// Nothing more goes on the old connection either, while its LOGOUT
+    /// waits for the command already on the wire: no call gets it, and a
+    /// pass finds it down. A letter from the Outbox refused here waits for
+    /// the next pass, which is the new repository's: nothing of it was
+    /// sent. Returns at once.
+    func retire() async {
+        retired = true
+        await imap.retire()
     }
 
     /// Makes sure the connection is alive BEFORE doing something that must
@@ -490,7 +519,7 @@ actor IMAPMailRepository: MailRepository {
         do {
             return try await write()
         } catch let unsent as IMAPClient.Unsent {
-            guard !Task.isCancelled, unsent.failure != .passwordNeedsUpdating,
+            guard !Task.isCancelled, !unsent.failure.refusesSignIn,
                   await imap.failedConnects == failuresBefore else { throw unsent.failure }
             _ = try await connected()
             do {
@@ -502,6 +531,16 @@ actor IMAPMailRepository: MailRepository {
     }
 
     // MARK: - The watch
+
+    /// How long after a sign-in refused for a reason that is not the
+    /// password the watch tries again (`watchedConnection`): every tenth
+    /// check, twelve LOGINs an hour while the app is in front, against the
+    /// hundred and twenty a check every half minute would send. Google
+    /// counts failed sign-ins against an account; a refusal like these is
+    /// not the password failing, and a helper who has done what Google
+    /// asked sees the mail come back within five minutes without touching
+    /// the iPad.
+    static let refusedSignInWaits: TimeInterval = 5 * 60
 
     /// The most new letters one check puts on the list. More than a page
     /// comes in between two checks only when the list has been held back
@@ -602,14 +641,23 @@ actor IMAPMailRepository: MailRepository {
     /// by itself. With no network at all each attempt fails at once, before
     /// any TLS, since the transport takes `.waiting` for a failure.
     ///
-    /// Never after a refused LOGIN, until a connection has been made since.
-    /// Every half minute that would be a loop of failed logins, and Gmail
-    /// locks out an account that keeps failing to authenticate. Only what he
-    /// does sends the password again, his next tap once `refusalStands` has
-    /// passed, and if that is accepted the watch carries on. A refusal of
-    /// the watch's own stands for every call for `refusalStands`, as the
-    /// warm-up's does, so the letter he taps a moment later does not send
-    /// the same password straight after it.
+    /// Never after the password was refused, until a connection has been
+    /// made since. Every half minute that would be a loop of failed logins,
+    /// and Gmail locks out an account that keeps failing to authenticate.
+    /// Only what he does sends a password again: his next tap once
+    /// `refusalStands` has passed, or a new one saved in Settings, which a
+    /// new repository signs in with; if that is accepted the watch carries
+    /// on. A refusal of the watch's
+    /// own stands for every call for `refusalStands`, as the warm-up's does,
+    /// so the letter he taps a moment later does not send the same password
+    /// straight after it.
+    ///
+    /// A sign-in refused for another reason is tried again, once
+    /// `refusedSignInWaits` has passed since the last refusal. What Google
+    /// refuses that way it lets go of without anything done on the iPad: a
+    /// sign-in on the web made by a helper, a limit on connections or
+    /// bandwidth that runs out. Never tried again, the list said so, and no
+    /// new mail came, until he happened to tap something.
     ///
     /// The client's `loginRefusal` is the whole rule here, and
     /// `refusedUnasked` is not asked. Every refusal that sets the one sets
@@ -617,8 +665,13 @@ actor IMAPMailRepository: MailRepository {
     /// than the minute; so `refusedUnasked` without it is a refusal a LOGIN
     /// has been accepted since, and a password that works now.
     private func watchedConnection() async throws -> IMAPClient {
+        guard !retired else { throw MailError.cannotConnect }
         if await imap.isConnected { return imap }
-        if let refusal = await imap.loginRefusal { throw refusal }
+        if let refusal = await imap.loginRefusal,
+           refusal.failure == .passwordNeedsUpdating
+            || now().timeIntervalSince(refusal.at) < Self.refusedSignInWaits {
+            throw refusal.failure
+        }
         do {
             try await imap.connect(password: password)
         } catch MailError.passwordNeedsUpdating {
@@ -1673,6 +1726,7 @@ actor IMAPMailRepository: MailRepository {
     private func send(_ draft: Draft, messageID: String?,
                       beforeData: (@Sendable () async throws -> Void)?,
                       progress: UploadProgress?) async throws {
+        guard !retired else { throw MailError.cannotConnect }
         // The threading headers, which used to be dropped on the floor.
         // `Draft.inReplyTo` was set faithfully by the compose screen and read
         // by nobody, so every reply this app sent went out with no

@@ -197,6 +197,13 @@ protocol MailRepository {
     /// before anything has been sent, and which this repository keeps as it
     /// lists and writes. Nil where nothing is kept.
     var shelf: MailShelf? { get }
+
+    /// A new password has been saved in Settings and a new repository takes
+    /// this one's place (`PasswordChange`). Its connection is closed, and it
+    /// makes no other and sends nothing from now on, so nothing still
+    /// holding it, a check, a pass over the Outbox, a preview on its way,
+    /// sends the old password again or reaches the mailbox it opened.
+    func retire() async
 }
 
 /// Where a search looks — the two scopes Mail itself offers.
@@ -294,11 +301,37 @@ struct MessageWindow {
 /// the admin diagnostics log and never to him — a 90-year-old reading
 /// "BAD Command Argument Error. 11" learns only that he has done something
 /// wrong, which he has not.
-enum MailError: LocalizedError {
+enum MailError: LocalizedError, Equatable {
     case cannotConnect
     case notSent
     case attachmentFailed
     case passwordNeedsUpdating
+    /// Gmail was reached and refused the sign-in for a reason that is not
+    /// the password: any tagged NO or BAD to IMAP's LOGIN other than
+    /// `[AUTHENTICATIONFAILED]`, "[ALERT] Web login required",
+    /// "[UNAVAILABLE]", too many connections. Google's policy changes reach
+    /// the app in exactly this shape, and they used to read as "Can't
+    /// connect to mail server." for good, with a helper on the telephone
+    /// troubleshooting the Wi-Fi. The submission server's own refusal of
+    /// this kind is `sendingSignInRefused`.
+    ///
+    /// `alert` is the text of the server's `[ALERT]` or `[WEBALERT]` code,
+    /// which RFC 3501 §7.1 says MUST be shown to the user, and which is the
+    /// one sentence that says what Google wants done. The one place server
+    /// text reaches him, deliberately; the WEBALERT's address, a sign-in
+    /// link for the account, does not (`IMAPParser.alert`).
+    ///
+    /// A SEVENTH string, recorded as `messageTooLarge` is.
+    case signInRefused(alert: String?)
+    /// The submission server refused the sign-in for a reason that is not
+    /// the password: SMTP's 534, Gmail's "5.7.14 Please log in via your web
+    /// browser" or "5.7.9 Application-specific password required". Said as
+    /// IMAP's refusal is, with no ALERT, since SMTP's text never reaches
+    /// him. Apart from `signInRefused` because the two are not the same to
+    /// the Outbox (`refusesSending`): this one keeps the rules it had while
+    /// it counted as the password's, and IMAP's refusal waits as no
+    /// connection does.
+    case sendingSignInRefused
     /// A FIFTH string, and a deliberate deviation from the four the spec
     /// fixes. Recorded rather than slipped in.
     ///
@@ -348,7 +381,58 @@ enum MailError: LocalizedError {
         case .attachmentsMissing:   return "One or more attachments failed to load."
         case .passwordNeedsUpdating: return "Password needs to be updated in Settings."
         case .messageTooLarge:      return "This message is too big to send. Try sending fewer attachments."
+        case .signInRefused(let alert):
+            // "The server returned the error:" is Mail's, as Mac users quote
+            // it for exactly this refusal ("… Web login required").
+            return alert.map { "Gmail refused the sign-in. The server returned the error: \($0)" }
+                ?? "Gmail refused the sign-in."
+        case .sendingSignInRefused:
+            return "Gmail refused the sign-in."
         }
+    }
+
+    /// Gmail was reached and would not let the account in, for its password
+    /// or for a reason of its own. Whatever asked again at once would be
+    /// refused the same way, and every refusal counts against the account,
+    /// so no read or write is tried again after one, and a pass taking
+    /// drafts to the server stops there. What stops the Outbox is narrower
+    /// (`refusesSending`).
+    var refusesSignIn: Bool {
+        switch self {
+        case .passwordNeedsUpdating, .signInRefused, .sendingSignInRefused: return true
+        default: return false
+        }
+    }
+
+    /// `refusesSignIn` for any error, false for one that is not a `MailError`.
+    static func refusesSignIn(_ error: Error) -> Bool {
+        (error as? MailError)?.refusesSignIn == true
+    }
+
+    /// A refusal every letter sent now would meet too, for the account's
+    /// sake: the password, refused by either server, and the submission
+    /// server's own refused sign-in, SMTP's 534, which was the password's
+    /// until 2026-09-30 and keeps every rule it had then. A Send it meets
+    /// keeps the sheet, and nothing goes from the Outbox unasked after one
+    /// (`Outbox.waits`, `LocalDrafts.sendingRefused`): each pass would send
+    /// the refused sign-in again.
+    ///
+    /// Not IMAP's LOGIN refused for another reason (`signInRefused`), met
+    /// fetching a forward's files or asking Sent Mail: "[UNAVAILABLE]", or
+    /// too many connections, says nothing about the submission server, and
+    /// Google lets go of it by itself. A letter it meets waits in the Outbox
+    /// as for no connection, which is what such a refusal read as before,
+    /// and goes with the first pass once IMAP signs in again.
+    var refusesSending: Bool {
+        switch self {
+        case .passwordNeedsUpdating, .sendingSignInRefused: return true
+        default: return false
+        }
+    }
+
+    /// `refusesSending` for any error, false for one that is not a `MailError`.
+    static func refusesSending(_ error: Error) -> Bool {
+        (error as? MailError)?.refusesSending == true
     }
 }
 
@@ -356,6 +440,9 @@ extension MailRepository {
 
     /// Nothing kept, unless the repository keeps it.
     var shelf: MailShelf? { nil }
+
+    /// Nothing to close, unless the repository holds a connection.
+    func retire() async {}
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

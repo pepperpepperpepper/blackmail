@@ -135,6 +135,17 @@ enum PaneActions {
                     inFolderWithRole role: Mailbox.Role?,
                     list shown: PaneActionList?, repository: MailRepository,
                     requestSweep: @MainActor () -> Void) async -> Bool {
+        await refusal(running: action, on: letter, inFolderWithRole: role, list: shown,
+                      repository: repository, requestSweep: requestSweep) == nil
+    }
+
+    /// `run`, saying why the server did not take the write: nil once it
+    /// has, and otherwise what the pane's alert says. A password refused
+    /// used to be told as "Can't connect to mail server." like any failure.
+    static func refusal(running action: PaneAction, on letter: MessageSummary,
+                        inFolderWithRole role: Mailbox.Role?,
+                        list shown: PaneActionList?, repository: MailRepository,
+                        requestSweep: @MainActor () -> Void) async -> MailError? {
         let effect = effect(of: action, onLetterIn: role)
         let listed = shown?.letter(letter.id)
         let list = listed.map { ListEdit.sameLetter($0, letter) } == false ? nil : shown
@@ -169,7 +180,7 @@ enum PaneActions {
                 if effect.removesRow { list?.putBack(before) }
             }
             if error is MailShelf.NotTheKeptLetter { notTheKeptLetter(before, list: list) }
-            return false
+            return (error as? MailError) ?? .cannotConnect
         }
 
         if case .flag = action { list?.flagAnswered(before, landed: true) }
@@ -179,7 +190,7 @@ enum PaneActions {
         }
         if let folder = effect.alsoFiledIn { list?.addCountedFolder(folder, to: letter.id) }
         if effect.sweepsIfUnread && !landed.isRead { requestSweep() }
-        return true
+        return nil
     }
 
     /// A row kept on the iPad that the server has said is not the letter it

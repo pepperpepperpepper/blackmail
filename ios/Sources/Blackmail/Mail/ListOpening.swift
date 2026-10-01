@@ -14,8 +14,8 @@ enum ListOpening {
         case landed
         /// Nothing on or after the day in this folder.
         case nothingThatRecent
-        /// The jump could not be run.
-        case failed
+        /// The jump could not be run, and why, as the alert says it.
+        case failed(MailError)
         /// The list was replaced while the jump was on its way, by a
         /// refresh or a search, and belongs to that now.
         case superseded
@@ -38,8 +38,8 @@ enum ListOpening {
             return .landed
         case .success:
             return .nothingThatRecent
-        case .failure:
-            return .failed
+        case .failure(let error):
+            return .failed((error as? MailError) ?? .cannotConnect)
         }
     }
 
