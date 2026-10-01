@@ -1091,6 +1091,10 @@ this host. Ordered by value, not by size.
       page, once (since 2026-10-01). Save the reply as a draft, reopen it
       and send it: the line still once.
 - [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
+      Seen 2026-10-01 (B-057): steps 1 and 2's first launches, the fifth
+      with Bring Back, the leftover, and three tries after a DATA that may
+      have gone. Still to see: the swipe in the app switcher, a launch
+      charged to a letter (step 8), and a held draft's row.
       Seen in part on the iPad on 2026-10-01, on the build before Bring Back
       and the charge to a letter: step 1 but for the swipe, its third launch
       taking the second stage, and step 6's Outbox letter. Step 2's own

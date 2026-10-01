@@ -5212,7 +5212,7 @@ Google settings.
 
 ---
 
-## B-057 — CHANGED 2026-10-01, seen in part on the iPad. A crash at every launch would have ended the app for good, and so would a letter the Outbox crashed on
+## B-057 — CHANGED 2026-10-01, seen on the iPad. A crash at every launch would have ended the app for good, and so would a letter the Outbox crashed on
 
 **Found in the code 2026-09-30**, going through what would end the app for
 good once it is on his iPad with no way to update it. Nothing counted
@@ -5657,3 +5657,31 @@ switcher finishes a launch, the third stage, the fifth and Bring Back, a
 leftover removed, a held draft's row, three tries after a DATA that may
 have gone, a try counted and one cut short by the background, and a launch
 charged to a letter. The TODO says how to make each by hand.
+
+**Seen on the iPad, 2026-10-01**, on the build with both, each case made
+by hand with the app ended:
+
+- A folder in `Local Drafts` holding only a photograph, and one holding a
+  `letter.json` of one brace: the launch removed the first and left the
+  second, and said `DRAFTS-LEFTOVERS removed=1`.
+- A letter sent with no connection, then given `"autoAttempts":3` and an
+  attempt whose DATA may have gone (`"unsettled"` with its Message-ID,
+  `"unsettledSaves"` the count of passwords saved): the pass said
+  `OUTBOX-HELD unfinished-tries=3` and sent nothing, made no look in Sent
+  Mail, and the row read "May already have been sent." His Send then made
+  the look, `UID SEARCH HEADER Message-ID` in Sent Mail, found nothing, and
+  sent it once; it arrived once.
+- Two drafts saved and a letter sent with no connection, their files
+  summed, the count written as 5: the launch moved `Local Drafts` aside to
+  `Local Drafts set aside 2026-10-01 03.42.06`, every file in it summing as
+  before, wrote down the four steps, and started with no letters of his
+  own. Settings showed Bring Back Set-Aside Letters at its foot; it asked
+  "Bring Back Set-Aside Letters?", and Bring Back put all three back,
+  every file summing as before, the set-aside folder gone, the step
+  written down with `"broughtBack":3`, and the row gone with them. That
+  launch held the pass, as the fifth does; at the next, the letter went
+  once and the two drafts went up to Gmail once each.
+
+Not seen by hand: whether a swipe in the app switcher finishes a launch,
+which cannot be made over SSH; a launch charged to a letter, which needs
+the app ended inside a try; and a held draft's row.
