@@ -24,7 +24,10 @@ final class MailboxListViewController: UITableViewController {
     var onSelectMailbox: ((Mailbox) -> Void)?
 
     private let repository: MailRepository
-    private var mailboxes: [Mailbox] = []
+    /// The folders and their counts as drawn, and where each is drawn
+    /// (`FolderCounts`, B-059).
+    private var counts = FolderCounts()
+    private var mailboxes: [Mailbox] { counts.folders }
     /// How many letters wait in the Outbox (B-052). Its row is listed only
     /// while there are any, as Mail's is.
     private var outboxCount = LocalDrafts.shared.outbox.count
@@ -68,7 +71,7 @@ final class MailboxListViewController: UITableViewController {
         // (`showFolders`), and they are not counts the watch compares with
         // the server's (`inboxUnread`).
         if let kept = repository.shelf?.folders {
-            mailboxes = kept
+            counts.take(kept)
             // Loaded now, so the highlight the container puts on the Inbox
             // straight after has a row to go on.
             tableView.reloadData()
@@ -116,10 +119,23 @@ final class MailboxListViewController: UITableViewController {
         sweeps.release(runningOwed: firstPageCame)
     }
 
+    /// One sweep, landed over the counts, with what he changed while it
+    /// was out put on the count of a folder it counted before the change
+    /// (`FolderCounts.land`, B-059), here and in the kept copy, which the
+    /// repository has just given the sweep's, until the sweep owed after
+    /// the change. Said in the connection log with how many folders, and
+    /// nothing else.
     @MainActor
     private func sweepOnce(quietly: Bool) async {
+        let mark = counts.mark
         do {
-            show(try await repository.listMailboxes())
+            let fresh = try await repository.listMailboxes()
+            let held = counts.land(fresh, sweptFrom: mark)
+            if held > 0 {
+                repository.shelf?.took(folders: counts.folders)
+                Diagnostics.log(.note, "FOLDER-COUNTS held-over-sweep=\(held)")
+            }
+            redraw()
             counted = true
         } catch {
             if !quietly { ErrorPresenter.show(reaching: error, on: self) }
@@ -128,7 +144,12 @@ final class MailboxListViewController: UITableViewController {
 
     @MainActor
     private func show(_ fresh: [Mailbox]) {
-        mailboxes = fresh
+        counts.take(fresh)
+        redraw()
+    }
+
+    @MainActor
+    private func redraw() {
         tableView.reloadData()
         if let highlightedID { select(mailboxID: highlightedID) }
     }
@@ -148,23 +169,24 @@ final class MailboxListViewController: UITableViewController {
     ///
     /// A sweep still on its way may have counted these folders before the
     /// change reached the server, and would put the old count back when it
-    /// lands; so one more is asked for, whether or not the arithmetic
-    /// changed anything here. At launch it often does not: the letter he
-    /// reads first is read while the pane still has names and no counts.
+    /// lands: so the change is put on its count when that count is the
+    /// pane's from before (`FolderCounts.land`, B-059), and one more is
+    /// asked for, which starts after the change, whether or not the
+    /// arithmetic changed anything here.
     @MainActor
     func adjustUnreadCounts(_ mailboxIDs: [String], by delta: Int) {
         sweeps.requestIfRunning()
         // The kept counts too, so the next launch draws these (D-016).
         repository.shelf?.counted(mailboxIDs, by: delta)
-        for id in mailboxIDs {
-            guard let i = mailboxes.firstIndex(matchingMailboxID: id) else { continue }
-            let updated = max(0, mailboxes[i].unreadCount + delta)
-            guard updated != mailboxes[i].unreadCount else { continue }
-            mailboxes[i].unreadCount = updated
-            let path = IndexPath(row: i, section: 0)
-            if let cell = tableView.cellForRow(at: path) {
-                configure(cell, with: mailboxes[i])
-            }
+        // Where each is drawn, in its block: not its place in the flat
+        // list, which is a row of the first block, the Inbox's (B-059).
+        let blocks = groups
+        for folder in counts.adjust(mailboxIDs, by: delta) {
+            guard let place = FolderCounts.place(of: folder.id, in: blocks),
+                  let cell = tableView.cellForRow(at: IndexPath(row: place.row,
+                                                                section: place.section))
+            else { continue }
+            configure(cell, with: folder)
         }
     }
 
@@ -180,12 +202,7 @@ final class MailboxListViewController: UITableViewController {
     /// the folders, so that coming and going it moves nothing above it.
     /// Where Mail puts it among its mailboxes was not checked.
     private var groups: [[Mailbox]] {
-        let inbox = mailboxes.filter { $0.role == .inbox }
-        let rest = mailboxes.filter { $0.role != .inbox }
-        // Even with no folders listed, as after a launch with no
-        // connection, when it is the one thing here worth seeing.
-        let outbox = outboxCount > 0 ? [Outbox.mailbox(holding: outboxCount)] : []
-        return [inbox, rest, outbox].filter { !$0.isEmpty }
+        counts.blocks(outbox: outboxCount)
     }
 
     /// The letters kept on the iPad have changed: the Outbox's row comes,
@@ -195,8 +212,7 @@ final class MailboxListViewController: UITableViewController {
         let count = LocalDrafts.shared.outbox.count
         guard count != outboxCount else { return }
         outboxCount = count
-        tableView.reloadData()
-        if let highlightedID { select(mailboxID: highlightedID) }
+        redraw()
     }
 
     /// The folder playing a given role, for callers that need to open one

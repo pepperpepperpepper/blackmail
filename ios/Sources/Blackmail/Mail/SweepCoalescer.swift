@@ -80,10 +80,12 @@ final class SweepCoalescer {
     ///
     /// For a count changed on screen by arithmetic: a letter read, which
     /// takes one off its folders once the server has the flag. A sweep
-    /// already running may have counted that folder before the flag went,
-    /// and landing afterwards it would put the letter back. The sweep after
-    /// it cannot have. With no sweep running the arithmetic stands on the
-    /// last one's counts, and costs nothing on the connection.
+    /// already running may have counted that folder before the flag went:
+    /// the pane puts the change on its count when it lands
+    /// (`FolderCounts.land`, B-059), and takes whatever else it says. The
+    /// sweep after it has seen the flag, and says what the server has. With
+    /// no sweep running the arithmetic stands on the last one's counts, and
+    /// costs nothing on the connection.
     ///
     /// Not at launch: nothing can be read before the first page, and the
     /// sweep that follows that page is already owed.

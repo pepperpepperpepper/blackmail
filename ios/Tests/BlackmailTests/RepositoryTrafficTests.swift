@@ -291,9 +291,10 @@ final class RepositoryTrafficTests: XCTestCase {
 
     /// He reads an unread letter while a sweep is out, one that had already
     /// counted the Inbox before the letter's flag reached the server. That
-    /// sweep lands with the Inbox one too many, over the one the pane had
-    /// taken off; so the pane, taking it off, asks for one more sweep if one
-    /// is out, and that one counts the letter read.
+    /// sweep comes back with the Inbox one too many; the pane puts its read
+    /// mark on it as it lands (`FolderCounts.land`, B-059), and, taking it
+    /// off, asks for one more sweep if one is out, and that one counts the
+    /// letter read.
     ///
     /// At launch this is the usual case rather than a rare one: the counts
     /// are asked for once the Inbox's rows are up, which is when he taps the

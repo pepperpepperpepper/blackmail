@@ -2002,7 +2002,9 @@ that counted the Inbox before that would land afterwards with the letter
 still unread. At launch that is the usual case, since the counts go out
 just as the Inbox's rows appear, which is when he taps the newest
 letter. The Inbox may read one too many for the length of that sweep,
-and is right once the next lands.
+and is right once the next lands. (Since B-059, the pane puts the mark on
+that sweep's count when the count is the pane's before the mark, so the
+Inbox does not read one too many.)
 
 **The Move sheet lists the folders the app last listed.** It used to ask
 for every folder's count, which it does not show, and opened empty for
@@ -5848,3 +5850,91 @@ same SEARCH in All Mail, landing on a letter sent at 9.30 pm on the 19th,
 Boston time, "Showing September 19", for the reason above. In All
 Mailboxes to 1 October, with no mail that day: "No mail on or after
 October 1".
+
+---
+
+## B-059 — CHANGED 2026-10-01, seen on the iPad. The folder pane drew a read mark on the Inbox alone, and a sweep that left before a mark put the letter back
+
+**Seen on the iPad 2026-09-30**, both older than the kept copy (D-016):
+
+- After a read mark, All Mail, Important and Sent Mail kept their old
+  number on screen until the next sweep, though the count under them was
+  right, and kept so. `adjustUnreadCounts` patched the cell at
+  `IndexPath(row: i, section: 0)`, `i` the folder's place in the flat list
+  of folders; the pane has drawn its folders in blocks since the Inbox got
+  one of its own, the Inbox alone in the first, so every other folder's row
+  was looked for where there is none. Seen again on 2026-10-01: Sent Mail
+  said 1 after the unread letter sent to himself was read and binned.
+- At launch, a letter read while the sweep that follows the first page was
+  out showed the Inbox as 1, then 2, then 1. The sweep had asked STATUS of
+  the Inbox before his mark reached the server and landed after it, putting
+  the old count back, here and in the kept copy, until the sweep asked for
+  after the mark landed. Had that one failed, with no connection, the 2
+  would have stood, and been drawn at the next launch.
+
+**Changed.** The pane's folders and counts are a `FolderCounts`, which
+runs on the host:
+
+- Where a folder is drawn is its block and its row in it
+  (`FolderCounts.place`), the blocks as the pane draws them
+  (`FolderCounts.blocks`), so a mark is drawn on every folder it changes.
+- Every count changed here by a read or unread mark, or an unread letter
+  binned, made once the server has it, is numbered with what it did to
+  the count (`adjust`). A sweep notes the number it starts at (`mark`).
+  When it lands, a folder changed here since, whose count in the sweep is
+  exactly the pane's before those changes, gets them put on it (`land`):
+  its STATUS went before them. The kept copy, which the repository has
+  just given the sweep's counts, is given these. Any other count the sweep
+  brings is taken, as before. The sweep the pane asks for after the mark
+  (`SweepCoalescer.requestIfRunning`, as before) starts after it and says
+  what the server has, taken whole. A mark at none changes nothing, and
+  holds nothing. While the pane has names and no counts, before the first
+  sweep with nothing kept, a nought is put a mark on only when the sweep
+  says that same nought, which was then the count.
+- Built first to hold the pane's count over any sweep that left before a
+  mark, the review found it would hold a count kept from the last launch
+  over the server's: two letters come overnight to a kept none, he reads
+  one as the launch sweep goes out, and the Inbox said none, and kept
+  none if the sweep after it failed. A count held only when the sweep's
+  is the pane's from before is never lower than the server's. What is
+  left: when new mail and his mark both fall in one sweep, the sweep's
+  count is taken, one too many until the sweep after it, as before.
+
+No command is added or taken away; the sweeps go as before. A sweep whose
+count was held over a mark says so in the connection log, with how many
+folders and nothing else: `FOLDER-COUNTS held-over-sweep=3`.
+
+**Tests.** `FolderCountsTests`: each folder found in its block at its row,
+with the Outbox's block and with no Inbox; a read mark changing every folder
+the letter is counted in, each drawn in its block, and never below none; a
+sweep that left before the mark having it put on the counts of the folders
+marked and taking the rest, the owed sweep and a later one with new mail
+taken whole; a sweep that left after the mark taken whole; an unread mark
+held, and a mark at none holding nothing; a count kept from the last launch
+giving way to the sweep, whichever side of the mark its STATUS went, never
+below the server's; new mail the sweep saw taken; a mark by the role word
+holding the folder it matched; names with no counts giving way to the first
+sweep but where it says the same nought; and the pane's wiring, read from its source, the sweep
+asked for after a mark included. Each fails with its part undone, five
+sabotages one at a time: the stale sweep taken whole (9 failures), the
+pane's count held over any sweep that left before a mark, as first built
+(8), a mark at none put on the sweep's count (5), every folder placed in
+the first block (7), and no sweep asked for after a mark (1).
+
+**Seen on the iPad, 2026-10-01.** A read mark with no sweep after it, the
+log having nothing after the `UID STORE ... (\Seen)` but the letter's
+FETCH and a NOOP: the Inbox and All Mail went from 1 to none together, and
+back to 2 together on Mark as Unread of a conversation of two. At launch,
+the app opened by hand and an unread letter tapped 0.7 s later, on the
+build that held the pane's count over any sweep that left before a mark:
+the sweep after the first page asked `STATUS "INBOX"` at 52.631, the read
+mark went at 52.831, and the sweep landed with `FOLDER-COUNTS
+held-over-sweep=3`, for the Inbox, All Mail and Important, all three
+asked before the mark. On the build as it stands, tapped 0.6 s after
+opening: `STATUS "INBOX"` at 55.057, the mark at 55.106, and
+`FOLDER-COUNTS held-over-sweep=1`, the Inbox alone, All Mail and
+Important having been asked after the mark and so already counting it;
+the sweep owed after the mark went at once, and the counts read as the
+server's at the end. The second between was not caught on screen; the log
+line is what says the old count was not put back. The letters' read and
+unread marks were put back as they were found.
