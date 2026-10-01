@@ -487,6 +487,409 @@ final class SafeStartTests: XCTestCase {
         XCTAssertEqual(taken.first?.unfinished, 8)
     }
 
+    // MARK: - A launch ended during a letter's try
+
+    /// The mark as the pass leaves it, written by hand, as on the iPad.
+    private func writeMark(_ text: String) throws {
+        try FileManager.default.createDirectory(at: launches, withIntermediateDirectories: true)
+        try Data(text.utf8).write(to: launches.appendingPathComponent(SafeStart.tryFile))
+    }
+
+    private var markThere: Bool {
+        FileManager.default.fileExists(atPath: launches.appendingPathComponent(SafeStart.tryFile).path)
+    }
+
+    /// The last launch that never finished ended with a try of the pass on
+    /// its way: the letter's own count has it, and the launch is not counted
+    /// for it. The mark is taken away, said in the log and written down;
+    /// the launches before it count as ever. With no launch unfinished, the
+    /// end came after the half minute: the mark goes, and nothing is said.
+    /// Nothing of the letter is read: its folder is not there at all.
+    func testALaunchEndedDuringALettersTryIsChargedToTheLetter() async throws {
+        keepAnInboxPage()
+        setEverything()
+        try writeCount("1")
+        try writeMark("6f1d2c3e-0a4b-4c5d-8e9f-a0b1c2d3e4f5")
+        XCTAssertEqual(SafeStart.markedTry(in: launches), "6f1d2c3e-0a4b-4c5d-8e9f-a0b1c2d3e4f5")
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 0))
+        XCTAssertEqual(count, "1", "not counted for the letter's try")
+        XCTAssertFalse(markThere, "the mark taken away")
+        XCTAssertEqual(notes, ["SAFE-START charged-to-letter"])
+        XCTAssertEqual(SafeStart.taken(in: launches),
+                       [SafeStart.Taken(at: clock.now(), unfinished: 0,
+                                        steps: [SafeStart.chargedToLetter], setAside: nil)])
+        XCTAssertNotNil(keptInbox)
+        XCTAssertEqual(defaults.string(forKey: PaneArrangement.key), "two")
+
+        // Two before it that never finished, the last of them in a try: one
+        // is counted, and the launch takes the steps for one.
+        notes = []
+        try writeCount("3")
+        try writeMark("letter-1\n")
+        let steps = makeStart().launch()
+        XCTAssertEqual(steps, SafeStart.Steps(after: 2))
+        XCTAssertEqual(count, "3")
+        XCTAssertEqual(notes, ["SAFE-START charged-to-letter", "SAFE-START unfinished=2",
+                               "SAFE-START kept-copy=wiped", "SAFE-START view-settings=reset"])
+        XCTAssertEqual(SafeStart.taken(in: launches).last?.steps,
+                       [SafeStart.chargedToLetter, SafeStart.keptCopyWiped,
+                        SafeStart.viewSettingsReset])
+
+        // The launch before finished: the mark goes, nothing is charged.
+        notes = []
+        try writeCount("0")
+        try writeMark("letter-1")
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 0))
+        XCTAssertEqual(count, "1")
+        XCTAssertFalse(markThere)
+        XCTAssertEqual(notes, [])
+    }
+
+    /// A mark that is not a key a try could have written is no mark: the
+    /// launch is counted as ever, and the mark goes. Empty, garbled, a
+    /// word with a space, a path, one far too long, and a directory in its
+    /// place.
+    func testADamagedMarkReadsAsNoneAndGoes() async throws {
+        let damaged: [Data] = [Data(), Data([0xFF, 0xFE, 0x00]), Data("two words".utf8),
+                               Data("../Local Drafts".utf8), Data("a/b".utf8),
+                               Data(String(repeating: "a", count: 101).utf8)]
+        for bytes in damaged {
+            try writeCount("1")
+            try bytes.write(to: launches.appendingPathComponent(SafeStart.tryFile))
+            XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 1), "\(Array(bytes))")
+            XCTAssertEqual(count, "2", "counted: \(Array(bytes))")
+            XCTAssertFalse(markThere, "\(Array(bytes))")
+        }
+        try writeCount("1")
+        try FileManager.default.createDirectory(
+            at: launches.appendingPathComponent("\(SafeStart.tryFile)/inside"),
+            withIntermediateDirectories: true)
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 1))
+        XCTAssertEqual(count, "2")
+        XCTAssertFalse(markThere, "the directory gone")
+        XCTAssertFalse(notes.contains("SAFE-START charged-to-letter"))
+    }
+
+    /// A mark that cannot be taken away is not taken: left there, every
+    /// launch after would be charged to it and the guard would see none.
+    func testAMarkThatCannotBeTakenAwayIsNotTaken() async throws {
+        try writeCount("2")
+        try writeMark("letter-1")
+        let files = FileManager.default
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: launches.path)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: launches.path) }
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 2), "counted as ever")
+        XCTAssertTrue(markThere)
+        XCTAssertFalse(notes.contains("SAFE-START charged-to-letter"))
+    }
+
+    /// The mark does one thing, names the letter whose try is on its way,
+    /// and a launch decides its steps from the count and the mark alone.
+    /// What the pass writes is the key and not a byte more, and nothing
+    /// else in the app writes the mark. Before the steps, `launch` reads the
+    /// count and takes the mark and opens nothing else: a letter beside
+    /// them that cannot be read, and any other file in `Launches`, change
+    /// nothing it decides.
+    func testTheMarkNamesTheLetterAndTheLaunchReadsOnlyItAndTheCount() throws {
+        XCTAssertTrue(SafeStart.markTry("6b1f0c2e-4d7a-4e55-9a51-1f3c2d4e5f60", in: launches))
+        XCTAssertEqual(try Data(contentsOf: launches.appendingPathComponent(SafeStart.tryFile)),
+                       Data("6b1f0c2e-4d7a-4e55-9a51-1f3c2d4e5f60".utf8), "the key, and only it")
+
+        let sources = try source("Blackmail/Mail/SafeStart.swift")
+            + (try source("Blackmail/Mail/LocalDrafts.swift"))
+        XCTAssertEqual(sources.components(separatedBy: "to: tryFile").count - 1, 1,
+                       "written in one place, markTry")
+        XCTAssertTrue(sources.contains("writeWhole(Data(key.utf8), to: tryFile, in: directory)"))
+
+        let code = try source("Blackmail/Mail/SafeStart.swift")
+        let start = try XCTUnwrap(code.range(of: "func launch() -> Steps {"))
+        let decided = try XCTUnwrap(code.range(of: "let steps = Steps(after: unfinished)",
+                                               range: start.upperBound..<code.endIndex))
+        let before = String(code[start.upperBound..<decided.lowerBound])
+        XCTAssertTrue(before.contains("Self.unfinished(in: directory)"))
+        XCTAssertTrue(before.contains("Self.takeTry(in: directory)"))
+        for reading in ["contentsOf", "Data(", "LocalDraft", "letters", "letter.json",
+                        "fileExists", "contentsOfDirectory", "taken(in:", "kept"] {
+            XCTAssertFalse(before.contains(reading), "read before the steps: \(reading)")
+        }
+
+        // A letter that cannot be read, a stray file beside the count: the
+        // steps are the count's and the mark's.
+        let folder = letters.appendingPathComponent("6b1f0c2e-4d7a-4e55-9a51-1f3c2d4e5f60")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("{\"autoAttempts\":".utf8).write(to: folder.appendingPathComponent("letter.json"))
+        try Data("3".utf8).write(to: launches.appendingPathComponent("charged"))
+        try writeCount("2")
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 1), "charged to the letter")
+        XCTAssertEqual(count, "2")
+        try writeCount("2")
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 2), "no mark: counted")
+    }
+
+    // MARK: - Letters set aside, brought back
+
+    /// Two letters, one with a photo and one in the Outbox, a letter that
+    /// cannot be read, and the count of passwords saved, set aside by a
+    /// launch after five that never finished.
+    private func setLettersAside() throws -> (name: String, files: [String: Data]) {
+        let staged = try AttachmentStore.write(Data((0..<3000).map { UInt8($0 % 251) }),
+                                               named: "Garden.jpg")
+        var photo = draft("Garden")
+        photo.attachments = [DraftAttachment(source: .localFile(staged), filename: "Garden.jpg",
+                                             mimeType: "image/jpeg", size: 3000)]
+        let store = LocalDraftStore(root: letters)
+        try store.keep(photo, as: "photo", unfinished: false, account: account)
+        try store.keep(draft("Sunday"), as: "sunday", unfinished: true, account: account)
+        _ = try store.enterOutbox("sunday")
+        LocalDraftStore.notePasswordSaved(in: letters)
+        try FileManager.default.createDirectory(at: letters.appendingPathComponent("damaged"),
+                                                withIntermediateDirectories: true)
+        try Data("{\"format\":1,\"key\":".utf8)
+            .write(to: letters.appendingPathComponent("damaged/letter.json"))
+        let before = files(under: letters)
+        try writeCount("5")
+        XCTAssertTrue(makeStart().launch().setsLettersAside)
+        return ("Local Drafts set aside 2026-09-21 14.13.20", before)
+    }
+
+    /// Bring Back moves every letter set aside back into the store, file
+    /// for file, the one that cannot be read with them, and the folder they
+    /// were set aside in goes once it is empty of letters. The letters are
+    /// in Drafts and the Outbox again, beside one written since. The count
+    /// of passwords saved is the store's own, as it went on; the launch
+    /// count is left as it is; it is said in the log and written down.
+    func testLettersSetAsideAreBroughtBackFileForFile() async throws {
+        let (name, before) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        // That launch reached its half minute, and this one is under way.
+        try writeCount("0")
+        let start = makeStart()
+        start.launch()
+        let fresh = LocalDraftStore(root: letters)
+        try fresh.keep(draft("Monday"), as: "monday", unfinished: false, account: account)
+        LocalDraftStore.notePasswordSaved(in: letters)
+        let monday = files(under: letters)
+        XCTAssertEqual(start.lettersSetAside, 3)
+
+        notes = []
+        XCTAssertEqual(start.bringBack(), 3)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: aside.path), "the folder gone")
+        var expected = before.filter { $0.key != "password-saves" }
+        for (path, data) in monday { expected[path] = data }
+        XCTAssertEqual(files(under: letters), expected, "every file, byte for byte")
+        XCTAssertEqual(LocalDraftStore.passwordSaves(in: letters), 2, "the store's own count")
+        XCTAssertEqual(start.lettersSetAside, 0)
+
+        let kept = LocalDrafts(store: LocalDraftStore(root: letters), account: account,
+                               background: FakeBackground().time)
+        // Settings tells the lists, which Drafts and the Outbox redraw from.
+        var heard = 0
+        // Filtered here rather than by `object:`, which this Foundation
+        // does not match for a block observer.
+        let watching = NotificationCenter.default.addObserver(
+            forName: LocalDrafts.changed, object: nil, queue: nil) { note in
+            MainActor.assumeIsolated {
+                if (note.object as AnyObject?) === kept { heard += 1 }
+            }
+        }
+        defer { NotificationCenter.default.removeObserver(watching) }
+        kept.broughtBack()
+        XCTAssertEqual(heard, 1, "the lists hear of it")
+        XCTAssertEqual(kept.waiting.map(\.draft.subject).sorted(), ["Garden", "Monday"])
+        XCTAssertEqual(kept.outbox.map(\.key), ["sunday"])
+        XCTAssertEqual(kept.letter("photo")?.draft.attachments.count, 1)
+
+        XCTAssertEqual(count, "1", "no step, and the count as it was")
+        XCTAssertEqual(notes, ["SAFE-START brought-back=3"])
+        XCTAssertEqual(SafeStart.taken(in: launches).last,
+                       SafeStart.Taken(at: clock.now(), unfinished: 0,
+                                       steps: [SafeStart.lettersBroughtBack], setAside: nil,
+                                       broughtBack: 3))
+        XCTAssertNil(try FileManager.default.contentsOfDirectory(atPath: support.path)
+            .first { $0.contains("set aside") })
+    }
+
+    /// Nothing is written over. A letter set aside whose name is taken in
+    /// the store comes back beside it under a new key, its own files byte
+    /// for byte, and the one there stays as it was; and one whose
+    /// `letter.json` names another key than its folder's, as one left
+    /// half brought back by an end, comes back under its folder's name.
+    /// Both read as letters, and both are held: either can only be a
+    /// second copy of a letter, which must not go by itself.
+    func testANameTakenInTheStoreKeepsBoth() async throws {
+        let (name, _) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        let store = LocalDraftStore(root: letters)
+        try store.keep(draft("Sunday here"), as: "sunday", unfinished: false, account: account)
+        try store.keep(draft("Photo here"), as: "photo", unfinished: false, account: account)
+        try store.keep(draft("Damaged here"), as: "damaged", unfinished: false, account: account)
+        let photoFiles = files(under: aside.appendingPathComponent("photo"))
+        let damagedBytes = try Data(contentsOf: aside.appendingPathComponent("damaged/letter.json"))
+        // Written under another key, as a letter brought back under a new
+        // one is first, in the folder it is set aside in.
+        let other = aside.appendingPathComponent("other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        let sunday = String(decoding: try Data(contentsOf: aside
+            .appendingPathComponent("sunday/letter.json")), as: UTF8.self)
+        try Data(sunday.replacingOccurrences(of: "\"key\":\"sunday\"", with: "\"key\":\"elsewhere\"")
+            .replacingOccurrences(of: "\"subject\":\"Sunday\"", with: "\"subject\":\"Other\"").utf8)
+            .write(to: other.appendingPathComponent("letter.json"))
+        // And one of a format this build does not know, whose name is taken:
+        // beside the one there under a new name, every byte as it was.
+        let future = aside.appendingPathComponent("future", isDirectory: true)
+        try FileManager.default.createDirectory(at: future, withIntermediateDirectories: true)
+        let futureBytes = Data(sunday.replacingOccurrences(of: "\"key\":\"sunday\"",
+                                                           with: "\"key\":\"future\"")
+            .replacingOccurrences(of: "\"format\":1", with: "\"format\":2").utf8)
+        try futureBytes.write(to: future.appendingPathComponent("letter.json"))
+        try store.keep(draft("Future here"), as: "future", unfinished: false, account: account)
+        let here = files(under: letters)
+
+        XCTAssertEqual(makeStart().bringBack(), 5)
+        for (path, data) in here {
+            XCTAssertEqual(files(under: letters)[path], data, "\(path): the one there, as it was")
+        }
+        let back = LocalDraftStore(root: letters)
+        let letters = back.letters()
+        XCTAssertEqual(letters.map(\.draft.subject).sorted(),
+                       ["Damaged here", "Future here", "Garden", "Other", "Photo here", "Sunday",
+                        "Sunday here"])
+        let kept = LocalDrafts(store: back, account: account, background: FakeBackground().time)
+        for letter in letters {
+            let incoming = ["Garden", "Sunday", "Other"].contains(letter.draft.subject)
+            XCTAssertEqual(kept.isHeld(letter), incoming, letter.draft.subject)
+        }
+        let garden = try XCTUnwrap(letters.first { $0.draft.subject == "Garden" })
+        XCTAssertNotEqual(garden.key, "photo")
+        XCTAssertEqual(garden.key, garden.key.lowercased())
+        XCTAssertNotNil(UUID(uuidString: garden.key), "a new key, made as a key is")
+        XCTAssertEqual(files(under: self.letters.appendingPathComponent(garden.key))
+                        .filter { $0.key != "letter.json" },
+                       photoFiles.filter { $0.key != "letter.json" }, "its photo, byte for byte")
+        XCTAssertEqual(try XCTUnwrap(back.letter(garden.key)).draft.attachments.count, 1)
+        let sundayBack = try XCTUnwrap(letters.first { $0.draft.subject == "Sunday" })
+        XCTAssertNotNil(sundayBack.outbox, "in the Outbox, as it was")
+        XCTAssertEqual(letters.first { $0.draft.subject == "Other" }?.key, "other")
+        // The one that cannot be read came back too, under a new name of
+        // its own, byte for byte and still unread.
+        let names = try FileManager.default.contentsOfDirectory(atPath: self.letters.path)
+        let unread = names.filter {
+            (try? Data(contentsOf: self.letters.appendingPathComponent("\($0)/letter.json")))
+                == damagedBytes
+        }
+        XCTAssertEqual(unread.count, 1)
+        XCTAssertNotNil(unread.first.flatMap { UUID(uuidString: $0) })
+        let unknown = names.filter {
+            (try? Data(contentsOf: self.letters.appendingPathComponent("\($0)/letter.json")))
+                == futureBytes
+        }
+        XCTAssertEqual(unknown.count, 1, "the other format's, not written over")
+        XCTAssertNotNil(unknown.first.flatMap { UUID(uuidString: $0) })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: aside.path))
+    }
+
+    /// Two folders set aside holding one letter: the older folder's comes
+    /// back under its own name, as it was, and the newer's beside it, held.
+    func testTheOlderFolderSetAsideComesBackFirst() async throws {
+        let utc = TimeZone(identifier: "UTC")!
+        try LocalDraftStore(root: letters)
+            .keep(draft("Older"), as: "letter-1", unfinished: false, account: account)
+        let older = try XCTUnwrap(LocalDraftStore.setAside(letters, at: clock.now(), in: utc))
+        try LocalDraftStore(root: letters)
+            .keep(draft("Newer"), as: "letter-1", unfinished: false, account: account)
+        let newer = try XCTUnwrap(LocalDraftStore.setAside(letters, at: clock.now(), in: utc))
+        XCTAssertEqual(newer.lastPathComponent, older.lastPathComponent + " 2")
+
+        XCTAssertEqual(makeStart().bringBack(), 2)
+        let store = LocalDraftStore(root: letters)
+        let kept = LocalDrafts(store: store, account: account, background: FakeBackground().time)
+        let first = try XCTUnwrap(store.letter("letter-1"))
+        XCTAssertEqual(first.draft.subject, "Older")
+        XCTAssertFalse(kept.isHeld(first))
+        let second = try XCTUnwrap(store.letters().first { $0.key != "letter-1" })
+        XCTAssertEqual(second.draft.subject, "Newer")
+        XCTAssertTrue(kept.isHeld(second))
+    }
+
+    /// A folder set aside goes once it holds no letter, with what else is
+    /// in it, the copy of the count of passwords saved and a folder a
+    /// failed first keep left; never while a letter is in it. Bring Back
+    /// with nowhere to put them leaves every letter set aside and its
+    /// folder there, to be brought back later. Nothing is deleted.
+    func testASetAsideFolderGoesOnlyOnceItHoldsNoLetter() async throws {
+        let (name, before) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        let empty = support.appendingPathComponent("Local Drafts set aside 2026-09-20 09.00.00")
+        let files = FileManager.default
+        try files.createDirectory(at: empty.appendingPathComponent("leftover"),
+                                  withIntermediateDirectories: true)
+        try Data("1".utf8).write(to: empty.appendingPathComponent("password-saves"))
+        try files.createDirectory(at: letters, withIntermediateDirectories: true)
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: letters.path)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: letters.path) }
+
+        let start = makeStart()
+        XCTAssertEqual(start.lettersSetAside, 3)
+        XCTAssertEqual(start.bringBack(), 0)
+        XCTAssertFalse(files.fileExists(atPath: empty.path), "no letter in it: gone")
+        XCTAssertEqual(self.files(under: aside), before, "every letter still set aside")
+        XCTAssertEqual(start.lettersSetAside, 3)
+
+        try files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: letters.path)
+        XCTAssertEqual(start.bringBack(), 3)
+        XCTAssertFalse(files.fileExists(atPath: aside.path))
+        XCTAssertEqual(Set(self.files(under: letters).keys),
+                       Set(before.keys).union(["password-saves"]))
+    }
+
+    /// Settings' row is there only when there is something to bring back:
+    /// a folder set aside holding a letter. Not for none, one holding only
+    /// what is not a letter, a folder of another name, or a file of that
+    /// name. Read from the store's names alone.
+    func testBringBackIsOfferedOnlyWhenThereIsSomethingToBringBack() async throws {
+        let start = makeStart()
+        XCTAssertEqual(start.lettersSetAside, 0)
+        let files = FileManager.default
+        let empty = support.appendingPathComponent("Local Drafts set aside 2026-09-20 09.00.00")
+        try files.createDirectory(at: empty.appendingPathComponent("leftover"),
+                                  withIntermediateDirectories: true)
+        try Data("1".utf8).write(to: empty.appendingPathComponent("password-saves"))
+        let other = support.appendingPathComponent("Local Drafts new/letter-1")
+        try files.createDirectory(at: other, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: other.appendingPathComponent("letter.json"))
+        try Data("x".utf8).write(to: support.appendingPathComponent(
+            "Local Drafts set aside 2026-09-20 10.00.00"))
+        XCTAssertEqual(start.lettersSetAside, 0)
+
+        _ = try setLettersAside()
+        XCTAssertEqual(start.lettersSetAside, 3)
+    }
+
+    /// Settings shows the row by that count, asks first in Mail's plain
+    /// way, brings them back and tells the lists, and hides the row once
+    /// nothing is left. Settings is UIKit, so it is read from its source.
+    func testSettingsOffersBringBackAndAsksFirst() async throws {
+        let settings = try source("Blackmail/UI/SettingsViewController.swift")
+        XCTAssertTrue(settings.contains(
+            "bringBackButton.setTitle(\"Bring Back Set-Aside Letters\", for: .normal)"))
+        XCTAssertTrue(settings.contains("bringBackButton.addTarget(self, action: "
+                                        + "#selector(bringBackTapped), for: .touchUpInside) "
+                                        + "bringBackButton.isHidden = "
+                                        + "SafeStart.app.lettersSetAside == 0 "
+                                        + "stack.addArrangedSubview(bringBackButton)"))
+        XCTAssertTrue(settings.contains(
+            "@objc private func bringBackTapped() { "
+            + "confirm(title: \"Bring Back Set-Aside Letters?\", "
+            + "message: \"Letters on this iPad that were set aside when Blackmail could not \" "
+            + "+ \"start will go back to Drafts and the Outbox.\", "
+            + "action: \"Bring Back\", style: .default) { [weak self] in "
+            + "SafeStart.app.bringBack() LocalDrafts.shared.broughtBack() "
+            + "self?.bringBackButton.isHidden = SafeStart.app.lettersSetAside == 0 } }"))
+        XCTAssertTrue(settings.contains(
+            "alert.addAction(UIAlertAction(title: \"Cancel\", style: .cancel)) "
+            + "alert.addAction(UIAlertAction(title: action, style: style) { _ in then() })"))
+    }
+
     // MARK: - What a failed first keep leaves
 
     /// Every launch removes a letter's folder with no `letter.json`: what a
@@ -612,7 +1015,8 @@ final class SafeStartTests: XCTestCase {
 
         let composer = try source("Blackmail/UI/ComposeViewController.swift")
         XCTAssertTrue(composer.contains(
-            "background: .app, holdsPasses: SafeStart.app.steps.holdsPasses)"))
+            "background: .app, holdsPasses: SafeStart.app.steps.holdsPasses, "
+            + "launches: SafeStart.appDirectory)"), "its tries marked beside the count")
     }
 
     /// The share extension sends a letter at its Send, from a process of its
@@ -628,7 +1032,7 @@ final class SafeStartTests: XCTestCase {
             for name in try FileManager.default.contentsOfDirectory(atPath: url.path) {
                 let code = try source("\(folder)/\(name)")
                 for word in ["SafeStart", "LocalDrafts", "LocalDraftStore", "autoAttempts",
-                             "noteTries"] {
+                             "noteTries", "markTry", "bringBack"] {
                     XCTAssertFalse(code.contains(word), "\(folder)/\(name): \(word)")
                 }
             }

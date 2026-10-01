@@ -4,7 +4,8 @@
 import UIKit
 
 /// The one screen that is not mail: his signature, his name, and the
-/// password when Google makes him change it.
+/// password when Google makes him change it; and, after a start that had to
+/// set them aside, the way back for the letters kept on the iPad.
 ///
 /// It exists because the app already told him to come here. `MailError`
 /// has said **"Password needs to be updated in Settings."** since the error
@@ -49,6 +50,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let plainOnlyButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
     private let organizeSwitch = UISwitch()
+    private let bringBackButton = UIButton(type: .system)
     private let statusLabel = UILabel()
 
     private var account: MailAccount
@@ -191,6 +193,18 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         organizeSwitch.isOn = ConversationSettings.organizeByThread
         organizeSwitch.addTarget(self, action: #selector(organizeToggled),
                                  for: .valueChanged)
+
+        // The way back for the letters a safe start set aside when the app
+        // could not start (B-057), which nothing else on the iPad can reach.
+        // Only while there are some, as Restore Original Signature is only
+        // where there is one.
+        bringBackButton.setTitle("Bring Back Set-Aside Letters", for: .normal)
+        bringBackButton.setTitleColor(Theme.tintBlue, for: .normal)
+        bringBackButton.titleLabel?.font = .systemFont(ofSize: 15)
+        bringBackButton.contentHorizontalAlignment = .leading
+        bringBackButton.addTarget(self, action: #selector(bringBackTapped), for: .touchUpInside)
+        bringBackButton.isHidden = SafeStart.app.lettersSetAside == 0
+        stack.addArrangedSubview(bringBackButton)
 
         stack.axis = .vertical
         stack.spacing = 10
@@ -335,12 +349,29 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         }
     }
 
-    /// An alert with Cancel and one destructive choice, which runs `then`.
+    /// Puts the letters a safe start set aside back in Drafts and the
+    /// Outbox, once he has said so, where they go by the pass as any other
+    /// (`SafeStart.bringBack`). Nothing is lost by it, so its button is not
+    /// red. The row goes once nothing is left to bring back.
+    @objc private func bringBackTapped() {
+        confirm(title: "Bring Back Set-Aside Letters?",
+                message: "Letters on this iPad that were set aside when Blackmail could not "
+                    + "start will go back to Drafts and the Outbox.",
+                action: "Bring Back", style: .default) { [weak self] in
+            SafeStart.app.bringBack()
+            LocalDrafts.shared.broughtBack()
+            self?.bringBackButton.isHidden = SafeStart.app.lettersSetAside == 0
+        }
+    }
+
+    /// An alert with Cancel and one choice, destructive unless said
+    /// otherwise, which runs `then`.
     private func confirm(title: String, message: String, action: String,
+                         style: UIAlertAction.Style = .destructive,
                          then: @escaping () -> Void) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: action, style: .destructive) { _ in then() })
+        alert.addAction(UIAlertAction(title: action, style: style) { _ in then() })
         present(alert, animated: true)
     }
 

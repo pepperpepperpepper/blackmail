@@ -39,6 +39,22 @@ import Foundation
 /// keep never got as far as its `letter.json` (`LocalDraftStore.
 /// removeLeftovers`).
 ///
+/// A launch that ended during a try of the automatic pass at a letter is
+/// charged to the letter and not to the count. The pass marks the try on
+/// its way beside the count (`markTry`), and the letter has counted it
+/// already (`LocalDraft.autoAttempts`): at three the pass passes it over.
+/// Counted here as well, a letter that crashed the pass at every launch
+/// took the launches to their second stage, the copy of his mail and the
+/// view settings gone, before its own third try held it. The mark names
+/// the letter and does nothing else, and the launch reads the count and the
+/// mark and nothing more before it takes its steps. A crash elsewhere while
+/// a try is on its way is charged to the letter too, and each letter
+/// waiting can put the stages off by its three tries, no more: a letter
+/// held is never tried, so never marked.
+///
+/// Letters set aside come back only when he asks, in Settings
+/// (`bringBack`), and go by the pass as any other.
+///
 /// A file and not `UserDefaults`: a write there reaches the preferences
 /// daemon some time later, and a crash before it lands loses it, which here
 /// is the very write that matters. Nothing here can itself stop a launch: a
@@ -80,18 +96,24 @@ final class SafeStart {
         var at: Date
         /// The launches before it, in a row, that never finished.
         var unfinished: Int
-        /// The steps, in order: `keptCopyWiped`, `viewSettingsReset`,
-        /// `passesHeld`, `lettersSetAside`.
+        /// The steps, in order: `chargedToLetter`, `keptCopyWiped`,
+        /// `viewSettingsReset`, `passesHeld`, `lettersSetAside`; or
+        /// `lettersBroughtBack` alone, for letters brought back in Settings.
         var steps: [String]
         /// The name of the folder the letters were moved to, beside `Local
         /// Drafts` in Application Support, when they were.
         var setAside: String?
+        /// How many letters were brought back, when they were. Absent from
+        /// every other start, so no new format.
+        var broughtBack: Int? = nil
     }
 
+    nonisolated static let chargedToLetter = "charged-to-letter"
     nonisolated static let keptCopyWiped = "kept-copy-wiped"
     nonisolated static let viewSettingsReset = "view-settings-reset"
     nonisolated static let passesHeld = "passes-held"
     nonisolated static let lettersSetAside = "letters-set-aside"
+    nonisolated static let lettersBroughtBack = "letters-brought-back"
 
     /// The view settings read before the first frame, by their keys in
     /// `UserDefaults`: two panes or three (D-015), Organize by Thread, Go to
@@ -129,6 +151,9 @@ final class SafeStart {
     nonisolated static let countFile = "unfinished"
     /// The steps taken, beside it.
     nonisolated static let takenFile = "safe-starts.json"
+    /// The try of the automatic pass on its way, beside it: the key of the
+    /// letter, and nothing else (`markTry`).
+    nonisolated static let tryFile = "trying"
 
     /// No more than this many safe starts are kept in `takenFile`.
     private nonisolated static let takenKept = 20
@@ -146,6 +171,9 @@ final class SafeStart {
 
     /// What this launch did, as `launch` decided. Nothing until then.
     private(set) var steps = Steps(after: 0)
+    /// The launches before this one, in a row, that never finished, as
+    /// `launch` counted them.
+    private var unfinishedBefore = 0
     /// The count as this launch last wrote it.
     private var count = 0
     /// Waits for the healthy point, once the first page has been tried.
@@ -177,14 +205,29 @@ final class SafeStart {
     /// for. First thing in `didFinishLaunching`, before anything kept is read.
     @discardableResult
     func launch() -> Steps {
-        let unfinished = Self.unfinished(in: directory)
+        // The count and the mark are all that is read before the steps:
+        // nothing a letter holds, and nothing else beside them.
+        var unfinished = Self.unfinished(in: directory)
+        // The last launch that never finished ended during a try of the
+        // pass at a letter, whose own count has it: not counted here too.
+        // The mark is taken away before the count is written, so a launch
+        // ended between the two counts the try against both, never against
+        // neither. With no launch unfinished, the end came after the launch
+        // had finished, which counts against no launch anyway.
+        let charged = Self.takeTry(in: directory) && unfinished > 0
+        if charged { unfinished -= 1 }
         count = unfinished + 1
         write(count)
         let steps = Steps(after: unfinished)
         self.steps = steps
-        if unfinished > 0 { log("SAFE-START unfinished=\(unfinished)") }
+        unfinishedBefore = unfinished
 
         var taken: [String] = []
+        if charged {
+            log("SAFE-START charged-to-letter")
+            taken.append(Self.chargedToLetter)
+        }
+        if unfinished > 0 { log("SAFE-START unfinished=\(unfinished)") }
         var setAside: String?
         if steps.forgetsKeptState {
             MailShelf.wipe(root: kept)
@@ -239,6 +282,31 @@ final class SafeStart {
         count = 0
     }
 
+    // MARK: - Letters set aside
+
+    /// How many letters a safe start has set aside beside the store, there
+    /// to be brought back: what Settings' Bring Back Set-Aside Letters is
+    /// shown for. Only the folders are looked at, never what is in a letter.
+    var lettersSetAside: Int {
+        LocalDraftStore.lettersSetAside(beside: letters)
+    }
+
+    /// Every letter set aside back in the store, in Drafts and the Outbox
+    /// as it was, once he has asked in Settings (`LocalDraftStore.
+    /// bringBack`); returns how many came back. Said in the connection log
+    /// and written down beside the count, as a step is. It takes no step
+    /// and leaves the count as it is: a letter brought back that crashes
+    /// the pass is held by its own tries, and a launch that crashes on one
+    /// is counted, as any is, until five set them aside again.
+    @discardableResult
+    func bringBack() -> Int {
+        let brought = LocalDraftStore.bringBack(into: letters)
+        log("SAFE-START brought-back=\(brought)")
+        record(Taken(at: now(), unfinished: unfinishedBefore, steps: [Self.lettersBroughtBack],
+                     setAside: nil, broughtBack: brought))
+        return brought
+    }
+
     // MARK: - The files
 
     /// The count in `directory`: none when there is no file, and when what
@@ -263,19 +331,71 @@ final class SafeStart {
         return file.starts
     }
 
+    /// The try of the automatic pass at the letter kept as `key` is on its
+    /// way: marked in `directory`, `Application Support/Launches`, written
+    /// whole or not at all, just after the letter's own count has gone up
+    /// (`LocalDrafts.countTry`), and taken away as the try ends or is taken
+    /// back (`unmarkTry`). A launch that ends with it there is charged to
+    /// the letter and not counted (`launch`). Returns whether it is on
+    /// disk; one that is not leaves the launch counted as well, as before
+    /// there was a mark.
+    @discardableResult
+    nonisolated static func markTry(_ key: String, in directory: URL) -> Bool {
+        writeWhole(Data(key.utf8), to: tryFile, in: directory)
+    }
+
+    /// The try marked in `directory` has ended, or been taken back.
+    nonisolated static func unmarkTry(in directory: URL) {
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(tryFile))
+    }
+
+    /// The key the mark in `directory` names: nil when there is none, and
+    /// when what is there is not a key a try could have written, empty,
+    /// garbled, a path, or a directory in its place.
+    nonisolated static func markedTry(in directory: URL) -> String? {
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent(tryFile)),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A key as the app makes one, a UUID, or as the tests name one:
+        // letters, digits and hyphens.
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")
+        guard (1...100).contains(key.count), key.allSatisfy(allowed.contains) else { return nil }
+        return key
+    }
+
+    /// Whether a try was marked in `directory` as the last launch ended,
+    /// taking the mark away, whatever is there. Only the mark is read,
+    /// never the letter it names: nothing a letter holds is read before
+    /// the steps are taken. A mark that cannot be taken away is not taken:
+    /// left, every launch after would be charged to it, and the guard
+    /// would see none.
+    nonisolated static func takeTry(in directory: URL) -> Bool {
+        let url = directory.appendingPathComponent(tryFile)
+        let files = FileManager.default
+        guard files.fileExists(atPath: url.path) else { return false }
+        let marked = markedTry(in: directory) != nil
+        return (try? files.removeItem(at: url)) != nil && marked
+    }
+
     /// Written whole or not at all. Returns whether it was.
     @discardableResult
     private func write(_ count: Int) -> Bool {
-        let data = Data(String(count).utf8)
-        let url = directory.appendingPathComponent(Self.countFile)
+        Self.writeWhole(Data(String(count).utf8), to: Self.countFile, in: directory)
+    }
+
+    /// `data` as the file `name` in `directory`, made if need be and out
+    /// of his backup, written whole or not at all. Returns whether it was.
+    private nonisolated static func writeWhole(_ data: Data, to name: String,
+                                               in directory: URL) -> Bool {
+        let url = directory.appendingPathComponent(name)
         let files = FileManager.default
         if !files.fileExists(atPath: directory.path) {
             try? files.createDirectory(at: directory, withIntermediateDirectories: true)
-            Self.excludeFromBackup(directory)
+            excludeFromBackup(directory)
         }
         if (try? data.write(to: url, options: .atomic)) != nil { return true }
         // Something that cannot be written over is in the file's place,
-        // a directory left by a fault: it goes, once, and the count is
+        // a directory left by a fault: it goes, once, and the file is
         // written again. Otherwise every launch after would read none.
         try? files.removeItem(at: url)
         return (try? data.write(to: url, options: .atomic)) != nil

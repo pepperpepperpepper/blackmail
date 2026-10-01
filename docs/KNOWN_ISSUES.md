@@ -5212,7 +5212,7 @@ Google settings.
 
 ---
 
-## B-057 — CHANGED 2026-10-01, not yet seen on the iPad. A crash at every launch would have ended the app for good, and so would a letter the Outbox crashed on
+## B-057 — CHANGED 2026-10-01, seen in part on the iPad. A crash at every launch would have ended the app for good, and so would a letter the Outbox crashed on
 
 **Found in the code 2026-09-30**, going through what would end the app for
 good once it is on his iPad with no way to update it. Nothing counted
@@ -5279,22 +5279,53 @@ they read, in steps, each with the ones before it:
   for file, and so is the count of passwords saved (B-051), which goes on in
   the new store as a copy, so a letter put back later compares with it as it
   did. Set aside again in the same second, the second folder's name ends
-  " 2". With no letter in the store, nothing is moved.
+  " 2". With no letter in the store, nothing is moved. Settings then has
+  Bring Back Set-Aside Letters (below).
 
 **Where letters set aside are, and who can reach them.** In the app's own
 data container on the iPad, beside `Local Drafts`, which nothing on the iPad
 shows him or a helper: not Files, not iCloud, since the folder keeps the
-store's exclusion from backup, and not a Mac's Finder. A helper cannot
-reach them; a developer can, with the app ended, by moving the folder back
-as `Local Drafts` (the TODO's check does it), which brings every letter back
-as it was, the Outbox's included. **Proposed, not built:** a line in a
-later About screen, "3 letters were set aside on 1 October", with a button,
-"Bring Back", which moves each letter's folder that can be read back into
-`Local Drafts` one at a time, under its own key, as a draft and out of the
-Outbox, keeping its `unsettled` so that one which may have gone is looked
-for in Sent Mail before it is sent again, and writes down what came back;
-the launch count guards that launch as it guards any other. It needs a build
-before the install.
+store's exclusion from backup, and not a Mac's Finder. Before Bring Back
+only a developer could reach them, with the app ended, by moving the folder
+back as `Local Drafts`.
+
+**Bring Back, decided and built 2026-10-01.** Settings has a row under
+Organize by Thread, "Bring Back Set-Aside Letters", in the same blue as
+Restore Original Signature and there only while a folder set aside holds a
+letter, as that one is there only while there is a signature to restore.
+It asks first, as Mail asks, in an alert: "Bring Back Set-Aside Letters?",
+then "Letters on this iPad that were set aside when Blackmail could not
+start will go back to Drafts and the Outbox.", and Cancel and Bring Back,
+Bring Back not red since nothing is lost by it. Then each letter's folder,
+a folder with a `letter.json` whether or not it can be read, is moved from
+every folder set aside, oldest first, back into `Local Drafts`, by a rename,
+file for file. Each comes back as it went: a draft to Drafts and a letter he
+sent to the Outbox, with what may already have reached Gmail still to be
+looked for (`unsettled`) and its own unfinished tries, to go by the pass as
+any other, from the next launch when this one holds the pass. A letter he
+sent goes once, as any in the Outbox goes (B-052);
+taken out of the Outbox, as first proposed, it would have sat in Drafts
+unsent with nothing to tell him so. Nothing is written over. A letter whose
+name is taken in `Local Drafts` comes back beside the one there, under a new
+key, a UUID as the composer makes one, its `letter.json`'s key written as
+that name first, where it is set aside, since the store reads a letter only
+under the key it names; so does one whose `letter.json` names another key
+than its folder's, which is what an end between those two writes leaves,
+and which then comes back the next time. A key is made once, at random, so
+a second folder of one name can only be a second copy of one letter, and
+two of it in the Outbox would send it twice: such a letter comes back held,
+as one the pass has given up on, and goes only when he sends it or saves
+it. One that cannot be read, or is of a format this build does not know,
+comes back as it is, under a new name if its own is taken, and stays
+unread, as it was. A folder set aside goes once it holds no letter, with what else is in it: the
+copy of the count of passwords saved, which `Local Drafts` has gone on from
+since, and folders a failed first keep left, which a launch would have
+removed. Nothing else is deleted, and the count of passwords saved in
+`Local Drafts` is left as it is. It takes no step and leaves the launch
+count as it is. A letter brought back that crashes the pass is held by its
+own tries, the launches it ends charged to it (below), so it costs no stage.
+One whose listing crashes the app crashes every launch: the count climbs,
+five set the letters aside again, and the row is there again.
 
 **One letter at a time.** Each try the pass makes at a letter is written
 down on it, `autoAttempts` in its `letter.json`, just before the pass takes
@@ -5304,13 +5335,18 @@ be written down is not made, and the letter waits. At three such tries, the
 pass passes the letter over. It stays where it is and counts among the
 unsent, and its row says so, in the Outbox as the line under whom it is to,
 "Not sent automatically. Open it and tap Send.", and in Drafts under "On this
-iPad only", "Not saved to Gmail automatically. Open it and tap Save Draft."
-The words are the app's own; Mail has no such state to copy. A letter in the
-Outbox with an attempt whose DATA went, which Gmail may have delivered and
-which no pass now looks for in Sent Mail, says instead "May already have
-been sent.", as one cut off before a password save does (B-052): "Not sent"
-would have him write it out again, and that second copy is what B-052 is
-there to prevent. Opened and sent, it goes once, as any letter in the Outbox goes: one with an attempt whose
+iPad only", "Not saved to Gmail automatically. Open it, tap Cancel, then Save
+Draft." Save Draft is not on the composer's bar but in the sheet its Cancel
+brings up, so the way there is said a tap at a time; "Open it and tap Save
+Draft", as first written, would have had him look for a button the screen
+does not show. The words are the app's own; Mail has no such state to copy.
+A letter in the Outbox with an attempt whose DATA went, which Gmail may have
+delivered and which no pass now looks for in Sent Mail, says instead "May
+already have been sent.", as one cut off before a password save does
+(B-052): "Not sent" would have him write it out again, and that second copy
+is what B-052 is there to prevent. Decided 2026-10-01, left as it is: that
+line alone, with nothing of what to do. Whether to send it is his to choose,
+and his Send asks Sent Mail first either way. Opened and sent, it goes once, as any letter in the Outbox goes: one with an attempt whose
 DATA went is looked for in Sent Mail first, and found there, nothing more is
 sent (B-052). Save Draft, his saving it, clears the count and gives it back
 to the pass. Changed and put away, which the autosave keeps, or sent with no
@@ -5333,6 +5369,49 @@ give up on an ordinary letter. Only the count is written then: what the try itse
 tried before an APPEND and the Message-ID before DATA, stays, and the look
 in Drafts or Sent Mail goes as ever (B-051, B-052).
 
+So a letter that goes unasked only as he leaves, a draft carrying a
+megabyte or more of photos or quote, or a letter in the Outbox with a
+megabyte or more of files to fetch from Gmail (`LocalDraft.isLarge`,
+`fetchesLarge`), is tried where no try is counted, and the limit seldom
+holds it: only a try the pass begun as he left reaches after he has come
+back, while it is still going, is counted, and leaving again takes it
+back. Decided 2026-10-01, left as it is. A crash in the
+background cannot trap a launch, which the background has already
+finished, so it cannot end the app for good; and counting those tries
+would let iOS's ordinary endings of a suspended app, for memory or for its
+time running out, hold good letters. One that ended the app there would be
+tried again at every leave, with nothing on its row.
+
+**A launch a letter ended is the letter's, decided and built 2026-10-01.**
+Counted against the launches as well as against the letter, a letter that
+crashed the pass at every launch took the launches to their second stage
+before its own third try held it: the third launch started without the
+kept copy and with the view settings at their defaults, for a fault that was
+the letter's. Now the pass marks each try it counts, just after the letter's
+count has gone up, in `Application Support/Launches/trying`, the letter's
+key and nothing else, and takes the mark away as the try ends or is taken
+back. A launch finding it there ended during that try: the letter has
+counted it, and the launch is not counted for it. The mark is removed, and
+the launch counts from the launches before that one, said in the log and
+written down. So a letter that crashes the pass at every launch is held at
+its third try with the count never above one: nothing wiped, nothing reset,
+and the fourth launch starts as any other. A launch that ends with no try
+on its way counts as ever. A mark found with no launch unfinished is from
+an end after the launch had finished, which counts against no launch
+anyway: it is removed, and nothing is said. The cost: a crash
+elsewhere while a try is on its way, in drawing, say, is charged to the
+letter too, and three of them hold it. So each letter waiting can put the
+stages off by its three tries, and no more: a letter held is never tried,
+so never marked, and the launches after it are counted as ever. With two
+letters in the Outbox and every launch ended a moment into the pass, both
+are held by the seventh launch and the second stage comes at the ninth,
+not the third; with ten waiting it would come after thirty, and every one
+of them is held for a fault not its own, there to be sent with Send. A
+limit on the charge would need a count of its own read at launch beside
+the count and the mark; the mark does one thing, naming the letter whose
+try is on its way, and the launch reads the count and the mark and nothing
+more before it takes its steps. Decided 2026-10-01.
+
 **How it is kept.** `Application Support/Launches/unfinished`: the launches
 in a row that never finished, the one running among them, in decimal,
 written whole by an atomic write and out of iCloud backup. Not
@@ -5352,7 +5431,27 @@ Beside it, `safe-starts.json`: each safe start's time, count, steps
 (`kept-copy-wiped`, `view-settings-reset`, `passes-held`,
 `letters-set-aside`) and the folder the letters went to, the last twenty,
 dates as text, for an About screen to show one day; one that cannot be read
-is begun afresh. `autoAttempts` is optional in `letter.json`, absent from a
+is begun afresh. A launch charged to a letter is written down there too, as
+the step `charged-to-letter`, and so are letters brought back, as
+`letters-brought-back` alone with how many came back (`broughtBack`), absent
+from every other start, so the file's format stays 1. Beside them,
+`trying`, the mark of the pass's try on its way: the letter's key, written
+whole by an atomic write after the letter's own count has gone up, and
+removed as the try ends, before the count is cleared, or is taken back,
+before the count is put back, so an end between the two always leaves the
+try counted against the letter, and against the launch as well, never
+against neither. Read at launch before the count is written, and never the
+letter it names: what the letters hold is not read before the steps are
+taken. It is removed then, whatever is there, before the count is written.
+A mark that is not a key the app could have written, empty, garbled, a word
+with a space, a path, over a hundred characters, or a directory in its
+place, is no mark, and the launch is counted. One that cannot be removed is
+not taken either: left, every launch after would be charged to it, and the
+guard would see none. One that cannot be written does not stop the try; the
+launch is counted as well, as before there was a mark. The mark holds the
+key and nothing else, and nothing but the pass's try writes it.
+`autoAttempts` is
+optional in `letter.json`, absent from a
 letter no pass has left a try on and from one kept before it existed, which
 reads as none, so the format stays 1, as for `outbox`, `unsettled` and
 `cutOff`. Every launch also removes each folder in `Local Drafts` with no
@@ -5361,11 +5460,13 @@ reads as none, so the format stays 1, as for `outbox`, `unsettled` and
 `letter.json`, so nothing he wrote goes; a folder with one is never touched,
 whatever else is in it and however it reads.
 
-**In the connection log**, nothing of a letter: `SAFE-START unfinished=2`,
-then each step as it is taken, `SAFE-START kept-copy=wiped`, `SAFE-START
-view-settings=reset`, `SAFE-START automatic-pass=held` and `SAFE-START
-local-drafts=set-aside folder="Local Drafts set aside 2026-10-01
-14.03.07"`; `DRAFTS-LEFTOVERS removed=1`; and once a launch for each letter
+**In the connection log**, nothing of a letter: `SAFE-START
+charged-to-letter` when the last launch ended in a letter's try, then
+`SAFE-START unfinished=2`, then each step as it is taken, `SAFE-START
+kept-copy=wiped`, `SAFE-START view-settings=reset`, `SAFE-START
+automatic-pass=held` and `SAFE-START local-drafts=set-aside folder="Local
+Drafts set aside 2026-10-01 14.03.07"`; `SAFE-START brought-back=3` at
+Bring Back; `DRAFTS-LEFTOVERS removed=1`; and once a launch for each letter
 passed over, `OUTBOX-HELD unfinished-tries=3` or `DRAFT-HELD
 unfinished-tries=3`.
 
@@ -5387,10 +5488,9 @@ keeps no letters and runs no pass (B-052): its letters go at Send as they
 did, and it counts and holds nothing. The figures, two, three and five
 launches, three tries and half a minute, are judgement, not measurement:
 two allows one crash that was nothing to do with what is kept, and three
-tries allow two. So a letter that crashes the pass at every launch takes the
-launches to their second stage before its own third try: the third launch
-starts without the kept copy and with the view settings at their defaults,
-and the fourth holds the pass, by when the letter is held anyway. There is
+tries allow two. A letter that crashes the pass at every launch no longer
+takes the launches to their second stage before its own third try: those
+launches are charged to it (above). There is
 no hook to make the app crash on purpose; each
 stage is made by hand on the iPad, with the app ended, by writing the count
 or a letter's tries into their files (TODO).
@@ -5459,21 +5559,101 @@ over his save, every keep clearing the tries or Save Draft carrying them, a
 wait for the pass returning at once, nothing said in the log, a try that
 cannot be written down made anyway, and the count not read back.
 
-**Not taken, and still to do.** Letters set aside cannot be brought back
-from inside the app (proposed above). Nothing tells him, or a helper, that a
-safe start happened beyond the connection log and `safe-starts.json`; an
-About screen would. A crash that comes later than the half minute in every
-launch is not caught by the count, only by a letter's own tries if the pass
-is in it. A letter that goes unasked only as he leaves, a draft carrying a
-megabyte or more of photos or quote, or a letter in the Outbox with a
-megabyte or more of files to fetch from Gmail (`LocalDraft.isLarge`,
-`fetchesLarge`), is only ever tried in the background, where no try is counted: the limit never holds
-it. One that ended the app there would be tried again at every leave, with
-nothing on its row; it cannot hold up a launch, which leaving has already
-finished. Counting tries begun in the background as well, and taking them
-back only when iOS's background time runs out, would cover it, at the cost
-of counting a letter iOS ended for memory against it; not decided. The
-counting and the background are UIKit and are read from their
-source on the host; the pieces under them run here.
+**Tests for the charge to a letter and Bring Back**, 2026-10-01.
+`SafeStartTests`: a launch finding a try marked is not counted for it, the
+mark taken away, said and written down, and the launches before that one
+counted as ever; with none unfinished the mark goes and nothing is said; the
+letter's folder is never there to be read. A mark empty, garbled, a word
+with a space, a path, over a hundred characters, or a directory in its
+place reads as none, the launch counted, and goes; one that cannot be
+removed is not taken. Bring Back moves every letter set aside back file for
+file, the one that cannot be read with them, beside one written since; the
+folder goes; the store's count of passwords saved stays its own and the
+launch count as it was; the lists are told; it is said and written down. A
+name taken keeps both: the one there as it was, the one coming back under a
+new key made as a key is, its photo byte for byte, read and held; one
+written under another key comes back under its folder's name, held; one
+that cannot be read and one of another format each under a new name, byte
+for byte. The older folder set aside comes back first. A folder set aside
+goes only once it holds no letter, with nowhere to put them every letter
+stays set aside, and a second Bring Back brings them. The row's count is
+nothing for no folder, one holding only the count of passwords saved and a
+leftover, a folder of another name and a file of that name. Settings' row,
+its alert's words and its wiring, and the app's `LocalDrafts` marking its
+tries, are read from their source. `OutboxTests`, every one now marking its
+tries as the app does: a letter ending three launches in a row, its DATA
+cut off and then the look in Sent Mail twice, is held at its third try with
+the count never above one, the kept copy and the view settings left, one
+DATA ever, and the launch after, with no try on its way, is counted; a try
+sent, refused by the submission server, refused by Gmail's Drafts, taken
+back as the app goes, begun in the background, or not written down on its
+letter leaves no mark, and a launch ended after them is counted; letters
+set aside and brought back go by the pass once each, the one held by its
+own tries stays held, saying so, and his Send of it goes once. The held
+draft's row has its new words. Each fails with its part undone in a scratch
+copy, thirty-eight more sabotages one at a time, each failing at least the
+test named for it: the mark not taken at launch, taken with no launch
+unfinished, not said, not written down, left in place, taken when it could
+not be removed, taken at its word, or its line ending kept; the pass not
+marking its try, marking it before the letter's count, a try ended or taken
+back leaving its mark, and the app's `LocalDrafts` marking nothing; the
+held draft's row in its old words; nothing brought back, a taken name
+written over or left set aside, the key not written as the new name, or
+only when it was the folder's, a letter under a new name not held, one that
+cannot be read left set aside on a clash, one of another format written
+over; a folder set aside removed with letters in it, or kept once empty; a
+folder without `letter.json` counted as a letter, a folder of any name taken
+for one set aside, the newest first, no store made to bring them into; the
+count of passwords saved set aside carried back; bringing back not said,
+not written down, resetting the count, or not telling the lists; and
+Settings' row always shown, bringing back without asking, its button red,
+the lists not told, or the row left after. Not made to fail: the order of
+the mark and the count in a try's end, as it is taken back, and at launch,
+which only an end between two writes would show.
 
-**Not yet seen on the iPad.** The TODO says how to make each stage by hand.
+**Tests for the charge**, 2026-10-01. `SafeStartTests`: the mark is the
+letter's key and not a byte more, written in one place; `launch` reads the
+count and takes the mark and opens nothing else before its steps, a letter
+that cannot be read and a stray file beside the count changing nothing it
+decides. `OutboxTests`: two letters in the Outbox and every launch ended
+in a try, the DATA held or the look in Sent Mail: each held at its third
+try, the count at one through the seventh launch, then counted, the
+second stage at the ninth and the pass held at the tenth, one DATA each.
+
+**Not taken, and still to do.** Nothing tells him, or a helper, that a
+safe start happened beyond the connection log, `safe-starts.json` and,
+after five, the row in Settings; an About screen would. A crash that comes
+later than the half minute in every launch is not caught by the count, only
+by a letter's own tries if the pass is in it. The counting, the background,
+Settings' row and its alert are UIKit and are read from their source on the
+host; the pieces under them run here.
+
+Two questions about Bring Back are still to decide. A letter he sent that
+began as a draft in Gmail hides that draft's row only while it is in
+`Local Drafts` (`replacedInDrafts`). Set aside, the draft is listed again
+and his Outbox is empty; if he opens the draft and sends it, Bring Back
+then puts the old letter back in the Outbox, unheld, and the pass sends it
+a second time. Bringing every letter in the Outbox back held, or holding
+one whose draft in Gmail is no longer there, would stop it. And a fifth
+stage whose copy of the count of passwords saved could not be written, on
+the full disk that may be what ended the launches, leaves that count only
+in the folder set aside, which Bring Back removes. A password saved after
+that, the store's count can equal the one stamped on a letter whose DATA
+went, and the pass looks for it in a Sent Mail that may be another
+mailbox's (B-033). Carrying the higher count back with the letters does not
+close it alone, when the save came between: a save would also have to
+count on from the highest count beside the store. Bring Back leaves the
+count as it is, as decided.
+
+**Seen on the iPad, 2026-10-01**, on the build before Bring Back and the
+charge to a letter. A launch left on the Inbox read 1 in
+`Launches/unfinished`, and 0 half a minute after its first page. A quick
+look, out to the Home Screen within two seconds, read 0. Two launches ended
+by `killall -9` left 2, and the third launch took the second stage. A
+letter in the Outbox with `"autoAttempts":3` written into its `letter.json`
+was held, its row's first line "Not sent automatically. Open it and tap
+Send.", and his Send sent it once. Not yet seen: whether a swipe in the app
+switcher finishes a launch, the third stage, the fifth and Bring Back, a
+leftover removed, a held draft's row, three tries after a DATA that may
+have gone, a try counted and one cut short by the background, and a launch
+charged to a letter. The TODO says how to make each by hand.

@@ -31,6 +31,10 @@ final class OutboxTests: XCTestCase {
     /// When each letter is kept: a second later every time.
     private var keptClock: ManualClock!
     private var root: URL!
+    /// `Launches/` and `Kept/` beside the letters, for the safe start and
+    /// the pass's mark of the try on its way (B-057).
+    private var launches: URL!
+    private var keptCopy: URL!
     private var background = FakeBackground()
     private var passTime = FakeBackground()
     private var pauses = Held()
@@ -51,6 +55,8 @@ final class OutboxTests: XCTestCase {
         book = RecipientBook(defaults: defaults)
         root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent("OutboxTests-\(UUID().uuidString)", isDirectory: true)
+        launches = URL(fileURLWithPath: root.path + "-Launches", isDirectory: true)
+        keptCopy = URL(fileURLWithPath: root.path + "-Kept", isDirectory: true)
         background = FakeBackground()
         passTime = FakeBackground()
         pauses = Held()
@@ -63,7 +69,15 @@ final class OutboxTests: XCTestCase {
     override func tearDown() async throws {
         if let server { XCTAssertEqual(server.violations, []) }
         UserDefaults(suiteName: Self.suite)?.removePersistentDomain(forName: Self.suite)
-        if let root { try? FileManager.default.removeItem(at: root) }
+        if let root {
+            // The letters, and beside them the launches, the kept copy and
+            // any folder they were set aside in.
+            let parent = root.deletingLastPathComponent()
+            for name in (try? FileManager.default.contentsOfDirectory(atPath: parent.path)) ?? []
+            where name.hasPrefix(root.lastPathComponent) {
+                try? FileManager.default.removeItem(at: parent.appendingPathComponent(name))
+            }
+        }
         for outcome in ["ok", "fail"] {
             let transcript = (NSTemporaryDirectory() as NSString)
                 .appendingPathComponent("blackmail-send-\(CaptureProbe.session)-\(outcome).txt")
@@ -77,6 +91,8 @@ final class OutboxTests: XCTestCase {
         clock = nil
         keptClock = nil
         root = nil
+        launches = nil
+        keptCopy = nil
         try await super.tearDown()
     }
 
@@ -102,7 +118,8 @@ final class OutboxTests: XCTestCase {
     }
 
     /// The app's `LocalDrafts` over this test's directory, for the account
-    /// the scripted server logs in, or `account`. A second one over the same
+    /// the scripted server logs in, or `account`, marking its tries beside
+    /// the launch count as the app's does. A second one over the same
     /// directory is the app launched again.
     private func makeKept(account: String? = nil) -> LocalDrafts {
         let clock = keptClock!
@@ -111,7 +128,30 @@ final class OutboxTests: XCTestCase {
             return clock.now()
         })
         return LocalDrafts(store: store, account: account ?? server.username,
-                           background: passTime.time)
+                           background: passTime.time, launches: launches)
+    }
+
+    /// The safe start of a launch over this test's Application Support, as
+    /// `SafeStart.app` is the app's: the count and the pass's mark in
+    /// `launches`, the copy of his mail in `keptCopy`, these letters, and
+    /// the view settings in this test's defaults.
+    private func makeStart() -> SafeStart {
+        SafeStart(directory: launches, kept: keptCopy, letters: root,
+                  defaults: UserDefaults(suiteName: Self.suite)!,
+                  timeZone: TimeZone(identifier: "UTC")!)
+    }
+
+    /// The launch count as `cat Launches/unfinished` reads it.
+    private var launchCount: String? {
+        (try? Data(contentsOf: launches.appendingPathComponent(SafeStart.countFile)))
+            .map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    /// The try the pass has marked on its way, as `cat Launches/trying`
+    /// reads it.
+    private var marked: String? {
+        (try? Data(contentsOf: launches.appendingPathComponent(SafeStart.tryFile)))
+            .map { String(decoding: $0, as: UTF8.self) }
     }
 
     /// The composer's actions for letter `key`, wired as the composer
@@ -1891,8 +1931,9 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(Outbox.notSentByItself, "Not sent automatically. Open it and tap Send.")
         let draftRow = try XCTUnwrap(relaunched.draftsRows(in: "[Gmail]/Drafts",
                                                            from: "owner@example.com").first)
+        // Save Draft is in the sheet Cancel brings up, not on the composer.
         XCTAssertEqual(draftRow.preview, "On this iPad only\n"
-                       + "Not saved to Gmail automatically. Open it and tap Save Draft.\n"
+                       + "Not saved to Gmail automatically. Open it, tap Cancel, then Save Draft.\n"
                        + "Lunch at one?")
         XCTAssertNil(relaunched.whyNotSent("held"), "passed over, not refused")
 
@@ -2057,6 +2098,237 @@ final class OutboxTests: XCTestCase {
         await pass.value
         await waiting.value
         XCTAssertEqual(ended.at, 1)
+    }
+
+    // MARK: - A launch ended during a letter's try (B-057)
+
+    /// A letter whose try ends the app at three launches in a row, its DATA
+    /// gone the first time and the look in Sent Mail cut off the next two.
+    /// Each launch after finds the try the pass marked, the letter's own
+    /// count having it, and is not counted for it: the count never reaches
+    /// two, so no launch starts without the copy of his mail or with the
+    /// view settings reset. The third try is the letter's last, and the
+    /// fourth launch passes it over, saying it may already have been sent.
+    /// Counted against the launches as well, the third launch would have
+    /// taken the second stage. The launch after, with no try on its way,
+    /// is counted as ever.
+    func testALetterThatEndsThreeLaunchesIsHeldAndTheLaunchesAreNotCounted() async throws {
+        let defaults = UserDefaults(suiteName: Self.suite)!
+        defaults.set("two", forKey: PaneArrangement.key)
+        try FileManager.default.createDirectory(at: keptCopy, withIntermediateDirectories: true)
+        try Data("the Inbox's page".utf8).write(to: keptCopy.appendingPathComponent("page"))
+        Diagnostics.clear()
+
+        makeStart().launch()
+        XCTAssertEqual(launchCount, "1")
+        let first = makeKept()
+        await sentOffline(letter(), kept: first, repository: makeRepository())
+        try await diesAfterData(first, makeRepository())
+        XCTAssertEqual(tries("letter-1"), 1)
+        XCTAssertEqual(marked, "letter-1", "marked on its way")
+
+        for launch in 2...3 {
+            XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 0), "launch \(launch)")
+            XCTAssertEqual(launchCount, "1", "not counted for the letter's try")
+            XCTAssertNil(marked)
+            let kept = makeKept()
+            let repository = makeRepository()
+            try await page(repository)
+            server.holdReplies(to: "UID SEARCH")
+            let held = await server.heldReplies(to: "UID SEARCH")
+            _ = try XCTUnwrap(kept.uploadWaiting(to: repository))
+            try await until { await server.heldReplies(to: "UID SEARCH") > held }
+            server.stopHolding("UID SEARCH")
+            XCTAssertEqual(tries("letter-1"), launch)
+            XCTAssertEqual(marked, "letter-1")
+        }
+
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 0))
+        XCTAssertEqual(launchCount, "1")
+        let fourth = makeKept()
+        let repository = makeRepository()
+        try await page(repository)
+        XCTAssertNil(fourth.uploadWaiting(to: repository), "held at its third try")
+        XCTAssertNil(marked, "nothing on its way")
+        XCTAssertEqual(fourth.outboxRows.first?.preview.components(separatedBy: "\n").first,
+                       Outbox.mayHaveGone)
+        XCTAssertEqual(try Data(contentsOf: keptCopy.appendingPathComponent("page")),
+                       Data("the Inbox's page".utf8), "the kept copy stays")
+        XCTAssertEqual(defaults.string(forKey: PaneArrangement.key), "two", "and the settings")
+        let said = Diagnostics.entries.map(\.text).filter { $0.hasPrefix("SAFE-START") }
+        XCTAssertEqual(said, Array(repeating: "SAFE-START charged-to-letter", count: 3))
+        XCTAssertEqual(SafeStart.taken(in: launches).map(\.steps),
+                       Array(repeating: [SafeStart.chargedToLetter], count: 3))
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "the one DATA, and nothing since")
+
+        // Ended with no try on its way: counted.
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 1))
+        XCTAssertEqual(launchCount, "2")
+    }
+
+    /// Two letters waiting, and every launch ended with a try on its way,
+    /// as when something that is neither letter's fault crashes the app a
+    /// moment into the pass. Each end is charged to the letter being tried,
+    /// three to each, and each is held at its third try; held, neither is
+    /// tried again, so no mark is left, and the launches after are counted
+    /// as ever. The stages come six launches late, three for each letter
+    /// waiting and no more: the second stage at the ninth launch, the pass
+    /// held at the tenth. The launch reads only the count and the mark to
+    /// know it, never the letters.
+    func testEachLetterWaitingPutsTheStagesOffByItsThreeTriesAndNoMore() async throws {
+        try FileManager.default.createDirectory(at: keptCopy, withIntermediateDirectories: true)
+        try Data("the Inbox's page".utf8).write(to: keptCopy.appendingPathComponent("page"))
+        let kept = makeKept()
+        await sentOffline(letter("First"), as: "first", kept: kept, repository: makeRepository())
+        await sentOffline(letter("Second"), as: "second", kept: kept, repository: makeRepository())
+
+        var counts: [String?] = []
+        var steps: [SafeStart.Steps] = []
+        for _ in 1...6 {
+            steps.append(makeStart().launch())
+            counts.append(launchCount)
+            // The pass, ended with its DATA sent and no 250, or in the look
+            // in Sent Mail for a DATA that went.
+            let kept = makeKept()
+            let repository = makeRepository()
+            submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+            let made = submissions.made
+            try await page(repository)
+            server.holdReplies(to: "UID SEARCH")
+            let held = await server.heldReplies(to: "UID SEARCH")
+            _ = try XCTUnwrap(kept.uploadWaiting(to: repository))
+            try await until {
+                if await server.heldReplies(to: "UID SEARCH") > held { return true }
+                guard submissions.made > made, let last = submissions.last else { return false }
+                return await last.isHoldingLetterReply
+            }
+            server.stopHolding("UID SEARCH")
+            XCTAssertNotNil(marked)
+        }
+        // The sixth try's end charged, then three launches with nothing
+        // left to try, each ended unfinished.
+        for _ in 1...4 {
+            steps.append(makeStart().launch())
+            counts.append(launchCount)
+            XCTAssertNil(marked, "nothing tried, nothing marked")
+        }
+
+        XCTAssertEqual(counts, ["1", "1", "1", "1", "1", "1", "1", "2", "3", "4"])
+        XCTAssertEqual(steps.map(\.forgetsKeptState),
+                       [false, false, false, false, false, false, false, false, true, true])
+        XCTAssertEqual(steps.map(\.holdsPasses),
+                       [false, false, false, false, false, false, false, false, false, true])
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: keptCopy.appendingPathComponent("page").path), "the kept copy wiped")
+        XCTAssertEqual([tries("first"), tries("second")], [3, 3])
+        let held = makeKept()
+        XCTAssertTrue(held.outbox.allSatisfy(held.isHeld))
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "one DATA each")
+    }
+
+    /// A try that has ended, however it ended, leaves no mark: a launch
+    /// that ends after it is the launch's, and counted. Sent, refused by
+    /// the submission server, refused by Gmail's Drafts; taken back as the
+    /// app goes; begun in the background, where nothing is marked; and one
+    /// that could not be written down on its letter, which is not made.
+    func testATryEndedOrTakenBackLeavesNoMark() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("First"), as: "first", kept: kept, repository: repository)
+        await sentOffline(letter("Second", to: "nobody@example.org"), as: "second",
+                          kept: kept, repository: repository)
+        keptDraft("Draft", as: "draft", kept: kept)
+        makeStart().launch()
+
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+        submissions.refused = ["nobody@example.org"]
+        server.refusedVerbs = ["APPEND"]
+        server.holdReplies(to: "APPEND")
+        try await page(repository)
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { await submissions.first?.isHoldingLetterReply == true }
+        XCTAssertEqual(marked, "first", "on its way")
+        await submissions.first?.releaseLetterReply()
+        try await until { !appends.isEmpty }
+        XCTAssertEqual(marked, "draft", "the refused letter's gone, the draft's on its way")
+        await server.releaseReplies(to: "APPEND")
+        await pass.value
+        XCTAssertNil(marked, "every try ended")
+        XCTAssertNil(kept.store.letter("first"))
+        XCTAssertEqual(makeStart().launch(), SafeStart.Steps(after: 1),
+                       "a launch that ends after them is counted")
+        // The two refused wait for him; out of the way of what follows.
+        kept.store.remove("second")
+        kept.store.remove("draft")
+        submissions.refused = []
+        server.refusedVerbs = []
+
+        // Taken back as the app goes.
+        let again = makeKept()
+        await sentOffline(letter("Third"), as: "third", kept: again, repository: makeRepository())
+        try await diesAfterData(again, makeRepository())
+        XCTAssertEqual(marked, "third")
+        again.wentToBackground()
+        XCTAssertNil(marked, "taken back with its count")
+        XCTAssertEqual(tries("third"), 0)
+
+        // Begun in the background: neither counted nor marked.
+        let away = makeKept()
+        await sentOffline(letter("Fourth"), as: "fourth", kept: away, repository: makeRepository())
+        away.wentToBackground()
+        try await diesAfterData(away, makeRepository(), largeToo: true)
+        XCTAssertNil(marked)
+        XCTAssertEqual(tries("fourth"), 0)
+
+        // Not written down on its letter: not made, and not marked.
+        let locked = makeKept()
+        await sentOffline(letter("Fifth"), as: "fifth", kept: locked, repository: makeRepository())
+        let folder = root.appendingPathComponent("fifth").path
+        let files = FileManager.default
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder) }
+        let made = submissions.made
+        try await afterAPage(locked, makeRepository())
+        XCTAssertEqual(submissions.made, made)
+        XCTAssertNil(marked)
+    }
+
+    /// Letters set aside and brought back in Settings go by the pass as any
+    /// other, once each; one the pass had given up on before it was set
+    /// aside is still held by its own tries, saying so, and its Send is
+    /// his.
+    func testLettersBroughtBackGoByThePassAndAHeldOneStaysHeld() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Waiting"), as: "waiting", kept: kept, repository: repository)
+        await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
+        XCTAssertTrue(kept.store.noteTries("held", 3))
+        let aside = try XCTUnwrap(LocalDraftStore.setAside(root, at: Date(),
+                                                           in: TimeZone(identifier: "UTC")!))
+        XCTAssertEqual(makeKept().outbox.count, 0, "set aside")
+
+        XCTAssertEqual(LocalDraftStore.bringBack(into: root), 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: aside.path))
+        let back = makeKept()
+        XCTAssertEqual(back.outbox.map(\.key).sorted(), ["held", "waiting"])
+        try await afterAPage(back, repository)
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(sent.first?.contains("Subject: Waiting") == true)
+        XCTAssertEqual(back.outbox.map(\.key), ["held"])
+        XCTAssertEqual(back.outboxRows.first?.preview.components(separatedBy: "\n").first,
+                       Outbox.notSentByItself)
+        await back.uploadWaiting(to: repository)?.value
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "nothing more by itself")
+
+        let held = try XCTUnwrap(back.letter("held")).draft
+        await send(held, as: "held", kept: back, repository: repository)
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "his Send: once")
+        XCTAssertEqual(back.outbox.count, 0)
     }
 }
 
