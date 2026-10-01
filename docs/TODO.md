@@ -1093,7 +1093,9 @@ this host. Ordered by value, not by size.
 - [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
       Seen 2026-10-01 (B-057): steps 1 and 2's first launches, the fifth
       with Bring Back, the leftover, and three tries after a DATA that may
-      have gone. Still to see: the swipe in the app switcher, a launch
+      have gone, and, on the build after, step 4's letter in the Outbox
+      coming back held, its notice, and going only by his Send. Still to
+      see: the swipe in the app switcher, a launch
       charged to a letter (step 8), and a held draft's row.
       Seen in part on the iPad on 2026-10-01, on the build before Bring Back
       and the charge to a letter: step 1 but for the swipe, its third launch
@@ -1165,19 +1167,27 @@ this host. Ordered by value, not by size.
       Bring Back, neither red. Cancel: nothing changes, and the row is
       still there. Tap it again, then Bring Back: the row goes. Close
       Settings: Drafts has the two letters under "On this iPad only", the
-      Outbox has the third and the line under the list "1 Unsent Message";
+      Outbox has the third, its row reading "Not sent automatically. Open
+      it and tap Send.", and the line under the list "1 Unsent Message";
       the log has `SAFE-START brought-back=3`, `safe-starts.json` ends with
       `letters-brought-back` and `"broughtBack":3`, `Launches/unfinished`
       still reads 0, and `ls` shows no folder set aside. In `Local Drafts`
-      the same `find … shasum` matches `/var/tmp/before.sum` line for line.
-      Open Settings again: no row. Wi-Fi on, Refresh: nothing goes, since
-      this launch, after five, holds the pass. End the app and open it:
-      the draft without the photo goes up and the letter out by themselves,
-      once each, and the draft with the photo with them if its photo is
-      under a megabyte. At a megabyte or more, as a photo from the camera
-      is, it goes up by itself only as he leaves (B-051): go to the Home
-      Screen, and it goes up, once. One copy of each draft on the web, and
-      the letter arriving once.
+      the same `find … shasum` matches `/var/tmp/before.sum` line for line
+      but for the Outbox letter's `letter.json`, which now holds
+      `"autoAttempts":3` (since 2026-10-01). Open Settings again: no row.
+      Open the letter in the Outbox and tap Send, Wi-Fi still off: the
+      sheet closes with "Message is in the Outbox. It will not be sent
+      automatically. When the iPad is connected, open it and tap Send.",
+      and the letter is still in the Outbox, its row as before.
+      Wi-Fi on, Refresh: nothing goes, since this launch, after five, holds
+      the pass. End the app and open it: the draft without the photo goes
+      up by itself, once, and the draft with the photo with it if its photo
+      is under a megabyte. At a megabyte or more, as a photo from the
+      camera is, it goes up by itself only as he leaves (B-051): go to the
+      Home Screen, and it goes up, once. The letter does not go: the log
+      says `OUTBOX-HELD unfinished-tries=3`, and it is still in the Outbox
+      after a minute. Open it and tap Send: it goes, once. One copy of each
+      draft on the web, and the letter arriving once.
       5. *A leftover.* With the app ended, `mkdir "Local Drafts/leftover"`
       and copy any photo into it; `mkdir "Local Drafts/damaged"` and `echo
       '{' > "Local Drafts/damaged/letter.json"`. Open the app: `leftover`

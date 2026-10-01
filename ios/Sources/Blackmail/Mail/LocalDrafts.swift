@@ -83,6 +83,8 @@ struct LocalDraft {
     /// (`LocalDrafts.countTry`). At `LocalDrafts.unfinishedTries` the pass
     /// passes it over, and it waits for him (B-057). 0 for a letter no pass
     /// has taken since, and for one kept by a build before the count was.
+    /// Written as `LocalDrafts.unfinishedTries` by Bring Back, with no try,
+    /// on a letter it brings back held (`LocalDraftStore.bringBack`).
     var autoAttempts = 0
 
     /// Where it stands in the Outbox: nil for a letter that is not there.
@@ -489,9 +491,19 @@ final class LocalDraftStore {
     /// Settings, when he asks (`SafeStart.bringBack`). Each comes back as
     /// it went, in Drafts or in the Outbox, with what may already have
     /// reached Gmail still to be looked for (`unsettled`) and its own count
-    /// of unfinished tries, so a letter that crashes the pass is held by it
+    /// of unfinished tries, so a draft that crashes the pass is held by it
     /// as any other. The count of passwords saved is left as it is: the
     /// store has gone on from a copy of it since (`setAside`).
+    ///
+    /// A letter in the Outbox comes back held, as one the pass has given up
+    /// on (`LocalDrafts.isHeld`), and goes only when he opens it and taps
+    /// Send: his own Send has gone on without it meanwhile. One reopened
+    /// from Gmail's Drafts hides that draft's row only while it is kept here
+    /// (`LocalDrafts.replacedInDrafts`), so set aside, the draft is listed
+    /// again; sent from there, the letter would go a second time if the
+    /// pass took it. Held is written in its `letter.json` where it is set
+    /// aside, before it is moved: ended between the two, it comes back held
+    /// the next time, and one that cannot be written stays set aside.
     ///
     /// Nothing is written over, and no letter deleted. A letter comes back
     /// under its own name, file for file, by a rename. One whose name is
@@ -503,10 +515,12 @@ final class LocalDraftStore {
     /// the pass has given up on (`LocalDrafts.isHeld`), and goes only when
     /// he sends or saves it: a key is made once, at random, so a second
     /// folder of one name can only be a second copy of a letter, and two
-    /// of one letter in the Outbox would send it twice. One that cannot be
-    /// read, or is of a format this build does not know, comes back as it
-    /// is, under a new name if its own is taken, and stays unread, as it
-    /// was.
+    /// of one letter in the Outbox would send it twice. One whose
+    /// `letter.json` does not decode, or is of a format this build does not
+    /// know, comes back as it is, under a new name if its own is taken, and
+    /// stays unread, as it was. One whose `letter.json` cannot be read at
+    /// all stays set aside: it may be a letter in the Outbox, and come back
+    /// unheld once it can be read.
     ///
     /// A folder set aside goes once it holds no letter. What else is in it
     /// is the copy of the count of passwords saved, and folders a failed
@@ -536,9 +550,13 @@ final class LocalDraftStore {
         let taken = files.fileExists(atPath: root.appendingPathComponent(name).path)
         let target = taken ? UUID().uuidString.lowercased() : name
         let file = source.appendingPathComponent(letterFile)
-        if let data = try? Data(contentsOf: file),
-           var letter = try? JSONDecoder().decode(Stored.self, from: data),
-           letter.format == format, letter.key != target {
+        // Not read, it may be a letter in the Outbox, which must not come
+        // back unheld: it stays set aside, for the next Bring Back.
+        guard let data = try? Data(contentsOf: file) else { return false }
+        if var letter = try? JSONDecoder().decode(Stored.self, from: data),
+           letter.format == format,
+           letter.key != target
+            || letter.outbox != nil && (letter.autoAttempts ?? 0) < LocalDrafts.unfinishedTries {
             letter.key = target
             letter.autoAttempts = max(letter.autoAttempts ?? 0, LocalDrafts.unfinishedTries)
             guard let rewritten = try? JSONEncoder().encode(letter),
@@ -1833,7 +1851,8 @@ final class LocalDrafts {
     // MARK: Tries that never ended (B-057)
 
     /// Whether the pass has given up on `letter`: `unfinishedTries` of its
-    /// tries were cut off by the app's ending, in the foreground. It stays
+    /// tries were cut off by the app's ending, in the foreground, or Bring
+    /// Back brought it back held (`LocalDraftStore.bringBack`). It stays
     /// where it is, saying so (`Outbox.notSentByItself`,
     /// `LocalDraft.notSavedByItself`), or that it may have gone when an
     /// attempt's DATA did (`outboxRows`), until he sends it or saves it.
@@ -1897,10 +1916,22 @@ final class LocalDrafts {
 
     /// Letters have come into the store from outside it, brought back from
     /// where a safe start set them aside (`SafeStart.bringBack`): every list
-    /// of the letters kept here hears of it, and the next pass takes them
-    /// as it takes any other.
+    /// of the letters kept here hears of it. The next pass takes the drafts
+    /// among them as it takes any other, and passes over those that come
+    /// back held (`LocalDraftStore.bringBack`): every letter in the Outbox,
+    /// and one brought back under a new key, which go only when he sends or
+    /// saves them.
     func broughtBack() {
         announce()
+    }
+
+    /// What the sheet says as it closes on the letter kept as `key`, left
+    /// in the Outbox by his Send (`Outbox.Waiting`): that it will go by
+    /// itself once the server can be reached (`Outbox.notice`), or, for a
+    /// letter held (`isHeld`), which his Send leaves held, that it will not,
+    /// and what to do (`Outbox.heldNotice`).
+    func waitingNotice(_ key: String) -> String {
+        store.letter(key).map(isHeld) == true ? Outbox.heldNotice : Outbox.notice
     }
 
     /// Back in front of him: the pass's tries count again.

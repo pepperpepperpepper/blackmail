@@ -5299,13 +5299,16 @@ start will go back to Drafts and the Outbox.", and Cancel and Bring Back,
 Bring Back not red since nothing is lost by it. Then each letter's folder,
 a folder with a `letter.json` whether or not it can be read, is moved from
 every folder set aside, oldest first, back into `Local Drafts`, by a rename,
-file for file. Each comes back as it went: a draft to Drafts and a letter he
-sent to the Outbox, with what may already have reached Gmail still to be
-looked for (`unsettled`) and its own unfinished tries, to go by the pass as
-any other, from the next launch when this one holds the pass. A letter he
-sent goes once, as any in the Outbox goes (B-052);
-taken out of the Outbox, as first proposed, it would have sat in Drafts
-unsent with nothing to tell him so. Nothing is written over. A letter whose
+file for file. Each comes back as it went: a draft to Drafts, with its own
+unfinished tries, to go by the pass as any other, from the next launch when
+this one holds the pass; and a letter he sent to the Outbox, with what may
+already have reached Gmail still to be looked for (`unsettled`), held, as
+one the pass has given up on (decided 2026-10-01, below). Its row says "Not
+sent automatically. Open it and tap Send.", or "May already have been
+sent." for one whose DATA went, and it goes only when he does that, once,
+his Send asking Sent Mail first as ever (B-052). Taken out of the Outbox,
+as first proposed, it would have sat in Drafts unsent with nothing to tell
+him so. Nothing is written over. A letter whose
 name is taken in `Local Drafts` comes back beside the one there, under a new
 key, a UUID as the composer makes one, its `letter.json`'s key written as
 that name first, where it is set aside, since the store reads a letter only
@@ -5453,7 +5456,8 @@ key and nothing else, and nothing but the pass's try writes it.
 `autoAttempts` is
 optional in `letter.json`, absent from a
 letter no pass has left a try on and from one kept before it existed, which
-reads as none, so the format stays 1, as for `outbox`, `unsettled` and
+reads as none, and written as three by Bring Back on a letter it brings
+back held, so the format stays 1, as for `outbox`, `unsettled` and
 `cutOff`. Every launch also removes each folder in `Local Drafts` with no
 `letter.json` in it, which is what a failed first keep leaves
 (`LocalDraftStore.removeLeftovers`). A letter's words are only ever in its
@@ -5468,7 +5472,9 @@ automatic-pass=held` and `SAFE-START local-drafts=set-aside folder="Local
 Drafts set aside 2026-10-01 14.03.07"`; `SAFE-START brought-back=3` at
 Bring Back; `DRAFTS-LEFTOVERS removed=1`; and once a launch for each letter
 passed over, `OUTBOX-HELD unfinished-tries=3` or `DRAFT-HELD
-unfinished-tries=3`.
+unfinished-tries=3`. A letter brought back into the Outbox says
+`OUTBOX-HELD unfinished-tries=3` too, its three written by Bring Back and
+not by tries.
 
 **On the wire.** Nothing changes for a launch that finishes: the everyday
 wire and the launch's commands are as they were. A launch after two that
@@ -5567,7 +5573,8 @@ letter's folder is never there to be read. A mark empty, garbled, a word
 with a space, a path, over a hundred characters, or a directory in its
 place reads as none, the launch counted, and goes; one that cannot be
 removed is not taken. Bring Back moves every letter set aside back file for
-file, the one that cannot be read with them, beside one written since; the
+file, the one that cannot be read with them, beside one written since, the
+one in the Outbox written held first (since 2026-10-01, below); the
 folder goes; the store's count of passwords saved stays its own and the
 launch count as it was; the lists are told; it is said and written down. A
 name taken keeps both: the one there as it was, the one coming back under a
@@ -5576,7 +5583,8 @@ written under another key comes back under its folder's name, held; one
 that cannot be read and one of another format each under a new name, byte
 for byte. The older folder set aside comes back first. A folder set aside
 goes only once it holds no letter, with nowhere to put them every letter
-stays set aside, and a second Bring Back brings them. The row's count is
+stays set aside, the one in the Outbox held where it is, and a second Bring
+Back brings them. The row's count is
 nothing for no folder, one holding only the count of passwords saved and a
 leftover, a folder of another name and a file of that name. Settings' row,
 its alert's words and its wiring, and the app's `LocalDrafts` marking its
@@ -5588,8 +5596,9 @@ DATA ever, and the launch after, with no try on its way, is counted; a try
 sent, refused by the submission server, refused by Gmail's Drafts, taken
 back as the app goes, begun in the background, or not written down on its
 letter leaves no mark, and a launch ended after them is counted; letters
-set aside and brought back go by the pass once each, the one held by its
-own tries stays held, saying so, and his Send of it goes once. The held
+set aside and brought back: the draft goes up by the pass once, and every
+letter in the Outbox comes back held, saying so, and goes only by his Send,
+once (since 2026-10-01, below). The held
 draft's row has its new words. Each fails with its part undone in a scratch
 copy, thirty-eight more sabotages one at a time, each failing at least the
 test named for it: the mark not taken at launch, taken with no launch
@@ -5620,6 +5629,30 @@ in a try, the DATA held or the look in Sent Mail: each held at its third
 try, the count at one through the seventh launch, then counted, the
 second stage at the ninth and the pass held at the tenth, one DATA each.
 
+**Tests for letters brought back held**, 2026-10-01. `SafeStartTests`:
+Bring Back brings the drafts back byte for byte and the letter in the
+Outbox held, its `letter.json` as it was but for its count of unfinished
+tries; with nowhere to put them, the letter in the Outbox is held where it
+is set aside. One whose `letter.json` cannot be written where it is set
+aside stays there while the rest come back, by a folder that cannot be
+written and by every write failing where a rename goes, as on a full disk,
+and comes back held the next time; one held already comes back as the same
+file, never written again; one whose `letter.json` cannot be read stays set
+aside, and comes back held once it can be. `OutboxTests`: a draft and two
+letters in the Outbox, one waiting and one held by its tries, set aside and
+brought back: both letters held, both rows "Not sent automatically. Open it
+and tap Send.", the draft up once and nothing of the Outbox sent at that
+launch or the next; his Send of one with no connection leaves it held, with
+the held notice, and nothing goes; his Send of each then goes once. The
+notice is the held one for a letter held and the plain one for any other,
+and the sheet asks for it by the letter's key, read from its source. Each
+fails with its part undone in a scratch copy, eight sabotages one at a
+time: only a letter under a new key held (15 failures), drafts held too (9),
+a letter held already written again (2), its write failing and the letter
+moved anyway (5), moved first and held after (5), a `letter.json` that
+cannot be read moved anyway (5), the sheet's old notice (2), and the plain
+notice for every letter (2).
+
 **Not taken, and still to do.** Nothing tells him, or a helper, that a
 safe start happened beyond the connection log, `safe-starts.json` and,
 after five, the row in Settings; an About screen would. A crash that comes
@@ -5628,22 +5661,43 @@ by a letter's own tries if the pass is in it. The counting, the background,
 Settings' row and its alert are UIKit and are read from their source on the
 host; the pieces under them run here.
 
-Two questions about Bring Back are still to decide. A letter he sent that
-began as a draft in Gmail hides that draft's row only while it is in
+**Two questions about Bring Back, decided 2026-10-01.** A letter he sent
+that began as a draft in Gmail hides that draft's row only while it is in
 `Local Drafts` (`replacedInDrafts`). Set aside, the draft is listed again
 and his Outbox is empty; if he opens the draft and sends it, Bring Back
-then puts the old letter back in the Outbox, unheld, and the pass sends it
-a second time. Bringing every letter in the Outbox back held, or holding
-one whose draft in Gmail is no longer there, would stop it. And a fifth
-stage whose copy of the count of passwords saved could not be written, on
-the full disk that may be what ended the launches, leaves that count only
-in the folder set aside, which Bring Back removes. A password saved after
-that, the store's count can equal the one stamped on a letter whose DATA
-went, and the pass looks for it in a Sent Mail that may be another
-mailbox's (B-033). Carrying the higher count back with the letters does not
-close it alone, when the save came between: a save would also have to
-count on from the highest count beside the store. Bring Back leaves the
-count as it is, as decided.
+would then have put the old letter back in the Outbox, unheld, and the
+pass would have sent it a second time. Decided: every letter brought back
+into the Outbox comes back held, the one waiting as well as the one the
+pass had given up on, and goes only when he opens it and taps Send. Not
+only the one whose draft in Gmail is gone: that look is made on the
+server, and a letter brought back is no more sure to be wanted than the
+day it was set aside, after which he may have written it again. Held is
+its count of unfinished tries written as three in its `letter.json`, in
+the folder it is set aside in, before the folder is moved: ended between
+the two, it comes back held the next time, and one whose file cannot be
+written stays set aside, never back unheld. A draft comes back as it was:
+gone up twice, it is a second draft in Gmail, nothing sent. One whose
+`letter.json` cannot be read when he brings them back stays set aside too,
+for the next Bring Back: it may be a letter in the Outbox. His Send of a
+letter held, brought back or held by its own tries, that cannot reach the
+server leaves it in the Outbox, still held, and the sheet says so as it
+closes: "Message is in the Outbox. It will not be sent automatically. When
+the iPad is connected, open it and tap Send." (`Outbox.heldNotice`).
+Before, it said the letter would be sent when the iPad was connected and
+Blackmail open, which no pass would ever do.
+
+And a fifth stage whose copy of the count of passwords saved could not be
+written, on the full disk that may be what ended the launches, leaves that
+count only in the folder set aside, which Bring Back removes. A password
+saved after that, the store's count can equal the one stamped on a letter
+whose DATA went, and the pass looks for it in a Sent Mail that may be
+another mailbox's (B-033). Carrying the higher count back with the letters
+does not close it alone, when the save came between: a save would also
+have to count on from the highest count beside the store. Decided: left as
+it is, recorded here. Bring Back leaves the count as it is, as decided
+before. Since the decision above, the pass makes no look for a letter
+brought back into the Outbox, which is held; his Send of one whose DATA
+went still looks, under a row saying it may already have been sent.
 
 **Seen on the iPad, 2026-10-01**, on the build before Bring Back and the
 charge to a letter. A launch left on the Inbox read 1 in
@@ -5680,7 +5734,25 @@ by hand with the app ended:
   every file summing as before, the set-aside folder gone, the step
   written down with `"broughtBack":3`, and the row gone with them. That
   launch held the pass, as the fifth does; at the next, the letter went
-  once and the two drafts went up to Gmail once each.
+  once and the two drafts went up to Gmail once each. That was the build
+  before letters brought back into the Outbox came back held (above).
+
+**Seen on the iPad, 2026-10-01**, on the build with letters brought back
+into the Outbox held. Wi-Fi off, a letter sent to the Outbox, its sheet
+closing with the notice that it would be sent when the iPad was connected,
+and a second saved as a draft; the app ended and the count written as 5.
+The launch set both aside, every file summing as before. Bring Back put
+both back: the draft summing as before, the letter's `letter.json` not,
+holding `"autoAttempts":3`, the step written down with `"broughtBack":2`.
+The Outbox's row read "Not sent automatically. Open it and tap Send." His
+Send of it, Wi-Fi still off, closed the sheet with "Message is in the
+Outbox. It will not be sent automatically. When the iPad is connected,
+open it and tap Send.", the letter still in the Outbox. Wi-Fi on, the app
+ended and opened: the log said `OUTBOX-HELD unfinished-tries=3`, the draft
+went up to Drafts by one `APPEND`, and nothing went to the submission
+server; two minutes later the letter was still in the Outbox. His Send of
+it then went once, one `MAIL FROM` and one `DATA` answered 250, and it
+arrived once; one copy of the draft in Drafts.
 
 Not seen by hand: whether a swipe in the app switcher finishes a launch,
 which cannot be made over SSH; a launch charged to a letter, which needs

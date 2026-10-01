@@ -119,6 +119,16 @@ enum Outbox {
     static let notice = "Message is in the Outbox. It will be sent when the iPad is connected "
         + "and Blackmail is open."
 
+    /// The notice for a letter that waits in the Outbox after his Send but
+    /// is held (`LocalDrafts.isHeld`), as a letter brought back into the
+    /// Outbox is, and his Send that could not reach the server leaves it:
+    /// no pass will send it, so `notice` would promise what never happens
+    /// and he would have no reason to look in the Outbox again. Where it
+    /// is, that it will not go by itself, as its row says
+    /// (`notSentByItself`), and what to do, in the order he does it.
+    static let heldNotice = "Message is in the Outbox. It will not be sent automatically. "
+        + "When the iPad is connected, open it and tap Send."
+
     /// The first line of the row of a letter no pass will send: an attempt
     /// at it was cut off after its DATA before a password was saved, so
     /// Gmail may have it, and Sent Mail, which would say, may now be
@@ -131,7 +141,9 @@ enum Outbox {
 
     /// The first line of the row of a letter the pass has given up on, after
     /// tries at it that the app never lived through (B-057,
-    /// `LocalDrafts.unfinishedTries`): it goes only when he sends it. What
+    /// `LocalDrafts.unfinishedTries`), or brought back held from where a
+    /// safe start set it aside (`LocalDraftStore.bringBack`): it goes only
+    /// when he sends it. What
     /// is wrong with it cannot be known on the iPad, so this says what will
     /// not happen and what to do, in two plain sentences. The app's own:
     /// Mail has no such state to copy the words of. Never for one with an

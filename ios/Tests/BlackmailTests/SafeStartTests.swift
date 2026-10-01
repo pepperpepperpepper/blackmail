@@ -1,5 +1,8 @@
 import XCTest
 @testable import Blackmail
+#if canImport(Glibc)
+import Glibc
+#endif
 
 /// The safe start (B-057): every launch counted in a file before anything
 /// kept is read, and counted as finished when the app goes to the
@@ -655,9 +658,11 @@ final class SafeStartTests: XCTestCase {
     /// Bring Back moves every letter set aside back into the store, file
     /// for file, the one that cannot be read with them, and the folder they
     /// were set aside in goes once it is empty of letters. The letters are
-    /// in Drafts and the Outbox again, beside one written since. The count
-    /// of passwords saved is the store's own, as it went on; the launch
-    /// count is left as it is; it is said in the log and written down.
+    /// in Drafts and the Outbox again, beside one written since: the drafts
+    /// as they were, and the letter in the Outbox held, its `letter.json`
+    /// as it was but for its count of unfinished tries. The count of
+    /// passwords saved is the store's own, as it went on; the launch count
+    /// is left as it is; it is said in the log and written down.
     func testLettersSetAsideAreBroughtBackFileForFile() async throws {
         let (name, before) = try setLettersAside()
         let aside = support.appendingPathComponent(name, isDirectory: true)
@@ -674,9 +679,20 @@ final class SafeStartTests: XCTestCase {
         notes = []
         XCTAssertEqual(start.bringBack(), 3)
         XCTAssertFalse(FileManager.default.fileExists(atPath: aside.path), "the folder gone")
-        var expected = before.filter { $0.key != "password-saves" }
+        let outbox = "sunday/letter.json"
+        var expected = before.filter { $0.key != "password-saves" && $0.key != outbox }
         for (path, data) in monday { expected[path] = data }
-        XCTAssertEqual(files(under: letters), expected, "every file, byte for byte")
+        XCTAssertEqual(files(under: letters).filter { $0.key != outbox }, expected,
+                       "every other file, byte for byte")
+        let wasSent = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try XCTUnwrap(before[outbox])) as? [String: Any])
+        var isSent = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: try Data(contentsOf: letters.appendingPathComponent(outbox))) as? [String: Any])
+        XCTAssertNil(wasSent["autoAttempts"])
+        XCTAssertEqual(isSent.removeValue(forKey: "autoAttempts") as? Int,
+                       LocalDrafts.unfinishedTries, "held")
+        XCTAssertEqual(NSDictionary(dictionary: isSent), NSDictionary(dictionary: wasSent),
+                       "and nothing else of it changed")
         XCTAssertEqual(LocalDraftStore.passwordSaves(in: letters), 2, "the store's own count")
         XCTAssertEqual(start.lettersSetAside, 0)
 
@@ -697,6 +713,8 @@ final class SafeStartTests: XCTestCase {
         XCTAssertEqual(heard, 1, "the lists hear of it")
         XCTAssertEqual(kept.waiting.map(\.draft.subject).sorted(), ["Garden", "Monday"])
         XCTAssertEqual(kept.outbox.map(\.key), ["sunday"])
+        XCTAssertEqual(kept.outbox.map { kept.isHeld($0) }, [true])
+        XCTAssertEqual(kept.waiting.filter { kept.isHeld($0) }.map(\.key), [])
         XCTAssertEqual(kept.letter("photo")?.draft.attachments.count, 1)
 
         XCTAssertEqual(count, "1", "no step, and the count as it was")
@@ -811,11 +829,113 @@ final class SafeStartTests: XCTestCase {
         XCTAssertTrue(kept.isHeld(second))
     }
 
+    /// A letter in the Outbox is held where it is set aside, and only then
+    /// moved: one whose `letter.json` cannot be written there stays set
+    /// aside, the rest coming back, and comes back held the next time. One
+    /// held already comes back as it is, its `letter.json` never written
+    /// again, as one held there by a Bring Back ended before its move does.
+    func testALetterInTheOutboxComesBackOnlyHeld() async throws {
+        let (name, _) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        let sunday = aside.appendingPathComponent("sunday", isDirectory: true)
+        let files = FileManager.default
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: sunday.path)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: sunday.path) }
+
+        let start = makeStart()
+        XCTAssertEqual(start.bringBack(), 2)
+        XCTAssertEqual(start.lettersSetAside, 1)
+        XCTAssertNil(LocalDraftStore(root: letters).letter("sunday"), "not back unheld")
+        let kept = LocalDrafts(store: LocalDraftStore(root: letters), account: account,
+                               background: FakeBackground().time)
+        XCTAssertEqual(kept.outbox.count, 0)
+
+        try files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: sunday.path)
+        XCTAssertEqual(start.bringBack(), 1)
+        let back = try XCTUnwrap(LocalDraftStore(root: letters).letter("sunday"))
+        XCTAssertNotNil(back.outbox)
+        XCTAssertTrue(kept.isHeld(back))
+        XCTAssertFalse(files.fileExists(atPath: aside.path))
+
+        // Held already, set aside again and brought back: not written. A
+        // write is a new file, the move the same one.
+        let again = try XCTUnwrap(LocalDraftStore.setAside(letters, at: clock.now(),
+                                                           in: TimeZone(identifier: "UTC")!))
+        let heldFile = again.appendingPathComponent("sunday/letter.json")
+        let held = try Data(contentsOf: heldFile)
+        let number = try fileNumber(heldFile)
+        XCTAssertEqual(start.bringBack(), 3)
+        let backFile = letters.appendingPathComponent("sunday/letter.json")
+        XCTAssertEqual(try Data(contentsOf: backFile), held)
+        XCTAssertEqual(try fileNumber(backFile), number, "the same file, never written again")
+    }
+
+    /// A letter whose `letter.json` cannot be read when he brings them back
+    /// stays set aside, the rest coming back: it may be a letter in the
+    /// Outbox, and moved, it would come back unheld once it could be read,
+    /// and the pass would send it. Readable again, it comes back held.
+    func testALetterThatCannotBeReadStaysSetAside() async throws {
+        let (name, _) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        let file = aside.appendingPathComponent("sunday/letter.json")
+        let files = FileManager.default
+        try files.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? files.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+
+        let start = makeStart()
+        XCTAssertEqual(start.bringBack(), 2)
+        XCTAssertEqual(start.lettersSetAside, 1)
+        XCTAssertTrue(files.fileExists(atPath: file.path), "still set aside")
+        XCTAssertFalse(files.fileExists(atPath: letters.appendingPathComponent("sunday").path))
+
+        try files.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+        XCTAssertEqual(start.bringBack(), 1)
+        let back = try XCTUnwrap(LocalDraftStore(root: letters).letter("sunday"))
+        XCTAssertNotNil(back.outbox)
+        XCTAssertEqual(back.autoAttempts, LocalDrafts.unfinishedTries, "held")
+    }
+
+    #if canImport(Glibc)
+    /// A letter in the Outbox whose held mark cannot be written stays set
+    /// aside even where it could be moved: here every write over 64 bytes
+    /// fails, as on a full disk, and a rename goes as ever. Moved unheld,
+    /// the pass would send it. Room again, it comes back held.
+    func testALetterInTheOutboxWhoseHeldMarkFailsIsNotMoved() async throws {
+        let (name, _) = try setLettersAside()
+        let aside = support.appendingPathComponent(name, isDirectory: true)
+        let resource = __rlimit_resource_t(RLIMIT_FSIZE.rawValue)
+        var limit = rlimit()
+        XCTAssertEqual(getrlimit(resource, &limit), 0)
+        var small = limit
+        small.rlim_cur = 64
+        let previous = signal(SIGXFSZ, SIG_IGN)
+        XCTAssertEqual(setrlimit(resource, &small), 0)
+        let brought = LocalDraftStore.bringBack(into: letters)
+        XCTAssertEqual(setrlimit(resource, &limit), 0)
+        signal(SIGXFSZ, previous)
+
+        XCTAssertEqual(brought, 2)
+        XCTAssertNil(LocalDraftStore(root: letters).letter("sunday"), "not back unheld")
+        XCTAssertNotNil(LocalDraftStore(root: aside).letter("sunday"), "still set aside")
+        XCTAssertEqual(LocalDraftStore.bringBack(into: letters), 1)
+        let back = try XCTUnwrap(LocalDraftStore(root: letters).letter("sunday"))
+        XCTAssertNotNil(back.outbox)
+        XCTAssertEqual(back.autoAttempts, LocalDrafts.unfinishedTries, "held")
+    }
+    #endif
+
+    /// The file's number on its disk: the same after a rename, a new one
+    /// after an atomic write.
+    private func fileNumber(_ url: URL) throws -> String {
+        "\(try XCTUnwrap(FileManager.default.attributesOfItem(atPath: url.path)[.systemFileNumber]))"
+    }
+
     /// A folder set aside goes once it holds no letter, with what else is
     /// in it, the copy of the count of passwords saved and a folder a
     /// failed first keep left; never while a letter is in it. Bring Back
     /// with nowhere to put them leaves every letter set aside and its
-    /// folder there, to be brought back later. Nothing is deleted.
+    /// folder there, to be brought back later, the one in the Outbox held
+    /// where it is. Nothing is deleted.
     func testASetAsideFolderGoesOnlyOnceItHoldsNoLetter() async throws {
         let (name, before) = try setLettersAside()
         let aside = support.appendingPathComponent(name, isDirectory: true)
@@ -832,7 +952,11 @@ final class SafeStartTests: XCTestCase {
         XCTAssertEqual(start.lettersSetAside, 3)
         XCTAssertEqual(start.bringBack(), 0)
         XCTAssertFalse(files.fileExists(atPath: empty.path), "no letter in it: gone")
-        XCTAssertEqual(self.files(under: aside), before, "every letter still set aside")
+        let outbox = "sunday/letter.json"
+        XCTAssertEqual(self.files(under: aside).filter { $0.key != outbox },
+                       before.filter { $0.key != outbox }, "every letter still set aside")
+        XCTAssertEqual(LocalDraftStore(root: aside).letter("sunday")?.autoAttempts,
+                       LocalDrafts.unfinishedTries, "held where it is")
         XCTAssertEqual(start.lettersSetAside, 3)
 
         try files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: letters.path)

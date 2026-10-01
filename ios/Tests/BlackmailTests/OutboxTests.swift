@@ -1697,6 +1697,30 @@ final class OutboxTests: XCTestCase {
                        + "connected and Blackmail is open.")
     }
 
+    /// A letter held that his Send leaves in the Outbox gets a notice that
+    /// promises nothing: no pass sends it. One not held gets the notice
+    /// that it goes by itself. The sheet, UIKit, asks for it by the
+    /// letter's key, read from its source.
+    func testTheNoticeForAHeldLetterSaysItWillNotGoByItself() async throws {
+        XCTAssertEqual(Outbox.heldNotice, "Message is in the Outbox. It will not be sent "
+                       + "automatically. When the iPad is connected, open it and tap Send.")
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Plain"), as: "plain", kept: kept, repository: repository)
+        await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
+        XCTAssertTrue(kept.store.noteTries("held", 3))
+        XCTAssertEqual(kept.waitingNotice("plain"), Outbox.notice)
+        XCTAssertEqual(kept.waitingNotice("held"), Outbox.heldNotice)
+        XCTAssertEqual(kept.waitingNotice("nowhere"), Outbox.notice)
+
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail/UI/ComposeViewController.swift")
+        let sheet = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertTrue(sheet.contains("ErrorPresenter.tell(kept.waitingNotice(key), on: presenter)"))
+        XCTAssertFalse(sheet.contains("Outbox.notice, on:"))
+    }
+
     /// The line under the list says how many letters wait, under the age
     /// and over a failure, in Mail's words.
     func testTheLineUnderTheListCountsWhatWaits() {
@@ -2295,39 +2319,60 @@ final class OutboxTests: XCTestCase {
         XCTAssertNil(marked)
     }
 
-    /// Letters set aside and brought back in Settings go by the pass as any
-    /// other, once each; one the pass had given up on before it was set
-    /// aside is still held by its own tries, saying so, and its Send is
-    /// his.
-    func testLettersBroughtBackGoByThePassAndAHeldOneStaysHeld() async throws {
+    /// Letters set aside and brought back in Settings: a draft goes up by
+    /// the pass, once, as any other; every letter in the Outbox comes back
+    /// held, the one waiting as well as the one the pass had given up on,
+    /// saying so, and nothing of the Outbox goes by itself, at that launch
+    /// or the next. His own Send meanwhile may have sent it already, from a
+    /// draft in Gmail listed again while it was set aside. His Send of each
+    /// goes once.
+    func testLettersBroughtBackIntoTheOutboxAreHeldAndGoOnlyByHisSend() async throws {
         let kept = makeKept()
         let repository = makeRepository()
         await sentOffline(letter("Waiting"), as: "waiting", kept: kept, repository: repository)
         await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
         XCTAssertTrue(kept.store.noteTries("held", 3))
+        keptDraft("Draft", as: "draft", kept: kept)
         let aside = try XCTUnwrap(LocalDraftStore.setAside(root, at: Date(),
                                                            in: TimeZone(identifier: "UTC")!))
         XCTAssertEqual(makeKept().outbox.count, 0, "set aside")
 
-        XCTAssertEqual(LocalDraftStore.bringBack(into: root), 2)
+        XCTAssertEqual(LocalDraftStore.bringBack(into: root), 3)
         XCTAssertFalse(FileManager.default.fileExists(atPath: aside.path))
         let back = makeKept()
         XCTAssertEqual(back.outbox.map(\.key).sorted(), ["held", "waiting"])
+        XCTAssertEqual(back.outbox.filter { back.isHeld($0) }.count, 2, "both held")
+        XCTAssertEqual(back.waiting.filter { back.isHeld($0) }.count, 0, "the draft not")
         try await afterAPage(back, repository)
         var sent = await submissions.letters()
-        XCTAssertEqual(sent.count, 1)
-        XCTAssertTrue(sent.first?.contains("Subject: Waiting") == true)
-        XCTAssertEqual(back.outbox.map(\.key), ["held"])
-        XCTAssertEqual(back.outboxRows.first?.preview.components(separatedBy: "\n").first,
-                       Outbox.notSentByItself)
-        await back.uploadWaiting(to: repository)?.value
+        XCTAssertEqual(sent.count, 0, "nothing of the Outbox by itself")
+        XCTAssertEqual(appends.count, 1, "the draft went up")
+        XCTAssertEqual(back.outboxRows.map { $0.preview.components(separatedBy: "\n").first },
+                       [Outbox.notSentByItself, Outbox.notSentByItself])
+        await makeKept().uploadWaiting(to: repository)?.value
         sent = await submissions.letters()
-        XCTAssertEqual(sent.count, 1, "nothing more by itself")
+        XCTAssertEqual(sent.count, 0, "nor at the next launch")
+        XCTAssertEqual(appends.count, 1, "the draft once")
 
+        // His Send with no connection: in the Outbox, still held, and the
+        // sheet says so rather than that it will go by itself.
+        let waiting = try XCTUnwrap(back.letter("waiting")).draft
+        let queuedBefore = queued
+        await sentOffline(waiting, as: "waiting", kept: back, repository: repository)
+        XCTAssertEqual(queued, queuedBefore + 1)
+        XCTAssertTrue(try back.isHeld(XCTUnwrap(back.letter("waiting"))))
+        XCTAssertEqual(back.waitingNotice("waiting"), Outbox.heldNotice)
+        await makeKept().uploadWaiting(to: repository)?.value
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0, "as it says")
+
+        await send(waiting, as: "waiting", kept: back, repository: repository)
         let held = try XCTUnwrap(back.letter("held")).draft
         await send(held, as: "held", kept: back, repository: repository)
         sent = await submissions.letters()
-        XCTAssertEqual(sent.count, 2, "his Send: once")
+        XCTAssertEqual(sent.count, 2, "his Send: each once")
+        XCTAssertTrue(sent.contains { $0.contains("Subject: Waiting") })
+        XCTAssertTrue(sent.contains { $0.contains("Subject: Held") })
         XCTAssertEqual(back.outbox.count, 0)
     }
 }

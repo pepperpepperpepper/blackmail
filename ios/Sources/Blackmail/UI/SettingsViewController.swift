@@ -350,8 +350,8 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     }
 
     /// Puts the letters a safe start set aside back in Drafts and the
-    /// Outbox, once he has said so, where they go by the pass as any other
-    /// (`SafeStart.bringBack`). Nothing is lost by it, so its button is not
+    /// Outbox, once he has said so: drafts to go by the pass as any other,
+    /// and the Outbox's held until he sends them (`SafeStart.bringBack`). Nothing is lost by it, so its button is not
     /// red. The row goes once nothing is left to bring back.
     @objc private func bringBackTapped() {
         confirm(title: "Bring Back Set-Aside Letters?",

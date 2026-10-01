@@ -53,7 +53,8 @@ import Foundation
 /// held is never tried, so never marked.
 ///
 /// Letters set aside come back only when he asks, in Settings
-/// (`bringBack`), and go by the pass as any other.
+/// (`bringBack`): drafts to go by the pass as any other, and letters in the
+/// Outbox held, to go only when he sends them.
 ///
 /// A file and not `UserDefaults`: a write there reaches the preferences
 /// daemon some time later, and a crash before it lands loses it, which here
@@ -292,8 +293,8 @@ final class SafeStart {
     }
 
     /// Every letter set aside back in the store, in Drafts and the Outbox
-    /// as it was, once he has asked in Settings (`LocalDraftStore.
-    /// bringBack`); returns how many came back. Said in the connection log
+    /// as it was, the Outbox's held, once he has asked in Settings
+    /// (`LocalDraftStore.bringBack`); returns how many came back. Said in the connection log
     /// and written down beside the count, as a step is. It takes no step
     /// and leaves the count as it is: a letter brought back that crashes
     /// the pass is held by its own tries, and a launch that crashes on one
