@@ -28,7 +28,8 @@ final class MessageSizeTests: XCTestCase {
         // are five. "552 5.2.3" must never reach him.
         let errors: [MailError] = [.cannotConnect, .notSent, .attachmentFailed,
                                    .passwordNeedsUpdating, .messageTooLarge, .connectionLost,
-                                   .refusedForNow, .attachmentsMissing]
+                                   .refusedForNow, .attachmentsMissing,
+                                   .signInRefused(alert: nil), .sendingSignInRefused]
         for error in errors {
             let text = error.errorDescription ?? ""
             XCTAssertFalse(text.isEmpty, "every case needs a sentence")
@@ -38,21 +39,25 @@ final class MessageSizeTests: XCTestCase {
         }
     }
 
-    /// Every case reads as one of five sentences: the spec's four and the
-    /// one for a letter too big. A file a kept letter carries that cannot
-    /// be found anywhere reads as any other file that could not be had.
-    /// It had Mail's "One or more attachments failed to load." for a
-    /// while, a sixth sentence for the same missing file.
-    func testEveryErrorIsOneOfFiveSentences() {
+    /// Every case reads as one of six sentences: the spec's four, the one
+    /// for a letter too big, and Gmail refusing a sign-in for a reason other
+    /// than the password (B-056), which carries Gmail's own alert text when
+    /// it gives one. A file a kept letter carries that cannot be found
+    /// anywhere reads as any other file that could not be had. It had
+    /// Mail's "One or more attachments failed to load." for a while, another
+    /// sentence for the same missing file.
+    func testEveryErrorIsOneOfSixSentences() {
         let errors: [MailError] = [.cannotConnect, .notSent, .attachmentFailed,
                                    .passwordNeedsUpdating, .messageTooLarge, .connectionLost,
-                                   .refusedForNow, .attachmentsMissing]
+                                   .refusedForNow, .attachmentsMissing,
+                                   .signInRefused(alert: nil), .sendingSignInRefused]
         XCTAssertEqual(Set(errors.compactMap(\.errorDescription)), [
             "Can't connect to mail server.",
             "Message was not sent.",
             "Attachment could not be downloaded.",
             "Password needs to be updated in Settings.",
             "This message is too big to send. Try sending fewer attachments.",
+            "Gmail refused the sign-in.",
         ])
         XCTAssertEqual(MailError.attachmentsMissing.errorDescription,
                        MailError.attachmentFailed.errorDescription)

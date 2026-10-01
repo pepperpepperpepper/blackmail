@@ -63,6 +63,9 @@ actor ScriptedSubmission: MailTransport {
     private let holdsLetterReply: Bool
     /// AUTH answered 535, as Gmail refuses an app password revoked.
     private let refusesPassword: Bool
+    /// The one password AUTH PLAIN takes, where set: any other is answered
+    /// 535. Nil takes any, unless `refusesPassword`.
+    private let takesOnly: String?
     /// RCPT TO answered 550 for these addresses, in upper case.
     private let refusedRecipients: Set<String>
 
@@ -92,6 +95,7 @@ actor ScriptedSubmission: MailTransport {
          cutWith: MailTransportError = .closed,
          holdsLetterReply: Bool = false,
          refusesPassword: Bool = false,
+         takesOnly password: String? = nil,
          refusedRecipients: Set<String> = []) {
         self.letterReply = letterReply
         self.greeting = greeting
@@ -104,6 +108,7 @@ actor ScriptedSubmission: MailTransport {
         self.hangsUpBeforeLetterReply = hangsUpBeforeLetterReply
         self.holdsLetterReply = holdsLetterReply
         self.refusesPassword = refusesPassword
+        self.takesOnly = password
         self.refusedRecipients = Set(refusedRecipients.map { $0.uppercased() })
     }
 
@@ -205,17 +210,21 @@ actor ScriptedSubmission: MailTransport {
             let line = String(decoding: inbound[inbound.startIndex..<end.lowerBound], as: UTF8.self)
             inbound.removeSubrange(inbound.startIndex..<end.upperBound)
             commands.append(line)
-            answer(line.uppercased())
+            answer(line.uppercased(), as: line)
         }
     }
 
-    private func answer(_ command: String) {
+    /// `command` upper-cased, and `line` as it came, whose base64 the
+    /// upper-casing would spoil.
+    private func answer(_ command: String, as line: String) {
         if command.hasPrefix("EHLO") {
             pending += ["250-smtp.gmail.com at your service", "250-SIZE 35882577",
                         "250-8BITMIME", "250-AUTH LOGIN PLAIN", "250 SMTPUTF8"]
         } else if command.hasPrefix("AUTH PLAIN") {
-            pending.append(authReply ?? (refusesPassword ? "535 5.7.8 Username and Password not accepted"
-                                                          : "235 2.7.0 Accepted"))
+            let refused = refusesPassword
+                || takesOnly.map { $0 != Self.password(inPlain: line) } == true
+            pending.append(authReply ?? (refused ? "535 5.7.8 Username and Password not accepted"
+                                                 : "235 2.7.0 Accepted"))
         } else if command.hasPrefix("RCPT TO"),
                   refusedRecipients.contains(where: { command.contains("<\($0)>") }) {
             pending.append("550 5.1.1 The email account that you tried to reach does not exist")
@@ -233,6 +242,14 @@ actor ScriptedSubmission: MailTransport {
         } else {
             pending.append("502 5.5.1 Unrecognized command")
         }
+    }
+
+    /// The password in `AUTH PLAIN <base64>`, nil if it has none.
+    static func password(inPlain line: String) -> String? {
+        guard let blob = line.split(separator: " ").last,
+              let data = Data(base64Encoded: String(blob)) else { return nil }
+        return String(decoding: data, as: UTF8.self).split(separator: "\0",
+            omittingEmptySubsequences: false).last.map(String.init)
     }
 
     func writeLine(_ line: String) async throws {

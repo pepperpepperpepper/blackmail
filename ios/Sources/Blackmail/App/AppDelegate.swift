@@ -54,6 +54,16 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // never been handed to it, and the book and the signature's pictures
         // change without passing through the setup form.
         Self.syncShareMirror()
+        // The signature as first set, kept once to be restored
+        // (`OriginalSignature`). The formatted one reaches the iPad from
+        // outside the app (B-035), so a launch is where it is first seen.
+        // Off the main thread, on the mirror's queue: a file looked for, and
+        // written once.
+        Self.mirrorQueue.async {
+            guard let account = CredentialStore.loadAccount() else { return }
+            OriginalSignature.keepIfFirst(account, images: SignatureImages.load(),
+                                          in: OriginalSignature.appRoot)
+        }
         return true
     }
 

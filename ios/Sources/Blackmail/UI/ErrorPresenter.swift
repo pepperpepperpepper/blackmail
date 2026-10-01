@@ -22,14 +22,37 @@ enum ErrorPresenter {
         tell(error.errorDescription ?? "", on: vc)
     }
 
+    /// Getting his mail, or acting on it, failed with `error`: said as
+    /// `MailAlert` has it, a refused password under Mail's "Cannot Get
+    /// Mail" with a Settings button, a sign-in refused for another reason
+    /// with Google's own sentence, and anything else as it always was.
+    static func show(reaching error: Error, on vc: UIViewController) {
+        let said = MailAlert.reaching(error)
+        put(said.message, title: said.title, offeringSettings: said.offersSettings, on: vc)
+    }
+
+    /// What the Settings button of a refused password's alert does: opens
+    /// Settings at the password field. Set by the screens that can open it
+    /// (`RootViewController`); with none set, the alert has no button.
+    static var openSettings: (() -> Void)?
+
     /// Says something that is not a failure, the same way: a letter left in
     /// the Outbox (`Outbox.notice`). Held like an error while a sheet goes.
     static func tell(_ text: String, on vc: UIViewController) {
+        put(text, title: nil, offeringSettings: false, on: vc)
+    }
+
+    private static func put(_ text: String, title: String?, offeringSettings: Bool,
+                            on vc: UIViewController) {
         let present = { [weak vc] () -> Bool in
             // Gone from the screen while the alert was held, as a list is
             // when the folder changes: there is nothing to put it over.
             guard let vc, vc.viewIfLoaded?.window != nil else { return false }
-            let alert = UIAlertController(title: nil, message: text, preferredStyle: .alert)
+            let alert = UIAlertController(title: title, message: text, preferredStyle: .alert)
+            // Settings first, then OK.
+            if offeringSettings, let open = openSettings {
+                alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in open() })
+            }
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             vc.present(alert, animated: true)
             return true

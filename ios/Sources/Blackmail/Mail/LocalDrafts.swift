@@ -271,13 +271,14 @@ final class LocalDraftStore {
     /// never one of them: a name no letter's directory has.
     private nonisolated static let savesFile = "password-saves"
 
-    /// How many times a password has been saved on this iPad, as this
-    /// launch found it (`notePasswordSaved`). Every letter kept now is
-    /// stamped with it (`LocalDraft.passwordSaves`). Read once, as the
-    /// store is made: a password saved in Settings reaches the repository
-    /// only at the next launch, so a letter kept after the save, in the
-    /// same launch, still names what it names in the old password's mailbox.
-    let passwordSaves: Int
+    /// How many times a password has been saved on this iPad, as the
+    /// repository in use found it (`notePasswordSaved`). Every letter kept
+    /// now is stamped with it (`LocalDraft.passwordSaves`). Read as the
+    /// store is made, and again only as a new repository takes the place
+    /// of the old one after a password saved in Settings
+    /// (`LocalDrafts.passwordSaved`): a letter kept between the save and
+    /// that moment names what it names in the old password's mailbox.
+    private(set) var passwordSaves: Int
 
     init(root: URL, now: @escaping () -> Date = { Date() }) {
         self.root = root
@@ -300,9 +301,10 @@ final class LocalDraftStore {
 
     /// A password has been saved, in setup or Settings
     /// (`CredentialStore.save`): the count goes up, and the letters kept
-    /// before it are known for such from the next launch
-    /// (`savedSince`). Nothing of the letters themselves is touched: they
-    /// may be the only copy of what he wrote.
+    /// before it are known for such once a repository signs in with it, at
+    /// the next launch or at once after Settings (`savedSince`,
+    /// `LocalDrafts.passwordSaved`). Nothing of the letters themselves is
+    /// touched: they may be the only copy of what he wrote.
     ///
     /// Why a count and not the time of the save: a clock set back would
     /// make a letter kept before the save look kept after it. A count
@@ -329,6 +331,12 @@ final class LocalDraftStore {
               let count = Int(String(decoding: data, as: UTF8.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)), count > 0 else { return 1 }
         return count
+    }
+
+    /// The count of saves read again, as a new repository signs in with a
+    /// password saved in Settings (`LocalDrafts.passwordSaved`).
+    func readPasswordSaves() {
+        passwordSaves = Self.passwordSaves(in: root)
     }
 
     /// Whether a password has been saved since `letter` was kept, so that
@@ -846,7 +854,8 @@ final class LocalDrafts {
     private var landedOpen: [String: String] = [:]
     /// Letters a pass could not take to the server on a connection that
     /// was working, by the version that failed. Not tried again unasked
-    /// until he changes them, or the app is launched again.
+    /// until he changes them, the app is launched again, or a new password
+    /// is saved (`passwordSaved`).
     private var refused: [String: String] = [:]
     /// Letters the server has taken since launch, and the id of the copy
     /// each became there, for a row in Drafts drawn before it went.
@@ -855,16 +864,36 @@ final class LocalDrafts {
     /// its row says so: the first line of its row in the Outbox, the line
     /// under the mark in Drafts. Set with `refused`, always (`refuse`).
     private var reasons: [String: MailError] = [:]
-    /// The submission server refused the password during a send. Nothing
+    /// A send met a refusal every letter would meet (`MailError.refusesSending`):
+    /// the password, or the submission server's refused sign-in. Nothing
     /// more goes from the Outbox unasked until a Send of his own has gone,
-    /// or the app is launched again: each pass would send the refused
-    /// password again, as every page loads.
+    /// the app is launched again, or a new password is saved: each pass
+    /// would send the refused sign-in again, as every page loads. Not for
+    /// IMAP's LOGIN refused for another reason, which a letter waits out as
+    /// it waits out no connection.
     private var sendingRefused = false
 
     init(store: LocalDraftStore, account: String?, background: BackgroundTime) {
         self.store = store
         self.account = account
         self.background = background
+    }
+
+    /// A new password has been saved in Settings and is signed in with now,
+    /// by a new repository, rather than at the next launch
+    /// (`PasswordChange`): what a launch would start afresh starts afresh.
+    /// The count of saves is read again, so from here a letter kept before
+    /// the save is known for such, as it would be after a relaunch
+    /// (`LocalDraftStore.savedSince`), and the Outbox, stopped by the old
+    /// password's refusal, and the letters refused since launch, are tried
+    /// by the next pass. Nothing kept is touched, and a letter on its way,
+    /// or open in the composer, stays so.
+    func passwordSaved() {
+        store.readPasswordSaves()
+        sendingRefused = false
+        refused = [:]
+        reasons = [:]
+        announce()
     }
 
     /// The letters Drafts lists above the server's: every one kept here but
@@ -1157,7 +1186,7 @@ final class LocalDrafts {
                     return
                 }
             } catch {
-                if (error as? MailError) == .passwordNeedsUpdating || error is CancellationError {
+                if MailError.refusesSignIn(error) || error is CancellationError {
                     throw error
                 }
                 if error is Outbox.NoSentMail { refuse(key, at: version) }
@@ -1220,7 +1249,7 @@ final class LocalDrafts {
             try await deliver(key, draft, via: repository, progress: progress)
             sendingRefused = false
         } catch {
-            if (error as? MailError) == .passwordNeedsUpdating { sendingRefused = true }
+            if MailError.refusesSending(error) { sendingRefused = true }
             guard Outbox.waits(after: error) else {
                 store.takeBack(key)
                 throw error
@@ -1297,7 +1326,7 @@ final class LocalDrafts {
     /// refuses or that cannot run, or nothing found too soon after the cut.
     /// Taken as "not there", as a refused search is for Drafts, a letter
     /// could go twice, which cannot be undone; waiting costs a pass. A
-    /// refused password, cancellation and `Outbox.NoSentMail` are thrown as
+    /// refused sign-in, cancellation and `Outbox.NoSentMail` are thrown as
     /// they came.
     private func wentEarlier(_ letter: LocalDraft, via repository: MailRepository)
         async throws -> Bool {
@@ -1306,7 +1335,7 @@ final class LocalDrafts {
         do {
             found = try await repository.sentMail(holds: letter.unsettled)
         } catch {
-            if (error as? MailError) == .passwordNeedsUpdating || error is CancellationError
+            if MailError.refusesSignIn(error) || error is CancellationError
                 || error is Outbox.NoSentMail {
                 throw error
             }
@@ -1340,19 +1369,20 @@ final class LocalDrafts {
     /// refused, a file of a forward gone from Gmail, stays in the Outbox
     /// with the reason on its row, and is not tried again unasked until he
     /// changes it or the app is launched again; the letters after it go. A
-    /// refused password ends the pass, and nothing goes from the Outbox
-    /// unasked after it (`sendingRefused`). A submission server that cannot
-    /// be reached, or that says "not now", ends the Outbox's part of the
-    /// pass, which would only fail the same way for every letter; one whose
-    /// Sent Mail cannot be asked waits for the next pass and lets the others
-    /// go.
+    /// refused password, or a sign-in the submission server refused, ends
+    /// the pass, and nothing goes from the Outbox unasked after it
+    /// (`sendingRefused`). A submission server that cannot be reached, or
+    /// that says "not now", or IMAP's LOGIN refused for another reason, ends
+    /// the Outbox's part of the pass, which would only fail the same way for
+    /// every letter; one whose Sent Mail cannot be asked waits for the next
+    /// pass and lets the others go.
     private func sendWaiting(_ key: String, via repository: MailRepository) async -> Bool {
         let version = store.letter(key)?.version
         do {
             try await deliver(key, nil, via: repository, progress: nil)
         } catch {
             if error is CancellationError { return false }
-            if (error as? MailError) == .passwordNeedsUpdating {
+            if MailError.refusesSending(error) {
                 sendingRefused = true
                 return false
             }
@@ -1453,7 +1483,7 @@ final class LocalDrafts {
                     try await upload(key, to: repository)
                 } catch {
                     if error is CancellationError
-                        || (error as? MailError) == .passwordNeedsUpdating { return }
+                        || MailError.refusesSignIn(error) { return }
                     guard await repository.isConnected else { return }
                     let missing = (error as? MailError) == .attachmentsMissing
                     refuse(key, at: letter.version, saying: missing ? .attachmentsMissing : nil)
@@ -1469,8 +1499,8 @@ final class LocalDrafts {
     /// password saved since (`goesFromHere`), with no attempt that may have
     /// reached Gmail from before one either, not refused since launch as
     /// it stands, and small unless `largeToo`. A letter in the Outbox not
-    /// after a password the submission server refused (`sendingRefused`),
-    /// and small by what it has to fetch from Gmail
+    /// after a refusal every letter would meet (`sendingRefused`), and
+    /// small by what it has to fetch from Gmail
     /// (`LocalDraft.fetchesLarge`).
     ///
     /// Such an attempt is looked for in Sent Mail before the letter goes

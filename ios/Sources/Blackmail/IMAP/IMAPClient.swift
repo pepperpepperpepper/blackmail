@@ -139,14 +139,23 @@ actor IMAPClient {
     /// call has connected again since (`IMAPMailRepository.retryingIfDisconnected`).
     private(set) var connectionsLost = 0
 
-    /// How the last LOGIN was refused, nil once a connection has been made
-    /// since. Unlike `connectFailure` it outlives the next attempt that
-    /// fails some other way, a network that is not there, so the watch,
-    /// which never sends a password after a refusal, still knows there was
-    /// one (`IMAPMailRepository.watchedConnection`). Any refusal, not only
-    /// AUTHENTICATIONFAILED: a LOGIN answered NO for another reason and
-    /// tried again every half minute is the same loop of failed logins.
-    private(set) var loginRefusal: MailError?
+    /// How the last LOGIN was refused, and when, nil once a connection has
+    /// been made since. Unlike `connectFailure` it outlives the next attempt
+    /// that fails some other way, a network that is not there, so the
+    /// watch, which never sends a refused password again, still knows there
+    /// was one (`IMAPMailRepository.watchedConnection`). Any refusal, not
+    /// only AUTHENTICATIONFAILED: a LOGIN answered NO for another reason and
+    /// tried again every half minute is the same loop of failed logins, so
+    /// the watch tries one of those again only after a while.
+    private(set) var loginRefusal: LoginRefusal?
+
+    struct LoginRefusal: Equatable, Sendable {
+        let failure: MailError
+        let at: Date
+    }
+
+    /// Set by `retire`: no connection is made from now on.
+    private var retired = false
 
     /// A write whose turn at the gate came with no connection: whatever held
     /// the connection ahead of it found the socket dead and tore it down, or
@@ -265,6 +274,7 @@ actor IMAPClient {
         defer { endExchange() }
 
         guard !connected else { return }
+        guard !retired else { throw MailError.cannotConnect }
         if failedConnects != failuresBefore, let connectFailure { throw connectFailure }
         connectFailure = nil
         // A new session has nothing selected, whatever the last one had.
@@ -307,7 +317,7 @@ actor IMAPClient {
             // could be for is LOGINDISABLED, and this client has never
             // honoured it. Over implicit TLS a server has no reason to
             // advertise it, and one that did would refuse the LOGIN, which
-            // ends in the same "Can't connect" a check here would have given.
+            // ends in the refused sign-in a check here would have given.
             if preAuthenticated {
                 // Already past login, so a list in the greeting is the
                 // post-login one.
@@ -328,10 +338,8 @@ actor IMAPClient {
                     "LOGIN \(Self.quoted(account.username)) \(Self.quoted(password))")
 
                 guard result.status == .ok else {
-                    let code = IMAPParser.responseCode(result.detail)?.uppercased()
-                    let refusal: MailError = result.status == .no && code == "AUTHENTICATIONFAILED"
-                        ? .passwordNeedsUpdating : .cannotConnect
-                    loginRefusal = refusal
+                    let refusal = Self.refusal(of: result)
+                    loginRefusal = LoginRefusal(failure: refusal, at: now())
                     throw refusal
                 }
                 loginRefusal = nil
@@ -358,6 +366,32 @@ actor IMAPClient {
             failedConnects += 1
             throw failure
         }
+    }
+
+    /// What a LOGIN answered other than OK says. `NO [AUTHENTICATIONFAILED]`
+    /// is Gmail's for a wrong or revoked password; any other NO or BAD is
+    /// a sign-in Gmail refused for a reason of its own, with its ALERT text
+    /// kept to be shown (`MailError.signInRefused`). Both used to be told
+    /// apart only by the first: every other refusal read as "Can't connect
+    /// to mail server.", which no change of Wi-Fi or password could mend.
+    static func refusal(of result: IMAPCommandResult) -> MailError {
+        let code = IMAPParser.responseCode(result.detail)?.uppercased()
+        if result.status == .no && code == "AUTHENTICATIONFAILED" { return .passwordNeedsUpdating }
+        return .signInRefused(alert: IMAPParser.alert(in: result.detail, untagged: result.untagged))
+    }
+
+    /// Closes the connection, and makes none from now on: a new password
+    /// has been saved and a new client signs in with it
+    /// (`IMAPMailRepository.retire`). Every attempt to connect is refused
+    /// at its turn at the gate from the moment this returns, so one already
+    /// waiting behind a command on the wire finds it refused rather than
+    /// signing in with the old password after the close. The close waits
+    /// its turn at the gate too, and nobody waits for it: it is returned
+    /// for a test to.
+    @discardableResult
+    func retire() -> Task<Void, Never> {
+        retired = true
+        return Task { await self.disconnect() }
     }
 
     func disconnect() async {

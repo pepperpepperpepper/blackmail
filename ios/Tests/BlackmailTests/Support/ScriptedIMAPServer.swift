@@ -159,7 +159,8 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     }
 
     let username: String
-    let password: String
+    /// The app password LOGIN takes; see `replacePassword`.
+    var password: String { locked { $0.password } }
     /// The only port that accepts a connection. SMTP's 465 is refused, so a
     /// repository test that reaches `send` fails to connect rather than
     /// having an SMTP client read an IMAP greeting.
@@ -199,7 +200,6 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     init(username: String = "owner@example.com", password: String = "app-password",
          inboxCount: Int = 120) {
         self.username = username
-        self.password = password
         state = State(username: username, password: password)
         locked { s in
             s.addFolder(Self.inbox, attributes: ["\\HasNoChildren"], label: "\\Inbox",
@@ -317,6 +317,14 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var greeting: Greeting {
         get { locked { $0.greeting } }
         set { locked { $0.greeting = newValue } }
+    }
+
+    /// The account's app password revoked and a new one made, as at
+    /// myaccount.google.com/apppasswords: every LOGIN from now on with the
+    /// old one is refused as a wrong password, and `new` is taken.
+    /// Connections already logged in carry on.
+    func replacePassword(with new: String) {
+        locked { $0.password = new }
     }
 
     /// Every LOGIN from now on is refused as a wrong password, the way
@@ -831,7 +839,7 @@ private extension ScriptedIMAPServer {
 
     struct State {
         let username: String
-        let password: String
+        var password: String
         var folders: [String: Folder] = [:]
         /// LIST order, which is Gmail's.
         var order: [String] = []

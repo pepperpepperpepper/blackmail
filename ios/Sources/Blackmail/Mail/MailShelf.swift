@@ -106,8 +106,9 @@ final class MailShelf: @unchecked Sendable {
     private var sameMailbox = false
 
     /// `wipe`'s count for `root` when this shelf was made. Once it moves on
-    /// the shelf is done: it reads nothing and keeps nothing more, until the
-    /// next launch makes another with the password saved since.
+    /// the shelf is done: it reads nothing and keeps nothing more, until a
+    /// repository signing in with the password saved since makes another,
+    /// at the next launch or at once after Settings (`PasswordChange`).
     private let generation: Int
 
     /// The folder list's file. Each page's is named for its folder

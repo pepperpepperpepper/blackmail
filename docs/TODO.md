@@ -31,16 +31,24 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       All Mailboxes search, ~1,900 Drafts. The test account has 24 letters.
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
-      - [ ] "Password needs updating" on a read, not "Can't connect to mail
+      - [x] "Password needs updating" on a read, not "Can't connect to mail
             server." for every failure (`MessageListViewController` :504,
             :580, :1167 and the pane's handlers flatten it)
-      - [ ] setup and Settings check sending (SMTP) too, so Gmail's
+            *Done 2026-09-30, not yet seen on the iPad: Mail's "Cannot Get
+            Mail" with Settings, a third state for any other refusal with
+            Google's ALERT text, and a new password used at once. B-056.*
+      - [x] setup and Settings check sending (SMTP) too, so Gmail's
             wrong-account trap cannot pass setup
+            *Done 2026-09-30, not yet seen on the iPad. B-056.*
       - [x] take out the B-033 `PAIR` probe, which logs subject lines
             (done 2026-09-30, D-016 phase 0, with the sender in
             `SESSION-IDENT`)
       - [ ] a build number he or a helper can read out
-      - [ ] a guard so the signature cannot be wiped by accident
+      - [x] a guard so the signature cannot be wiped by accident
+            *Done 2026-09-30, not yet seen on the iPad: setup keeps it,
+            plain text and an empty one are asked about, Restore Original
+            Signature, and the password item written before anything is
+            deleted. B-056.*
       - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
       - [x] the reading pane runs no letter's script and goes nowhere by
@@ -884,6 +892,44 @@ this host. Ordered by value, not by size.
       copy, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
+- [ ] **B-056, signing in again, and the signature.** None of it seen on the
+      iPad yet. On the test account, with the app open on the Inbox: revoke
+      its app password at myaccount.google.com/apppasswords and make a new
+      one. Once Gmail refuses the old one, at the next connection the app
+      makes (lock the iPad for a few minutes and come back, if the open
+      session carries on), the line says "Password Needs Updating"; tap a
+      letter: "Cannot Get Mail", "The user name or password for “Gmail” is
+      incorrect.", Settings and OK. Tap Settings: Settings opens with the
+      keyboard in the password field, the line under it naming the account's
+      address. Type the new password, Save: "Checking the new password with
+      Gmail…", and the sheet closes with no relaunch. The Inbox is empty a
+      moment, then "Checking for Mail…", then "Updated Just Now"; the log
+      shows the check (a LOGIN, LIST and LOGOUT, then `SIGN-IN CHECK
+      host=smtp.gmail.com:465` and an AUTH), `PASSWORD-SAVED signed in
+      afresh`, the old connection's LOGOUT and a new LOGIN, and a letter sent
+      then goes. Put a letter in the Outbox (Wi-Fi off, Send) before revoking:
+      after the save it goes by itself, once. Then make an app password while
+      signed in to another Google account, and type it into Settings, and into
+      setup with the stored password removed by hand as for a clean install
+      (B-031): both refuse it with "Gmail took that password for reading mail
+      but refused it for sending…", Settings adding that the old password is
+      still in place, and nothing is sent. The password item is now written
+      before older ones are deleted, and they are deleted by persistent
+      reference, which has not run on a device: once the new password is
+      saved, a Keychain dump on the jailbroken iPad should show one item for
+      the account, as B-033's probe did. A refusal that is not the password,
+      if one can be had (a normal Google password in Settings gets Gmail's
+      "Application-specific password required"): the sentence with Google's
+      words under Save. Last, with the signature set: tap "Send my signature
+      as plain text instead" and Cancel, then Use Plain Text and Save; open
+      Settings again, "Restore Original Signature", Restore, Save; write a
+      letter to the account: the formatted signature and its logo are back.
+      Without leaving the app, open a letter's attachment, share it from the
+      preview to Blackmail (or, if Blackmail is not offered there, a link
+      from Safari in Slide Over) and send it to the account: the logo is on
+      that letter too (the share extension handed the pictures at the save,
+      not at the next trip to the background). Empty the box and Save:
+      "Remove Signature?", Cancel keeps it.
 - [ ] **B-053, every write and every open naming its letter.** Seen
       2026-09-30: the everyday wire after the page (open, Flag, Edit's
       Mark), and a copy made another mailbox's by hand refused under held
