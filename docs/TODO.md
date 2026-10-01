@@ -1042,12 +1042,14 @@ this host. Ordered by value, not by size.
       nothing of the letter. The same letter inside a conversation.
       *Pictures from the web.* A newsletter's pictures still load, as
       before.
-- [ ] A folder count asked just before his read mark reaches the server
+- [x] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
       as 1, then 2, then 1 when the sweep `adjustUnreadCounts` asks for
       lands. Seen on the iPad 2026-09-30; older than the kept copy, which
       only makes a tap that early likelier.
+      *Done 2026-10-01, seen on the iPad: a folder marked since a
+      sweep left keeps the pane's count when it lands. B-059.*
 - [ ] Save Draft with no connection, with Drafts open: the list keeps the
       Gmail copy's row, and the new "On this iPad only" row takes its place
       only some eight seconds later, once the save's upload has failed.
@@ -1056,13 +1058,15 @@ this host. Ordered by value, not by size.
 - [ ] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
-- [ ] The folder pane redraws only the Inbox's count after a read mark:
+- [x] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had
       two sections since the Inbox got a block of its own, so All Mail,
       Important and Sent Mail keep their old number on screen until the
       next sweep, though the count under them is right (and kept so). Seen
       on the iPad 2026-09-30; older than the kept copy.
+      *Done 2026-10-01, seen on the iPad: each folder found in its
+      block. B-059.*
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
