@@ -5209,3 +5209,271 @@ under the password field, the keyboard put down and the line scrolled
 into view (`say`), and seen there. Not made by hand: a password revoked
 and replaced, a 534 and a 535 at the check, which need the account's
 Google settings.
+
+---
+
+## B-057 — CHANGED 2026-10-01, not yet seen on the iPad. A crash at every launch would have ended the app for good, and so would a letter the Outbox crashed on
+
+**Found in the code 2026-09-30**, going through what would end the app for
+good once it is on his iPad with no way to update it. Nothing counted
+launches, and nothing knew that a launch had crashed:
+
+- What a launch reads before its first frame, and in the second after it,
+  is what the launches before it kept: the copy of his mail and the Inbox's
+  page (D-016, B-053), two panes or three (D-015), Organize by Thread, Go to
+  Date's last scope and day, the layout sweep's switch, and every
+  `letter.json` in Local Drafts, which Drafts, the Outbox and the sidebar's
+  count read. A file that cannot be read was handled already: the copy
+  deletes it, Local Drafts passes it over. A kept row, a saved choice or a
+  letter that reads cleanly and trips a fault in drawing or in the code
+  behind it would have crashed every launch, before anything was sent.
+- The pass that takes the letters kept on the iPad to Gmail (B-051, B-052)
+  runs about a second after every launch's first page. What it learned of a
+  letter, a refusal, lived in memory until the next launch, and the only
+  marks it wrote on disk, the version tried before an APPEND and the
+  Message-ID before DATA, are written once the letter has been read and
+  built. A letter whose building or sending crashed the app, a photo's file
+  that breaks the builder for one, would have crashed it a second after
+  every launch, and he could not have told which letter it was. B-051 declines to open the composer at
+  launch for that very reason; the pass had the same shape.
+- Either way the only way out was deleting the app. That takes Local Drafts
+  with it, the only copy of what he has written and not yet sent, cannot be
+  undone on a sideload, and needs a new app password, which he cannot make
+  himself.
+- A first keep that failed on a full disk left the letter's folder with its
+  photos linked into it and no `letter.json`. Nothing listed it and nothing
+  took it away, and once the launch's purge had emptied the staging it held
+  the only link to each photo: a few megabytes each time the disk filled,
+  never given back. Made on the scripted store, not on the iPad.
+
+**What he sees now.** Nothing, as long as launches finish. A launch has
+finished when the app goes to the background, however soon after it
+started, when it is ended while still running, which is what a swipe in the
+app switcher should be if it does not go through the background first (not
+yet seen either way), or half a minute after the first page has been drawn
+and the first pass over the letters on the iPad has ended. He often opens the app,
+glances at it and leaves within seconds; that always sends it to the
+background, so it never counts against the next launch. A crash, or iOS's
+watchdog ending an app that does not answer, does none of these. After
+launches in a row that never finished, the next one starts without what
+they read, in steps, each with the ones before it:
+
+- After two: no kept page. The copy of his mail is thrown away, as a
+  password saved throws it away (D-016), and the view settings go back to
+  their defaults: three panes, Organize by Thread on, Go to Date in the
+  folder he is in and at today, the layout sweep off. The Inbox is empty
+  under "Checking for Mail…" until its page comes, and the folder pane is
+  names until the counts come, as at the first launch. His account, his
+  address book, the signature's pictures and every letter kept on the iPad
+  stay.
+- After three: no pass over the letters kept on the iPad in that launch.
+  Nothing in Drafts "On this iPad only" goes to Gmail by itself, and nothing
+  in the Outbox is sent by itself, at the first page, on coming back, at the
+  watch's check or as he leaves. His own Send and Save Draft go as ever. The
+  next launch passes as usual.
+- After five: the letters kept on the iPad are moved, folder and all, to a
+  folder beside it, `Application Support/Local Drafts set aside 2026-10-01
+  14.03.07`, the date and time of that launch on the iPad's clock, and the
+  app starts with none: Drafts lists only Gmail's, and there is no Outbox.
+  Nothing is deleted. Every letter, photo and quote is there as it was, file
+  for file, and so is the count of passwords saved (B-051), which goes on in
+  the new store as a copy, so a letter put back later compares with it as it
+  did. Set aside again in the same second, the second folder's name ends
+  " 2". With no letter in the store, nothing is moved.
+
+**Where letters set aside are, and who can reach them.** In the app's own
+data container on the iPad, beside `Local Drafts`, which nothing on the iPad
+shows him or a helper: not Files, not iCloud, since the folder keeps the
+store's exclusion from backup, and not a Mac's Finder. A helper cannot
+reach them; a developer can, with the app ended, by moving the folder back
+as `Local Drafts` (the TODO's check does it), which brings every letter back
+as it was, the Outbox's included. **Proposed, not built:** a line in a
+later About screen, "3 letters were set aside on 1 October", with a button,
+"Bring Back", which moves each letter's folder that can be read back into
+`Local Drafts` one at a time, under its own key, as a draft and out of the
+Outbox, keeping its `unsettled` so that one which may have gone is looked
+for in Sent Mail before it is sent again, and writes down what came back;
+the launch count guards that launch as it guards any other. It needs a build
+before the install.
+
+**One letter at a time.** Each try the pass makes at a letter is written
+down on it, `autoAttempts` in its `letter.json`, just before the pass takes
+it, and cleared when the try returns or throws, whatever came of it: what is
+left after a launch is tries the app did not live through. A try that cannot
+be written down is not made, and the letter waits. At three such tries, the
+pass passes the letter over. It stays where it is and counts among the
+unsent, and its row says so, in the Outbox as the line under whom it is to,
+"Not sent automatically. Open it and tap Send.", and in Drafts under "On this
+iPad only", "Not saved to Gmail automatically. Open it and tap Save Draft."
+The words are the app's own; Mail has no such state to copy. A letter in the
+Outbox with an attempt whose DATA went, which Gmail may have delivered and
+which no pass now looks for in Sent Mail, says instead "May already have
+been sent.", as one cut off before a password save does (B-052): "Not sent"
+would have him write it out again, and that second copy is what B-052 is
+there to prevent. Opened and sent, it goes once, as any letter in the Outbox goes: one with an attempt whose
+DATA went is looked for in Sent Mail first, and found there, nothing more is
+sent (B-052). Save Draft, his saving it, clears the count and gives it back
+to the pass. Changed and put away, which the autosave keeps, or sent with no
+connection and back in the Outbox, it stays his to send: the keep in front
+of his Send carries the count, so a letter whose Send ended the app is not
+taken up three more times by the pass. A letter that goes takes its count
+with it.
+
+A try cut short by the background does not count. iOS suspends an app in
+the background once its time is up and may end it then, with a letter on its
+way, a large draft above all, which goes up only as he leaves (B-051), and
+that is no fault of the letter's. As the app goes to the background the
+tries on their way are taken back, each letter's count as it was before the
+try, unless his Save Draft has cleared it since; a try begun in the
+background is not counted at all, and coming back counts them again. The
+same as the app is ended while it runs (`applicationWillTerminate`): a swipe
+in the app switcher mid-send is his doing and not the letter's, and if it
+does not go through the background first, three of them would otherwise
+give up on an ordinary letter. Only the count is written then: what the try itself wrote down, the version
+tried before an APPEND and the Message-ID before DATA, stays, and the look
+in Drafts or Sent Mail goes as ever (B-051, B-052).
+
+**How it is kept.** `Application Support/Launches/unfinished`: the launches
+in a row that never finished, the one running among them, in decimal,
+written whole by an atomic write and out of iCloud backup. Not
+`UserDefaults`, whose writes reach the preferences daemon later and can be
+lost to the very crash being counted. Counted first thing in
+`didFinishLaunching`, before the purge of opened attachments, the copy of
+his mail, the panes or Local Drafts are touched; set to 0 in
+`applicationDidEnterBackground`, in `applicationWillTerminate`, which Apple
+documents for an app ended while running and not suspended (whether a swipe
+in the switcher goes through the background first is not documented), and at
+the half minute (`SafeStart`). A file that is not a count a launch could
+have written, empty, garbled, a word, a negative number, one over a
+thousand, a directory in its place, is no count, and the launch writes its
+own over it; a directory is removed first. A count that cannot be written at
+all is a launch the guard does not see; nothing in it can stop a launch.
+Beside it, `safe-starts.json`: each safe start's time, count, steps
+(`kept-copy-wiped`, `view-settings-reset`, `passes-held`,
+`letters-set-aside`) and the folder the letters went to, the last twenty,
+dates as text, for an About screen to show one day; one that cannot be read
+is begun afresh. `autoAttempts` is optional in `letter.json`, absent from a
+letter no pass has left a try on and from one kept before it existed, which
+reads as none, so the format stays 1, as for `outbox`, `unsettled` and
+`cutOff`. Every launch also removes each folder in `Local Drafts` with no
+`letter.json` in it, which is what a failed first keep leaves
+(`LocalDraftStore.removeLeftovers`). A letter's words are only ever in its
+`letter.json`, so nothing he wrote goes; a folder with one is never touched,
+whatever else is in it and however it reads.
+
+**In the connection log**, nothing of a letter: `SAFE-START unfinished=2`,
+then each step as it is taken, `SAFE-START kept-copy=wiped`, `SAFE-START
+view-settings=reset`, `SAFE-START automatic-pass=held` and `SAFE-START
+local-drafts=set-aside folder="Local Drafts set aside 2026-10-01
+14.03.07"`; `DRAFTS-LEFTOVERS removed=1`; and once a launch for each letter
+passed over, `OUTBOX-HELD unfinished-tries=3` or `DRAFT-HELD
+unfinished-tries=3`.
+
+**On the wire.** Nothing changes for a launch that finishes: the everyday
+wire and the launch's commands are as they were. A launch after two that
+did not finish sends what a launch with nothing kept sent (B-053), and one
+after three no pass's commands.
+
+**Left as it was, and why.** The account, the address book and the
+signature's pictures are not reset: none is drawn in a way a layout can trip
+on, the share extension is handed them, and none can be had back once gone.
+A crash after the half minute, or after a return from the background, is
+not counted: the guard is for launches that never get going, and a letter
+that crashes the pass on coming back is counted by its own tries. A pass
+that hangs without crashing holds the launch short of its half minute until
+he leaves, and leaving finishes it; the hung letter's try is taken back as
+he leaves, so a hang is not counted against a letter. The share extension
+keeps no letters and runs no pass (B-052): its letters go at Send as they
+did, and it counts and holds nothing. The figures, two, three and five
+launches, three tries and half a minute, are judgement, not measurement:
+two allows one crash that was nothing to do with what is kept, and three
+tries allow two. So a letter that crashes the pass at every launch takes the
+launches to their second stage before its own third try: the third launch
+starts without the kept copy and with the view settings at their defaults,
+and the fourth holds the pass, by when the letter is held anyway. There is
+no hook to make the app crash on purpose; each
+stage is made by hand on the iPad, with the app ended, by writing the count
+or a letter's tries into their files (TODO).
+
+**Tests.** `SafeStartTests`, over an Application Support of the test's own,
+defaults of its own and a clock it moves: ten quick looks then leaving count
+nothing; a launch that neither leaves nor reaches the half minute counts,
+one that dies at twenty-nine seconds too, its wait still asleep then; the
+half minute runs from the later of the first page and the end of the first
+pass, and is waited for once a launch; a count empty,
+garbled, a word, negative, over a thousand, the largest number there is and
+one far past it, and a directory in its place, each reads as none and is
+written over, and with nowhere to write it the launch still starts; one
+unfinished launch changes nothing; two take the kept page and the folder
+list away and the five view settings back to their defaults, leaving the
+account, the book, the pictures and every letter byte for byte, the count
+already up as each step is said, so a launch that crashes in its own steps
+is counted; three and
+four hold the pass as well; five set the letters aside, every file byte for
+byte, the new store empty with the count of passwords saved, the old one
+reading as it did, a second in the same second under " 2" and none when
+there is nothing; the steps written down, read back, a damaged record begun
+afresh and twenty kept; a folder without `letter.json` removed at launch and
+one with a file cut short, of another format or with a stray file spared;
+the five keys are the screens' own, read from their source; where the app
+counts, finishes and tells the store, and that an end while it runs takes
+the tries on their way back, read from the UIKit source; and the
+share extension's sources name none of it, and what it is handed stays.
+`OutboxTests`, over the scripted servers: a try on disk before the
+submission server is reached and while its letter goes, cleared when it is
+refused, and a draft's while its APPEND is out and once refused; a try the
+app does not live through found at the next launch, the format still 1; a
+try taken back as the app goes, its DATA's record kept, one begun in the
+background not counted, one after coming back counted; one taken back
+leaving his save's count; a try that cannot be written down not made, not
+even a connection; three tries and the letter and a draft passed over,
+saying so, the letter after them going, the log saying so once, and two
+tries still going; the DATA cut off, two launches ended in the look in Sent
+Mail, the fourth passing it over, its row saying it may already have been
+sent, and his Send asking Sent Mail first and sending nothing, one letter
+ever; his Send of a held letter going once, the
+autosave and an offline Send keeping it held, Save Draft giving it back to
+the pass; a held launch sending nothing while his Send goes; and a wait for
+the pass ending only with the pass. Each fails with its part undone in a
+scratch copy, fifty-three sabotages one at a time, each failing at least the
+test named for it: the count not written at launch, or written only after
+the steps; the background, or an end while running, not finishing the
+launch; the half minute not waiting for the pass, not waited at all, cut to
+five seconds or to none, or waited for twice in a launch; a count no launch writes taken at its word
+(the largest number there is then crashed the launch that counted on from
+it); a directory left in the count's place; each step left out, and taken a
+launch early or late; the letters deleted rather than moved, the count of
+passwords saved not carried, a second set aside in the same second given no
+name of its own; the steps not written down; leftovers left, or taken with
+their `letter.json`; a view setting under another key, or every one of his
+defaults reset, the account and the book with them; the count, the
+background, an end while running, the setup form, the first page, leaving,
+coming back and the shared store each not wired, and an end while running
+not taking the tries back; the share extension's code reaching for the
+tries. And for the tries: none written down, one written
+after the try, one not cleared, a held letter still taken, held after four,
+either row without its words, a held letter whose DATA went saying it was
+not sent, the background not taking tries back, tries
+counted in the background, coming back not counting them, a try taken back
+over his save, every keep clearing the tries or Save Draft carrying them, a
+wait for the pass returning at once, nothing said in the log, a try that
+cannot be written down made anyway, and the count not read back.
+
+**Not taken, and still to do.** Letters set aside cannot be brought back
+from inside the app (proposed above). Nothing tells him, or a helper, that a
+safe start happened beyond the connection log and `safe-starts.json`; an
+About screen would. A crash that comes later than the half minute in every
+launch is not caught by the count, only by a letter's own tries if the pass
+is in it. A letter that goes unasked only as he leaves, a draft carrying a
+megabyte or more of photos or quote, or a letter in the Outbox with a
+megabyte or more of files to fetch from Gmail (`LocalDraft.isLarge`,
+`fetchesLarge`), is only ever tried in the background, where no try is counted: the limit never holds
+it. One that ended the app there would be tried again at every leave, with
+nothing on its row; it cannot hold up a launch, which leaving has already
+finished. Counting tries begun in the background as well, and taking them
+back only when iOS's background time runs out, would cover it, at the cost
+of counting a letter iOS ended for memory against it; not decided. The
+counting and the background are UIKit and are read from their
+source on the host; the pieces under them run here.
+
+**Not yet seen on the iPad.** The TODO says how to make each stage by hand.

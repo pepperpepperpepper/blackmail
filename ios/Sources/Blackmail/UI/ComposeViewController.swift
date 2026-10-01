@@ -730,10 +730,13 @@ final class ComposeViewController: UIViewController,
 extension LocalDrafts {
 
     /// The app's own: in Application Support, for the account set up on
-    /// this iPad, inside `UIApplication`'s background time.
+    /// this iPad, inside `UIApplication`'s background time, and with no
+    /// pass in a launch the safe start holds them in (B-057). Made after
+    /// the safe start has run, by the first screen that lists letters.
     static let shared = LocalDrafts(store: LocalDraftStore(root: LocalDraftStore.appRoot),
                                     account: CredentialStore.loadAccount()?.address,
-                                    background: .app)
+                                    background: .app,
+                                    holdsPasses: SafeStart.app.steps.holdsPasses)
 }
 
 extension BackgroundTime {

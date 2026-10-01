@@ -260,6 +260,27 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         locked { s in _ = s.held.insert(verb) }
     }
 
+    /// Stops holding replies to `verb` from now on, and leaves the ones
+    /// already held where they are, for good: the connections they were
+    /// sent on belong to a launch the test has let die mid-command, as a
+    /// crash leaves it, and an answer reaching them would bring it back.
+    func stopHolding(_ verb: String) {
+        locked { s in _ = s.held.remove(verb) }
+    }
+
+    /// How many replies to `verb` are being held right now, across every
+    /// connection: kept from their clients, not merely asked for. A command
+    /// is in the log before its reply is held, and `stopHolding` in that gap
+    /// lets the reply through.
+    func heldReplies(to verb: String) async -> Int {
+        let live: [ScriptedTransport] = locked { s in
+            s.sessions.keys.sorted().compactMap { s.transports[$0]?.transport }
+        }
+        var count = 0
+        for transport in live { count += await transport.parkedReplies(to: verb) }
+        return count
+    }
+
     /// Lets everything held for `verb` go, in the order it was sent, and
     /// stops holding.
     func releaseReplies(to verb: String) async {
@@ -2286,6 +2307,10 @@ actor ScriptedTransport: LinkTransport {
     func landAndClose(_ bytes: Data) {
         arrive(.bytes(bytes))
         close()
+    }
+
+    fileprivate func parkedReplies(to verb: String) -> Int {
+        parked.filter { $0.verb == verb }.count
     }
 
     fileprivate func releaseParked() {

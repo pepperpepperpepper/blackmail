@@ -44,6 +44,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             (done 2026-09-30, D-016 phase 0, with the sender in
             `SESSION-IDENT`)
       - [ ] a build number he or a helper can read out
+      - [x] a safe start after launches that never finished, and the
+            Outbox and Drafts giving up on a letter after three tries the
+            app did not live through
+            *Done 2026-10-01, not yet seen on the iPad: the copy of his
+            mail and the view settings left behind after two, no automatic
+            pass after three, the letters kept on the iPad set aside, never
+            deleted, after five. B-057, and its check under "Blocked on the
+            iPad coming back".*
       - [x] a guard so the signature cannot be wiped by accident
             *Done 2026-09-30, not yet seen on the iPad: setup keeps it,
             plain text and an empty one are asked about, Restore Original
@@ -1081,6 +1089,114 @@ this host. Ordered by value, not by size.
       received ends its quote with them in grey, in Mail and on Gmail's web
       page, once (since 2026-10-01). Save the reply as a draft, reopen it
       and send it: the line still once.
+- [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
+      None of it seen on the iPad yet. Every stage is made by hand in the
+      app's files with the app ended, swiped away in the app switcher.
+      Whether that swipe finishes the launch is step 1's to show, so until
+      it has, every step that does not write the count itself begins, with
+      the app ended, with `echo 0 > Launches/unfinished`: otherwise a count
+      left standing could hold the pass, or set the letters aside, for a
+      reason that is not the step's. The files
+      are in `Library/Application Support/` in the app's data container;
+      over SSH, `cd "$(dirname "$(find /var/mobile/Containers/Data/Application
+      -maxdepth 5 -type d -name Launches)")"` once the app has been opened
+      once. `Launches/unfinished` is the count, one number; `Launches/
+      safe-starts.json` the steps taken; each letter is `Local
+      Drafts/<UUID>/letter.json` (B-051's case list says how to find one).
+      The notes are in the connection log (five taps on the line under the
+      list).
+      1. *A look, and a crash.* Open the app and go to the Home Screen
+      within two seconds: `cat Launches/unfinished` reads 0. Open it and
+      swipe it away in the app switcher within two seconds: 0 again. Open
+      it and stay on the Inbox: it reads 1 until half a minute after the
+      Inbox's page has come, and any letter the pass takes has gone, then
+      0. Open it and, within ten seconds, `killall -9 Blackmail`, which ends
+      it as a crash does, without the background: 1. Open it again and,
+      before killing it, open the connection log, which lives only in
+      memory and goes with the app: it begins `SAFE-START unfinished=1`.
+      Kill it: 2. Open it a third time: the next stage.
+      2. *After two.* Choose two panes, turn Organize by Thread off, and
+      pick All Mailboxes and a day last year in Go to Date. End the app,
+      `echo 2 > Launches/unfinished`, open it: no kept rows in the first
+      frame, the Inbox empty under "Checking for Mail…" until its page
+      comes, three panes, conversations grouped, Go to Date on Current
+      Mailbox and at today; the log starts `SAFE-START unfinished=2`,
+      `SAFE-START kept-copy=wiped`, `SAFE-START view-settings=reset`, and
+      `cat Launches/safe-starts.json` names both steps. Letters "On this iPad
+      only" in Drafts, and the Outbox, are still there. Leave: the count
+      reads 0. Open it again: the kept Inbox is back in the first frame; the
+      count reads 1, and 0 again half a minute after the page.
+      3. *After three.* Wi-Fi off, Send a letter to himself: the Outbox.
+      End the app, Wi-Fi on, `echo 3 > Launches/unfinished`, open it: the
+      Inbox's page comes, and the letter stays in the Outbox, no `ENVELOPE`
+      in the log, which has `SAFE-START automatic-pass=held`. Go to the Home
+      Screen and back, and wait a minute: still nothing goes. Send another
+      letter from the composer: it goes at once. End the app and open it:
+      the waiting letter goes by itself, once.
+      4. *After five.* Wi-Fi off. Save Draft two letters to himself, one
+      with a photo, and Send a third: the Outbox. End the app. `(cd "Local
+      Drafts" && find . -type f -exec shasum {} +) > /var/tmp/before.sum`,
+      `echo 5 > Launches/unfinished`, open it: Drafts has no "On this iPad
+      only" and there is no Outbox, and the log ends its safe start with
+      `SAFE-START local-drafts=set-aside folder="Local Drafts set aside
+      <date> <time>"`. `ls` shows that folder beside `Local Drafts`; in it,
+      the same `find … shasum` matches `/var/tmp/before.sum` line for line.
+      Put them back: end the app, `mv "Local Drafts" "Local Drafts new"`,
+      `mv "Local Drafts set aside …" "Local Drafts"` and `echo 0 >
+      Launches/unfinished`, since that launch left 6 standing and another
+      launch at 5 or more sets the letters aside again; Wi-Fi on, open: the
+      two drafts and the Outbox letter are back, and go up and out by
+      themselves, once each.
+      5. *A leftover.* With the app ended, `mkdir "Local Drafts/leftover"`
+      and copy any photo into it; `mkdir "Local Drafts/damaged"` and `echo
+      '{' > "Local Drafts/damaged/letter.json"`. Open the app: `leftover`
+      is gone, `damaged` is still there and lists nowhere, and the log says
+      `DRAFTS-LEFTOVERS removed=1`. Remove `damaged` by hand.
+      6. *Three tries.* Wi-Fi off, Send a letter to himself, and Save Draft
+      another. End the app. In each `letter.json` write three tries the app
+      did not live through: `sed -i 's/"format":1/"format":1,"autoAttempts":3/'
+      letter.json` (BSD sed wants `-i ''`). Wi-Fi on, open the app: neither
+      goes, no `ENVELOPE` and no `APPEND`; the Outbox row's first line is
+      "Not sent automatically. Open it and tap Send.", the line under "On
+      this iPad only" in Drafts "Not saved to Gmail automatically. Open it
+      and tap Save Draft.", the line under the list "1 Unsent Message", and
+      the log has `OUTBOX-HELD unfinished-tries=3` and `DRAFT-HELD
+      unfinished-tries=3`, once each however often the pass runs. Tap the
+      Outbox letter, Send: one `ENVELOPE`, and it arrives once. Open the
+      draft, Cancel, Save Draft: one `APPEND`, one copy in Drafts on the
+      web. Again with `"autoAttempts":2`: both go by themselves.
+      7. *Three tries after a DATA that may have gone.* As 6 for the Outbox
+      letter, and also write its Message-ID down as an attempt whose DATA
+      went, stamped with the count of passwords saved as the pass stamps
+      it. Unstamped, as in B-051's case 5, the attempt reads as made before
+      a password save, which setup itself counts, and the letter is passed
+      over for that reason whatever its tries, so the step would prove
+      nothing. From `Application Support`: `n=$(cat "Local
+      Drafts/password-saves" 2>/dev/null || echo 0)`, then in the letter's
+      folder `sed -i "s/\"outbox\":\"\([^\"]*\)\"/&,\"unsettled\":[\"\1\"],\"unsettledSaves\":$n/"
+      letter.json`. Open the app: no `UID SEARCH HEADER Message-ID` and no
+      `ENVELOPE` for it; its row's first line is "May already have been
+      sent.", not step 6's, since its DATA may have reached them; the log
+      has `OUTBOX-HELD unfinished-tries=3`. Tap it, Send: the look in Sent
+      Mail first, then, Gmail not having it, one `ENVELOPE`, and it arrives
+      once. The control: the same edits with `"autoAttempts":2`, and the
+      pass itself makes the look in Sent Mail and sends it, once.
+      8. *A try the app does not live through, and one the background cuts
+      short.* Wi-Fi off, Send a letter with four or five full-size photos
+      to himself, end the app, Wi-Fi on. Over SSH, watch its file: `while
+      sleep 0.2; do grep -ho '"autoAttempts":[0-9]*' "Local
+      Drafts"/*/letter.json; done`. Open the app: `"autoAttempts":1` while
+      the pass sends it. Before it arrives, `killall -9 Blackmail`: it still
+      reads 1 with the app gone. Open the app: it goes, or is found in Sent
+      Mail, once. The same again, but go to the Home Screen while it sends
+      instead of killing it: the line stops at once, as the app leaves,
+      while the letter is still on its way, and it arrives once. And again,
+      swiping the app away in the app switcher while it sends: the line
+      stops as the app goes, whichever way the swipe ends it, and the
+      letter arrives once, or at the next launch once. Still 1 with the app
+      gone, and the swipe ends a running app as a crash does, with neither
+      the background nor `applicationWillTerminate`: write that into B-057,
+      with what step 1's swipe left in `Launches/unfinished`.
 
 ## Blocked on the owner
 

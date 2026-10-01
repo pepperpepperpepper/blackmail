@@ -1671,6 +1671,393 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(UpdatedLine().text(now: now, unsent: 1), "Checking for Mail…\n1 Unsent Message")
         XCTAssertNil(Outbox.unsent(0))
     }
+
+    // MARK: - Tries that never ended (B-057)
+
+    /// The pass's unfinished tries at `key` as `letter.json` holds them,
+    /// read straight from the disk, from any thread: a field absent is none.
+    private nonisolated static func tries(_ key: String, in root: URL) -> Int {
+        guard let data = try? Data(contentsOf: root.appendingPathComponent("\(key)/letter.json")),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return -1
+        }
+        return json["autoAttempts"] as? Int ?? 0
+    }
+
+    private func tries(_ key: String) -> Int { Self.tries(key, in: root) }
+
+    /// A pass whose try at the letter in the Outbox has sent its DATA and
+    /// waits for the 250 that will never come: the app is ended there, and
+    /// the pass is never heard from again.
+    private func diesAfterData(_ kept: LocalDrafts, _ repository: IMAPMailRepository,
+                               largeToo: Bool = false) async throws {
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+        let made = submissions.made
+        try await page(repository)
+        _ = try XCTUnwrap(kept.uploadWaiting(to: repository, largeToo: largeToo))
+        try await until {
+            guard submissions.made > made, let last = submissions.last else { return false }
+            return await last.isHoldingLetterReply
+        }
+    }
+
+    /// The try is written down on the letter before the pass takes it, and
+    /// cleared once it has ended, whichever way: before the submission
+    /// server is reached, it reads 1, and so it does while the letter is on
+    /// its way; refused, the letter stays with its reason and its count
+    /// cleared; gone, it is gone. The same for a draft: 1 while its APPEND
+    /// is out, none once Gmail has refused it.
+    func testATryIsWrittenDownBeforeTheLetterIsTakenAndClearedWhenItEnds() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("First"), as: "first", kept: kept, repository: repository)
+        await sentOffline(letter("Second", to: "nobody@example.org"), as: "second",
+                          kept: kept, repository: repository)
+        keptDraft("Draft", as: "draft", kept: kept)
+        XCTAssertEqual([tries("first"), tries("second"), tries("draft")], [0, 0, 0])
+
+        let root = self.root!
+        let atConnect = Noted()
+        submissions.then {
+            atConnect.add(["\(Self.tries("first", in: root))"])
+            return ScriptedSubmission(holdsLetterReply: true)
+        }
+        submissions.refused = ["nobody@example.org"]
+        server.refusedVerbs = ["APPEND"]
+        server.holdReplies(to: "APPEND")
+        try await page(repository)
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { await submissions.first?.isHoldingLetterReply == true }
+        XCTAssertEqual(atConnect.calls, [["1"]], "on disk before the server was reached")
+        XCTAssertEqual(tries("first"), 1, "and while it goes")
+        XCTAssertEqual(tries("second"), 0, "one at a time")
+        await submissions.first?.releaseLetterReply()
+
+        try await until { !appends.isEmpty }
+        XCTAssertEqual(tries("draft"), 1, "the draft's, while its APPEND is out")
+        XCTAssertEqual(tries("second"), 0, "the refused letter's, cleared")
+        XCTAssertEqual(kept.whyNotSent("second"), .notSent)
+        await server.releaseReplies(to: "APPEND")
+        await pass.value
+
+        XCTAssertNil(kept.store.letter("first"), "gone, and its count with it")
+        XCTAssertEqual(tries("draft"), 0, "refused by Gmail: ended, cleared")
+        XCTAssertEqual(kept.waiting.map(\.key), ["draft"])
+        XCTAssertEqual(kept.outbox.map(\.key), ["second"])
+    }
+
+    /// A try the app does not live through stays counted: the next launch
+    /// finds it on the letter. A crash in building or sending the letter
+    /// leaves nothing else on disk.
+    func testATryTheAppDoesNotLiveThroughIsCounted() async throws {
+        let kept = makeKept()
+        await sentOffline(letter(), kept: kept, repository: makeRepository())
+        try await diesAfterData(kept, makeRepository())
+
+        let relaunched = makeKept()
+        let letter = try XCTUnwrap(relaunched.store.letter("letter-1"))
+        XCTAssertEqual(letter.autoAttempts, 1)
+        XCTAssertEqual(letter.outboxState, .beingSent, "B-052's record of the DATA, as ever")
+        XCTAssertFalse(relaunched.isHeld(letter))
+        let json = String(decoding: try Data(contentsOf: root.appendingPathComponent(
+            "letter-1/letter.json")), as: UTF8.self)
+        XCTAssertTrue(json.contains("\"format\":1"), "no new format")
+        XCTAssertTrue(json.contains("\"autoAttempts\":1"))
+    }
+
+    /// The app gone to the background while a try is on its way: iOS may
+    /// end it there, which is no fault of the letter's. The try is taken
+    /// back as it goes, and the attempt's own record, its Message-ID
+    /// written down before DATA, stays: ended in the background, the next
+    /// launch finds no try counted and the letter being sent, to be looked
+    /// for in Sent Mail. Back in front, the next try is counted; a try
+    /// begun in the background is not.
+    func testATryCutShortInTheBackgroundIsNotCounted() async throws {
+        let kept = makeKept()
+        await sentOffline(letter(), kept: kept, repository: makeRepository())
+        try await diesAfterData(kept, makeRepository())
+        XCTAssertEqual(tries("letter-1"), 1)
+
+        kept.wentToBackground()
+        XCTAssertEqual(tries("letter-1"), 0, "taken back as the app goes")
+        let relaunched = makeKept()
+        let letter = try XCTUnwrap(relaunched.store.letter("letter-1"))
+        XCTAssertEqual(letter.autoAttempts, 0)
+        XCTAssertEqual(letter.outboxState, .beingSent)
+        XCTAssertEqual(letter.unsettled, [letter.outbox].compactMap { $0 })
+        XCTAssertNotNil(letter.cutOff)
+
+        // Away and back before the pass: counted.
+        let second = makeKept()
+        await sentOffline(self.letter("Second"), as: "second", kept: second,
+                          repository: makeRepository())
+        second.wentToBackground()
+        second.cameToForeground()
+        try await diesAfterData(second, makeRepository())
+        XCTAssertEqual(tries("second"), 1, "in front again: counted")
+
+        // Begun in the background, as the pass that leaving sets off is:
+        // not counted, and ended there, nothing is left on the letter.
+        let third = makeKept()
+        await sentOffline(self.letter("Third"), as: "third", kept: third,
+                          repository: makeRepository())
+        third.wentToBackground()
+        try await diesAfterData(third, makeRepository(), largeToo: true)
+        XCTAssertEqual(tries("third"), 0, "begun in the background: not counted")
+        XCTAssertEqual(makeKept().store.letter("third")?.autoAttempts, 0)
+    }
+
+    /// A try taken back as the app goes leaves what it found on the letter,
+    /// never a count from before a save of his: a draft he saved while the
+    /// pass had it on its way up (B-051) keeps none.
+    func testATryTakenBackLeavesWhatHisSaveWrote() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        keptDraft("Draft", as: "draft", kept: kept)
+        XCTAssertTrue(kept.store.noteTries("draft", 2))
+        server.holdReplies(to: "APPEND")
+        try await page(repository)
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { !appends.isEmpty }
+        XCTAssertEqual(tries("draft"), 3)
+
+        let save = makeActions("draft", kept: kept, repository: repository)
+            .saveAndClose({ self.letter("Draft") }, then: nil)
+        XCTAssertEqual(tries("draft"), 0, "his save")
+        kept.wentToBackground()
+        XCTAssertEqual(tries("draft"), 0, "not the two from before it")
+        await server.releaseReplies(to: "APPEND")
+        await pass.value
+        await save?.value
+    }
+
+    /// A try that cannot be written down, the letter's directory refusing
+    /// the write, is not made: uncounted, a try that ended the app could
+    /// end it at every launch. The letter waits, nothing is sent, not even
+    /// a connection made, and it goes once its try can be written.
+    func testALetterWhoseTryCannotBeWrittenDownIsNotTaken() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter(), kept: kept, repository: repository)
+        let folder = root.appendingPathComponent("letter-1").path
+        let files = FileManager.default
+        try files.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder)
+        defer { try? files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder) }
+
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(submissions.made, 0)
+        XCTAssertEqual(kept.outbox.map(\.key), ["letter-1"])
+
+        try files.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder)
+        await kept.uploadWaiting(to: repository)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    /// Three tries the app did not live through, and the pass passes the
+    /// letter over, in the Outbox and in Drafts alike: it stays, counted
+    /// among the unsent, its row saying it will not go by itself and what
+    /// to do; nothing of it is sent or looked for; the letters after it go;
+    /// and the connection log says so once a launch, with nothing of the
+    /// letter.
+    func testThreeUnfinishedTriesAndThePassPassesTheLetterOverSayingSo() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
+        keptDraft("Held draft", as: "draft", kept: kept)
+        await sentOffline(letter("Next"), as: "next", kept: kept, repository: repository)
+        // Three tries counted and never ended, as `letter.json` holds them
+        // after three launches each ended mid-try.
+        XCTAssertTrue(kept.store.noteTries("held", 3))
+        XCTAssertTrue(kept.store.noteTries("draft", 3))
+
+        Diagnostics.clear()
+        let relaunched = makeKept()
+        let fresh = makeRepository()
+        try await afterAPage(relaunched, fresh)
+        await relaunched.uploadWaiting(to: fresh)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(sent.first?.contains("Subject: Next") == true, "the letter after it went")
+        XCTAssertEqual(appends.count, 0, "the draft was not taken up")
+        XCTAssertEqual(searches, [])
+        XCTAssertEqual(relaunched.outbox.map(\.key), ["held"])
+        XCTAssertEqual(relaunched.waiting.map(\.key), ["draft"])
+        XCTAssertEqual(Outbox.unsent(relaunched.outbox.count), "1 Unsent Message")
+
+        let row = try XCTUnwrap(relaunched.outboxRows.first)
+        XCTAssertEqual(row.preview, "Not sent automatically. Open it and tap Send.\nLunch at one?")
+        XCTAssertEqual(Outbox.notSentByItself, "Not sent automatically. Open it and tap Send.")
+        let draftRow = try XCTUnwrap(relaunched.draftsRows(in: "[Gmail]/Drafts",
+                                                           from: "owner@example.com").first)
+        XCTAssertEqual(draftRow.preview, "On this iPad only\n"
+                       + "Not saved to Gmail automatically. Open it and tap Save Draft.\n"
+                       + "Lunch at one?")
+        XCTAssertNil(relaunched.whyNotSent("held"), "passed over, not refused")
+
+        let held = Diagnostics.entries.map(\.text).filter { $0.contains("-HELD") }
+        XCTAssertEqual(held.sorted(), ["DRAFT-HELD unfinished-tries=3",
+                                       "OUTBOX-HELD unfinished-tries=3"])
+
+        // Two short of it, and it still goes by itself.
+        XCTAssertTrue(relaunched.store.noteTries("held", 2))
+        await relaunched.uploadWaiting(to: fresh)?.value
+        XCTAssertEqual(relaunched.outbox.count, 0)
+    }
+
+    /// B-052's promise, held through all of it. His letter's DATA went and
+    /// the app was ended before the 250, Gmail having taken it; the next
+    /// two launches each ended as the pass looked for it in Sent Mail. The
+    /// count stands at three: the fourth launch's pass neither looks nor
+    /// sends, and its row says it may already have been sent, which it
+    /// was, and not that it was not, which would have him write it again.
+    /// He opens it and taps Send: Sent Mail is asked first, has it, and
+    /// nothing goes. One letter reached the submission server, ever.
+    func testACrashAfterDataTheCountAtThreeThenHisSendGoesExactlyOnce() async throws {
+        let first = makeKept()
+        await sentOffline(letter(), kept: first, repository: makeRepository())
+        try await diesAfterData(first, makeRepository())
+        let messageID = try XCTUnwrap(first.store.letter("letter-1")?.outbox)
+        fileInSentMail(messageID)
+        XCTAssertEqual(tries("letter-1"), 1)
+
+        for launch in 2...3 {
+            let kept = makeKept()
+            let repository = makeRepository()
+            try await page(repository)
+            server.holdReplies(to: "UID SEARCH")
+            let held = await server.heldReplies(to: "UID SEARCH")
+            _ = try XCTUnwrap(kept.uploadWaiting(to: repository))
+            try await until { await server.heldReplies(to: "UID SEARCH") > held }
+            server.stopHolding("UID SEARCH")
+            XCTAssertEqual(tries("letter-1"), launch, "ended as it looked")
+        }
+
+        let fourth = makeKept()
+        let repository = makeRepository()
+        try await page(repository)
+        let looked = looks.count
+        XCTAssertNil(fourth.uploadWaiting(to: repository), "passed over")
+        XCTAssertEqual(looks.count, looked, "not looked for")
+        XCTAssertTrue(fourth.isHeld(try XCTUnwrap(fourth.store.letter("letter-1"))))
+        XCTAssertEqual(fourth.outboxRows.first?.preview.components(separatedBy: "\n").first,
+                       Outbox.mayHaveGone, "Gmail has it: not \"Not sent\"")
+
+        let draft = try XCTUnwrap(fourth.letter("letter-1")).draft
+        let closed = dismissals
+        await makeActions("letter-1", kept: fourth, repository: repository)
+            .send({ draft }, then: nil)?.value
+        XCTAssertEqual(errors, [])
+        XCTAssertEqual(dismissals, closed + 1, "the sheet closes as for a letter that went")
+        XCTAssertEqual(looks.count, looked + 1, "Sent Mail asked first")
+        XCTAssertTrue(looks.last?.command.contains(messageID) == true)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "one letter, ever")
+        XCTAssertEqual(submissions.made, 1)
+        XCTAssertEqual(fourth.store.letters().count, 0)
+    }
+
+    /// His Send of a letter the pass has given up on sends it, once, as
+    /// ever. His saving it, Save Draft, gives it back to the pass, which
+    /// takes it up. Changed by him and put away, or sent with no
+    /// connection, it is still his to send: the pass does not take it.
+    func testHisSendOrSaveOfAHeldLetter() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Held"), as: "held", kept: kept, repository: repository)
+        keptDraft("Held draft", as: "draft", kept: kept)
+        await sentOffline(letter("Offline"), as: "offline", kept: kept, repository: repository)
+        for key in ["held", "draft", "offline"] { XCTAssertTrue(kept.store.noteTries(key, 3)) }
+
+        let relaunched = makeKept()
+        try await page(repository)
+        let held = try XCTUnwrap(relaunched.letter("held")).draft
+        await send(held, as: "held", kept: relaunched, repository: repository)
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "his Send: once")
+        XCTAssertNil(relaunched.store.letter("held"))
+
+        // Changed and put away: kept by the autosave, still held.
+        var changed = try XCTUnwrap(relaunched.letter("draft")).draft
+        let editing = makeActions("draft", kept: relaunched, repository: repository)
+        changed.body = "Lunch at two?"
+        editing.edited { changed }
+        editing.sheetGone { changed }
+        XCTAssertEqual(tries("draft"), 3)
+        // Sent with no connection: in the Outbox, still his to send.
+        let offline = try XCTUnwrap(relaunched.letter("offline")).draft
+        await sentOffline(offline, as: "offline", kept: relaunched, repository: repository)
+        XCTAssertEqual(tries("offline"), 3)
+        XCTAssertNil(relaunched.uploadWaiting(to: repository), "neither is taken")
+        XCTAssertEqual(relaunched.outboxRows.first?.preview.components(separatedBy: "\n").first,
+                       Outbox.notSentByItself)
+
+        // Save Draft, his saving it, with no connection: the count goes,
+        // and the pass takes it once there is one.
+        let saving = makeActions("draft", kept: relaunched, repository: makeRepository())
+        line.isUp = false
+        await saving.saveAndClose({ changed }, then: nil)?.value
+        line.isUp = true
+        XCTAssertEqual(tries("draft"), 0)
+        try await afterAPage(relaunched, repository)
+        XCTAssertEqual(appends.count, 1)
+        XCTAssertEqual(relaunched.waiting.count, 0)
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "the held Outbox letter still waits for him")
+        XCTAssertEqual(relaunched.outbox.map(\.key), ["offline"])
+    }
+
+    /// A launch that holds the pass (the safe start at 3, `SafeStart`):
+    /// nothing goes by itself, a wait for the pass returns at once, and his
+    /// own Send goes as ever. The next launch's pass sends what waited.
+    func testAHeldPassSendsNothingAndHisSendStillGoes() async throws {
+        let store = LocalDraftStore(root: root)
+        let held = LocalDrafts(store: store, account: server.username, background: passTime.time,
+                               holdsPasses: true)
+        let repository = makeRepository()
+        await sentOffline(letter("Waiting"), as: "waiting", kept: held, repository: repository)
+        try await page(repository)
+        XCTAssertNil(held.uploadWaiting(to: repository))
+        XCTAssertNil(held.uploadWaiting(to: repository, largeToo: true))
+        await held.passEnded()
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0)
+
+        await send(letter("His own"), as: "own", kept: held, repository: repository)
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(sent.first?.contains("Subject: His own") == true)
+        XCTAssertEqual(held.outbox.map(\.key), ["waiting"])
+
+        try await afterAPage(makeKept(), repository)
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2, "the next launch's pass")
+    }
+
+    /// The healthy point waits for the first pass: `passEnded` returns once
+    /// the pass running now has ended, and at once when none is.
+    func testPassEndedWaitsForThePassRunningNow() async throws {
+        let kept = makeKept()
+        await kept.passEnded()
+        let repository = makeRepository()
+        keptDraft("Draft", as: "draft", kept: kept)
+        server.holdReplies(to: "APPEND")
+        try await page(repository)
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        let ended = PassEnded()
+        let waiting = Task { @MainActor in
+            await kept.passEnded()
+            ended.at = appends.count
+        }
+        try await until { !appends.isEmpty }
+        await Task.yield()
+        XCTAssertNil(ended.at, "not while the APPEND is out")
+        await server.releaseReplies(to: "APPEND")
+        await pass.value
+        await waiting.value
+        XCTAssertEqual(ended.at, 1)
+    }
 }
 
 /// The shipping repository, but that the next question of whether the
@@ -1801,6 +2188,13 @@ private final class HeldQuestion: MailRepository, @unchecked Sendable {
     func inboxUnread() async throws -> Int? { try await base.inboxUnread() }
 }
 
+/// Where a wait for the pass to end had got to when it returned: nil
+/// until then.
+@MainActor
+private final class PassEnded {
+    var at: Int?
+}
+
 /// What each call to a `beforeData` saw of the conversation, from any
 /// thread.
 private final class Noted: @unchecked Sendable {
@@ -1872,6 +2266,12 @@ private final class OutboxSubmissions: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return servers.first
+    }
+
+    var last: ScriptedSubmission? {
+        lock.lock()
+        defer { lock.unlock() }
+        return servers.last
     }
 
     private var all: [ScriptedSubmission] {
