@@ -91,6 +91,25 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(Diagnostics.describeLiteral(byteCount: 2048), "{2048 bytes}")
     }
 
+    /// A SEARCH answer is a number for every letter found, one line of up
+    /// to two megabytes at his size, which froze the connection log's
+    /// screen. It is kept as the count `IMAPParser.parseSearch` would read.
+    func testASearchAnswerIsDescribedByHowManyItFound() {
+        XCTAssertEqual(Diagnostics.describeSearch("* SEARCH 1 2 3 55"), "* SEARCH {4 uids}")
+        XCTAssertEqual(Diagnostics.describeSearch("* SEARCH"), "* SEARCH {0 uids}")
+        XCTAssertEqual(Diagnostics.describeSearch("* search 7 9"), "* SEARCH {2 uids}")
+        XCTAssertEqual(Diagnostics.describeSearch("* SEARCH 2 3 (MODSEQ 917162500)"),
+                       "* SEARCH {2 uids}")
+        XCTAssertEqual(Diagnostics.describeSearch("* SORT 5 4 3"), "* SORT {3 uids}")
+        let big = "* SEARCH " + (1...300_000).map(String.init).joined(separator: " ")
+        XCTAssertEqual(Diagnostics.describeSearch(big), "* SEARCH {300000 uids}")
+        // Every other line stays as it is.
+        for line in ["* 12 FETCH (UID 345 FLAGS (\\Seen))", "* SEARCHING 1", "a5 OK SEARCH done",
+                     "* OK [UIDVALIDITY 1] x", "* 3 EXISTS", "* STATUS INBOX (UNSEEN 2)"] {
+            XCTAssertNil(Diagnostics.describeSearch(line), line)
+        }
+    }
+
     // MARK: - The store
 
     func testLogRedactsOnTheWayInSoTheBufferNeverHoldsASecret() {

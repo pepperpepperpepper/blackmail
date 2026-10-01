@@ -95,8 +95,21 @@ enum PanePage {
           img, table { max-width: 100% !important; height: auto; }
           a { color: \(isHTML ? "#007AFF" : "#0A84FF"); }
           \(smartInvert)
-        </style></head><body><div id="bm">\(content)</div></body></html>
+        </style></head><body><div id="bm">\(shortened(m))\(content)</div></body></html>
         """
+    }
+
+    /// The pane's line above a letter it shows only the beginning of
+    /// (`Message.isShortened`), and nothing above any other, whose page is
+    /// what it always was. Above the letter rather than under it: the
+    /// sender's markup is cut wherever the fetch stopped, inside a table, a
+    /// link or a tag, and anything written after it would be drawn inside
+    /// that, or not at all. Its own style, grey as "Loading…" is, so that
+    /// it reads as the app's and not the sender's.
+    static func shortened(_ m: Message) -> String {
+        guard m.isShortened else { return "" }
+        return "<p style=\"color: #8e8e93; margin: 0 0 1em 0; white-space: normal;\">"
+            + MailText.shortenedNotice + "</p>"
     }
 
     /// One letter's body for its section of a conversation's stack: the
@@ -113,6 +126,6 @@ enum PanePage {
                                              known: contentIDs(of: m))
                : ConversationDocument.escape(String((m.textBody ?? "")
                                                         .drop(while: { $0 == "\n" || $0 == "\r" }))))
-        return .init(html: content, isHTML: isHTML && !empty)
+        return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
     }
 }

@@ -909,6 +909,26 @@ this host. Ordered by value, not by size.
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
       after one reconnect, not after a 30 s stall.
+- [ ] **B-054, a letter too large to fetch whole.** None of it seen on the
+      iPad yet. From another account, send the test account a letter of
+      three full-size photographs shown in its body, as Mail on an iPhone
+      sends them, and a PDF: 8 MB or more. Open it: the connection log shows
+      `UID FETCH n (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, then its text's
+      and its HTML's FETCHes cut at `<0.2097152>`, and no `BODY.PEEK[]`; the
+      words come at once and the photographs one after another, each one
+      `UID FETCH n (UID BODY.PEEK[k])` and no more; the PDF's row opens the
+      PDF. Open it again and tap the next letter while the photographs are
+      still coming: the next letter comes after at most the one photograph
+      on the wire, and the log shows no FETCH for the others. Forward it to
+      the second address with a Cc: the photographs and the PDF arrive.
+      Reply to it: the quote is there. Open a conversation with it in: the
+      same FETCHes for it, the others' as ever. On a slow connection,
+      force-quit and tap it on the kept Inbox before the page lands: the
+      first FETCH carries `X-GM-MSGID`. And with the Inbox open, the
+      connection log shows the SEARCH as `* SEARCH {N uids}` and its screen
+      scrolls without a stall. A letter whose HTML is over 2 MB, if one can
+      be had, shows "Only the beginning of this message is shown." above
+      it.
 
 ## Blocked on the owner
 

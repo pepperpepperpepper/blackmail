@@ -28,6 +28,12 @@ enum MIMEDecoder {
     /// not ten thousand `MIMEPart`s.
     private static let maxPartsPerMultipart = 500
 
+    /// And on the files listed for one letter, wherever its parts are:
+    /// five hundred to a multipart, nested, is a quarter of a million, each
+    /// a row in the reading pane's header and on the page kept on the iPad
+    /// (D-016), where a stranger's letter is read back at every launch.
+    static let maxAttachments = 500
+
     // MARK: - Content-Transfer-Encoding
 
     /// Undoes the transfer encoding and nothing else. "7bit", "8bit", "binary"
@@ -207,10 +213,28 @@ enum MIMEDecoder {
         text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
     }
 
+    /// Every CRLF and every lone CR made a LF, in one pass over the UTF-8.
+    ///
+    /// It was two of Foundation's replacements, CRLF and then CR, which on
+    /// this host took a second for every two megabytes of line breaks, and
+    /// half a gigabyte for 25 MB of them. The one difference is where a
+    /// combining mark follows a line break, which no mail writes: those
+    /// replacements took the mark as part of the break's character and
+    /// left the pair alone, or made it two breaks.
     private static func normalizeNewlines(_ text: String) -> String {
-        guard text.contains("\r") else { return text }
-        return text.replacingOccurrences(of: "\r\n", with: "\n")
-                   .replacingOccurrences(of: "\r", with: "\n")
+        guard text.utf8.contains(0x0D) else { return text }
+        var out: [UInt8] = []
+        out.reserveCapacity(text.utf8.count)
+        var afterCR = false
+        for byte in text.utf8 {
+            if byte == 0x0A, afterCR {
+                afterCR = false
+                continue
+            }
+            afterCR = byte == 0x0D
+            out.append(afterCR ? 0x0A : byte)
+        }
+        return String(decoding: out, as: UTF8.self)
     }
 
     /// An `NSStringEncoding` for a charset that Cocoa never gave a constant.
@@ -517,10 +541,30 @@ enum MIMEDecoder {
     /// Values come back *raw*: still RFC 2047 encoded, still carrying their
     /// parameters. Callers decide what to do with them, because "Subject" wants
     /// `decodeWord` and "Content-Type" does not.
+    ///
+    /// Only the header block is copied out of `data` to be read: a whole
+    /// letter used to be, a second copy of however many megabytes it was,
+    /// for the few kilobytes of it that are its header.
     static func parseHeaders(_ data: Data) -> [(name: String, value: String)] {
-        let bytes = [UInt8](data)
+        let bytes = [UInt8](data.prefix(headerBlockLength(of: data)))
         let split = splitHeaderBody(bytes, 0..<bytes.count)
         return parseHeaderBlock(bytes, split.headers)
+    }
+
+    /// How much of `data` `splitHeaderBody` reads for its header: through
+    /// the line break that ends the first blank line, or all of it when
+    /// there is none. Read in place.
+    private static func headerBlockLength(of data: Data) -> Int {
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int in
+            var start = 0
+            for i in 0..<raw.count where raw[i] == 0x0A {
+                var end = i
+                if end > start, raw[end - 1] == 0x0D { end -= 1 }
+                if end == start { return i + 1 }
+                start = i + 1
+            }
+            return raw.count
+        }
     }
 
     /// First matching header, compared without case as RFC 5322 requires.
@@ -536,7 +580,7 @@ enum MIMEDecoder {
         var headers: [(name: String, value: String)] = []
         var current: (name: String, value: String)?
 
-        for line in lineRanges(in: bytes, range) {
+        for line in Lines(bytes, range) {
             let text = decodeBytes(bytes, line.content)
             if text.isEmpty { break }
 
@@ -545,10 +589,12 @@ enum MIMEDecoder {
                 // indent": RFC 2047 adjacency is defined in terms of the white
                 // space that is left, so keeping it is what lets a subject
                 // folded mid-word rejoin correctly.
-                if var open = current {
-                    open.value += text
-                    current = open
-                }
+                //
+                // Appended in place. Copied out, added to and put back, the
+                // value was copied whole for every line folded onto it: a
+                // header folded onto twenty thousand lines, 2 MB, took 4.7 s
+                // in the suite's debug build.
+                current?.value += text
                 continue
             }
 
@@ -947,7 +993,7 @@ enum MIMEDecoder {
         var chunks: [Range<Int>] = []
         var openStart: Int?
 
-        for line in lineRanges(in: bytes, range) {
+        for line in Lines(bytes, range) {
             let match = matchBoundary(bytes, line.content, marker)
             guard match.isDelimiter else { continue }
             if let start = openStart {
@@ -996,25 +1042,34 @@ enum MIMEDecoder {
         return range.lowerBound..<end
     }
 
-    private static func lineRanges(in bytes: [UInt8], _ range: Range<Int>) -> [(content: Range<Int>, next: Int)] {
-        var result: [(content: Range<Int>, next: Int)] = []
-        var start = range.lowerBound
-        var i = range.lowerBound
-        while i < range.upperBound {
-            if bytes[i] == 0x0A {
-                var end = i
-                if end > start, bytes[end - 1] == 0x0D { end -= 1 }
-                result.append((start..<end, i + 1))
-                start = i + 1
-            }
-            i += 1
+    /// The lines of `range`, each without its line break and with where
+    /// the next begins, found as they are asked for.
+    ///
+    /// It used to be a list of every line made first. At 24 bytes a line
+    /// that was twenty-four times the size of a part of bare line breaks:
+    /// a letter of 35 MB of them came to 1.66 GB, which is the app killed
+    /// for its memory the moment he opened it.
+    private struct Lines: Sequence, IteratorProtocol {
+        let bytes: [UInt8]
+        var start: Int
+        let end: Int
+
+        init(_ bytes: [UInt8], _ range: Range<Int>) {
+            self.bytes = bytes
+            start = range.lowerBound
+            end = range.upperBound
         }
-        if start < range.upperBound {
-            var end = range.upperBound
-            if end > start, bytes[end - 1] == 0x0D { end -= 1 }
-            result.append((start..<end, range.upperBound))
+
+        mutating func next() -> (content: Range<Int>, next: Int)? {
+            guard start < end else { return nil }
+            var i = start
+            while i < end, bytes[i] != 0x0A { i += 1 }
+            let next = i < end ? i + 1 : end
+            var stop = i
+            if stop > start, bytes[stop - 1] == 0x0D { stop -= 1 }
+            defer { start = next }
+            return (start..<stop, next)
         }
-        return result
     }
 
     // MARK: - Flattening
@@ -1088,6 +1143,13 @@ enum MIMEDecoder {
         return chosen.text ?? chosen.html
     }
 
+    /// The parts `flatten` shows as the text and the HTML of the letter,
+    /// from its structure alone: what a letter too large to fetch whole
+    /// fetches of itself (`IMAPMailRepository.loadMessage`).
+    static func bodyParts(of structure: MIMEPart) -> (text: MIMEPart?, html: MIMEPart?) {
+        chooseBodies(structure, depth: 0)
+    }
+
     /// The walk stops one level *deeper* than the parser does, because the
     /// parser's last act at the cap is to salvage the remaining bytes as a text
     /// leaf; refusing to look at that leaf would throw away the one thing it
@@ -1128,7 +1190,7 @@ enum MIMEDecoder {
                                            skipping: Set<String>,
                                            depth: Int,
                                            into list: inout [Attachment]) {
-        guard depth <= maxDepth else { return }
+        guard depth <= maxDepth, list.count < maxAttachments else { return }
 
         if part.isMultipart {
             for child in part.children {

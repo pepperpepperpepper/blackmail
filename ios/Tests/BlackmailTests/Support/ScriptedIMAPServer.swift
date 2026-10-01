@@ -542,6 +542,30 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         }
     }
 
+    /// Adds a letter made of the bytes given, to each of `mailboxes`, and
+    /// returns its UID in each, as `deliver` does: `raw` is the whole
+    /// letter, `sections` what `BODY[section]` answers ("HEADER", "1",
+    /// "1.2"; "" is `raw`), and `structure` its BODYSTRUCTURE, wire text.
+    /// The envelope, the flags and what a SEARCH matches are `letter`'s.
+    ///
+    /// For a shape `render` does not make, or a letter too large to render
+    /// quickly: `render` reads every character of the words.
+    @discardableResult
+    func deliver(raw: Data, sections: [String: Data], structure: String, as letter: Letter,
+                 to mailboxes: [String]) -> [String: UInt32] {
+        locked { s in
+            var bodies = sections
+            bodies[""] = raw
+            let key = s.store(Stored(letter: letter, flags: letter.flags, raw: raw,
+                                     sections: bodies, structure: structure))
+            var out: [String: UInt32] = [:]
+            for name in mailboxes.map(Self.canonical) {
+                if let uid = s.file(key, in: name) { out[name] = uid }
+            }
+            return out
+        }
+    }
+
     /// Adds a letter to each of `mailboxes`, as mail reaches Gmail from
     /// outside a session, and returns its UID in each.
     ///
@@ -872,11 +896,15 @@ private extension ScriptedIMAPServer.State {
     }
 
     mutating func store(_ letter: Server.Letter) -> Int {
+        let rendered = Server.render(letter)
+        return store(Server.Stored(letter: letter, flags: letter.flags, raw: rendered.raw,
+                                   sections: rendered.sections, structure: rendered.structure))
+    }
+
+    mutating func store(_ stored: Server.Stored) -> Int {
         let key = nextKey
         nextKey += 1
-        let rendered = Server.render(letter)
-        letters[key] = Server.Stored(letter: letter, flags: letter.flags, raw: rendered.raw,
-                                     sections: rendered.sections, structure: rendered.structure)
+        letters[key] = stored
         return key
     }
 

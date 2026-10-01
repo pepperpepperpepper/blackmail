@@ -51,6 +51,14 @@ actor IMAPMailRepository: MailRepository {
     /// that id is taken from here only when it is the same letter
     /// (`carriedPart`).
     private var lastBody: (messageID: String, letter: UInt64?, raw: Data)?
+    /// The structure of the last letter opened without its files
+    /// (`loadLetterInPartOnce`), as `lastBody` is the last opened whole. A
+    /// part of it, a picture the pane asks for or a file he taps, is then
+    /// one FETCH of its section, where a part of a letter no longer to hand
+    /// is two, the first describing the whole letter again
+    /// (`fetchAttachmentData`). Not for a forward's parts that name their
+    /// letter, which the FETCH that describes it vouches for (`carriedPart`).
+    private var lastStructure: (messageID: String, structure: MIMEPart)?
     /// The copies this launch has put in Drafts itself, by folder name and
     /// id, as APPENDUID gave them, or as the search by its version's
     /// Message-ID found one a cut-off upload left (`saveDraft`). One
@@ -130,9 +138,13 @@ actor IMAPMailRepository: MailRepository {
          now: @escaping @Sendable () -> Date = { Date() },
          signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
             = { SignatureImages.load() },
-         shelf: MailShelf? = nil) {
+         shelf: MailShelf? = nil,
+         largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
+         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes) {
         self.account = account
         self.password = password
+        self.largeAbove = largeLetterBytes
+        self.largeSection = largeLetterSectionBytes
         self.imap = IMAPClient(account: account, transport: transport, now: now)
         self.smtp = SMTPClient(account: account, transport: transport)
         self.recipients = recipients
@@ -882,7 +894,11 @@ actor IMAPMailRepository: MailRepository {
             // (D-016), unless this listing says the kept one was not this
             // mailbox's, when the whole copy goes first. Numbers and a
             // reason only: nothing kept is ever written to this log.
-            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity) {
+            let sizes = summaries.reduce(into: [String: Int]()) { sizes, row in
+                sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
+            }
+            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity,
+                                         sizes: sizes) {
                 Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
                                 + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
             }
@@ -1065,6 +1081,9 @@ actor IMAPMailRepository: MailRepository {
             let from = env?.from.first
             let id = Self.makeID(validity: validity, uid: uid)
             rememberPreviewPart(r.bodyStructure, for: id)
+            if let size = r.size, size > largeAbove {
+                rememberLarge(id, in: name, size: size)
+            }
             return MessageSummary(
                 id: id,
                 mailboxID: mailboxID,
@@ -1242,6 +1261,51 @@ actor IMAPMailRepository: MailRepository {
     /// Insertion order, so the bound above can EVICT rather than empty.
     private var previewPartOrder: [String] = []
 
+    /// Above this, a letter is opened without its files
+    /// (`loadLetterInPartOnce`). Photographs from Mail or an iPhone are
+    /// two to four megabytes each on the wire, so it is a letter of two or
+    /// more.
+    static let largeLetterBytes = 5 << 20
+
+    /// How much of a large letter's text, and of its HTML, is fetched.
+    /// Ample for any letter written by a person: a newsletter is 50 to 200
+    /// KB.
+    static let largeLetterSectionBytes = 2 << 20
+
+    /// The two above, as this repository was made with them. The app's are
+    /// always those; a test's can be small, so a letter of a few kilobytes
+    /// stands for one of megabytes.
+    private let largeAbove: Int
+    private let largeSection: Int
+
+    /// The size of every letter above `largeAbove` the server has
+    /// listed in this launch, by folder and id (`key`), from the
+    /// RFC822.SIZE its row is fetched with. Only those: a letter not here
+    /// is opened whole, as every letter was.
+    private var largeLetters: [String: Int] = [:]
+
+    /// Insertion order, so `largeLetters` can drop its oldest past
+    /// `maximumRememberedLarge`. One dropped is looked for on the kept
+    /// page, and opened whole if it is not there.
+    private var largeLetterOrder: [String] = []
+    private static let maximumRememberedLarge = 2_000
+
+    private func rememberLarge(_ id: String, in name: String, size: Int) {
+        let key = Self.key(id, in: name)
+        if largeLetters.updateValue(size, forKey: key) == nil { largeLetterOrder.append(key) }
+        while largeLetterOrder.count > Self.maximumRememberedLarge {
+            largeLetters.removeValue(forKey: largeLetterOrder.removeFirst())
+        }
+    }
+
+    /// The size of the letter `id` in `name` when it is above
+    /// `largeAbove`: as this launch listed it, or as the page kept on
+    /// the iPad has it, for a row drawn from there before its folder's
+    /// first page has come (D-016). Nil otherwise.
+    private func largeLetterSize(_ id: String, in name: String) -> Int? {
+        largeLetters[Self.key(id, in: name)] ?? shelf?.size(of: id, in: name)
+    }
+
     private func rememberPreviewPart(_ structure: MIMEPart?, for id: String) {
         guard let structure, let part = MIMEDecoder.previewPart(structure) else { return }
         if previewParts[id] == nil { previewPartOrder.append(id) }
@@ -1336,16 +1400,29 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - One message
 
+    /// A letter above `largeAbove` comes without its files, which
+    /// are fetched when he taps one or a forward of it is sent
+    /// (`loadLetterInPartOnce`); any other comes whole.
     func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message {
         try await retryingIfDisconnected {
-            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID)
+            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID,
+                                           whole: false)
         }
     }
 
-    private func loadMessageOnce(id: String, letter: UInt64?, mailboxID: String) async throws -> Message {
+    /// `whole` fetches the letter whole whatever its size: a draft of his,
+    /// which he may change and save again, and whose text must then all be
+    /// there, and whose files go again from the copy this fetches.
+    private func loadMessageOnce(id: String, letter: UInt64?, mailboxID: String,
+                                 whole: Bool) async throws -> Message {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
+        if !whole, let size = largeLetterSize(id, in: name), size > largeAbove {
+            return try await loadLetterInPartOnce(id: id, letter: letter, mailboxID: mailboxID,
+                                                  name: name, uid: message.uid,
+                                                  validity: message.validity, client: client)
+        }
 
         let raw: Data
         // Which letter it is, for what a Forward, a reply or a reopened
@@ -1381,8 +1458,98 @@ actor IMAPMailRepository: MailRepository {
         }
         lastBody = (id, named, raw)
 
-        let decoded = MIMEDecoder.decodeMessage(raw)
-        let headers = MIMEDecoder.parseHeaders(raw)
+        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
+                           decoded: MIMEDecoder.decodeMessage(raw), named: named)
+    }
+
+    /// A letter above `largeAbove`, as the reading pane shows it: its
+    /// header, the first `largeSection` bytes of its text and of its
+    /// HTML, and its files listed from its structure and left on the server
+    /// (`IMAPClient.fetchLetterInPart`). A file comes when he taps it, and a
+    /// picture the HTML shows as the pane asks for it, each by its section
+    /// alone while this is the letter last opened so, its structure kept
+    /// (`lastStructure`, `fetchAttachmentData`); a forward's files and
+    /// pictures come when it is sent, as any part not in `lastBody` does
+    /// (`carriedPart`).
+    ///
+    /// Whole, a crafted letter of 35 MB of line breaks came to 1.66 GB in a
+    /// release build on this host, and one of 25 MB of CRLF took 14 s on
+    /// this actor; even an ordinary letter of photographs held the one
+    /// connection for all its megabytes before a word of it showed.
+    ///
+    /// The same questions the whole letter's FETCH asks, in the same
+    /// cases: Gmail's id for it beside the first FETCH, compared before
+    /// anything more is asked for or anything shown, for a row this launch
+    /// has not had from the server (D-016); asked, and nothing compared,
+    /// for a copy this launch put in Drafts itself.
+    private func loadLetterInPartOnce(id: String, letter: UInt64?, mailboxID: String,
+                                      name: String, uid: UInt32, validity: UInt32,
+                                      client: IMAPClient) async throws -> Message {
+        var named = letter ?? seenLetter(uid, validity: validity, in: name)
+        let asked = try question(about: id, named: letter, uid: uid, validity: validity,
+                                 in: name, sayingSo: "nothing-shown")
+        let question: IMAPClient.LetterQuestion = asked.map { .expecting($0) }
+            ?? (named == nil && appendedHere.contains(Self.key(id, in: name)) ? .ifNamed : .none)
+        let limit = largeSection
+        let fetched = try await client.fetchLetterInPart(
+            uid: uid, in: name, validity: validity, question: question, sectionBytes: limit
+        ) { structure in
+            let chosen = MIMEDecoder.bodyParts(of: structure)
+            return [chosen.text, chosen.html].compactMap { $0?.section }
+        }
+        if let asked {
+            try settle(fetched.letter, askedOf: id, uid: uid, validity: validity, as: asked,
+                       in: name, sayingSo: "nothing-shown")
+            named = asked
+        } else if question == .ifNamed {
+            if let found = fetched.letter { saw([uid: found], validity: validity, in: name) }
+            named = fetched.letter
+        }
+
+        var decoded = DecodedBody(text: nil, html: nil)
+        var shortened = false
+        if let structure = fetched.structure {
+            // The files, less the two parts shown, as `flatten` lists them
+            // for a letter fetched whole.
+            decoded = MIMEDecoder.flatten(structure) { _ in nil }
+            let chosen = MIMEDecoder.bodyParts(of: structure)
+            let text = Self.text(of: chosen.text, fetched: fetched.sections, limit: limit)
+            let html = Self.text(of: chosen.html, fetched: fetched.sections, limit: limit)
+            decoded.text = text.text
+            decoded.html = html.text
+            // By the part the pane shows, which is the HTML whenever there
+            // is any (`PanePage`): a text alternative cut short under HTML
+            // that came whole is not what he reads.
+            shortened = html.text != nil ? html.cut : text.cut
+            lastStructure = (id, structure)
+        }
+        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
+                           decoded: decoded, named: named, shortened: shortened)
+    }
+
+    /// The text of `part` from its section in `fetched`, and whether that
+    /// is only its first `limit` bytes. A section cut short can end inside
+    /// a character, which would make the whole of it fail as UTF-8 and read
+    /// as Latin-1, so what is left of that character is dropped between the
+    /// two decodings, as a preview drops it.
+    private static func text(of part: MIMEPart?, fetched: [String: Data],
+                             limit: Int) -> (text: String?, cut: Bool) {
+        guard let part, let data = fetched[part.section] else { return (nil, false) }
+        let charset = MIMEDecoder.parameter("charset", in: part.parameters)
+        let cut = part.size.map { $0 > limit } ?? (data.count >= limit)
+        guard cut else {
+            return (MIMEDecoder.decodeText(data, encoding: part.encoding, charset: charset), false)
+        }
+        let bytes = PreviewText.trimmingSplitCharacter(
+            MIMEDecoder.decodeTransfer(data, encoding: part.encoding))
+        // "8bit" because the transfer encoding has already been undone above.
+        return (MIMEDecoder.decodeText(bytes, encoding: "8bit", charset: charset), true)
+    }
+
+    /// The letter the pane shows, from its header and its decoded parts.
+    private static func letter(_ id: String, in mailboxID: String,
+                               headers: [(name: String, value: String)], decoded: DecodedBody,
+                               named: UInt64?, shortened: Bool = false) -> Message {
         func header(_ n: String) -> String? {
             MIMEDecoder.headerValue(n, in: headers).map(MIMEDecoder.decodeWord)
         }
@@ -1414,7 +1581,8 @@ actor IMAPMailRepository: MailRepository {
                 .trimmingCharacters(in: .whitespaces),
             references: MIMEDecoder.headerValue("References", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
-            gmailMessageID: named)
+            gmailMessageID: named,
+            isShortened: shortened)
     }
 
     private static let rfc2822: DateFormatter = {
@@ -1617,6 +1785,7 @@ actor IMAPMailRepository: MailRepository {
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
         if lastBody?.messageID == id { lastBody = nil }
+        if lastStructure?.messageID == id { lastStructure = nil }
         // Off the kept pages as Gmail takes it off its folders (D-016): out
         // of every one but the Trash or Spam it went to, which are
         // exclusive; out of none when it leaves All Mail for a label, since
@@ -2143,9 +2312,15 @@ actor IMAPMailRepository: MailRepository {
     /// Without the signature's pictures among its files: `saveDraft` stored
     /// them only so the markup resolves, and saving or sending adds them
     /// again. See `Draft.reopening` (B-046).
+    ///
+    /// Fetched whole, however large: it is his own letter, only a draft of
+    /// his is opened here, and he may change it and save or send it again,
+    /// which a text cut short would send cut short.
     func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
-        let message = try await loadMessage(id: id, gmailMessageID: gmailMessageID,
-                                            mailboxID: mailboxID)
+        let message = try await retryingIfDisconnected {
+            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID,
+                                           whole: true)
+        }
         return Draft.reopening(message, signatureImages: signatureImages())
     }
 
@@ -2403,6 +2578,15 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// `Attachment.id` is the MIME section path, so a part can still be
     /// pulled on its own rather than by re-downloading the message it is in.
+    ///
+    /// A part of the letter last opened without its files is its section's
+    /// FETCH alone, the structure already known (`lastStructure`). The pane
+    /// asks for each picture such a letter shows this way, one after
+    /// another on the one connection. Described again first, as a part of a
+    /// letter no longer to hand is, each picture was two FETCHes, one of
+    /// them the whole structure, which grows with the pictures: a letter of
+    /// 300 took 603 FETCHes to open and show, and one of 500 would read a
+    /// structure of 54 KB 500 times.
     func fetchAttachmentData(_ attachmentID: String, of messageID: String, mailboxID: String) async throws -> Data {
         if let cached = lastBody, cached.messageID == messageID,
            let data = Self.part(attachmentID, of: cached.raw) {
@@ -2411,10 +2595,34 @@ actor IMAPMailRepository: MailRepository {
         // A read, so a socket that died while he wrote costs a reconnect
         // rather than the Send (B-023): a forward fetches its files here
         // when the letter on screen is no longer the one it forwards.
+        if let known = lastStructure, known.messageID == messageID,
+           let part = MIMEDecoder.part(at: attachmentID, in: known.structure) {
+            return try await retryingIfDisconnected {
+                try await self.fetchKnownPartOnce(attachmentID, part, of: messageID,
+                                                  mailboxID: mailboxID)
+            }
+        }
         return try await retryingIfDisconnected {
             try await self.fetchAttachmentDataOnce(attachmentID, of: messageID,
                                                    mailboxID: mailboxID)
         }
+    }
+
+    /// The part at `section` of the letter `messageID`, described by `part`
+    /// from a structure already fetched: `UID FETCH <uid> (UID
+    /// BODY.PEEK[<section>])`, in one hold with its SELECT and UIDVALIDITY
+    /// check (B-039), and decoded as `part` says it is wrapped.
+    private func fetchKnownPartOnce(_ section: String, _ part: MIMEPart, of messageID: String,
+                                    mailboxID: String) async throws -> Data {
+        let client = try await connected()
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(messageID)
+        let raw = try await client.fetchBody(uid: message.uid, section: section, in: name,
+                                             validity: message.validity)
+        guard !raw.isEmpty else { throw MailError.attachmentFailed }
+        let decoded = MIMEDecoder.decodeTransfer(raw, encoding: part.encoding)
+        guard !decoded.isEmpty else { throw MailError.attachmentFailed }
+        return decoded
     }
 
     /// The part `section` of a whole letter already downloaded, decoded,
