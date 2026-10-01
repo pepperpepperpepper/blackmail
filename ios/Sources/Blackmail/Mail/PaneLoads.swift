@@ -190,7 +190,9 @@ extension Message {
     ///
     /// No recipients, because the row has none, so the header reads "To: me"
     /// until the letter lands; one line either way, so nothing moves when it
-    /// does. The files are the row's, from the letter's structure, and they
+    /// does. Nor a Cc, so a letter with one gains its Cc line as it lands,
+    /// one line of the meta type, the one thing in the header that moves
+    /// (B-055). The files are the row's, from the letter's structure, and they
     /// are the ones the landed letter lists: a row each, at least 44 pt
     /// tall, which the header used to gain only when the body came, pushing
     /// the letter or a conversation's stack down under him. `subject` is the

@@ -43,6 +43,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       - [ ] a guard so the signature cannot be wiped by accident
       - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
+      - [x] the reading pane runs no letter's script and goes nowhere by
+            itself. *Done 2026-09-30, not yet seen on the iPad: script off,
+            the pane's own in the app's content world, only its own pages
+            loaded, WebKit's data in memory; pictures from the web still
+            load. See B-055, and its check under "Blocked on the iPad
+            coming back".*
 - [ ] On the day: Smart Invert off, what to do about Apple Mail's badges,
       the six-task test with him.
 
@@ -80,11 +86,17 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 **Small, every day:**
 
-- [ ] Links in plain-text letters cannot be tapped (`PanePage` escapes and
+- [x] Links in plain-text letters cannot be tapped (`PanePage` escapes and
       nothing links them; WebKit's data detectors are off). About a third of
-      his own shared links are plain text.
+      his own shared links are plain text. *Done 2026-09-30, not yet seen
+      on the iPad: `http://`, `https://`, `www.` and `mailto:` made links as
+      the page is built, the sentence's punctuation left out as Mail leaves
+      it, and in HTML letters' text too. See B-055.*
 - [ ] Sent and Drafts rows show his own name, not the recipient's.
-- [ ] The reading pane never shows Cc, nor any bare address.
+- [x] The reading pane never shows Cc, nor any bare address. *Done
+      2026-09-30, not yet seen on the iPad: Cc under To, names, and the
+      address where there is none, To the same; a name with a comma in it
+      is one recipient. See B-055.*
 - [ ] Reply ignores Reply-To; replying to his own letter addresses it to
       himself; Reply All misses his second address.
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
@@ -892,6 +904,45 @@ this host. Ordered by value, not by size.
       is made by hand by giving kept rows ids of no letter there, with the
       app ended (B-053); a letter opened from one needs the slower
       connection too.
+- [ ] **B-055, the reading pane locked down, links in plain letters, Cc.**
+      None of it seen on the iPad yet. Send the test account the letters
+      below from another account; not his mailbox.
+      Every letter, notice and conversation still draws at all: the pane
+      now loads only `about:blank` from `loadHTMLString`, and if WebKit
+      named the pane's own page otherwise, nothing would.
+      *A conversation.* Three letters or more: the newest open, the rest
+      lines. Tap a closed line: it opens, its body comes, the header and
+      Reply move to it, its dot and one count go, and the line greys under
+      the finger as it did. Tap it again: it closes. Open two in quick
+      succession; leave the pane fifteen seconds and open another, whose
+      body goes in after WebKit's pause. With letters open, `killall -9
+      com.apple.WebKit.WebContent`: the stack comes back with them open and
+      their bodies in (B-042).
+      *Links in plain letters.* A plain-text letter, from a client set to
+      send plain text, with a YouTube link, a Wikipedia link ending
+      `_(film)`, `www.example.com.`, `(https://example.com/a),` and a
+      `mailto:` in it: each is a link, whole, the full stop and brackets
+      not in it. A tap
+      asks "Open this link?" with the site's name and Open goes to Safari;
+      the `mailto:` opens the composer with its address. The same in a
+      conversation, and an address written in an HTML letter's text.
+      Hold a finger on one: note what WebKit's menu offers and whether its
+      preview loads the page, for the owner's question below.
+      *Cc.* A letter with a named Cc, an unnamed one, and one named
+      `"Example, Pat"`: "Cc: …" under To in To's grey, the rule under it,
+      Pat once; Reply All puts Pat in once. A letter with no Cc: the header
+      as it was. In a conversation mixing the two, the stack moves a line
+      when the Cc letter's header comes: say whether that is a nuisance.
+      *A letter that tries to go somewhere.* HTML with `<meta
+      http-equiv="refresh" content="0;url=https://example.com">`, an
+      `<iframe src="https://example.com">`, a `<form
+      action="https://example.com">` with a field and a button, a
+      `<script>` that rewrites the page, and `<img src=x onerror=…>`: the
+      letter stays as written, the frame is empty, the button does
+      nothing, no script's change shows, and the connection log holds
+      nothing of the letter. The same letter inside a conversation.
+      *Pictures from the web.* A newsletter's pictures still load, as
+      before.
 - [ ] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
@@ -931,6 +982,16 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Signature in the source?** (B-035)
 - [ ] **Mail's conversation stack default** — thirty seconds on an iPhone;
       newest-first is currently a guess, not a copy
+- [ ] **Pictures from the web in letters** — they load, as they always
+      have, and a tracking pixel tells its sender the letter was opened; the
+      spec asks for them blocked by default if feasible (B-055)
+- [ ] **A long press on a link** — WebKit's own menu, whose preview loads
+      the page without "Open this link?"; every address in a plain letter
+      is a link now. Leave it, or `allowsLinkPreview` off (B-055)
+- [ ] **The Cc line arriving with the letter** — a conversation's stack
+      moves down a line under him, against B-042's header of its final
+      height from the tap. Let it stand and write it into B-042, or carry
+      the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
 
 ## Open, recorded, not scheduled
 

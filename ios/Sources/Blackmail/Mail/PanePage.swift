@@ -11,6 +11,12 @@ import Foundation
 /// at the loader, working out whether there is anything in it to show, and
 /// escaping plain text. On a letter of a megabyte that held the screen for
 /// a tenth of a second or more; see PERFORMANCE.md #1.
+///
+/// The links a letter writes out as words are made links here as well
+/// (`TextLinks`): the pane runs no script of the letter's and has WebKit's
+/// data detectors off, so a link the page does not carry as `<a>` cannot be
+/// tapped. A tap on one goes where a tap on any link in a letter goes
+/// (`PaneNavigation`).
 enum PanePage {
 
     /// The pane's measurements, read from `Theme` on the main thread and
@@ -53,12 +59,10 @@ enum PanePage {
         // not reliably whitespace and the document may open with a layout
         // table.
         let content = isHTML
-            ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
-                                          known: contentIDs(of: m))
-            : (m.textBody ?? "")
-                .drop(while: { $0 == "\n" || $0 == "\r" })
-                .replacingOccurrences(of: "&", with: "&amp;")
-                .replacingOccurrences(of: "<", with: "&lt;")
+            ? TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
+                                                         known: contentIDs(of: m)))
+            : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                              escaping: .ampersandAndLessThan)
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -102,17 +106,18 @@ enum PanePage {
     /// One letter's body for its section of a conversation's stack: the
     /// sender's markup without its wrapper, text escaped with its leading
     /// blank lines dropped as a letter on its own drops them, or the words
-    /// for a letter with nothing in it.
+    /// for a letter with nothing in it. Its links are made links as a
+    /// letter on its own has them.
     static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
-               ? InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
-                                             known: contentIDs(of: m))
-               : ConversationDocument.escape(String((m.textBody ?? "")
-                                                        .drop(while: { $0 == "\n" || $0 == "\r" }))))
+               ? TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
+                                                            known: contentIDs(of: m)))
+               : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                                 escaping: .ampersandAndBrackets))
         return .init(html: content, isHTML: isHTML && !empty)
     }
 }

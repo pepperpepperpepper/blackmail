@@ -678,6 +678,70 @@ enum MailFormat {
         let name = sender[..<angle].trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? sender : name.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
     }
+
+    /// The entries of an address list, a To or Cc header as it came: split
+    /// on the commas between addresses, and not on a comma inside a quoted
+    /// name, `<…>` or a comment. `"Example, Jane" <jane@example.com>, Sam
+    /// Example <sam@example.com>` is two entries, where splitting on every
+    /// comma made three, the first of them `"Example`, which the reading
+    /// pane showed as a name and Reply All tried to send to.
+    ///
+    /// A quote, bracket or comment never closed is a broken header, and it
+    /// is split on every comma, as every header used to be, rather than
+    /// have one stray quote take every address after it into one entry.
+    static func addressList(_ field: String) -> [String] {
+        var entries: [String] = []
+        var entry = ""
+        var quoted = false, escaped = false, bracketed = false
+        var comments = 0
+        for c in field {
+            if escaped {
+                escaped = false
+                entry.append(c)
+                continue
+            }
+            switch c {
+            case "\\" where quoted || comments > 0: escaped = true
+            case "\"" where !bracketed && comments == 0: quoted.toggle()
+            case "<" where !quoted && comments == 0: bracketed = true
+            case ">" where !quoted && comments == 0: bracketed = false
+            case "(" where !quoted && !bracketed: comments += 1
+            case ")" where !quoted && !bracketed && comments > 0: comments -= 1
+            case "," where !quoted && !bracketed && comments == 0:
+                entries.append(entry)
+                entry = ""
+                continue
+            default: break
+            }
+            entry.append(c)
+        }
+        entries.append(entry)
+        if quoted || escaped || bracketed || comments > 0 {
+            entries = field.components(separatedBy: ",")
+        }
+        return entries.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// How the reading pane names a recipient, as Mail does: the name, or
+    /// the address where there is no name. "Jane Example" for `Jane Example
+    /// <jane@example.com>` and `"Jane Example" <…>`; `jane@example.com` for
+    /// that address alone, `<jane@example.com>`, or `"" <jane@example.com>`,
+    /// which used to show as the brackets and address, and as nothing.
+    static func recipientName(_ entry: String) -> String {
+        let entry = entry.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard entry.contains("<") else { return entry }
+        let name = displayName(entry)
+        return name.isEmpty || name == entry ? bareAddress(entry) : name
+    }
+
+    /// A line of the reading pane's header naming `entries`, the To or Cc
+    /// header's: "Cc: Jane Example, sam@example.com". Nil when there are
+    /// none, and the header has no such line.
+    static func recipientsLine(_ field: String, _ entries: [String]) -> String? {
+        guard !entries.isEmpty else { return nil }
+        return field + ": " + entries.map(recipientName).joined(separator: ", ")
+    }
 }
 
 /// The list's and the reading pane's date formatters, built once and kept.

@@ -4423,3 +4423,160 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
+
+---
+
+## B-055 — CHANGED 2026-09-30, not yet seen on the iPad. The reading pane runs no letter's script and goes nowhere by itself; links in plain letters can be tapped; Cc under To
+
+**What was wrong.** Three things, all in the reading pane.
+
+- The pane's web view had WebKit's default settings: every letter's script
+  ran, and every navigation but a tapped link was allowed. A letter could
+  send the pane to a web page of its own choosing, with no address bar, a
+  false Google sign-in for one, by a `<meta http-equiv="refresh">`, a frame,
+  a form sent or its own script, and it ran script on a WebKit that, once
+  the app is installed, may never be updated. In a conversation, a body put
+  in by the page's script could still run an `onerror=`. A comment at the
+  web view's setup said remote content was blocked; nothing blocked it.
+  WebKit also kept cookies, a cache and site data from the pictures letters
+  load in the app's container, the one store the app did not bound.
+- A link written out as words in a plain letter could not be tapped: the
+  pane escaped it and nothing made it a link, WebKit's data detectors being
+  off. About a third of the links he shares with himself arrive that way.
+- The header never showed Cc, and wrote a recipient with no name as
+  `<jane@example.com>`, or as nothing for `"" <jane@example.com>`.
+
+**The pane, locked down** (`MessageDetailViewController`,
+`PaneNavigation`, `ConversationDocument`).
+
+- No script of a letter's runs: `allowsContentJavaScript` is off. On the
+  iPad's WebKit that also has the parser drop a letter's `<script>`s, its
+  `on…=` handlers and its `javascript:` links as the page is read, and as a
+  conversation's body is put into its section.
+- The pane's own script, which opens and closes a letter of a conversation
+  and puts its body in, is no longer written into the page, where it would
+  not run now either. It is a user script in the app's own content world,
+  and each letter's line is wired with `addEventListener` where it had an
+  `onclick`. A letter's markup cannot see it or call it, nor post to the
+  `bmLetter` handler, which is registered in that world alone; a single
+  letter's page gets nothing wired, whatever the letter draws. A tap does
+  what it did: the line opens or closes its letter, a letter opened is
+  fetched if it has not been and marked read, and the header and the
+  toolbar move to it.
+- The pane loads its own pages and nothing else. The one navigation allowed
+  is the page the pane hands WebKit, `loadHTMLString` with no base URL,
+  which WebKit loads as `about:blank` in the main frame. Every other page in
+  the pane, every frame inside a letter, every form sent, back, forward and
+  reload are cancelled. A tapped link does what it did: "Open this link?"
+  with the site's name, then Safari, or this app's composer for `mailto:`,
+  a link aimed at a new window or a frame included. A letter that sends the
+  pane to `about:blank` itself can empty its own page, and do nothing else.
+- Nothing of WebKit's is kept on the iPad (`websiteDataStore =
+  .nonPersistent()`): the pictures' cookies and cache last as long as the
+  web view does, in memory.
+- Pictures from the web still load, as they always have, and a tracking
+  pixel among them still tells its sender the letter was opened. Blocking
+  them is the owner's to decide, and open. The comment now says so.
+
+What he may notice: nothing, on nearly every letter. A letter that
+refreshed itself or sent the pane elsewhere stays where it is, and a form's
+button does nothing. A letter built by its own script, almost none in
+email, shows what it has without it. On a later iOS, whose WebKit reads
+`<noscript>` as markup when script is off, a letter's `<noscript>` content,
+which never showed, may.
+
+**Links in plain letters** (`TextLinks`, `PanePage`). `http://`,
+`https://`, `www.` and `mailto:`, found as Mail finds them: not run on from
+a word, to the first space or line break, quote, bracket or ellipsis, with
+the sentence's full stop, comma or closing bracket given back to it, so
+`(see https://example.com/a).` links `https://example.com/a` and a
+Wikipedia address ending `_(film)` keeps its bracket. A `www.` address goes
+to `http://`. In the pane's link blue for plain text, `#0A84FF`, which the
+page has always set and nothing used. A tap goes where a tap on any link in
+a letter goes. The text is cut into words and links before anything is
+escaped, and every piece is escaped, so nothing of the sender's reaches the
+page as markup, and a letter with no link in it comes out byte for byte as
+it did.
+
+In HTML letters too, in their text only: never in a tag or an attribute, a
+comment, a `<script>`, `<style>`, `<textarea>` or `<title>`, and never
+inside a link the sender wrote. The link is the text as it stands, so it
+reads as it did. Where HTML can hold a sender's link open in ways a pass
+this simple cannot see, it stops, and the rest of the letter is as it
+came: at `<svg>`, `<math>`, `<noscript>`, `<select>`, `<plaintext>`, a
+`<script>` with a comment in it, anything left unclosed, and after a
+sender's link that encloses a table, a cell or the like. There an address
+Mail would link stays words. A bare address such as `sam@example.com` is
+not made a link; Mail makes it one.
+
+Faster, as it happens: the escaping is done a byte at a time as the links
+are found, not by `replacingOccurrences` on each piece. Release build on
+this host: a plain letter of a megabyte with no link, 13 ms where
+`replacingOccurrences` took 118; a megabyte of nothing but links, 29,000 of
+them, 22 ms; an HTML megabyte, 8 ms more than it took.
+
+**Cc** (`MessageHeaderView`, `MailFormat`). Under To, in To's font, colour
+and inset: "Cc: Jane Example, sam@example.com". Names, and the address where
+there is none, as Mail writes them, and the To line the same way, so
+`<jane@example.com>` reads `jane@example.com`. No Cc, no line, and a letter
+without one lays out as it did. The header is drawn from the list's row at
+the tap, and the row has no recipients, so a letter with a Cc gains its
+line as the letter lands. Over a conversation that moves the stack down a
+line as the newest letter's body comes, and opening another of its letters
+moves it a line when one has a Cc and the other none, as the files' rows
+already do. To and Cc are split between addresses, not at every comma:
+`"Example, Jane" <jane@example.com>` is one recipient where it was two,
+`"Example` and `Jane" <jane@example.com>`, and a name whose comma is inside
+an encoded word is split only once decoded. Reply All goes to each such
+address once, where it put `"Example` among the letter's recipients. A
+list with a quote or bracket never closed is split at every comma, as
+before.
+
+**Tested** in the host suite.
+
+- `PaneNavigationTests`: the decision for every kind of navigation, in the
+  pane, a frame and a new window, and the pane's own page the only one
+  loaded. And, read from the view controller's source, which the host
+  cannot build: script off and the data kept in memory, set before the web
+  view is built from them, when WebKit copies them; the user script in the
+  app's world; the handler and the fill there and nowhere else; every
+  navigation through `PaneNavigation`.
+- `ConversationDocumentTests`: no script and no handler written in the
+  stack's page; the user script's wiring, and nothing wired on a letter's
+  own page.
+- `TextLinksTests`: the kinds, the ends, what is not a link, nothing twice,
+  the escaping, HTML's text only, what is left alone, 1,500 seeded letters
+  that gain links and nothing else, and the work counted on 25 letters
+  built to make it grow: four times the letter is four times the steps, at
+  most four steps a byte.
+- `PanePageTests`: every letter with no link comes out byte for byte as
+  before, the one with a link differs by its `<a>` alone, and an HTML
+  letter's links in its page and its stack body.
+- `ReadingPaneCcTests`: the split, the names, the lines, the header's wiring
+  from its source, and a letter read by the repository from the scripted
+  server, with Reply All from it.
+
+Each of 59 sabotages (a rule reverted, a setting taken out or moved after
+the web view is built, the script put back in the page, the Cc line or its
+split undone) fails at least one of these. Checked outside the suite and
+not kept: the stack's script run in a DOM (jsdom) on the pane's own pages,
+taps opening and closing letters and telling the pane as before, a body
+put in, and a line a letter draws never wired; and 18,000 generated HTML
+letters, linked and read back by an HTML5 parser (html5lib), their trees
+unchanged but for the links, no link inside another or outside the text.
+The one difference, in 19 of them, was a space left inside a `<table>` the
+parser had moved the text out of, which draws nothing.
+
+**Not yet seen on the iPad.** None of it. The TODO says what to look at.
+
+**Open, for the owner.** Whether letters' pictures from the web load
+(the spec asks for them blocked by default if feasible). A long press on a
+link still brings up WebKit's own menu, whose preview loads the page
+without "Open this link?" (not looked at on the iPad). That was so for an
+HTML letter's links before; every address in a plain letter is now one
+too. Turning it off is one line, `allowsLinkPreview`. The Cc line arriving
+with the letter moves a conversation's stack down a line under him, where
+B-042 has the header its final height from the tap: either that is let
+stand and written into B-042 as its exception, or the list's rows carry
+the Cc, which the ENVELOPE they are listed from already holds, so the
+header has its line from the tap. A bare address is not made a link.

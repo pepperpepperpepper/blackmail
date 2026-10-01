@@ -1386,10 +1386,12 @@ actor IMAPMailRepository: MailRepository {
         func header(_ n: String) -> String? {
             MIMEDecoder.headerValue(n, in: headers).map(MIMEDecoder.decodeWord)
         }
+        // Split between addresses before the encoded words are decoded: a
+        // name encoded as `=?UTF-8?Q?Example=2C_Jane?=` holds a comma once
+        // decoded, and is one address.
         func addresses(_ n: String) -> [String] {
-            (header(n) ?? "")
-                .components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            MailFormat.addressList(MIMEDecoder.headerValue(n, in: headers) ?? "")
+                .map { MIMEDecoder.decodeWord($0).trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
         }
 
