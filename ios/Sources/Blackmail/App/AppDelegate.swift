@@ -14,6 +14,12 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     public func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // First, before anything kept on the iPad is read: this launch is
+        // counted, and after launches in a row that never finished, what
+        // they read before the first frame is set aside (B-057). With no
+        // updates ever, a crash at every launch would otherwise end the app
+        // for good, and deleting it would take the letters kept only here.
+        SafeStart.app.launch()
         // No scene delegate and no UIApplicationSceneManifest. The proven
         // shape on this pipeline is plain UIApplicationMain + UIWindow, and
         // the starter's UISceneConfiguration without a manifest is exactly why
@@ -43,6 +49,12 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         window.rootViewController = Self.makeRoot()
         window.makeKeyAndVisible()
         self.window = window
+        // The setup form has no page and no pass: half a minute after it
+        // is up, the launch has finished. The mail's screens say so
+        // themselves, after their first page and first pass.
+        if !(window.rootViewController is RootViewController) {
+            SafeStart.app.firstPageTried(passEnded: {})
+        }
         // Hunts for views Auto Layout has not actually been told the size
         // of. Two bugs of exactly that shape have now reached the device
         // (B-027, B-029), both invisible until something unrelated moved.
@@ -75,10 +87,35 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// The copy of his mail kept on the iPad the same (D-016): what has
     /// changed since its last write, the Inbox's page listed a moment ago
     /// or a letter just read, is written now.
+    ///
+    /// And the launch has finished (`SafeStart`): an app that has come as
+    /// far as the background did not crash at launch, however soon he
+    /// left. A crash, or iOS's watchdog ending it, never comes here.
     public func applicationDidEnterBackground(_ application: UIApplication) {
+        SafeStart.app.finished()
         RecipientBook.shared.flush()
         (window?.rootViewController as? RootViewController)?.repository.shelf?.flush()
         Self.syncShareMirror()
+    }
+
+    /// Ended while it was still running, swiped away in the app switcher
+    /// before iOS had suspended it, or ended by iOS for a reason of its own:
+    /// the launch got going, and has finished (`SafeStart`). Apple documents
+    /// this as called for an app ended while running rather than suspended;
+    /// whether a swipe from the switcher sends it to the background first is
+    /// not documented, and a quick look ended that way must not count. A
+    /// crash, or the watchdog, never comes here.
+    ///
+    /// For the same reason the tries the pass has on their way are taken
+    /// back, as leaving takes them back (`LocalDrafts.wentToBackground`): he
+    /// ended the app, which is no fault of the letter's, and a letter swiped
+    /// away mid-send three times would otherwise be given up on. Only once
+    /// the mail's screens are up: the setup form has no letters to take.
+    public func applicationWillTerminate(_ application: UIApplication) {
+        SafeStart.app.finished()
+        if window?.rootViewController is RootViewController {
+            LocalDrafts.shared.wentToBackground()
+        }
     }
 
     /// Back from the background, where he may have shared from Safari: who

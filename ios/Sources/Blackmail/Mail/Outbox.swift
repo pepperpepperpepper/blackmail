@@ -119,14 +119,37 @@ enum Outbox {
     static let notice = "Message is in the Outbox. It will be sent when the iPad is connected "
         + "and Blackmail is open."
 
+    /// The notice for a letter that waits in the Outbox after his Send but
+    /// is held (`LocalDrafts.isHeld`), as a letter brought back into the
+    /// Outbox is, and his Send that could not reach the server leaves it:
+    /// no pass will send it, so `notice` would promise what never happens
+    /// and he would have no reason to look in the Outbox again. Where it
+    /// is, that it will not go by itself, as its row says
+    /// (`notSentByItself`), and what to do, in the order he does it.
+    static let heldNotice = "Message is in the Outbox. It will not be sent automatically. "
+        + "When the iPad is connected, open it and tap Send."
+
     /// The first line of the row of a letter no pass will send: an attempt
     /// at it was cut off after its DATA before a password was saved, so
     /// Gmail may have it, and Sent Mail, which would say, may now be
-    /// another mailbox's (`LocalDraftStore.unsettledBeforeASave`). Not
-    /// "Message was not sent.", which may be untrue, and would have him send
-    /// it again for that reason. What he does about it is his: tapped and
-    /// sent, it goes.
+    /// another mailbox's (`LocalDraftStore.unsettledBeforeASave`); or one
+    /// with such an attempt that the pass has given up on (B-057,
+    /// `LocalDrafts.outboxRows`). Not "Message was not sent.", which may be
+    /// untrue, and would have him send it again for that reason. What he
+    /// does about it is his: tapped and sent, it goes.
     static let mayHaveGone = "May already have been sent."
+
+    /// The first line of the row of a letter the pass has given up on, after
+    /// tries at it that the app never lived through (B-057,
+    /// `LocalDrafts.unfinishedTries`), or brought back held from where a
+    /// safe start set it aside (`LocalDraftStore.bringBack`): it goes only
+    /// when he sends it. What
+    /// is wrong with it cannot be known on the iPad, so this says what will
+    /// not happen and what to do, in two plain sentences. The app's own:
+    /// Mail has no such state to copy the words of. Never for one with an
+    /// attempt whose DATA went, which may have been delivered and says so
+    /// (`mayHaveGone`).
+    static let notSentByItself = "Not sent automatically. Open it and tap Send."
 
     /// The line under a list while letters wait: Mail's "1 Unsent Message",
     /// as its status bar is quoted and pictured (OS X Daily, 2014 and 2016).

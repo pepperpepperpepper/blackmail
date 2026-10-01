@@ -257,6 +257,11 @@ final class RootViewController: UIViewController {
             // is one. It sends no password that has been refused.
             self?.firstPageTried = true
             self?.watch.start()
+            // The first page is drawn, as fetched, as kept, or as nothing
+            // to draw, and the pass it set off over the letters kept on the
+            // iPad is on its way if there was one: half a minute after that
+            // pass, the launch has finished (B-057).
+            SafeStart.app.firstPageTried(passEnded: { await LocalDrafts.shared.passEnded() })
         }
     }
 
@@ -291,6 +296,9 @@ final class RootViewController: UIViewController {
             // MainActor isolation as far as the compiler is concerned.
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                // In front of him again: the pass's tries count again, from
+                // the one this return sets off (B-057).
+                LocalDrafts.shared.cameToForeground()
                 // A connection quiet long enough to have died while the iPad
                 // slept is probed now, and replaced if it has, rather than by
                 // the first thing he taps. Nothing waits for it. Then the
@@ -320,7 +328,12 @@ final class RootViewController: UIViewController {
     /// connection then (`LocalDrafts.uploadWaiting`). Asked for here, on
     /// the main thread as the notification is posted, so the time is asked
     /// for before iOS can suspend the app.
+    ///
+    /// The tries on their way are taken back first, and these are not
+    /// counted: iOS may end the app before they are done, which says
+    /// nothing about the letters (B-057, `LocalDrafts.wentToBackground`).
     @objc private func leavingTheApp() {
+        LocalDrafts.shared.wentToBackground()
         LocalDrafts.shared.uploadWaiting(to: repository, largeToo: true)
     }
 

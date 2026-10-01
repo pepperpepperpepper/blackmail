@@ -15,7 +15,8 @@ import Foundation
 /// Linux host like everything else that lives in Mail/.
 enum ConversationSettings {
 
-    private static let key = "blackmail.organizeByThread"
+    /// Not private: a safe start takes it back to its default (`SafeStart`).
+    static let key = "blackmail.organizeByThread"
 
     /// Grouped unless he has said otherwise.
     ///

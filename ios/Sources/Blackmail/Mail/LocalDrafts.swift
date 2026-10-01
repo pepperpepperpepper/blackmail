@@ -77,6 +77,15 @@ struct LocalDraft {
     /// whether an `unsettled` attempt reached Gmail, may be another
     /// mailbox's (`LocalDraftStore.unsettledBeforeASave`).
     var unsettledSaves = 0
+    /// Tries by the automatic pass that never ended: each written down just
+    /// before the pass takes the letter, and cleared once a try returns or
+    /// throws, so what is left counts tries the app did not live through
+    /// (`LocalDrafts.countTry`). At `LocalDrafts.unfinishedTries` the pass
+    /// passes it over, and it waits for him (B-057). 0 for a letter no pass
+    /// has taken since, and for one kept by a build before the count was.
+    /// Written as `LocalDrafts.unfinishedTries` by Bring Back, with no try,
+    /// on a letter it brings back held (`LocalDraftStore.bringBack`).
+    var autoAttempts = 0
 
     /// Where it stands in the Outbox: nil for a letter that is not there.
     var outboxState: OutboxState? {
@@ -102,17 +111,28 @@ extension LocalDraft {
     /// words, where the preview's first line would be.
     static let mark = "On this iPad only"
 
+    /// The line under the mark of a draft the pass has given up on after
+    /// tries that never ended (`LocalDrafts.unfinishedTries`): it stays here
+    /// until he saves it himself. Plain words of the app's own, as the
+    /// mark's are; Mail has nothing of the kind to copy. Save Draft is not
+    /// on the composer's bar but in the sheet its Cancel brings up, so the
+    /// way there is said a tap at a time: "Open it and tap Save Draft"
+    /// would have had him look for a button the screen does not show.
+    static let notSavedByItself =
+        "Not saved to Gmail automatically. Open it, tap Cancel, then Save Draft."
+
     /// Its row in Drafts, above the drafts on the server. Its id and thread
     /// can never be a server letter's, so it is never grouped with one: a
     /// tap has to open this letter and not whichever was newest in a stack.
     ///
-    /// `notice` is why the last try did not take it to the server, when it
-    /// is one he can do something about (`LocalDrafts.whyNotSent`), under
-    /// the mark: a file it carries from a letter that cannot be found.
+    /// `notice` is why it has not gone to the server, when it is something
+    /// he can do something about, under the mark: a file it carries from a
+    /// letter that cannot be found (`LocalDrafts.whyNotSent`), or a letter
+    /// the pass no longer takes (`notSavedByItself`).
     func row(in mailboxID: String, from sender: String,
-             notice: MailError? = nil) -> MessageSummary {
+             notice: String? = nil) -> MessageSummary {
         let text = PreviewText.fromPlainText(draft.body)
-        let lines = [Self.mark, notice?.errorDescription, text.isEmpty ? nil : text]
+        let lines = [Self.mark, notice, text.isEmpty ? nil : text]
         return row(Self.rowPrefix + key, in: mailboxID, from: sender,
                    preview: lines.compactMap { $0 }.joined(separator: "\n"))
     }
@@ -260,7 +280,7 @@ final class LocalDraftStore {
     private let files = FileManager.default
 
     /// The file in each letter's directory that says what the letter is.
-    private static let letterFile = "letter.json"
+    private nonisolated static let letterFile = "letter.json"
     /// The quote's markup, beside it. A photo's file is named by a UUID, so
     /// never this.
     private static let markupFile = "quote.html"
@@ -355,6 +375,195 @@ final class LocalDraftStore {
     /// the first pass after it was cut off under the new password.
     func unsettledBeforeASave(_ letter: LocalDraft) -> Bool {
         !letter.unsettled.isEmpty && letter.unsettledSaves < passwordSaves
+    }
+
+    // MARK: At launch
+
+    /// Removes each letter's folder under `root` that has no `letter.json`,
+    /// and returns how many went: what a first keep leaves when its JSON
+    /// could not be written, on a full disk, its photos linked into a folder
+    /// no list will ever read, and once the launch's purge has emptied the
+    /// staging the only link left to each. A letter's words are only ever
+    /// in its `letter.json`, so nothing he wrote goes with them. A folder
+    /// with one is never touched, whatever it holds and however it reads:
+    /// it may be the only copy of a letter. At launch, before anything can
+    /// be keeping a letter (`SafeStart.launch`).
+    nonisolated static func removeLeftovers(in root: URL) -> Int {
+        let files = FileManager.default
+        var removed = 0
+        for name in (try? files.contentsOfDirectory(atPath: root.path)) ?? [] {
+            let folder = root.appendingPathComponent(name, isDirectory: true)
+            var isFolder: ObjCBool = false
+            guard files.fileExists(atPath: folder.path, isDirectory: &isFolder), isFolder.boolValue,
+                  !files.fileExists(atPath: folder.appendingPathComponent(letterFile).path)
+            else { continue }
+            if (try? files.removeItem(at: folder)) != nil { removed += 1 }
+        }
+        return removed
+    }
+
+    /// Moves the whole of `root` to a folder beside it named for `date` in
+    /// `timeZone`, "Local Drafts set aside 2026-10-01 14.03.07", and returns
+    /// where; nil when it holds no letter's folder, or could not be moved.
+    /// After five launches in a row that never finished (`SafeStart`):
+    /// whatever in the letters kept here ended them, the app starts without
+    /// it, and every letter is still on the iPad, as it was, file for file.
+    /// Nothing is ever deleted here.
+    ///
+    /// A rename in one directory, so all or nothing. The new store starts
+    /// with a copy of the count of passwords saved, so that a letter of the
+    /// old one put back later compares with the new as it did with the old
+    /// (`savedSince`).
+    nonisolated static func setAside(_ root: URL, at date: Date, in timeZone: TimeZone) -> URL? {
+        let files = FileManager.default
+        let holdsALetter = ((try? files.contentsOfDirectory(atPath: root.path)) ?? []).contains {
+            var isFolder: ObjCBool = false
+            return files.fileExists(atPath: root.appendingPathComponent($0).path,
+                                    isDirectory: &isFolder) && isFolder.boolValue
+        }
+        guard holdsALetter else { return nil }
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.timeZone = timeZone
+        // No colons: a name with one shows a slash in its place elsewhere.
+        stamp.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        let parent = root.deletingLastPathComponent()
+        let name = "\(root.lastPathComponent) set aside \(stamp.string(from: date))"
+        var target = parent.appendingPathComponent(name, isDirectory: true)
+        var next = 2
+        while files.fileExists(atPath: target.path) {
+            target = parent.appendingPathComponent("\(name) \(next)", isDirectory: true)
+            next += 1
+        }
+        do { try files.moveItem(at: root, to: target) } catch { return nil }
+        let saves = target.appendingPathComponent(savesFile)
+        if files.fileExists(atPath: saves.path) {
+            try? files.createDirectory(at: root, withIntermediateDirectories: true)
+            excludeFromBackup(root)
+            try? files.copyItem(at: saves, to: root.appendingPathComponent(savesFile))
+        }
+        return target
+    }
+
+    // MARK: Letters set aside
+
+    /// The folders beside `root` that its letters were set aside in
+    /// (`setAside`), oldest first: by their names, which are the date and
+    /// time, then " 2" for a second in the same second.
+    nonisolated static func setAsideFolders(beside root: URL) -> [URL] {
+        let files = FileManager.default
+        let parent = root.deletingLastPathComponent()
+        let prefix = "\(root.lastPathComponent) set aside "
+        return ((try? files.contentsOfDirectory(atPath: parent.path)) ?? [])
+            .filter { $0.hasPrefix(prefix) }
+            .sorted()
+            .map { parent.appendingPathComponent($0, isDirectory: true) }
+            .filter {
+                var isFolder: ObjCBool = false
+                return files.fileExists(atPath: $0.path, isDirectory: &isFolder)
+                    && isFolder.boolValue
+            }
+    }
+
+    /// The letters in `folder`, by name: each folder in it with a
+    /// `letter.json`, whether or not that can be read. A folder without
+    /// one is what a failed first keep leaves, no letter
+    /// (`removeLeftovers`).
+    private nonisolated static func letterFolders(in folder: URL) -> [String] {
+        let files = FileManager.default
+        return ((try? files.contentsOfDirectory(atPath: folder.path)) ?? []).filter {
+            var isFolder: ObjCBool = false
+            let letter = folder.appendingPathComponent($0, isDirectory: true)
+            return files.fileExists(atPath: letter.path, isDirectory: &isFolder)
+                && isFolder.boolValue
+                && files.fileExists(atPath: letter.appendingPathComponent(letterFile).path)
+        }.sorted()
+    }
+
+    /// How many letters are set aside beside `root`, there to be brought
+    /// back (`bringBack`). Only names are looked at, never a letter.
+    nonisolated static func lettersSetAside(beside root: URL) -> Int {
+        setAsideFolders(beside: root).reduce(0) { $0 + letterFolders(in: $1).count }
+    }
+
+    /// Moves every letter set aside beside `root` back into it, one
+    /// letter's folder at a time, and returns how many came back: in
+    /// Settings, when he asks (`SafeStart.bringBack`). Each comes back as
+    /// it went, in Drafts or in the Outbox, with what may already have
+    /// reached Gmail still to be looked for (`unsettled`) and its own count
+    /// of unfinished tries, so a draft that crashes the pass is held by it
+    /// as any other. The count of passwords saved is left as it is: the
+    /// store has gone on from a copy of it since (`setAside`).
+    ///
+    /// A letter in the Outbox comes back held, as one the pass has given up
+    /// on (`LocalDrafts.isHeld`), and goes only when he opens it and taps
+    /// Send: his own Send has gone on without it meanwhile. One reopened
+    /// from Gmail's Drafts hides that draft's row only while it is kept here
+    /// (`LocalDrafts.replacedInDrafts`), so set aside, the draft is listed
+    /// again; sent from there, the letter would go a second time if the
+    /// pass took it. Held is written in its `letter.json` where it is set
+    /// aside, before it is moved: ended between the two, it comes back held
+    /// the next time, and one that cannot be written stays set aside.
+    ///
+    /// Nothing is written over, and no letter deleted. A letter comes back
+    /// under its own name, file for file, by a rename. One whose name is
+    /// taken in the store comes back under a new key, and so does one
+    /// whose `letter.json` names another key than its folder's, which the
+    /// store would not read: its key is written as the new name first, in
+    /// the folder it is set aside in, so an app ended between the two
+    /// leaves it to come back the next time. Such a letter is held, as one
+    /// the pass has given up on (`LocalDrafts.isHeld`), and goes only when
+    /// he sends or saves it: a key is made once, at random, so a second
+    /// folder of one name can only be a second copy of a letter, and two
+    /// of one letter in the Outbox would send it twice. One whose
+    /// `letter.json` does not decode, or is of a format this build does not
+    /// know, comes back as it is, under a new name if its own is taken, and
+    /// stays unread, as it was. One whose `letter.json` cannot be read at
+    /// all stays set aside: it may be a letter in the Outbox, and come back
+    /// unheld once it can be read.
+    ///
+    /// A folder set aside goes once it holds no letter. What else is in it
+    /// is the copy of the count of passwords saved, and folders a failed
+    /// first keep left, which a launch would have removed from the store.
+    static func bringBack(into root: URL) -> Int {
+        let files = FileManager.default
+        let folders = setAsideFolders(beside: root)
+        guard !folders.isEmpty else { return 0 }
+        if !files.fileExists(atPath: root.path) {
+            try? files.createDirectory(at: root, withIntermediateDirectories: true)
+            excludeFromBackup(root)
+        }
+        var brought = 0
+        for folder in folders {
+            for name in letterFolders(in: folder) where bringBack(name, from: folder, into: root) {
+                brought += 1
+            }
+            if letterFolders(in: folder).isEmpty { try? files.removeItem(at: folder) }
+        }
+        return brought
+    }
+
+    /// The letter in `folder` named `name` back in `root`; whether it is.
+    private static func bringBack(_ name: String, from folder: URL, into root: URL) -> Bool {
+        let files = FileManager.default
+        let source = folder.appendingPathComponent(name, isDirectory: true)
+        let taken = files.fileExists(atPath: root.appendingPathComponent(name).path)
+        let target = taken ? UUID().uuidString.lowercased() : name
+        let file = source.appendingPathComponent(letterFile)
+        // Not read, it may be a letter in the Outbox, which must not come
+        // back unheld: it stays set aside, for the next Bring Back.
+        guard let data = try? Data(contentsOf: file) else { return false }
+        if var letter = try? JSONDecoder().decode(Stored.self, from: data),
+           letter.format == format,
+           letter.key != target
+            || letter.outbox != nil && (letter.autoAttempts ?? 0) < LocalDrafts.unfinishedTries {
+            letter.key = target
+            letter.autoAttempts = max(letter.autoAttempts ?? 0, LocalDrafts.unfinishedTries)
+            guard let rewritten = try? JSONEncoder().encode(letter),
+                  (try? rewritten.write(to: file, options: .atomic)) != nil else { return false }
+        }
+        let back = root.appendingPathComponent(target, isDirectory: true)
+        return (try? files.moveItem(at: source, to: back)) != nil
     }
 
     // MARK: Reading
@@ -454,6 +663,12 @@ final class LocalDraftStore {
         letter.cutOff = before?.cutOff
         letter.unsettledSaves = before?.unsettledSaves
         letter.passwordSaves = passwordSaves
+        // The pass's unfinished tries go only with Save Draft, his saving
+        // it. An autosave and the keep in front of his Send carry them: a
+        // letter the pass gave up on that his Send could not send stays
+        // his to send, and one whose Send ended the app is not taken up
+        // by the pass three more times.
+        letter.autoAttempts = unfinished ? before?.autoAttempts : nil
         try write(letter)
         removeFiles(in: folder, keeping: names)
         return letter.letter(in: folder, markup: draft.quote?.html)
@@ -546,6 +761,32 @@ final class LocalDraftStore {
     /// Takes the letter off the iPad, files and all.
     func remove(_ key: String) {
         try? files.removeItem(at: folder(for: key))
+    }
+
+    /// Writes down `count` tries by the automatic pass at the letter kept as
+    /// `key` that have not ended (`LocalDraft.autoAttempts`), none for 0.
+    /// Returns whether it is on disk: false for a letter no longer kept,
+    /// and for a write that failed.
+    @discardableResult
+    func noteTries(_ key: String, _ count: Int) -> Bool {
+        guard var letter = stored(key) else { return false }
+        let value = count > 0 ? count : nil
+        guard letter.autoAttempts != value else { return true }
+        letter.autoAttempts = value
+        do { try write(letter) } catch { return false }
+        return true
+    }
+
+    /// The try written down as the letter's `count`th is not to count after
+    /// all: the app went to the background while it was on its way, where
+    /// iOS may end it through no fault of the letter's, or is being ended
+    /// as it runs. Back to the count before it, unless his Save Draft has
+    /// cleared it since, or the try has ended, either of which has written
+    /// its own. A keep that carries the count, the autosave or the keep in
+    /// front of his Send, leaves it to be taken back.
+    func uncountTry(_ key: String, _ count: Int) {
+        guard let letter = stored(key), (letter.autoAttempts ?? 0) == count else { return }
+        noteTries(key, count - 1)
     }
 
     /// Asked to note an upload of a letter that is no longer kept.
@@ -654,6 +895,10 @@ final class LocalDraftStore {
         /// `LocalDraft.passwordSaves`, absent from a letter kept before the
         /// count was kept, which reads as 0, so no new format.
         var passwordSaves: Int?
+        /// `LocalDraft.autoAttempts`, absent while no try is unfinished and
+        /// from a letter kept before the count was, which reads as 0, so no
+        /// new format.
+        var autoAttempts: Int?
         var to: [String]
         var cc: [String]
         var bcc: [String]
@@ -716,7 +961,8 @@ final class LocalDraftStore {
                               gone: gone ?? false, outbox: outbox, unsettled: unsettled ?? [],
                               cutOff: cutOff, markupBytes: quote?.markup ?? 0,
                               passwordSaves: passwordSaves ?? 0,
-                              unsettledSaves: unsettledSaves ?? 0)
+                              unsettledSaves: unsettledSaves ?? 0,
+                              autoAttempts: autoAttempts ?? 0)
         }
     }
 
@@ -878,10 +1124,42 @@ final class LocalDrafts {
     /// it waits out no connection.
     private var sendingRefused = false
 
-    init(store: LocalDraftStore, account: String?, background: BackgroundTime) {
+    /// How many tries by the pass at one letter may go unfinished, the app
+    /// ended while each was on its way, before the pass passes the letter
+    /// over (B-057). A letter whose building or sending crashes the app
+    /// would otherwise do so about a second after every launch, for good.
+    /// Three, so that two ends that had nothing to do with it, a crash
+    /// elsewhere or the watchdog, do not cost him the letter's going by
+    /// itself.
+    static let unfinishedTries = 3
+
+    /// No pass in this launch: a safe start after launches in a row that
+    /// never finished (`SafeStart`). His own Send and Save Draft go as ever.
+    let holdsPasses: Bool
+    /// The app is in the background, where iOS may suspend it and end it
+    /// with a try on its way, which is no fault of the letter's: a try
+    /// begun there is not counted, and one on its way as it went there is
+    /// taken back (`wentToBackground`).
+    private var inBackground = false
+    /// Tries counted and not yet ended, each by the count it wrote.
+    private var trying: [String: Int] = [:]
+    /// Letters the connection log has been told the pass passes over, once
+    /// each a launch.
+    private var heldSaid: Set<String> = []
+    /// Waiting for the pass running now to end (`passEnded`).
+    private var passWaiters: [CheckedContinuation<Void, Never>] = []
+    /// `Application Support/Launches`, where the try on its way is marked
+    /// for the next launch's safe start (`SafeStart.markTry`); nil marks
+    /// nothing.
+    private let launches: URL?
+
+    init(store: LocalDraftStore, account: String?, background: BackgroundTime,
+         holdsPasses: Bool = false, launches: URL? = nil) {
         self.store = store
         self.account = account
         self.background = background
+        self.holdsPasses = holdsPasses
+        self.launches = launches
     }
 
     /// A new password has been saved in Settings and is signed in with now,
@@ -947,10 +1225,12 @@ final class LocalDrafts {
     /// Drafts' rows for the letters kept here (`waiting`), each saying under
     /// its mark when the last try did not take it to the server because a
     /// file it carries from a letter cannot be found (`whyNotSent`), which
-    /// he can take off. What the list draws, so the words a pass left are on
-    /// the row he sees and not only in the model.
+    /// he can take off, or that the pass has given up on it (`isHeld`) and
+    /// what to do, since no pass takes it to Drafts until he saves it. What
+    /// the list draws, so the words a pass left are on the row he sees and
+    /// not only in the model.
     ///
-    /// That and nothing else. A letter a pass refused in the Outbox, taken
+    /// Those and nothing else. A letter a pass refused in the Outbox, taken
     /// back into the sheet by a Send that failed as it stood, and closed,
     /// is a draft still carrying the Outbox's refusal: its row said "This
     /// message is too big to send" under "On this iPad only", of a letter
@@ -959,8 +1239,12 @@ final class LocalDrafts {
     /// only when that keep could not be written.
     func draftsRows(in mailboxID: String, from sender: String) -> [MessageSummary] {
         waiting.map {
+            if isHeld($0) {
+                return $0.row(in: mailboxID, from: sender, notice: LocalDraft.notSavedByItself)
+            }
             let missing = whyNotSent($0.key) == .attachmentsMissing
-            return $0.row(in: mailboxID, from: sender, notice: missing ? .attachmentsMissing : nil)
+            return $0.row(in: mailboxID, from: sender,
+                          notice: missing ? MailError.attachmentsMissing.errorDescription : nil)
         }
     }
 
@@ -969,11 +1253,20 @@ final class LocalDrafts {
     /// (`whyNotSent`), or, for a letter no pass takes because an attempt at
     /// it may have reached Gmail before a password was saved since
     /// (`LocalDraftStore.unsettledBeforeASave`), that it may already have
-    /// gone. What the list draws.
+    /// gone, or, for one the pass has given up on (`isHeld`), that it will
+    /// not go by itself. What the list draws. That it may have gone comes
+    /// first: it is the one that says something about sending it again.
+    /// So a letter given up on with an attempt whose DATA went, which no
+    /// pass will now look for in Sent Mail, says it may have gone too:
+    /// Gmail may have delivered it, and "Not sent" would have him write it
+    /// out again, which is the second copy B-052 is there to prevent. His
+    /// Send of it asks Sent Mail first either way.
     var outboxRows: [MessageSummary] {
         outbox.map {
-            let reason = store.unsettledBeforeASave($0)
-                ? Outbox.mayHaveGone : whyNotSent($0.key)?.errorDescription
+            let held = isHeld($0)
+            let reason = store.unsettledBeforeASave($0) || held && !$0.unsettled.isEmpty
+                ? Outbox.mayHaveGone
+                : held ? Outbox.notSentByItself : whyNotSent($0.key)?.errorDescription
             return $0.outboxRow(sending: isGoing($0.key), saying: reason)
         }
     }
@@ -1451,10 +1744,17 @@ final class LocalDrafts {
     /// Inside background time, asked for at the start and given back at
     /// the end, so that locking the iPad does not stop a letter halfway,
     /// as it does not for Save Draft (B-044).
+    ///
+    /// Each try at a letter is written down on it before the letter is
+    /// taken, and cleared when the try ends, however it ends (`countTry`):
+    /// a try the app did not live through stays counted, and a letter with
+    /// `unfinishedTries` of them is passed over, and waits for him (B-057).
+    /// None at all in a launch that holds the pass (`holdsPasses`).
     @discardableResult
     func uploadWaiting(to repository: MailRepository, largeToo: Bool = false) -> Task<Void, Never>? {
-        guard !passing else { return nil }
+        guard !passing, !holdsPasses else { return nil }
         let kept = store.letters()
+        sayHeld(kept)
         let due = (kept.filter { $0.outbox != nil }.reversed() + kept.filter { $0.outbox == nil })
             .filter { isDue($0, largeToo: largeToo) }.map(\.key)
         guard !due.isEmpty else { return nil }
@@ -1464,6 +1764,9 @@ final class LocalDrafts {
             defer {
                 passing = false
                 time.end()
+                let waiters = passWaiters
+                passWaiters = []
+                for waiter in waiters { waiter.resume() }
             }
             var sending = true
             // Each looked at again at its turn: it may have been opened,
@@ -1480,11 +1783,17 @@ final class LocalDrafts {
                     continue
                 }
                 if letter.outbox != nil {
-                    if sending { sending = await sendWaiting(key, via: repository) }
+                    if sending {
+                        guard countTry(letter) else { continue }
+                        sending = await sendWaiting(key, via: repository)
+                        endTry(key)
+                    }
                     if sendingRefused { return }
                     continue
                 }
+                guard countTry(letter) else { continue }
                 do {
+                    defer { endTry(key) }
                     try await upload(key, to: repository)
                 } catch {
                     if error is CancellationError
@@ -1515,10 +1824,13 @@ final class LocalDrafts {
     /// in the Outbox as one that may have gone (`outboxRows`), for him to
     /// open it and send it, which asks Sent Mail as ever and is his to
     /// choose; a draft, for him to send or save it.
+    ///
+    /// Nor one the pass has given up on (`isHeld`), which waits, listed
+    /// and saying so, for his Send or Save Draft.
     private func isDue(_ letter: LocalDraft, largeToo: Bool) -> Bool {
         guard open[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
-        guard goesFromHere(letter), !store.unsettledBeforeASave(letter),
+        guard goesFromHere(letter), !store.unsettledBeforeASave(letter), !isHeld(letter),
               refused[letter.key] != letter.version else { return false }
         if letter.outbox != nil {
             return !sendingRefused && (largeToo || !letter.fetchesLarge)
@@ -1534,6 +1846,116 @@ final class LocalDrafts {
     private func refuse(_ key: String, at version: String?, saying reason: MailError? = nil) {
         refused[key] = version
         reasons[key] = reason
+    }
+
+    // MARK: Tries that never ended (B-057)
+
+    /// Whether the pass has given up on `letter`: `unfinishedTries` of its
+    /// tries were cut off by the app's ending, in the foreground, or Bring
+    /// Back brought it back held (`LocalDraftStore.bringBack`). It stays
+    /// where it is, saying so (`Outbox.notSentByItself`,
+    /// `LocalDraft.notSavedByItself`), or that it may have gone when an
+    /// attempt's DATA did (`outboxRows`), until he sends it or saves it.
+    func isHeld(_ letter: LocalDraft) -> Bool {
+        letter.autoAttempts >= Self.unfinishedTries
+    }
+
+    /// One more try at `letter` by the pass, written down on it before the
+    /// pass takes it, so that a try the app does not live through is
+    /// counted at the next launch: a crash in building the letter or in
+    /// sending it leaves nothing else on disk. False when it could not be
+    /// written, and the letter is not taken: an uncounted try could end
+    /// the app at every launch. In the background nothing is written and
+    /// the letter goes, uncounted (`inBackground`).
+    ///
+    /// Then the try is marked beside the launch's count, so that a launch
+    /// it ends is charged to the letter and not counted against the launch
+    /// as well (`SafeStart.markTry`). After the letter's count, so a mark
+    /// never names a try the letter has not counted. A mark that cannot be
+    /// written does not stop the try: the launch is then counted too, as
+    /// it was before there was a mark.
+    private func countTry(_ letter: LocalDraft) -> Bool {
+        guard !inBackground else { return true }
+        let count = letter.autoAttempts + 1
+        guard store.noteTries(letter.key, count) else { return false }
+        trying[letter.key] = count
+        if let launches { SafeStart.markTry(letter.key, in: launches) }
+        return true
+    }
+
+    /// The try at `key` has ended, returned or thrown: the letter did not
+    /// end the app, and its count goes. A letter sent, deleted or taken off
+    /// the iPad meanwhile has none left to clear. The mark goes first, then
+    /// the count: ended between the two, the app has the try counted
+    /// against the letter and the launch both, never against neither.
+    private func endTry(_ key: String) {
+        if trying.removeValue(forKey: key) != nil, let launches {
+            SafeStart.unmarkTry(in: launches)
+        }
+        store.noteTries(key, 0)
+    }
+
+    /// The app has gone to the background: the tries on their way are
+    /// taken back, each letter's count as it was before, and nothing begun
+    /// from now until it comes back is counted. iOS suspends a backgrounded
+    /// app once its time is up, and may end it then, with a large letter
+    /// halfway up, which is no fault of the letter's. The same as the app
+    /// is ended while it runs (`AppDelegate.applicationWillTerminate`),
+    /// which a swipe in the app switcher may do without the background
+    /// first. Only the count is written: what the try itself has written
+    /// down, `unsettled` before DATA and `tried` before an APPEND (B-051,
+    /// B-052), stays as it is. The try's mark goes with it, before it.
+    func wentToBackground() {
+        inBackground = true
+        for (key, count) in trying {
+            if let launches { SafeStart.unmarkTry(in: launches) }
+            store.uncountTry(key, count)
+        }
+        trying = [:]
+    }
+
+    /// Letters have come into the store from outside it, brought back from
+    /// where a safe start set them aside (`SafeStart.bringBack`): every list
+    /// of the letters kept here hears of it. The next pass takes the drafts
+    /// among them as it takes any other, and passes over those that come
+    /// back held (`LocalDraftStore.bringBack`): every letter in the Outbox,
+    /// and one brought back under a new key, which go only when he sends or
+    /// saves them.
+    func broughtBack() {
+        announce()
+    }
+
+    /// What the sheet says as it closes on the letter kept as `key`, left
+    /// in the Outbox by his Send (`Outbox.Waiting`): that it will go by
+    /// itself once the server can be reached (`Outbox.notice`), or, for a
+    /// letter held (`isHeld`), which his Send leaves held, that it will not,
+    /// and what to do (`Outbox.heldNotice`).
+    func waitingNotice(_ key: String) -> String {
+        store.letter(key).map(isHeld) == true ? Outbox.heldNotice : Outbox.notice
+    }
+
+    /// Back in front of him: the pass's tries count again.
+    func cameToForeground() {
+        inBackground = false
+    }
+
+    /// Returns once no pass is running: at once when none is, and when the
+    /// pass running now has ended otherwise. The launch is not taken as
+    /// working until its first pass has ended (`SafeStart.firstPageTried`).
+    func passEnded() async {
+        guard passing else { return }
+        await withCheckedContinuation { passWaiters.append($0) }
+    }
+
+    /// Says in the connection log, once a launch for each, which letters
+    /// the pass passes over for their unfinished tries. Nothing of the
+    /// letter: the Outbox's or Drafts', and the count.
+    private func sayHeld(_ letters: [LocalDraft]) {
+        for letter in letters where !letter.gone && isHeld(letter)
+            && heldSaid.insert(letter.key).inserted {
+            Diagnostics.log(.note, "\(letter.outbox == nil ? "DRAFT" : "OUTBOX")-HELD "
+                            + "unfinished-tries=\(letter.autoAttempts)")
+        }
     }
 
     /// Returns once nothing is on its way for `key`.

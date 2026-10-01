@@ -91,7 +91,8 @@ final class ComposeViewController: UIViewController,
     /// Send could not reach the server and the letter waits in the Outbox:
     /// the sheet closes with one notice over what it came from
     /// (`Outbox.notice`), as Mail says its letter "has been placed in your
-    /// Outbox".
+    /// Outbox", or, for a letter held, that it will not go by itself
+    /// (`LocalDrafts.waitingNotice`).
     private var queuedOnClose = false
 
     private lazy var sendItem = UIBarButtonItem(
@@ -679,7 +680,7 @@ final class ComposeViewController: UIViewController,
         }
         let gone = ErrorPresenter.sheetLeaving()
         presenter.dismiss(animated: true, completion: gone)
-        ErrorPresenter.tell(Outbox.notice, on: presenter)
+        ErrorPresenter.tell(kept.waitingNotice(key), on: presenter)
     }
 
     /// The sheet as `ComposeActions` says it should be. While a letter goes:
@@ -730,10 +731,16 @@ final class ComposeViewController: UIViewController,
 extension LocalDrafts {
 
     /// The app's own: in Application Support, for the account set up on
-    /// this iPad, inside `UIApplication`'s background time.
+    /// this iPad, inside `UIApplication`'s background time, and with no
+    /// pass in a launch the safe start holds them in (B-057). Made after
+    /// the safe start has run, by the first screen that lists letters. Its
+    /// tries are marked beside the safe start's count, so a launch one of
+    /// them ends is charged to the letter.
     static let shared = LocalDrafts(store: LocalDraftStore(root: LocalDraftStore.appRoot),
                                     account: CredentialStore.loadAccount()?.address,
-                                    background: .app)
+                                    background: .app,
+                                    holdsPasses: SafeStart.app.steps.holdsPasses,
+                                    launches: SafeStart.appDirectory)
 }
 
 extension BackgroundTime {
