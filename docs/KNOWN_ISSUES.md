@@ -5757,3 +5757,94 @@ arrived once; one copy of the draft in Drafts.
 Not seen by hand: whether a swipe in the app switcher finishes a launch,
 which cannot be made over SSH; a launch charged to a letter, which needs
 the app ended inside a try; and a held draft's row.
+
+---
+
+## B-058 — CHANGED 2026-10-01, seen on the iPad. A letter dated wrong into the future would have taken every Go to Date jump for good
+
+**Found in the code 2026-09-30**, going through what would go wrong for
+good once the app is on his iPad with no way to update it (risk 15 of that
+audit). Go to Date searched `SENTSINCE <day>`, by each letter's Date, and
+landed on the oldest letter matched (`PageWindow.anchor`): the lowest UID,
+the first of them to have reached Gmail. A letter whose Date is wrong into
+the future, from a sender whose clock said 2037, matches every day before
+its date. Arrived years ago, its UID is below every letter it is matched
+with, and every jump lands on it: whatever day he asks for, the list opens
+on that one letter, years earlier. Nothing on the iPad clears it but
+deleting that letter, which nothing would tell him to do. The audit
+reproduced it over 60,000 UIDs, the letter dated wrong at the tenth. His
+Inbox goes back before 2016: years of other people's clocks.
+
+**Changed.** The same SEARCH also asks that the letter arrived no more than
+a week before the day: `UID SEARCH SENTSINCE "19-Jun-2019" SINCE
+"12-Jun-2019"` (`IMAPDate.sentOnOrAfter`). SINCE tests INTERNALDATE, when
+Gmail took the letter. A letter cannot arrive before it is written, so one
+sent on or after the day arrives on or after it, give or take a sender's
+clock running fast, which the week is for (`IMAPDate.arrivalSlack`). Mail
+delayed on its way still matches, however late it came, and so does mail
+fetched into Gmail later, by POP from another account, whose INTERNALDATE
+is when it was fetched; mail copied in with its INTERNALDATE set from its
+Date matches as any other. The jump still lands by the Date (as decided
+for SENTSINCE), the week counted back in his calendar, in days. One string more in
+the command that went before, so no round trip more. Every jump goes
+through it: a folder's, and All Mailboxes', which jumps in All Mail.
+
+**What it costs.** A letter whose Date is more than a week ahead of its
+arrival is never where a jump lands for a day more than a week after it
+arrived; it is still in the list where it arrived, and still shown in a
+window that reaches its UID. A jump to a day after the newest letter rightly
+dated now says "No mail on or after" that day, where before it landed on the
+letter dated wrong.
+
+**Tests.** `IMAPDateTests`: the criteria, the week back across the turn of a
+year and over a leap day, and an evening in New York that is the next day
+in UTC. `GoToDateBoundTests`, over the shipping repository and client, the
+scripted server now keeping a letter's arrival apart from its Date
+(`ScriptedIMAPServer.Letter.arrived`) and searching SINCE, BEFORE and ON by
+it: an Inbox with a letter that arrived in 2014 dated 2037, two letters a
+year from 2015 to 2020, one delayed three days and one from a clock two
+days fast. Jumps to 2015, 2018 and 2020 land on the first letter on or
+after the day;
+one after the newest rightly dated finds nothing that recent; the delayed
+letter and the fast clock's are found on their days; the letter dated wrong
+is still listed at the foot; one SEARCH carries both dates. The bound
+undone: 12 failures across the two classes, every jump landing on the
+letter dated wrong. The week counted as seven times 24 hours, or in UTC:
+the clocks going forward in New York, 1 failure. The jump days in the
+tests are the test machine's own, so they pass in any zone.
+
+**Not covered.** A letter whose INTERNALDATE is itself wrong into the
+future. Whatever copies mail into Gmail by APPEND, or by Gmail's import
+API, may set INTERNALDATE from the letter's Date, so a letter dated 2037
+copied in before 2016 arrived, as far as Gmail says, in 2037: it passes
+the bound for every day before then and takes every jump, as before. Not
+known: whether his old mail was ever copied in so, and whether Gmail takes
+a future date on an APPEND. A third key in the same string, `BEFORE` a
+week after today, would leave it out while its date is still ahead; put
+to the owner.
+
+**On Gmail.** RFC 3501 says SENTSINCE reads the Date header's own day,
+"disregarding time and timezone". Gmail does not: on the iPad (below) it
+matched a letter dated "Sat, 19 Sep 2026 18:30:49 -0700" to `SENTSINCE
+"20-Sep-2026"`, the day of that moment in UTC, which is also the day of its
+INTERNALDATE, `20-Sep-2026 01:30:50 +0000`. Which of the two Gmail reads
+is not known: no letter on the test account has them on different days,
+and one cannot be made from here (an APPEND with an INTERNALDATE of its own
+needs the test account's password away from the iPad). If it reads
+INTERNALDATE, a letter dated wrong but arriving when it did never matched
+on Gmail, and the bound changes nothing a jump finds there; the letter
+copied in with a wrong INTERNALDATE, above, is then the only way to the
+failure. Either way, a day on Gmail runs from midnight UTC, so on his iPad
+in Boston a jump to a day matches from 8 pm the evening before (7 pm in
+winter): a letter that came in that evening is where it lands, and the
+status line says the day before, "Showing September 19" for a jump to the
+20th. That was so before the bound; put to the owner.
+
+**Seen on the iPad, 2026-10-01.** Go to Date in the Inbox to 20 September:
+`UID SEARCH SENTSINCE "20-Sep-2026" SINCE "13-Sep-2026"`, answered OK with
+9 UIDs in 80 ms, one SEARCH, and the list landed on the first letter of
+the 20th, "Showing September 20". In All Mailboxes to the same day: the
+same SEARCH in All Mail, landing on a letter sent at 9.30 pm on the 19th,
+Boston time, "Showing September 19", for the reason above. In All
+Mailboxes to 1 October, with no mail that day: "No mail on or after
+October 1".

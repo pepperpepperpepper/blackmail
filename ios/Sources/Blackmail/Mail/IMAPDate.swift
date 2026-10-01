@@ -9,7 +9,7 @@ import Foundation
 /// or no mail, and look exactly like an empty mailbox.
 enum IMAPDate {
 
-    /// `20-Jun-2026`, quoted, ready to follow SENTSINCE.
+    /// `20-Jun-2026`, quoted, ready to follow SENTSINCE or SINCE.
     ///
     /// Three decisions, each of which has a wrong answer that still compiles:
     ///
@@ -44,9 +44,32 @@ enum IMAPDate {
     ///
     /// "SINCE" in IMAP means on-or-after, inclusive of the day itself, which
     /// is what "go to the 20th" means.
+    ///
+    /// **Bounded by arrival as well (B-058).** The jump lands on the oldest
+    /// letter matched (`PageWindow.anchor`), and the oldest is the one
+    /// with the lowest UID, the first to have arrived. A letter whose Date
+    /// is wrong into the future, one that arrived in 2014 saying 2037,
+    /// matches every day before 2037 by its Date, and arrived first: every
+    /// jump would land on it, for good, and nothing on the iPad could clear
+    /// it. So the same SEARCH also asks that it arrived no more than
+    /// `arrivalSlack` days before the day (`SINCE`, INTERNALDATE): a letter
+    /// cannot reach Gmail before it is written, so one sent on or after the
+    /// day arrives on or after it, give or take a sender's clock running
+    /// fast, which the slack is for. Mail delayed in arriving still
+    /// matches, however late. One string, so no round trip more.
     static func sentOnOrAfter(_ date: Date, timeZone: TimeZone = .current) -> String {
-        "SENTSINCE \(criteriaValue(for: date, timeZone: timeZone))"
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let arrivedFrom = calendar.date(byAdding: .day, value: -arrivalSlack, to: date) ?? date
+        return "SENTSINCE \(criteriaValue(for: date, timeZone: timeZone)) "
+            + "SINCE \(criteriaValue(for: arrivedFrom, timeZone: timeZone))"
     }
+
+    /// How many days before the day asked for a letter dated on or after
+    /// it may have arrived and still be found by a jump (`sentOnOrAfter`):
+    /// a sender's clock a week fast is wrong, but its letter is still
+    /// found. A Date further ahead of its arrival is a letter dated wrong.
+    static let arrivalSlack = 7
 
     /// `20 June` / `20 June 2025` — how the jump reports where it landed.
     ///
