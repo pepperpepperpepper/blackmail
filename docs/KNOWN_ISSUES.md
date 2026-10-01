@@ -4545,7 +4545,7 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
 
-## B-054 — CHANGED 2026-09-30 and 2026-10-01, not yet seen on the iPad. A stranger's letter could hang the app, or take all its memory
+## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
 **Found by timing and measuring, on the development computer, everything
 that reads a letter he receives.** No such letter has reached him; anyone
@@ -4778,11 +4778,20 @@ cases each for five seeds, a quarter of a million in all, it found nothing
 in the code. Each part undone in a scratch copy, one at a time, fails the
 test named for it: thirty-two undone.
 
-**Not yet seen on the iPad.** The TODO says what to look at.
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. A letter of five photographs, about 15 MB, sent to the account
+itself: it opened at once, its five files listed and its words below,
+from `UID FETCH 45 (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, the text and
+HTML parts as `BODY.PEEK[1.1.1]<0.2097152>` and `BODY.PEEK[1.1.2]<0.2097152>`,
+the signature's picture as `BODY.PEEK[1.2]` and, when one was tapped, that
+photograph alone as `BODY.PEEK[2]`; nothing fetched the letter whole. The
+connection log said `* SEARCH {17 uids}`. Not made by hand: the slow
+letters and the 35 MB one, which the suite and its fuzzing stand for, and
+a part over 2 MB, which the notice and the quote's line wait on.
 
 ---
 
-## B-055 — CHANGED 2026-09-30 and 2026-10-01, not yet seen on the iPad. The reading pane runs no letter's script and goes nowhere by itself; links in plain letters can be tapped; Cc under To
+## B-055 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. The reading pane runs no letter's script and goes nowhere by itself; links in plain letters can be tapped; Cc under To
 
 **What was wrong.** Three things, all in the reading pane.
 
@@ -4923,7 +4932,16 @@ unchanged but for the links, no link inside another or outside the text.
 The one difference, in 19 of them, was a space left inside a `<table>` the
 parser had moved the text out of, which draws nothing.
 
-**Not yet seen on the iPad.** None of it. The TODO says what to look at.
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. Letters drew as before, a newsletter's pictures from the web
+with them. In a conversation of four, a letter's line opened it, its body
+came and the header moved to it, and the line closed it again. In a plain
+letter the Google addresses were links, and a tap asked "Open this link?"
+over "myaccount.google.com", Cancel and Open. A letter sent to the account
+with the account in Cc showed its Cc line, the account's own address,
+under To in the first frame after the tap, the header the same height when the letter had
+come. Not made by hand: a letter that runs a script, navigates, frames or
+submits, which the suite stands for.
 
 **Decided 2026-10-01.**
 
@@ -4964,7 +4982,7 @@ not made a link.
 
 ---
 
-## B-056 — CHANGED 2026-09-30 and 2026-10-01, not yet seen on the iPad. A new password waited for a relaunch, a refused sign-in read as "Can't connect", and the signature could be lost for good
+## B-056 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A new password waited for a relaunch, a refused sign-in read as "Can't connect", and the signature could be lost for good
 
 **Found in the code 2026-09-30**, going through what would stop the app for
 good once it is on his iPad with no way to update it. Google revokes every
@@ -5179,4 +5197,15 @@ their source, Settings and setup keeping what the check keeps and handing
 on the alert, and the screens built again putting it up. Fifteen parts
 of it undone one at a time in a scratch copy, each fails at least one.
 
-Not seen on the iPad: the TODO has the checks.
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. Settings has Restore Original Signature and, under the
+password, where an app password is made. "Send my signature as plain text
+instead" asked "Send Signature as Plain Text?", and Restore Original
+Signature asked first too; both cancelled. Sixteen wrong letters as a new
+password: refused, and Refresh then said "Updated Just Now" on the old
+one. That refusal was first said at the foot of the sheet, under the
+keyboard, and Save seemed to do nothing; what Settings has to say is now
+under the password field, the keyboard put down and the line scrolled
+into view (`say`), and seen there. Not made by hand: a password revoked
+and replaced, a 534 and a 535 at the check, which need the account's
+Google settings.

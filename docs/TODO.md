@@ -893,8 +893,10 @@ this host. Ordered by value, not by size.
       copy, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
-- [ ] **B-056, signing in again, and the signature.** None of it seen on the
-      iPad yet. On the test account, with the app open on the Inbox: revoke
+- [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
+      two confirmations, a wrong password refused with the old one kept,
+      and the refusal shown under the password field (B-056). Still to see,
+      on the test account, with the app open on the Inbox: revoke
       its app password at myaccount.google.com/apppasswords and make a new
       one. Once Gmail refuses the old one, at the next connection the app
       makes (lock the iPad for a few minutes and come back, if the open
@@ -982,7 +984,9 @@ this host. Ordered by value, not by size.
       app ended (B-053); a letter opened from one needs the slower
       connection too.
 - [ ] **B-055, the reading pane locked down, links in plain letters, Cc.**
-      None of it seen on the iPad yet. Send the test account the letters
+      Seen 2026-09-30: letters and their web pictures drawn, a conversation's
+      letter opened and closed, a plain letter's links asking before they
+      open, and Cc in the first frame (B-055). Still to see, the rest: send the test account the letters
       below from another account; not his mailbox.
       Every letter, notice and conversation still draws at all: the pane
       now loads only `about:blank` from `loadHTMLString`, and if WebKit
@@ -1051,8 +1055,10 @@ this host. Ordered by value, not by size.
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
       after one reconnect, not after a 30 s stall.
-- [ ] **B-054, a letter too large to fetch whole.** None of it seen on the
-      iPad yet. From another account, send the test account a letter of
+- [ ] **B-054, a letter too large to fetch whole.** Seen 2026-09-30: a
+      15 MB letter of photographs shown from its structure, its parts cut at
+      2 MB and a photograph fetched alone when tapped (B-054). Still to see:
+      from another account, send the test account a letter of
       three full-size photographs shown in its body, as Mail on an iPhone
       sends them, and a PDF: 8 MB or more. Open it: the connection log shows
       `UID FETCH n (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, then its text's

@@ -362,7 +362,7 @@ final class SignInTests: XCTestCase {
             ("UI/SettingsViewController.swift", [
                 "switch SignInCheck.outcome(of: verdict, address: updated.address, in: .settings) { "
                     + "case .keep(let notice): save(updated, password: newPassword, notice: notice) "
-                    + "case .refuse(let sentence): statusLabel.text = sentence }",
+                    + "case .refuse(let sentence): say(sentence) }",
                 "dismiss(animated: true) { signIn?(updated, password, notice) }",
             ]),
             ("UI/AccountSetupViewController.swift", [
@@ -396,6 +396,25 @@ final class SignInTests: XCTestCase {
             let code = try source(file)
             for line in lines { XCTAssertTrue(code.contains(line), "\(file): \(line)") }
         }
+    }
+
+    /// Whatever Settings has to say of a password, the check under way, a
+    /// refusal or a save that failed, goes under the password field with
+    /// the keyboard put down and the line scrolled into view. Left at the
+    /// foot of the sheet it sat under the keyboard, and Save looked as if it
+    /// had done nothing.
+    func testSettingsSaysWhatBecameOfThePasswordWhereHeCanReadIt() throws {
+        let code = try source("UI/SettingsViewController.swift")
+        let field = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(passwordField)"))
+        let line = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(statusLabel)"))
+        let grouping = try XCTUnwrap(code.range(of: "stack.addArrangedSubview(organizeRow)"))
+        XCTAssertLessThan(field.lowerBound, line.lowerBound, "under the password field")
+        XCTAssertLessThan(line.lowerBound, grouping.lowerBound, "before the switches below it")
+        XCTAssertTrue(code.contains("private func say(_ text: String) { statusLabel.text = text "
+                                    + "view.endEditing(true) view.layoutIfNeeded() "
+                                    + "scrollView.scrollRectToVisible("))
+        XCTAssertEqual(code.components(separatedBy: "statusLabel.text =").count - 1, 1,
+                       "every message goes through say")
     }
 
     /// Gmail's words in a 534, kept as an ALERT's are: the codes, the

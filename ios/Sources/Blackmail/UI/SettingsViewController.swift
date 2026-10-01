@@ -165,6 +165,13 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         stack.addArrangedSubview(caption(
             "Make one at myaccount.google.com/apppasswords while signed in to Google as "
             + "\(account.address)."))
+        // What the check and the save have to say, under the password he has
+        // just typed (`say`). At the foot of the sheet it sat under the
+        // keyboard, and Save seemed to do nothing.
+        statusLabel.numberOfLines = 0
+        statusLabel.font = .systemFont(ofSize: 15)
+        statusLabel.textColor = Theme.secondaryText
+        stack.addArrangedSubview(statusLabel)
 
         // Mail's own switch, and the off switch for conversation grouping.
         // Grouping stays the default — it is what Mail does, the rows
@@ -184,11 +191,6 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         organizeSwitch.isOn = ConversationSettings.organizeByThread
         organizeSwitch.addTarget(self, action: #selector(organizeToggled),
                                  for: .valueChanged)
-
-        statusLabel.numberOfLines = 0
-        statusLabel.font = .systemFont(ofSize: 15)
-        statusLabel.textColor = Theme.secondaryText
-        stack.addArrangedSubview(statusLabel)
 
         stack.axis = .vertical
         stack.spacing = 10
@@ -356,6 +358,16 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
 
     @objc private func cancelTapped() { dismiss(animated: true) }
 
+    /// Puts `text` where he can read it: the keyboard down, and the line
+    /// under the password field scrolled into view.
+    private func say(_ text: String) {
+        statusLabel.text = text
+        view.endEditing(true)
+        view.layoutIfNeeded()
+        scrollView.scrollRectToVisible(statusLabel.convert(statusLabel.bounds, to: scrollView),
+                                       animated: true)
+    }
+
     @objc private func saveTapped() {
         var updated = account
         updated.displayName = (nameField.text ?? "")
@@ -393,7 +405,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
             return
         }
 
-        statusLabel.text = "Checking the new password with Gmail…"
+        say("Checking the new password with Gmail…")
         navigationItem.rightBarButtonItem?.isEnabled = false
         Task { @MainActor in
             defer { navigationItem.rightBarButtonItem?.isEnabled = true }
@@ -403,7 +415,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
             case .keep(let notice):
                 save(updated, password: newPassword, notice: notice)
             case .refuse(let sentence):
-                statusLabel.text = sentence
+                say(sentence)
             }
         }
     }
@@ -418,7 +430,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
                 try CredentialStore.saveAccountOnly(updated)
             }
         } catch {
-            statusLabel.text = "Could not save. Nothing has been changed."
+            say("Could not save. Nothing has been changed.")
             return
         }
         // The original's pictures with the account that names them, and
