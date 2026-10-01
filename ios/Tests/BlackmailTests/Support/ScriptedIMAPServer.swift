@@ -103,6 +103,13 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         /// X-GM-THRID. Nil for a conversation of its own, as every seeded
         /// letter is.
         var joins: String?
+        /// When Gmail took it, its INTERNALDATE, which SINCE, BEFORE and ON
+        /// search: nil for the moment its Date says, as every seeded letter
+        /// arrives. Set apart for a letter delayed, or one dated wrong.
+        var arrived: Date? = nil
+
+        /// INTERNALDATE: when it arrived.
+        var arrival: Date { arrived ?? date }
     }
 
     /// A file carried by a letter, base64 on the wire.
@@ -1331,7 +1338,7 @@ private extension ScriptedIMAPServer.State {
                         ? stored.flags.union(["\\Deleted"]) : stored.flags
                     wire.text("FLAGS (\(flags.sorted().joined(separator: " ")))")
                 case .internalDate:
-                    wire.text("INTERNALDATE \"\(Server.internalDate(stored.letter.date))\"")
+                    wire.text("INTERNALDATE \"\(Server.internalDate(stored.letter.arrival))\"")
                 case .size:
                     wire.text("RFC822.SIZE \(stored.raw.count)")
                 case .envelope:
@@ -2079,9 +2086,12 @@ private extension ScriptedIMAPServer {
                 }
             case let .sent(comparison, day), let .received(comparison, day):
                 // Both by the day in UTC, which is the zone every seeded
-                // Date header is written in.
+                // Date header is written in: SENT* by its Date, the rest by
+                // when it arrived.
                 let calendar = Self.utc
-                let letterDay = calendar.startOfDay(for: letter.date)
+                let when: Date
+                if case .sent = self { when = letter.date } else { when = letter.arrival }
+                let letterDay = calendar.startOfDay(for: when)
                 let asked = calendar.startOfDay(for: day)
                 switch comparison {
                 case .since:  return letterDay >= asked

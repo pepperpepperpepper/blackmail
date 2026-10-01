@@ -64,8 +64,34 @@ final class IMAPDateTests: XCTestCase {
         // asked for.
         let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"),
                                        timeZone: TimeZone(identifier: "UTC")!)
-        XCTAssertEqual(s, "SENTSINCE \"20-Jun-2026\"")
+        XCTAssertEqual(s, "SENTSINCE \"20-Jun-2026\" SINCE \"13-Jun-2026\"")
         XCTAssertFalse(s.hasPrefix("SINCE"))
+    }
+
+    /// The arrival bound (B-058) is a week before the day, by his calendar:
+    /// across the turn of a month and of a year, and on the day he picked
+    /// west of Greenwich, never the day after it in UTC.
+    func testTheArrivalBoundIsAWeekBeforeTheDayHePicked() {
+        XCTAssertEqual(IMAPDate.arrivalSlack, 7)
+        let utc = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-01-03T12:00:00Z"), timeZone: utc),
+                       "SENTSINCE \"03-Jan-2026\" SINCE \"27-Dec-2025\"")
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2024-03-06T12:00:00Z"), timeZone: utc),
+                       "SENTSINCE \"06-Mar-2024\" SINCE \"28-Feb-2024\"")
+        // An evening in New York on the last of February is the first of
+        // March in UTC.
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-01T03:00:00Z"),
+                                              timeZone: TimeZone(identifier: "America/New_York")!),
+                       "SENTSINCE \"28-Feb-2026\" SINCE \"21-Feb-2026\"")
+    }
+
+    /// The week back is seven of his days, not seven times 24 hours: half
+    /// past midnight two days after the clocks went forward in New York is
+    /// still the third a week before, not the second.
+    func testTheWeekBackIsCountedInDaysAcrossAClockChange() {
+        let newYork = TimeZone(identifier: "America/New_York")!
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-10T04:30:00Z"), timeZone: newYork),
+                       "SENTSINCE \"10-Mar-2026\" SINCE \"03-Mar-2026\"")
     }
 
     func testTheCriteriaCarriesNothingThatCouldBreakTheCommandLine() {
@@ -75,7 +101,7 @@ final class IMAPDateTests: XCTestCase {
         let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"))
         XCTAssertFalse(s.contains("\n"))
         XCTAssertFalse(s.contains("\r"))
-        XCTAssertEqual(s.filter { $0 == "\"" }.count, 2)
+        XCTAssertEqual(s.filter { $0 == "\"" }.count, 4)
     }
 
     // MARK: - The screen

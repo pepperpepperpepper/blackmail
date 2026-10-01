@@ -126,13 +126,15 @@ enum PageWindow {
     /// Which message a date lands on, given what the server's date SEARCH
     /// matched.
     ///
-    /// `matches` is the UID set for "sent on or after that day". The one he
-    /// wants is the OLDEST of them — the first letter of that day — not the
-    /// newest, which would be today's mail.
+    /// `matches` is the UID set for "sent on or after that day", and arrived
+    /// no more than `IMAPDate.arrivalSlack` days before it (B-058). The one
+    /// he wants is the OLDEST of them — the first letter of that day — not
+    /// the newest, which would be today's mail.
     ///
-    /// Returns nil only when the mailbox has nothing on or after the date,
-    /// which the caller reads as "everything here is older than the day you
-    /// asked for" and answers by going to the top.
+    /// Returns nil only when the mailbox has nothing so matched, which the
+    /// caller reads as "everything here is older than the day you asked
+    /// for" and answers by going to the top: a letter dated on or after the
+    /// day that arrived long before it is dated wrong, and not matched.
     static func anchor(forMatches matches: [UInt32], in ascending: [UInt32]) -> UInt32? {
         guard let oldestMatch = matches.min() else { return nil }
         // The SEARCH and the snapshot are two round trips, so they can
