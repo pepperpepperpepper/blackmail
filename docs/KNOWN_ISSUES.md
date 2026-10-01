@@ -4539,3 +4539,207 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
+
+## B-054 — CHANGED 2026-09-30, not yet seen on the iPad. A stranger's letter could hang the app, or take all its memory
+
+**Found by timing and measuring, on the development computer, everything
+that reads a letter he receives.** No such letter has reached him; anyone
+can write one. Nine passes over a letter's content took time that grew with
+the square of its size, or with its size times its pictures, and a letter
+built for it made them run for minutes, or hours:
+
+- the reading pane taking off the sender's document wrapper
+  (`DocumentWrapper`): four regular expressions, one of which, never
+  closed, read to the end of the letter from every opening. 48 KB of
+  `<head>` took 8.5 s in a release build and a megabyte would have taken
+  about an hour, off the main thread but with no way to stop it, and, by
+  reasoning rather than on the iPad, a few such letters tapped would hold
+  every thread the mail runs on;
+- the pane pointing the letter's pictures at its loader
+  (`InlineImageRewriter`), which copied the rest of the body to search it
+  for each picture: 20,000 pictures in 8 MB, 7.5 s;
+- when he replies to such a letter or forwards it, on the actor that Send
+  and Save Draft wait on, and again at every launch while the letter waits
+  in the Outbox (B-052), the sanitiser the quote goes through
+  (`QuotedMarkup`): its list of open elements, searched whole for every
+  closing tag (`<div>` opened nine thousand times and then `</x>` as often,
+  5 s, and a megabyte minutes); a `<head>` never closed, read to the end
+  once for every head (`<head>x` over 48 KB, 16 s); a tag's attributes, each
+  looked for among the ones before it (eight thousand, 2.8 s); a picture's
+  reference in a style, looked for afresh from every place it might start
+  (70 KB, 2 s); and, in a forward, the pictures a style shows renamed one at
+  a time, each moving the rest of the style along (180,000 in 4 MB, 8 s in
+  a release build), and a picture's reference written in another case than
+  its Content-ID compared with every picture the forward carries (500
+  pictures and 1.1 MB, 7.3 s in a release build);
+- the decoder unfolding a header folded onto many lines, which copied the
+  whole value for every line (20,000 lines, 2 MB, 4.7 s).
+
+And every letter was fetched whole, whatever its size, and copied several
+times over as it was read. A crafted letter of 35 MB of line breaks inside a
+multipart came to 1.66 GB in a release build, which is the app killed the
+moment he opens it: the decoder made a list of every line first, at 24
+bytes a line. One of 25 MB of CRLF came to about 700 MB and took 14 s on the
+repository's actor, most of it in the two replacements that made its line
+breaks line feeds. Figures are the suite's debug build on the development
+computer where not said otherwise.
+
+**What he sees now.** On a letter of 5 MB or less, nothing: its FETCH is
+the one it always was, and the pane's page, the text and HTML the decoder
+gives, and the quote a reply or a forward carries are byte for byte what
+they were (below). A letter above 5 MB on the server, most often a letter
+of two or more photographs, opens without its files: its header, its text
+and its HTML, each up to 2 MB, and its files listed in the header as
+before, from its structure. A file comes when he taps it, as a file always
+did when the letter was no longer to hand, and a picture the letter shows
+in its body comes as the pane asks for it, so the photographs of a large
+letter appear one after another rather than with it. Reply and Forward
+work as before: a reply quotes what was fetched, and a forward carries
+every file and picture by reference, as it always did, fetched when it is
+sent. A letter whose HTML is longer than 2 MB, or whose text is when it has
+no HTML, which is rare (a newsletter is 50 to 200 KB, though a sender who
+writes pictures into the HTML itself can pass it, and loses the pictures
+past the cut), shows "Only the beginning of this message is shown." in grey
+above it, in the pane and in a conversation. Above it rather than under it:
+the sender's markup is cut wherever the fetch stopped, inside a table, a
+link or a tag, and anything written after it would be drawn inside that, or
+not at all. A text alternative cut under HTML that came whole says
+nothing, since the pane shows the HTML. A character cut in two by the fetch
+is dropped, as a preview drops it, rather than making the whole of it read
+as Latin-1. The words are the app's own.
+
+**What goes on the wire** (`IMAPMailRepository.loadMessage`,
+`IMAPClient.fetchLetterInPart`). In one hold of the interactive line, with
+its SELECT and UIDVALIDITY check (B-039): `UID FETCH <uid> (UID
+BODYSTRUCTURE BODY.PEEK[HEADER])`, then `UID FETCH <uid> (UID
+BODY.PEEK[1.1]<0.2097152>)` for the text and the same for the HTML, by the
+sections the structure gives them, all PEEK. Every other letter's FETCH is
+what it was, `(UID BODY.PEEK[])`, the everyday wire. The size is the
+RFC822.SIZE every row is fetched with already: the repository keeps it for
+the letters above 5 MB it has listed in this launch (the last 2,000 of
+them), and the page kept on the iPad (D-016) keeps it with their rows, so a
+large row tapped at launch before its folder's first page has come is
+opened in part too. There, as for a whole letter (B-053), the first FETCH
+asks Gmail's id for it, `(UID X-GM-MSGID BODYSTRUCTURE BODY.PEEK[HEADER])`,
+and it is compared before the text is asked for: another letter's, or none,
+and nothing more is fetched, nothing is shown, the row leaves the kept page
+and the log says `KEPT-UNVOUCHED folder=INBOX nothing-shown`. A copy this
+launch put in Drafts is asked its id the same way, and nothing compared.
+A letter with no size known to the repository is fetched whole, as before.
+A draft he reopens is fetched whole however large: he may change it and
+send it again, and a text cut short would go cut short. A file he taps, or
+a picture the pane asks for, of the letter last opened in part is then
+`UID FETCH <uid> (UID BODY.PEEK[<section>])` alone, its structure kept from
+the first FETCH as a letter fetched whole is kept for its files; one of a
+letter opened before it has the FETCH that describes the letter first, as a
+file of a letter no longer to hand always had. Described again for each, a
+large letter of 300 pictures took 603 FETCHes to open and show, each second
+one carrying its whole structure. And the pictures still coming when he
+taps another letter are called off (`PictureRequests`): WebKit stops them
+as the page goes, the one on the wire finishes, and the rest leave the line
+with nothing sent. They used to go on waiting, and then go, every one, and
+the letter he had tapped came after them.
+
+**Every pass over the content is one pass.** The wrapper comes off in one
+pass over the bytes, the next `>` and the next `</head>` each looked for
+once from where the last search stopped (`DocumentWrapper`). The pictures
+are found in one pass (`InlineImageRewriter`). The sanitiser keeps at most
+512 elements open, as WebKit builds no deeper, and one opened inside that
+many loses its tag and keeps what is inside it, as an element not on its
+list does; it counts the open elements by name, so a closing tag for one not
+open is refused at once; a `<head>` found never to close ends every later
+one where a browser ends a head never closed; attributes are checked against
+a set; a style's reference is found by Knuth, Morris and Pratt's search, and
+its pictures are renamed in one copy of it once all are found; a reference
+in another case than its Content-ID is looked up in a table of the ids in
+one case, made once, and where two ids differ only in case the first in
+order is the one found, where it was whichever the comparison met first. The
+decoder walks a part's lines in place, reads only a letter's header block to
+read its header, unfolds a header in place, and makes line breaks line feeds
+in one pass over the UTF-8. It lists at most 500 files for a letter,
+wherever its parts are: 500 to a multipart, nested, was a quarter of a
+million rows in the header and on the kept page. Here, now: the 48 KB
+wrappers about 10 ms each; the 20,000 pictures 0.1 s; the sanitiser's cases
+14 to 70 ms, the 180,000 references in a style found and renamed 1.3 s,
+where they took 8.7 s, and references in another case about one and a half
+times those in their own, where they took fourteen times with 500 pictures;
+the folded header 80 ms; 35 MB of line breaks opened 6 MB, and fetched whole
+104 MB, where it was 1.66 GB; 4 MB of CRLF 2 MB and 0.2 s, where it was 151
+MB and 2.3 s. Only a letter built for it comes out otherwise, and nothing a
+mailer writes does any of these: a piece of the wrapper whose `>` lies past
+a `</head>`, which the four expressions, run one after another, could take
+in another order; a line break with a combining accent after it, which the
+replacements took as one character with it; in the pane, a `)`, a `"` or a
+`>` with a combining accent after it, which now ends a picture's id, and a
+`CID:` with one after it, which is now written `cid:`, where Foundation's
+search took each with its accent as one character; and in a quote, a second
+`<head>` after one never closed, now ended where a browser ends it, so that
+what it holds is quoted as a browser shows it: `<head>A<head>B</head>C`
+quotes as `ABC`, where it quoted as `AC`. And a picture's id is ended by a
+carriage return as by a line feed, where a CRLF straight after it did not
+end it; no body the decoder hands over has a CRLF left in it.
+
+**The connection log** has a SEARCH's answer as how many it found, `* SEARCH
+{56112 uids}`, as a literal is kept as its size. At his size, by estimate,
+the answer is one line of 0.4 MB for the Inbox and one or two megabytes for
+Sent Mail, All Mail or a common word, most of the 500 lines the log keeps,
+and the log's screen, the one read out over the phone, would freeze on the
+main thread drawing it; each send's transcript carried it too.
+
+**Not taken, and still to do.**
+
+- The text of an HTML letter is read a Character at a time (`HTMLText`),
+  about 0.3 s a megabyte here in the debug build; Reply makes its quote on
+  the main thread (`Message.quotableText`), so an HTML-only letter just
+  under 5 MB can hold the screen for a second or more at the tap. Linear,
+  and left.
+- The pictures a large letter shows come one FETCH each, where a whole
+  letter brought them all in one. How long a letter of many takes to fill
+  in on his connection is for the iPad to say; none is capped. Only the
+  letter last opened in part keeps its structure, so in a conversation of
+  two such letters the other's pictures are two FETCHes each. A forward of
+  one fetches its files and pictures as it is sent, each with the FETCH
+  that describes the letter and names it first, as for any letter no longer
+  to hand: behind the spinner, not in the pane.
+- A reply or a forward of a letter shown cut short quotes what was
+  fetched, with nothing in the quote to say it was cut, and a forward
+  passes the first 2 MB on as if it were the whole letter. As rare as a
+  text or HTML part over 2 MB; not decided.
+- The structure of a letter with a great many parts is read whole for
+  every row that lists it; only the files listed from it are capped.
+- Gmail's answer to `BODY.PEEK[HEADER]`, and to a section cut at 2 MB, has
+  not been seen; previews have used cut sections (`BODY.PEEK[1]<0.2048>`)
+  from the start.
+
+**Checked in host tests** (`BoundedLetterTests`, `LargeLetterTests`,
+`HostileLetterFuzzTests`, `DiagnosticsTests`, `PictureRequestsTests`). What
+the wrapper, the pictures and the line breaks make of ordinary mail is held
+against the code they replace, kept in the test as the reference; the quote,
+the pane's page and the decoded letter against fingerprints of what the code
+before made of 54 HTML bodies and 30 whole letters (`OrdinaryMail`: Mail,
+Outlook, Gmail, newsletters, quoted-printable, base64, related, mixed,
+forwarded). Each crafted letter is timed against a bound at least ten times
+what it takes here, and sized so the old way goes well past it; the counted
+closing tags are timed against the same tags with nothing open, and
+references in another case against the same in their own; the style's
+renaming is held place by place, each id read where the sender wrote it,
+since timed it is only seven times the linear way in the debug build; memory
+is measured by Linux's high-water mark (`PeakMemory`). A large letter is
+opened over the scripted server field for field as a whole fetch gives it,
+its files and pictures fetched when asked, each one FETCH, the pictures
+still coming called off when he moves on, replied to and forwarded with its
+files, cut with a character split at the cut, a text cut under whole HTML
+not said to be cut, a copy this launch put in Drafts asked its id in the
+first FETCH, and opened from the kept page at the next launch, vouched for
+and refused. The fuzz mutates ordinary mail with what a stranger would reach
+for, seeded: 150 cases each for markup and letters in every run, and
+`BLACKMAIL_FUZZ_CASES` for as many as it says (`BLACKMAIL_FUZZ_SEED` for
+another seed); no crash, every call inside 2 s, every output within what its
+input allows, and the sanitiser's output only tags it keeps, no attribute
+that acts, no address on a scheme mail has no use for, every closing tag
+closing something it opened, nothing deeper than its limit. Run at 25,000
+cases each for five seeds, a quarter of a million in all, it found nothing
+in the code. Each part undone in a scratch copy, one at a time, fails the
+test named for it: thirty-two undone.
+
+**Not yet seen on the iPad.** The TODO says what to look at.

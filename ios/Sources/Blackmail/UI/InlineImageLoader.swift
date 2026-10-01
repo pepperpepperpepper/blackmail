@@ -27,19 +27,21 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
     /// the message on screen changes; nil between messages.
     var fetch: ((_ contentID: String) async throws -> (Data, String))?
 
-    /// Tasks WebKit has not cancelled yet.
+    /// Tasks WebKit has not cancelled yet, with the fetch answering each.
     ///
     /// Load-bearing rather than tidy: replying to a `WKURLSchemeTask` that
     /// WebKit has already stopped raises an Objective-C exception, which is
     /// not catchable from Swift and takes the app down. Stopping happens
     /// routinely and through no fault of anyone's — he taps the next message
     /// while a photograph is still downloading — so every reply is gated on
-    /// the task still being live.
-    private var live = Set<ObjectIdentifier>()
+    /// the task still being live, and the fetch of one stopped is called
+    /// off, so the letter he tapped does not wait behind it
+    /// (`PictureRequests`).
+    private var requests = PictureRequests<ObjectIdentifier>()
 
     func webView(_ webView: WKWebView, start task: WKURLSchemeTask) {
         let key = ObjectIdentifier(task)
-        live.insert(key)
+        requests.begin(key)
 
         // "bmcid://<id>" — the id can be anything a sender chose, so it is
         // read back from the host AND the path and then percent-decoded,
@@ -55,14 +57,14 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
             return
         }
 
-        Task { @MainActor in
+        requests.answering(key, with: Task { @MainActor in
             let result = try? await fetch(contentID)
             self.finish(task, key: key, with: result?.0, mimeType: result?.1)
-        }
+        })
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
-        live.remove(ObjectIdentifier(task))
+        requests.stop(ObjectIdentifier(task))
     }
 
     /// One place where a task is answered, so the liveness check cannot be
@@ -74,7 +76,7 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
     /// to compile. The fetch hop is where the actor boundary is crossed.
     private func finish(_ task: WKURLSchemeTask, key: ObjectIdentifier,
                         with data: Data?, mimeType: String?) {
-        guard live.remove(key) != nil else { return }
+        guard requests.answer(key) else { return }
 
         guard let data, !data.isEmpty, let url = task.request.url else {
             // A part that cannot be fetched gets an empty 404 rather than an

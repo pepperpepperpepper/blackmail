@@ -146,6 +146,12 @@ struct Message: Identifiable {
     /// Gmail gives every Inbox UIDVALIDITY 1, and a password saved in
     /// Settings can open another mailbox under the same address (B-033).
     var gmailMessageID: UInt64? = nil
+    /// True when the body the pane shows, `htmlBody` when there is one and
+    /// `textBody` otherwise, is only the beginning of the letter's own: a
+    /// letter too large to fetch whole, whose text or HTML is longer than
+    /// the part of it fetched (`IMAPMailRepository.loadMessage`). The pane
+    /// says so (`MailText.shortenedNotice`).
+    var isShortened = false
 }
 
 extension Message {

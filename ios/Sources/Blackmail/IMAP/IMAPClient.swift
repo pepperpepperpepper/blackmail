@@ -1180,6 +1180,83 @@ actor IMAPClient {
         }
     }
 
+    /// What a letter too large to fetch whole is fetched as
+    /// (`fetchLetterInPart`): Gmail's id for it when that was asked, its
+    /// structure, its header block, and the sections asked for from that
+    /// structure, each up to the size asked. All empty when nothing was
+    /// fetched past the id, or not even that.
+    struct LetterInPart {
+        var letter: UInt64?
+        var structure: MIMEPart?
+        var header = Data()
+        /// By section path, as `sections` named them.
+        var sections: [String: Data] = [:]
+    }
+
+    /// Whether, and why, `fetchLetterInPart` asks Gmail's id for the letter.
+    enum LetterQuestion: Equatable {
+        /// Not asked: the letter's own FETCH, as `fetchBody`'s.
+        case none
+        /// Asked where the server can be, as `fetchBodyAskingLetter` asks.
+        case ifNamed
+        /// Asked, and the letter is fetched only if it is this one, as
+        /// `fetchBodyNamingLetter` vouches for a row (D-016): on a server
+        /// that cannot name it, nothing is fetched at all.
+        case expecting(UInt64)
+    }
+
+    /// A letter too large to fetch whole, as the reading pane shows it: in
+    /// one hold of the interactive line, with its SELECT and UIDVALIDITY
+    /// check (B-039), `UID FETCH <uid> (UID BODYSTRUCTURE BODY.PEEK[HEADER])`,
+    /// with X-GM-MSGID beside them as `question` says, and then, from that
+    /// structure, one `UID FETCH <uid> (UID BODY.PEEK[<section>]<0.<bytes>>)`
+    /// for each section `sections` picks: the letter's text and its HTML,
+    /// the first `sectionBytes` of each. Every file stays on the server
+    /// until it is asked for (`fetchPart`). PEEK throughout.
+    ///
+    /// For `.expecting`, the id is compared before anything past the first
+    /// FETCH is asked for, and another letter's, or none, ends it there
+    /// with the id the server named; the caller shows nothing of it, as it
+    /// shows nothing of a whole letter whose FETCH named another (B-053).
+    func fetchLetterInPart(uid: UInt32, in mailbox: String, validity: UInt32,
+                           question: LetterQuestion, sectionBytes: Int,
+                           sections: @Sendable (MIMEPart) -> [String]) async throws -> LetterInPart {
+        try await inMailbox(mailbox, validity: validity, .interactive) { _ in
+            let asking: Bool
+            switch question {
+            case .none:
+                asking = false
+            case .ifNamed:
+                asking = try self.namesLetters()
+            case .expecting:
+                guard try self.namesLetters() else { return LetterInPart() }
+                asking = true
+            }
+            let items = asking ? "UID X-GM-MSGID BODYSTRUCTURE BODY.PEEK[HEADER]"
+                               : "UID BODYSTRUCTURE BODY.PEEK[HEADER]"
+            let described = try await self.performCommand("UID FETCH \(uid) (\(items))")
+            guard described.status == .ok else { throw MailError.cannotConnect }
+            let parsed = IMAPParser.parseFetch(described.untagged)
+            let row = parsed.first { $0.uid == uid }
+            var letter = LetterInPart(letter: row?.gmailMessageID, structure: row?.bodyStructure,
+                                      header: row?.body ?? Data())
+            if case let .expecting(expected) = question, letter.letter != expected {
+                return LetterInPart(letter: letter.letter)
+            }
+            guard let structure = letter.structure else { return letter }
+            for section in sections(structure) {
+                let path = Self.sanitizedSection(section)
+                let result = try await self.performCommand(
+                    "UID FETCH \(uid) (UID BODY.PEEK[\(path)]<0.\(sectionBytes)>)")
+                guard result.status == .ok else { throw MailError.cannotConnect }
+                let fetched = IMAPParser.parseFetch(result.untagged)
+                letter.sections[section] = fetched.first(where: { $0.uid == uid })?.body
+                    ?? fetched.compactMap(\.body).first
+            }
+            return letter
+        }
+    }
+
     /// Whether the server can be asked for Gmail's id for a letter. Asked
     /// holding the gate, after the SELECT has shown the connection to be
     /// up: before it, a connection another holder's failed command had just
@@ -1612,7 +1689,9 @@ actor IMAPClient {
             text += try await conn.readLine()
         }
 
-        Diagnostics.log(.received, text)
+        // A SEARCH's answer goes in as a count, as a literal goes in as its
+        // size (`Diagnostics.describeSearch`).
+        Diagnostics.log(.received, Diagnostics.describeSearch(text) ?? text)
         return IMAPResponseLine(text: text, literals: literals)
     }
 

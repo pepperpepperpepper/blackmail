@@ -27,6 +27,10 @@ enum MailText {
     /// What the reading pane should say when a letter has nothing in it.
     static let emptyBodyNotice = "This message has no text."
 
+    /// What the reading pane says above a letter it shows only the
+    /// beginning of (`Message.isShortened`).
+    static let shortenedNotice = "Only the beginning of this message is shown."
+
     /// True when there is genuinely nothing to draw.
     ///
     /// The point is not politeness to the sender of an empty letter — it is
