@@ -7,6 +7,10 @@ import XCTest
 /// for byte as the pane built it there: the pane's CSS, the invert trick and
 /// the inline-image rewrite all act on it, and "equivalent" markup is not
 /// something anyone can vouch for without the iPad.
+///
+/// Since B-055 a link written out in a letter is made a link (`TextLinks`),
+/// and that is the one change: a letter with none comes out as it did, and
+/// the letter here with one differs by its `<a>` alone.
 final class PanePageTests: XCTestCase {
 
     /// The pane's measurements as `Theme` gives them on the iPad.
@@ -141,6 +145,7 @@ final class PanePageTests: XCTestCase {
             // text carries everything markup would take for its own.
             letter(text: "\n\nDear Sam,\n\nIt's <b>not</b> bold & it's \"quoted\" > here.\n"
                    + "\u{2028}é \u{1F4EE}\n\n> On Monday, Carlo wrote:\n> The roses?"),
+            // The one with a link written in it (`linked`).
             letter(text: "\n\nhttps://example.com/a?b=1&c=2 </script>"),
             // A newsletter big enough to matter, in a debug build.
             letter(html: Self.newsletter(kilobytes: 48), pictures: pictures),
@@ -153,8 +158,11 @@ final class PanePageTests: XCTestCase {
 
     // MARK: - Byte for byte
 
+    /// Which of `letters` has a link written in it.
+    private static let linked = 11
+
     func testALettersPageComesOutByteForByteAsThePaneBuiltIt() {
-        for (i, m) in letters.enumerated() {
+        for (i, m) in letters.enumerated() where i != Self.linked {
             let page = PanePage.letter(m, style: style)
             XCTAssertEqual(page.map { Array($0.utf8) }, previousPage(m).map { Array($0.utf8) },
                            "letter \(i)")
@@ -162,12 +170,43 @@ final class PanePageTests: XCTestCase {
     }
 
     func testAStackBodyComesOutByteForByteAsThePaneBuiltIt() {
-        for (i, m) in letters.enumerated() {
+        for (i, m) in letters.enumerated() where i != Self.linked {
             let body = PanePage.stackBody(m)
             let previous = previousStackBody(m)
             XCTAssertEqual(Array(body.html.utf8), Array(previous.html.utf8), "letter \(i)")
             XCTAssertEqual(body.isHTML, previous.isHTML, "letter \(i)")
         }
+    }
+
+    /// The letter with a link in it: the page the pane built, and the stack
+    /// body, with the link made a link and nothing else changed. Escaped as
+    /// before around it and in it, `&` as `&amp;` in the address too, and the
+    /// `</script>` after it still words.
+    func testALinkIsTheOnlyChangeToTheLetterWithOne() throws {
+        let m = letters[Self.linked]
+        let written = "https://example.com/a?b=1&amp;c=2"
+        let link = "<a href=\"\(written)\">\(written)</a>"
+        let before = try XCTUnwrap(previousPage(m))
+        XCTAssertTrue(before.contains("<div id=\"bm\">\(written) &lt;/script></div>"), before)
+        XCTAssertEqual(PanePage.letter(m, style: style),
+                       before.replacingOccurrences(of: "<div id=\"bm\">\(written) ",
+                                                   with: "<div id=\"bm\">\(link) "))
+        XCTAssertEqual(PanePage.stackBody(m),
+                       .init(html: "\(link) &lt;/script&gt;", isHTML: false))
+        XCTAssertEqual(previousStackBody(m), .init(html: "\(written) &lt;/script&gt;", isHTML: false))
+    }
+
+    /// An HTML letter's links written in its text are made links too, in
+    /// its page and in its stack body alike, after its wrapper has come off
+    /// and its pictures are pointed at the loader.
+    func testAnHTMLLettersLinksAreMadeLinksInBothPlaces() throws {
+        let m = letter(html: "<html><body><p>Photos: https://example.com/garden.</p>"
+                       + "<img src=\"cid:logo@example.com\"></body></html>",
+                       pictures: ["logo@example.com"])
+        let body = "<p>Photos: <a href=\"https://example.com/garden\">https://example.com/garden</a>.</p>"
+            + "<img src=\"bmcid://logo%40example.com\">"
+        XCTAssertTrue(try XCTUnwrap(PanePage.letter(m, style: style)).contains("<div id=\"bm\">\(body)</div>"))
+        XCTAssertEqual(PanePage.stackBody(m), .init(html: body, isHTML: true))
     }
 
     /// Spot checks that the reference above is the page he sees: the

@@ -71,21 +71,42 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         self.repository = repository
 
         let config = WKWebViewConfiguration()
-        // Remote content blocked by default: a tracking pixel should not phone
-        // home just because he opened a letter, and on a slow connection a
-        // half-loaded remote image looks like a broken message.
+        // Remote content is NOT blocked: a letter's pictures from the web
+        // load as they always have, and a tracking pixel among them tells
+        // its sender the letter was opened. Blocking them is the owner's
+        // decision, still open. What is locked down is below.
         config.suppressesIncrementalRendering = false
+        // The letter is a stranger's HTML, and WebKit here may never be
+        // updated again, so none of its script runs: not a `<script>`, not
+        // an `onerror=`, not a `javascript:` link. The pane's own script
+        // still does, as a user script in the app's content world, which
+        // this setting leaves alone (`ConversationDocument.script`), and so
+        // does `callAsyncJavaScript` there. Where the page goes is
+        // `PaneNavigation`'s, below.
+        config.defaultWebpagePreferences.allowsContentJavaScript = false
+        // Nothing of WebKit's kept on the iPad: no cookies, no HTTP cache,
+        // no site data from the pictures letters load, which the app would
+        // otherwise hold in its container for good with nothing to bound
+        // it. Held in memory for as long as the web view lives.
+        config.websiteDataStore = .nonPersistent()
         // Registered here because a scheme handler can only be attached to a
         // configuration BEFORE the web view is built; there is no adding one
         // later.
         config.setURLSchemeHandler(inlineImages, forURLScheme: InlineImageRewriter.scheme)
+        // Every document the pane loads gets it, once parsed, in the main
+        // frame. On a letter or a notice it finds no stack and wires nothing.
+        config.userContentController.addUserScript(
+            WKUserScript(source: ConversationDocument.script, injectionTime: .atDocumentEnd,
+                         forMainFrameOnly: true, in: .defaultClient))
         self.webView = WKWebView(frame: .zero, configuration: config)
 
         super.init(nibName: nil, bundle: nil)
 
         // Added after `super.init` because it captures self. This is how a
-        // tap on a collapsed letter reaches Swift.
-        config.userContentController.add(self, name: "bmLetter")
+        // tap on a collapsed letter reaches Swift. In the app's content world
+        // only, where the stack's script runs: a letter's markup, in the
+        // page's world, has no `bmLetter` to post to.
+        config.userContentController.add(self, contentWorld: .defaultClient, name: "bmLetter")
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -430,13 +451,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         run(fill)
     }
 
-    /// Calls the page's `bmFill` with the body as an argument, which needs
-    /// no escaping; see `ConversationDocument.Fill`. In the page's own
-    /// content world, where its script defined `bmFill`, as
-    /// `evaluateJavaScript` without one ran.
+    /// Calls the stack's `bmFill` with the body as an argument, which needs
+    /// no escaping; see `ConversationDocument.Fill`. In the app's content
+    /// world, where the stack's user script defined `bmFill`
+    /// (`ConversationDocument.script`).
     private func run(_ fill: ConversationDocument.Fill) {
         webView.callAsyncJavaScript(ConversationDocument.Fill.script, arguments: fill.arguments,
-                                    in: nil, in: .page)
+                                    in: nil, in: .defaultClient)
     }
 
     /// A letter in the stack was opened or closed.
@@ -657,6 +678,23 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         Diagnostics.log(.note, "webview: load failed \((error as NSError).code)")
     }
 
+    /// The pane loads its own documents and nothing else: no other page,
+    /// no frame inside a letter, no form sent. See `PaneNavigation`.
+    func webView(_ w: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        switch PaneNavigation.decide(PaneNavigation.Kind(action.navigationType),
+                                     mainFrame: action.targetFrame?.isMainFrame,
+                                     url: action.request.url) {
+        case .allow:
+            decisionHandler(.allow)
+        case .cancel:
+            decisionHandler(.cancel)
+        case .follow(let url):
+            decisionHandler(.cancel)
+            follow(url)
+        }
+    }
+
     /// Links open in Safari after a confirmation, and never navigate the pane
     /// itself. A message view that silently turns into a web page is how
     /// someone ends up lost with no way back.
@@ -665,12 +703,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Mail's own do. It used to go through the same confirmation to Apple
     /// Mail, and the letter went from there, missing from this app's Sent
     /// (B-036).
-    func webView(_ w: WKWebView, decidePolicyFor action: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard action.navigationType == .linkActivated, let url = action.request.url else {
-            decisionHandler(.allow); return
-        }
-        decisionHandler(.cancel)
+    private func follow(_ url: URL) {
         if url.scheme?.lowercased() == "mailto",
            let draft = MailtoLink.draft(from: url,
                                         signature: CredentialStore.loadAccount()?.signature ?? "") {
@@ -801,6 +834,20 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let nav = UINavigationController(rootViewController: compose)
         nav.modalPresentationStyle = .formSheet
         present(nav, animated: true)
+    }
+}
+
+private extension PaneNavigation.Kind {
+    init(_ type: WKNavigationType) {
+        switch type {
+        case .linkActivated: self = .linkActivated
+        case .formSubmitted: self = .formSubmitted
+        case .backForward: self = .backForward
+        case .reload: self = .reload
+        case .formResubmitted: self = .formResubmitted
+        case .other: self = .other
+        @unknown default: self = .unknown
+        }
     }
 }
 
