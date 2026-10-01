@@ -138,14 +138,67 @@ final class ConversationDocumentTests: XCTestCase {
     }
 
     /// What the web view is asked to run is the same few characters for
-    /// every body, naming `bmFill`'s own parameters, which the page defines
-    /// in its own script.
-    func testTheFillCallsThePagesOwnFunctionByItsArguments() {
+    /// every body, naming `bmFill`'s own parameters, which the stack's user
+    /// script defines, in the app's world.
+    func testTheFillCallsTheStacksOwnFunctionByItsArguments() {
         XCTAssertEqual(ConversationDocument.Fill.script, "bmFill(id, html, isHTML)")
         let fill = ConversationDocument.Fill(sectionID: "m1_9",
                                              body: .init(html: "x", isHTML: true))
         XCTAssertEqual(Set(fill.arguments.keys), ["id", "html", "isHTML"])
-        XCTAssertTrue(document([entry("1/9")]).contains("function bmFill(id, html, isHTML) {"))
+        XCTAssertTrue(ConversationDocument.script.contains("function bmFill(id, html, isHTML) {"))
+    }
+
+    // MARK: - No script in the document
+
+    /// The pane runs none of a page's own script, this document's
+    /// included, so the document carries none: no `<script>`, and no
+    /// `onclick` or any other handler written on an element, which would
+    /// not run, and would leave no letter that could be opened.
+    func testTheDocumentCarriesNoScriptOfItsOwn() {
+        let html = document([entry("1/3", expanded: true,
+                                   body: .init(html: "<p>x</p>", isHTML: true)),
+                             entry("1/2"), entry("1/1")]).lowercased()
+        XCTAssertFalse(html.contains("<script"), html)
+        let handler = try! NSRegularExpression(pattern: #"<[^>]*\son[a-z]+\s*="#)
+        XCTAssertNil(handler.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)), html)
+    }
+
+    /// The stack's script wires each letter's line with `addEventListener`:
+    /// the lines that are the body's own, found as the document ends, so a
+    /// line a letter draws in its markup, put in later by `bmFill`, is never
+    /// wired; and on a single letter's page, the one with `#bm`, none at
+    /// all. A tap toggles the letter's section, as the line's `onclick`
+    /// did, and tells the pane which letter and whether it opened, as that
+    /// did, through `bmLetter`.
+    func testTheStacksScriptWiresEachLineAndTellsThePane() {
+        let script = ConversationDocument.script
+        for wiring in [
+            "if (document.getElementById('bm')) return;",
+            "document.querySelectorAll('body > .bm-letter > .bm-head')",
+            "addEventListener('click', function (event) {",
+            "bmToggle(event.currentTarget.parentNode);",
+            "var opening = !section.classList.contains('bm-open');",
+            "section.classList.toggle('bm-open');",
+            "window.webkit.messageHandlers.bmLetter.postMessage({ id: section.id, open: opening });",
+            "body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');",
+            "body.innerHTML = html;",
+        ] {
+            XCTAssertTrue(script.contains(wiring), wiring)
+        }
+        XCTAssertFalse(script.contains("onclick"))
+        // Every line of the stack is a direct child's of the body, and so
+        // is found: each section sits at the top level of the document,
+        // which has no `#bm`. A letter's own page has one.
+        let html = document([entry("1/2"), entry("1/1")])
+        XCTAssertTrue(html.contains("<body>\n<div class=\"bm-letter\" id=\"m1_2\">\n  <div class=\"bm-head\">"),
+                      html)
+        XCTAssertFalse(html.contains("id=\"bm\""))
+        let page = PanePage.letter(Message(id: "7/3", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
+                                           senderAddress: "sam@example.com", to: [], cc: [], subject: "x",
+                                           date: Date(timeIntervalSince1970: 1_790_000_000), textBody: nil,
+                                           htmlBody: "<p>Hi</p>", attachments: []),
+                                   style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41))
+        XCTAssertTrue(page?.contains("<div id=\"bm\">") == true)
     }
 
     // MARK: - The document is well formed

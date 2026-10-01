@@ -51,6 +51,14 @@ actor IMAPMailRepository: MailRepository {
     /// that id is taken from here only when it is the same letter
     /// (`carriedPart`).
     private var lastBody: (messageID: String, letter: UInt64?, raw: Data)?
+    /// The structure of the last letter opened without its files
+    /// (`loadLetterInPartOnce`), as `lastBody` is the last opened whole. A
+    /// part of it, a picture the pane asks for or a file he taps, is then
+    /// one FETCH of its section, where a part of a letter no longer to hand
+    /// is two, the first describing the whole letter again
+    /// (`fetchAttachmentData`). Not for a forward's parts that name their
+    /// letter, which the FETCH that describes it vouches for (`carriedPart`).
+    private var lastStructure: (messageID: String, structure: MIMEPart)?
     /// The copies this launch has put in Drafts itself, by folder name and
     /// id, as APPENDUID gave them, or as the search by its version's
     /// Message-ID found one a cut-off upload left (`saveDraft`). One
@@ -130,9 +138,13 @@ actor IMAPMailRepository: MailRepository {
          now: @escaping @Sendable () -> Date = { Date() },
          signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
             = { SignatureImages.load() },
-         shelf: MailShelf? = nil) {
+         shelf: MailShelf? = nil,
+         largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
+         largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes) {
         self.account = account
         self.password = password
+        self.largeAbove = largeLetterBytes
+        self.largeSection = largeLetterSectionBytes
         self.imap = IMAPClient(account: account, transport: transport, now: now)
         self.smtp = SMTPClient(account: account, transport: transport)
         self.recipients = recipients
@@ -227,7 +239,8 @@ actor IMAPMailRepository: MailRepository {
     /// that keeps failing to authenticate. A server that could not be
     /// reached a moment ago will not be reached by asking again at once
     /// either, and on the device each attempt can take the whole connect
-    /// timeout. `passwordNeedsUpdating` is never retried, however it arose.
+    /// timeout. A refused sign-in, the password's or another, is never
+    /// retried, however it arose.
     ///
     /// Nor when an attempt to connect failed while the read waited, whoever
     /// made it. The client calls itself connected from the moment the socket
@@ -288,14 +301,14 @@ actor IMAPMailRepository: MailRepository {
     /// above: only when a connection it began on has been torn down since,
     /// whether or not another call has connected again by the time it
     /// looks, and no attempt to connect has failed meanwhile; never for a
-    /// refused password. Apart from the connection so the suite can put it
+    /// refused sign-in. Apart from the connection so the suite can put it
     /// in each state it can be found in, which the calls themselves reach
     /// only in orders two tasks happen to run in (the stress tests of the
     /// Delete made while a NOOP is out, which pass without the rule on most
     /// runs).
     static func retries(_ error: Error, began before: Attempt, after: Attempt) -> Bool {
         before.connected
-            && (error as? MailError) != .passwordNeedsUpdating
+            && !MailError.refusesSignIn(error)
             && after.lost != before.lost
             && after.failedConnects == before.failedConnects
     }
@@ -319,11 +332,17 @@ actor IMAPMailRepository: MailRepository {
         get async { await imap.waitingForExchange }
     }
 
+    /// Never for a retired repository, whose connection is on its way to
+    /// its LOGOUT: work nobody asked for goes on the new one (`retire`).
     var isConnected: Bool {
-        get async { await imap.isConnected }
+        get async {
+            guard !retired else { return false }
+            return await imap.isConnected
+        }
     }
 
     private func connected() async throws -> IMAPClient {
+        guard !retired else { throw MailError.cannotConnect }
         lastContact = now()
         if await imap.isConnected { return imap }
         // The warm-up or the watch has sent the password a moment ago, and
@@ -405,12 +424,14 @@ actor IMAPMailRepository: MailRepository {
     /// it again, seconds apart. Calls queued behind a refused LOGIN already
     /// share its answer (`IMAPClient.connect`), but a tap comes after the
     /// probe has finished, and is two calls, the letter and its read mark.
-    /// The password cannot change under a running repository in any case;
-    /// Settings reaches it at the next launch.
+    /// The password cannot change under a running repository in any case:
+    /// one saved in Settings is signed in with at once, by a new repository
+    /// in this one's place (`PasswordChange`).
     ///
     /// Nothing is sent as the app goes into the background. A LOGOUT there
     /// would cost a whole reconnect on every return, however short.
     func warmUp() async {
+        guard !retired else { return }
         refusedUnasked = nil
         guard now().timeIntervalSince(lastContact) > Self.quietBeforeProbe,
               await imap.isConnected else { return }
@@ -430,6 +451,26 @@ actor IMAPMailRepository: MailRepository {
         } catch {
             // Unreachable, most likely. The next call tries for itself.
         }
+    }
+
+    /// Set by `retire`: this repository sends nothing more.
+    private var retired = false
+
+    /// A new password has been saved in Settings, and a new repository signs
+    /// in with it in this one's place (`PasswordChange`). The connection is
+    /// closed and no other is made (`IMAPClient.retire`), and no letter goes
+    /// through here from now on, so whatever still holds this one, the
+    /// screens it was drawn on until they go, a pass over the Outbox under
+    /// way, sends the old password nowhere and reaches the mailbox it opened
+    /// no more, which after the app-password trap (B-033) may be another's.
+    /// Nothing more goes on the old connection either, while its LOGOUT
+    /// waits for the command already on the wire: no call gets it, and a
+    /// pass finds it down. A letter from the Outbox refused here waits for
+    /// the next pass, which is the new repository's: nothing of it was
+    /// sent. Returns at once.
+    func retire() async {
+        retired = true
+        await imap.retire()
     }
 
     /// Makes sure the connection is alive BEFORE doing something that must
@@ -490,7 +531,7 @@ actor IMAPMailRepository: MailRepository {
         do {
             return try await write()
         } catch let unsent as IMAPClient.Unsent {
-            guard !Task.isCancelled, unsent.failure != .passwordNeedsUpdating,
+            guard !Task.isCancelled, !unsent.failure.refusesSignIn,
                   await imap.failedConnects == failuresBefore else { throw unsent.failure }
             _ = try await connected()
             do {
@@ -502,6 +543,16 @@ actor IMAPMailRepository: MailRepository {
     }
 
     // MARK: - The watch
+
+    /// How long after a sign-in refused for a reason that is not the
+    /// password the watch tries again (`watchedConnection`): every tenth
+    /// check, twelve LOGINs an hour while the app is in front, against the
+    /// hundred and twenty a check every half minute would send. Google
+    /// counts failed sign-ins against an account; a refusal like these is
+    /// not the password failing, and a helper who has done what Google
+    /// asked sees the mail come back within five minutes without touching
+    /// the iPad.
+    static let refusedSignInWaits: TimeInterval = 5 * 60
 
     /// The most new letters one check puts on the list. More than a page
     /// comes in between two checks only when the list has been held back
@@ -602,14 +653,23 @@ actor IMAPMailRepository: MailRepository {
     /// by itself. With no network at all each attempt fails at once, before
     /// any TLS, since the transport takes `.waiting` for a failure.
     ///
-    /// Never after a refused LOGIN, until a connection has been made since.
-    /// Every half minute that would be a loop of failed logins, and Gmail
-    /// locks out an account that keeps failing to authenticate. Only what he
-    /// does sends the password again, his next tap once `refusalStands` has
-    /// passed, and if that is accepted the watch carries on. A refusal of
-    /// the watch's own stands for every call for `refusalStands`, as the
-    /// warm-up's does, so the letter he taps a moment later does not send
-    /// the same password straight after it.
+    /// Never after the password was refused, until a connection has been
+    /// made since. Every half minute that would be a loop of failed logins,
+    /// and Gmail locks out an account that keeps failing to authenticate.
+    /// Only what he does sends a password again: his next tap once
+    /// `refusalStands` has passed, or a new one saved in Settings, which a
+    /// new repository signs in with; if that is accepted the watch carries
+    /// on. A refusal of the watch's
+    /// own stands for every call for `refusalStands`, as the warm-up's does,
+    /// so the letter he taps a moment later does not send the same password
+    /// straight after it.
+    ///
+    /// A sign-in refused for another reason is tried again, once
+    /// `refusedSignInWaits` has passed since the last refusal. What Google
+    /// refuses that way it lets go of without anything done on the iPad: a
+    /// sign-in on the web made by a helper, a limit on connections or
+    /// bandwidth that runs out. Never tried again, the list said so, and no
+    /// new mail came, until he happened to tap something.
     ///
     /// The client's `loginRefusal` is the whole rule here, and
     /// `refusedUnasked` is not asked. Every refusal that sets the one sets
@@ -617,8 +677,13 @@ actor IMAPMailRepository: MailRepository {
     /// than the minute; so `refusedUnasked` without it is a refusal a LOGIN
     /// has been accepted since, and a password that works now.
     private func watchedConnection() async throws -> IMAPClient {
+        guard !retired else { throw MailError.cannotConnect }
         if await imap.isConnected { return imap }
-        if let refusal = await imap.loginRefusal { throw refusal }
+        if let refusal = await imap.loginRefusal,
+           refusal.failure == .passwordNeedsUpdating
+            || now().timeIntervalSince(refusal.at) < Self.refusedSignInWaits {
+            throw refusal.failure
+        }
         do {
             try await imap.connect(password: password)
         } catch MailError.passwordNeedsUpdating {
@@ -882,7 +947,11 @@ actor IMAPMailRepository: MailRepository {
             // (D-016), unless this listing says the kept one was not this
             // mailbox's, when the whole copy goes first. Numbers and a
             // reason only: nothing kept is ever written to this log.
-            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity) {
+            let sizes = summaries.reduce(into: [String: Int]()) { sizes, row in
+                sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
+            }
+            if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity,
+                                         sizes: sizes) {
                 Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
                                 + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
             }
@@ -1065,6 +1134,9 @@ actor IMAPMailRepository: MailRepository {
             let from = env?.from.first
             let id = Self.makeID(validity: validity, uid: uid)
             rememberPreviewPart(r.bodyStructure, for: id)
+            if let size = r.size, size > largeAbove {
+                rememberLarge(id, in: name, size: size)
+            }
             return MessageSummary(
                 id: id,
                 mailboxID: mailboxID,
@@ -1078,7 +1150,10 @@ actor IMAPMailRepository: MailRepository {
                 threadID: r.threadID,
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
-                attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [])
+                attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
+                // From the ENVELOPE the row is fetched with already, so the
+                // header has its Cc line from the tap; nothing more is asked.
+                cc: env?.cc.map(\.formatted) ?? [])
         }
     }
 
@@ -1242,6 +1317,51 @@ actor IMAPMailRepository: MailRepository {
     /// Insertion order, so the bound above can EVICT rather than empty.
     private var previewPartOrder: [String] = []
 
+    /// Above this, a letter is opened without its files
+    /// (`loadLetterInPartOnce`). Photographs from Mail or an iPhone are
+    /// two to four megabytes each on the wire, so it is a letter of two or
+    /// more.
+    static let largeLetterBytes = 5 << 20
+
+    /// How much of a large letter's text, and of its HTML, is fetched.
+    /// Ample for any letter written by a person: a newsletter is 50 to 200
+    /// KB.
+    static let largeLetterSectionBytes = 2 << 20
+
+    /// The two above, as this repository was made with them. The app's are
+    /// always those; a test's can be small, so a letter of a few kilobytes
+    /// stands for one of megabytes.
+    private let largeAbove: Int
+    private let largeSection: Int
+
+    /// The size of every letter above `largeAbove` the server has
+    /// listed in this launch, by folder and id (`key`), from the
+    /// RFC822.SIZE its row is fetched with. Only those: a letter not here
+    /// is opened whole, as every letter was.
+    private var largeLetters: [String: Int] = [:]
+
+    /// Insertion order, so `largeLetters` can drop its oldest past
+    /// `maximumRememberedLarge`. One dropped is looked for on the kept
+    /// page, and opened whole if it is not there.
+    private var largeLetterOrder: [String] = []
+    private static let maximumRememberedLarge = 2_000
+
+    private func rememberLarge(_ id: String, in name: String, size: Int) {
+        let key = Self.key(id, in: name)
+        if largeLetters.updateValue(size, forKey: key) == nil { largeLetterOrder.append(key) }
+        while largeLetterOrder.count > Self.maximumRememberedLarge {
+            largeLetters.removeValue(forKey: largeLetterOrder.removeFirst())
+        }
+    }
+
+    /// The size of the letter `id` in `name` when it is above
+    /// `largeAbove`: as this launch listed it, or as the page kept on
+    /// the iPad has it, for a row drawn from there before its folder's
+    /// first page has come (D-016). Nil otherwise.
+    private func largeLetterSize(_ id: String, in name: String) -> Int? {
+        largeLetters[Self.key(id, in: name)] ?? shelf?.size(of: id, in: name)
+    }
+
     private func rememberPreviewPart(_ structure: MIMEPart?, for id: String) {
         guard let structure, let part = MIMEDecoder.previewPart(structure) else { return }
         if previewParts[id] == nil { previewPartOrder.append(id) }
@@ -1336,16 +1456,29 @@ actor IMAPMailRepository: MailRepository {
 
     // MARK: - One message
 
+    /// A letter above `largeAbove` comes without its files, which
+    /// are fetched when he taps one or a forward of it is sent
+    /// (`loadLetterInPartOnce`); any other comes whole.
     func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message {
         try await retryingIfDisconnected {
-            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID)
+            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID,
+                                           whole: false)
         }
     }
 
-    private func loadMessageOnce(id: String, letter: UInt64?, mailboxID: String) async throws -> Message {
+    /// `whole` fetches the letter whole whatever its size: a draft of his,
+    /// which he may change and save again, and whose text must then all be
+    /// there, and whose files go again from the copy this fetches.
+    private func loadMessageOnce(id: String, letter: UInt64?, mailboxID: String,
+                                 whole: Bool) async throws -> Message {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(id)
+        if !whole, let size = largeLetterSize(id, in: name), size > largeAbove {
+            return try await loadLetterInPartOnce(id: id, letter: letter, mailboxID: mailboxID,
+                                                  name: name, uid: message.uid,
+                                                  validity: message.validity, client: client)
+        }
 
         let raw: Data
         // Which letter it is, for what a Forward, a reply or a reopened
@@ -1381,15 +1514,107 @@ actor IMAPMailRepository: MailRepository {
         }
         lastBody = (id, named, raw)
 
-        let decoded = MIMEDecoder.decodeMessage(raw)
-        let headers = MIMEDecoder.parseHeaders(raw)
+        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
+                           decoded: MIMEDecoder.decodeMessage(raw), named: named)
+    }
+
+    /// A letter above `largeAbove`, as the reading pane shows it: its
+    /// header, the first `largeSection` bytes of its text and of its
+    /// HTML, and its files listed from its structure and left on the server
+    /// (`IMAPClient.fetchLetterInPart`). A file comes when he taps it, and a
+    /// picture the HTML shows as the pane asks for it, each by its section
+    /// alone while this is the letter last opened so, its structure kept
+    /// (`lastStructure`, `fetchAttachmentData`); a forward's files and
+    /// pictures come when it is sent, as any part not in `lastBody` does
+    /// (`carriedPart`).
+    ///
+    /// Whole, a crafted letter of 35 MB of line breaks came to 1.66 GB in a
+    /// release build on this host, and one of 25 MB of CRLF took 14 s on
+    /// this actor; even an ordinary letter of photographs held the one
+    /// connection for all its megabytes before a word of it showed.
+    ///
+    /// The same questions the whole letter's FETCH asks, in the same
+    /// cases: Gmail's id for it beside the first FETCH, compared before
+    /// anything more is asked for or anything shown, for a row this launch
+    /// has not had from the server (D-016); asked, and nothing compared,
+    /// for a copy this launch put in Drafts itself.
+    private func loadLetterInPartOnce(id: String, letter: UInt64?, mailboxID: String,
+                                      name: String, uid: UInt32, validity: UInt32,
+                                      client: IMAPClient) async throws -> Message {
+        var named = letter ?? seenLetter(uid, validity: validity, in: name)
+        let asked = try question(about: id, named: letter, uid: uid, validity: validity,
+                                 in: name, sayingSo: "nothing-shown")
+        let question: IMAPClient.LetterQuestion = asked.map { .expecting($0) }
+            ?? (named == nil && appendedHere.contains(Self.key(id, in: name)) ? .ifNamed : .none)
+        let limit = largeSection
+        let fetched = try await client.fetchLetterInPart(
+            uid: uid, in: name, validity: validity, question: question, sectionBytes: limit
+        ) { structure in
+            let chosen = MIMEDecoder.bodyParts(of: structure)
+            return [chosen.text, chosen.html].compactMap { $0?.section }
+        }
+        if let asked {
+            try settle(fetched.letter, askedOf: id, uid: uid, validity: validity, as: asked,
+                       in: name, sayingSo: "nothing-shown")
+            named = asked
+        } else if question == .ifNamed {
+            if let found = fetched.letter { saw([uid: found], validity: validity, in: name) }
+            named = fetched.letter
+        }
+
+        var decoded = DecodedBody(text: nil, html: nil)
+        var shortened = false
+        if let structure = fetched.structure {
+            // The files, less the two parts shown, as `flatten` lists them
+            // for a letter fetched whole.
+            decoded = MIMEDecoder.flatten(structure) { _ in nil }
+            let chosen = MIMEDecoder.bodyParts(of: structure)
+            let text = Self.text(of: chosen.text, fetched: fetched.sections, limit: limit)
+            let html = Self.text(of: chosen.html, fetched: fetched.sections, limit: limit)
+            decoded.text = text.text
+            decoded.html = html.text
+            // By the part the pane shows, which is the HTML whenever there
+            // is any (`PanePage`): a text alternative cut short under HTML
+            // that came whole is not what he reads.
+            shortened = html.text != nil ? html.cut : text.cut
+            lastStructure = (id, structure)
+        }
+        return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(fetched.header),
+                           decoded: decoded, named: named, shortened: shortened)
+    }
+
+    /// The text of `part` from its section in `fetched`, and whether that
+    /// is only its first `limit` bytes. A section cut short can end inside
+    /// a character, which would make the whole of it fail as UTF-8 and read
+    /// as Latin-1, so what is left of that character is dropped between the
+    /// two decodings, as a preview drops it.
+    private static func text(of part: MIMEPart?, fetched: [String: Data],
+                             limit: Int) -> (text: String?, cut: Bool) {
+        guard let part, let data = fetched[part.section] else { return (nil, false) }
+        let charset = MIMEDecoder.parameter("charset", in: part.parameters)
+        let cut = part.size.map { $0 > limit } ?? (data.count >= limit)
+        guard cut else {
+            return (MIMEDecoder.decodeText(data, encoding: part.encoding, charset: charset), false)
+        }
+        let bytes = PreviewText.trimmingSplitCharacter(
+            MIMEDecoder.decodeTransfer(data, encoding: part.encoding))
+        // "8bit" because the transfer encoding has already been undone above.
+        return (MIMEDecoder.decodeText(bytes, encoding: "8bit", charset: charset), true)
+    }
+
+    /// The letter the pane shows, from its header and its decoded parts.
+    private static func letter(_ id: String, in mailboxID: String,
+                               headers: [(name: String, value: String)], decoded: DecodedBody,
+                               named: UInt64?, shortened: Bool = false) -> Message {
         func header(_ n: String) -> String? {
             MIMEDecoder.headerValue(n, in: headers).map(MIMEDecoder.decodeWord)
         }
+        // Split between addresses before the encoded words are decoded: a
+        // name encoded as `=?UTF-8?Q?Example=2C_Jane?=` holds a comma once
+        // decoded, and is one address.
         func addresses(_ n: String) -> [String] {
-            (header(n) ?? "")
-                .components(separatedBy: ",")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            MailFormat.addressList(MIMEDecoder.headerValue(n, in: headers) ?? "")
+                .map { MIMEDecoder.decodeWord($0).trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
         }
 
@@ -1414,7 +1639,8 @@ actor IMAPMailRepository: MailRepository {
                 .trimmingCharacters(in: .whitespaces),
             references: MIMEDecoder.headerValue("References", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
-            gmailMessageID: named)
+            gmailMessageID: named,
+            isShortened: shortened)
     }
 
     private static let rfc2822: DateFormatter = {
@@ -1617,6 +1843,7 @@ actor IMAPMailRepository: MailRepository {
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
         if lastBody?.messageID == id { lastBody = nil }
+        if lastStructure?.messageID == id { lastStructure = nil }
         // Off the kept pages as Gmail takes it off its folders (D-016): out
         // of every one but the Trash or Spam it went to, which are
         // exclusive; out of none when it leaves All Mail for a label, since
@@ -1673,6 +1900,7 @@ actor IMAPMailRepository: MailRepository {
     private func send(_ draft: Draft, messageID: String?,
                       beforeData: (@Sendable () async throws -> Void)?,
                       progress: UploadProgress?) async throws {
+        guard !retired else { throw MailError.cannotConnect }
         // The threading headers, which used to be dropped on the floor.
         // `Draft.inReplyTo` was set faithfully by the compose screen and read
         // by nobody, so every reply this app sent went out with no
@@ -2143,9 +2371,15 @@ actor IMAPMailRepository: MailRepository {
     /// Without the signature's pictures among its files: `saveDraft` stored
     /// them only so the markup resolves, and saving or sending adds them
     /// again. See `Draft.reopening` (B-046).
+    ///
+    /// Fetched whole, however large: it is his own letter, only a draft of
+    /// his is opened here, and he may change it and save or send it again,
+    /// which a text cut short would send cut short.
     func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
-        let message = try await loadMessage(id: id, gmailMessageID: gmailMessageID,
-                                            mailboxID: mailboxID)
+        let message = try await retryingIfDisconnected {
+            try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID,
+                                           whole: true)
+        }
         return Draft.reopening(message, signatureImages: signatureImages())
     }
 
@@ -2403,6 +2637,15 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// `Attachment.id` is the MIME section path, so a part can still be
     /// pulled on its own rather than by re-downloading the message it is in.
+    ///
+    /// A part of the letter last opened without its files is its section's
+    /// FETCH alone, the structure already known (`lastStructure`). The pane
+    /// asks for each picture such a letter shows this way, one after
+    /// another on the one connection. Described again first, as a part of a
+    /// letter no longer to hand is, each picture was two FETCHes, one of
+    /// them the whole structure, which grows with the pictures: a letter of
+    /// 300 took 603 FETCHes to open and show, and one of 500 would read a
+    /// structure of 54 KB 500 times.
     func fetchAttachmentData(_ attachmentID: String, of messageID: String, mailboxID: String) async throws -> Data {
         if let cached = lastBody, cached.messageID == messageID,
            let data = Self.part(attachmentID, of: cached.raw) {
@@ -2411,10 +2654,34 @@ actor IMAPMailRepository: MailRepository {
         // A read, so a socket that died while he wrote costs a reconnect
         // rather than the Send (B-023): a forward fetches its files here
         // when the letter on screen is no longer the one it forwards.
+        if let known = lastStructure, known.messageID == messageID,
+           let part = MIMEDecoder.part(at: attachmentID, in: known.structure) {
+            return try await retryingIfDisconnected {
+                try await self.fetchKnownPartOnce(attachmentID, part, of: messageID,
+                                                  mailboxID: mailboxID)
+            }
+        }
         return try await retryingIfDisconnected {
             try await self.fetchAttachmentDataOnce(attachmentID, of: messageID,
                                                    mailboxID: mailboxID)
         }
+    }
+
+    /// The part at `section` of the letter `messageID`, described by `part`
+    /// from a structure already fetched: `UID FETCH <uid> (UID
+    /// BODY.PEEK[<section>])`, in one hold with its SELECT and UIDVALIDITY
+    /// check (B-039), and decoded as `part` says it is wrapped.
+    private func fetchKnownPartOnce(_ section: String, _ part: MIMEPart, of messageID: String,
+                                    mailboxID: String) async throws -> Data {
+        let client = try await connected()
+        let name = try await resolve(mailboxID)
+        let message = try Self.parseID(messageID)
+        let raw = try await client.fetchBody(uid: message.uid, section: section, in: name,
+                                             validity: message.validity)
+        guard !raw.isEmpty else { throw MailError.attachmentFailed }
+        let decoded = MIMEDecoder.decodeTransfer(raw, encoding: part.encoding)
+        guard !decoded.isEmpty else { throw MailError.attachmentFailed }
+        return decoded
     }
 
     /// The part `section` of a whole letter already downloaded, decoded,

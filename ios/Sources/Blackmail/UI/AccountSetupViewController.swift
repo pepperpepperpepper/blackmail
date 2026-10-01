@@ -19,8 +19,10 @@ import LocalAuthentication
 /// fault — and no way to fix any of them.
 final class AccountSetupViewController: UIViewController, UITextFieldDelegate {
 
-    /// Called once credentials are stored and proven to work.
-    var onConnected: ((MailAccount, String) -> Void)?
+    /// Called once credentials are stored and proven to work, with what the
+    /// check had to say of them, if anything, for the screens it builds to
+    /// put up (`SignInCheck.Outcome`).
+    var onConnected: ((MailAccount, String, MailAlert?) -> Void)?
 
     private let stack = UIStackView()
     private let scrollView = UIScrollView()
@@ -379,27 +381,36 @@ final class AccountSetupViewController: UIViewController, UITextFieldDelegate {
             return
         }
 
-        var account = MailAccount(address: address, username: address)
-        account.displayName = (nameField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        // The account stored already, where it is this address's: setup is
+        // shown again whenever the password cannot be read at launch, and
+        // an account made afresh here saved over his signature.
+        let account = MailAccount.settingUp(
+            address, name: (nameField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+            over: CredentialStore.loadAccount())
 
         setBusy(true)
         Task { @MainActor in
             defer { setBusy(false) }
+            // Prove both halves before saving. A password that reads mail
+            // but cannot send is a state the owner should find out about
+            // now, not the first time the end user replies to someone: it is
+            // Gmail's wrong-account trap (B-033).
+            let verdict = await SignInCheck.run(account: account, password: password,
+                                                transport: TLSConnection.factory)
+            let notice: MailAlert?
+            switch SignInCheck.outcome(of: verdict, address: account.address, in: .setup) {
+            case .keep(let said):
+                notice = said
+            case .refuse(let sentence):
+                show(sentence)
+                return
+            }
             do {
-                // Prove both halves before saving. A password that reads mail
-                // but cannot send is a state the owner should find out about
-                // now, not the first time the end user replies to someone.
-                let probe = IMAPClient(account: account)
-                try await probe.connect(password: password)
-                _ = try await probe.listMailboxes()
-                await probe.disconnect()
-
                 try CredentialStore.save(account: account, password: password)
-                onConnected?(account, password)
-            } catch MailError.passwordNeedsUpdating {
-                show("Google refused that password. Check it is an APP password, not your normal one.")
+                onConnected?(account, password, notice)
             } catch {
-                show("Could not reach Gmail. Check the network and try again.")
+                show((error as? LocalizedError)?.errorDescription
+                     ?? "Password could not be saved.")
             }
         }
     }

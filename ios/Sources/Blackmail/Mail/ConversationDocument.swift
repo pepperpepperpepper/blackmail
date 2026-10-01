@@ -22,6 +22,15 @@ import Foundation
 /// Pure, and out here rather than in the view controller, so the suite on
 /// Linux can test it. The controller is behind `#if canImport(UIKit)` and
 /// does not exist on the machine the tests run on.
+///
+/// **No script in the document.** The pane runs none of a page's own
+/// script, so that a letter's cannot run (`MessageDetailViewController`), and
+/// that includes this document's. What opens and closes a letter and puts a
+/// body in its section is `script`, which the pane injects as a user script
+/// into a content world of the app's own: the letters' markup cannot see it
+/// or call it, nor post to the `bmLetter` handler, which is registered in
+/// that world alone. The lines are wired with `addEventListener`, since an
+/// inline `onclick` is the page's own script and would not run.
 enum ConversationDocument {
 
     /// One letter's place in the stack.
@@ -125,31 +134,53 @@ enum ConversationDocument {
           .bm-waiting { color: #8e8e93; padding: 0 \(inset)px \(inset)px \(inset)px; }
         </style></head><body>
         \(sections)
-        <script>
-        function bmToggle(id) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          var opening = !el.classList.contains('bm-open');
-          el.classList.toggle('bm-open');
-          // Swift is told either way: opening one needs its body fetched if
-          // it has not been, and needs the letter marked read.
-          if (window.webkit && window.webkit.messageHandlers.bmLetter) {
-            window.webkit.messageHandlers.bmLetter.postMessage(
-              { id: id, open: opening });
-          }
-        }
-        function bmFill(id, html, isHTML) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          var body = el.querySelector('.bm-body');
-          if (!body) return;
-          body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
-          body.innerHTML = html;
-        }
-        </script>
         </body></html>
         """
     }
+
+    /// The stack's own script: every page the pane loads is given it, at
+    /// the end of the document, in the app's content world
+    /// (`MessageDetailViewController`).
+    ///
+    /// It wires a tap on each letter's line, and nothing else: only the
+    /// lines that are the body's own, and are there as the document loads,
+    /// before any letter's markup is put in. A body's markup goes into its
+    /// section later, by `bmFill`, so a letter that draws a line of its own
+    /// never gets a tap wired to it. A single letter's page, whose markup is
+    /// in `#bm` from the start and can close it early and draw such a line
+    /// beside it, gets nothing wired at all. The line toggles its letter
+    /// open or closed, as its `onclick` did, and tells the pane either way:
+    /// opening one needs its body fetched if it has not been, and the
+    /// letter marked read.
+    ///
+    /// `bmFill` is defined here as well, in the same world, where
+    /// `ConversationDocument.Fill` calls it.
+    static let script = """
+    function bmToggle(section) {
+      var opening = !section.classList.contains('bm-open');
+      section.classList.toggle('bm-open');
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmLetter) {
+        window.webkit.messageHandlers.bmLetter.postMessage({ id: section.id, open: opening });
+      }
+    }
+    function bmFill(id, html, isHTML) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var body = el.querySelector('.bm-body');
+      if (!body) return;
+      body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
+      body.innerHTML = html;
+    }
+    (function () {
+      if (document.getElementById('bm')) return;
+      var heads = document.querySelectorAll('body > .bm-letter > .bm-head');
+      for (var i = 0; i < heads.length; i++) {
+        heads[i].addEventListener('click', function (event) {
+          bmToggle(event.currentTarget.parentNode);
+        });
+      }
+    })();
+    """
 
     private static func section(_ e: Entry) -> String {
         let id = sectionID(for: e.id)
@@ -169,7 +200,7 @@ enum ConversationDocument {
 
         return """
         <div class="bm-letter\(open)" id="\(id)">
-          <div class="bm-head" onclick="bmToggle('\(id)')">
+          <div class="bm-head">
             <span class="bm-from">\(escape(MailFormat.displayName(e.sender)))</span>
             <span class="bm-peek">\(escape(e.preview))</span>
             <span class="bm-when">\(escape(MailFormat.listTimestamp(e.date)))</span>
@@ -180,7 +211,7 @@ enum ConversationDocument {
     }
 
     /// A body going into its letter's section once the stack has loaded:
-    /// the page's own `bmFill`, called through `callAsyncJavaScript` with the
+    /// `script`'s `bmFill`, called through `callAsyncJavaScript` with the
     /// section, the body and its kind as arguments.
     ///
     /// Arguments rather than a script with the body written into it. The
@@ -194,8 +225,9 @@ enum ConversationDocument {
         let sectionID: String
         let body: Entry.Rendered
 
-        /// What `callAsyncJavaScript` runs, in the page's own content world,
-        /// where `bmFill` is: the three names are its arguments.
+        /// What `callAsyncJavaScript` runs, in the app's content world,
+        /// where `script` defined `bmFill`: the three names are its
+        /// arguments.
         static let script = "bmFill(id, html, isHTML)"
 
         var arguments: [String: Any] {

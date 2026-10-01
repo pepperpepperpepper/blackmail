@@ -92,8 +92,15 @@ final class RootViewController: UIViewController {
     /// `checked`.
     private var lastCheckFailed = false
 
-    init(repository: MailRepository) {
+    /// What the sign-in check had to say of the password these screens
+    /// were built for, put up once they are on the screen and then
+    /// forgotten: Gmail taking it for reading but not, for now, for
+    /// sending (`SignInCheck.Outcome`). Nil at every launch.
+    private var notice: MailAlert?
+
+    init(repository: MailRepository, saying notice: MailAlert? = nil) {
         self.repository = repository
+        self.notice = notice
         self.mailboxList = MailboxListViewController(repository: repository)
         self.mailboxNav = UINavigationController(rootViewController: mailboxList)
         // The list pane opens on Inbox, as `PRODUCT_SPEC.md` requires, and is replaced
@@ -207,6 +214,12 @@ final class RootViewController: UIViewController {
         wireNavigation()
         arrange(shell.arrangement)
         watchForReturn()
+        // A refused password's alert opens Settings at the password, from
+        // whichever pane it was put over. A turn later, once the alert has
+        // gone.
+        ErrorPresenter.openSettings = { [weak self] in
+            DispatchQueue.main.async { self?.list.showSettings(focusingPassword: true) }
+        }
 
         // The Inbox highlighted among the folders kept on the iPad, in the
         // first frame, beside its kept list (D-016); with nothing kept this
@@ -245,6 +258,16 @@ final class RootViewController: UIViewController {
             self?.firstPageTried = true
             self?.watch.start()
         }
+    }
+
+    /// The sign-in check's word on the password these screens were built
+    /// for, once: put up when they are on the screen, since an alert asked
+    /// for any sooner has no window to go in and is dropped.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard let notice else { return }
+        self.notice = nil
+        ErrorPresenter.say(notice, on: self)
     }
 
     // MARK: - Coming back to it
@@ -519,7 +542,7 @@ final class RootViewController: UIViewController {
         // were missing from this path once, a live bug: moving an unread
         // letter from the pane changes two folders' counts.
         detail.perform = { [weak self] action, letter in
-            guard let self else { return false }
+            guard let self else { return .cannotConnect }
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
             // A Move is asked for at the tap on its folder, while the sheet
             // slides away, and the list says so until the server answers.
@@ -527,8 +550,8 @@ final class RootViewController: UIViewController {
             var moving: (() -> Void)?
             if case .move = action { moving = self.list.working(StatusLine.moving) }
             defer { moving?() }
-            return await PaneActions.run(
-                action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
+            return await PaneActions.refusal(
+                running: action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
                 list: self.list.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.refreshMailboxes() })
         }
@@ -583,11 +606,35 @@ final class RootViewController: UIViewController {
         list.onRefreshRequested = { [weak self] in
             self?.refreshMailboxes()
         }
+        list.onPasswordSaved = { [weak self] account, password, notice in
+            self?.signIn(as: account, password: password, saying: notice)
+        }
         // Local arithmetic, no network. Reading is the most frequent thing
         // anyone does with mail, and a full sweep per tap is a LIST plus a
         // STATUS per folder.
         list.onUnreadCountChanged = { [weak self] mailboxIDs, delta in
             self?.mailboxList.adjustUnreadCounts(mailboxIDs, by: delta)
+        }
+    }
+
+    /// A new password has been checked and saved in Settings: the screens
+    /// are built again over a repository that signs in with it, now, as
+    /// setup's are once it has an account (`AppDelegate.makeRoot`), and
+    /// this one is retired (`PasswordChange`). The watch stops first, so no
+    /// check goes on the old repository meanwhile. Settings has gone by
+    /// then, and nothing else can be over the screens: it opens only when
+    /// nothing is. `notice`, what the check had to say of the password, is
+    /// put up over the new screens.
+    private func signIn(as account: MailAccount, password: String, saying notice: MailAlert?) {
+        guard let window = view.window else { return }
+        _ = watch.stop()
+        let old = repository
+        Task { @MainActor in
+            let fresh = await PasswordChange.handOver(from: old, drafts: LocalDrafts.shared) {
+                IMAPMailRepository(account: account, password: password)
+            }
+            Diagnostics.log(.note, "PASSWORD-SAVED signed in afresh")
+            window.rootViewController = RootViewController(repository: fresh, saying: notice)
         }
     }
 

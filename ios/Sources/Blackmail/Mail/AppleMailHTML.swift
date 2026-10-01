@@ -235,9 +235,18 @@ enum AppleMailHTML {
         // of nothing the pass keeps. An empty quote under the attribution,
         // where the composer showed him words, would not be what he saw.
         if !QuotedMarkup.showsAnything(inner) {
-            inner = paragraphs(quoted.body, firstLineBare: true, linked: true)
+            let words = quote.isShortened ? withoutShortenedEnding(quoted.body) : quoted.body
+            inner = paragraphs(words, firstLineBare: true, linked: true)
             shown = []
         }
+        // An original shown only in part says so where its quote ends, as
+        // its words in the plain part do, and in the pane's grey, so that it
+        // reads as this app's line and not the sender's. After the markup,
+        // which here, unlike the pane's page, is safe: the pass closes what
+        // the cut left open (`QuotedMarkup.made`), and a paragraph it leaves
+        // open the line's own `<div>` closes, so the line is the quote's and
+        // not inside a table or a link of the sender's.
+        if quote.isShortened { inner += shortenedLine }
         let pictures = renamed.filter { shown.contains($0.contentID) }
         let files = draft.attachments.filter { row in
             !pictures.contains { $0.picture.isSource(of: row) }
@@ -497,6 +506,25 @@ enum AppleMailHTML {
         }
         if let marker { out += quoteMarkOpen + marker + "-->" }
         return out + quoteOpen + inner + quoteClose
+    }
+
+    /// The end of the quote of a letter shown only in part, the HTML of its
+    /// plain words (`QuotedOriginal.shortenedEnding`): a blank line as Mail
+    /// writes one, then the pane's words in the pane's grey, `#8e8e93`.
+    static let shortenedLine = "<div><br></div><div style=\"color: #8e8e93;\">"
+        + MailText.shortenedNotice + "</div>"
+
+    /// `body`, a quote's words, less the ending a quote of a letter shown
+    /// only in part has under them, which goes as `shortenedLine` instead.
+    /// Compared as bytes, as `QuotedOriginal.isIntact` compares, so that a
+    /// carriage return before it cannot hide it.
+    private static func withoutShortenedEnding(_ body: String) -> String {
+        let ending = QuotedOriginal.shortenedEnding.utf8
+        let bytes = body.utf8
+        guard bytes.count >= ending.count, bytes.suffix(ending.count).elementsEqual(ending) else {
+            return body
+        }
+        return String(decoding: bytes.dropLast(ending.count), as: UTF8.self)
     }
 
     private static let quoteOpen = "<blockquote type=\"cite\"><div dir=\"ltr\">"

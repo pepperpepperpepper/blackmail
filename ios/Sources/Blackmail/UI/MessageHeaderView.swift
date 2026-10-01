@@ -12,6 +12,8 @@ import UIKit
 ///
 ///     Sarah Castelblanco      <- sender, blue, semibold
 ///     To: Eden Sears          <- grey
+///     Cc: Sam Example         <- grey, only when the letter has a Cc; not
+///                                in the reference, which has none
 ///     ------------------------
 ///     Not the same without you <- subject, black, bold, roughly sender-sized
 ///     Today at 9:14 AM        <- grey
@@ -30,6 +32,11 @@ final class MessageHeaderView: UIView {
 
     private let senderLabel = UILabel()
     private let toLabel = UILabel()
+    /// Under To, as Mail puts it, and only when there is a Cc: a label with
+    /// no text has no height, and its gap goes with it (`ccGap`), so a
+    /// letter without one lays out exactly as before.
+    private let ccLabel = UILabel()
+    private var ccGap: NSLayoutConstraint!
     private let subjectLabel = UILabel()
     private let dateLabel = UILabel()
     /// One tappable row per file, not one blue label listing them all.
@@ -65,6 +72,8 @@ final class MessageHeaderView: UIView {
         senderLabel.textColor = Theme.tintBlue          // blue, per the reference
         toLabel.font = Theme.fontDetailMeta
         toLabel.textColor = Theme.secondaryText
+        ccLabel.font = Theme.fontDetailMeta
+        ccLabel.textColor = Theme.secondaryText
         subjectLabel.font = Theme.fontDetailSubject     // bold, sender-sized
         subjectLabel.textColor = Theme.primaryText
         subjectLabel.numberOfLines = 0
@@ -77,7 +86,7 @@ final class MessageHeaderView: UIView {
         topRule.backgroundColor = Theme.detailRule
         bottomRule.backgroundColor = Theme.detailRule
 
-        for v in [senderLabel, toLabel, topRule, subjectLabel, dateLabel,
+        for v in [senderLabel, toLabel, ccLabel, topRule, subjectLabel, dateLabel,
                   attachmentStack, bottomRule] as [UIView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
@@ -112,6 +121,8 @@ final class MessageHeaderView: UIView {
         flat.priority = .defaultLow
         flat.isActive = true
 
+        ccGap = ccLabel.topAnchor.constraint(equalTo: toLabel.bottomAnchor, constant: 0)
+
         NSLayoutConstraint.activate([
             senderLabel.topAnchor.constraint(equalTo: topAnchor,
                                              constant: Theme.detailSenderTopPadding),
@@ -123,7 +134,11 @@ final class MessageHeaderView: UIView {
             toLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: left),
             toLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -left),
 
-            topRule.topAnchor.constraint(equalTo: toLabel.bottomAnchor,
+            ccGap,
+            ccLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: left),
+            ccLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -left),
+
+            topRule.topAnchor.constraint(equalTo: ccLabel.bottomAnchor,
                                          constant: Theme.detailToRuleGap),
             topRule.leadingAnchor.constraint(equalTo: leadingAnchor, constant: rule),
             topRule.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -157,7 +172,13 @@ final class MessageHeaderView: UIView {
 
     func configure(with m: Message) {
         senderLabel.text = MailFormat.displayName(m.sender)
-        toLabel.text = "To: " + (m.to.isEmpty ? "me" : m.to.map(MailFormat.displayName).joined(separator: ", "))
+        // Names, and the address where there is no name, as Mail writes
+        // them (`MailFormat.recipientName`).
+        toLabel.text = MailFormat.recipientsLine("To", m.to) ?? "To: me"
+        let cc = MailFormat.recipientsLine("Cc", m.cc)
+        ccLabel.text = cc
+        ccLabel.isHidden = cc == nil
+        ccGap.constant = cc == nil ? 0 : Theme.detailToCcGap
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
         dateLabel.text = MailFormat.detailTimestamp(m.date)
 

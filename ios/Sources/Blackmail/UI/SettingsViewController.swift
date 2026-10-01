@@ -23,9 +23,16 @@ import UIKit
 /// until the next time he tried to read his mail.
 final class SettingsViewController: UIViewController, UITextViewDelegate {
 
-    /// Called when something was saved, so the caller can rebuild anything
-    /// holding the old account.
+    /// Called when the name or the signature was saved, so the caller can
+    /// rebuild anything holding the old account.
     var onSaved: ((MailAccount) -> Void)?
+    /// Called once a new password has been checked and saved and this sheet
+    /// has gone, for the screens to sign in with it at once
+    /// (`PasswordChange`), and to put up what the check had to say of it,
+    /// if anything, once they are built again (`SignInCheck.Outcome`). Not
+    /// `onSaved` as well: anything done on the old repository now would
+    /// send the old password.
+    var onPasswordSaved: ((MailAccount, String, MailAlert?) -> Void)?
     /// Fired the moment the grouping switch moves. It acts immediately
     /// rather than waiting for Save, because it is a way of LOOKING at the
     /// mail rather than a fact about the account — and because leaving a
@@ -40,13 +47,28 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let signatureView = UITextView()
     private let signatureHint = UILabel()
     private let plainOnlyButton = UIButton(type: .system)
+    private let restoreButton = UIButton(type: .system)
     private let organizeSwitch = UISwitch()
     private let statusLabel = UILabel()
 
     private var account: MailAccount
+    /// As stored when the sheet opened: what an emptied signature is
+    /// weighed against before it is saved.
+    private let stored: MailAccount
+    /// The signature first set on this iPad, nil if none has been kept
+    /// (`OriginalSignature`).
+    private let original = OriginalSignature.load(from: OriginalSignature.appRoot)
+    /// The original's pictures, once Restore Original Signature has been
+    /// chosen: saved with the account at Save, and not before.
+    private var restoredImages: [SignatureImages.InlineImage]?
+    /// Opened from a refused password's alert: the keyboard comes up in the
+    /// password field.
+    private let focusingPassword: Bool
 
-    init(account: MailAccount) {
+    init(account: MailAccount, focusingPassword: Bool = false) {
         self.account = account
+        self.stored = account
+        self.focusingPassword = focusingPassword
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -111,9 +133,20 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         plainOnlyButton.setTitleColor(Theme.tintBlue, for: .normal)
         plainOnlyButton.titleLabel?.font = .systemFont(ofSize: 15)
         plainOnlyButton.contentHorizontalAlignment = .leading
-        plainOnlyButton.addTarget(self, action: #selector(dropFormatting), for: .touchUpInside)
+        plainOnlyButton.addTarget(self, action: #selector(dropFormattingTapped), for: .touchUpInside)
         plainOnlyButton.isHidden = account.signatureHTML.isEmpty
         stack.addArrangedSubview(plainOnlyButton)
+
+        // The way back from any of the ways a signature is lost: the one
+        // first set on this iPad, formatted twin and pictures included. Only
+        // where one has been kept.
+        restoreButton.setTitle("Restore Original Signature", for: .normal)
+        restoreButton.setTitleColor(Theme.tintBlue, for: .normal)
+        restoreButton.titleLabel?.font = .systemFont(ofSize: 15)
+        restoreButton.contentHorizontalAlignment = .leading
+        restoreButton.addTarget(self, action: #selector(restoreTapped), for: .touchUpInside)
+        restoreButton.isHidden = original == nil
+        stack.addArrangedSubview(restoreButton)
 
         updateSignatureHint()
 
@@ -126,6 +159,19 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
                                       : "app password (16 letters, shown as you type)",
                   secure: masked)
         stack.addArrangedSubview(passwordField)
+        // Where a new one is made, as the setup form says, and as whom: an
+        // app password made in another Google account reads that account's
+        // mail and sends nothing (B-033).
+        stack.addArrangedSubview(caption(
+            "Make one at myaccount.google.com/apppasswords while signed in to Google as "
+            + "\(account.address)."))
+        // What the check and the save have to say, under the password he has
+        // just typed (`say`). At the foot of the sheet it sat under the
+        // keyboard, and Save seemed to do nothing.
+        statusLabel.numberOfLines = 0
+        statusLabel.font = .systemFont(ofSize: 15)
+        statusLabel.textColor = Theme.secondaryText
+        stack.addArrangedSubview(statusLabel)
 
         // Mail's own switch, and the off switch for conversation grouping.
         // Grouping stays the default — it is what Mail does, the rows
@@ -145,11 +191,6 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         organizeSwitch.isOn = ConversationSettings.organizeByThread
         organizeSwitch.addTarget(self, action: #selector(organizeToggled),
                                  for: .valueChanged)
-
-        statusLabel.numberOfLines = 0
-        statusLabel.font = .systemFont(ofSize: 15)
-        statusLabel.textColor = Theme.secondaryText
-        stack.addArrangedSubview(statusLabel)
 
         stack.axis = .vertical
         stack.spacing = 10
@@ -257,11 +298,50 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         onOrganizeByThreadChanged?()
     }
 
-    /// Throws the markup away and sends the text above instead.
-    @objc private func dropFormatting() {
-        account.signatureHTML = ""
-        plainOnlyButton.isHidden = true
-        updateSignatureHint()
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if focusingPassword { passwordField.becomeFirstResponder() }
+    }
+
+    /// Throws the markup away and sends the text above instead, once he has
+    /// said so: one tap on a line of blue text under the box used to do it,
+    /// and Save made it every letter's.
+    @objc private func dropFormattingTapped() {
+        confirm(title: "Send Signature as Plain Text?",
+                message: "Your messages will no longer carry the formatted version of your "
+                    + "signature.",
+                action: "Use Plain Text") { [weak self] in
+            guard let self else { return }
+            self.account.signatureHTML = ""
+            self.plainOnlyButton.isHidden = true
+            self.updateSignatureHint()
+        }
+    }
+
+    /// Puts the signature first set on this iPad back in the form, text,
+    /// formatted twin and pictures, to be saved with Save as any change is.
+    @objc private func restoreTapped() {
+        guard let original else { return }
+        confirm(title: "Restore Original Signature?",
+                message: "The signature first set up on this iPad will replace the one "
+                    + "shown here.",
+                action: "Restore") { [weak self] in
+            guard let self else { return }
+            self.account = original.restored(into: self.account)
+            self.restoredImages = original.images
+            self.signatureView.text = original.signature
+            self.plainOnlyButton.isHidden = original.signatureHTML.isEmpty
+            self.updateSignatureHint()
+        }
+    }
+
+    /// An alert with Cancel and one destructive choice, which runs `then`.
+    private func confirm(title: String, message: String, action: String,
+                         then: @escaping () -> Void) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: action, style: .destructive) { _ in then() })
+        present(alert, animated: true)
     }
 
     // MARK: - Keyboard
@@ -278,6 +358,16 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
 
     @objc private func cancelTapped() { dismiss(animated: true) }
 
+    /// Puts `text` where he can read it: the keyboard down, and the line
+    /// under the password field scrolled into view.
+    private func say(_ text: String) {
+        statusLabel.text = text
+        view.endEditing(true)
+        view.layoutIfNeeded()
+        scrollView.scrollRectToVisible(statusLabel.convert(statusLabel.bounds, to: scrollView),
+                                       animated: true)
+    }
+
     @objc private func saveTapped() {
         var updated = account
         updated.displayName = (nameField.text ?? "")
@@ -288,6 +378,20 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         updated.signature = (signatureView.text ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // An emptied box takes the signature off every letter, the
+        // formatted one with it, so it is asked about first.
+        guard !stored.losesSignature(to: updated) else {
+            confirm(title: "Remove Signature?",
+                    message: "Nothing will be added to the bottom of your messages.",
+                    action: "Remove") { [weak self] in
+                self?.checkAndSave(updated)
+            }
+            return
+        }
+        checkAndSave(updated)
+    }
+
+    private func checkAndSave(_ updated: MailAccount) {
         let newPassword = (passwordField.text ?? "")
             .components(separatedBy: .whitespacesAndNewlines).joined()
 
@@ -295,42 +399,55 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         // it saves without a round trip. A PASSWORD is different: storing
         // one that does not work leaves him with a mailbox that stopped
         // loading and no way to tell whether he mistyped it. Same rule as
-        // setup — prove it, then keep it.
+        // setup — prove it, reading and sending both, then keep it.
         guard !newPassword.isEmpty else {
             save(updated, password: nil)
             return
         }
 
-        statusLabel.text = "Checking the new password with Gmail…"
+        say("Checking the new password with Gmail…")
         navigationItem.rightBarButtonItem?.isEnabled = false
         Task { @MainActor in
             defer { navigationItem.rightBarButtonItem?.isEnabled = true }
-            do {
-                let probe = IMAPClient(account: updated)
-                try await probe.connect(password: newPassword)
-                _ = try await probe.listMailboxes()
-                await probe.disconnect()
-                save(updated, password: newPassword)
-            } catch MailError.passwordNeedsUpdating {
-                statusLabel.text = "Google refused that password. Check it is an APP password."
-            } catch {
-                statusLabel.text = "Could not reach Gmail. Your old password is still in place."
+            let verdict = await SignInCheck.run(account: updated, password: newPassword,
+                                                transport: TLSConnection.factory)
+            switch SignInCheck.outcome(of: verdict, address: updated.address, in: .settings) {
+            case .keep(let notice):
+                save(updated, password: newPassword, notice: notice)
+            case .refuse(let sentence):
+                say(sentence)
             }
         }
     }
 
-    private func save(_ updated: MailAccount, password: String?) {
+    /// `notice` is what the check had to say of a password it kept, put up
+    /// over the screens once they are built again: this sheet goes first.
+    private func save(_ updated: MailAccount, password: String?, notice: MailAlert? = nil) {
         do {
             if let password {
                 try CredentialStore.save(account: updated, password: password)
             } else {
                 try CredentialStore.saveAccountOnly(updated)
             }
+        } catch {
+            say("Could not save. Nothing has been changed.")
+            return
+        }
+        // The original's pictures with the account that names them, and
+        // only once it is saved, so a save that fails changes nothing. The
+        // share extension is handed them now, as it is the account.
+        if let restoredImages {
+            SignatureImages.save(restoredImages, mirroringTo: ShareMirror.app)
+        }
+        guard let password else {
             onSaved?(updated)
             dismiss(animated: true)
-        } catch {
-            statusLabel.text = "Could not save. Nothing has been changed."
+            return
         }
+        // The screens are built again once the sheet has gone: replaced
+        // under it, the sheet would be left over the new ones.
+        let signIn = onPasswordSaved
+        dismiss(animated: true) { signIn?(updated, password, notice) }
     }
 }
 

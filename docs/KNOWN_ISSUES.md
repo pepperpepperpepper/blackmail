@@ -2249,7 +2249,8 @@ and open as before after that; a file download from the letter before
 does not light them up early. The same holds when he opens a
 conversation. It does not hold when he opens another letter inside the
 stack: the header changes to that letter once it has come, files and all,
-as before.
+as before. The Cc line, added under To by B-055, is known from the row too
+since 2026-10-01, from its ENVELOPE, and is there from the tap.
 
 **A draft he taps stays highlighted, with a spinner, until it opens.** In
 Drafts the row used to lose its highlight at the tap, with nothing on
@@ -3327,7 +3328,7 @@ save held, or what names its letter dropped with the rest after one; and a
 line lost in the look in All Mail, or in the describing FETCH, taken for the
 original's being gone). Then three more, each failing the tests named:
 Mail's sentence put back for a file found nowhere
-(`MessageSizeTests.testEveryErrorIsOneOfFiveSentences`, and the two here
+(`MessageSizeTests.testEveryErrorIsOneOfSixSentences`, and the two here
 that read the words on a row), a Drafts row given whatever reason its
 letter was last refused for
 (`OutboxTests.testADraftsRowNeverGivesTheOutboxsReason`), and the copy this
@@ -3628,8 +3629,10 @@ its refusal stands for every call for a minute, as the warm-up's does, so
 the letter he taps next does not send the same password straight after
 it. Any refusal, not only a wrong password: Gmail's
 `[ALERT]` asking for a sign-in on the web would otherwise be a failed LOGIN
-every half minute. The app has no sign-out; the watch belongs to the root
-view controller and ends with it.
+every half minute. (Since B-056, only a refused password stops them: a
+LOGIN refused for another reason is tried again by the watch five minutes
+after the last refusal.) The app has no sign-out; the watch belongs to the
+root view controller and ends with it.
 
 **With no connection** each check tries to connect, which with no network
 fails at once, before any TLS, and the line says "No Connection" under the
@@ -3686,7 +3689,8 @@ the list nothing, a renumbering included; a letter whose SEARCH or FETCH
 was out as the app went, whose SEARCH or FETCH was refused, or whose check
 a jump to a day overtook, is listed by the first check that can list it;
 a refused password, and a LOGIN refused for another reason, stop the
-checks until his own LOGIN, or a PREAUTH, is accepted, and after it a
+checks until his own LOGIN, or a PREAUTH, is accepted (since B-056, a
+LOGIN refused for another reason only for five minutes), and after it a
 socket that dies is replaced by the next check; with no connection each
 check says so, the first after lists what came, and the connection it
 makes is proven for a Flag; more than a page at once, or a renumbering, is
@@ -4224,7 +4228,8 @@ so a folder, a UIDVALIDITY and a UID do not say whose a kept row is.
   the server, and every other one under `Kept/` is removed at launch.
 - A password saved, in setup or Settings, or the account cleared
   (`CredentialStore.save`, `clear`): the whole of `Kept/` goes, and the
-  shelf running keeps nothing more until the next launch.
+  shelf running keeps nothing more until the next launch, or, since
+  B-056, until the screens are built again over the new password.
 - A listing from the top whose folder has another UIDVALIDITY than its kept
   page, or a row whose X-GM-MSGID is not the kept row's under the same UID:
   the whole copy goes, every page and the folder list, before the fresh
@@ -4539,3 +4544,668 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
+
+## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
+
+**Found by timing and measuring, on the development computer, everything
+that reads a letter he receives.** No such letter has reached him; anyone
+can write one. Nine passes over a letter's content took time that grew with
+the square of its size, or with its size times its pictures, and a letter
+built for it made them run for minutes, or hours:
+
+- the reading pane taking off the sender's document wrapper
+  (`DocumentWrapper`): four regular expressions, one of which, never
+  closed, read to the end of the letter from every opening. 48 KB of
+  `<head>` took 8.5 s in a release build and a megabyte would have taken
+  about an hour, off the main thread but with no way to stop it, and, by
+  reasoning rather than on the iPad, a few such letters tapped would hold
+  every thread the mail runs on;
+- the pane pointing the letter's pictures at its loader
+  (`InlineImageRewriter`), which copied the rest of the body to search it
+  for each picture: 20,000 pictures in 8 MB, 7.5 s;
+- when he replies to such a letter or forwards it, on the actor that Send
+  and Save Draft wait on, and again at every launch while the letter waits
+  in the Outbox (B-052), the sanitiser the quote goes through
+  (`QuotedMarkup`): its list of open elements, searched whole for every
+  closing tag (`<div>` opened nine thousand times and then `</x>` as often,
+  5 s, and a megabyte minutes); a `<head>` never closed, read to the end
+  once for every head (`<head>x` over 48 KB, 16 s); a tag's attributes, each
+  looked for among the ones before it (eight thousand, 2.8 s); a picture's
+  reference in a style, looked for afresh from every place it might start
+  (70 KB, 2 s); and, in a forward, the pictures a style shows renamed one at
+  a time, each moving the rest of the style along (180,000 in 4 MB, 8 s in
+  a release build), and a picture's reference written in another case than
+  its Content-ID compared with every picture the forward carries (500
+  pictures and 1.1 MB, 7.3 s in a release build);
+- the decoder unfolding a header folded onto many lines, which copied the
+  whole value for every line (20,000 lines, 2 MB, 4.7 s).
+
+And every letter was fetched whole, whatever its size, and copied several
+times over as it was read. A crafted letter of 35 MB of line breaks inside a
+multipart came to 1.66 GB in a release build, which is the app killed the
+moment he opens it: the decoder made a list of every line first, at 24
+bytes a line. One of 25 MB of CRLF came to about 700 MB and took 14 s on the
+repository's actor, most of it in the two replacements that made its line
+breaks line feeds. Figures are the suite's debug build on the development
+computer where not said otherwise.
+
+**What he sees now.** On a letter of 5 MB or less, nothing: its FETCH is
+the one it always was, and the pane's page, the text and HTML the decoder
+gives, and the quote a reply or a forward carries are byte for byte what
+they were (below). A letter above 5 MB on the server, most often a letter
+of two or more photographs, opens without its files: its header, its text
+and its HTML, each up to 2 MB, and its files listed in the header as
+before, from its structure. A file comes when he taps it, as a file always
+did when the letter was no longer to hand, and a picture the letter shows
+in its body comes as the pane asks for it, so the photographs of a large
+letter appear one after another rather than with it. Reply and Forward
+work as before: a reply quotes what was fetched, and a forward carries
+every file and picture by reference, as it always did, fetched when it is
+sent. A letter whose HTML is longer than 2 MB, or whose text is when it has
+no HTML, which is rare (a newsletter is 50 to 200 KB, though a sender who
+writes pictures into the HTML itself can pass it, and loses the pictures
+past the cut), shows "Only the beginning of this message is shown." in grey
+above it, in the pane and in a conversation. Above it rather than under it:
+the sender's markup is cut wherever the fetch stopped, inside a table, a
+link or a tag, and anything written after it would be drawn inside that, or
+not at all. A text alternative cut under HTML that came whole says
+nothing, since the pane shows the HTML. A character cut in two by the fetch
+is dropped, as a preview drops it, rather than making the whole of it read
+as Latin-1. The words are the app's own.
+
+**What goes on the wire** (`IMAPMailRepository.loadMessage`,
+`IMAPClient.fetchLetterInPart`). In one hold of the interactive line, with
+its SELECT and UIDVALIDITY check (B-039): `UID FETCH <uid> (UID
+BODYSTRUCTURE BODY.PEEK[HEADER])`, then `UID FETCH <uid> (UID
+BODY.PEEK[1.1]<0.2097152>)` for the text and the same for the HTML, by the
+sections the structure gives them, all PEEK. Every other letter's FETCH is
+what it was, `(UID BODY.PEEK[])`, the everyday wire. The size is the
+RFC822.SIZE every row is fetched with already: the repository keeps it for
+the letters above 5 MB it has listed in this launch (the last 2,000 of
+them), and the page kept on the iPad (D-016) keeps it with their rows, so a
+large row tapped at launch before its folder's first page has come is
+opened in part too. There, as for a whole letter (B-053), the first FETCH
+asks Gmail's id for it, `(UID X-GM-MSGID BODYSTRUCTURE BODY.PEEK[HEADER])`,
+and it is compared before the text is asked for: another letter's, or none,
+and nothing more is fetched, nothing is shown, the row leaves the kept page
+and the log says `KEPT-UNVOUCHED folder=INBOX nothing-shown`. A copy this
+launch put in Drafts is asked its id the same way, and nothing compared.
+A letter with no size known to the repository is fetched whole, as before.
+A draft he reopens is fetched whole however large: he may change it and
+send it again, and a text cut short would go cut short. A file he taps, or
+a picture the pane asks for, of the letter last opened in part is then
+`UID FETCH <uid> (UID BODY.PEEK[<section>])` alone, its structure kept from
+the first FETCH as a letter fetched whole is kept for its files; one of a
+letter opened before it has the FETCH that describes the letter first, as a
+file of a letter no longer to hand always had. Described again for each, a
+large letter of 300 pictures took 603 FETCHes to open and show, each second
+one carrying its whole structure. And the pictures still coming when he
+taps another letter are called off (`PictureRequests`): WebKit stops them
+as the page goes, the one on the wire finishes, and the rest leave the line
+with nothing sent. They used to go on waiting, and then go, every one, and
+the letter he had tapped came after them.
+
+**Every pass over the content is one pass.** The wrapper comes off in one
+pass over the bytes, the next `>` and the next `</head>` each looked for
+once from where the last search stopped (`DocumentWrapper`). The pictures
+are found in one pass (`InlineImageRewriter`). The sanitiser keeps at most
+512 elements open, as WebKit builds no deeper, and one opened inside that
+many loses its tag and keeps what is inside it, as an element not on its
+list does; it counts the open elements by name, so a closing tag for one not
+open is refused at once; a `<head>` found never to close ends every later
+one where a browser ends a head never closed; attributes are checked against
+a set; a style's reference is found by Knuth, Morris and Pratt's search, and
+its pictures are renamed in one copy of it once all are found; a reference
+in another case than its Content-ID is looked up in a table of the ids in
+one case, made once, and where two ids differ only in case the first in
+order is the one found, where it was whichever the comparison met first. The
+decoder walks a part's lines in place, reads only a letter's header block to
+read its header, unfolds a header in place, and makes line breaks line feeds
+in one pass over the UTF-8. It lists at most 500 files for a letter,
+wherever its parts are: 500 to a multipart, nested, was a quarter of a
+million rows in the header and on the kept page. Here, now: the 48 KB
+wrappers about 10 ms each; the 20,000 pictures 0.1 s; the sanitiser's cases
+14 to 70 ms, the 180,000 references in a style found and renamed 1.3 s,
+where they took 8.7 s, and references in another case about one and a half
+times those in their own, where they took fourteen times with 500 pictures;
+the folded header 80 ms; 35 MB of line breaks opened 6 MB, and fetched whole
+104 MB, where it was 1.66 GB; 4 MB of CRLF 2 MB and 0.2 s, where it was 151
+MB and 2.3 s. Only a letter built for it comes out otherwise, and nothing a
+mailer writes does any of these: a piece of the wrapper whose `>` lies past
+a `</head>`, which the four expressions, run one after another, could take
+in another order; a line break with a combining accent after it, which the
+replacements took as one character with it; in the pane, a `)`, a `"` or a
+`>` with a combining accent after it, which now ends a picture's id, and a
+`CID:` with one after it, which is now written `cid:`, where Foundation's
+search took each with its accent as one character; and in a quote, a second
+`<head>` after one never closed, now ended where a browser ends it, so that
+what it holds is quoted as a browser shows it: `<head>A<head>B</head>C`
+quotes as `ABC`, where it quoted as `AC`. And a picture's id is ended by a
+carriage return as by a line feed, where a CRLF straight after it did not
+end it; no body the decoder hands over has a CRLF left in it.
+
+**The connection log** has a SEARCH's answer as how many it found, `* SEARCH
+{56112 uids}`, as a literal is kept as its size. At his size, by estimate,
+the answer is one line of 0.4 MB for the Inbox and one or two megabytes for
+Sent Mail, All Mail or a common word, most of the 500 lines the log keeps,
+and the log's screen, the one read out over the phone, would freeze on the
+main thread drawing it; each send's transcript carried it too.
+
+**Not taken, and still to do.**
+
+- The text of an HTML letter is read a Character at a time (`HTMLText`),
+  about 0.3 s a megabyte here in the debug build; Reply makes its quote on
+  the main thread (`Message.quotableText`), so an HTML-only letter just
+  under 5 MB can hold the screen for a second or more at the tap. Linear,
+  and left.
+- The pictures a large letter shows come one FETCH each, where a whole
+  letter brought them all in one. How long a letter of many takes to fill
+  in on his connection is for the iPad to say; none is capped. Only the
+  letter last opened in part keeps its structure, so in a conversation of
+  two such letters the other's pictures are two FETCHes each. A forward of
+  one fetches its files and pictures as it is sent, each with the FETCH
+  that describes the letter and names it first, as for any letter no longer
+  to hand: behind the spinner, not in the pane.
+- The quote of a letter cut short says so by the part the pane shows,
+  as the pane's line does (below): a letter whose HTML was cut and whose
+  text came whole says so in its plain part too, though that part quotes
+  all of the text; a text cut under HTML that came whole is quoted cut in
+  the plain part, with nothing to say so, under HTML that is whole. Each
+  as rare as the cut itself, and left.
+- The structure of a letter with a great many parts is read whole for
+  every row that lists it; only the files listed from it are capped.
+- Gmail's answer to `BODY.PEEK[HEADER]`, and to a section cut at 2 MB, has
+  not been seen; previews have used cut sections (`BODY.PEEK[1]<0.2048>`)
+  from the start.
+
+**Decided 2026-10-01: the quote of a letter cut short says so**
+(`Message.quotedWords`, `QuotedOriginal.isShortened`,
+`AppleMailHTML.letter`). A reply or a forward of a letter the pane shows
+only the beginning of used to quote what was fetched with nothing to say it
+was cut, and a forward passed the first 2 MB on as if it were the whole
+letter. Now the quote ends with the pane's own line, "Only the beginning of
+this message is shown.": in the plain part, which is the composer's text,
+under a blank line, marked "> " in a reply as every line of the quote is;
+in the HTML, inside the quote and after the original's markup, as Mail's
+blank line, `<div><br></div>`, and the line in the pane's grey, `#8e8e93`,
+so that it reads as the app's and not the sender's. At the end of the
+quote, where the pane has it above the letter: the quote's markup has been
+through the sanitiser, which closes what the cut left open, and a paragraph
+it leaves open the line's own `<div>` closes, so the line is the quote's
+and not inside a table or a link of the sender's. Where the quote's HTML is
+made from the words, the line is drawn once, grey, and not also as words.
+Nothing more of the letter is fetched. Put down as a draft and taken up
+again, the line comes back inside the stored markup and is not added a
+second time; kept on the iPad for the Outbox, the quote is marked
+`"shortened": true` in `letter.json`, absent from every other quote and
+from one kept before, which reads as no, so no new format. If he changes
+the quote, the HTML is what he left, as it always was, the line among his
+words if he left it. A letter shown whole quotes byte for byte as it did.
+Tested in `RichQuoteTests` (a reply and a forward of a cut letter, its
+markup quoted and of plain text, and a draft of one reopened; a whole
+letter's saying nothing) and `OutboxTests` (the mark kept with the letter,
+and written for no other quote); six parts of it undone one at a time in a
+scratch copy, each fails them.
+
+**Checked in host tests** (`BoundedLetterTests`, `LargeLetterTests`,
+`HostileLetterFuzzTests`, `DiagnosticsTests`, `PictureRequestsTests`). What
+the wrapper, the pictures and the line breaks make of ordinary mail is held
+against the code they replace, kept in the test as the reference; the quote,
+the pane's page and the decoded letter against fingerprints of what the code
+before made of 54 HTML bodies and 30 whole letters (`OrdinaryMail`: Mail,
+Outlook, Gmail, newsletters, quoted-printable, base64, related, mixed,
+forwarded). Each crafted letter is timed against a bound at least ten times
+what it takes here, and sized so the old way goes well past it; the counted
+closing tags are timed against the same tags with nothing open, and
+references in another case against the same in their own; the style's
+renaming is held place by place, each id read where the sender wrote it,
+since timed it is only seven times the linear way in the debug build; memory
+is measured by Linux's high-water mark (`PeakMemory`). A large letter is
+opened over the scripted server field for field as a whole fetch gives it,
+its files and pictures fetched when asked, each one FETCH, the pictures
+still coming called off when he moves on, replied to and forwarded with its
+files, cut with a character split at the cut, a text cut under whole HTML
+not said to be cut, a copy this launch put in Drafts asked its id in the
+first FETCH, and opened from the kept page at the next launch, vouched for
+and refused. The fuzz mutates ordinary mail with what a stranger would reach
+for, seeded: 150 cases each for markup and letters in every run, and
+`BLACKMAIL_FUZZ_CASES` for as many as it says (`BLACKMAIL_FUZZ_SEED` for
+another seed); no crash, every call inside 2 s, every output within what its
+input allows, and the sanitiser's output only tags it keeps, no attribute
+that acts, no address on a scheme mail has no use for, every closing tag
+closing something it opened, nothing deeper than its limit. Run at 25,000
+cases each for five seeds, a quarter of a million in all, it found nothing
+in the code. Each part undone in a scratch copy, one at a time, fails the
+test named for it: thirty-two undone.
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. A letter of five photographs, about 15 MB, sent to the account
+itself: it opened at once, its five files listed and its words below,
+from `UID FETCH 45 (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, the text and
+HTML parts as `BODY.PEEK[1.1.1]<0.2097152>` and `BODY.PEEK[1.1.2]<0.2097152>`,
+the signature's picture as `BODY.PEEK[1.2]` and, when one was tapped, that
+photograph alone as `BODY.PEEK[2]`; nothing fetched the letter whole. The
+connection log said `* SEARCH {17 uids}`. Not made by hand: the slow
+letters and the 35 MB one, which the suite and its fuzzing stand for, and
+a part over 2 MB, which the notice and the quote's line wait on.
+
+---
+
+## B-055 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. The reading pane runs no letter's script and goes nowhere by itself; links in plain letters can be tapped; Cc under To
+
+**What was wrong.** Three things, all in the reading pane.
+
+- The pane's web view had WebKit's default settings: every letter's script
+  ran, and every navigation but a tapped link was allowed. A letter could
+  send the pane to a web page of its own choosing, with no address bar, a
+  false Google sign-in for one, by a `<meta http-equiv="refresh">`, a frame,
+  a form sent or its own script, and it ran script on a WebKit that, once
+  the app is installed, may never be updated. In a conversation, a body put
+  in by the page's script could still run an `onerror=`. A comment at the
+  web view's setup said remote content was blocked; nothing blocked it.
+  WebKit also kept cookies, a cache and site data from the pictures letters
+  load in the app's container, the one store the app did not bound.
+- A link written out as words in a plain letter could not be tapped: the
+  pane escaped it and nothing made it a link, WebKit's data detectors being
+  off. About a third of the links he shares with himself arrive that way.
+- The header never showed Cc, and wrote a recipient with no name as
+  `<jane@example.com>`, or as nothing for `"" <jane@example.com>`.
+
+**The pane, locked down** (`MessageDetailViewController`,
+`PaneNavigation`, `ConversationDocument`).
+
+- No script of a letter's runs: `allowsContentJavaScript` is off. On the
+  iPad's WebKit that also has the parser drop a letter's `<script>`s, its
+  `on…=` handlers and its `javascript:` links as the page is read, and as a
+  conversation's body is put into its section.
+- The pane's own script, which opens and closes a letter of a conversation
+  and puts its body in, is no longer written into the page, where it would
+  not run now either. It is a user script in the app's own content world,
+  and each letter's line is wired with `addEventListener` where it had an
+  `onclick`. A letter's markup cannot see it or call it, nor post to the
+  `bmLetter` handler, which is registered in that world alone; a single
+  letter's page gets nothing wired, whatever the letter draws. A tap does
+  what it did: the line opens or closes its letter, a letter opened is
+  fetched if it has not been and marked read, and the header and the
+  toolbar move to it.
+- The pane loads its own pages and nothing else. The one navigation allowed
+  is the page the pane hands WebKit, `loadHTMLString` with no base URL,
+  which WebKit loads as `about:blank` in the main frame. Every other page in
+  the pane, every frame inside a letter, every form sent, back, forward and
+  reload are cancelled. A tapped link does what it did: "Open this link?"
+  with the site's name, then Safari, or this app's composer for `mailto:`,
+  a link aimed at a new window or a frame included. A letter that sends the
+  pane to `about:blank` itself can empty its own page, and do nothing else.
+- Nothing of WebKit's is kept on the iPad (`websiteDataStore =
+  .nonPersistent()`): the pictures' cookies and cache last as long as the
+  web view does, in memory.
+- Pictures from the web still load, as they always have, and a tracking
+  pixel among them still tells its sender the letter was opened. Blocking
+  them is the owner's to decide, and open. The comment now says so.
+
+What he may notice: nothing, on nearly every letter. A letter that
+refreshed itself or sent the pane elsewhere stays where it is, and a form's
+button does nothing. A letter built by its own script, almost none in
+email, shows what it has without it. On a later iOS, whose WebKit reads
+`<noscript>` as markup when script is off, a letter's `<noscript>` content,
+which never showed, may.
+
+**Links in plain letters** (`TextLinks`, `PanePage`). `http://`,
+`https://`, `www.` and `mailto:`, found as Mail finds them: not run on from
+a word, to the first space or line break, quote, bracket or ellipsis, with
+the sentence's full stop, comma or closing bracket given back to it, so
+`(see https://example.com/a).` links `https://example.com/a` and a
+Wikipedia address ending `_(film)` keeps its bracket. A `www.` address goes
+to `http://`. In the pane's link blue for plain text, `#0A84FF`, which the
+page has always set and nothing used. A tap goes where a tap on any link in
+a letter goes. The text is cut into words and links before anything is
+escaped, and every piece is escaped, so nothing of the sender's reaches the
+page as markup, and a letter with no link in it comes out byte for byte as
+it did.
+
+In HTML letters too, in their text only: never in a tag or an attribute, a
+comment, a `<script>`, `<style>`, `<textarea>` or `<title>`, and never
+inside a link the sender wrote. The link is the text as it stands, so it
+reads as it did. Where HTML can hold a sender's link open in ways a pass
+this simple cannot see, it stops, and the rest of the letter is as it
+came: at `<svg>`, `<math>`, `<noscript>`, `<select>`, `<plaintext>`, a
+`<script>` with a comment in it, anything left unclosed, and after a
+sender's link that encloses a table, a cell or the like. There an address
+Mail would link stays words. A bare address such as `sam@example.com` is
+not made a link; Mail makes it one.
+
+Faster, as it happens: the escaping is done a byte at a time as the links
+are found, not by `replacingOccurrences` on each piece. Release build on
+this host: a plain letter of a megabyte with no link, 13 ms where
+`replacingOccurrences` took 118; a megabyte of nothing but links, 29,000 of
+them, 22 ms; an HTML megabyte, 8 ms more than it took.
+
+**Cc** (`MessageHeaderView`, `MailFormat`). Under To, in To's font, colour
+and inset: "Cc: Jane Example, sam@example.com". Names, and the address where
+there is none, as Mail writes them, and the To line the same way, so
+`<jane@example.com>` reads `jane@example.com`. No Cc, no line, and a letter
+without one lays out as it did. The header is drawn from the list's row at
+the tap, and the row carries the Cc, so the line is there from the tap
+(decided 2026-10-01, below); opening another letter of a conversation moves
+the stack a line when one has a Cc and the other none, as the files' rows
+already do, the header changing to that letter once it has come. To and Cc
+are split between addresses, not at every comma:
+`"Example, Jane" <jane@example.com>` is one recipient where it was two,
+`"Example` and `Jane" <jane@example.com>`, and a name whose comma is inside
+an encoded word is split only once decoded. Reply All goes to each such
+address once, where it put `"Example` among the letter's recipients. A
+list with a quote or bracket never closed is split at every comma, as
+before.
+
+**Tested** in the host suite.
+
+- `PaneNavigationTests`: the decision for every kind of navigation, in the
+  pane, a frame and a new window, and the pane's own page the only one
+  loaded. And, read from the view controller's source, which the host
+  cannot build: script off and the data kept in memory, set before the web
+  view is built from them, when WebKit copies them; the user script in the
+  app's world; the handler and the fill there and nowhere else; every
+  navigation through `PaneNavigation`.
+- `ConversationDocumentTests`: no script and no handler written in the
+  stack's page; the user script's wiring, and nothing wired on a letter's
+  own page.
+- `TextLinksTests`: the kinds, the ends, what is not a link, nothing twice,
+  the escaping, HTML's text only, what is left alone, 1,500 seeded letters
+  that gain links and nothing else, and the work counted on 25 letters
+  built to make it grow: four times the letter is four times the steps, at
+  most four steps a byte.
+- `PanePageTests`: every letter with no link comes out byte for byte as
+  before, the one with a link differs by its `<a>` alone, and an HTML
+  letter's links in its page and its stack body.
+- `ReadingPaneCcTests`: the split, the names, the lines, the header's wiring
+  from its source, and a letter read by the repository from the scripted
+  server, with Reply All from it.
+
+Each of 59 sabotages (a rule reverted, a setting taken out or moved after
+the web view is built, the script put back in the page, the Cc line or its
+split undone) fails at least one of these. Checked outside the suite and
+not kept: the stack's script run in a DOM (jsdom) on the pane's own pages,
+taps opening and closing letters and telling the pane as before, a body
+put in, and a line a letter draws never wired; and 18,000 generated HTML
+letters, linked and read back by an HTML5 parser (html5lib), their trees
+unchanged but for the links, no link inside another or outside the text.
+The one difference, in 19 of them, was a space left inside a `<table>` the
+parser had moved the text out of, which draws nothing.
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. Letters drew as before, a newsletter's pictures from the web
+with them. In a conversation of four, a letter's line opened it, its body
+came and the header moved to it, and the line closed it again. In a plain
+letter the Google addresses were links, and a tap asked "Open this link?"
+over "myaccount.google.com", Cancel and Open. A letter sent to the account
+with the account in Cc showed its Cc line, the account's own address,
+under To in the first frame after the tap, the header the same height when the letter had
+come. Not made by hand: a letter that runs a script, navigates, frames or
+submits, which the suite stands for.
+
+**Decided 2026-10-01.**
+
+- *A long press on a link* brings up WebKit's own menu and its preview, as
+  a long press does in Mail, and is left so: `allowsLinkPreview` stays on,
+  and nothing was changed. The preview loads the page without "Open this
+  link?", for an HTML letter's links as before and for every address in a
+  plain letter now.
+- *The Cc line is there from the tap.* It used to arrive with the letter
+  and move a conversation's stack down a line under him, where B-042 has
+  the header its final height from the tap. The list's rows now carry the
+  Cc (`MessageSummary.cc`) from the ENVELOPE every row is fetched with
+  already, `Name <address>` or the address alone, and the header drawn at
+  the tap names them as it names the Cc header's (`Message.heading`), so
+  the line it lands with is the line it had: a name with a comma in it, a
+  name in an encoded word, and an address with no name read the same both
+  ways. The list's FETCH is what it was, `(UID FLAGS INTERNALDATE
+  RFC822.SIZE ENVELOPE BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)`,
+  and nothing more is asked. The page kept on the iPad (D-016) keeps a
+  row's Cc with it, as `"cc"` in its record, absent for a row with none and
+  in a page kept before, which reads as none, so no new format: a row kept
+  so gains its line as the letter lands, as every row did, until the next
+  page. A Cc holding no address the ENVELOPE can give, an empty group such
+  as `undisclosed-recipients:;` or a word with no domain, still gains its
+  line as the letter lands, and a group's name, which the ENVELOPE leaves
+  out, is in the line only once the letter has come. To still reads "To:
+  me" until the letter lands, one line either way.
+  Tested in `ReadingPaneCcTests` (the line at the tap word for word the
+  line the letter lands with, before anything of the letter is fetched,
+  and the list's FETCH as it was), `PaneLoadsTests` (the stand-in header
+  carries the row's Cc) and `MailShelfTests` (kept and read back, and a
+  page kept without it read); four parts of it undone one at a time in a
+  scratch copy, each fails them.
+
+**Open, for the owner.** Whether letters' pictures from the web load
+(the spec asks for them blocked by default if feasible). A bare address is
+not made a link.
+
+---
+
+## B-056 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A new password waited for a relaunch, a refused sign-in read as "Can't connect", and the signature could be lost for good
+
+**Found in the code 2026-09-30**, going through what would stop the app for
+good once it is on his iPad with no way to update it. Google revokes every
+app password when the Google password changes, which over years is the
+likeliest thing to happen to this account, and the repair was the one
+place the app failed a helper:
+
+- **A new password saved in Settings was not used until the app was
+  ended.** `IMAPMailRepository` kept the password it was made with, and
+  Settings only asked for a Refresh, which ran on it (its own comment said
+  "Settings reaches it at the next launch"). The helper typed the new
+  password, Settings said nothing was wrong and closed, and the list went
+  on saying "Password Needs Updating", the Outbox stayed stopped, and every
+  tap sent the revoked password again. iPadOS keeps an app suspended for
+  days, so the fix could look like it had failed until someone knew to
+  swipe the app away.
+- **Settings and setup checked reading only.** The setup form's comment
+  said "Prove both halves before saving", and only IMAP was asked. An app
+  password made while signed in to another Google account passes IMAP,
+  which opens that account's mailbox, and fails every letter (B-033).
+  Settings had no line saying where a new password is made.
+- **Every refusal but one read as the network.** Only `NO
+  [AUTHENTICATIONFAILED]` to LOGIN counted as the password; every other NO
+  or BAD, Gmail's "[ALERT] Application-specific password required", "[WEBALERT
+  …] Web login required", "[ALERT] Too many simultaneous connections",
+  became "Can't connect to mail server." and "No Connection", which no change
+  of Wi-Fi or password mends. Google's ALERT text, which RFC 3501 §7.1 says
+  MUST be shown, went nowhere but the connection log. The list's, the
+  pane's and the folder pane's alerts said "Can't connect" whatever they had
+  caught, a refused password included. After any refusal the watch never
+  signed in again by itself. And SMTP's 534, "Please log in via your web
+  browser", was taken for the password, which sends a helper off to make
+  app password after app password while Google waits for a sign-in on the
+  web.
+- **The signature could be lost with no way back.** The formatted signature
+  reaches the iPad only from outside the app (B-035), and three things took
+  it away for good: "Send my signature as plain text instead", one tap with
+  no question, then Save; an emptied box saved; and setup shown again,
+  whose Connect built a new account and saved it over the stored one. Setup
+  is shown whenever the password cannot be read at launch, and the password
+  item was written by deleting every item for the account first and then
+  adding the new one, so a failed add, on a full disk, left no password,
+  while Settings said "Could not save. Nothing has been changed."
+
+**What he sees now.**
+
+- A new password saved in Settings is signed in with at once. The sheet
+  closes, the screens are built again over a new repository, as setup's are
+  once it has an account, and the list says "Checking for Mail…" and then
+  "Updated Just Now". The copy kept on the iPad goes as it did at any
+  password saved (D-016), so the Inbox is empty for a moment; the letters
+  kept in Drafts ("On this iPad only") and the Outbox stay, and the Outbox
+  goes at the first pass after the new page. The old repository's
+  connection is closed, and nothing still holding it signs in again or
+  sends a letter (`IMAPMailRepository.retire`).
+- Settings and setup check sending too. With IMAP's LOGIN, LIST and LOGOUT
+  done, a sign-in on the submission server, EHLO, AUTH and QUIT, and no
+  letter. A password IMAP takes and SMTP refuses, 535, is not kept: "Gmail
+  took that password for reading mail but refused it for sending. Make the
+  app password while signed in to Google as <his address>. If you are sure
+  it was made as <his address>, wait an hour and try again." (the last
+  sentence since 2026-10-01, below). A submission server that cannot be
+  reached, or says "not now", does not stop a password IMAP has just taken:
+  a Wi-Fi that blocks port 465 must not leave a revoked password in place.
+  Nor, since 2026-10-01, does SMTP's 534 (below). Under the Settings
+  password field: "Make one at myaccount.google.com/apppasswords while
+  signed in to Google as <his address>." A setup Connect whose save fails
+  now says "Password could not be saved." rather than "Could not reach
+  Gmail".
+- A refused password, in any alert about getting his mail or acting on it
+  (a folder, a letter, a Refresh, Go to Date, the pane's Flag, Move and
+  Delete, a draft reopened): Mail's "Cannot Get Mail", "The user name or
+  password for “Gmail” is incorrect.", with Settings and OK. Settings opens
+  over the list with the keyboard up in the password field.
+- A sign-in refused for any other reason is a third state beside the
+  password and the connection. The line under the list says "Gmail Refused
+  Sign-In"; the alert says "Cannot Get Mail" over "Gmail refused the
+  sign-in. The server returned the error: <Google's ALERT text>", or
+  "Gmail refused the sign-in." where there was none; setup and Settings say
+  the same of IMAP's refusal under their button. WEBALERT's address, a
+  sign-in link into his account, is left out; the log keeps the whole
+  line. The watch signs in
+  again five minutes after such a refusal, and every five minutes while it
+  lasts, twelve LOGINs an hour against the hundred and twenty a check every
+  half minute would send; a refused password is still never tried again
+  unasked. SMTP's 534 is this state too, and keeps every rule it had as the
+  password's: his own Send keeps the sheet, and the Outbox stops until a
+  Send of his goes, the app is launched again, or a password is saved.
+  IMAP's refusal does not take those rules, met as a forward's files are
+  fetched or as Sent Mail is asked: the letter waits in the Outbox, as it
+  did while such a refusal read as no connection, and goes with the first
+  pass once Gmail lets go.
+- "Send my signature as plain text instead" asks first: "Send Signature as
+  Plain Text?", "Your messages will no longer carry the formatted version of
+  your signature.", Cancel and Use Plain Text. Saving an emptied signature
+  asks: "Remove Signature?", "Nothing will be added to the bottom of your
+  messages.", Cancel and Remove.
+- The signature first set on this iPad, its text, its formatted twin and
+  the pictures the twin shows, is kept once in `Application
+  Support/Original Signature/signature.json` and never written again
+  (`OriginalSignature`): by the first launch that finds a signature, or the
+  first save of one. "Restore Original Signature" under the signature box,
+  only where one has been kept, asks "Restore Original Signature?", "The
+  signature first set up on this iPad will replace the one shown here.",
+  Cancel and Restore, and puts it in the form, to be saved with Save. The
+  share extension is handed the restored pictures as they are saved, as it
+  is the account.
+- Setup's Connect starts from the stored account when the address is the
+  same, trimmed and without case, and changes only the name.
+- The password item is written in place first, updated where there is one
+  and added where there is none, and every sibling under the account and
+  server goes only once that has worked (`PasswordWrite`). A write that
+  fails leaves the old password working.
+
+**Decided 2026-10-01** (`SignInCheck.outcome`, `SMTPClient.checkSignIn`).
+
+- *SMTP's 534 at the check keeps the password.* A password IMAP had just
+  taken was thrown away when the submission server answered 534, Gmail's
+  "Please log in via your web browser", and the helper read only "Gmail
+  refused the sign-in. Your old password is still in place.", with the old
+  password, perhaps revoked, still in place. Now it is saved and signed in
+  with at once, as a password that works is: Settings closes, or setup
+  gives way to the mail, and the screens are built again over it. Once they
+  are on the screen, an alert, "Cannot Send Mail", with OK: "Gmail accepted
+  the password for reading mail but is refusing to send for now. The
+  server returned the error: <Gmail's words>", or the first sentence alone
+  where Gmail gave none. Gmail's words are kept as an IMAP ALERT's are
+  (`SMTPClient.refusalText`): the reply's lines without their codes, run
+  into one line of printable characters, at most 300, the sign-in address
+  for the account Gmail writes in angle brackets left out, as WEBALERT's
+  is, and the server's tag at the end, an id and "- gsmtp", left out too.
+  Gmail's 534 runs over eight lines, the address broken over the first
+  five of them and its ">" followed by the sentence, as Gmail's users
+  quote it (Atlassian's help page for AuthenticationFailedException;
+  Esko's KB182042961), so the address is left out from its "<" to its
+  ">" whatever lines lie between; a "<" nothing closes is kept as written.
+  It reads "Please log in via your web browser and then try again. Learn
+  more at https://support.google.com/mail/answer/78754". As first built,
+  only a word both opened and closed by the brackets was left out, so the
+  address's pieces were kept, filled the 300 and left no room for the
+  sentence; the test's 534 had the address on one line, as none of
+  Gmail's quoted has, and passed. The test's is Gmail's own now, line for
+  line, with a made-up token.
+  Only the check carries them: a letter's 534 is said as before, "Gmail
+  refused the sign-in.", and keeps every rule it had: his own Send keeps
+  the sheet, and the Outbox stops at the first letter it meets until a Send
+  of his goes, the app is launched again, or a password is saved.
+- *SMTP's 535 at the check* is still not kept. Gmail is said to answer
+  535 too while it turns away an account's sign-ins to send for a while,
+  and then a password made in the right account would fail the same way,
+  and so would the next. B-033 first took its afternoon's 535s for that,
+  before the wrong account was found to explain every one of them, so no
+  535 of that kind has been seen here; the sentence covers it all the
+  same. The wrong-account sentence now ends "If you are sure it was made
+  as <his address>, wait an hour and try again.", with the account's
+  address, before Settings' "Your old password is still in place."
+
+**Mail's words, and the app's.** "Cannot Get Mail" and "The user name or
+password for “Gmail” is incorrect." are iOS Mail's, as its users quote them
+(Apple's forums, threads 5452189 and 4202286; Google's Gmail community,
+thread 167880147), and one user quotes tapping OK on it (Microsoft's Q&A,
+question 4475893). "The server returned the error:" is Mail's on the Mac
+for this very refusal ("… Web login required", as Mac users quote it). The
+app's own: "Gmail Refused Sign-In" (Mail says "Account Error", which would
+tell him nothing, as for the other two), "Gmail refused the sign-in.", the
+sending sentence, the Settings line, and the three confirmations. Not found
+in anything quoted: whether Mail's alert has a Settings button, and where;
+this one has it first, then OK. "Cannot Send Mail" is the title Mail's
+alert has when its outgoing server turns it away, as its users quote it
+(Apple's forums, threads 6755569 and 254409204); the 534 sentence after it,
+and the 535 sentence's last, are the app's own.
+
+**On the wire.** Nothing changes until a sign-in is refused or a password is
+saved; the everyday wire is as it was. The connection log gains
+`SIGN-IN CHECK host=smtp.gmail.com:465` and `SIGN-IN CHECK imap=ok
+smtp=refused`, `smtp=sign-in-refused` or `smtp=not-checked`, and
+`PASSWORD-SAVED signed in afresh`: no address, no password, nothing of a
+letter. A password kept at a 534 logs `smtp=sign-in-refused` and then
+`PASSWORD-SAVED signed in afresh`.
+
+**Left as it was.** The composer's own alert for a Send refused for its
+password still says "Password needs to be updated in Settings.": Mail's
+"Cannot Get Mail" is for getting mail. A letter kept on the iPad between the
+save and the new screens is stamped with the old count and treated as the
+old mailbox's, as one kept before a relaunch was (B-051). The original
+signature is the first one seen: a signature typed in Settings before the
+formatted one is put on the iPad would be the original, so the formatted one
+goes on first.
+
+**Tests.** `SignInTests` (the check against the scripted servers, the
+wrong-account trap, each form's words, the alerts' words and the third
+line, a pane write's refusal, a new password signed in with at once with the
+Outbox going and the old repository silent, a repository retired with a
+command still out, letters kept before the save, setup keeping the
+signature, the original kept once and restored, the emptied signature asked
+about, and the password item's order); `IMAPConnectTests` (the refusals and
+their ALERT text, and a retired client); `NewMailTests` (the watch trying
+again after five minutes, never sooner, a refused password never, past
+the five minutes too, and a refused sign-in never retried by a read);
+`OutboxTests` (534 keeps the sheet and stops the Outbox; IMAP's
+`[UNAVAILABLE]` to his Send's forward, and to a pass's look in Sent Mail,
+leaves the letter waiting and the Outbox going); `ShareMirrorTests` (the
+restored signature's pictures handed to the share extension as they are
+saved); `RepositoryTrafficTests` (Go to Date's alert says what was
+caught). Each fails with its part of the change undone. For 2026-10-01,
+`SignInTests` again: Gmail's eight-line 534 at the check, the password
+kept, the alert's words exact for both forms, the next LOGIN carrying it,
+the Outbox stopped at the next pass and his Send refused; Gmail's words
+read out of a 534, its address left out over five lines and over two, a
+"<" nothing closes kept; the 535 sentence word for word; and, read from
+their source, Settings and setup keeping what the check keeps and handing
+on the alert, and the screens built again putting it up. Fifteen parts
+of it undone one at a time in a scratch copy, each fails at least one.
+
+**Seen on the iPad, 2026-09-30**, on carlo's mailbox, before the branch
+was merged. Settings has Restore Original Signature and, under the
+password, where an app password is made. "Send my signature as plain text
+instead" asked "Send Signature as Plain Text?", and Restore Original
+Signature asked first too; both cancelled. Sixteen wrong letters as a new
+password: refused, and Refresh then said "Updated Just Now" on the old
+one. That refusal was first said at the foot of the sheet, under the
+keyboard, and Save seemed to do nothing; what Settings has to say is now
+under the password field, the keyboard put down and the line scrolled
+into view (`say`), and seen there. Not made by hand: a password revoked
+and replaced, a 534 and a 535 at the check, which need the account's
+Google settings.

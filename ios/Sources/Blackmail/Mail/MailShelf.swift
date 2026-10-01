@@ -106,8 +106,9 @@ final class MailShelf: @unchecked Sendable {
     private var sameMailbox = false
 
     /// `wipe`'s count for `root` when this shelf was made. Once it moves on
-    /// the shelf is done: it reads nothing and keeps nothing more, until the
-    /// next launch makes another with the password saved since.
+    /// the shelf is done: it reads nothing and keeps nothing more, until a
+    /// repository signing in with the password saved since makes another,
+    /// at the next launch or at once after Settings (`PasswordChange`).
     private let generation: Int
 
     /// The folder list's file. Each page's is named for its folder
@@ -208,8 +209,13 @@ final class MailShelf: @unchecked Sendable {
     /// The previews of the kept rows go across to the same letters, since
     /// the rows come from the server with none and only the rest are
     /// fetched; never after a discard.
+    ///
+    /// `sizes` are the sizes on the server of the rows the repository
+    /// opens without their files (`IMAPMailRepository.largeLetterBytes`),
+    /// kept with those rows and read back by `size(of:in:)`.
     @discardableResult
-    func took(page rows: [MessageSummary], of folder: String, validity: UInt32) -> Discard? {
+    func took(page rows: [MessageSummary], of folder: String, validity: UInt32,
+              sizes: [String: Int] = [:]) -> Discard? {
         guard isAlive else { return nil }
         let kept = record(of: folder)
         var discard: Discard?
@@ -237,7 +243,8 @@ final class MailShelf: @unchecked Sendable {
         let page = PageRecord(format: Self.format, folder: folder, validity: validity, keptAt: now(),
                               rows: rows.map { row in
                                   RowRecord(row, preview: row.preview.isEmpty
-                                            ? previews[row.id] ?? "" : row.preview)
+                                            ? previews[row.id] ?? "" : row.preview,
+                                            size: sizes[row.id])
                               })
         locked {
             pages[folder] = page
@@ -248,6 +255,15 @@ final class MailShelf: @unchecked Sendable {
             queueWrite()
         }
         return discard
+    }
+
+    /// The size the kept row `id` of `folder` was kept with, nil when it
+    /// has none or is not kept: for a letter opened from the kept page
+    /// before its folder's first page has come in this launch, which may
+    /// be too large to fetch whole (`IMAPMailRepository.loadMessage`).
+    func size(of id: String, in folder: String) -> Int? {
+        guard isAlive else { return nil }
+        return record(of: folder)?.rows.first { $0.id == id }?.size
     }
 
     /// Previews fetched for rows of `folder`, put on its kept page where
@@ -710,8 +726,17 @@ final class MailShelf: @unchecked Sendable {
         var message: UInt64?
         var counted: [String]
         var files: [FileRecord]
+        /// The letter's size on the server, for one the repository opens
+        /// without its files; absent for every other, and in a page kept
+        /// before sizes were.
+        var size: Int?
+        /// `MessageSummary.cc`: absent for a letter with none, and in a page
+        /// kept before the rows carried it, which reads as none, so no new
+        /// format. A row kept so has its Cc line when the letter lands, as
+        /// every row did.
+        var cc: [String]?
 
-        init(_ row: MessageSummary, preview: String) {
+        init(_ row: MessageSummary, preview: String, size: Int? = nil) {
             id = row.id
             sender = row.sender
             subject = row.subject
@@ -724,13 +749,16 @@ final class MailShelf: @unchecked Sendable {
             message = row.gmailMessageID
             counted = row.countedFolderIDs
             files = row.attachments.map(FileRecord.init)
+            self.size = size
+            cc = row.cc.isEmpty ? nil : row.cc
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
             MessageSummary(id: id, mailboxID: mailboxID, sender: sender, subject: subject,
                            preview: preview, date: date, isRead: read, isFlagged: flagged,
                            hasAttachment: attachment, threadID: thread, gmailMessageID: message,
-                           countedFolderIDs: counted, attachments: files.map(\.attachment))
+                           countedFolderIDs: counted, attachments: files.map(\.attachment),
+                           cc: cc ?? [])
         }
     }
 

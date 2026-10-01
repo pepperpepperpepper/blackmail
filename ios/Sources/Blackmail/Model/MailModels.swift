@@ -107,6 +107,15 @@ struct MessageSummary: Identifiable, Hashable {
     /// then, pushing a conversation's stack down under him as he began to
     /// read it.
     var attachments: [Attachment] = []
+    /// Whom the letter was copied to, as the ENVELOPE the row is fetched
+    /// with names them: `Name <address>`, or the address where there is no
+    /// name, which the reading pane's header names as it names the Cc
+    /// header's (`MailFormat.recipientName`). Empty when it has none.
+    ///
+    /// Carried so the header has its Cc line from the tap, for the reason
+    /// `attachments` is: it used to gain it only when the letter came, and
+    /// push a conversation's stack down a line under him (B-042, B-055).
+    var cc: [String] = []
 }
 
 struct Message: Identifiable {
@@ -146,6 +155,12 @@ struct Message: Identifiable {
     /// Gmail gives every Inbox UIDVALIDITY 1, and a password saved in
     /// Settings can open another mailbox under the same address (B-033).
     var gmailMessageID: UInt64? = nil
+    /// True when the body the pane shows, `htmlBody` when there is one and
+    /// `textBody` otherwise, is only the beginning of the letter's own: a
+    /// letter too large to fetch whole, whose text or HTML is longer than
+    /// the part of it fetched (`IMAPMailRepository.loadMessage`). The pane
+    /// says so (`MailText.shortenedNotice`).
+    var isShortened = false
 }
 
 extension Message {
@@ -169,6 +184,21 @@ extension Message {
         }
         if let htmlBody { return HTMLText.plainText(from: htmlBody) }
         return ""
+    }
+
+    /// What a reply or a forward quotes: `quotableText`, and under it, for
+    /// a letter shown only in part (`isShortened`), a blank line and the
+    /// line the pane shows above it (`QuotedOriginal.shortenedEnding`).
+    /// Whoever the quote goes to would otherwise take the beginning of the
+    /// letter for the whole of it, and a forward would pass it on as such.
+    /// Nothing more of the letter is fetched for it.
+    ///
+    /// At the end of the quote rather than above it, where the pane has it:
+    /// these are words, not the sender's markup cut wherever the fetch
+    /// stopped, and the line closes the quote as the letter's own last line
+    /// would. The HTML twin draws it grey (`AppleMailHTML.letter`).
+    var quotedWords: String {
+        isShortened ? quotableText + QuotedOriginal.shortenedEnding : quotableText
     }
 }
 
@@ -355,7 +385,7 @@ extension Draft {
         // however much of the original he kept.
         let region = MailFormat.quoteAttribution(m.date, sender: m.sender)
             + "\n> "
-            + m.quotableText.replacingOccurrences(of: "\n", with: "\n> ")
+            + m.quotedWords.replacingOccurrences(of: "\n", with: "\n> ")
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region)
 
@@ -385,7 +415,7 @@ extension Draft {
         if !m.cc.isEmpty {
             region += "Cc: \(m.cc.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
         }
-        region += "Subject: \(m.subject)\n\n" + m.quotableText
+        region += "Subject: \(m.subject)\n\n" + m.quotedWords
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region)
         // The files come too. Forwarding a receipt and leaving its two PDFs
@@ -677,6 +707,70 @@ enum MailFormat {
         guard let angle = sender.firstIndex(of: "<") else { return sender }
         let name = sender[..<angle].trimmingCharacters(in: .whitespaces)
         return name.isEmpty ? sender : name.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+    }
+
+    /// The entries of an address list, a To or Cc header as it came: split
+    /// on the commas between addresses, and not on a comma inside a quoted
+    /// name, `<…>` or a comment. `"Example, Jane" <jane@example.com>, Sam
+    /// Example <sam@example.com>` is two entries, where splitting on every
+    /// comma made three, the first of them `"Example`, which the reading
+    /// pane showed as a name and Reply All tried to send to.
+    ///
+    /// A quote, bracket or comment never closed is a broken header, and it
+    /// is split on every comma, as every header used to be, rather than
+    /// have one stray quote take every address after it into one entry.
+    static func addressList(_ field: String) -> [String] {
+        var entries: [String] = []
+        var entry = ""
+        var quoted = false, escaped = false, bracketed = false
+        var comments = 0
+        for c in field {
+            if escaped {
+                escaped = false
+                entry.append(c)
+                continue
+            }
+            switch c {
+            case "\\" where quoted || comments > 0: escaped = true
+            case "\"" where !bracketed && comments == 0: quoted.toggle()
+            case "<" where !quoted && comments == 0: bracketed = true
+            case ">" where !quoted && comments == 0: bracketed = false
+            case "(" where !quoted && !bracketed: comments += 1
+            case ")" where !quoted && !bracketed && comments > 0: comments -= 1
+            case "," where !quoted && !bracketed && comments == 0:
+                entries.append(entry)
+                entry = ""
+                continue
+            default: break
+            }
+            entry.append(c)
+        }
+        entries.append(entry)
+        if quoted || escaped || bracketed || comments > 0 {
+            entries = field.components(separatedBy: ",")
+        }
+        return entries.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// How the reading pane names a recipient, as Mail does: the name, or
+    /// the address where there is no name. "Jane Example" for `Jane Example
+    /// <jane@example.com>` and `"Jane Example" <…>`; `jane@example.com` for
+    /// that address alone, `<jane@example.com>`, or `"" <jane@example.com>`,
+    /// which used to show as the brackets and address, and as nothing.
+    static func recipientName(_ entry: String) -> String {
+        let entry = entry.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard entry.contains("<") else { return entry }
+        let name = displayName(entry)
+        return name.isEmpty || name == entry ? bareAddress(entry) : name
+    }
+
+    /// A line of the reading pane's header naming `entries`, the To or Cc
+    /// header's: "Cc: Jane Example, sam@example.com". Nil when there are
+    /// none, and the header has no such line.
+    static func recipientsLine(_ field: String, _ entries: [String]) -> String? {
+        guard !entries.isEmpty else { return nil }
+        return field + ": " + entries.map(recipientName).joined(separator: ", ")
     }
 }
 

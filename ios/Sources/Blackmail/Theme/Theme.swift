@@ -245,6 +245,10 @@ extension Theme {
     /// which broke this file's own "nothing else may hard-code one" rule.
     static let detailSenderTopPadding: CGFloat = 8
     static let detailSenderToGap: CGFloat = 2
+    /// Between the To line and the Cc line under it, when a letter has one.
+    /// Not measured: the reference has no Cc. The gap above the To line,
+    /// so the header's lines of names keep one rhythm.
+    static let detailToCcGap: CGFloat = detailSenderToGap
     static let detailToRuleGap: CGFloat = 17
     static let detailRuleSubjectGap: CGFloat = 6
     static let detailSubjectDateGap: CGFloat = 3

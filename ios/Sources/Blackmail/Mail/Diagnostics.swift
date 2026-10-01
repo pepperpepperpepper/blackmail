@@ -127,4 +127,62 @@ enum Diagnostics {
     /// Describes a literal without reproducing it. Message bodies are his
     /// private correspondence and have no place in a support transcript.
     static func describeLiteral(byteCount: Int) -> String { "{\(byteCount) bytes}" }
+
+    /// `* SEARCH {N uids}` for an untagged SEARCH answer, and the same for
+    /// SORT, which has its shape; nil for any other line.
+    ///
+    /// The answer is one line with a number for every letter found: at his
+    /// size, by estimate, 0.4 MB for the Inbox and one or two megabytes for
+    /// Sent Mail, All Mail or a search for a common word. Kept whole, one
+    /// such line was most of the 500 in the log, the connection log's
+    /// screen, the one read out over the phone to whoever is helping, drew
+    /// it all on the main thread, and each send's transcript carried it too.
+    /// How many letters it found is what helps. What they were,
+    /// `SESSION-IDENT` and the FETCHes after it say.
+    ///
+    /// Counted as `IMAPParser.parseSearch` reads the line: the numbers after
+    /// the keyword, less a trailer such as CONDSTORE's `(MODSEQ 123)`.
+    static func describeSearch(_ line: String) -> String? {
+        let bytes = line.utf8
+        var cursor = bytes.startIndex
+        for expected in "* ".utf8 {
+            guard cursor != bytes.endIndex, bytes[cursor] == expected else { return nil }
+            cursor = bytes.index(after: cursor)
+        }
+        var keyword: [UInt8] = []
+        while cursor != bytes.endIndex, bytes[cursor] != 0x20, keyword.count < 7 {
+            keyword.append(bytes[cursor] & 0xDF)   // ASCII upper case
+            cursor = bytes.index(after: cursor)
+        }
+        let name = String(decoding: keyword, as: UTF8.self)
+        guard name == "SEARCH" || name == "SORT",
+              cursor == bytes.endIndex || bytes[cursor] == 0x20 else { return nil }
+        var count = 0
+        var digits = 0
+        var bracketed = 0
+        func endWord() {
+            if digits > 0, bracketed == 0 { count += 1 }
+            digits = 0
+        }
+        while cursor != bytes.endIndex {
+            let c = bytes[cursor]
+            switch c {
+            case 0x30...0x39:
+                if digits >= 0 { digits += 1 }
+            case 0x20:
+                endWord()
+            case 0x28:
+                bracketed += 1
+                digits = -1
+            case 0x29:
+                bracketed = max(0, bracketed - 1)
+                digits = -1
+            default:
+                digits = -1
+            }
+            cursor = bytes.index(after: cursor)
+        }
+        endWord()
+        return "* \(name) {\(count) uids}"
+    }
 }

@@ -92,6 +92,9 @@ enum CredentialStore {
         } catch {
             throw StoreError.accountNotEncodable(error)
         }
+        // The first signature set is kept, once, to be restored.
+        OriginalSignature.keepIfFirst(clean, images: SignatureImages.load(),
+                                      in: OriginalSignature.appRoot)
         // The share extension signs with the signature it is handed, so a
         // changed one is handed over now rather than at the next launch.
         if let mirror = ShareMirror.app, let password = loadPassword(for: clean) {
@@ -116,8 +119,9 @@ enum CredentialStore {
         // same address (B-033), and a copy kept under the old one would be
         // drawn as this one's at the next launch. The letters kept by
         // `LocalDrafts` are not in it and stay; the save is counted beside
-        // them, so from the next launch what one kept before it names by
-        // folder and UID alone is not taken for this mailbox's (B-051).
+        // them, so from the moment a repository signs in with this password
+        // what one kept before it names by folder and UID alone is not
+        // taken for this mailbox's (B-051, `LocalDrafts.passwordSaved`).
         MailShelf.wipe(root: MailShelf.appRoot)
         LocalDraftStore.notePasswordSaved(in: LocalDraftStore.appRoot)
 
@@ -132,6 +136,8 @@ enum CredentialStore {
         } catch {
             throw StoreError.accountNotEncodable(error)
         }
+        OriginalSignature.keepIfFirst(clean, images: SignatureImages.load(),
+                                      in: OriginalSignature.appRoot)
         // Where the share extension can read them (B-036). A new app
         // password has to reach it at once: sharing with the old one would
         // be refused, and he would be told so in a sheet over Safari.
@@ -231,26 +237,30 @@ enum CredentialStore {
         ]
     }
 
-    /// Returns an `OSStatus` rather than throwing so the three write paths can
-    /// be chained without unwinding; `save()` turns the failure into an error.
+    /// Returns an `OSStatus` rather than throwing so the write paths can be
+    /// chained without unwinding; `save()` turns the failure into an error.
+    ///
+    /// In the order `PasswordWrite` gives, which the host tests hold it to:
+    /// the new password written into the item read, in place, or added
+    /// where there is none, and only then every sibling swept away. The
+    /// sweep used to come first, so an add that failed left no password.
     private static func writePassword(_ password: String, address: String, host: String) -> OSStatus {
-        // B-033: sweep every sibling for this account+server — ANY protocol,
-        // ANY port — before writing. An older build's item can differ from
-        // our query in a primary-key attribute (its protocol, its port), so
-        // `SecItemUpdate` does not match it, `SecItemAdd` succeeds BESIDE it,
-        // and `loadPassword` then finds two matches and returns either one.
-        // That is exactly what happened on the dev iPad: the setup form saved
-        // a fresh app password, IMAP kept accepting the OLD one, and SMTP
-        // refused it — a 535 with a credential Python proves valid, whose
-        // transcript reads like an impossible bug. One item per account is
-        // the invariant; the sweep is what enforces it.
-        var sweep: [String: Any] = [
+        // B-033: every sibling for this account+server — ANY protocol, ANY
+        // port — goes once the new password is in place. An older build's
+        // item can differ from our query in a primary-key attribute (its
+        // protocol, its port), so `SecItemUpdate` does not match it,
+        // `SecItemAdd` succeeds BESIDE it, and `loadPassword` then finds two
+        // matches and returns either one. That is exactly what happened on
+        // the dev iPad: the setup form saved a fresh app password, IMAP kept
+        // accepting the OLD one, and SMTP refused it — a 535 with a
+        // credential Python proves valid, whose transcript reads like an
+        // impossible bug. One item per account is the invariant; the sweep
+        // is what enforces it.
+        let sweep: [String: Any] = [
             kSecClass as String:       kSecClassInternetPassword,
             kSecAttrAccount as String: address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
             kSecAttrServer as String:  host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
         ]
-        _ = SecItemDelete(sweep as CFDictionary)
-
         let query = baseQuery(address: address, host: host)
         let secret = Data(password.utf8)
 
@@ -263,9 +273,6 @@ enum CredentialStore {
             kSecAttrAccessible as String: accessibility,
         ]
 
-        let updated = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
-        if updated != errSecItemNotFound { return updated }
-
         var add = query
         add[kSecValueData as String] = secret
         add[kSecAttrAccessible as String] = accessibility
@@ -275,15 +282,29 @@ enum CredentialStore {
         add[kSecAttrSynchronizable as String] = false
         add[kSecAttrLabel as String] = "Blackmail (\(address))"
 
-        let added = SecItemAdd(add as CFDictionary, nil)
-        guard added == errSecDuplicateItem else { return added }
+        // Each item by its persistent reference, which is how `SecItemDelete`
+        // takes exactly one item on iOS: the sibling to go, and never the
+        // one just written. A conditional cast throughout, never `as!`.
+        func references(_ match: [String: Any], limit: CFString) -> [Data] {
+            var search = match
+            search[kSecReturnPersistentRef as String] = true
+            search[kSecMatchLimit as String] = limit
+            var result: CFTypeRef?
+            guard SecItemCopyMatching(search as CFDictionary, &result) == errSecSuccess else { return [] }
+            if let one = result as? Data { return [one] }
+            return (result as? [Data]) ?? []
+        }
 
-        // An item exists that `SecItemUpdate` did not match — it differs in
-        // some primary-key attribute we no longer set (an old build's port, or
-        // a different protocol). Clear it out and add ours, otherwise the
-        // password can never be changed again.
-        _ = SecItemDelete(query as CFDictionary)
-        return SecItemAdd(add as CFDictionary, nil)
+        let items = PasswordWrite.Items<Data>(
+            all: { references(sweep, limit: kSecMatchLimitAll) },
+            read: { references(query, limit: kSecMatchLimitOne).first },
+            update: { SecItemUpdate(query as CFDictionary, changes as CFDictionary) },
+            add: { SecItemAdd(add as CFDictionary, nil) },
+            remove: { reference in
+                SecItemDelete([kSecClass as String: kSecClassInternetPassword,
+                               kSecValuePersistentRef as String: reference] as CFDictionary)
+            })
+        return PasswordWrite.write(items)
     }
 
     /// After first unlock, not the `WhenUnlocked` default. Mail refreshes in

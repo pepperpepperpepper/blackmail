@@ -316,20 +316,79 @@ enum QuotedMarkup {
 
     // MARK: - The pass
 
+    /// The elements the markup has opened and not closed, innermost last,
+    /// with how many of each name are among them.
+    ///
+    /// Bounded, and counted, because a closing tag is looked for among
+    /// them. Unbounded and searched, `<div>` written a hundred thousand times
+    /// and then `</x>` as often read the whole list for every `</x>`: 180 KB
+    /// took 4.9 s, a megabyte would have taken minutes, on the actor that
+    /// Send and Save Draft wait on, and again at every launch for a letter
+    /// waiting in the Outbox. Now a name that is not open is refused at
+    /// once, and one that is is looked for among at most `limit`.
+    struct OpenElements {
+        /// How deep the kept markup nests. An element opened inside `limit`
+        /// others loses its tag and keeps what is inside it. WebKit builds
+        /// no deeper than 512 either: past it, a page's elements go in
+        /// beside one another rather than inside.
+        static let limit = 512
+
+        private(set) var names: [String] = []
+        private var counts: [String: Int] = [:]
+
+        var last: String? { names.last }
+        var isFull: Bool { names.count >= Self.limit }
+
+        mutating func push(_ name: String) {
+            names.append(name)
+            counts[name, default: 0] += 1
+        }
+
+        mutating func removeLast() {
+            forget(names.removeLast())
+        }
+
+        /// Closes the innermost `name` and everything opened inside it;
+        /// false, and nothing closed, when no `name` is open.
+        mutating func close(_ name: String) -> Bool {
+            guard counts[name, default: 0] > 0, let at = names.lastIndex(of: name) else {
+                return false
+            }
+            for closed in names[at...] { forget(closed) }
+            names.removeSubrange(at...)
+            return true
+        }
+
+        private mutating func forget(_ name: String) {
+            let left = counts[name, default: 1] - 1
+            counts[name] = left > 0 ? left : nil
+        }
+    }
+
     private struct Pass {
         let b: [UInt8]
         let pictures: [String: String]
         var i = 0
         var out: [UInt8] = []
-        /// The elements this markup has opened and not closed, innermost
-        /// last. A closing tag is let through only when it closes one of
-        /// them, so nothing in the original can close Mail's quote around it
-        /// early and leave the rest of the original below the bar, as if he
-        /// had written it.
-        var open: [String] = []
+        /// The elements this markup has opened and not closed. A closing tag
+        /// is let through only when it closes one of them, so nothing in the
+        /// original can close Mail's quote around it early and leave the rest
+        /// of the original below the bar, as if he had written it.
+        var open = OpenElements()
         var shown = Set<String>()
         /// One tag as it is written out, kept until it is known to stay.
         var tag: [UInt8] = []
+        /// Set once a `<head>` has been read to the end of the markup without
+        /// closing. Every later one is then ended where a browser ends a
+        /// head it was never told the end of (`skipUnclosedHead`), without
+        /// reading to the end again. A letter of `<head>x` repeated read to
+        /// the end once per head, and so in time that grew with the square
+        /// of its size. A browser has one head and ignores any other.
+        var headsNeverClose = false
+        /// `pictures` by their ids in one case (`QuotedMarkup.folded`), for
+        /// a reference written in another case than its Content-ID. Made
+        /// the first time one is not found as it is written, and only then.
+        var picturesInOneCase: [String: String]?
 
         init(_ bytes: [UInt8], pictures: [String: String]) {
             b = bytes
@@ -379,12 +438,12 @@ enum QuotedMarkup {
                 out.append(contentsOf: ampLt)
                 i += 1
             }
-            for name in open.reversed() where !closeThemselves.contains(name) {
+            for name in open.names.reversed() where !closeThemselves.contains(name) {
                 out.append(contentsOf: [lt, slash])
                 out.append(contentsOf: name.utf8)
                 out.append(gt)
             }
-            open.removeAll()
+            open = OpenElements()
             return String(decoding: out, as: UTF8.self)
         }
 
@@ -453,6 +512,9 @@ enum QuotedMarkup {
                 if open.last == "tr" { open.removeLast() }
             }
             if closesParagraph.contains(name), open.last == "p" { open.removeLast() }
+            // Nested past the limit: the element loses its tag and keeps
+            // what is inside it, as one not on the list does.
+            if !voidElements.contains(name), open.isFull { return true }
 
             tag.removeAll(keepingCapacity: true)
             tag.append(lt)
@@ -460,7 +522,7 @@ enum QuotedMarkup {
             guard writeAttributes(attributes, of: name) else { return true }
             tag.append(gt)
             out.append(contentsOf: tag)
-            if !voidElements.contains(name) { open.append(name) }
+            if !voidElements.contains(name) { open.push(name) }
             return true
         }
 
@@ -473,11 +535,10 @@ enum QuotedMarkup {
             let name = lowercased(nameStart..<j)
             guard let end = tagEnd(from: j) else { return false }
             i = end + 1
-            guard let at = open.lastIndex(of: name) else { return true }
+            guard open.close(name) else { return true }
             out.append(contentsOf: [lt, slash])
             out.append(contentsOf: name.utf8)
             out.append(gt)
-            open.removeSubrange(at...)
             return true
         }
 
@@ -486,6 +547,7 @@ enum QuotedMarkup {
         mutating func skipContent(of name: String) {
             let closing = Array(("</" + name).utf8)
             if name == "plaintext" { i = b.count; return }
+            if name == "head", headsNeverClose { skipUnclosedHead(); return }
             if rawText.contains(name) {
                 var from = i
                 while let at = QuotedMarkup.find(closing, in: b, from: from, caseInsensitive: true) {
@@ -531,7 +593,11 @@ enum QuotedMarkup {
                 }
                 j += 1
             }
-            if name == "head" { skipUnclosedHead(); return }
+            if name == "head" {
+                headsNeverClose = true
+                skipUnclosedHead()
+                return
+            }
             i = b.count
         }
 
@@ -583,11 +649,13 @@ enum QuotedMarkup {
         /// this letter carries.
         mutating func writeAttributes(_ attributes: [(name: String, value: Range<Int>?)],
                                       of element: String) -> Bool {
-            var seen: [String] = []
+            var seen = Set<String>()
             for (name, range) in attributes {
                 // The first of a repeated attribute is the one a browser uses.
+                // A set, where it was a list searched for each one: a tag of
+                // ten thousand attributes was a hundred million comparisons.
                 guard !seen.contains(name), isAttributeName(name) else { continue }
-                seen.append(name)
+                seen.insert(name)
                 if name.hasPrefix("on") || droppedAttributes.contains(name) { continue }
                 guard let range else {
                     tag.append(space)
@@ -680,43 +748,17 @@ enum QuotedMarkup {
         /// or a backslash, which is how CSS spells a character in hex and how
         /// each of the others can be hidden.
         mutating func safeStyle(_ raw: ArraySlice<UInt8>) -> [UInt8]? {
-            guard var style = QuotedMarkup.decoded(raw), !style.contains(backslash) else {
+            guard let decoded = QuotedMarkup.decoded(raw), !decoded.contains(backslash) else {
                 return nil
             }
-            let compact = QuotedMarkup.compactCSS(style)
+            let compact = QuotedMarkup.compactCSS(decoded)
             for bad in dangerousCSS where QuotedMarkup.find(bad, in: compact, from: 0) != nil {
                 return nil
             }
-            guard !QuotedMarkup.displaces(compact) else { return nil }
-            var from = 0
-            // Where in `style` the next reference is looked for: past the
-            // last one renamed, whose new id can begin with the old one.
-            var renamedUpTo = 0
-            while let at = QuotedMarkup.find(urlOpen, in: compact, from: from) {
-                var end = at + urlOpen.count
-                while end < compact.count, compact[end] != UInt8(ascii: ")") { end += 1 }
-                let inside = Array(compact[(at + urlOpen.count)..<end])
-                    .filter { $0 != quote && $0 != apostrophe }
-                from = end
-                guard let (scheme, colon) = QuotedMarkup.scheme(of: inside) else { continue }
-                switch scheme {
-                case "http", "https":
-                    continue
-                case "data" where QuotedMarkup.isPictureData(inside):
-                    continue
-                case "cid":
-                    // Found in the lowercased copy; renamed in the real one.
-                    let reference = Array("cid:".utf8) + inside[(colon + 1)...]
-                    guard let at = QuotedMarkup.reference(reference, in: style,
-                                                          from: renamedUpTo),
-                          let new = renamed(style[(at + 4)..<(at + reference.count)])
-                    else { return nil }
-                    style.replaceSubrange((at + 4)..<(at + reference.count), with: new)
-                    renamedUpTo = at + 4 + new.count
-                default:
-                    return nil
-                }
-            }
+            guard !QuotedMarkup.displaces(compact),
+                  let style = QuotedMarkup.picturesRenamed(in: decoded, compact: compact,
+                                                           { renamed($0) })
+            else { return nil }
             // Every reference left is one this letter carries, or the style
             // goes: one the steps above did not rename would show the
             // original's id, which can be one of this letter's own.
@@ -734,10 +776,33 @@ enum QuotedMarkup {
             let key = String(bare)
             let new = pictures[key]
                 ?? key.removingPercentEncoding.flatMap { pictures[$0] }
-                ?? pictures.first { $0.key.caseInsensitiveCompare(key) == .orderedSame }?.value
+                ?? inOneCase()[QuotedMarkup.folded(key)]
             guard let new else { return nil }
             shown.insert(new)
             return Array(new.utf8)
+        }
+
+        /// `pictures` by their ids in one case, as `caseInsensitiveCompare`
+        /// matches them.
+        ///
+        /// A table, where each reference not found as written used to be
+        /// compared with every picture in turn: a forward carries up to 500,
+        /// so a letter of 500 pictures whose references were written in
+        /// another case, or named none of them, took 7.3 s for 1.1 MB in a
+        /// release build, on the actor Send and Save Draft wait on, and
+        /// again at every launch while the forward waited in the Outbox.
+        /// Where two ids differ only in case, the first in order is the one
+        /// found, so the same letter is quoted the same way every time; the
+        /// comparison took whichever the dictionary happened to hold first.
+        mutating func inOneCase() -> [String: String] {
+            if let made = picturesInOneCase { return made }
+            var made: [String: String] = [:]
+            for key in pictures.keys.sorted() {
+                let folded = QuotedMarkup.folded(key)
+                if made[folded] == nil { made[folded] = pictures[key] }
+            }
+            picturesInOneCase = made
+            return made
         }
 
         // MARK: Scanning
@@ -943,17 +1008,105 @@ enum QuotedMarkup {
 
     /// Where `reference` stands in `style` from `start` as a whole reference,
     /// ended by a bracket, a quote, a space or the end, in any case.
+    ///
+    /// One pass, whatever the reference: the sender writes it, and it can be
+    /// as long as the style. Looking for it afresh at each place it might
+    /// start, and again one byte on from each place it was found without
+    /// its end, read a style of `cid:` written over and over, with the
+    /// reference made of the same, once per byte. This is Knuth, Morris and
+    /// Pratt's search, which carries over from each byte how much of the
+    /// reference the bytes before it already are.
     static func reference(_ reference: [UInt8], in style: [UInt8], from start: Int) -> Int? {
-        var from = start
-        while let at = find(reference, in: style, from: from, caseInsensitive: true) {
-            let after = at + reference.count
-            if after == style.count || style[after] <= 0x20 || style[after] == UInt8(ascii: ")")
-                || style[after] == quote || style[after] == apostrophe {
-                return at
+        let needle = reference.map(lowered)
+        guard !needle.isEmpty, start >= 0 else { return nil }
+        // For each length matched, the longest shorter start of the
+        // reference that also ends it: where to carry on from after a
+        // byte that does not continue the match.
+        var fallback = [Int](repeating: 0, count: needle.count)
+        var k = 0
+        for q in needle.indices.dropFirst() {
+            while k > 0, needle[q] != needle[k] { k = fallback[k - 1] }
+            if needle[q] == needle[k] { k += 1 }
+            fallback[q] = k
+        }
+        var matched = 0
+        var j = start
+        while j < style.count {
+            let c = lowered(style[j])
+            while matched > 0, c != needle[matched] { matched = fallback[matched - 1] }
+            if c == needle[matched] { matched += 1 }
+            j += 1
+            guard matched == needle.count else { continue }
+            if j == style.count || style[j] <= 0x20 || style[j] == UInt8(ascii: ")")
+                || style[j] == quote || style[j] == apostrophe {
+                return j - needle.count
             }
-            from = at + 1
+            matched = fallback[matched - 1]
         }
         return nil
+    }
+
+    /// `style` with the id in each of its `url(cid:…)` references renamed
+    /// by `renamed`, or nil when one is not a picture the letter carries,
+    /// or a `url()` is not a picture at all, on the web or in the letter.
+    /// `compact` is `style` as `compactCSS` makes it, where the `url(`s are
+    /// looked for.
+    ///
+    /// Every id is found first and all are put in together, in one copy.
+    /// Each used to be put in as it was found, which moved the rest of the
+    /// style along each time a new name was longer than the old, and a new
+    /// name is always longer: 180,000 references in a style of 4 MB took
+    /// 8 s in a release build, on the actor that Send waits on, and again at
+    /// every launch for a forward waiting in the Outbox.
+    static func picturesRenamed(in style: [UInt8], compact: [UInt8],
+                                _ renamed: (ArraySlice<UInt8>) -> [UInt8]?) -> [UInt8]? {
+        var from = 0
+        // Where in `style` the next reference is looked for: past the last
+        // one found, so that a second `url(cid:p)` finds its own `cid:p`
+        // and not the first one's again.
+        var renamedUpTo = 0
+        var renames: [(range: Range<Int>, to: [UInt8])] = []
+        while let at = QuotedMarkup.find(urlOpen, in: compact, from: from) {
+            var end = at + urlOpen.count
+            while end < compact.count, compact[end] != UInt8(ascii: ")") { end += 1 }
+            let inside = Array(compact[(at + urlOpen.count)..<end])
+                .filter { $0 != quote && $0 != apostrophe }
+            from = end
+            guard let (scheme, colon) = QuotedMarkup.scheme(of: inside) else { continue }
+            switch scheme {
+            case "http", "https":
+                continue
+            case "data" where QuotedMarkup.isPictureData(inside):
+                continue
+            case "cid":
+                // Found in the lowercased copy; renamed in the real one.
+                let reference = Array("cid:".utf8) + inside[(colon + 1)...]
+                guard let at = QuotedMarkup.reference(reference, in: style, from: renamedUpTo),
+                      let new = renamed(style[(at + 4)..<(at + reference.count)])
+                else { return nil }
+                renames.append(((at + 4)..<(at + reference.count), new))
+                renamedUpTo = at + reference.count
+            default:
+                return nil
+            }
+        }
+        guard !renames.isEmpty else { return style }
+        var out: [UInt8] = []
+        out.reserveCapacity(style.count + style.count / 2)
+        var copied = 0
+        for (range, new) in renames {
+            out.append(contentsOf: style[copied..<range.lowerBound])
+            out.append(contentsOf: new)
+            copied = range.upperBound
+        }
+        out.append(contentsOf: style[copied...])
+        return out
+    }
+
+    /// An id in one case: two ids are the same to `caseInsensitiveCompare`
+    /// when their folded forms are equal, ß and SS included.
+    static func folded(_ id: String) -> String {
+        id.folding(options: .caseInsensitive, locale: nil)
     }
 
     /// Leading and trailing spaces and control characters off, as a browser

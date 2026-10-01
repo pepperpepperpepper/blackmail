@@ -75,6 +75,20 @@ struct QuotedOriginal {
     /// Every part of the original that has a Content-ID. Only those its
     /// markup turns out to show go with the letter.
     var pictures: [Picture]
+    /// True when the original was shown only in part
+    /// (`Message.isShortened`): `region` ends with `shortenedEnding`, and
+    /// the HTML twin ends the quote with the same line, grey
+    /// (`AppleMailHTML.letter`). False for a quote taken back from a saved
+    /// draft, whose stored markup carries the line already, and for every
+    /// other.
+    var isShortened = false
+
+    /// What the quote of a letter shown only in part ends with, under the
+    /// original's words (`Message.quotedWords`): a blank line, then the
+    /// reading pane's own words for it, "Only the beginning of this message
+    /// is shown." A reply's quote marks both lines with "> ", as it marks
+    /// every line of the original.
+    static let shortenedEnding = "\n\n" + MailText.shortenedNotice
 
     /// What a Reply, Reply All or Forward of `m` quotes, given the region
     /// it has just put into the body.
@@ -84,13 +98,16 @@ struct QuotedOriginal {
         let markup = m.htmlBody.flatMap { $0.isEmpty ? nil : $0 }
         html = markup
         pictures = markup == nil ? [] : Self.pictures(of: m)
+        isShortened = m.isShortened
     }
 
-    init(kind: Kind, region: String, html: String?, pictures: [Picture]) {
+    init(kind: Kind, region: String, html: String?, pictures: [Picture],
+         isShortened: Bool = false) {
         self.kind = kind
         self.region = region
         self.html = html
         self.pictures = pictures
+        self.isShortened = isShortened
     }
 
     /// The parts of `m` that could be its pictures, first of each id only.
@@ -157,7 +174,9 @@ struct QuotedOriginal {
     ///
     /// What comes back is the markup as it was stored, already made safe
     /// and with its pictures under this app's names, and those pictures as
-    /// parts of the stored draft.
+    /// parts of the stored draft. The quote of a letter shown only in part
+    /// was stored with its grey line, so it comes back not `isShortened`,
+    /// and the line is not added a second time.
     static func recovered(from m: Message, body: String) -> QuotedOriginal? {
         guard let html = m.htmlBody,
               let saved = AppleMailHTML.savedQuote(in: html),

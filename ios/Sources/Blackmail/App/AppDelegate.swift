@@ -54,6 +54,16 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // never been handed to it, and the book and the signature's pictures
         // change without passing through the setup form.
         Self.syncShareMirror()
+        // The signature as first set, kept once to be restored
+        // (`OriginalSignature`). The formatted one reaches the iPad from
+        // outside the app (B-035), so a launch is where it is first seen.
+        // Off the main thread, on the mirror's queue: a file looked for, and
+        // written once.
+        Self.mirrorQueue.async {
+            guard let account = CredentialStore.loadAccount() else { return }
+            OriginalSignature.keepIfFirst(account, images: SignatureImages.load(),
+                                          in: OriginalSignature.appRoot)
+        }
         return true
     }
 
@@ -145,13 +155,14 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         let setup = AccountSetupViewController()
         let nav = UINavigationController(rootViewController: setup)
-        setup.onConnected = { [weak nav] account, password in
+        setup.onConnected = { [weak nav] account, password, notice in
             let repository = IMAPMailRepository(account: account, password: password)
             // Replace the whole root rather than dismissing back to nothing:
             // after setup there is no reason to be able to navigate back to
             // the password form, and a back button that reaches it is a way
             // to break a working account by accident.
-            nav?.view.window?.rootViewController = RootViewController(repository: repository)
+            nav?.view.window?.rootViewController = RootViewController(repository: repository,
+                                                                      saying: notice)
         }
         return nav
     }

@@ -390,7 +390,7 @@ final class RepositoryTrafficTests: XCTestCase {
                     landed = try await repository.messages(around: day, in: Server.allMail, limit: 50)
                     return landed == nil ? .nothingThatRecent : .landed
                 } catch {
-                    return .failed
+                    return .failed(.cannotConnect)
                 }
             },
             newest: {
@@ -422,7 +422,7 @@ final class RepositoryTrafficTests: XCTestCase {
                     let window = try await repository.messages(around: day, in: Server.allMail, limit: 50)
                     return window == nil ? .nothingThatRecent : .landed
                 } catch {
-                    return .failed
+                    return .failed(.cannotConnect)
                 }
             },
             newest: {
@@ -444,9 +444,9 @@ final class RepositoryTrafficTests: XCTestCase {
         var calls: [String] = []
 
         let failed = await ListOpening.open(at: day,
-                                            jump: { _ in calls.append("jump"); return .failed },
+                                            jump: { _ in calls.append("jump"); return .failed(.cannotConnect) },
                                             newest: { calls.append("newest") })
-        XCTAssertEqual(failed, .failed)
+        XCTAssertEqual(failed, .failed(.cannotConnect))
         XCTAssertEqual(calls, ["jump", "newest"])
 
         calls = []
@@ -503,7 +503,7 @@ final class RepositoryTrafficTests: XCTestCase {
             let fellBack = await opened
 
             XCTAssertEqual(server.log.map(\.status), ["NO"], "moved on: \(movedOn)")
-            XCTAssertEqual(fellBack, movedOn ? nil : .failed, "moved on: \(movedOn)")
+            XCTAssertEqual(fellBack, movedOn ? nil : .failed(.cannotConnect), "moved on: \(movedOn)")
             XCTAssertEqual(newestPages.value, movedOn ? 0 : 1, "moved on: \(movedOn)")
         }
     }
@@ -522,7 +522,12 @@ final class RepositoryTrafficTests: XCTestCase {
         XCTAssertEqual(ListOpening.settle(.success(nil), current: true), .nothingThatRecent)
         XCTAssertEqual(ListOpening.settle(.success(empty), current: true), .nothingThatRecent)
         XCTAssertEqual(ListOpening.settle(.success(nil), current: false), .superseded)
-        XCTAssertEqual(ListOpening.settle(.failure(MailError.cannotConnect), current: true), .failed)
+        XCTAssertEqual(ListOpening.settle(.failure(MailError.cannotConnect), current: true),
+                       .failed(.cannotConnect))
+        // What the alert says is what was caught: a refused password is
+        // told as the password's, not as the connection's.
+        XCTAssertEqual(ListOpening.settle(.failure(MailError.passwordNeedsUpdating), current: true),
+                       .failed(.passwordNeedsUpdating))
     }
 }
 

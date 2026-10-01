@@ -1187,6 +1187,116 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(kept.outbox.map(\.key), ["waiting"])
     }
 
+    /// Gmail's 534, a sign-in on the web wanted first, is a refused
+    /// sign-in, not the password's, and says so; it keeps every rule the
+    /// password's refusal has, which it had while it counted as one. His
+    /// own Send keeps the sheet and stops the Outbox; a pass it meets stops
+    /// there, and sends nothing for the letters after it.
+    func testASendRefusedForASignInOnTheWebStopsTheOutboxAsThePasswordDoes() async throws {
+        let webLogin = "534 5.7.14 Please log in via your web browser and then try again."
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Waiting"), as: "waiting", kept: kept, repository: repository)
+        dismissals = 0
+        queued = 0
+        submissions.then { ScriptedSubmission(authReply: webLogin) }
+        await send(letter("His own"), as: "own", kept: kept, repository: repository)
+        XCTAssertEqual(errors, [.sendingSignInRefused])
+        XCTAssertEqual(dismissals, 0, "the sheet stays")
+        XCTAssertEqual(queued, 0)
+
+        try await afterAPage(kept, repository)
+        var auths = await submissions.commands().filter { $0.hasPrefix("AUTH") }
+        XCTAssertEqual(auths.count, 1, "the refused sign-in went once")
+        XCTAssertEqual(kept.outbox.map(\.key), ["waiting"])
+
+        // Launched again, a pass meets it on the first letter and stops.
+        let again = makeKept()
+        await sentOffline(letter("Later"), as: "later", kept: again, repository: repository)
+        submissions.then { ScriptedSubmission(authReply: webLogin) }
+        try await afterAPage(again, repository)
+        auths = await submissions.commands().filter { $0.hasPrefix("AUTH") }
+        XCTAssertEqual(auths.count, 2, "one more, for the first letter, and none after it")
+        XCTAssertEqual(Set(again.outbox.map(\.key)), ["waiting", "later"])
+    }
+
+    /// IMAP's LOGIN refused for a reason that is not the password, Gmail's
+    /// `[UNAVAILABLE]`, as his Send fetches a forward's file: the letter
+    /// waits in the Outbox as it does for no connection, which is what such
+    /// a refusal read as before, and nothing stops the Outbox. Once Gmail
+    /// lets go, the first pass sends it and the letter waiting before it.
+    /// Given the rules of the submission server's refusal, the forward went
+    /// back to the sheet, and nothing went from the Outbox until his next
+    /// Send, a launch or a password saved.
+    func testAForwardsFileMeetingALoginRefusedForAnotherReasonWaitsInTheOutbox() async throws {
+        let plans = Data(repeating: 9, count: 3_000)
+        let original = try XCTUnwrap(server.deliver(Server.Letter(
+            from: Server.sam, to: [Server.owner], subject: "Plans", date: Server.newestDate,
+            text: "The plans.\r\n", messageID: "<plans@example.com>",
+            files: [Server.File(name: "Plans.pdf", type: "APPLICATION", subtype: "PDF",
+                                bytes: plans)]), to: [Server.inbox])[Server.inbox])
+        var forward = letter("Forward")
+        forward.attachments = [DraftAttachment(
+            source: .messagePart(messageID: "\(server.uidValidity(of: Server.inbox))/\(original)",
+                                 mailboxID: Server.inbox, section: "2"),
+            filename: "Plans.pdf", mimeType: "application/pdf", size: 3_000)]
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Waiting"), as: "waiting", kept: kept, repository: repository)
+        server.loginRefusal = "[UNAVAILABLE] Temporary System Problem. Try again later."
+        server.passwordRevoked = true
+        dismissals = 0
+        queued = 0
+
+        await send(forward, as: "forward", kept: kept, repository: repository)
+        XCTAssertEqual(errors, [])
+        XCTAssertEqual(queued, 1, "in the Outbox")
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertEqual(Set(kept.outbox.map(\.key)), ["waiting", "forward"])
+        XCTAssertEqual(server.log.filter { $0.verb == "LOGIN" }.map(\.status), ["NO"])
+
+        server.passwordRevoked = false
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(kept.outbox.map(\.key), [])
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertTrue(sent.last?.contains(String(plans.base64EncodedString().prefix(60))) == true)
+    }
+
+    /// The same refusal met by a pass, as the connection under its look in
+    /// Sent Mail goes and the look's new connection is refused: the letter
+    /// waits, with no reason on its row, and the next pass once Gmail lets
+    /// go asks again. Given the rules of the submission server's refusal,
+    /// no pass took it again until his next Send, a launch or a password
+    /// saved.
+    func testALookMeetingALoginRefusedForAnotherReasonDoesNotStopTheOutbox() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentAndCutOff(letter(), kept: kept, repository: repository)
+        fileInSentMail(try XCTUnwrap(kept.store.letter("letter-1")?.outbox))
+        try await page(repository)
+        server.holdReplies(to: "UID SEARCH")
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { !looks.isEmpty }
+
+        server.loginRefusal = "[UNAVAILABLE] Temporary System Problem. Try again later."
+        server.passwordRevoked = true
+        await server.resetConnections()
+        await server.releaseReplies(to: "UID SEARCH")
+        await pass.value
+        XCTAssertEqual(server.log.filter { $0.verb == "LOGIN" }.map(\.status), ["OK", "NO"])
+        XCTAssertEqual(looks.count, 1)
+        XCTAssertEqual(kept.outbox.map(\.key), ["letter-1"])
+        XCTAssertNil(kept.whyNotSent("letter-1"), "not refused: it waits")
+
+        server.passwordRevoked = false
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(looks.count, 2, "asked again")
+        XCTAssertEqual(kept.outbox.count, 0)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "found: not sent again")
+    }
+
     // MARK: - The Outbox's list
 
     /// The Outbox's rows say whom each letter is to and its subject, newest
@@ -1311,8 +1421,10 @@ final class OutboxTests: XCTestCase {
         XCTAssertTrue(Outbox.waits(after: MailError.connectionLost))
         XCTAssertTrue(Outbox.waits(after: MailError.refusedForNow))
         XCTAssertTrue(Outbox.waits(after: Outbox.Unsettled()))
+        XCTAssertTrue(Outbox.waits(after: MailError.signInRefused(alert: nil)))
         XCTAssertFalse(Outbox.waits(after: Outbox.NoSentMail()))
         XCTAssertFalse(Outbox.waits(after: MailError.passwordNeedsUpdating))
+        XCTAssertFalse(Outbox.waits(after: MailError.sendingSignInRefused))
         XCTAssertFalse(Outbox.waits(after: MailError.messageTooLarge))
         XCTAssertFalse(Outbox.waits(after: MailError.notSent))
         XCTAssertFalse(Outbox.waits(after: MailError.attachmentFailed))
@@ -1475,6 +1587,28 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(back.region, draft.quote?.region)
         XCTAssertEqual(back.html, draft.quote?.html)
         XCTAssertEqual(back.pictures, draft.quote?.pictures)
+    }
+
+    /// The quote of a letter shown only in part is kept as such, so the
+    /// letter sent later from the Outbox ends its quote with the grey line
+    /// as one sent at once does (B-054); any other quote is kept as it was,
+    /// its file saying nothing of it.
+    func testAQuoteOfALetterShownOnlyInPartIsKeptAsSuch() throws {
+        let store = LocalDraftStore(root: root)
+        var draft = letter()
+        draft.quote = QuotedOriginal(kind: .reply,
+                                     region: "On Sunday, Sam Example wrote:\n> Lunch\n> \n> "
+                                        + MailText.shortenedNotice,
+                                     html: "<p>Lunch", pictures: [], isShortened: true)
+        try store.keep(draft, as: "cut", unfinished: false, account: server.username)
+        XCTAssertEqual(store.letter("cut")?.draft.quote?.isShortened, true)
+
+        draft.quote?.isShortened = false
+        try store.keep(draft, as: "whole", unfinished: false, account: server.username)
+        XCTAssertEqual(store.letter("whole")?.draft.quote?.isShortened, false)
+        let file = try String(contentsOf: root.appendingPathComponent("whole/letter.json"),
+                              encoding: .utf8)
+        XCTAssertFalse(file.contains("shortened"), file)
     }
 
     /// A reply quoting a newsletter's megabyte of markup. The markup is a

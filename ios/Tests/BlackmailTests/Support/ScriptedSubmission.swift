@@ -40,7 +40,8 @@ actor ScriptedSubmission: MailTransport {
     /// The server's first words.
     private let greeting: String
     /// What AUTH PLAIN is answered with, in place of 235 or `refusesPassword`'s
-    /// 535: Gmail's "454 4.7.0" for a login it cannot deal with now.
+    /// 535: Gmail's "454 4.7.0" for a login it cannot deal with now, or its
+    /// 534 of several lines, CRLF between them.
     private let authReply: String?
     /// QUIT's 221 kept back until `releaseQuitReply()`: a server slow to say
     /// goodbye, or a line that has died since the letter's 250.
@@ -63,6 +64,9 @@ actor ScriptedSubmission: MailTransport {
     private let holdsLetterReply: Bool
     /// AUTH answered 535, as Gmail refuses an app password revoked.
     private let refusesPassword: Bool
+    /// The one password AUTH PLAIN takes, where set: any other is answered
+    /// 535. Nil takes any, unless `refusesPassword`.
+    private let takesOnly: String?
     /// RCPT TO answered 550 for these addresses, in upper case.
     private let refusedRecipients: Set<String>
 
@@ -92,6 +96,7 @@ actor ScriptedSubmission: MailTransport {
          cutWith: MailTransportError = .closed,
          holdsLetterReply: Bool = false,
          refusesPassword: Bool = false,
+         takesOnly password: String? = nil,
          refusedRecipients: Set<String> = []) {
         self.letterReply = letterReply
         self.greeting = greeting
@@ -104,6 +109,7 @@ actor ScriptedSubmission: MailTransport {
         self.hangsUpBeforeLetterReply = hangsUpBeforeLetterReply
         self.holdsLetterReply = holdsLetterReply
         self.refusesPassword = refusesPassword
+        self.takesOnly = password
         self.refusedRecipients = Set(refusedRecipients.map { $0.uppercased() })
     }
 
@@ -205,17 +211,24 @@ actor ScriptedSubmission: MailTransport {
             let line = String(decoding: inbound[inbound.startIndex..<end.lowerBound], as: UTF8.self)
             inbound.removeSubrange(inbound.startIndex..<end.upperBound)
             commands.append(line)
-            answer(line.uppercased())
+            answer(line.uppercased(), as: line)
         }
     }
 
-    private func answer(_ command: String) {
+    /// `command` upper-cased, and `line` as it came, whose base64 the
+    /// upper-casing would spoil.
+    private func answer(_ command: String, as line: String) {
         if command.hasPrefix("EHLO") {
             pending += ["250-smtp.gmail.com at your service", "250-SIZE 35882577",
                         "250-8BITMIME", "250-AUTH LOGIN PLAIN", "250 SMTPUTF8"]
         } else if command.hasPrefix("AUTH PLAIN") {
-            pending.append(authReply ?? (refusesPassword ? "535 5.7.8 Username and Password not accepted"
-                                                          : "235 2.7.0 Accepted"))
+            let refused = refusesPassword
+                || takesOnly.map { $0 != Self.password(inPlain: line) } == true
+            // A reply of several lines, as Gmail's 534 is, is written with
+            // CRLF between them, and handed back a line at a time.
+            pending += (authReply ?? (refused ? "535 5.7.8 Username and Password not accepted"
+                                              : "235 2.7.0 Accepted"))
+                .components(separatedBy: "\r\n")
         } else if command.hasPrefix("RCPT TO"),
                   refusedRecipients.contains(where: { command.contains("<\($0)>") }) {
             pending.append("550 5.1.1 The email account that you tried to reach does not exist")
@@ -233,6 +246,14 @@ actor ScriptedSubmission: MailTransport {
         } else {
             pending.append("502 5.5.1 Unrecognized command")
         }
+    }
+
+    /// The password in `AUTH PLAIN <base64>`, nil if it has none.
+    static func password(inPlain line: String) -> String? {
+        guard let blob = line.split(separator: " ").last,
+              let data = Data(base64Encoded: String(blob)) else { return nil }
+        return String(decoding: data, as: UTF8.self).split(separator: "\0",
+            omittingEmptySubsequences: false).last.map(String.init)
     }
 
     func writeLine(_ line: String) async throws {

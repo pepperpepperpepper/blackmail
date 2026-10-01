@@ -116,6 +116,35 @@ final class MailShelfTests: XCTestCase {
         XCTAssertEqual(shelf().page(of: "inbox")?.rows.count, 50)
     }
 
+    // MARK: - A row's Cc
+
+    /// A row's Cc is kept with it and read back, so a launch draws the
+    /// header's Cc line from the tap as a fetched row does (B-055). A row
+    /// with none is written as it always was, and a page kept before the
+    /// rows carried a Cc reads, its rows with none: no new format.
+    func testARowsCcIsKeptAndAPageKeptWithoutOneStillReads() throws {
+        var kept = rows(10)
+        kept[0].cc = ["Pat Example <pat@example.com>", "lee@example.com"]
+        let writing = shelf()
+        writing.took(page: kept, of: "INBOX", validity: 1)
+        writing.flush()
+        XCTAssertEqual(shelf().page(of: "inbox")?.rows.map(\.cc), kept.map(\.cc))
+
+        // The page as a build before the Cc wrote it: no row names one.
+        let file = try pageFile(of: "INBOX", under: writing.directory)
+        var page = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file))
+                                    as? [String: Any])
+        var records = try XCTUnwrap(page["rows"] as? [[String: Any]])
+        XCTAssertEqual(records.filter { $0["cc"] != nil }.count, 1, "only the row with a Cc")
+        for i in records.indices { records[i]["cc"] = nil }
+        page["rows"] = records
+        try JSONSerialization.data(withJSONObject: page).write(to: file)
+
+        let older = try XCTUnwrap(shelf().page(of: "inbox")).rows
+        XCTAssertEqual(older.map(\.id), kept.map(\.id))
+        XCTAssertEqual(older.map(\.cc), Array(repeating: [], count: 10))
+    }
+
     // MARK: - His own counts
 
     /// His read and unread marks move the kept counts as they move the

@@ -31,18 +31,32 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       All Mailboxes search, ~1,900 Drafts. The test account has 24 letters.
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
-      - [ ] "Password needs updating" on a read, not "Can't connect to mail
+      - [x] "Password needs updating" on a read, not "Can't connect to mail
             server." for every failure (`MessageListViewController` :504,
             :580, :1167 and the pane's handlers flatten it)
-      - [ ] setup and Settings check sending (SMTP) too, so Gmail's
+            *Done 2026-09-30, not yet seen on the iPad: Mail's "Cannot Get
+            Mail" with Settings, a third state for any other refusal with
+            Google's ALERT text, and a new password used at once. B-056.*
+      - [x] setup and Settings check sending (SMTP) too, so Gmail's
             wrong-account trap cannot pass setup
+            *Done 2026-09-30, not yet seen on the iPad. B-056.*
       - [x] take out the B-033 `PAIR` probe, which logs subject lines
             (done 2026-09-30, D-016 phase 0, with the sender in
             `SESSION-IDENT`)
       - [ ] a build number he or a helper can read out
-      - [ ] a guard so the signature cannot be wiped by accident
+      - [x] a guard so the signature cannot be wiped by accident
+            *Done 2026-09-30, not yet seen on the iPad: setup keeps it,
+            plain text and an empty one are asked about, Restore Original
+            Signature, and the password item written before anything is
+            deleted. B-056.*
       - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
+      - [x] the reading pane runs no letter's script and goes nowhere by
+            itself. *Done 2026-09-30, not yet seen on the iPad: script off,
+            the pane's own in the app's content world, only its own pages
+            loaded, WebKit's data in memory; pictures from the web still
+            load. See B-055, and its check under "Blocked on the iPad
+            coming back".*
 - [ ] On the day: Smart Invert off, what to do about Apple Mail's badges,
       the six-task test with him.
 
@@ -80,11 +94,18 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 **Small, every day:**
 
-- [ ] Links in plain-text letters cannot be tapped (`PanePage` escapes and
+- [x] Links in plain-text letters cannot be tapped (`PanePage` escapes and
       nothing links them; WebKit's data detectors are off). About a third of
-      his own shared links are plain text.
+      his own shared links are plain text. *Done 2026-09-30, not yet seen
+      on the iPad: `http://`, `https://`, `www.` and `mailto:` made links as
+      the page is built, the sentence's punctuation left out as Mail leaves
+      it, and in HTML letters' text too. See B-055.*
 - [ ] Sent and Drafts rows show his own name, not the recipient's.
-- [ ] The reading pane never shows Cc, nor any bare address.
+- [x] The reading pane never shows Cc, nor any bare address. *Done
+      2026-09-30, not yet seen on the iPad: Cc under To, names, and the
+      address where there is none, To the same; a name with a comma in it
+      is one recipient; and since 2026-10-01 there from the tap, from the
+      row's ENVELOPE. See B-055.*
 - [ ] Reply ignores Reply-To; replying to his own letter addresses it to
       himself; Reply All misses his second address.
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
@@ -872,6 +893,60 @@ this host. Ordered by value, not by size.
       copy, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
+- [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
+      two confirmations, a wrong password refused with the old one kept,
+      and the refusal shown under the password field (B-056). Still to see,
+      on the test account, with the app open on the Inbox: revoke
+      its app password at myaccount.google.com/apppasswords and make a new
+      one. Once Gmail refuses the old one, at the next connection the app
+      makes (lock the iPad for a few minutes and come back, if the open
+      session carries on), the line says "Password Needs Updating"; tap a
+      letter: "Cannot Get Mail", "The user name or password for “Gmail” is
+      incorrect.", Settings and OK. Tap Settings: Settings opens with the
+      keyboard in the password field, the line under it naming the account's
+      address. Type the new password, Save: "Checking the new password with
+      Gmail…", and the sheet closes with no relaunch. The Inbox is empty a
+      moment, then "Checking for Mail…", then "Updated Just Now"; the log
+      shows the check (a LOGIN, LIST and LOGOUT, then `SIGN-IN CHECK
+      host=smtp.gmail.com:465` and an AUTH), `PASSWORD-SAVED signed in
+      afresh`, the old connection's LOGOUT and a new LOGIN, and a letter sent
+      then goes. Put a letter in the Outbox (Wi-Fi off, Send) before revoking:
+      after the save it goes by itself, once. Then make an app password while
+      signed in to another Google account, and type it into Settings, and into
+      setup with the stored password removed by hand as for a clean install
+      (B-031): both refuse it with "Gmail took that password for reading mail
+      but refused it for sending. Make the app password while signed in to
+      Google as <address>. If you are sure it was made as <address>, wait an
+      hour and try again.", the address the account's and the whole of it
+      readable under the button, Settings adding that the old password is
+      still in place, and nothing is sent. Gmail's 534 at the check cannot
+      be asked for; if one comes (Google wanting a sign-in on the web after
+      sign-ins it found odd): Save closes Settings, the new screens come
+      up, and "Cannot Send Mail" is put up over them at once while the
+      Inbox fills behind it, "Gmail accepted the password for reading mail
+      but is refusing to send for now. The server returned the error:
+      Please log in via your web browser…" with OK, Gmail's words whole
+      and no piece of its accounts.google.com sign-in address among them,
+      the log showing `smtp=sign-in-refused` then `PASSWORD-SAVED signed
+      in afresh`; a letter sent then keeps its sheet with "Gmail refused
+      the sign-in.", and goes once Google has been satisfied on the web.
+      The password item is now written before older ones are deleted, and
+      they are deleted by persistent reference, which has not run on a
+      device: once the new password is saved, a Keychain dump on the
+      jailbroken iPad should show one item for the account, as B-033's
+      probe did. A refusal that is not the password,
+      if one can be had (a normal Google password in Settings gets Gmail's
+      "Application-specific password required"): the sentence with Google's
+      words under Save. Last, with the signature set: tap "Send my signature
+      as plain text instead" and Cancel, then Use Plain Text and Save; open
+      Settings again, "Restore Original Signature", Restore, Save; write a
+      letter to the account: the formatted signature and its logo are back.
+      Without leaving the app, open a letter's attachment, share it from the
+      preview to Blackmail (or, if Blackmail is not offered there, a link
+      from Safari in Slide Over) and send it to the account: the logo is on
+      that letter too (the share extension handed the pictures at the save,
+      not at the next trip to the background). Empty the box and Save:
+      "Remove Signature?", Cancel keeps it.
 - [ ] **B-053, every write and every open naming its letter.** Seen
       2026-09-30: the everyday wire after the page (open, Flag, Edit's
       Mark), and a copy made another mailbox's by hand refused under held
@@ -908,6 +983,53 @@ this host. Ordered by value, not by size.
       is made by hand by giving kept rows ids of no letter there, with the
       app ended (B-053); a letter opened from one needs the slower
       connection too.
+- [ ] **B-055, the reading pane locked down, links in plain letters, Cc.**
+      Seen 2026-09-30: letters and their web pictures drawn, a conversation's
+      letter opened and closed, a plain letter's links asking before they
+      open, and Cc in the first frame (B-055). Still to see, the rest: send the test account the letters
+      below from another account; not his mailbox.
+      Every letter, notice and conversation still draws at all: the pane
+      now loads only `about:blank` from `loadHTMLString`, and if WebKit
+      named the pane's own page otherwise, nothing would.
+      *A conversation.* Three letters or more: the newest open, the rest
+      lines. Tap a closed line: it opens, its body comes, the header and
+      Reply move to it, its dot and one count go, and the line greys under
+      the finger as it did. Tap it again: it closes. Open two in quick
+      succession; leave the pane fifteen seconds and open another, whose
+      body goes in after WebKit's pause. With letters open, `killall -9
+      com.apple.WebKit.WebContent`: the stack comes back with them open and
+      their bodies in (B-042).
+      *Links in plain letters.* A plain-text letter, from a client set to
+      send plain text, with a YouTube link, a Wikipedia link ending
+      `_(film)`, `www.example.com.`, `(https://example.com/a),` and a
+      `mailto:` in it: each is a link, whole, the full stop and brackets
+      not in it. A tap
+      asks "Open this link?" with the site's name and Open goes to Safari;
+      the `mailto:` opens the composer with its address. The same in a
+      conversation, and an address written in an HTML letter's text.
+      Hold a finger on one: WebKit's own menu and its preview, left as
+      Mail has them (decided 2026-10-01); note only that nothing else
+      happens, and that letting go leaves the letter as it was.
+      *Cc.* A letter with a named Cc, an unnamed one, and one named
+      `"Example, Pat"`: "Cc: …" under To in To's grey, the rule under it,
+      Pat once; Reply All puts Pat in once. A letter with no Cc: the header
+      as it was. The Cc line is there at the tap, under "Loading…", and
+      nothing in the header moves as the letter lands (since 2026-10-01).
+      Open a conversation whose newest letter has the Cc: the stack does not
+      move as its body comes. Force-quit and open, and tap the same letter
+      on the kept Inbox before the page lands: the line at the tap again,
+      once a page of this build has been kept; on the first launch of it the
+      kept page is the last build's, and the line comes with the letter.
+      *A letter that tries to go somewhere.* HTML with `<meta
+      http-equiv="refresh" content="0;url=https://example.com">`, an
+      `<iframe src="https://example.com">`, a `<form
+      action="https://example.com">` with a field and a button, a
+      `<script>` that rewrites the page, and `<img src=x onerror=…>`: the
+      letter stays as written, the frame is empty, the button does
+      nothing, no script's change shows, and the connection log holds
+      nothing of the letter. The same letter inside a conversation.
+      *Pictures from the web.* A newsletter's pictures still load, as
+      before.
 - [ ] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
@@ -933,6 +1055,32 @@ this host. Ordered by value, not by size.
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
       after one reconnect, not after a 30 s stall.
+- [ ] **B-054, a letter too large to fetch whole.** Seen 2026-09-30: a
+      15 MB letter of photographs shown from its structure, its parts cut at
+      2 MB and a photograph fetched alone when tapped (B-054). Still to see:
+      from another account, send the test account a letter of
+      three full-size photographs shown in its body, as Mail on an iPhone
+      sends them, and a PDF: 8 MB or more. Open it: the connection log shows
+      `UID FETCH n (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, then its text's
+      and its HTML's FETCHes cut at `<0.2097152>`, and no `BODY.PEEK[]`; the
+      words come at once and the photographs one after another, each one
+      `UID FETCH n (UID BODY.PEEK[k])` and no more; the PDF's row opens the
+      PDF. Open it again and tap the next letter while the photographs are
+      still coming: the next letter comes after at most the one photograph
+      on the wire, and the log shows no FETCH for the others. Forward it to
+      the second address with a Cc: the photographs and the PDF arrive.
+      Reply to it: the quote is there. Open a conversation with it in: the
+      same FETCHes for it, the others' as ever. On a slow connection,
+      force-quit and tap it on the kept Inbox before the page lands: the
+      first FETCH carries `X-GM-MSGID`. And with the Inbox open, the
+      connection log shows the SEARCH as `* SEARCH {N uids}` and its screen
+      scrolls without a stall. A letter whose HTML is over 2 MB, if one can
+      be had, shows "Only the beginning of this message is shown." above
+      it; Reply to it and Forward it to the second address: the composer's
+      quote ends with the same words under a blank line, and the letter
+      received ends its quote with them in grey, in Mail and on Gmail's web
+      page, once (since 2026-10-01). Save the reply as a draft, reopen it
+      and send it: the line still once.
 
 ## Blocked on the owner
 
@@ -955,6 +1103,19 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Signature in the source?** (B-035)
 - [ ] **Mail's conversation stack default** — thirty seconds on an iPhone;
       newest-first is currently a guess, not a copy
+- [ ] **Pictures from the web in letters** — they load, as they always
+      have, and a tracking pixel tells its sender the letter was opened; the
+      spec asks for them blocked by default if feasible (B-055)
+- [x] **A long press on a link** — WebKit's own menu, whose preview loads
+      the page without "Open this link?"; every address in a plain letter
+      is a link now. Leave it, or `allowsLinkPreview` off (B-055)
+      *Decided 2026-10-01: left as it is, as Mail has it.*
+- [x] **The Cc line arriving with the letter** — a conversation's stack
+      moves down a line under him, against B-042's header of its final
+      height from the tap. Let it stand and write it into B-042, or carry
+      the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
+      *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
+      carry it, and the header has its line from the tap.*
 
 ## Open, recorded, not scheduled
 

@@ -241,13 +241,18 @@ struct FolderNews: Equatable {
 /// Error" under it. Guessed: "1 minute", singular; where minutes give way
 /// to the time of day, here at the hour (iOS 8 showed "at 16:55" eight
 /// minutes after it, iOS 13 users "5 minutes ago"); the date form for
-/// anything before yesterday; and "No Connection" and "Password Needs
-/// Updating" for what failed, since "Account Error" would tell him nothing.
+/// anything before yesterday; and "No Connection", "Password Needs
+/// Updating" and "Gmail Refused Sign-In" for what failed, since "Account
+/// Error" would tell him nothing. The third is a sign-in Gmail refused for
+/// a reason that is not the password (`MailError.signInRefused`), which
+/// used to say "No Connection" for as long as it lasted, and sent whoever
+/// helped him to the Wi-Fi.
 struct UpdatedLine: Equatable {
 
     enum Failure: Equatable {
         case noConnection
         case password
+        case signInRefused
     }
 
     /// When the list was last brought up to date, nil if it never has been.
@@ -285,7 +290,11 @@ struct UpdatedLine: Equatable {
     }
 
     mutating func failed(_ error: MailError) {
-        failure = error == .passwordNeedsUpdating ? .password : .noConnection
+        switch error {
+        case .passwordNeedsUpdating: failure = .password
+        case .signInRefused: failure = .signInRefused
+        default: failure = .noConnection
+        }
         checking = false
     }
 
@@ -314,7 +323,13 @@ struct UpdatedLine: Equatable {
               locale: Locale = .current) -> String {
         let age = checking ? nil
             : updated.map { Self.age(of: $0, now: now, calendar: calendar, locale: locale) }
-        let said = failure.map { $0 == .password ? "Password Needs Updating" : "No Connection" }
+        let said = failure.map { failure -> String in
+            switch failure {
+            case .password: return "Password Needs Updating"
+            case .signInRefused: return "Gmail Refused Sign-In"
+            case .noConnection: return "No Connection"
+            }
+        }
         let lines = [age ?? (failure == nil ? "Checking for Mail…" : nil),
                      Outbox.unsent(unsent), said]
         return lines.compactMap { $0 }.joined(separator: "\n")
