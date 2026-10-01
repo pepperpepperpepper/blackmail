@@ -452,20 +452,23 @@ final class BoundedLetterTests: XCTestCase {
         "3fa578335518adad", "d5382b84fc3b9e76",
     ]
 
+    /// The pane's page as B-055 left it (links in the text, the pane's own
+    /// script out of the page), which the code before B-054 made of the
+    /// same letters byte for byte once B-055 was in.
     private static let pages = [
         "8ed1fd729c463093", "001452042feeb48b", "bffd162866db60c7", "70ae21e172cb2f59",
         "6929055f3ae96a9b", "355790a2dd2326b6", "355790a2dd2326b6", "355790a2dd2326b6",
         "1e54000f6f73684b", "903cc1a690b06407", "087fffa6deefd08d", "355790a2dd2326b6",
-        "1ffb99359a4d0d37", "9b254dbd3de0d9a3", "7e097a1f0ab79c43", "43dae70cddf01df1",
-        "007b6384be4357ab", "400da16d015d1623", "03dc4eadb907a8ad", "18d6c9d6712478db",
-        "112e9b050bda7bd1", "355790a2dd2326b6", "2f8c2f29bbd7098f", "28d77903f8d41641",
-        "41209e7a3cd0c083", "248f32ed9b6824f3", "965c134f08eeddf9", "aa0ddde42f754451",
-        "e2b2797593f4f17f", "525b10cee522f2bb", "bef0a7937a7aeb5f", "e295aa2974330ddf",
-        "38f254752676dac7", "167c9638a2760359", "72e818aaaf88aabf", "876ab03635075d59",
-        "6891a1db3a1b4183", "a46059884daf5899", "355790a2dd2326b6", "750abff18f677e03",
-        "26c86a46d0dab515", "0c9b4fe7d5d6c653", "24e3b486021b28d3", "d8178ab60cad20ab",
-        "0b9fe1ffbe110d0b", "973016c5fca3d18f", "7c2159ea9bec613d", "687504e16c27af23",
-        "cd1ef30edd8c26bf", "1354a845a1f28309", "b9dfc7d5303ed23b", "0cc5e464f5398673",
+        "1ffb99359a4d0d37", "9b254dbd3de0d9a3", "d2b792ec1c12b87f", "7fd79aa689386437",
+        "007b6384be4357ab", "474956b595d529b1", "59a44d067094aee9", "1d7e377417a38fcf",
+        "112e9b050bda7bd1", "355790a2dd2326b6", "442972f1ed521dd3", "28d77903f8d41641",
+        "0a7d557b77bc594f", "c613b75cb6fc43e3", "24ad962b246fbfe3", "aa0ddde42f754451",
+        "e2b2797593f4f17f", "525b10cee522f2bb", "1b66fc6f9b877c71", "5d1b0cbd92fe6503",
+        "bd4eea0fa8b52b49", "8167e3b55e46bafd", "324f6a19622021cb", "5fa515a696a39bbd",
+        "1de2954065047979", "38e4d32e0aa27a2b", "355790a2dd2326b6", "035ce5164e15c94b",
+        "8b77dde964ca3f71", "bb42129aa27ad7db", "e9f0f8c0f233f33b", "d8178ab60cad20ab",
+        "0b9fe1ffbe110d0b", "6c4bdae5d0e6c8cf", "7c2159ea9bec613d", "89f34672c6b6ebcb",
+        "615bd78df00c4995", "1354a845a1f28309", "65aff0f215b42851", "181308f186571713",
         "b1a74e2b45e329b3", "bc91ca5ffa349b33",
     ]
 
