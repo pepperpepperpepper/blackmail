@@ -45,8 +45,10 @@ enum IMAPDate {
     /// "SINCE" in IMAP means on-or-after, inclusive of the day itself, which
     /// is what "go to the 20th" means.
     ///
-    /// **Bounded by arrival as well (B-058).** The jump lands on the oldest
-    /// letter matched (`PageWindow.anchor`), and the oldest is the one
+    /// **Bounded by arrival as well (B-058).** The jump's window is fetched
+    /// around the oldest letter matched (`PageWindow.anchor`), and lands on
+    /// it but for the hours his day and Gmail's differ (`PageWindow.landing`);
+    /// the oldest is the one
     /// with the lowest UID, the first to have arrived. A letter whose Date
     /// is wrong into the future, one that arrived in 2014 saying 2037,
     /// matches every day before 2037 by its Date, and arrived first: every
@@ -57,12 +59,23 @@ enum IMAPDate {
     /// day arrives on or after it, give or take a sender's clock running
     /// fast, which the slack is for. Mail delayed in arriving still
     /// matches, however late. One string, so no round trip more.
-    static func sentOnOrAfter(_ date: Date, timeZone: TimeZone = .current) -> String {
+    ///
+    /// **And not arrived in the future (B-058).** Whatever copies mail into
+    /// Gmail, by APPEND or by Gmail's import, may set when it arrived from
+    /// its Date, so a letter dated 2037 copied in years ago arrived, as far
+    /// as Gmail says, in 2037, and passes the bound above for every day
+    /// before then. So the SEARCH also asks that it arrived no later than a
+    /// week after `now` (`BEFORE` the day after that): it leaves such a
+    /// letter out for as long as its date is still ahead, and nothing that
+    /// has really arrived, but with the iPad's clock more than a week slow.
+    static func sentOnOrAfter(_ date: Date, now: Date, timeZone: TimeZone = .current) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let arrivedFrom = calendar.date(byAdding: .day, value: -arrivalSlack, to: date) ?? date
+        let arrivedBefore = calendar.date(byAdding: .day, value: arrivalSlack + 1, to: now) ?? now
         return "SENTSINCE \(criteriaValue(for: date, timeZone: timeZone)) "
-            + "SINCE \(criteriaValue(for: arrivedFrom, timeZone: timeZone))"
+            + "SINCE \(criteriaValue(for: arrivedFrom, timeZone: timeZone)) "
+            + "BEFORE \(criteriaValue(for: arrivedBefore, timeZone: timeZone))"
     }
 
     /// How many days before the day asked for a letter dated on or after

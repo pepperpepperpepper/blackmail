@@ -131,11 +131,15 @@ actor IMAPMailRepository: MailRepository {
     /// `now` is the clock the write probe measures quiet by, and the client
     /// how long ago it asked for a mailbox's news (`IMAPClient.catchUp`).
     /// The app's is the real one; a test hands in one it can move, because
-    /// the probe only happens after ninety seconds of it.
+    /// the probe only happens after ninety seconds of it. `calendar` is his,
+    /// the days a jump to a date counts in (`messages(around:)`); the app's
+    /// follows the iPad's zone as it changes, and a test's is the one it
+    /// sets.
     init(account: MailAccount, password: String,
          transport: @escaping MailTransportFactory,
          recipients: RecipientBook = .shared,
          now: @escaping @Sendable () -> Date = { Date() },
+         calendar: Calendar = .autoupdatingCurrent,
          signatureImages: @escaping @Sendable () -> [SignatureImages.InlineImage]
             = { SignatureImages.load() },
          shelf: MailShelf? = nil,
@@ -149,6 +153,7 @@ actor IMAPMailRepository: MailRepository {
         self.smtp = SMTPClient(account: account, transport: transport)
         self.recipients = recipients
         self.now = now
+        self.calendar = calendar
         self.signatureImages = signatureImages
         self.shelf = shelf
         // His own address, always offered, from the very first launch.
@@ -325,6 +330,7 @@ actor IMAPMailRepository: MailRepository {
     private var lastContact = Date.distantPast
 
     private let now: @Sendable () -> Date
+    private let calendar: Calendar
 
     /// How many calls are waiting for the connection behind the one using
     /// it. How a test knows a call has joined the line without sleeping on it.
@@ -1180,7 +1186,8 @@ actor IMAPMailRepository: MailRepository {
         // the matches and the snapshot in one numbering: in two, a
         // reconnect could fall between them onto a renumbered folder, and
         // the anchor would be some other letter.
-        let opened = try await client.page(in: name, searching: [IMAPDate.sentOnOrAfter(date), "ALL"]) {
+        let dated = IMAPDate.sentOnOrAfter(date, now: now(), timeZone: calendar.timeZone)
+        let opened = try await client.page(in: name, searching: [dated, "ALL"]) {
             found in
             guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
             return PageWindow.window(around: anchor, in: found[1], limit: limit).uids
@@ -1200,8 +1207,26 @@ actor IMAPMailRepository: MailRepository {
         // The anchor can be dropped by `summaries` if the server declines to
         // FETCH it, which would silently scroll him to the wrong letter.
         let anchorID = Self.makeID(validity: validity, uid: anchor)
-        let landedIndex = rows.firstIndex { $0.id == anchorID } ?? 0
         guard !rows.isEmpty else { return nil }
+        // Gmail's day runs from midnight UTC, his from his own midnight:
+        // landed on the first letter of his day (`PageWindow.landing`).
+        let dayStart = calendar.startOfDay(for: date)
+        let notAfter = calendar.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1,
+                                     to: now()) ?? now()
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let searchedFrom = utc.date(from: calendar.dateComponents([.year, .month, .day],
+                                                                  from: date)) ?? dayStart
+        let landedIndex = PageWindow.landing(
+            dates: rows.map(\.date), anchor: rows.firstIndex { $0.id == anchorID } ?? 0,
+            dayStart: dayStart, searchedFrom: searchedFrom, notAfter: notAfter)
+        // Landed before his day, or on a letter dated wrong, with every newer
+        // letter in the window: none is on or after his day, only the evening
+        // before it as Gmail counts, so there is nothing that recent.
+        let landedDate = rows[landedIndex].date
+        if window.reachedNewest, landedDate < dayStart || landedDate > notAfter {
+            return nil
+        }
 
         return MessageWindow(messages: rows,
                              anchorIndex: landedIndex,

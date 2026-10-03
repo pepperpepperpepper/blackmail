@@ -5762,7 +5762,7 @@ the app ended inside a try; and a held draft's row.
 
 ---
 
-## B-058 — CHANGED 2026-10-01, seen on the iPad. A letter dated wrong into the future would have taken every Go to Date jump for good
+## B-058 — CHANGED 2026-10-01 and 2026-10-03, seen on the iPad. A letter dated wrong into the future would have taken every Go to Date jump for good
 
 **Found in the code 2026-09-30**, going through what would go wrong for
 good once the app is on his iPad with no way to update it (risk 15 of that
@@ -5815,15 +5815,19 @@ letter dated wrong. The week counted as seven times 24 hours, or in UTC:
 the clocks going forward in New York, 1 failure. The jump days in the
 tests are the test machine's own, so they pass in any zone.
 
-**Not covered.** A letter whose INTERNALDATE is itself wrong into the
-future. Whatever copies mail into Gmail by APPEND, or by Gmail's import
-API, may set INTERNALDATE from the letter's Date, so a letter dated 2037
-copied in before 2016 arrived, as far as Gmail says, in 2037: it passes
-the bound for every day before then and takes every jump, as before. Not
-known: whether his old mail was ever copied in so, and whether Gmail takes
-a future date on an APPEND. A third key in the same string, `BEFORE` a
-week after today, would leave it out while its date is still ahead; put
-to the owner.
+**A letter copied in with a wrong arrival, decided and built 2026-10-03.**
+Whatever copies mail into Gmail by APPEND, or by Gmail's import API, may
+set INTERNALDATE from the letter's Date, so a letter dated 2037 copied in
+before 2016 arrived, as far as Gmail says, in 2037: it passed the bound for
+every day before then and took every jump. Not known: whether his old mail
+was ever copied in so, and whether Gmail takes a future date on an APPEND.
+The same SEARCH now has a third key, `BEFORE` the day after a week from
+today by the iPad's clock, in his calendar, so arrived no later than a
+week from today: `UID SEARCH SENTSINCE "20-Sep-2026" SINCE
+"13-Sep-2026" BEFORE "11-Oct-2026"`. Such a letter is left out for as long
+as its date is still ahead; once 2037 has come, it takes the jumps to days
+before it again, which is eleven years off. Nothing that has really
+arrived is left out, but with the iPad's clock more than a week slow.
 
 **On Gmail.** RFC 3501 says SENTSINCE reads the Date header's own day,
 "disregarding time and timezone". Gmail does not: on the iPad (below) it
@@ -5835,21 +5839,87 @@ and one cannot be made from here (an APPEND with an INTERNALDATE of its own
 needs the test account's password away from the iPad). If it reads
 INTERNALDATE, a letter dated wrong but arriving when it did never matched
 on Gmail, and the bound changes nothing a jump finds there; the letter
-copied in with a wrong INTERNALDATE, above, is then the only way to the
-failure. Either way, a day on Gmail runs from midnight UTC, so on his iPad
-in Boston a jump to a day matches from 8 pm the evening before (7 pm in
-winter): a letter that came in that evening is where it lands, and the
-status line says the day before, "Showing September 19" for a jump to the
-20th. That was so before the bound; put to the owner.
+copied in with a wrong INTERNALDATE, above, was then the only way to the
+failure, which the third key closes while its date is ahead. Either way, a day on Gmail runs from midnight UTC, so on his iPad
+in Boston a jump to a day matched from 8 pm the evening before (7 pm in
+winter): a letter that came in that evening was where it landed, and the
+status line said the day before, "Showing September 19" for a jump to the
+20th. That was so before the bound.
+
+**His day, decided and built 2026-10-03.** The SEARCH still says which
+letter the window is fetched around; where the jump lands in that window is
+then counted in his calendar (`PageWindow.landing`): a landing dated before
+his day moves up to the nearest newer letter dated on or after it, so the
+evening before is passed over and the status line says the day he asked
+for, or the next day with mail when his has none. East of Greenwich, where
+a day counted in UTC misses his first hours of it, a landing moves down
+over the older letters dated in those hours, and no others; in Boston there
+are none, and a letter below the landing dated after his midnight is one
+the SEARCH left out on purpose, dated wrong, and never moved onto. A letter
+dated more than a week ahead is never landed on by this: a landing that is
+one moves up as one before his day does. With nothing newer on or after his
+day, the landing stays where the SEARCH put it; and if that is before his
+day, or dated wrong, with every newer letter in the window, there is
+nothing that recent, and he is told so, "No mail on or after" the day,
+rather than "Showing" the day before: today asked for, with only last
+night's 9.30 pm letter since midnight UTC, said "Showing" yesterday. No
+round trip more: the window is fetched as before. The repository is given
+his calendar (`IMAPMailRepository.calendar`, the iPad's as it changes),
+which the tests set. The review of this found the first build's downward
+move unbounded, and that in Boston it could reach only letters the SEARCH
+had left out, dated wrong: a letter that arrived on the 5th dated the 25th
+just below the first of the 20th, and the jump said "Showing September
+25". It is bounded now to the hours from his midnight to midnight UTC.
+
+**Tests for the third key and his day**, 2026-10-03. `IMAPDateTests`: the
+`BEFORE` the day after a week from today across the turn of a year and on
+an evening in New York that is the next day in UTC, in every criteria
+string. `GoToDateBoundTests`, the Inbox now also holding a letter copied in
+first with an arrival of 2037; four letters, two either side of midnight
+UTC on 20 September 2019; and one at 10 pm on the 20th in New York: neither
+letter dated wrong takes a jump; in New York the 20th lands on its first
+letter, not 9.30 pm on the 19th, the 19th's letter just below; in Tokyo on
+the first hours of the 20th, which were the 19th in UTC; the 21st, with no
+mail of its own, on the next letter, the week ahead counted from today; in
+another Inbox, today with only last night's letter since midnight UTC is
+nothing that recent; and a letter left out just below the landing, that
+arrived on the 5th dated the 25th, is not moved onto. One SEARCH carries all
+three keys, in his calendar, the date his and not UTC's. `DateJumpTests`:
+the landing moves up past rows of the evening before, to the next day's
+first when his has none; east of Greenwich down over the first hours and
+no further, not past a row of the day before; west of it never down; a
+letter at his midnight is his day's; never onto a row dated more than a
+week ahead, a landing that is one moving up; and it stays with no row on or
+after his day above it. All of it passes with the test machine in UTC, New
+York, Pago Pago, Tokyo and Kiritimati (UTC+14), where only an older test of
+the spoken day, not of this, fails.
+Each fails with its part undone, twelve sabotages one at a time: no
+`BEFORE` (14 failures), the landing left where the SEARCH put it (9), no
+week-ahead limit on the landing (2), the landing moved only up (3), the day
+counted in the test machine's calendar rather than his (7), the move down
+past a row of the day before (1), the SEARCH's date in the machine's zone
+(1), the week ahead counted from the day asked for (1), his midnight
+counted as the day before (2), no "nothing that recent" (1), the move down
+unbounded, as first built (4), and a landing dated wrong kept (1).
 
 **Seen on the iPad, 2026-10-01.** Go to Date in the Inbox to 20 September:
 `UID SEARCH SENTSINCE "20-Sep-2026" SINCE "13-Sep-2026"`, answered OK with
 9 UIDs in 80 ms, one SEARCH, and the list landed on the first letter of
 the 20th, "Showing September 20". In All Mailboxes to the same day: the
 same SEARCH in All Mail, landing on a letter sent at 9.30 pm on the 19th,
-Boston time, "Showing September 19", for the reason above. In All
+Boston time, "Showing September 19", on that build, for the reason above. In All
 Mailboxes to 1 October, with no mail that day: "No mail on or after
 October 1".
+
+**Seen on the iPad, 2026-10-03**, on the build with the third key and his
+day, the iPad's clock at 11.07 pm on 2 October in Boston. Go to Date in All
+Mailboxes to 20 September: `UID SEARCH SENTSINCE "20-Sep-2026" SINCE
+"13-Sep-2026" BEFORE "10-Oct-2026"`, answered OK with 16 UIDs, the same 16
+as without the third key on 1 October, and the list landed on the first
+letter of his 20th, "Showing September 20", the letter of 9.30 pm on the
+19th just below it, where the same jump had said "Showing September 19".
+The same again at 11.43 pm on the build with the downward move bounded and
+"nothing that recent" after the evening before.
 
 ---
 
