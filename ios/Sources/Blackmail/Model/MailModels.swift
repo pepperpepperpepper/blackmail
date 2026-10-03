@@ -107,6 +107,22 @@ struct MessageSummary: Identifiable, Hashable {
     /// then, pushing a conversation's stack down under him as he began to
     /// read it.
     var attachments: [Attachment] = []
+    /// Whom the letter was sent to, as the ENVELOPE the row is fetched with
+    /// names them, `Name <address>` or the address alone, as `cc` is.
+    /// Empty for a letter to nobody, as a draft begun and put aside is.
+    ///
+    /// Carried for the row's own top line in Sent Mail, Drafts and the
+    /// Outbox, which names whom the letter is to, as Mail's does, and not
+    /// him (`RowNames`, B-060). Every letter there is his, so his own name
+    /// on every row said nothing; he could tell his letters apart only by
+    /// their subjects.
+    ///
+    /// Nil where it is not known: a row kept on the iPad by a build before
+    /// rows carried it (`MailShelf`), and a row the server gave no ENVELOPE
+    /// for. Such a row names its sender, as every row did, until the folder
+    /// is next listed, rather than say "No Recipients" of a letter that had
+    /// some.
+    var to: [String]? = nil
     /// Whom the letter was copied to, as the ENVELOPE the row is fetched
     /// with names them: `Name <address>`, or the address where there is no
     /// name, which the reading pane's header names as it names the Cc
@@ -116,6 +132,13 @@ struct MessageSummary: Identifiable, Hashable {
     /// `attachments` is: it used to gain it only when the letter came, and
     /// push a conversation's stack down a line under him (B-042, B-055).
     var cc: [String] = []
+    /// Whom the letter was blind-copied to, from the same ENVELOPE. Only a
+    /// letter of his own has any: a draft carries its Bcc (`RFC5322Builder`
+    /// writes it there and nowhere else), and Gmail's copy in Sent Mail may
+    /// (not yet seen); a letter he was sent never shows one. For the top
+    /// line in Drafts and Sent Mail, so a letter to Bcc alone names the
+    /// people it is to rather than nobody.
+    var bcc: [String] = []
 }
 
 struct Message: Identifiable {

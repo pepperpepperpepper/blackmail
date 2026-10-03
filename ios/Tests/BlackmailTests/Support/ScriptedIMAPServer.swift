@@ -87,6 +87,9 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var from: Address
         var to: [Address]
         var cc: [Address] = []
+        /// Its Bcc, as a draft's carries one and Gmail's copy in Sent Mail
+        /// may: in the ENVELOPE's sixth list and a `Bcc:` header.
+        var bcc: [Address] = []
         var subject: String
         var date: Date
         /// The plain body. Nil makes an HTML-only letter.
@@ -1633,7 +1636,7 @@ private extension ScriptedIMAPServer {
         wire.string(headerDate(letter.date))
         wire.text(" ")
         wire.string(letter.subject)
-        for list in [[letter.from], [letter.from], [letter.from], letter.to, letter.cc, []] {
+        for list in [[letter.from], [letter.from], [letter.from], letter.to, letter.cc, letter.bcc] {
             wire.text(" ")
             addresses(list)
         }
@@ -1651,6 +1654,9 @@ private extension ScriptedIMAPServer {
         header += "To: \(letter.to.map(\.formatted).joined(separator: ", "))\r\n"
         if !letter.cc.isEmpty {
             header += "Cc: \(letter.cc.map(\.formatted).joined(separator: ", "))\r\n"
+        }
+        if !letter.bcc.isEmpty {
+            header += "Bcc: \(letter.bcc.map(\.formatted).joined(separator: ", "))\r\n"
         }
         header += "Subject: \(letter.subject)\r\n"
         header += "Date: \(headerDate(letter.date))\r\n"
@@ -1768,9 +1774,16 @@ private extension ScriptedIMAPServer {
                            address: String(formatted[formatted.index(after: open)..<close]))
         }
 
+        // A field's addresses, split on its commas, as a draft's are
+        // written here: none with a comma in its name.
+        func addresses(_ field: String) -> [Address] {
+            (fields[field] ?? "").split(separator: ",")
+                .map { address(String($0)) }.filter { !$0.address.isEmpty }
+        }
+
         let text = String(decoding: body, as: UTF8.self)
         let letter = Letter(from: address(fields["from"] ?? ""),
-                            to: (fields["to"] ?? "").split(separator: ",").map { address(String($0)) },
+                            to: addresses("to"), cc: addresses("cc"), bcc: addresses("bcc"),
                             subject: fields["subject"] ?? "",
                             date: fields["date"].flatMap(headerFormatter.date(from:)) ?? newestDate,
                             text: text, flags: flags,
