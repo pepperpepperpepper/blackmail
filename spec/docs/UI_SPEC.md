@@ -58,6 +58,9 @@ The exact order should be tuned against the visual references, but once chosen i
 - Do not depend on swipe actions.
 - Do not use modern floating menus for core actions unless the old Mail behavior itself did.
 - Do not animate panes dramatically.
+  - The view button's switch slides (B-066): sideways only, 0.6 s in
+    all, with no bounce, no scaling and no dimming. Nothing else moves
+    the panes.
 
 ## Portrait mode
 Portrait is secondary. The application may collapse to two panes or one pane if necessary, but:

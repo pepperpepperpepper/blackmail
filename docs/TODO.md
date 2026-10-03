@@ -420,6 +420,17 @@ this host. Ordered by value, not by size.
       launches (`PaneArrangement`, D-015). Checked in
       `PaneArrangementTests`; see B-048 for what he could notice. Not yet
       seen on the iPad, below.*
+- [x] **B-066. The view button's switch moves.** Asked for by the owner
+      on 2026-10-03: "We need better transition animation between the
+      three-panel view and the two-panel view." Calm, nothing wobbling,
+      nothing moving up or down, nothing reflowing while it moves.
+      *Done, not yet seen on the iPad: pictures of the panes slide
+      sideways for 0.4 s and settle for 0.2 s over the panes already laid
+      out beneath them, and with Reduce Motion the screen fades for 0.3 s
+      (`PaneMove`, `PaneMotion`). "< Mailboxes" and a folder tap stay
+      instant, and so does a switch tapped while a list or the letter
+      bounces past an end. Checked in `PaneMoveTests` and `PaneArrangementTests`; see
+      B-066. What to look at on the iPad is below.*
 - [x] ~~**B-035. Ship the signature as a compile-time default.**~~ *Ruled
       out by the owner, 2026-09-26: his signature never goes in the repo.
       See the gap review above.* Needs the
@@ -1510,6 +1521,68 @@ this host. Ordered by value, not by size.
       had NIL, and its X-GM-THRID is the letter's; the Inbox shows it in
       the letter's conversation, not as one of its own.
       *Seen on the iPad 2026-10-03, as written. B-064.*
+- [ ] **B-066, the view button's switch slides.** Switch the Layout
+      button on in the connection log first.
+      1. *Frame by frame.* A scratch build with the window's `layer.speed`
+      at 0.1, so the slide takes 4 s and the settle 2 s; the deadline
+      stretches with it. Each of the three switches at 1194 (three to
+      two; two with the list in front to three; two with the folders in
+      front to three), with a long newsletter scrolled down, with a short
+      letter, and with the pane empty, a screenshot about every half
+      second. The corner glyph and Flag to Compose are the same in every
+      frame. A divider line is at every column's edge. No picture is
+      stretched. Every row is at the same height in every frame. The
+      letter's picture is not blank. The first frame is the screen before
+      the tap, but for the glyph no longer dimmed. A letter's header and
+      left margin are where they end up in the last frame of the slide.
+      With the pane empty, "No message selected" is in the middle of the
+      pane in every frame, never twice, and does not move at the settle.
+      The list's bar, frame by frame: the calendar goes under the corner
+      glyph near the end of the slide from three to two and fades in right
+      of "< Mailboxes" at the settle; from two to three it moves about
+      150 pt left at the settle; the title and Edit likewise only at the
+      settle. *Seen 2026-10-03 at `layer.speed` 0.05 with the pane empty,
+      the three switches as written (B-066); with a letter, not yet.*
+      2. *At speed.* A 60 fps recording from Control Centre, stepped
+      through frame by frame: about 0.6 s in all, no flash at the tap, no
+      shimmer in the corner at the settle, and the last frame the same as
+      a screenshot taken a second later (a heavy newsletter WebKit is
+      still drawing apart).
+      3. *Coasting and bouncing.* Flick the list and, while it still
+      coasts, tap the button: the rows stop where they were and do not
+      jump at the settle. Then pull the list down past its top, let go, and
+      tap the button while it springs back: the switch is instant, the
+      rows finish springing back to the top, and the log has
+      `pane motion: bouncing; switched at once`. The same flicked past
+      the bottom of the list, with the Mailboxes pulled down, and with a
+      long letter flicked past its end. A tap a second after any of them
+      slides as usual.
+      4. *Fast taps.* A quick double tap makes one switch; a row tapped
+      while it moves opens nothing; the first tap after it works.
+      5. *Interrupted.* Turn the iPad over, swipe Home, pull down Control
+      Centre, each in the middle of a switch: back in the app the screen
+      is final, with no picture left on it, and taps work. Then thirty
+      switches a second apart, both ways in turn.
+      6. *Search and Edit.* A search with the keyboard up, letters typed
+      while it moves: the words, scope, results and keyboard stay, and
+      the letters are in the field. Edit mode keeps its two ticks.
+      7. *Reduce Motion*, then *Prefer Cross-Fade Transitions* in
+      Settings, Accessibility, Motion: a 0.3 s fade each time, nothing
+      travelling.
+      8. *VoiceOver* reads "Hide Mailboxes" and "Show Mailboxes", and
+      lands on the button after a switch.
+      9. *The log*: nothing on the wire, the `layout: …` lines, no new
+      finding, and no `pane motion:` line, a fallback or the deadline,
+      but the bouncing ones step 3 asked for.
+      10. "< Mailboxes" and a folder tapped in two panes are still
+      instant.
+      11. On a 1366 or 1376 pt iPad, if one can be had: 1 and 2 again,
+      with the 2 to 5 pt gaps beside the list.
+      12. *A conversation* of three letters or more, each switch at speed
+      and frame by frame: the names and the open letter land where they
+      end up; the dates at the rows' right ends ride with them and are put
+      at the right end at the settle (B-066, Not covered). Whether that
+      catches the eye, and a newsletter's centred column the same way.
 
 ## Blocked on the owner
 
@@ -1562,6 +1635,16 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       and its Cc in Cc, or puts everyone in Cc as before; a Cc left alone
       moves up to To, or the reply goes with no To; his own letter's
       Reply-To is not followed, or it is.
+- [ ] **The view button's motion** (B-066) — built as pictures of the
+      columns sliding 0.4 s and settling 0.2 s, the list sliding over
+      the folders from three to two and off them from two to three. Keep
+      it; another timing; or later Mail's way, where the folders slide off
+      to the left. From two panes with the folders in front, their column
+      draws in and the list is there in the middle, which Mail never did;
+      keep it, or a plain 0.3 s fade for that switch alone.
+- [ ] **"< Mailboxes" and a folder tap in two panes** (B-066) — instant,
+      as they have always been, and as built. Or a slide, as Mail's
+      navigation pushes and pops, about 0.35 s.
 - [ ] **His second address** (B-061) — Gmail sends as it and delivers it
       to him, and the app cannot tell it is his, so a Reply All to a
       letter that names it sends it a copy, which comes back to his Inbox.

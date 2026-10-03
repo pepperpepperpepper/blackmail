@@ -198,6 +198,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         actionItems[.compose]?.isEnabled = true   // compose never depends on a selection
     }
 
+    /// What the view button's switch reads of the pane before it takes its
+    /// picture (B-066). The letter's scroll view, to see whether it is
+    /// bouncing and to stop it if it is coasting; nil when the pane shows
+    /// no letter. Nothing is loaded or drawn again.
+    var letterScroll: UIScrollView? { webView.isHidden ? nil : webView.scrollView }
+    /// "No message selected", whose picture rides the middle of the pane;
+    /// nil when the pane holds a letter.
+    var emptyLabel: UIView? { placeholder.isHidden ? nil : placeholder }
+
     // MARK: - Content
 
     func showEmpty() {

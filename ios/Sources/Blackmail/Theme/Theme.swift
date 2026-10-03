@@ -86,6 +86,22 @@ enum Theme {
     ///     1194 pt (11-inch)    375 | 818.5 for the message
     ///     1366 pt (12.9-inch)  375 | 990.5
     static let twoPaneLeftColumnWidth: CGFloat = 375
+
+    /// How long the view button's switch moves, in seconds (B-066).
+    /// Binding, as a position is: it is how long the screen is not still
+    /// after his tap, and it was asked for by the owner.
+    ///
+    /// Pictures of the panes slide sideways for `paneSlideDuration`,
+    /// easing in and out, with no spring and no overshoot. Then they fade
+    /// for `paneSettleDuration` over the panes laid out anew beneath them,
+    /// so the letter and the rows change their wrapping only while nothing
+    /// moves. 0.6 s in all. With Reduce Motion or Prefer Cross-Fade
+    /// Transitions, one picture of the screen fades for
+    /// `paneDissolveDuration` and nothing travels. `PaneMove.timeline` is
+    /// the only reader.
+    static let paneSlideDuration: TimeInterval = 0.40
+    static let paneSettleDuration: TimeInterval = 0.20
+    static let paneDissolveDuration: TimeInterval = 0.30
 }
 
 #if canImport(UIKit)
