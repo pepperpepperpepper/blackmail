@@ -266,16 +266,22 @@ final class PaneActionsTests: XCTestCase {
         XCTAssertEqual(server.log.map(\.verb), ["UID MOVE"] + Self.sweep)
     }
 
-    /// Delete inside Trash sets `\Deleted` and moves nothing. The row goes,
-    /// an unread letter comes off Trash's count, and that is the whole
-    /// change, so nothing is swept.
-    func testDeleteInsideTrashOnlySetsDeletedAndSweepsNothing() async throws {
+    /// Delete inside Trash erases the letter: `\Deleted` and a UID EXPUNGE
+    /// of that letter, and it is gone from the server, with Gmail's
+    /// Auto-Expunge off as the test account has it. With the STORE alone
+    /// it stayed in Trash, marked, and was listed again at the next open
+    /// (B-062, seen on the iPad). The row goes, an unread letter comes off
+    /// Trash's count, and that is the whole change, so nothing is swept.
+    func testDeleteInsideTrashErasesTheLetterAndSweepsNothing() async throws {
+        XCTAssertFalse(server.autoExpunge)
         let arrived = server.deliver(Server.Letter(from: Server.carlo, to: [Server.owner],
                                                    subject: "Binned unread",
                                                    date: Server.newestDate,
                                                    text: "Never read.\r\n",
                                                    messageID: "<binned-unread@example.org>"),
                                      to: [Server.trash])
+        let erased = try XCTUnwrap(arrived[Server.trash])
+        let gmailID = server.gmailMessageID(uid: erased, in: Server.trash)
         let repository = makeRepository()
         _ = try await repository.folders()
         let rows = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
@@ -284,6 +290,7 @@ final class PaneActionsTests: XCTestCase {
         let (list, counts) = await makeList(folder: rows)
         let sweeps = Counter()
         let coalescer = await makeSweeps(repository, counted: sweeps)
+        let trashBefore = server.uids(in: Server.trash)
         server.clearLog()
 
         let done = await PaneActions.run(.delete, on: letter, inFolderWithRole: .trash, list: list,
@@ -293,12 +300,119 @@ final class PaneActionsTests: XCTestCase {
 
         XCTAssertTrue(done)
         XCTAssertEqual(server.log.map(\.command),
-                       ["UID STORE \(try XCTUnwrap(arrived[Server.trash])) +FLAGS.SILENT (\\Deleted)"])
+                       ["UID STORE \(erased) +FLAGS.SILENT (\\Deleted)", "UID EXPUNGE \(erased)"])
+        XCTAssertEqual(server.log.map(\.selected), [Server.trash, Server.trash])
+        XCTAssertEqual(server.uids(in: Server.trash), trashBefore.filter { $0 != erased })
+        for folder in [Server.inbox, Server.allMail, Server.trash] {
+            XCTAssertFalse(server.uids(in: folder).contains {
+                server.gmailMessageID(uid: $0, in: folder) == gmailID
+            }, folder)
+        }
         XCTAssertEqual(sweeps.value, 0)
         let billed = await counts.billed
         XCTAssertEqual(billed, [[Server.trash]])
         let shown = await list.shown.map(\.id)
         XCTAssertFalse(shown.contains(letter.id))
+    }
+
+    /// A letter left in Trash marked `\Deleted`, as the build before this
+    /// one left the test account's, or as another mail program leaves one
+    /// with Auto-Expunge off: listed, as Gmail lists it, and gone when he
+    /// deletes it again. The STORE changes nothing on it; the EXPUNGE takes
+    /// it.
+    func testALetterLeftMarkedInTrashGoesWhenHeDeletesItAgain() async throws {
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let before = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        let marked = before[0]
+        server.markDeleted(uid: uid(marked.id), in: Server.trash)
+        XCTAssertTrue(server.flags(uid: uid(marked.id), in: Server.trash).contains("\\Deleted"))
+        let rows = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        XCTAssertEqual(rows.map(\.id), before.map(\.id))
+        let (list, _) = await makeList(folder: rows)
+        server.clearLog()
+
+        let done = await PaneActions.run(.delete, on: marked, inFolderWithRole: .trash, list: list,
+                                         repository: repository, requestSweep: {})
+
+        XCTAssertTrue(done)
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID STORE \(uid(marked.id)) +FLAGS.SILENT (\\Deleted)",
+                        "UID EXPUNGE \(uid(marked.id))"])
+        XCTAssertFalse(server.uids(in: Server.trash).contains(uid(marked.id)))
+        let after = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        XCTAssertEqual(after.map(\.id), before.dropFirst().map(\.id))
+    }
+
+    /// The EXPUNGE refused, the connection up: the pane says so, the row
+    /// comes back where it stood, nothing is billed, and the letter is
+    /// still in Trash, marked. Lifted, a Delete again takes it.
+    func testAnEraseWhoseExpungeIsRefusedPutsTheRowBack() async throws {
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let rows = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        let letter = rows[1]
+        let (list, counts) = await makeList(folder: rows)
+        server.refusedVerbs = ["UID EXPUNGE"]
+        server.clearLog()
+
+        let refusal = await PaneActions.refusal(running: .delete, on: letter,
+                                                inFolderWithRole: .trash, list: list,
+                                                repository: repository, requestSweep: {})
+
+        XCTAssertEqual(refusal, .cannotConnect)
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID STORE \(uid(letter.id)) +FLAGS.SILENT (\\Deleted)",
+                        "UID EXPUNGE \(uid(letter.id))"])
+        XCTAssertEqual(server.log.map(\.status), ["OK", "NO"])
+        let shown = await list.shown.map(\.id)
+        XCTAssertEqual(shown, rows.map(\.id))
+        let billed = await counts.billed
+        XCTAssertEqual(billed, [])
+        XCTAssertTrue(server.uids(in: Server.trash).contains(uid(letter.id)))
+        XCTAssertTrue(server.flags(uid: uid(letter.id), in: Server.trash).contains("\\Deleted"))
+
+        server.refusedVerbs = []
+        let again = await PaneActions.run(.delete, on: letter, inFolderWithRole: .trash, list: list,
+                                          repository: repository, requestSweep: {})
+        XCTAssertTrue(again)
+        XCTAssertFalse(server.uids(in: Server.trash).contains(uid(letter.id)))
+    }
+
+    /// With Auto-Expunge on, Gmail's default, the STORE erases the letter
+    /// itself, before any EXPUNGE, and the UID EXPUNGE after it names a UID
+    /// that has gone: answered OK, and the Delete has worked. The other
+    /// letters in Trash stay.
+    func testWithAutoExpungeOnTheStoreErasesAndTheExpungeAfterItIsHarmless() async throws {
+        server.autoExpunge = true
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let rows = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        let letter = rows[2]
+        let (list, _) = await makeList(folder: rows)
+        let trashBefore = server.uids(in: Server.trash)
+        server.clearLog()
+
+        server.holdReplies(to: "UID STORE")
+        let deleting = Task { @MainActor in
+            await PaneActions.run(.delete, on: letter, inFolderWithRole: .trash, list: list,
+                                  repository: repository, requestSweep: {})
+        }
+        try await until { self.server.log.contains { $0.verb == "UID STORE" } }
+        XCTAssertFalse(server.uids(in: Server.trash).contains(uid(letter.id)), "by the STORE")
+        await server.releaseReplies(to: "UID STORE")
+        let done = try await finishing { await deleting.value }
+
+        XCTAssertTrue(done)
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID STORE \(uid(letter.id)) +FLAGS.SILENT (\\Deleted)",
+                        "UID EXPUNGE \(uid(letter.id))"])
+        XCTAssertEqual(server.log.map(\.status), ["OK", "OK"])
+        XCTAssertEqual(server.uids(in: Server.trash), trashBefore.filter { $0 != uid(letter.id) })
+        let shown = await list.shown.map(\.id)
+        XCTAssertEqual(shown, rows.map(\.id).filter { $0 != letter.id })
+        let after = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        XCTAssertEqual(after.map(\.id), rows.map(\.id).filter { $0 != letter.id })
     }
 
     /// The server refuses: the row comes back, nothing is billed, nothing

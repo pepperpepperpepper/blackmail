@@ -568,6 +568,15 @@ final class RootViewController: UIViewController {
                 list: self.list.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.refreshMailboxes() })
         }
+        // Delete inside Trash erases the letter, and asks first; anywhere
+        // else it moves the letter to Trash and asks nothing (B-062). By
+        // the role of the letter's own folder, which for an All Mailboxes
+        // hit from Trash is Trash whatever the list is.
+        detail.questionBeforeDeleting = { [weak self] letter in
+            guard let self else { return nil }
+            let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            return EraseQuestion.before(deleting: [letter], role: { folders.role(of: $0) })
+        }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
         }
@@ -618,6 +627,21 @@ final class RootViewController: UIViewController {
         }
         list.onRefreshRequested = { [weak self] in
             self?.refreshMailboxes()
+        }
+        // Edit mode's Delete and Move edit the list in place, as the
+        // pane's do, and ask for the counts only when one may have changed
+        // that the list cannot work out (`ListBatch`, B-062). They used to
+        // fetch the list again and sweep every count, through
+        // `onMessagesChanged`, which also emptied the pane whatever it
+        // showed.
+        list.onLettersLeaving = { [weak self] letters in
+            self?.detail.clearIfShowing(any: letters)
+        }
+        list.requestSweep = { [weak self] in
+            self?.refreshMailboxes()
+        }
+        list.folders = { [weak self] in
+            self?.mailboxList.folders ?? []
         }
         list.onPasswordSaved = { [weak self] account, password, notice in
             self?.signIn(as: account, password: password, saying: notice)

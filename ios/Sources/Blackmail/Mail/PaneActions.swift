@@ -75,10 +75,10 @@ enum PaneActions {
     /// `role` is that of the mailbox the letter was listed from, which for
     /// an All Mailboxes hit is not the list's.
     ///
-    /// - Delete moves to Trash, and inside Trash sets `\Deleted`, which
-    ///   takes it out of Trash too. Either way the row goes and the letter
-    ///   has left everything. Inside Trash the one taken off Trash's count
-    ///   is the whole change, so there is nothing to sweep for.
+    /// - Delete moves to Trash, and inside Trash erases it, `\Deleted` and
+    ///   an EXPUNGE of it. Either way the row goes and the letter has left
+    ///   everything. Inside Trash the one taken off Trash's count is the
+    ///   whole change, so there is nothing to sweep for.
     /// - Move to Trash or Spam is a Delete by another name.
     /// - Move out of All Mail keeps the row: Gmail's All Mail is every
     ///   letter not in Trash or Spam, so filing one elsewhere leaves it
@@ -146,6 +146,36 @@ enum PaneActions {
                         inFolderWithRole role: Mailbox.Role?,
                         list shown: PaneActionList?, repository: MailRepository,
                         requestSweep: @MainActor () -> Void) async -> MailError? {
+        let started = start(action, on: letter, inFolderWithRole: role, list: shown)
+        do {
+            try await send(action, on: letter, repository: repository)
+        } catch {
+            return finish(started, failure: error, requestSweep: requestSweep)
+        }
+        return finish(started, failure: nil, requestSweep: requestSweep)
+    }
+
+    /// A Delete, Move or Flag as the list was edited for it at the tap,
+    /// waiting for the server's answer: what `finish` bills, or puts back.
+    /// In three steps, `start`, `send` and `finish`, so that Edit mode's
+    /// Delete and Move can take all his ticks off at the tap and send the
+    /// writes one at a time after (`ListBatch`), by the same rules as the
+    /// pane's one letter.
+    struct Started {
+        fileprivate let action: PaneAction
+        fileprivate let letter: MessageSummary
+        fileprivate let effect: Effect
+        /// The list, while its row under the letter's id is that letter;
+        /// nil when it is another letter's, which is left alone.
+        fileprivate let list: PaneActionList?
+        /// The list's copy of the letter at the tap, or the letter itself.
+        fileprivate let before: MessageSummary
+    }
+
+    /// Edits the list at the tap: the flag set, or the row taken off.
+    static func start(_ action: PaneAction, on letter: MessageSummary,
+                      inFolderWithRole role: Mailbox.Role?,
+                      list shown: PaneActionList?) -> Started {
         let effect = effect(of: action, onLetterIn: role)
         let listed = shown?.letter(letter.id)
         let list = listed.map { ListEdit.sameLetter($0, letter) } == false ? nil : shown
@@ -158,39 +188,60 @@ enum PaneActions {
             list?.letGo(before)
             if effect.removesRow { list?.take(before, fromEveryFolder: effect.leavesEveryFolder) }
         }
+        return Started(action: action, letter: letter, effect: effect, list: list, before: before)
+    }
 
-        do {
-            switch action {
-            case .delete:
-                try await repository.delete(letter.id, gmailMessageID: letter.gmailMessageID,
-                                            from: letter.mailboxID)
-            case .move(let destination):
-                try await repository.move(letter.id, gmailMessageID: letter.gmailMessageID,
-                                          from: letter.mailboxID, to: destination.id)
-            case .flag(let flagged):
-                try await repository.setFlagged(flagged, id: letter.id,
-                                                gmailMessageID: letter.gmailMessageID,
-                                                mailboxID: letter.mailboxID)
-            }
-        } catch {
-            switch action {
-            case .flag:
-                list?.flagAnswered(before, landed: false)
-            case .delete, .move:
-                if effect.removesRow { list?.putBack(before) }
-            }
+    /// The write itself, onto the letter its Gmail message id names.
+    static func send(_ action: PaneAction, on letter: MessageSummary,
+                     repository: MailRepository) async throws {
+        switch action {
+        case .delete:
+            try await repository.delete(letter.id, gmailMessageID: letter.gmailMessageID,
+                                        from: letter.mailboxID)
+        case .move(let destination):
+            try await repository.move(letter.id, gmailMessageID: letter.gmailMessageID,
+                                      from: letter.mailboxID, to: destination.id)
+        case .flag(let flagged):
+            try await repository.setFlagged(flagged, id: letter.id,
+                                            gmailMessageID: letter.gmailMessageID,
+                                            mailboxID: letter.mailboxID)
+        }
+    }
+
+    /// The server has answered. Refused (`failure`), the list goes back as
+    /// it was and the refusal is returned for the alert; taken, the letter
+    /// is billed, filed or swept for, and nil is returned.
+    @discardableResult
+    static func finish(_ started: Started, failure: Error?,
+                       requestSweep: @MainActor () -> Void) -> MailError? {
+        let list = started.list
+        let before = started.before
+        let effect = started.effect
+        if let error = failure {
+            withdraw(started)
             if error is MailShelf.NotTheKeptLetter { notTheKeptLetter(before, list: list) }
             return (error as? MailError) ?? .cannotConnect
         }
 
-        if case .flag = action { list?.flagAnswered(before, landed: true) }
-        let landed = list?.letter(letter.id) ?? before
+        if case .flag = started.action { list?.flagAnswered(before, landed: true) }
+        let landed = list?.letter(started.letter.id) ?? before
         if effect.removesRow {
             list?.removalLanded(landed, fromEveryFolder: effect.leavesEveryFolder)
         }
-        if let folder = effect.alsoFiledIn { list?.addCountedFolder(folder, to: letter.id) }
+        if let folder = effect.alsoFiledIn { list?.addCountedFolder(folder, to: started.letter.id) }
         if effect.sweepsIfUnread && !landed.isRead { requestSweep() }
         return nil
+    }
+
+    /// Never sent, or refused: the list as it was before the tap, the flag
+    /// back as it was or the row back where it stood.
+    static func withdraw(_ started: Started) {
+        switch started.action {
+        case .flag:
+            started.list?.flagAnswered(started.before, landed: false)
+        case .delete, .move:
+            if started.effect.removesRow { started.list?.putBack(started.before) }
+        }
     }
 
     /// A row kept on the iPad that the server has said is not the letter it

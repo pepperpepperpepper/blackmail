@@ -1320,7 +1320,8 @@ final class KeptCopyTests: XCTestCase {
         try await opensAndFlagsAsEver(trash[1], "the Trash")
         server.clearLog()
         try await repository.delete(trash[0])
-        XCTAssertEqual(sent(), ["UID STORE \(uid(trash[0].id)) +FLAGS.SILENT (\\Deleted)"], "the Trash")
+        XCTAssertEqual(sent(), ["UID STORE \(uid(trash[0].id)) +FLAGS.SILENT (\\Deleted)",
+                                "UID EXPUNGE \(uid(trash[0].id))"], "the Trash")
 
         let drafts = try await repository.listMessages(in: Server.drafts, beforeUID: nil, limit: 50)
         server.clearLog()

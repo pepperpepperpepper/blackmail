@@ -1861,7 +1861,20 @@ actor IMAPMailRepository: MailRepository {
     /// literal string "trash" unconditionally, so deleting something already
     /// in Trash moved it to Trash again and it reappeared at the top of the
     /// list. Here the destination is resolved from the \Trash special-use
-    /// attribute, and deleting inside Trash marks \Deleted instead.
+    /// attribute, and deleting inside Trash erases the letter instead.
+    ///
+    /// Erased by `IMAPClient.expunge`: `\Deleted`, then `UID EXPUNGE` of
+    /// that letter alone, in one hold. It used to be the `\Deleted` STORE
+    /// alone, which erases the letter only on an account with Gmail's
+    /// Auto-Expunge on. The test account has it off, and on the iPad the
+    /// letter stayed in Trash, marked, and was listed again at the next
+    /// open of Trash and found by a search, after the question had said it
+    /// would be deleted immediately (B-062). His account's setting cannot
+    /// be read from here. A letter left marked by that build, or by another
+    /// mail program, goes too when he deletes it again: the STORE changes
+    /// nothing on it, and the EXPUNGE takes it. Without UIDPLUS the
+    /// EXPUNGE is the plain one, which takes every marked letter in Trash;
+    /// why that is acceptable there is in `IMAPClient.expunge`.
     func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
@@ -1877,8 +1890,7 @@ actor IMAPMailRepository: MailRepository {
             try await vouch(for: id, named: gmailMessageID, uid: message.uid,
                             validity: message.validity, in: source)
             try await sendingOnce {
-                try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
-                                       in: source, validity: message.validity)
+                try await client.expunge(uid: message.uid, in: source, validity: message.validity)
             }
             shelf?.gone(id, from: source)
             return
