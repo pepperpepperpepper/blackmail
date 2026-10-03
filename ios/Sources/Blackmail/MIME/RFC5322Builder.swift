@@ -40,9 +40,12 @@ enum RFC5322Builder {
     ///     resend that must keep its identity). Left nil, a fresh UUID-based
     ///     id is minted against the sender's domain.
     ///   - inReplyToHeaders: the parent's Message-ID, plus the parent's own
-    ///     References header if it had one. Supplying this is the entire
+    ///     References header if it had one; for a reply reopened from
+    ///     Drafts, the draft's own In-Reply-To and References, the parent
+    ///     already last in them. Supplying this is the entire
     ///     difference between a reply that threads and a reply that starts a
-    ///     new conversation in the recipient's client.
+    ///     new conversation in the recipient's client. Only the ids in them
+    ///     are written (`messageIDs`).
     ///   - attachments: already-loaded bytes. Reading files is the caller's
     ///     job, so this stays synchronous and pure.
     ///   - htmlBody: the same letter as markup, when it has one. Passing it
@@ -206,21 +209,26 @@ enum RFC5322Builder {
         headers += headerLine("Message-ID", angled(messageID ?? freshMessageID(for: senderAddress)))
 
         if let reply = inReplyToHeaders {
-            let parent = angled(reply.messageID)
-            if !parent.isEmpty {
-                headers += headerLine("In-Reply-To", parent)
+            // The ids alone, each `<…>`, from whatever the header held: a
+            // reply's parent is a Message-ID as the parent wrote it, and a
+            // reply reopened from Drafts brings the draft's own In-Reply-To
+            // and References, which another client may have written with a
+            // comment, several ids, or a line break in them (B-064).
+            let parents = messageIDs(in: reply.messageID)
+            if !parents.isEmpty {
+                headers += headerLine("In-Reply-To", parents.joined(separator: " "))
                 // References is the whole ancestry, oldest first, with the
                 // immediate parent last. Threading in Gmail and Apple Mail
                 // walks this chain; In-Reply-To alone only links one hop and
                 // loses the thread as soon as a middle message is missing.
-                var references = headerSafe(reply.references ?? "")
-                    .trimmingCharacters(in: .whitespaces)
-                if references.isEmpty {
-                    references = parent
-                } else if !references.hasSuffix(parent) {
-                    references += " " + parent
-                }
-                headers += headerLine("References", references)
+                // A reply reopened from Drafts has its parent in References
+                // already, and it is not added again; one another client
+                // listed earlier in it is moved to the end, where readers
+                // look for it.
+                let parentSet = Set(parents)
+                let references = messageIDs(in: reply.references ?? "")
+                    .filter { !parentSet.contains($0) } + parents
+                headers += headerLine("References", references.joined(separator: " "))
             }
         }
 
@@ -392,6 +400,94 @@ enum RFC5322Builder {
         if !t.hasPrefix("<") { t = "<" + t }
         if !t.hasSuffix(">") { t += ">" }
         return t
+    }
+
+    /// The message ids in an In-Reply-To or a References, each `<…>`, once
+    /// each, in the order written.
+    ///
+    /// What a reply's threading headers are made of (B-064). A fresh reply
+    /// hands over its parent's Message-ID and References as the parent
+    /// wrote them; a reply reopened from Drafts, the draft's own
+    /// In-Reply-To and References, which another client may have written
+    /// in any of the shapes mail has used:
+    ///
+    /// - several ids, a letter answering more than one: each is kept;
+    /// - a comment or a phrase beside the id, `<id> (Jane's letter of
+    ///   Monday)`, as older clients wrote: left out;
+    /// - an id folded over two lines: its white space is taken out;
+    /// - an id without its brackets, as some senders write a Message-ID:
+    ///   bracketed, when it is the whole value, one word with an `@` in it;
+    /// - nothing like an id, `Your letter of Monday`: no id at all, and the
+    ///   reply then claims no parent.
+    ///
+    /// White space, control characters and line breaks inside an id, U+0085,
+    /// U+2028 and U+2029 among them, are taken out, and outside one they
+    /// only separate. So whatever line break the header held, each id is
+    /// one word on one line, and nothing after it can become a header of
+    /// its own.
+    static func messageIDs(in raw: String) -> [String] {
+        var ids: [String] = []
+        var seen: Set<String> = []
+        func add(_ id: String) {
+            guard id.count > 2, seen.insert(id).inserted else { return }
+            ids.append(id)
+        }
+        func separates(_ s: Unicode.Scalar) -> Bool {
+            s.properties.isWhitespace || s.properties.generalCategory == .control
+        }
+
+        // The id being read, after its `<`; nil outside one.
+        var id: String.UnicodeScalarView?
+        var bracketed = false
+        // Outside an id: inside a comment, how deep, or a quoted phrase,
+        // and whether the last character there was a backslash.
+        var depth = 0
+        var quoted = false
+        var escaped = false
+        for s in raw.unicodeScalars {
+            if var current = id {
+                switch s {
+                case ">":
+                    add("<" + String(current) + ">")
+                    id = nil
+                case "<":
+                    // The one before was never closed: read from here.
+                    id = String.UnicodeScalarView()
+                default:
+                    if !separates(s) {
+                        current.append(s)
+                        id = current
+                    }
+                }
+            } else if escaped {
+                escaped = false
+            } else if quoted {
+                if s == "\\" { escaped = true } else if s == "\"" { quoted = false }
+            } else if depth > 0 {
+                switch s {
+                case "\\": escaped = true
+                case "(": depth += 1
+                case ")": depth -= 1
+                default: break
+                }
+            } else {
+                switch s {
+                case "<":
+                    id = String.UnicodeScalarView()
+                    bracketed = true
+                case "(": depth = 1
+                case "\"": quoted = true
+                default: break
+                }
+            }
+        }
+        guard !bracketed else { return ids }
+        let words = raw.unicodeScalars.split(whereSeparator: separates).map(String.init)
+        if words.count == 1, let word = words.first, word.contains("@"),
+           !word.contains(where: { "<>()\"".contains($0) }) {
+            add("<" + word + ">")
+        }
+        return ids
     }
 
     // MARK: - Addresses

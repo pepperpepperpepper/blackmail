@@ -1670,6 +1670,11 @@ actor IMAPMailRepository: MailRepository {
             // corrupt an id that has to match byte for byte to thread.
             messageID: MIMEDecoder.headerValue("Message-ID", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
+            // Raw for the same reason. A draft's names the letter it
+            // answers, which a reply finished from Drafts must go on
+            // answering (B-064).
+            inReplyTo: MIMEDecoder.headerValue("In-Reply-To", in: headers)?
+                .trimmingCharacters(in: .whitespaces),
             references: MIMEDecoder.headerValue("References", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
             gmailMessageID: named,
@@ -2195,7 +2200,12 @@ actor IMAPMailRepository: MailRepository {
     }
 
     /// `nil` for a fresh letter, so no In-Reply-To is written at all — a new
-    /// message must not claim an ancestor.
+    /// message must not claim an ancestor. A reply has its In-Reply-To,
+    /// which names the letter answered, and References. Made by Reply, and
+    /// kept so on the iPad or in the Outbox, that is the letter answered's
+    /// own References, without it; reopened from Drafts, the draft's, which
+    /// ends with it already (`Draft.reopening`, B-064). The builder puts it
+    /// last either way.
     private static func threadHeaders(for draft: Draft) -> (messageID: String, references: String?)? {
         guard let parent = draft.inReplyTo?.trimmingCharacters(in: .whitespaces),
               !parent.isEmpty else { return nil }

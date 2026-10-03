@@ -99,6 +99,9 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var flags: Set<String> = []
         var messageID: String
         var inReplyTo: String?
+        /// Its References header, written as given; none when nil, as
+        /// every seeded letter has none.
+        var references: String? = nil
         /// Files after the words, which make it multipart/mixed.
         var files: [File] = []
         /// The Message-ID of a letter already here whose conversation this
@@ -1681,6 +1684,7 @@ private extension ScriptedIMAPServer {
         header += "Date: \(headerDate(letter.date))\r\n"
         header += "Message-ID: \(letter.messageID)\r\n"
         if let parent = letter.inReplyTo { header += "In-Reply-To: \(parent)\r\n" }
+        if let ancestry = letter.references { header += "References: \(ancestry)\r\n" }
         header += "MIME-Version: 1.0\r\n"
 
         func leaf(_ subtype: String, _ body: String) -> (headers: String, structure: String) {
@@ -1807,7 +1811,8 @@ private extension ScriptedIMAPServer {
                             date: fields["date"].flatMap(headerFormatter.date(from:)) ?? newestDate,
                             text: text, flags: flags,
                             messageID: fields["message-id"] ?? "<appended@example.com>",
-                            inReplyTo: fields["in-reply-to"])
+                            inReplyTo: fields["in-reply-to"],
+                            references: fields["references"])
         let lines = text.filter { $0 == "\n" || $0 == "\r\n" }.count
         return Stored(letter: letter, flags: flags, raw: raw,
                       sections: ["": raw, "HEADER": Data(headerBytes), "TEXT": body, "1": body],
