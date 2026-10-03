@@ -6537,3 +6537,43 @@ one conversation, "Carlo (2)".
   seen without one.
 - A long conversation's References grows by one id with each reply, as it
   always has. It is never shortened, which RFC 5322 allows.
+
+---
+
+## B-065 — CHANGED 2026-10-03, seen on the iPad. The folder pane drew Important blank while the Outbox's block was there
+
+**Found** on the iPad on 2026-10-03, in B-060's check, and the same with
+every letter put in the Outbox after it: a letter sent with no
+connection, and the moment the Outbox's block came under the folders,
+the Important row went blank, its icon, name and count gone and its
+separators still there. It came back when the Outbox emptied.
+
+**What it was.** The gap between two blocks of the pane is a footer
+under the upper one, a plain view painted the pane's colour. There was
+one footer, under the Inbox, until the Outbox's block came; then the
+folders had one too. A footer in a plain table floats: while the
+keyboard of the letter just sent was up, it was pinned just above the
+keyboard, and when the keyboard went it stayed where it had been
+pinned, at 304 points down, over Important's row at 292 to 336, as a
+build that logged the pane's views showed: every cell in its place and
+whole, Important's with its name, and the footer over it. Painted, it
+drew the row blank; a view like any other, it took the taps on the
+middle of the row.
+
+**Changed.** The footer is clear and takes no touch
+(`MailboxListViewController`). The table's own background is the
+gap's colour, so it looks as before, and a footer left where the
+keyboard pinned it hides nothing and stops nothing.
+
+**Tests.** The pane is UIKit, which the suite cannot run, so its source
+is read as other wiring is (`FolderCountsTests`): the footer is clear and
+takes no touch, and is not painted. Put back as it was, 2 failures.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox. Two letters put in
+the Outbox with no connection, the keyboard up for each: Important drawn
+with its count throughout, and a tap on the middle of its row opened it.
+
+**Not covered.** The footer is still left where the keyboard pinned it,
+only unseen now; the gap keeps its place, as the table keeps the room
+for it.
+
