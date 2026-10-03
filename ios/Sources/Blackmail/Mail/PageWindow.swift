@@ -123,11 +123,13 @@ enum PageWindow {
                       reachedOldest: takeOlder == olderAvailable)
     }
 
-    /// Which message a date lands on, given what the server's date SEARCH
-    /// matched.
+    /// Which message a date's window is fetched around, given what the
+    /// server's date SEARCH matched; where in it the jump lands is
+    /// `landing`, by his calendar.
     ///
-    /// `matches` is the UID set for "sent on or after that day", and arrived
-    /// no more than `IMAPDate.arrivalSlack` days before it (B-058). The one
+    /// `matches` is the UID set for "sent on or after that day", arrived no
+    /// more than `IMAPDate.arrivalSlack` days before it and no later than a
+    /// week after today (B-058). The one
     /// he wants is the OLDEST of them — the first letter of that day — not
     /// the newest, which would be today's mail.
     ///
@@ -143,5 +145,46 @@ enum PageWindow {
         // nearest UID the snapshot actually has, in the same direction.
         if ascending.contains(oldestMatch) { return oldestMatch }
         return ascending.first { $0 >= oldestMatch }
+    }
+
+    /// The row a jump lands on in its window, by his calendar: `dates` the
+    /// window's rows' dates, newest first, `anchor` the row the SEARCH
+    /// landed on (`anchor(forMatches:in:)`), `dayStart` midnight of the
+    /// day he asked for where he is, `searchedFrom` midnight UTC of that
+    /// same date, from which the SEARCH counted, and `notAfter` a week
+    /// after today.
+    ///
+    /// Gmail counts a day from midnight UTC, not from the day the Date
+    /// header gives, as RFC 3501 has it, nor from his midnight (B-058, seen
+    /// on the iPad). West of Greenwich the SEARCH matches the evening before
+    /// as well, from 8 pm in Boston in summer, and the jump landed on a
+    /// letter of that evening and said the day before. So a landing dated
+    /// before his day moves up, to the nearest newer row dated on or after
+    /// it. East of Greenwich the SEARCH misses his first hours, which were
+    /// the day before in UTC, so a landing moves down over the older rows
+    /// dated in those hours and no others: in Boston there are none, and a
+    /// row below the landing dated after his midnight is one the SEARCH left
+    /// out on purpose, dated wrong.
+    ///
+    /// A row dated after `notAfter`, more than a week ahead, is dated wrong
+    /// and is never landed on by this; a landing that is one moves up as
+    /// one dated before his day does. With no such row above it, the
+    /// landing stays where the SEARCH put it.
+    static func landing(dates: [Date], anchor: Int, dayStart: Date, searchedFrom: Date,
+                        notAfter: Date) -> Int {
+        guard dates.indices.contains(anchor) else { return anchor }
+        func onOrAfterHisDay(_ i: Int) -> Bool { dates[i] >= dayStart && dates[i] <= notAfter }
+        if !onOrAfterHisDay(anchor) {
+            for i in stride(from: anchor - 1, through: 0, by: -1) where onOrAfterHisDay(i) {
+                return i
+            }
+            return anchor
+        }
+        var landed = anchor
+        while landed + 1 < dates.count, dates[landed + 1] >= dayStart,
+              dates[landed + 1] < searchedFrom {
+            landed += 1
+        }
+        return landed
     }
 }

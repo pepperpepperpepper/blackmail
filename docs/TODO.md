@@ -60,7 +60,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             deleted. B-056.*
       - [x] Go to Date bounded by when a letter arrived, so one dated wrong
             into the future cannot take every jump
-            *Done 2026-10-01, seen on the iPad. B-058.*
+            *Done 2026-10-01, seen on the iPad. B-058.* And on 2026-10-03,
+            seen on the iPad: one copied in with a wrong arrival cannot
+            either, and a jump lands on his day, not the evening before.
       - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
       - [x] the reading pane runs no letter's script and goes nowhere by

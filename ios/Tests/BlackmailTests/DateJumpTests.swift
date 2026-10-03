@@ -184,4 +184,70 @@ final class DateJumpTests: XCTestCase {
         let all = Set(above) .union(w.uids) .union(below)
         XCTAssertEqual(all.count, above.count + w.uids.count + below.count)
     }
+
+    // MARK: - Landing on his day (B-058)
+
+    /// Hours from midnight of his day: the window's rows' dates, newest
+    /// first, as `PageWindow.landing` is given them.
+    private func hours(_ list: [Double]) -> [Date] {
+        list.map { Date(timeIntervalSince1970: 1_000_000 + $0 * 3_600) }
+    }
+    private var midnight: Date { Date(timeIntervalSince1970: 1_000_000) }
+    /// Midnight UTC of his date, from which Gmail's SEARCH counted: four
+    /// hours before his midnight in Boston, nine after it in Tokyo.
+    private var boston: Date { midnight.addingTimeInterval(-4 * 3_600) }
+    private var tokyo: Date { midnight.addingTimeInterval(9 * 3_600) }
+    /// A week after today, past which a row is dated wrong.
+    private var notAfter: Date { midnight.addingTimeInterval(30 * 86_400) }
+
+    private func land(_ list: [Double], _ anchor: Int, from searchedFrom: Date) -> Int {
+        PageWindow.landing(dates: hours(list), anchor: anchor, dayStart: midnight,
+                           searchedFrom: searchedFrom, notAfter: notAfter)
+    }
+
+    /// The SEARCH landed on 9.30 pm the evening before: up to the nearest
+    /// newer row on or after his day, past newer rows of that evening too.
+    /// On a day with no mail of its own, that is the next day's first.
+    func testALandingTheEveningBeforeMovesUpToHisDay() {
+        XCTAssertEqual(land([30, 9, -1, -2.5, -30], 3, from: boston), 1)
+        XCTAssertEqual(land([50, -1, -2], 1, from: boston), 0)
+    }
+
+    /// East of Greenwich the SEARCH landed on his day after its first
+    /// hours: down over the older rows of those hours, and no further, not
+    /// past a row of the day before to one of his day beyond it.
+    func testALandingOnHisDayMovesDownOverItsFirstHoursAlone() {
+        XCTAssertEqual(land([20, 10, 2, 1, -5], 1, from: tokyo), 3)
+        XCTAssertEqual(land([20, 10, -5], 1, from: tokyo), 1)
+        XCTAssertEqual(land([20, 10, -5, 3], 1, from: tokyo), 1)
+    }
+
+    /// West of Greenwich there are no such hours: a row below the landing
+    /// dated on or after his day is one the SEARCH left out, dated wrong
+    /// (it arrived long before), and is not moved onto.
+    func testWestOfGreenwichALandingNeverMovesDown() {
+        XCTAssertEqual(land([20, 10, 2, 1, -5], 1, from: boston), 1)
+        XCTAssertEqual(land([20, 10, 24.0 * 5], 1, from: boston), 1)
+    }
+
+    /// A letter stamped at his midnight is on his day: landed on from the
+    /// evening before, and not moved up from.
+    func testHisMidnightIsHisDay() {
+        XCTAssertEqual(land([5, 0, -1], 2, from: boston), 1)
+        XCTAssertEqual(land([5, 0, -1], 1, from: boston), 1)
+    }
+
+    /// A row dated more than a week ahead is dated wrong and never landed
+    /// on, above or below; a landing that is one moves up as one dated
+    /// before his day does; with no row on or after his day above it, the
+    /// landing stays where the SEARCH put it.
+    func testARowDatedWrongIsNeverLandedOnAndNoneOfHisDayStays() {
+        let wrong = 24.0 * 365 * 10
+        XCTAssertEqual(land([wrong, -1, -3], 1, from: boston), 1)
+        XCTAssertEqual(land([5, 3, wrong, -4], 1, from: tokyo), 1)
+        XCTAssertEqual(land([5, wrong, -1], 1, from: boston), 0)
+        XCTAssertEqual(land([-1, -2], 1, from: boston), 1)
+        XCTAssertEqual(PageWindow.landing(dates: [], anchor: 0, dayStart: midnight,
+                                          searchedFrom: boston, notAfter: notAfter), 0)
+    }
 }

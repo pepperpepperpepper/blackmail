@@ -15,6 +15,10 @@ final class IMAPDateTests: XCTestCase {
         return f.date(from: iso)!
     }
 
+    /// The iPad's clock in these tests: 3 October 2026, so a letter must
+    /// have arrived before the 11th.
+    private var now: Date { date("2026-10-03T12:00:00Z") }
+
     // MARK: - The wire
 
     func testTheFormatIsTheOneRFC3501Specifies() {
@@ -62,9 +66,9 @@ final class IMAPDateTests: XCTestCase {
         // delayed overnight has two different dates, and jumping on the
         // wrong one lands on a row whose visible date is not the one he
         // asked for.
-        let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"),
+        let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"), now: now,
                                        timeZone: TimeZone(identifier: "UTC")!)
-        XCTAssertEqual(s, "SENTSINCE \"20-Jun-2026\" SINCE \"13-Jun-2026\"")
+        XCTAssertEqual(s, "SENTSINCE \"20-Jun-2026\" SINCE \"13-Jun-2026\" BEFORE \"11-Oct-2026\"")
         XCTAssertFalse(s.hasPrefix("SINCE"))
     }
 
@@ -74,15 +78,30 @@ final class IMAPDateTests: XCTestCase {
     func testTheArrivalBoundIsAWeekBeforeTheDayHePicked() {
         XCTAssertEqual(IMAPDate.arrivalSlack, 7)
         let utc = TimeZone(identifier: "UTC")!
-        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-01-03T12:00:00Z"), timeZone: utc),
-                       "SENTSINCE \"03-Jan-2026\" SINCE \"27-Dec-2025\"")
-        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2024-03-06T12:00:00Z"), timeZone: utc),
-                       "SENTSINCE \"06-Mar-2024\" SINCE \"28-Feb-2024\"")
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-01-03T12:00:00Z"), now: now, timeZone: utc),
+                       "SENTSINCE \"03-Jan-2026\" SINCE \"27-Dec-2025\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2024-03-06T12:00:00Z"), now: now, timeZone: utc),
+                       "SENTSINCE \"06-Mar-2024\" SINCE \"28-Feb-2024\" BEFORE \"11-Oct-2026\"")
         // An evening in New York on the last of February is the first of
         // March in UTC.
-        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-01T03:00:00Z"),
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-01T03:00:00Z"), now: now,
                                               timeZone: TimeZone(identifier: "America/New_York")!),
-                       "SENTSINCE \"28-Feb-2026\" SINCE \"21-Feb-2026\"")
+                       "SENTSINCE \"28-Feb-2026\" SINCE \"21-Feb-2026\" BEFORE \"11-Oct-2026\"")
+    }
+
+    /// A letter must have arrived before a week from today, counted in his
+    /// days from the iPad's clock (B-058): one copied into Gmail saying it
+    /// arrived in 2037 is left out while 2037 is ahead. Across the turn of
+    /// a year, and on his evening that is the next day in UTC.
+    func testTheArrivalMustBeBeforeAWeekFromToday() {
+        let utc = TimeZone(identifier: "UTC")!
+        XCTAssertTrue(IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"),
+                                             now: date("2026-12-28T12:00:00Z"), timeZone: utc)
+            .hasSuffix(" BEFORE \"05-Jan-2027\""))
+        XCTAssertTrue(IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"),
+                                             now: date("2026-10-04T02:00:00Z"),
+                                             timeZone: TimeZone(identifier: "America/New_York")!)
+            .hasSuffix(" BEFORE \"11-Oct-2026\""))
     }
 
     /// The week back is seven of his days, not seven times 24 hours: half
@@ -90,18 +109,18 @@ final class IMAPDateTests: XCTestCase {
     /// still the third a week before, not the second.
     func testTheWeekBackIsCountedInDaysAcrossAClockChange() {
         let newYork = TimeZone(identifier: "America/New_York")!
-        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-10T04:30:00Z"), timeZone: newYork),
-                       "SENTSINCE \"10-Mar-2026\" SINCE \"03-Mar-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnOrAfter(date("2026-03-10T04:30:00Z"), now: now, timeZone: newYork),
+                       "SENTSINCE \"10-Mar-2026\" SINCE \"03-Mar-2026\" BEFORE \"11-Oct-2026\"")
     }
 
     func testTheCriteriaCarriesNothingThatCouldBreakTheCommandLine() {
         // Unlike a search term this is machine-made, but it is still
         // concatenated into a command, and the client strips only
         // NUL/CR/LF.
-        let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"))
+        let s = IMAPDate.sentOnOrAfter(date("2026-06-20T12:00:00Z"), now: now)
         XCTAssertFalse(s.contains("\n"))
         XCTAssertFalse(s.contains("\r"))
-        XCTAssertEqual(s.filter { $0 == "\"" }.count, 4)
+        XCTAssertEqual(s.filter { $0 == "\"" }.count, 6)
     }
 
     // MARK: - The screen
