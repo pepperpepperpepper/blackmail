@@ -118,8 +118,16 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       address where there is none, To the same; a name with a comma in it
       is one recipient; and since 2026-10-01 there from the tap, from the
       row's ENVELOPE. See B-055.*
-- [ ] Reply ignores Reply-To; replying to his own letter addresses it to
-      himself; Reply All misses his second address.
+- [x] Reply ignores Reply-To; replying to his own letter addresses it to
+      himself; Reply All misses his second address. *Done 2026-10-03, seen
+      on the iPad: Reply goes to the Reply-To, his own letter to
+      whom it went, a letter from several to them all, and Reply All keeps
+      the To in To and the Cc in Cc, names and all, each once and each on
+      one line, and leaves out his address in every spelling Gmail
+      delivers to him. His second address, on another domain, is his only
+      once the owner says how the app is to know it (under "Blocked on the
+      owner"). See B-061, and its check under "Blocked on the iPad coming
+      back".*
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
       app's composer with the link's To, Cc, Bcc, Subject and Body and his
       signature (`MailtoLink`, B-036), and the app declares the scheme for
@@ -1257,6 +1265,37 @@ this host. Ordered by value, not by size.
       crash does, with neither the background nor
       `applicationWillTerminate`: write that into B-057, with what step 1's
       swipe left in `Launches/unfinished`.
+- [x] **B-061, Reply and Reply All addressed as Mail addresses them.**
+      Every letter here goes from the test account to itself; A stands for
+      its address, `name@gmail.com` say. A letter from someone else with a
+      Reply-To, one from several, and one whose names are broken over
+      lines cannot be made that way, and are the suite's
+      (`ReplyAddressingRepositoryTests`).
+      1. *His address in other spellings.* In the app, write a letter To A,
+      Cc A with a dot put in its name (`na.me@gmail.com`) and A with
+      `+b061` before the @ and `googlemail.com` after it
+      (`name+b061@googlemail.com`), subject "B-061 spellings", Send. It
+      arrives in the Inbox. Open it there and Reply: To is A alone, and the
+      Cc row is closed. Cancel, Delete Draft. Reply All: the same, To A
+      alone and nothing in Cc, where the build before put the two other
+      spellings in Cc. Cancel, Delete Draft.
+      2. *A name with a comma.* Write a letter To `"Example, Test" <A>`,
+      typed or pasted whole, quotes and all, subject "B-061 name", Send.
+      Open it in Sent Mail and Reply: To reads `"Example, Test" <A>`, one
+      recipient. Type a word and Send: the connection log has one `RCPT
+      TO:<A>` for it, the reply arrives in the Inbox once, and Show
+      original on Gmail's web page has `To: "Example, Test" <A>`.
+      3. *Through Drafts.* Open the letter of step 2 again, Reply All, type
+      a word, Cancel, Save Draft. Open it from Drafts: To still reads
+      `"Example, Test" <A>`, one recipient. Send: one `RCPT TO:<A>`, and
+      it arrives once.
+      4. *Forward.* Forward the letter of step 1: To and Cc are empty.
+      Cancel, Delete Draft.
+      *Seen on the iPad 2026-10-03, on carlo's mailbox, whose domain is
+      not Gmail's: step 1 with A with capitals and A with `+b061`, the
+      capitals left out and the tag kept, as on any domain but Gmail's.
+      Steps 2 to 4 as written. The letter sent from the draft lost its
+      In-Reply-To: B-064.*
 
 ## Blocked on the owner
 
@@ -1292,6 +1331,27 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
       *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
       carry it, and the header has its line from the tap.*
+- [ ] **Reply's addressing** (B-061) — built as Mail is believed to do it,
+      none of it checked against Mail on an iPad. Reply All to a letter
+      with a Reply-To goes to the Reply-To in place of the From, or to
+      both; the composer's To shows "Jane Example <jane@example.com>", or
+      the address alone as before; Reply All keeps the letter's To in To
+      and its Cc in Cc, or puts everyone in Cc as before; a Cc left alone
+      moves up to To, or the reply goes with no To; his own letter's
+      Reply-To is not followed, or it is.
+- [ ] **His second address** (B-061) — Gmail sends as it and delivers it
+      to him, and the app cannot tell it is his, so a Reply All to a
+      letter that names it sends it a copy, which comes back to his Inbox.
+      Leave it; or a line in Settings where his other addresses are
+      written once, as Mail's account has them under its Email; or the
+      From addresses of Sent Mail taken as his at sign-in, which would
+      take a stranger for him if a letter of theirs were ever moved into
+      Sent Mail.
+- [ ] **Reply to his own letter sent by Bcc alone** (B-061) — a copy in
+      Sent Mail from Gmail's web page keeps its Bcc header, and Reply
+      answers it to himself, as built. Or to its Bcc recipients, in Bcc,
+      or in To. A letter sent from Blackmail never has a Bcc header in Sent
+      Mail, so this is only ever a letter he sent from elsewhere.
 
 ## Open, recorded, not scheduled
 

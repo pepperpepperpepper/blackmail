@@ -828,6 +828,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// and `Draft.forwarding`, which are pure and live in the model layer —
     /// three separate bugs have been found in that logic and none of them
     /// were visible on this screen, so it belongs where a test can reach it.
+    ///
+    /// `m` is the letter the pane shows, which in a conversation is the one
+    /// opened last (`focusLetter`): a Reply answers that letter, to its
+    /// Reply-To, or to whom it went when it is his own (`ReplyAddressing`).
+    /// Every address of his the app knows is handed in, the login as well
+    /// as the address, so that none of them is sent a copy of his reply.
     private func openCompose(replyTo m: Message?, all: Bool, forward: Bool) {
         let account = CredentialStore.loadAccount()
         let signature = account?.signature ?? ""
@@ -835,7 +841,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         if let m {
             draft = forward
                 ? .forwarding(m, signature: signature)
-                : .replying(to: m, all: all, myAddress: account?.address,
+                : .replying(to: m, all: all, mine: OwnAddresses(account: account),
                             signature: signature)
         }
         let compose = ComposeViewController(repository: repository, draft: draft)

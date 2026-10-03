@@ -108,6 +108,21 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         /// arrives. Set apart for a letter delayed, or one dated wrong.
         var arrived: Date? = nil
 
+        /// Its Reply-To header, an address each: none for a letter without
+        /// one, whose ENVELOPE then carries the From in its place, as RFC
+        /// 3501 has a server do.
+        var replyTo: [Address] = []
+
+        /// Its authors after `from`, for a letter written by several, whose
+        /// From then names them all, `from` first, and so do its ENVELOPE's
+        /// from, sender and, with no Reply-To, reply-to, as RFC 3501 has a
+        /// server fill them for a letter with no Sender. None for nearly
+        /// every letter.
+        var alsoFrom: [Address] = []
+
+        /// Everyone in its From.
+        var authors: [Address] { [from] + alsoFrom }
+
         /// INTERNALDATE: when it arrived.
         var arrival: Date { arrived ?? date }
     }
@@ -1633,7 +1648,8 @@ private extension ScriptedIMAPServer {
         wire.string(headerDate(letter.date))
         wire.text(" ")
         wire.string(letter.subject)
-        for list in [[letter.from], [letter.from], [letter.from], letter.to, letter.cc, []] {
+        for list in [letter.authors, letter.authors, letter.replyTo.isEmpty ? letter.authors : letter.replyTo,
+                     letter.to, letter.cc, []] {
             wire.text(" ")
             addresses(list)
         }
@@ -1647,10 +1663,13 @@ private extension ScriptedIMAPServer {
     // MARK: Rendering a letter
 
     static func render(_ letter: Letter) -> (raw: Data, sections: [String: Data], structure: String) {
-        var header = "From: \(letter.from.formatted)\r\n"
+        var header = "From: \(letter.authors.map(\.formatted).joined(separator: ", "))\r\n"
         header += "To: \(letter.to.map(\.formatted).joined(separator: ", "))\r\n"
         if !letter.cc.isEmpty {
             header += "Cc: \(letter.cc.map(\.formatted).joined(separator: ", "))\r\n"
+        }
+        if !letter.replyTo.isEmpty {
+            header += "Reply-To: \(letter.replyTo.map(\.formatted).joined(separator: ", "))\r\n"
         }
         header += "Subject: \(letter.subject)\r\n"
         header += "Date: \(headerDate(letter.date))\r\n"

@@ -151,8 +151,15 @@ final class ReadingPaneCcTests: XCTestCase {
         XCTAssertEqual(m.cc, ["\"Example, Pat\" <pat@example.com>", "lee@example.com"])
         XCTAssertEqual(MailFormat.recipientsLine("To", m.to), "To: Sam Example, Example, J\u{00E9}r\u{00F4}me")
         XCTAssertEqual(MailFormat.recipientsLine("Cc", m.cc), "Cc: Example, Pat, lee@example.com")
-        XCTAssertEqual(Draft.replying(to: m, all: true, myAddress: "sam@example.com").cc,
-                       ["jerome@example.com", "pat@example.com", "lee@example.com"])
+        // To in To and Cc in Cc, as Mail addresses a Reply All, each with
+        // its name, and the comma that came out of an encoded word quoted,
+        // so the composer's field keeps it one recipient (B-061).
+        let all = Draft.replying(to: m, all: true, myAddress: "sam@example.com")
+        XCTAssertEqual(all.to, ["Jane Example <jane@example.com>",
+                                "\"Example, J\u{00E9}r\u{00F4}me\" <jerome@example.com>"])
+        XCTAssertEqual(all.cc, ["\"Example, Pat\" <pat@example.com>", "lee@example.com"])
+        XCTAssertEqual(MailFormat.addresses(in: all.to.joined(separator: ", ")), all.to)
+        XCTAssertEqual(MailFormat.addresses(in: all.cc.joined(separator: ", ")), all.cc)
     }
 
     // MARK: - Cc from the tap

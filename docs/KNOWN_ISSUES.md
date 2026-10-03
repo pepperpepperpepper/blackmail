@@ -5938,3 +5938,256 @@ the sweep owed after the mark went at once, and the counts read as the
 server's at the end. The second between was not caught on screen; the log
 line is what says the old count was not put back. The letters' read and
 unread marks were put back as they were found.
+
+---
+
+## B-061 — CHANGED 2026-10-03, seen on the iPad. Reply ignored Reply-To, answered his own letters to himself, and Reply All copied him under another spelling of his address
+
+**Found** in the gap review of 2026-09-30 ("Reply ignores Reply-To;
+replying to his own letter addresses it to himself; Reply All misses his
+second address"), and checked against the code. `Draft.replying` put the
+letter's From in To, whatever else the letter said:
+
+- A letter with a Reply-To was answered to its From. A mailing list sets
+  Reply-To to the list, a shop to its service desk, a friend writing from
+  work to the address at home. The ENVELOPE the list is fetched with has
+  the Reply-To (`IMAPEnvelope.replyTo`) and nothing read it; the letter the
+  pane shows, which Reply is made from, did not carry one at all.
+- A letter of his own was answered to himself: in Sent Mail, in a
+  conversation, and in the Inbox, where every letter he sends to his
+  second address comes back, about half of what he sends.
+- Reply All put everyone, the letter's To and its Cc, in Cc, took every
+  name off, and left him out only as the account spells his address, so
+  the same mailbox written another way, `Owner_Example@Gmail.com`,
+  `o.wner_example@gmail.com` or `owner_example+lists@googlemail.com`, all
+  of which Gmail delivers to him, was sent a copy of his own reply.
+- A letter with no From was answered to "(unknown sender)", the pane's
+  words for it, which Gmail refuses as an address.
+
+**His second address**, read from the headers of his own mailbox, nothing
+of it kept: an address on another domain that Gmail both sends as (Sent
+Mail has letters from it, the latest this July) and delivers to him
+(letters to it arrive in his Inbox, his own among them). So a Reply All to
+a letter that names it sends it a copy of his reply, which comes back to
+his Inbox. Nothing the app reads says that address is his: Mail knows such
+an address only when it has been added to the account, and IMAP does not
+list Gmail's send-as addresses. Learning it from the From addresses of
+Sent Mail was weighed and left: one letter of someone else's moved into
+Sent Mail would make that person him, and every Reply All after it would
+leave them out with nothing on screen to say so. Put to the owner (below).
+What the app can know is handled: every spelling Gmail delivers to the
+account's own mailbox, and the account's login.
+
+**Changed.** Whom a reply goes to is `ReplyAddressing`
+(`Model/ReplyAddressing.swift`), which runs on the host, and
+`Draft.replying` takes its To and Cc from it:
+
+1. A letter with one of his addresses in its From is his own. Reply goes
+   to its To, or, with nobody in To, its Cc; Reply All to its To and its
+   Cc, in the same fields. Its Reply-To is not looked at: it says where he
+   wanted others to answer him.
+2. Any other letter: Reply goes to its Reply-To when it has one, and to
+   everyone in its From otherwise, as RFC 5322 has it for a letter written
+   by several. Reply All goes to the same, then the letter's To, in To,
+   and its Cc, in Cc. The From is left out when there is a Reply-To, as
+   Gmail and Thunderbird leave it out and Mail is believed to: the sender
+   has asked for answers to go there instead.
+3. Each address once, compared bare and without regard to case, To before
+   Cc, with the name the letter first gave it, or a later one where the
+   first had none. An entry with no address in it, `undisclosed-recipients:;`
+   or the pane's "(unknown sender)", is no recipient. Each entry is one
+   line (below).
+4. His own addresses come out of both fields, unless that would leave the
+   reply going to nobody: then it goes to him, as a letter he sent himself
+   is answered to himself, and one he sent to nobody named, by Bcc alone,
+   too, at his address in its From. He is never otherwise sent a copy of
+   his own reply.
+5. With nobody left in To but someone in Cc, the Cc move up to To, so the
+   reply does not go with a Cc and no To at all.
+
+His addresses (`OwnAddresses`) are the account's address and its login,
+compared as the mailbox they reach: bare, without regard to case, and for
+gmail.com and googlemail.com, which are one, without the dots in the name
+or anything after a `+`, since Gmail delivers all of those to the same
+mailbox. Only for Gmail's own domains: another server may give
+`sam.example@example.org` and `samexample@example.org` to two people, and
+taking a stranger for him would leave the stranger out, unseen.
+
+The letter the pane shows carries its Reply-To (`Message.replyTo`), read
+from the letter's own header, as its To and Cc are, and not from the
+ENVELOPE, which a server fills with the From when there is none and so
+cannot say whether the letter had one. In a conversation, Reply answers the
+letter opened last, as before.
+
+The names are kept. Each entry is read in every form a header writes it
+(`MailFormat.recipient(in:)`): `Jane Example <jane@example.com>`, a quoted
+name, a name whose comma came out of an encoded word, the old
+`jane@example.com (Jane Example)`, a group's `Friends: jane@example.com;`.
+It is written back as the composer's field keeps it
+(`MailFormat.recipientEntry`), the name in quotes where it holds a comma or
+a quote. The composer's field, and the share sheet's, are now split between
+recipients and never inside quotes (`MailFormat.addresses(in:)` is
+`addressList`), so `"Example, Jane" <jane@example.com>` is one recipient
+where it was two, the first of them `"Example`, which mail cannot be sent
+to; a quote never closed is split at every comma, as before. A draft
+reopened from Drafts has its recipients written the same way
+(`Draft.reopening`), so a name whose comma came out of an encoded word is
+still one recipient when it comes back, and what cannot be read as an
+address is left as it came, on one line (below), for him to see. A quoted
+pair in a name goes out in the header once (`RFC5322Builder.recipient`),
+where its backslash was doubled.
+
+**Names broken over lines**, found in review on 2026-10-03, once the names
+went into a reply's To and Cc. A letter's header can carry a line break in
+a name, in an encoded word, and innocently: a Windows "…" sent as
+ISO-8859-1 is byte 0x85, which decodes as U+0085, NEXT LINE. The envelope
+took a recipient's address from the first line of its entry
+(`SMTPClient.envelopeAddress`, which cuts there so that a line break
+cannot add commands of its own), and the header from all of it, its last
+`<…>`. So a To named `<other@example.net>`, a line break, then `Sam`, with
+the address sam@example.org, sent the reply to other@example.net, an
+address never compared with his or anyone's, with Sam's in its header; and
+a From named `Jane`, U+2028, `Example` was answered with `RCPT TO:<Jane>`.
+Every line break and control character in a name, anything below U+0020,
+U+007F to U+009F, U+2028 and U+2029, is now a space, and any in an address
+is taken out (`MailFormat.recipient(name:address:)`), so each entry of a
+reply is one line and its last `<…>` is the address that was compared. A
+draft reopened from Drafts has its entries made one line the same way,
+with an address in them or not (`MailFormat.fieldEntry`). And the header
+now reads each entry's first line as the envelope does, the two through
+one function (`RFC5322Builder.recipientLine`), so whatever else puts a
+line break in a field, a `mailto:` link's `%0A` among them, the To and Cc
+the letter shows are whom it went to.
+
+**A From of several**, found in the same review. `jane@example.com,
+sam@example.org` was read as one entry, the whole From decoded
+(`Message.sender`): Reply addressed an entry that was nobody's, which the
+composer's field then split, so it went to both by accident, or, with
+names, to the last alone with the others taken for its name; and a letter
+of his written with someone else was not his. The letter now carries its
+From an entry per address (`Message.from`), split as its To is, before
+the encoded words are decoded, so a name whose comma came out of one is
+still one author. Reply goes to every one of them, and the letter is his
+own if any of them is him; sent by Bcc alone, it is answered to his
+address in its From, and not to whoever wrote it with him.
+
+Forward is unchanged: it goes to nobody until he says.
+
+**What he sees.** The composer's To has the name with the address, "Jane
+Example <jane@example.com>", where it had the address alone, and a name
+with a comma in quotes. Reply All has the letter's sender and To in To and
+its Cc in Cc, where everyone was in Cc. A name the letter broke over
+lines reads on one line. No new words.
+
+**Tests.** `ReplyAddressingTests` (32): each rule on its own, the Reply-To
+(a list's, several, one that is the From, one with no address in it), his
+own letter (to others, to himself, to himself and Jane, with only a Cc, by
+Bcc alone, its Reply-To not followed, in every spelling of his address), a
+letter from several answered to each of them, and one he wrote with Jane
+his own, answered to him alone when sent by Bcc alone, his addresses in
+Gmail's spellings and not in another domain's, the login, a letter with no
+From, once each with names across To and Cc, every form of an entry, a
+name broken by every kind of line break and control character made one
+line in every form of an entry and in a reply, the field and the letter's
+header giving them back, Forward; and 3,000 letters made up from awkward
+entries, now and then two authors and names broken over lines among them,
+Reply and Reply All of each, holding every rule at once, every entry one
+line whose last `<…>` is the address compared. `ReplyAddressingRepositoryTests`
+(8), over the shipping repository and the scripted server, which now
+writes a letter's Reply-To and puts it in the ENVELOPE, the From in its
+place when there is none (`ScriptedIMAPServer.Letter.replyTo`), and a From
+of several (`alsoFrom`): the Reply-To read from the header, and none for a
+letter without one; a Reply All sent, its RCPT TOs and its To and Cc with
+their names; his own letter in Sent Mail; a reply saved to Drafts and
+reopened with each recipient once; names broken by a line feed, by U+2028
+and by an ISO-8859-1 0x85 in a letter's From, To and Cc, Reply and Reply
+All sent, every RCPT TO the angle address of its entry, the header naming
+the same people and no entry holding a line break; a draft saved elsewhere
+with such names, and a name with no address, reopened all on one line and
+sent to its addresses; a `mailto:` link with line breaks in its To and Cc,
+the header naming whom the envelope sends to; and a letter from several,
+its encoded name's comma kept, sent to them all, and one of his written
+with Jane, his own. `ReplyAddressingWiringTests` (1), from the view
+controller's source: Reply made from the letter the pane shows, with every
+address of his the account has. Three tests that pinned the old shape were
+changed: `ReplyForwardTests.testReplyAllNeverCCsTheSenderOfTheReply`, now
+with To in To; `testReplyAllStripsDisplayNamesFromTheCCList`, now
+`testReplyAllKeepsANameWithACommaAsOneRecipient`; and
+`ReadingPaneCcTests.testALettersToAndCcAreReadOneAddressEach`, To and Cc
+with their names. Each fails with its part undone, 32 sabotages one at a
+time, the full suite each time, all of them run again on 2026-10-03 with
+the tests as they stand, failures as XCTest counts them: the Reply-To not
+followed (12 failures), not read from the letter (4), his own letter
+answered as anyone's (16), its Reply-To followed (3), the From kept beside
+a Reply-To in Reply All (5), Reply All all in Cc, as before (34), Gmail's
+spellings not made one (6), the login not his (1), the app's Reply knowing
+only the account's address (1), him not taken out (33), a letter to him
+alone answered to nobody (9), a Cc left alone not moved up to To (3),
+addresses not made once each (5), the names dropped (107), a name with a
+comma not quoted (38), an entry with no address taken for a recipient
+(17), a group's name taken for an address (4), a name written as a comment
+taken for part of the address (4), an entry it cannot read dropped from a
+reopened draft (3), the composer's field split at every comma (7), a
+reopened draft's recipients taken as they came (7), a quoted pair sent
+with its backslash doubled (1), a line break left in a name (78), a
+control character left in an address (6), a reopened draft's entry with
+no address left on two lines (2), only the characters below U+0020 taken
+for line breaks, so not U+0085, U+2028 or U+2029 (53), the From read as
+one entry (10), the From's entries not read from the letter (5), a letter
+his only when the first in its From is him (6), his own letter by Bcc
+alone answered to everyone in its From (3), the header reading an entry
+past its first line, as before (2), and the envelope reading past it, so
+that the two disagree again (1). `LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff`,
+which fails now and then with the machine busy and has nothing to do with
+replies, failed in none of these runs.
+
+**Decided as Mail is believed to do it, put to the owner.** None of these
+was checked against Mail on an iPad.
+
+- *Reply All with a Reply-To* goes to the Reply-To in place of the From.
+  Or to both.
+- *Names in the composer's To*: "Jane Example <jane@example.com>". Or the
+  address alone, as before, the names still going out in the letter.
+- *Reply All's fields*: the letter's To in To, its Cc in Cc. Or everyone
+  in Cc, as before.
+- *A Cc left alone* moves up to To. Or the reply goes with a Cc and no To.
+- *His own letter's Reply-To* is not followed. Or it is, as for anyone
+  else's.
+- *His second address*: left as it is, a copy of a Reply All going to it
+  and coming back to his Inbox. Or a line in Settings where his other
+  addresses are written once, as Mail's account has them under its Email;
+  or the From addresses of Sent Mail taken as his at sign-in, with the
+  risk above.
+- *His own letter sent by Bcc alone*, a copy in Sent Mail from Gmail's web
+  page, which keeps its Bcc header, is answered to himself. Or to its Bcc
+  recipients, in Bcc, or in To. A letter sent from Blackmail never has a
+  Bcc header in Sent Mail, so this is only ever a letter he sent from
+  elsewhere.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox, every letter from it
+to itself, A standing for its address. carlo's address is on a domain of
+its own, not Gmail's, so a dot in the name and googlemail.com could not be
+tried there: on another domain they are other people. A letter To A, Cc
+A with capitals and A with `+b061`: Reply was To A alone with the Cc row
+closed; Reply All left out the capitals and put the `+b061` spelling in
+To alone, as the rule has it for every domain but Gmail's, though Gmail
+does deliver that one to carlo. His own address is at gmail.com, where
+the suite has the tag made one. A letter To `"Example, Test" <A>`, opened
+in Sent Mail: Reply read `"Example, Test" <A>`, one recipient; sent, the
+log had one `RCPT TO:<A>`, Gmail's ENVELOPE for it the To `("Example,
+Test" NIL …)`, one name, and it arrived once. Reply All to it, a word,
+Save Draft, opened from Drafts: the same To, one recipient; sent, one
+`RCPT TO:<A>`, and it arrived once. Forward: To and Cc empty. The letter
+sent from the draft had no In-Reply-To, though the draft had one, and
+began a conversation of its own: B-064.
+
+**Not covered.** A From of several is answered to every one of them, as
+RFC 5322 has it; how Mail answers one was not checked. A Reply-To of his
+on someone else's letter is followed, as the letter asks. An entry broken
+over lines that a reply did not make, a `mailto:` link's `%0A`, goes to
+its first line alone, as it always has, and now says so in the header.
+`Sender:` and a list's `List-Post:` are not read; Mail has no Reply to
+List. A suggestion picked in the field takes the place of what follows its
+last comma, as it always has, so one picked while the field ends in a
+quoted name cut short after its comma would take the place of the rest of
+that name.
