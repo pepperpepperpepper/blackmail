@@ -1093,6 +1093,11 @@ this host. Ordered by value, not by size.
       on the iPad 2026-09-30; older than the kept copy.
       *Done 2026-10-01, seen on the iPad: each folder found in its
       block. B-059.*
+- [x] The folder pane draws Important blank while the Outbox's block is
+      under the folders, and its middle takes no tap: the gap's footer,
+      painted, left where the keyboard pinned it. Seen on the iPad
+      2026-10-03. *Done the same day, seen on the iPad: the footer is
+      clear and lets taps through. B-065.*
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
