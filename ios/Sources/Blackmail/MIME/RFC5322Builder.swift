@@ -405,8 +405,11 @@ enum RFC5322Builder {
     /// cannot make sense of is passed through as a bare address rather than
     /// dropped — a message that goes to a slightly odd address beats one that
     /// silently loses a recipient.
+    ///
+    /// Read from the entry's first line (`recipientLine`), as the envelope
+    /// reads it, so that the header names whom the letter goes to.
     private static func recipient(_ raw: String) -> String? {
-        let t = headerSafe(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        let t = headerSafe(recipientLine(raw)).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return nil }
 
         guard let open = t.lastIndex(of: "<"),
@@ -420,9 +423,42 @@ enum RFC5322Builder {
 
         var name = String(t[t.startIndex..<open]).trimmingCharacters(in: .whitespaces)
         if name.count >= 2, name.hasPrefix("\""), name.hasSuffix("\"") {
-            name = String(name.dropFirst().dropLast())
+            // The name inside the quotes, a quoted pair as the character it
+            // stands for, before `addressValue` quotes it again. Left as it
+            // was, `"Sam \"The Gardener\""` went out with its backslashes
+            // doubled, and the name arrived with them in it. A reply keeps
+            // its recipients' names since B-061, so such a name now comes
+            // from the letter replied to as well as from his typing.
+            var unescaped = ""
+            var escaped = false
+            for c in name.dropFirst().dropLast() {
+                if escaped || c != "\\" {
+                    unescaped.append(c)
+                    escaped = false
+                } else {
+                    escaped = true
+                }
+            }
+            name = unescaped
         }
         return addressValue(name: name.isEmpty ? nil : name, address: address)
+    }
+
+    /// The part of a recipient entry the letter is addressed by: the entry
+    /// up to its first line break (`Character.isNewline`), blanks around it
+    /// left out. The header's To and Cc are read from this, and so is the
+    /// envelope's RCPT TO (`SMTPClient.envelopeAddress`), which is why it is
+    /// one function: the two once read an entry broken over lines
+    /// differently, the envelope its first line and the header all of it,
+    /// so that `sam@example.org<LF><other@example.net>` went to Sam with
+    /// other@example.net in its header, and a name broken by U+2028 or
+    /// U+0085, which a reply copied from the letter it answered, went to
+    /// the name's first word with the right address in the header. A
+    /// reply's entries are on one line since (`MailFormat.recipient(name:
+    /// address:)`); this is for whatever else puts a line break in a field,
+    /// a `mailto:` link's `%0A` among them.
+    static func recipientLine(_ entry: String) -> String {
+        String(entry.trimmingCharacters(in: .whitespacesAndNewlines).prefix { !$0.isNewline })
     }
 
     /// One `name-addr`, with the display name quoted or RFC 2047 encoded as

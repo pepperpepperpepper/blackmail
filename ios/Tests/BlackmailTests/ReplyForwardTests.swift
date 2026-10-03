@@ -163,17 +163,24 @@ final class ReplyForwardTests: XCTestCase {
                         cc: ["jane@example.com"])
         let draft = Draft.replying(to: m, all: true, myAddress: "carlo@example.com")
 
-        XCTAssertFalse(draft.cc.contains { $0.lowercased().contains("carlo") },
+        XCTAssertFalse((draft.to + draft.cc).contains { $0.lowercased().contains("carlo") },
                        "his own address, in any casing, must not come back at him")
-        XCTAssertFalse(draft.cc.contains("jane@example.com"),
-                       "the sender is already on the To line")
-        XCTAssertEqual(draft.cc, ["bob@example.com"])
+        // The letter's To stays in To, as Mail keeps it (B-061), and the
+        // sender, already there, is not copied again from the Cc.
+        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>", "bob@example.com"])
+        XCTAssertEqual(draft.cc, [])
     }
 
-    func testReplyAllStripsDisplayNamesFromTheCCList() {
+    /// A name with a comma in it stays one recipient, its name kept as the
+    /// letter gave it (B-061), where it used to be stripped to the address
+    /// so that the composer's field, split at every comma, would not make
+    /// two of it. The field now splits between recipients only.
+    func testReplyAllKeepsANameWithACommaAsOneRecipient() {
         let m = message(text: "hi", to: ["\"Smith, Bob\" <bob@example.com>"])
-        XCTAssertEqual(Draft.replying(to: m, all: true, myAddress: "me@x.com").cc,
-                       ["bob@example.com"])
+        let draft = Draft.replying(to: m, all: true, myAddress: "me@x.com")
+        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>",
+                                  "\"Smith, Bob\" <bob@example.com>"])
+        XCTAssertEqual(MailFormat.addresses(in: draft.to.joined(separator: ", ")), draft.to)
     }
 
     func testPlainReplyCCsNobody() {

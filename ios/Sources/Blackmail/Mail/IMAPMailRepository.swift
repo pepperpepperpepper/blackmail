@@ -1652,6 +1652,8 @@ actor IMAPMailRepository: MailRepository {
             to: addresses("To"),
             cc: addresses("Cc"),
             bcc: addresses("Bcc"),
+            replyTo: addresses("Reply-To"),
+            from: addresses("From"),
             subject: header("Subject") ?? "",
             date: Self.parseDate(header("Date")) ?? Date(),
             textBody: decoded.text,

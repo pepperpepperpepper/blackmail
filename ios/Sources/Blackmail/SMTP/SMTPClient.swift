@@ -492,8 +492,12 @@ actor SMTPClient {
     /// brackets and quietly send the mail to `them@there` instead. Stripping
     /// the newline alone stops the injection; taking the first line is what
     /// keeps the address the one that was meant.
+    ///
+    /// The first line is `RFC5322Builder.recipientLine`'s, which the
+    /// letter's header is read from too, so the To and Cc it shows are
+    /// whom it went to.
     private static func envelopeAddress(_ value: String) -> String {
-        let firstLine = value.prefix { !$0.isNewline }
+        let firstLine = RFC5322Builder.recipientLine(value)
         var address = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
         if let open = address.lastIndex(of: "<"),
            let close = address.lastIndex(of: ">"),
