@@ -37,6 +37,17 @@ final class MessageListViewController: UITableViewController {
     /// Fired when reading a message has changed the unread count of one or
     /// more folders. Several, on Gmail, where one message wears many labels.
     var onUnreadCountChanged: (([String], Int) -> Void)?
+    /// Edit mode's Delete or Move has taken these letters off the list, at
+    /// the tap: the reading pane empties if it shows one of them.
+    var onLettersLeaving: (([MessageSummary]) -> Void)?
+    /// A letter Edit mode moved changed a count the list cannot work out
+    /// itself, and the folder counts are to be swept (`ListBatch`), as for
+    /// the reading pane's Move.
+    var requestSweep: (() -> Void)?
+    /// The folders the container has listed, for the role of the folder a
+    /// letter was listed from (`role(of:)`). The list knows only its own,
+    /// and an All Mailboxes hit can be from Trash or Spam.
+    var folders: () -> [Mailbox] = { [] }
 
     /// The folder's letters and a search's hits, the ones taken off by a
     /// Delete or Move from the reading pane, and the reads billed to the
@@ -1332,7 +1343,8 @@ final class MessageListViewController: UITableViewController {
     }
 
     /// Says `text` on the status line while something he asked for is on
-    /// its way: a jump, or a Move from here or from the reading pane.
+    /// its way: a jump, a Move from here or from the reading pane, or Edit
+    /// mode's Delete.
     /// Returns what to call when it is done, whichever way it went.
     @MainActor
     func working(_ text: String) -> () -> Void {
@@ -1484,21 +1496,21 @@ final class MessageListViewController: UITableViewController {
 
     /// Ticking a conversation acts on ALL of it, which is what Mail does
     /// and what the row means: he chose the thread, not a letter inside it.
+    /// In list order, not the order he ticked the rows in (B-062).
     private var selectedMessages: [MessageSummary] {
-        var seen = Set<String>()
-        var out: [MessageSummary] = []
-        for ip in tableView.indexPathsForSelectedRows ?? [] where ip.row < rows.count {
-            switch rows[ip.row] {
-            case let .thread(t):
-                // Deduplicated even though a row can no longer be ticked
-                // twice: two conversations that merge on the next page
-                // would otherwise contribute the same letter to a delete.
-                for m in t.messages where seen.insert(m.id).inserted { out.append(m) }
-            }
-        }
-        return out
+        ListBatch.letters(ticked: (tableView.indexPathsForSelectedRows ?? []).map(\.row),
+                          in: threads)
     }
 
+    /// Every letter he ticked comes off at the tap and Edit mode ends, as
+    /// in Mail; "Deleting…" is on the status line until the server has
+    /// answered for each, and a letter it did not take comes back, and he
+    /// is told why (`ListBatch`, B-062). Each write used to go with `try?`
+    /// and the list was fetched again after all of them: a refusal said
+    /// nothing, and nothing said Delete was working. Inside Trash, where
+    /// Delete erases, he is asked first (`EraseQuestion`), and Cancel leaves
+    /// his ticks as they were.
+    ///
     /// A letter kept on the iPad goes from the iPad, as Delete Draft in the
     /// composer takes it (`LocalDrafts.delete`). Handed to the repository
     /// with the rest, as it used to be, it was a write that could never
@@ -1507,19 +1519,77 @@ final class MessageListViewController: UITableViewController {
     @objc private func deleteSelected() {
         let chosen = selectedMessages
         guard !chosen.isEmpty else { return }
-        Task { @MainActor in
-            for m in chosen {
-                if let key = LocalDraft.key(ofRow: m.id) {
-                    await kept.delete(key, from: repository)
-                } else {
-                    try? await repository.delete(m.id, gmailMessageID: m.gmailMessageID,
-                                                 from: m.mailboxID)
-                }
-            }
-            editTapped()
-            await reload(keepingPlace: true)
-            onMessagesChanged?()
+        guard let question = EraseQuestion.before(deleting: chosen,
+                                                  role: { self.role(of: $0) }) else {
+            delete(chosen)
+            return
         }
+        EraseConfirmation.ask(question, on: self) { [weak self] in self?.delete(chosen) }
+    }
+
+    /// Edit mode's Delete, asked or not. The letters kept on the iPad go
+    /// from it at once, each on its own: putting one away can wait for an
+    /// upload of it still on its way (`LocalDrafts.tidy`), and the letters
+    /// on the server do not wait for that.
+    @MainActor
+    private func delete(_ chosen: [MessageSummary]) {
+        if tableView.isEditing { editTapped() }
+        let kept = self.kept
+        let repository = self.repository
+        for m in chosen {
+            guard let key = LocalDraft.key(ofRow: m.id) else { continue }
+            Task { @MainActor in await kept.delete(key, from: repository) }
+        }
+        runBatch(.delete, on: onServer(chosen), saying: StatusLine.deleting)
+    }
+
+    /// Edit mode's Delete or Move of `chosen`, whose rows go as this is
+    /// called: `words` on the status line until the server has answered for
+    /// every one, the reading pane emptied if it shows one of them, and
+    /// the refusal, if there was one, said as the reading pane says it.
+    /// The letters it did not take are back on the list where they stood,
+    /// not ticked, since Edit mode ended at the tap. See `ListBatch`.
+    ///
+    /// The window is kept, weakly, for the refusal: if he has opened
+    /// another folder by the time it comes, this list has left the screen,
+    /// and the alert goes over what is in front instead (`alertHost`).
+    @MainActor
+    private func runBatch(_ action: PaneAction, on chosen: [MessageSummary],
+                          saying words: String) {
+        guard !chosen.isEmpty else { return }
+        let done = working(words)
+        onLettersLeaving?(chosen)
+        Task { @MainActor [weak window = view.window] in
+            let outcome = await ListBatch.run(
+                action, on: chosen, role: { self.role(of: $0) },
+                list: self.letters, repository: self.repository,
+                requestSweep: { [weak self] in self?.requestSweep?() })
+            done()
+            if let refusal = outcome.refusal {
+                ErrorPresenter.show(reaching: refusal, on: self.alertHost(in: window))
+            }
+        }
+    }
+
+    /// What a batch's refusal is put over: this list while it is in the
+    /// window, and once it has left it, as it does when he opens another
+    /// folder while the batch is out, whatever is in front in `window`, the
+    /// one it was in when the batch began: the reading pane, which stays,
+    /// or a sheet over it. Put over the list that had gone, the alert was
+    /// dropped (`ErrorPresenter`), and nothing told him that the letters
+    /// back on the folder he had left were still there.
+    private func alertHost(in window: UIWindow?) -> UIViewController {
+        guard viewIfLoaded?.window == nil, var front = window?.rootViewController else {
+            return self
+        }
+        while let next = front.presentedViewController, !next.isBeingDismissed { front = next }
+        return front
+    }
+
+    /// The role of the folder a letter was listed from: this list's, or for
+    /// an All Mailboxes hit one of the folders the container has listed.
+    private func role(of mailboxID: String) -> Mailbox.Role? {
+        ([mailbox] + folders()).role(of: mailboxID)
     }
 
     /// Not the letters kept on the iPad, which are not on the server to be
@@ -1580,25 +1650,19 @@ final class MessageListViewController: UITableViewController {
 
     /// Not the letters kept on the iPad: there is nothing on the server to
     /// move until they have gone to Drafts, and they stay in Drafts' list.
+    /// Moved as Delete is, by `runBatch`.
     @objc private func moveSelected() {
         let chosen = onServer(selectedMessages)
         guard !chosen.isEmpty else { return }
         let move = MoveMessageViewController(repository: repository,
                                              excluding: mailbox.id) { [weak self] destination in
             guard let self else { return }
-            // At the tap, while the sheet slides away, and said on the
-            // status line until the list has been fetched again.
-            let moving = self.working(StatusLine.moving)
-            Task { @MainActor in
-                for m in chosen {
-                    try? await self.repository.move(m.id, gmailMessageID: m.gmailMessageID,
-                                                    from: m.mailboxID, to: destination.id)
-                }
-                self.editTapped()
-                await self.reload(keepingPlace: true)
-                moving()
-                self.onMessagesChanged?()
-            }
+            // At the tap, while the sheet slides away: the rows go and Edit
+            // mode ends, and "Moving…" is on the status line until the
+            // server has answered for each letter. One it did not take
+            // comes back, and he is told, as for Delete (B-062).
+            if self.tableView.isEditing { self.editTapped() }
+            self.runBatch(.move(to: destination), on: chosen, saying: StatusLine.moving)
         }
         let nav = UINavigationController(rootViewController: move)
         nav.modalPresentationStyle = .formSheet

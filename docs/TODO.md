@@ -82,10 +82,23 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Done 2026-09-30, not yet seen on the iPad: kept on the iPad before
       the sheet goes, listed in Drafts as "On this iPad only", taken to
       Gmail once when the connection works, never twice. See B-051.*
-- [ ] Delete inside Trash erases for good with no confirmation, which the
+- [x] Delete inside Trash erases for good with no confirmation, which the
       spec asks for (`IMAPMailRepository` :1169).
-- [ ] Delete and Move of several letters in Edit mode fail silently
+      *Done 2026-10-03, the question seen on the iPad the same day: the
+      reading pane's Delete and Edit mode's ask first in Trash, "Delete
+      Message?", "This message will be deleted immediately. You can't undo
+      this action.", Cancel and a red Delete, and Cancel leaves everything
+      as it was; not in Spam, where Delete moves to Trash. The erase after
+      it, a `UID EXPUNGE` after the `\Deleted`, came after the check and
+      was seen the same day. B-062, and its check under "Blocked on the
+      iPad coming back".*
+- [x] Delete and Move of several letters in Edit mode fail silently
       (`MessageListViewController` :1070, :1133); Delete shows no progress.
+      *Done 2026-10-03, seen on the iPad: every ticked row goes at
+      the tap and Edit mode ends, "Deleting…" or "Moving…" on the line
+      until the server has answered for each, a letter it did not take
+      back on the list with the ones after it unsent and the app's alert
+      saying why, and the counts moved for the letters that went. B-062.*
 - [x] No autosave: iOS ending the app loses the letter being written.
       *Done 2026-09-30, not yet seen on the iPad: kept three seconds after
       he stops and on leaving the app, and in Drafts at the next launch.
@@ -1084,6 +1097,9 @@ this host. Ordered by value, not by size.
 - [ ] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
+- [ ] A letter read from its All Mailboxes hit leaves the Inbox's row for
+      the same letter with its unread dot until the list is fetched again,
+      though the Inbox's count goes down. Seen on the iPad 2026-10-03.
 - [x] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had
@@ -1387,6 +1403,105 @@ this host. Ordered by value, not by size.
       capitals left out and the tag kept, as on any domain but Gmail's.
       Steps 2 to 4 as written. The letter sent from the draft lost its
       In-Reply-To: B-064.*
+- [x] **B-062, Delete inside Trash asks first; Edit mode's Delete and Move
+      say what they are doing and what failed.** Seen on the iPad
+      2026-10-03 but for the erase in Trash, changed after it (the note at
+      the end). Use only letters the test account sends itself: from the
+      app, eight with the subjects "B-062 1" to "B-062 8", and from the
+      Gmail web, signed in as the test account, twenty-six more, "B-062 9"
+      to "B-062 34", each to itself. Wait until all are in the Inbox,
+      unread. Keep the connection log open beside each step.
+      1. *Delete in the reading pane, in Trash.* In the Inbox, open "B-062
+      1" and tap Delete: it goes to Trash, nothing asked. Open Trash and
+      the same letter, and tap Delete: an alert, "Delete Message?", "This
+      message will be deleted immediately. You can't undo this action.",
+      Cancel on the left and Delete in red on the right. Tap Cancel: the
+      letter is still in the pane and on the list, and the log has no `UID
+      STORE` for it. Tap Delete again, then Delete in the alert: the pane
+      empties and the row goes at once, the log has one `UID STORE …
+      +FLAGS.SILENT (\Deleted)` in Trash and then `UID EXPUNGE` of the
+      same UID, and the letter is not in Trash at its next open, nor found
+      by an All Mailboxes search, nor on the Gmail web in Trash or All
+      Mail. The test account has Auto-Expunge off, so this is the step
+      that shows the erase.
+      2. *Edit mode in Trash.* In the Inbox, tick "B-062 2" and then "B-062
+      3", the lower row first, in Edit mode and tap Delete: both go at
+      once, Edit mode ends, nothing is asked, and the line under the list
+      says "Deleting…" until both `UID MOVE`s are answered, then "Updated
+      …" again (on a good connection perhaps too quickly to read; the log
+      has the two). The log's first `UID MOVE` is for the higher UID, "B-062
+      3", the upper row: the list's order, not the order ticked. The
+      Inbox's count in the folder pane goes down by two, and the log has
+      one sweep of the counts after the two, a `LIST` and its `STATUS`es,
+      and no fetch of the Inbox's page. Open Trash, Edit, tick both, and
+      tap Delete: "Delete 2 Messages?", "These messages will be deleted
+      immediately. You can't undo this action." Cancel: both still ticked,
+      Edit mode still on. Delete, then Delete in the alert: both rows go,
+      "Deleting…" until two `UID STORE`s and their two `UID EXPUNGE`s are
+      answered, and neither is in Trash at its next open or on the web.
+      3. *Spam asks nothing.* Open "B-062 4", Move it to Spam, open Spam and
+      tap Delete on it: nothing is asked, and it is in Trash after a
+      Refresh of Trash.
+      4. *A search that mixes Trash with other folders.* Delete "B-062 5"
+      from the Inbox so that it is in Trash. Search "B-062" in All
+      Mailboxes, tap Edit, tick the hit for "B-062 5" (from Trash) and the
+      hit for "B-062 6", and tap Delete: "Delete 2 Messages?", "1 of them
+      is in the Trash and will be deleted immediately. You can't undo this
+      action." Delete: the log has a `UID EXPUNGE` in Trash for "B-062 5",
+      which is gone from Trash at its next open, from the search and from
+      the web altogether, and "B-062 6" is in Trash.
+      5. *The reading pane is left alone.* Open "B-062 7" in the pane,
+      tap Edit, tick "B-062 8" and Delete: "B-062 7" stays in the pane.
+      Edit again, tick "B-062 7" and Delete: the pane empties. Then the
+      same letter under two ids: open "B-062 33" from the Inbox, and with
+      it in the pane search "B-062 33" in All Mailboxes, tap Edit, tick its
+      hit and Delete: the pane empties, and after Cancel the Inbox has no
+      "B-062 33". The other way about: search "B-062 34" in All Mailboxes,
+      open its hit, Cancel the search, tap Edit, tick "B-062 34" in the
+      Inbox and Delete: the pane empties. Before, it kept the letter in
+      both, with Delete live.
+      6. *A failure part-way.* In the Inbox, search "B-062" in this
+      mailbox: "B-062 9" to "B-062 32". Tap Edit, Select All, Move, All
+      Mail, and the moment the sheet has gone turn on Airplane Mode from
+      Control Center, while the line says "Moving…". Every row went at the
+      tap; those whose `UID MOVE` was answered stay off, the one it failed
+      on and those after it come back in their places, not ticked, and the
+      alert says "Can't connect to mail server." with OK; the log has no
+      `UID MOVE` after the failed one. If all of them went before the
+      switch, move them back to the Inbox from All Mail and try again
+      sooner. Airplane Mode off, Refresh: the letters that came back are
+      still in the Inbox, and the ones that went are archived, in All Mail
+      and not the Inbox, each once. The same with Delete in place of Move:
+      the ones that came back are in the Inbox and the others in Trash.
+      7. *Nothing reaches the server.* Airplane Mode on, tick two of the
+      letters left in the Inbox, Delete: both go, "Deleting…", then both
+      come back with the alert, and neither is in Trash on the web.
+      8. *A refusal after he has moved on.* Airplane Mode still on, tick
+      the same two, Delete, and while the line still says "Deleting…" open
+      Sent in the folder pane. When the refusal comes, the alert "Can't
+      connect to mail server." is put up over the reading pane though the
+      Inbox's list has gone, and OK takes it away. If it came before Sent
+      was open, try again, tapping sooner. Airplane Mode off, open the
+      Inbox: both letters are there.
+      *Seen 2026-10-03, on carlo's mailbox: 1 to 8 as written but for the
+      erase. In Trash the questions, Cancel and Delete were as written, but
+      the log had the `\Deleted` STORE and no EXPUNGE, and each letter
+      deleted there was back at Trash's next open and found by an All
+      Mailboxes search: the test account has Auto-Expunge off. Changed
+      since, not yet seen: a `UID EXPUNGE` of the letter after the STORE
+      (B-062). Step 6 also showed the lost answer twice: the move cut off
+      at 30 s had been carried out by Gmail all the same. Step 8 was made
+      by taking the Wi-Fi interface down from a shell, since Airplane Mode
+      refuses at once. Left to see, on a build with the change: step 1's
+      Trash half, step 2's Trash half and step 4's Trash hit again, the log
+      with `UID EXPUNGE` after each STORE, and the letter not in Trash at
+      its next open nor in a search. "B-062 1", "B-062 2", "B-062 3" and
+      "B-062 5", still in Trash and marked, will do, and show besides that
+      a letter left marked goes when deleted again.*
+      *Seen the same day on a build with the change: steps 1, 2 and 4's
+      Trash halves on those four, and a letter never marked, each with its
+      STORE and its own `UID EXPUNGE`, and none in Trash or a search
+      after a Refresh (B-062).*
 - [x] **B-064, a reply finished from Drafts answers its letter.** On the
       test account, A standing for its address. Reply to a letter from A
       to itself, type a word, Cancel, Save Draft. Open it from Drafts and

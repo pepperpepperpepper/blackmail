@@ -8,7 +8,8 @@ import Foundation
 // UIKit and do not exist on the machine the suite runs on.
 
 /// The line under the message list: how fresh it is or where he is, and
-/// while a jump or a Move he asked for is on its way, that.
+/// while a jump, a Move or Edit mode's Delete he asked for is on its way,
+/// that.
 ///
 /// A jump and a Move used to start only once their sheet had finished
 /// sliding away, about a third of a second, and nothing on screen said
@@ -62,6 +63,11 @@ struct StatusLine: Equatable {
 
     /// While a Move is on its way.
     static let moving = "Moving…"
+
+    /// While Edit mode's Delete is on its way (B-062), as "Moving…" says a
+    /// Move is. The pane's Delete is one letter, gone from the pane and the
+    /// list at the tap, and says nothing, as before.
+    static let deleting = "Deleting…"
 }
 
 /// Alerts held while a sheet is on its way off the screen.

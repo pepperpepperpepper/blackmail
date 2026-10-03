@@ -6402,6 +6402,328 @@ that name.
 
 ---
 
+## B-062 — CHANGED 2026-10-03, seen on the iPad. Delete inside Trash erased a letter with nothing asked, and Edit mode's Delete and Move failed in silence
+
+**Found in the gap review of 2026-09-30**, under the ways a letter is lost,
+and confirmed in the code:
+
+- **Delete inside Trash erased at the first tap.** Delete moves a letter to
+  Trash everywhere else; inside Trash it sets `\Deleted`
+  (`IMAPMailRepository.delete`), and Gmail, with its IMAP settings as they
+  come, erases the letter for good at once. The reading pane's
+  Delete and Edit mode's both went straight to it, and an All Mailboxes
+  search reaches Trash too (B-011), so a hit from Trash went the same way
+  from any list. `PRODUCT_SPEC.md`'s safeguards ask for "Confirmation
+  before permanently deleting from Trash."
+- **Edit mode's Delete and Move said nothing when they failed.** Each
+  letter's write went with `try?`, one after another, and the list was
+  fetched again once all of them had been tried. A refused write was
+  dropped: the letter came back with the fetch if the fetch worked, and
+  stayed off the screen as if it had gone if the connection had gone with
+  it. Nothing put up an alert either way.
+- **Delete said nothing while it worked.** The rows he had ticked stayed on
+  the screen, ticked, in Edit mode, until every write and the fetch after
+  them had come back: a second or two for a few letters on a good
+  connection, half a minute for each letter on a bad one. Move already
+  said "Moving…".
+
+**Changed.**
+
+- **A question before a Delete that erases** (`EraseQuestion`, put up by
+  `EraseConfirmation`). Asked by the reading pane's Delete and by Edit
+  mode's, for any letter whose own folder is Trash: an alert, "Delete
+  Message?", "This message will be deleted immediately. You can't undo
+  this action.", or for several "Delete 3 Messages?", "These messages will
+  be deleted immediately. You can't undo this action." Cancel on the left,
+  Delete in red on the right. Cancel leaves everything as it was: the
+  letter in the pane, his ticks in Edit mode. The sentence is Apple's own
+  for a delete that skips the bin, the Finder's "This item will be deleted
+  immediately. You can't undo this action." (Apple Community thread
+  251725582), with "message", Mail's word on screen, for "item". An alert,
+  not an action sheet: on the iPad an action sheet is a popover, and UIKit
+  leaves out a popover's Cancel. A search that ticks letters from Trash
+  among others says which: "Delete 3 Messages?", "1 of them is in the
+  Trash and will be deleted immediately. You can't undo this action." Not
+  asked in Spam: Delete there moves the letter to Trash, as Mail's does
+  from Junk, and the spec asks only for Trash.
+- **Edit mode's Delete and Move go as the reading pane's do** (`ListBatch`,
+  over `PaneActions`, now in three steps, `start`, `send` and `finish`, so
+  both can use them). At the tap every row he ticked goes and Edit mode
+  ends, as in Mail, and the line under the list says "Deleting…" or
+  "Moving…" until the server has answered for every letter. The writes go
+  one at a time, in list order, the rows from the top down whatever order
+  he ticked them in (`ListBatch.letters(ticked:in:)`). As first built they
+  went in the order he ticked them, which is the order UIKit gives them.
+  Each letter the server takes is billed to the folder counts as the
+  pane's Delete bills one (`removalLanded`), and the counts are swept once
+  at the end if a letter moved changed one the list cannot work out, not
+  once for each. The list is not fetched again, so a search, a day jumped
+  to and his place in the list stay as they were.
+- **A refusal is said, and nothing refused is shown as gone.** The letter
+  the server did not take comes back where it stood, not ticked, and the
+  letters after it are not sent and come back with it. The alert is the
+  app's own for whatever was caught, as the reading pane's: "Can't connect
+  to mail server.", or for a refused password Mail's "Cannot Get Mail" with
+  Settings. Stopping at the first refusal is deliberate: it is nearly
+  always the connection or the password, which the next letter would meet
+  too, each after a connect of its own that can take half a minute, and a
+  refused password sent again for every letter counts against the account
+  each time. The one exception is a row kept on the iPad that the server
+  says is another letter now (D-016), which has sent nothing and says
+  nothing of the rest: it comes off the list as it does from the pane, the
+  rest go on, and the alert says for it what the pane's says, "Can't
+  connect to mail server." If he has opened another folder before the
+  refusal comes, the list he left is off the screen, and the alert goes
+  over what is in front in the window instead, the reading pane or a sheet
+  over it (`alertHost`). Put over the list that had gone, it was dropped.
+- **The reading pane empties only if it shows a letter going.** Edit
+  mode's Delete and Move used to empty it whatever it showed, once the
+  fetch was back; now at the tap, and only for one of his ticks or a
+  letter in the conversation it shows (`clearIfShowing`), under its own id
+  or another mailbox's (`ListEdit.going`): a twin as `ListEdit.twins` has
+  them, or a copy with the same Gmail message id. So an All Mailboxes hit
+  from All Mail deleted while the pane shows the same letter opened from
+  the Inbox empties the pane, and so does the Inbox row deleted while it
+  shows the hit. Matched on ids alone, as first built, the row's twin went
+  from the list and the pane kept the binned letter with Reply, Move and
+  Delete live, and a Delete from it then sent a MOVE for an Inbox UID that
+  Gmail no longer had.
+- A draft kept on the iPad that he deletes in Edit mode goes from the iPad
+  at once, as before, but each on its own task: putting one away can wait
+  for an upload of it still on its way (`LocalDrafts.tidy`), and the
+  letters on the server no longer wait behind it.
+
+No new error sentence: the six stand (`MessageSizeTests`). The new words
+on screen are the question's, its two buttons, and "Deleting…".
+
+**Decided here, put to the owner.**
+
+- *What the question says.* Built: "Delete Message?" and Apple's Finder
+  sentence. Or the Finder's own title, "Are you sure you want to delete
+  this message?"; or the subject in it, as the Finder names the file.
+- *Whether to ask for every Delete in Trash.* Built, as the spec asks. Mail
+  on the iPad asks only before its Delete All in Trash and Junk; nothing
+  found that describes a letter or a selection deleted there mentions a
+  question. Mail's way would leave a single Delete in Trash unasked.
+- *Spam.* Built: nothing asked, since Delete there goes to Trash. Or ask
+  there too.
+- *A batch that meets a refusal.* Built: it stops, and the rest come back
+  unsent. Or try every letter whatever, which deletes what can be deleted
+  when one letter alone is refused, and with no connection takes half a
+  minute a letter.
+- *The letters that come back.* Built: in their places, not ticked, Edit
+  mode over. Or Edit mode again with them ticked, ready for a second try,
+  which would change the list under him if he had moved on meanwhile.
+- *The alert.* Built: the app's own sentence for what was caught, which
+  does not say how many letters went. Mail's, as its users quote it, is
+  "Unable to Move Message", "The message could not be moved to the mailbox
+  Trash." (Apple Community thread 4014036), "The messages could not be
+  moved…" for several: a seventh sentence, and Delete would say Move.
+
+**Tests.** `EraseQuestionTests`: only a letter in Trash asks, by its
+folder's id in either spelling or the role word, Spam and every other
+folder not; the words for one letter, for several, and for a selection
+that mixes Trash with others; and the wiring, read from the source: the
+alert's two actions and their styles, the pane's Delete and Edit mode's
+asking and going only on Delete, by the role of each letter's own folder.
+`ListBatchTests`, over the shipping repository and the scripted server:
+four letters deleted, every row off at the tap before any MOVE is
+answered, one MOVE each and nothing else, the two unread billed once each
+and one sweep; inside Trash one `\Deleted` and its `UID EXPUNGE` (see
+"Tests of the erase" below) and no sweep, and a mixed batch
+each letter by its own folder; a Move of three filing each, one sweep; the
+second of four refused with the connection up, the first gone and billed,
+the other three back and two of them never sent, the refusal for the
+alert; a refused password, one LOGIN for five letters, all back, "Cannot
+Get Mail"; a kept row that is not its letter sending nothing and the rest
+still going; rows ticked out of order, a row twice, a conversation holding
+another row's letter and a row past the end, taken in list order, each
+letter once, and sent in that order; the pane's letter going under another
+mailbox's id, an All Mailboxes hit deleted while the pane shows the Inbox's
+copy and the Inbox's row deleted while it shows the hit, by a twin alone
+and by the Gmail message id alone, each both ways, and a letter not ticked
+left alone though it is in the same conversation; and the controller's
+wiring, read from the source: the ticks taken in list order, the letters
+kept on the iPad deleted from it, "Deleting…" and "Moving…" for as long as
+the batch runs, Edit mode ended at the tap, the refusal put up, over what
+is in front once the list has left the window, no `try?` and no fetch, the
+pane emptied only for a letter going, matched by `ListEdit.going`. Each
+fails with its part undone, nineteen sabotages one at a time, counted
+before the erase below: the pane's Delete asking nothing (1 failure), Edit mode's asking nothing (1), Spam
+asking as Trash does (4), a refused letter not put back (4), the letters
+after a refusal not put back (2), every letter tried after a refusal (2),
+a kept row that is not its letter stopping the rest (2), a sweep asked for
+after each letter (2), every letter taken by the first one's folder (1),
+the refusal not put up (1), "Deleting…" not said (1), the pane emptied
+whatever it shows (1), the pane's letter matched on ids alone in
+`ListEdit.going` (7), its twin left out (2), its Gmail message id left out
+(2), the pane's own match by ids alone put back in `clearIfShowing` (1),
+the letters kept on the iPad not deleted (1), the refusal put over the
+list whether or not it is in the window (1), and the ticks taken in the
+order he ticked them (3). `LargeLetterTests`'
+`testPicturesStillComingWhenHeMovesOnAreCalledOff` failed besides in some
+of those runs, a second picture's FETCH going before it was called off;
+it touches nothing here, and fails now and then on its own, run alone:
+1 run in 20 with this change, 2 in 40 on the tree before it.
+
+**Seen on the iPad, 2026-10-03**, on a build from this branch, on
+carlo's mailbox, every letter from the test account to itself, the steps
+as the TODO has them.
+
+1. In the Inbox the pane's Delete went to Trash with nothing asked. In
+   Trash the alert was as written: "Delete Message?", the sentence, Cancel
+   on the left, Delete in red on the right. Cancel left the letter in the
+   pane and on the list, and no STORE went. Delete, then Delete: the pane
+   emptied and the row went at once. The log had `UID STORE 39
+   +FLAGS.SILENT (\Deleted)`, answered `* 38 FETCH (UID 39 FLAGS (\Deleted
+   \Seen))` and OK, and no EXPUNGE. The next open of Trash listed the
+   letter again, its FETCH saying `FLAGS (\Deleted \Seen)`, and an All
+   Mailboxes search found it. The test account has Gmail's IMAP
+   Auto-Expunge off. His account's setting is not known and cannot be read
+   from here. See "Erased, not only marked", below.
+2. Edit mode in the Inbox, "B-062 2" then "B-062 3" ticked, the lower
+   first: both went at once, Edit mode ended, nothing asked; "Deleting…"
+   was too quick to see. The log's first move was `UID MOVE 58`, then
+   `UID MOVE 57`, the list's order, each answered with an EXPUNGE; then
+   one sweep, the `LIST` and its `STATUS`es, and no fetch of the Inbox's
+   page. The Inbox's count went down by two. In Trash, both ticked, Delete:
+   "Delete 2 Messages?", "These messages will be deleted immediately. You
+   can't undo this action." Cancel kept both ticked and Edit mode on.
+   Delete, then Delete: both rows went, and both were back at Trash's next
+   open, for the same reason.
+3. In Spam, Delete asked nothing, and the letter was in Trash after a
+   Refresh of Trash.
+4. An All Mailboxes search, Edit, the Trash hit for "B-062 5" and the hit
+   for "B-062 6" ticked, Delete: "Delete 2 Messages?", "1 of them is in
+   the Trash and will be deleted immediately. You can't undo this action."
+   Delete: both rows went. "B-062 6" went to Trash; "B-062 5" was not
+   expunged, for the same reason.
+5. The reading pane, all four cases: "B-062 7" stayed while "B-062 8"
+   went, and the pane emptied for "B-062 7"; the same letter under two ids
+   emptied it both ways, and the Inbox had no "B-062 33" after Cancel.
+6. A Move to All Mail of "B-062 9" to "B-062 32", 24 letters found by a
+   search in the Inbox, with Airplane Mode turned on from Control Center at
+   once: six `UID MOVE`s answered (87 down to 82), the seventh (81)
+   written and not answered, cut off by `DEADLINE read ordinary
+   bound=30s`, and no MOVE after it. The rows from "B-062 26" down came
+   back, not ticked, with "Can't connect to mail server." and OK. Airplane
+   Mode off, Refresh: Gmail had carried out the seventh move, "B-062 26"
+   archived and gone from the Inbox, so the letter the failure came on was
+   not in fact still in the Inbox; the rest were. The same with Delete: ten
+   moves answered, the eleventh, "B-062 15", cut off at 30 s and carried
+   out by Gmail all the same, as the Refresh showed. That is the lost
+   answer under Not covered.
+7. Airplane Mode on, two ticked, Delete: both went and came back with the
+   alert within a tenth of a second, and the log has no command for them.
+8. Airplane Mode refuses at once and cannot make a slow refusal, so the
+   Wi-Fi interface was taken down from a shell on the iPad instead, after a
+   Refresh. "B-062 14" and "B-062 13" ticked, Delete, Sent opened at once:
+   at about 30 s "Can't connect to mail server." came over the reading
+   pane, the Inbox's list gone, and OK took it away. Interface up, the
+   Inbox: both letters there. The `UID MOVE 69` written never reached
+   Gmail; a new connection still listed UID 69.
+
+Seen besides, not this item's: a letter read from its All Mailboxes hit
+left the Inbox's row for it with its unread dot until the list was fetched
+again, though the Inbox's count went down. In the TODO.
+
+**Erased, not only marked. Changed 2026-10-03, after the check, and seen
+on the iPad the same day.** Delete inside Trash now sends the `\Deleted` STORE and
+then `UID EXPUNGE` of that letter alone, in one hold of the connection
+(`IMAPClient.expunge`, which drafts already went by), and still names the
+row's letter (`vouch`) and goes once (`sendingOnce`). It no longer rests on
+Auto-Expunge. With it off, the EXPUNGE erases the letter. With it on,
+Gmail's default, the STORE has erased it already, and the `UID EXPUNGE`
+names a UID that has gone, which RFC 4315 allows. A letter left marked in
+Trash by the build before, as the test account's four from steps 1, 2 and
+4 are, or by another mail program, goes when he deletes it again: the
+STORE changes nothing on it, and the EXPUNGE takes it.
+
+On a server without UIDPLUS, or one whose CAPABILITY could not be read,
+the EXPUNGE is the plain one, and it takes every letter in Trash marked
+`\Deleted`, not his alone. Built so on purpose. In Trash a letter carries
+the flag only when a mail program has asked for it to be erased: the flag
+is IMAP's alone, Gmail's own Delete does not set it, and this app sets it
+only with an EXPUNGE in the same hold. What goes with his letter is what
+was already asked to go, and with Auto-Expunge on would have gone already.
+The one thing lost is another program's chance to take its mark off
+again. The flag alone there would leave his letter in Trash after he was
+told it would be deleted immediately. Gmail has UIDPLUS; the log's
+CAPABILITY line names it.
+
+A refused EXPUNGE is a refusal like any other: the alert, the row back
+where it stood, the rest of a batch unsent. The letter stays in Trash,
+marked, and a Delete again takes it.
+
+Seen on the iPad, 2026-10-03, on a build with the change, on carlo's
+mailbox, whose Auto-Expunge is off. "B-062 1", left marked in Trash by the
+build before, deleted again from the reading pane: `UID STORE 39
++FLAGS.SILENT (\Deleted)`, then `UID EXPUNGE 39`, answered `* 38
+EXPUNGE` and OK. "B-062 2" and "B-062 3", marked, ticked in Edit mode in
+Trash: 41 then 40, the list's order, each its STORE and its own `UID
+EXPUNGE`, each answered with an EXPUNGE. An All Mailboxes search, the
+Trash hit for "B-062 5" with the hit for "B-062 9" from the Inbox: "1 of
+them is in the Trash…", then `UID MOVE 85` to Trash for the one and the
+STORE and `UID EXPUNGE 43` for the other. And "B-062 9", just moved to
+Trash and never marked, deleted from the pane: `UID EXPUNGE 60`, `* 55
+EXPUNGE`. After a Refresh none of the five was in Trash nor found by a
+search of it or of All Mailboxes, and Trash's count had gone down for the
+one unread among them.
+
+`ScriptedIMAPServer` now says what it models, Auto-Expunge off, as the
+test account has it: a `\Deleted` STORE leaves the letter, listed and
+searched; `UID EXPUNGE` takes the marked letters it names and no other;
+plain `EXPUNGE` takes every marked letter in the mailbox. `autoExpunge`
+turns on Gmail's default, the STORE removing the letter itself, and
+`markDeleted` leaves a letter marked, as another program does.
+
+**Tests of the erase.** `PaneActionsTests`: a letter deleted in Trash,
+its STORE and `UID EXPUNGE` sent in Trash, and gone from the server; one
+left marked, listed, and gone when deleted again; the `UID EXPUNGE`
+refused, the refusal `.cannotConnect`, the row back, nothing billed, the
+letter still there and marked, and gone at a second Delete; with
+Auto-Expunge on, gone at the STORE, before any EXPUNGE, and the `UID
+EXPUNGE` after it answered OK. `ListBatchTests`: Edit mode in Trash, two letters, each STORE and
+`UID EXPUNGE` naming it alone, both gone, and a third marked by another
+program still there and marked; the mixed All Mailboxes batch, the Trash
+hit gone from the server and the other in Trash; no UIDPLUS, a plain
+`EXPUNGE` taking his letter and the one marked and no letter unmarked; a
+refused `UID EXPUNGE` in a batch of two, both rows back, the second
+unsent, "Can't connect to mail server." for the alert, the first still
+there and marked, and both gone at a second Delete. `KeptCopyTests`'
+ordinary writes have the `UID EXPUNGE` after the Trash's STORE. Six
+sabotages, one at a time in a scratch copy: the STORE alone put back (32
+failures), the plain EXPUNGE whatever the server has (43), `UID EXPUNGE`
+whatever the server has (3), a refused EXPUNGE not thrown (8), the
+scripted server's `UID EXPUNGE` taking every marked letter (3), and its
+Auto-Expunge on doing nothing (1). The whole suite: 1183 tests, 4 skipped,
+0 failures.
+
+**Not covered.** A batch still running when he opens another folder puts
+its alert, if any, over what is in front then, as above, but the letters
+that came back are on the old list, which has gone, and the folder he
+left shows the server's word when he opens it again. The reading pane's
+own alerts never had the trouble the list's had: the pane stays in the
+window whatever folder he opens. A write whose answer was lost after it went, as on a
+socket that dies while the iPad sleeps, is counted as refused: the letter
+comes back on the list though Gmail may have moved it, until the next
+Refresh, as from the reading pane; step 6 saw it twice. Letters marked
+`\Deleted` are not left out of the list and of searches, as Mail leaves
+them out. This app leaves none of its own behind now, but for one whose
+EXPUNGE was refused, which comes back on the list with the alert and
+should stay in sight. One marked by another program, on an account with
+Auto-Expunge off, is listed and found as Gmail's IMAP lists it, and a
+Delete of it now erases it. Leaving them out would need `UNDELETED` in
+every SEARCH that lists, pages, jumps to a day or searches, and the
+folder counts come from `STATUS`, which counts them, so an unread one
+left out would still be counted. What Gmail sends with Auto-Expunge on
+is not seen: the test account has it off, and the suite's model of it,
+an EXPUNGE in the STORE's own answer, is a guess. Deleting from the
+Outbox in Edit mode, which takes a waiting letter off the iPad for good,
+asks nothing, as before; that is outside this item.
+
+---
+
 ## B-064 — CHANGED 2026-10-03, seen on the iPad. A reply sent from Drafts began a conversation of its own
 
 **Found on the iPad, 2026-10-03**, on carlo's mailbox, A standing for its

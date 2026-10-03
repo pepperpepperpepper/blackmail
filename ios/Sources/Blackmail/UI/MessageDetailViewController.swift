@@ -30,6 +30,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// another letter now (D-016): the pane has emptied, and the list is to
     /// take the row off (`PaneActions.notTheKeptLetter`).
     var onNotTheKeptLetter: ((MessageSummary) -> Void)?
+    /// What Delete asks before it goes, nil when it asks nothing: a letter
+    /// in Trash, which Delete erases (`EraseQuestion`, B-062). From the
+    /// container, which knows every folder's role.
+    var questionBeforeDeleting: ((MessageSummary) -> EraseQuestion?)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -216,6 +220,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     func clearIfShowingDeletedMessage() { showEmpty() }
+
+    /// Edit mode's Delete or Move has taken `letters` off the list: empty
+    /// if the pane shows one of them, the letter or any in its
+    /// conversation, under its own id or another mailbox's
+    /// (`ListEdit.going`), and left as it is otherwise, since a letter he
+    /// is reading and did not tick is still there. Emptied whatever it
+    /// showed, as it was, the letter he was reading went from the pane when
+    /// he deleted others.
+    func clearIfShowing(any letters: [MessageSummary]) {
+        let shown = [summary].compactMap { $0 } + Array(threadSummaries.values)
+        guard ListEdit.going(shown, with: letters) else { return }
+        showEmpty()
+    }
 
     /// A letter opened from a row kept on the iPad, before this launch has
     /// shown the server to be the mailbox the copy was kept from, and the
@@ -791,8 +808,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// a reload of the whole list, with the letter still on screen and
     /// Delete still live, so a second tap sent a second MOVE after the
     /// first. If the server refuses, the row comes back and he is told.
+    ///
+    /// Inside Trash, where Delete erases the letter, he is asked first
+    /// (`questionBeforeDeleting`, B-062), and the pane empties only once he
+    /// has said Delete; Cancel leaves the letter in the pane and on the
+    /// list. It went at the first tap, with nothing asked.
     @objc private func deleteTapped() {
-        guard let s = summary, writes.startDelete() else { return }
+        guard let s = summary, !writes.deleting else { return }
+        guard let question = questionBeforeDeleting?(s) else {
+            delete(s)
+            return
+        }
+        EraseConfirmation.ask(question, on: self) { [weak self] in
+            // The letter he was asked about, while it is still the one in
+            // the pane.
+            guard let self, self.summary?.id == s.id else { return }
+            self.delete(s)
+        }
+    }
+
+    private func delete(_ s: MessageSummary) {
+        guard writes.startDelete() else { return }
         showEmpty()
         Task { @MainActor in
             let refused = await self.performed(.delete, on: s)
