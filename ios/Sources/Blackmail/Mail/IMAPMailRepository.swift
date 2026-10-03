@@ -1157,9 +1157,15 @@ actor IMAPMailRepository: MailRepository {
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
                 attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
+                // Whom it is to, for the row's top line in Sent Mail and
+                // Drafts (`RowNames`, B-060). Nil with no ENVELOPE, which
+                // names the sender as before rather than say a letter had
+                // no recipients.
+                to: env.map { $0.to.map(\.formatted) },
                 // From the ENVELOPE the row is fetched with already, so the
                 // header has its Cc line from the tap; nothing more is asked.
-                cc: env?.cc.map(\.formatted) ?? [])
+                cc: env?.cc.map(\.formatted) ?? [],
+                bcc: env?.bcc.map(\.formatted) ?? [])
         }
     }
 

@@ -172,16 +172,11 @@ enum Outbox {
     static let mailboxID = "blackmail:outbox"
 
     /// Whom a letter in the Outbox is to, as its row says it: each
-    /// recipient's name where he gave one, or the address, To first.
+    /// recipient's name where he gave one, or the address, To first, each
+    /// person once. Named as Sent Mail's and Drafts' rows name them, since
+    /// B-060 by the one rule (`RowNames`).
     static func addressees(of draft: Draft) -> String {
-        let names = Submission.recipients(of: draft).map { recipient -> String in
-            let bare = MailFormat.bareAddress(recipient)
-            guard let open = recipient.lastIndex(of: "<") else { return bare }
-            let name = recipient[..<open]
-                .trimmingCharacters(in: CharacterSet(charactersIn: " \""))
-            return name.isEmpty ? bare : name
-        }
-        return names.isEmpty ? "No Recipients" : names.joined(separator: ", ")
+        RowNames.line(RowNames.recipients(Submission.recipients(of: draft)).map(\.name))
     }
 }
 
@@ -201,6 +196,7 @@ extension LocalDraft {
                               sender: Outbox.addressees(of: draft),
                               subject: draft.subject, preview: preview, date: keptAt,
                               isRead: true, isFlagged: false,
-                              hasAttachment: !draft.attachments.isEmpty, threadID: row.id)
+                              hasAttachment: !draft.attachments.isEmpty, threadID: row.id,
+                              to: draft.to, cc: draft.cc, bcc: draft.bcc)
     }
 }

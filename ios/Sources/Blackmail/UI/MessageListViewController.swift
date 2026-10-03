@@ -1295,7 +1295,7 @@ final class MessageListViewController: UITableViewController {
                   let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
             switch rows[indexPath.row] {
             case let .thread(t):
-                cell.configure(with: t.displayRow())
+                cell.configure(with: t.displayRow(in: mailbox))
             }
         }
     }
@@ -1964,17 +1964,12 @@ final class MessageListViewController: UITableViewController {
                                            bottom: 0, right: 0)
         switch rows[ip.row] {
         case let .thread(thread):
-            cell.configure(with: thread.displayRow())
+            // In Sent Mail, Drafts and the Outbox the top line names whom
+            // the letters are to, and VoiceOver reads what it names
+            // (`RowNames`, B-060).
+            cell.configure(with: thread.displayRow(in: mailbox))
             cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
-            cell.accessibilityLabel = [
-                mailbox.role != .drafts || LocalDraft.key(ofRow: thread.id) == nil
-                    ? nil : LocalDraft.mark,
-                thread.isRead ? nil : "Unread",
-                thread.participants.joined(separator: ", "),
-                thread.count > 1 ? "\(thread.count) messages" : nil,
-                thread.subject,
-                MailFormat.listTimestamp(thread.date),
-            ].compactMap { $0 }.joined(separator: ", ")
+            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox)
         }
         return cell
     }

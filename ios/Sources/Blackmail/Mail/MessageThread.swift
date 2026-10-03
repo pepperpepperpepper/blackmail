@@ -51,6 +51,75 @@ struct MessageThread {
         return out
     }
 
+    /// Whom the row names, newest letter first, each once: its senders
+    /// (`participants`), or, `namingRecipients`, whom its letters are to,
+    /// as a row does in Sent Mail, Drafts and the Outbox (`RowNames`).
+    ///
+    /// A conversation in Sent Mail of a letter to Jane and a later one to
+    /// Sam and Jane names "Sam Example, Jane Example": everyone he wrote to
+    /// in it, as the senders' names tell him who wrote in the Inbox. A
+    /// letter whose row does not know whom it is to, kept by a build
+    /// before rows carried it, gives its sender's name, as it always did.
+    func names(namingRecipients: Bool) -> [String] {
+        guard namingRecipients else { return participants }
+        var seen = Set<String>()
+        var out: [String] = []
+        for m in messages {
+            let sender = MailFormat.displayName(m.sender)
+            // A sender is told apart by name, as `participants` tells them,
+            // in keys of their own that no address can be.
+            let named = RowNames.recipients(of: m)
+                ?? [RowNames.Recipient(key: "\u{0}" + sender, name: sender)]
+            for person in named where seen.insert(person.key).inserted {
+                out.append(person.name)
+            }
+        }
+        return out
+    }
+
+    /// The row's top line without its count: the names joined, or, where
+    /// the row names whom its letters are to and they are to nobody, "No
+    /// Recipients" (`RowNames.line`).
+    func nameLine(namingRecipients: Bool) -> String {
+        let names = names(namingRecipients: namingRecipients)
+        return namingRecipients ? RowNames.line(names) : names.joined(separator: ", ")
+    }
+
+    /// Whether this row, in the list of `list`, names whom its letters are
+    /// to: by the folder its letters were listed from, which is the same
+    /// for all of them (`RowNames.namesRecipients`).
+    func namesRecipients(in list: Mailbox) -> Bool {
+        RowNames.namesRecipients(listedFrom: newest.mailboxID, in: list)
+    }
+
+    /// The row the list of `list` draws: in Sent Mail, Drafts and the
+    /// Outbox naming whom the letters are to, everywhere else who they are
+    /// from. What the list's controller draws every row with.
+    func displayRow(in list: Mailbox) -> MessageSummary {
+        displayRow(namingRecipients: namesRecipients(in: list))
+    }
+
+    /// What VoiceOver reads for the row in the list of `list`: "On this
+    /// iPad only" for a draft kept on the iPad, "Unread", the names as the
+    /// top line has them, how many letters when more than one, the subject
+    /// and the time as the row shows it. The count is read as "3 messages"
+    /// rather than the "(3)" the top line ends with. No "To" is read before
+    /// the names where the row names whom the letters are to, as none is
+    /// shown: the folder says so, as it does on the screen.
+    ///
+    /// Out of the controller, which used to put it together itself, so the
+    /// names it reads are the names the row shows, and tested.
+    func accessibilityLabel(in list: Mailbox, now: Date = Date()) -> String {
+        [
+            list.role == .drafts && LocalDraft.key(ofRow: id) != nil ? LocalDraft.mark : nil,
+            isRead ? nil : "Unread",
+            nameLine(namingRecipients: namesRecipients(in: list)),
+            count > 1 ? "\(count) messages" : nil,
+            subject,
+            MailFormat.listTimestamp(date, now: now),
+        ].compactMap { $0 }.joined(separator: ", ")
+    }
+
     /// The conversation as the single row the list draws.
     ///
     /// Out here rather than in the view controller so it can be TESTED —
@@ -61,9 +130,13 @@ struct MessageThread {
     /// Deliberately reuses `MessageSummary` and therefore the row that
     /// draws a single letter. A second cell type would mean two copies of
     /// a geometry measured against the reference to the half point, and
-    /// two places to keep it true.
-    func displayRow() -> MessageSummary {
-        let who = participants.joined(separator: ", ")
+    /// two places to keep it true. Its `sender` is the top line, whoever
+    /// that names (`names(namingRecipients:)`); the letters' own senders
+    /// are left alone, so nothing that goes by them, matching a letter's
+    /// twin in another mailbox (`ListEdit.twins`) or the reading pane's
+    /// From, changes with the folder.
+    func displayRow(namingRecipients: Bool = false) -> MessageSummary {
+        let who = nameLine(namingRecipients: namingRecipients)
         // The count rides on the sender line — "Margaret, Carlo (3)" —
         // rather than in a badge, which would need a new view in a layout
         // that is frozen.

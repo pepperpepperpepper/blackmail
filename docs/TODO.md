@@ -114,7 +114,15 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       on the iPad: `http://`, `https://`, `www.` and `mailto:` made links as
       the page is built, the sentence's punctuation left out as Mail leaves
       it, and in HTML letters' text too. See B-055.*
-- [ ] Sent and Drafts rows show his own name, not the recipient's.
+- [x] Sent and Drafts rows show his own name, not the recipient's.
+      *Done 2026-10-03, seen on the iPad: in Sent Mail, Drafts and
+      the Outbox the row names whom the letter is to, To, Cc and Bcc, each
+      person once, the name or the address where there is none; a
+      conversation everyone he wrote to in it; "No Recipients" for a draft
+      to nobody; the drafts "On this iPad only" too, the kept copy and
+      VoiceOver with them. His letters found by an All Mailboxes search
+      still name him, as in All Mail. See B-060, and its check under
+      "Blocked on the iPad coming back".*
 - [x] The reading pane never shows Cc, nor any bare address. *Done
       2026-09-30, not yet seen on the iPad: Cc under To, names, and the
       address where there is none, To the same; a name with a comma in it
@@ -1267,6 +1275,74 @@ this host. Ordered by value, not by size.
       crash does, with neither the background nor
       `applicationWillTerminate`: write that into B-057, with what step 1's
       swipe left in `Launches/unfinished`.
+- [x] **B-060, Sent Mail and Drafts name whom each letter is to.** Only
+      letters the test account sends to itself. Gmail delivers mail for its
+      address with `+jane` or `+sam` put before the `@` to the same
+      mailbox, so below, "Jane's address" is that with `+jane`, typed into
+      the field as `Jane <` the address `>`, "Sam's address" that with
+      `+sam`, typed as `Sam <` the address `>`, and "Sam's bare address" the
+      same typed alone, with no name. The names are short because the
+      row's top line is: some 168 points of 17-point semibold in three
+      panes, the default, and some 213 in two, cut off with "…" where the
+      names run past its end. "Sam, Jane (2)" fits; "Jane Example, Sam
+      Example (2)" does not, nor, most likely, a whole address. So the
+      screen is checked below for what fits on it, and step 8 hears the
+      rest with VoiceOver, which reads the whole line. Organize by Thread
+      on.
+      1. *The first launch of this build.* Before installing it, open Sent
+      Mail once on the build before, so its page is kept. Install, Wi-Fi
+      off, open the app, open Sent Mail: its kept rows draw at once, each
+      naming the test account as before, and none says "No Recipients".
+      Wi-Fi on.
+      2. *Sent Mail.* Write a letter To Jane's address, Subject "B-060
+      one", and Send. Write another To Sam's bare address, Cc Jane's, Bcc
+      the test account's own address, Subject "B-060 two", and Send. Open
+      Sent Mail: the top line of "B-060 one" reads "Jane", and that of
+      "B-060 two" begins with Sam's bare address, as much of it as fits
+      before the "…", which may stop short of the `+sam`. Neither reads the
+      test account's name. What follows on that line, "Jane" and the Bcc
+      if Gmail kept it, is past its end or cut short; step 8 hears it. Tap
+      "B-060 two": the reading pane's header is as before, From the test
+      account, To Sam's bare address, Cc "Jane".
+      3. *A conversation.* In Sent Mail open "B-060 one" and tap Reply. Its
+      To is the test account itself (the open item about replying to his
+      own letter); put Sam's address there in its place and Send. Sent Mail:
+      the conversation's row reads "Sam, Jane (2)", the newer letter's
+      person first, all of it on the line.
+      4. *Drafts.* Write a letter with nothing in To, Subject "B-060
+      nobody", tap Cancel, then Save Draft. Drafts: its row reads "No
+      Recipients". Wi-Fi off, write a letter To Jane's address, Subject
+      "B-060 kept", Cancel, Save Draft: under "On this iPad only" its top
+      line reads "Jane", not the test account's name. Wi-Fi on, and once it
+      has gone to Gmail its row still reads "Jane".
+      5. *The Outbox.* Wi-Fi off, write a letter To Jane's address, Cc
+      Jane's address again typed alone, Subject "B-060 outbox", and Send:
+      the Outbox's row reads "Jane" and nothing after it, where Jane named
+      twice would go on ", " and her address. Wi-Fi on: it goes.
+      6. *Search.* In Sent Mail search "B-060" with Current Mailbox. A
+      search's rows are never gathered into conversations, so each letter
+      has a row of its own, with no count: "B-060 outbox" reads "Jane";
+      the reply of step 3 reads "Sam" alone, not "Sam, Jane (2)"; "B-060
+      two" begins with Sam's bare address, as in 2; and "B-060 one" reads
+      "Jane". Tap All Mailboxes: the same letters, found in All Mail, read
+      the test account's name, as they do in All Mail itself; open All
+      Mail and see that they do.
+      7. *The kept copy.* Force-quit, Wi-Fi off, open the app and open Sent
+      Mail: the rows read as in 2 and 3 at once, and "B-060 outbox"
+      "Jane"; Drafts reads as in 4. Wi-Fi on.
+      8. *VoiceOver,* which reads the whole line the screen cuts short,
+      after "Unread" where a row is. With VoiceOver on, in Sent Mail touch
+      the row of "B-060 two": it reads Sam's bare address whole, with its
+      `+sam`, then "Jane", then, if Gmail keeps the Bcc on its copy in Sent
+      Mail, the test account's address, then the subject and the time, and
+      no "To". Write down in B-060, under "Not known", whether the Bcc was
+      read. Touch the conversation of step 3: "Sam, Jane, 2 messages", then
+      the subject and the time. In Drafts touch "B-060 nobody": "No
+      Recipients", then the subject. Then VoiceOver off, and delete the
+      B-060 letters and drafts.
+      *Seen on the iPad 2026-10-03, on carlo's mailbox: steps 1 to 7 as
+      written. Step 8's VoiceOver was not tried; Gmail's ENVELOPE for
+      "B-060 two" in Sent Mail has the Bcc, so Gmail keeps it (B-060).*
 - [x] **B-061, Reply and Reply All addressed as Mail addresses them.**
       Every letter here goes from the test account to itself; A stands for
       its address, `name@gmail.com` say. A letter from someone else with a
@@ -1333,6 +1409,15 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
       *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
       carry it, and the header has its line from the tap.*
+- [ ] **A conversation's count in Sent Mail** — the row's top line holds
+      some 168 points in three panes and 213 in two, and is cut at its
+      end, so naming To, Cc and Bcc pushes a conversation's "(2)" past it:
+      "Jane Example, Sam Exam…". Accept it, as the Inbox already does with
+      a long list of who wrote (built); name To alone, which shortens
+      the line; or put the count
+      first, or fit the names to leave it room, either of which changes
+      the frozen row (B-060, which puts four more questions about these
+      rows)
 - [ ] **Reply's addressing** (B-061) — built as Mail is believed to do it,
       none of it checked against Mail on an iPad. Reply All to a letter
       with a Reply-To goes to the Reply-To in place of the From, or to
@@ -1349,11 +1434,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       From addresses of Sent Mail taken as his at sign-in, which would
       take a stranger for him if a letter of theirs were ever moved into
       Sent Mail.
-- [ ] **Reply to his own letter sent by Bcc alone** (B-061) — a copy in
-      Sent Mail from Gmail's web page keeps its Bcc header, and Reply
-      answers it to himself, as built. Or to its Bcc recipients, in Bcc,
-      or in To. A letter sent from Blackmail never has a Bcc header in Sent
-      Mail, so this is only ever a letter he sent from elsewhere.
+- [ ] **Reply to his own letter sent by Bcc alone** (B-061) — its copy
+      in Sent Mail keeps its Bcc header, and Reply answers it to himself,
+      as built. Or to its Bcc recipients, in Bcc,
+      or in To. Gmail keeps the Bcc on its copy of a letter sent from
+      Blackmail too (seen 2026-10-03, B-060), so this is any letter he
+      sent to Bcc alone.
 
 ## Open, recorded, not scheduled
 
