@@ -288,6 +288,21 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         return count
     }
 
+    /// How many connections have a read waiting on the link for bytes
+    /// right now: a client that has read all it was sent and is in the
+    /// silence before the next. How a test knows the read for the rest of
+    /// a reply has begun before it moves a clock or lets the rest go.
+    func readsWaiting() async -> Int {
+        let live: [ScriptedTransport] = locked { s in
+            s.sessions.keys.sorted().compactMap { s.transports[$0]?.transport }
+        }
+        var count = 0
+        for transport in live {
+            if await transport.isAwaitingBytes { count += 1 }
+        }
+        return count
+    }
+
     /// Lets everything held for `verb` go, in the order it was sent, and
     /// stops holding.
     func releaseReplies(to verb: String) async {
@@ -400,6 +415,52 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         get { locked { $0.refusedSearchKeys } }
         set { locked { $0.refusedSearchKeys = newValue } }
     }
+
+    /// A UID SEARCH with `RETURN (…)` answered NO, as by a server that
+    /// advertises ESEARCH and will not do it now; the same SEARCH without
+    /// RETURN is answered as ever.
+    var refusesSearchReturn: Bool {
+        get { locked { $0.refusesSearchReturn } }
+        set { locked { $0.refusesSearchReturn = newValue } }
+    }
+
+    /// A UID SEARCH with `RETURN (…)` answered as if RETURN were not there,
+    /// with a plain `* SEARCH` line of every UID matched, as by a server
+    /// that advertises ESEARCH and takes no notice of it.
+    var ignoresSearchReturn: Bool {
+        get { locked { $0.ignoresSearchReturn } }
+        set { locked { $0.ignoresSearchReturn = newValue } }
+    }
+
+    /// The result items an ESEARCH answer gives after `UID`, made from the
+    /// UIDs matched, ascending, in place of the ones RETURN asked for:
+    /// `{ "COUNT \($0.count)" }` for a server that answers the count when
+    /// asked for the lowest. Nil answers as RFC 4731 has it.
+    var esearchItems: (@Sendable ([UInt32]) -> String)? {
+        get { locked { $0.esearchItems } }
+        set { locked { $0.esearchItems = newValue } }
+    }
+
+    /// A UID SEARCH with `CHARSET` answered BAD, as by a server that will
+    /// not take the argument; the same SEARCH without it is answered as
+    /// ever.
+    var refusesCharset: Bool {
+        get { locked { $0.refusesCharset } }
+        set { locked { $0.refusesCharset = newValue } }
+    }
+
+    /// Verbs whose replies come in two chunks: the untagged lines, and then
+    /// the tagged line as a reply of its own, named `completion(of:)` for
+    /// `holdReplies(to:)`, so a test can hold the answer's end apart from
+    /// its start. A reply that is nothing but its tagged line is one chunk.
+    var completesApart: Set<String> {
+        get { locked { $0.completesApart } }
+        set { locked { $0.completesApart = newValue } }
+    }
+
+    /// The name the tagged line of a reply to `verb` goes by, for
+    /// `holdReplies(to:)`, when `completesApart` names the verb.
+    static func completion(of verb: String) -> String { verb + " completion" }
 
     /// The transport's ordinary deadline, in place of `TLSConnection`'s 30
     /// seconds: for the connect, for each read of an ordinary reply, and for
@@ -886,6 +947,11 @@ private extension ScriptedIMAPServer {
         var refusedMailboxes: Set<String> = []
         var unlistedMailboxes: Set<String> = []
         var refusedSearchKeys: Set<String> = []
+        var refusesSearchReturn = false
+        var ignoresSearchReturn = false
+        var esearchItems: (@Sendable ([UInt32]) -> String)?
+        var refusesCharset = false
+        var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
         var passwordRevoked = false
         var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
@@ -1097,9 +1163,16 @@ private extension ScriptedIMAPServer.State {
         dispatch(Server.tokens(command), literal: literal, on: id, into: &response)
         entry.status = response.status
         log.append(entry)
-        return [Server.Reply(bytes: response.wire.data,
-                             delay: delays[entry.verb] ?? defaultDelay,
-                             verb: entry.verb,
+        let bytes = response.wire.data
+        let delay = delays[entry.verb] ?? defaultDelay
+        if completesApart.contains(entry.verb), let tagged = response.taggedAt, tagged > 0 {
+            let split = bytes.startIndex + tagged
+            return [Server.Reply(bytes: Data(bytes[..<split]), delay: delay, verb: entry.verb),
+                    Server.Reply(bytes: Data(bytes[split...]), delay: .zero,
+                                 verb: Server.completion(of: entry.verb),
+                                 closesAfter: response.hangsUp)]
+        }
+        return [Server.Reply(bytes: bytes, delay: delay, verb: entry.verb,
                              closesAfter: response.hangsUp)]
     }
 
@@ -1273,9 +1346,37 @@ private extension ScriptedIMAPServer.State {
     /// Over what the connection has been told of, and it is told nothing
     /// here: Gmail answered the SEARCH on the iPad with the letters it had
     /// announced and announced the rest on the FETCH after it (B-045).
+    ///
+    /// `RETURN (MIN)` and its neighbours are answered with ESEARCH (RFC
+    /// 4731), as a server advertising it does: `* ESEARCH (TAG "a012") UID
+    /// MIN 4231`, with no MIN when nothing matched. Refused NO with
+    /// `refusesSearchReturn`, and BAD, as an unknown word, when ESEARCH is
+    /// among `withheldCapabilities`; answered as a plain SEARCH with
+    /// `ignoresSearchReturn`, and with other items with `esearchItems`.
+    /// CHARSET is refused BAD with `refusesCharset`.
     func search(_ args: [Server.Token], in name: String, on id: Int, into r: inout Server.Response) {
         var keys = args[...]
-        if keys.first?.text?.uppercased() == "CHARSET" { keys = keys.dropFirst(2) }
+        var returning: [String]?
+        if keys.first?.text?.uppercased() == "RETURN" {
+            guard !withheldCapabilities.contains("ESEARCH"), keys.count >= 2,
+                  let options = keys.dropFirst().first?.items else {
+                r.bad("Could not parse command")
+                return
+            }
+            if refusesSearchReturn {
+                r.no("[UNAVAILABLE] Temporary System Problem. Try again later. (Failure)")
+                return
+            }
+            returning = options.compactMap { $0.text?.uppercased() }
+            keys = keys.dropFirst(2)
+        }
+        if keys.first?.text?.uppercased() == "CHARSET" {
+            if refusesCharset {
+                r.bad("Could not parse command")
+                return
+            }
+            keys = keys.dropFirst(2)
+        }
         // Gmail's own key is unknown to a server without its extension.
         let refused = keys.contains {
             let word = $0.text?.uppercased() ?? ""
@@ -1293,7 +1394,20 @@ private extension ScriptedIMAPServer.State {
             return key.matches(found.stored, key: found.key, uid: uid,
                                deleted: folder.deleted.contains(uid), highest: seen.last ?? 0)
         }
-        r.untagged("SEARCH" + hits.map { " \($0)" }.joined())
+        if let returning, !ignoresSearchReturn {
+            var answer = "ESEARCH (TAG \(Server.quoted(r.tag))) UID"
+            if let esearchItems {
+                let items = esearchItems(hits.sorted())
+                if !items.isEmpty { answer += " " + items }
+            } else {
+                if returning.contains("MIN"), let lowest = hits.min() { answer += " MIN \(lowest)" }
+                if returning.contains("MAX"), let highest = hits.max() { answer += " MAX \(highest)" }
+                if returning.contains("COUNT") { answer += " COUNT \(hits.count)" }
+            }
+            r.untagged(answer)
+        } else {
+            r.untagged("SEARCH" + hits.map { " \($0)" }.joined())
+        }
         r.ok("SEARCH completed (Success)")
     }
 
@@ -1584,6 +1698,8 @@ private extension ScriptedIMAPServer {
         var wire = Wire()
         var status: String?
         var hangsUp = false
+        /// Where the tagged line starts in `wire`, once it is there.
+        private(set) var taggedAt: Int?
 
         mutating func untagged(_ line: String) { wire.text("* \(line)\r\n") }
 
@@ -1593,6 +1709,7 @@ private extension ScriptedIMAPServer {
 
         private mutating func finish(_ word: String, _ text: String) {
             status = word
+            taggedAt = wire.data.count
             wire.text("\(tag) \(word) \(text)\r\n")
         }
     }

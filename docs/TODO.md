@@ -1259,6 +1259,45 @@ this host. Ordered by value, not by size.
       crash does, with neither the background nor
       `applicationWillTerminate`: write that into B-057, with what step 1's
       swipe left in `Launches/unfinished`.
+- [ ] **B-063, his mailbox's size.** None of it seen on the iPad yet. On
+      the test account, with the connection log open between steps:
+      1. *Folders.* Open Inbox, Sent Mail and All Mail, and Refresh each:
+         each lists as before, with `UID SEARCH ALL` answered `* SEARCH
+         {N uids}`. Write down every `SLOW <VERB> ms=<n> quiet=<n>` note,
+         with the folder. `quiet` is the longest single silence in the
+         answer, Gmail's own, and the number the 90-second bound has to
+         stay well clear of; `ms` adds the answer's coming over the line.
+         There should be none on the test account; a `DEADLINE read
+         serverWork bound=90s` is a failure.
+      2. *Go to Date before 2016*, in a folder and in All Mailboxes (All
+         Mail): the dated SEARCH goes as `UID SEARCH RETURN (MIN) SENTSINCE
+         "…" SINCE "…" BEFORE "…"`, the line after it is `* ESEARCH (TAG
+         "a0nn") UID MIN <n>`, then `UID SEARCH ALL`, and the list lands as
+         before, "Showing <day>" for the first day with mail. A day after
+         the newest mail: the ESEARCH line has no MIN, and "No mail on or
+         after" the day. If Gmail answers the RETURN with NO or BAD
+         instead, or with an ESEARCH line that gives no MIN but gives
+         something (`COUNT 37`), a plain `UID SEARCH SENTSINCE …` follows
+         at once; if with a plain `* SEARCH {N uids}`, nothing follows.
+         Either way the jump lands the same: write which into B-063, with
+         the answer's words.
+      3. *An All Mailboxes search* for a common word: found as before, and
+         any SLOW note written down.
+      4. *Send a test letter to the test account itself*, with two or three
+         photos attached: it arrives once, photos and all.
+      5. *Files.* Over SSH, in the app's container, `ls tmp/Attachments`
+         after each of these. Open an attachment: one directory while the
+         preview is up, and still one once it is closed. Open it again,
+         and then another, closing each: never more than one, the last
+         opened. With a printer to hand, Print a PDF from the preview's
+         share button and tap Done as soon as the print panel has gone:
+         the printout is whole, not blank. Attach photos to a
+         letter: one directory each while the sheet is up; Send, and once
+         the sheet has gone and the letter has arrived, none. Again with
+         Save Draft and no connection: the letter is in Drafts "On this
+         iPad only" with its photos, `tmp/Attachments` is empty, and the
+         photos open from the reopened letter and go up with it when the
+         connection is back.
 
 ## Blocked on the owner
 

@@ -82,7 +82,67 @@ enum AttachmentStore {
     /// and it will do so eventually, but "eventually" on a device that is
     /// never restarted and holds one person's entire correspondence is not a
     /// bound. Launch is the only moment nothing can be open.
+    ///
+    /// Not the only time anything goes, since B-063: iOS keeps the app
+    /// alive for days between launches, and every file he opened and every
+    /// photo he attached in that time stayed here until the next one. The
+    /// reading pane removes the last file he opened as it writes the next,
+    /// and the composer its photos when it is done with for good, each
+    /// through `removeStaged`.
     static func purge() {
         try? FileManager.default.removeItem(at: root)
+    }
+
+    /// The directory `write` or `copy` made for the file at `url`: its
+    /// parent, when that is a directory directly in `root` named as `place`
+    /// names one, by a UUID. Nil for any other file.
+    ///
+    /// The rule that keeps a removal to what this type staged. A photo of a
+    /// letter kept on the iPad is a file of that letter's own directory
+    /// (`LocalDraftStore.keep`, a hard link to the staged copy, so it
+    /// outlives it), and a letter reopened from there carries that file's
+    /// URL, not the staged one; its parent is not in `root`, and it is never
+    /// touched.
+    static func stagingDirectory(of url: URL, in root: URL = root) -> URL? {
+        let file = url.standardizedFileURL
+        guard file.isFileURL, !file.hasDirectoryPath else { return nil }
+        let directory = file.deletingLastPathComponent()
+        guard directory.deletingLastPathComponent().path == root.standardizedFileURL.path,
+              UUID(uuidString: directory.lastPathComponent) != nil else { return nil }
+        return directory
+    }
+
+    /// Removes what `write` or `copy` staged for `url`, its directory and
+    /// all; nothing at all for a file it did not stage (`stagingDirectory`).
+    static func removeStaged(_ url: URL, in root: URL = root) {
+        guard let directory = stagingDirectory(of: url, in: root) else { return }
+        try? FileManager.default.removeItem(at: directory)
+    }
+}
+
+/// The files one composer staged with `AttachmentStore.write`, removed once
+/// it is done with for good (B-063).
+///
+/// Only what it staged is recorded, and only what `AttachmentStore` staged
+/// is removed: a photo of a letter reopened from the iPad is that letter's
+/// own file, which nothing here records, and if it were, the path rule
+/// would leave it alone. A photo he took out of the letter goes with the
+/// rest, when the composer does.
+final class StagedFiles {
+    private(set) var urls: [URL] = []
+    private let root: URL
+
+    init(root: URL = AttachmentStore.root) {
+        self.root = root
+    }
+
+    func record(_ url: URL) {
+        urls.append(url)
+    }
+
+    /// Removes every one, and forgets them.
+    func removeAll() {
+        for url in urls { AttachmentStore.removeStaged(url, in: root) }
+        urls = []
     }
 }

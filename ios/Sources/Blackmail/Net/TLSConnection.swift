@@ -76,10 +76,21 @@ actor TLSConnection: LinkTransport {
     /// `connectionDropTime` below well before it.
     let uploadReplyDeadline: TimeInterval
 
+    /// The bound on a read of `ReplyWait.serverWork`: the reply to a SEARCH,
+    /// a SELECT or a STATUS, which Gmail starts only once it has worked
+    /// through the mailbox. Three ordinary deadlines. What it costs: a path
+    /// that dies while one of those commands waits is given up on at a
+    /// minute and a half rather than half a minute. Once the command's bytes
+    /// are acknowledged, `connectionDropTime` has nothing outstanding to
+    /// time, and keepalive declares a dead peer only about two minutes
+    /// after the last traffic, so it is this bound that ends the wait.
+    let serverWorkDeadline: TimeInterval
+
     init(host: String, port: UInt16, timeout: TimeInterval = 30,
-         uploadReplyTimeout: TimeInterval = 600) {
+         uploadReplyTimeout: TimeInterval = 600, serverWorkTimeout: TimeInterval = 90) {
         self.ordinaryDeadline = timeout
         self.uploadReplyDeadline = uploadReplyTimeout
+        self.serverWorkDeadline = serverWorkTimeout
         // Implicit TLS (IMAPS 993, SMTPS 465) rather than STARTTLS. One fewer
         // state to get wrong, and no window in which credentials could be sent
         // over a plaintext socket because an upgrade silently failed.

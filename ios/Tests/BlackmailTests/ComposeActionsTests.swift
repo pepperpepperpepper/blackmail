@@ -482,6 +482,46 @@ final class ComposeActionsTests: XCTestCase {
                        "a photo landing that was never counted holds nothing up")
     }
 
+    // MARK: - The composer held while its letter goes (B-063)
+
+    /// The composer removes the photos it staged as it goes, and it goes
+    /// only once nothing holds it. The letter closure it hands Send and Save
+    /// Draft holds it, and each keeps that closure until its work is done,
+    /// the upload and the save's keep and APPEND, which read those photos:
+    /// a sheet closed while its letter still goes is not let go of under
+    /// it. Here a stand-in for the sheet, its letter held by the closure.
+    func testSendAndSaveDraftHoldTheComposerUntilTheirWorkIsDone() async throws {
+        final class Sheet {
+            let draft: Draft
+            init(_ draft: Draft) { self.draft = draft }
+        }
+        for way in ["send", "save"] {
+            reset()
+            let actions = makeActions()
+            weak var gone: Sheet?
+            let task: Task<Void, Never>?
+            do {
+                let sheet = Sheet(draft())
+                gone = sheet
+                if way == "send" {
+                    holdSend = Held()
+                    task = actions.send({ sheet.draft }, then: nil)
+                } else {
+                    holdSave = Held()
+                    task = actions.saveAndClose({ sheet.draft }, then: nil)
+                }
+            }
+            try await until { self.sends + self.saves == 1 }
+            XCTAssertNotNil(gone, "\(way): the sheet was let go of with its letter still going")
+            XCTAssertTrue(log.contains("dismiss") == (way == "save"), "\(way): \(log)")
+
+            if way == "send" { holdSend?.release() } else { holdSave?.release() }
+            await task?.value
+            try await until { gone == nil }
+            XCTAssertNil(gone, "\(way): held after its work was done")
+        }
+    }
+
     // MARK: - Kept on the iPad
 
     /// Send keeps the letter as it takes it, so a send cut off by iOS ending

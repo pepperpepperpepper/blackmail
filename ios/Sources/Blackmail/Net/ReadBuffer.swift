@@ -15,6 +15,24 @@ struct ReadBuffer {
     /// see what the buffer is holding on to.
     private(set) var bytes = Data()
 
+    /// How many bytes at the front of `bytes` a line search has already
+    /// looked through and found no CRLF starting in, but for the last of
+    /// them, a CR whose LF may be the first byte of the next chunk. The
+    /// next search starts at that last byte rather than at the front.
+    ///
+    /// A count from the front, used only as an offset into the bytes
+    /// themselves (`lineEnd`), never as an index of the `Data`: removing
+    /// from the front of a `Data` leaves its indices where they were, and
+    /// an index made from a count then points past a CRLF and desyncs the
+    /// stream. Back to nought whenever bytes leave the front, by a line,
+    /// by a literal, or by the buffer being let go of, so it can never
+    /// count bytes that are no longer there.
+    private var scanned = 0
+
+    /// Bytes looked at by every line search so far, for a test to hold the
+    /// search to about once a byte however the chunks cut a line.
+    private(set) var examined = 0
+
     var isEmpty: Bool { bytes.isEmpty }
 
     mutating func append(_ chunk: Data) {
@@ -23,13 +41,27 @@ struct ReadBuffer {
 
     /// The next line without its CRLF, or nil until a whole one is here.
     ///
-    /// `startIndex` everywhere rather than 0, because removing from the
+    /// Searched from where the last search left off. A line comes in chunks
+    /// of a few kilobytes and this is asked after each, so searching from
+    /// the front every time went over a long line once for every chunk of
+    /// it: a SEARCH answer of his All Mail, about 3 MB, in 16 KB chunks is
+    /// near 300 MB of searching, where this looks at each byte once.
+    ///
+    /// `startIndex` rather than 0 for the slices, because removing from the
     /// front of a `Data` leaves its indices where they were: after
     /// `removeFirst(100)` the first byte is at index 100.
     mutating func takeLine() -> Data? {
-        guard let range = bytes.range(of: Data([0x0D, 0x0A])) else { return nil }
-        let line = bytes.subdata(in: bytes.startIndex..<range.lowerBound)
-        bytes.removeSubrange(bytes.startIndex..<range.upperBound)
+        let from = max(0, scanned - 1)
+        guard let end = Self.lineEnd(in: bytes, from: from) else {
+            examined += bytes.count - from
+            scanned = bytes.count
+            return nil
+        }
+        examined += end + 2 - from
+        let start = bytes.startIndex
+        let line = bytes.subdata(in: start..<(start + end))
+        bytes.removeSubrange(start..<(start + end + 2))
+        scanned = 0
         releaseIfDrained()
         return line
     }
@@ -41,8 +73,28 @@ struct ReadBuffer {
         guard bytes.count >= count else { return nil }
         let out = bytes.prefix(count)
         bytes.removeFirst(count)
+        scanned = 0
         releaseIfDrained()
         return Data(out)
+    }
+
+    /// Where the first CR followed by LF is in `data`, counted from its
+    /// first byte, looking no earlier than `start`; nil if there is none.
+    /// A CR that is the last byte is not a line end yet.
+    private static func lineEnd(in data: Data, from start: Int) -> Int? {
+        data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Int? in
+            guard let base = raw.baseAddress else { return nil }
+            let count = raw.count
+            var at = start
+            while at < count - 1 {
+                guard let found = memchr(base + at, 0x0D, count - at) else { return nil }
+                let cr = base.distance(to: UnsafeRawPointer(found))
+                guard cr < count - 1 else { return nil }
+                if raw[cr + 1] == 0x0A { return cr }
+                at = cr + 1
+            }
+            return nil
+        }
     }
 
     /// Lets go of the storage once every byte in it has been read.

@@ -21,7 +21,8 @@ struct LocalDraft {
     /// carried by a letter reopened from here, so one letter is one entry.
     let key: String
     /// The letter. Its photos are files of this entry, never the composer's
-    /// staged copies, which `AttachmentStore.purge` deletes at every launch.
+    /// staged copies, which go at every launch (`AttachmentStore.purge`)
+    /// and when the composer that staged them is let go of (`StagedFiles`).
     var draft: Draft
     /// This version of the letter, made afresh each time it is kept. It goes
     /// to the server under a Message-ID made from this (`DraftUpload`).
@@ -612,9 +613,11 @@ final class LocalDraftStore {
     /// it is kept; the ones he has removed since go.
     ///
     /// A photo whose staged file has gone is left out rather than failing
-    /// the whole letter. That cannot happen while the composer is open (the
-    /// staging is emptied only at launch, and nothing takes a letter off the
-    /// iPad while it is open), and if it ever did, the words matter more.
+    /// the whole letter. That cannot happen while the composer is open: the
+    /// staging is emptied at launch, a composer's photos go only once it is
+    /// let go of (`StagedFiles`), which no keep still reading them allows,
+    /// and nothing takes a letter off the iPad while it is open. If it ever
+    /// did, the words matter more.
     @discardableResult
     func keep(_ draft: Draft, as key: String, unfinished: Bool,
               account: String?) throws -> LocalDraft {

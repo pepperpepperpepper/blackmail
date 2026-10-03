@@ -214,6 +214,52 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertEqual(dated.count, 1)
         XCTAssertTrue(only.hasSuffix(
             "SENTSINCE \"19-Jun-2019\" SINCE \"12-Jun-2019\" BEFORE \"11-Oct-2026\""), only)
+        // Asking for the lowest letter it matches alone, as Gmail can say it
+        // (B-063); and the listing the pages walk, whole, after it.
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) SENTSINCE \"19-Jun-2019\" "
+                                    + "SINCE \"12-Jun-2019\" BEFORE \"11-Oct-2026\"",
+                                  "UID SEARCH ALL"])
+    }
+
+    /// Every jump lands where it did when the server was asked for every
+    /// letter the day matched, in each calendar: the same letter, the same
+    /// day, the same window, and nothing that recent where there was
+    /// nothing. Once with Gmail's ESEARCH, whose MIN alone comes back, and
+    /// once from a server without it, asked with a plain SEARCH.
+    func testEveryJumpLandsTheSameWhetherOnlyTheLowestMatchIsAskedFor() async throws {
+        let cases: [(zone: String, day: DateComponents)] = [
+            ("UTC", DateComponents(year: 2015, month: 1, day: 1, hour: 12)),
+            ("UTC", DateComponents(year: 2018, month: 3, day: 15, hour: 12)),
+            ("UTC", DateComponents(year: 2019, month: 6, day: 19, hour: 12)),
+            ("UTC", DateComponents(year: 2019, month: 8, day: 2, hour: 12)),
+            ("UTC", DateComponents(year: 2021, month: 1, day: 1, hour: 12)),
+            ("America/New_York", DateComponents(year: 2019, month: 9, day: 20, hour: 12)),
+            ("America/New_York", DateComponents(year: 2019, month: 9, day: 21, hour: 12)),
+            ("Asia/Tokyo", DateComponents(year: 2019, month: 9, day: 20, hour: 12)),
+            ("Asia/Tokyo", DateComponents(year: 2019, month: 6, day: 20, hour: 8)),
+        ]
+        func landings(esearch: Bool) async throws -> [String] {
+            server.withheldCapabilities = esearch ? [] : ["ESEARCH"]
+            server.clearLog()
+            var out: [String] = []
+            for (zone, day) in cases {
+                let zoned = calendar(zone)
+                let repository = makeRepository(calendar: zoned)
+                let window = try await repository.messages(around: zoned.date(from: day)!,
+                                                           in: "inbox", limit: 10)
+                out.append(window.map { w in
+                    "\(w.messages[w.anchorIndex].subject) on \(zoned.component(.day, from: w.landedOn)) "
+                        + "of \(w.messages.map(\.subject)) newest \(w.reachedNewest)"
+                } ?? "nothing that recent")
+            }
+            let returning = server.log.filter { $0.command.contains("RETURN (MIN)") }.count
+            XCTAssertEqual(returning, esearch ? cases.count : 0)
+            return out
+        }
+        let lowestAlone = try await landings(esearch: true)
+        let everyMatch = try await landings(esearch: false)
+        XCTAssertEqual(lowestAlone, everyMatch)
+        XCTAssertEqual(lowestAlone.filter { $0 == "nothing that recent" }.count, 1)
     }
 
     /// The SEARCH asks for his date, in his calendar, whatever day it is in

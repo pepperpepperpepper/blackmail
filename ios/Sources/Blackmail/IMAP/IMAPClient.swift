@@ -46,6 +46,16 @@ actor IMAPClient {
     /// command per message.
     private static let maximumUIDSetLength = 7_000
 
+    /// A reply that takes longer than this, from the command's write to its
+    /// tagged answer, is noted in the connection log (`performCommand`).
+    /// Well inside every bound, so the note comes long before a deadline.
+    static let slowReply: TimeInterval = 5
+
+    /// `seconds` in whole milliseconds, for a SLOW note.
+    private static func milliseconds(_ seconds: TimeInterval) -> Int {
+        Int((seconds * 1000).rounded())
+    }
+
     private static let baseSummaryItems = "UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE"
 
     /// The FETCH items for a list row, plus Gmail's labels when the server
@@ -456,8 +466,11 @@ actor IMAPClient {
                 items: [String] = ["MESSAGES", "UNSEEN", "UIDNEXT", "UIDVALIDITY"]) async throws -> [String: UInt32] {
         let cleaned = items.map { $0.filter { $0.isLetter } }.filter { !$0.isEmpty }
         guard !cleaned.isEmpty else { return [:] }
+        // Waited for on the longer bound: Gmail counts the mailbox before it
+        // answers, and All Mail is his whole correspondence (`ReplyWait`).
         let result = try await sendCommand(
-            "STATUS \(Self.mailboxArgument(mailbox)) (\(cleaned.joined(separator: " ")))")
+            "STATUS \(Self.mailboxArgument(mailbox)) (\(cleaned.joined(separator: " ")))",
+            wait: .serverWork)
         guard result.status == .ok else { return [:] }
         return IMAPParser.parseStatus(result.untagged)
     }
@@ -526,7 +539,10 @@ actor IMAPClient {
         selectedMailbox = nil
         mailboxState = nil
         let asked = now()
-        let result = try await performCommand("SELECT \(Self.mailboxArgument(mailbox))")
+        // On the longer bound, as a SEARCH is: Gmail counts the mailbox
+        // before it says a word of the answer (`ReplyWait.serverWork`).
+        let result = try await performCommand("SELECT \(Self.mailboxArgument(mailbox))",
+                                              wait: .serverWork)
         guard result.status == .ok else { throw MailError.cannotConnect }
 
         let parsed = IMAPParser.parseSelect(result.untagged)
@@ -891,20 +907,24 @@ actor IMAPClient {
 
     /// One UID SEARCH in the selected mailbox, ascending, or nil if the
     /// server refused it. The caller holds the gate.
+    ///
+    /// Its answer is waited for on the longer bound (`ReplyWait.serverWork`):
+    /// Gmail says nothing until it has searched the whole mailbox, and his
+    /// All Mail is hundreds of thousands of letters.
     private func performSearch(_ criteria: String) async throws -> [UInt32]? {
-        let body = Self.sanitizedCommandText(criteria).trimmingCharacters(in: .whitespacesAndNewlines)
-        let query = body.isEmpty ? "ALL" : body
+        let query = Self.searchQuery(criteria)
 
         // A search string with non-ASCII in it needs a CHARSET, or the server
         // is entitled to answer BAD and the user's search for "Müller" simply
         // never works.
-        let needsCharset = query.unicodeScalars.contains { $0.value > 127 }
+        let needsCharset = Self.needsCharset(query)
         var result = try await performCommand(needsCharset ? "UID SEARCH CHARSET UTF-8 \(query)"
-                                                           : "UID SEARCH \(query)")
+                                                           : "UID SEARCH \(query)",
+                                              wait: .serverWork)
         if result.status != .ok, needsCharset {
             // Some servers reject the CHARSET argument itself rather than the
             // term. One retry costs a round trip and rescues the search.
-            result = try await performCommand("UID SEARCH \(query)")
+            result = try await performCommand("UID SEARCH \(query)", wait: .serverWork)
         }
         guard result.status == .ok else { return nil }
         // Sorted, because the parser keeps the server's wire order and RFC
@@ -912,6 +932,57 @@ actor IMAPClient {
         // answer ascending; every walk above this assumes it, and an unsorted
         // list would scramble the list on screen rather than fail.
         return IMAPParser.parseSearch(result.untagged).sorted()
+    }
+
+    /// The lowest UID `criteria` match in the selected mailbox, as `[uid]`,
+    /// or `[]` when they match none; nil if the server refused the SEARCH.
+    /// The caller holds the gate.
+    ///
+    /// For a date jump, which uses nothing of its SEARCH but the oldest
+    /// letter matched (`PageWindow.anchor`). Asked as a plain SEARCH, a jump
+    /// to a day years back in his All Mail matched most of its 250,000 to
+    /// 400,000 letters, and the answer was one line of megabytes, brought
+    /// over his line, parsed and sorted, for one number. With ESEARCH (RFC
+    /// 4731), which Gmail advertises, the server is asked for that number
+    /// alone: `UID SEARCH RETURN (MIN) <criteria>`, answered `* ESEARCH (TAG
+    /// "a012") UID MIN 4231`, or with no MIN when nothing matched. RETURN
+    /// goes before any CHARSET, as the RFC's grammar has it.
+    ///
+    /// A server without ESEARCH is asked with a plain SEARCH, as before. One
+    /// that took no notice of RETURN and answered with a plain `* SEARCH`
+    /// line has answered, and the lowest of that answer is taken: the
+    /// SEARCH is not sent twice. One that refuses RETURN, or answers it
+    /// with neither, or with an ESEARCH line that does not say what the
+    /// lowest is (`IMAPParser.parseSearchMinimum`), is asked again with a
+    /// plain SEARCH in the same hold: an answer it did not give is never
+    /// taken for nothing found.
+    private func performLowest(_ criteria: String) async throws -> [UInt32]? {
+        func lowest(_ uids: [UInt32]) -> [UInt32] {
+            uids.min().map { [$0] } ?? []
+        }
+        guard capabilities.contains("ESEARCH") else {
+            return try await performSearch(criteria).map(lowest)
+        }
+        let query = Self.searchQuery(criteria)
+        let charset = Self.needsCharset(query) ? "CHARSET UTF-8 " : ""
+        let result = try await performCommand("UID SEARCH RETURN (MIN) \(charset)\(query)",
+                                              wait: .serverWork)
+        if result.status == .ok {
+            if let found = IMAPParser.parseSearchMinimum(result.untagged) { return found }
+            if let every = IMAPParser.plainSearchAnswer(result.untagged) { return lowest(every) }
+        }
+        return try await performSearch(criteria).map(lowest)
+    }
+
+    /// `criteria` as it goes on the wire: no line breaks or other controls,
+    /// and ALL when that leaves nothing.
+    private static func searchQuery(_ criteria: String) -> String {
+        let body = sanitizedCommandText(criteria).trimmingCharacters(in: .whitespacesAndNewlines)
+        return body.isEmpty ? "ALL" : body
+    }
+
+    private static func needsCharset(_ query: String) -> Bool {
+        query.unicodeScalars.contains { $0.value > 127 }
     }
 
     // MARK: - Fetching
@@ -958,8 +1029,10 @@ actor IMAPClient {
     /// search. Now it goes, whole, at the next point the search gives way.
     ///
     /// `pick` chooses the UIDs to fetch from what the SEARCHes found, one
-    /// list per criterion, in order. Every list comes out of the same
-    /// SELECT, so they share its UIDVALIDITY, which is returned with each.
+    /// list per criterion, in order: every UID matched, or for a
+    /// `PageSearch.lowest` the lowest alone (`performLowest`). Every list
+    /// comes out of the same SELECT, so they share its UIDVALIDITY, which is
+    /// returned with each.
     /// The date jump finds its anchor from one list in the other, and in
     /// two holds a reconnect could have fallen between them and put them
     /// in different numberings.
@@ -972,7 +1045,7 @@ actor IMAPClient {
     /// draft, and a folder opened that other work left selected, the server
     /// is asked for its news first, in the same hold, or the SEARCHes would
     /// not see mail it had not yet announced (B-045, `catchUp`).
-    func page(in mailbox: String, searching criteria: [String],
+    func page(in mailbox: String, searching criteria: [PageSearch],
               picking pick: @Sendable ([[UInt32]]) -> [UInt32])
         async throws -> (found: [IMAPMailboxUIDs], summaries: [IMAPFetchResult]) {
         try await inMailbox(mailbox, validity: nil, .interactive, catchingUp: .asked) { state in
@@ -989,9 +1062,12 @@ actor IMAPClient {
             do {
                 var found: [IMAPMailboxUIDs] = []
                 for criterion in criteria {
-                    guard let uids = try await self.performSearch(criterion) else {
-                        throw MailError.cannotConnect
+                    let answer: [UInt32]?
+                    switch criterion {
+                    case .every(let words):  answer = try await self.performSearch(words)
+                    case .lowest(let words): answer = try await self.performLowest(words)
                     }
+                    guard let uids = answer else { throw MailError.cannotConnect }
                     found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
                 }
 
@@ -1013,6 +1089,18 @@ actor IMAPClient {
                 throw error
             }
         }
+    }
+
+    /// What one of a page's SEARCHes is asked for. A string is `every`, so
+    /// `["ALL"]` is the listing from the top.
+    enum PageSearch: Equatable, Sendable, ExpressibleByStringLiteral {
+        /// Every UID the criteria match: the listing the pages walk.
+        case every(String)
+        /// The lowest UID they match alone, or none: a date jump's, which
+        /// wants only the first letter on or after its day.
+        case lowest(String)
+
+        init(stringLiteral criteria: String) { self = .every(criteria) }
     }
 
     /// One chunk of summaries from the selected mailbox, or nil if the
@@ -1590,11 +1678,13 @@ actor IMAPClient {
     /// selected; the rest go through `inMailbox`. `writing` as there.
     private func sendCommand(_ command: String, priority: Priority = .background,
                              continuationPayload: Data? = nil,
-                             writing: Bool = false) async throws -> IMAPCommandResult {
+                             writing: Bool = false,
+                             wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         try await beginExchange(priority)
         defer { endExchange() }
         if writing { try throwUnsentIfDisconnected() }
-        return try await performCommand(command, continuationPayload: continuationPayload)
+        return try await performCommand(command, continuationPayload: continuationPayload,
+                                        wait: wait)
     }
 
     /// For a write that has just been given the gate: `Unsent` if there is
@@ -1625,16 +1715,48 @@ actor IMAPClient {
     /// them as a refused password: as "Can't connect" it read to the
     /// repository as a dropped socket, and its read retry sent the password
     /// again (see `connect`).
+    ///
+    /// `wait` is how long the server may be silent, before its answer
+    /// starts and at any pause in it until the tagged line: `.serverWork`
+    /// for the commands it has to work through a mailbox to answer, SEARCH,
+    /// SELECT and STATUS, and `.ordinary` for the rest.
+    ///
+    /// A reply that took longer than `slowReply` says so in the connection
+    /// log, with the command's verb and two numbers and nothing else,
+    /// `SLOW UID SEARCH ms=15000 quiet=13000`. `quiet` is the longest one
+    /// silence between the write and the tagged line, one read's wait for
+    /// the next bytes (`MailTransport.longestQuiet`): the bound is on each
+    /// such silence, not on the answer as a whole, so `quiet` is the number
+    /// held against it, and how close Gmail's slowest answers come to it
+    /// is read off the log, not guessed. The first silence is not enough:
+    /// Gmail may say a line at once, an EXISTS it owes the session or
+    /// SELECT's FLAGS, and then work through the mailbox before the rest.
+    /// `ms` is from the write to the tagged line, the answer's whole coming
+    /// over the line included. No note for a command the app went to the
+    /// background or came back during (`Diagnostics.awayOrBack`): iOS may
+    /// have held the app still for hours with the answer waiting, and that
+    /// time is not Gmail's.
     private func performCommand(_ command: String,
-                                continuationPayload: Data? = nil) async throws -> IMAPCommandResult {
+                                continuationPayload: Data? = nil,
+                                wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         guard connected, let conn = connection else { throw connectFailure ?? MailError.cannotConnect }
         let tag = nextTag()
         do {
             // Redaction happens inside Diagnostics.log, not here, so a future
             // call site cannot forget it. LOGIN's password is stripped there.
             Diagnostics.log(.sent, "\(tag) \(command)")
+            let away = Diagnostics.awayOrBack
+            await conn.startTimingQuiet(on: now)
+            let sent = now()
             try await conn.writeLine("\(tag) \(command)")
-            let result = try await awaitResult(tag: tag, continuationPayload: continuationPayload)
+            let result = try await awaitResult(tag: tag, continuationPayload: continuationPayload,
+                                               wait: wait)
+            let took = now().timeIntervalSince(sent)
+            if took > Self.slowReply, Diagnostics.awayOrBack == away {
+                let quiet = await conn.longestQuiet
+                Diagnostics.log(.note, "SLOW \(Self.verb(of: command)) ms=\(Self.milliseconds(took)) "
+                                + "quiet=\(Self.milliseconds(quiet))")
+            }
             noteSizeChanges(result)
             return result
         } catch let error as MailError {
@@ -1645,10 +1767,11 @@ actor IMAPClient {
         }
     }
 
-    private func awaitResult(tag: String, continuationPayload: Data?) async throws -> IMAPCommandResult {
+    private func awaitResult(tag: String, continuationPayload: Data?,
+                             wait first: ReplyWait) async throws -> IMAPCommandResult {
         var untagged: [IMAPResponseLine] = []
         var pending = continuationPayload
-        var wait = ReplyWait.ordinary
+        var wait = first
 
         while true {
             let line = try await readResponse(wait)
@@ -1788,6 +1911,16 @@ private extension IMAPClient {
             }
         }
         return out
+    }
+
+    /// The verb of a command this client wrote, for a note that must carry
+    /// none of its arguments: `UID SEARCH` for `UID SEARCH RETURN (MIN)
+    /// SENTSINCE …`, `LOGIN` for `LOGIN user password`.
+    static func verb(of command: String) -> String {
+        let words = command.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+        guard let first = words.first?.uppercased() else { return "" }
+        if first == "UID", words.count > 1 { return "UID " + words[1].uppercased() }
+        return first
     }
 
     static func splitFirstWord(_ text: String) -> (String, String) {

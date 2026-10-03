@@ -47,6 +47,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The file QuickLook is currently showing. Held because
     /// `QLPreviewController.dataSource` is a WEAK reference and asks for its
     /// item after presentation, by which point a local would be gone.
+    ///
+    /// The only copy of an opened file on disk (B-063): removed as the next
+    /// file he opens is written, and at launch. Each used to stay in
+    /// `tmp/Attachments` until the next launch, which iOS can put off for
+    /// days, a scan or a PDF for every tap. Not removed as the preview
+    /// closes: Print reads the file after its panel has closed, and a copy
+    /// taken from under it then could print blank.
     private var previewURL: URL?
 
     private let header = MessageHeaderView()
@@ -549,6 +556,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             do {
                 let data = try await repository.fetchAttachmentData(
                     attachment.id, of: m.id, mailboxID: m.mailboxID)
+                // A file that comes while a preview, or anything else, is up
+                // over the pane could not be shown: UIKit presents nothing
+                // over a controller already presenting. It is not written
+                // either, and the preview up keeps its file.
+                guard presentedViewController == nil else { return }
+                // One copy on disk at most: the last file he opened goes
+                // as the next is written, and not before. Its preview has
+                // closed, since nothing is presented, but a print of it
+                // may have been reading it until a moment ago.
+                if let shown = previewURL { AttachmentStore.removeStaged(shown) }
+                previewURL = nil
                 // Written before presenting, not after: QuickLook reads the
                 // URL synchronously the moment it appears, and handing it one
                 // that is not on disk yet shows "No preview available"
@@ -871,9 +889,12 @@ extension MessageDetailViewController: QLPreviewControllerDataSource {
 
     func previewController(_ controller: QLPreviewController,
                            previewItemAt index: Int) -> QLPreviewItem {
-        // `NSURL` conforms to QLPreviewItem already. Force-unwrapping is safe
-        // against the count above, which is 0 whenever this is nil.
-        previewURL! as NSURL
+        // `NSURL` conforms to QLPreviewItem already. Never nil while a
+        // preview is up: it is set before one is presented and cleared only
+        // while none is. Not force-unwrapped all the same: asked with none,
+        // QuickLook is handed the empty store, where there is nothing to
+        // show, rather than the app ending.
+        (previewURL ?? AttachmentStore.root) as NSURL
     }
 }
 

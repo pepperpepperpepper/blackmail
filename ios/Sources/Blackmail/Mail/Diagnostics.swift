@@ -62,6 +62,31 @@ enum Diagnostics {
         buffer.removeAll()
     }
 
+    // MARK: - The app going away and coming back
+
+    /// How many times since launch the app has gone to the background or
+    /// come back to the front (`AppDelegate`). Not cleared with the log.
+    ///
+    /// A time measured across a change in it is not the server's: iOS
+    /// suspends the app in the background, for hours if he leaves it there,
+    /// and an answer that came meanwhile is read only once he is back. So
+    /// `IMAPClient` writes no SLOW note for a command it changed under.
+    static var awayOrBack: Int {
+        presenceLock.lock()
+        defer { presenceLock.unlock() }
+        return presenceChanges
+    }
+
+    /// The app has gone to the background, or come back to the front.
+    static func wentAwayOrCameBack() {
+        presenceLock.lock()
+        defer { presenceLock.unlock() }
+        presenceChanges += 1
+    }
+
+    private static var presenceChanges = 0
+    private static let presenceLock = NSLock()
+
     /// The whole transcript as text, for copying out to whoever is helping.
     static func transcript() -> String {
         let stamp = DateFormatter()

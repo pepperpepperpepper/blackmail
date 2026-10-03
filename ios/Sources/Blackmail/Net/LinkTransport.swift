@@ -31,6 +31,11 @@ protocol LinkTransport: MailTransport {
     /// The bound on a read of `ReplyWait.afterUpload`.
     var uploadReplyDeadline: TimeInterval { get }
 
+    /// The bound on a read of `ReplyWait.serverWork`. Three ordinary
+    /// deadlines unless the conformer says otherwise, as `TLSConnection`
+    /// does with its ninety seconds.
+    var serverWorkDeadline: TimeInterval { get }
+
     /// Starts connecting, and calls `report` with nil once the link is up or
     /// with the error once it has failed. `report` may be called any number
     /// of times, from any thread, or never: only the first call counts, and
@@ -60,11 +65,17 @@ struct LinkStream {
     fileprivate(set) var isOpen = false
     /// A connect that has not finished, for `close()` to settle.
     fileprivate var opening: LinkOpening?
+    /// What each wait for bytes is timed on, once `startTimingQuiet` has
+    /// been asked, and the longest wait since.
+    fileprivate var quietClock: (@Sendable () -> Date)?
+    fileprivate(set) var longestQuiet: TimeInterval = 0
 }
 
 extension LinkTransport {
 
     static func transportError(_ sendError: Error) -> Error { sendError }
+
+    var serverWorkDeadline: TimeInterval { 3 * ordinaryDeadline }
 
     // MARK: - Lifecycle
 
@@ -175,10 +186,25 @@ extension LinkTransport {
     /// throwing on invalid UTF-8 would turn one badly-encoded message into a
     /// dead mailbox. Anything that needs the raw bytes uses `read(exactly:)`.
     func readLine(_ wait: ReplyWait) async throws -> String {
-        let bound = wait == .afterUpload ? uploadReplyDeadline : ordinaryDeadline
+        let bound = bound(for: wait)
         while true {
             if let line = stream.buffer.takeLine() { return MailText.decode(line) }
             try await fill(within: bound, for: wait)
+        }
+    }
+
+    func startTimingQuiet(on clock: @escaping @Sendable () -> Date) {
+        stream.quietClock = clock
+        stream.longestQuiet = 0
+    }
+
+    var longestQuiet: TimeInterval { stream.longestQuiet }
+
+    private func bound(for wait: ReplyWait) -> TimeInterval {
+        switch wait {
+        case .ordinary:    return ordinaryDeadline
+        case .serverWork:  return serverWorkDeadline
+        case .afterUpload: return uploadReplyDeadline
         }
     }
 
@@ -198,8 +224,12 @@ extension LinkTransport {
     /// A read that timed out leaves the transport closed. Where the reply
     /// had got to is unknown, so the only safe thing a later read on this
     /// transport can do is fail.
+    ///
+    /// The wait is timed for `longestQuiet`: from asking the link to the
+    /// chunk, which is the silence `seconds` bounds.
     private func fill(within seconds: TimeInterval, for wait: ReplyWait) async throws {
         guard stream.isOpen else { throw MailTransportError.notConnected }
+        let asked = stream.quietClock?()
         let chunk: Data
         do {
             chunk = try await ReadBuffer.receiveChunk(within: seconds,
@@ -213,6 +243,9 @@ extension LinkTransport {
         }
         // Closed while the chunk was on its way: it belongs to nobody now.
         guard stream.isOpen else { throw MailTransportError.closed }
+        if let asked, let clock = stream.quietClock {
+            stream.longestQuiet = max(stream.longestQuiet, clock().timeIntervalSince(asked))
+        }
         stream.buffer.append(chunk)
     }
 
