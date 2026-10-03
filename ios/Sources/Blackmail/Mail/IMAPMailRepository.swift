@@ -1157,9 +1157,15 @@ actor IMAPMailRepository: MailRepository {
                 gmailMessageID: r.gmailMessageID,
                 countedFolderIDs: countedFolders(labels: r.labels, selected: name),
                 attachments: r.bodyStructure.map(MIMEDecoder.listedAttachments(in:)) ?? [],
+                // Whom it is to, for the row's top line in Sent Mail and
+                // Drafts (`RowNames`, B-060). Nil with no ENVELOPE, which
+                // names the sender as before rather than say a letter had
+                // no recipients.
+                to: env.map { $0.to.map(\.formatted) },
                 // From the ENVELOPE the row is fetched with already, so the
                 // header has its Cc line from the tap; nothing more is asked.
-                cc: env?.cc.map(\.formatted) ?? [])
+                cc: env?.cc.map(\.formatted) ?? [],
+                bcc: env?.bcc.map(\.formatted) ?? [])
         }
     }
 
@@ -1657,6 +1663,8 @@ actor IMAPMailRepository: MailRepository {
             to: addresses("To"),
             cc: addresses("Cc"),
             bcc: addresses("Bcc"),
+            replyTo: addresses("Reply-To"),
+            from: addresses("From"),
             subject: header("Subject") ?? "",
             date: Self.parseDate(header("Date")) ?? Date(),
             textBody: decoded.text,
@@ -1666,6 +1674,11 @@ actor IMAPMailRepository: MailRepository {
             // encoded word, and running it through the decoder could only
             // corrupt an id that has to match byte for byte to thread.
             messageID: MIMEDecoder.headerValue("Message-ID", in: headers)?
+                .trimmingCharacters(in: .whitespaces),
+            // Raw for the same reason. A draft's names the letter it
+            // answers, which a reply finished from Drafts must go on
+            // answering (B-064).
+            inReplyTo: MIMEDecoder.headerValue("In-Reply-To", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
             references: MIMEDecoder.headerValue("References", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
@@ -1891,7 +1904,20 @@ actor IMAPMailRepository: MailRepository {
     /// literal string "trash" unconditionally, so deleting something already
     /// in Trash moved it to Trash again and it reappeared at the top of the
     /// list. Here the destination is resolved from the \Trash special-use
-    /// attribute, and deleting inside Trash marks \Deleted instead.
+    /// attribute, and deleting inside Trash erases the letter instead.
+    ///
+    /// Erased by `IMAPClient.expunge`: `\Deleted`, then `UID EXPUNGE` of
+    /// that letter alone, in one hold. It used to be the `\Deleted` STORE
+    /// alone, which erases the letter only on an account with Gmail's
+    /// Auto-Expunge on. The test account has it off, and on the iPad the
+    /// letter stayed in Trash, marked, and was listed again at the next
+    /// open of Trash and found by a search, after the question had said it
+    /// would be deleted immediately (B-062). His account's setting cannot
+    /// be read from here. A letter left marked by that build, or by another
+    /// mail program, goes too when he deletes it again: the STORE changes
+    /// nothing on it, and the EXPUNGE takes it. Without UIDPLUS the
+    /// EXPUNGE is the plain one, which takes every marked letter in Trash;
+    /// why that is acceptable there is in `IMAPClient.expunge`.
     func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws {
         try await readyForWrite()
         let client = try await connected()
@@ -1907,8 +1933,7 @@ actor IMAPMailRepository: MailRepository {
             try await vouch(for: id, named: gmailMessageID, uid: message.uid,
                             validity: message.validity, in: source)
             try await sendingOnce {
-                try await client.store(uid: message.uid, flag: "\\Deleted", set: true,
-                                       in: source, validity: message.validity)
+                try await client.expunge(uid: message.uid, in: source, validity: message.validity)
             }
             shelf?.gone(id, from: source)
             return
@@ -2192,7 +2217,12 @@ actor IMAPMailRepository: MailRepository {
     }
 
     /// `nil` for a fresh letter, so no In-Reply-To is written at all — a new
-    /// message must not claim an ancestor.
+    /// message must not claim an ancestor. A reply has its In-Reply-To,
+    /// which names the letter answered, and References. Made by Reply, and
+    /// kept so on the iPad or in the Outbox, that is the letter answered's
+    /// own References, without it; reopened from Drafts, the draft's, which
+    /// ends with it already (`Draft.reopening`, B-064). The builder puts it
+    /// last either way.
     private static func threadHeaders(for draft: Draft) -> (messageID: String, references: String?)? {
         guard let parent = draft.inReplyTo?.trimmingCharacters(in: .whitespaces),
               !parent.isEmpty else { return nil }

@@ -82,10 +82,23 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Done 2026-09-30, not yet seen on the iPad: kept on the iPad before
       the sheet goes, listed in Drafts as "On this iPad only", taken to
       Gmail once when the connection works, never twice. See B-051.*
-- [ ] Delete inside Trash erases for good with no confirmation, which the
+- [x] Delete inside Trash erases for good with no confirmation, which the
       spec asks for (`IMAPMailRepository` :1169).
-- [ ] Delete and Move of several letters in Edit mode fail silently
+      *Done 2026-10-03, the question seen on the iPad the same day: the
+      reading pane's Delete and Edit mode's ask first in Trash, "Delete
+      Message?", "This message will be deleted immediately. You can't undo
+      this action.", Cancel and a red Delete, and Cancel leaves everything
+      as it was; not in Spam, where Delete moves to Trash. The erase after
+      it, a `UID EXPUNGE` after the `\Deleted`, came after the check and
+      was seen the same day. B-062, and its check under "Blocked on the
+      iPad coming back".*
+- [x] Delete and Move of several letters in Edit mode fail silently
       (`MessageListViewController` :1070, :1133); Delete shows no progress.
+      *Done 2026-10-03, seen on the iPad: every ticked row goes at
+      the tap and Edit mode ends, "Deleting…" or "Moving…" on the line
+      until the server has answered for each, a letter it did not take
+      back on the list with the ones after it unsent and the app's alert
+      saying why, and the counts moved for the letters that went. B-062.*
 - [x] No autosave: iOS ending the app loses the letter being written.
       *Done 2026-09-30, not yet seen on the iPad: kept three seconds after
       he stops and on leaving the app, and in Drafts at the next launch.
@@ -114,14 +127,38 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       on the iPad: `http://`, `https://`, `www.` and `mailto:` made links as
       the page is built, the sentence's punctuation left out as Mail leaves
       it, and in HTML letters' text too. See B-055.*
-- [ ] Sent and Drafts rows show his own name, not the recipient's.
+- [x] Sent and Drafts rows show his own name, not the recipient's.
+      *Done 2026-10-03, seen on the iPad: in Sent Mail, Drafts and
+      the Outbox the row names whom the letter is to, To, Cc and Bcc, each
+      person once, the name or the address where there is none; a
+      conversation everyone he wrote to in it; "No Recipients" for a draft
+      to nobody; the drafts "On this iPad only" too, the kept copy and
+      VoiceOver with them. His letters found by an All Mailboxes search
+      still name him, as in All Mail. See B-060, and its check under
+      "Blocked on the iPad coming back".*
 - [x] The reading pane never shows Cc, nor any bare address. *Done
       2026-09-30, not yet seen on the iPad: Cc under To, names, and the
       address where there is none, To the same; a name with a comma in it
       is one recipient; and since 2026-10-01 there from the tap, from the
       row's ENVELOPE. See B-055.*
-- [ ] Reply ignores Reply-To; replying to his own letter addresses it to
-      himself; Reply All misses his second address.
+- [x] Reply ignores Reply-To; replying to his own letter addresses it to
+      himself; Reply All misses his second address. *Done 2026-10-03, seen
+      on the iPad: Reply goes to the Reply-To, his own letter to
+      whom it went, a letter from several to them all, and Reply All keeps
+      the To in To and the Cc in Cc, names and all, each once and each on
+      one line, and leaves out his address in every spelling Gmail
+      delivers to him. His second address, on another domain, is his only
+      once the owner says how the app is to know it (under "Blocked on the
+      owner"). See B-061, and its check under "Blocked on the iPad coming
+      back".*
+- [x] A reply finished from Drafts went with no In-Reply-To and no
+      References, and began a conversation of its own (found on the iPad
+      in B-061's check). *Done 2026-10-03, seen on the iPad: a
+      reply reopened from Drafts, from a search, from the iPad or from the
+      Outbox still answers its letter, with that letter once in
+      References, and whatever another client wrote in a draft's
+      In-Reply-To goes as its ids alone, on one line. See B-064, and its
+      check under "Blocked on the iPad coming back".*
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
       app's composer with the link's To, Cc, Bcc, Subject and Body and his
       signature (`MailtoLink`, B-036), and the app declares the scheme for
@@ -1060,6 +1097,9 @@ this host. Ordered by value, not by size.
 - [ ] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
+- [ ] A letter read from its All Mailboxes hit leaves the Inbox's row for
+      the same letter with its unread dot until the list is fetched again,
+      though the Inbox's count goes down. Seen on the iPad 2026-10-03.
 - [x] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had
@@ -1069,6 +1109,11 @@ this host. Ordered by value, not by size.
       on the iPad 2026-09-30; older than the kept copy.
       *Done 2026-10-01, seen on the iPad: each folder found in its
       block. B-059.*
+- [x] The folder pane draws Important blank while the Outbox's block is
+      under the folders, and its middle takes no tap: the gap's footer,
+      painted, left where the keyboard pinned it. Seen on the iPad
+      2026-10-03. *Done the same day, seen on the iPad: the footer is
+      clear and lets taps through. B-065.*
 - [ ] Watch keepalive find a dead socket during the quiet: open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
@@ -1259,6 +1304,204 @@ this host. Ordered by value, not by size.
       crash does, with neither the background nor
       `applicationWillTerminate`: write that into B-057, with what step 1's
       swipe left in `Launches/unfinished`.
+- [x] **B-060, Sent Mail and Drafts name whom each letter is to.** Only
+      letters the test account sends to itself. Gmail delivers mail for its
+      address with `+jane` or `+sam` put before the `@` to the same
+      mailbox, so below, "Jane's address" is that with `+jane`, typed into
+      the field as `Jane <` the address `>`, "Sam's address" that with
+      `+sam`, typed as `Sam <` the address `>`, and "Sam's bare address" the
+      same typed alone, with no name. The names are short because the
+      row's top line is: some 168 points of 17-point semibold in three
+      panes, the default, and some 213 in two, cut off with "…" where the
+      names run past its end. "Sam, Jane (2)" fits; "Jane Example, Sam
+      Example (2)" does not, nor, most likely, a whole address. So the
+      screen is checked below for what fits on it, and step 8 hears the
+      rest with VoiceOver, which reads the whole line. Organize by Thread
+      on.
+      1. *The first launch of this build.* Before installing it, open Sent
+      Mail once on the build before, so its page is kept. Install, Wi-Fi
+      off, open the app, open Sent Mail: its kept rows draw at once, each
+      naming the test account as before, and none says "No Recipients".
+      Wi-Fi on.
+      2. *Sent Mail.* Write a letter To Jane's address, Subject "B-060
+      one", and Send. Write another To Sam's bare address, Cc Jane's, Bcc
+      the test account's own address, Subject "B-060 two", and Send. Open
+      Sent Mail: the top line of "B-060 one" reads "Jane", and that of
+      "B-060 two" begins with Sam's bare address, as much of it as fits
+      before the "…", which may stop short of the `+sam`. Neither reads the
+      test account's name. What follows on that line, "Jane" and the Bcc
+      if Gmail kept it, is past its end or cut short; step 8 hears it. Tap
+      "B-060 two": the reading pane's header is as before, From the test
+      account, To Sam's bare address, Cc "Jane".
+      3. *A conversation.* In Sent Mail open "B-060 one" and tap Reply. Its
+      To is the test account itself (the open item about replying to his
+      own letter); put Sam's address there in its place and Send. Sent Mail:
+      the conversation's row reads "Sam, Jane (2)", the newer letter's
+      person first, all of it on the line.
+      4. *Drafts.* Write a letter with nothing in To, Subject "B-060
+      nobody", tap Cancel, then Save Draft. Drafts: its row reads "No
+      Recipients". Wi-Fi off, write a letter To Jane's address, Subject
+      "B-060 kept", Cancel, Save Draft: under "On this iPad only" its top
+      line reads "Jane", not the test account's name. Wi-Fi on, and once it
+      has gone to Gmail its row still reads "Jane".
+      5. *The Outbox.* Wi-Fi off, write a letter To Jane's address, Cc
+      Jane's address again typed alone, Subject "B-060 outbox", and Send:
+      the Outbox's row reads "Jane" and nothing after it, where Jane named
+      twice would go on ", " and her address. Wi-Fi on: it goes.
+      6. *Search.* In Sent Mail search "B-060" with Current Mailbox. A
+      search's rows are never gathered into conversations, so each letter
+      has a row of its own, with no count: "B-060 outbox" reads "Jane";
+      the reply of step 3 reads "Sam" alone, not "Sam, Jane (2)"; "B-060
+      two" begins with Sam's bare address, as in 2; and "B-060 one" reads
+      "Jane". Tap All Mailboxes: the same letters, found in All Mail, read
+      the test account's name, as they do in All Mail itself; open All
+      Mail and see that they do.
+      7. *The kept copy.* Force-quit, Wi-Fi off, open the app and open Sent
+      Mail: the rows read as in 2 and 3 at once, and "B-060 outbox"
+      "Jane"; Drafts reads as in 4. Wi-Fi on.
+      8. *VoiceOver,* which reads the whole line the screen cuts short,
+      after "Unread" where a row is. With VoiceOver on, in Sent Mail touch
+      the row of "B-060 two": it reads Sam's bare address whole, with its
+      `+sam`, then "Jane", then, if Gmail keeps the Bcc on its copy in Sent
+      Mail, the test account's address, then the subject and the time, and
+      no "To". Write down in B-060, under "Not known", whether the Bcc was
+      read. Touch the conversation of step 3: "Sam, Jane, 2 messages", then
+      the subject and the time. In Drafts touch "B-060 nobody": "No
+      Recipients", then the subject. Then VoiceOver off, and delete the
+      B-060 letters and drafts.
+      *Seen on the iPad 2026-10-03, on carlo's mailbox: steps 1 to 7 as
+      written. Step 8's VoiceOver was not tried; Gmail's ENVELOPE for
+      "B-060 two" in Sent Mail has the Bcc, so Gmail keeps it (B-060).*
+- [x] **B-061, Reply and Reply All addressed as Mail addresses them.**
+      Every letter here goes from the test account to itself; A stands for
+      its address, `name@gmail.com` say. A letter from someone else with a
+      Reply-To, one from several, and one whose names are broken over
+      lines cannot be made that way, and are the suite's
+      (`ReplyAddressingRepositoryTests`).
+      1. *His address in other spellings.* In the app, write a letter To A,
+      Cc A with a dot put in its name (`na.me@gmail.com`) and A with
+      `+b061` before the @ and `googlemail.com` after it
+      (`name+b061@googlemail.com`), subject "B-061 spellings", Send. It
+      arrives in the Inbox. Open it there and Reply: To is A alone, and the
+      Cc row is closed. Cancel, Delete Draft. Reply All: the same, To A
+      alone and nothing in Cc, where the build before put the two other
+      spellings in Cc. Cancel, Delete Draft.
+      2. *A name with a comma.* Write a letter To `"Example, Test" <A>`,
+      typed or pasted whole, quotes and all, subject "B-061 name", Send.
+      Open it in Sent Mail and Reply: To reads `"Example, Test" <A>`, one
+      recipient. Type a word and Send: the connection log has one `RCPT
+      TO:<A>` for it, the reply arrives in the Inbox once, and Show
+      original on Gmail's web page has `To: "Example, Test" <A>`.
+      3. *Through Drafts.* Open the letter of step 2 again, Reply All, type
+      a word, Cancel, Save Draft. Open it from Drafts: To still reads
+      `"Example, Test" <A>`, one recipient. Send: one `RCPT TO:<A>`, and
+      it arrives once.
+      4. *Forward.* Forward the letter of step 1: To and Cc are empty.
+      Cancel, Delete Draft.
+      *Seen on the iPad 2026-10-03, on carlo's mailbox, whose domain is
+      not Gmail's: step 1 with A with capitals and A with `+b061`, the
+      capitals left out and the tag kept, as on any domain but Gmail's.
+      Steps 2 to 4 as written. The letter sent from the draft lost its
+      In-Reply-To: B-064.*
+- [x] **B-062, Delete inside Trash asks first; Edit mode's Delete and Move
+      say what they are doing and what failed.** Seen on the iPad
+      2026-10-03 but for the erase in Trash, changed after it (the note at
+      the end). Use only letters the test account sends itself: from the
+      app, eight with the subjects "B-062 1" to "B-062 8", and from the
+      Gmail web, signed in as the test account, twenty-six more, "B-062 9"
+      to "B-062 34", each to itself. Wait until all are in the Inbox,
+      unread. Keep the connection log open beside each step.
+      1. *Delete in the reading pane, in Trash.* In the Inbox, open "B-062
+      1" and tap Delete: it goes to Trash, nothing asked. Open Trash and
+      the same letter, and tap Delete: an alert, "Delete Message?", "This
+      message will be deleted immediately. You can't undo this action.",
+      Cancel on the left and Delete in red on the right. Tap Cancel: the
+      letter is still in the pane and on the list, and the log has no `UID
+      STORE` for it. Tap Delete again, then Delete in the alert: the pane
+      empties and the row goes at once, the log has one `UID STORE …
+      +FLAGS.SILENT (\Deleted)` in Trash and then `UID EXPUNGE` of the
+      same UID, and the letter is not in Trash at its next open, nor found
+      by an All Mailboxes search, nor on the Gmail web in Trash or All
+      Mail. The test account has Auto-Expunge off, so this is the step
+      that shows the erase.
+      2. *Edit mode in Trash.* In the Inbox, tick "B-062 2" and then "B-062
+      3", the lower row first, in Edit mode and tap Delete: both go at
+      once, Edit mode ends, nothing is asked, and the line under the list
+      says "Deleting…" until both `UID MOVE`s are answered, then "Updated
+      …" again (on a good connection perhaps too quickly to read; the log
+      has the two). The log's first `UID MOVE` is for the higher UID, "B-062
+      3", the upper row: the list's order, not the order ticked. The
+      Inbox's count in the folder pane goes down by two, and the log has
+      one sweep of the counts after the two, a `LIST` and its `STATUS`es,
+      and no fetch of the Inbox's page. Open Trash, Edit, tick both, and
+      tap Delete: "Delete 2 Messages?", "These messages will be deleted
+      immediately. You can't undo this action." Cancel: both still ticked,
+      Edit mode still on. Delete, then Delete in the alert: both rows go,
+      "Deleting…" until two `UID STORE`s and their two `UID EXPUNGE`s are
+      answered, and neither is in Trash at its next open or on the web.
+      3. *Spam asks nothing.* Open "B-062 4", Move it to Spam, open Spam and
+      tap Delete on it: nothing is asked, and it is in Trash after a
+      Refresh of Trash.
+      4. *A search that mixes Trash with other folders.* Delete "B-062 5"
+      from the Inbox so that it is in Trash. Search "B-062" in All
+      Mailboxes, tap Edit, tick the hit for "B-062 5" (from Trash) and the
+      hit for "B-062 6", and tap Delete: "Delete 2 Messages?", "1 of them
+      is in the Trash and will be deleted immediately. You can't undo this
+      action." Delete: the log has a `UID EXPUNGE` in Trash for "B-062 5",
+      which is gone from Trash at its next open, from the search and from
+      the web altogether, and "B-062 6" is in Trash.
+      5. *The reading pane is left alone.* Open "B-062 7" in the pane,
+      tap Edit, tick "B-062 8" and Delete: "B-062 7" stays in the pane.
+      Edit again, tick "B-062 7" and Delete: the pane empties. Then the
+      same letter under two ids: open "B-062 33" from the Inbox, and with
+      it in the pane search "B-062 33" in All Mailboxes, tap Edit, tick its
+      hit and Delete: the pane empties, and after Cancel the Inbox has no
+      "B-062 33". The other way about: search "B-062 34" in All Mailboxes,
+      open its hit, Cancel the search, tap Edit, tick "B-062 34" in the
+      Inbox and Delete: the pane empties. Before, it kept the letter in
+      both, with Delete live.
+      6. *A failure part-way.* In the Inbox, search "B-062" in this
+      mailbox: "B-062 9" to "B-062 32". Tap Edit, Select All, Move, All
+      Mail, and the moment the sheet has gone turn on Airplane Mode from
+      Control Center, while the line says "Moving…". Every row went at the
+      tap; those whose `UID MOVE` was answered stay off, the one it failed
+      on and those after it come back in their places, not ticked, and the
+      alert says "Can't connect to mail server." with OK; the log has no
+      `UID MOVE` after the failed one. If all of them went before the
+      switch, move them back to the Inbox from All Mail and try again
+      sooner. Airplane Mode off, Refresh: the letters that came back are
+      still in the Inbox, and the ones that went are archived, in All Mail
+      and not the Inbox, each once. The same with Delete in place of Move:
+      the ones that came back are in the Inbox and the others in Trash.
+      7. *Nothing reaches the server.* Airplane Mode on, tick two of the
+      letters left in the Inbox, Delete: both go, "Deleting…", then both
+      come back with the alert, and neither is in Trash on the web.
+      8. *A refusal after he has moved on.* Airplane Mode still on, tick
+      the same two, Delete, and while the line still says "Deleting…" open
+      Sent in the folder pane. When the refusal comes, the alert "Can't
+      connect to mail server." is put up over the reading pane though the
+      Inbox's list has gone, and OK takes it away. If it came before Sent
+      was open, try again, tapping sooner. Airplane Mode off, open the
+      Inbox: both letters are there.
+      *Seen 2026-10-03, on carlo's mailbox: 1 to 8 as written but for the
+      erase. In Trash the questions, Cancel and Delete were as written, but
+      the log had the `\Deleted` STORE and no EXPUNGE, and each letter
+      deleted there was back at Trash's next open and found by an All
+      Mailboxes search: the test account has Auto-Expunge off. Changed
+      since, not yet seen: a `UID EXPUNGE` of the letter after the STORE
+      (B-062). Step 6 also showed the lost answer twice: the move cut off
+      at 30 s had been carried out by Gmail all the same. Step 8 was made
+      by taking the Wi-Fi interface down from a shell, since Airplane Mode
+      refuses at once. Left to see, on a build with the change: step 1's
+      Trash half, step 2's Trash half and step 4's Trash hit again, the log
+      with `UID EXPUNGE` after each STORE, and the letter not in Trash at
+      its next open nor in a search. "B-062 1", "B-062 2", "B-062 3" and
+      "B-062 5", still in Trash and marked, will do, and show besides that
+      a letter left marked goes when deleted again.*
+      *Seen the same day on a build with the change: steps 1, 2 and 4's
+      Trash halves on those four, and a letter never marked, each with its
+      STORE and its own `UID EXPUNGE`, and none in Trash or a search
+      after a Refresh (B-062).*
 - [ ] **B-063, his mailbox's size.** None of it seen on the iPad yet. On
       the test account, with the connection log open between steps:
       1. *Folders.* Open Inbox, Sent Mail and All Mail, and Refresh each:
@@ -1298,6 +1541,14 @@ this host. Ordered by value, not by size.
          iPad only" with its photos, `tmp/Attachments` is empty, and the
          photos open from the reopened letter and go up with it when the
          connection is back.
+- [x] **B-064, a reply finished from Drafts answers its letter.** On the
+      test account, A standing for its address. Reply to a letter from A
+      to itself, type a word, Cancel, Save Draft. Open it from Drafts and
+      Send. In the connection log, the ENVELOPE for the sent letter has
+      the letter's Message-ID as its in-reply-to, where the build before
+      had NIL, and its X-GM-THRID is the letter's; the Inbox shows it in
+      the letter's conversation, not as one of its own.
+      *Seen on the iPad 2026-10-03, as written. B-064.*
 
 ## Blocked on the owner
 
@@ -1333,6 +1584,37 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
       *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
       carry it, and the header has its line from the tap.*
+- [ ] **A conversation's count in Sent Mail** — the row's top line holds
+      some 168 points in three panes and 213 in two, and is cut at its
+      end, so naming To, Cc and Bcc pushes a conversation's "(2)" past it:
+      "Jane Example, Sam Exam…". Accept it, as the Inbox already does with
+      a long list of who wrote (built); name To alone, which shortens
+      the line; or put the count
+      first, or fit the names to leave it room, either of which changes
+      the frozen row (B-060, which puts four more questions about these
+      rows)
+- [ ] **Reply's addressing** (B-061) — built as Mail is believed to do it,
+      none of it checked against Mail on an iPad. Reply All to a letter
+      with a Reply-To goes to the Reply-To in place of the From, or to
+      both; the composer's To shows "Jane Example <jane@example.com>", or
+      the address alone as before; Reply All keeps the letter's To in To
+      and its Cc in Cc, or puts everyone in Cc as before; a Cc left alone
+      moves up to To, or the reply goes with no To; his own letter's
+      Reply-To is not followed, or it is.
+- [ ] **His second address** (B-061) — Gmail sends as it and delivers it
+      to him, and the app cannot tell it is his, so a Reply All to a
+      letter that names it sends it a copy, which comes back to his Inbox.
+      Leave it; or a line in Settings where his other addresses are
+      written once, as Mail's account has them under its Email; or the
+      From addresses of Sent Mail taken as his at sign-in, which would
+      take a stranger for him if a letter of theirs were ever moved into
+      Sent Mail.
+- [ ] **Reply to his own letter sent by Bcc alone** (B-061) — its copy
+      in Sent Mail keeps its Bcc header, and Reply answers it to himself,
+      as built. Or to its Bcc recipients, in Bcc,
+      or in To. Gmail keeps the Bcc on its copy of a letter sent from
+      Blackmail too (seen 2026-10-03, B-060), so this is any letter he
+      sent to Bcc alone.
 
 ## Open, recorded, not scheduled
 

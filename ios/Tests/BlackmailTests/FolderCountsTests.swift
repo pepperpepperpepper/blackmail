@@ -244,4 +244,24 @@ final class FolderCountsTests: XCTestCase {
         XCTAssertTrue(pane.contains("counts.take(fresh)"))
         XCTAssertTrue(pane.contains("counts.blocks(outbox: outboxCount)"))
     }
+
+    /// The gap under a block is clear and lets taps through, since a
+    /// footer in the pane's plain table floats, and one left where the
+    /// keyboard pinned it lay over the Important row: painted, it drew the
+    /// row blank and took its taps (B-065).
+    func testTheGapBetweenBlocksHidesNoRowAndTakesNoTap() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail/UI/MailboxListViewController.swift")
+        let pane = try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: " ")
+            .split(whereSeparator: { $0 == " " }).joined(separator: " ")
+        XCTAssertTrue(pane.contains(
+            "guard s < groups.count - 1 else { return nil } let spacer = UIView() "
+            + "spacer.backgroundColor = .clear spacer.isUserInteractionEnabled = false "
+            + "return spacer"))
+        XCTAssertFalse(pane.contains("spacer.backgroundColor = Theme.canvas"))
+    }
 }

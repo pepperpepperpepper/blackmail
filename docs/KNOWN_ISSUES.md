@@ -6011,6 +6011,719 @@ unread marks were put back as they were found.
 
 ---
 
+## B-060 — CHANGED 2026-10-03, seen on the iPad. Sent Mail and Drafts named him on every row, not whom the letter was to
+
+**Found** in the gap review of 2026-09-30, and in the code: every row in
+the message list named its sender, the ENVELOPE's From, whatever the
+folder. In Sent Mail and Drafts that is him, on every row. He sends some
+seventy letters a day, half of them shared from Safari and YouTube, and
+keeps about 1,900 drafts, and the only way to find the letter to Jane was
+to read the subjects. A draft kept on the iPad, under "On this iPad only",
+named him too, by his account's name. Mail names whom the letter is to in
+those mailboxes. The Outbox alone did already (B-052).
+
+**Changed.**
+
+- The row carries whom the letter is to, from the ENVELOPE the list fetches
+  already: `MessageSummary.to` and `bcc`, beside the `cc` it has carried
+  since B-055. Nothing more is asked of the server; the list's FETCH is
+  what it was.
+- In Sent Mail, Drafts and the Outbox the top line names them (`RowNames`,
+  `MessageThread.displayRow(in:)`): To, then Cc, then Bcc, each as the
+  reading pane names a recipient, the name or the address where there is
+  none (`MailFormat.recipientName`), each person once by address, joined
+  by commas: "Jane Example, sam@example.com". A conversation names
+  everyone he wrote to in it, the newest letter's first, with its count,
+  "Sam Example, Jane Example (2)", as the Inbox's rows name everyone who
+  wrote.
+  A draft addressed to nobody says "No Recipients", the Outbox's words
+  since B-052.
+- Which folder a row was listed from decides it, not what the letter is.
+  A search of Sent Mail alone names whom. A letter of his found by an All
+  Mailboxes search is listed from All Mail, and names him, as it does in
+  All Mail and, sent to himself, in the Inbox: in a list of his letters
+  and other people's, his name is what tells his apart.
+- The drafts kept on the iPad name whom from the letter as he left it,
+  under "On this iPad only" and as the copy each becomes on the server
+  until Drafts is listed again. The Outbox names them by the same rule, now
+  each person once.
+- VoiceOver reads the names the row shows (`MessageThread.
+  accessibilityLabel(in:)`, out of the list's controller, which put the
+  label together itself): "Unread, Sam Example, Jane Example, 2 messages,
+  Lunch on Sunday", then the time. No "To" before them, as none is shown;
+  the folder says it, as on the screen.
+- The kept copy (D-016) keeps the To and the Bcc with each row, an empty To
+  as empty, so a draft to nobody says "No Recipients" at the next launch
+  too. A page kept by a build before reads: its rows do not know whom they
+  are to, and name their sender, as before, until the folder is next
+  listed. No new format, and no "No Recipients" over every kept row in
+  Sent Mail at the first launch of this build.
+
+**Not changed.** The rows' order, newest first as the server gives them:
+nothing sorts or groups by the name, and what makes a conversation is what
+it was. The letter's own sender, which matching it with its twin in
+another mailbox goes by (`ListEdit.twins`), and which the reading pane
+shows as From. The pane's header: it still reads "To: me" from the tap
+until the letter lands, though the row now has its To; using it there is
+another change.
+
+**Tests.** `SentRowNamesTests`: the names, To, Cc and Bcc, each person
+once whichever way he is written, as the pane names them; Sent Mail, Drafts
+and the Outbox naming whom and the Inbox, All Mail, Trash and a folder of
+his own naming the sender; a hit from All Mail in Sent Mail's list naming
+him, a search of Sent Mail alone naming whom; "No Recipients", alone, with
+a count, and giving way to a letter in the conversation that has some; a
+conversation naming everyone written to; a row that does not know naming
+its sender; the name the only thing changed, and the order the folder's;
+VoiceOver's label in Sent Mail, for a draft kept on the iPad, and in the
+Inbox; the drafts kept on the iPad, the copy one becomes, and the Outbox;
+over the shipping repository and client, the scripted server now carrying
+a letter's Bcc, and reading a Cc and Bcc on an APPEND: Sent Mail's rows,
+Drafts' with a draft to nobody and one saved with a Bcc alone, a search of
+Sent Mail and an All Mailboxes search from it, and the kept pages of both;
+the kept copy, an empty To kept as empty and a page kept before the To
+naming the sender; and the list's wiring, read from its source. Each fails
+with its part undone, 16 sabotages one at a time, counted in failing
+tests: no row naming whom (11), every row in Sent Mail's list naming whom,
+All Mailboxes hits included (2), the repository's rows without their To
+(1), without their Bcc (1), the kept copy not keeping the To (2), keeping
+an empty To as none (2), a row that does not know saying "No Recipients"
+(2), a letter to nobody named by nothing (5), each person named as often
+as the letter names them (2), Cc and Bcc left out (5), a conversation
+naming its newest letter's people alone (4), the drafts kept on the iPad
+without their To (2), the Outbox naming as before (1), VoiceOver reading
+the senders (1), the list drawing its rows as before (1), and redrawing
+them so when previews come (1).
+
+**Put to the owner,** the most Mail-like built where Mail's way is not
+known:
+
+- Who the top line names: To, Cc and Bcc, each person once (built); To
+  alone, as the Mac's Mail is believed to in its To column; or To, with Cc
+  and then Bcc only when it is empty.
+- A draft to nobody: "No Recipients" (built), the words Mail on the Mac
+  marks such a draft with and the Outbox's; what Mail on the iPad shows
+  was not found written down. Or the top line empty, or his name as before.
+- His letters found by an All Mailboxes search: his name, as in All Mail
+  (built); or whom, for a letter Gmail labels Sent or Draft; or "To: Jane
+  Example" in a list that mixes his letters with other people's.
+- VoiceOver: the names as shown (built), or "To" read before them in Sent
+  Mail, Drafts and the Outbox.
+- A conversation's count. The top line is short, some 168 points of
+  17-point semibold in three panes, the default, and some 213 in two, and
+  is cut off at its end with "…". Naming To, Cc and Bcc makes it longer,
+  so in Sent Mail a conversation's "(2)" is often past the end of it:
+  "Jane Example, Sam Exam…" for "Jane Example, Sam Example (2)". VoiceOver
+  still reads it, as "2 messages". Accept it (built), as the Inbox's rows
+  already lose theirs under a long list of who wrote; name To alone, one
+  of the first question's other answers, which shortens the line without
+  keeping the count on it; or put the count first, or fit the names to leave it
+  room, either of which changes the row's layout, frozen to the
+  reference.
+
+**Known since 2026-10-03.** Gmail keeps the Bcc on its copy of a letter
+sent through SMTP, though the letter as sent carries none: the ENVELOPE of
+"B-060 two" in Sent Mail, sent from the app to Sam's bare address, Cc Jane
+and Bcc the test account, has the test account as its Bcc. So the Bcc is
+named in Sent Mail too, as it is in Drafts, after the other names and past
+the end of the line the row has room for, and a letter he sent to Bcc
+alone names its Bcc there, not "No Recipients".
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox, every letter from it
+to itself, with `+jane` and `+sam` before the `@` for Jane's and Sam's
+addresses, in three panes. With no connection, the first launch of the
+build drew Sent Mail's kept page at once, every row naming the test account
+as before, none "No Recipients". Sent Mail: "B-060 one" read "Jane";
+"B-060 two" "carlo+sam@blond…", cut off there; neither the test account's
+name. The pane's header of "B-060 two": From the test account, To Sam's
+bare address, Cc "Jane". The reply to "B-060 one" sent to Sam: the
+conversation's row "Sam, Jane (2)", whole. Drafts: "No Recipients" for a
+draft to nobody; a draft To Jane saved with no connection "Jane" under "On
+this iPad only", and still "Jane" once it had gone to Gmail. The Outbox:
+To Jane and Cc Jane's address again, "Jane" alone; it went when the
+connection came back. Sent Mail searched "B-060" in itself: "Jane", "Sam"
+alone for the reply, Sam's bare address, "Jane", one row each with no
+count; in All Mailboxes every one named the test account. Force-quit and
+opened with no connection: Sent Mail and Drafts read as before at once.
+VoiceOver was not tried: the labels it reads are the suite's.
+
+---
+
+## B-061 — CHANGED 2026-10-03, seen on the iPad. Reply ignored Reply-To, answered his own letters to himself, and Reply All copied him under another spelling of his address
+
+**Found** in the gap review of 2026-09-30 ("Reply ignores Reply-To;
+replying to his own letter addresses it to himself; Reply All misses his
+second address"), and checked against the code. `Draft.replying` put the
+letter's From in To, whatever else the letter said:
+
+- A letter with a Reply-To was answered to its From. A mailing list sets
+  Reply-To to the list, a shop to its service desk, a friend writing from
+  work to the address at home. The ENVELOPE the list is fetched with has
+  the Reply-To (`IMAPEnvelope.replyTo`) and nothing read it; the letter the
+  pane shows, which Reply is made from, did not carry one at all.
+- A letter of his own was answered to himself: in Sent Mail, in a
+  conversation, and in the Inbox, where every letter he sends to his
+  second address comes back, about half of what he sends.
+- Reply All put everyone, the letter's To and its Cc, in Cc, took every
+  name off, and left him out only as the account spells his address, so
+  the same mailbox written another way, `Owner_Example@Gmail.com`,
+  `o.wner_example@gmail.com` or `owner_example+lists@googlemail.com`, all
+  of which Gmail delivers to him, was sent a copy of his own reply.
+- A letter with no From was answered to "(unknown sender)", the pane's
+  words for it, which Gmail refuses as an address.
+
+**His second address**, read from the headers of his own mailbox, nothing
+of it kept: an address on another domain that Gmail both sends as (Sent
+Mail has letters from it, the latest this July) and delivers to him
+(letters to it arrive in his Inbox, his own among them). So a Reply All to
+a letter that names it sends it a copy of his reply, which comes back to
+his Inbox. Nothing the app reads says that address is his: Mail knows such
+an address only when it has been added to the account, and IMAP does not
+list Gmail's send-as addresses. Learning it from the From addresses of
+Sent Mail was weighed and left: one letter of someone else's moved into
+Sent Mail would make that person him, and every Reply All after it would
+leave them out with nothing on screen to say so. Put to the owner (below).
+What the app can know is handled: every spelling Gmail delivers to the
+account's own mailbox, and the account's login.
+
+**Changed.** Whom a reply goes to is `ReplyAddressing`
+(`Model/ReplyAddressing.swift`), which runs on the host, and
+`Draft.replying` takes its To and Cc from it:
+
+1. A letter with one of his addresses in its From is his own. Reply goes
+   to its To, or, with nobody in To, its Cc; Reply All to its To and its
+   Cc, in the same fields. Its Reply-To is not looked at: it says where he
+   wanted others to answer him.
+2. Any other letter: Reply goes to its Reply-To when it has one, and to
+   everyone in its From otherwise, as RFC 5322 has it for a letter written
+   by several. Reply All goes to the same, then the letter's To, in To,
+   and its Cc, in Cc. The From is left out when there is a Reply-To, as
+   Gmail and Thunderbird leave it out and Mail is believed to: the sender
+   has asked for answers to go there instead.
+3. Each address once, compared bare and without regard to case, To before
+   Cc, with the name the letter first gave it, or a later one where the
+   first had none. An entry with no address in it, `undisclosed-recipients:;`
+   or the pane's "(unknown sender)", is no recipient. Each entry is one
+   line (below).
+4. His own addresses come out of both fields, unless that would leave the
+   reply going to nobody: then it goes to him, as a letter he sent himself
+   is answered to himself, and one he sent to nobody named, by Bcc alone,
+   too, at his address in its From. He is never otherwise sent a copy of
+   his own reply.
+5. With nobody left in To but someone in Cc, the Cc move up to To, so the
+   reply does not go with a Cc and no To at all.
+
+His addresses (`OwnAddresses`) are the account's address and its login,
+compared as the mailbox they reach: bare, without regard to case, and for
+gmail.com and googlemail.com, which are one, without the dots in the name
+or anything after a `+`, since Gmail delivers all of those to the same
+mailbox. Only for Gmail's own domains: another server may give
+`sam.example@example.org` and `samexample@example.org` to two people, and
+taking a stranger for him would leave the stranger out, unseen.
+
+The letter the pane shows carries its Reply-To (`Message.replyTo`), read
+from the letter's own header, as its To and Cc are, and not from the
+ENVELOPE, which a server fills with the From when there is none and so
+cannot say whether the letter had one. In a conversation, Reply answers the
+letter opened last, as before.
+
+The names are kept. Each entry is read in every form a header writes it
+(`MailFormat.recipient(in:)`): `Jane Example <jane@example.com>`, a quoted
+name, a name whose comma came out of an encoded word, the old
+`jane@example.com (Jane Example)`, a group's `Friends: jane@example.com;`.
+It is written back as the composer's field keeps it
+(`MailFormat.recipientEntry`), the name in quotes where it holds a comma or
+a quote. The composer's field, and the share sheet's, are now split between
+recipients and never inside quotes (`MailFormat.addresses(in:)` is
+`addressList`), so `"Example, Jane" <jane@example.com>` is one recipient
+where it was two, the first of them `"Example`, which mail cannot be sent
+to; a quote never closed is split at every comma, as before. A draft
+reopened from Drafts has its recipients written the same way
+(`Draft.reopening`), so a name whose comma came out of an encoded word is
+still one recipient when it comes back, and what cannot be read as an
+address is left as it came, on one line (below), for him to see. A quoted
+pair in a name goes out in the header once (`RFC5322Builder.recipient`),
+where its backslash was doubled.
+
+**Names broken over lines**, found in review on 2026-10-03, once the names
+went into a reply's To and Cc. A letter's header can carry a line break in
+a name, in an encoded word, and innocently: a Windows "…" sent as
+ISO-8859-1 is byte 0x85, which decodes as U+0085, NEXT LINE. The envelope
+took a recipient's address from the first line of its entry
+(`SMTPClient.envelopeAddress`, which cuts there so that a line break
+cannot add commands of its own), and the header from all of it, its last
+`<…>`. So a To named `<other@example.net>`, a line break, then `Sam`, with
+the address sam@example.org, sent the reply to other@example.net, an
+address never compared with his or anyone's, with Sam's in its header; and
+a From named `Jane`, U+2028, `Example` was answered with `RCPT TO:<Jane>`.
+Every line break and control character in a name, anything below U+0020,
+U+007F to U+009F, U+2028 and U+2029, is now a space, and any in an address
+is taken out (`MailFormat.recipient(name:address:)`), so each entry of a
+reply is one line and its last `<…>` is the address that was compared. A
+draft reopened from Drafts has its entries made one line the same way,
+with an address in them or not (`MailFormat.fieldEntry`). And the header
+now reads each entry's first line as the envelope does, the two through
+one function (`RFC5322Builder.recipientLine`), so whatever else puts a
+line break in a field, a `mailto:` link's `%0A` among them, the To and Cc
+the letter shows are whom it went to.
+
+**A From of several**, found in the same review. `jane@example.com,
+sam@example.org` was read as one entry, the whole From decoded
+(`Message.sender`): Reply addressed an entry that was nobody's, which the
+composer's field then split, so it went to both by accident, or, with
+names, to the last alone with the others taken for its name; and a letter
+of his written with someone else was not his. The letter now carries its
+From an entry per address (`Message.from`), split as its To is, before
+the encoded words are decoded, so a name whose comma came out of one is
+still one author. Reply goes to every one of them, and the letter is his
+own if any of them is him; sent by Bcc alone, it is answered to his
+address in its From, and not to whoever wrote it with him.
+
+Forward is unchanged: it goes to nobody until he says.
+
+**What he sees.** The composer's To has the name with the address, "Jane
+Example <jane@example.com>", where it had the address alone, and a name
+with a comma in quotes. Reply All has the letter's sender and To in To and
+its Cc in Cc, where everyone was in Cc. A name the letter broke over
+lines reads on one line. No new words.
+
+**Tests.** `ReplyAddressingTests` (32): each rule on its own, the Reply-To
+(a list's, several, one that is the From, one with no address in it), his
+own letter (to others, to himself, to himself and Jane, with only a Cc, by
+Bcc alone, its Reply-To not followed, in every spelling of his address), a
+letter from several answered to each of them, and one he wrote with Jane
+his own, answered to him alone when sent by Bcc alone, his addresses in
+Gmail's spellings and not in another domain's, the login, a letter with no
+From, once each with names across To and Cc, every form of an entry, a
+name broken by every kind of line break and control character made one
+line in every form of an entry and in a reply, the field and the letter's
+header giving them back, Forward; and 3,000 letters made up from awkward
+entries, now and then two authors and names broken over lines among them,
+Reply and Reply All of each, holding every rule at once, every entry one
+line whose last `<…>` is the address compared. `ReplyAddressingRepositoryTests`
+(8), over the shipping repository and the scripted server, which now
+writes a letter's Reply-To and puts it in the ENVELOPE, the From in its
+place when there is none (`ScriptedIMAPServer.Letter.replyTo`), and a From
+of several (`alsoFrom`): the Reply-To read from the header, and none for a
+letter without one; a Reply All sent, its RCPT TOs and its To and Cc with
+their names; his own letter in Sent Mail; a reply saved to Drafts and
+reopened with each recipient once; names broken by a line feed, by U+2028
+and by an ISO-8859-1 0x85 in a letter's From, To and Cc, Reply and Reply
+All sent, every RCPT TO the angle address of its entry, the header naming
+the same people and no entry holding a line break; a draft saved elsewhere
+with such names, and a name with no address, reopened all on one line and
+sent to its addresses; a `mailto:` link with line breaks in its To and Cc,
+the header naming whom the envelope sends to; and a letter from several,
+its encoded name's comma kept, sent to them all, and one of his written
+with Jane, his own. `ReplyAddressingWiringTests` (1), from the view
+controller's source: Reply made from the letter the pane shows, with every
+address of his the account has. Three tests that pinned the old shape were
+changed: `ReplyForwardTests.testReplyAllNeverCCsTheSenderOfTheReply`, now
+with To in To; `testReplyAllStripsDisplayNamesFromTheCCList`, now
+`testReplyAllKeepsANameWithACommaAsOneRecipient`; and
+`ReadingPaneCcTests.testALettersToAndCcAreReadOneAddressEach`, To and Cc
+with their names. Each fails with its part undone, 32 sabotages one at a
+time, the full suite each time, all of them run again on 2026-10-03 with
+the tests as they stand, failures as XCTest counts them: the Reply-To not
+followed (12 failures), not read from the letter (4), his own letter
+answered as anyone's (16), its Reply-To followed (3), the From kept beside
+a Reply-To in Reply All (5), Reply All all in Cc, as before (34), Gmail's
+spellings not made one (6), the login not his (1), the app's Reply knowing
+only the account's address (1), him not taken out (33), a letter to him
+alone answered to nobody (9), a Cc left alone not moved up to To (3),
+addresses not made once each (5), the names dropped (107), a name with a
+comma not quoted (38), an entry with no address taken for a recipient
+(17), a group's name taken for an address (4), a name written as a comment
+taken for part of the address (4), an entry it cannot read dropped from a
+reopened draft (3), the composer's field split at every comma (7), a
+reopened draft's recipients taken as they came (7), a quoted pair sent
+with its backslash doubled (1), a line break left in a name (78), a
+control character left in an address (6), a reopened draft's entry with
+no address left on two lines (2), only the characters below U+0020 taken
+for line breaks, so not U+0085, U+2028 or U+2029 (53), the From read as
+one entry (10), the From's entries not read from the letter (5), a letter
+his only when the first in its From is him (6), his own letter by Bcc
+alone answered to everyone in its From (3), the header reading an entry
+past its first line, as before (2), and the envelope reading past it, so
+that the two disagree again (1). `LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff`,
+which fails now and then with the machine busy and has nothing to do with
+replies, failed in none of these runs.
+
+**Decided as Mail is believed to do it, put to the owner.** None of these
+was checked against Mail on an iPad.
+
+- *Reply All with a Reply-To* goes to the Reply-To in place of the From.
+  Or to both.
+- *Names in the composer's To*: "Jane Example <jane@example.com>". Or the
+  address alone, as before, the names still going out in the letter.
+- *Reply All's fields*: the letter's To in To, its Cc in Cc. Or everyone
+  in Cc, as before.
+- *A Cc left alone* moves up to To. Or the reply goes with a Cc and no To.
+- *His own letter's Reply-To* is not followed. Or it is, as for anyone
+  else's.
+- *His second address*: left as it is, a copy of a Reply All going to it
+  and coming back to his Inbox. Or a line in Settings where his other
+  addresses are written once, as Mail's account has them under its Email;
+  or the From addresses of Sent Mail taken as his at sign-in, with the
+  risk above.
+- *His own letter sent by Bcc alone*, whose copy in Sent Mail keeps its
+  Bcc header, is answered to himself. Or to its Bcc recipients, in Bcc, or
+  in To. Gmail keeps the Bcc on its copy of a letter sent from Blackmail
+  too (seen 2026-10-03, B-060), so this is any letter he sent to Bcc
+  alone.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox, every letter from it
+to itself, A standing for its address. carlo's address is on a domain of
+its own, not Gmail's, so a dot in the name and googlemail.com could not be
+tried there: on another domain they are other people. A letter To A, Cc
+A with capitals and A with `+b061`: Reply was To A alone with the Cc row
+closed; Reply All left out the capitals and put the `+b061` spelling in
+To alone, as the rule has it for every domain but Gmail's, though Gmail
+does deliver that one to carlo. His own address is at gmail.com, where
+the suite has the tag made one. A letter To `"Example, Test" <A>`, opened
+in Sent Mail: Reply read `"Example, Test" <A>`, one recipient; sent, the
+log had one `RCPT TO:<A>`, Gmail's ENVELOPE for it the To `("Example,
+Test" NIL …)`, one name, and it arrived once. Reply All to it, a word,
+Save Draft, opened from Drafts: the same To, one recipient; sent, one
+`RCPT TO:<A>`, and it arrived once. Forward: To and Cc empty. The letter
+sent from the draft had no In-Reply-To, though the draft had one, and
+began a conversation of its own: B-064.
+
+**Not covered.** A From of several is answered to every one of them, as
+RFC 5322 has it; how Mail answers one was not checked. A Reply-To of his
+on someone else's letter is followed, as the letter asks. An entry broken
+over lines that a reply did not make, a `mailto:` link's `%0A`, goes to
+its first line alone, as it always has, and now says so in the header.
+`Sender:` and a list's `List-Post:` are not read; Mail has no Reply to
+List. A suggestion picked in the field takes the place of what follows its
+last comma, as it always has, so one picked while the field ends in a
+quoted name cut short after its comma would take the place of the rest of
+that name.
+
+---
+
+## B-062 — CHANGED 2026-10-03, seen on the iPad. Delete inside Trash erased a letter with nothing asked, and Edit mode's Delete and Move failed in silence
+
+**Found in the gap review of 2026-09-30**, under the ways a letter is lost,
+and confirmed in the code:
+
+- **Delete inside Trash erased at the first tap.** Delete moves a letter to
+  Trash everywhere else; inside Trash it sets `\Deleted`
+  (`IMAPMailRepository.delete`), and Gmail, with its IMAP settings as they
+  come, erases the letter for good at once. The reading pane's
+  Delete and Edit mode's both went straight to it, and an All Mailboxes
+  search reaches Trash too (B-011), so a hit from Trash went the same way
+  from any list. `PRODUCT_SPEC.md`'s safeguards ask for "Confirmation
+  before permanently deleting from Trash."
+- **Edit mode's Delete and Move said nothing when they failed.** Each
+  letter's write went with `try?`, one after another, and the list was
+  fetched again once all of them had been tried. A refused write was
+  dropped: the letter came back with the fetch if the fetch worked, and
+  stayed off the screen as if it had gone if the connection had gone with
+  it. Nothing put up an alert either way.
+- **Delete said nothing while it worked.** The rows he had ticked stayed on
+  the screen, ticked, in Edit mode, until every write and the fetch after
+  them had come back: a second or two for a few letters on a good
+  connection, half a minute for each letter on a bad one. Move already
+  said "Moving…".
+
+**Changed.**
+
+- **A question before a Delete that erases** (`EraseQuestion`, put up by
+  `EraseConfirmation`). Asked by the reading pane's Delete and by Edit
+  mode's, for any letter whose own folder is Trash: an alert, "Delete
+  Message?", "This message will be deleted immediately. You can't undo
+  this action.", or for several "Delete 3 Messages?", "These messages will
+  be deleted immediately. You can't undo this action." Cancel on the left,
+  Delete in red on the right. Cancel leaves everything as it was: the
+  letter in the pane, his ticks in Edit mode. The sentence is Apple's own
+  for a delete that skips the bin, the Finder's "This item will be deleted
+  immediately. You can't undo this action." (Apple Community thread
+  251725582), with "message", Mail's word on screen, for "item". An alert,
+  not an action sheet: on the iPad an action sheet is a popover, and UIKit
+  leaves out a popover's Cancel. A search that ticks letters from Trash
+  among others says which: "Delete 3 Messages?", "1 of them is in the
+  Trash and will be deleted immediately. You can't undo this action." Not
+  asked in Spam: Delete there moves the letter to Trash, as Mail's does
+  from Junk, and the spec asks only for Trash.
+- **Edit mode's Delete and Move go as the reading pane's do** (`ListBatch`,
+  over `PaneActions`, now in three steps, `start`, `send` and `finish`, so
+  both can use them). At the tap every row he ticked goes and Edit mode
+  ends, as in Mail, and the line under the list says "Deleting…" or
+  "Moving…" until the server has answered for every letter. The writes go
+  one at a time, in list order, the rows from the top down whatever order
+  he ticked them in (`ListBatch.letters(ticked:in:)`). As first built they
+  went in the order he ticked them, which is the order UIKit gives them.
+  Each letter the server takes is billed to the folder counts as the
+  pane's Delete bills one (`removalLanded`), and the counts are swept once
+  at the end if a letter moved changed one the list cannot work out, not
+  once for each. The list is not fetched again, so a search, a day jumped
+  to and his place in the list stay as they were.
+- **A refusal is said, and nothing refused is shown as gone.** The letter
+  the server did not take comes back where it stood, not ticked, and the
+  letters after it are not sent and come back with it. The alert is the
+  app's own for whatever was caught, as the reading pane's: "Can't connect
+  to mail server.", or for a refused password Mail's "Cannot Get Mail" with
+  Settings. Stopping at the first refusal is deliberate: it is nearly
+  always the connection or the password, which the next letter would meet
+  too, each after a connect of its own that can take half a minute, and a
+  refused password sent again for every letter counts against the account
+  each time. The one exception is a row kept on the iPad that the server
+  says is another letter now (D-016), which has sent nothing and says
+  nothing of the rest: it comes off the list as it does from the pane, the
+  rest go on, and the alert says for it what the pane's says, "Can't
+  connect to mail server." If he has opened another folder before the
+  refusal comes, the list he left is off the screen, and the alert goes
+  over what is in front in the window instead, the reading pane or a sheet
+  over it (`alertHost`). Put over the list that had gone, it was dropped.
+- **The reading pane empties only if it shows a letter going.** Edit
+  mode's Delete and Move used to empty it whatever it showed, once the
+  fetch was back; now at the tap, and only for one of his ticks or a
+  letter in the conversation it shows (`clearIfShowing`), under its own id
+  or another mailbox's (`ListEdit.going`): a twin as `ListEdit.twins` has
+  them, or a copy with the same Gmail message id. So an All Mailboxes hit
+  from All Mail deleted while the pane shows the same letter opened from
+  the Inbox empties the pane, and so does the Inbox row deleted while it
+  shows the hit. Matched on ids alone, as first built, the row's twin went
+  from the list and the pane kept the binned letter with Reply, Move and
+  Delete live, and a Delete from it then sent a MOVE for an Inbox UID that
+  Gmail no longer had.
+- A draft kept on the iPad that he deletes in Edit mode goes from the iPad
+  at once, as before, but each on its own task: putting one away can wait
+  for an upload of it still on its way (`LocalDrafts.tidy`), and the
+  letters on the server no longer wait behind it.
+
+No new error sentence: the six stand (`MessageSizeTests`). The new words
+on screen are the question's, its two buttons, and "Deleting…".
+
+**Decided here, put to the owner.**
+
+- *What the question says.* Built: "Delete Message?" and Apple's Finder
+  sentence. Or the Finder's own title, "Are you sure you want to delete
+  this message?"; or the subject in it, as the Finder names the file.
+- *Whether to ask for every Delete in Trash.* Built, as the spec asks. Mail
+  on the iPad asks only before its Delete All in Trash and Junk; nothing
+  found that describes a letter or a selection deleted there mentions a
+  question. Mail's way would leave a single Delete in Trash unasked.
+- *Spam.* Built: nothing asked, since Delete there goes to Trash. Or ask
+  there too.
+- *A batch that meets a refusal.* Built: it stops, and the rest come back
+  unsent. Or try every letter whatever, which deletes what can be deleted
+  when one letter alone is refused, and with no connection takes half a
+  minute a letter.
+- *The letters that come back.* Built: in their places, not ticked, Edit
+  mode over. Or Edit mode again with them ticked, ready for a second try,
+  which would change the list under him if he had moved on meanwhile.
+- *The alert.* Built: the app's own sentence for what was caught, which
+  does not say how many letters went. Mail's, as its users quote it, is
+  "Unable to Move Message", "The message could not be moved to the mailbox
+  Trash." (Apple Community thread 4014036), "The messages could not be
+  moved…" for several: a seventh sentence, and Delete would say Move.
+
+**Tests.** `EraseQuestionTests`: only a letter in Trash asks, by its
+folder's id in either spelling or the role word, Spam and every other
+folder not; the words for one letter, for several, and for a selection
+that mixes Trash with others; and the wiring, read from the source: the
+alert's two actions and their styles, the pane's Delete and Edit mode's
+asking and going only on Delete, by the role of each letter's own folder.
+`ListBatchTests`, over the shipping repository and the scripted server:
+four letters deleted, every row off at the tap before any MOVE is
+answered, one MOVE each and nothing else, the two unread billed once each
+and one sweep; inside Trash one `\Deleted` and its `UID EXPUNGE` (see
+"Tests of the erase" below) and no sweep, and a mixed batch
+each letter by its own folder; a Move of three filing each, one sweep; the
+second of four refused with the connection up, the first gone and billed,
+the other three back and two of them never sent, the refusal for the
+alert; a refused password, one LOGIN for five letters, all back, "Cannot
+Get Mail"; a kept row that is not its letter sending nothing and the rest
+still going; rows ticked out of order, a row twice, a conversation holding
+another row's letter and a row past the end, taken in list order, each
+letter once, and sent in that order; the pane's letter going under another
+mailbox's id, an All Mailboxes hit deleted while the pane shows the Inbox's
+copy and the Inbox's row deleted while it shows the hit, by a twin alone
+and by the Gmail message id alone, each both ways, and a letter not ticked
+left alone though it is in the same conversation; and the controller's
+wiring, read from the source: the ticks taken in list order, the letters
+kept on the iPad deleted from it, "Deleting…" and "Moving…" for as long as
+the batch runs, Edit mode ended at the tap, the refusal put up, over what
+is in front once the list has left the window, no `try?` and no fetch, the
+pane emptied only for a letter going, matched by `ListEdit.going`. Each
+fails with its part undone, nineteen sabotages one at a time, counted
+before the erase below: the pane's Delete asking nothing (1 failure), Edit mode's asking nothing (1), Spam
+asking as Trash does (4), a refused letter not put back (4), the letters
+after a refusal not put back (2), every letter tried after a refusal (2),
+a kept row that is not its letter stopping the rest (2), a sweep asked for
+after each letter (2), every letter taken by the first one's folder (1),
+the refusal not put up (1), "Deleting…" not said (1), the pane emptied
+whatever it shows (1), the pane's letter matched on ids alone in
+`ListEdit.going` (7), its twin left out (2), its Gmail message id left out
+(2), the pane's own match by ids alone put back in `clearIfShowing` (1),
+the letters kept on the iPad not deleted (1), the refusal put over the
+list whether or not it is in the window (1), and the ticks taken in the
+order he ticked them (3). `LargeLetterTests`'
+`testPicturesStillComingWhenHeMovesOnAreCalledOff` failed besides in some
+of those runs, a second picture's FETCH going before it was called off;
+it touches nothing here, and fails now and then on its own, run alone:
+1 run in 20 with this change, 2 in 40 on the tree before it.
+
+**Seen on the iPad, 2026-10-03**, on a build from this branch, on
+carlo's mailbox, every letter from the test account to itself, the steps
+as the TODO has them.
+
+1. In the Inbox the pane's Delete went to Trash with nothing asked. In
+   Trash the alert was as written: "Delete Message?", the sentence, Cancel
+   on the left, Delete in red on the right. Cancel left the letter in the
+   pane and on the list, and no STORE went. Delete, then Delete: the pane
+   emptied and the row went at once. The log had `UID STORE 39
+   +FLAGS.SILENT (\Deleted)`, answered `* 38 FETCH (UID 39 FLAGS (\Deleted
+   \Seen))` and OK, and no EXPUNGE. The next open of Trash listed the
+   letter again, its FETCH saying `FLAGS (\Deleted \Seen)`, and an All
+   Mailboxes search found it. The test account has Gmail's IMAP
+   Auto-Expunge off. His account's setting is not known and cannot be read
+   from here. See "Erased, not only marked", below.
+2. Edit mode in the Inbox, "B-062 2" then "B-062 3" ticked, the lower
+   first: both went at once, Edit mode ended, nothing asked; "Deleting…"
+   was too quick to see. The log's first move was `UID MOVE 58`, then
+   `UID MOVE 57`, the list's order, each answered with an EXPUNGE; then
+   one sweep, the `LIST` and its `STATUS`es, and no fetch of the Inbox's
+   page. The Inbox's count went down by two. In Trash, both ticked, Delete:
+   "Delete 2 Messages?", "These messages will be deleted immediately. You
+   can't undo this action." Cancel kept both ticked and Edit mode on.
+   Delete, then Delete: both rows went, and both were back at Trash's next
+   open, for the same reason.
+3. In Spam, Delete asked nothing, and the letter was in Trash after a
+   Refresh of Trash.
+4. An All Mailboxes search, Edit, the Trash hit for "B-062 5" and the hit
+   for "B-062 6" ticked, Delete: "Delete 2 Messages?", "1 of them is in
+   the Trash and will be deleted immediately. You can't undo this action."
+   Delete: both rows went. "B-062 6" went to Trash; "B-062 5" was not
+   expunged, for the same reason.
+5. The reading pane, all four cases: "B-062 7" stayed while "B-062 8"
+   went, and the pane emptied for "B-062 7"; the same letter under two ids
+   emptied it both ways, and the Inbox had no "B-062 33" after Cancel.
+6. A Move to All Mail of "B-062 9" to "B-062 32", 24 letters found by a
+   search in the Inbox, with Airplane Mode turned on from Control Center at
+   once: six `UID MOVE`s answered (87 down to 82), the seventh (81)
+   written and not answered, cut off by `DEADLINE read ordinary
+   bound=30s`, and no MOVE after it. The rows from "B-062 26" down came
+   back, not ticked, with "Can't connect to mail server." and OK. Airplane
+   Mode off, Refresh: Gmail had carried out the seventh move, "B-062 26"
+   archived and gone from the Inbox, so the letter the failure came on was
+   not in fact still in the Inbox; the rest were. The same with Delete: ten
+   moves answered, the eleventh, "B-062 15", cut off at 30 s and carried
+   out by Gmail all the same, as the Refresh showed. That is the lost
+   answer under Not covered.
+7. Airplane Mode on, two ticked, Delete: both went and came back with the
+   alert within a tenth of a second, and the log has no command for them.
+8. Airplane Mode refuses at once and cannot make a slow refusal, so the
+   Wi-Fi interface was taken down from a shell on the iPad instead, after a
+   Refresh. "B-062 14" and "B-062 13" ticked, Delete, Sent opened at once:
+   at about 30 s "Can't connect to mail server." came over the reading
+   pane, the Inbox's list gone, and OK took it away. Interface up, the
+   Inbox: both letters there. The `UID MOVE 69` written never reached
+   Gmail; a new connection still listed UID 69.
+
+Seen besides, not this item's: a letter read from its All Mailboxes hit
+left the Inbox's row for it with its unread dot until the list was fetched
+again, though the Inbox's count went down. In the TODO.
+
+**Erased, not only marked. Changed 2026-10-03, after the check, and seen
+on the iPad the same day.** Delete inside Trash now sends the `\Deleted` STORE and
+then `UID EXPUNGE` of that letter alone, in one hold of the connection
+(`IMAPClient.expunge`, which drafts already went by), and still names the
+row's letter (`vouch`) and goes once (`sendingOnce`). It no longer rests on
+Auto-Expunge. With it off, the EXPUNGE erases the letter. With it on,
+Gmail's default, the STORE has erased it already, and the `UID EXPUNGE`
+names a UID that has gone, which RFC 4315 allows. A letter left marked in
+Trash by the build before, as the test account's four from steps 1, 2 and
+4 are, or by another mail program, goes when he deletes it again: the
+STORE changes nothing on it, and the EXPUNGE takes it.
+
+On a server without UIDPLUS, or one whose CAPABILITY could not be read,
+the EXPUNGE is the plain one, and it takes every letter in Trash marked
+`\Deleted`, not his alone. Built so on purpose. In Trash a letter carries
+the flag only when a mail program has asked for it to be erased: the flag
+is IMAP's alone, Gmail's own Delete does not set it, and this app sets it
+only with an EXPUNGE in the same hold. What goes with his letter is what
+was already asked to go, and with Auto-Expunge on would have gone already.
+The one thing lost is another program's chance to take its mark off
+again. The flag alone there would leave his letter in Trash after he was
+told it would be deleted immediately. Gmail has UIDPLUS; the log's
+CAPABILITY line names it.
+
+A refused EXPUNGE is a refusal like any other: the alert, the row back
+where it stood, the rest of a batch unsent. The letter stays in Trash,
+marked, and a Delete again takes it.
+
+Seen on the iPad, 2026-10-03, on a build with the change, on carlo's
+mailbox, whose Auto-Expunge is off. "B-062 1", left marked in Trash by the
+build before, deleted again from the reading pane: `UID STORE 39
++FLAGS.SILENT (\Deleted)`, then `UID EXPUNGE 39`, answered `* 38
+EXPUNGE` and OK. "B-062 2" and "B-062 3", marked, ticked in Edit mode in
+Trash: 41 then 40, the list's order, each its STORE and its own `UID
+EXPUNGE`, each answered with an EXPUNGE. An All Mailboxes search, the
+Trash hit for "B-062 5" with the hit for "B-062 9" from the Inbox: "1 of
+them is in the Trash…", then `UID MOVE 85` to Trash for the one and the
+STORE and `UID EXPUNGE 43` for the other. And "B-062 9", just moved to
+Trash and never marked, deleted from the pane: `UID EXPUNGE 60`, `* 55
+EXPUNGE`. After a Refresh none of the five was in Trash nor found by a
+search of it or of All Mailboxes, and Trash's count had gone down for the
+one unread among them.
+
+`ScriptedIMAPServer` now says what it models, Auto-Expunge off, as the
+test account has it: a `\Deleted` STORE leaves the letter, listed and
+searched; `UID EXPUNGE` takes the marked letters it names and no other;
+plain `EXPUNGE` takes every marked letter in the mailbox. `autoExpunge`
+turns on Gmail's default, the STORE removing the letter itself, and
+`markDeleted` leaves a letter marked, as another program does.
+
+**Tests of the erase.** `PaneActionsTests`: a letter deleted in Trash,
+its STORE and `UID EXPUNGE` sent in Trash, and gone from the server; one
+left marked, listed, and gone when deleted again; the `UID EXPUNGE`
+refused, the refusal `.cannotConnect`, the row back, nothing billed, the
+letter still there and marked, and gone at a second Delete; with
+Auto-Expunge on, gone at the STORE, before any EXPUNGE, and the `UID
+EXPUNGE` after it answered OK. `ListBatchTests`: Edit mode in Trash, two letters, each STORE and
+`UID EXPUNGE` naming it alone, both gone, and a third marked by another
+program still there and marked; the mixed All Mailboxes batch, the Trash
+hit gone from the server and the other in Trash; no UIDPLUS, a plain
+`EXPUNGE` taking his letter and the one marked and no letter unmarked; a
+refused `UID EXPUNGE` in a batch of two, both rows back, the second
+unsent, "Can't connect to mail server." for the alert, the first still
+there and marked, and both gone at a second Delete. `KeptCopyTests`'
+ordinary writes have the `UID EXPUNGE` after the Trash's STORE. Six
+sabotages, one at a time in a scratch copy: the STORE alone put back (32
+failures), the plain EXPUNGE whatever the server has (43), `UID EXPUNGE`
+whatever the server has (3), a refused EXPUNGE not thrown (8), the
+scripted server's `UID EXPUNGE` taking every marked letter (3), and its
+Auto-Expunge on doing nothing (1). The whole suite: 1183 tests, 4 skipped,
+0 failures.
+
+**Not covered.** A batch still running when he opens another folder puts
+its alert, if any, over what is in front then, as above, but the letters
+that came back are on the old list, which has gone, and the folder he
+left shows the server's word when he opens it again. The reading pane's
+own alerts never had the trouble the list's had: the pane stays in the
+window whatever folder he opens. A write whose answer was lost after it went, as on a
+socket that dies while the iPad sleeps, is counted as refused: the letter
+comes back on the list though Gmail may have moved it, until the next
+Refresh, as from the reading pane; step 6 saw it twice. Letters marked
+`\Deleted` are not left out of the list and of searches, as Mail leaves
+them out. This app leaves none of its own behind now, but for one whose
+EXPUNGE was refused, which comes back on the list with the alert and
+should stay in sight. One marked by another program, on an account with
+Auto-Expunge off, is listed and found as Gmail's IMAP lists it, and a
+Delete of it now erases it. Leaving them out would need `UNDELETED` in
+every SEARCH that lists, pages, jumps to a day or searches, and the
+folder counts come from `STATUS`, which counts them, so an unread one
+left out would still be counted. What Gmail sends with Auto-Expunge on
+is not seen: the test account has it off, and the suite's model of it,
+an EXPUNGE in the STORE's own answer, is a guess. Deleting from the
+Outbox in Edit mode, which takes a waiting letter off the iPad for good,
+asks nothing, as before; that is outside this item.
+
+---
+
 ## B-063 — CHANGED 2026-10-03, not yet seen on the iPad. His mailbox's size: a slow SEARCH would have failed for good, a date jump brought every letter it matched, and his files and photos stayed on the iPad between launches
 
 **Found in the code 2026-10-03**, auditing f9a6325 for what the size of
@@ -6315,3 +7028,181 @@ tagged line 6 seconds after is `ms=9000 quiet=6000`, and `quiet` timed on
 the long bound's waits alone fails that test (1 in 1). The full suite,
 serially: 1,216 tests, 4 skipped, none failing. The release build for
 the iPad links.
+
+---
+
+## B-064 — CHANGED 2026-10-03, seen on the iPad. A reply sent from Drafts began a conversation of its own
+
+**Found on the iPad, 2026-10-03**, on carlo's mailbox, A standing for its
+address, in B-061's check (its step 3, through Drafts). A Reply All to a
+letter from A to A, opened in Sent Mail, a word typed, Cancel, Save Draft,
+which went as an APPEND to `[Gmail]/Drafts`. In the connection log, the
+ENVELOPE of the draft saved had the letter's Message-ID as its
+in-reply-to, `"<485bb5a2…>"`, and Gmail had put the draft in the letter's
+conversation, under its X-GM-THRID. Opened from Drafts and sent, the letter's ENVELOPE
+had in-reply-to NIL, and Gmail gave it an X-GM-THRID of its own. It began a
+conversation of its own, in the Inbox and in Sent Mail, and would at
+everyone it went to whose mail puts a conversation together by
+In-Reply-To and References, as Mail does: it had neither. He keeps about
+1,900 drafts. A reply put down and finished later is an everyday thing.
+
+**What it was.** A draft is saved as the letter it will become, threading
+headers and all, so the copy in Drafts was right. Taken up again, it lost
+them. `Draft.reopening`, which makes the composer's letter from the copy
+fetched out of Drafts, took its recipients, subject, words, files and
+quote, and not its In-Reply-To or its References. And the letter fetched
+(`Message`) had no In-Reply-To to give: only its Message-ID and its
+References were read from its header. To the send, a reply reopened was a
+letter begun afresh, and `threadHeaders` wrote neither header. The letter
+kept on the iPad (B-051) and the Outbox (B-052) keep both, and always did;
+a reply reopened from Drafts had none to keep.
+
+**Changed.**
+
+- The letter fetched carries its In-Reply-To (`Message.inReplyTo`), read
+  from its header as its Message-ID is: as written, never decoded, since
+  an id has to match byte for byte to thread.
+- `Draft.reopening` takes the draft's In-Reply-To and References. A
+  draft's In-Reply-To names the letter it answers. Its References, as this
+  app saves it, is that letter's References with that letter last.
+- The builder writes only the ids in them (`RFC5322Builder.messageIDs`):
+  In-Reply-To each id it holds, once; References the ids of the
+  References but those, then those. So the letter answered goes into
+  References once, at the end, whether the References came from that
+  letter, for a reply sent at once, from the draft, which has it already,
+  or from another client's draft, which may have it earlier. It used to be
+  left out only when the References ended in exactly the same characters,
+  which a draft of this app's does and another client's need not, and one
+  listed earlier stayed where it was, not last.
+- A draft begun in another client with an In-Reply-To and no References
+  goes with that In-Reply-To, and the letter it names as its References,
+  as a reply to a letter with no References always did.
+- An In-Reply-To another client wrote is read for its ids, `<…>` each:
+  several kept, each once; a comment or a quoted phrase beside them left
+  out, `<id> (Jane's letter of Monday)`; an id folded over two lines put
+  back together; one without its brackets bracketed, when it is the whole
+  of it, one word with an `@` in it; and words with no id in them, `Your
+  letter of Monday`, no id, and the letter then answers nothing. A line
+  break of any kind inside an id, CR, LF, U+0085 NEXT LINE, U+2028 or
+  U+2029, is taken out, and outside one it only separates: `<id>`, a CR,
+  then `Bcc: someone@example.net`, goes as the id alone. Before, the value
+  went as it was written, a CR or LF made a space, U+0085 and U+2028 left
+  in the header, and words were bracketed as if they were an id. Every
+  header is the builder's, on lines of its own, whatever the draft held.
+
+Every way a reply comes back to be finished goes through these: a tap in
+Drafts; a hit of a search of All Mailboxes made in Drafts, which is in All
+Mail (the same `loadDraft`); the letter kept on the iPad; and the Outbox. A
+forward this app saved has neither header, as a forward sent at once has
+not, and comes back and goes with none. A draft another client saved goes
+with the In-Reply-To it was saved with, whatever kind of letter it is.
+
+**What he sees.** Nothing new. A reply finished from Drafts is in the
+conversation of the letter it answers, in his Inbox, in Sent Mail and at
+everyone it goes to, as one sent at once is.
+
+**Tests.** `DraftThreadingTests` (12), through the shipping repository,
+`LocalDrafts`, the composer's own Save Draft and Send (`ComposeActions`),
+the scripted IMAP server, which now writes a letter's References and reads
+it back from an APPEND (`ScriptedIMAPServer.Letter.references`), and a
+scripted submission server, each test reading the letter as it went after
+DATA. A Reply All to his letter in Sent Mail, itself a reply, saved,
+reopened from Drafts and sent, as on the iPad: the copy saved and the
+draft reopened name the letter answered, and the letter sent has one
+In-Reply-To, the letter's id, and one References, the letter's two
+ancestors and then the letter, once. The same reply found by a search of
+All Mailboxes and reopened from All Mail. Saved with no connection, kept
+on the iPad, opened there after a relaunch and sent. Saved with no
+connection, taken to Drafts by the pass, reopened and sent. Reopened from
+Drafts, sent with no connection, and sent from the Outbox by the pass. A
+letter begun afresh, and a forward, saved, reopened and sent with neither
+header. A draft from another client with an In-Reply-To alone, sent with
+it and with it as its References. A letter's In-Reply-To read as its
+header has it, an encoded word in it not decoded, and none for a letter
+without one. Thirteen shapes of an In-Reply-To and References in a draft
+from another client, a comment, a quoted phrase, two ids, one id twice,
+folded before the id and inside it, no brackets, words alone, a CR,
+U+2028 or U+0085 followed by a Bcc or a To, a CR inside the id, and a CR
+in the References followed by a Bcc, each sent with its ids alone,
+every line of the header a header of its own or the fold of one with no
+line break in it, one To, no Bcc, and one RCPT TO, Jane's. And the builder
+given References that end with the letter answered already, which it does
+not add again, and References from another client with it between two
+other ids, which it moves to the end.
+
+Each fails with its part undone, the full suite each time, failures as
+XCTest counts them: the draft reopened without its In-Reply-To (42
+failures), without its References (10), the letter not reading its
+In-Reply-To (44), the builder adding the letter answered to References
+whether it is there or not (11), leaving it where another client's
+References had it (1), and the builder as it was, writing the
+In-Reply-To as the header held it, made safe for the header but not read
+for its ids (24). `LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff`
+failed in none of these runs.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox. Reply to "B-061
+spellings", a letter from the account to itself, a line typed, Cancel,
+Save Draft: Gmail's ENVELOPE for the draft named the letter's Message-ID
+as its in-reply-to. Opened from Drafts and sent, one `RCPT TO`: the
+ENVELOPE of the letter in Sent Mail named it too, where the build before
+had NIL, its X-GM-THRID was the letter's, and the Inbox drew the two as
+one conversation, "Carlo (2)".
+
+**Not covered.**
+
+- Gmail's own conversations are not in the scripted server, which puts no
+  letter in another's by its In-Reply-To. That a letter with these headers
+  is put in the conversation of the letter it answers is from the iPad,
+  where the draft saved was; the letter sent is the check under "Blocked
+  on the iPad coming back".
+- A reply already sent from Drafts on an earlier build stays in a
+  conversation of its own. A draft reopened and saved again on an earlier
+  build was saved without the two headers, and goes without them still:
+  nothing says any more what it answered. Only the test account can have
+  such drafts.
+- A bare id with no `@` in it, `12345`, is no longer taken for an id, and
+  a reply to a letter whose Message-ID is written so answers nothing; it
+  used to go in brackets. RFC 5322 has every id with an `@`, and none was
+  seen without one.
+- A long conversation's References grows by one id with each reply, as it
+  always has. It is never shortened, which RFC 5322 allows.
+
+---
+
+## B-065 — CHANGED 2026-10-03, seen on the iPad. The folder pane drew Important blank while the Outbox's block was there
+
+**Found** on the iPad on 2026-10-03, in B-060's check, and the same with
+every letter put in the Outbox after it: a letter sent with no
+connection, and the moment the Outbox's block came under the folders,
+the Important row went blank, its icon, name and count gone and its
+separators still there. It came back when the Outbox emptied.
+
+**What it was.** The gap between two blocks of the pane is a footer
+under the upper one, a plain view painted the pane's colour. There was
+one footer, under the Inbox, until the Outbox's block came; then the
+folders had one too. A footer in a plain table floats: while the
+keyboard of the letter just sent was up, it was pinned just above the
+keyboard, and when the keyboard went it stayed where it had been
+pinned, at 304 points down, over Important's row at 292 to 336, as a
+build that logged the pane's views showed: every cell in its place and
+whole, Important's with its name, and the footer over it. Painted, it
+drew the row blank; a view like any other, it took the taps on the
+middle of the row.
+
+**Changed.** The footer is clear and takes no touch
+(`MailboxListViewController`). The table's own background is the
+gap's colour, so it looks as before, and a footer left where the
+keyboard pinned it hides nothing and stops nothing.
+
+**Tests.** The pane is UIKit, which the suite cannot run, so its source
+is read as other wiring is (`FolderCountsTests`): the footer is clear and
+takes no touch, and is not painted. Put back as it was, 2 failures.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox. Two letters put in
+the Outbox with no connection, the keyboard up for each: Important drawn
+with its count throughout, and a tap on the middle of its row opened it.
+
+**Not covered.** The footer is still left where the keyboard pinned it,
+only unseen now; the gap keeps its place, as the table keeps the room
+for it.
+

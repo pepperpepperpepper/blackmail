@@ -178,6 +178,7 @@ final class MockMailRepository: MailRepository {
         }
         let hits = pool.filter {
             $0.sender.lowercased().contains(q)
+                || ($0.to ?? []).contains { $0.lowercased().contains(q) }
                 || $0.subject.lowercased().contains(q)
                 || $0.preview.lowercased().contains(q)
         }
@@ -275,14 +276,17 @@ final class MockMailRepository: MailRepository {
 
         var sent: [MessageSummary] = []
         for i in 0..<6 {
-            let name: String = people[i % people.count].name
+            let person = people[i % people.count]
             let when: Date = ago(Double(i) * 26 + 5)
+            // From him and to the person, as Gmail's Sent Mail has them:
+            // the list names whom a sent letter is to (`RowNames`).
             sent.append(MessageSummary(id: "sent-\(i)", mailboxID: "sent",
-                                       sender: "To: " + name,
+                                       sender: "Me <me@example.com>",
                                        subject: subjects[(i + 1) % 6],
                                        preview: "Thank you, that suits me very well.",
                                        date: when,
-                                       isRead: true, isFlagged: false))
+                                       isRead: true, isFlagged: false,
+                                       to: ["\(person.name) <\(person.address)>"]))
         }
         messages["sent"] = sent
 

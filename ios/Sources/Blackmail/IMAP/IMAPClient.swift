@@ -1506,19 +1506,38 @@ actor IMAPClient {
 
     /// Removes one message outright, rather than moving it to Trash.
     ///
-    /// For DRAFTS only, and the distinction matters now that an "All
-    /// Mailboxes" search reaches the Trash: a superseded draft binned rather
-    /// than deleted would surface as a search hit for every half-finished
-    /// sentence he ever saved.
+    /// For DRAFTS and the TRASH only, never another folder. Drafts, because
+    /// now that an "All Mailboxes" search reaches the Trash, a superseded
+    /// draft binned rather than deleted would surface as a search hit for
+    /// every half-finished sentence he ever saved. Trash, because a Delete
+    /// there is the one that erases, and the `\Deleted` flag alone erases
+    /// nothing on an account with Gmail's Auto-Expunge turned off: the
+    /// letter stays in Trash, marked, until a client expunges it (B-062,
+    /// seen on the iPad). With Auto-Expunge on, the STORE has removed it
+    /// already, and the UID EXPUNGE names a UID that has gone, which RFC
+    /// 4315 allows.
     ///
     /// `UID EXPUNGE` when the server has UIDPLUS, which confines the removal
-    /// to the message named. Plain EXPUNGE is the fallback and is a blunter
-    /// instrument — it removes everything flagged `\Deleted` in the mailbox
-    /// — which is tolerable here only because nothing else in this app sets
-    /// that flag outside Trash. Both steps go in one hold, as `move`'s do,
-    /// and for the same reason: the flag and the EXPUNGE used to take the
-    /// gate separately, so a SELECT in between could send that blunter
-    /// instrument into another folder.
+    /// to the message named. Gmail has it. Plain EXPUNGE is the fallback, on
+    /// a server without it or one whose CAPABILITY could not be read, and is
+    /// a blunter instrument — it removes everything flagged `\Deleted` in
+    /// the mailbox. Tolerable in these two folders because there a letter
+    /// carries the flag only when a mail program has asked for it to be
+    /// erased: the flag is IMAP's alone, Gmail's own Delete does not set it,
+    /// and this app sets it only in the same hold as an EXPUNGE, here and in
+    /// `move`'s fallback. What goes with his letter is what was already
+    /// asked to go, and with Auto-Expunge on would have gone already. The
+    /// one thing lost is another program's chance to take its mark off
+    /// again. The other way, the flag alone where there is no UIDPLUS, would
+    /// leave his letter in Trash after he had been told it would be deleted
+    /// immediately. Never for another folder: the Inbox or All Mail can
+    /// hold letters marked by a program that has not finished with them.
+    ///
+    /// Both steps go in one hold, as `move`'s do, and for the same reason:
+    /// the flag and the EXPUNGE used to take the gate separately, so a
+    /// SELECT in between could send that blunter instrument into another
+    /// folder. A refused STORE or EXPUNGE is thrown; the letter is still
+    /// there, marked if the STORE was taken, and the next try takes it.
     func expunge(uid: UInt32, in mailbox: String, validity: UInt32) async throws {
         try await inMailbox(mailbox, validity: validity, .interactive, writing: true) { _ in
             let flagged = try await self.performCommand("UID STORE \(uid) +FLAGS.SILENT (\\Deleted)")

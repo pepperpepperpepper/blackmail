@@ -48,6 +48,13 @@ import Foundation
 ///   the mailbox it has selected. Mail that `arrive`s is not in them until
 ///   an EXISTS has announced it, on a NOOP or riding on a UID FETCH, and a
 ///   letter taken out elsewhere stays in them until a NOOP's EXPUNGE.
+/// - Auto-Expunge is off, as in the test account's IMAP settings (B-062):
+///   a STORE of `\Deleted` marks the letter and leaves it where it is,
+///   listed, searched and fetched as before; UID EXPUNGE removes the
+///   marked letters it names and no other; plain EXPUNGE removes every
+///   marked letter in the mailbox. Expunged from Trash, Spam or Drafts a
+///   letter is gone from Gmail altogether. `autoExpunge` turns it on,
+///   Gmail's default, where the STORE removes the letter itself.
 ///
 /// Not modelled: Starred follows `\Flagged` on Gmail, here it is fixed at
 /// delivery; an APPENDed letter is described as one text part whatever its
@@ -87,6 +94,9 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var from: Address
         var to: [Address]
         var cc: [Address] = []
+        /// Its Bcc, as a draft's carries one and Gmail's copy in Sent Mail
+        /// may: in the ENVELOPE's sixth list and a `Bcc:` header.
+        var bcc: [Address] = []
         var subject: String
         var date: Date
         /// The plain body. Nil makes an HTML-only letter.
@@ -96,6 +106,9 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         var flags: Set<String> = []
         var messageID: String
         var inReplyTo: String?
+        /// Its References header, written as given; none when nil, as
+        /// every seeded letter has none.
+        var references: String? = nil
         /// Files after the words, which make it multipart/mixed.
         var files: [File] = []
         /// The Message-ID of a letter already here whose conversation this
@@ -107,6 +120,21 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         /// search: nil for the moment its Date says, as every seeded letter
         /// arrives. Set apart for a letter delayed, or one dated wrong.
         var arrived: Date? = nil
+
+        /// Its Reply-To header, an address each: none for a letter without
+        /// one, whose ENVELOPE then carries the From in its place, as RFC
+        /// 3501 has a server do.
+        var replyTo: [Address] = []
+
+        /// Its authors after `from`, for a letter written by several, whose
+        /// From then names them all, `from` first, and so do its ENVELOPE's
+        /// from, sender and, with no Reply-To, reply-to, as RFC 3501 has a
+        /// server fill them for a letter with no Sender. None for nearly
+        /// every letter.
+        var alsoFrom: [Address] = []
+
+        /// Everyone in its From.
+        var authors: [Address] { [from] + alsoFrom }
 
         /// INTERNALDATE: when it arrived.
         var arrival: Date { arrived ?? date }
@@ -393,6 +421,17 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusedVerbs = newValue } }
     }
 
+    /// Gmail's IMAP setting "When I mark a message in IMAP as deleted":
+    /// off by default here, "Wait for the client to update the server", as
+    /// the test account has it. On, "Auto-Expunge on", Gmail's own default,
+    /// a STORE that sets `\Deleted` removes each letter it marks as an
+    /// EXPUNGE would, with an EXPUNGE for each in the STORE's own answer.
+    /// What Gmail sends then was not measured: the test account has it off.
+    var autoExpunge: Bool {
+        get { locked { $0.autoExpunge } }
+        set { locked { $0.autoExpunge = newValue } }
+    }
+
     /// Mailboxes that LIST still names but that SELECT and EXAMINE answer
     /// NO, the way a folder deleted from another client looks until the next
     /// LIST. Canonical names, e.g. `ScriptedIMAPServer.trash`.
@@ -608,6 +647,17 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     func gmailMessageID(uid: UInt32, in mailbox: String) -> UInt64? {
         locked { s in
             s.folders[Self.canonical(mailbox)]?.keys[uid].map { Self.gmailMessageID(key: $0) }
+        }
+    }
+
+    /// Marks the letter at `uid` in `mailbox` `\Deleted` and leaves it there,
+    /// as another mail program does with Auto-Expunge off, or as this app's
+    /// Delete inside Trash did before it expunged (B-062).
+    func markDeleted(uid: UInt32, in mailbox: String) {
+        locked { s in
+            let name = Self.canonical(mailbox)
+            guard s.folders[name]?.keys[uid] != nil else { return }
+            s.folders[name]?.deleted.insert(uid)
         }
     }
 
@@ -953,6 +1003,7 @@ private extension ScriptedIMAPServer {
         var refusesCharset = false
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
+        var autoExpunge = false
         var passwordRevoked = false
         var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
         var timeout: Duration = .seconds(1)
@@ -1543,6 +1594,12 @@ private extension ScriptedIMAPServer.State {
                 r.untagged("\(seq) FETCH (UID \(uid) FLAGS (\(shown.sorted().joined(separator: " "))))")
             }
         }
+        if autoExpunge, touchesDeleted, op != "-FLAGS" {
+            let marked = (folders[name]?.deleted ?? []).filter {
+                set.contains($0, highest: folder.highestUID())
+            }
+            remove(Set(marked), from: name, into: &r)
+        }
         r.ok("Success")
     }
 
@@ -1604,9 +1661,9 @@ private extension ScriptedIMAPServer.State {
         }
     }
 
-    /// UID EXPUNGE with a set, or plain EXPUNGE. Gone from this mailbox; and
-    /// from everywhere when that mailbox is Trash, Spam or Drafts, which is
-    /// where Gmail deletes rather than unlabels.
+    /// UID EXPUNGE with a set, or plain EXPUNGE: the marked letters it
+    /// names, or every marked letter in the mailbox. A UID named that is not
+    /// marked, or not there at all, is passed over, as RFC 4315 has it.
     mutating func expunge(_ args: [Server.Token], in name: String, into r: inout Server.Response) {
         guard let folder = folders[name] else {
             r.no("[NONEXISTENT] Unknown Mailbox (Failure)")
@@ -1620,8 +1677,19 @@ private extension ScriptedIMAPServer.State {
             }
             targets = targets.filter { set.contains($0, highest: folder.highestUID()) }
         }
+        remove(targets, from: name, into: &r)
+        r.ok("Success")
+    }
+
+    /// Takes `uids` out of `name`, with an EXPUNGE for each, from the
+    /// highest down so that each number is still right when the client
+    /// applies it. Gone from this mailbox; and from everywhere when that
+    /// mailbox is Trash, Spam or Drafts, which is where Gmail deletes rather
+    /// than unlabels.
+    mutating func remove(_ uids: Set<UInt32>, from name: String, into r: inout Server.Response) {
+        guard let folder = folders[name] else { return }
         let everywhere = [Server.trash, Server.spam, Server.drafts].contains(name)
-        for uid in targets.sorted(by: >) {
+        for uid in uids.sorted(by: >) {
             guard let seq = folders[name]?.sequenceNumber(of: uid),
                   let key = folder.keys[uid] else { continue }
             for other in letters[key]?.mailboxes ?? [] where everywhere && other != name {
@@ -1632,7 +1700,6 @@ private extension ScriptedIMAPServer.State {
             unfile(uid, from: name)
             r.untagged("\(seq) EXPUNGE")
         }
-        r.ok("Success")
     }
 
     mutating func append(_ args: [Server.Token], literal: Data?, into r: inout Server.Response) {
@@ -1750,7 +1817,8 @@ private extension ScriptedIMAPServer {
         wire.string(headerDate(letter.date))
         wire.text(" ")
         wire.string(letter.subject)
-        for list in [[letter.from], [letter.from], [letter.from], letter.to, letter.cc, []] {
+        for list in [letter.authors, letter.authors, letter.replyTo.isEmpty ? letter.authors : letter.replyTo,
+                     letter.to, letter.cc, letter.bcc] {
             wire.text(" ")
             addresses(list)
         }
@@ -1764,15 +1832,22 @@ private extension ScriptedIMAPServer {
     // MARK: Rendering a letter
 
     static func render(_ letter: Letter) -> (raw: Data, sections: [String: Data], structure: String) {
-        var header = "From: \(letter.from.formatted)\r\n"
+        var header = "From: \(letter.authors.map(\.formatted).joined(separator: ", "))\r\n"
         header += "To: \(letter.to.map(\.formatted).joined(separator: ", "))\r\n"
         if !letter.cc.isEmpty {
             header += "Cc: \(letter.cc.map(\.formatted).joined(separator: ", "))\r\n"
+        }
+        if !letter.replyTo.isEmpty {
+            header += "Reply-To: \(letter.replyTo.map(\.formatted).joined(separator: ", "))\r\n"
+        }
+        if !letter.bcc.isEmpty {
+            header += "Bcc: \(letter.bcc.map(\.formatted).joined(separator: ", "))\r\n"
         }
         header += "Subject: \(letter.subject)\r\n"
         header += "Date: \(headerDate(letter.date))\r\n"
         header += "Message-ID: \(letter.messageID)\r\n"
         if let parent = letter.inReplyTo { header += "In-Reply-To: \(parent)\r\n" }
+        if let ancestry = letter.references { header += "References: \(ancestry)\r\n" }
         header += "MIME-Version: 1.0\r\n"
 
         func leaf(_ subtype: String, _ body: String) -> (headers: String, structure: String) {
@@ -1885,14 +1960,22 @@ private extension ScriptedIMAPServer {
                            address: String(formatted[formatted.index(after: open)..<close]))
         }
 
+        // A field's addresses, split on its commas, as a draft's are
+        // written here: none with a comma in its name.
+        func addresses(_ field: String) -> [Address] {
+            (fields[field] ?? "").split(separator: ",")
+                .map { address(String($0)) }.filter { !$0.address.isEmpty }
+        }
+
         let text = String(decoding: body, as: UTF8.self)
         let letter = Letter(from: address(fields["from"] ?? ""),
-                            to: (fields["to"] ?? "").split(separator: ",").map { address(String($0)) },
+                            to: addresses("to"), cc: addresses("cc"), bcc: addresses("bcc"),
                             subject: fields["subject"] ?? "",
                             date: fields["date"].flatMap(headerFormatter.date(from:)) ?? newestDate,
                             text: text, flags: flags,
                             messageID: fields["message-id"] ?? "<appended@example.com>",
-                            inReplyTo: fields["in-reply-to"])
+                            inReplyTo: fields["in-reply-to"],
+                            references: fields["references"])
         let lines = text.filter { $0 == "\n" || $0 == "\r\n" }.count
         return Stored(letter: letter, flags: flags, raw: raw,
                       sections: ["": raw, "HEADER": Data(headerBytes), "TEXT": body, "1": body],

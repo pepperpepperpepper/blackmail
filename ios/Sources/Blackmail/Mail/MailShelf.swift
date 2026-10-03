@@ -735,6 +735,15 @@ final class MailShelf: @unchecked Sendable {
         /// format. A row kept so has its Cc line when the letter lands, as
         /// every row did.
         var cc: [String]?
+        /// `MessageSummary.to`, written whenever the row knows it, as an
+        /// empty list for a letter to nobody; absent in a page kept before
+        /// the rows carried it, which reads as not known, so such a row
+        /// names its sender until the folder is listed again, rather than
+        /// "No Recipients" over every kept row in Sent Mail. No new format.
+        var to: [String]?
+        /// `MessageSummary.bcc`: absent for a letter with none, and in a
+        /// page kept before the rows carried it, which reads as none.
+        var bcc: [String]?
 
         init(_ row: MessageSummary, preview: String, size: Int? = nil) {
             id = row.id
@@ -751,6 +760,8 @@ final class MailShelf: @unchecked Sendable {
             files = row.attachments.map(FileRecord.init)
             self.size = size
             cc = row.cc.isEmpty ? nil : row.cc
+            to = row.to
+            bcc = row.bcc.isEmpty ? nil : row.bcc
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
@@ -758,7 +769,7 @@ final class MailShelf: @unchecked Sendable {
                            preview: preview, date: date, isRead: read, isFlagged: flagged,
                            hasAttachment: attachment, threadID: thread, gmailMessageID: message,
                            countedFolderIDs: counted, attachments: files.map(\.attachment),
-                           cc: cc ?? [])
+                           to: to, cc: cc ?? [], bcc: bcc ?? [])
         }
     }
 

@@ -41,6 +41,28 @@ enum ListEdit {
         }
     }
 
+    /// Whether the reading pane, showing `shown`, its letter and every
+    /// letter of the conversation it shows, shows one of `letters`, which
+    /// Edit mode's Delete or Move is taking off the list (B-062).
+    ///
+    /// The same letter under another mailbox's id counts as one of them: a
+    /// twin (`twins`), or a copy with the same Gmail message id. So an All
+    /// Mailboxes hit from All Mail deleted while the pane shows the letter
+    /// opened from the Inbox empties the pane, and so does the Inbox row
+    /// deleted while it shows the hit. Matched on ids alone, the row's twin
+    /// went from the list and the pane went on showing the binned letter
+    /// with Reply, Move and Delete live, and a Delete from it then sent a
+    /// MOVE for an Inbox UID that Gmail no longer had.
+    static func going(_ shown: [MessageSummary], with letters: [MessageSummary]) -> Bool {
+        let ids = Set(letters.map(\.id))
+        let messages = Set(letters.compactMap(\.gmailMessageID))
+        return shown.contains { letter in
+            ids.contains(letter.id)
+                || letter.gmailMessageID.map(messages.contains) == true
+                || !twins(of: letter, among: letters).isEmpty
+        }
+    }
+
     /// A page fetched afresh, with the previews already fetched for any of
     /// its letters put back.
     ///

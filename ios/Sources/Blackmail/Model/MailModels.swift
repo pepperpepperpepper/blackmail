@@ -107,6 +107,22 @@ struct MessageSummary: Identifiable, Hashable {
     /// then, pushing a conversation's stack down under him as he began to
     /// read it.
     var attachments: [Attachment] = []
+    /// Whom the letter was sent to, as the ENVELOPE the row is fetched with
+    /// names them, `Name <address>` or the address alone, as `cc` is.
+    /// Empty for a letter to nobody, as a draft begun and put aside is.
+    ///
+    /// Carried for the row's own top line in Sent Mail, Drafts and the
+    /// Outbox, which names whom the letter is to, as Mail's does, and not
+    /// him (`RowNames`, B-060). Every letter there is his, so his own name
+    /// on every row said nothing; he could tell his letters apart only by
+    /// their subjects.
+    ///
+    /// Nil where it is not known: a row kept on the iPad by a build before
+    /// rows carried it (`MailShelf`), and a row the server gave no ENVELOPE
+    /// for. Such a row names its sender, as every row did, until the folder
+    /// is next listed, rather than say "No Recipients" of a letter that had
+    /// some.
+    var to: [String]? = nil
     /// Whom the letter was copied to, as the ENVELOPE the row is fetched
     /// with names them: `Name <address>`, or the address where there is no
     /// name, which the reading pane's header names as it names the Cc
@@ -116,6 +132,13 @@ struct MessageSummary: Identifiable, Hashable {
     /// `attachments` is: it used to gain it only when the letter came, and
     /// push a conversation's stack down a line under him (B-042, B-055).
     var cc: [String] = []
+    /// Whom the letter was blind-copied to, from the same ENVELOPE. Only a
+    /// letter of his own has any: a draft carries its Bcc (`RFC5322Builder`
+    /// writes it there and nowhere else), and Gmail's copy in Sent Mail may
+    /// (not yet seen); a letter he was sent never shows one. For the top
+    /// line in Drafts and Sent Mail, so a letter to Bcc alone names the
+    /// people it is to rather than nobody.
+    var bcc: [String] = []
 }
 
 struct Message: Identifiable {
@@ -129,6 +152,22 @@ struct Message: Identifiable {
     /// header does not survive delivery, by definition, so it is empty on
     /// anything he has received.
     var bcc: [String] = []
+    /// The letter's Reply-To, an entry per address as `to` and `cc` have
+    /// them, empty when it has none: where its sender asks for answers to
+    /// go, which is where Reply sends them (`ReplyAddressing`, B-061). From
+    /// the letter's own header, as `to` and `cc` are, rather than the
+    /// ENVELOPE's, which a server fills with the From when there is none
+    /// and so cannot say whether the letter had one.
+    var replyTo: [String] = []
+    /// The letter's From, an entry per address as `to` and `cc` have them:
+    /// one for nearly every letter, and one for each of its authors for a
+    /// letter written by several, `jane@example.com, sam@example.org`, all
+    /// of whom a Reply goes to (`ReplyAddressing`, B-061). `sender` is the
+    /// whole header decoded, which the pane shows; it cannot be split
+    /// again once decoded, since a name whose comma came out of an encoded
+    /// word would split with it. Empty for a letter not read from a
+    /// header, and Reply then takes `sender` as one.
+    var from: [String] = []
     let subject: String
     let date: Date
     let textBody: String?
@@ -139,8 +178,15 @@ struct Message: Identifiable {
     /// thread. Emphatically NOT `id` — that is this app's own
     /// "<uidvalidity>/<uid>" handle and means nothing to any other client.
     var messageID: String?
+    /// The letter's own `In-Reply-To`, as the header has it: the
+    /// Message-ID of the letter it answers. Read for a draft, whose
+    /// In-Reply-To names the letter it is a reply to, so that a reply
+    /// finished from Drafts answers that letter still (`Draft.reopening`,
+    /// B-064). Raw, as `messageID` is.
+    var inReplyTo: String?
     /// The parent's own `References`, so a reply extends the ancestry
-    /// instead of starting it over from one hop.
+    /// instead of starting it over from one hop. A draft's, read back from
+    /// Drafts, is the ancestry its reply goes with, its parent last.
     var references: String?
     /// Gmail's id for the letter (X-GM-MSGID), when the server has named it
     /// in this launch: the row's own that it was opened by, once the server
@@ -240,9 +286,13 @@ struct Draft {
     /// "<uidvalidity>/<uid>" — which would have emitted
     /// `In-Reply-To: <1/9>`, a malformed header meaning nothing to anyone.
     /// It never got that far, because `send` did not read the field at all.
+    ///
+    /// A reply reopened from Drafts has the draft's own In-Reply-To here,
+    /// which names the same parent (`reopening`, B-064).
     var inReplyTo: String?
     /// The parent's `References` header, carried so the reply extends the
-    /// chain rather than restarting it.
+    /// chain rather than restarting it. A reply reopened from Drafts has
+    /// the draft's own, which ends with the parent already.
     var references: String?
     /// Files travelling with this message. Only forwards set these.
     var attachments: [DraftAttachment] = []
@@ -344,6 +394,15 @@ extension Draft {
         (cc + bcc).contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
+    /// The draft a Reply or Reply All starts from, with only `myAddress`
+    /// known to be his. The app's own Reply knows his login as well
+    /// (`OwnAddresses(account:)`).
+    static func replying(to m: Message, all: Bool, myAddress: String?,
+                         signature: String = "") -> Draft {
+        replying(to: m, all: all, mine: OwnAddresses([myAddress].compactMap { $0 }),
+                 signature: signature)
+    }
+
     /// The draft a Reply or Reply All starts from.
     ///
     /// Pure, and living here rather than in the view controller it is called
@@ -352,33 +411,20 @@ extension Draft {
     /// out empty for HTML-only mail, and threading headers that were built
     /// and then thrown away. None of them were visible on the sending
     /// screen. Code with that history belongs somewhere a test can reach it.
+    /// Whom it goes to is `ReplyAddressing`'s, for the same reason, after
+    /// three more (B-061).
     ///
-    /// `myAddress` is passed in rather than read from the credential store
-    /// so this stays a function of its arguments.
-    static func replying(to m: Message, all: Bool, myAddress: String?,
+    /// `mine` is passed in rather than read from the credential store so
+    /// this stays a function of its arguments.
+    static func replying(to m: Message, all: Bool, mine: OwnAddresses,
                          signature: String = "") -> Draft {
         var draft = Draft()
         draft.subject = m.subject.hasPrefix("Re:") ? m.subject : "Re: \(m.subject)"
-        draft.to = [m.senderAddress]
+        let addressed = ReplyAddressing.reply(to: m, all: all, mine: mine)
+        draft.to = addressed.to
+        draft.cc = addressed.cc
         draft.inReplyTo = m.messageID
         draft.references = m.references
-
-        if all {
-            // Everyone except him, so Reply All never mails him a copy of
-            // his own reply. This once compared against a hardcoded
-            // "me@example.com", which on a real account matches nothing.
-            // Compared on the bare address and case-insensitively, because a
-            // header carries "Name <ADDR@x>" and the domain is not case
-            // sensitive.
-            let mine = myAddress?.lowercased()
-            let sender = m.senderAddress.lowercased()
-            draft.cc = (m.to + m.cc)
-                .map(MailFormat.bareAddress)
-                .filter { candidate in
-                    let c = candidate.lowercased()
-                    return !c.isEmpty && c != mine && c != sender
-                }
-        }
 
         // Signature ABOVE the quoted text, which is where Mail puts it and
         // where a reader looks for it. Below the quote it is buried under
@@ -473,17 +519,34 @@ extension Draft {
     /// looked, if he has still not touched the quote. A forward's pictures
     /// are rows, as they were when he began it; a reply has none to bring
     /// back, as it carries none of the original's parts.
+    ///
+    /// A reply comes back still answering its letter: the draft's
+    /// In-Reply-To, which names it, and its References, which already end
+    /// with it (B-064). Left behind, as they were, the reply finished from
+    /// Drafts went with neither, and began a conversation of its own, in
+    /// Gmail and at everyone it went to. The builder reads the ids out of
+    /// them and does not add the letter answered to References a second
+    /// time (`RFC5322Builder.messageIDs`). A forward this app saved has
+    /// neither, and a letter begun afresh, so they come back with none.
     static func reopening(_ m: Message,
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
         // `quotableText` rather than `textBody`, so a draft written in
         // another client as HTML reopens with its words in it instead of
         // empty.
         let body = m.textBody ?? m.quotableText
-        return Draft(to: m.to,
-                     cc: m.cc,
-                     bcc: m.bcc,
+        // Each recipient as the composer's field keeps it, so that a name
+        // whose comma came out of an encoded word, `Example, Jane
+        // <jane@example.com>` once decoded, is still one recipient when the
+        // field is read back, and not two, the first of them `Example`.
+        // A reply keeps its recipients' names since B-061, so its drafts
+        // carry them.
+        return Draft(to: m.to.map(MailFormat.fieldEntry),
+                     cc: m.cc.map(MailFormat.fieldEntry),
+                     bcc: m.bcc.map(MailFormat.fieldEntry),
                      subject: m.subject,
                      body: body,
+                     inReplyTo: m.inReplyTo,
+                     references: m.references,
                      attachments: m.attachments
                          .filter { !SignatureImages.contains($0, in: signatureImages) }
                          .map {
@@ -553,10 +616,14 @@ enum MailFormat {
 
     /// The addresses in a recipient field as he left it: split on the
     /// commas the suggestions put between them, blanks dropped.
+    ///
+    /// Not on a comma inside a quoted name (`addressList`): a reply keeps
+    /// its recipients' names since B-061, and `"Example, Jane"
+    /// <jane@example.com>` split at every comma was two recipients, the
+    /// first of them `"Example`, which mail cannot be sent to. A quote
+    /// never closed is split at every comma, as before.
     static func addresses(in field: String) -> [String] {
-        field.split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
+        addressList(field)
     }
 
     /// The address currently being typed in a recipient field —
@@ -604,12 +671,15 @@ enum MailFormat {
         return dates.string(from: date, format: format, locale: locale, timeZone: timeZone)
     }
 
-    /// `"Jane Smith" <jane@example.com>` → `jane@example.com`. Replying needs
-    /// the bare address; sending to the display-name form bounces.
+    /// `"Jane Smith" <jane@example.com>` → `jane@example.com`: what two
+    /// spellings of one recipient are compared by. A reply used to be
+    /// addressed to this alone, and lost every name; it keeps them since
+    /// B-061, and `SMTPClient` takes the address out of each for RCPT TO.
     ///
-    /// Lives here rather than on the repository because `Draft.replying` uses
-    /// it and must stay Foundation-only — the repository was behind
-    /// `#if canImport(Network)` and did not exist on the test host.
+    /// Lives here rather than on the repository because a reply's
+    /// addressing (`OwnAddresses`) uses it and must stay Foundation-only —
+    /// the repository was behind `#if canImport(Network)` and did not exist
+    /// on the test host.
     static func bareAddress(_ header: String) -> String {
         if let open = header.lastIndex(of: "<"), let close = header.lastIndex(of: ">"),
            open < close {

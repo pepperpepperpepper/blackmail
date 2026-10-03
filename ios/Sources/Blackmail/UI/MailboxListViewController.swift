@@ -255,10 +255,19 @@ final class MailboxListViewController: UITableViewController {
         s < groups.count - 1 ? Theme.mailboxSectionGap : 0
     }
 
+    /// Clear, and not touched (B-065). A footer in this plain table floats:
+    /// while the keyboard is up it is pinned just above it, and when the
+    /// keyboard has gone it can stay where it was pinned. The folders'
+    /// footer, there only while the Outbox's block is under them, was left
+    /// over Important's row, and painted in the pane's own colour it drew
+    /// the row blank and took the taps on its middle. The table's own
+    /// background is the gap's colour, so nothing is lost by its being
+    /// clear.
     override func tableView(_ t: UITableView, viewForFooterInSection s: Int) -> UIView? {
         guard s < groups.count - 1 else { return nil }
         let spacer = UIView()
-        spacer.backgroundColor = Theme.canvas
+        spacer.backgroundColor = .clear
+        spacer.isUserInteractionEnabled = false
         return spacer
     }
 
