@@ -130,6 +130,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       once the owner says how the app is to know it (under "Blocked on the
       owner"). See B-061, and its check under "Blocked on the iPad coming
       back".*
+- [x] A reply finished from Drafts went with no In-Reply-To and no
+      References, and began a conversation of its own (found on the iPad
+      in B-061's check). *Done 2026-10-03, seen on the iPad: a
+      reply reopened from Drafts, from a search, from the iPad or from the
+      Outbox still answers its letter, with that letter once in
+      References, and whatever another client wrote in a draft's
+      In-Reply-To goes as its ids alone, on one line. See B-064, and its
+      check under "Blocked on the iPad coming back".*
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
       app's composer with the link's To, Cc, Bcc, Subject and Body and his
       signature (`MailtoLink`, B-036), and the app declares the scheme for
@@ -1298,6 +1306,14 @@ this host. Ordered by value, not by size.
       capitals left out and the tag kept, as on any domain but Gmail's.
       Steps 2 to 4 as written. The letter sent from the draft lost its
       In-Reply-To: B-064.*
+- [x] **B-064, a reply finished from Drafts answers its letter.** On the
+      test account, A standing for its address. Reply to a letter from A
+      to itself, type a word, Cancel, Save Draft. Open it from Drafts and
+      Send. In the connection log, the ENVELOPE for the sent letter has
+      the letter's Message-ID as its in-reply-to, where the build before
+      had NIL, and its X-GM-THRID is the letter's; the Inbox shows it in
+      the letter's conversation, not as one of its own.
+      *Seen on the iPad 2026-10-03, as written. B-064.*
 
 ## Blocked on the owner
 

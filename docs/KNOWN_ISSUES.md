@@ -6261,3 +6261,141 @@ List. A suggestion picked in the field takes the place of what follows its
 last comma, as it always has, so one picked while the field ends in a
 quoted name cut short after its comma would take the place of the rest of
 that name.
+
+---
+
+## B-064 — CHANGED 2026-10-03, seen on the iPad. A reply sent from Drafts began a conversation of its own
+
+**Found on the iPad, 2026-10-03**, on carlo's mailbox, A standing for its
+address, in B-061's check (its step 3, through Drafts). A Reply All to a
+letter from A to A, opened in Sent Mail, a word typed, Cancel, Save Draft,
+which went as an APPEND to `[Gmail]/Drafts`. In the connection log, the
+ENVELOPE of the draft saved had the letter's Message-ID as its
+in-reply-to, `"<485bb5a2…>"`, and Gmail had put the draft in the letter's
+conversation, under its X-GM-THRID. Opened from Drafts and sent, the letter's ENVELOPE
+had in-reply-to NIL, and Gmail gave it an X-GM-THRID of its own. It began a
+conversation of its own, in the Inbox and in Sent Mail, and would at
+everyone it went to whose mail puts a conversation together by
+In-Reply-To and References, as Mail does: it had neither. He keeps about
+1,900 drafts. A reply put down and finished later is an everyday thing.
+
+**What it was.** A draft is saved as the letter it will become, threading
+headers and all, so the copy in Drafts was right. Taken up again, it lost
+them. `Draft.reopening`, which makes the composer's letter from the copy
+fetched out of Drafts, took its recipients, subject, words, files and
+quote, and not its In-Reply-To or its References. And the letter fetched
+(`Message`) had no In-Reply-To to give: only its Message-ID and its
+References were read from its header. To the send, a reply reopened was a
+letter begun afresh, and `threadHeaders` wrote neither header. The letter
+kept on the iPad (B-051) and the Outbox (B-052) keep both, and always did;
+a reply reopened from Drafts had none to keep.
+
+**Changed.**
+
+- The letter fetched carries its In-Reply-To (`Message.inReplyTo`), read
+  from its header as its Message-ID is: as written, never decoded, since
+  an id has to match byte for byte to thread.
+- `Draft.reopening` takes the draft's In-Reply-To and References. A
+  draft's In-Reply-To names the letter it answers. Its References, as this
+  app saves it, is that letter's References with that letter last.
+- The builder writes only the ids in them (`RFC5322Builder.messageIDs`):
+  In-Reply-To each id it holds, once; References the ids of the
+  References but those, then those. So the letter answered goes into
+  References once, at the end, whether the References came from that
+  letter, for a reply sent at once, from the draft, which has it already,
+  or from another client's draft, which may have it earlier. It used to be
+  left out only when the References ended in exactly the same characters,
+  which a draft of this app's does and another client's need not, and one
+  listed earlier stayed where it was, not last.
+- A draft begun in another client with an In-Reply-To and no References
+  goes with that In-Reply-To, and the letter it names as its References,
+  as a reply to a letter with no References always did.
+- An In-Reply-To another client wrote is read for its ids, `<…>` each:
+  several kept, each once; a comment or a quoted phrase beside them left
+  out, `<id> (Jane's letter of Monday)`; an id folded over two lines put
+  back together; one without its brackets bracketed, when it is the whole
+  of it, one word with an `@` in it; and words with no id in them, `Your
+  letter of Monday`, no id, and the letter then answers nothing. A line
+  break of any kind inside an id, CR, LF, U+0085 NEXT LINE, U+2028 or
+  U+2029, is taken out, and outside one it only separates: `<id>`, a CR,
+  then `Bcc: someone@example.net`, goes as the id alone. Before, the value
+  went as it was written, a CR or LF made a space, U+0085 and U+2028 left
+  in the header, and words were bracketed as if they were an id. Every
+  header is the builder's, on lines of its own, whatever the draft held.
+
+Every way a reply comes back to be finished goes through these: a tap in
+Drafts; a hit of a search of All Mailboxes made in Drafts, which is in All
+Mail (the same `loadDraft`); the letter kept on the iPad; and the Outbox. A
+forward this app saved has neither header, as a forward sent at once has
+not, and comes back and goes with none. A draft another client saved goes
+with the In-Reply-To it was saved with, whatever kind of letter it is.
+
+**What he sees.** Nothing new. A reply finished from Drafts is in the
+conversation of the letter it answers, in his Inbox, in Sent Mail and at
+everyone it goes to, as one sent at once is.
+
+**Tests.** `DraftThreadingTests` (12), through the shipping repository,
+`LocalDrafts`, the composer's own Save Draft and Send (`ComposeActions`),
+the scripted IMAP server, which now writes a letter's References and reads
+it back from an APPEND (`ScriptedIMAPServer.Letter.references`), and a
+scripted submission server, each test reading the letter as it went after
+DATA. A Reply All to his letter in Sent Mail, itself a reply, saved,
+reopened from Drafts and sent, as on the iPad: the copy saved and the
+draft reopened name the letter answered, and the letter sent has one
+In-Reply-To, the letter's id, and one References, the letter's two
+ancestors and then the letter, once. The same reply found by a search of
+All Mailboxes and reopened from All Mail. Saved with no connection, kept
+on the iPad, opened there after a relaunch and sent. Saved with no
+connection, taken to Drafts by the pass, reopened and sent. Reopened from
+Drafts, sent with no connection, and sent from the Outbox by the pass. A
+letter begun afresh, and a forward, saved, reopened and sent with neither
+header. A draft from another client with an In-Reply-To alone, sent with
+it and with it as its References. A letter's In-Reply-To read as its
+header has it, an encoded word in it not decoded, and none for a letter
+without one. Thirteen shapes of an In-Reply-To and References in a draft
+from another client, a comment, a quoted phrase, two ids, one id twice,
+folded before the id and inside it, no brackets, words alone, a CR,
+U+2028 or U+0085 followed by a Bcc or a To, a CR inside the id, and a CR
+in the References followed by a Bcc, each sent with its ids alone,
+every line of the header a header of its own or the fold of one with no
+line break in it, one To, no Bcc, and one RCPT TO, Jane's. And the builder
+given References that end with the letter answered already, which it does
+not add again, and References from another client with it between two
+other ids, which it moves to the end.
+
+Each fails with its part undone, the full suite each time, failures as
+XCTest counts them: the draft reopened without its In-Reply-To (42
+failures), without its References (10), the letter not reading its
+In-Reply-To (44), the builder adding the letter answered to References
+whether it is there or not (11), leaving it where another client's
+References had it (1), and the builder as it was, writing the
+In-Reply-To as the header held it, made safe for the header but not read
+for its ids (24). `LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff`
+failed in none of these runs.
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox. Reply to "B-061
+spellings", a letter from the account to itself, a line typed, Cancel,
+Save Draft: Gmail's ENVELOPE for the draft named the letter's Message-ID
+as its in-reply-to. Opened from Drafts and sent, one `RCPT TO`: the
+ENVELOPE of the letter in Sent Mail named it too, where the build before
+had NIL, its X-GM-THRID was the letter's, and the Inbox drew the two as
+one conversation, "Carlo (2)".
+
+**Not covered.**
+
+- Gmail's own conversations are not in the scripted server, which puts no
+  letter in another's by its In-Reply-To. That a letter with these headers
+  is put in the conversation of the letter it answers is from the iPad,
+  where the draft saved was; the letter sent is the check under "Blocked
+  on the iPad coming back".
+- A reply already sent from Drafts on an earlier build stays in a
+  conversation of its own. A draft reopened and saved again on an earlier
+  build was saved without the two headers, and goes without them still:
+  nothing says any more what it answered. Only the test account can have
+  such drafts.
+- A bare id with no `@` in it, `12345`, is no longer taken for an id, and
+  a reply to a letter whose Message-ID is written so answers nothing; it
+  used to go in brackets. RFC 5322 has every id with an `@`, and none was
+  seen without one.
+- A long conversation's References grows by one id with each reply, as it
+  always has. It is never shortened, which RFC 5322 allows.

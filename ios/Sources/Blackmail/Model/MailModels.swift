@@ -155,8 +155,15 @@ struct Message: Identifiable {
     /// thread. Emphatically NOT `id` — that is this app's own
     /// "<uidvalidity>/<uid>" handle and means nothing to any other client.
     var messageID: String?
+    /// The letter's own `In-Reply-To`, as the header has it: the
+    /// Message-ID of the letter it answers. Read for a draft, whose
+    /// In-Reply-To names the letter it is a reply to, so that a reply
+    /// finished from Drafts answers that letter still (`Draft.reopening`,
+    /// B-064). Raw, as `messageID` is.
+    var inReplyTo: String?
     /// The parent's own `References`, so a reply extends the ancestry
-    /// instead of starting it over from one hop.
+    /// instead of starting it over from one hop. A draft's, read back from
+    /// Drafts, is the ancestry its reply goes with, its parent last.
     var references: String?
     /// Gmail's id for the letter (X-GM-MSGID), when the server has named it
     /// in this launch: the row's own that it was opened by, once the server
@@ -256,9 +263,13 @@ struct Draft {
     /// "<uidvalidity>/<uid>" — which would have emitted
     /// `In-Reply-To: <1/9>`, a malformed header meaning nothing to anyone.
     /// It never got that far, because `send` did not read the field at all.
+    ///
+    /// A reply reopened from Drafts has the draft's own In-Reply-To here,
+    /// which names the same parent (`reopening`, B-064).
     var inReplyTo: String?
     /// The parent's `References` header, carried so the reply extends the
-    /// chain rather than restarting it.
+    /// chain rather than restarting it. A reply reopened from Drafts has
+    /// the draft's own, which ends with the parent already.
     var references: String?
     /// Files travelling with this message. Only forwards set these.
     var attachments: [DraftAttachment] = []
@@ -485,6 +496,15 @@ extension Draft {
     /// looked, if he has still not touched the quote. A forward's pictures
     /// are rows, as they were when he began it; a reply has none to bring
     /// back, as it carries none of the original's parts.
+    ///
+    /// A reply comes back still answering its letter: the draft's
+    /// In-Reply-To, which names it, and its References, which already end
+    /// with it (B-064). Left behind, as they were, the reply finished from
+    /// Drafts went with neither, and began a conversation of its own, in
+    /// Gmail and at everyone it went to. The builder reads the ids out of
+    /// them and does not add the letter answered to References a second
+    /// time (`RFC5322Builder.messageIDs`). A forward this app saved has
+    /// neither, and a letter begun afresh, so they come back with none.
     static func reopening(_ m: Message,
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
         // `quotableText` rather than `textBody`, so a draft written in
@@ -502,6 +522,8 @@ extension Draft {
                      bcc: m.bcc.map(MailFormat.fieldEntry),
                      subject: m.subject,
                      body: body,
+                     inReplyTo: m.inReplyTo,
+                     references: m.references,
                      attachments: m.attachments
                          .filter { !SignatureImages.contains($0, in: signatureImages) }
                          .map {
