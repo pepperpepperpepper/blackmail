@@ -1502,7 +1502,7 @@ this host. Ordered by value, not by size.
       Trash halves on those four, and a letter never marked, each with its
       STORE and its own `UID EXPUNGE`, and none in Trash or a search
       after a Refresh (B-062).*
-- [ ] **B-063, his mailbox's size.** None of it seen on the iPad yet. On
+- [x] **B-063, his mailbox's size.** On
       the test account, with the connection log open between steps:
       1. *Folders.* Open Inbox, Sent Mail and All Mail, and Refresh each:
          each lists as before, with `UID SEARCH ALL` answered `* SEARCH
@@ -1541,6 +1541,12 @@ this host. Ordered by value, not by size.
          iPad only" with its photos, `tmp/Attachments` is empty, and the
          photos open from the reopened letter and go up with it when the
          connection is back.
+      *Seen on the iPad 2026-10-03, on carlo's mailbox: 1 to 5 as written,
+      with no SLOW note; Gmail answers RETURN (MIN) with `* ESEARCH (TAG
+      …) UID MIN <n>`, and with no MIN where nothing matches, so neither
+      fallback ran. The kept photo draft went up at the next going to the
+      background, not when the connection came back, being large. Print
+      not tried, for want of a printer (B-063).*
 - [x] **B-064, a reply finished from Drafts answers its letter.** On the
       test account, A standing for its address. Reply to a letter from A
       to itself, type a word, Cancel, Save Draft. Open it from Drafts and

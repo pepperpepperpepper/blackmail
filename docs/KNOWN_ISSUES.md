@@ -6724,7 +6724,7 @@ asks nothing, as before; that is outside this item.
 
 ---
 
-## B-063 — CHANGED 2026-10-03, not yet seen on the iPad. His mailbox's size: a slow SEARCH would have failed for good, a date jump brought every letter it matched, and his files and photos stayed on the iPad between launches
+## B-063 — CHANGED 2026-10-03, seen on the iPad. His mailbox's size: a slow SEARCH would have failed for good, a date jump brought every letter it matched, and his files and photos stayed on the iPad between launches
 
 **Found in the code 2026-10-03**, auditing f9a6325 for what the size of
 his mailbox does to it: Inbox 60,000 to 150,000 letters, Sent Mail about
@@ -7147,6 +7147,31 @@ as its in-reply-to. Opened from Drafts and sent, one `RCPT TO`: the
 ENVELOPE of the letter in Sent Mail named it too, where the build before
 had NIL, its X-GM-THRID was the letter's, and the Inbox drew the two as
 one conversation, "Carlo (2)".
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox, a few dozen letters,
+so for what it does and not for how long Gmail takes at his size. Inbox,
+Sent Mail and All Mail opened and refreshed, each `UID SEARCH ALL`
+answered `* SEARCH {N uids}`. Go to Date to 20 September 2015 in the
+Inbox: `UID SEARCH RETURN (MIN) SENTSINCE "20-Sep-2015" SINCE
+"13-Sep-2015" BEFORE "11-Oct-2026"`, answered `* ESEARCH (TAG "a131") UID
+MIN 1`, then `UID SEARCH ALL`, and the list landed on its oldest letter,
+"Showing August 25", as before. The same in All Mailboxes, `MIN 1` again.
+In Starred, which holds nothing: `* ESEARCH (TAG "a156") UID`, no MIN,
+and "No mail on or after September 20, 2015". So Gmail answers RETURN
+(MIN) as RFC 4731 has it, and neither fallback was needed. An All
+Mailboxes search found as before. No `SLOW` note and no `DEADLINE` in any
+of it. A letter to the account itself with two photos of 3 MB each:
+`tmp/Attachments` held one directory per photo while the sheet was up,
+and none once it had gone; the letter arrived once, both photos with it.
+The photos opened from the letter: one directory while the preview was
+up, the same one still there once it closed, and the next file opened
+put its own in its place, never two. The same letter written with no
+connection and Save Draft: "On this iPad only" with both photos, the two
+staging directories gone, and both photos there when it was opened
+again. It went to Gmail, photos and all, when the app next went to the
+background, not when the connection came back: six megabytes is a large
+letter, which waits for him to leave the app (`LocalDraft.isLarge`), as
+before. Print was not tried; there is no printer here.
 
 **Not covered.**
 
