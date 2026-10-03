@@ -47,6 +47,17 @@ protocol MailTransport: Actor {
     /// `wait` is how long the server may take to start answering.
     func readLine(_ wait: ReplyWait) async throws -> String
 
+    /// Starts timing the reads afresh, on `clock`: from now on
+    /// `longestQuiet` is the longest any one wait for bytes has lasted.
+    /// Each such wait is what a read's bound is on, a silence, and not an
+    /// answer as a whole. How `IMAPClient` tells how near a command's
+    /// answer came to its bound.
+    func startTimingQuiet(on clock: @escaping @Sendable () -> Date)
+
+    /// The longest one wait for bytes has lasted since `startTimingQuiet`,
+    /// in seconds on its clock. Nought if nothing has been waited for.
+    var longestQuiet: TimeInterval { get }
+
     /// Exactly `count` bytes, CRLFs and all, for an IMAP literal.
     func read(exactly count: Int) async throws -> Data
 }
@@ -68,13 +79,32 @@ extension MailTransport {
 /// How long a read may wait for the server to start answering.
 ///
 /// Chosen per call rather than per connection, because only the caller knows
-/// what it has just sent. Every read of either kind is cut off if the peer
-/// stays silent past its bound: the transport closes the connection and the
-/// read fails with `MailTransportError.timedOut`.
+/// what it has just sent. Every read, of whichever kind, is cut off if the
+/// peer stays silent past its bound: the transport closes the connection
+/// and the read fails with `MailTransportError.timedOut`.
 enum ReplyWait: Sendable {
     /// The reply to a command line: a round trip and the server's own time.
     /// Silence past the transport's ordinary deadline is a dead peer.
     case ordinary
+
+    /// The reply to a command the server has to work through his mailbox to
+    /// answer before it can say anything: SEARCH, SELECT and STATUS.
+    ///
+    /// Gmail answers each of these only once it has the whole answer, and
+    /// the time that takes grows with the mailbox: a SEARCH of his All Mail
+    /// is over 250,000 letters and grows by about 45,000 a year. How long
+    /// Gmail takes at his size has never been measured. On the ordinary
+    /// bound, one that took it longer than 30 seconds would fail every
+    /// time: the read retry's reconnect would ask it again and fail again,
+    /// and the folder would say "Can't connect" for good, with nothing on
+    /// the iPad able to change it. Every other reply keeps the ordinary
+    /// bound, so a dead line is still found in half a minute everywhere but
+    /// here.
+    ///
+    /// For each line of the answer up to its tagged line, not only the
+    /// first: Gmail may say a line at once, an EXISTS it owes the session
+    /// or SELECT's FLAGS, and work through the mailbox after it.
+    case serverWork
 
     /// The reply to a large upload: SMTP's after DATA's terminating dot, and
     /// IMAP's tagged reply after an APPEND literal.

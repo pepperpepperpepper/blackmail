@@ -284,4 +284,9 @@ actor ScriptedSubmission: MailTransport {
     func read(exactly count: Int) async throws -> Data {
         throw MailTransportError.closed
     }
+
+    /// Never asked: `SMTPClient` times none of its replies.
+    func startTimingQuiet(on clock: @escaping @Sendable () -> Date) {}
+
+    var longestQuiet: TimeInterval { 0 }
 }

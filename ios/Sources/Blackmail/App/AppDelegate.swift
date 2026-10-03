@@ -91,8 +91,12 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// And the launch has finished (`SafeStart`): an app that has come as
     /// far as the background did not crash at launch, however soon he
     /// left. A crash, or iOS's watchdog ending it, never comes here.
+    ///
+    /// A command on the wire as he leaves is not timed for the connection
+    /// log: iOS may hold the app still with it (`Diagnostics.awayOrBack`).
     public func applicationDidEnterBackground(_ application: UIApplication) {
         SafeStart.app.finished()
+        Diagnostics.wentAwayOrCameBack()
         RecipientBook.shared.flush()
         (window?.rootViewController as? RootViewController)?.repository.shelf?.flush()
         Self.syncShareMirror()
@@ -120,7 +124,12 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     /// Back from the background, where he may have shared from Safari: who
     /// those letters went to is taken into the book here.
+    ///
+    /// And a command that was on the wire while the app was away, whose
+    /// answer is read only now, is not timed for the connection log
+    /// (`Diagnostics.awayOrBack`).
     public func applicationWillEnterForeground(_ application: UIApplication) {
+        Diagnostics.wentAwayOrCameBack()
         Self.syncShareMirror()
     }
 

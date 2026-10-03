@@ -6724,6 +6724,313 @@ asks nothing, as before; that is outside this item.
 
 ---
 
+## B-063 — CHANGED 2026-10-03, seen on the iPad. His mailbox's size: a slow SEARCH would have failed for good, a date jump brought every letter it matched, and his files and photos stayed on the iPad between launches
+
+**Found in the code 2026-10-03**, auditing f9a6325 for what the size of
+his mailbox does to it: Inbox 60,000 to 150,000 letters, Sent Mail about
+150,000, All Mail 250,000 to 400,000 and growing by about 45,000 a year,
+Drafts about 1,900, in about 22 folders. The owner said not to test at
+his volume with real mail, so every figure below is from synthetic
+strings and buffers on this host. Five things grew with it, the first for
+good:
+
+1. **A slow answer failed every time.** Every reply was given 30 seconds
+   of silence (`TLSConnection.ordinaryDeadline`). Gmail says nothing in
+   answer to a SEARCH, a SELECT or a STATUS until it has worked through
+   the mailbox, and a SEARCH of All Mail goes over all of it. One that
+   took Gmail more than 30 seconds was cut off, the read retry's
+   reconnect asked it again and was cut off again, and the folder said
+   "Can't connect" at every try, for good: nothing on the iPad could
+   change it, and All Mail only grows. How long Gmail takes at his size
+   is not known; the log never said.
+2. **A date jump brought every letter it matched, for one number.** Of
+   Go to Date's dated SEARCH (B-058) only the oldest letter matched is
+   used (`PageWindow.anchor`), and all of them were asked for: a jump to
+   before 2016 in All Mail matched most of it, one line of about eight
+   bytes a letter, megabytes over his line, beside the listing's `UID
+   SEARCH ALL` of the same size.
+3. **A SEARCH answer was read a character at a time.**
+   `IMAPParser.parseSearch` tokenized the line, a `Character` array and
+   a `String` for every number: in a release build here 87-92 ms for
+   60,000 UIDs and 632-641 ms for 400,000, on every listing of All Mail from the
+   top, every jump in it, and every All Mailboxes search.
+4. **A long line was searched for its end once a chunk.**
+   `ReadBuffer.takeLine` searched the whole buffer for CRLF after every
+   chunk the socket gave, a line of n bytes in chunks of c costing about
+   n²/2c: All Mail's 3 MB SEARCH answer in 16 KB chunks was 279 MB of
+   searching, 453-735 ms here, and in 4 KB chunks 1.8-2.3 s.
+5. **Every file he opened and every photo he attached stayed until the
+   next launch.** `tmp/Attachments` was emptied only at launch
+   (`AttachmentStore.purge`), and iOS can keep the app alive for days: a
+   copy of every PDF or scan he opened, and every full-size photograph,
+   five a letter, he attached.
+
+**Changed.**
+
+1. *The bound.* The reply to a SEARCH, a SELECT or a STATUS is given 90
+   seconds of silence (`ReplyWait.serverWork`,
+   `TLSConnection.serverWorkDeadline`), three ordinary deadlines, before
+   it starts and at any pause in it up to its tagged line: Gmail may say
+   a line at once, an EXISTS or EXPUNGE it owes the session, or SELECT's
+   FLAGS, and work through the mailbox after it. Every other reply keeps
+   30, and the read retry is as it was. A bound that fires says
+   `DEADLINE read serverWork bound=90s`.
+
+   A reply that takes more than five seconds, from the command's write
+   to its tagged line, is noted in the connection log with its verb and
+   two times and nothing else, `SLOW UID SEARCH ms=15000 quiet=13000`.
+   `quiet` is the longest single silence between the write and the
+   tagged line, one read's wait for the next bytes
+   (`MailTransport.longestQuiet`, timed as the transport waits on the
+   link). The bound is on each such silence, so how near Gmail's slowest
+   answers come to 90 seconds is read off `quiet`, not guessed. The
+   wait for the first byte alone is not that number: an answer whose
+   first line came at once and whose rest came after 80 seconds had a
+   first byte at nought and was 10 seconds from the bound. `ms` is the
+   whole of it, the answer coming over his line included; All Mail's
+   3 MB SEARCH answer can take seconds to come once Gmail has started
+   it, and none of that counts against the bound while bytes keep
+   coming. A `quiet` near 90,000 is the bound nearly firing; an `ms`
+   near it alone is not. No note is written for a command the app
+   went to the background or came back during (`Diagnostics.awayOrBack`,
+   counted in `AppDelegate`): iOS suspends the app in the background,
+   for hours if he leaves it there, and an answer read once he is back
+   would read as hours of Gmail's.
+
+   What it costs. The read retry is unchanged, so a Gmail answer that
+   takes more than 90 seconds is about 90 seconds of waiting, a
+   reconnect, and about 90 seconds again, over three minutes, before
+   the folder says "Can't connect"; on the ordinary bound it was about
+   one minute. There is one connection, and the command holds its gate
+   for each of those waits, so a letter he opens meanwhile waits behind
+   it, up to 90 seconds at a time rather than 30. And a line that dies
+   while one of those three waits is given up on at 90 seconds rather
+   than 30, since once the command's bytes are acknowledged TCP itself
+   finds a dead peer only two minutes after the last traffic: a sweep of
+   the counts whose STATUS is on the wire as the line dies holds his
+   taps 90 seconds instead of 30.
+2. *The jump asks for the one number.* Where the server advertises
+   ESEARCH (RFC 4731), as Gmail does, the dated SEARCH goes as `UID SEARCH
+   RETURN (MIN) SENTSINCE "19-Jun-2019" SINCE "12-Jun-2019" BEFORE
+   "11-Oct-2026"` and is answered `* ESEARCH (TAG "a012") UID MIN 4231`,
+   or with nothing after `UID` when nothing matched, which says "No mail
+   on or after" the day as before (`IMAPClient.PageSearch.lowest`,
+   `IMAPParser.parseSearchMinimum`). RETURN goes before any CHARSET. The
+   listing's `UID SEARCH ALL` is unchanged: it is what the pages walk.
+   Without ESEARCH the plain SEARCH goes as before. An answer is taken
+   for what it says and no more. A MIN is the lowest, and so is the
+   lowest of an `ALL` set. Nothing matched is an ESEARCH line with
+   nothing after `UID`, or `COUNT 0`. A server that took no notice of
+   RETURN and answered with a plain `* SEARCH` line has answered: the
+   lowest of that is taken, nothing for `* SEARCH` alone, and the SEARCH
+   is not sent twice. Anything else has the plain SEARCH sent in the
+   same hold: a NO or BAD; an answer with neither line; an ESEARCH line
+   not saying UID; one that says something, but not the lowest, `COUNT
+   37` or `COUNT 12 MAX 900`; and one malformed, `UID MIN` with no
+   number, a MIN of 0, a set with `*` in it. So an answer Gmail did not
+   give is never taken for nothing found, and the ESEARCH line is never
+   read by the plain parser, which would read it as a SEARCH that found
+   nothing. Not known: whether Gmail does RETURN (MIN) as the RFC has
+   it, which the fallback covers, and whether it answers any sooner for
+   it.
+3. *The SEARCH line read off its bytes.* A line that is exactly `* SEARCH`
+   or `* SORT`, in either case, then numbers each after one space, is read
+   in one pass over its bytes (`IMAPParser.plainSearchNumbers`). Any other
+   line goes to the tokenizer as before: a range, CONDSTORE's `(MODSEQ
+   7)`, `* 4231 EXISTS`, a second space or one at the end, a tab, a
+   number of eleven digits or past `UInt32`. So for a line taken the two
+   give the same numbers by construction. 400,000 UIDs, about 3.2 MB:
+   632-641 → 5-7 ms in a release build here.
+4. *The line's end searched once.* The buffer keeps how far a fruitless
+   search got as a count of bytes from the front, used only as an offset
+   into the bytes themselves, never as an index of the `Data`, which
+   PERFORMANCE.md warned would desync the stream (`ReadBuffer.scanned`,
+   `lineEnd`). The next search starts one byte before it, for a CR whose
+   LF is the first byte of the next chunk, and the count goes back to
+   nought whenever bytes leave the front, by a line or by a literal. 3 MB
+   in 16 KB chunks: 453-735 → 3-4 ms; in 4 KB chunks: 1.8-2.3 s → 0.4 ms.
+5. *The files go when they are done with.* The reading pane's copy of
+   the last file he opened goes as the next is written, and at launch,
+   so there is one on disk at most. Not as its preview closes: Print
+   reads the file after its panel has closed, and a copy taken from
+   under a print still reading it could print blank. A print still
+   reading one file when he has closed it, tapped another and that has
+   come is the one case left. A file that comes while a preview, or
+   anything else, is up over the pane is not shown, as before, since
+   UIKit presents nothing over a presentation, and now not written
+   either. The composer records every
+   photo it stages and removes them in its `deinit` (`StagedFiles`): Send,
+   Save Draft, the autosave and the keep as he leaves the app each hold
+   the composer, through the closure that hands them the letter, until
+   their work is done, the upload and the keep and APPEND included, so it
+   cannot go while one of them still reads a photo. A removal takes a
+   file's directory only when that is a UUID directory directly in
+   `tmp/Attachments` (`AttachmentStore.stagingDirectory`). A letter kept
+   on the iPad has its photos hard-linked into its own directory
+   (`LocalDraftStore.keep`), which survive the staged copies, and those,
+   or any URL into that directory, are never touched. The share
+   extension's staging is its own, emptied at its launch, as before.
+
+Nothing else changes on the wire: the same commands, but for RETURN (MIN)
+in a jump; the same listings, pages and landings. No new words on screen.
+The new connection-log lines are `SLOW <VERB> ms=<n> quiet=<n>`, the
+jump's `UID SEARCH RETURN (MIN) …` with its `* ESEARCH …` answer, and
+`DEADLINE read serverWork bound=90s` if that bound ever fires.
+
+**Tests.** `SearchLineTests`: every line on the byte path gives what the
+tokenizer gives, and each kind of line that is not, a range, a trailer,
+a second or trailing space, a tab, `4294967296`, eleven digits,
+`SEARCH1`, `SEARCHES`, `* 4231 EXISTS`, an ESEARCH line, goes to the
+tokenizer and gives what it gives; an answer's lines together keep their
+order; a line with a literal is never taken; 400,000 UIDs read right in
+under half a second in the suite's debug build (the test about 0.13 s);
+ESEARCH's answer read for its lowest, from MIN or else from ALL's set
+however it is written, none only for nothing after `UID` or `COUNT 0`,
+and nil, to be asked again, for items that do not say the lowest (`COUNT
+37`, `COUNT 12 MAX 900`, `MAX`, `MODSEQ`), for a malformed one (`UID
+MIN`, `COUNT` alone, MIN 0, `+5`, `4294967296` or `x`, a set with `*`,
+an empty part or three ends, a list for a name), and for one not saying
+UID; and a plain `* SEARCH` answer told from none at all, `* SEARCH`
+alone being nothing found. `ReadBufferTests`: a
+long line in chunks of 1, 2, 3, 7 and 1,024 bytes and a tagged line after
+it, each byte searched about once (`ReadBuffer.examined`); a CRLF split
+across two chunks; a CR alone at a chunk's end with no LF after it; a
+literal taken after a fruitless search, then the line after it, twice;
+empty lines; forty seeded streams of lines and literals in random chunks
+read as sent; and a 3 MB line in 16 KB chunks found in one pass, in
+under a second. `LowestMatchTests`, the real client against the scripted
+server, which now answers RETURN (MIN), MAX and COUNT with ESEARCH, and
+refuses RETURN with NO when told to, or BAD without ESEARCH, or answers
+it with a plain SEARCH or with items of the test's making: the jump's
+SEARCH asks for its MIN and gets the lowest a plain SEARCH would have, the
+listing still asked for whole and the ESEARCH line in the connection
+log; no MIN is nothing matched, with nothing asked again; without ESEARCH
+a plain SEARCH; a refused RETURN asked again plainly in the same hold on
+the same connection; a plain `* SEARCH` answer to RETURN taken, its
+lowest and its none, with nothing sent twice; an answer of the count, the
+count and the highest, the highest, MIN with no number or MIN 0 asked
+again plainly in the same hold and landing on the same letter; and an
+answer of ALL's set, written out of order, and of a count of none, taken
+with nothing asked again. `GoToDateBoundTests`: the dated SEARCH on the wire
+is `UID SEARCH RETURN (MIN) …` and then `UID SEARCH ALL`; and nine jumps,
+in UTC, New York and Tokyo, nothing that recent among them, land on the
+same letter, the same day and the same window with ESEARCH and without
+it; B-058's eleven there and the 24 of `DateJumpTests` pass as they
+were. `DeadlineWireTests`, the ordinary deadline 60 ms where the device's
+is 30 s: a SEARCH, a SELECT and a STATUS silent for 90 ms, the device's
+45 s, are waited for, on the same connection, and so are Go to Date's
+`UID SEARCH RETURN (MIN)` and the plain SEARCH sent again when a server
+refuses CHARSET, each silent as long; a FETCH and a NOOP silent
+as long are cut off at 60 ms; a SEARCH, a SELECT, a STATUS and the
+jump's RETURN (MIN) whose untagged lines come at once and whose tagged
+line comes 90 ms after the client has read them are waited for, on the
+same connection, and a FETCH answered that way is cut off at 60 ms; a
+SEARCH never answered is cut off at three ordinary deadlines, 180 ms,
+with `DEADLINE read serverWork bound=0.18s`; answers held while a test
+clock moves 41.25 s, 6.5 s and 4.9 s give `SLOW SELECT ms=41250
+quiet=41250` and then `SLOW UID SEARCH ms=6500 quiet=6500`, not the
+SELECT's 41250 again, without the words searched for or the mailbox,
+and nothing for the third; an answer whose start comes 2 s in and whose
+tagged line 13 s after gives `ms=15000 quiet=13000`, one whose start
+comes at once and whose end 15 s after `quiet=15000`, one of 13 s and
+then 2 s `quiet=13000`, and one of 7.5 s twice `quiet=7500`, the
+longest and not the first, the last or the sum; no note for an answer
+held three hours while the app went away and came back, nor for one
+the app went away during, and a note again for the next; and
+`AppDelegate` counting both, read from its source. `AttachmentStoreTests`: only a UUID directory
+directly in the store counts as staging, not a kept letter's file, the
+store, a deeper directory, one not named by a UUID, a way out of the
+store or a URL that is not a file; removing one takes its directory and
+nothing else; the pane's way with three files in turn leaves one copy at
+most, the last, whole, until the launch's purge; a composer's photos go
+and a kept letter's
+hard-linked photo stays, byte for byte, with the kept file's own URL
+handed in too; and the pane's and the composer's wiring, read from their
+source, the pane removing a copy only as the next is written, with
+nothing told when the preview closes. `ComposeActionsTests`: Send and Save Draft hold the composer, by
+the letter closure, until their work is done, and let it go after.
+
+Each fails with its part undone, sixteen sabotages one at a time, each
+run once over the whole suite, serially: the byte path never taken (1,
+the 400,000 UIDs taking 2.1 s; the known `LargeLetterTests` timing flake
+failed in the same run, 2 in all), any byte not a digit taken for a
+separator, as the naive scanner PERFORMANCE.md warned of (13), no digit
+cap or overflow check (6), the line's end searched from the front every
+time (6, 279 MB looked at for the 3 MB line), the search resumed where the
+last stopped rather than a byte before (40), the place kept after a
+literal is taken (5), the dated SEARCH sent plain (7), the ESEARCH answer
+read as a plain SEARCH (23, in 16 tests, every jump landing nowhere), a
+refused RETURN not asked again (1), the three on the ordinary bound (3),
+every reply on the long bound (4), the SLOW note carrying the whole
+command (1), any parent taken for a staging directory (8, the kept
+letter's photo deleted), the pane's last copy left as the next is
+written (1), the composer's photos removed as the sheet goes rather than
+when it is let go of (1), and Send letting go of the letter closure once
+it has the letter (1). Those sixteen were counted before the review's
+fixes below.
+
+**Reviewed 2026-10-03, and fixed.** A review of the change above found
+seven things, each fixed in the text above, which says how it is now:
+an answer to RETURN (MIN) that was a plain `* SEARCH` line was thrown
+away and the SEARCH sent again; an ESEARCH answer with items but no MIN,
+`COUNT 37`, `ALL 3:9`, `COUNT 12 MAX 900` or a malformed `UID MIN`, was
+read as nothing matched, the very thing the change said could not
+happen; no test held the jump's RETURN (MIN) or the SEARCH sent again
+without CHARSET to the long bound; the SLOW note timed the whole answer
+and was read as the margin to a bound that times only silence, and an
+answer read after the app had been suspended would have noted hours as
+Gmail's; the docs left out what the bound costs; the pane's copy was
+deleted as the preview closed, and Print reads the file after its panel
+has closed, so a print could have come out blank; and four comments
+said what was no longer so.
+
+Each of the fixes fails with its part undone, nine sabotages one at a
+time, each run once over the whole suite, serially, as failures in
+tests: a plain SEARCH answer to RETURN not taken (2 in 1), items that do
+not say the lowest read as nothing matched (10 in 2), ALL's set not read
+(5 in 2), the jump's RETURN (MIN) on the ordinary bound (1 in 1), the
+SEARCH sent again without CHARSET on the ordinary bound (1 in 1), `first`
+timed to the tagged line (2 in 1), the note written across the app going
+away and coming back (2 in 1), `AppDelegate` not counting the return (2
+in 1), and the pane's copy deleted as the preview closes again (6 in 1).
+The full suite, serially, then: 1,213 tests, 4 skipped, none failing.
+
+**Reviewed again 2026-10-03, and fixed.** A second review found two
+things, each fixed in the text above. To time the answer's first byte,
+the client waited for it on a read of its own, on the command's bound,
+before it read the answer. Every test's silence was spent in that read.
+So the rest of an answer, once its first byte had come, was on the long
+bound with no test to say so: with the answer read on the ordinary bound
+the whole suite passed. On the iPad that is a SEARCH or a SELECT that
+says a line at once and works on for more than 30 seconds: cut off at
+30, and again on the retry, "Can't connect" for good. And `first`, the
+wait for that byte, was given in the code and the docs as the number
+held to the bound, when the bound is on each silence. The read of its
+own is gone, and `first` with it: the note gives `quiet`, the longest
+single silence, timed by the transport as it waits on the link and
+started afresh as each command is written. `first` is not kept beside
+it. It is not what the bound is on, a second number in the note would
+read as a second margin, and the read that timed it is what hid the
+first finding.
+
+Each fix fails with its part undone, seven sabotages one at a time, each
+run once over the whole suite, serially, as failures in tests: the answer
+read on the ordinary bound (13 in 5, 8 of them in the new test, all four
+commands), the long bound on the answer's first line alone and the rest
+on the ordinary, which is what went untested (8 in 1, the new test
+alone), the rest of every answer on the long bound (2 in 1, the new
+FETCH test alone), `quiet` timed to the first byte alone, as `first` was
+(2 in 1), the silences added up (3 in 1), the last silence taken (1 in
+1), and `quiet` not started afresh for each command (4 in 3). A third
+look found `quiet` untested on the other commands, which are timed the
+same way: a letter's FETCH whose letter came 3 seconds in and whose
+tagged line 6 seconds after is `ms=9000 quiet=6000`, and `quiet` timed on
+the long bound's waits alone fails that test (1 in 1). The full suite,
+serially: 1,216 tests, 4 skipped, none failing. The release build for
+the iPad links.
+
+---
+
 ## B-064 — CHANGED 2026-10-03, seen on the iPad. A reply sent from Drafts began a conversation of its own
 
 **Found on the iPad, 2026-10-03**, on carlo's mailbox, A standing for its
@@ -6840,6 +7147,31 @@ as its in-reply-to. Opened from Drafts and sent, one `RCPT TO`: the
 ENVELOPE of the letter in Sent Mail named it too, where the build before
 had NIL, its X-GM-THRID was the letter's, and the Inbox drew the two as
 one conversation, "Carlo (2)".
+
+**Seen on the iPad, 2026-10-03**, on carlo's mailbox, a few dozen letters,
+so for what it does and not for how long Gmail takes at his size. Inbox,
+Sent Mail and All Mail opened and refreshed, each `UID SEARCH ALL`
+answered `* SEARCH {N uids}`. Go to Date to 20 September 2015 in the
+Inbox: `UID SEARCH RETURN (MIN) SENTSINCE "20-Sep-2015" SINCE
+"13-Sep-2015" BEFORE "11-Oct-2026"`, answered `* ESEARCH (TAG "a131") UID
+MIN 1`, then `UID SEARCH ALL`, and the list landed on its oldest letter,
+"Showing August 25", as before. The same in All Mailboxes, `MIN 1` again.
+In Starred, which holds nothing: `* ESEARCH (TAG "a156") UID`, no MIN,
+and "No mail on or after September 20, 2015". So Gmail answers RETURN
+(MIN) as RFC 4731 has it, and neither fallback was needed. An All
+Mailboxes search found as before. No `SLOW` note and no `DEADLINE` in any
+of it. A letter to the account itself with two photos of 3 MB each:
+`tmp/Attachments` held one directory per photo while the sheet was up,
+and none once it had gone; the letter arrived once, both photos with it.
+The photos opened from the letter: one directory while the preview was
+up, the same one still there once it closed, and the next file opened
+put its own in its place, never two. The same letter written with no
+connection and Save Draft: "On this iPad only" with both photos, the two
+staging directories gone, and both photos there when it was opened
+again. It went to Gmail, photos and all, when the app next went to the
+background, not when the connection came back: six megabytes is a large
+letter, which waits for him to leave the app (`LocalDraft.isLarge`), as
+before. Print was not tried; there is no printer here.
 
 **Not covered.**
 

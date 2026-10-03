@@ -123,6 +123,20 @@ final class ComposeViewController: UIViewController,
     /// Held while a letter goes, with the Remove buttons.
     private weak var attachButton: UIButton?
 
+    /// Every photo `attach` staged in `tmp/Attachments`, removed when this
+    /// controller goes (B-063). They used to stay until the next launch,
+    /// which iOS can put off for days: five full-size photographs a letter.
+    ///
+    /// At `deinit` and no sooner, because that is when nothing can still
+    /// read them. Send and Save Draft hand `ComposeActions` a closure that
+    /// holds this controller (`{ self.draft }`), as do the autosave and the
+    /// keep as he leaves the app, and each task holds that closure until it
+    /// has finished, the send's upload and the save's keep and APPEND
+    /// included. A letter kept on the iPad has its photos linked into its
+    /// own directory by then, which outlive the staged copies; its files
+    /// are never recorded here, nor removed (`AttachmentStore.removeStaged`).
+    private let staged = StagedFiles()
+
     /// `key` is the letter's on the iPad when it was reopened from there;
     /// any other letter is given a new one.
     init(repository: MailRepository, draft: Draft, key: String? = nil) {
@@ -137,6 +151,10 @@ final class ComposeViewController: UIViewController,
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    deinit {
+        staged.removeAll()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -450,11 +468,13 @@ final class ComposeViewController: UIViewController,
         // SAVED draft embeds its bytes on the server and reopens as a
         // message part, and a letter kept on the iPad links its photos
         // into its own directory (`LocalDraftStore.keep`), so nothing in
-        // the staging has to outlive the session.
+        // the staging has to outlive this composer, which removes what it
+        // staged as it goes (`staged`).
         guard let url = try? AttachmentStore.write(data, named: filename) else {
             ErrorPresenter.show(.attachmentFailed, on: self)
             return
         }
+        staged.record(url)
         draft.attachments.append(DraftAttachment(source: .localFile(url),
                                                  filename: filename,
                                                  mimeType: "image/jpeg",

@@ -1192,8 +1192,13 @@ actor IMAPMailRepository: MailRepository {
         // the matches and the snapshot in one numbering: in two, a
         // reconnect could fall between them onto a renumbered folder, and
         // the anchor would be some other letter.
+        //
+        // Of the dated SEARCH only the oldest letter matched is ever used
+        // (`PageWindow.anchor`), so only that is asked for, where the
+        // server can say it alone (`IMAPClient.PageSearch.lowest`). The
+        // whole listing is still asked for: it is what the pages walk.
         let dated = IMAPDate.sentOnOrAfter(date, now: now(), timeZone: calendar.timeZone)
-        let opened = try await client.page(in: name, searching: [dated, "ALL"]) {
+        let opened = try await client.page(in: name, searching: [.lowest(dated), "ALL"]) {
             found in
             guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
             return PageWindow.window(around: anchor, in: found[1], limit: limit).uids

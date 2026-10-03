@@ -477,32 +477,242 @@ enum IMAPParser {
 
     /// `* SEARCH 1 2 3` -> `[1, 2, 3]`. SORT has the same shape and is accepted.
     /// Non-numeric trailers (CONDSTORE's `(MODSEQ 123)`) are ignored.
+    ///
+    /// A line that is nothing but the keyword and plain numbers, which is
+    /// every answer Gmail gives a SEARCH, is read off its bytes in one pass
+    /// (`plainSearchNumbers`); anything else goes through the tokenizer as
+    /// it always did. His All Mail is 250,000 to 400,000 letters, and its
+    /// `UID SEARCH ALL` one line of that many numbers, about 3 MB: the
+    /// tokenizer made a `Character` array of it and a `String` of every
+    /// number, about 90 ms for 60,000 UIDs in a release build here and
+    /// 0.64 s for 400,000, on every listing of it from the top and every
+    /// date jump in it; read off its bytes, 400,000 take about 6 ms.
     static func parseSearch(_ untagged: [IMAPResponseLine]) -> [UInt32] {
         var out: [UInt32] = []
         for line in untagged {
-            let tokens = tokenize(line)
-            guard let keyword = Array(tokens.prefix(3)).firstIndex(where: {
-                guard let atom = $0.atomText?.uppercased() else { return false }
-                return atom == "SEARCH" || atom == "SORT"
-            }) else { continue }
+            if line.literals.isEmpty, let numbers = plainSearchNumbers(line.text) {
+                out += numbers
+                continue
+            }
+            out += tokenizedSearchNumbers(line)
+        }
+        return out
+    }
 
-            for token in tokens.dropFirst(keyword + 1) {
-                guard let atom = token.atomText else { continue }
-                if let single = UInt32(atom) {
-                    out.append(single)
-                    continue
+    /// The numbers of `* SEARCH n n n` or `* SORT n n n`, the keyword in
+    /// either case, read off the line's bytes once; nil for a line of any
+    /// other shape, which the caller then gives the tokenizer.
+    ///
+    /// Only what the tokenizer would read the same way is taken, so for a
+    /// line taken here the two give the same numbers by construction:
+    /// exactly `* `, the keyword, then nothing, or one space and numbers
+    /// each separated from the next by one space. A second space, a space
+    /// at the end, a tab, a range (`1:5`), a trailer (`(MODSEQ 7)`), a
+    /// letter, a number of eleven digits or one past `UInt32` and the line
+    /// goes to the tokenizer, which has its own rule for each. So does
+    /// `* SEARCH1` or `* SEARCHES`, and `* ESEARCH`, which is not a
+    /// SEARCH answer at all.
+    static func plainSearchNumbers(_ text: String) -> [UInt32]? {
+        var text = text
+        return text.withUTF8 { b -> [UInt32]? in
+            let n = b.count
+            guard n >= 2, b[0] == 0x2A, b[1] == 0x20 else { return nil }   // "* "
+            // The keyword, compared without regard to case: a byte OR'd
+            // with 0x20 equals a lower-case letter only when it is that
+            // letter in either case.
+            func keyword(_ word: [UInt8]) -> Bool {
+                guard n >= 2 + word.count else { return false }
+                for (k, letter) in word.enumerated() where b[2 + k] | 0x20 != letter {
+                    return false
                 }
-                // Plain SEARCH never sends a range, but a caller that feeds us
-                // a set from elsewhere should not silently lose it. Bounded,
-                // because "1:4294967295" would otherwise allocate 16 GB.
-                let bounds = atom.split(separator: ":", maxSplits: 1)
-                if bounds.count == 2, let low = UInt32(bounds[0]), let high = UInt32(bounds[1]),
-                   low <= high, high - low < 50_000 {
-                    out.append(contentsOf: low...high)
+                return true
+            }
+            var i: Int
+            if keyword(Self.searchWord) {
+                i = 2 + Self.searchWord.count
+            } else if keyword(Self.sortWord) {
+                i = 2 + Self.sortWord.count
+            } else {
+                return nil
+            }
+            if i == n { return [] }                 // "* SEARCH": nothing found
+            guard b[i] == 0x20 else { return nil }  // "* SEARCH1", "* SEARCHES"
+            i += 1
+
+            // A number takes at least two bytes with its space, and the
+            // UIDs of a large mailbox six or seven.
+            var out: [UInt32] = []
+            out.reserveCapacity((n - i) / 7 + 1)
+            while true {
+                var value: UInt32 = 0
+                var digits = 0
+                while i < n, b[i] >= 0x30, b[i] <= 0x39 {
+                    digits += 1
+                    guard digits <= 10 else { return nil }
+                    let (tens, over) = value.multipliedReportingOverflow(by: 10)
+                    let (sum, past) = tens.addingReportingOverflow(UInt32(b[i] &- 0x30))
+                    guard !over, !past else { return nil }
+                    value = sum
+                    i += 1
                 }
+                // No digit: a second space, a space at the end, or
+                // something other than a number.
+                guard digits > 0 else { return nil }
+                out.append(value)
+                if i == n { return out }
+                guard b[i] == 0x20 else { return nil }
+                i += 1
+            }
+        }
+    }
+
+    private static let searchWord = Array("search".utf8)
+    private static let sortWord = Array("sort".utf8)
+
+    /// One untagged line's SEARCH or SORT numbers as the tokenizer reads
+    /// them: the keyword among the first three tokens, every number after
+    /// it, a range expanded, anything else passed over. The whole of
+    /// `parseSearch` before the byte path, and still what any line not
+    /// taken there goes through.
+    static func tokenizedSearchNumbers(_ line: IMAPResponseLine) -> [UInt32] {
+        let tokens = tokenize(line)
+        guard let keyword = Array(tokens.prefix(3)).firstIndex(where: {
+            guard let atom = $0.atomText?.uppercased() else { return false }
+            return atom == "SEARCH" || atom == "SORT"
+        }) else { return [] }
+
+        var out: [UInt32] = []
+        for token in tokens.dropFirst(keyword + 1) {
+            guard let atom = token.atomText else { continue }
+            if let single = UInt32(atom) {
+                out.append(single)
+                continue
+            }
+            // Plain SEARCH never sends a range, but a caller that feeds us
+            // a set from elsewhere should not silently lose it. Bounded,
+            // because "1:4294967295" would otherwise allocate 16 GB.
+            let bounds = atom.split(separator: ":", maxSplits: 1)
+            if bounds.count == 2, let low = UInt32(bounds[0]), let high = UInt32(bounds[1]),
+               low <= high, high - low < 50_000 {
+                out.append(contentsOf: low...high)
             }
         }
         return out
+    }
+
+    /// The numbers of the plain `* SEARCH` lines among `untagged`, as
+    /// `parseSearch` reads them, or nil when there is no such line: how a
+    /// SEARCH that found nothing, `* SEARCH` alone, is told from an answer
+    /// with no SEARCH line in it at all. For a server that answers `UID
+    /// SEARCH RETURN (MIN)` as if RETURN were not there.
+    ///
+    /// A line is looked at no further than its first nine characters
+    /// before `parseSearch` has it, so his All Mail's 3 MB answer is read
+    /// once, off its bytes, as any SEARCH answer is.
+    static func plainSearchAnswer(_ untagged: [IMAPResponseLine]) -> [UInt32]? {
+        let lines = untagged.filter { line in
+            let head = line.text.prefix(9).uppercased()
+            return head == "* SEARCH" || head == "* SEARCH "
+        }
+        return lines.isEmpty ? nil : parseSearch(lines)
+    }
+
+    /// What an ESEARCH answer (RFC 4731) to `UID SEARCH RETURN (MIN)` says
+    /// of the lowest UID matched: `[n]`, `[]` when nothing matched, or nil
+    /// when it does not say. Nil is never read as nothing found: the caller
+    /// asks again with a plain SEARCH.
+    ///
+    /// The answer's result items, after `UID`, are read in pairs, a name
+    /// and its value:
+    ///
+    /// - `MIN n`: `[n]`, whatever is beside it.
+    /// - `ALL 3:9,12` and no MIN: the lowest of the set, `[3]`.
+    /// - No items at all, `* ESEARCH (TAG "a012") UID`: `[]`. A server
+    ///   leaves MIN out when nothing matched, and says nothing else it was
+    ///   not asked for. So is `COUNT 0` with no MIN: none matched.
+    /// - Anything else is nil. Items that say something, but not the
+    ///   lowest, `COUNT 37` or `COUNT 12 MAX 900`, as from a server that
+    ///   answered other than it was asked. A malformed one: a name with no
+    ///   value (`UID MIN`), a MIN or a COUNT that is not a number, a MIN of
+    ///   0, which no UID is, a set that is not one or has a `*` in it.
+    ///
+    /// Nil too when no line among `untagged` is an ESEARCH answer, or one
+    /// is but does not say UID, when its numbers would be message sequence
+    /// numbers rather than UIDs. The first ESEARCH line is the answer.
+    ///
+    /// The correlator is not compared with the command's tag: one command
+    /// is on the connection at a time (`IMAPClient`'s gate), so an ESEARCH
+    /// line among its untagged answers is its own.
+    static func parseSearchMinimum(_ untagged: [IMAPResponseLine]) -> [UInt32]? {
+        for line in untagged {
+            let tokens = tokenize(line)
+            guard tokens.count >= 2, tokens[0].atomText == "*",
+                  tokens[1].atomText?.uppercased() == "ESEARCH" else { continue }
+            var rest = tokens.dropFirst(2)
+            if rest.first?.isList == true { rest = rest.dropFirst() }
+            guard rest.first?.atomText?.uppercased() == "UID" else { return nil }
+            return lowestAnswered(Array(rest.dropFirst()))
+        }
+        return nil
+    }
+
+    /// An ESEARCH answer's result items read for the lowest UID, as
+    /// `parseSearchMinimum` says.
+    private static func lowestAnswered(_ items: [IMAPToken]) -> [UInt32]? {
+        if items.isEmpty { return [] }
+        guard items.count % 2 == 0 else { return nil }
+        var minimum: UInt32?
+        var lowestOfAll: UInt32?
+        var count: UInt32?
+        for at in stride(from: 0, to: items.count, by: 2) {
+            guard let name = items[at].atomText?.uppercased() else { return nil }
+            let value = items[at + 1].atomText
+            switch name {
+            case "MIN":
+                guard let uid = value.flatMap(Self.uid) else { return nil }
+                minimum = uid
+            case "ALL":
+                guard let uid = value.flatMap(Self.lowestInSet) else { return nil }
+                lowestOfAll = uid
+            case "COUNT":
+                guard let number = value.flatMap(Self.digits) else { return nil }
+                count = number
+            default:
+                // MAX, or an extension's item: nothing about the lowest.
+                continue
+            }
+        }
+        if let minimum { return [minimum] }
+        if let lowestOfAll { return [lowestOfAll] }
+        if count == 0 { return [] }
+        return nil
+    }
+
+    /// `text` as a number if it is nothing but ASCII digits, and fits.
+    private static func digits(_ text: String) -> UInt32? {
+        guard !text.isEmpty, text.utf8.allSatisfy({ $0 >= 0x30 && $0 <= 0x39 }) else { return nil }
+        return UInt32(text)
+    }
+
+    /// `text` as a UID: digits, and not 0.
+    private static func uid(_ text: String) -> UInt32? {
+        digits(text).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    /// The lowest UID in a sequence set, `3:9,12` → 3, either way round a
+    /// range goes (`9:3` is the same range); nil for anything that is not
+    /// a set of UIDs, `*` included, which an answer has no business giving.
+    private static func lowestInSet(_ text: String) -> UInt32? {
+        var lowest: UInt32?
+        for part in text.split(separator: ",", omittingEmptySubsequences: false) {
+            let ends = part.split(separator: ":", omittingEmptySubsequences: false)
+            guard ends.count == 1 || ends.count == 2 else { return nil }
+            for end in ends {
+                guard let number = uid(String(end)) else { return nil }
+                lowest = min(lowest ?? number, number)
+            }
+        }
+        return lowest
     }
 
     /// The selected mailbox's message count once the `* 20 EXISTS` and
