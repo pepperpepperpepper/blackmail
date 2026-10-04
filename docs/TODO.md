@@ -207,8 +207,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 
 **Probably used, smaller:**
 
-- [ ] Saving a received photo may crash: no Photos usage description in
-      Info.plist. Needs a device check.
+- [x] Saving a received photo may crash: no Photos usage description in
+      Info.plist. Needs a device check. *Done 2026-10-04, seen on the
+      iPad: it did end the app, from "Save to Photos" on a picture in a
+      letter; both keys are in, iOS asks, and "Save Image" is offered.
+      B-067.*
 - [ ] Mark as Unread and Move to Junk from the Flag menu.
 - [ ] Reply with the original's attachments.
 - [ ] Attach documents from Files, and video.

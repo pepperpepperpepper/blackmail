@@ -90,6 +90,16 @@
 	<string>3</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Photos (B-067). "Save to Photos" on a picture in a letter, and
+	     "Save Image" from a file's preview, add to his library; without
+	     this the first ended the app, and iOS left the second out. Read
+	     access is never asked for, since the composer's picker runs
+	     outside the app, but its words are here too: a system screen
+	     that asked without them would end the app the same way. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Blackmail saves the pictures you choose to Photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Blackmail saves the pictures you choose to Photos.</string>
 	<key>MinimumOSVersion</key>
 	<string>16.0</string>
 	<key>UIDeviceFamily</key>
