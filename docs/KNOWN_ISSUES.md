@@ -7546,3 +7546,38 @@ folders' column drawing in, has nothing like it in Mail; its fallback is
 the 0.3 s fade for that switch alone. The timing, 0.4 s and 0.2 s. The
 list sliding over the folders, against later Mail's way, where the folders
 slide off to the left. And "< Mailboxes" and a folder tap, above.
+
+---
+
+## B-067 — CHANGED 2026-10-04, seen on the iPad. "Save to Photos" on a picture in a letter ended the app
+
+**Found** in the plan for the install, and on the iPad on 2026-10-04: the
+app's Info.plist said nothing of Photos. A long press on a picture in a
+letter, the signature's logo in a letter to the test account, offers
+"Save to Photos". Tapped, the app ended at once: iOS ends any app that
+asks for the photo library without saying why, and its crash report
+said so, naming `NSPhotoLibraryAddUsageDescription`. "Save Image" was
+missing from a file's preview: iOS leaves it out for such an app.
+
+**Changed.** Info.plist has `NSPhotoLibraryAddUsageDescription`, which
+saving a picture asks for, and `NSPhotoLibraryUsageDescription`, which
+nothing in the app asks for, since the composer's photo picker runs
+outside it, but whose absence would end the app the same way if a
+system screen ever asked. Both say "Blackmail saves the pictures you
+choose to Photos."
+
+**Tests.** `InfoPlistTests` reads `Resources/Info.plist` as the build
+copies it: both keys are there and say something. The add key taken out:
+1 failure.
+
+**Seen on the iPad, 2026-10-04**, on the build with the keys. The same
+long press and "Save to Photos": the app stayed, and iOS asked
+"'Blackmail' Would Like to Add to your Photos", with the words above.
+Don't Allow was tapped, to leave the iPad's library as it was, and
+nothing ended. With "Add Photos Only" chosen in Settings, Privacy,
+Photos, Blackmail, a file's preview had "Save Image" under Copy. Saving
+itself was not tried, for the same reason.
+
+**Not covered.** The share extension asks for nothing of Photos and has
+no keys. Saving is iOS's own, once allowed.
+
