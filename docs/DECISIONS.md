@@ -687,12 +687,11 @@ results and keyboard, Edit mode and his ticks, the letter in the reading
 pane and whatever sheet is open are the same objects afterwards. Edit mode
 is kept rather than ended: it is his work in progress, and the switch is
 about the room, not the work. From two to three with the folders in
-front, the open folder's list goes back in the middle. There is no
-animation: an animated switch would slide the list and reflow the letter
-and every row for a quarter of a second, where this is one step. Nothing
-moves up or down, since the rows are a fixed height and the list keeps
-its offset. And the button takes a tap only when nothing else is being
-touched, so nothing slides out from under a finger already down.
+front, the open folder's list goes back in the middle. The switch
+slides, since the amendment below; nothing reflows while anything moves.
+Nothing moves up or down, since the rows are a fixed height and the list
+keeps its offset. And the button takes a tap only when nothing else is
+being touched, so nothing slides out from under a finger already down.
 
 **Not a navigation controller push, though it works like one.** The list
 stays in its own navigation controller in both arrangements and the two
@@ -718,6 +717,48 @@ panes, while he reads, the folder he is in is a title and not a
 highlighted row, and the folders are a tap away rather than in sight. The
 letter gets a third more room. Which matters more to him is his to find
 out, which is why it is a button and not a decision made here.
+
+**Amended 2026-10-03, by the owner:** "We need better transition
+animation between the three-panel view and the two-panel view."
+
+Until then the switch was one step, on purpose. Animated the ordinary
+way, the list would have slid sideways while the letter and every row
+reflowed through it, all of it moving at once. That worry stands, and the
+motion is built around it (B-066):
+
+- At the tap, still pictures are taken of the screen as it is, and the
+  real panes are laid out in the new arrangement beneath them at once,
+  exactly as before.
+- The pictures slide sideways as whole columns, bars and all, for 0.4 s,
+  easing in and out, with no bounce. Then they fade for 0.2 s where they
+  are, over the real panes, which have wrapped their text to their new
+  widths meanwhile. Nothing changes its look while it moves, and nothing
+  moves while it changes. Nothing moves up or down and nothing grows or
+  shrinks, so the rows he was looking at stay where his eyes are.
+- Three to two: the list slides left over the folders. Two to three: it
+  slides right off them, and they are where they were. With the folders
+  in front: their column draws in, and the list is there in the middle.
+- The view button's glyph and the letter's actions do not move at all.
+- The letter goes with its left edge, where its words are fastened, so
+  what he reads lands where it now is. "No message selected", in the
+  middle of an empty pane, keeps to the middle and goes half as far. A
+  conversation's dates and a sender's centred layout are drawn by WebKit
+  with the words beside them, go with the letter, and are put in their
+  places at the settle; the letter held still for them would move every
+  word he reads instead.
+- With Reduce Motion or Prefer Cross-Fade Transitions on, the screen
+  fades for 0.3 s instead, and nothing travels.
+- Touches are not taken while it moves, so a second tap of a trembling
+  finger is not a second switch.
+- A switch tapped while a list or the letter is bouncing past an end is
+  made at once, as before: a picture would show the bounce, and the rows
+  would jump at the settle. One coasting inside its ends is stopped where
+  it is.
+
+Only the view button's switch moves. "< Mailboxes" and a folder tapped in
+two panes are still instant; whether they should slide, as Mail's
+navigation does, is a question for the owner. The timings are binding
+constants in `Theme`, and also his to judge on the iPad.
 
 ---
 

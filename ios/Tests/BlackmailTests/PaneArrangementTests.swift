@@ -244,10 +244,19 @@ final class PaneArrangementTests: XCTestCase {
     // MARK: - What the container is told
 
     /// What `PaneShell` tells the container, in order: a new list for a
-    /// folder, and the panes laid out.
+    /// folder, and the panes laid out, with the arrangement they move from
+    /// after the view button and nil after anything else (B-066).
     private enum Told: Equatable {
         case opened(String)
-        case laidOut(PaneArrangement.Panes, PaneArrangement.Column)
+        case laidOut(PaneArrangement.Panes, PaneArrangement.Column, from: PaneArrangement?)
+    }
+
+    private static let threePanes = PaneArrangement(launching: .three)
+    private static let listInFront = PaneArrangement(launching: .two)
+    private static var foldersInFront: PaneArrangement {
+        var panes = PaneArrangement(launching: .two)
+        panes.back()
+        return panes
     }
 
     /// The container's half, written down rather than done.
@@ -259,8 +268,8 @@ final class PaneArrangementTests: XCTestCase {
         init(launching panes: PaneArrangement.Panes) {
             shell = PaneShell(launching: panes)
             shell.openList = { [unowned self] folder in self.told.append(.opened(folder.id)) }
-            shell.layOut = { [unowned self] panes in
-                self.told.append(.laidOut(panes.panes, panes.leftColumn))
+            shell.layOut = { [unowned self] panes, from in
+                self.told.append(.laidOut(panes.panes, panes.leftColumn, from: from))
             }
         }
 
@@ -277,15 +286,48 @@ final class PaneArrangementTests: XCTestCase {
     func testTheViewButtonLaysOutTheOtherArrangementAndKeepsIt() {
         let container = Container(launching: .three)
         container.shell.switchPanes()
-        XCTAssertEqual(container.take(), [.laidOut(.two, .list)])
+        XCTAssertEqual(container.take(), [.laidOut(.two, .list, from: Self.threePanes)])
         XCTAssertEqual(PaneArrangement.saved, .two)
 
         container.shell.back()
         _ = container.take()
         container.shell.switchPanes()
-        XCTAssertEqual(container.take(), [.laidOut(.three, .mailboxes)])
+        XCTAssertEqual(container.take(), [.laidOut(.three, .mailboxes, from: Self.foldersInFront)])
         XCTAssertEqual(PaneArrangement.saved, .three)
         XCTAssertEqual(container.shell.arrangement, PaneArrangement(launching: .three))
+    }
+
+    /// Only the view button tells the container where the panes were, from
+    /// each of the three places it can be tapped, since only its switch
+    /// moves (B-066). "< Mailboxes", a folder tapped either way, a folder
+    /// opened and a return to the list say nil, and are laid out with
+    /// nothing moving.
+    @MainActor
+    func testOnlyTheViewButtonSaysWhereThePanesWere() {
+        let container = Container(launching: .three)
+        container.shell.switchPanes()
+        XCTAssertEqual(container.take(), [.laidOut(.two, .list, from: Self.threePanes)])
+        container.shell.switchPanes()
+        XCTAssertEqual(container.take(), [.laidOut(.three, .mailboxes, from: Self.listInFront)])
+        container.shell.switchPanes()
+        container.shell.back()
+        _ = container.take()
+        container.shell.switchPanes()
+        XCTAssertEqual(container.take(), [.laidOut(.three, .mailboxes, from: Self.foldersInFront)])
+
+        let two = Container(launching: .two)
+        two.shell.back()
+        two.shell.tapped(inbox, showing: inbox)
+        two.shell.back()
+        two.shell.tapped(sent, showing: inbox)
+        two.shell.open(receipts)
+        two.shell.showList()
+        let three = Container(launching: .three)
+        three.shell.tapped(sent, showing: inbox)
+        three.shell.showList()
+        for told in two.take() + three.take() {
+            if case .laidOut(_, _, let from) = told { XCTAssertNil(from, "\(told)") }
+        }
     }
 
     /// "< Mailboxes" lays out the folders, and opens nothing.
@@ -293,7 +335,7 @@ final class PaneArrangementTests: XCTestCase {
     func testMailboxesLaysOutTheFoldersAndOpensNothing() {
         let container = Container(launching: .two)
         container.shell.back()
-        XCTAssertEqual(container.take(), [.laidOut(.two, .mailboxes)])
+        XCTAssertEqual(container.take(), [.laidOut(.two, .mailboxes, from: nil)])
     }
 
     /// In two panes the folder already open is laid out in front and not
@@ -306,15 +348,15 @@ final class PaneArrangementTests: XCTestCase {
         two.shell.back()
         _ = two.take()
         two.shell.tapped(inbox, showing: .inboxBeforeListing)
-        XCTAssertEqual(two.take(), [.laidOut(.two, .list)])
+        XCTAssertEqual(two.take(), [.laidOut(.two, .list, from: nil)])
         two.shell.back()
         _ = two.take()
         two.shell.tapped(sent, showing: inbox)
-        XCTAssertEqual(two.take(), [.opened(sent.id), .laidOut(.two, .list)])
+        XCTAssertEqual(two.take(), [.opened(sent.id), .laidOut(.two, .list, from: nil)])
 
         let three = Container(launching: .three)
         three.shell.tapped(inbox, showing: inbox)
-        XCTAssertEqual(three.take(), [.opened(inbox.id), .laidOut(.three, .mailboxes)])
+        XCTAssertEqual(three.take(), [.opened(inbox.id), .laidOut(.three, .mailboxes, from: nil)])
     }
 
     /// A folder opened with no tap on it, B-003's Inbox after a while away
@@ -326,7 +368,7 @@ final class PaneArrangementTests: XCTestCase {
         container.shell.back()
         _ = container.take()
         container.shell.open(inbox)
-        XCTAssertEqual(container.take(), [.opened(inbox.id), .laidOut(.two, .list)])
+        XCTAssertEqual(container.take(), [.opened(inbox.id), .laidOut(.two, .list, from: nil)])
         XCTAssertEqual(container.shell.arrangement.panes, .two)
     }
 
@@ -339,7 +381,7 @@ final class PaneArrangementTests: XCTestCase {
         container.shell.back()
         _ = container.take()
         container.shell.showList()
-        XCTAssertEqual(container.take(), [.laidOut(.two, .list)])
+        XCTAssertEqual(container.take(), [.laidOut(.two, .list, from: nil)])
         XCTAssertEqual(container.shell.arrangement.panes, .two)
     }
 
@@ -483,7 +525,10 @@ final class PaneArrangementTests: XCTestCase {
         let wiring = body(after: "func wireNavigation(", in: code)
         XCTAssertTrue(wiring.contains(
             "shell.openList = { [weak self] mailbox in self?.openMailbox(mailbox) }"))
-        XCTAssertTrue(wiring.contains("shell.layOut = { [weak self] panes in self?.arrange(panes) }"))
+        XCTAssertTrue(wiring.contains(
+            "shell.layOut = { [weak self] panes, from in self?.arrange(panes, switchedFrom: from) }"))
+        XCTAssertEqual(lines(of: code, containing: "switchedFrom: from"),
+                       ["shell.layOut = { [weak self] panes, from in self?.arrange(panes, switchedFrom: from) }"])
         XCTAssertEqual(lines(of: code, containing: "openMailbox("),
                        ["shell.openList = { [weak self] mailbox in self?.openMailbox(mailbox) }",
                         "private func openMailbox(_ mailbox: Mailbox) {"])
@@ -560,7 +605,9 @@ final class PaneArrangementTests: XCTestCase {
         }
         // The view button and "< Mailboxes", both of which move the panes.
         XCTAssertEqual(code.components(separatedBy: "button.isExclusiveTouch = true").count - 1, 2)
-        for motion in ["UIView.animate", "animated: true"] {
+        // The container animates nothing itself: the view button's switch
+        // moves pictures, in `PaneMotion` (B-066).
+        for motion in ["UIView.animate", "animated: true", "UIViewPropertyAnimator", ".transform"] {
             XCTAssertFalse(code.contains(motion), motion)
         }
 
@@ -576,5 +623,222 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertFalse(placing.contains("animated: true"), placing)
         XCTAssertEqual(lines(of: list, containing: "leftBarButtonItem"), [])
         XCTAssertEqual(lines(of: list, containing: "LeftBarButtonItems").count, 1)
+    }
+
+    // MARK: - The switch, moving
+
+    /// `text` with every run of spaces and line breaks made one space.
+    private func flat(_ text: String) -> String {
+        text.split(whereSeparator: { $0 == " " || $0 == "\n" }).joined(separator: " ")
+    }
+
+    /// The container's half of B-066, read: the pictures are cut before
+    /// anything is laid out, from the screen as laid out, with coasting
+    /// stopped first and Reduce Motion asked at the tap; the panes are then
+    /// laid out exactly as before, the layout sweep runs on them, and only
+    /// then do the pictures go over them. A switch still moving is ended
+    /// before anything lays the panes out, before the iPad turns, and as
+    /// the app stops being in front. The buttons hand over to the shell
+    /// and know nothing of the motion.
+    func testTheSwitchMovesPicturesOverPanesAlreadyLaidOut() throws {
+        let code = try source("RootViewController.swift")
+
+        XCTAssertEqual(lines(of: code, containing: "PaneMotion("),
+                       ["private let motion = PaneMotion()"])
+        let arranging = body(after: "func arrange(", in: code)
+        XCTAssertTrue(arranging.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines)
+                        .hasPrefix("let wasMoving = motion.finish()"), arranging)
+        XCTAssertTrue(arranging.contains(
+            "let cut = wasMoving ? nil : from.flatMap { pictures(from: $0, to: panes) }"), arranging)
+        let cutting = try XCTUnwrap(arranging.range(of: "pictures("))
+        let sizing = try XCTUnwrap(arranging.range(of: "sizeColumns(panes.panes)"))
+        let swapping = try XCTUnwrap(arranging.range(of: "NSLayoutConstraint.deactivate("))
+        XCTAssertLessThan(cutting.lowerBound, sizing.lowerBound)
+        XCTAssertLessThan(cutting.lowerBound, swapping.lowerBound)
+        let sweeping = try XCTUnwrap(arranging.range(of: "LayoutAudit.panesChanged(to: describe(panes))"))
+        let playing = try XCTUnwrap(arranging.range(of: "if let cut { motion.play(cut) }"))
+        XCTAssertLessThan(sweeping.upperBound, playing.lowerBound)
+        XCTAssertEqual(lines(of: code, containing: "motion.play("), ["if let cut { motion.play(cut) }"])
+        XCTAssertEqual(lines(of: code, containing: "motion.cut("),
+                       ["return motion.cut(move, stage: stage, dissolving: PaneMotion.dissolving)"])
+
+        let picturing = body(after: "func pictures(", in: code)
+        for line in ["let emptyLabel = detail.emptyLabel",
+                     "PaneMove.switching(from: from, to: panes, screenWidth: screenWidth,",
+                     "reading: emptyLabel == nil ? .words : .nothing) else {",
+                     "guard arranged == from else",
+                     "tapped: from.leftColumn == .list ? listViewButton : mailboxesViewButton",
+                     "listTwin: listViewButton, letterBar: detailNav.navigationBar, placeholder: emptyLabel",
+                     "root: view, mailboxes: mailboxNav.view, list: listNav.view, message: detailNav.view",
+                     "dissolving: PaneMotion.dissolving"] {
+            XCTAssertTrue(picturing.contains(line), line)
+        }
+        // A list or letter bouncing past an end, in any pane pictured, is
+        // looked for before anything is touched, and turns the motion down
+        // with a line in the log; only then is one coasting stopped, and
+        // only then are the pictures cut.
+        let cut = try XCTUnwrap(picturing.range(of: "motion.cut("))
+        let pictured = try XCTUnwrap(picturing.range(
+            of: "let scrolls = move.strips.compactMap { scrolling(in: $0.pane) }"))
+        let looked = try XCTUnwrap(picturing.range(
+            of: "guard !scrolls.contains(where: { PaneMotion.isBouncing($0) }) else {"))
+        let refused = try XCTUnwrap(picturing.range(
+            of: "Diagnostics.log(.note, \"pane motion: bouncing; switched at once\")\n            return nil"))
+        let held = try XCTUnwrap(picturing.range(of: "for scroll in scrolls { PaneMotion.holdStill(scroll) }"))
+        let checked = try XCTUnwrap(picturing.range(of: "guard arranged == from else"))
+        XCTAssertLessThan(checked.upperBound, pictured.lowerBound)
+        XCTAssertLessThan(pictured.upperBound, looked.lowerBound)
+        XCTAssertLessThan(looked.upperBound, refused.lowerBound)
+        XCTAssertLessThan(refused.upperBound, held.lowerBound)
+        XCTAssertLessThan(held.upperBound, cut.lowerBound)
+        XCTAssertEqual(lines(of: code, containing: "holdStill("),
+                       ["for scroll in scrolls { PaneMotion.holdStill(scroll) }"])
+        XCTAssertEqual(lines(of: code, containing: "isBouncing("),
+                       ["guard !scrolls.contains(where: { PaneMotion.isBouncing($0) }) else {"])
+        XCTAssertEqual(lines(of: code, containing: "setContentOffset"), [])
+        // Every pane pictured is looked at: the Mailboxes, the list and the
+        // letter, when there is one.
+        let scrolling = body(after: "func scrolling(in pane: PaneMove.Pane)", in: code)
+        for line in ["case .mailboxes: return mailboxList.tableView",
+                     "case .list: return list.tableView",
+                     "case .message: return detail.letterScroll"] {
+            XCTAssertTrue(scrolling.contains(line), line)
+        }
+
+        let turning = body(after: "override func viewWillTransition(", in: code)
+        let ended = try XCTUnwrap(turning.range(of: "motion.finish()"))
+        let resized = try XCTUnwrap(turning.range(of: "sizeColumns("))
+        XCTAssertLessThan(ended.upperBound, resized.lowerBound)
+        XCTAssertTrue(flat(body(after: "func watchForReturn(", in: code)).contains(
+            "centre.addObserver(self, selector: #selector(lookingAway), "
+            + "name: UIApplication.willResignActiveNotification, object: nil)"))
+        XCTAssertTrue(body(after: "func lookingAway(", in: code).contains("motion.finish()"))
+        XCTAssertEqual(lines(of: code, containing: "motion.finish()").count, 3)
+
+        for handler in [body(after: "func viewButtonTapped(", in: code),
+                        body(after: "func backToMailboxes(", in: code)] {
+            XCTAssertFalse(handler.contains("motion"), handler)
+        }
+        // Still just the two buttons that move the panes, each taken only
+        // while nothing else is touched.
+        XCTAssertEqual(code.components(separatedBy: "button.isExclusiveTouch = true").count - 1, 2)
+    }
+
+    /// `PaneMotion`, read: pictures of the screen as it was, never as the
+    /// next frame will draw it; a cover that takes every touch, is hidden
+    /// from VoiceOver and is the only thing put on the screen; frames set
+    /// sideways only, eased in and out, for the durations of
+    /// `PaneMove.timeline` and no others; nothing of a real view touched;
+    /// Reduce Motion and Prefer Cross-Fade Transitions read at every tap;
+    /// ended by taking the cover away, from every completion that is still
+    /// its own and from a deadline that a slowed window stretches.
+    func testTheMotionIsPicturesMovedSidewaysOnly() throws {
+        let code = try source("PaneMotion.swift")
+
+        for line in ["afterScreenUpdates: false",
+                     ".curveEaseInOut",
+                     "PaneMove.timeline(dissolving: dissolving)",
+                     "for phase in cut.timeline",
+                     "cover.isUserInteractionEnabled = true",
+                     "cover.accessibilityElementsHidden = true",
+                     "autoresizingMask = []",
+                     "holder.clipsToBounds = true",
+                     "pictures.alpha = 0",
+                     "let speed = max(Double(cut.root.window?.layer.speed ?? 1), 0.05)",
+                     "DispatchQueue.main.asyncAfter(deadline: .now() + total / speed + 1.0)",
+                     "let total = cut.timeline.map(\\.duration).reduce(0, +)"] {
+            XCTAssertTrue(code.contains(line), line)
+        }
+        for never in ["afterScreenUpdates: true", "isHidden", "NSLayoutConstraint", ".constant",
+                      "layoutIfNeeded", "transform", "UIViewPropertyAnimator",
+                      "usingSpringWithDamping", "UISpringTimingParameters", ".repeat",
+                      ".autoreverse", "origin.y", "size.height =", "withDuration: 0.",
+                      "tableView", "WKWebView", "navigationController", "cover.alpha",
+                      "flexible", "isUserInteractionEnabled = false", "static let"] {
+            XCTAssertFalse(code.contains(never), never)
+        }
+        // Every frame it makes sits at the top of the screen, or under the
+        // bars for the backdrop's hairline, and nothing is shifted down.
+        for y in code.components(separatedBy: " y: ").dropFirst() {
+            XCTAssertTrue(y.hasPrefix("0,") || y.hasPrefix("barsBottom,"), String(y.prefix(40)))
+        }
+        for dy in code.components(separatedBy: "dy: ").dropFirst() {
+            XCTAssertTrue(dy.hasPrefix("0)"), String(dy.prefix(40)))
+        }
+        // Each animation goes for a duration out of the timeline.
+        for duration in code.components(separatedBy: "withDuration: ").dropFirst() {
+            XCTAssertTrue(["slide,", "duration,"].contains { duration.hasPrefix($0) },
+                          String(duration.prefix(40)))
+        }
+
+        let dissolving = body(after: "static var dissolving: Bool", in: code)
+        XCTAssertTrue(dissolving.contains("UIAccessibility.isReduceMotionEnabled"), dissolving)
+        XCTAssertTrue(dissolving.contains("UIAccessibility.prefersCrossFadeTransitions"), dissolving)
+
+        let finishing = body(after: "func finish(", in: code)
+        XCTAssertTrue(finishing.contains("cover.removeFromSuperview()"), finishing)
+        XCTAssertTrue(finishing.contains("self.cover = nil"), finishing)
+        XCTAssertEqual(lines(of: code, containing: "removeFromSuperview()"),
+                       ["cover.removeFromSuperview()"])
+        // The deadline, the slide's end and the fade's end act only for the
+        // cover they were started for.
+        XCTAssertEqual(lines(of: code, containing: "guard let self, cover === self.cover else { return }")
+                        .count, 3)
+        let playing = body(after: "func play(", in: code)
+        XCTAssertTrue(playing.contains("guard finished else { self.finish(); return }"), playing)
+        XCTAssertTrue(playing.contains("Diagnostics.log(.note, \"pane motion: deadline\")"), playing)
+
+        // Coasting is stopped where it is, and only inside its ends; a
+        // bounce is only looked at. Both reckon the ends from all four of
+        // UIKit's insets, through `PaneMove.Rest`.
+        let holding = body(after: "static func holdStill(", in: code)
+        for line in ["let rest = rest(of: scroll)",
+                     "guard scroll.isDecelerating, rest.holds(scroll.contentOffset) else { return }",
+                     "scroll.setContentOffset(rest.clamped(scroll.contentOffset), animated: false)"] {
+            XCTAssertTrue(holding.contains(line), line)
+        }
+        let bouncing = body(after: "static func isBouncing(", in: code)
+        XCTAssertEqual(bouncing.trimmingCharacters(in: CharacterSet(charactersIn: "{} \n")),
+                       "!rest(of: scroll).holds(scroll.contentOffset)")
+        XCTAssertEqual(lines(of: code, containing: "setContentOffset"),
+                       ["scroll.setContentOffset(rest.clamped(scroll.contentOffset), animated: false)"])
+        XCTAssertTrue(flat(body(after: "func rest(of scroll: UIScrollView)", in: code)).contains(
+            "let inset = scroll.adjustedContentInset return PaneMove.Rest(contentSize: scroll.contentSize, "
+            + "viewSize: scroll.bounds.size, insetTop: inset.top, insetLeft: inset.left, "
+            + "insetBottom: inset.bottom, insetRight: inset.right)"))
+
+        // "No message selected": refused unless centred where the model
+        // says; painted out of the letter's picture in the pane's canvas;
+        // its own picture over the letter's and under the dividers, going
+        // only as far as the model's middle goes.
+        let cutting = body(after: "func cut(", in: code)
+        for line in ["if let middle = move.placeholder {",
+                     "guard let placeholder = stage.placeholder, placeholder.window != nil else {",
+                     "guard abs(frame.midX - middle.x) <= 0.5 else {",
+                     "if strip.pane == .message, let label {",
+                     "let patch = UIView(frame: label.frame.offsetBy(dx: -strip.x, dy: 0))",
+                     "label.frame.offsetBy(dx: label.middle.toX - label.middle.x, dy: 0)))"] {
+            XCTAssertTrue(cutting.contains(line), line)
+        }
+        let patching = body(after: "if strip.pane == .message, let label", in: cutting)
+        XCTAssertTrue(patching.contains("patch.backgroundColor = Theme.canvas"), patching)
+        let strips = try XCTUnwrap(cutting.range(of: "for strip in move.strips {\n            let span"))
+        let riding = try XCTUnwrap(cutting.range(of: "pictures.addSubview(label.picture)"))
+        let dividers = try XCTUnwrap(cutting.range(of: "for line in move.lines {"))
+        XCTAssertLessThan(strips.upperBound, riding.lowerBound)
+        XCTAssertLessThan(riding.upperBound, dividers.lowerBound)
+
+        // The letter's side: read and nothing else, nothing loaded or drawn
+        // again; and its bar holds no title and nothing on the left, so the
+        // actions' picture is right at both ends.
+        let detail = try source("MessageDetailViewController.swift")
+        XCTAssertEqual(lines(of: detail, containing: "var letterScroll"),
+                       ["var letterScroll: UIScrollView? { webView.isHidden ? nil : webView.scrollView }"])
+        XCTAssertEqual(lines(of: detail, containing: "var emptyLabel"),
+                       ["var emptyLabel: UIView? { placeholder.isHidden ? nil : placeholder }"])
+        XCTAssertEqual(lines(of: detail, containing: "PaneMotion"), [])
+        XCTAssertEqual(lines(of: detail, containing: "title ="), ["title = \"\""])
+        XCTAssertEqual(lines(of: detail, containing: "leftBarButtonItem"), [])
+        XCTAssertEqual(lines(of: detail, containing: "titleView"), [])
     }
 }

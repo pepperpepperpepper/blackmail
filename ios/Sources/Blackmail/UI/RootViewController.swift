@@ -39,6 +39,9 @@ final class RootViewController: UIViewController {
 
     private let mailboxNav: UINavigationController
     private let listNav: UINavigationController
+    /// The reading pane's. Kept, for its bar, whose bottom is where the
+    /// bars end in the pictures the view button's switch slides.
+    private let detailNav: UINavigationController
     private let detail: MessageDetailViewController
 
     private let mailboxList: MailboxListViewController
@@ -60,6 +63,9 @@ final class RootViewController: UIViewController {
     /// and never again: made afresh, by a return from a while away or
     /// anything else, it would undo his choice (B-037).
     private let shell = PaneShell(launching: PaneArrangement.saved)
+    /// The view button's switch, moving (B-066). Nothing else moves the
+    /// panes.
+    private let motion = PaneMotion()
     /// The arrangement last laid out, so the layout sweep runs each time
     /// what is on screen changes: at a switch, and in two panes at
     /// "< Mailboxes" and at a folder tapped there, whose new list it sees
@@ -110,6 +116,7 @@ final class RootViewController: UIViewController {
             mailbox: .inboxBeforeListing)
         self.listNav = UINavigationController(rootViewController: list)
         self.detail = MessageDetailViewController(repository: repository)
+        self.detailNav = UINavigationController(rootViewController: detail)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -157,7 +164,6 @@ final class RootViewController: UIViewController {
             nav.navigationBar.directionalLayoutMargins.trailing = Theme.rowTextRightInset
         }
 
-        let detailNav = UINavigationController(rootViewController: detail)
         detailNav.setNavigationBarHidden(false, animated: false)
 
         for child in [mailboxNav, listNav, detailNav] {
@@ -290,6 +296,8 @@ final class RootViewController: UIViewController {
         }
         centre.addObserver(self, selector: #selector(leavingTheApp),
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        centre.addObserver(self, selector: #selector(lookingAway),
+                           name: UIApplication.willResignActiveNotification, object: nil)
         centre.addObserver(forName: UIApplication.willEnterForegroundNotification,
                            object: nil, queue: .main) { [weak self] _ in
             // The queue is `.main`, but that is not the same promise as
@@ -337,6 +345,16 @@ final class RootViewController: UIViewController {
         LocalDrafts.shared.uploadWaiting(to: repository, largeToo: true)
     }
 
+    /// Control Centre pulled down, the Home gesture, a call: a switch still
+    /// moving ends now, where it was going, and is not left on its way for
+    /// him to come back to. Its pictures can go blank while the app is not
+    /// in front, and the screen under them is final already (B-066). On
+    /// the main thread as the notification is posted, before iOS takes
+    /// the picture of the app it shows in the app switcher.
+    @objc private func lookingAway() {
+        motion.finish()
+    }
+
     /// B-003: after a while away, back to the Inbox, at the top. See
     /// `Sitting`, which decides.
     @MainActor
@@ -377,6 +395,9 @@ final class RootViewController: UIViewController {
     }
 
     override func viewWillTransition(to size: CGSize, with c: UIViewControllerTransitionCoordinator) {
+        // A switch still moving ends first: its pictures are of the screen
+        // the iPad is turning away from.
+        motion.finish()
         super.viewWillTransition(to: size, with: c)
         // Widths follow the screen; order and content never do.
         screenWidth = size.width
@@ -394,17 +415,34 @@ final class RootViewController: UIViewController {
     /// Lays the panes out as `panes` says, at once: what `PaneShell` hands
     /// over after each thing he does.
     ///
-    /// No animation, deliberately. Animated, the switch would slide the list
-    /// sideways and reflow the letter and every row's text through a quarter
-    /// of a second, all of it moving at once; as it is, there is one step
-    /// and then stillness. Nothing moves up or down either way: the rows are
-    /// a fixed height and the list keeps its scroll offset, so the rows he
-    /// was looking at are the rows he is looking at, a pane further left or
-    /// right.
+    /// After the view button, and only then, the switch is seen to move
+    /// (B-066, asked for by the owner on 2026-10-03). Pictures of the
+    /// screen as it was are cut first, the panes are laid out anew beneath
+    /// them exactly as they always were, and the pictures slide sideways
+    /// as whole columns to where the panes now are, then fade where they
+    /// are. The letter and every row wrap to their new widths once, at the
+    /// tap, under a still picture, and are seen only when nothing is
+    /// moving: nothing changes its look while it moves, and nothing moves
+    /// while it changes. Nothing moves up or down: the rows are a fixed
+    /// height, the list keeps its scroll offset and the pictures move only
+    /// sideways, so the rows he was looking at stay where his eyes are, a
+    /// pane further left or right. The launch, a turn of the iPad, a
+    /// return, "< Mailboxes" and a folder tapped lay out with nothing
+    /// moving, as before.
+    ///
+    /// Everything else a switch does is done here at the tap and is
+    /// final under the pictures: the choice kept, nothing fetched or
+    /// closed, the bars dressed, the layout sweep run. A switch still
+    /// moving when anything lays the panes out again is ended first, which
+    /// is only taking its pictures away, and the new layout is then made
+    /// at once, so no tap can leave the panes half one way.
     ///
     /// Hidden, never zero wide: a view with children and no width is the
-    /// B-027 shape `LayoutAudit` hunts.
-    private func arrange(_ panes: PaneArrangement) {
+    /// B-027 shape `LayoutAudit` hunts. The sweep runs before the pictures
+    /// go over the panes, so it sees the real ones only.
+    private func arrange(_ panes: PaneArrangement, switchedFrom from: PaneArrangement? = nil) {
+        let wasMoving = motion.finish()
+        let cut = wasMoving ? nil : from.flatMap { pictures(from: $0, to: panes) }
         sizeColumns(panes.panes)
         let edge = panes.listAtScreenEdge
         // Off before on, or for a moment the list would have two left edges.
@@ -421,6 +459,51 @@ final class RootViewController: UIViewController {
         guard view.window != nil else { return }
         UIView.performWithoutAnimation { view.layoutIfNeeded() }
         if let arranged, arranged != panes { LayoutAudit.panesChanged(to: describe(panes)) }
+        if let cut { motion.play(cut) }
+    }
+
+    /// The pictures the view button's switch slides (B-066), cut from the
+    /// screen as it is, before anything is laid out anew. Nil when the
+    /// screen is not as the arrangement before the switch has it, and the
+    /// switch is then made at once, as it always was.
+    private func pictures(from: PaneArrangement, to panes: PaneArrangement) -> PaneMotion.Cut? {
+        let emptyLabel = detail.emptyLabel
+        guard let move = PaneMove.switching(from: from, to: panes, screenWidth: screenWidth,
+                                            reading: emptyLabel == nil ? .words : .nothing) else {
+            return nil
+        }
+        guard arranged == from else {
+            Diagnostics.log(.note, "pane motion: not as laid out; switched at once")
+            return nil
+        }
+        // Before anything is touched: a list or letter in the pictures that
+        // is bouncing past an end is left to spring back, and the switch is
+        // made at once. Its picture would be of its last frame drawn, past
+        // the end, and its rows would jump to the end at the settle.
+        let scrolls = move.strips.compactMap { scrolling(in: $0.pane) }
+        guard !scrolls.contains(where: { PaneMotion.isBouncing($0) }) else {
+            Diagnostics.log(.note, "pane motion: bouncing; switched at once")
+            return nil
+        }
+        // One still coasting from a flick, inside its ends, is stopped where
+        // it is before the pictures are cut, or its rows would jump, at the
+        // settle, to wherever the coasting had taken them.
+        for scroll in scrolls { PaneMotion.holdStill(scroll) }
+        let stage = PaneMotion.Stage(
+            root: view, mailboxes: mailboxNav.view, list: listNav.view, message: detailNav.view,
+            tapped: from.leftColumn == .list ? listViewButton : mailboxesViewButton,
+            listTwin: listViewButton, letterBar: detailNav.navigationBar, placeholder: emptyLabel)
+        return motion.cut(move, stage: stage, dissolving: PaneMotion.dissolving)
+    }
+
+    /// What scrolls in a pane's picture: the Mailboxes, the list, or the
+    /// letter, which has none when the pane is empty.
+    private func scrolling(in pane: PaneMove.Pane) -> UIScrollView? {
+        switch pane {
+        case .mailboxes: return mailboxList.tableView
+        case .list: return list.tableView
+        case .message: return detail.letterScroll
+        }
     }
 
     /// The controls `itemsBeforeCalendar` names, in front of the list's
@@ -537,7 +620,7 @@ final class RootViewController: UIViewController {
         // and the panes laid out. Everything that opens a folder or moves
         // the panes goes through it, and it calls these.
         shell.openList = { [weak self] mailbox in self?.openMailbox(mailbox) }
-        shell.layOut = { [weak self] panes in self?.arrange(panes) }
+        shell.layOut = { [weak self] panes, from in self?.arrange(panes, switchedFrom: from) }
         mailboxList.onSelectMailbox = { [weak self] mailbox in
             guard let self else { return }
             self.shell.tapped(mailbox, showing: self.list.shownMailbox)

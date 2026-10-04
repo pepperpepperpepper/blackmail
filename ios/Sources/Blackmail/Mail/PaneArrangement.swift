@@ -212,26 +212,32 @@ final class PaneShell {
     /// A new list for the folder, in place of the one there. The only thing
     /// here that fetches: the new list loads the folder's first page.
     var openList: (Mailbox) -> Void = { _ in }
-    /// The panes laid out as `arrangement` says, at once.
-    var layOut: (PaneArrangement) -> Void = { _ in }
+    /// The panes laid out as `arrangement` says, at once. After the view
+    /// button the container also moves from `switchedFrom`, the
+    /// arrangement before the switch, to them (B-066); after anything else
+    /// that is nil, and nothing moves.
+    var layOut: (PaneArrangement, _ switchedFrom: PaneArrangement?) -> Void = { _, _ in }
 
     init(launching panes: PaneArrangement.Panes) {
         arrangement = PaneArrangement(launching: panes)
     }
 
     /// The view button: two panes or three, kept for the next launch.
-    /// Nothing is opened, so nothing is fetched.
+    /// Nothing is opened, so nothing is fetched. Of all the changes, only
+    /// this one tells the container what the panes were before, since
+    /// only this one moves (B-066).
     func switchPanes() {
+        let before = arrangement
         arrangement.switchPanes()
         PaneArrangement.saved = arrangement.panes
-        layOut(arrangement)
+        layOut(arrangement, before)
     }
 
     /// "< Mailboxes": the folders in front, the list kept behind them as it
     /// was, nothing opened.
     func back() {
         arrangement.back()
-        layOut(arrangement)
+        layOut(arrangement, nil)
     }
 
     /// A folder tapped in the Mailboxes, with `shown` the one the list is
@@ -240,7 +246,7 @@ final class PaneShell {
     func tapped(_ folder: Mailbox, showing shown: Mailbox) {
         switch arrangement.tapped(folder, showing: shown) {
         case .open: open(folder)
-        case .showList: layOut(arrangement)
+        case .showList: layOut(arrangement, nil)
         }
     }
 
@@ -252,7 +258,7 @@ final class PaneShell {
     func open(_ folder: Mailbox) {
         openList(folder)
         arrangement.showList()
-        layOut(arrangement)
+        layOut(arrangement, nil)
     }
 
     /// The list put in front with nothing opened: back from a while away to
@@ -260,6 +266,6 @@ final class PaneShell {
     /// it is. Two panes stay two (B-037).
     func showList() {
         arrangement.showList()
-        layOut(arrangement)
+        layOut(arrangement, nil)
     }
 }

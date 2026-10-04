@@ -2741,9 +2741,9 @@ it "Hide Mailboxes" or "Show Mailboxes".
 place in the list and the letter selected in it, a search with its text,
 scope, results and keyboard, Edit mode with his ticks, the letter in the
 reading pane, which is neither fetched nor drawn again, and a sheet or the
-composer. Nothing moves up or down and nothing is animated. A tap on the
-button while another finger is on the screen is not taken, so nothing
-slides out from under that finger. `< Mailboxes` puts the keyboard away, as
+composer. Nothing moves up or down; the switch slides, see B-066. A tap
+on the button while another finger is on the screen is not taken, so
+nothing slides out from under that finger. `< Mailboxes` puts the keyboard away, as
 leaving any screen does; the search stays in the list for when he comes
 back to it.
 
@@ -7231,3 +7231,318 @@ with its count throughout, and a tap on the middle of its row opened it.
 only unseen now; the gap keeps its place, as the table keeps the room
 for it.
 
+---
+
+## B-066 — CHANGED 2026-10-03, not yet seen on the iPad. The switch between two panes and three jumped
+
+**Asked for by the owner, 2026-10-03:** "We need better transition
+animation between the three-panel view and the two-panel view." The view
+button's switch (B-048) was one step with nothing moving, on purpose:
+animated the ordinary way, the list would have slid sideways while the
+letter and every row reflowed through it, all of it moving at once. He
+overrides that; D-015 has the amendment. The worry stands, and the motion
+is built to answer it: calm, nothing wobbling, nothing moving up or down,
+the rows he was looking at staying where his eyes are.
+
+**What he sees.** He taps the view button. The columns slide sideways for
+0.4 s, easing in and out, with no bounce. Then they settle for 0.2 s: what
+moved fades where it stopped, and under it are the panes with their text
+wrapped to the new widths. 0.6 s in all.
+
+- *Three to two.* The list slides left over the folders to the screen's
+  edge, its bar and its bottom toolbar with it, and the letter's left edge
+  comes left with it, 205.5 pt on the 11-inch. The folders do not move;
+  the list covers them. At the settle the list widens by 45 pt: the dates
+  move 45 pt right, and the dots, the senders and every row's height stay.
+  "< Mailboxes" and the view button's twin appear in its bar, and the
+  letter wraps again at 818.5 pt. The calendar, first in the list's bar,
+  goes under the corner glyph over the last of the slide and is gone for
+  it, then fades in to the right of "< Mailboxes" at the settle.
+- *Two with the list in front, to three.* The list slides right, off the
+  folders, which are underneath where he left them, the open one
+  highlighted. The letter's edge goes right. At the settle the list and
+  the letter wrap again and the bars change: "< Mailboxes" goes, and the
+  calendar comes about 150 pt left, into the bar's first place.
+- *Two with the folders in front, to three.* The folders' column draws in
+  from 375 pt to its three-pane width, cut off at its right edge, never
+  squeezed, and the letter's edge goes right. Between them the list is
+  there, still. The counts at the column's right end go out of it as it
+  draws in. At the settle the folders' counts appear at the new edge, the
+  centred "Mailboxes" over them moves to the column's new middle, a long
+  name gains its "…", and the letter wraps again.
+
+In all three the view button's glyph in the corner and the letter's
+actions, Flag to Compose, do not move or blink. A divider line rides every
+moving edge. Nothing moves up or down, and nothing grows or shrinks.
+
+*The letter* goes with its left edge, where its words are fastened: the
+header, a plain letter's lines, "Loading…", a conversation's names and
+its letters, and a letter in HTML as most people's is written. They land
+where they now are, and at the settle their lines wrap again with nothing
+moving. With the pane empty, "No message selected" keeps to the middle of
+the pane, going half as far as its edge, and lands on the words beneath:
+nothing of it changes at the settle.
+
+**Reduce Motion, or Prefer Cross-Fade Transitions.** With either on, the
+screen as it was fades into the screen as it is over 0.3 s, and nothing
+travels. Read at every tap. VoiceOver and Switch Control do not change the
+motion, as they do not in Apple's own apps.
+
+**Touches.** None is taken for the 0.6 s, 0.3 s with Reduce Motion: a
+second tap of a trembling finger is one switch, and a row tapped while the
+list is moving opens nothing. The keyboard is not covered, so letters typed
+into a search while it moves go into the field and show at the settle.
+
+**What stays instant.** "< Mailboxes" and a folder tapped in two panes, the
+launch, a turn of the iPad, a return after a while away and the date jump
+across mailboxes; and the view button's switch itself, tapped while a
+list or the letter is bouncing past an end (How, below). Whether "< Mailboxes" and a folder tap should slide, as
+Mail's navigation does in about 0.35 s, is a question for the owner.
+
+**How.** Pictures move; the panes do not.
+
+- At the tap, before anything is touched, the Mailboxes, the list and the
+  letter on the screen are looked at. If any is bouncing past either end,
+  from a flick or a pull, the switch is made at once, as before, with
+  `pane motion: bouncing; switched at once` in the connection log, and the
+  bounce is left to finish. Otherwise one still coasting from a flick is
+  stopped where it is, and still pictures are cut of the screen as it is
+  on the glass: one of each pane, its bar and toolbar included, one of the
+  letter's actions, one of "No message selected" when the pane is empty,
+  and a fresh drawing of the view button's glyph.
+- Then the panes are laid out in the new arrangement at once, beneath,
+  exactly as a switch always laid them out, and the layout sweep runs on
+  them. Only then do the pictures go over them. Everything a switch does
+  is done at the tap and is final under the pictures: the choice kept,
+  nothing fetched or closed, the bars dressed, VoiceOver sent to the
+  button in the corner. The letter's web view is resized once, at the tap,
+  and WebKit has the whole slide to wrap it again where he cannot see it.
+- No real view is moved, faded, hidden late or made to ignore a touch.
+  Ending the motion at any instant is taking the pictures away, and what
+  is under them is right. That is done at the end of the settle; before
+  anything else lays the panes out, so a second switch, or anything else,
+  is laid out at once; as the iPad turns; as the app stops being in front
+  (Control Centre, the Home gesture, a call); and by a deadline a second
+  after the motion was due to end, which writes `pane motion: deadline` in
+  the connection log.
+- If the pictures cannot be trusted, a pane not where the arrangement
+  puts it or a picture that could not be taken, the switch is made at
+  once, as before, with a `pane motion:` line in the connection log.
+
+`PaneMove` (built on this host) says where each picture starts and ends;
+`PaneMotion` is the UIKit half, and the only place in the app that
+animates a view; `RootViewController.arrange` calls them for the view
+button only. The timings are binding constants in `Theme`:
+`paneSlideDuration` 0.4, `paneSettleDuration` 0.2, `paneDissolveDuration`
+0.3.
+
+**Changed, after review the same day.**
+
+- *The empty pane's words jumped at the settle.* The letter's picture
+  goes the whole of its left edge's travel, and "No message selected" went
+  with it, though it is centred in a pane whose right edge is the
+  screen's and does not move. It went 205.5 pt on the 11-inch, landed
+  102.75 pt beside the words beneath, 143.75 pt on the 13-inch, and
+  jumped back as the pictures faded. It is painted out of the letter's
+  picture now, in the pane's canvas, as the twin view button is out of
+  the list's, and has a picture of its own, which keeps to the middle of
+  the pane in every frame and lands on the words beneath
+  (`PaneMove.placeholder`). Painted out and left to appear at the settle,
+  the other way proposed, it would have gone from the pane at the tap, so
+  the first frame would not have been the screen he tapped, and been
+  missing for 0.4 s.
+- *The letter itself still goes with its edge, on purpose.* What is
+  fastened to the letter's left edge, its middle and its right goes the
+  whole of the edge's travel, half of it and none, and one picture can go
+  only one of them. Its words are fastened to the left, and it is its
+  words he reads, so it goes the whole: they land where they now are, and
+  only their line ends change, at the settle, as they would anyway. Held
+  still, fastened to the right, with the moving edge covering or
+  uncovering its left side, a conversation's dates would stay put, and
+  every word he reads would stop 205.5 pt from where it belongs and move
+  there at the settle; carried half as far, every word half that. Faded
+  into the letter beneath at the settle, the third way proposed, is what
+  the settle already does, wherever the picture has gone.
+  What the app knows is fastened elsewhere is cut out and goes as it is
+  fastened: the letter's actions hold still, as before, and the empty
+  pane's words keep to the middle. `PaneMove.Reading` is the choice, and
+  `PaneMoveTests` checks it. A conversation's dates and a sender's
+  markup laid out in the middle are in WebKit's drawing with the words
+  beside them, and cannot be cut out: Not covered.
+- *A bounce at the tap jumped at the settle.* One coasting from a flick
+  was stopped where it was, and one bouncing past an end was brought back
+  inside first. But a picture cut with `afterScreenUpdates: false` is of
+  the last frame drawn, before it was brought back, so its rows jumped up
+  or down to the end at the settle. Now a bounce is looked for first, in
+  every pane in the pictures, and turns the motion down (How, above); only
+  one coasting inside its ends is stopped. Where each comes to rest is
+  `PaneMove.Rest`, as UIKit reckons it: from the content's top with the
+  top inset above it to its bottom with the bottom inset below it, the
+  bottom end never above the top, and the same sideways. Past it by more
+  than half a point, a pixel on his iPad, is a bounce; less is taken as at
+  the end, and brought there as it is stopped.
+
+**Tests.** `PaneMoveTests` (14) and `PaneArrangementTests` (3 more, and its
+`PaneShell` tests now say what each change was laid out from).
+
+- `PaneMove`, by value, at every landscape width from 1024 to 1376 pt.
+  Only the view button's three switches move, and "< Mailboxes" and a
+  folder tap do not. Each move written out at 1194 and 1366: every
+  picture, line, backdrop and the actions' picture, in order, and the
+  twin button painted over only in the list's picture from two panes. At
+  the start every picture and line is where its pane and divider are, and
+  at the end where they now are, worked out from the columns alone. At
+  every twentieth of the slide each line is on its edge and the letter is
+  on top; every picture keeps its width, and in each switch they all go
+  the same way; there is no y in the model. Every half point across the
+  screen is under a picture, a line or the backdrop, or in the stretch of
+  the real screen meant to show, which is exactly what shows at the end.
+  The backdrop between the list and the letter is never wider than the
+  list's change of width, 45 pt. The actions' picture holds still, wide
+  enough for the letter's own actions to stay under it. And the timeline:
+  0.4 s then 0.2 s, or 0.3 s alone.
+- Since the review: the letter's picture goes the whole of its edge's
+  travel, in one piece, whatever the pane holds, and with words in it
+  nothing is cut out; an empty pane's move is the same in every other
+  part. "No message selected" starts in the middle of the letter's column
+  as it was and ends in the middle of the column as it is, worked out from
+  the columns alone, is in the middle at every twentieth of the slide,
+  with 150 pt of room either side, and goes half as far as the letter,
+  102.75 pt less at 1194 and 143.75 pt less at 1366. And where a list, the
+  Mailboxes or a letter rests: a long list, a short one whose top end is
+  its bottom, a letter wider than its pane with insets all round; at
+  either end and inside it rests, past either end or either side by more
+  than half a point it is bouncing, and less is brought to the end.
+- `PaneShell`: the view button says what it switched from, from each of
+  the three places it can be tapped; "< Mailboxes", a folder tap either
+  way, a folder opened and a return say nothing. The test that nothing
+  goes on the wire is unchanged.
+- `RootViewController`, `PaneMotion` and `MessageDetailViewController`,
+  which are UIKit, are read. A switch still moving is ended first thing in
+  `arrange`, as the iPad turns and as the app stops being in front. The
+  pictures are cut before the panes are sized and the constraints
+  swapped, after coasting is stopped, with Reduce Motion asked at the tap;
+  the cover goes on after the layout sweep. The buttons know nothing of
+  the motion, and the container still animates nothing itself. The
+  pictures are of the screen as it was; the cover takes every touch and is
+  hidden from VoiceOver; frames are set sideways only, eased in and out,
+  for the timeline's durations and no others, with no spring, no
+  transform, nothing flexible and nothing of a real view touched; the
+  deadline is stretched by the window's speed; every end acts only for
+  its own cover; and the letter's bar has no title and nothing on its
+  left, so its actions' picture is right at both ends. Since the review:
+  the container tells the model whether the pane is empty and hands over
+  "No message selected"; the motion refuses it unless it is centred where
+  the model says, paints it out of the letter's picture in the canvas
+  colour, and puts its own picture over the letter's and under the
+  dividers, going only as far as the model's middle. The container looks
+  for a bounce in the Mailboxes, the list and the letter, when there is
+  one, after checking the screen is as laid out and before anything else,
+  turns the motion down with its line in the log, and only then stops
+  one coasting, and nothing else in it scrolls anything; the motion's
+  check reads `PaneMove.Rest` from all four of UIKit's insets and does
+  nothing, and its stop acts only inside the ends. The letter's pane only
+  hands over its scroll view, none when it is empty, and its words.
+
+Each of 26 sabotages fails at least one of these, one at a time in a
+scratch copy, the full suite each time, failures as XCTest counts them:
+the list's end off by 45 pt (207 failures), the pictures in the wrong
+order (11), the backdrop left out from three to two (371), or begun at the
+screen's left edge from two to three (11), the folders' column cut to 375
+pt (209) or to nothing (450), the list's divider off its edge (206), the
+twin painted over from three to two and not from two (22), the actions'
+picture at the letter's two-pane edge (573), pictures taken after the
+screen is drawn again (2), a y in the slide (1), a transform (2), a spring
+(1), Reduce Motion ignored by the container (2) or by the motion (2), the
+motion not ended in `arrange` (2), as the iPad turns (1) or as the app
+stops being in front (2), a deadline the window's speed does not stretch
+(1), the view button not saying what it switched from (5), "< Mailboxes"
+saying it (3), the pictures cut after the constraints are swapped (2), the
+cover put on before the layout sweep (1), a picture that stretches with
+its holder (1), the cover's own alpha faded (2), and coasting not stopped
+(1). `LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff`
+failed once, in the first run of the backdrop left out, which counted 372;
+run again, 371, as given. It failed in no other run.
+
+After the review, 24 more, the same way, each failing at least one of the
+tests above, none failing any other test, with no unexpected error: the
+empty pane's words carried as far as the letter (596 failures), cut out
+of a letter too (60), or not cut out at all (28); the letter's picture
+held still from three to two (390); the container saying the pane always
+holds a letter (1), or not handing over the words (1); the words left in
+the letter's picture (2), painted out in the bars' colour (1), their
+picture put under the letter's (1), carried twice as far as the model
+says (1), or taken wherever they are (1); a short list's bottom end below
+its top (2); the bottom inset left out (2); sideways not looked at (6);
+no slack (3), or five points of it (5); the bounce not looked for (1),
+looked for after coasting is stopped (2), or turned down with no line in
+the log (1); the letter not looked at (1); a bounce brought back inside,
+as before the review (1); a bounce read the wrong way round (1); the side
+insets left out (1); and a letter looked at while the pane is empty (1).
+The suite ran clean before the first of them and after the last.
+
+**Not covered.**
+
+- Everything the screen draws is for the iPad, and none of it has been
+  seen yet; TODO has the checks. The first is the letter's picture. WebKit
+  draws a letter in another process, and whether a still picture of it
+  comes out whole on his iPadOS is not known. A picture that cannot be
+  taken falls back to the instant switch; a blank one cannot be told from
+  a white letter cheaply.
+- From three to two, a strip of empty canvas opens to the right of the
+  sliding list, where the list will widen, and is 45 pt wide at the end of
+  the slide at 1194, 75 pt at 1024. The selected row's grey ends short of
+  it until the settle.
+- A subject that wraps differently moves the letter's body by a line at
+  the settle, not while anything moves; a letter scrolled down shows other
+  words at its top once it has wrapped again. Neither is new.
+- A conversation's dates, at the right end of its rows, ride with the
+  letter's picture. From three to two they stop 205.5 pt short of the
+  right end on the 11-inch and are put there at the settle; from two to
+  three they go off the right edge with the rows' ends and are back at
+  the settle. The rows' grey previews are cut again to the new width at
+  the same moment. So with anything a sender's markup lays out in the
+  middle, a newsletter's column: it lands up to half the edge's travel
+  from where it is, 103 pt at 1194 and 144 at 1366, and is laid out
+  again at its new width at the settle anyway. WebKit draws both, in
+  another process, into the same picture as the words beside them, and
+  where they are is not known at the tap; holding the letter still for
+  them would move every word he reads instead. Whether the dates catch
+  his eye is for the iPad.
+- A switch tapped while the Mailboxes, the list or the letter bounces past
+  an end is instant, as every switch was before B-066. A bounce lasts
+  about half a second after a flick or a pull past an end. A bounce of
+  less than half a point is taken as at the end and brought there as it
+  is stopped, a pixel at most, at the settle.
+- A heavy letter WebKit has not finished drawing by 0.4 s shows as it
+  would have without the motion.
+- The glyph in the corner is drawn afresh and has to match the button's
+  own pixels. If it shimmers at the settle, a picture of the corner will
+  do instead, at the cost of the button looking pressed until the settle.
+- Touches are not taken for 0.6 s.
+- This is the first view animation in the app's sources. It is kept to
+  `PaneMotion.swift`, and the tests read that file and the container for
+  anything else.
+- "< Mailboxes" and a folder tapped in two panes stay instant, as built.
+  Whether they should slide like Mail's navigation is the owner's to say.
+
+**Seen on the iPad, 2026-10-03, frame by frame**, on carlo's mailbox at
+1194 pt, on a scratch build with the window's `layer.speed` at 0.05, the
+slide 8 s and the settle 4 s, six screenshots through each switch, the
+Inbox listed and the pane empty. In all three the columns travelled as
+described, whole, sideways only; the corner glyph and Flag to Compose
+stood still; "No message selected" kept to the middle of the pane; and
+the last frame was the final screen with nothing left over it. The
+settle is a cross-fade: in its middle frame the old rows and the new,
+wrapped again at the new width, are both to be seen, as are the old bar
+and the new. At 0.2 s that is a dissolve. The calendar went under the
+glyph from three to two, and from two with the folders in front the
+counts were gone from the folders' column until the settle, as above.
+Not yet at speed, nor with a letter open, a conversation, Reduce Motion,
+VoiceOver or a bounce: TODO's checks 2 to 12.
+
+**For the owner** (TODO, "Blocked on the owner"). The third switch, the
+folders' column drawing in, has nothing like it in Mail; its fallback is
+the 0.3 s fade for that switch alone. The timing, 0.4 s and 0.2 s. The
+list sliding over the folders, against later Mail's way, where the folders
+slide off to the left. And "< Mailboxes" and a folder tap, above.
