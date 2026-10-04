@@ -7575,8 +7575,11 @@ long press and "Save to Photos": the app stayed, and iOS asked
 "'Blackmail' Would Like to Add to your Photos", with the words above.
 Don't Allow was tapped, to leave the iPad's library as it was, and
 nothing ended. With "Add Photos Only" chosen in Settings, Privacy,
-Photos, Blackmail, a file's preview had "Save Image" under Copy. Saving
-itself was not tried, for the same reason.
+Photos, Blackmail, a file's preview had "Save Image" under Copy. Then,
+the owner having said the iPad's library may be used for such checks,
+both were tapped: "Save Image" put the attachment, a 3 MB JPEG, in the
+library, and "Save to Photos" on the logo a PNG of it, the app staying
+and no crash report written.
 
 **Not covered.** The share extension asks for nothing of Photos and has
 no keys. Saving is iOS's own, once allowed.
