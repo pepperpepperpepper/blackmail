@@ -5,11 +5,13 @@ import Foundation
 /// `ShareItems.load`, beside the sheet.
 ///
 /// One thing at a time, and each file onto the disk as it arrives. A share
-/// extension runs under a far smaller memory ceiling than the app, and a
-/// photograph is decoded to a full bitmap to be re-encoded as JPEG, about
-/// 48 MB for a 12-megapixel one. Every photo decoding at once, and every
-/// JPEG kept until the last had landed, is how the extension is killed
-/// before its sheet appears, with nothing said.
+/// extension runs under a far smaller memory ceiling than the app, about
+/// 120 MB, and a photograph is made a JPEG of at most 4096 px, decoded at a
+/// half, a quarter or an eighth where it is larger (`SharedPhoto.size`).
+/// That is still 49 MB while it is made, for a photo from his iPad's camera
+/// decoded whole and for a 48-megapixel one decoded at a half. Every photo
+/// at once, and every JPEG kept until the last had landed, is how the
+/// extension is killed before its sheet appears, with nothing said.
 enum ShareItems {
 
     /// Runs `loads` one after another, each begun only once the one before
@@ -70,6 +72,9 @@ enum ShareItems {
         static let budget: Int64 = 25_000_000
 
         private(set) var staged: Int64 = 0
+
+        /// What is left of `budget`.
+        var room: Int64 { Self.budget - staged }
         private let write: (Data, String) throws -> URL
         private let copy: (URL, String) throws -> URL
 
@@ -81,10 +86,12 @@ enum ShareItems {
             self.copy = copy
         }
 
-        /// A photograph, already a JPEG.
-        func photo(_ jpeg: Data, named filename: String) -> SharedItem? {
-            stage(size: Int64(jpeg.count), filename: filename, mimeType: "image/jpeg") {
-                try write(jpeg, filename)
+        /// A photograph, already a JPEG, or a picture's bytes as they came
+        /// (`SharedPhoto.way`).
+        func photo(_ bytes: Data, named filename: String,
+                   mimeType: String = "image/jpeg") -> SharedItem? {
+            stage(size: Int64(bytes.count), filename: filename, mimeType: mimeType) {
+                try write(bytes, filename)
             }
         }
 
@@ -101,6 +108,50 @@ enum ShareItems {
             guard staged + size <= Self.budget, let url = try? put() else { return nil }
             staged += size
             return .file(url, filename: filename, mimeType: mimeType, size: size)
+        }
+    }
+
+    // MARK: - A picture left out
+
+    /// What the sheet says when a picture he chose could not be attached.
+    enum LeftOut: Equatable {
+        /// A line over the letter, which has the rest of what he shared.
+        case line(String)
+        /// The words in place of the letter, and Cancel: a share of
+        /// pictures alone of which none came. A letter without the photo he
+        /// chose is not what he meant to send.
+        case instead(String)
+    }
+
+    /// The rule: nil when every picture offered was attached. When none
+    /// was, and nothing but pictures was offered, the words in place of the
+    /// letter. Otherwise a line saying how many were left out. Never a
+    /// letter that goes without the photo he chose, unsaid.
+    static func leftOut(pictures: Int, attached: Int, others: Int) -> LeftOut? {
+        let missing = pictures - attached
+        guard missing > 0 else { return nil }
+        if attached == 0, others == 0 {
+            return .instead(pictures == 1 ? "The photo could not be attached."
+                                          : "The photos could not be attached.")
+        }
+        return .line(missing == 1 ? "1 photo could not be attached."
+                                  : "\(missing) photos could not be attached.")
+    }
+
+    /// What a share offered and what came of its pictures, counted as they
+    /// are read, one at a time (`oneAtATime`).
+    final class Tally {
+        /// Everything offered, a picture or anything else.
+        var offered = 0
+        /// The pictures among them.
+        var pictures = 0
+        /// The pictures attached.
+        var attached = 0
+
+        init() {}
+
+        var leftOut: LeftOut? {
+            ShareItems.leftOut(pictures: pictures, attached: attached, others: offered - pictures)
         }
     }
 }

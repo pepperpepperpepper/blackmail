@@ -1740,6 +1740,246 @@ answer and left him in Safari, and the letter arrived in the Inbox with the
 link blue and tappable. Not yet tried: YouTube, a shared photo (five at
 once), Cancel with text in it, a failed send, and a `mailto:` link.
 
+**A large photo made the sheet vanish. Changed 2026-10-04; the change not
+yet seen on the iPad.** A shared photo was loaded as a `UIImage` and made a
+JPEG with `jpegData`, which decodes every pixel of it inside the extension:
+49 MB for a 12-megapixel photo, 195 MB for 48 megapixels, more for a
+panorama. iOS kills a share extension at about 120 MB, and the sheet simply
+vanishes, with nothing said. One such photo was enough.
+
+Now a picture is read from its file (`loadFileRepresentation`), as the type
+the sharing app offers it in first, so Photos' original HEIC rather than a
+copy made for sharing (`SharedPhoto.fileType`). ImageIO makes the JPEG from
+it as a thumbnail: at most 4096 px on its longest side, never made larger,
+turned upright by its EXIF orientation, decoded there and then, quality
+0.85 as the composer's (`SharedPhoto.jpeg`). It is made inside the callback
+the file lasts for, in its own autorelease pool, staged on the disk, and
+only then is the next begun (`oneAtATime`). A file ImageIO cannot open, or
+none given, is tried as its bytes (`loadDataRepresentation`), the same way;
+never as a `UIImage`. A photo from his iPad's camera, 4032 px, keeps its
+size. 4096 px is 16 megapixels at 4:3, more than any screen it will be read
+on.
+
+**The size asked for is one the decoder reaches by halving.** A thumbnail
+lets the decoder read a JPEG, a HEIC, a TIFF or a PNG whole, or at a half, a
+quarter or an eighth (CGImageSource.h, `kCGImageSourceSubsampleFactor`),
+and at nothing in between. Which of those a thumbnail's size picks the
+header does not say: the smallest still no smaller than what is asked is
+inferred, and the sheet vanishing at 4096 fits it whether a size exactly
+at a half counts or not. So it is asked for the longest side divided by the smallest
+of 1, 2, 4 and 8 that brings it to 4096 or less, in whole pixels rounded
+down (`SharedPhoto.size`). Rounded down, so that however a decoder rounds
+an odd side's half, it is never short of what is asked, which would have
+it read at the next factor down, twice the size each way. 8064 goes at
+4032, 5712 at 2856, a 16000 px panorama at 4000, and 4032 stays. The
+factor is passed as well, where it is more than 1: the header documents
+it, and not how the size picks one, so both are given and neither is
+relied on alone.
+What it costs: a picture a little over 4096 px goes at half its size, 4097
+at 2048. Past an eighth, over 32768 px, it is asked for 4096: the decoder
+reads the eighth, larger, and a second picture of 4096 is made from it.
+
+The picture decoded, at four bytes a pixel:
+
+| Photo | Read at | Decoded | Goes at |
+|---|---|---|---|
+| His iPad's camera, 4032 by 3024 | whole | 49 MB | 4032 by 3024 |
+| 24 megapixels, 5712 by 4284 | a half | 24 MB | 2856 by 2142 |
+| 48 megapixels, 8064 by 6048 | a half | 49 MB, where it was 195 | 4032 by 3024 |
+| A panorama, 16000 by 4000 | a quarter | 16 MB | 4000 by 1000 |
+| A square, 8192 by 8192 | a half | 67 MB | 4096 by 4096 |
+| A panorama, 40000 by 10000 | an eighth | 25 MB, and 17 MB made from it | 4096 by 1024 |
+
+Of a JPEG or a HEIC up to 32775 px, the decoder holds no more than 4097 px
+on the longest side, so 67 MB is the most, for a square. That is the
+decoded picture only. What ImageIO holds besides, to turn it upright and
+to encode it, is not known here; only the iPad can say (check 3 in the
+TODO). A WebP, a GIF, a BMP or
+an AVIF is not read at a factor: it is decoded whole whatever is asked,
+195 MB for one of 48 megapixels, and the sheet would go. Photos keeps his
+pictures as HEIC and JPEG; those others come from the web.
+
+**Seen on the iPad, 2026-10-04, before the fix.** The first build of this
+change asked for 4096 px of every larger photo. Installed through
+TrollStore's helper on the test iPad, it was given a 48-megapixel JPEG from
+Photos: 8064 by 6048 as stored, EXIF orientation 8, a GPS tag. The
+BlackmailShare process started and was gone within half a second. The sheet
+never appeared, and there was no crash report. A Wikipedia page shared from
+Safari opened the sheet as before. Asked for 4096 of 8064, whose half is
+4032, the decoder read the whole: 195 MB. Hence the size above. A deploy
+that copies files into the bundle leaves the share extension unable to
+start at all, so every check of it is on a build installed through
+TrollStore's helper, as on 2026-09-30.
+
+**Seen on the iPad, 2026-10-04, after the fix**, on a build installed
+through the helper, on carlo's mailbox, every letter to the account
+itself. The same 48-megapixel JPEG, which Photos said had its location
+included: the sheet came up and stayed, "Photo.jpg — 437 KB", and the
+letter brought a JPEG of 3024 by 4032, upright in its pixels with no
+orientation tag, with no GPS at all and the date it was taken. Five of
+his camera's photos at once, Photos saying New York: the sheet listed
+five, said nothing of one left out, showed "Sending… 65%" and closed; all
+five arrived, the one read 4032 by 3024 as taken, no GPS, the date, its
+zone and the Display P3 profile kept. A 64-megapixel panorama, 16000 by
+4000: the sheet stayed, and it arrived at 4000 by 1000. A video's link
+from the YouTube app: the link in the body, blue in the letter that
+arrived, and no subject, the app handing over the link alone and no
+title, as Safari gives. After them the app read the Inbox and sent from
+its own composer. No 24-megapixel photo or HEIC of 48 was at hand. The
+test iPad gives a share extension 180 MB; nothing here says how near
+these came to it. Each photo goes as "Photo.jpg": Photos names none.
+
+What goes with the JPEG: the picture, its colour profile, and the moment it
+was taken with its offset from UTC, so a recipient's Photos files it under
+that day. Nothing else. The colour profile rides with the picture itself, so
+Display P3 stays Display P3 at no cost. The location does not go, neither
+the GPS nor a place's name. Mail sends it unless Location is switched off
+under Options at the top of the share sheet. He would not know it was there,
+and in a photo taken at home it is his address, to whoever the letter is
+forwarded to. Nor the orientation: it is in the pixels now, and a tag left
+saying to turn the picture would turn it again. Nor the camera, the lens,
+the exposure, or Apple's own notes. It is a list of what may go, not of
+what may not (`SharedPhoto.kept`), so whatever else a photo carries stays
+behind. The JPEG is written with those properties and the quality alone,
+never with `CGImageDestinationAddImageFromSource` or `…CopyImageSource`,
+which would copy the file's metadata across.
+
+Decided with it:
+
+- **A GIF goes as the file it is**, copied and never read, when it is 5 MB
+  or less, fits in what is left of the letter, and says nothing of where it
+  was. An animated GIF is what people share, and a JPEG of one is a still
+  frame of the joke. Every mail program shows a GIF. Past those it is made
+  a JPEG of its first frame. 5 MB is the letter's 25 MB shared among the
+  five pictures the sheet allows, so five kept whole always fit together.
+- **A PNG the same.** A PNG is mostly a screenshot: words, which JPEG blurs
+  at the edges of every letter, or a picture with a clear background, which
+  JPEG has not got. A PNG over 5 MB is most likely a photo, and goes as a
+  JPEG. A location is looked for three ways before either goes whole: the
+  rule's own keys, ImageIO's own name for the GPS, and the XMP, where a PNG
+  may keep it. One that has one is made a JPEG, which carries none.
+- **A camera's RAW photo only when nothing else is offered.** Photos offers
+  the finished picture beside it, and developing a RAW asks far more of the
+  extension and looks flat without Photos' own.
+- **The name** is the sharing app's suggestion without the extension it
+  came with, and the one it goes with: "IMG_0412.HEIC" goes as
+  "IMG_0412.jpg", not "IMG_0412.HEIC.jpg". "Photo.jpg" without one, as the
+  composer names it.
+- A provider that offers no picture type this knows, but that `UIImage`
+  could read, which is what decided a picture before, is read as
+  `public.image` the same way. A page, words, a PDF, a video and an SVG go
+  on as before.
+- **A picture opened and not made into one is not read again.** Its bytes
+  are read only when its file could not be opened: no file given, or one
+  ImageIO does not know. Opened, with no image at its index, or the
+  thumbnail or the JPEG not made, it is left out there. Its bytes are the
+  same bytes, and would only be held in memory to fail the same way.
+- **A picture that could not be attached is said.** The pictures a share
+  offers are counted, and those attached (`ShareItems.Tally`). One left
+  out, for want of room in the 25 MB, of a disk to stage it on, or of a
+  picture ImageIO could make, is a plain line above what is attached:
+  "1 photo could not be attached.", "2 photos could not be attached." A
+  share of pictures alone of which none came shows "The photo could not
+  be attached." ("The photos …" for more than one) and Cancel, in place of
+  the letter. So there is no letter to send without the photo he chose,
+  and nothing left out goes unsaid. The rule is `ShareItems.leftOut`, from
+  the counts alone.
+
+**Tests.** `SharedPhotoTests`, 25. The size: a 48-megapixel photo to 4032
+by 3024 either way up, 24 megapixels to 2856 by 2142, a panorama to 4000
+by 1000, a square of 9000 to 2250, 4097 to 2048, a half of exactly 4096
+kept, an odd side's half rounded down, past an eighth to 4096. The factor
+at every bound. Every longest side from 1 to 40000 px: asked no more than
+the decoder's own share of it, rounded up; never more than 4096; up to
+32775 exactly its share, with no more than 4097 px decoded; at the
+smallest factor that does it. The other side to the nearest pixel, never
+under one; a picture no larger kept at its own size; a size unsaid. The
+type chosen from what is offered, and what is not a picture. Whole or a
+JPEG at each bound. The names. Only the date kept out of an iPad photo's
+full property list, and a location found where a file keeps it. The
+staging's room, and bytes kept whole going as their own type. What is said
+of a picture left out, for each count that matters, and the tally. And the
+iPad's part, read from its source as the screens' wiring is: the file and
+then the bytes, each in its own pool, one answer each way, the bytes only
+after a file not opened; no `UIImage` made, and no `jpegData` or
+`loadObject`, anywhere in the share code; the thumbnail's four options,
+the longest side asked for, and the factor; only `kept`'s properties and
+the quality written; the sheet counting each thing offered, each picture
+and each one attached, its line above what is attached, and the words
+with Cancel in place of the letter.
+
+Sabotaged one at a time in a scratch copy, the whole suite run each time,
+counted in failures, each failing only `SharedPhotoTests`. This change:
+4096 asked of every larger photo, the first build's rule (16, three
+tests); a half rounded up (3, two tests); past an eighth not brought to
+4096 (6, three tests); the short side cut down rather than rounded (8,
+three tests); the short side let fall to nought (2); 4096 asked of every
+picture in `jpeg` whatever its size (1); the factor not passed (3);
+`.undecodable` sent on to the bytes, the early return gone (4, two
+tests); a JPEG not made taken for a file not opened (3); the words in
+place of the letter whenever no picture came, something else or not (3,
+two tests); the line counting the pictures offered, not those left out
+(5, two tests); a picture attached not counted (2); the line not put on
+the sheet (1); an empty letter where the words should be (1). The first
+run of that last also failed `LargeLetterTests.testPicturesStillComing…`,
+a timing test of the mailbox that none of this touches, the sabotaged file
+not being built on the host; run again, only the sheet's test failed.
+Counted again, against the tests this changed: the sheet back on `UIImage`
+and `jpegData` (5, two tests), the orientation not applied (1), no
+autorelease pool for the file (2), no fallback to the bytes (4, two
+tests), every property written into the JPEG (1). Counted before this
+change, in tests it did not change: RAW read ahead of a finished picture
+(1), a GIF or PNG kept whole with a location (2), whole without the room
+for it (1), whole at any size (2), the bound the whole 25 MB (2), every
+property kept (13, two tests), GPS not taken for a location (2), a
+suggested name's extension kept (6), the room not counting what is staged
+(2), ImageIO's own GPS name not looked for (1). Taking out the guard that
+keeps a picture of 4096 or less at its own size now fails nothing, and
+should not: read at 1, such a picture is asked for its own longest side,
+so the rule cannot enlarge it with the guard or without. The whole suite:
+1343 tests, 4 skipped, 0 failures. The device build (`swift build
+--swift-sdk ios165 -c release`) compiles and links, the extension with
+ImageIO, and gives no new warnings.
+
+**The composer, looked at and not changed.** Its photo picker loads each
+photo as a `UIImage` and makes it a JPEG with `jpegData` at full size, and
+starts all it was given, up to five, at once. So it decodes whole bitmaps
+too, in the app, which iOS allows far more memory than the extension: five
+from his iPad's 12-megapixel camera come to about 240 MB together. A
+48-megapixel photo, one synced from an iPhone, is decoded at 195 MB and
+sent at its full 8064 by 6048 px, a JPEG of perhaps 10 to 20 MB, so two of
+them may well be too big to send together (B-007). Five such at once could
+come near 1 GB. Full size is kept on purpose there (its comment).
+Shrinking as the sheet does would take `loadFileRepresentation` and
+`SharedPhoto.jpeg`, which is in the library already, but it changes what
+he chose to send, so it is the owner's call. Neither path sends a
+location: a `UIImage` has none to give.
+
+**Not covered.** Whether the decoder does read a 48-megapixel HEIC or JPEG
+at a half when asked for 4032, inside the extension: check 3 in the TODO.
+What ImageIO holds besides was measured on the test iPad on 2026-10-04 by
+a small program doing what `SharedPhoto.jpeg` does, outside an extension:
+a JPEG peaks at about three times its decoded picture, 148 MB for 12
+megapixels read whole and 149 MB for the 48-megapixel one read at a half,
+204 MB for a 4096 px square; a HEIC from his camera at about once, 51 MB;
+turning it upright costs nothing. The test iPad lets a share extension
+have 180 MB, so these fit there; an iPad that allows 120 MB would lose
+any 12-megapixel JPEG. His iPad, and its limit, are not known yet. Whether ImageIO heeds
+`kCGImageSourceSubsampleFactor` in a thumbnail at all; the size does not
+depend on it. A WebP, GIF, BMP or AVIF of 48 megapixels is still decoded
+whole, and would still make the sheet vanish. The line for a picture left
+out is not seen on the iPad: nothing at hand makes a picture fail on
+purpose. Which types Photos, Safari and YouTube offer, and in what order:
+taken from Apple's word that a provider lists its best first. Whether
+`CGImageMetadataCopyTagWithPath` finds an XMP location in a PNG. A PNG
+over 5 MB with a clear background goes as a JPEG, and its clear parts come
+out solid. A GIF over 5 MB loses its movement and arrives as a .jpg. A
+Live Photo goes as its still. The JPEG, up to about 5 MB, is held in
+memory a moment before it is staged, and the letter is still built whole
+in memory at Send, as in the app. The checks are the numbered list at the
+end of "Blocked on the iPad coming back" in the TODO, and
+`BLACKMAIL_SHARE_EXT` stays opt-in until they pass.
+
 ---
 
 ## B-037 — BUILT 2026-09-29 as B-048, not yet seen on the iPad. No way to switch between the two-panel and three-panel view

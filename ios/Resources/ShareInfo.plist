@@ -38,10 +38,11 @@
 		<string>ShareViewController</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
-			<!-- Five, as the composer's photo picker allows: every photo is
-			     decoded whole to be re-encoded, in an extension allowed far
-			     less memory than the app. Files are counted the same way,
-			     since a photo may arrive as either. -->
+			<!-- Five, as the composer's photo picker allows. Each photo is
+			     made a JPEG of at most 4096 px, one at a time, in an
+			     extension allowed far less memory than the app (SharedPhoto).
+			     Files are counted the same way, since a photo may arrive as
+			     either. -->
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
