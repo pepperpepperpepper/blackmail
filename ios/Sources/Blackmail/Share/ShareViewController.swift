@@ -43,8 +43,10 @@ public final class ShareViewController: UIViewController {
         AttachmentStore.purge()
 
         guard let shared = ShareMirror.device.load() else {
-            nav.setViewControllers([ShareUnavailableViewController { [weak self] in self?.cancel() }],
-                                   animated: false)
+            nav.setViewControllers([ShareUnavailableViewController(
+                words: "Open Blackmail once, then share this again.") { [weak self] in
+                    self?.cancel()
+                }], animated: false)
             return
         }
         let waiting = UIViewController()
@@ -56,14 +58,27 @@ public final class ShareViewController: UIViewController {
         waiting.navigationItem.rightBarButtonItem = UIBarButtonItem(customView: spinner)
         nav.setViewControllers([waiting], animated: false)
 
-        ShareItems.load(from: extensionContext) { [weak self] items in
-            self?.show(items, shared: shared)
+        ShareItems.load(from: extensionContext) { [weak self] items, leftOut in
+            self?.show(items, leftOut: leftOut, shared: shared)
         }
     }
 
-    private func show(_ items: [SharedItem], shared: ShareMirror.Shared) {
+    /// The letter, with a line over it for a picture that could not be
+    /// attached; or, when nothing came of a share of pictures alone, the
+    /// words and Cancel, and no letter to send without them
+    /// (`ShareItems.leftOut`).
+    private func show(_ items: [SharedItem], leftOut: ShareItems.LeftOut?,
+                      shared: ShareMirror.Shared) {
+        if case .instead(let words) = leftOut {
+            nav.setViewControllers([ShareUnavailableViewController(words: words) { [weak self] in
+                self?.cancel()
+            }], animated: false)
+            return
+        }
+        var line: String?
+        if case .line(let words) = leftOut { line = words }
         let form = ShareComposeViewController(
-            shared: shared, items: items,
+            shared: shared, items: items, leftOut: line,
             finish: { [weak self] in
                 self?.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
             },
@@ -95,12 +110,15 @@ public final class ShareViewController: UIViewController {
     }
 }
 
-/// No account to send as: none set up, or the app not opened since the
-/// build that hands one over. One sentence and a way out.
+/// One sentence and a way out, where there is no letter to show: no account
+/// to send as, none set up or the app not opened since the build that hands
+/// one over; or nothing came of a share of pictures alone.
 private final class ShareUnavailableViewController: UIViewController {
+    private let words: String
     private let close: () -> Void
 
-    init(close: @escaping () -> Void) {
+    init(words: String, close: @escaping () -> Void) {
+        self.words = words
         self.close = close
         super.init(nibName: nil, bundle: nil)
     }
@@ -113,7 +131,7 @@ private final class ShareUnavailableViewController: UIViewController {
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             title: "Cancel", style: .plain, target: self, action: #selector(closeTapped))
         let label = UILabel()
-        label.text = "Open Blackmail once, then share this again."
+        label.text = words
         label.font = .systemFont(ofSize: Theme.scaled(17))
         label.textColor = Theme.primaryText
         label.numberOfLines = 0
@@ -135,6 +153,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     private var draft: Draft
     private var sheet: ShareSheet!
+    /// "1 photo could not be attached.", or nil (`ShareItems.leftOut`).
+    private let leftOut: String?
 
     private let toField = UITextField()
     private let ccField = UITextField()
@@ -167,9 +187,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private let sendingSpinner = UIActivityIndicatorView(style: .medium)
     private lazy var sendingSpinnerItem = UIBarButtonItem(customView: sendingSpinner)
 
-    init(shared: ShareMirror.Shared, items: [SharedItem],
+    init(shared: ShareMirror.Shared, items: [SharedItem], leftOut: String?,
          finish: @escaping () -> Void, cancel: @escaping () -> Void) {
         draft = Draft()
+        self.leftOut = leftOut
         super.init(nibName: nil, bundle: nil)
         sheet = ShareSheet(
             shared: shared,
@@ -230,6 +251,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         ])
         stack.addArrangedSubview(toggleRow)
         stack.addArrangedSubview(row("Subject:", subjectField, draft.subject))
+        // Above what is attached, where he looks for the photo he chose.
+        if let leftOut { stack.addArrangedSubview(note(leftOut)) }
 
         attachmentsStack.axis = .vertical
         // Zero height, preferred not required, for the reason the app's
@@ -327,6 +350,36 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     // MARK: - What was shared
+
+    /// A plain line in a row of its own, as a file's row is laid out
+    /// without Remove, in the text's own colour.
+    private func note(_ words: String) -> UIView {
+        let container = UIView()
+        let label = UILabel()
+        label.text = words
+        label.font = Theme.fontDetailMeta
+        label.textColor = Theme.primaryText
+        let rule = UIView()
+        rule.backgroundColor = Theme.separator
+        for v in [label, rule] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                           constant: Theme.detailContentInsetLeft),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor,
+                                            constant: -Theme.detailContentInsetLeft),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                          constant: Theme.detailContentInsetLeft),
+            rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            rule.heightAnchor.constraint(equalToConstant: 0.5),
+        ])
+        return container
+    }
 
     /// A row per file: its name, its weight, and Remove.
     private func rebuildAttachments() {
@@ -502,10 +555,13 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 /// order they came, one at a time (`ShareItems`).
 extension ShareItems {
 
+    /// `completion` has what came, and what the sheet says of a picture
+    /// that did not (`leftOut`).
     static func load(from context: NSExtensionContext?,
-                     completion: @escaping @MainActor ([SharedItem]) -> Void) {
+                     completion: @escaping @MainActor ([SharedItem], LeftOut?) -> Void) {
         let inputs = (context?.inputItems as? [NSExtensionItem]) ?? []
         let staging = Staging()
+        let tally = Tally()
         var loads: [(@escaping (SharedItem?) -> Void) -> Void] = []
 
         for item in inputs {
@@ -515,26 +571,37 @@ extension ShareItems {
                 .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .first { !$0.isEmpty }
             for provider in item.attachments ?? [] {
-                loads.append { done in read(provider, title: title, staging: staging, done: done) }
+                tally.offered += 1
+                loads.append { done in
+                    read(provider, title: title, staging: staging, tally: tally, done: done)
+                }
             }
         }
         oneAtATime(loads) { items in
-            Task { @MainActor in completion(items) }
+            let leftOut = tally.leftOut
+            Task { @MainActor in completion(items, leftOut) }
         }
     }
 
-    /// A photograph first, re-encoded as JPEG as the composer does, since
-    /// an iPad keeps photos as HEIC, which many recipients cannot open;
-    /// then a web address, then words, then any other file as it is. A
-    /// file is staged before this calls back, so the next one is not
-    /// begun while this one's bytes are still held.
+    /// A picture first, made a JPEG as the composer makes its photos, since
+    /// an iPad keeps photos as HEIC, which many recipients cannot open, but
+    /// of at most 4096 px (`picture`); then a web address, then
+    /// words, then any other file as it is. A file is staged before this
+    /// calls back, so the next one is not begun while this one's bytes are
+    /// still held.
+    ///
+    /// A picture is what the provider offers as one by its type
+    /// (`SharedPhoto.fileType`), or, failing a type this knows, what
+    /// `UIImage` could read, which is what decided it before. Each picture
+    /// is counted, and each one attached (`Tally`).
     private static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
-                             done: @escaping (SharedItem?) -> Void) {
-        if provider.canLoadObject(ofClass: UIImage.self) {
-            let name = (provider.suggestedName ?? "Photo") + ".jpg"
-            provider.loadObject(ofClass: UIImage.self) { object, _ in
-                let jpeg = (object as? UIImage)?.jpegData(compressionQuality: 0.85)
-                done(jpeg.flatMap { staging.photo($0, named: name) })
+                             tally: Tally, done: @escaping (SharedItem?) -> Void) {
+        if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)
+            ?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {
+            tally.pictures += 1
+            picture(provider, type: type, staging: staging) { item in
+                if item != nil { tally.attached += 1 }
+                done(item)
             }
         } else if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
                   !provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {

@@ -185,7 +185,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Keychain mirror, the extension's own small compose sheet sending
       through the app's `Submission`, then called `Outbox`. Seen
       registered and sending on the iPad the same day (B-036); opt-in
-      until the rest of its checks.*
+      until the rest of its checks.* *Changed 2026-10-04, not yet seen on
+      the iPad: a shared photo is made a JPEG of at most 4096 px by
+      ImageIO, from its file, asked for a size the decoder reaches by
+      halving, so a 48-megapixel one is decoded at a half, 49 MB, not
+      whole at 195 MB, which made the sheet vanish on the iPad the same
+      day. Its location does not go; a small GIF or PNG goes as it is; a
+      photo that could not be attached is said. The checks left are the
+      numbered list at the end of "Blocked on the iPad coming back".*
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
@@ -470,7 +477,8 @@ this host. Ordered by value, not by size.
       photos shared at once arrive, and that the app's own password still
       works after the extension build's keychain groups (copy-deploy that
       build to the dev iPad first). Then take `BLACKMAIL_SHARE_EXT` out of
-      `package.sh`.
+      `package.sh`. *Safari seen 2026-09-30; what is left is "The share
+      sheet's checks", the last item of this section.*
 - [ ] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first.
@@ -1631,6 +1639,65 @@ this host. Ordered by value, not by size.
       end up; the dates at the rows' right ends ride with them and are put
       at the right end at the settle (B-066, Not covered). Whether that
       catches the eye, and a newsletter's centred column the same way.
+- [ ] **The share sheet's checks** (B-036, with the shrinking of
+      2026-10-04). Install the IPA from `tools/build-share-ipa.sh` through
+      TrollStore's helper (`trollstorehelper install installd force
+      <ipa>`, the IPA path last), never by the deploy that copies files
+      into the bundle: copied, the share extension does not start at all.
+      Open the app once. Checks 1 to 6 are the shrinking's; 7 onward are
+      the rest of B-036 not yet tried. Only when all pass, take
+      `BLACKMAIL_SHARE_EXT` out of `package.sh`; until then it stays
+      opt-in, as it is.
+      1. *One photo from Photos.* It arrives upright and no more than
+      4096 px on its longest side. Open the attachment in the letter that
+      arrived and save it from its share button in the app: Save to Files
+      keeps its bytes as they came, where Save Image puts it through
+      Photos. Bring it to the host and read its EXIF there with Python's
+      Pillow: `e = Image.open(f).getexif()`; no GPS when `e.get_ifd(0x8825)`
+      is empty, the date when `e.get_ifd(0x8769)` has 36867
+      (DateTimeOriginal); and the picture upright (exiftool, if installed,
+      does the same). Not Gmail's Show original: the photo
+      is base64 there, and its GPS cannot be seen.
+      2. *Five full-size photos at once.* The sheet stays, lists all five,
+      has no line saying a photo could not be attached, and all five
+      arrive.
+      3. *A 24-megapixel photo, a 48-megapixel one, and a panorama*, each
+      shared alone. The sheet stays every time. Each arrives at the size
+      the decoder halves it to: 5712 px at 2856, 8064 at 4032, a 16000 px
+      panorama at 4000, any other at its longest side halved until it is
+      4096 or less. First the 48-megapixel JPEG that made the sheet vanish
+      on 2026-10-04 (8064 by 6048, EXIF orientation 8, a GPS tag): it
+      arrives upright, with no GPS (as in 1). Then a 48-megapixel HEIC,
+      an iPhone's HEIF Max held upright, shared alone, where one can be
+      had: the same. A HEIC is another decoder from a JPEG.
+      4. *A link from the YouTube app*: in the row, the video's title as
+      the subject, the link tappable in the letter that arrives.
+      5. *After these, the app's own password still works* after the
+      Keychain groups change: the app signs in and sends.
+      6. *A GIF, and a screenshot.* A moving GIF of 5 MB or less arrives
+      as the .gif it was, still moving; a screenshot of 5 MB or less as
+      the .png it was. Either over 5 MB arrives as a .jpg, the GIF as its
+      first frame.
+      7. *Cancel with words in it.* Type a word above the signature and
+      tap Cancel: it asks, Delete Draft ends the share, and Cancel in the
+      question goes back to the letter with the word still there.
+      8. *A failed send.* With Wi-Fi off, Send: the reason is shown, the
+      letter is left as it was, and Send works once Wi-Fi is back.
+      9. *A `mailto:` link* tapped in a letter opens the app's composer
+      with its address in To and his signature under the body. Whether
+      one tapped in another app comes here is only noted.
+      10. *A video over 25 MB*, shared from Photos: the sheet comes up
+      without it, and the letter goes without it.
+      11. *A signature changed in Settings* reaches the next share: the
+      sheet's letter has the new one under the body.
+      *Seen 2026-10-04 on a build installed through the helper: 1 as
+      written (the 48-megapixel JPEG, at 3024 by 4032, upright, no GPS,
+      the date kept); 2 (five of his camera's photos, tagged New York,
+      each 4032 by 3024, no GPS, the date and its zone and the Display P3
+      profile kept); 3 for the 48-megapixel JPEG and a 64-megapixel
+      panorama (at 4000 by 1000), no 24-megapixel photo or HEIC at hand;
+      4, but with no subject: the YouTube app hands over the link alone;
+      5. 6 to 11 not yet tried (B-036).*
 
 ## Blocked on the owner
 
