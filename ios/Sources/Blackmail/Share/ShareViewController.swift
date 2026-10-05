@@ -20,7 +20,8 @@ import UniformTypeIdentifiers
 /// point, and a Swift class without `@objc(...)` has a mangled name the
 /// host cannot find.
 @objc(ShareViewController)
-public final class ShareViewController: UIViewController {
+public final class ShareViewController: UIViewController,
+                                        UIAdaptivePresentationControllerDelegate {
 
     private let nav = UINavigationController()
     private var form: ShareComposeViewController?
@@ -30,6 +31,11 @@ public final class ShareViewController: UIViewController {
         // Dark, as the app always is (D-010), whatever the app it is shared
         // from looks like.
         overrideUserInterfaceStyle = .dark
+        // Held, as the app's composer is: a swipe asks what Cancel asks
+        // (`presentationControllerDidAttemptToDismiss`). A tap outside the
+        // sheet is the sharing app's to answer, not this one's: it puts the
+        // share away whatever this says, as seen on the simulator (B-069).
+        isModalInPresentation = true
         view.backgroundColor = Theme.canvas
         styleBar(nav.navigationBar)
         addChild(nav)
@@ -85,6 +91,22 @@ public final class ShareViewController: UIViewController {
             cancel: { [weak self] in self?.cancel() })
         self.form = form
         nav.setViewControllers([form], animated: false)
+    }
+
+    /// The window as well as this controller is dark, so what is put up
+    /// over the sheet is dark too: Cancel's question, as a popover, drew
+    /// light on the dark sheet with only this controller's style to go by.
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        view.window?.overrideUserInterfaceStyle = .dark
+        presentationController?.delegate = self
+    }
+
+    /// A swipe at the sheet, which is held: the letter's Cancel, which asks
+    /// only about words of his; the share put away while there is no letter.
+    public func presentationControllerDidAttemptToDismiss(
+        _ presentationController: UIPresentationController) {
+        if let form { form.cancelTapped() } else { cancel() }
     }
 
     @objc private func cancelTapped() { cancel() }
@@ -149,9 +171,13 @@ private final class ShareUnavailableViewController: UIViewController {
 }
 
 /// The small composer. Cancel fixed left, Send fixed right, as in the app.
-final class ShareComposeViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+final class ShareComposeViewController: UIViewController, UITableViewDataSource, UITableViewDelegate,
+                                        UITextFieldDelegate, UITextViewDelegate {
 
     private var draft: Draft
+    /// The body the share began as, which the sheet shows under an empty
+    /// first line (`ShareLetter.shown`).
+    private var began = ""
     private var sheet: ShareSheet!
     /// "1 photo could not be attached.", or nil (`ShareItems.leftOut`).
     private let leftOut: String?
@@ -161,6 +187,12 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private let bccField = UITextField()
     private let subjectField = UITextField()
     private let bodyView = UITextView()
+    /// The fields and the body, scrolled as one, as in the app's composer.
+    /// Its bottom is the keyboard's top.
+    private let scroller = UIScrollView()
+    /// How much of the sheet showed at the last layout, to tell when the
+    /// keyboard has just come up over it.
+    private var shownHeight: CGFloat = 0
     private let attachmentsStack = UIStackView()
     private var ccRow = UIView()
     private var bccRow = UIView()
@@ -206,7 +238,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             draw: { [weak self] look in self?.draw(look) },
             background: .extensionTime)
         draft = sheet.letter(from: items)
-        title = draft.subject.isEmpty ? "New Message" : draft.subject
+        began = draft.body
+        title = ComposeForm.title(subject: draft.subject)
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -219,12 +252,19 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         navigationItem.rightBarButtonItem = sendItem
         for item in [navigationItem.leftBarButtonItem, sendItem] {
             item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
+            item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .disabled)
         }
+
+        scroller.translatesAutoresizingMaskIntoConstraints = false
+        scroller.alwaysBounceVertical = true
+        scroller.contentInsetAdjustmentBehavior = .never
+        scroller.delegate = self
+        view.addSubview(scroller)
 
         let stack = UIStackView()
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        scroller.addSubview(stack)
 
         stack.addArrangedSubview(row("To:", toField, draft.to.joined(separator: ", ")))
         // Straight into the stack as ARRANGED subviews, never wrapped: see
@@ -265,24 +305,43 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         rebuildAttachments()
 
         bodyView.font = .systemFont(ofSize: Theme.scaled(17))
-        bodyView.text = draft.body
+        // What was shared under an empty first line, as Mail shows it.
+        bodyView.text = ShareLetter.shown(draft.body)
+        // The caret starts on that line, at the top, where Tab and Return
+        // from Subject put it in Mail; set nowhere, it was at the end,
+        // under the link and his signature.
+        bodyView.selectedRange = NSRange(location: 0, length: 0)
         bodyView.backgroundColor = Theme.canvas
         bodyView.textColor = Theme.primaryText
+        bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
         bodyView.smartDashesType = .no
         bodyView.smartQuotesType = .no
         bodyView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(bodyView)
+        // As tall as its words, scrolled with the fields, as in the app's
+        // composer.
+        bodyView.isScrollEnabled = false
+        bodyView.delegate = self
+        scroller.addSubview(bodyView)
 
+        let content = scroller.contentLayoutGuide
+        let shown = scroller.frameLayoutGuide
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scroller.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroller.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scroller.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // Above the keyboard, as in the app's composer.
+            scroller.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            stack.topAnchor.constraint(equalTo: content.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            stack.widthAnchor.constraint(equalTo: shown.widthAnchor),
             bodyView.topAnchor.constraint(equalTo: stack.bottomAnchor),
-            bodyView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bodyView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bodyView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            bodyView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            bodyView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            bodyView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            content.heightAnchor.constraint(greaterThanOrEqualTo: shown.heightAnchor),
         ])
 
         suggestionsView.dataSource = self
@@ -295,6 +354,68 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         suggestionsView.isHidden = true
         suggestionsView.register(UITableViewCell.self, forCellReuseIdentifier: "suggestion")
         view.addSubview(suggestionsView)
+
+        subjectField.delegate = self
+        subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
+        updateSend()
+    }
+
+    /// The keyboard has come up over the sheet: the caret is brought into
+    /// the part still showing, once the layout has settled.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let height = scroller.bounds.height
+        defer { shownHeight = height }
+        guard height < shownHeight, bodyView.isFirstResponder else { return }
+        DispatchQueue.main.async { [weak self] in self?.keepCaretInView() }
+    }
+
+    /// The line he is on, in sight, the fields going up out of the way
+    /// when there is too little room under them, as in the app's composer.
+    private func keepCaretInView() {
+        guard bodyView.isFirstResponder, let end = bodyView.selectedTextRange?.end else { return }
+        view.layoutIfNeeded()
+        let caret = bodyView.caretRect(for: end)
+        guard !caret.isNull, !caret.isInfinite else { return }
+        let line = bodyView.convert(caret, to: scroller)
+            .insetBy(dx: 0, dy: -bodyView.textContainerInset.bottom)
+        scroller.scrollRectToVisible(line, animated: false)
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        keepCaretInView()
+    }
+
+    func textViewDidChangeSelection(_ textView: UITextView) {
+        keepCaretInView()
+    }
+
+    /// The list under an address field goes with the field.
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === scroller, !suggestionsView.isHidden,
+              let field = activeAddressField else { return }
+        place(under: field)
+    }
+
+    /// The title follows the subject as he types it, as Mail's does.
+    @objc private func subjectChanged() {
+        title = ComposeForm.title(subject: subjectField.text ?? "")
+    }
+
+    /// Send is grey until To, Cc or Bcc holds an address, as in Mail.
+    private func updateSend() {
+        sendItem.isEnabled = ComposeForm.canSend(to: toField.text ?? "",
+                                                 cc: ccField.text ?? "",
+                                                 bcc: bccField.text ?? "")
+    }
+
+    /// Return in Subject goes to the body, the caret at its top, as in Mail.
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard textField === subjectField else { return true }
+        bodyView.becomeFirstResponder()
+        bodyView.selectedRange = NSRange(location: 0, length: 0)
+        keepCaretInView()
+        return false
     }
 
     /// Straight to To, where the one thing he has to do is, with his most
@@ -313,6 +434,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.text = value
         field.font = .systemFont(ofSize: Theme.scaled(17))
         field.textColor = Theme.primaryText
+        // "To", not "To:": the caption is a label of its own.
+        field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
         field.autocapitalizationType = .none
         field.autocorrectionType = .no
         field.smartDashesType = .no
@@ -321,8 +444,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             // The email keyboard, with "@" on its first layer, for the
             // reason the app's composer gives.
             field.keyboardType = .emailAddress
-            field.addTarget(self, action: #selector(addressEditing(_:)), for: .editingDidBegin)
-            field.addTarget(self, action: #selector(addressEditing(_:)), for: .editingChanged)
+            field.addTarget(self, action: #selector(addressEntered(_:)), for: .editingDidBegin)
+            field.addTarget(self, action: #selector(addressTyped(_:)), for: .editingChanged)
             field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
         }
         let rule = UIView()
@@ -440,16 +563,32 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     // MARK: - Addresses
 
-    @objc private func addressEditing(_ field: UITextField) {
+    @objc private func addressEntered(_ field: UITextField) {
+        offer(field, after: .entered)
+    }
+
+    @objc private func addressTyped(_ field: UITextField) {
+        offer(field, after: .typed)
+        updateSend()
+    }
+
+    /// What the field offers after `event` (`ShareSheet.suggestions`).
+    private func offer(_ field: UITextField, after event: ComposeForm.FieldEvent) {
         activeAddressField = field
-        suggestions = sheet.suggestions(for: field.text ?? "")
+        suggestions = sheet.suggestions(for: field.text ?? "", after: event)
         suggestionsView.reloadData()
+        place(under: field)
+        suggestionsView.isHidden = suggestions.isEmpty
+    }
+
+    /// The list just under the field's row, wherever the sheet has
+    /// scrolled it.
+    private func place(under field: UITextField) {
         if let row = field.superview, let frame = row.superview?.convert(row.frame, to: view) {
             suggestionsView.frame = CGRect(x: frame.minX, y: frame.maxY, width: frame.width,
                                            height: CGFloat(suggestions.count) * Theme.suggestionRowHeight)
         }
         view.bringSubviewToFront(suggestionsView)
-        suggestionsView.isHidden = suggestions.isEmpty
     }
 
     /// Deferred a turn, so a tap on a suggestion lands before the list goes.
@@ -482,7 +621,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.text = MailFormat.replacingRecipientToken(in: field.text ?? "",
                                                         with: suggestions[ip.row].address)
         t.deselectRow(at: ip, animated: false)
-        addressEditing(field)
+        // Closed until he types again, as in Mail.
+        offer(field, after: .picked)
+        updateSend()
     }
 
     @objc private func toggleCc() {
@@ -495,12 +636,16 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// No Save Draft: a shared link is shared again in two taps, and a
     /// draft would need the whole mailbox connection this sheet does not
     /// open. Nothing he has written is thrown away unasked, though
-    /// (`ShareSheet.asksBeforeCancelling`).
-    @objc private func cancelTapped() {
-        guard !sheet.isSending else { return }
+    /// (`ShareSheet.asksBeforeCancelling`). A swipe at the sheet comes
+    /// here too (`ShareViewController`); while a letter goes, and while
+    /// the question is up, it does nothing.
+    @objc func cancelTapped() {
+        guard !sheet.isSending, presentedViewController == nil else { return }
         collect()
         guard sheet.asksBeforeCancelling(draft) else { sheet.cancel(); return }
         let confirm = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        // Dark on the dark sheet (D-010). It drew light.
+        confirm.overrideUserInterfaceStyle = .dark
         confirm.popoverPresentationController?.barButtonItem = navigationItem.leftBarButtonItem
         confirm.addAction(UIAlertAction(title: "Delete Draft", style: .destructive) { [weak self] _ in
             self?.sheet.cancel()
@@ -538,9 +683,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         for row in attachmentsStack.arrangedSubviews {
             for case let remove as UIButton in row.subviews { remove.isEnabled = !sending }
         }
-        isModalInPresentation = sending
-        navigationController?.isModalInPresentation = sending
-        navigationController?.parent?.isModalInPresentation = sending
+        // The sheet is held throughout (`ShareViewController.viewDidLoad`),
+        // and a swipe while a letter goes asks nothing (`cancelTapped`).
     }
 
     private func collect() {
@@ -548,7 +692,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         draft.cc = MailFormat.addresses(in: ccField.text ?? "")
         draft.bcc = MailFormat.addresses(in: bccField.text ?? "")
         draft.subject = subjectField.text ?? ""
-        draft.body = bodyView.text ?? ""
+        draft.body = ShareLetter.written(bodyView.text ?? "", began: began)
     }
 }
 
