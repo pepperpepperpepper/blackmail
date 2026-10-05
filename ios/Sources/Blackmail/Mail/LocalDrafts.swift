@@ -188,7 +188,7 @@ extension LocalDraft {
     /// he taps. What does is a forward's files, or a reopened draft's,
     /// fetched from Gmail over the one IMAP connection before the letter can
     /// be built: a megabyte or more of those, or one of unknown size, waits
-    /// for him to leave the app, as a large draft does.
+    /// for his Refresh or for him to leave the app (`goes(by:)`, B-072).
     ///
     /// Those rows are all it fetches. A forward's quoted pictures that go
     /// are only ones that are also its rows, each fetched once, in the
@@ -202,6 +202,20 @@ extension LocalDraft {
             if case .messagePart = file.source { sizes.append(file.size) }
         }
         return Self.isLarge(sizes)
+    }
+
+    /// Whether a pass set off by `pass` takes it, as far as its size goes.
+    /// A small letter goes by any pass. A large draft (`isLarge`) goes only
+    /// as he leaves the app. A letter in the Outbox with a megabyte or more
+    /// to fetch from Gmail (`fetchesLarge`) goes at his Refresh too: the
+    /// owner's rule, to match Mail (B-072). What else holds a letter back
+    /// is `LocalDrafts.isDue`'s.
+    func goes(by pass: LocalDrafts.Pass) -> Bool {
+        switch pass {
+        case .leaving: return true
+        case .refresh: return outbox != nil || !isLarge
+        case .unasked: return outbox != nil ? !fetchesLarge : !isLarge
+        }
     }
 
     private static func isLarge(_ sizes: [Int64?]) -> Bool {
@@ -1078,15 +1092,31 @@ final class LocalDraftStore {
 ///
 /// A letter goes up when he taps Save Draft, and one that could not go then
 /// goes later, once, over a connection that is working: each time a
-/// folder's newest page has just been fetched (at launch, at a Refresh, on
-/// opening a folder, on coming back after a while), each time the app comes
-/// back to the foreground, after each of the watch's checks that reaches
-/// the server, and as he leaves it (`uploadWaiting`). One at a time, and
-/// never one the composer has open, which is his to finish, nor one already
-/// on its way. A letter whose Send could not reach the server waits in the
-/// Outbox and goes by the same pass (`send`).
+/// folder's newest page has just been fetched (at launch, on opening a
+/// folder, on coming back after a while), at his Refresh once its page and
+/// the folder counts have come, each time the app comes back to the
+/// foreground, after each of the watch's checks that reaches the server,
+/// and as he leaves it (`uploadWaiting`). One at a time, and never one the
+/// composer has open, which is his to finish, nor one already on its way. A
+/// letter whose Send could not reach the server waits in the Outbox and goes
+/// by the same pass (`send`).
 @MainActor
 final class LocalDrafts {
+
+    /// What set a pass off, which says which large letters it takes
+    /// (`LocalDraft.goes(by:)`).
+    enum Pass: Equatable {
+        /// Nobody asked: a folder's newest page, at launch, on opening a
+        /// folder or on coming back; coming back to the foreground; the
+        /// watch's check. Small letters only.
+        case unasked
+        /// His Refresh, in any folder, the Outbox included: every letter in
+        /// the Outbox, a large one too, the owner's rule to match Mail; a
+        /// draft as for `unasked` (B-072).
+        case refresh
+        /// As he leaves the app: large letters too, drafts and the Outbox's.
+        case leaving
+    }
 
     /// Posted on the main thread whenever the letters kept here change.
     /// With a `DraftLanding` in its user info, under `landingKey`, when
@@ -1161,6 +1191,16 @@ final class LocalDrafts {
     private var heldSaid: Set<String> = []
     /// Waiting for the pass running now to end (`passEnded`).
     private var passWaiters: [CheckedContinuation<Void, Never>] = []
+    /// His Refresh or his leaving the app, asked for while a pass was
+    /// running: the pass they set off once that one has ended
+    /// (`afterThisPass`). One however often they are asked for meanwhile.
+    private var owed: Task<Void, Never>?
+    /// The kind of `owed`: the most asked for meanwhile, leaving over his
+    /// Refresh.
+    private var owedKind: Pass?
+    /// The time asked of iOS as he left with a pass running, held until the
+    /// owed pass has ended, so iOS does not suspend the app between the two.
+    private var owedTime: BackgroundStretch?
     /// `Application Support/Launches`, where the try on its way is marked
     /// for the next launch's safe start (`SafeStart.markTry`); nil marks
     /// nothing.
@@ -1738,7 +1778,10 @@ final class LocalDrafts {
     /// Takes every letter waiting here to the server, one at a time, and
     /// removes the copies a letter sent or deleted left. Returns the pass,
     /// or nil when there is nothing to take or a pass is already running,
-    /// so however many ask at once each letter goes once.
+    /// so however many ask at once each letter goes once. His Refresh and
+    /// his leaving the app while a pass is running are not dropped: they
+    /// return the pass they set off once that one has ended
+    /// (`afterThisPass`).
     ///
     /// The Outbox's letters go first, oldest first, in the order he sent
     /// them, then the drafts, newest first. A letter in the Outbox goes to
@@ -1747,11 +1790,12 @@ final class LocalDrafts {
     /// connection is up, which says the network works and the password was
     /// taken, and which asking Sent Mail needs.
     ///
-    /// Nobody asked for it, so it never makes a connection: it goes only
-    /// while one is up, and stops once none is. After a launch that could
-    /// not connect, or a password refused, making one is his to do, and a
-    /// pass that did would send a refused password again each time he came
-    /// back to the app.
+    /// The pass never makes a connection: it goes only while one is up, and
+    /// stops once none is. After a launch that could not connect, or a
+    /// password refused, making one is his to do, and a pass that did would
+    /// send a refused password again each time he came back to the app. His
+    /// Refresh's pass goes after its page and the folder counts, which make
+    /// one if they can (`RefreshTap`).
     ///
     /// A letter that fails with the connection still up failed for its own
     /// sake: a forward whose original has been deleted from Gmail, an
@@ -1760,12 +1804,17 @@ final class LocalDrafts {
     /// Stopping there instead held back every older letter behind it for
     /// good, and trying it after every page cost its round trips each time.
     ///
-    /// A large letter (`LocalDraft.isLarge`) goes only with `largeToo`, as
-    /// he leaves the app. An APPEND holds the one connection from the
-    /// command to the server's answer, and nothing he taps can go first:
-    /// a letter with photos taken up unasked after the launch page made
-    /// the first letter he opened wait for the whole upload. A small one is
-    /// a round trip or two, which is what any of his own writes costs.
+    /// A large letter goes by what set the pass off (`LocalDraft.goes(by:)`):
+    /// a large draft (`LocalDraft.isLarge`) only as he leaves the app, and a
+    /// letter in the Outbox with a megabyte or more to fetch from Gmail
+    /// (`LocalDraft.fetchesLarge`) at his Refresh too (B-072). An APPEND, or
+    /// that fetch, holds the one connection from the command to the
+    /// server's answer, and nothing he taps can go first: a letter with
+    /// photos taken up unasked after the launch page made the first letter
+    /// he opened wait for the whole upload. A small one is a round trip or
+    /// two, which is what any of his own writes costs. At his Refresh he
+    /// has asked for the letter to go, and the fetch comes after the page
+    /// and the counts he asked to see.
     ///
     /// Inside background time, asked for at the start and given back at
     /// the end, so that locking the iPad does not stop a letter halfway,
@@ -1775,15 +1824,70 @@ final class LocalDrafts {
     /// taken, and cleared when the try ends, however it ends (`countTry`):
     /// a try the app did not live through stays counted, and a letter with
     /// `unfinishedTries` of them is passed over, and waits for him (B-057).
-    /// None at all in a launch that holds the pass (`holdsPasses`).
+    /// None at all in a launch that holds the pass (`holdsPasses`), his
+    /// Refresh's included.
     @discardableResult
-    func uploadWaiting(to repository: MailRepository, largeToo: Bool = false) -> Task<Void, Never>? {
-        guard !passing, !holdsPasses else { return nil }
+    func uploadWaiting(to repository: MailRepository,
+                       for pass: Pass = .unasked) -> Task<Void, Never>? {
+        guard !holdsPasses else { return nil }
+        guard !passing else {
+            return pass == .unasked ? nil : afterThisPass(pass, on: repository)
+        }
         let kept = store.letters()
         sayHeld(kept)
         let due = (kept.filter { $0.outbox != nil }.reversed() + kept.filter { $0.outbox == nil })
-            .filter { isDue($0, largeToo: largeToo) }.map(\.key)
+            .filter { isDue($0, on: pass) }
         guard !due.isEmpty else { return nil }
+        let large = pass != .refresh ? 0
+            : due.filter { $0.outbox != nil && !$0.gone && $0.fetchesLarge }.count
+        return run(due.map(\.key), on: pass, via: repository, large: large)
+    }
+
+    /// His Refresh or his leaving the app, asked for while a pass is
+    /// running: the pass it would have been, once that one has ended (B-072).
+    /// A large letter in the Outbox that the running pass leaves goes then,
+    /// and not at his next Refresh; a large draft that only leaving takes
+    /// goes then, and not the next time he leaves the app. Before, both
+    /// were dropped, and his Refresh's pass, which may now fetch a video
+    /// for minutes, is where he is likely to leave.
+    ///
+    /// One however often they are asked for meanwhile: every ask gets the
+    /// same, of the most asked for, leaving over his Refresh. Leaving asks
+    /// iOS for time here, on the main thread as the notification is posted,
+    /// and gives it back once the owed pass has ended: the running pass's
+    /// own time ends with it, and without this iOS could suspend the app
+    /// before the owed pass asked for its own. Another pass started in the
+    /// moment between is waited out the same way.
+    private func afterThisPass(_ pass: Pass, on repository: MailRepository) -> Task<Void, Never> {
+        if pass == .leaving, owedKind != .leaving {
+            owedKind = .leaving
+            Diagnostics.log(.note, "OUTBOX-LEAVING owed")
+            owedTime = BackgroundStretch("Upload Drafts", from: background)
+        } else if owedKind == nil {
+            owedKind = pass
+            Diagnostics.log(.note, "OUTBOX-REFRESH owed")
+        }
+        if let owed { return owed }
+        let task = Task {
+            await passEnded()
+            let kind = owedKind ?? pass
+            let time = owedTime
+            owed = nil
+            owedKind = nil
+            owedTime = nil
+            await uploadWaiting(to: repository, for: kind)?.value
+            time?.end()
+        }
+        owed = task
+        return task
+    }
+
+    /// The pass over `due`, set off by `pass`. Each letter is looked at
+    /// again at its turn (`isDue`). `large` is how many letters in the
+    /// Outbox his Refresh takes that a page's pass would leave, said in the
+    /// connection log once the pass has a connection to take them over.
+    private func run(_ due: [String], on pass: Pass,
+                     via repository: MailRepository, large: Int) -> Task<Void, Never> {
         passing = true
         let time = BackgroundStretch("Upload Drafts", from: background)
         return Task {
@@ -1794,6 +1898,9 @@ final class LocalDrafts {
                 passWaiters = []
                 for waiter in waiters { waiter.resume() }
             }
+            if large > 0, await repository.isConnected {
+                Diagnostics.log(.note, "OUTBOX-REFRESH large=\(large)")
+            }
             var sending = true
             // Each looked at again at its turn: it may have been opened,
             // changed or sent since the pass began. After the question to
@@ -1801,9 +1908,7 @@ final class LocalDrafts {
             // between the look and the letter's going.
             for key in due {
                 guard await repository.isConnected else { return }
-                guard let letter = store.letter(key), isDue(letter, largeToo: largeToo) else {
-                    continue
-                }
+                guard let letter = store.letter(key), isDue(letter, on: pass) else { continue }
                 if letter.gone {
                     await tidy(key, in: repository)
                     continue
@@ -1833,15 +1938,15 @@ final class LocalDrafts {
         }
     }
 
-    /// Whether a pass takes `letter`: not while the composer has it open,
-    /// and, but for the leftovers of one sent or deleted, only a letter of
-    /// this account that names nothing by folder and UID alone across a
-    /// password saved since (`goesFromHere`), with no attempt that may have
-    /// reached Gmail from before one either, not refused since launch as
-    /// it stands, and small unless `largeToo`. A letter in the Outbox not
-    /// after a refusal every letter would meet (`sendingRefused`), and
-    /// small by what it has to fetch from Gmail
-    /// (`LocalDraft.fetchesLarge`).
+    /// Whether a pass set off by `pass` takes `letter`: not while the
+    /// composer has it open, and, but for the leftovers of one sent or
+    /// deleted, only a letter of this account that names nothing by folder
+    /// and UID alone across a password saved since (`goesFromHere`), with no
+    /// attempt that may have reached Gmail from before one either, not
+    /// refused since launch as it stands, and of a size that pass takes
+    /// (`LocalDraft.goes(by:)`). A letter in the Outbox not after a refusal
+    /// every letter would meet (`sendingRefused`). All of that holds for his
+    /// Refresh as for any other pass: only the size is his to override.
     ///
     /// Such an attempt is looked for in Sent Mail before the letter goes
     /// again, and after a save Sent Mail can be another mailbox's, where it
@@ -1853,15 +1958,13 @@ final class LocalDrafts {
     ///
     /// Nor one the pass has given up on (`isHeld`), which waits, listed
     /// and saying so, for his Send or Save Draft.
-    private func isDue(_ letter: LocalDraft, largeToo: Bool) -> Bool {
+    private func isDue(_ letter: LocalDraft, on pass: Pass) -> Bool {
         guard open[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
         guard goesFromHere(letter), !store.unsettledBeforeASave(letter), !isHeld(letter),
               refused[letter.key] != letter.version else { return false }
-        if letter.outbox != nil {
-            return !sendingRefused && (largeToo || !letter.fetchesLarge)
-        }
-        return largeToo || !letter.isLarge
+        if letter.outbox != nil, sendingRefused { return false }
+        return letter.goes(by: pass)
     }
 
     /// The letter kept as `key` is not tried again unasked as it stands at

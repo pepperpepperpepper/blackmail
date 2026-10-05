@@ -1977,6 +1977,36 @@ this host. Ordered by value, not by size.
       large alone, 19 + 8 MB, a video and two pictures), 6 (a Forward of
       the video), 7 and 8 (cut at 10 MB for 60 s: one copy, same
       Message-ID). Not yet: 2, 3, 4 on this build, six items, 9, and 10.*
+- [x] **B-072, Refresh sends what waits in the Outbox.** On the test iPad,
+      the test account only, every letter to the account itself, built
+      from the `refresh-outbox` worktree; merge only after a pass. Copy
+      down the `OUTBOX-`, `LETTER-` and `WIRE-` lines.
+      1. *The check.* Open a letter with a file over 1 MB (B-070's 19 MB
+      video letter does). Airplane Mode on. Forward it: the sheet closes
+      with "Message is in the Outbox…", and the Outbox has it. Airplane Mode
+      off. Stay in the Inbox a minute: it is still in the Outbox (a page
+      and the watch's check leave it). Tap Refresh: the list and the
+      folder counts come first, then "1 Unsent Message" under the list
+      goes away and the Outbox leaves the Mailboxes, and the log says
+      `OUTBOX-REFRESH large=1`, then `LETTER-PLAN`, one `WIRE-OUT`,
+      `LETTER-LATCH ok` and the 250. It goes once: one copy in the Inbox
+      and one in Sent Mail, and the Outbox empty.
+      2. *From the Outbox itself.* The same, but tap Refresh with the
+      Outbox open: its row says "Sending…" while it goes, and it goes,
+      once.
+      3. *A draft still waits.* Airplane Mode on, a new letter with a
+      photo over 1 MB, Cancel, Save Draft. Airplane Mode off, Refresh: it
+      stays in Drafts "On this iPad only". Go to the Home Screen: it goes
+      up, once.
+      4. *Leaving while it goes.* Airplane Mode on, the Forward of 1 and
+      the draft of 3 again. Airplane Mode off, tap Refresh, and go to the
+      Home Screen once the log says `OUTBOX-REFRESH large=1`. The log
+      says `OUTBOX-LEAVING owed`. Come back after a minute, and wait for
+      the Outbox to empty if it has not: the forward went once (one copy
+      in Sent Mail), and the draft is in Gmail's Drafts once, no longer
+      "On this iPad only".
+      *Seen 2026-10-05 (B-072): 1, one copy. 2 to 4 not tried on the
+      iPad; the host suite holds them.*
 
 ## Blocked on the owner
 

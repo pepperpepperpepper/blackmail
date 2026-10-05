@@ -391,7 +391,7 @@ final class LocalDraftsTests: XCTestCase {
             await repository.warmUp()
             await kept.uploadWaiting(to: repository)?.value
         }
-        await kept.uploadWaiting(to: repository, largeToo: true)?.value
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
         XCTAssertEqual(logins, 1, "coming back is not him trying again")
         XCTAssertEqual(kept.waiting.count, 1)
     }
@@ -464,7 +464,7 @@ final class LocalDraftsTests: XCTestCase {
         await server.releaseReplies(to: "APPEND")
 
         passTime.begun = []
-        await kept.uploadWaiting(to: repository, largeToo: true)?.value
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
         XCTAssertEqual(copies("Sunday").count, 1, "it goes as he leaves")
         XCTAssertTrue(text(of: copies("Sunday").first)
                         .contains(String(photoBytes.base64EncodedString().prefix(60))))
@@ -518,7 +518,7 @@ final class LocalDraftsTests: XCTestCase {
         let kept = makeKept()
         let repository = makeRepository()
         try await afterAPage(kept, repository)
-        await kept.uploadWaiting(to: repository, largeToo: true)?.value
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
         XCTAssertEqual(appends, 0)
         XCTAssertEqual(kept.waiting.map(\.key), ["letter-1"], "listed all the same")
 

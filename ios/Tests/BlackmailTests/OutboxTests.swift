@@ -942,7 +942,7 @@ final class OutboxTests: XCTestCase {
             await kept.uploadWaiting(to: repository)?.value
             try await afterAPage(kept, repository)
         }
-        await kept.uploadWaiting(to: repository, largeToo: true)?.value
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
         let auths = await submissions.commands().filter { $0.hasPrefix("AUTH") }
         XCTAssertEqual(auths.count, 1, "the refused password went once")
         XCTAssertEqual(kept.outbox.count, 2)
@@ -1013,8 +1013,8 @@ final class OutboxTests: XCTestCase {
 
     /// Photos on the iPad do not hold a letter in the Outbox back: it goes
     /// over a connection of its own. A forward's files fetched from Gmail
-    /// over the one IMAP connection do, a megabyte of them or more, until he
-    /// leaves the app.
+    /// over the one IMAP connection do, a megabyte of them or more, until his
+    /// Refresh (B-072, below) or until he leaves the app.
     func testOnlyWhatItFetchesFromGmailHoldsALetterBack() async throws {
         var photo = letter("Photo")
         // Its size what it is: Send checks a file on the iPad against the
@@ -1062,7 +1062,7 @@ final class OutboxTests: XCTestCase {
         await sentOffline(forward, as: "forward", kept: kept, repository: repository)
         try await afterAPage(kept, repository)
         XCTAssertEqual(kept.outbox.map(\.key), ["forward"], "the photo letter went")
-        await kept.uploadWaiting(to: repository, largeToo: true)?.value
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
         XCTAssertEqual(kept.outbox.map(\.key), [], "the forward as he leaves")
         let sent = await submissions.letters()
         XCTAssertEqual(sent.count, 2)
@@ -1960,11 +1960,11 @@ final class OutboxTests: XCTestCase {
     /// waits for the 250 that will never come: the app is ended there, and
     /// the pass is never heard from again.
     private func diesAfterData(_ kept: LocalDrafts, _ repository: IMAPMailRepository,
-                               largeToo: Bool = false) async throws {
+                               pass: LocalDrafts.Pass = .unasked) async throws {
         submissions.then { ScriptedSubmission(holdsLetterReply: true) }
         let made = submissions.made
         try await page(repository)
-        _ = try XCTUnwrap(kept.uploadWaiting(to: repository, largeToo: largeToo))
+        _ = try XCTUnwrap(kept.uploadWaiting(to: repository, for: pass))
         try await until {
             guard submissions.made > made, let last = submissions.last else { return false }
             return await last.isHoldingLetterReply
@@ -2072,7 +2072,7 @@ final class OutboxTests: XCTestCase {
         await sentOffline(self.letter("Third"), as: "third", kept: third,
                           repository: makeRepository())
         third.wentToBackground()
-        try await diesAfterData(third, makeRepository(), largeToo: true)
+        try await diesAfterData(third, makeRepository(), pass: .leaving)
         XCTAssertEqual(tries("third"), 0, "begun in the background: not counted")
         XCTAssertEqual(makeKept().store.letter("third")?.autoAttempts, 0)
     }
@@ -2290,7 +2290,7 @@ final class OutboxTests: XCTestCase {
         await sentOffline(letter("Waiting"), as: "waiting", kept: held, repository: repository)
         try await page(repository)
         XCTAssertNil(held.uploadWaiting(to: repository))
-        XCTAssertNil(held.uploadWaiting(to: repository, largeToo: true))
+        XCTAssertNil(held.uploadWaiting(to: repository, for: .leaving))
         await held.passEnded()
         var sent = await submissions.letters()
         XCTAssertEqual(sent.count, 0)
@@ -2508,7 +2508,7 @@ final class OutboxTests: XCTestCase {
         let away = makeKept()
         await sentOffline(letter("Fourth"), as: "fourth", kept: away, repository: makeRepository())
         away.wentToBackground()
-        try await diesAfterData(away, makeRepository(), largeToo: true)
+        try await diesAfterData(away, makeRepository(), pass: .leaving)
         XCTAssertNil(marked)
         XCTAssertEqual(tries("fourth"), 0)
 
@@ -2580,6 +2580,394 @@ final class OutboxTests: XCTestCase {
         XCTAssertTrue(sent.contains { $0.contains("Subject: Waiting") })
         XCTAssertTrue(sent.contains { $0.contains("Subject: Held") })
         XCTAssertEqual(back.outbox.count, 0)
+    }
+
+    // MARK: - His Refresh sends the Outbox's large letters (B-072)
+
+    /// A forward of a letter in the Inbox whose file, `count` bytes, is
+    /// fetched from Gmail before the forward can be built, named at its true
+    /// size; and the file.
+    private func forwardOfAFile(_ subject: String = "Garden video",
+                                bytes count: Int = 2_000_000) throws -> (Draft, Data) {
+        let file = Data((0..<count).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 11) })
+        let original = try XCTUnwrap(server.deliver(Server.Letter(
+            from: Server.sam, to: [Server.owner], subject: "The garden", date: Server.newestDate,
+            text: "The garden, filmed.\r\n", messageID: "<\(UUID().uuidString)@example.com>",
+            files: [Server.File(name: "Garden.mov", type: "VIDEO", subtype: "QUICKTIME",
+                                bytes: file)]), to: [Server.inbox])[Server.inbox])
+        var forward = letter(subject)
+        forward.attachments = [DraftAttachment(
+            source: .messagePart(messageID: "\(server.uidValidity(of: Server.inbox))/\(original)",
+                                 mailboxID: Server.inbox, section: "2"),
+            filename: "Garden.mov", mimeType: "video/quicktime", size: Int64(count))]
+        return (forward, file)
+    }
+
+    /// What the passes have said in the connection log of his Refresh and
+    /// of his leaving the app.
+    private var passLines: [String] {
+        Diagnostics.entries.map(\.text).filter {
+            $0.hasPrefix("OUTBOX-REFRESH") || $0.hasPrefix("OUTBOX-LEAVING")
+        }
+    }
+
+    /// A draft with 2 MB of photos on the iPad: one only leaving the app
+    /// takes (`LocalDraft.isLarge`).
+    private func photosDraft() throws -> Draft {
+        var photos = letter("Photos")
+        let staged = try AttachmentStore.write(Data(repeating: 7, count: 3_000),
+                                               named: "Garden.jpg")
+        photos.attachments = [DraftAttachment(source: .localFile(staged), filename: "Garden.jpg",
+                                              mimeType: "image/jpeg", size: 2_000_000)]
+        return photos
+    }
+
+    /// No pass set off. One that was is waited for, so that it never
+    /// outlives the test.
+    private func noPass(_ pass: Task<Void, Never>?, _ message: String = "",
+                        file: StaticString = #filePath, line: UInt = #line) async {
+        XCTAssertNil(pass, message, file: file, line: line)
+        await pass?.value
+    }
+
+    /// Seen on the iPad, 2026-10-05 (B-070): a forward of a video, cut off,
+    /// waited in the Outbox, Refresh did not send it, and it went only as he
+    /// left the app. A forward with 2 MB to fetch from Gmail still waits
+    /// through a page's pass, and goes at his Refresh, once, its file whole,
+    /// the try counted as any try in front of him is (B-057).
+    func testARefreshSendsAForwardThatAPageLeavesInTheOutbox() async throws {
+        Diagnostics.clear()
+        let (forward, file) = try forwardOfAFile()
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        XCTAssertEqual(kept.store.letter("forward")?.fetchesLarge, true)
+
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(kept.outbox.map(\.key), ["forward"], "a page leaves it")
+        XCTAssertEqual(submissions.made, 0)
+
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+        try await page(repository)
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository, for: .refresh))
+        try await until { [submissions] in await submissions!.first?.isHoldingLetterReply == true }
+        XCTAssertEqual(tries("forward"), 1, "counted, as a try in front of him is")
+        await submissions.first?.releaseLetterReply()
+        await pass.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        let encoded = file.base64EncodedString()
+        XCTAssertTrue(sent.first?.contains(String(encoded.prefix(60))) == true)
+        XCTAssertTrue(sent.first?.contains(String(encoded.suffix(40))) == true)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(kept.store.letters().count, 0)
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH large=1"])
+
+        await noPass(kept.uploadWaiting(to: repository, for: .refresh), "nothing left")
+        let after = await submissions.letters()
+        XCTAssertEqual(after.count, 1, "once")
+    }
+
+    /// His Refresh takes every letter in the Outbox, but a draft as a page
+    /// does: a small one goes up, and one with a megabyte or more of photos
+    /// waits for him to leave the app, as before.
+    func testARefreshLeavesALargeDraftForHimToLeaveTheApp() async throws {
+        let (forward, _) = try forwardOfAFile()
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        kept.keep(try photosDraft(), as: "photos", unfinished: false)
+        keptDraft("Small", as: "small", kept: kept)
+
+        try await page(repository)
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "the Outbox's forward")
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(appends.count, 1, "the small draft")
+        XCTAssertEqual(kept.waiting.map(\.key), ["photos"], "the large draft waits")
+
+        await kept.uploadWaiting(to: repository, for: .leaving)?.value
+        XCTAssertEqual(appends.count, 2, "as he leaves")
+        XCTAssertEqual(kept.waiting.count, 0)
+    }
+
+    /// His Refresh overrides the size and nothing else. A large forward the
+    /// pass has given up on (B-057), one open in the composer, and one
+    /// refused as it stands stay where they are, and the one refused is not
+    /// tried again by the next Refresh.
+    func testARefreshTakesNoLetterHeldOpenOrRefused() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        let (held, _) = try forwardOfAFile("Held")
+        await sentOffline(held, as: "held", kept: kept, repository: repository)
+        XCTAssertTrue(kept.store.noteTries("held", LocalDrafts.unfinishedTries))
+        let (open, _) = try forwardOfAFile("Open")
+        await sentOffline(open, as: "open", kept: kept, repository: repository)
+        var gone = letter("Gone")
+        gone.attachments = [DraftAttachment(
+            source: .messagePart(messageID: "\(server.uidValidity(of: Server.inbox))/99999",
+                                 mailboxID: Server.inbox, section: "2"),
+            filename: "Garden.mov", mimeType: "video/quicktime", size: 2_000_000)]
+        await sentOffline(gone, as: "gone", kept: kept, repository: repository)
+        kept.opened("open")
+
+        try await page(repository)
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0)
+        XCTAssertNotNil(kept.whyNotSent("gone"), "tried, and refused for its own reason")
+
+        server.clearLog()
+        await noPass(kept.uploadWaiting(to: repository, for: .refresh), "none of them is due")
+        XCTAssertEqual(server.log.map(\.verb), [])
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0)
+        XCTAssertEqual(kept.store.letters().map(\.key).sorted(), ["gone", "held", "open"])
+        XCTAssertEqual(kept.outboxRows.count, 2, "the open one is in the composer")
+    }
+
+    /// After a refused password nothing goes from the Outbox unasked until
+    /// his Send has gone, and his Refresh is not his Send: the large letter
+    /// stays, and the refused password goes once.
+    func testARefreshSendsNoPasswordTheServerRefused() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Small"), as: "small", kept: kept, repository: repository)
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        submissions.then { ScriptedSubmission(refusesPassword: true) }
+
+        try await page(repository)
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        await noPass(kept.uploadWaiting(to: repository, for: .refresh))
+        let auths = await submissions.commands().filter { $0.hasPrefix("AUTH") }
+        XCTAssertEqual(auths.count, 1, "the refused password went once")
+        XCTAssertEqual(kept.outbox.count, 2)
+    }
+
+    /// A large forward whose DATA went and whose 250 never came back is
+    /// looked for in Sent Mail before his Refresh sends it again, as before
+    /// any pass: too soon after the cut nothing is sent, and once Sent Mail
+    /// has it, nothing is. One copy, ever.
+    func testARefreshLooksInSentMailBeforeItSendsALargeForwardAgain() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        let (forward, _) = try forwardOfAFile()
+        await sentAndCutOff(forward, as: "forward", kept: kept, repository: repository)
+        XCTAssertEqual(kept.outbox.first?.outboxState, .beingSent)
+        let messageID = try XCTUnwrap(kept.store.letter("forward")?.outbox)
+
+        try await page(repository)
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        XCTAssertEqual(searches.count, 1, "asked first")
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "too soon after the cut: nothing more")
+        XCTAssertEqual(kept.outbox.map(\.key), ["forward"])
+
+        fileInSentMail(messageID)
+        settle()
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "found in Sent Mail: not sent again")
+        XCTAssertEqual(searches.count, 2)
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    /// His Refresh while a pass is on its way is not dropped: the large
+    /// letter that pass leaves goes once it has ended, once, however often
+    /// he taps meanwhile. A pass nobody asked for is dropped then, as
+    /// before. And again the next time: the owed pass is let go once it has
+    /// set off, so a Refresh during a later pass is owed one of its own and
+    /// does not get back the one that has ended.
+    func testARefreshDuringARunningPassSendsTheLargeLetterOnceItEnds() async throws {
+        Diagnostics.clear()
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Small"), as: "small", kept: kept, repository: repository)
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+
+        try await page(repository)
+        let running = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { [submissions] in await submissions!.first?.isHoldingLetterReply == true }
+        let unasked = kept.uploadWaiting(to: repository)
+        XCTAssertNil(unasked, "one nobody asked for is dropped")
+        let refresh = kept.uploadWaiting(to: repository, for: .refresh)
+        XCTAssertNotNil(refresh, "his Refresh is not")
+        let again = kept.uploadWaiting(to: repository, for: .refresh)
+        XCTAssertEqual(again, refresh, "one, however often he taps")
+        XCTAssertEqual(submissions.made, 1, "nothing more while the pass runs")
+
+        await submissions.first?.releaseLetterReply()
+        await running.value
+        await refresh?.value
+        await again?.value
+        await unasked?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertTrue(sent.first?.contains("Subject: Small") == true)
+        XCTAssertTrue(sent.last?.contains("Subject: Garden video") == true)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH owed", "OUTBOX-REFRESH large=1"])
+        await noPass(kept.uploadWaiting(to: repository, for: .refresh))
+
+        // The second time.
+        await sentOffline(letter("Second"), as: "second", kept: kept,
+                          repository: makeRepository())
+        let (video, _) = try forwardOfAFile("Second video")
+        await sentOffline(video, as: "video", kept: kept, repository: makeRepository())
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+        try await page(repository)
+        let made = submissions.made
+        let next = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { [submissions] in
+            guard submissions!.made > made, let last = submissions!.last else { return false }
+            return await last.isHoldingLetterReply
+        }
+        let owed = kept.uploadWaiting(to: repository, for: .refresh)
+        XCTAssertNotNil(owed)
+        XCTAssertNotEqual(owed, refresh, "a pass of its own, not the one that has ended")
+
+        await submissions.last?.releaseLetterReply()
+        await next.value
+        await owed?.value
+        let all = await submissions.letters()
+        XCTAssertEqual(all.count, 4)
+        XCTAssertTrue(all.last?.contains("Subject: Second video") == true)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH owed", "OUTBOX-REFRESH large=1",
+                                   "OUTBOX-REFRESH owed", "OUTBOX-REFRESH large=1"])
+    }
+
+    /// Leaving the app while his Refresh's pass takes a forward's video is
+    /// not dropped either. A large draft, which only leaving takes, goes
+    /// once that pass has ended, once. Before, leaving set nothing off while
+    /// a pass ran, and the draft waited for the next time he left with no
+    /// pass on its way; his Refresh's pass, minutes long with a video, is
+    /// where he is likely to leave. The time asked of iOS as he leaves is
+    /// given back only after the leaving pass's own: none between the two.
+    func testLeavingDuringHisRefreshsPassTakesTheLargeDraftOnceItEnds() async throws {
+        Diagnostics.clear()
+        let kept = makeKept()
+        let repository = makeRepository()
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        kept.keep(try photosDraft(), as: "photos", unfinished: false)
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+
+        try await page(repository)
+        let begun = passTime.begun.count
+        let refresh = try XCTUnwrap(kept.uploadWaiting(to: repository, for: .refresh))
+        try await until { [submissions] in await submissions!.first?.isHoldingLetterReply == true }
+        kept.wentToBackground()
+        let leaving = kept.uploadWaiting(to: repository, for: .leaving)
+        XCTAssertNotNil(leaving, "leaving is not dropped")
+        XCTAssertEqual(passTime.begun.count, begun + 2, "time asked for as he leaves")
+        XCTAssertEqual(appends.count, 0, "nothing more while the pass runs")
+
+        await submissions.first?.releaseLetterReply()
+        await refresh.value
+        await leaving?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(appends.count, 1, "the large draft, once")
+        XCTAssertEqual(kept.waiting.count, 0)
+        XCTAssertEqual(passTime.begun.count, begun + 3, "and the leaving pass's own")
+        XCTAssertEqual(Array(passTime.ended.suffix(3)), [begun + 1, begun + 3, begun + 2],
+                       "the time asked for as he left given back after the leaving pass's")
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH large=1", "OUTBOX-LEAVING owed"])
+        await noPass(kept.uploadWaiting(to: repository, for: .leaving), "nothing left")
+    }
+
+    /// His Refresh and then his leaving, both while a page's pass runs: one
+    /// pass is owed, of the more asked for, leaving's, and it takes the
+    /// Outbox's large forward and the large draft once the page's pass has
+    /// ended. A Refresh after that does not make it his Refresh's again.
+    /// Time is asked of iOS once, as he first leaves, however often he does.
+    func testLeavingAfterAnOwedRefreshMakesTheOwedPassLeavings() async throws {
+        Diagnostics.clear()
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter("Small"), as: "small", kept: kept, repository: repository)
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: kept, repository: repository)
+        kept.keep(try photosDraft(), as: "photos", unfinished: false)
+        submissions.then { ScriptedSubmission(holdsLetterReply: true) }
+
+        try await page(repository)
+        let begun = passTime.begun.count
+        let running = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { [submissions] in await submissions!.first?.isHoldingLetterReply == true }
+        let refresh = kept.uploadWaiting(to: repository, for: .refresh)
+        XCTAssertNotNil(refresh)
+        kept.wentToBackground()
+        XCTAssertEqual(kept.uploadWaiting(to: repository, for: .leaving), refresh, "one owed pass")
+        kept.cameToForeground()
+        XCTAssertEqual(kept.uploadWaiting(to: repository, for: .refresh), refresh)
+        kept.wentToBackground()
+        XCTAssertEqual(kept.uploadWaiting(to: repository, for: .leaving), refresh)
+        XCTAssertEqual(passTime.begun.count, begun + 2, "time asked for once")
+
+        await submissions.first?.releaseLetterReply()
+        await running.value
+        await refresh?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2)
+        XCTAssertTrue(sent.last?.contains("Subject: Garden video") == true)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(appends.count, 1, "the large draft, by the leaving pass")
+        XCTAssertEqual(kept.waiting.count, 0)
+        XCTAssertEqual(passTime.begun.count, begun + 3)
+        XCTAssertEqual(Array(passTime.ended.suffix(3)), [begun + 1, begun + 3, begun + 2])
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH owed", "OUTBOX-LEAVING owed"])
+    }
+
+    /// His Refresh's pass with no connection takes nothing and says nothing
+    /// of the large letter it would have taken: `OUTBOX-REFRESH large=` marks
+    /// a letter going. With the connection up it says so, and the letter
+    /// goes.
+    func testARefreshWithNoConnectionSaysNothingOfALargeLetter() async throws {
+        Diagnostics.clear()
+        let kept = makeKept()
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: kept, repository: makeRepository())
+        let repository = makeRepository()
+        let connected = await repository.isConnected
+        XCTAssertFalse(connected)
+
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository, for: .refresh))
+        await pass.value
+        XCTAssertEqual(passLines, [])
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0)
+        XCTAssertEqual(kept.outbox.map(\.key), ["forward"])
+
+        try await page(repository)
+        await kept.uploadWaiting(to: repository, for: .refresh)?.value
+        XCTAssertEqual(passLines, ["OUTBOX-REFRESH large=1"])
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    /// A launch that holds the pass (B-057) sends nothing at his Refresh
+    /// either.
+    func testAHeldLaunchSendsNothingAtHisRefresh() async throws {
+        let store = LocalDraftStore(root: root)
+        let held = LocalDrafts(store: store, account: server.username, background: passTime.time,
+                               holdsPasses: true)
+        let repository = makeRepository()
+        let (forward, _) = try forwardOfAFile()
+        await sentOffline(forward, as: "forward", kept: held, repository: repository)
+        try await page(repository)
+        await noPass(held.uploadWaiting(to: repository, for: .refresh))
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0)
+        XCTAssertEqual(held.outbox.count, 1)
     }
 }
 

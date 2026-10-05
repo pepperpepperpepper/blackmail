@@ -110,12 +110,15 @@ enum Outbox {
     /// the app's own: where the letter is, and what will happen to it.
     ///
     /// "and Blackmail is open", because nothing sends it while the app is
-    /// not in front: every pass is the app's own doing, at a page, on coming
-    /// back, as he leaves, at the watch's check (`LocalDrafts.uploadWaiting`),
-    /// and there is no background task. Said as "when the iPad is
-    /// connected", a Wi-Fi that came back while the app was put away left
-    /// the letter unsent for as long as it stayed put away, with nothing he
-    /// had been told to do about it.
+    /// not in front: every pass is the app's own doing, at a page, at his
+    /// Refresh, on coming back, as he leaves, at the watch's check
+    /// (`LocalDrafts.uploadWaiting`), and there is no background task. A
+    /// letter with a megabyte or more to fetch from Gmail first, a forward
+    /// of a video, goes at his Refresh or as he leaves, not at a page
+    /// (B-072); the notice does not say so, as Mail's says nothing of when.
+    /// Said as "when the iPad is connected", a Wi-Fi that came back while
+    /// the app was put away left the letter unsent for as long as it stayed
+    /// put away, with nothing he had been told to do about it.
     static let notice = "Message is in the Outbox. It will be sent when the iPad is connected "
         + "and Blackmail is open."
 

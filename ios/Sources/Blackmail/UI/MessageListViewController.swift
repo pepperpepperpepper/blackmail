@@ -21,6 +21,10 @@ final class MessageListViewController: UITableViewController {
     var onSelectThread: ((MessageThread) -> Void)?
     var onMessagesChanged: (() -> Void)?
     var onRefreshRequested: (() -> Void)?
+    /// Returns once the folder counts asked for have come, and at once when
+    /// none is on its way (`MailboxListViewController.countsSwept`): his
+    /// Refresh's pass waits for them (`RefreshTap`, B-072).
+    var countsCame: () async -> Void = {}
     /// A new password was checked and saved in Settings, and Settings has
     /// gone: the screens are to be built again over a repository that signs
     /// in with it (`PasswordChange`), and to put up what the check had to
@@ -148,9 +152,14 @@ final class MessageListViewController: UITableViewController {
     private var drafts = DraftOpening()
 
     /// The letters kept on the iPad (B-051): listed at the top of Drafts,
-    /// and taken to the server whenever a page here has come. The Outbox's
-    /// are among them (B-052): its list is these alone.
+    /// and taken to the server whenever a page here has come, and at his
+    /// Refresh once its counts have come too (B-072). The Outbox's are
+    /// among them (B-052): its list is these alone.
     private let kept = LocalDrafts.shared
+
+    /// The previews of the newest page `reload` last fetched, while they
+    /// come: his Refresh's pass waits for them (`RefreshTap`, B-072).
+    private var pagePreviews: Task<Void, Never>?
 
     /// The Outbox, which is on the iPad and not on the server: its rows are
     /// the letters waiting there, it has no search, no day to jump to and
@@ -537,15 +546,19 @@ final class MessageListViewController: UITableViewController {
     ///
     /// A page that came means the connection works, so the letters waiting
     /// on the iPad go to the server after it (`LocalDrafts.uploadWaiting`):
-    /// at launch, at a Refresh, on opening a folder, on coming back.
+    /// at launch, on opening a folder, on coming back, the small ones. Not
+    /// with `passing` false, for his Refresh, whose own pass goes once the
+    /// counts have come as well and sends the Outbox's large letters too
+    /// (`refreshTapped`, B-072).
     @MainActor
     @discardableResult
-    func reload(keepingPlace: Bool = false, quietly: Bool = false) async -> Bool {
+    func reload(keepingPlace: Bool = false, quietly: Bool = false,
+                passing: Bool = true) async -> Bool {
         // Nothing to fetch: what is on the iPad, and a pass over the
         // connection if one is up, as after a page.
         if isOutbox {
             listOutbox()
-            kept.uploadWaiting(to: repository)
+            if passing { kept.uploadWaiting(to: repository) }
             return true
         }
         listGeneration += 1
@@ -586,8 +599,8 @@ final class MessageListViewController: UITableViewController {
             regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())
             updateEmptyState()
             updatePageFooter()
-            loadPreviews(for: unpreviewed)
-            kept.uploadWaiting(to: repository)
+            pagePreviews = loadPreviews(for: unpreviewed)
+            if passing { kept.uploadWaiting(to: repository) }
             return true
         } catch {
             // The letters kept on the iPad are listed all the same: with no
@@ -1273,14 +1286,16 @@ final class MessageListViewController: UITableViewController {
     ///
     /// One mailbox at a time, in ONE task, stopping as soon as the list has
     /// been replaced: `PreviewPass`, which is where the order and the reasons
-    /// for it live, and where they are tested.
+    /// for it live, and where they are tested. Returns that task, nil when
+    /// there is nothing to fetch.
     @MainActor
-    private func loadPreviews(for rows: [MessageSummary]) {
-        guard !rows.isEmpty else { return }
+    @discardableResult
+    private func loadPreviews(for rows: [MessageSummary]) -> Task<Void, Never>? {
+        guard !rows.isEmpty else { return nil }
         let generation = listGeneration
         let groups = PreviewPass.groups(for: rows)
         let repository = self.repository
-        Task { @MainActor [weak self] in
+        return Task { @MainActor [weak self] in
             await PreviewPass.run(
                 groups,
                 fetch: { ids, mailboxID in
@@ -1449,10 +1464,23 @@ final class MessageListViewController: UITableViewController {
     /// Refreshes the folders too, via the container — a person who taps
     /// Refresh means "get my mail", not "get my mail but leave the unread
     /// counts beside the folder names stale".
+    ///
+    /// And sends what waits in the Outbox, large letters too, the owner's
+    /// rule to match Mail, in any folder, the Outbox included: once the
+    /// page, its previews and the counts have come, so a forward's files
+    /// fetched from Gmail do not hold them up (`RefreshTap`, B-072). The page
+    /// sets off no pass of its own. A page that did not come sets off none,
+    /// as before.
     @objc private func refreshTapped() {
         Task { @MainActor in
-            await reload()
-            onRefreshRequested?()
+            await RefreshTap.run(
+                page: { await self.reload(passing: false) },
+                counts: { self.onRefreshRequested?() },
+                shown: {
+                    await self.pagePreviews?.value
+                    await self.countsCame()
+                },
+                pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) })
         }
     }
 

@@ -117,6 +117,14 @@ final class MailboxListViewController: UITableViewController {
         sweeps.request(quietly: quietly)
     }
 
+    /// Returns once no sweep of the counts is running or owed, and at once
+    /// when none is or they are held (`SweepCoalescer.idle`): his Refresh's
+    /// pass goes after the counts it asked for (`RefreshTap`, B-072).
+    @MainActor
+    func countsSwept() async {
+        await sweeps.idle()
+    }
+
     /// Lets the counts go at launch, once the Inbox's first page has been
     /// tried. A request made before this waits for it, and is dropped if
     /// the page could not be fetched: the sweep would only connect again
