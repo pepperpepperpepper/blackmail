@@ -49,6 +49,14 @@ final class MailboxListViewController: UITableViewController {
         self.repository = repository
         super.init(style: .plain)
         title = "Mailboxes"
+        // The highlight stays on the open folder when the pane comes back
+        // into view (B-071). A `UITableViewController` clears it by default
+        // whenever its view is about to appear, and a file's preview, which
+        // covers the whole screen, makes it appear again when it closes: the
+        // folder lost its highlight while its letters were still beside it.
+        // Nothing here relied on that clearing; the highlight moves only by
+        // `select(mailboxID:)` and a tap.
+        clearsSelectionOnViewWillAppear = false
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -278,7 +286,10 @@ final class MailboxListViewController: UITableViewController {
         content.text = mailbox.displayName
         content.textProperties.font = Theme.fontMailboxName
         content.textProperties.color = Theme.primaryText
-        content.image = UIImage(systemName: icon(for: mailbox.role))
+        // At a fixed size (B-071). The room UIKit gives it, and the gap to
+        // the name, are held by the container (`RootViewController`).
+        content.image = Theme.symbol(icon(for: mailbox.role))
+        content.imageProperties.preferredSymbolConfiguration = Theme.symbolSize
         content.imageProperties.tintColor = Theme.tintBlue
         content.directionalLayoutMargins.leading =
             Theme.mailboxIconCenterX - 11 + CGFloat(mailbox.depth) * Theme.mailboxIndentStep

@@ -186,7 +186,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         var items: [UIBarButtonItem] = []
         for action in Theme.ToolbarAction.allCases {
             guard let (name, sel) = spec[action] else { continue }
-            let item = UIBarButtonItem(image: UIImage(systemName: name),
+            // At a fixed size, as the type is, so the buttons keep their
+            // places at any text size (B-071).
+            let item = UIBarButtonItem(image: Theme.symbol(name),
                                        style: .plain, target: self, action: sel)
             item.tintColor = Theme.tintBlue
             item.width = Theme.minHitTarget      // 44 pt even where the glyph is smaller
