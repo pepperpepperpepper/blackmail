@@ -442,8 +442,8 @@ enum SharedPhoto {
     /// sends it unless "Location" is switched off in the share sheet's
     /// Options; he would not know it was there, and in a photo taken at
     /// home it is his address, to whoever the letter is forwarded to. Kept
-    /// out pending the owner's word (B-036, 2026-10-05); this list and
-    /// `keptOwn` are where that is decided. Nor the orientation: the
+    /// out; the owner, asked, finds it does not matter either way (B-036,
+    /// 2026-10-05). This list and `keptOwn` are where that is decided. Nor the orientation: the
     /// picture is turned upright as it is made
     /// (`kCGImageSourceCreateThumbnailWithTransform`), and a tag left
     /// saying to turn it would turn it again. Nor the camera, lens,

@@ -2197,9 +2197,10 @@ What changed, in the share extension only:
 
 What still differs from Mail, and why:
 
-- **The location is still taken off**, from every photo, pending the
-  owner, who is being asked separately. Mail sends it unless Location is
-  switched off. It is decided in one place, the two lists of what may go:
+- **The location is still taken off**, from every photo. Mail sends it
+  unless Location is switched off. The owner, asked, 2026-10-05:
+  "location is irrelevant", so it stays as it is; and of the rest of this
+  list, "the rest of these concessions are fine". It is decided in one place, the two lists of what may go:
   `SharedPhoto.kept` for a JPEG made here and `SharedPhoto.keptOwn` for one
   sent as its own bytes; `SharedPhoto.keepsMoreThanReplaced` checks the
   second after it is written. A consequence of a list: the camera, the
