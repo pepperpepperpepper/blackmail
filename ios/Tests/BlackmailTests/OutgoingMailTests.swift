@@ -222,37 +222,6 @@ final class OutgoingMailTests: XCTestCase {
         XCTAssertTrue(wire.hasSuffix("--" + mixed + "--\r\n"))
     }
 
-    /// What the change was for, read from the builder's source, since the
-    /// letter is the same either way: each file's base64 made where it is
-    /// written into the letter and nowhere before, never through
-    /// `terminated`, which would copy it again; never an array of lines;
-    /// the letter's room asked for once. At Send in the share extension
-    /// the peak went from 5.4 to 4.1 times the files, on the host.
-    func testEachFilesBase64IsMadeOnlyAsItIsWritten() throws {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Sources/Blackmail/MIME/RFC5322Builder.swift")
-        let code = try String(contentsOf: url, encoding: .utf8)
-            .components(separatedBy: "\n")
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
-            .joined(separator: " ")
-            .split(whereSeparator: { $0 == " " || $0 == "\t" })
-            .joined(separator: " ")
-        func count(_ step: String) -> Int { code.components(separatedBy: step).count - 1 }
-        XCTAssertEqual(count("base64Wrapped(att.data)"), 1)
-        XCTAssertEqual(count("data: att.data)"), 1, "the file kept as it is until then")
-        let reserved = code.range(of: "out.reserveCapacity(")
-        XCTAssertNotNil(reserved)
-        let rest = reserved.map { String(code[$0.lowerBound...]) } ?? ""
-        for step in ["for att in encodedAttachments {",
-                     "out += crlf out += base64Wrapped(att.data) out += crlf }"] {
-            XCTAssertTrue(rest.contains(step), step)
-        }
-        XCTAssertEqual(count("terminated(att."), 0)
-        XCTAssertEqual(count("lines.append(String(encoded["), 0)
-        XCTAssertEqual(count("String(unsafeUninitializedCapacity: length)"), 1)
-    }
-
     // MARK: - The HTML twin
 
     private func alternativeMessage(attachments: [(filename: String, mimeType: String,

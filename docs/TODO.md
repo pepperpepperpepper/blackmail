@@ -200,10 +200,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       for a picture with no name; shrunk only when it does not fit or
       cannot go as itself, at a factor the memory left allows, or left
       out and said (B-036, "2026-10-05: as Apple Mail does"). Fits: in
-      the 25 MB, and in the memory Send builds the letter in, at five
-      times its files; its own bytes read back before they go, and made
-      a JPEG if they still say where. The checks left are the numbered
-      list at the end of "Blocked on the iPad coming back".*
+      the 25 MB; its own bytes read back before they go, and made a JPEG
+      if they still say where. The checks left are the numbered list at
+      the end of "Blocked on the iPad coming back".* *Changed again
+      2026-10-05, not yet seen on the iPad: Send makes the letter from
+      the staged files as it goes, never whole, so the memory at Send no
+      longer shrinks a photo; videos are asked for, up to five, and one
+      left out is said (B-070).*
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
@@ -232,7 +235,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       B-067.*
 - [ ] Mark as Unread and Move to Junk from the Flag menu.
 - [ ] Reply with the original's attachments.
-- [ ] Attach documents from Files, and video.
+- [ ] Attach documents from Files, and video. *The app's picker is
+      unchanged by B-070: photos only, made a JPEG at 0.85. The share
+      sheet takes videos since B-070; Send streams them from the disk.*
 - [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
@@ -1710,11 +1715,9 @@ this host. Ordered by value, not by size.
       under its library name, IMG_ and four digits, and the letter brings
       it so. Its line: `read=public.jpeg`, `name=file "IMG_NNNN.JPG"` (or
       `.jpg`, Photos' JPEG of a HEIC), `way=own bytes, metadata replaced`,
-      and `bytes=` the size the attachment arrives at. If IMG_0776's says
-      `(not as its own bytes: more than Send could build, room for R MB)`
-      instead, its file is more than the memory left lets Send build: note
-      R and its `bytes=`, see it as in 4, and make this check with the
-      camera photo. On the host: the size it was taken at, the original's
+      and `bytes=` the size the attachment arrives at. Since B-070 no line
+      says "more than Send could build": the memory at Send no longer
+      shrinks a photo. On the host: the size it was taken at, the original's
       in DCIM (8064 by 6048 for IMG_0776, 4032 by 3024 for one from the
       camera), never a half of it; the same pixels as the original where
       that is a JPEG (`im.tobytes()` equal for both); no GPS anywhere; no
@@ -1725,24 +1728,25 @@ this host. Ordered by value, not by size.
       Any EXIF beyond those few is ImageIO's writing; list it.
       2. *Five full-size photos at once.* The sheet stays, lists all five
       by their names, has no line saying a photo could not be attached,
-      and all five arrive. Five `SHARE-PICTURE` lines. Those that fit the
-      room Send has go as in 1; the first that does not says `(not as its
-      own bytes: more than Send could build, room for R MB)` and goes as
-      in 4. Note R, line by line, and how many went as their own bytes.
+      and all five arrive. Five `SHARE-PICTURE` lines, each as in 1, own
+      bytes, while they fit the 25 MB together; one past it says `(not as
+      its own bytes: more than the letter's room, N MB left)` and goes as
+      in 4. Note how many went as their own bytes.
       3. *The 48-megapixel JPEG alone* (IMG_0776: 8064 by 6048, EXIF
       orientation 8, a GPS tag), which made the sheet vanish on
       2026-10-04: the sheet stays. Its line says own bytes and it arrives
-      at 8064 by 6048, orientation 8, no GPS anywhere; or, where its
-      `bytes=` are more than the room Send has, it says so, as in 1, and
-      it arrives as in 4. Then the 64-megapixel panorama alone, and a
-      48-megapixel HEIC, an iPhone's HEIF Max, where one can be had: its
-      line says what Photos offered for it and which way it went.
+      at 8064 by 6048, orientation 8, no GPS anywhere. Then the
+      64-megapixel panorama alone, and a 48-megapixel HEIC, an iPhone's
+      HEIF Max, where one can be had: its line says what Photos offered
+      for it and which way it went.
       4. *A photo too large for the room, shrunk.* Share the camera photos
-      and the 48-megapixel JPEG last, five at once. Those that fit go as
-      their own bytes. The first that does not says why, `(not as its own
-      bytes: more than Send could build, room for R MB)`, then `way=JPEG
-      at factor F, N MB available`, and arrives as a .jpg, IMG_NNNN.jpg,
-      at the size F gives (for the 48-megapixel JPEG a quarter, 1512 by
+      and the 48-megapixel JPEG last, five at once. Those that fit the
+      letter's 25 MB go as their own bytes. A photo is shrunk only past
+      that room (B-070): no line says "more than Send could build". The
+      first that does not fit says why, `(not as its own bytes: more than
+      the letter's room, N MB left)`, then `way=JPEG at factor F, N MB
+      available`, and arrives as a .jpg, IMG_NNNN.jpg, at the size F
+      gives (for the 48-megapixel JPEG a quarter, 1512 by
       2016, upright, stored 8064 by 6048 with orientation 8, with less
       than 264 MB left), upright in its pixels, no orientation tag, no GPS
       anywhere, the date. Then a video of 15 to 24 MB and the
@@ -1750,20 +1754,23 @@ this host. Ordered by value, not by size.
       together: the JPEG's line says `more than the letter's room, N MB
       left`. The sheet says nothing of one left out unless one is.
       5. *A letter near the limit, sent.* Share a video of 20 to 24 MB
-      alone, which is weighed against the 25 MB and not against the memory
-      at Send, and Send it. The sheet must close at the 250, and the
-      letter arrive. Copy down its three `SHARE-SEND` lines: the memory
-      left with the files read, once the letter is built, and once it has
-      gone, and `M MB at the least`, how near the building came to the
-      limit. Then the same three lines for the letter of 2. An extension
-      killed at Send leaves no log: the sheet goes at "Sending…" and
-      nothing arrives; note that, and the size shared. A pass on the test
-      iPad, allowed 180 MB, says nothing of his, perhaps 120 MB: make it
-      again there when his can be had.
+      alone, weighed against the 25 MB alone, and Send it. The sheet must
+      close at the 250, and the letter arrive. Copy down its lines: its
+      `SHARE-FILE`; `LETTER-PLAN` with `raw=`, `payload=` and `ms=`; its
+      `LETTER-FILE 1 bytes= crc=`; `MAIL FROM … SIZE=` the `raw=`;
+      `LETTER-LATCH ok`; one `WIRE-OUT` and one `WIRE-ACK`; and the three
+      `SHARE-SEND` lines: the memory left with the files read, in the
+      rehearsal, before DATA, and once it has gone, `M MB at the least`
+      since the extension started, and `W MB at the least while it went`
+      (B-070). Then the same lines for the letter of 2. An extension killed
+      at Send leaves no log: the sheet goes at "Sending…" and nothing
+      arrives; note that, and the size shared. A pass on the test iPad,
+      allowed 180 MB, says nothing of his, perhaps 120 MB: make it again
+      there when his can be had.
       6. *A screenshot, and a GIF.* The screenshot's line: `name=file
       "IMG_NNNN.PNG"`, `way=copied whole`; it arrives as the .PNG it was,
       its name's case kept. A moving GIF arrives as the .gif it was, still
-      moving, whatever its size up to the room Send has; the old 5 MB
+      moving, whatever its size up to the letter's room; the old 5 MB
       bound is gone. If either's `read=` is `public.jpeg`, note it: Photos
       then offers a JPEG ahead of it.
       7. *A picture with no name.* Take a screenshot, tap its thumbnail,
@@ -1805,8 +1812,10 @@ this host. Ordered by value, not by size.
       15. *A `mailto:` link* tapped in a letter opens the app's composer
       with its address in To and his signature under the body. Whether
       one tapped in another app comes here is only noted.
-      16. *A video over 25 MB*, shared from Photos: the sheet comes up
-      without it, and the letter goes without it.
+      16. *A video over 25 MB*, shared from Photos alone: the sheet says
+      "The video could not be attached." in place of the letter, and no
+      letter goes (B-070; the words approved by the owner). Its
+      `SHARE-FILE` line says `went=left out, more than the letter's room`.
       17. *A signature changed in Settings* reaches the next share: the
       sheet's letter has the new one under the body.
       *Seen 2026-10-04, before the change of 2026-10-05, on a build
@@ -1830,6 +1839,62 @@ this host. Ordered by value, not by size.
       any test draft still beginning with the two lines.
       *Seen 2026-10-05, all as written, the draft's copy in Gmail one
       plain part too (B-068).*
+
+- [ ] **B-070, Send streams the letter from its files.** On the test
+      iPad, the test account only, built from the `streaming-send`
+      worktree; merge only after a pass. For every check copy down the
+      `LETTER-`, `SHARE-` and `WIRE-` lines. To check a file that arrived,
+      fetch it over IMAP on the host from the test account and compute
+      `zlib.crc32` and its sha256.
+      1. *A 19 MB IMG_NNNN.MOV, alone, from Photos.* Blackmail is offered,
+      and its line reads `SHARE-FILE read=com.apple.quicktime-movie …
+      mime=video/quicktime … went=staged`. Send: the percentage rises and
+      the sheet closes at the 250. The lines: `LETTER-PLAN raw=R
+      payload=R+3`; `MAIL FROM … SIZE=R`; `LETTER-LATCH ok`; one
+      `WIRE-OUT` and one `WIRE-ACK`; 250. No `LETTER-FILE` line says
+      `not checked`. The file's CRC is its `LETTER-FILE` line's, and it
+      plays. Note `ms=`, under 2 s, and how
+      long the upload took. Memory passes when "while it went" is no more
+      than 15 MB below the available figure on the "files read" line.
+      2. *A video of about 5 MB.* Its fall to "while it went" is within
+      5 MB of check 1's: the memory does not grow with the file.
+      3. *Lock the iPad right after Send in check 1, and wait 5 minutes.*
+      Either it arrives once, or "Message was not sent." shows and Sent
+      Mail has nothing. No `LETTER-LATCH withheld … errno`. "Not sent" for
+      a letter that arrived is a fail.
+      4. *Five full-size camera photos.* Every `SHARE-PICTURE` line says
+      own bytes and none "Send could build". They arrive at their own
+      pixel size, with no GPS, each CRC its `LETTER-FILE` line's.
+      5. *Mixed:* a video and two photos; videos of 19 MB and 8 MB, the
+      second left out with "1 video could not be attached."; six items,
+      Blackmail not offered; a 30 MB video alone, the words in place of the
+      letter and nothing sent. The video words, and "The photo and the
+      video could not be attached." for one of each, are the owner's,
+      approved 2026-10-05.
+      6. *The app's composer.* Five photos: `LETTER-PLAN` and five
+      `LETTER-FILE` lines, none `not checked`, and they arrive. Forward check 1's letter: the
+      video goes from memory, its CRC the same.
+      7. *A draft.* Three photos, Cancel, Save Draft: the APPEND as before,
+      no `LETTER-` lines. Reopen it and send it: it arrives, and the draft
+      is gone.
+      8. *The Outbox.* Wi-Fi off before Send: it waits, and goes once when
+      Wi-Fi is back. Wi-Fi off at about 40% of check 6's five photos:
+      `WIRE-ACK err=…`, `OUTBOX-WAITING` `connectionLost`, then
+      `OUTBOX-UNSETTLED` for 10 minutes, then a new `LETTER-PLAN` under the
+      same Message-ID. Exactly one copy at the recipient and in Sent Mail:
+      the evidence that Gmail throws away a DATA that never ended, which
+      the latch rests on.
+      9. *As before:* a link from Safari; a plain letter, the signature
+      taken out (one part, `WIRE-PAYLOAD bytes=` raw+5, B-068's check); a
+      reply that threads; a share with Wi-Fi off, the reason shown, sent
+      once it is back.
+      10. *His iPad, when it can be had:* checks 1 and 2, and the memory
+      lines.
+      *Check 1's path seen in the iPadOS 18 simulator, 2026-10-05: a
+      19,284,661-byte IMG_7001.MOV from Photos, Blackmail offered, the
+      lines as written, `ms=101`, and the file that arrived the original's
+      to the byte (B-070, "Seen in the simulator"). The simulator says
+      nothing of memory; every check is still for the iPad.*
 
 ## Blocked on the owner
 

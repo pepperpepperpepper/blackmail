@@ -73,11 +73,11 @@ final class ShareSheetTests: XCTestCase {
         return ShareSheet(
             shared: shared,
             transport: { _, _ in server },
-            readFile: { [unowned self] attachment in
+            openFile: { [unowned self] attachment in
                 guard case let .localFile(url) = attachment.source, let data = files[url] else {
                     throw MailError.attachmentFailed
                 }
-                return data
+                return .bytes(data)
             },
             memory: memory,
             noteSent: { [unowned self] in noted.append($0) },
@@ -89,7 +89,7 @@ final class ShareSheetTests: XCTestCase {
     }
 
     /// A file as `ShareItems.Staging` hands one over: staged, here in
-    /// memory, where the sheet's `readFile` finds it at Send.
+    /// memory, where the sheet's `openFile` finds it at Send.
     private func file(_ data: Data, _ filename: String, _ mimeType: String) -> SharedItem {
         let url = URL(fileURLWithPath: "/staged/\(files.count)/\(filename)")
         files[url] = data
@@ -191,14 +191,16 @@ final class ShareSheetTests: XCTestCase {
     }
 
     /// At Send, the memory the extension has left goes in the log three
-    /// times: with the files read, just before the letter is built; once it
-    /// is built, before DATA; and once it has gone. The building is the
-    /// extension's highest moment, about five times its files, so the least
-    /// there has been goes with each. Numbers only.
+    /// times: with the files read, in the rehearsal before the server is
+    /// reached; once the envelope is taken, before DATA; and once it has
+    /// gone, with the least there was at any step of its progress while it
+    /// went (B-070). The least since the extension started goes with each.
+    /// Numbers only.
     func testSendLogsTheMemoryLeftAroundTheBuilding() async throws {
         Diagnostics.clear()
         let server = ScriptedSubmission()
-        let left = Remaining([90_000_000, 61_000_000, 88_000_000])
+        // The rehearsal, DATA, the letter's one piece, and the 250.
+        let left = Remaining([90_000_000, 61_000_000, 57_000_000, 88_000_000])
         let sheet = sheet(server, memory: { left.next() })
         let jpeg = Data((0..<600).map { UInt8($0 % 251) })
         let draft = letter(sheet, [file(jpeg, "IMG_0776.JPG", "image/jpeg"),
@@ -211,7 +213,7 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertEqual(notes, [
             "SHARE-SEND files read, 2 files 640 bytes, 90 MB available, 40 MB at the least",
             "SHARE-SEND built, 61 MB available, 40 MB at the least",
-            "SHARE-SEND sent, 88 MB available, 40 MB at the least",
+            "SHARE-SEND sent, 88 MB available, 40 MB at the least, 57 MB at the least while it went",
         ])
         func at(_ text: String) -> Int { lines.firstIndex { $0.hasPrefix(text) } ?? -1 }
         XCTAssertLessThan(at("SHARE-SEND files read"), at("ENVELOPE"), "before the letter is built")
@@ -224,6 +226,118 @@ final class ShareSheetTests: XCTestCase {
         }
         XCTAssertEqual(log, ["finish"])
         try await lettingGo(server)
+    }
+
+    // MARK: - From the disk (B-070)
+
+    /// A sheet over the extension's own staging: each file read at Send
+    /// from where `ShareItems.Staging` put it, as the letter goes
+    /// (`ShareSheet.staged`).
+    private func stagedSheet(_ server: ScriptedSubmission,
+                             memory: @escaping @Sendable () -> SharedPhoto.Memory) -> ShareSheet {
+        let shared = ShareMirror.Shared(account: account, password: "app-password",
+                                        signatureImages: [], recipients: [])
+        return ShareSheet(
+            shared: shared,
+            transport: { _, _ in server },
+            memory: memory,
+            noteSent: { [unowned self] in noted.append($0) },
+            finish: { [unowned self] in log.append("finish") },
+            cancel: { [unowned self] in log.append("cancel") },
+            showError: { [unowned self] in errors.append($0); log.append("error") },
+            draw: { [unowned self] in draws.append($0) },
+            background: BackgroundTime(begin: { _, _ in nil }, end: { _ in }))
+    }
+
+    /// A file Photos hands over, staged by copy as the extension stages it.
+    private func staged(_ data: Data, _ filename: String, _ mimeType: String) throws -> SharedItem {
+        let source = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ShareSheetTests-\(UUID().uuidString)-\(filename)")
+        try data.write(to: source)
+        defer { try? FileManager.default.removeItem(at: source) }
+        let item = try XCTUnwrap(ShareItems.Staging().file(at: source, size: Int64(data.count),
+                                                           named: filename, mimeType: mimeType))
+        if case let .file(url, _, _, _) = item { stagedHere.append(url) }
+        return item
+    }
+
+    private var stagedHere: [URL] = []
+
+    /// A video from Photos, staged on the disk, goes as itself: under its
+    /// own name, as QuickTime, its base64 the file's to the byte, read from
+    /// the disk as it went. The three lines keep their words and their
+    /// order, and the last says the least memory there was while it went.
+    func testAVideoGoesFromItsStagedFileWhole() async throws {
+        defer { for url in stagedHere { AttachmentStore.removeStaged(url) } }
+        Diagnostics.clear()
+        let server = ScriptedSubmission()
+        let left = Figures([90_000_000, 61_000_000, 80_000_000, 55_000_000, 80_000_000])
+        let sheet = stagedSheet(server, memory: { left.next() })
+        let video = LetterCorpus.bytes(300_001, seed: 11)
+        let draft = letter(sheet, [try staged(video, "IMG_0001.MOV", "video/quicktime")])
+
+        await sheet.send { draft }?.value
+
+        XCTAssertEqual(log, ["finish"])
+        let letters = await server.letters
+        let wire = String(decoding: try XCTUnwrap(letters.first), as: UTF8.self)
+        let part = "Content-Type: video/quicktime; name=\"IMG_0001.MOV\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n"
+            + "Content-Disposition: attachment; filename=\"IMG_0001.MOV\"\r\n\r\n"
+            + RFC5322Builder.base64Wrapped(video) + "\r\n--"
+        XCTAssertTrue(wire.contains(part), "the video's part, whole")
+        XCTAssertEqual(MIMEDecoder.decodeMessage(Data(wire.utf8)).attachments.map(\.filename),
+                       ["IMG_0001.MOV"])
+
+        let lines = Diagnostics.entries.map(\.text)
+        let notes = lines.filter { $0.hasPrefix("SHARE-SEND") }
+        XCTAssertEqual(notes, [
+            "SHARE-SEND files read, 1 files 300001 bytes, 90 MB available, 40 MB at the least",
+            "SHARE-SEND built, 61 MB available, 40 MB at the least",
+            "SHARE-SEND sent, 80 MB available, 40 MB at the least, 55 MB at the least while it went",
+        ])
+        func at(_ text: String) -> Int { lines.firstIndex { $0.hasPrefix(text) } ?? -1 }
+        XCTAssertLessThan(at("LETTER-FILE 1"), at("SHARE-SEND files read"))
+        XCTAssertLessThan(at("SHARE-SEND files read"), at("ENVELOPE"))
+        XCTAssertLessThan(at("SHARE-SEND built"), at("LETTER-LATCH ok"))
+        XCTAssertLessThan(at("DATA-REPLY-CODE"), at("SHARE-SEND sent"))
+        try await lettingGo(server)
+    }
+
+    /// A staged file that is no longer what was staged, cut short since,
+    /// is "Message was not sent." before any server is reached, and the
+    /// sheet stays as it was, his letter in it.
+    func testAStagedFileChangedSinceIsNotSentAndTheSheetStays() async throws {
+        defer { for url in stagedHere { AttachmentStore.removeStaged(url) } }
+        Diagnostics.clear()
+        let server = ScriptedSubmission()
+        let opened = Flag()
+        let shared = ShareMirror.Shared(account: account, password: "app-password",
+                                        signatureImages: [], recipients: [])
+        let sheet = ShareSheet(
+            shared: shared, transport: { _, _ in opened.set(); return server },
+            noteSent: { [unowned self] in noted.append($0) },
+            finish: { [unowned self] in log.append("finish") },
+            cancel: { [unowned self] in log.append("cancel") },
+            showError: { [unowned self] in errors.append($0); log.append("error") },
+            draw: { [unowned self] in draws.append($0) },
+            background: BackgroundTime(begin: { _, _ in nil }, end: { _ in }))
+        let item = try staged(LetterCorpus.bytes(10_000, seed: 12), "IMG_0002.MOV", "video/quicktime")
+        let draft = letter(sheet, [item])
+        if case let .file(url, _, _, _) = item {
+            let handle = try FileHandle(forWritingTo: url)
+            try handle.truncate(atOffset: 5_000)
+            try handle.close()
+        }
+
+        await sheet.send { draft }?.value
+
+        XCTAssertEqual(errors, [.notSent])
+        XCTAssertEqual(log, ["error"], "the sheet stays")
+        XCTAssertFalse(opened.isSet, "no server reached")
+        XCTAssertTrue(Diagnostics.entries.map(\.text)
+            .contains("LETTER-FILE 1 refused size 5000 attached 10000"))
+        XCTAssertFalse(sheet.isSending)
     }
 
     // MARK: - ComposeActions' order
@@ -368,6 +482,23 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertEqual(sheet.suggestions(for: "owner@example.net, car").map(\.address),
                        ["carlo@example.org"])
         XCTAssertTrue(sheet.suggestions(for: "carlo@example.org").isEmpty)
+    }
+}
+
+/// The memory a test's extension says it has left, one figure each time it
+/// is asked and the last of them from then on, the least so far held at
+/// 40 MB.
+private final class Figures: @unchecked Sendable {
+    private var figures: [Int64]
+    private let lock = NSLock()
+
+    init(_ figures: [Int64]) { self.figures = figures }
+
+    func next() -> SharedPhoto.Memory {
+        lock.lock()
+        defer { lock.unlock() }
+        let available = figures.count > 1 ? figures.removeFirst() : figures.first
+        return SharedPhoto.Memory(available: available, least: 40_000_000)
     }
 }
 

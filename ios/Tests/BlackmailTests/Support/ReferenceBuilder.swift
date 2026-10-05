@@ -1,4 +1,12 @@
+// FROZEN at f117c02 (master, with B-068), never edit.
+//
+// `RFC5322Builder.swift` as it was before B-070, copied whole, the enum
+// renamed `ReferenceBuilder` and nothing else: the oracle the planned
+// letter is held to, byte for byte and boundary draw for boundary draw
+// (`LetterPlanTests`, `StreamingSendTests`). If B-068 changes before it
+// merges, copy it again from the merged master.
 import Foundation
+@testable import Blackmail
 
 /// Turns a `Draft` into the exact bytes that follow SMTP's `DATA`.
 ///
@@ -6,12 +14,6 @@ import Foundation
 /// (MAIL FROM / RCPT TO), the dot-stuffing and the terminating `.`; this owns
 /// everything between them. Keeping the split there is what makes the whole
 /// message format testable on Linux without a server.
-///
-/// It plans a letter rather than making it (`plan`, B-070): every header,
-/// boundary and line of text, and a place for each file's base64. Reading
-/// the files and making their base64 belong to `LetterBytes`, so Send can
-/// make the letter as it goes, from the files on the disk, without ever
-/// holding it whole. `build` is the plan made whole, for a draft.
 ///
 /// Three rules drive almost every decision below, and all three are the kind
 /// of thing that only bites in production:
@@ -28,7 +30,7 @@ import Foundation
 ///    containing a newline would otherwise inject arbitrary headers (a Bcc,
 ///    another To). `headerSafe` folds CR, LF and NUL to a space before any
 ///    value is used.
-enum RFC5322Builder {
+enum ReferenceBuilder {
 
     private static let crlf = "\r\n"
 
@@ -39,35 +41,7 @@ enum RFC5322Builder {
 
     // MARK: - Entry point
 
-    /// Builds one complete message: `plan` made whole, from the files'
-    /// bytes. What a draft's APPEND sends, byte for byte what it always
-    /// was; Send makes the same plan as it goes instead (`Submission`).
-    ///
-    /// - Parameters:
-    ///   - attachments: already-loaded bytes. Reading files is the caller's
-    ///     job, so this stays synchronous and pure.
-    ///   - the rest: as `plan`'s.
-    static func build(draft: Draft,
-                      from: MailAccount,
-                      date: Date = Date(),
-                      messageID: String? = nil,
-                      inReplyToHeaders: (messageID: String, references: String?)? = nil,
-                      attachments: [(filename: String, mimeType: String, data: Data)] = [],
-                      includeBcc: Bool = false,
-                      htmlBody: String? = nil,
-                      inlineImages: [(contentID: String, filename: String,
-                                      mimeType: String, data: Data)] = [],
-                      boundaryToken: () -> String = randomToken) -> Data {
-        plan(draft: draft, from: from, date: date, messageID: messageID,
-             inReplyToHeaders: inReplyToHeaders,
-             files: attachments.map { ($0.filename, $0.mimeType) },
-             includeBcc: includeBcc, htmlBody: htmlBody, inlineImages: inlineImages,
-             boundaryToken: boundaryToken)
-            .rendered(from: attachments.map(\.data))
-    }
-
-    /// Plans one complete message (B-070): its text as bytes, and each of
-    /// `files` as a place for that file's base64, by its index.
+    /// Builds one complete message.
     ///
     /// - Parameters:
     ///   - messageID: pass one only to make a build reproducible (tests, or a
@@ -80,9 +54,8 @@ enum RFC5322Builder {
     ///     difference between a reply that threads and a reply that starts a
     ///     new conversation in the recipient's client. Only the ids in them
     ///     are written (`messageIDs`).
-    ///   - files: each file's name and type. Its bytes are not needed: the
-    ///     boundaries are never looked for in base64, which cannot hold
-    ///     one (below).
+    ///   - attachments: already-loaded bytes. Reading files is the caller's
+    ///     job, so this stays synchronous and pure.
     ///   - htmlBody: the same letter as markup, when it has one. Passing it
     ///     turns the body into `multipart/alternative` with the plain text
     ///     first and the markup second — RFC 2046 says the last alternative
@@ -92,17 +65,17 @@ enum RFC5322Builder {
     ///     nothing rich in it going out as plain text the way Mail sends it.
     ///   - boundaryToken: where the boundaries' randomness comes from. Pass
     ///     one only to make a build reproducible; see `uniqueBoundary`.
-    static func plan(draft: Draft,
-                     from: MailAccount,
-                     date: Date = Date(),
-                     messageID: String? = nil,
-                     inReplyToHeaders: (messageID: String, references: String?)? = nil,
-                     files: [(filename: String, mimeType: String)] = [],
-                     includeBcc: Bool = false,
-                     htmlBody: String? = nil,
-                     inlineImages: [(contentID: String, filename: String,
-                                     mimeType: String, data: Data)] = [],
-                     boundaryToken: () -> String = randomToken) -> LetterPlan {
+    static func build(draft: Draft,
+                      from: MailAccount,
+                      date: Date = Date(),
+                      messageID: String? = nil,
+                      inReplyToHeaders: (messageID: String, references: String?)? = nil,
+                      attachments: [(filename: String, mimeType: String, data: Data)] = [],
+                      includeBcc: Bool = false,
+                      htmlBody: String? = nil,
+                      inlineImages: [(contentID: String, filename: String,
+                                      mimeType: String, data: Data)] = [],
+                      boundaryToken: () -> String = randomToken) -> Data {
         // Inline images are the HTML twin's companions — a `cid:` reference
         // only means anything inside markup — so without an `htmlBody` there
         // is nowhere for them to be referred from and they are dropped
@@ -122,15 +95,13 @@ enum RFC5322Builder {
         // strict relay is entitled to wrap wherever it likes — through the
         // middle of a tag.
         let encodedHTML = htmlBody.map(quotedPrintable)
-        // A file's name and type only. Its base64 is made where the letter
-        // is made, a block at a time, from the file itself (`LetterBytes`):
-        // never every file encoded at once, nor one file whole. A letter of
-        // 25 MB of photos built whole in the share extension was about
-        // seven times that at its peak, in an extension allowed about
-        // 120 MB (B-036), and five times once each file's base64 was made
-        // only as it was written. Since B-070 it is never held whole.
-        let encodedAttachments: [(filename: String, mimeType: String)] =
-            files.map { att in
+        // Each file's base64 is made only as it is written into the letter,
+        // below, and let go of there: never every file encoded at once
+        // beside the files themselves. A letter of 25 MB of photos built in
+        // the share extension was about seven times that at its peak, in an
+        // extension allowed about 120 MB (B-036).
+        let encodedAttachments: [(filename: String, mimeType: String, data: Data)] =
+            attachments.map { att in
                 let name = headerSafe(att.filename)
                     .trimmingCharacters(in: .whitespaces)
                     // A quote or backslash in a filename would end the quoted
@@ -144,7 +115,8 @@ enum RFC5322Builder {
                     .trimmingCharacters(in: .whitespaces)
                     .replacingOccurrences(of: "\"", with: "")
                 return (filename: name.isEmpty ? "attachment" : name,
-                        mimeType: mime.isEmpty ? "application/octet-stream" : mime)
+                        mimeType: mime.isEmpty ? "application/octet-stream" : mime,
+                        data: att.data)
             }
 
         let encodedInline: [(contentID: String, filename: String,
@@ -379,7 +351,7 @@ enum RFC5322Builder {
                 "multipart/alternative; boundary=\"\(alternativeBoundary)\"")
         }
 
-        let head = headers + crlf     // the blank line that ends the header block
+        var out = headers + crlf     // the blank line that ends the header block
 
         guard let boundary else {
             // A letter of one part, plain text alone, is its encoded text
@@ -391,41 +363,42 @@ enum RFC5322Builder {
             // reader's client, and a draft reopened took them up as words
             // and wrapped them again at each save (B-068). Nothing follows
             // the last line, so a draft comes back as he left it; SMTP ends
-            // the line itself (`DataStuffer.finish`).
-            return LetterPlan(pieces: [
-                .text(Data((head + (alternativeBoundary == nil ? encodedBody : letterBody)).utf8)),
-            ])
+            // the line itself (`SMTPClient.dataPayload`).
+            out += alternativeBoundary == nil ? encodedBody : letterBody
+            return Data(out.utf8)
         }
 
-        var text = head + "--" + boundary + crlf
+        // The letter's whole size, roughly, asked for at once, so a large
+        // one is not copied into a buffer twice its size as it grows.
+        out.reserveCapacity(out.utf8.count + letterBody.utf8.count + containerHeaders.utf8.count
+            + encodedAttachments.reduce(1_024) { room, att in
+                room + 1_024 + 6 * att.filename.utf8.count + base64WrappedLength(att.data.count)
+            })
+        out += "--" + boundary + crlf
         if !containerHeaders.isEmpty {
-            text += containerHeaders     // ends in its own CRLF
-            text += crlf                 // part headers ↵ body separator
+            out += containerHeaders      // ends in its own CRLF
+            out += crlf                  // part headers ↵ body separator
         }
-        text += letterBody
+        out += letterBody
 
-        // Each file is its part's headers, as text, and then a place for
-        // its base64, which never ends in CRLF; the CRLF after it begins the
-        // next delimiter.
-        var pieces: [LetterPlan.Piece] = []
-        for (index, att) in encodedAttachments.enumerated() {
+        for att in encodedAttachments {
             let name = encodeIfNeeded(att.filename)
-            text += "--" + boundary + crlf
+            out += "--" + boundary + crlf
             // `name=` on the Content-Type is obsolete but harmless, and old
             // clients that ignore Content-Disposition entirely still find a
             // filename there.
-            text += headerLine("Content-Type", "\(att.mimeType); name=\"\(name)\"")
-            text += headerLine("Content-Transfer-Encoding", "base64")
-            text += headerLine("Content-Disposition", "attachment; filename=\"\(name)\"")
-            text += crlf
-            pieces.append(.text(Data(text.utf8)))
-            pieces.append(.file(index))
-            text = crlf
+            out += headerLine("Content-Type", "\(att.mimeType); name=\"\(name)\"")
+            out += headerLine("Content-Transfer-Encoding", "base64")
+            out += headerLine("Content-Disposition", "attachment; filename=\"\(name)\"")
+            out += crlf
+            // Straight into the letter, not through `terminated`, which
+            // would copy it once more; it never ends in CRLF.
+            out += base64Wrapped(att.data)
+            out += crlf
         }
 
-        text += "--" + boundary + "--" + crlf
-        pieces.append(.text(Data(text.utf8)))
-        return LetterPlan(pieces: pieces)
+        out += "--" + boundary + "--" + crlf
+        return Data(out.utf8)
     }
 
     // MARK: - Dates
@@ -859,9 +832,6 @@ enum RFC5322Builder {
     /// alone were more than twice the file, the largest single cost of
     /// building a letter of photos in the share extension (B-036). The
     /// same characters either way. Never ends in CRLF.
-    ///
-    /// For inline images, which are small, and as what `LetterBytes`, which
-    /// makes a file's base64 a block at a time, is held to.
     static func base64Wrapped(_ data: Data) -> String {
         let encoded = data.base64EncodedData()
         guard !encoded.isEmpty else { return "" }
@@ -888,8 +858,7 @@ enum RFC5322Builder {
         }
     }
 
-    /// How many characters `base64Wrapped` makes of `count` bytes: a
-    /// file's place in a letter (`LetterPlan.length`).
+    /// How many characters `base64Wrapped` makes of `count` bytes.
     static func base64WrappedLength(_ count: Int) -> Int {
         let encoded = (count + 2) / 3 * 4
         guard encoded > 0 else { return 0 }

@@ -15,10 +15,10 @@ import Foundation
 /// every JPEG kept until the last had landed, is how the extension is
 /// killed before its sheet appears, with nothing said.
 ///
-/// And at Send the whole letter is built in memory, about five times its
-/// files, so a picture goes as itself only while the letter it makes fits
-/// the memory left as well as the 25 MB (`SharedPhoto.sendRoom`). A file
-/// that is not a picture is weighed against the 25 MB alone.
+/// At Send the letter is made from the staged files as it goes, a block at
+/// a time, and never held whole (B-070). So a picture goes as itself, and a
+/// video or any other file goes, whenever it fits the letter's 25 MB: the
+/// memory at Send does not grow with them.
 enum ShareItems {
 
     /// Runs `loads` one after another, each begun only once the one before
@@ -73,12 +73,18 @@ enum ShareItems {
 
         /// What a share's files may weigh together: the 25 MB Gmail takes,
         /// which is the SIZE it advertises (`SMTPClient`) less what base64
-        /// adds. Past it the letter could not go whatever else happened, and
-        /// a file that size read into the extension, or built into a letter
-        /// there, is the extension killed.
+        /// adds. Past it the letter could not go whatever else happened. The
+        /// one bound on what is staged: Send makes the letter from the files
+        /// as it goes, in memory that does not grow with them (B-070).
         static let budget: Int64 = 25_000_000
 
         private(set) var staged: Int64 = 0
+
+        /// What the last file's copy measured on the disk (`file`), staged
+        /// or taken away again for want of room: the size that decided it,
+        /// for the log. Nil when the last file was not copied, or its copy
+        /// could not be measured.
+        private(set) var lastMeasured: Int64?
 
         /// The pictures staged with no name of their own, which numbers the
         /// next: "image0.jpeg", "image1.png" (`SharedPhoto.name`). One count
@@ -121,10 +127,27 @@ enum ShareItems {
         /// A file the sharing app handed over at `url`, `size` bytes by its
         /// own account: copied, never read, and not even copied when there
         /// is no room for it.
+        ///
+        /// The copy is measured once it is made, and the letter counts what
+        /// the disk has, not what the sharing app said (B-070): it is the
+        /// size Send checks the file against before the letter goes
+        /// (`LetterFiles`), and any other is a file that changed. A copy
+        /// larger than the room, or that cannot be measured, is taken away
+        /// again and left out. What the copy measured is `lastMeasured`.
         func file(at url: URL, size: Int64, named filename: String,
                   mimeType: String, unnamed: Bool = false) -> SharedItem? {
-            stage(size: size, filename: filename, mimeType: mimeType, unnamed: unnamed) {
-                try copy(url, filename)
+            lastMeasured = nil
+            guard staged + size <= Self.budget, let copied = try? copy(url, filename) else {
+                return nil
+            }
+            lastMeasured = Self.measured(copied)
+            guard let measured = lastMeasured, staged + measured <= Self.budget else {
+                discard(copied)
+                return nil
+            }
+            return stage(size: measured, filename: filename, mimeType: mimeType,
+                         unnamed: unnamed) {
+                copied
             }
         }
 
@@ -158,53 +181,146 @@ enum ShareItems {
         private func stage(size: Int64, filename: String, mimeType: String, unnamed: Bool,
                            _ put: () throws -> URL) -> SharedItem? {
             guard staged + size <= Self.budget, let url = try? put() else { return nil }
+            // Readable while the iPad is locked, as a letter that takes
+            // minutes to go must be (`AttachmentStore.readableWhileLocked`):
+            // a picture written straight onto the disk by ImageIO too.
+            AttachmentStore.readableWhileLocked(url)
             staged += size
             if unnamed { self.unnamed += 1 }
             return .file(url, filename: filename, mimeType: mimeType, size: size)
         }
     }
 
-    // MARK: - A picture left out
+    // MARK: - A video
 
-    /// What the sheet says when a picture he chose could not be attached.
+    /// A video's types, the one taken first where several are offered:
+    /// QuickTime, which is how Photos keeps a video, so the original
+    /// ".MOV" goes; then MPEG-4; then Apple's M4V.
+    static let movieTypes = ["com.apple.quicktime-movie", "public.mpeg-4", "com.apple.m4v-video"]
+
+    /// The type a video is read as, from what the provider `offered`: the
+    /// first of `movieTypes` it offers, whatever its order, then the first
+    /// it offers that `isMovie` says is a video. Nil for what is not a
+    /// video.
+    static func movieType(offered: [String], isMovie: (String) -> Bool) -> String? {
+        movieTypes.first(where: offered.contains) ?? offered.first(where: isMovie)
+    }
+
+    /// What became of a file that is not a picture, for the log.
+    enum FileWent: Equatable {
+        case staged
+        /// Larger than what was left of the letter's 25 MB, `left` bytes.
+        case noRoom(left: Int64)
+        /// Not copied onto the disk, or the copy not measured.
+        case notCopied
+        /// The sharing app handed over no file.
+        case notGiven
+    }
+
+    /// What became of a file of `size` bytes, `item` what staging made of
+    /// it with `room` left before it. `size` is what its copy measured
+    /// (`Staging.lastMeasured`) where it was copied, so a copy larger than
+    /// the room is said to be; the sharing app's account of it where it
+    /// was not.
+    static func fileWent(_ item: SharedItem?, size: Int64, room: Int64) -> FileWent {
+        if item != nil { return .staged }
+        return size > room ? .noRoom(left: room) : .notCopied
+    }
+
+    /// The line the log gets for each file shared that is not a picture
+    /// (B-070), a video most of all: the type it was read as, where its
+    /// name came from and the name as `SharedPhoto.Report.logged` has it,
+    /// its MIME type, its bytes and what became of it. Numbers and types:
+    /// a name is given only when a device made it.
+    static func fileNote(read type: String, suggested: Bool, name: String, mimeType: String,
+                         bytes: Int64, went: FileWent) -> String {
+        let source = name.isEmpty ? "none" : suggested ? "suggested" : "file"
+        let words: String
+        switch went {
+        case .staged: words = "staged"
+        case .noRoom(let left):
+            words = "left out, more than the letter's room, \(left / 1_000_000) MB left"
+        case .notCopied: words = "left out, not copied"
+        case .notGiven: words = "left out, not given"
+        }
+        return "SHARE-FILE read=\(type) name=\(source) \"\(SharedPhoto.Report.logged(name))\""
+            + " mime=\(mimeType) bytes=\(bytes) went=\(words)"
+    }
+
+    // MARK: - A picture or a video left out
+
+    /// What the sheet says when a picture or a video he chose could not be
+    /// attached.
     enum LeftOut: Equatable {
         /// A line over the letter, which has the rest of what he shared.
         case line(String)
         /// The words in place of the letter, and Cancel: a share of
-        /// pictures alone of which none came. A letter without the photo he
-        /// chose is not what he meant to send.
+        /// pictures or videos alone of which none came. A letter without
+        /// the photo he chose is not what he meant to send.
         case instead(String)
     }
 
-    /// The rule: nil when every picture offered was attached. When none
-    /// was, and nothing but pictures was offered, the words in place of the
-    /// letter. Otherwise a line saying how many were left out. Never a
-    /// letter that goes without the photo he chose, unsaid.
-    static func leftOut(pictures: Int, attached: Int, others: Int) -> LeftOut? {
-        let missing = pictures - attached
-        guard missing > 0 else { return nil }
-        if attached == 0, others == 0 {
-            return .instead(pictures == 1 ? "The photo could not be attached."
-                                          : "The photos could not be attached.")
+    /// The rule: nil when every picture and every video offered was
+    /// attached. When none was, and nothing but pictures and videos was
+    /// offered, the words in place of the letter. Otherwise a line saying
+    /// how many were left out. Never a letter that goes without the photo
+    /// or the video he chose, unsaid.
+    ///
+    /// A video's words are a photo's (B-070): "The video could not be
+    /// attached.", "1 video could not be attached.". One photo or one
+    /// video among them is said as one: "The photo and the video could
+    /// not be attached.". The owner approved them, 2026-10-05.
+    static func leftOut(pictures: Int, attached: Int, videos: Int = 0, videosAttached: Int = 0,
+                        others: Int) -> LeftOut? {
+        let photosMissing = pictures - attached
+        let videosMissing = videos - videosAttached
+        guard photosMissing > 0 || videosMissing > 0 else { return nil }
+        if attached == 0, videosAttached == 0, others == 0 {
+            if videos == 0 {
+                return .instead(pictures == 1 ? "The photo could not be attached."
+                                              : "The photos could not be attached.")
+            }
+            if pictures == 0 {
+                return .instead(videos == 1 ? "The video could not be attached."
+                                            : "The videos could not be attached.")
+            }
+            if pictures > 1, videos > 1 {
+                return .instead("The photos and videos could not be attached.")
+            }
+            let photo = pictures == 1 ? "The photo" : "The photos"
+            let video = videos == 1 ? "the video" : "the videos"
+            return .instead("\(photo) and \(video) could not be attached.")
         }
-        return .line(missing == 1 ? "1 photo could not be attached."
-                                  : "\(missing) photos could not be attached.")
+        func counted(_ count: Int, _ one: String, _ many: String) -> String {
+            count == 1 ? "1 \(one)" : "\(count) \(many)"
+        }
+        let photos = counted(photosMissing, "photo", "photos")
+        let videoWords = counted(videosMissing, "video", "videos")
+        if videosMissing <= 0 { return .line(photos + " could not be attached.") }
+        if photosMissing <= 0 { return .line(videoWords + " could not be attached.") }
+        return .line(photos + " and " + videoWords + " could not be attached.")
     }
 
-    /// What a share offered and what came of its pictures, counted as they
-    /// are read, one at a time (`oneAtATime`).
+    /// What a share offered and what came of its pictures and videos,
+    /// counted as they are read, one at a time (`oneAtATime`).
     final class Tally {
-        /// Everything offered, a picture or anything else.
+        /// Everything offered, a picture, a video or anything else.
         var offered = 0
         /// The pictures among them.
         var pictures = 0
         /// The pictures attached.
         var attached = 0
+        /// The videos among them.
+        var videos = 0
+        /// The videos attached.
+        var videosAttached = 0
 
         init() {}
 
         var leftOut: LeftOut? {
-            ShareItems.leftOut(pictures: pictures, attached: attached, others: offered - pictures)
+            ShareItems.leftOut(pictures: pictures, attached: attached, videos: videos,
+                               videosAttached: videosAttached,
+                               others: offered - pictures - videos)
         }
     }
 }

@@ -917,6 +917,58 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.filter { $0.verb == "APPEND" }.map(\.status), ["OK", "OK"])
     }
 
+    /// A draft's APPEND is the letter the builder always made (B-070):
+    /// its literal, byte for byte, is the frozen reference builder's with
+    /// Bcc, given the Date, the Message-ID and the boundaries read back out
+    /// of it. Planned and made whole now, by the code Send makes a letter
+    /// with a piece at a time.
+    func testADraftsLiteralIsTheReferenceBuildersWithBcc() async throws {
+        let clock = self.clock!
+        let repository = IMAPMailRepository(account: server.account, password: server.password,
+                                            transport: server.transportFactory, recipients: book,
+                                            now: { clock.now() }, signatureImages: { [] },
+                                            shelf: keptShelf(for: server.account))
+        let photo = LetterCorpus.bytes(300_001, seed: 18)
+        let staged = try AttachmentStore.write(photo, named: "Garden.jpg")
+        defer { AttachmentStore.removeStaged(staged) }
+        var draft = Draft(to: ["carlo@example.org"], subject: "Plans for Sunday",
+                          body: "Half a thought.\n.\nAnd the rest")
+        draft.bcc = ["owner@example.net"]
+        draft.attachments = [DraftAttachment(source: .localFile(staged), filename: "Garden.jpg",
+                                             mimeType: "image/jpeg", size: Int64(photo.count))]
+
+        let saved = try await repository.saveDraft(draft)
+        let uid = try XCTUnwrap(saved?.split(separator: "/").last.flatMap { UInt32($0) })
+        let literal = try XCTUnwrap(server.raw(uid: uid, in: Server.drafts))
+
+        let text = String(decoding: literal, as: UTF8.self).replacingOccurrences(of: "\r\n ", with: " ")
+        let header = text.components(separatedBy: "\r\n\r\n").first ?? ""
+        func field(_ name: String) -> String? {
+            header.components(separatedBy: "\r\n").first { $0.hasPrefix(name + ": ") }
+                .map { String($0.dropFirst(name.count + 2)) }
+        }
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.timeZone = TimeZone.current
+        format.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
+        let date = try XCTUnwrap(field("Date").flatMap(format.date(from:)))
+        let messageID = try XCTUnwrap(field("Message-ID"))
+        func token(_ kind: String) -> String? {
+            guard let range = text.range(of: "multipart/\(kind); boundary=\"=_Blackmail_") else { return nil }
+            return String(text[range.upperBound...].prefix(32))
+        }
+        var drawn = ["alternative", "related", "mixed"].compactMap(token)
+        let html = AppleMailHTML.letter(for: draft, account: server.account, forDraft: true).html
+        XCTAssertEqual(drawn.count, html == nil ? 1 : 2, "the files', and the twin's if it has one")
+        let reference = ReferenceBuilder.build(draft: draft, from: server.account, date: date,
+                                               messageID: messageID,
+                                               attachments: [("Garden.jpg", "image/jpeg", photo)],
+                                               includeBcc: true, htmlBody: html,
+                                               boundaryToken: { drawn.removeFirst() })
+        XCTAssertEqual(literal, reference)
+        XCTAssertTrue(text.contains("\r\nBcc: owner@example.net\r\n"))
+    }
+
     func testRepliesThatTakeTimeStillArriveWholeAndInOrder() async throws {
         server.defaultDelay = .milliseconds(1)
         server.delays = ["UID FETCH": .milliseconds(3)]

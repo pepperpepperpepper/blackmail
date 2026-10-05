@@ -14,11 +14,11 @@ import Foundation
 ///
 /// Shrunk only where Mail would leave him stuck. A photo too large for
 /// what is left of the letter Mail would offer to send by Mail Drop, which
-/// this cannot do; one that would make the letter too large to build at
-/// Send in the memory the extension has, which Mail, an app, never meets
-/// (`sendRoom`); and some pictures cannot go as their own bytes: a HEIC
+/// this cannot do; and some pictures cannot go as their own bytes: a HEIC
 /// with no JPEG offered beside it, a TIFF, a WebP, a GIF or a PNG that says
-/// where it was. Those are made a JPEG here (`way`).
+/// where it was. Those are made a JPEG here (`way`). The memory at Send no
+/// longer counts: the letter is made from its files as it goes, and Send
+/// holds a few hundred kilobytes whatever they weigh (B-070).
 ///
 /// Why shrinking is careful. A share extension is killed past a limit that
 /// is the iPad's: 180 MB on the test iPad (its jetsam properties), about
@@ -124,15 +124,14 @@ enum SharedPhoto {
     ]
 
     /// How a picture of `type`, `size` bytes, goes, with `room` left in the
-    /// letter: the letter's own, or less where the memory at Send asks it
-    /// (`sendRoom`).
+    /// letter's 25 MB (`ShareItems.Staging.room`).
     ///
     /// A JPEG that fits goes as its own bytes, its location or not: its
     /// metadata is replaced on the way (`keptOwn`). A GIF or a PNG that
     /// fits goes whole, copied and never read, when it says nothing of
     /// where it was; one that does is made a JPEG, which carries no place.
     /// There is no bound on a size but the room: Mail has none at Actual
-    /// Size, and the extension none but its memory at Send.
+    /// Size, and Send's memory does not grow with the files (B-070).
     ///
     /// A JPEG made here for every other picture: one that does not fit,
     /// which Mail would send by Mail Drop, a HEIC, a TIFF, a WebP, a RAW
@@ -144,51 +143,16 @@ enum SharedPhoto {
         return .whole(filenameExtension: whole.filenameExtension, mimeType: whole.mimeType)
     }
 
-    // MARK: - The memory Send takes
-
-    /// What the letter holds at its peak while Send builds it, in times
-    /// the files in it. The extension builds the whole letter in memory at
-    /// Send, as the app does: every file read back, its base64, the letter,
-    /// and the letter again as it goes (`Submission`). Measured on the host
-    /// on 2026-10-05, the files read, the letter built and made ready for
-    /// the wire, the peak against the files: 5.4 to 6.9 times as it was,
-    /// by how the allocator gave memory back; 4.1 to 5.1 times once
-    /// `RFC5322Builder` made each file's base64 only as it wrote it into
-    /// the letter, and asked for the letter's room at once. Taken at five:
-    /// the host is not the iPad, nor its allocator Apple's.
-    static let sendPeak = 5.0
-
-    /// The room a picture has to go as its own bytes or whole: what is
-    /// left of the letter's 25 MB, `room`, or less, so that the letter as
-    /// Send will build it, `staged` bytes already and this, takes no more
-    /// than `memoryShare` of the `available` bytes of memory left now
-    /// (`sendPeak`). Nought when there is none. Past it, a picture goes as
-    /// a JPEG made here, as on 2026-10-04, rather than the extension killed
-    /// at "Sending…" and the letter not sent.
-    ///
-    /// With 80 MB left, all that is assumed when the iPad says nothing, a
-    /// letter of about 9.6 MB; with 150 MB, about 18 MB. Read as each
-    /// picture is staged, before the sheet is up; what the sheet takes
-    /// after is for the two fifths not counted on.
-    static func sendRoom(room: Int64, staged: Int64, available: Int64) -> Int64 {
-        let letter = Int64(Double(max(0, available)) * memoryShare / sendPeak)
-        return max(0, min(room, letter - staged))
-    }
-
     /// Why a picture that may go as itself, a JPEG, a GIF or a PNG, goes
-    /// as a JPEG made here instead, for the log: it says where it was, it
-    /// is larger than what is left of the letter (`room`), or larger than
-    /// the room Send has memory for (`sendRoom`). Nil when it goes as
-    /// itself, or could never have.
-    static func notItself(type: String, size: Int64, room: Int64, sendRoom: Int64,
+    /// as a JPEG made here instead, for the log: its size is not known, it
+    /// says where it was, or it is larger than what is left of the letter
+    /// (`room`). Nil when it goes as itself, or could never have.
+    static func notItself(type: String, size: Int64, room: Int64,
                           carriesLocation: Bool) -> String? {
         guard type == jpegType || keptWhole[type] != nil else { return nil }
         if size <= 0 { return "its size not known" }
         if type != jpegType, carriesLocation { return "it says where it was" }
         if size > room { return "more than the letter's room, \(room / 1_000_000) MB left" }
-        if size > sendRoom {
-            return "more than Send could build, room for \(sendRoom / 1_000_000) MB"
-        }
         return nil
     }
 
@@ -645,16 +609,23 @@ enum SharedPhoto {
 
     /// A line for the log at a step of Send in the share extension
     /// (`ShareSheet`): the step, the files read and their bytes where that
-    /// is the step, and the memory. The building of the letter is the
-    /// extension's highest moment and is over before the next line, so the
-    /// least since it started is what says how near it came. Numbers only.
-    static func sendNote(_ step: String, files: [Int64]? = nil, memory: Memory) -> String {
+    /// is the step, and the memory, now and the least since the extension
+    /// started. Numbers only.
+    ///
+    /// `whileGoing`, for the last step: the least memory there was at any
+    /// report of the letter's progress, a piece at a time while it went
+    /// (B-070). Send's memory should not have grown with the files, and
+    /// that is what says whether it did on the iPad: the network's own
+    /// buffers are nothing the host can measure.
+    static func sendNote(_ step: String, files: [Int64]? = nil, memory: Memory,
+                         whileGoing: Int64? = nil) -> String {
         var line = "SHARE-SEND \(step)"
         if let files {
             line += ", \(files.count) files \(files.reduce(0, +)) bytes"
         }
         line += memory.available.map { ", \($0 / 1_000_000) MB available" } ?? ", memory unknown"
         if let least = memory.least { line += ", \(least / 1_000_000) MB at the least" }
+        if let whileGoing { line += ", \(whileGoing / 1_000_000) MB at the least while it went" }
         return line
     }
 }

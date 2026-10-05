@@ -1976,7 +1976,7 @@ actor IMAPMailRepository: MailRepository {
         let pictures = try await loadPictures(letter.pictures)
         try await Submission.send(draft, from: account, password: password, through: smtp,
                                   threadHeaders: Self.threadHeaders(for: draft),
-                                  attachments: { try await self.loadAttachments(letter.files) },
+                                  attachments: { try await self.letterFiles(letter.files) },
                                   htmlBody: letter.html,
                                   inlineImages: SignatureImages.parts(of: images) + pictures,
                                   messageID: messageID,
@@ -2032,7 +2032,36 @@ actor IMAPMailRepository: MailRepository {
         throw Outbox.NoSentMail()
     }
 
-    /// Pulls the bytes for everything the draft is carrying.
+    /// Where Send finds each file the letter carries (B-070): a photo on
+    /// this iPad stays on the disk, to be read a block at a time as the
+    /// letter goes, checked against the size it was attached at; a
+    /// forward's part is fetched, as `loadAttachments` fetches it, and goes
+    /// from memory.
+    ///
+    /// Throws as `loadAttachments` does for a part that cannot be fetched.
+    /// A file on the disk that cannot go is refused by `Submission`, before
+    /// the server is reached.
+    private func letterFiles(_ attachments: [DraftAttachment]) async throws -> [Submission.File] {
+        var files: [Submission.File] = []
+        files.reserveCapacity(attachments.count)
+        for attachment in attachments {
+            let source: LetterSource
+            switch attachment.source {
+            case let .messagePart(messageID, mailboxID, section, letter):
+                source = .bytes(try await fetchCarried(section, of: messageID, mailboxID: mailboxID,
+                                                       letter: letter))
+            case let .localFile(url):
+                source = .disk(url, attachedSize: attachment.size)
+            }
+            files.append((filename: attachment.filename, mimeType: attachment.mimeType,
+                          source: source))
+        }
+        return files
+    }
+
+    /// Pulls the bytes for everything the draft is carrying, for a draft's
+    /// APPEND, which goes whole (`append`); Send reads its files as it goes
+    /// (`letterFiles`).
     ///
     /// Throws rather than skipping a file it cannot fetch, and that is the
     /// whole point of the method. Sending the letter anyway would deliver a

@@ -40,6 +40,15 @@ protocol MailTransport: Actor {
     /// does not say.
     func write(_ data: Data, progress: UploadProgress?) async throws
 
+    /// Hands `source` to the stack a piece at a time, as `write` hands its
+    /// data, asking it for each piece only once the one before has gone: a
+    /// letter made as it goes (`DataStream`, B-070). One write as far as the
+    /// transcript and the progress are concerned, of `source.total` bytes.
+    ///
+    /// A `LetterSourceFailure` from `source` leaves the transport closed,
+    /// so nothing more can be written, and is thrown as it is.
+    func write(from source: WriteSource, progress: UploadProgress?) async throws
+
     /// `line` plus CRLF.
     func writeLine(_ line: String) async throws
 
@@ -132,6 +141,21 @@ enum ReplyWait: Sendable {
 /// measures is the part that takes the time on a photo letter, the upload
 /// itself, and it costs nothing: the pieces already exist for the deadline.
 typealias UploadProgress = @Sendable (_ written: Int, _ total: Int) -> Void
+
+/// Bytes for one write, made a piece at a time as the write asks for them
+/// (`MailTransport.write(from:progress:)`), `total` of them in all. Asked
+/// by one write at a time, never two, and never from inside a deadline:
+/// making a piece is not the network's time (`TransportDeadline`).
+protocol WriteSource: AnyObject, Sendable {
+    /// What the pieces come to.
+    var total: Int { get }
+    /// Claims the source for one write, before its first piece is asked
+    /// for. Throws for a source a write has claimed already: the rest of a
+    /// letter must never go as a letter of its own.
+    func begin() throws
+    /// The next piece, nil after the last.
+    func next() throws -> Data?
+}
 
 /// Makes an UNOPENED transport to one host and port.
 ///

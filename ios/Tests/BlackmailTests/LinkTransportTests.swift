@@ -179,6 +179,131 @@ final class LinkTransportTests: XCTestCase {
         }
     }
 
+    // MARK: - A letter made as it goes (B-070)
+
+    /// A letter made a piece at a time is one write: one WIRE-OUT for the
+    /// whole of it and one WIRE-ACK, however many pieces; the progress after
+    /// each, to the total; every byte to the link.
+    func testAStreamedWriteIsProbedOnceAndReportsEachPiece() async throws {
+        let link = BareLink()
+        try await link.open()
+        let piece = TransportDeadline.writeChunkBytes
+        let stream = try DataStream(raw: Data(repeating: 0x41, count: 2 * piece + 100))
+        let reports = Progress()
+
+        try await link.write(from: stream, progress: { reports.add($0, $1) })
+
+        XCTAssertEqual(reports.all.map(\.written), [piece, 2 * piece, stream.total])
+        XCTAssertEqual(Set(reports.all.map(\.total)), [stream.total])
+        let taken = await link.taken
+        XCTAssertEqual(taken, stream.total)
+        XCTAssertEqual(notes.filter { $0.hasPrefix("WIRE-") },
+                       ["WIRE-OUT bytes=\(stream.total)", "WIRE-ACK err=none"])
+    }
+
+    /// A streamed write whose uplink stops: the deadline named, one
+    /// WIRE-ACK with the timeout, and the transport closed.
+    func testAStreamedWriteCutOffAtItsDeadlineClosesTheTransport() async throws {
+        server.timeout = .milliseconds(20)
+        let transport = try await greeted()
+        server.uplinkDelay = .seconds(30)
+        let stream = try DataStream(raw: Data(repeating: 0x41,
+                                              count: 3 * TransportDeadline.writeChunkBytes))
+        do {
+            try await finishing(within: 1) { try await transport.write(from: stream, progress: nil) }
+            XCTFail("a write that never left cannot have finished")
+        } catch {
+            XCTAssertEqual(error as? MailTransportError, .timedOut)
+        }
+        XCTAssertEqual(notes, ["WIRE-OUT bytes=\(stream.total)", "DEADLINE write bound=0.02s",
+                               "WIRE-ACK err=timedOut"])
+        do {
+            try await transport.writeLine("a001 NOOP")
+            XCTFail("wrote into a transport whose write had timed out")
+        } catch {
+            XCTAssertEqual(error as? MailTransportError, .notConnected)
+        }
+    }
+
+    /// A letter whose write was cut off at its deadline, handed to a write
+    /// again, as a retry that kept it would: refused before a byte is
+    /// written, the transport closed, and so never the rest of the letter,
+    /// headless, with a dot to end it.
+    func testAStreamCutOffAtItsDeadlineIsNeverWrittenAgain() async throws {
+        server.timeout = .milliseconds(20)
+        let transport = try await greeted()
+        server.uplinkDelay = .seconds(30)
+        let stream = try DataStream(raw: Self.letter(pieces: 3))
+        do {
+            try await finishing(within: 1) { try await transport.write(from: stream, progress: nil) }
+            XCTFail("a write that never left cannot have finished")
+        } catch {
+            XCTAssertEqual(error as? MailTransportError, .timedOut)
+        }
+
+        Diagnostics.clear()
+        let link = BareLink()
+        try await link.open()
+        do {
+            try await link.write(from: stream, progress: nil)
+            XCTFail("the rest of a letter cut off was written again")
+        } catch {
+            XCTAssertEqual(error as? LetterSourceFailure,
+                           LetterSourceFailure(file: nil, reason: .countMismatch), "\(error)")
+        }
+        let taken = await link.taken
+        XCTAssertEqual(taken, 0)
+        XCTAssertEqual(notes, ["WIRE-OUT bytes=\(stream.total)",
+                               "LETTER-LATCH withheld file=- reason=count mismatch",
+                               "WIRE-ACK err=source"])
+        do {
+            try await link.writeLine("QUIT")
+            XCTFail("QUIT written after the letter was refused")
+        } catch {
+            XCTAssertEqual(error as? MailTransportError, .notConnected)
+        }
+    }
+
+    /// A letter's file that fails part of the way: the transport is closed
+    /// at once, so nothing more, a QUIT neither, can be written into the
+    /// letter, and the failure comes out as it went in, never made a
+    /// transport's error, even by a link that maps every error it sees.
+    func testASourceThatFailsClosesTheTransportAndIsThrownAsItCame() async throws {
+        let failure = LetterSourceFailure(file: 0, reason: .changedDuringSend)
+        for link in [BareLink() as any LinkTransport, MappingLink()] {
+            Diagnostics.clear()
+            try await link.open()
+            let source = MadeSource([Data(repeating: 0x42, count: TransportDeadline.writeChunkBytes)],
+                                    total: 3 * TransportDeadline.writeChunkBytes,
+                                    failingWith: failure)
+            do {
+                try await link.write(from: source, progress: nil)
+                XCTFail("a letter whose file failed was written whole")
+            } catch {
+                XCTAssertEqual(error as? LetterSourceFailure, failure, "\(error)")
+            }
+            XCTAssertEqual(notes, ["WIRE-OUT bytes=\(source.total)", "WIRE-ACK err=source"])
+            do {
+                try await link.writeLine("QUIT")
+                XCTFail("QUIT written after the letter's file failed")
+            } catch {
+                XCTAssertEqual(error as? MailTransportError, .notConnected)
+            }
+        }
+    }
+
+    /// Pieces that come to other than was said: logged, `WIRE-COUNT`, and
+    /// not thrown. The last piece holds the letter's dot; thrown there, a
+    /// letter the server has would be called not sent, and sent again.
+    func testAStreamedWriteThatCountsWrongIsLoggedNotThrown() async throws {
+        let link = BareLink()
+        try await link.open()
+        try await link.write(from: MadeSource([Data(repeating: 0x43, count: 1_500)], total: 2_000),
+                             progress: nil)
+        XCTAssertEqual(notes, ["WIRE-OUT bytes=2000", "WIRE-COUNT predicted=2000 actual=1500",
+                               "WIRE-ACK err=none"])
+    }
+
     // MARK: - Deadlines in the transcript
 
     /// A deadline that fires names itself and its bound, so a transcript
@@ -253,4 +378,18 @@ private actor BareLink: LinkTransport {
     func receiveFromLink() async throws -> Data { throw MailTransportError.closed }
     func sendToLink(_ piece: Data) async throws { taken += piece.count }
     func closeLink() {}
+}
+
+/// A bare link that maps every error its sends meet, as `TLSConnection`
+/// maps `NWError`: what it must never do to a letter's own failure.
+private actor MappingLink: LinkTransport {
+    var stream = LinkStream()
+    let ordinaryDeadline: TimeInterval = 5
+    let uploadReplyDeadline: TimeInterval = 5
+
+    func startLink(reporting report: @escaping @Sendable (Error?) -> Void) { report(nil) }
+    func receiveFromLink() async throws -> Data { throw MailTransportError.closed }
+    func sendToLink(_ piece: Data) async throws {}
+    func closeLink() {}
+    static func transportError(_ sendError: Error) -> Error { MailTransportError.posix("mapped") }
 }

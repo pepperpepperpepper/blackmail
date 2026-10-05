@@ -116,6 +116,49 @@ final class TransportDeadlineTests: XCTestCase {
         try await finishing { try await writer.value }
         XCTAssertEqual(sent.all.reduce(Data(), +), data)
     }
+
+    // MARK: - A letter made as it goes (B-070)
+
+    /// A piece of nothing is passed over, with nothing reported for it; one
+    /// larger than a piece is cut as `write` cuts; the running total of the
+    /// whole after each.
+    func testAStreamPassesOverEmptyPiecesAndCutsOversizedOnes() async throws {
+        let source = MadeSource([Data(), Data(repeating: 1, count: 10), Data(),
+                                 Data(repeating: 2, count: 2 * piece + 5), Data()])
+        let sent = Pieces()
+        let reports = Reports()
+        try await TransportDeadline.write(from: source, within: 5, onExpiry: {},
+                                          progress: { reports.add($0, $1) }) { sent.append($0) }
+        XCTAssertEqual(sent.all.map(\.count), [10, piece, piece, 5])
+        XCTAssertEqual(reports.all.map(\.written), [10, 10 + piece, 10 + 2 * piece, 15 + 2 * piece])
+        XCTAssertEqual(Set(reports.all.map(\.total)), [15 + 2 * piece])
+    }
+
+    /// Making a piece is this device's time, not the network's: a source
+    /// that takes longer than the deadline to make each piece is not cut
+    /// off, since only the sends are raced.
+    func testAPieceIsMadeOutsideTheDeadline() async throws {
+        let source = MadeSource((0..<3).map { Data(repeating: UInt8($0), count: 100) },
+                                pausing: 0.05)
+        let expired = Counter()
+        let sent = Pieces()
+        try await finishing {
+            try await TransportDeadline.write(from: source, within: 0.02,
+                                              onExpiry: { expired.add() }) { sent.append($0) }
+        }
+        XCTAssertEqual(expired.value, 0)
+        XCTAssertEqual(sent.all.count, 3)
+    }
+
+    /// A total that comes out other than said is logged, never thrown: the
+    /// last piece of a letter carries its dot, and the letter may be the
+    /// server's by then.
+    func testATotalOtherThanSaidIsLoggedNotThrown() async throws {
+        Diagnostics.clear()
+        let source = MadeSource([Data(repeating: 3, count: 1_500)], total: 2_000)
+        try await TransportDeadline.write(from: source, within: 5, onExpiry: {}) { _ in }
+        XCTAssertEqual(Diagnostics.entries.map(\.text), ["WIRE-COUNT predicted=2000 actual=1500"])
+    }
 }
 
 /// Progress reports, in order, from any thread.

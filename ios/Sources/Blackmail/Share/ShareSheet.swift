@@ -28,12 +28,13 @@ final class ShareSheet {
     /// Cancel has put it away: the extension's `completeRequest` and
     /// `cancelRequest`. Each is called at most once, and never both.
     /// `noteSent` hears who a letter that went was addressed to
-    /// (`ShareMirror.noteSent`). `readFile` gives a staged file's bytes
-    /// back at Send. `memory` says what the extension has left
-    /// (`SharedPhoto.memory`), for the log at each step of Send.
+    /// (`ShareMirror.noteSent`). `openFile` says where a staged file is
+    /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
+    /// what the extension has left (`SharedPhoto.memory`), for the log at
+    /// each step of Send.
     init(shared: ShareMirror.Shared,
          transport: @escaping MailTransportFactory,
-         readFile: @escaping (DraftAttachment) throws -> Data = ShareSheet.readStaged,
+         openFile: @escaping (DraftAttachment) throws -> LetterSource = ShareSheet.staged,
          memory: @escaping @Sendable () -> SharedPhoto.Memory = { SharedPhoto.Memory() },
          noteSent: @escaping ([String]) -> Void,
          finish: @escaping () -> Void,
@@ -45,32 +46,38 @@ final class ShareSheet {
         let account = shared.account
         actions = ComposeActions(
             sendLetter: { draft, progress in
-                // The letter is built whole in memory, about five times its
-                // files at its height (`SharedPhoto.sendPeak`), in an
-                // extension that is killed past its limit with the sheet
-                // gone and the letter not sent. So the log says what was
-                // left with the files read, once it was built, and once it
-                // had gone, and the least since the extension started.
+                // The letter is made from the staged files as it goes, never
+                // whole (B-070): what Send holds does not grow with them. So
+                // the log says what was left once the files were read, in
+                // the rehearsal before the server is reached; once the
+                // envelope was taken, before DATA; and once it had gone,
+                // with the least since the extension started and the least
+                // at any step of its progress while it went, which is what
+                // says whether that held on the iPad.
+                let going = LowWater(memory)
                 try await Submission.send(
                     draft, from: account, password: shared.password,
                     through: SMTPClient(account: account, transport: transport),
                     threadHeaders: nil,
                     attachments: {
-                        let files: [Submission.File] = try draft.attachments.map {
-                            ($0.filename, $0.mimeType, try readFile($0))
-                        }
-                        Diagnostics.log(.note, SharedPhoto.sendNote(
-                            "files read", files: files.map { Int64($0.data.count) },
-                            memory: memory()))
-                        return files
+                        try draft.attachments.map { ($0.filename, $0.mimeType, try openFile($0)) }
                     },
                     htmlBody: ShareLetter.html(for: draft, account: account),
                     inlineImages: SignatureImages.parts(of: shared.signatureImages),
+                    rehearsed: { rehearsal in
+                        Diagnostics.log(.note, SharedPhoto.sendNote(
+                            "files read", files: rehearsal.files.map { Int64($0.bytes) },
+                            memory: memory()))
+                    },
                     beforeData: {
                         Diagnostics.log(.note, SharedPhoto.sendNote("built", memory: memory()))
                     },
-                    progress: progress)
-                Diagnostics.log(.note, SharedPhoto.sendNote("sent", memory: memory()))
+                    progress: { written, total in
+                        going.note()
+                        progress(written, total)
+                    })
+                Diagnostics.log(.note, SharedPhoto.sendNote("sent", memory: memory(),
+                                                            whileGoing: going.least))
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
                 noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))
@@ -139,11 +146,62 @@ final class ShareSheet {
                                   limit: RecipientBook.suggestionLimit)
     }
 
-    /// A file staged on this device by `AttachmentStore.write`, read back.
-    nonisolated static func readStaged(_ attachment: DraftAttachment) throws -> Data {
+    /// A file staged on this device by `AttachmentStore`, to be read from
+    /// the disk as the letter goes, at the size it was staged at
+    /// (`ShareItems.Staging`). A share has nothing but staged files.
+    nonisolated static func staged(_ attachment: DraftAttachment) throws -> LetterSource {
         guard case let .localFile(url) = attachment.source else {
             throw MailError.attachmentFailed
         }
-        return try Data(contentsOf: url)
+        return .disk(url, attachedSize: attachment.size)
+    }
+}
+
+extension ShareSheet {
+
+    /// A sheet whose files' bytes are handed over in memory by `readFile`,
+    /// rather than read from the disk as the letter goes: for a test.
+    convenience init(shared: ShareMirror.Shared,
+                     transport: @escaping MailTransportFactory,
+                     readFile: @escaping (DraftAttachment) throws -> Data,
+                     memory: @escaping @Sendable () -> SharedPhoto.Memory = { SharedPhoto.Memory() },
+                     noteSent: @escaping ([String]) -> Void,
+                     finish: @escaping () -> Void,
+                     cancel: @escaping () -> Void,
+                     showError: @escaping (MailError) -> Void,
+                     draw: @escaping (ComposeActions.Look) -> Void,
+                     background: BackgroundTime) {
+        self.init(shared: shared, transport: transport,
+                  openFile: { .bytes(try readFile($0)) },
+                  memory: memory, noteSent: noteSent, finish: finish, cancel: cancel,
+                  showError: showError, draw: draw, background: background)
+    }
+}
+
+/// The least memory there was at any report of a letter's progress: what
+/// the share extension had left while the letter went (B-070). Reports come
+/// from whatever thread the write resumes on, so it is guarded.
+final class LowWater: @unchecked Sendable {
+    private let memory: @Sendable () -> SharedPhoto.Memory
+    private let lock = NSLock()
+    private var lowest: Int64?
+
+    init(_ memory: @escaping @Sendable () -> SharedPhoto.Memory) {
+        self.memory = memory
+    }
+
+    /// Reads the memory left now.
+    func note() {
+        guard let available = memory().available else { return }
+        lock.lock()
+        lowest = min(lowest ?? available, available)
+        lock.unlock()
+    }
+
+    /// The least read, nil when none was.
+    var least: Int64? {
+        lock.lock()
+        defer { lock.unlock() }
+        return lowest
     }
 }

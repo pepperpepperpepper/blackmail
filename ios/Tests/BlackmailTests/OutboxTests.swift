@@ -1017,7 +1017,9 @@ final class OutboxTests: XCTestCase {
     /// leaves the app.
     func testOnlyWhatItFetchesFromGmailHoldsALetterBack() async throws {
         var photo = letter("Photo")
-        let staged = try AttachmentStore.write(Data(repeating: 7, count: 2_000),
+        // Its size what it is: Send checks a file on the iPad against the
+        // size it was attached at (B-070).
+        let staged = try AttachmentStore.write(Data(repeating: 7, count: 2_000_000),
                                                named: "Garden.jpg")
         photo.attachments = [DraftAttachment(source: .localFile(staged), filename: "Garden.jpg",
                                              mimeType: "image/jpeg", size: 2_000_000)]
@@ -1561,6 +1563,114 @@ final class OutboxTests: XCTestCase {
         let sent = await submissions.letters()
         XCTAssertEqual(sent.count, 2, "the one refused for now, and the one that went")
         XCTAssertEqual(searches, [], "nothing to look for")
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    // MARK: - A letter's own file, while it goes (B-070)
+
+    /// A letter of a photo, kept with its photo, the file on the iPad it
+    /// goes from: `bytes` of it.
+    private func photoLetter(_ subject: String, bytes: Int) throws -> Draft {
+        var photo = letter(subject)
+        let data = Data((0..<bytes).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
+        let staged = try AttachmentStore.write(data, named: "Garden.jpg")
+        addTeardownBlock { AttachmentStore.removeStaged(staged) }
+        photo.attachments = [DraftAttachment(source: .localFile(staged), filename: "Garden.jpg",
+                                             mimeType: "image/jpeg", size: Int64(bytes))]
+        return photo
+    }
+
+    /// Where the letter kept as `key` has its photo: its own file, a link
+    /// to the one staged.
+    private func keptPhoto(_ key: String, _ kept: LocalDrafts) throws -> URL {
+        let source = try XCTUnwrap(kept.store.letter(key)?.draft.attachments.first?.source)
+        guard case let .localFile(url) = source else {
+            XCTFail("the photo is not a file on the iPad")
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return url
+    }
+
+    /// The photo of a letter in the Outbox rewritten as its DATA goes, the
+    /// same size and other bytes: the dot is withheld, so the server never
+    /// had it, and the attempt is settled, not cut off. Refused, "Message
+    /// was not sent." on its row; launched again, it goes, and nothing is
+    /// looked for in Sent Mail first.
+    func testAFileChangedWhileItsLetterGoesIsSettledNotCutOff() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(try photoLetter("Photo", bytes: 300_000), as: "photo", kept: kept,
+                          repository: repository)
+        let photo = try keptPhoto("photo", kept)
+        submissions.then {
+            ScriptedSubmission(onData: {
+                guard let handle = try? FileHandle(forWritingTo: photo) else { return }
+                try? handle.seek(toOffset: 123_456)
+                try? handle.write(contentsOf: Data([0xAA, 0xBB, 0xCC]))
+                try? handle.close()
+            })
+        }
+
+        try await afterAPage(kept, repository)
+
+        let first = try XCTUnwrap(submissions.first)
+        let sawTerminator = await first.sawTerminator
+        let quits = await first.quitAttempts
+        let closed = await first.isClosed
+        XCTAssertFalse(sawTerminator, "no dot")
+        XCTAssertEqual(quits, 0, "no QUIT written into the letter")
+        XCTAssertTrue(closed)
+        XCTAssertEqual(kept.whyNotSent("photo"), .notSent)
+        let stored = try XCTUnwrap(kept.store.letter("photo"))
+        XCTAssertEqual(stored.unsettled, [], "settled: no dot, not delivered")
+        XCTAssertNil(stored.cutOff, "not cut off")
+        XCTAssertEqual(kept.outbox.map(\.key), ["photo"])
+
+        let relaunched = makeKept()
+        try await afterAPage(relaunched, repository)
+        XCTAssertEqual(searches, [], "nothing to look for in Sent Mail")
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(relaunched.outbox.count, 0)
+    }
+
+    /// A letter of a photo whose line is cut part of the way through its
+    /// DATA: no dot went, but from here that cannot be told from a cut
+    /// after it, so it waits unsettled, as any letter cut off does. Sent
+    /// Mail is asked once the time has passed, has nothing, and the letter
+    /// goes again under the same Message-ID, planned and made afresh.
+    func testALetterOfFilesCutOffInItsDataGoesLaterUnderItsMessageID() async throws {
+        Diagnostics.clear()
+        let kept = makeKept()
+        let repository = makeRepository()
+        submissions.then {
+            ScriptedSubmission(cutWith: .posix("POSIX 54"), cutsLetterAfter: 100_000)
+        }
+        await send(try photoLetter("Photo", bytes: 300_000), as: "photo", kept: kept,
+                   repository: repository)
+        XCTAssertEqual(queued, 1)
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertEqual(errors, [])
+        let stored = try XCTUnwrap(kept.store.letter("photo"))
+        let messageID = try XCTUnwrap(stored.outbox)
+        XCTAssertEqual(stored.unsettled, [messageID], "it may have gone")
+        XCTAssertNotNil(stored.cutOff)
+        let first = try XCTUnwrap(submissions.first)
+        let sawTerminator = await first.sawTerminator
+        XCTAssertFalse(sawTerminator)
+
+        settle()
+        try await afterAPage(kept, repository)
+        XCTAssertEqual(searches.count, 1)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "the one that went whole")
+        XCTAssertEqual(sent.first.flatMap(OutboxSubmissions.messageID), messageID)
+        let photo = Data((0..<300_000).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
+        XCTAssertEqual(MIMEDecoder.decodeMessage(Data((sent.first ?? "").utf8)).attachments
+                       .map(\.filename), ["Garden.jpg"])
+        XCTAssertTrue(sent.first?.contains(RFC5322Builder.base64Wrapped(photo)) == true)
+        let plans = Diagnostics.entries.map(\.text).filter { $0.hasPrefix("LETTER-PLAN") }
+        XCTAssertEqual(plans.count, 2, "planned afresh for the second attempt")
         XCTAssertEqual(kept.outbox.count, 0)
     }
 

@@ -9,9 +9,9 @@ import Foundation
 /// in ways that look like "the mail vanished" rather than like a dropped
 /// connection. One `send` is one connection, opened, used and closed.
 ///
-/// The caller supplies the message already serialised: this type does not
-/// build MIME, does not add headers and does not know what a `Draft` is. It
-/// owns exactly the conversation.
+/// The caller supplies the message already planned and rehearsed
+/// (`DataStream`): this type does not build MIME, does not add headers and
+/// does not know what a `Draft` is. It owns exactly the conversation.
 actor SMTPClient {
 
     private let account: MailAccount
@@ -91,7 +91,14 @@ actor SMTPClient {
     /// at this point, so that one cut off afterwards is looked for before it
     /// is sent again (`LocalDrafts.send`). If it throws, DATA is never
     /// written, the session is ended, and its error is what `send` throws.
-    func send(_ raw: Data, from: String, to recipients: [String], password: String,
+    ///
+    /// `letter` is made as it goes, from its plan and its open files
+    /// (`DataStream`, B-070), and its terminating dot only once the latch
+    /// holds. A file of the letter that changed or could not be read while
+    /// it went closes the connection with no QUIT, the dot never written,
+    /// so the server throws away what it had, and is said as
+    /// `MailError.notSent`: nothing was delivered.
+    func send(_ letter: DataStream, from: String, to recipients: [String], password: String,
               progress: UploadProgress? = nil,
               beforeData: (@Sendable () async throws -> Void)? = nil) async throws {
         rejectedRecipients = []
@@ -137,7 +144,7 @@ actor SMTPClient {
             let capabilities = try await handshake(connection)
             try await authenticate(connection, capabilities: capabilities, password: password)
             try await transmit(connection,
-                               raw: raw,
+                               letter: letter,
                                from: envelopeFrom,
                                to: envelopeTo,
                                capabilities: capabilities,
@@ -148,13 +155,26 @@ actor SMTPClient {
             // the failure was the server going away, waiting for a reply that
             // is never coming would stall for the full read timeout before we
             // could show the error.
-            letGo(connection, quitting: true, transcript: "fail")
+            //
+            // But no QUIT after a letter stopped by its own file: the
+            // transport is closed already (`LinkTransport.write(from:)`),
+            // and a QUIT would be written into the letter, which has no dot.
+            letGo(connection, quitting: !(error is LetterSourceFailure), transcript: "fail")
             if let withheld = error as? Withheld { throw withheld.reason }
             throw Self.userFacing(error)
         }
 
         // Delivered. The 221 is not read: see above.
         letGo(connection, quitting: true, transcript: "ok")
+    }
+
+    /// A letter made already: sent as one piece of text, through the same
+    /// stream, stuffer and latch as one made from its files.
+    func send(_ raw: Data, from: String, to recipients: [String], password: String,
+              progress: UploadProgress? = nil,
+              beforeData: (@Sendable () async throws -> Void)? = nil) async throws {
+        try await send(DataStream(raw: raw), from: from, to: recipients, password: password,
+                       progress: progress, beforeData: beforeData)
     }
 
     /// Signs in and says goodbye, sending no letter: whether the submission
@@ -334,7 +354,7 @@ actor SMTPClient {
 
     /// MAIL FROM / RCPT TO / DATA, and the message itself.
     private func transmit(_ connection: any MailTransport,
-                          raw: Data,
+                          letter: DataStream,
                           from: String,
                           to recipients: [String],
                           capabilities: SMTPClientCapabilities,
@@ -349,9 +369,12 @@ actor SMTPClient {
         // go up the wire in full — a minute or more on a domestic connection
         // — before the server answers 552, so the failure costs the wait
         // twice: once to discover it and once on the retry it invites.
-        if let limit = capabilities.maximumMessageBytes, raw.count > limit {
+        //
+        // The letter's own count, not what goes after DATA: the rehearsal
+        // made every byte of it before the connection was opened.
+        if let limit = capabilities.maximumMessageBytes, letter.rawCount > limit {
             Diagnostics.log(.note,
-                "refusing locally: \(raw.count) bytes exceeds the server's SIZE \(limit)")
+                "refusing locally: \(letter.rawCount) bytes exceeds the server's SIZE \(limit)")
             throw SMTPClientError.tooLarge
         }
 
@@ -360,7 +383,7 @@ actor SMTPClient {
         // Declaring the size lets a server that advertised no SIZE, or one
         // whose real limit is lower than advertised, refuse before DATA
         // rather than after. Costs nothing when it is accepted.
-        if capabilities.maximumMessageBytes != nil { mailFrom += " SIZE=\(raw.count)" }
+        if capabilities.maximumMessageBytes != nil { mailFrom += " SIZE=\(letter.rawCount)" }
         Diagnostics.log(.sent, mailFrom)
         try await connection.writeLine(mailFrom)
         let fromReply = try await readReply(connection)
@@ -405,9 +428,10 @@ actor SMTPClient {
             throw SMTPClientError.rejected(code: dataReply.code, text: dataReply.text)
         }
 
-        let payload = Self.dataPayload(raw)
-        Diagnostics.log(.note, "WIRE-PAYLOAD bytes=\(payload.count) raw=\(raw.count)")
-        try await connection.write(payload, progress: progress)
+        // Made as it goes, a piece at a time, its dot only once the latch
+        // holds (`DataStream`). The counts are the rehearsal's.
+        Diagnostics.log(.note, "WIRE-PAYLOAD bytes=\(letter.total) raw=\(letter.rawCount)")
+        try await connection.write(from: letter, progress: progress)
 
         // Waited for on the long bound: see `ReplyWait.afterUpload`. The
         // write returning means the stack has the bytes, not that Gmail does.
@@ -526,52 +550,21 @@ actor SMTPClient {
     /// times out. The terminator is a bare "." on its own line, so the
     /// message must be sitting at the start of a line before it goes.
     ///
-    /// Read through a raw buffer into a byte array, for the reason
-    /// `MIMEDecoder.decodeBase64` gives. This used to walk the letter a byte
-    /// at a time through `Data`, which has no `append` for one byte: each
-    /// went through the generic `replaceSubrange`, an opaque call into
-    /// Foundation per byte, and each read cost a call too. A five-photo
-    /// letter spent about 3.5 s here before a byte of it was sent, most of
-    /// the local work of a send. It now goes a line at a time: everything up
-    /// to the next CR or LF is copied in one piece, and only the line breaks
-    /// and a dot at the start of a line are looked at on their own, which on
-    /// a letter of base64 lines is one step for every 76 bytes. The
-    /// terminator goes into the same array, with room kept for it, because
-    /// appending it to the finished `Data` copied the whole letter again.
+    /// The letter whole, stuffed, by the same stuffer the wire uses a piece
+    /// at a time (`DataStuffer`, B-070). Production sends through
+    /// `DataStream` and no longer calls this; it is what the tests hold the
+    /// stream to, and `DataPayloadTests` holds it in turn to the stuffer it
+    /// replaced, byte for byte.
     ///
     /// `Data(out)` at the end is one copy of the letter, and for that moment
-    /// it is in memory three times. Building the `Data` itself a line at a
-    /// time, to save the copy, was four times slower on a photo letter here
-    /// and fourteen on the worst case, each append a call into Foundation.
+    /// it is in memory three times. That was Send's peak, with a letter of
+    /// photos, until B-070.
     static func dataPayload(_ raw: Data) -> Data {
-        let cr: UInt8 = 0x0D, lf: UInt8 = 0x0A, dot: UInt8 = 0x2E
         var out: [UInt8] = []
         out.reserveCapacity(raw.count + (raw.count / 64) + 16)
-
-        raw.withUnsafeBytes { (buffer: UnsafeRawBufferPointer) in
-            let input = buffer.bindMemory(to: UInt8.self)
-            let count = input.count
-            // Always at the start of a line here.
-            var start = 0
-            while start < count {
-                if input[start] == dot { out.append(dot) }
-                var end = start
-                while end < count, input[end] != cr, input[end] != lf { end += 1 }
-                out.append(contentsOf: UnsafeBufferPointer(rebasing: input[start..<end]))
-                guard end < count else { break }
-                // Any line break, CR, LF or the pair, goes out as CRLF. The
-                // pair is taken whole so it does not count as two line
-                // breaks and double-space the whole message.
-                out.append(cr)
-                out.append(lf)
-                let pair = input[end] == cr && end + 1 < count && input[end + 1] == lf
-                start = end + (pair ? 2 : 1)
-            }
-        }
-
-        let endsALine = out.count >= 2 && out[out.count - 2] == cr && out[out.count - 1] == lf
-        if !endsALine { out += [cr, lf] }
-        out += [dot, cr, lf]
+        var stuffer = DataStuffer()
+        raw.withUnsafeBytes { stuffer.stuff($0, into: &out) }
+        stuffer.finish(into: &out)
         return Data(out)
     }
 
@@ -655,6 +648,10 @@ actor SMTPClient {
     /// The single point where protocol detail is discarded and the user gets
     /// one of the sentences the product spec allows.
     private static func userFacing(_ error: Error) -> MailError {
+        // A file of the letter, not the line: "Message was not sent.", and
+        // never `connectionLost`, which would leave an attempt that had no
+        // dot to be looked for in Sent Mail (B-070).
+        if error is LetterSourceFailure { return .notSent }
         if let mailError = error as? MailError { return mailError }
         if let wire = error as? SMTPClientError {
             switch wire {

@@ -621,19 +621,38 @@ extension ShareItems {
                 else { return done(nil) }
                 done(item(fromText: text, title: title))
             }
-        } else if let type = provider.registeredTypeIdentifiers.first {
+        } else if let first = provider.registeredTypeIdentifiers.first {
+            // A video as QuickTime where it is offered, so the original
+            // ".MOV" goes; counted, and said when it is left out (B-070).
+            let movie = movieType(offered: provider.registeredTypeIdentifiers,
+                                  isMovie: { UTType($0)?.conforms(to: .movie) == true })
+            let type = movie ?? first
+            if movie != nil { tally.videos += 1 }
             // The copy iOS hands over lasts only as long as this callback,
             // so it is staged here; by its size first, which a video can
-            // make larger than the extension may hold.
+            // make larger than the letter's room.
             provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
                 guard let url,
                       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-                else { return done(nil) }
+                else {
+                    Diagnostics.log(.note, fileNote(read: type, suggested: false, name: "",
+                                                    mimeType: "-", bytes: 0, went: .notGiven))
+                    return done(nil)
+                }
                 let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
                     ?? "application/octet-stream"
-                done(staging.file(at: url, size: Int64(size),
-                                  named: filename(suggested: provider.suggestedName, for: url),
-                                  mimeType: mime))
+                let name = filename(suggested: provider.suggestedName, for: url)
+                let room = staging.room
+                let item = staging.file(at: url, size: Int64(size), named: name, mimeType: mime)
+                if item != nil, movie != nil { tally.videosAttached += 1 }
+                // What its copy measured, where it was copied, which is what
+                // decided it; the sharing app's word where it was not.
+                let bytes = staging.lastMeasured ?? Int64(size)
+                Diagnostics.log(.note, fileNote(
+                    read: type, suggested: !(provider.suggestedName ?? "").isEmpty, name: name,
+                    mimeType: mime, bytes: bytes,
+                    went: fileWent(item, size: bytes, room: room)))
+                done(item)
             }
         } else {
             done(nil)

@@ -57,6 +57,7 @@ enum AttachmentStore {
     static func write(_ data: Data, named filename: String) throws -> URL {
         let url = try place(for: filename)
         try data.write(to: url, options: .atomic)
+        readableWhileLocked(url)
         return url
     }
 
@@ -67,7 +68,30 @@ enum AttachmentStore {
     static func copy(_ source: URL, named filename: String) throws -> URL {
         let url = try place(for: filename)
         try FileManager.default.copyItem(at: source, to: url)
+        readableWhileLocked(url)
         return url
+    }
+
+    /// Makes the file at `url` one that can be read while the iPad is
+    /// locked, once it has been unlocked since it was started: data
+    /// protection's class C, "complete until first user authentication"
+    /// (B-070).
+    ///
+    /// A letter is read from its files as it goes, and a video of 19 MB
+    /// takes minutes to go on his line, so the iPad may lock while it does.
+    /// A file of class A cannot be read about ten seconds after the lock,
+    /// and the letter would fail there, not sent, said. Class C is what a
+    /// file is given when nothing says otherwise, as nothing in this app
+    /// does; set all the same, since a copy of the file Photos hands over
+    /// is not known to take it. Nothing stronger is set anywhere here
+    /// (`StreamingSendTests`). Not on the host, which has no such thing,
+    /// and failing quietly: the file reads either way until the lock.
+    static func readableWhileLocked(_ url: URL) {
+        #if os(iOS)
+        try? FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: url.path)
+        #endif
     }
 
     /// Where a file of that name is to be written, in a directory of its

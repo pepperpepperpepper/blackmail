@@ -92,6 +92,49 @@ enum TransportDeadline {
             progress?(start - data.startIndex, data.count)
         } while start < data.endIndex
     }
+
+    /// Writes what `source` makes through `send`, as `write` writes data:
+    /// a piece at a time, each raced against `seconds` on its own, and the
+    /// running total of `source.total` after each (B-070).
+    ///
+    /// Each piece is asked for outside the race, once the one before has
+    /// been taken: making it is this device's time, not the network's, and
+    /// a slow one must not be taken for a line that has stopped. An empty
+    /// piece is passed over; one larger than `writeChunkBytes`, which
+    /// `DataStream` never makes, is cut as `write` cuts.
+    ///
+    /// The source is claimed first (`WriteSource.begin`), so a source
+    /// another write has had, cut off part of the way, fails here with
+    /// nothing written, and never hands this write the rest of itself.
+    ///
+    /// Never throws for a total that came out different from `source.total`:
+    /// it is only known after the last piece, and the last piece of a letter
+    /// carries its terminating dot. Thrown there, a letter the server has
+    /// would be called not sent, and sent again. It is logged instead,
+    /// `WIRE-COUNT`.
+    static func write(from source: WriteSource, within seconds: TimeInterval,
+                      onExpiry expire: @escaping @Sendable () -> Void,
+                      progress: UploadProgress? = nil,
+                      through send: @escaping @Sendable (Data) async throws -> Void) async throws {
+        let total = source.total
+        var written = 0
+        try source.begin()
+        while let made = try source.next() {
+            var start = made.startIndex
+            while start < made.endIndex {
+                let end = made.index(start, offsetBy: writeChunkBytes, limitedBy: made.endIndex)
+                    ?? made.endIndex
+                let piece = made[start..<end]
+                try await race(within: seconds, onExpiry: expire) { try await send(piece) }
+                written += piece.count
+                start = end
+                progress?(written, total)
+            }
+        }
+        if written != total {
+            Diagnostics.log(.note, "WIRE-COUNT predicted=\(total) actual=\(written)")
+        }
+    }
 }
 
 /// A continuation that the first of two racers takes and the second finds

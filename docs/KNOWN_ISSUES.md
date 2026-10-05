@@ -1715,8 +1715,9 @@ to happen.
   leaves the extension saying "Open Blackmail once".
 - Memory: share five full-size photos from Photos at once, and a video,
   and see the sheet come up with them attached (or the video left out if
-  it is over 25 MB), then send. The letter is still built whole in memory
-  at Send, as in the app.
+  it is over 25 MB), then send. The letter was built whole in memory at
+  Send then, as in the app; since B-070 it is made from the staged files
+  as it goes, and never held whole.
 - What Safari and YouTube put in the extension item: the title is taken
   from `attributedTitle`, then `attributedContentText`.
 - The sheet's look beside the app's composer, and sending over TLS from the
@@ -1989,8 +1990,8 @@ over 5 MB with a clear background went as a JPEG, its clear parts solid,
 and a GIF over 5 MB lost its movement and arrived as a .jpg; since
 2026-10-05 only one that does not fit the letter, or says where it was. A
 Live Photo goes as its still. The JPEG, up to about 5 MB, is held in
-memory a moment before it is staged, and the letter is still built whole
-in memory at Send, as in the app. The checks are the numbered list at the
+memory a moment before it is staged. The letter was built whole in memory
+at Send, as in the app, until B-070. The checks are the numbered list at the
 end of "Blocked on the iPad coming back" in the TODO, and
 `BLACKMAIL_SHARE_EXT` stays opt-in until they pass.
 
@@ -2077,40 +2078,38 @@ What changed, in the share extension only:
 - **Whole at any size.** A GIF or a PNG that fits in what is left of the
   letter and says nothing of where it was is copied as it is. The 5 MB
   bound is gone: Mail has none at Actual Size. One that says where it was
-  is made a JPEG, as before. What is left of the letter is the room Send
-  has, below.
-- **The memory at Send.** The letter is built whole in memory at Send, in
-  the extension, as the app builds it: every file read back, its base64,
-  the letter, and the letter again made ready for the wire. Measured on
-  the host, the files read, the letter built and readied, the peak was
-  5.4 to 6.9 times the files, by how the allocator gave memory back. A
-  photo as its own bytes makes a letter far larger than a JPEG of 4096 px
-  did: a 48-megapixel JPEG of perhaps 15 MB went as a JPEG of a few
-  hundred KB on 2026-10-04, and would be about 100 MB at Send, in an
-  extension allowed about 120. Killed there, the sheet goes at
-  "Sending…" and the letter does not. Two changes. `RFC5322Builder` now
-  makes each file's base64 only as it writes it into the letter, written
-  once into a string of its final size, and asks for the letter's room at
-  once; the letter is the same, byte for byte, and the peak 4.1 to 5.1
-  times the files. And a picture goes as its own bytes or whole only while
-  the letter, it with what is staged, takes three fifths or less of the
-  memory left, at five times its files (`SharedPhoto.sendRoom`,
-  `SharedPhoto.sendPeak`), read as each picture is staged: about 9.6 MB of
-  letter with 80 MB left, 18 MB with 150 MB. Past it, the picture is made
-  a JPEG here, as on 2026-10-04, and its line says `(not as its own bytes:
-  more than Send could build, room for 9 MB)`. A JPEG made here is not
-  weighed against Send, as on 2026-10-04, nor is a file that is not a
-  picture: a video of 24 MB is still built whole. At Send the log has
-  three lines, `SHARE-SEND files read` with the files' count and bytes
-  just before the building, `SHARE-SEND built` before DATA, and
-  `SHARE-SEND sent`, each with the memory left and the least there has
-  been since the extension started (`SharedPhoto.memory`: its limit less
-  its footprint at its highest), which is how near the building came.
+  is made a JPEG, as before. What was left of the letter was also the
+  room Send had, below, until B-070.
+- **The memory at Send.** The letter was built whole in memory at Send,
+  in the extension, as the app built it: every file read back, its
+  base64, the letter, and the letter again made ready for the wire.
+  Measured on the host, the files read, the letter built and readied, the
+  peak was 5.4 to 6.9 times the files, by how the allocator gave memory
+  back. A photo as its own bytes makes a letter far larger than a JPEG of
+  4096 px did: a 48-megapixel JPEG of perhaps 15 MB went as a JPEG of a
+  few hundred KB on 2026-10-04, and would have been about 100 MB at Send,
+  in an extension allowed about 120. Killed there, the sheet goes at
+  "Sending…" and the letter does not. First, `RFC5322Builder` made each
+  file's base64 only as it wrote it into the letter, and the peak was 4.1
+  to 5.1 times the files; and a picture went as its own bytes or whole
+  only while the letter took three fifths or less of the memory left, at
+  five times its files (`SharedPhoto.sendRoom`), shrunk past it with
+  `(not as its own bytes: more than Send could build, room for 9 MB)`.
+  Then, the same day, B-070: the letter is made from the staged files as
+  it goes, never whole, and what Send holds does not grow with them. The
+  room at Send is gone with it; a picture is weighed against what is left
+  of the letter's 25 MB alone, as a video and any other file always were.
+  At Send the log has three lines, `SHARE-SEND files read` with the files'
+  count and bytes, now from the rehearsal before the connection,
+  `SHARE-SEND built` before DATA, and `SHARE-SEND sent`, each with the
+  memory left and the least there has been since the extension started
+  (`SharedPhoto.memory`: its limit less its footprint at its highest), and
+  the last with the least at any step of the letter's progress, `W MB at
+  the least while it went`.
 - **Shrunk only where Mail would leave him stuck.** Made a JPEG of at most
   4096 px, as on 2026-10-04: a photo that does not fit in what is left of
-  the letter, which Mail would send by Mail Drop and this cannot; one that
-  would make the letter more than Send can build in the memory left, which
-  Mail, an app, never meets; a picture that cannot go as its own bytes, a
+  the letter, which Mail would send by Mail Drop and this cannot; a
+  picture that cannot go as its own bytes, a
   HEIC with no JPEG offered, a TIFF, a WebP, an AVIF, a BMP, a RAW photo;
   a GIF or PNG that says where it was; a JPEG ImageIO would not copy, or
   whose copy still says where. The 25 MB stays, and so does "1 photo could
@@ -2207,14 +2206,12 @@ What still differs from Mail, and why:
   lens and Apple's own notes are taken off too, where Mail sends them.
 - **No Mail Drop**, so a photo too large for what is left of the letter is
   shrunk, where Mail would offer to send it another way.
-- **The letter is built whole in memory at Send**, about five times its
+- **The letter was built whole in memory at Send**, about five times its
   files, in an extension allowed about 120 MB; Mail, an app, has far more.
-  So a photo that would make the letter more than that memory can build is
-  shrunk too: on his iPad perhaps the third or fourth camera photo of a
-  share, and a 48-megapixel JPEG on its own. A file that is not a picture
-  is not weighed, and a letter near 25 MB of them can still take the sheet
-  away at "Sending…". Building the letter as it goes onto the wire, from
-  the files on the disk, would end it; not done.
+  So a photo that would make the letter more than that memory could build
+  was shrunk too. Since B-070 the letter is made as it goes onto the wire,
+  from the files on the disk, and that no longer differs: a photo is
+  shrunk only past the letter's 25 MB.
 - **No Small, Medium, Large or Actual Size** row. Not part of this change.
 - **The app's own composer** still names a photo and makes it as before
   ("The composer, looked at and not changed", above).
@@ -2283,7 +2280,7 @@ was offered (3).
 
 **Reviewed the same day, before the iPad.** Six things were found and
 changed. A photo as its own bytes made the letter at Send far larger, and
-nothing weighed that (the memory at Send, above). The file written as its
+nothing weighed that (the memory at Send, above; since B-070 nothing needs to). The file written as its
 own bytes went unread, its location gone only on ImageIO's word (its own
 bytes read back, above). The log wrote a picture's name as it came, which
 can be a title someone gave it. A picture left out for the memory read "9
@@ -2418,17 +2415,13 @@ iPad has since shown is said at the end of each:
 - How near the memory's factor comes to the limit in fact: the estimate is
   built from a measure made outside an extension.
 - **Send.** A photo now goes at its own size, so a letter of photos comes
-  near what the memory allows far more often than a JPEG of 4096 px let
-  it, and it is still built whole in memory at Send: the files, their
-  base64, the letter, and the letter again as it goes. Five times its
-  files is the host's measure, at most, after `RFC5322Builder`'s change,
-  not the iPad's; the room it gives is three fifths of the memory read as
-  each picture is staged, before the sheet is up. Whether the extension
-  lives through a letter at that room, and through a video of 24 MB, which
-  is not weighed against Send at all, is check 5, and the least left since
-  the extension started is in its `SHARE-SEND` lines. On his iPad, at
-  about 120 MB, a letter near 25 MB likely kills it. A pass on the test
-  iPad does not say otherwise.
+  near the 25 MB far more often than a JPEG of 4096 px let it. Since
+  B-070 the letter is made from the staged files as it goes, never whole,
+  and what Send holds does not grow with them: under 8 MB more for a
+  19 MB video on the host. The network's own buffers are not in that
+  figure. Whether the extension lives through a letter near 25 MB on the
+  iPad, and how low its memory went while it did, is B-070's check, from
+  its `SHARE-SEND` lines; on his iPad when it can be had.
 - That `ledger_phys_footprint_peak`, in `task_info`, is the extension's
   highest footprint since it started, as its name says: `M MB at the
   least` rests on it.
@@ -8364,3 +8357,276 @@ was gone from Drafts. In the pane, the two lines and nothing above them.
 **Not covered.** Nothing left for the iPad. Letters and drafts saved
 before the change keep their lines (above).
 
+---
+
+## B-070 — CHANGED 2026-10-05, seen in the iPadOS 18 simulator, not yet on the iPad. Send built the whole letter in memory; videos could not go and photos were shrunk for it
+
+**Found** on 2026-10-05, measuring the send path on this host for a video
+of 19,000,000 bytes, a debug build: `RFC5322Builder.build` alone raised
+the high-water mark by 71 MB, and the build with what goes after DATA,
+the file still held, by 98 MB, about five times the file. Half of that
+was held for the whole upload, minutes on his line. In the share
+extension, allowed about 120 MB on his iPad, that is the sheet gone at
+"Sending…" and the letter not sent. So the extension did not ask for
+videos, and a photo went as its own bytes only while the letter fitted
+the memory Send would build it in (`SharedPhoto.sendRoom`), shrunk past
+it. The owner, the same day: "build the streaming Send that works from a
+file on disk — his videos go up to 19 MB and it would let full-size
+photos go too."
+
+**What it was.** Every letter was made whole, twice. `build` read every
+file into memory and made the letter as one `Data`, its base64 in it.
+`SMTPClient.dataPayload` made a stuffed copy for DATA. `Submission` held
+the first and the client the second until the 250. The app sends the same
+way, and the share extension has no Outbox to fall back on.
+
+**Changed.** The letter is made from its files as it goes, and never held
+whole. Nothing new is written to the disk.
+
+1. *A plan.* `RFC5322Builder.plan` makes the letter's text as bytes, every
+   header, boundary, part header and line of quoted-printable, and a
+   place for each file's base64 (`LetterPlan`). Its body is `build`'s, the
+   boundaries drawn in the same order. Its length is known from the
+   files' sizes alone. `build` is now the plan made whole, for a draft.
+2. *The files held open.* Each file on the disk is opened once, by
+   descriptor, before anything is said to a server (`LetterFiles`). It
+   must be a regular file, and the size it was when attached where that
+   is known; where it is not, its `LETTER-FILE` line says the size was
+   not checked. It is read by position, so a file whose name is taken
+   away while it goes, a second share's purge or a letter's folder
+   tidied, goes whole. A forward's part is fetched as before and goes
+   from memory.
+3. *The rehearsal.* Before the connection, the whole letter is made once
+   into a count (`DataStream`): every file read, every block of base64
+   made, every byte stuffed. That gives SIZE its count, the progress its
+   total, and each file's count and CRC-32. A file missing, not a file,
+   not its size, or that reads short, fails there: "Message was not
+   sent.", nothing on the wire, and the log says which (`LETTER-FILE 1
+   refused …`).
+4. *The wire.* After the 354 the same bytes are made again, in pieces of
+   exactly 64 KiB but the last, so the progress is in the steps it
+   always was. Each file's base64 is Foundation's, a block of 58,368 bytes
+   at a time, 1,024 lines of 76 (`LetterBytes`). Every byte goes through
+   one stuffer that carries its state from piece to piece
+   (`DataStuffer`); `dataPayload` is the same stuffer, whole.
+5. *The latch.* The terminating dot is made only once each file read for
+   the wire gave the rehearsal's count and CRC and ended at its size, and
+   the letter's counts are the rehearsal's. Otherwise the dot is withheld,
+   the transport closed before anything else, a QUIT neither, and he reads
+   "Message was not sent.". A server throws away a DATA that never ended,
+   so nothing is delivered, and the Outbox settles the attempt: there is
+   nothing to look for in Sent Mail.
+6. *One write.* The transport asks for each piece outside its deadline,
+   logs one `WIRE-OUT` and one `WIRE-ACK` for the letter, and never throws
+   for a total that came out wrong: that is known only after the last
+   piece, which holds the dot. It is logged, `WIRE-COUNT`. The write
+   claims the letter before its first piece, and a letter claimed once is
+   refused to any write after, with nothing written: the rest of one cut
+   off part of the way never goes as a letter of its own, with no header
+   and a dot. Every letter goes this way, one made already too
+   (`SMTPClient.send(_ raw:)`).
+7. *Drafts.* A draft's APPEND is not streamed. Its literal is byte for
+   byte what it was, made through the same plan and the same blocks.
+8. *The share sheet.* Videos are asked for, up to five, as photos and
+   files are (`ShareInfo.plist`); QuickTime is taken where it is offered,
+   so the original `.MOV` goes. A copied file is measured once it is on
+   the disk, and that is the size Send checks it against, and the size
+   its `SHARE-FILE` line gives: a copy larger than the room is logged as
+   that, not as a file not copied. A video left out is counted, and said
+   as a photo is: "The video could not be attached." in place of a
+   letter of videos alone, "1 video could not be attached." over one with
+   the rest, and "The photo and the video could not be attached." for one
+   of each. The owner approved these words, 2026-10-05: "matching the
+   photo wording exactly is the right call". Where they show is
+   B-069's. `sendRoom` and `sendPeak` are gone: a photo goes as its own
+   bytes whenever it fits the 25 MB, which is now the one bound. The
+   decode guard for a JPEG made here stays.
+9. *Readable while locked.* Every staged file is set to class C
+   explicitly (`AttachmentStore.readableWhileLocked`): a video takes
+   minutes to go, and a class A file cannot be read about ten seconds
+   after the lock. Nothing stronger is set anywhere.
+10. *The log.* `LETTER-PLAN files= file-bytes= raw= payload= ms=` before
+    the connection, one `LETTER-FILE n bytes= crc=` for each file, with
+    `attached=- not checked` where its size when attached is not known,
+    and `LETTER-LATCH ok` or `LETTER-LATCH withheld file=n reason=…` at the
+    end; a file that is not a picture shared, `SHARE-FILE`. The share's
+    `SHARE-SEND` lines keep their words and order; "files read" is now
+    the rehearsal's, and "sent" says the least memory at any step of the
+    progress, `W MB at the least while it went`. Numbers and types only.
+
+A plain letter of one part (B-068) is one piece of text: its header, a
+blank line and his words, nothing after the last. SMTP's DATA is those
+bytes, then a CRLF and the dot when his words do not end in a line break,
+the dot alone when they do. Every other shape ends in its closing
+boundary and a CRLF, and gets the dot alone.
+
+**Tests.** Held to `ReferenceBuilder`, the builder frozen from master
+f117c02, with B-068, copied whole into the test target and never edited.
+`LetterPlanTests`, over 291 letters: every shape, eleven bodies, Bcc and
+threading on and off, awkward file names among them the next boundary,
+and files of every size about a line's, a block's and a piece's edge to
+1,000,003 bytes. Each letter built, planned and made from bytes, and made
+from the disk, is the reference's, byte for byte, with as many boundary
+draws, and its plan's length its count. What goes after DATA needs no
+stuffing: three bytes more, five for a plain letter that ends open. The
+stream from the disk is the old payload in pieces of 64 KiB, and goes
+once, to the one write that claims it. `Base64BlockTests`: a block at a time is the whole file's base64 at
+every length to 400 and about each of the first three blocks, from
+memory, from the disk, and with reads cut short at random. `DataStufferTests`:
+every awkward letter of `DataPayloadTests` cut once at every place, twice
+at every pair when short, and a byte at a time, and 20,000 random ones
+cut at random, each the old stuffer's payload. `CRC32Tests`: "123456789"
+is CBF43926. `StreamingSendTests`, through `Submission` and the shipping
+client: a video and a note arrive as the reference letter, SIZE its
+count, the progress the 64 KiB steps, the lines in their order; a file
+cut short, grown, or rewritten at its size after the rehearsal ends no
+letter, no dot, no QUIT, the transport closed, "Message was not sent.";
+a file removed once opened goes whole; a file missing, a directory, a
+pipe, a file not its size and one that reads short reach no server; a
+letter one byte over the server's SIZE is refused before MAIL FROM, and
+one at it goes. And
+read from the source: no file read whole in Send, one in the draft's
+APPEND, nothing stronger than class C anywhere, class C set where files
+are staged. `StreamingSendMemoryTests`: the 19,000,000-byte video from the
+disk raises the high-water mark by under 8 MB, measured before anything
+else, and the letter that arrived is the reference's by count and CRC.
+`OutboxTests`: a photo changed as its DATA goes is settled, refused "not
+sent", and goes at the next launch with nothing looked for; a letter cut
+off part of the way waits unsettled and goes later under its Message-ID,
+planned afresh. `LinkTransportTests` and `TransportDeadlineTests`: one
+WIRE-OUT and one WIRE-ACK for a streamed write, the deadline closing a
+stalled one, a source failure closing the transport and thrown as it
+came, a wrong total logged and not thrown, empty pieces passed over,
+large ones cut, a slow piece made outside the deadline. `ShareSheetTests`:
+a video staged on the disk arrives whole as `video/quicktime; name=
+"IMG_0001.MOV"`, the three lines in their words with "while it went"; a
+staged file changed since is not sent and the sheet stays.
+`ShareItemsTests`: the video words in every combination, QuickTime first
+whatever the order, a copy measured, and discarded past the room, its
+measure what its line in the log says.
+`ShareInfoPlistTests`: Movie 5, Image 5, File 5, WebURL 1, WebPage 1,
+Text, `XPC!`, the principal class. `RepositoryWireTests`: a draft's
+literal is the reference's with Bcc. `PlainLetterTests` pass unchanged.
+Changed: the source pin `testEachFilesBase64IsMadeOnlyAsItIsWritten` is
+gone, its place taken by these; `SharedPhotoTests` lose the room at
+Send; two staging stubs write real files, since a copy is now measured;
+a test whose photo was said to be 2,000,000 bytes and was 2,000 now is;
+`ShareSheetTests` hand their files over as bytes through `openFile`.
+`ShareSheet` keeps `readFile:` as a second initializer, for bytes in
+memory, so `PlainLetterTests` stays as it was.
+Sabotaged one at a time in a scratch copy, the whole suite run each time,
+counted in failures and in tests. A block of 58,369 bytes: 66 in 15,
+`LetterPlanTests` and `Base64BlockTests` among them. No CRLF between
+blocks: 66 in 14, the same. The plan's length 2 bytes long: 232 in 32,
+every letter with a file refused before the server, `LetterPlanTests` and
+`StreamingSendTests` among them; the test of files that cannot go passes,
+its five failing before any count. The CR of a split line break not
+carried: 219 in 2, `DataStufferTests`. A line's start not carried: 321 in
+2, the same. A CRLF before every terminator: 779 in 8, `DataStufferTests`,
+`DataPayloadTests` and the pin that the builder needs no stuffing. B-068's
+line undone in the plan: 231 in 10, `LetterPlanTests` and nine of
+`PlainLetterTests`. The latch run after the last piece: 7 in 4, a file
+rewritten at its size arriving, dot and all, in `StreamingSendTests` and
+in the Outbox's twin. No read past a file's end: 9 in 1, the grown file.
+Counts compared, not CRCs: 13 in 2. Files opened again by name for the
+wire: 1 in 1, the file removed once opened. A file's failure said as a
+lost line, the transport left open and a QUIT written: 15 in 3,
+`StreamingSendTests`, the Outbox's twin and `LinkTransportTests`. A throw
+for a wrong total: 2 in 2. A `WIRE-OUT` for every piece: 5 in 4. Pieces
+of 64 KiB and a byte: 3 in 3, `SMTPSendTests`' progress among them. SIZE
+from the payload: 1 in 1. The stream made whole before the write: 2 in 2,
+the memory test at 51.6 MB. No check against the size attached: 10 in 2.
+The Movie key taken out: 2 in 1. A video left out and not counted: 10 in
+1. A copy's size as the sharing app said it: 3 in 1.
+
+**Reviewed 2026-10-05, and fixed.** A review of the change above found
+nine things, each fixed in the text above, which says how it is now. The
+stream refused a second pass only once the first had ended or failed.
+One cut off part of the way, by a deadline, would have handed a second
+write the rest of the letter, with no header, and then the dot; a retry
+that kept the stream would have had that delivered, and counted as sent.
+No caller keeps one, so it was never live. Now the write claims the
+stream before its first piece (`WriteSource.begin`), and a second claim
+fails with nothing written. A file whose size when attached was not
+known went unchecked, and its line read as a checked one's. Nothing on
+the host read the sheet's counting of videos: with both counts taken
+out, or the first type taken over QuickTime, every test passed, and a
+video left out would have gone unsaid, the silent drop this change
+exists to end. One photo and one video, neither attached, read "The
+photos and videos could not be attached.". A copy that measured larger
+than the room was logged as not copied, with the sharing app's size.
+And four passages said what was not so: PERFORMANCE gave 0.3 MB for the
+25 MB video, where it is 0.03 to 0.6; the builder's comment gave B-070
+the change made before it; the photo change still had the room at Send;
+and a test's comment cited a working note outside the repository, as
+three others cited its labels.
+
+Each fix fails with its part undone, twelve sabotages one at a time,
+each run once over the whole suite, serially, as failures in tests: the
+claim taken away, as before (11 in 3, a stream cut off and taken up
+again, directly and through the transport); a claim that never refuses
+(10 in 3); a piece made with no claim (1 in 1); the write not claiming
+at all (347 in 125, every letter refused); a file of no known size
+logged as checked (1 in 1); a video not counted as offered (2 in 1) or
+as attached (2 in 1), and the first type taken over QuickTime (1 in 1),
+each by the sheet's source; the plural for one of each (3 in 1); a
+copy's measure kept only when it was staged (2 in 1), or never cleared
+(3 in 1); and the line's reason from the sharing app's size (1 in 1).
+The full suite, serially, then: 1,430 tests, 5 skipped, none failing.
+The release build for the iPad links.
+
+**Measured on this host**, the 19,000,000-byte video. The high-water
+mark rose 3.3 to 4.9 MB in a process that had sent nothing before, the
+thread pool and the allocator starting up, and 0 to 0.04 MB inside the
+whole suite; built whole, it was 98 MB. It rose 0.03 to 0.6 MB for
+25,000,000 bytes sent after it. The rehearsal took 432 to 436 ms in the
+debug build, and 76 to 79 ms in a release build, three runs (101 to 113
+ms for 25 MB). After the review: 4.0 MB alone, 0 and 0.01 MB inside the
+suite, and 0.16 MB for the 25 MB video after it.
+
+**Seen in the simulator, 2026-10-05**, an iPad (7th generation) on iOS
+18.6, built from this change, signed in to the test account. A video of
+19,284,661 bytes, IMG_7001.MOV, was put in Photos and shared from there.
+Photos offered Blackmail for "1 Video Selected", and the sheet listed
+"IMG_7001.MOV — 19.3 MB". Sent to the test account's +sim18 address,
+"B070 video 19 MB from Photos": "Sending… 59%" on the way, and the sheet
+closed at the 250. Its lines: `SHARE-FILE
+read=com.apple.quicktime-movie name=file "IMG_7001.MOV"
+mime=video/quicktime bytes=19284661 went=staged`; `LETTER-PLAN files=1
+file-bytes=19284661 raw=26390251 payload=26390254 ms=101`; `LETTER-FILE 1
+bytes=19284661 crc=80658926`; `MAIL FROM … SIZE=26390251`; one
+`WIRE-OUT`; `LETTER-LATCH ok`; `WIRE-ACK err=none` 4.6 s after DATA; the
+250 5.2 s after that. It arrived in the Inbox with IMG_7001.MOV. Opened
+in the app, the file it wrote was 19,284,661 bytes, CRC 80658926, its
+sha256 the original's, and it played to its end. The simulator gives no
+memory figure ("memory unknown"), so there is no "while it went": it
+shows the path works, not what it holds.
+
+**Not yet on the iPad.** The checks are B-070's under "Blocked on the
+iPad coming back" in the TODO.
+
+**Not covered.**
+
+- **The network's own buffers.** What `NWConnection` holds behind
+  `.contentProcessed` is not measured here. "While it went" is the only
+  evidence, and it is the same piece-at-a-time path letters always took.
+- **How Photos hands over a video** on the iPad. In the simulator Photos
+  offered Blackmail, handed over QuickTime, gave no suggested name, and
+  the file was the original's bytes. Not seen: the iPad's own Photos, and
+  an edited, slow-motion or iCloud-only original, with a download wait in
+  the extension. Whether the File key alone would have offered Blackmail
+  is not known. A Live Photo still goes as its still, by the order of the
+  branches.
+- **Class C on a cloned staged copy** is not known to hold. The lock check
+  decides it.
+- **Longer uploads in the extension**, which has no Outbox: about 3.5
+  minutes for 26 MB at 1 Mbit/s. Killed or suspended, the share is lost,
+  as before; the exposure is larger now.
+- **The rehearsal on the A10** is not measured; `ms=` will say.
+- **CRC-32** finds a file changed by accident, not one changed on purpose.
+- **Gmail's own limit** near 34.2 MB of letter has not been tried. His
+  videos are at most 19 MB.
+- **A draft** is still made whole for its APPEND. The app has no video
+  picker, and a large draft goes up as he leaves the app.
+- **A file that is neither a picture nor a video**, a 30 MB PDF, is still
+  left out with nothing said, as before.

@@ -16,8 +16,7 @@ extension ShareItems {
     /// metadata replaced and what was written read back, under its file's
     /// name; a GIF or PNG that fits and says nothing of where it was is
     /// copied as it is (`SharedPhoto.way`). Fits: in what is left of the
-    /// letter, and of the memory Send will build it in
-    /// (`SharedPhoto.sendRoom`).
+    /// letter's 25 MB.
     /// Any other is read by ImageIO and made a JPEG of at most 4096 px,
     /// decoded at a half, a quarter or an eighth where it is larger
     /// (`SharedPhoto.size`) or where the memory left asks it, and left out,
@@ -134,14 +133,11 @@ extension ShareItems {
             }
         let kind = CGImageSourceGetType(source).map { $0 as String } ?? type
         report.inside = kind
-        // The room weighed against the memory Send will build the letter
-        // in, read now, as each picture is staged.
-        let room = SharedPhoto.sendRoom(room: staging.room, staged: staging.staged,
-                                        available: SharedPhoto.availableMemory()
-                                            ?? SharedPhoto.assumedAvailable)
-        let way = SharedPhoto.way(type: kind, size: size, room: room, carriesLocation: located)
+        // The letter's room alone: Send makes the letter from its files as
+        // it goes, in memory that does not grow with them (B-070).
+        let way = SharedPhoto.way(type: kind, size: size, room: staging.room, carriesLocation: located)
         report.fellBack = SharedPhoto.notItself(type: kind, size: size, room: staging.room,
-                                                sendRoom: room, carriesLocation: located)
+                                                carriesLocation: located)
         switch way {
         case .whole(_, let mimeType):
             let name = SharedPhoto.name(named, way: way, number: staging.unnamed)

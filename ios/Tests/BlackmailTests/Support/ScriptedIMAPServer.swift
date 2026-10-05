@@ -641,6 +641,15 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         }
     }
 
+    /// The letter at `uid` as its bytes were stored: an APPEND's literal
+    /// as it came, byte for byte.
+    func raw(uid: UInt32, in mailbox: String) -> Data? {
+        locked { s in
+            guard let key = s.folders[Self.canonical(mailbox)]?.keys[uid] else { return nil }
+            return s.letters[key]?.raw
+        }
+    }
+
     /// Gmail's id for the letter at `uid`, the X-GM-MSGID a FETCH in
     /// `mailbox` reports for it: the same from every folder the letter is
     /// in, and never its thread's.

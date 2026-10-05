@@ -251,63 +251,27 @@ final class SharedPhotoTests: XCTestCase {
         }
     }
 
-    // MARK: - The memory Send takes
-
-    private func sendRoom(_ staged: Int64, _ available: Int64,
-                          room: Int64 = ShareItems.Staging.budget) -> Int64 {
-        SharedPhoto.sendRoom(room: room, staged: staged, available: available)
-    }
-
-    /// The letter is built whole at Send, five times its files at its
-    /// height, so a picture goes as itself only while the letter, it
-    /// with them, takes three fifths of the memory left or less: 9.6 MB
-    /// of letter with the 80 MB assumed, 18 MB with 150 MB, less what is
-    /// staged; never more than the letter's own room, and never less than
-    /// nought.
-    func testTheRoomIsWhatSendCanBuildInTheMemoryLeft() {
-        XCTAssertEqual(SharedPhoto.sendPeak, 5)
-        XCTAssertEqual(sendRoom(0, 80_000_000), 9_600_000)
-        XCTAssertEqual(sendRoom(0, SharedPhoto.assumedAvailable), 9_600_000)
-        XCTAssertEqual(sendRoom(0, 150_000_000), 18_000_000)
-        XCTAssertEqual(sendRoom(4_000_000, 80_000_000), 5_600_000, "less what is staged")
-        XCTAssertEqual(sendRoom(9_600_000, 80_000_000), 0)
-        XCTAssertEqual(sendRoom(12_000_000, 80_000_000), 0, "never less than nought")
-        XCTAssertEqual(sendRoom(0, 1_000_000_000), ShareItems.Staging.budget,
-                       "never more than the letter's own room")
-        XCTAssertEqual(sendRoom(0, 1_000_000_000, room: 3_000_000), 3_000_000)
-        XCTAssertEqual(sendRoom(0, 0), 0)
-        XCTAssertEqual(sendRoom(0, -5), 0)
-
-        let room = sendRoom(0, 80_000_000)
-        XCTAssertEqual(way("public.jpeg", 9_600_000, room: room), .own, "exactly the room")
-        XCTAssertEqual(way("public.jpeg", 9_600_001, room: room), .jpeg)
-        XCTAssertEqual(way("public.png", 9_600_001, room: room), .jpeg)
-        XCTAssertEqual(way("public.jpeg", 5_600_001, room: sendRoom(4_000_000, 80_000_000)), .jpeg)
-    }
-
     /// Why a JPEG, a GIF or a PNG goes as a JPEG made here, for the log:
-    /// its size not known, a location in a GIF or PNG, the letter's room,
-    /// then Send's. Nothing for one that goes as itself, nor for a
-    /// picture that never could.
+    /// its size not known, a location in a GIF or PNG, or the letter's
+    /// room. Nothing for one that goes as itself, nor for a picture that
+    /// never could. The memory at Send is no reason since B-070: the letter
+    /// is made from its files as it goes.
     func testWhyAPictureDoesNotGoAsItselfIsSaid() {
         func why(_ type: String, _ size: Int64, room: Int64 = 25_000_000,
-                 send: Int64 = 9_600_000, located: Bool = false) -> String? {
-            SharedPhoto.notItself(type: type, size: size, room: room, sendRoom: send,
-                                  carriesLocation: located)
+                 located: Bool = false) -> String? {
+            SharedPhoto.notItself(type: type, size: size, room: room, carriesLocation: located)
         }
         XCTAssertNil(why("public.jpeg", 9_600_000))
+        XCTAssertNil(why("public.jpeg", 24_000_000), "full size, as Mail sends it")
         XCTAssertNil(why("public.jpeg", 3_000_000, located: true), "its metadata is replaced")
-        XCTAssertNil(why("public.png", 9_600_000))
-        XCTAssertEqual(why("public.jpeg", 9_600_001),
-                       "more than Send could build, room for 9 MB")
-        XCTAssertEqual(why("com.compuserve.gif", 9_600_001),
-                       "more than Send could build, room for 9 MB")
-        XCTAssertEqual(why("public.jpeg", 15_000_001, room: 15_000_000, send: 2_000_000),
+        XCTAssertNil(why("public.png", 9_600_001))
+        XCTAssertNil(why("com.compuserve.gif", 9_600_001))
+        XCTAssertEqual(why("public.jpeg", 15_000_001, room: 15_000_000),
                        "more than the letter's room, 15 MB left")
         XCTAssertEqual(why("public.png", 1_000, located: true), "it says where it was")
         XCTAssertEqual(why("public.jpeg", 0), "its size not known")
         for type in ["public.heic", "public.tiff", "org.webmproject.webp", "public.image"] {
-            XCTAssertNil(why(type, 30_000_000, room: 1, send: 1, located: true), type)
+            XCTAssertNil(why(type, 30_000_000, room: 1, located: true), type)
         }
     }
 
@@ -651,8 +615,13 @@ final class SharedPhotoTests: XCTestCase {
             written[filename] = data
             return URL(fileURLWithPath: "/staged/\(filename)")
         }
+        /// What a copy makes: `copied` bytes, in a directory of its own,
+        /// where staging measures it (B-070).
+        var copied = 10
         func copy(_ source: URL, _ filename: String) throws -> URL {
-            URL(fileURLWithPath: "/staged/\(filename)")
+            let url = try place(filename)
+            _ = FileManager.default.createFile(atPath: url.path, contents: Data(count: copied))
+            return url
         }
         func place(_ filename: String) throws -> URL {
             let url = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -1057,7 +1026,7 @@ final class SharedPhotoTests: XCTestCase {
         }
 
         inOrder(["let kind = CGImageSourceGetType(source).map { $0 as String } ?? type",
-                 "let way = SharedPhoto.way(type: kind, size: size, room: room, carriesLocation: located)",
+                 "let way = SharedPhoto.way(type: kind, size: size, room: staging.room, carriesLocation: located)",
                  "case .own:",
                  "staging.written(named: name, mimeType: \"image/jpeg\", expected: size, unnamed: named == .none, { url in",
                  "copied = SharedPhoto.copy(source, type: kind, properties: properties, to: url)",
@@ -1092,20 +1061,29 @@ final class SharedPhotoTests: XCTestCase {
                 in: readBack)
     }
 
-    /// The room a picture has is weighed against the memory Send will
-    /// build the letter in, read as it is staged, before the way is
-    /// decided; and the reason one goes as a JPEG made here is put in its
-    /// line. Never the letter's room alone.
-    func testTheRoomIsWeighedAgainstSendBeforeTheWay() throws {
+    /// The room a picture has is the letter's own, what is left of its
+    /// 25 MB, decided before the way; and the reason one goes as a JPEG
+    /// made here is put in its line. Never the memory at Send, which no
+    /// longer grows with the files (B-070): nothing in the app weighs it.
+    func testTheRoomIsTheLettersOwnBeforeTheWay() throws {
         let code = try source("SharedPhotoImageIO.swift")
         inOrder(["let kind = CGImageSourceGetType(source).map { $0 as String } ?? type",
-                 "let room = SharedPhoto.sendRoom(room: staging.room, staged: staging.staged, available: SharedPhoto.availableMemory() ?? SharedPhoto.assumedAvailable)",
-                 "let way = SharedPhoto.way(type: kind, size: size, room: room, carriesLocation: located)",
-                 "report.fellBack = SharedPhoto.notItself(type: kind, size: size, room: staging.room, sendRoom: room, carriesLocation: located)",
+                 "let way = SharedPhoto.way(type: kind, size: size, room: staging.room, carriesLocation: located)",
+                 "report.fellBack = SharedPhoto.notItself(type: kind, size: size, room: staging.room, carriesLocation: located)",
                  "switch way {"],
                 in: code)
         XCTAssertEqual(count("SharedPhoto.way(", in: code), 1)
-        XCTAssertEqual(count("SharedPhoto.sendRoom(", in: code), 1)
+        let sources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let files = FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        XCTAssertFalse(files.isEmpty)
+        for file in files {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            XCTAssertEqual(count("SharedPhoto.sendRoom(", in: text), 0, file.lastPathComponent)
+            XCTAssertEqual(count("sendPeak", in: text), 0, file.lastPathComponent)
+        }
     }
 
     /// The memory left is read before each decode, from the iPad's own
@@ -1141,8 +1119,8 @@ final class SharedPhotoTests: XCTestCase {
                  "report.went = .jpeg(factor: factor, available: available)",
                  "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor)"],
                 in: code)
-        XCTAssertEqual(count("SharedPhoto.availableMemory()", in: code), 2,
-                       "for the room at Send, and right before the decode")
+        XCTAssertEqual(count("SharedPhoto.availableMemory()", in: code), 1,
+                       "right before the decode, and no longer for a room at Send (B-070)")
         XCTAssertEqual(count("CGImageSourceCreateThumbnailAtIndex(", in: code), 1)
     }
 
@@ -1198,7 +1176,7 @@ final class SharedPhotoTests: XCTestCase {
                  "|| SharedPhoto.locationPaths.contains { path in",
                  "CGImageMetadataCopyTagWithPath($0, nil, path as CFString)",
                  "let kind = CGImageSourceGetType(source).map { $0 as String } ?? type",
-                 "let way = SharedPhoto.way(type: kind, size: size, room: room, carriesLocation: located)",
+                 "let way = SharedPhoto.way(type: kind, size: size, room: staging.room, carriesLocation: located)",
                  "case .whole(_, let mimeType):",
                  "let name = SharedPhoto.name(named, way: way, number: staging.unnamed)",
                  "let item = whole(name, mimeType)",
@@ -1314,6 +1292,26 @@ final class SharedPhotoTests: XCTestCase {
         XCTAssertEqual(count("tally.offered += 1", in: sheet), 1)
         XCTAssertEqual(count("tally.pictures += 1", in: sheet), 1)
         XCTAssertEqual(count("tally.attached += 1", in: sheet), 1)
+        // A video, the last branch (B-070): read as QuickTime where it is
+        // offered, counted as it is offered and again as it is attached,
+        // so one left out is said; and its line in the log has what its
+        // copy measured, which decided whether it fitted.
+        inOrder(["} else if let first = provider.registeredTypeIdentifiers.first {",
+                 "let movie = movieType(offered: provider.registeredTypeIdentifiers,",
+                 "isMovie: { UTType($0)?.conforms(to: .movie) == true })",
+                 "let type = movie ?? first",
+                 "if movie != nil { tally.videos += 1 }",
+                 "provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
+                 "let room = staging.room",
+                 "let item = staging.file(at: url, size: Int64(size), named: name, mimeType: mime)",
+                 "if item != nil, movie != nil { tally.videosAttached += 1 }",
+                 "let bytes = staging.lastMeasured ?? Int64(size)",
+                 "mimeType: mime, bytes: bytes,",
+                 "went: fileWent(item, size: bytes, room: room)))",
+                 "done(item)"],
+                in: sheet)
+        XCTAssertEqual(count("tally.videos += 1", in: sheet), 1)
+        XCTAssertEqual(count("tally.videosAttached += 1", in: sheet), 1)
 
         inOrder(["ShareItems.load(from: extensionContext) { [weak self] items, leftOut in",
                  "self?.show(items, leftOut: leftOut, shared: shared)",

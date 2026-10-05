@@ -10,6 +10,13 @@ import Foundation
 /// through `TransportDeadline.write`, as the device's does, so the progress
 /// a letter reports is the progress the device would report.
 ///
+/// A letter made as it goes (`write(from:progress:)`, B-070) goes the same
+/// way, with the device's one WIRE-OUT and one WIRE-ACK around it, and the
+/// transport closed by a `LetterSourceFailure`, as `LinkTransport` closes
+/// it. Each letter is kept whole (`letters`), or only counted
+/// (`keepsLetters: false`, `letterDigests`), so a letter of 19 MB costs the
+/// suite nothing to receive.
+///
 /// Deterministic: every reply is ready the moment its command has been
 /// written, and a read with nothing to come fails at once, as a silent peer
 /// fails at its deadline. The exceptions wait for the test: QUIT's 221 when
@@ -30,8 +37,15 @@ actor ScriptedSubmission: MailTransport {
     /// Every command line received, in order.
     private(set) var commands: [String] = []
     /// Each letter as it arrived after DATA, up to and including the CRLF
-    /// in front of the terminating dot.
+    /// in front of the terminating dot. Empty when not `keepsLetters`.
     private(set) var letters: [Data] = []
+    /// Each letter's bytes, as `letters` has them, counted and their
+    /// CRC-32, whether it is kept or not.
+    private(set) var letterDigests: [(count: Int, crc: UInt32)] = []
+    /// A terminating dot has arrived.
+    private(set) var sawTerminator = false
+    /// How many times a QUIT was written, or tried after the line had gone.
+    private(set) var quitAttempts = 0
     /// Closed by the client.
     private(set) var isClosed = false
 
@@ -69,10 +83,27 @@ actor ScriptedSubmission: MailTransport {
     private let takesOnly: String?
     /// RCPT TO answered 550 for these addresses, in upper case.
     private let refusedRecipients: Set<String>
+    /// Each letter kept whole in `letters`, not only counted.
+    private let keepsLetters: Bool
+    /// The SIZE EHLO advertises: Gmail's.
+    private let advertisedSize: Int
+    /// Run as DATA arrives, before its 354: a file of the letter changed
+    /// while the letter goes.
+    private let onData: (@Sendable () -> Void)?
+    /// The line dies once this much of a letter has arrived, its dot not
+    /// among it: a DATA cut off part of the way.
+    private let cutsLetterAfter: Int?
 
     private var pending: [String] = []
     private var inbound = Data()
     private var inData = false
+    /// The letter arriving: the last bytes of it not yet known not to begin
+    /// its terminator, what is kept of it, its count and its CRC.
+    private var letterTail = Data()
+    private var letter = Data()
+    private var letterCount = 0
+    private var letterCRC = CRC32()
+    private var dataReceived = 0
     private var quitHeld = false
     private var hungUp = false
     private var waitingForQuitReply: CheckedContinuation<Void, Error>?
@@ -97,7 +128,11 @@ actor ScriptedSubmission: MailTransport {
          holdsLetterReply: Bool = false,
          refusesPassword: Bool = false,
          takesOnly password: String? = nil,
-         refusedRecipients: Set<String> = []) {
+         refusedRecipients: Set<String> = [],
+         keepsLetters: Bool = true,
+         advertisedSize: Int = 35_882_577,
+         onData: (@Sendable () -> Void)? = nil,
+         cutsLetterAfter: Int? = nil) {
         self.letterReply = letterReply
         self.greeting = greeting
         self.authReply = authReply
@@ -111,6 +146,10 @@ actor ScriptedSubmission: MailTransport {
         self.refusesPassword = refusesPassword
         self.takesOnly = password
         self.refusedRecipients = Set(refusedRecipients.map { $0.uppercased() })
+        self.keepsLetters = keepsLetters
+        self.advertisedSize = advertisedSize
+        self.onData = onData
+        self.cutsLetterAfter = cutsLetterAfter
     }
 
     /// A letter's reply is being held, the letter itself arrived.
@@ -180,32 +219,89 @@ actor ScriptedSubmission: MailTransport {
     }
 
     func write(_ data: Data, progress: UploadProgress?) async throws {
+        if data == Data("QUIT\r\n".utf8) { quitAttempts += 1 }
         try checkLine()
         if holdsQuit, !quitReleased, data == Data("QUIT\r\n".utf8) {
             await withCheckedContinuation { quitParked = $0 }
             try checkLine()
         }
         try await TransportDeadline.write(data, within: 5, onExpiry: {}, progress: progress) {
-            [self] piece in await self.take(piece)
+            [self] piece in try await self.take(piece)
         }
     }
 
-    private func take(_ piece: Data) {
+    /// A letter made as it goes: as the device's link writes one
+    /// (`LinkTransport.write(from:progress:)`), its probes and its close on
+    /// a source that fails included.
+    func write(from source: WriteSource, progress: UploadProgress?) async throws {
+        try checkLine()
+        let watched = source.total > 1024
+        if watched { Diagnostics.log(.note, "WIRE-OUT bytes=\(source.total)") }
+        do {
+            try await TransportDeadline.write(from: source, within: 5, onExpiry: {},
+                                              progress: progress) {
+                [self] piece in try await self.take(piece)
+            }
+        } catch let failure as LetterSourceFailure {
+            close()
+            if watched { Diagnostics.log(.note, "WIRE-ACK err=source") }
+            throw failure
+        } catch {
+            if watched { Diagnostics.log(.note, "WIRE-ACK err=\(String(describing: error))") }
+            throw error
+        }
+        if watched { Diagnostics.log(.note, "WIRE-ACK err=none") }
+    }
+
+    private func take(_ piece: Data) throws {
+        try checkLine()
+        guard inData else { return takeCommands(piece) }
+        dataReceived += piece.count
+        // Only what could still be the start of the terminator is held
+        // back from the letter: its last four bytes. So the dot is looked
+        // for once in every byte, not from the start at every piece.
+        let search = letterTail + piece
+        guard let end = search.range(of: Data("\r\n.\r\n".utf8)) else {
+            let held = min(4, search.count)
+            add(search[search.startIndex..<(search.endIndex - held)])
+            letterTail = Data(search.suffix(held))
+            if let cutsLetterAfter, dataReceived >= cutsLetterAfter { hungUp = true }
+            return
+        }
+        add(search[search.startIndex..<(end.lowerBound + 2)])
+        if keepsLetters { letters.append(letter) }
+        letterDigests.append((letterCount, letterCRC.value))
+        sawTerminator = true
+        letter = Data()
+        letterTail = Data()
+        letterCount = 0
+        letterCRC = CRC32()
+        inData = false
+        if hangsUpBeforeLetterReply {
+            hungUp = true
+        } else if holdsLetterReply {
+            letterHeld = true
+        } else {
+            pending.append(letterReply)
+        }
+        takeCommands(Data(search[end.upperBound...]))
+    }
+
+    /// Part of the letter, known not to be its terminator.
+    private func add(_ bytes: Data) {
+        letterCount += bytes.count
+        letterCRC.update(bytes)
+        if keepsLetters { letter.append(bytes) }
+    }
+
+    private func takeCommands(_ piece: Data) {
         inbound.append(piece)
         while true {
             if inData {
-                guard let end = inbound.range(of: Data("\r\n.\r\n".utf8)) else { return }
-                letters.append(inbound.subdata(in: inbound.startIndex..<(end.lowerBound + 2)))
-                inbound.removeSubrange(inbound.startIndex..<end.upperBound)
-                inData = false
-                if hangsUpBeforeLetterReply {
-                    hungUp = true
-                } else if holdsLetterReply {
-                    letterHeld = true
-                } else {
-                    pending.append(letterReply)
-                }
-                continue
+                let rest = inbound
+                inbound = Data()
+                if !rest.isEmpty { try? take(rest) }
+                return
             }
             guard let end = inbound.range(of: Data("\r\n".utf8)) else { return }
             let line = String(decoding: inbound[inbound.startIndex..<end.lowerBound], as: UTF8.self)
@@ -219,7 +315,7 @@ actor ScriptedSubmission: MailTransport {
     /// upper-casing would spoil.
     private func answer(_ command: String, as line: String) {
         if command.hasPrefix("EHLO") {
-            pending += ["250-smtp.gmail.com at your service", "250-SIZE 35882577",
+            pending += ["250-smtp.gmail.com at your service", "250-SIZE \(advertisedSize)",
                         "250-8BITMIME", "250-AUTH LOGIN PLAIN", "250 SMTPUTF8"]
         } else if command.hasPrefix("AUTH PLAIN") {
             let refused = refusesPassword
@@ -236,6 +332,8 @@ actor ScriptedSubmission: MailTransport {
             pending.append("250 2.1.0 OK")
         } else if command == "DATA" {
             inData = true
+            dataReceived = 0
+            onData?()
             pending.append("354 Go ahead")
         } else if command == "QUIT" {
             if holdsQuitReply {

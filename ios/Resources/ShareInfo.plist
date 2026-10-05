@@ -42,13 +42,19 @@
 			     taken one at a time, in an extension allowed far less
 			     memory than the app: a JPEG that fits as its own bytes,
 			     never decoded; a GIF or PNG that fits whole; any other
-			     made a JPEG of at most 4096 px. What fits is what is left
-			     of the letter, and of the memory Send builds it in
-			     (SharedPhoto). Files are counted the same way, since a
-			     photo may arrive as either. -->
+			     made a JPEG of at most 4096 px. Videos and files are
+			     counted the same way, since a photo may arrive as either,
+			     and copied, never read. Send makes the letter from the
+			     staged files as it goes, never whole, so what fits is
+			     what is left of the letter's 25 MB and nothing else
+			     (B-070). A selection over five makes Blackmail missing
+			     from the share sheet, with nothing to say why; one video
+			     left out is said on the sheet. -->
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
+				<integer>5</integer>
+				<key>NSExtensionActivationSupportsMovieWithMaxCount</key>
 				<integer>5</integer>
 				<key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
 				<integer>1</integer>

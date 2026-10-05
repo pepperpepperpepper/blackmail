@@ -941,3 +941,66 @@ already have been sent.", for him to send it or not.
 be old. It always says how old, and offline it is exactly as current as the
 last time he had a connection. On an iPad with no passcode (D-011) the files
 are not encrypted at rest.
+
+## D-017 — A letter goes from its files: planned once, read twice, never whole, never on disk
+
+**Decided 2026-10-05 by the owner**: "build the streaming Send that works
+from a file on disk — his videos go up to 19 MB and it would let
+full-size photos go too." Three designs were compared: a spool file, a
+rehearsal with a latch, and a plan with a reader. The second was taken,
+with parts of the other two (B-070).
+
+**The rule.** Send never holds a letter whole and never writes one to the
+disk. Each attempt plans the letter once, opens its files, and makes it
+twice by the same code: a rehearsal into a count before the connection,
+and the wire after DATA's 354. A file that cannot go fails in the
+rehearsal, before any server. The terminating dot goes only after the
+latch: each file read again gave the rehearsal's count and CRC-32, ended
+at its size, and the letter's counts agree. Otherwise the dot is
+withheld, the connection closed with no QUIT, and the letter is "not
+sent". A server throws away a DATA that never ended. One write claims
+the wire pass before its first piece, and no other can take it up: the
+rest of a letter cut off part of the way is never a letter.
+
+**"Works from a file on disk"** is the files the letter already has: the
+share's staged copy, the composer's photo, an Outbox letter's hard link.
+Nothing new is written.
+
+**Rejected:**
+
+- *A spool file*, the letter written to the disk and sent from there. It
+  puts his letter on the disk in plain text, which `CaptureProbe` was
+  changed never to do. It needs about 1.37 times the files of free disk at
+  each attempt, and on a full disk it fell back to the whole letter in
+  memory, the crash it exists to end, on an iPad that only fills up over
+  the years. And it is one more file whose life has to be kept.
+- *The files mapped* (`Data(contentsOf:options: .alwaysMapped)`) under the
+  old builder. It saves the file alone; the base64 and the letter would
+  still be about 2.7 times the files.
+- *BDAT and CHUNKING.* A second protocol path, failing its own ways, never
+  tried against Gmail from here.
+- *Streaming a draft's APPEND now.* Only the app saves drafts, and it has
+  no video picker. It would need the exchange gate, `sendingOnce`, the
+  synchronising literal and the scripted transport proven again. A draft
+  is made whole through the same plan, its bytes as they were. Revisit
+  with a video picker.
+- *A throw for a count that came out wrong after the last piece.* The
+  last piece holds the dot. Thrown there, a letter the server has would be
+  called not sent, and sent again. It is logged, `WIRE-COUNT`.
+
+**Class C.** Every file a letter is read from is data protection's class
+C, "complete until first user authentication", set explicitly where it
+is staged (`AttachmentStore.readableWhileLocked`). Nothing in the app
+sets a stronger class: a class A file cannot be read about ten seconds
+after the lock, which is the middle of a video's upload.
+
+**Movie = 5.** The share extension asks for videos up to five, as it does
+for photos and files. Over its maximum, iOS leaves Blackmail out of the
+share sheet with nothing said, which is worse for him than one video left
+out and said on the sheet.
+
+**The cost.** Each file is read twice: the rehearsal, about 0.2 to 0.5 s
+of CPU for 19 MB on the A10 by estimate, logged as `ms=`. A file changed
+while its letter goes fails the letter, "not sent", where the whole
+letter read it once. A large letter takes minutes to go from the share
+extension, which has no Outbox behind it, as before.

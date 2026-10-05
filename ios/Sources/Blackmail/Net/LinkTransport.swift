@@ -147,19 +147,48 @@ extension LinkTransport {
     /// `TransportDeadline.writeChunkBytes`. A write that times out leaves
     /// the transport closed: how much of it reached the server is unknown.
     func writeThroughLink(_ data: Data, progress: UploadProgress? = nil) async throws {
+        try await throughLink(data.count) { expire in
+            try await TransportDeadline.write(data, within: self.ordinaryDeadline,
+                                              onExpiry: expire, progress: progress) {
+                try await self.sendToLink($0)
+            }
+        }
+    }
+
+    /// A letter made as it goes (B-070): one write, as `writeThroughLink`
+    /// is, with its probes, its deadline per piece and its close on a
+    /// timeout. A source that fails, a file of the letter that changed or
+    /// could not be read, leaves the transport closed before anything else
+    /// can be written into the letter, a QUIT included, and is thrown as it
+    /// came: `SMTPClient` says it as the letter's own failure.
+    func write(from source: WriteSource, progress: UploadProgress?) async throws {
+        try await throughLink(source.total) { expire in
+            try await TransportDeadline.write(from: source, within: self.ordinaryDeadline,
+                                              onExpiry: expire, progress: progress) {
+                try await self.sendToLink($0)
+            }
+        }
+    }
+
+    /// One write of `count` bytes through the link, with the B-034 probes
+    /// around it, made by `write`, whose deadline is to call the closure it
+    /// is handed when it expires.
+    private func throughLink(_ count: Int,
+                             _ write: (_ expire: @escaping @Sendable () -> Void) async throws -> Void)
+        async throws {
         guard stream.isOpen else { throw MailTransportError.notConnected }
         // B-034 instrumentation. Length only, and only for bulk writes: every
         // command line goes through here too, including `AUTH PLAIN <secret>`,
         // and the length of that line is the length of the credential. A
         // 1 KB floor logs the DATA payload and nothing else.
-        let watched = data.count > 1024
-        if watched { Diagnostics.log(.note, "WIRE-OUT bytes=\(data.count)") }
+        let watched = count > 1024
+        if watched { Diagnostics.log(.note, "WIRE-OUT bytes=\(count)") }
         do {
-            try await TransportDeadline.write(data, within: ordinaryDeadline,
-                                              onExpiry: { Task { await self.close() } },
-                                              progress: progress) {
-                try await self.sendToLink($0)
-            }
+            try await write({ Task { await self.close() } })
+        } catch let failure as LetterSourceFailure {
+            close()
+            if watched { Diagnostics.log(.note, "WIRE-ACK err=source") }
+            throw failure
         } catch {
             let timedOut = (error as? MailTransportError) == .timedOut
             if timedOut { noteDeadline("write", ordinaryDeadline) }
