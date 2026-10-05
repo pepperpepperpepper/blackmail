@@ -1818,6 +1818,25 @@ this host. Ordered by value, not by size.
       11, but with no subject: the YouTube app hands over the link alone;
       12. Every photo check is to be made again on the new build; 13 to 17
       not yet tried (B-036).*
+- [ ] **B-071, a file's preview and the text size.** Seen on the
+      simulator only. On the iPad, with a letter open that has two files:
+      1. *The highlights.* Tap a file, then Done: the letter's row and the
+      folder are still highlighted. The same in two panes, and
+      "< Mailboxes" after it shows the folder highlighted.
+      2. *The text size.* Settings, Accessibility, Display & Text Size,
+      Larger Text, at the largest size; then two steps above the default
+      with Larger Accessibility Sizes off. Back in the app each time,
+      nothing has moved: the reading pane's buttons, the calendar, the
+      folders' icons and names, a file's rows in the letter's header at
+      44 pt, and in Edit mode the circles at their size and the rows'
+      words where they were. At the largest size the circles sit a
+      little lower (B-071, Not covered). Then the text size back as it
+      was.
+      3. *Settings.* With VoiceOver on, each field and the switch is read
+      by its caption, and "Organize by Thread" is one stop, the switch,
+      not the words and then the switch. With it off, tap the name, the
+      signature and the app password: no "Passwords" over any of them.
+      4. *The search field*, with VoiceOver on: "Search", a search field.
 
 ## Blocked on the owner
 

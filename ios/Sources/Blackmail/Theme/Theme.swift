@@ -297,6 +297,27 @@ extension Theme {
     static var fontDetailSubject: UIFont { .boldSystemFont(ofSize: scaled(17)) }
     static var fontToolbarStatus: UIFont { .systemFont(ofSize: scaled(11)) }
 
+    /// The size of the SF Symbols UIKit would otherwise size by itself: the
+    /// reading pane's buttons, the calendar, the folders' icons, a file's
+    /// paperclip in a letter's header. 17 pt at the large scale, which is
+    /// what UIKit draws each of them at when the iPad's text size is the
+    /// default, so nothing changes there.
+    ///
+    /// Fixed, as the type is (B-071). Left to UIKit, a symbol follows the
+    /// text size in Settings, which free Dynamic Type is not allowed to do
+    /// (D-007): at the larger sizes the reading pane's buttons and the
+    /// calendar grew and moved along their bars, and at the largest the
+    /// paperclip took the file's row from 44 pt to 86 and pushed the
+    /// letter down.
+    static var symbolSize: UIImage.SymbolConfiguration {
+        UIImage.SymbolConfiguration(pointSize: scaled(17), weight: .regular, scale: .large)
+    }
+
+    /// An SF Symbol at `symbolSize`.
+    static func symbol(_ name: String) -> UIImage? {
+        UIImage(systemName: name, withConfiguration: symbolSize)
+    }
+
     /// Body leading in the reading pane, as a multiple of the type size. The
     /// reference's body pitch is 24.0 pt on 17 pt type (23.9 and 24.0 from two
     /// independent passes), so 24/17 = 1.41.

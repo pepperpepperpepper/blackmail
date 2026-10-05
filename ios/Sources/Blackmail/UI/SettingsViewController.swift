@@ -95,12 +95,20 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         addressLabel.textColor = Theme.primaryText
 
         stack.addArrangedSubview(addressLabel)
-        stack.addArrangedSubview(caption("Your name, as recipients will see it"))
+        let nameCaption = "Your name, as recipients will see it"
+        stack.addArrangedSubview(caption(nameCaption))
         configure(nameField, placeholder: "your name", secure: false)
         nameField.text = account.displayName
+        // Each control is called by its caption, which VoiceOver had no
+        // way to tie to it (B-071).
+        nameField.accessibilityLabel = nameCaption
+        // A name, and not a sign-in's user name (B-071).
+        nameField.textContentType = .name
         stack.addArrangedSubview(nameField)
 
-        stack.addArrangedSubview(caption("Signature — added to the bottom of everything you send"))
+        let signatureCaption = "Signature — added to the bottom of everything you send"
+        stack.addArrangedSubview(caption(signatureCaption))
+        signatureView.accessibilityLabel = signatureCaption
         signatureView.font = .systemFont(ofSize: 17)
         signatureView.textColor = Theme.primaryText
         signatureView.backgroundColor = Theme.barFill
@@ -152,7 +160,8 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
 
         updateSignatureHint()
 
-        stack.addArrangedSubview(caption("New app password — leave blank to keep the one you have"))
+        let passwordCaption = "New app password — leave blank to keep the one you have"
+        stack.addArrangedSubview(caption(passwordCaption))
         // Masked only when the device can actually mask it. Same constraint
         // as the setup form, same reason: see D-011 and B-009.
         let masked = Self.deviceHasPasscode()
@@ -160,6 +169,16 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
                   placeholder: masked ? "app password (16 letters)"
                                       : "app password (16 letters, shown as you type)",
                   secure: masked)
+        passwordField.accessibilityLabel = passwordCaption
+        // A new password: one made at Google and typed or pasted here, not
+        // one iOS keeps (B-071). With no type, iOS took the masked field for
+        // a sign-in's password and the signature box before it for the user
+        // name, and offered "Passwords" over both. On the iOS 18 simulator
+        // `.newPassword` takes it off both; `.password` did not, and no type
+        // on the signature box changed anything. Only while masked: with no
+        // passcode the field is not masked, and a field iOS knows for a
+        // password could bring back B-009's "Set A Passcode".
+        if masked { passwordField.textContentType = .newPassword }
         stack.addArrangedSubview(passwordField)
         // Where a new one is made, as the setup form says, and as whom: an
         // app password made in another Google account reads that account's
@@ -191,6 +210,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
             "Group a conversation and its replies into one row. "
             + "Turn off to show every message separately."))
         organizeSwitch.isOn = ConversationSettings.organizeByThread
+        organizeSwitch.accessibilityLabel = Self.organizeTitle
         organizeSwitch.addTarget(self, action: #selector(organizeToggled),
                                  for: .valueChanged)
 
@@ -297,10 +317,16 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         }
     }
 
+    /// The switch's name, beside it and to VoiceOver.
+    private static let organizeTitle = "Organize by Thread"
+
     /// The row's label, out here so the switch and it stay one control.
     private func organizeLabel() -> UILabel {
         let label = UILabel()
-        label.text = "Organize by Thread"
+        label.text = Self.organizeTitle
+        // Drawn, not read (B-071). The switch is called by these words
+        // itself, and the row is one stop, as Mail's is.
+        label.isAccessibilityElement = false
         label.font = .systemFont(ofSize: 17)
         label.textColor = Theme.primaryText
         label.setContentHuggingPriority(.required, for: .horizontal)

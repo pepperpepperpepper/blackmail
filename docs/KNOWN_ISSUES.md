@@ -8280,3 +8280,120 @@ and no crash report written.
 **Not covered.** The share extension asks for nothing of Photos and has
 no keys. Saving is iOS's own, once allowed.
 
+
+---
+
+## B-071 — CHANGED 2026-10-05, seen on the simulator, not yet on the iPad. A file's preview took the highlights, the text size moved buttons, folders and rows, and Settings and the search field had no names
+
+**Found** on 2026-10-05, in a pass over the app on the iPadOS 18.6
+simulator (iPad, 7th generation), and the same on 17.5. Four things, each
+measured on master's build:
+
+- A file's preview, closed with Done, took the highlight off the open
+  letter's row in the list and off the open folder in Mailboxes. The
+  letter stayed open in the pane.
+- The text size in Settings moved what D-007 holds still. Two steps above
+  the default, the reading pane's five buttons grew 5.5 to 7.5 pt wider
+  each and Flag moved 31.5 pt left; the calendar went from 45.5 pt wide
+  to 52.5; the folders' icons grew and their names moved 4.5 pt right;
+  Edit mode's circles went from 26 pt to 32. At the largest accessibility
+  size the folders' icons shrank to the names' height and each name began
+  where its own icon ended, so a block's names were no longer on one line;
+  each file's row in a letter's header went from 44 pt to 86.5, which put
+  the letter 42.5 pt lower for each file; Edit mode's circles went to
+  49 pt and pushed every row's words 25 pt right; the list's separators
+  were drawn two pixels thick.
+- In Settings the name field, the signature box, the app password field
+  and the Organize by Thread switch had no name for VoiceOver. iOS offered
+  "Passwords" over the signature box and the app password: a form with a
+  masked field reads to it as a sign-in.
+- The list's search field read as a heading with no name. The magnifier
+  and the word drawn in it read as two more things called "Search".
+
+**What it was.** A `UITableViewController` clears its highlight whenever
+its view is about to appear, unless told not to. The preview covers the
+whole screen, so both lists appeared again when it closed. The symbols
+were left to UIKit, which sizes a symbol by the text size unless it is
+given a size of its own. A folder's row and Edit mode's circles are laid
+out by UIKit from the text size, which no symbol size reaches.
+
+**Changed.**
+- Neither list clears its highlight on appearing. Nothing relied on that:
+  the rows let go on purpose are let go where that is decided (`letGo`,
+  `openDraft`, `openWaiting`), and the folder's highlight moves by
+  `select(mailboxID:)` and a tap.
+- The symbols UIKit sized have a fixed size, `Theme.symbolSize`: 17 pt at
+  the large scale, which is what UIKit drew them at at the default text
+  size. These are the reading pane's buttons, the calendar, the folders'
+  icons and a file's paperclip in a letter's header.
+- The folders and the list are laid out as at the default text size,
+  whatever the iPad's is (`RootViewController`, a trait override on their
+  two navigation controllers). A fixed symbol size and a fixed room for
+  the icon (`reservedLayoutSize`) were tried first, and at the
+  accessibility sizes the names still did not line up. The reading pane
+  is not held, and it does not need to be. Nor are the sheets and alerts
+  these panes put up: they are presented over the whole screen and follow
+  the iPad's setting as before.
+- In Settings each control is called by its caption. The words beside
+  the switch are not read; the switch is called by them, and the row is
+  one stop, as Mail's is. The app password is
+  `.newPassword` while it is masked, and the name field is `.name`. With
+  `.password` instead, "Passwords" stayed over the name, the signature and
+  the app password; a type on the signature box changed nothing. Unmasked,
+  with no passcode, the field has no type, so as not to bring back B-009.
+- The search field is called "Search" and is a search field to VoiceOver,
+  as Mail's is. The magnifier and the word are not read.
+
+**Tests.** `SteadyChromeTests` reads the wiring from the source, as
+`PaneNavigationTests` does: both lists keep their highlight and nothing
+else in them clears a row on appearing; the symbol size is a point size
+and each symbol named above uses it; no symbol on the mail screens is left
+to UIKit but in an image view of a fixed size; the two panes are held and
+the reading pane is not; each control in Settings has its caption, and
+the words beside the switch are not read; only the masked app password
+has a password type; the search field's name, its
+trait and the placeholder left unread. Each fix undone in a scratch copy:
+the highlights, 2 failures; the symbols, 14; the panes held, 2; the names
+in Settings, 10, and the words beside the switch read again alone, 2; the
+content types, 2; the search field as it was, 8.
+
+**Seen on the simulator, 2026-10-05**, iOS 18.6, on the test account,
+each against master's build on a second simulator. The text size was set
+with `simctl ui content_size` and the app started again. With a letter of
+five files open, the screen below the status bar at the default size is
+master's, pixel for pixel. Two steps up and at the largest accessibility
+size, every frame VoiceOver reports is the same as at the default, and so
+is the screenshot, pixel for pixel. The same at the three sizes on 17.5.
+In Edit mode the circles stay 26 pt and the rows' words stay where they
+were. Closing a file's preview leaves the screen as it was before the file
+was tapped, both highlights with it, in three panes and in two, and on
+17.5; "< Mailboxes" then shows the Inbox highlighted. A letter of the test
+account's own, opened in All Mail and moved to Important, stayed in All
+Mail with its highlight gone and the pane empty, as `letGo` has it; it is
+in Trash now. The Go to Date sheet's calendar is as large at the largest
+size as on master. Holding a bar button at that size still shows it
+enlarged, in the list and in the reading pane. In Settings each control
+has its caption for a name, and no "Passwords" is offered over the name,
+the signature or the app password, with a hardware keyboard or with the
+one on the screen; a typed app password left with Cancel brings no offer
+to save it. Asked what is under a point, the simulator gives the switch's
+row at the words beside the switch, where the same build with the words
+read gives the words; it gives the search field at its magnifier and its
+word. Its tree lists all three either way. Settings looks the same with
+the words read or not, pixel for pixel. The search field reads "Search", a search field, and a search
+typed and cancelled works as before.
+
+**Not covered.**
+- At the accessibility sizes Edit mode's circles sit 12.5 pt lower in
+  their rows than at the default. Their size and the rows' words hold.
+  Where UIKit puts them is its own.
+- The search field still reads as a heading as well. The band is the
+  list's section header, and UIKit reads whatever is in one as a heading;
+  taking the trait off in the field changed nothing.
+- VoiceOver itself was not run. The names are what the simulator's
+  accessibility tree reports, and what is not read is what it gives for
+  a point.
+- The setup form has a masked field too and is not changed here. Whether
+  iOS offers "Passwords" over it was not looked at.
+- The composer and the share sheet are B-069's. The diagnostics screen,
+  which he never sees, was not looked at.
