@@ -352,16 +352,20 @@ final class RootViewController: UIViewController {
 
     /// The letters kept on the iPad go as he leaves the app, large ones as
     /// well, inside background time: nothing he taps is waiting for the
-    /// connection then (`LocalDrafts.uploadWaiting`). Asked for here, on
-    /// the main thread as the notification is posted, so the time is asked
-    /// for before iOS can suspend the app.
+    /// connection then (`LocalDrafts.uploadWaiting`). A large draft goes
+    /// only then; a large letter in the Outbox goes at his Refresh too
+    /// (B-072). Asked for here, on the main thread as the notification is
+    /// posted, so the time is asked for before iOS can suspend the app.
+    /// With a pass on its way, his Refresh's taking a video perhaps, the
+    /// time is asked for here all the same, and the leaving pass goes once
+    /// that one has ended (`LocalDrafts.afterThisPass`, B-072).
     ///
     /// The tries on their way are taken back first, and these are not
     /// counted: iOS may end the app before they are done, which says
     /// nothing about the letters (B-057, `LocalDrafts.wentToBackground`).
     @objc private func leavingTheApp() {
         LocalDrafts.shared.wentToBackground()
-        LocalDrafts.shared.uploadWaiting(to: repository, largeToo: true)
+        LocalDrafts.shared.uploadWaiting(to: repository, for: .leaving)
     }
 
     /// Control Centre pulled down, the Home gesture, a call: a switch still
@@ -729,6 +733,11 @@ final class RootViewController: UIViewController {
         }
         list.onRefreshRequested = { [weak self] in
             self?.refreshMailboxes()
+        }
+        // His Refresh's pass over the Outbox waits for the counts it asked
+        // for (`RefreshTap`, B-072).
+        list.countsCame = { [weak self] in
+            await self?.mailboxList.countsSwept()
         }
         // Edit mode's Delete and Move edit the list in place, as the
         // pane's do, and ask for the counts only when one may have changed

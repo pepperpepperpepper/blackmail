@@ -1132,7 +1132,7 @@ final class SafeStartTests: XCTestCase {
         XCTAssertTrue(root.contains("@objc private func leavingTheApp() { "
                                     + "LocalDrafts.shared.wentToBackground() "
                                     + "LocalDrafts.shared.uploadWaiting(to: repository, "
-                                    + "largeToo: true) }"))
+                                    + "for: .leaving) }"))
         XCTAssertTrue(root.contains("guard let self else { return } "
                                     + "LocalDrafts.shared.cameToForeground() "
                                     + "let repository = self.repository"))

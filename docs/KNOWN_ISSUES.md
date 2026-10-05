@@ -4463,9 +4463,9 @@ says how many wait, under the age and over a failure: "Updated 3 minutes
 ago", "1 Unsent Message", "No Connection". The Outbox lists each letter by
 whom it is to, as he wrote their names, and its subject, newest first, with
 "Sending…" under them while it goes; it has no search, no calendar, and
-Refresh there takes what waits over a connection already up. When the
-connection is back, with the app open, the letter goes by itself, once, and
-leaves, and the Outbox leaves the Mailboxes with its last letter.
+Refresh there sends what waits, as Refresh in any folder does since B-072.
+When the connection is back, with the app open, the letter goes by itself,
+once, and leaves, and the Outbox leaves the Mailboxes with its last letter.
 
 Tapped, a letter opens in the composer and is out of the Outbox while it is
 there: Send sends it, and puts it back if it cannot go; closed untouched it
@@ -4632,7 +4632,8 @@ password nothing changes, as its repository still has the old one.
 
 **When a waiting letter goes.** By B-051's pass, and at its moments: after
 a folder's newest page, on coming back after the warm-up, and as he leaves
-the app, inside background time; and at one more, the first check of the
+the app, inside background time; since B-072 at his Refresh, once its page
+and the folder counts have come; and at one more, the first check of the
 watch (B-049) to reach the server after one that could not, which is the
 connection coming back while he reads. That one takes drafts too; it is
 not every check, so a letter the server refuses is not tried every half
@@ -4654,12 +4655,13 @@ still go up: each letter after it would cost a connect for the same
 failure. Size: an Outbox letter goes over a connection of its own, so its
 photos hold nothing he taps and it goes at once; what a forward or a
 reopened draft has to fetch from Gmail first comes over the one IMAP
-connection, and a megabyte or more of that waits for him to leave the app,
-as a large draft does (`LocalDraft.fetchesLarge`). That is its rows from
-Gmail and nothing else: a forward's quoted pictures that go are ones that
-are also its rows, fetched once, and counting them again held a forward of
-600 kB of photographs back as 1.2 MB. Nothing sends while the app is put
-away (above).
+connection, and a megabyte or more of that waits for his Refresh or for him
+to leave the app (`LocalDraft.fetchesLarge`). Until B-072 it waited for him
+to leave, as a large draft still does. That is its rows from Gmail and
+nothing else: a forward's quoted pictures that go are ones that are also
+its rows, fetched once, and counting them again held a forward of 600 kB of
+photographs back as 1.2 MB. Nothing sends while the app is put away
+(above).
 
 **The share extension** keeps its sheet with the reason when a letter
 cannot go. It has no app group, only the shared keychain group, so it
@@ -6069,7 +6071,9 @@ megabyte or more of files to fetch from Gmail (`LocalDraft.isLarge`,
 `fetchesLarge`), is tried where no try is counted, and the limit seldom
 holds it: only a try the pass begun as he left reaches after he has come
 back, while it is still going, is counted, and leaving again takes it
-back. Decided 2026-10-01, left as it is. A crash in the
+back. Decided 2026-10-01, left as it is. Since B-072 his Refresh takes
+such a letter in the Outbox in front of him, and that try is counted as
+any other. A crash in the
 background cannot trap a launch, which the background has already
 finished, so it cannot end the app for good; and counting those tries
 would let iOS's ordinary endings of a suspended app, for memory or for its
@@ -8942,7 +8946,9 @@ compared with the `LETTER-FILE` line and with the original.
   Message-ID: one copy in the Inbox and one in Sent Mail, the video's CRC
   the original's. Gmail kept nothing of the attempt with no full stop.
   Refresh alone did not start the Outbox's pass; coming back to the app
-  did, as B-052 has it.
+  did, as B-052 has it. (By the code it was the pass made as the app was
+  left, the one pass that took such a letter; the pass on coming back
+  leaves it. Since B-072 his Refresh sends it.)
 - *A draft.* The Forward with the video, Cancel, Save Draft: Gmail held
   one draft of 25.7 MB, the video's CRC the original's. Reopened and
   sent: one copy arrived, the same, and the draft was gone.
@@ -9098,3 +9104,214 @@ redo and paste. The text size and VoiceOver were not tried there.
   iOS offers "Passwords" over it was not looked at.
 - The composer and the share sheet are B-069's. The diagnostics screen,
   which he never sees, was not looked at.
+
+---
+
+## B-072 — CHANGED 2026-10-05, seen on the iPad. Refresh did not send a large letter waiting in the Outbox
+
+**Found** on the test iPad, 2026-10-05, in B-070's check of an upload cut
+off for good. A Forward of a letter with a 19 MB video waited in the
+Outbox. Refresh did not send it. It went only by the pass the app makes as
+it is left. The owner, the same day: "make Refresh send anything waiting
+in the Outbox, matching Apple Mail".
+
+**What it was.** Refresh fetched the folder's newest page, and after a page
+the pass over the letters kept on the iPad runs (`MessageListViewController.
+reload`, `LocalDrafts.uploadWaiting`). That pass was one nobody asked for,
+the same as at launch or on opening a folder. It holds back a letter in the
+Outbox whose files come from Gmail first, a forward's or a reopened
+draft's: a megabyte or more of them, or one of no known size
+(`LocalDraft.fetchesLarge`, B-052). That fetch holds the one IMAP
+connection, and nothing he taps can go first. Only the pass as he leaves
+the app took such a letter (`largeToo`). Refresh in the Outbox ran the
+same pass, with no page.
+
+**What Mail does.** Mail sends what waits in its Outbox by itself once
+there is a connection (B-052). No page of Apple's was found on what its
+Refresh does with the Outbox, and Mail was not tried for it on a device.
+The owner's words are the rule here.
+
+**Changed.**
+
+1. *Three kinds of pass* (`LocalDrafts.Pass`). Nobody's: a page at
+   launch, on opening a folder or on coming back, the app coming back to
+   the front, and the watch's check. His Refresh. And leaving the app. Each
+   takes what it took, but one: his Refresh takes every letter in the
+   Outbox that is otherwise due, a large one too (`LocalDraft.goes(by:)`).
+   A large draft still waits for him to leave. `largeToo` is gone; leaving
+   asks for `.leaving`.
+2. *Refresh, in any folder, the Outbox included* (`refreshTapped`,
+   `RefreshTap`). The page first, with no pass of its own
+   (`reload(passing: false)`). Then the folder counts, as before. Then,
+   once the page's previews and the counts have come
+   (`SweepCoalescer.idle`), the pass, as his Refresh's. A forward's files
+   are fetched in the line his taps wait in, ahead of the previews and the
+   counts' STATUS, and an exchange on the wire is never cut short
+   (`IMAPClient.Priority`). Asked for first, the fetch would have held
+   what he asked to see behind it. The Outbox has no page: there the
+   counts' LIST and STATUS make the connection if they can, and the pass
+   goes over it. Every other page sets its pass off as before.
+3. *A Refresh, or leaving the app, while a pass runs* is not dropped
+   (`afterThisPass`). It gets the pass it would have been, which starts
+   once the running one has ended (`passEnded`). One however often they
+   are asked for meanwhile, of the more asked for: leaving over his
+   Refresh. Leaving asks iOS for time there and then, as the notification
+   is posted, and gives it back once that pass has ended, so iOS does not
+   suspend the app between the two passes. The owed pass is let go as it
+   sets off, so a Refresh during a later pass is owed one of its own. A
+   pass nobody asked for, asked for while one runs, is dropped as before.
+   Leaving used to be dropped too. That was rare while every pass ended
+   in seconds. His Refresh's pass may now fetch a video for minutes, and
+   that is when he is likely to go to the Home Screen: a large draft,
+   which only leaving takes, waited for the next time he left with no
+   pass on its way.
+4. *The log.* `OUTBOX-REFRESH large=1` when his Refresh's pass, with a
+   connection up, takes letters a page's would have left, with how many.
+   `OUTBOX-REFRESH owed` when his Refresh waits for a pass on its way, and
+   `OUTBOX-LEAVING owed` when leaving does. Numbers only.
+
+With no connection nothing changes: the page fails and sets no pass off,
+as before. In the Outbox the counts fail, and the pass finds no connection,
+sends nothing and says nothing, as before.
+
+**What stays held.** His Refresh overrides the size and nothing else. None
+of these goes at any pass, his Refresh included: a letter held after three
+tries the app did not live through (B-057); one refused as it stands,
+until he changes it or the app is launched again; every letter after the
+password or the submission server's sign-in was refused, until his Send
+goes (`sendingRefused`); one open in the composer; one with an attempt cut
+off before a password save (B-052); another account's; and every letter in
+a launch that holds the pass (B-057). A letter whose DATA went and whose
+250 never came is looked for in Sent Mail first, and not sent again within
+ten minutes of the cut, as at every pass: no letter twice. The pass still
+makes no connection of its own. A try by his Refresh's pass is made in
+front of him and is counted (B-057), so a letter whose fetch ended the app
+three times is held, as any other.
+
+**The cost.** While a forward's files come from Gmail the connection is
+theirs, and a letter he opens then waits for the fetch. He tapped Refresh
+with the letter waiting, which asks for it to go.
+
+**Tests.** `OutboxTests`, ten, over the scripted servers. A forward
+with a 2 MB file in the Inbox, sent with no connection: a page's pass
+leaves it in the Outbox; his Refresh's pass sends it once, the file's
+first and last lines of base64 in it, its try counted while it goes, the
+log saying `OUTBOX-REFRESH large=1`, and a second Refresh finds nothing to
+do. His Refresh sends the Outbox's forward, takes a small draft up to
+Drafts, and leaves a draft with 2 MB of photos, which goes up as he
+leaves. A forward held by its tries, one open in the composer
+and one whose file is gone from Gmail: his Refresh sends none, refuses the
+third, and the next Refresh sends no command at all. A refused password
+goes once, and the next Refresh takes nothing. A forward cut off after its
+DATA is looked for in Sent Mail first, not sent too soon after the cut,
+and not sent again once Sent Mail has it. His Refresh while a page's pass
+holds a small letter's 250: a pass nobody asked for is dropped, his is
+not, two taps get the same pass, nothing more goes until the running pass
+ends, then the forward goes once, after the small letter, and the log says
+`OUTBOX-REFRESH owed`; then the same again with a second small letter and
+a second forward, and the second Refresh gets a pass of its own, not the
+one that has ended, and the second forward goes. Leaving while his
+Refresh's pass holds the forward's 250: it is not dropped, time is asked
+of iOS there and then, nothing more goes while the pass runs, then the
+draft with 2 MB of photos goes up once, and the time asked for as he left
+is given back after the leaving pass's own. His Refresh and then leaving,
+twice each, while a page's pass holds a small letter's 250: one owed
+pass, time asked for once, and it takes the forward and the large draft,
+as leaving's. His Refresh with no connection: nothing sent, nothing in the
+log; after a page his Refresh says `OUTBOX-REFRESH large=1` and sends it.
+A launch that holds the pass sends nothing at his Refresh. `RefreshTapTests`, six: what each kind of pass takes by size, for
+ten letters (the Outbox's with 2 MB, a file of no known size, exactly a
+megabyte and a byte under it to fetch from Gmail, 2 MB of photos on the
+iPad, and nothing; drafts with 2 MB of photos, 2 MB from Gmail, a megabyte
+of quote, and nothing); the order, the page and the counts before the
+pass; no pass after a page that did not come; the pass waiting for the
+previews and the counts however long they take; and, read from the
+source, `refreshTapped` as it is wired, `reload`'s two passes skipped only
+for his Refresh, the page's previews kept, the counts handed to the list,
+coming back and the watch's check still nobody's, leaving still
+`.leaving`, and his Refresh the one pass of its kind in the screens'
+sources. Changed: `largeToo: true` is `for: .leaving` in the tests that
+passed it, and in `SafeStartTests`' pin of `leavingTheApp`.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. His Refresh taking no
+large letter in the Outbox: 14 in 6. Taking a large draft too: 5 in 2. A
+page's pass taking a large letter in the Outbox: 8 in 4, B-052's
+`testOnlyWhatItFetchesFromGmailHoldsALetterBack` among them. Leaving
+taking no large draft: 9 in 3, B-051's
+`testALargeLetterWaitsForHimToLeaveTheApp` among them. A Refresh during a
+running pass dropped: 6 in 1. Every tap owed a pass of its own: 2 in 1. A
+launch that holds the pass taking his Refresh: 3 in 1. His Refresh taking
+a letter held by its tries: 4 in 1; one refused as it stands: 2 in 1; one
+open in the composer: 1 in 1; the Outbox after a refused password: 3 in 1.
+A large letter not looked for in Sent Mail before it goes again: 5 in 1.
+No `OUTBOX-REFRESH large=` line: 2 in 2. The pass before the previews and
+the counts: 3 in 2. A pass after a page that did not come: 1 in 1. And,
+read from the source: Refresh asking for a pass nobody asked for, 2 in 2;
+its page setting its own pass off, 1 in 1; the page's previews not kept to
+wait for, 1 in 1; the counts not handed to the list, 1 in 1. Nineteen in
+all, with nothing else failing in any run. The full suite, serially, with
+nothing undone: 1,479 tests, 5 skipped, none failing. The release build
+for the iPad links.
+
+**Reviewed 2026-10-05, and fixed.** A review of the change above found
+four things, each fixed in the text above, which says how it is now.
+Leaving the app while a pass ran set nothing off. It was so before, but
+his Refresh's pass, minutes long with a video, made it likely: he taps
+Refresh, sees "Sending…" and goes to the Home Screen, and a draft with 2 MB
+of photos, which only leaving takes, stayed "On this iPad only" until a
+later leave. Nothing was lost or sent twice. The owed Refresh was let go
+as it set off, but no test said so: kept for good, every test passed, and
+every later Refresh during a pass would have got back the pass that had
+ended, and sent nothing. `OUTBOX-REFRESH large=1` was said before the pass
+looked for a connection, so a Refresh in the Outbox with none said it and
+sent nothing. And the TODO's first check had him look from the Inbox for
+"Sending…" on the Outbox's row, which only the Outbox's own list shows.
+
+Each fix fails with its part undone, ten sabotages one at a time, each
+run once over the whole suite, serially, as failures in tests: leaving
+during a pass dropped, as before (16 in 2); no time asked of iOS as he
+leaves with a pass running (6 in 2); that time given back before the owed
+pass has ended (2 in 2); leaving not making an owed Refresh leaving's (6
+in 1); a Refresh after leaving making it his Refresh's again (6 in 2); the
+owed pass never let go (5 in 1, its second round); and the large line said
+before the pass looks for a connection (2 in 1). Three parts above again,
+their code moved: a Refresh during a running pass dropped (22 in 2), every
+ask owed a pass of its own (9 in 2), and no `OUTBOX-REFRESH large=` line
+(5 in 4). One run also failed `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, which fails now and
+then on this host; run again, only the sabotaged test failed. The full
+suite, serially, then: 1,482 tests, 5 skipped, none failing. The release
+build for the iPad links.
+
+**Seen on the iPad, 2026-10-05**, built from this change, installed
+through TrollStore's helper, on the test account. The letter with the
+18.7 MB test video open, Airplane Mode on, Forward, Send: "Message is in
+the Outbox…", the Outbox in the Mailboxes holding one, the log
+`OUTBOX-WAITING error=cannotConnect`. Airplane Mode off, and 75 seconds
+in the Inbox with nothing tapped: still one in the Outbox and nothing at
+Gmail, as before this change. Refresh: the page and the counts, then
+`OUTBOX-REFRESH large=1`, `LETTER-PLAN`, one `WIRE-OUT`, `LETTER-LATCH ok`
+and the 250, eight seconds after the tap. One copy in the Inbox and one
+in Sent Mail, none in Drafts, the video's CRC-32 the original's, and the
+Outbox gone from the Mailboxes. Not tried on the iPad: Refresh from inside
+the Outbox, a large draft through a Refresh, and leaving during a pass.
+
+**Not covered.**
+
+- Mail's own Refresh with its Outbox was not tried on a device.
+- Not yet seen on the iPad. The TODO says how.
+- The sheet's notice still says the letter "will be sent when the iPad is
+  connected and Blackmail is open". A large forward goes at his Refresh or
+  as he leaves, not by itself after a page. The words are unchanged.
+- An owed leaving pass that starts after he has come back goes as
+  leaving's all the same, a large draft with it, as a leaving pass on its
+  way when he comes back always has.
+- Neither pass outlives the time iOS gives. A video that takes longer is
+  stopped with the app, as before, and what is left goes at a later pass.
+- The counts waited for are every sweep running or owed, a read mark's or
+  the watch's too, and a sweep that hangs holds the pass until its
+  deadline. Before the launch's counts are let go the pass does not wait
+  for them.
+- The screens' wiring is read from the source on the host, not run. The
+  pieces under it run.
