@@ -261,6 +261,10 @@ enum RFC5322Builder {
         /// multipart. Plain first, markup second — RFC 2046 §5.1.4 puts the
         /// best rendering last, and a client shows the last alternative it
         /// can handle. The wrong order sends everyone the plain text.
+        ///
+        /// With no markup, the plain text alone under a part's header, for
+        /// the multipart/mixed of a plain letter with files. A letter of one
+        /// part does not use it (below).
         func alternativeParts() -> String {
             guard let alternativeBoundary, let encodedHTML else {
                 var out = headerLine("Content-Type", "text/plain; charset=utf-8")
@@ -342,7 +346,17 @@ enum RFC5322Builder {
         var out = headers + crlf     // the blank line that ends the header block
 
         guard let boundary else {
-            out += letterBody
+            // A letter of one part, plain text alone, is its encoded text
+            // and nothing more. Its Content-Type and transfer encoding are
+            // the message's own header lines, above. `letterBody` is the
+            // text as a part of a multipart/mixed, with those two lines as
+            // the part's header. Written here, they were the first two
+            // lines of the letter, in the list, in the pane and in every
+            // reader's client, and a draft reopened took them up as words
+            // and wrapped them again at each save (B-068). Nothing follows
+            // the last line, so a draft comes back as he left it; SMTP ends
+            // the line itself (`SMTPClient.dataPayload`).
+            out += alternativeBoundary == nil ? encodedBody : letterBody
             return Data(out.utf8)
         }
 
