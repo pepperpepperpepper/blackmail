@@ -58,7 +58,7 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
     /// — the classic silent no-op in this file's neighbourhood.
     var onHeightChanged: (() -> Void)?
 
-    private let field = UITextField()
+    private let field = SearchField()
     private let placeholderStack = UIStackView()
     private let cancelButton = UIButton(type: .system)
     private let scopeControl = UISegmentedControl(
@@ -105,6 +105,10 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 8, height: 1))
         field.leftViewMode = .always
         field.addTarget(self, action: #selector(editingChanged), for: .editingChanged)
+        // What VoiceOver calls the field, as Mail's is called (B-071). The
+        // word "Search" in the field is a label of its own beside it, so the
+        // field itself had no name.
+        field.accessibilityLabel = "Search"
         addSubview(field)
 
         // Magnifier + "Search", centred as a unit. The reference centres them
@@ -117,6 +121,11 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         label.text = "Search"
         label.font = Theme.fontListSubject
         label.textColor = Theme.secondaryText
+        // Drawn, not read (B-071). The field is called "Search" itself, and
+        // VoiceOver read the magnifier and the word as two more things
+        // called "Search".
+        icon.isAccessibilityElement = false
+        label.isAccessibilityElement = false
         placeholderStack.axis = .horizontal
         placeholderStack.spacing = 5
         placeholderStack.alignment = .center
@@ -253,6 +262,20 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
             self.refreshExpansion()
         }
         return true
+    }
+}
+
+/// The search field, which VoiceOver calls a search field, as it does
+/// Mail's (B-071). Added to the traits UIKit gives a text field, which
+/// change as it is edited, and not put in their place.
+///
+/// It is read as a heading too, and that stays: the band is the list's
+/// section header, and UIKit reads whatever is in one as a heading, a
+/// trait taken off here or not.
+private final class SearchField: UITextField {
+    override var accessibilityTraits: UIAccessibilityTraits {
+        get { super.accessibilityTraits.union(.searchField) }
+        set { super.accessibilityTraits = newValue }
     }
 }
 

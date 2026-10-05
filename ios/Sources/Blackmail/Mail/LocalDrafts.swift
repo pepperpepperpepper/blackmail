@@ -1104,6 +1104,9 @@ final class LocalDrafts {
     /// Letters open in the composer, and whether each was kept here before
     /// it was opened.
     private var open: [String: Bool] = [:]
+    /// Those of them that were in the Outbox as they were opened
+    /// (`DraftKeeping.putBack`).
+    private var fromOutbox: Set<String> = []
     /// Letters on their way to the server, or having their leftover copies
     /// removed, and what is waiting for each to be done.
     private var going: Set<String> = []
@@ -1348,7 +1351,9 @@ final class LocalDrafts {
 
     /// The composer has opened on letter `key`.
     func opened(_ key: String) {
-        open[key] = store.letter(key) != nil
+        let letter = store.letter(key)
+        open[key] = letter != nil
+        if letter?.outbox != nil { fromOutbox.insert(key) } else { fromOutbox.remove(key) }
     }
 
     /// The composer on letter `key` has done with it. One that reached the
@@ -1356,6 +1361,7 @@ final class LocalDrafts {
     /// server as it stands, and leaves the iPad now.
     func closed(_ key: String) {
         open[key] = nil
+        fromOutbox.remove(key)
         if let version = landedOpen.removeValue(forKey: key), let letter = store.letter(key),
            !letter.gone, letter.version == version {
             store.remove(key)
@@ -1379,7 +1385,17 @@ final class LocalDrafts {
                 closed(key)
             },
             letGo: { [self] in closed(key) },
-            tidy: { [self] in await tidy(key, in: repository) })
+            tidy: { [self] in await tidy(key, in: repository) },
+            putBack: { [self] in
+                // Into the Outbox again, as it is now kept. What may have
+                // reached Gmail goes with it (`LocalDraftStore.keep`), and
+                // an attempt still unsettled is the Message-ID it goes
+                // under (`enterOutbox`), so it is looked for first, as
+                // before the sheet opened.
+                guard fromOutbox.contains(key), let letter = store.letter(key),
+                      !letter.gone, letter.outbox == nil else { return }
+                _ = try? store.enterOutbox(key)
+            })
     }
 
     /// Keeps the letter. Returns false when it could not be written, which
@@ -2017,6 +2033,10 @@ struct DraftKeeping {
     /// After `forget`, once the letter has been sent or its copy deleted:
     /// removes any copy an upload of it left in Drafts.
     var tidy: @MainActor () async -> Void = {}
+    /// After `keep`, as Cancel closes a letter as it opened
+    /// (`ComposeActions.closeWithoutAsking`): one opened from the Outbox
+    /// goes back there. Kept again while he wrote, it had come out.
+    var putBack: @MainActor () -> Void = {}
     /// How long after the last change the letter is kept.
     var pause: Duration = .seconds(3)
     /// Waits `pause`. A test hands in one it lets go by hand.

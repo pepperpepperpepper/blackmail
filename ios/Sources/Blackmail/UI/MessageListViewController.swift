@@ -313,6 +313,14 @@ final class MessageListViewController: UITableViewController {
         self.mailbox = mailbox
         super.init(style: .plain)
         title = mailbox.displayName
+        // The highlight stays on the letter in the reading pane when the
+        // list comes back into view (B-071). A `UITableViewController`
+        // clears it by default whenever its view is about to appear, and a
+        // file's preview, which covers the whole screen, makes it appear
+        // again when it closes: the row lost its highlight while its letter
+        // stayed open. The rows that are let go on purpose are let go where
+        // that is decided (`letGo`, `openDraft`, `openWaiting`).
+        clearsSelectionOnViewWillAppear = false
         letters.changed = { [weak self] in
             self?.regroup()
             self?.updateEmptyState()
@@ -432,7 +440,8 @@ final class MessageListViewController: UITableViewController {
         // and this is the whole of it. In two panes (D-015) the view button
         // and "< Mailboxes" come before it in the same slot, and it stays
         // the one beside the title.
-        let jump = UIBarButtonItem(image: UIImage(systemName: "calendar"),
+        // At a fixed size, as the type is (B-071).
+        let jump = UIBarButtonItem(image: Theme.symbol("calendar"),
                                    style: .plain, target: self,
                                    action: #selector(jumpToDateTapped))
         jump.accessibilityLabel = "Go to a date"

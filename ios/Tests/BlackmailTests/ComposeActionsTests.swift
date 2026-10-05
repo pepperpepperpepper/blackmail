@@ -64,6 +64,7 @@ final class ComposeActionsTests: XCTestCase {
             abandon: { [unowned self] in log.append("abandon") },
             letGo: { [unowned self] in log.append("let go") },
             tidy: { [unowned self] in log.append("tidy") },
+            putBack: { [unowned self] in log.append("put back") },
             wait: { [pauses] _ in try await pauses.wait() })
         return ComposeActions(
             sendLetter: { [unowned self] _, report in
@@ -655,6 +656,82 @@ final class ComposeActionsTests: XCTestCase {
         actions.edited { Draft() }
         actions.sheetGone { Draft() }
         XCTAssertEqual(log, ["abandon"])
+    }
+
+    /// Cancel on a letter as it opened closes the sheet with nothing asked
+    /// and leaves the letter as it was before the sheet opened (B-069):
+    /// what the sheet kept goes. Words typed and taken out again are kept
+    /// as they are now first, over what the autosave kept of them; an
+    /// emptied letter is not kept at all. Nothing happens after it, and
+    /// nothing at all while a letter goes.
+    func testCancelOnALetterAsItOpenedClosesWithoutAsking() async throws {
+        var actions = makeActions(keeping: true)
+        actions.closeWithoutAsking { draft() }
+        XCTAssertEqual(log, ["abandon", "dismiss"])
+        actions.sheetGone { draft() }
+        XCTAssertNil(actions.send(draft(), then: nil))
+        XCTAssertNil(actions.saveAndClose(draft(), then: nil))
+        XCTAssertEqual(log, ["abandon", "dismiss"], "the sheet is closed")
+
+        // Typed and taken out again: kept as it is now, put back where it
+        // was, and the autosave due is called off.
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { [unowned self] in draft() }
+        actions.closeWithoutAsking { draft() }
+        XCTAssertEqual(log, ["keep unfinished", "put back", "abandon", "dismiss"])
+        pauses.release()
+        await settled()
+        XCTAssertEqual(log, ["keep unfinished", "put back", "abandon", "dismiss"])
+
+        // Emptied by hand.
+        reset()
+        actions = makeActions(keeping: true)
+        actions.edited { Draft() }
+        actions.closeWithoutAsking { Draft() }
+        XCTAssertEqual(log, ["abandon", "dismiss"])
+
+        // While a letter goes.
+        reset()
+        actions = makeActions(keeping: true)
+        let hold = Held()
+        holdSend = hold
+        let sending = actions.send(draft(), then: nil)
+        try await until { log.contains("send") }
+        actions.closeWithoutAsking { draft() }
+        XCTAssertFalse(log.contains("abandon"))
+        XCTAssertFalse(log.contains("dismiss"))
+        hold.release()
+        await sending?.value
+    }
+
+    /// A photo still coming in from the picker is a change Cancel asks
+    /// about, until it has landed.
+    func testAPhotoStillComingInIsAChange() {
+        let actions = makeActions()
+        XCTAssertFalse(actions.asksAnyway)
+        actions.photoComing()
+        XCTAssertTrue(actions.asksAnyway)
+        actions.photoLanded()
+        XCTAssertFalse(actions.asksAnyway)
+    }
+
+    /// A Send the server refused is a change Cancel asks about, however
+    /// the form reads: it took the letter out of the Outbox, and a Cancel
+    /// that asked nothing would put it back there for the next pass to
+    /// send again (B-069). A Send that has gone, or waits in the Outbox,
+    /// closes the sheet, and one cut short by iOS is not a refusal.
+    func testASendTheServerRefusedIsAChange() async {
+        var actions = makeActions(keeping: true)
+        sendOutcome = .failure(MailError.notSent)
+        await actions.send(draft(), then: nil)?.value
+        XCTAssertEqual(errors, [.notSent])
+        XCTAssertTrue(actions.asksAnyway)
+
+        reset()
+        actions = makeActions(keeping: true)
+        await actions.send(draft(), then: nil)?.value
+        XCTAssertFalse(actions.asksAnyway)
     }
 
     /// A letter he has emptied is not kept, by the autosave nor on leaving

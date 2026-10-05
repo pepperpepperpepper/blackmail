@@ -81,6 +81,29 @@ enum ShareLetter {
         return draft
     }
 
+    // MARK: - The sheet's body
+
+    /// The body as the share sheet shows it: an empty first line above
+    /// what was shared, where the caret starts and his words go, as in
+    /// Mail's share sheet (B-069). With the caret at the top of a body that
+    /// began with the link, what he typed ran into the address on its
+    /// line: "Have a lookhttps://…". A body that already begins with an
+    /// empty line, the blank letter a photo comes in, is shown as it is.
+    static func shown(_ body: String) -> String {
+        body.hasPrefix("\n") ? body : "\n" + body
+    }
+
+    /// The letter's body from what the sheet shows, `began` being the body
+    /// the share began as: the empty first line `shown` put there goes if
+    /// he left it empty, so a share sent as it began goes as Mail sends it,
+    /// the address alone above his signature, and Cancel asks nothing of
+    /// it. Words he wrote on that line stay, on a line of their own above
+    /// what was shared.
+    static func written(_ shown: String, began: String) -> String {
+        guard !began.hasPrefix("\n"), shown.hasPrefix("\n") else { return shown }
+        return String(shown.dropFirst())
+    }
+
     /// The HTML twin: Mail's envelope around the letter as the app would
     /// send it (`AppleMailHTML`), with every web address he has in the
     /// typed part made a link. Always present when there is one, since a

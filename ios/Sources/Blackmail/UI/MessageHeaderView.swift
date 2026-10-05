@@ -203,7 +203,10 @@ final class MessageHeaderView: UIView {
         let button = UIButton(type: .system)
 
         var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: "paperclip")
+        // At a fixed size (B-071). The button's own would follow the iPad's
+        // text size, and at the largest took the row from 44 pt to 86.
+        config.image = Theme.symbol("paperclip")
+        config.preferredSymbolConfigurationForImage = Theme.symbolSize
         config.imagePadding = 8
         config.baseForegroundColor = Theme.tintBlue
         config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0)
