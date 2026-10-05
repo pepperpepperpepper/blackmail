@@ -8366,7 +8366,7 @@ before the change keep their lines (above).
 
 ---
 
-## B-069 — CHANGED 2026-10-05, seen on the simulator, not yet on the iPad. The composer and the share sheet behave as Apple Mail's
+## B-069 — CHANGED 2026-10-05, seen on the simulator and on the iPad. The composer and the share sheet behave as Apple Mail's
 
 **Found** in the iPadOS 18 pass of 2026-10-05, on a simulated iPad (7th
 generation) on 18.6, and the same on 17.5: ten ways the app's composer,
@@ -8635,6 +8635,24 @@ sheet ending at the safe area (1), its caret not followed as he moves
 it (1). Seventeen in all. The full suite: 1404 tests, 4 skipped, no
 failures; `LargeLetterTests`' flaky test passed.
 
+**Seen on the iPad, 2026-10-05**, built with B-071 on one branch,
+installed through TrollStore's helper, every letter to the account
+itself. A new letter: Send grey, the body black; Cancel at once closed it
+with nothing asked. The address typed in part and picked: the list
+closed and Send went blue. The subject typed: the title followed it.
+Return in Subject: the caret at the top of the body, above the
+signature. Thirteen lines typed with the keyboard on the screen: the
+fields went up out of sight and the line being typed stayed just above
+the keyboard. A tap outside the sheet: nothing. Then Send in Airplane
+Mode: the letter went to the Outbox and said so. Opened from the Outbox,
+a word typed, left past the autosave and taken out, Cancel: nothing
+asked, and the letter back in the Outbox, not Drafts. Airplane Mode off:
+it went once, one copy in the Inbox and one in Sent Mail, none in Drafts.
+From Safari, the share sheet: Send grey, the list closing at the pick,
+Send blue, an empty line above the link; Return in Subject and words
+typed: they arrived on their own line above the link, in the plain and
+the HTML alike, nothing else added.
+
 **Not covered.**
 
 - A tap outside the share sheet: the sharing app closes it, and the
@@ -8652,7 +8670,7 @@ failures; `LargeLetterTests`' flaky test passed.
 
 ---
 
-## B-071 — CHANGED 2026-10-05, seen on the simulator, not yet on the iPad. A file's preview took the highlights, the text size moved buttons, folders and rows, and Settings and the search field had no names
+## B-071 — CHANGED 2026-10-05, seen on the simulator and on the iPad. A file's preview took the highlights, the text size moved buttons, folders and rows, and Settings and the search field had no names
 
 **Found** on 2026-10-05, in a pass over the app on the iPadOS 18.6
 simulator (iPad, 7th generation), and the same on 17.5. Four things, each
@@ -8751,6 +8769,12 @@ read gives the words; it gives the search field at its magnifier and its
 word. Its tree lists all three either way. Settings looks the same with
 the words read or not, pixel for pixel. The search field reads "Search", a search field, and a search
 typed and cancelled works as before.
+
+**Seen on the iPad, 2026-10-05**, on the same build as B-069. A letter
+with a 12-megapixel photo opened, the photo's preview opened and closed
+with Done: the letter's row and Inbox stayed highlighted. In Settings,
+the signature box tapped: no "Passwords" over the keyboard, only undo,
+redo and paste. The text size and VoiceOver were not tried there.
 
 **Not covered.**
 - At the accessibility sizes Edit mode's circles sit 12.5 pt lower in

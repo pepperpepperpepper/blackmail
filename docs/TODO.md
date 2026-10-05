@@ -1882,6 +1882,11 @@ this host. Ordered by value, not by size.
       *Seen on the simulator, 2026-10-05, on 18.6, and 1 and 3 on
       17.5 (B-069); the review's changes to 1, 4 and 5 on 18.6 as well,
       all but the Outbox in 4. Not yet on the iPad.*
+      *Seen 2026-10-05 on the test iPad (B-069): 1 in the composer,
+      2, 3 (the tap; the swipe not tried), 4 for a new letter and the
+      Outbox (it went once), 5, 6, 7 and 8, and the share sheet from
+      Safari for 2, 5 and 6. Not yet: 1 in the share sheet, a reply and
+      a forward left untouched, the swipe, 9 and 10.*
 - [ ] **B-071, a file's preview and the text size.** Seen on the
       simulator only. On the iPad, with a letter open that has two files:
       1. *The highlights.* Tap a file, then Done: the letter's row and the
@@ -1901,6 +1906,8 @@ this host. Ordered by value, not by size.
       not the words and then the switch. With it off, tap the name, the
       signature and the app password: no "Passwords" over any of them.
       4. *The search field*, with VoiceOver on: "Search", a search field.
+      *Seen 2026-10-05 on the test iPad (B-071): 1, and 3 without
+      VoiceOver. Not yet: 2, VoiceOver in 3, and 4.*
 
 ## Blocked on the owner
 
