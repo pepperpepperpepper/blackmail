@@ -167,6 +167,92 @@ final class OutgoingMailTests: XCTestCase {
         XCTAssertEqual(attachmentBytes, payload, "attachment bytes must round-trip unchanged")
     }
 
+    /// `base64Wrapped` as it was before it wrote straight into one string
+    /// (B-036, the memory at Send), kept as the reference: the encoded text
+    /// cut into 76-character lines and joined with CRLF.
+    private func previousBase64Wrapped(_ data: Data) -> String {
+        let encoded = data.base64EncodedString()
+        var lines: [String] = []
+        var index = encoded.startIndex
+        while index < encoded.endIndex {
+            let end = encoded.index(index, offsetBy: 76, limitedBy: encoded.endIndex)
+                ?? encoded.endIndex
+            lines.append(String(encoded[index..<end]))
+            index = end
+        }
+        return lines.joined(separator: "\r\n")
+    }
+
+    /// A file's base64 is the same text it always was, at every length
+    /// about a line's end, and its length known before it is written; in a
+    /// letter, each file's part ends in it and one CRLF, as when the files
+    /// were all encoded first. Made one at a time now, so a letter of
+    /// photos is not every file twice over in memory at once.
+    func testAFilesBase64IsWrittenAsItAlwaysWas() {
+        var lengths = Array(0..<300)
+        for line in [57, 570, 5_700, 57_000] { lengths += [line - 1, line, line + 1] }
+        lengths.append(1_000_003)
+        for length in lengths {
+            let data = Data((0..<length).map { UInt8(truncatingIfNeeded: $0 &* 131 &+ 7) })
+            let wrapped = RFC5322Builder.base64Wrapped(data)
+            XCTAssertEqual(wrapped, previousBase64Wrapped(data), "\(length)")
+            XCTAssertEqual(RFC5322Builder.base64WrappedLength(length), wrapped.utf8.count,
+                           "\(length)")
+        }
+
+        var draft = Draft()
+        draft.to = ["a@example.com"]
+        draft.body = "attached"
+        let files = [Data((0..<5_000).map { UInt8($0 % 256) }), Data(), Data([0xFF]),
+                     Data((0..<57 * 3).map { UInt8($0 % 7) })]
+        let wire = text(RFC5322Builder.build(
+            draft: draft, from: account,
+            attachments: files.enumerated().map { ("f\($0.offset).bin", "application/octet-stream",
+                                                    $0.element) },
+            htmlBody: "<div>attached</div>"))
+        let mixed = wire.components(separatedBy: "multipart/mixed;").dropFirst().first?
+            .components(separatedBy: "boundary=\"").dropFirst().first?
+            .components(separatedBy: "\"").first ?? ""
+        XCTAssertFalse(mixed.isEmpty)
+        for (index, file) in files.enumerated() {
+            let part = "filename=\"f\(index).bin\"\r\n\r\n" + previousBase64Wrapped(file)
+                + "\r\n--" + mixed
+            XCTAssertTrue(wire.contains(part), "file \(index)")
+        }
+        XCTAssertTrue(wire.hasSuffix("--" + mixed + "--\r\n"))
+    }
+
+    /// What the change was for, read from the builder's source, since the
+    /// letter is the same either way: each file's base64 made where it is
+    /// written into the letter and nowhere before, never through
+    /// `terminated`, which would copy it again; never an array of lines;
+    /// the letter's room asked for once. At Send in the share extension
+    /// the peak went from 5.4 to 4.1 times the files, on the host.
+    func testEachFilesBase64IsMadeOnlyAsItIsWritten() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/Blackmail/MIME/RFC5322Builder.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: " ")
+            .split(whereSeparator: { $0 == " " || $0 == "\t" })
+            .joined(separator: " ")
+        func count(_ step: String) -> Int { code.components(separatedBy: step).count - 1 }
+        XCTAssertEqual(count("base64Wrapped(att.data)"), 1)
+        XCTAssertEqual(count("data: att.data)"), 1, "the file kept as it is until then")
+        let reserved = code.range(of: "out.reserveCapacity(")
+        XCTAssertNotNil(reserved)
+        let rest = reserved.map { String(code[$0.lowerBound...]) } ?? ""
+        for step in ["for att in encodedAttachments {",
+                     "out += crlf out += base64Wrapped(att.data) out += crlf }"] {
+            XCTAssertTrue(rest.contains(step), step)
+        }
+        XCTAssertEqual(count("terminated(att."), 0)
+        XCTAssertEqual(count("lines.append(String(encoded["), 0)
+        XCTAssertEqual(count("String(unsafeUninitializedCapacity: length)"), 1)
+    }
+
     // MARK: - The HTML twin
 
     private func alternativeMessage(attachments: [(filename: String, mimeType: String,

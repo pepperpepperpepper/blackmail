@@ -191,8 +191,19 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       halving, so a 48-megapixel one is decoded at a half, 49 MB, not
       whole at 195 MB, which made the sheet vanish on the iPad the same
       day. Its location does not go; a small GIF or PNG goes as it is; a
-      photo that could not be attached is said. The checks left are the
-      numbered list at the end of "Blocked on the iPad coming back".*
+      photo that could not be attached is said.* *Changed again
+      2026-10-05, not yet seen on the iPad: as Apple Mail does, by the
+      owner's ruling. A JPEG that fits goes as its own bytes, never
+      decoded, under its file's name ("IMG_0776.JPG"), its metadata
+      replaced by the date and the orientation alone, so still no
+      location; a GIF or PNG whole at any size that fits; "image0.jpeg"
+      for a picture with no name; shrunk only when it does not fit or
+      cannot go as itself, at a factor the memory left allows, or left
+      out and said (B-036, "2026-10-05: as Apple Mail does"). Fits: in
+      the 25 MB, and in the memory Send builds the letter in, at five
+      times its files; its own bytes read back before they go, and made
+      a JPEG if they still say where. The checks left are the numbered
+      list at the end of "Blocked on the iPad coming back".*
 - [ ] **A copy of the mail kept on the iPad** (D-016, decided 2026-09-30:
       the smallest design). Phase 0, the logging of his correspondence out
       and X-GM-MSGID in: done 2026-09-30; whether to redact the wire log
@@ -1640,64 +1651,173 @@ this host. Ordered by value, not by size.
       at the right end at the settle (B-066, Not covered). Whether that
       catches the eye, and a newsletter's centred column the same way.
 - [ ] **The share sheet's checks** (B-036, with the shrinking of
-      2026-10-04). Install the IPA from `tools/build-share-ipa.sh` through
-      TrollStore's helper (`trollstorehelper install installd force
-      <ipa>`, the IPA path last), never by the deploy that copies files
-      into the bundle: copied, the share extension does not start at all.
-      Open the app once. Checks 1 to 6 are the shrinking's; 7 onward are
-      the rest of B-036 not yet tried. Only when all pass, take
-      `BLACKMAIL_SHARE_EXT` out of `package.sh`; until then it stays
-      opt-in, as it is.
-      1. *One photo from Photos.* It arrives upright and no more than
-      4096 px on its longest side. Open the attachment in the letter that
-      arrived and save it from its share button in the app: Save to Files
-      keeps its bytes as they came, where Save Image puts it through
-      Photos. Bring it to the host and read its EXIF there with Python's
-      Pillow: `e = Image.open(f).getexif()`; no GPS when `e.get_ifd(0x8825)`
-      is empty, the date when `e.get_ifd(0x8769)` has 36867
-      (DateTimeOriginal); and the picture upright (exiftool, if installed,
-      does the same). Not Gmail's Show original: the photo
-      is base64 there, and its GPS cannot be seen.
-      2. *Five full-size photos at once.* The sheet stays, lists all five,
-      has no line saying a photo could not be attached, and all five
-      arrive.
-      3. *A 24-megapixel photo, a 48-megapixel one, and a panorama*, each
-      shared alone. The sheet stays every time. Each arrives at the size
-      the decoder halves it to: 5712 px at 2856, 8064 at 4032, a 16000 px
-      panorama at 4000, any other at its longest side halved until it is
-      4096 or less. First the 48-megapixel JPEG that made the sheet vanish
-      on 2026-10-04 (8064 by 6048, EXIF orientation 8, a GPS tag): it
-      arrives upright, with no GPS (as in 1). Then a 48-megapixel HEIC,
-      an iPhone's HEIF Max held upright, shared alone, where one can be
-      had: the same. A HEIC is another decoder from a JPEG.
-      4. *A link from the YouTube app*: in the row, the video's title as
+      2026-10-04 and Apple Mail's way of 2026-10-05). Install the IPA from
+      `tools/build-share-ipa.sh` through TrollStore's helper
+      (`trollstorehelper install installd force <ipa>`, the IPA path
+      last), never by the deploy that copies files into the bundle:
+      copied, the share extension does not start at all. Then end any
+      BlackmailShare still running (`killall BlackmailShare` on the
+      iPad): iOS keeps an extension's process from one share to the
+      next, across a reinstall too, and one left from the install before
+      says "Open Blackmail once, then share this again." (2026-10-05).
+      Open the app once. **2026-10-05, on the test iPad:** 1 (IMG_0776
+      and IMG_0774), 2 (all five within the room), 3 (the JPEG and the
+      panorama; no 48-megapixel HEIC at hand), 4 in part (the panorama,
+      too large for the letter, shrunk at a quarter; none past the room
+      Send has), 6 (the PNG only) and 8 passed, and a Wikipedia page
+      from Safari went as before; the rest not tried (B-036, "Seen on
+      the iPad, 2026-10-05"). Checks 1 to 10 are the photos'; 11
+      onward are the rest of B-036 not yet tried. Only when all pass, take `BLACKMAIL_SHARE_EXT`
+      out of `package.sh`; until then it stays opt-in, as it is.
+      Every photo check reads the log as well as the letter. Send each
+      letter to the account itself; then read the newest
+      `blackmail-send-*.txt` in the share extension's own tmp from its
+      last `SHARE-BEGIN` on, and nothing above it: iOS may keep the
+      extension running from one share to the next, and the log is not
+      cleared between them, so the lines of a share before can be there
+      too. After it, one `SHARE-PICTURE` line for each picture, in the
+      order shared, and at Send three `SHARE-SEND` lines. Copy the
+      `offered=` of each down: what Photos offers, and in what order, has
+      never been seen. A name in a line is as it is only when a device
+      made it, IMG_ and digits or image and digits; any other shows as
+      `{N chars}.ext`, and is read from the letter that arrived. Read a
+      photo that arrived on the host, not in Gmail's Show original, where
+      it is base64: open the attachment in the letter, save it from its
+      share button in the app with Save to Files, which keeps its bytes as
+      they came (Save Image puts it through Photos), and bring it over.
+      With Python's Pillow, `from PIL import Image, ExifTags`,
+      `im = Image.open(f)`, `raw = Image.Exif()`,
+      `raw.load(im.info.get('exif', b''))`, then:
+      - the orientation tag: `raw.get(0x0112)`, the EXIF alone. Not
+        `im.getexif()`, which takes it from the XMP when the EXIF has none.
+      - GPS: `raw.get_ifd(0x8825)`; the date and its zone: 36867
+        (DateTimeOriginal) and 36881 (OffsetTimeOriginal) in
+        `raw.get_ifd(0x8769)`; a maker's note: 37500 in that IFD.
+      - the XMP: `im.info.get('xmp')`, searched for GPS, City, State,
+        Country and Location.
+      - every segment: `[(m, d[:16]) for m, d in im.applist]`. No APP13
+        and no COM; list any APPn but APP0 JFIF, APP1 Exif or XMP, APP2
+        ICC_PROFILE or MPF, and APP14 Adobe.
+      - other pictures in it: `im.format`, `getattr(im, 'n_frames', 1)`,
+        and any APP2 beginning `b'MPF\0'`; list each one's EXIF and XMP.
+      - the thumbnail's IFD: `raw.get_ifd(ExifTags.IFD.IFD1)`.
+      - the colour profile: `im.info.get('icc_profile')`.
+      Or `exiftool -a -G1 -ee -u`, where it is installed. "No GPS
+      anywhere" below is none in any of these: the EXIF, the XMP, an
+      APP13, the thumbnail's IFD, another picture.
+      1. *One camera photo from Photos, as its own bytes:* the test
+      iPad's IMG_0776, then one taken with its camera. The sheet lists it
+      under its library name, IMG_ and four digits, and the letter brings
+      it so. Its line: `read=public.jpeg`, `name=file "IMG_NNNN.JPG"` (or
+      `.jpg`, Photos' JPEG of a HEIC), `way=own bytes, metadata replaced`,
+      and `bytes=` the size the attachment arrives at. If IMG_0776's says
+      `(not as its own bytes: more than Send could build, room for R MB)`
+      instead, its file is more than the memory left lets Send build: note
+      R and its `bytes=`, see it as in 4, and make this check with the
+      camera photo. On the host: the size it was taken at, the original's
+      in DCIM (8064 by 6048 for IMG_0776, 4032 by 3024 for one from the
+      camera), never a half of it; the same pixels as the original where
+      that is a JPEG (`im.tobytes()` equal for both); no GPS anywhere; no
+      maker's note; the date and its zone; the orientation tag in the
+      EXIF the original's (8 for IMG_0776), one in the XMP alone failing,
+      and the photo upright in Gmail on the web, which turns a photo by
+      its EXIF alone; the colour profile byte for byte the original's.
+      Any EXIF beyond those few is ImageIO's writing; list it.
+      2. *Five full-size photos at once.* The sheet stays, lists all five
+      by their names, has no line saying a photo could not be attached,
+      and all five arrive. Five `SHARE-PICTURE` lines. Those that fit the
+      room Send has go as in 1; the first that does not says `(not as its
+      own bytes: more than Send could build, room for R MB)` and goes as
+      in 4. Note R, line by line, and how many went as their own bytes.
+      3. *The 48-megapixel JPEG alone* (IMG_0776: 8064 by 6048, EXIF
+      orientation 8, a GPS tag), which made the sheet vanish on
+      2026-10-04: the sheet stays. Its line says own bytes and it arrives
+      at 8064 by 6048, orientation 8, no GPS anywhere; or, where its
+      `bytes=` are more than the room Send has, it says so, as in 1, and
+      it arrives as in 4. Then the 64-megapixel panorama alone, and a
+      48-megapixel HEIC, an iPhone's HEIF Max, where one can be had: its
+      line says what Photos offered for it and which way it went.
+      4. *A photo too large for the room, shrunk.* Share the camera photos
+      and the 48-megapixel JPEG last, five at once. Those that fit go as
+      their own bytes. The first that does not says why, `(not as its own
+      bytes: more than Send could build, room for R MB)`, then `way=JPEG
+      at factor F, N MB available`, and arrives as a .jpg, IMG_NNNN.jpg,
+      at the size F gives (for the 48-megapixel JPEG a quarter, 1512 by
+      2016, upright, stored 8064 by 6048 with orientation 8, with less
+      than 264 MB left), upright in its pixels, no orientation tag, no GPS
+      anywhere, the date. Then a video of 15 to 24 MB and the
+      48-megapixel JPEG after it, if Photos offers Blackmail for the two
+      together: the JPEG's line says `more than the letter's room, N MB
+      left`. The sheet says nothing of one left out unless one is.
+      5. *A letter near the limit, sent.* Share a video of 20 to 24 MB
+      alone, which is weighed against the 25 MB and not against the memory
+      at Send, and Send it. The sheet must close at the 250, and the
+      letter arrive. Copy down its three `SHARE-SEND` lines: the memory
+      left with the files read, once the letter is built, and once it has
+      gone, and `M MB at the least`, how near the building came to the
+      limit. Then the same three lines for the letter of 2. An extension
+      killed at Send leaves no log: the sheet goes at "Sending…" and
+      nothing arrives; note that, and the size shared. A pass on the test
+      iPad, allowed 180 MB, says nothing of his, perhaps 120 MB: make it
+      again there when his can be had.
+      6. *A screenshot, and a GIF.* The screenshot's line: `name=file
+      "IMG_NNNN.PNG"`, `way=copied whole`; it arrives as the .PNG it was,
+      its name's case kept. A moving GIF arrives as the .gif it was, still
+      moving, whatever its size up to the room Send has; the old 5 MB
+      bound is gone. If either's `read=` is `public.jpeg`, note it: Photos
+      then offers a JPEG ahead of it.
+      7. *A picture with no name.* Take a screenshot, tap its thumbnail,
+      and share from that screen; then two the same way at once, if it
+      allows. Its line says `name=none "image0.png"` (or `.jpeg`), the
+      next `image1`. If it says `name=file "{N chars}.png"`, iOS made a
+      name up: read it from the letter that arrived and note it; it
+      decides whether such names count as none.
+      8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
+      available` is a number, not "memory unknown": the extension is told
+      what it has left. Note N on the test iPad, and on his when there is
+      one. A 12-megapixel HEIC made a JPEG is read whole only with 118 MB
+      or more. A line left out for the memory reads `left out, N MB needed
+      at the least, M MB available`, N always more than M.
+      9. *A JPEG with a GPS tag and neither a date nor an orientation*,
+      made on the host with Pillow, a GPS IFD of made-up figures and
+      nothing else, and saved to Photos from Safari. Its copy is given an
+      empty metadata. Its line says own bytes and it arrives with no GPS
+      anywhere; or `(not as its own bytes: the file written still says
+      more than was kept)`, and it arrives as a JPEG made here, no GPS
+      anywhere. Either passes; note which, since it is how ImageIO takes
+      an empty metadata. One that arrives with its GPS fails.
+      10. *A PNG carrying a GPS tag* (an eXIf chunk, made on the host the
+      same way and saved to Photos the same way). Where Photos keeps it,
+      its line says `(not as its own bytes: it says where it was)` and
+      `way=JPEG at factor F`, and it arrives as IMG_NNNN.jpg, no GPS
+      anywhere. Where its line says `copied whole`, Photos took the
+      location off on saving: read the PNG that arrived for GPS all the
+      same, and note that the check could not be made.
+      11. *A link from the YouTube app*: in the row, the video's title as
       the subject, the link tappable in the letter that arrives.
-      5. *After these, the app's own password still works* after the
+      12. *After these, the app's own password still works* after the
       Keychain groups change: the app signs in and sends.
-      6. *A GIF, and a screenshot.* A moving GIF of 5 MB or less arrives
-      as the .gif it was, still moving; a screenshot of 5 MB or less as
-      the .png it was. Either over 5 MB arrives as a .jpg, the GIF as its
-      first frame.
-      7. *Cancel with words in it.* Type a word above the signature and
+      13. *Cancel with words in it.* Type a word above the signature and
       tap Cancel: it asks, Delete Draft ends the share, and Cancel in the
       question goes back to the letter with the word still there.
-      8. *A failed send.* With Wi-Fi off, Send: the reason is shown, the
+      14. *A failed send.* With Wi-Fi off, Send: the reason is shown, the
       letter is left as it was, and Send works once Wi-Fi is back.
-      9. *A `mailto:` link* tapped in a letter opens the app's composer
+      15. *A `mailto:` link* tapped in a letter opens the app's composer
       with its address in To and his signature under the body. Whether
       one tapped in another app comes here is only noted.
-      10. *A video over 25 MB*, shared from Photos: the sheet comes up
+      16. *A video over 25 MB*, shared from Photos: the sheet comes up
       without it, and the letter goes without it.
-      11. *A signature changed in Settings* reaches the next share: the
+      17. *A signature changed in Settings* reaches the next share: the
       sheet's letter has the new one under the body.
-      *Seen 2026-10-04 on a build installed through the helper: 1 as
-      written (the 48-megapixel JPEG, at 3024 by 4032, upright, no GPS,
-      the date kept); 2 (five of his camera's photos, tagged New York,
-      each 4032 by 3024, no GPS, the date and its zone and the Display P3
-      profile kept); 3 for the 48-megapixel JPEG and a 64-megapixel
+      *Seen 2026-10-04, before the change of 2026-10-05, on a build
+      installed through the helper: one photo (the 48-megapixel JPEG, at
+      3024 by 4032, upright, no GPS, the date kept); five at once (five
+      camera photos, each with its location, each 4032 by 3024, no GPS, the
+      date and its zone and the Display P3 profile kept); a 64-megapixel
       panorama (at 4000 by 1000), no 24-megapixel photo or HEIC at hand;
-      4, but with no subject: the YouTube app hands over the link alone;
-      5. 6 to 11 not yet tried (B-036).*
+      11, but with no subject: the YouTube app hands over the link alone;
+      12. Every photo check is to be made again on the new build; 13 to 17
+      not yet tried (B-036).*
 
 ## Blocked on the owner
 

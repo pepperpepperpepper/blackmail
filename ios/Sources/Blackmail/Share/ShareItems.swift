@@ -6,12 +6,19 @@ import Foundation
 ///
 /// One thing at a time, and each file onto the disk as it arrives. A share
 /// extension runs under a far smaller memory ceiling than the app, about
-/// 120 MB, and a photograph is made a JPEG of at most 4096 px, decoded at a
-/// half, a quarter or an eighth where it is larger (`SharedPhoto.size`).
-/// That is still 49 MB while it is made, for a photo from his iPad's camera
-/// decoded whole and for a 48-megapixel one decoded at a half. Every photo
-/// at once, and every JPEG kept until the last had landed, is how the
-/// extension is killed before its sheet appears, with nothing said.
+/// 120 MB. A photograph mostly goes as its own bytes, copied from file to
+/// file and never decoded (`SharedPhoto.way`); one that is made a JPEG is
+/// decoded at a half, a quarter or an eighth where it is larger
+/// (`SharedPhoto.size`), or where the memory left asks it. That is still
+/// 49 MB while it is made, for a photo from his iPad's camera decoded whole
+/// and for a 48-megapixel one decoded at a half. Every photo at once, and
+/// every JPEG kept until the last had landed, is how the extension is
+/// killed before its sheet appears, with nothing said.
+///
+/// And at Send the whole letter is built in memory, about five times its
+/// files, so a picture goes as itself only while the letter it makes fits
+/// the memory left as well as the 25 MB (`SharedPhoto.sendRoom`). A file
+/// that is not a picture is weighed against the 25 MB alone.
 enum ShareItems {
 
     /// Runs `loads` one after another, each begun only once the one before
@@ -73,24 +80,40 @@ enum ShareItems {
 
         private(set) var staged: Int64 = 0
 
+        /// The pictures staged with no name of their own, which numbers the
+        /// next: "image0.jpeg", "image1.png" (`SharedPhoto.name`). One count
+        /// for the share, as Mail counts in a letter, and only of those
+        /// staged, so the names in the letter run on without a gap.
+        private(set) var unnamed = 0
+
         /// What is left of `budget`.
         var room: Int64 { Self.budget - staged }
         private let write: (Data, String) throws -> URL
         private let copy: (URL, String) throws -> URL
+        private let place: (String) throws -> URL
+        private let discard: (URL) -> Void
 
         /// `write` puts bytes on the disk and `copy` a file the sharing app
-        /// handed over, each under the name given, and says where.
+        /// handed over, each under the name given, and says where. `place`
+        /// says where a file of that name is to be written, for `written`,
+        /// and `discard` takes one away again.
         init(write: @escaping (Data, String) throws -> URL = AttachmentStore.write,
-             copy: @escaping (URL, String) throws -> URL = AttachmentStore.copy) {
+             copy: @escaping (URL, String) throws -> URL = AttachmentStore.copy,
+             place: @escaping (String) throws -> URL = AttachmentStore.place,
+             discard: @escaping (URL) -> Void = { AttachmentStore.removeStaged($0) }) {
             self.write = write
             self.copy = copy
+            self.place = place
+            self.discard = discard
         }
 
-        /// A photograph, already a JPEG, or a picture's bytes as they came
-        /// (`SharedPhoto.way`).
+        /// A photograph made a JPEG here, or a picture's bytes as they came
+        /// (`SharedPhoto.way`). `unnamed` when its name is a number
+        /// (`unnamed`).
         func photo(_ bytes: Data, named filename: String,
-                   mimeType: String = "image/jpeg") -> SharedItem? {
-            stage(size: Int64(bytes.count), filename: filename, mimeType: mimeType) {
+                   mimeType: String = "image/jpeg", unnamed: Bool = false) -> SharedItem? {
+            stage(size: Int64(bytes.count), filename: filename, mimeType: mimeType,
+                  unnamed: unnamed) {
                 try write(bytes, filename)
             }
         }
@@ -99,14 +122,44 @@ enum ShareItems {
         /// own account: copied, never read, and not even copied when there
         /// is no room for it.
         func file(at url: URL, size: Int64, named filename: String,
-                  mimeType: String) -> SharedItem? {
-            stage(size: size, filename: filename, mimeType: mimeType) { try copy(url, filename) }
+                  mimeType: String, unnamed: Bool = false) -> SharedItem? {
+            stage(size: size, filename: filename, mimeType: mimeType, unnamed: unnamed) {
+                try copy(url, filename)
+            }
         }
 
-        private func stage(size: Int64, filename: String, mimeType: String,
+        /// A file `write` writes straight onto the disk, at the place it is
+        /// handed, and nowhere in memory: a photo as its own bytes
+        /// (`SharedPhoto.Way.own`). Room for `expected` bytes, the size of
+        /// the file it is written from, is looked for before anything is
+        /// written; the file as written is measured after, and is what the
+        /// letter counts. Nil, with nothing left on the disk, when there is
+        /// no room either time, `write` fails, or the file cannot be
+        /// measured.
+        func written(named filename: String, mimeType: String, expected: Int64,
+                     unnamed: Bool = false, _ write: (URL) -> Bool) -> SharedItem? {
+            guard staged + expected <= Self.budget, let url = try? place(filename) else { return nil }
+            guard write(url), let size = Self.measured(url), size > 0,
+                  staged + size <= Self.budget else {
+                discard(url)
+                return nil
+            }
+            return stage(size: size, filename: filename, mimeType: mimeType, unnamed: unnamed) {
+                url
+            }
+        }
+
+        /// The size of the file at `url`, as the disk has it.
+        private static func measured(_ url: URL) -> Int64? {
+            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+            return (attributes?[.size] as? NSNumber)?.int64Value
+        }
+
+        private func stage(size: Int64, filename: String, mimeType: String, unnamed: Bool,
                            _ put: () throws -> URL) -> SharedItem? {
             guard staged + size <= Self.budget, let url = try? put() else { return nil }
             staged += size
+            if unnamed { self.unnamed += 1 }
             return .file(url, filename: filename, mimeType: mimeType, size: size)
         }
     }

@@ -70,7 +70,11 @@ enum AttachmentStore {
         return url
     }
 
-    private static func place(for filename: String) throws -> URL {
+    /// Where a file of that name is to be written, in a directory of its
+    /// own made for it, as `write` and `copy` place theirs: for a file
+    /// written straight onto the disk by someone else, the share
+    /// extension's photo as its own bytes (`ShareItems.Staging.written`).
+    static func place(for filename: String) throws -> URL {
         let directory = root.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent(safeFilename(filename))

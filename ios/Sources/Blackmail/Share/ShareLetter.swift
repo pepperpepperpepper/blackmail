@@ -9,10 +9,11 @@ enum SharedItem: Equatable {
     case text(String)
     /// A photograph or a document, already staged on this device
     /// (`ShareItems.Staging`), so what the letter carries is a pointer and
-    /// the bytes are read only at Send. A photograph arrives here already
-    /// as a JPEG of at most 4096 px, for the reason the composer re-encodes
-    /// them (`ComposeViewController.picker`); a small GIF or PNG as the file
-    /// it is (`SharedPhoto.way`).
+    /// the bytes are read only at Send. A photograph arrives here as Apple
+    /// Mail sends it: a JPEG as its own bytes under its file's name, its
+    /// metadata replaced; a GIF or PNG as the file it is; any other, or one
+    /// too large for the letter, made a JPEG of at most 4096 px
+    /// (`SharedPhoto.way`).
     case file(URL, filename: String, mimeType: String, size: Int64)
 }
 
