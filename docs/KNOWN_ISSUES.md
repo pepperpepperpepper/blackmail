@@ -8280,3 +8280,289 @@ and no crash report written.
 **Not covered.** The share extension asks for nothing of Photos and has
 no keys. Saving is iOS's own, once allowed.
 
+
+---
+
+## B-069 — CHANGED 2026-10-05, seen on the simulator, not yet on the iPad. The composer and the share sheet behave as Apple Mail's
+
+**Found** in the iPadOS 18 pass of 2026-10-05, on a simulated iPad (7th
+generation) on 18.6, and the same on 17.5: ten ways the app's composer,
+and the share sheet's small one, did not do what Mail does. The rule is
+Mail's wherever Mail has an answer (D-012). Each is below: what was
+found, what Mail does, what changed, and what the simulator showed.
+
+The simulator is an iPad (7th generation), landscape, 1080 by 810
+points, built from this branch and signed in to the test account, with a
+hardware keyboard attached unless the on-screen one is said. Its
+signature was set to a stand-in, "Sam" over "1 Example Street". The
+screenshots named are in the pass's shots folder, not in the repo: the
+letter rows behind the sheet show a real signature. Those named fx-
+are from the second pass, after the review below, on a fresh simulator
+with no signature set.
+
+1. **The keyboard.** *Found:* with the on-screen keyboard up, the body
+   ran on under it. It was pinned to the bottom of the sheet, and
+   nothing in the composer watched the keyboard, as the set-up and
+   Settings screens do. A line or two of it showed, and the caret went
+   under the keyboard as he typed. *Mail:* the letter ends above the
+   keyboard, the fields over it scroll away with it, and the line he
+   types on stays in sight. *Changed:* the fields and the body are one
+   scrolling sheet, and its bottom is the top of the keyboard
+   (`keyboardLayoutGuide`), in both composers. The body is as tall as
+   its words, and at least the rest of the sheet. As he types, as he
+   moves the caret, and as the keyboard comes up, the line he is on is
+   scrolled into sight, and the fields above it go up out of the way.
+   He can scroll them back down with the keyboard still up. The list
+   under an address field moves with its field. With no keyboard, or a
+   hardware keyboard and its bar alone, the sheet's bottom is where it
+   was, and nothing moves.
+
+   The first build ended the body at the keyboard under fields that
+   never moved. In landscape that left the body 130 points with the
+   fewest fields, 42 with Cc and Bcc open, and nothing at all under a
+   forward's six files, where the body dropped out of the accessibility
+   tree and he typed blind (found in review).
+
+   *Seen:* the first build, 130 points and the caret kept on the last
+   line showing (b069-18 to b069-21, b069-63 on 17.5, b069-45 and
+   b069-46 in the share sheet). The second pass: a forward of a letter
+   with six files, on-screen keyboard, the fields went up and the caret's
+   line showed just above the keyboard (fx-04). Ten lines typed, it
+   stayed there (fx-06). Scrolled back down, To, Cc/Bcc and Subject
+   showed with the keyboard up (fx-07), and the next key brought the
+   caret back (fx-08). A new letter with Cc and Bcc open, six lines: the
+   same (fx-12). The share sheet the same, over Safari with eight lines
+   (fx-18) and over Photos with five photos attached (fx-37). With the
+   hardware keyboard the body was 408 points tall and reached the
+   sheet's bottom, as before (fx-28). A swipe down still reached
+   Cancel: on the sheet's bar the question for a changed letter
+   (fx-09), and in the body of one as it opened, the sheet closed.
+2. **The suggestions.** *Found:* once an address was picked, the list
+   opened again at once with his most used, over Cc/Bcc, Subject and
+   Attach Photo. The pick refreshed the list with nothing typed after
+   the comma, and nothing typed offers everyone. The same in the share
+   sheet, seen on the test iPad too. *Mail:* the list closes once one is
+   picked, and comes back when he types again. *Changed:* what a field
+   offers is `ComposeForm.suggestions`, in both sheets. A pick closes
+   the list until he types. Going into an empty field still offers his
+   most used, which makes his own second address one tap (B-036); a
+   field that already holds an address offers nothing until he types.
+   No address already in the field is offered again, in any spelling.
+   *Seen:* To, empty, offered four; the first picked, the list closed
+   and Send went blue (b069-12, b069-13). "c" typed after it offered
+   four others, not the one picked, which had been first and matches
+   "c" by name (b069-14). The share sheet the same (b069-32, b069-33).
+   In the second pass, the list under To in the new layout, and closed
+   after a pick with Send blue (fx-26, fx-27).
+3. **Tapped or swiped away.** *Found:* one tap outside the sheet closed
+   it at once, the letter put in Drafts with nothing asked, and a swipe
+   down did the same. *Mail:* a tap outside does nothing, and a swipe
+   asks what Cancel asks. *Changed:* the sheet is held throughout
+   (`isModalInPresentation`), not only while a letter goes, and a swipe
+   is Cancel (`presentationControllerDidAttemptToDismiss`): the question
+   for a letter he changed, the sheet closed for one as it opened. While
+   a letter goes a swipe does nothing, as Cancel is held then. The share
+   sheet is held the same way, and a swipe there is its Cancel. A tap
+   outside the share sheet is the sharing app's to answer: the
+   extension's flag does not reach it, and the share goes, letter and
+   all. *Seen:* a tap outside the app's sheet, on a letter untouched and
+   on one with a word typed, left it as it was (b069-02, b069-03). A
+   swipe on the changed letter put up Save Draft and Delete Draft
+   (b069-04); on an untouched letter it closed the sheet (b069-54). The
+   same on 17.5 (b069-60, b069-64). In the share sheet over Safari, a
+   swipe with "x" typed in To put up Delete Draft (b069-42, b069-52),
+   and on the share as it began closed it. A tap outside it closed it:
+   a build that logged the extension's calls showed it told only that it
+   was going, never asked (b069-34, b069-36). In the second pass, with
+   the fields and body in one scroller, a tap outside the app's sheet
+   still did nothing, and a swipe still asked (fx-09).
+4. **Cancel on a letter never touched.** *Found:* Cancel on a new letter
+   he never touched asked Save Draft or Delete Draft. The body starts as
+   a blank line over his signature (`Draft.blank`), and Cancel asked
+   whenever the body or the subject had anything in it. *Mail:* an
+   unchanged letter closes without a word: a new one, a reply or a
+   forward. *Changed:* Cancel compares the letter with how it opened,
+   read back off the form as the sheet opens: the people in each field,
+   the subject, the body to the character, and the files
+   (`ComposeForm.asksBeforeClosing`). As it opened, or emptied by hand
+   as before, the sheet closes with nothing asked
+   (`ComposeActions.closeWithoutAsking`). What the sheet kept on the
+   iPad goes, and words typed and taken out again are kept as they are
+   now, over whatever the autosave kept of them meanwhile. A letter
+   opened from the Outbox goes back to the Outbox
+   (`DraftKeeping.putBack`), with whatever may already have reached
+   Gmail and under the same Message-ID, so it is looked for first
+   (B-052). In the first build it stayed in Drafts, never to be sent:
+   kept again as he wrote, it had come out of the Outbox, and nothing
+   put it back (found in review). A photo still coming in from the
+   picker is a change. So is a Send from the sheet that the server
+   refused: Cancel then asks, whatever the form reads
+   (`ComposeActions.asksAnyway`), since the refusal took the letter out
+   of the Outbox, and put back without a word it would be tried again
+   by the next pass. The share sheet already measured
+   against the share as it began; a file taken off now counts too.
+   *Seen:* a new letter with the signature, Cancel: closed (b069-08).
+   "Hello" typed, left past the autosave's pause, taken out, Cancel:
+   closed, and Drafts empty (b069-05, b069-06); the same again in the
+   second pass, with "x" (fx-29). An untouched reply and forward: closed
+   (b069-24, b069-25). Each changed letter asked. The Outbox was not
+   seen: the simulator's line is the Mac's, and cannot be taken down for
+   it alone.
+5. **Return and Tab from Subject.** *Found:* Return in Subject did
+   nothing, and Tab into the body put the caret at the end, under the
+   signature or the quoted original. *Mail:* Return in Subject goes into
+   the body, the caret at its top, above the signature and the quote.
+   *Changed:* Return in Subject goes to the body with the caret at its
+   top, in both. The caret starts there as the sheet opens, so Tab lands
+   there too, until he puts it elsewhere. In the share sheet a link or
+   shared words open under an empty first line, where the caret is, as
+   in Mail's share sheet (`ShareLetter.shown`). In the first build the
+   caret was at the start of the link's own line, and what he typed ran
+   into the address: "Yhttps://en.wikipedia.org/…" (b069-43, found in
+   review). The line goes again if he leaves it empty
+   (`ShareLetter.written`), so a share sent as it began is the address
+   alone above his signature, as Mail sends it, and Cancel asks nothing
+   of it. *Seen:* Return, then a letter typed: it was the body's first
+   line, above the signature (b069-10). Tab the same (b069-11). In a
+   reply, above the signature and the quote (b069-26; "Top" in fx-30).
+   In the share sheet over Safari, the link under an empty line (fx-15);
+   Return from Subject and "Have a look" typed, the words on their own
+   line and the link under them (fx-16). Shared again and Cancel at
+   once: closed with nothing asked (fx-24, fx-25).
+6. **Send with no one to send to.** *Found:* Send was live with no
+   recipient, and then said only "Message was not sent." *Mail:* Send is
+   grey until To, Cc or Bcc holds an address. *Changed:* the same, by
+   the send's own rule (`Submission.recipients`): an entry that is not
+   blank. It follows the fields as he types and as he picks, in both
+   sheets; the share sheet's other rules stand. *Seen:* grey as the
+   sheet opened (b069-01), blue after a pick (b069-13), grey again with
+   To emptied (b069-15). The share sheet grey, then blue after a pick
+   (b069-32, b069-33).
+7. **The title.** *Found:* both composers set the title once, as the
+   sheet opened. *Mail:* its title follows the subject as typed, "New
+   Message" while there is none. *Changed:* the same, in both
+   (`ComposeForm.title`). *Seen:* "B-069 return" over the sheet as it
+   was typed (b069-09, b069-10).
+8. **Colours (D-010).** *Found:* the app composer's body was the
+   system's dark grey, #1C1C1E, on the black sheet, and the share
+   sheet's Cancel question drew light on the dark sheet. *Changed:* the
+   body is `Theme.canvas` with `Theme.primaryText`, as the share sheet's
+   is, and the fields' words are white. The share sheet's question is
+   dark, and so is the extension's window, so whatever comes up over the
+   sheet is dark too. *Seen:* the body black, 0,0,0, in both (b069-01,
+   b069-32). The share sheet's question dark (b069-42, b069-47); the
+   app's already was (b069-04).
+9. **Names for VoiceOver.** *Found:* the fields and the body had no
+   accessibility label; the captions are labels of their own. *Changed:*
+   "To", "Cc", "Bcc", "Subject" and "Message", in both. *Seen:* the
+   simulator's accessibility tree named the app's fields "To", "Cc",
+   "Bcc" and "Subject" and the body "Message" (b069-55). The tree does
+   not reach into the share extension; its names are read from the
+   source.
+10. **The paperclip (D-007).** *Found:* Attach Photo's paperclip grew
+   with the iPad's text size and its words did not. *Changed:* the
+   symbol is fixed at the size of its words. *Seen:* at the largest
+   accessibility text size, 36 by 40 pixels, as at the standard size,
+   while the folder pane's icons grew (b069-22 against b069-01).
+
+**Decided here, put to the owner.**
+
+- *Going back into To.* Built: a field that already holds an address
+  offers nothing until he types; an empty one offers his most used as
+  he goes in. Mail offers nothing until he types, in any field. Its way
+  would take away the one tap to his own second address.
+- *An address in another field.* Built: an address in To is not offered
+  again in To, and still is in Cc. Or in neither.
+- *What counts for Send.* Built: anything typed in To, Cc or Bcc, as
+  Send has counted it: "x" turns Send blue, and the server refuses it
+  at Send. Or only an entry with an "@".
+- *Return in Subject later on.* Built: the top of the body every time,
+  after he has written too.
+- *The empty line above a share.* Built: shown, and dropped again if he
+  leaves it empty, so a share sent untouched is what Mail sends. Or
+  keep it in the letter, which would put an empty first line above the
+  address in every untouched share.
+
+**Tests.** `ComposeLikeMailTests`, twenty. What the form decides,
+run: the title; Send live only with someone in To, Cc or Bcc; Cancel
+asking nothing of a new letter, a reply and a forward as they opened,
+and asking for words, a subject, an address in any field or moved from
+one to another, a file on or off, but not for words taken out again or
+a blank; an emptied letter not asked about; the share sheet asking for a
+file taken off; and the suggestions, closed after a pick, nothing on
+going back into a field that holds an address, matches when he types
+without what is in the field in any spelling, and his most used in an
+empty field, in both sheets; and a shared link under an empty first
+line, words typed there on their own line above it, the line gone again
+when left empty, and a photo's blank letter shown as it is. The wiring,
+read from the source of both composers: the sheet above the keyboard
+and the caret brought into view as it comes up, the fields and the body
+scrolling as one with the caret kept in sight and the list moving with
+its field, a pick closing the list, the sheet held and a swipe going
+to Cancel, which does nothing while a letter goes or with its question
+up, Cancel
+measured against the letter as it opened, Return in Subject and the
+caret's start, Send and the title following the fields, the colours,
+the names and the paperclip. `ComposeActionsTests`: Cancel on a letter
+as it opened keeps nothing, keeps words typed and taken out again before
+letting the letter go, keeps nothing emptied, does nothing while a
+letter goes, and leaves nothing for a send or a save after it; a photo
+coming in counts as a change, and so does a Send the server refused.
+`OutboxTests`, four: an Outbox letter typed in, kept by the autosave,
+taken back to how it opened and cancelled is in the Outbox again, not
+in Drafts, and the next pass sends it; one whose attempt was cut off
+after its DATA goes back under that Message-ID, still to be looked for;
+a draft and a new letter are never put in the Outbox by a Cancel; and
+after a Send the server refused, Cancel asks. Each fix of the first
+build undone in a scratch copy, one at a time, the four suites run (79
+tests), failures as XCTest counts them:
+the app's body pinned to the sheet's bottom again (2 failures), the
+share sheet's (2), the caret not brought into view (1); a pick offering
+again (2), an address in the field offered again (3), a field holding an
+address offering as he goes in (2), the app's pick refreshing as typing
+does (1), the share sheet's (1); the app's sheet not held (1), its swipe
+not sent to Cancel (1), the share sheet not held (1), the app's sheet
+let go again after a send (1); Cancel asking whatever is in the letter
+(5), the files not compared (2), the share sheet not counting a file
+taken off (1), the app's Cancel back to asking whenever there are words
+(1), words typed and taken out not kept before the letter is let go (2),
+a close without asking while a letter goes (2); Return in Subject doing
+nothing (1), the share sheet's caret left at the end (1); Send always
+live (2), the app's Send not following his typing (1); the app's title
+fixed at open (1), no "New Message" for an empty subject (2); the app's
+body left grey (1), the share sheet's question left light (1); the app's
+fields unnamed (1), the share sheet's body unnamed (1); and the
+paperclip let grow (1). Twenty-nine in all. The first run of the app's
+sheet not held failed nothing: the test found the navigation
+controller's line in its place, and now reads the sheet's own.
+
+The review's fixes undone the same way, the five suites run
+(`ComposeLikeMailTests`, `ComposeActionsTests`, `OutboxTests`,
+`ShareLetterTests`, `ShareSheetTests`, 144 tests): Cancel not putting
+an Outbox letter back (9 failures), putting back any letter, a draft or
+a new one (3), a refused Send not noted (2), the app's Cancel not
+asking after one (1); the share sheet's body shown without the empty
+line (3), the line kept in the letter when left empty (2), the sheet
+showing the body as built (1), reading it back as shown (1); the app's
+body scrolling by itself again (1), its fields fixed over it (4), the
+sheet ending at the safe area (1), no least height for the body (1),
+the caret not followed as he types (1), the list left behind as the
+fields scroll (1); the share sheet's body scrolling by itself (1), its
+sheet ending at the safe area (1), its caret not followed as he moves
+it (1). Seventeen in all. The full suite: 1404 tests, 4 skipped, no
+failures; `LargeLetterTests`' flaky test passed.
+
+**Not covered.**
+
+- A tap outside the share sheet: the sharing app closes it, and the
+  letter with it. The extension cannot hold it.
+- A floating or split keyboard: the guide drops to the sheet's bottom
+  for one (UIKit's default), and the body runs under it as before. Not
+  tried.
+- A very long letter in the body. The body no longer scrolls by itself,
+  so its words are laid out whole to give it its height. A forward of
+  a long newsletter was not timed, on the simulator or the iPad.
+- The Outbox in item 4, on the simulator: its line is the Mac's. The
+  host suite runs it against the scripted servers.
+- Return in To, Cc and Bcc does what it did.
+- The share sheet has no Attach Photo, so item 10 is the app's alone.

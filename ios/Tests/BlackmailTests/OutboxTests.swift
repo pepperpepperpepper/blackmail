@@ -1381,6 +1381,102 @@ final class OutboxTests: XCTestCase {
         XCTAssertNil(kept.store.letter("first"))
     }
 
+    // MARK: - Cancel on a letter as it opened (B-069)
+
+    /// Opened from the Outbox, a word typed, kept by the autosave, taken
+    /// out again, and Cancel, which asks nothing of a letter as it opened:
+    /// the letter is back in the Outbox, as it is now, and the next pass
+    /// sends it. The autosave had kept it as a draft, out of the Outbox,
+    /// and the Cancel left it there, in Drafts, never to be sent.
+    func testCancelOnAnOutboxLetterAsItOpenedPutsItBackInTheOutbox() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter(), kept: kept, repository: repository)
+        dismissals = 0
+
+        let opened = try XCTUnwrap(kept.letter("letter-1")).draft
+        let actions = makeActions("letter-1", kept: kept, repository: repository)
+        var typed = opened
+        typed.body += "x"
+        actions.edited { typed }
+        try await until { pauses.waiting > 0 }
+        pauses.release()
+        try await until { kept.store.letter("letter-1")?.outbox == nil }
+        actions.closeWithoutAsking { opened }
+
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertEqual(kept.outbox.map(\.key), ["letter-1"], "back in the Outbox")
+        XCTAssertEqual(kept.outbox.first?.outboxState, .waiting)
+        XCTAssertEqual(kept.outbox.first?.draft.body, opened.body, "as it is now")
+        XCTAssertEqual(kept.waiting.count, 0, "not a draft")
+
+        try await afterAPage(kept, repository)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "the next pass sends it")
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    /// One whose attempt was cut off after its DATA goes back under that
+    /// attempt's Message-ID with the attempt still to be looked for, as it
+    /// waited before the sheet opened (B-052): Cancel never makes a letter
+    /// that may already have gone a new one.
+    func testCancelPutsBackALetterThatMayHaveGoneStillToBeLookedFor() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentAndCutOff(letter(), kept: kept, repository: repository)
+        let messageID = try XCTUnwrap(kept.store.letter("letter-1")?.outbox)
+
+        let opened = try XCTUnwrap(kept.letter("letter-1")).draft
+        let actions = makeActions("letter-1", kept: kept, repository: repository)
+        actions.edited { opened }
+        actions.closeWithoutAsking { opened }
+
+        let back = try XCTUnwrap(kept.store.letter("letter-1"))
+        XCTAssertEqual(back.outbox, messageID)
+        XCTAssertEqual(back.unsettled, [messageID])
+        XCTAssertEqual(back.outboxState, .beingSent)
+    }
+
+    /// A draft, and a new letter, are never put in the Outbox by a Cancel:
+    /// typed in and taken out again, the draft is still a draft, and the
+    /// new letter is not kept at all.
+    func testCancelPutsNothingElseInTheOutbox() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        keptDraft("Sunday", as: "draft", kept: kept)
+        let opened = try XCTUnwrap(kept.letter("draft")).draft
+        let actions = makeActions("draft", kept: kept, repository: repository)
+        actions.edited { opened }
+        actions.closeWithoutAsking { opened }
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(kept.waiting.map(\.key), ["draft"])
+
+        let fresh = makeActions("new", kept: kept, repository: repository)
+        fresh.edited { [unowned self] in letter() }
+        fresh.closeWithoutAsking { [unowned self] in letter() }
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertNil(kept.store.letter("new"))
+    }
+
+    /// Opened from the Outbox and sent again, a Send the server refuses
+    /// takes the letter out of the Outbox, and Cancel then asks, whatever
+    /// the form reads: put back without a word, the next pass would send
+    /// what the server has just refused.
+    func testAfterASendTheServerRefusedCancelAsks() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter(), kept: kept, repository: repository)
+        let opened = try XCTUnwrap(kept.letter("letter-1")).draft
+        let actions = makeActions("letter-1", kept: kept, repository: repository)
+        XCTAssertFalse(actions.asksAnyway)
+
+        submissions.then { ScriptedSubmission(refusedRecipients: ["carlo@example.org"]) }
+        await actions.send({ opened }, then: nil)?.value
+        XCTAssertEqual(errors, [.notSent])
+        XCTAssertNil(kept.store.letter("letter-1")?.outbox, "taken back into the sheet")
+        XCTAssertTrue(actions.asksAnyway)
+    }
+
     /// A letter a pass refused in the Outbox as too big, taken back into
     /// the sheet as it stood by a Send refused the same way, and closed: a
     /// draft, still carrying the pass's refusal. Its row in Drafts says

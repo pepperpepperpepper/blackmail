@@ -1818,6 +1818,58 @@ this host. Ordered by value, not by size.
       11, but with no subject: the YouTube app hands over the link alone;
       12. Every photo check is to be made again on the new build; 13 to 17
       not yet tried (B-036).*
+- [ ] **B-069, the composer and the share sheet as Mail's.** On the test
+      account, letters only to it, subjects beginning "B-069", put in
+      Trash after. No keyboard attached unless a step says so.
+      1. *The keyboard.* Write a letter until the lines reach the
+      keyboard: the line typed on stays above it, and the caret with it.
+      In landscape, the same on a Forward of a letter with three or more
+      files, and on a new letter with Cc/Bcc open: the fields go up out
+      of the way, the caret's line stays in sight, and the fields scroll
+      back down with the keyboard still up. The same in the share
+      sheet, shared from Safari and with several photos from Photos.
+      With a hardware keyboard attached, the body reaches the sheet's
+      bottom as before. Forward a long letter, a newsletter, and type at
+      the top of the body: the keys keep up, and the sheet opens without
+      a pause.
+      2. *Suggestions.* In To pick his second address: the list closes.
+      Type a letter of a name: it comes back, without the one picked.
+      The same in the share sheet.
+      3. *Tapped or swiped away.* A tap outside the composer does
+      nothing, with words in it or not. A swipe down with a word typed
+      asks Save Draft or Delete Draft; on an untouched letter it closes
+      the sheet. In the share sheet a swipe with a word typed asks Delete
+      Draft. Note what a tap outside the share sheet does: on the
+      simulator Safari closes it.
+      4. *Cancel.* A new letter untouched, and an untouched Reply and
+      Forward: each closes with nothing asked, and Drafts has nothing
+      new. A word typed, left a few seconds, taken out, Cancel: the same.
+      The Outbox: with Airplane Mode on, Send a letter, which goes to
+      the Outbox. Still in Airplane Mode, open it there, type a word,
+      wait a few seconds, take it out, Cancel: nothing asked, and the
+      letter is in the Outbox, not in Drafts. Airplane Mode off: it goes,
+      once.
+      5. *Return in Subject*: the caret at the top of the body, above
+      the signature, and in a Reply above the quote too. Tab from Subject
+      with a hardware keyboard, the same. In the share sheet, shared from
+      Safari: an empty line above the link, and words typed there stay
+      on their own line, the link under them. Cancel on a share left as
+      it came closes with nothing asked.
+      6. *Send* grey as a new letter opens, blue once To holds an
+      address, grey again when it is emptied. The same in the share
+      sheet.
+      7. *The title* follows the subject as it is typed, "New Message"
+      when it is emptied.
+      8. *Colours.* The body black, as the sheet is; the share sheet's
+      Cancel question dark.
+      9. *VoiceOver* reads "To", "Cc", "Bcc", "Subject" and "Message",
+      in the composer and in the share sheet.
+      10. *The paperclip.* Settings, Display & Brightness, Text Size, at
+      its largest with Larger Accessibility Sizes on: the paperclip stays
+      the size of "Attach Photo". Put the text size back.
+      *Seen on the simulator, 2026-10-05, on 18.6, and 1 and 3 on
+      17.5 (B-069); the review's changes to 1, 4 and 5 on 18.6 as well,
+      all but the Outbox in 4. Not yet on the iPad.*
 
 ## Blocked on the owner
 

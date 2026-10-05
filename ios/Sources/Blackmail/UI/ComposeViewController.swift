@@ -9,6 +9,8 @@ import PhotosUI
 /// The classic modal composer. Cancel fixed left, Send fixed right, always.
 final class ComposeViewController: UIViewController,
                                   UITableViewDataSource, UITableViewDelegate,
+                                  UITextFieldDelegate, UITextViewDelegate,
+                                  UIAdaptivePresentationControllerDelegate,
                                   PHPickerViewControllerDelegate {
 
     private let repository: MailRepository
@@ -35,6 +37,15 @@ final class ComposeViewController: UIViewController,
     private let attachmentsStack = UIStackView()
     private let subjectField = UITextField()
     private let bodyView = UITextView()
+    /// The letter as the sheet opened on it, read back off the form, which
+    /// Cancel measures it against (`ComposeForm.asksBeforeClosing`).
+    private var opened = Draft()
+    /// The fields and the body under them, scrolled as one, as Mail's are
+    /// (B-069). Its bottom is the keyboard's top.
+    private let scroller = UIScrollView()
+    /// How much of the sheet showed at the last layout, to tell when the
+    /// keyboard has just come up over it.
+    private var shownHeight: CGFloat = 0
     private var ccVisible = false
     /// The Cc row itself, hidden until the toggle is pressed, unless the
     /// letter arrives with a Cc or a Bcc (`Draft.showsCcAndBcc`).
@@ -145,7 +156,7 @@ final class ComposeViewController: UIViewController,
         self.key = key ?? UUID().uuidString.lowercased()
         self.kept = .shared
         super.init(nibName: nil, bundle: nil)
-        title = draft.subject.isEmpty ? "New Message" : draft.subject
+        title = ComposeForm.title(subject: draft.subject)
         // Nothing else takes it to the server while it is open here.
         kept.opened(self.key)
     }
@@ -165,13 +176,20 @@ final class ComposeViewController: UIViewController,
         navigationItem.rightBarButtonItem = sendItem
         for item in [navigationItem.leftBarButtonItem, navigationItem.rightBarButtonItem] {
             item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .normal)
+            item?.setTitleTextAttributes([.font: Theme.fontBarButton], for: .disabled)
         }
+
+        scroller.translatesAutoresizingMaskIntoConstraints = false
+        scroller.alwaysBounceVertical = true
+        scroller.contentInsetAdjustmentBehavior = .never
+        scroller.delegate = self
+        view.addSubview(scroller)
 
         let stack = UIStackView()
         stack.axis = .vertical
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        scroller.addSubview(stack)
 
         stack.addArrangedSubview(row(label: "To:", field: toField, text: draft.to.joined(separator: ", ")))
         // Open when the letter arrives with someone in them: a Reply All,
@@ -229,6 +247,15 @@ final class ComposeViewController: UIViewController,
 
         bodyView.font = .systemFont(ofSize: Theme.scaled(17))
         bodyView.text = draft.body
+        // The caret starts at the top, above his signature and above a
+        // quoted original, where Tab and Return from Subject put it in
+        // Mail. Set nowhere, it was at the end, under all of them.
+        bodyView.selectedRange = NSRange(location: 0, length: 0)
+        // The app's black and white (D-010), as the share sheet has it.
+        // Left to the system, the body was its dark grey on the black sheet.
+        bodyView.backgroundColor = Theme.canvas
+        bodyView.textColor = Theme.primaryText
+        bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
         // Smart punctuation off. It turns "--" into an em dash and straight
@@ -236,20 +263,51 @@ final class ComposeViewController: UIViewController,
         bodyView.smartDashesType = .no
         bodyView.smartQuotesType = .no
         bodyView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(bodyView)
+        // As tall as its words, and scrolled with the fields over it, as
+        // Mail's letter is. With a scroller of its own under fields that
+        // never moved, the keyboard left it a line or two in landscape,
+        // and nothing under a Reply All's Cc and Bcc or a forward's files.
+        bodyView.isScrollEnabled = false
+        bodyView.delegate = self
+        scroller.addSubview(bodyView)
 
+        let content = scroller.contentLayoutGuide
+        let shown = scroller.frameLayoutGuide
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scroller.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroller.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scroller.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // Above the keyboard, so the line he types on is never under
+            // it. Pinned to the safe area, the body ran on under the
+            // on-screen keyboard and the caret went with it. With no
+            // keyboard up, or a hardware keyboard's bar alone, the guide's
+            // top is the safe area's bottom.
+            scroller.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            stack.topAnchor.constraint(equalTo: content.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            stack.widthAnchor.constraint(equalTo: shown.widthAnchor),
             bodyView.topAnchor.constraint(equalTo: stack.bottomAnchor),
-            bodyView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bodyView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bodyView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            bodyView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            bodyView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            bodyView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            // At least as tall as the sheet, so the body reaches its
+            // bottom, and a tap under the words is still in the letter.
+            content.heightAnchor.constraint(greaterThanOrEqualTo: shown.heightAnchor),
         ])
 
         // Last, so it sits above the body it overlaps.
         configureSuggestions()
+
+        subjectField.delegate = self
+        subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
+        opened = currentLetter()
+        updateSend()
+        // A tap outside the sheet does nothing, and a swipe down asks what
+        // Cancel asks (`presentationControllerDidAttemptToDismiss`), as in
+        // Mail. Either used to close the sheet at once, the letter put in
+        // Drafts with nothing asked.
+        isModalInPresentation = true
 
         // Kept on the iPad a few seconds after he stops, and at once when
         // he leaves the app. See `ComposeActions.edited` and `putAside`.
@@ -274,9 +332,88 @@ final class ComposeViewController: UIViewController,
         actions.putAside { self.currentLetter() }
     }
 
-    /// Swiped away, or Cancel on a letter with nothing in it: the letter he
-    /// changed stays on the iPad, in Drafts, rather than going with the
-    /// sheet. After Send, Save Draft or Delete Draft this does nothing.
+    /// The presented navigation controller is the sheet, and it is its
+    /// modality and its presentation that count.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.isModalInPresentation = true
+        navigationController?.presentationController?.delegate = self
+    }
+
+    /// A swipe at the sheet, which is held: Cancel's question, or for a
+    /// letter as it opened, the sheet closed (`cancelTapped`).
+    func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
+        cancelTapped()
+    }
+
+    /// The keyboard has come up over the sheet, which now ends above it:
+    /// the caret is brought into the part still showing, once the layout
+    /// has settled.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let height = scroller.bounds.height
+        defer { shownHeight = height }
+        guard height < shownHeight, bodyView.isFirstResponder else { return }
+        DispatchQueue.main.async { [weak self] in self?.keepCaretInView() }
+    }
+
+    /// The line he is on, brought into the part of the sheet showing, with
+    /// the body's margin round it. The fields go up out of the way when
+    /// the keyboard leaves too little room under them, as Mail's do.
+    private func keepCaretInView() {
+        guard bodyView.isFirstResponder, let end = bodyView.selectedTextRange?.end else { return }
+        view.layoutIfNeeded()
+        let caret = bodyView.caretRect(for: end)
+        guard !caret.isNull, !caret.isInfinite else { return }
+        let line = bodyView.convert(caret, to: scroller)
+            .insetBy(dx: 0, dy: -bodyView.textContainerInset.bottom)
+        scroller.scrollRectToVisible(line, animated: false)
+    }
+
+    /// He has typed in the body, or moved the caret: it stays in sight.
+    func textViewDidChange(_ textView: UITextView) {
+        keepCaretInView()
+    }
+
+    func textViewDidChangeSelection(_ textView: UITextView) {
+        keepCaretInView()
+    }
+
+    /// The list under an address field goes with the field as the sheet
+    /// scrolls.
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === scroller, !suggestionsView.isHidden,
+              let field = activeAddressField else { return }
+        layoutSuggestions(under: field)
+    }
+
+    /// The title follows the subject as he types it, as Mail's does.
+    @objc private func subjectChanged() {
+        title = ComposeForm.title(subject: subjectField.text ?? "")
+    }
+
+    /// Send is grey until To, Cc or Bcc holds an address, as in Mail.
+    private func updateSend() {
+        sendItem.isEnabled = ComposeForm.canSend(to: toField.text ?? "",
+                                                 cc: ccField.text ?? "",
+                                                 bcc: bccField.text ?? "")
+    }
+
+    /// Return in Subject goes to the body, the caret at its top, above his
+    /// signature and any quoted original, as in Mail. It did nothing.
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard textField === subjectField else { return true }
+        bodyView.becomeFirstResponder()
+        bodyView.selectedRange = NSRange(location: 0, length: 0)
+        keepCaretInView()
+        return false
+    }
+
+    /// Put away by anything but Send, Save Draft, Delete Draft or Cancel:
+    /// the letter he changed stays on the iPad, in Drafts, rather than
+    /// going with the sheet. A swipe no longer puts it away (B-069), so
+    /// this is what is left if something else ever does. After any of
+    /// those four this does nothing.
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         guard navigationController?.isBeingDismissed ?? isBeingDismissed else { return }
@@ -295,6 +432,11 @@ final class ComposeViewController: UIViewController,
         let button = UIButton(type: .system)
         var config = UIButton.Configuration.plain()
         config.image = UIImage(systemName: "paperclip")
+        // The size of the words beside it, fixed (D-007). Left to the
+        // button, the symbol grew with the iPad's text size and the words
+        // did not.
+        config.preferredSymbolConfigurationForImage =
+            UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
         config.imagePadding = 6
         config.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: Theme.detailContentInsetLeft, bottom: 0, trailing: 0)
@@ -491,6 +633,10 @@ final class ComposeViewController: UIViewController,
         label.textColor = Theme.secondaryText
         field.text = value
         field.font = .systemFont(ofSize: Theme.scaled(17))
+        field.textColor = Theme.primaryText
+        // The caption is a label of its own, which VoiceOver does not read
+        // with the field: "To", not "To:".
+        field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
         field.autocapitalizationType = .none
         field.autocorrectionType = .no
         field.smartDashesType = .no
@@ -552,12 +698,13 @@ final class ComposeViewController: UIViewController,
 
     @objc private func addressEditingBegan(_ field: UITextField) {
         activeAddressField = field
-        refreshSuggestions()
+        refreshSuggestions(after: .entered)
     }
 
     @objc private func addressEditingChanged(_ field: UITextField) {
         activeAddressField = field
-        refreshSuggestions()
+        refreshSuggestions(after: .typed)
+        updateSend()
     }
 
     @objc private func addressEditingEnded(_ field: UITextField) {
@@ -571,13 +718,12 @@ final class ComposeViewController: UIViewController,
         }
     }
 
-    private func refreshSuggestions() {
+    /// What the field offers after `event` (`ComposeForm.suggestions`):
+    /// nothing once he has picked one, until he types again.
+    private func refreshSuggestions(after event: ComposeForm.FieldEvent) {
         guard let field = activeAddressField else { return }
-        let typed = MailFormat.currentRecipientToken(in: field.text ?? "")
-        // Anything with an "@" already in it is a finished address, not a
-        // half-typed one; offering completions for it is noise.
-        suggestions = typed.contains("@")
-            ? [] : RecipientBook.shared.suggestions(for: typed)
+        suggestions = ComposeForm.suggestions(RecipientBook.shared.snapshot(),
+                                              field: field.text ?? "", after: event)
         suggestionsView.reloadData()
         layoutSuggestions(under: field)
         suggestionsView.isHidden = suggestions.isEmpty
@@ -618,7 +764,13 @@ final class ComposeViewController: UIViewController,
         field.text = MailFormat.replacingRecipientToken(
             in: field.text ?? "", with: suggestions[ip.row].address)
         t.deselectRow(at: ip, animated: false)
-        refreshSuggestions()
+        // Closed, as Mail's closes, until he types again. It used to open
+        // again at once with his most used over Cc, Subject and Attach
+        // Photo.
+        refreshSuggestions(after: .picked)
+        updateSend()
+        // Set by hand, the field sends no change of its own.
+        letterEdited()
     }
 
     @objc private func toggleCc() {
@@ -628,9 +780,20 @@ final class ComposeViewController: UIViewController,
     }
 
     @objc private func cancelTapped() {
-        // Offer to keep the draft rather than silently discarding typing.
-        let hasContent = !(bodyView.text ?? "").isEmpty || !(subjectField.text ?? "").isEmpty
-        guard hasContent else { dismiss(animated: true); return }
+        // Nothing while a letter goes, when a swipe still lands here, nor
+        // with the question already up.
+        guard !actions.isSending, presentedViewController == nil else { return }
+        // Asked only about a letter he has changed, as Mail asks
+        // (`ComposeForm.asksBeforeClosing`). A new letter opens with his
+        // signature in it, and asking whenever the body had anything in it
+        // asked every time. A photo still coming in is a change, and so is
+        // a Send the server refused (`ComposeActions.asksAnyway`).
+        let letter = currentLetter()
+        guard actions.asksAnyway
+                || ComposeForm.asksBeforeClosing(letter, opened: opened) else {
+            actions.closeWithoutAsking { letter }
+            return
+        }
 
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.barButtonItem = navigationItem.leftBarButtonItem
@@ -704,10 +867,11 @@ final class ComposeViewController: UIViewController,
     }
 
     /// The sheet as `ComposeActions` says it should be. While a letter goes:
-    /// the spinner and its words where Send was, Cancel, Attach Photo and
-    /// every Remove held, and the sheet kept from being swiped away, since
-    /// the one thing that must not happen then is the letter being lost or
-    /// sent twice. After a failure everything is live again.
+    /// the spinner and its words where Send was, and Cancel, Attach Photo
+    /// and every Remove held, since the one thing that must not happen then
+    /// is the letter being lost or sent twice. After a failure everything
+    /// is live again. The sheet is never let go by a swipe (`viewDidLoad`),
+    /// and a swipe while a letter goes asks nothing (`cancelTapped`).
     private func draw(_ look: ComposeActions.Look) {
         let sending: Bool
         switch look {
@@ -729,11 +893,6 @@ final class ComposeViewController: UIViewController,
         for row in attachmentsStack.arrangedSubviews {
             for case let remove as UIButton in row.subviews { remove.isEnabled = !sending }
         }
-        // On the navigation controller as well as here: it is the one
-        // presented, and this is what keeps the sheet from being swiped
-        // away whichever of the two UIKit asks.
-        isModalInPresentation = sending
-        navigationController?.isModalInPresentation = sending
     }
 
     private func collect() {

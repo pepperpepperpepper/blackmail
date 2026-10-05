@@ -114,7 +114,8 @@ final class ShareSheet {
     /// Whether Cancel asks before putting the share away: when `letter`,
     /// the sheet as it stands, has anything of his in it that the share did
     /// not begin with. Words above his signature, an address, a subject of
-    /// his own.
+    /// his own, or a file taken off (B-069). As the share began it, it goes
+    /// without a word, as Mail's does.
     ///
     /// Measured against the letter the share began as, and never against
     /// one handed to Send. A letter that did not go is still his, and
@@ -126,17 +127,18 @@ final class ShareSheet {
                 != AppleMailHTML.layout(of: started.body, signature: signature).typed
             || letter.subject != started.subject
             || Submission.recipients(of: letter) != Submission.recipients(of: started)
+            || !ComposeForm.sameFiles(letter, started)
     }
 
-    /// What the address field he is in offers, from the app's own book as
-    /// it was mirrored: nothing once what he has typed is a whole address,
-    /// his most used when he has typed nothing, which is what makes his own
-    /// second address one tap.
-    func suggestions(for field: String) -> [KnownRecipient] {
-        let typed = MailFormat.currentRecipientToken(in: field)
-        guard !typed.contains("@") else { return [] }
-        return RecipientBook.rank(shared.recipients, matching: typed,
-                                  limit: RecipientBook.suggestionLimit)
+    /// What the address field he is in offers after `event`, from the
+    /// app's own book as it was mirrored, as the app's composer offers it
+    /// (`ComposeForm.suggestions`): nothing once what he has typed is a
+    /// whole address, his most used when he has typed nothing, which is
+    /// what makes his own second address one tap, nothing already in the
+    /// field, and nothing after a pick until he types again.
+    func suggestions(for field: String,
+                     after event: ComposeForm.FieldEvent = .typed) -> [KnownRecipient] {
+        ComposeForm.suggestions(shared.recipients, field: field, after: event)
     }
 
     /// A file staged on this device by `AttachmentStore.write`, read back.

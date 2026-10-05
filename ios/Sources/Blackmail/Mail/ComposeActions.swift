@@ -78,6 +78,8 @@ final class ComposeActions {
     /// letter since the sheet opened.
     private var autosave: Task<Void, Never>?
     private var changed = false
+    /// A Send from this sheet came back with a reason (`asksAnyway`).
+    private var refused = false
 
     /// The first three go to the repository; `deleteDraft` is handed the
     /// copy's id and Gmail's id for the letter it is (`Draft.savedLetter`).
@@ -231,6 +233,7 @@ final class ComposeActions {
                 //
                 // The sheet is deliberately NOT dismissed on failure - the
                 // letter he wrote is still in it.
+                refused = true
                 stage = .writing
                 draw(.writing)
                 showError(error as? MailError ?? .notSent)
@@ -382,6 +385,37 @@ final class ComposeActions {
             guard stage == .writing else { return }
             keeping.keep(letter(), false)
         }
+    }
+
+    /// Whether Cancel asks Save Draft or Delete Draft however the letter
+    /// compares with how it opened. A photo chosen in the picker is still
+    /// on its way into the letter, which is about to change. Or a Send from
+    /// this sheet came back with a reason, the server's refusal, which took
+    /// the letter out of the Outbox if it was there: put back by a Cancel
+    /// that asked nothing, the next pass would send what the server had
+    /// just refused.
+    var asksAnyway: Bool { photosComing > 0 || refused }
+
+    /// Cancel on a letter as it opened, or emptied by hand
+    /// (`ComposeForm.asksBeforeClosing`): the sheet closes with nothing
+    /// asked, as Mail closes a letter he never touched. What the sheet kept
+    /// on the iPad goes. One whose words were typed and taken out again is
+    /// kept as it is now, over whatever the autosave kept of it meanwhile,
+    /// and one opened from the Outbox goes back there (`DraftKeeping.putBack`):
+    /// kept again as he wrote, it had come out of the Outbox, and left in
+    /// Drafts it would never be sent. An emptied one is not kept at all.
+    /// Nothing once a letter is on its way, or the sheet has been put away.
+    func closeWithoutAsking(_ letter: () -> Draft) {
+        guard stage == .writing else { return }
+        stage = .closed
+        stopAutosave()
+        let draft = letter()
+        if changed, !draft.isEmptyLetter {
+            keeping.keep(draft, false)
+            keeping.putBack()
+        }
+        keeping.abandon()
+        dismiss()
     }
 
     /// The sheet has gone without Send, Save Draft or Delete Draft: swiped
