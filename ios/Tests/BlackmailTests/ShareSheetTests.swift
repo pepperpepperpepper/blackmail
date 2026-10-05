@@ -65,7 +65,9 @@ final class ShareSheetTests: XCTestCase {
 
     private func sheet(_ server: ScriptedSubmission,
                        recipients: [KnownRecipient] = [],
-                       signatureImages: [SignatureImages.InlineImage] = []) -> ShareSheet {
+                       signatureImages: [SignatureImages.InlineImage] = [],
+                       memory: @escaping @Sendable () -> SharedPhoto.Memory = { .init() })
+        -> ShareSheet {
         let shared = ShareMirror.Shared(account: account, password: "app-password",
                                         signatureImages: signatureImages, recipients: recipients)
         return ShareSheet(
@@ -77,6 +79,7 @@ final class ShareSheetTests: XCTestCase {
                 }
                 return data
             },
+            memory: memory,
             noteSent: { [unowned self] in noted.append($0) },
             finish: { [unowned self] in log.append("finish") },
             cancel: { [unowned self] in log.append("cancel") },
@@ -184,6 +187,42 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertEqual(noted, [["carlo@example.org", "owner@example.net"]])
         let commands = await server.commands
         XCTAssertTrue(commands.contains("RCPT TO:<carlo@example.org>"), "\(commands)")
+        try await lettingGo(server)
+    }
+
+    /// At Send, the memory the extension has left goes in the log three
+    /// times: with the files read, just before the letter is built; once it
+    /// is built, before DATA; and once it has gone. The building is the
+    /// extension's highest moment, about five times its files, so the least
+    /// there has been goes with each. Numbers only.
+    func testSendLogsTheMemoryLeftAroundTheBuilding() async throws {
+        Diagnostics.clear()
+        let server = ScriptedSubmission()
+        let left = Remaining([90_000_000, 61_000_000, 88_000_000])
+        let sheet = sheet(server, memory: { left.next() })
+        let jpeg = Data((0..<600).map { UInt8($0 % 251) })
+        let draft = letter(sheet, [file(jpeg, "IMG_0776.JPG", "image/jpeg"),
+                                   file(Data(count: 40), "image0.png", "image/png")])
+
+        await sheet.send { draft }?.value
+
+        let lines = Diagnostics.entries.map(\.text)
+        let notes = lines.filter { $0.hasPrefix("SHARE-SEND") }
+        XCTAssertEqual(notes, [
+            "SHARE-SEND files read, 2 files 640 bytes, 90 MB available, 40 MB at the least",
+            "SHARE-SEND built, 61 MB available, 40 MB at the least",
+            "SHARE-SEND sent, 88 MB available, 40 MB at the least",
+        ])
+        func at(_ text: String) -> Int { lines.firstIndex { $0.hasPrefix(text) } ?? -1 }
+        XCTAssertLessThan(at("SHARE-SEND files read"), at("ENVELOPE"), "before the letter is built")
+        XCTAssertLessThan(at("RCPT TO"), at("SHARE-SEND built"))
+        XCTAssertLessThan(at("SHARE-SEND built"), at("DATA"))
+        XCTAssertLessThan(at("DATA-REPLY-CODE"), at("SHARE-SEND sent"))
+        for line in notes {
+            XCTAssertFalse(line.contains("IMG_0776"), "no name")
+            XCTAssertFalse(line.contains("owner@"), "no one")
+        }
+        XCTAssertEqual(log, ["finish"])
         try await lettingGo(server)
     }
 
@@ -329,5 +368,21 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertEqual(sheet.suggestions(for: "owner@example.net, car").map(\.address),
                        ["carlo@example.org"])
         XCTAssertTrue(sheet.suggestions(for: "carlo@example.org").isEmpty)
+    }
+}
+
+/// The memory a test's extension says it has left, one figure each time it
+/// is asked, the least of them so far held at 40 MB.
+private final class Remaining: @unchecked Sendable {
+    private var figures: [Int64]
+    private let lock = NSLock()
+
+    init(_ figures: [Int64]) { self.figures = figures }
+
+    func next() -> SharedPhoto.Memory {
+        lock.lock()
+        defer { lock.unlock() }
+        let available = figures.isEmpty ? nil : figures.removeFirst()
+        return SharedPhoto.Memory(available: available, least: 40_000_000)
     }
 }

@@ -195,6 +195,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         sheet = ShareSheet(
             shared: shared,
             transport: TLSConnection.factory,
+            memory: { SharedPhoto.memory() },
             noteSent: { ShareMirror.device.noteSent($0) },
             finish: finish,
             cancel: cancel,
@@ -577,18 +578,23 @@ extension ShareItems {
                 }
             }
         }
+        // Where this share's lines begin. iOS may keep the extension
+        // running from one share to the next, and the log is not cleared
+        // between them: a send's transcript can hold the share before too.
+        Diagnostics.log(.note, "SHARE-BEGIN offered=\(loads.count)")
         oneAtATime(loads) { items in
             let leftOut = tally.leftOut
             Task { @MainActor in completion(items, leftOut) }
         }
     }
 
-    /// A picture first, made a JPEG as the composer makes its photos, since
-    /// an iPad keeps photos as HEIC, which many recipients cannot open, but
-    /// of at most 4096 px (`picture`); then a web address, then
-    /// words, then any other file as it is. A file is staged before this
-    /// calls back, so the next one is not begun while this one's bytes are
-    /// still held.
+    /// A picture first, as Apple Mail sends it: a JPEG as its own bytes,
+    /// under its file's name, its metadata replaced; a GIF or PNG whole; any
+    /// other made a JPEG of at most 4096 px, since an iPad keeps photos as
+    /// HEIC, which many recipients cannot open (`picture`). Then a web
+    /// address, then words, then any other file as it is. A file is staged
+    /// before this calls back, so the next one is not begun while this
+    /// one's bytes are still held.
     ///
     /// A picture is what the provider offers as one by its type
     /// (`SharedPhoto.fileType`), or, failing a type this knows, what

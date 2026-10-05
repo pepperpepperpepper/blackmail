@@ -29,10 +29,12 @@ final class ShareSheet {
     /// `cancelRequest`. Each is called at most once, and never both.
     /// `noteSent` hears who a letter that went was addressed to
     /// (`ShareMirror.noteSent`). `readFile` gives a staged file's bytes
-    /// back at Send.
+    /// back at Send. `memory` says what the extension has left
+    /// (`SharedPhoto.memory`), for the log at each step of Send.
     init(shared: ShareMirror.Shared,
          transport: @escaping MailTransportFactory,
          readFile: @escaping (DraftAttachment) throws -> Data = ShareSheet.readStaged,
+         memory: @escaping @Sendable () -> SharedPhoto.Memory = { SharedPhoto.Memory() },
          noteSent: @escaping ([String]) -> Void,
          finish: @escaping () -> Void,
          cancel: @escaping () -> Void,
@@ -43,16 +45,32 @@ final class ShareSheet {
         let account = shared.account
         actions = ComposeActions(
             sendLetter: { draft, progress in
+                // The letter is built whole in memory, about five times its
+                // files at its height (`SharedPhoto.sendPeak`), in an
+                // extension that is killed past its limit with the sheet
+                // gone and the letter not sent. So the log says what was
+                // left with the files read, once it was built, and once it
+                // had gone, and the least since the extension started.
                 try await Submission.send(
                     draft, from: account, password: shared.password,
                     through: SMTPClient(account: account, transport: transport),
                     threadHeaders: nil,
                     attachments: {
-                        try draft.attachments.map { ($0.filename, $0.mimeType, try readFile($0)) }
+                        let files: [Submission.File] = try draft.attachments.map {
+                            ($0.filename, $0.mimeType, try readFile($0))
+                        }
+                        Diagnostics.log(.note, SharedPhoto.sendNote(
+                            "files read", files: files.map { Int64($0.data.count) },
+                            memory: memory()))
+                        return files
                     },
                     htmlBody: ShareLetter.html(for: draft, account: account),
                     inlineImages: SignatureImages.parts(of: shared.signatureImages),
+                    beforeData: {
+                        Diagnostics.log(.note, SharedPhoto.sendNote("built", memory: memory()))
+                    },
                     progress: progress)
+                Diagnostics.log(.note, SharedPhoto.sendNote("sent", memory: memory()))
                 // Only after the server took it, as the app's book counts
                 // only letters that went.
                 noteSent(Submission.recipients(of: draft).map(MailFormat.bareAddress))

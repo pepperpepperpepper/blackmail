@@ -22,8 +22,9 @@ import Foundation
 ///    the words he searched for. Nothing written beside the wire may add
 ///    to that; a note says what happened in numbers and ids, never who
 ///    wrote or what about (D-016). That last part is held by a test, not
-///    by anything below, and only for a listing (`KeptCopyTests`); a note
-///    on any other path is kept to it by convention.
+///    by anything below, and only for a listing (`KeptCopyTests`) and a
+///    shared picture's name (`SharedPhotoTests`); a note on any other path
+///    is kept to it by convention.
 enum Diagnostics {
 
     enum Direction: String {

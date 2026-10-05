@@ -87,7 +87,12 @@ enum RFC5322Builder {
         // strict relay is entitled to wrap wherever it likes — through the
         // middle of a tag.
         let encodedHTML = htmlBody.map(quotedPrintable)
-        let encodedAttachments: [(filename: String, mimeType: String, base64: String)] =
+        // Each file's base64 is made only as it is written into the letter,
+        // below, and let go of there: never every file encoded at once
+        // beside the files themselves. A letter of 25 MB of photos built in
+        // the share extension was about seven times that at its peak, in an
+        // extension allowed about 120 MB (B-036).
+        let encodedAttachments: [(filename: String, mimeType: String, data: Data)] =
             attachments.map { att in
                 let name = headerSafe(att.filename)
                     .trimmingCharacters(in: .whitespaces)
@@ -103,7 +108,7 @@ enum RFC5322Builder {
                     .replacingOccurrences(of: "\"", with: "")
                 return (filename: name.isEmpty ? "attachment" : name,
                         mimeType: mime.isEmpty ? "application/octet-stream" : mime,
-                        base64: base64Wrapped(att.data))
+                        data: att.data)
             }
 
         let encodedInline: [(contentID: String, filename: String,
@@ -341,6 +346,12 @@ enum RFC5322Builder {
             return Data(out.utf8)
         }
 
+        // The letter's whole size, roughly, asked for at once, so a large
+        // one is not copied into a buffer twice its size as it grows.
+        out.reserveCapacity(out.utf8.count + letterBody.utf8.count + containerHeaders.utf8.count
+            + encodedAttachments.reduce(1_024) { room, att in
+                room + 1_024 + 6 * att.filename.utf8.count + base64WrappedLength(att.data.count)
+            })
         out += "--" + boundary + crlf
         if !containerHeaders.isEmpty {
             out += containerHeaders      // ends in its own CRLF
@@ -358,7 +369,10 @@ enum RFC5322Builder {
             out += headerLine("Content-Transfer-Encoding", "base64")
             out += headerLine("Content-Disposition", "attachment; filename=\"\(name)\"")
             out += crlf
-            out += terminated(att.base64)
+            // Straight into the letter, not through `terminated`, which
+            // would copy it once more; it never ends in CRLF.
+            out += base64Wrapped(att.data)
+            out += crlf
         }
 
         out += "--" + boundary + "--" + crlf
@@ -790,18 +804,43 @@ enum RFC5322Builder {
     /// behaving differently between Apple Foundation and swift-corelibs — and
     /// this code is written on Linux and run on iOS, so it has to agree with
     /// itself across both.
+    ///
+    /// Written once into a string of its final size, from the encoded bytes,
+    /// rather than as an array of 76-character lines joined: those lines
+    /// alone were more than twice the file, the largest single cost of
+    /// building a letter of photos in the share extension (B-036). The
+    /// same characters either way. Never ends in CRLF.
     static func base64Wrapped(_ data: Data) -> String {
-        let encoded = data.base64EncodedString()
+        let encoded = data.base64EncodedData()
         guard !encoded.isEmpty else { return "" }
-
-        var lines: [String] = []
-        var index = encoded.startIndex
-        while index < encoded.endIndex {
-            let end = encoded.index(index, offsetBy: 76, limitedBy: encoded.endIndex) ?? encoded.endIndex
-            lines.append(String(encoded[index..<end]))
-            index = end
+        let length = base64WrappedLength(data.count)
+        return encoded.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            let source = raw.bindMemory(to: UInt8.self)
+            return String(unsafeUninitializedCapacity: length) { target in
+                var read = 0
+                var written = 0
+                while read < source.count {
+                    if read > 0 {
+                        target[written] = 0x0D
+                        target[written + 1] = 0x0A
+                        written += 2
+                    }
+                    let line = min(76, source.count - read)
+                    (target.baseAddress! + written).initialize(from: source.baseAddress! + read,
+                                                               count: line)
+                    read += line
+                    written += line
+                }
+                return written
+            }
         }
-        return lines.joined(separator: crlf)
+    }
+
+    /// How many characters `base64Wrapped` makes of `count` bytes.
+    static func base64WrappedLength(_ count: Int) -> Int {
+        let encoded = (count + 2) / 3 * 4
+        guard encoded > 0 else { return 0 }
+        return encoded + 2 * ((encoded + 75) / 76 - 1)
     }
 
     /// Guarantees the chunk ends with exactly one CRLF, so the next boundary

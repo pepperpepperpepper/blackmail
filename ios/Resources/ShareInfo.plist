@@ -39,10 +39,13 @@
 		<key>NSExtensionAttributes</key>
 		<dict>
 			<!-- Five, as the composer's photo picker allows. Each photo is
-			     made a JPEG of at most 4096 px, one at a time, in an
-			     extension allowed far less memory than the app (SharedPhoto).
-			     Files are counted the same way, since a photo may arrive as
-			     either. -->
+			     taken one at a time, in an extension allowed far less
+			     memory than the app: a JPEG that fits as its own bytes,
+			     never decoded; a GIF or PNG that fits whole; any other
+			     made a JPEG of at most 4096 px. What fits is what is left
+			     of the letter, and of the memory Send builds it in
+			     (SharedPhoto). Files are counted the same way, since a
+			     photo may arrive as either. -->
 			<key>NSExtensionActivationRule</key>
 			<dict>
 				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
