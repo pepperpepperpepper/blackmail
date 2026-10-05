@@ -8280,3 +8280,87 @@ and no crash report written.
 **Not covered.** The share extension asks for nothing of Photos and has
 no keys. Saving is iOS's own, once allowed.
 
+---
+
+## B-068 — FIXED 2026-10-05, seen in the iPadOS 18 simulator and on the iPad. A plain letter began with its own Content-Type
+
+**Found** on 2026-10-05, in the pass on the iPadOS 18 simulator, and the
+same on 17.5, so not new in 18. A letter with no HTML twin and no files,
+his words under a plain signature or none, arrived with two lines above
+his words: `Content-Type: text/plain; charset=utf-8` and
+`Content-Transfer-Encoding: quoted-printable`. They were in the row's
+preview, in the reading pane, and in any reader's client. A draft of such
+a letter came back with them as words he could edit, and each save after
+that wrapped them again: two lines and a blank one more each time. The
+test iPad never showed it. Its signature has a logo, so every letter there
+had an HTML twin. A fresh simulator has no signature.
+
+**What it was.** `RFC5322Builder.build`. A letter of one part has its
+Content-Type and transfer encoding in the message's own header. The plain
+text was made once, as a part: the same two lines as a part's header, a
+blank line, then the text. That is right inside a multipart/mixed, a
+plain letter with files, where the part needs a header of its own. With
+no boundary it was written as the body as it was, header and all. The
+app's Send, the Outbox, Save Draft, Local Drafts' uploads and the share
+sheet all build through it (`Submission.send`, the repository's draft
+APPEND), so every path had it.
+
+**Changed.** A letter of one part is its header, a blank line, and the
+encoded text, nothing more. Nothing follows the last line, so a draft
+comes back exactly as he left it. SMTP ends the line itself
+(`SMTPClient.dataPayload`), so a letter sent arrives with one line break
+after his last word, as before. Every shape with more than one part is
+byte for byte as it was. No other code builds a letter.
+
+**Letters already sent or saved** are left as they are. A letter sent
+cannot be changed. The drafts with the lines are the test account's: his
+own mailbox has never had a Blackmail draft (his 1,900 are Apple Mail's),
+and Blackmail is not yet on his iPad. One reopened now keeps its lines as
+words, and saving it adds no more; they can be deleted by hand, or the
+draft. No code repairs them, for want of anything to repair.
+
+**Tests.** `PlainLetterTests`, 14 tests. Built and read back with
+`MIMEDecoder`, as the pane reads a letter: nine bodies come back to the
+character (blank lines, a space at a line's end, `=`, a long line,
+letters outside ASCII, a line of one full stop, a line that looks like a
+header, nothing at all); the letter is one part, each of the two lines
+said once, and the list's preview begins with his words. A plain
+signature, and a signature with a picture taken out of the letter, give
+no HTML twin and one part. Sent through the repository over the scripted
+submission server, with no signature and with a plain one, and shared
+from the share sheet as words from Notes: one part, his words first. A
+draft saved and reopened three times over the scripted IMAP server,
+unchanged and changed between saves: the copy stored begins with his
+words, and the draft comes back as it went. And six shapes byte for byte,
+with a fixed date, id and randomness: plain, mixed, alternative, related,
+alternative with a file, and all of them together. The five multipart
+ones were taken from the builder before the change. The fix undone: 55
+failures in 9 tests, the five multipart pins passing. The two lines taken
+off the part instead, for every letter: 14 failures in 6 tests, the mixed
+pin among them. A line break after the last line: 13 failures in 5
+tests. The round trips already in the suite (`OutgoingMailTests`,
+`RepositoryWireTests`) checked only that his words were somewhere in the
+body, which is how the lines passed them.
+
+**Seen in the simulator, 2026-10-05**, an iPad (7th generation) on iOS
+18.6, built from this change, signed in to the test account, with no
+signature. A new letter to the test account's +sim18 address, "B068
+plain letter 1", two paragraphs with an `=` in the second, Send. In the
+Inbox the row's preview read "Dear Carlo, See you on Sunday at one. B068
+= plain."; in the pane, "Dear Carlo," came first, then a blank line, then
+the second paragraph, and no header lines.
+
+**Seen on the iPad, 2026-10-05**, built from this change, on the test
+account. Its signature has a logo, which makes an HTML twin, so the
+signature was taken out of a new letter by hand, leaving two lines with an
+`=` in each. Saved as a draft: the Drafts row read "First line = one.
+Second line, 2 = two.". Reopened, it held the two lines and nothing above
+them; a word added and saved again, it came back as left, and Gmail kept
+one copy, `text/plain` with the lines as typed, `=` written `=3D`, and no
+line break after the last. Sent from the draft: it arrived as one part,
+the two lines and the word, one line break after the last, and the draft
+was gone from Drafts. In the pane, the two lines and nothing above them.
+
+**Not covered.** Nothing left for the iPad. Letters and drafts saved
+before the change keep their lines (above).
+

@@ -1818,6 +1818,18 @@ this host. Ordered by value, not by size.
       11, but with no subject: the YouTube app hands over the link alone;
       12. Every photo check is to be made again on the new build; 13 to 17
       not yet tried (B-036).*
+- [x] **B-068, a plain letter is his words.** The test iPad's signature
+      has a logo, so a letter there goes plain only with the signature
+      taken out of it. A new letter to the test account itself, the
+      signature deleted from the body, two lines typed with an `=` in
+      them, Send: the row's preview and the pane begin with the first
+      line, with no Content-Type above it, and so does Show original in
+      Gmail on the web, under the header. Then the same letter, Cancel,
+      Save Draft; open it from Drafts, add a word, Cancel, Save Draft;
+      open it again: his lines and the word, nothing above them. Delete
+      any test draft still beginning with the two lines.
+      *Seen 2026-10-05, all as written, the draft's copy in Gmail one
+      plain part too (B-068).*
 
 ## Blocked on the owner
 
