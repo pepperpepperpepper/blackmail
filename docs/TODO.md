@@ -1973,6 +1973,10 @@ this host. Ordered by value, not by size.
       lines as written, `ms=101`, and the file that arrived the original's
       to the byte (B-070, "Seen in the simulator"). The simulator says
       nothing of memory; every check is still for the iPad.*
+      *Seen 2026-10-05 on the test iPad (B-070): 1, 5 in part (too
+      large alone, 19 + 8 MB, a video and two pictures), 6 (a Forward of
+      the video), 7 and 8 (cut at 10 MB for 60 s: one copy, same
+      Message-ID). Not yet: 2, 3, 4 on this build, six items, 9, and 10.*
 
 ## Blocked on the owner
 

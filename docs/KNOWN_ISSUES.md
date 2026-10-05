@@ -8663,7 +8663,7 @@ the HTML alike, nothing else added.
 
 ---
 
-## B-070 — CHANGED 2026-10-05, seen in the iPadOS 18 simulator, not yet on the iPad. Send built the whole letter in memory; videos could not go and photos were shrunk for it
+## B-070 — CHANGED 2026-10-05, seen in the iPadOS 18 simulator and on the iPad. Send built the whole letter in memory; videos could not go and photos were shrunk for it
 
 **Found** on 2026-10-05, measuring the send path on this host for a video
 of 19,000,000 bytes, a debug build: `RFC5322Builder.build` alone raised
@@ -8906,8 +8906,49 @@ sha256 the original's, and it played to its end. The simulator gives no
 memory figure ("memory unknown"), so there is no "while it went": it
 shows the path works, not what it holds.
 
-**Not yet on the iPad.** The checks are B-070's under "Blocked on the
-iPad coming back" in the TODO.
+**Seen on the iPad, 2026-10-05**, the test iPad (180 MB for the
+extension), built from this branch with master's B-069 and B-071 in it,
+installed through TrollStore's helper, every letter to the account
+itself. Two made-up videos, a test pattern with a tone, 18.7 and 7.9 MB,
+were put in its Photos by mailing them to the account and saving them
+from the preview. Each arrived file was fetched over IMAP and its CRC-32
+compared with the `LETTER-FILE` line and with the original.
+
+- *A 19 MB video alone, from Photos.* Blackmail offered; `SHARE-FILE
+  read=com.apple.quicktime-movie … mime=video/quicktime bytes=18737227
+  went=staged`; the sheet listed it under its own name, 18.7 MB. Send:
+  `LETTER-PLAN raw=25658974 payload=25658977 ms=159`, `SIZE=25658974`,
+  one `WIRE-OUT`, `LETTER-LATCH ok`, one `WIRE-ACK`, the 250 seven
+  seconds after the plan. It arrived once, the same bytes as the
+  original (sha256 and CRC). The memory: 173 MB available with the
+  files read, 170 MB the least while it went.
+- *Too large.* A 44 MB video from the camera roll alone: the words "The
+  video could not be attached." in place of the letter, and nothing sent.
+  The 19 and the 8 MB videos together: the sheet listed the first, with
+  "1 video could not be attached." above it.
+- *A video and two pictures.* The 8 MB video, a 12-megapixel JPEG and a
+  PNG: the JPEG as its own bytes, the PNG whole, the video staged; three
+  `LETTER-FILE` lines; it arrived once, each file's CRC its line's.
+- *The app's Forward of the 19 MB letter*, the video carried from Gmail:
+  the same CRC on arrival. With the Wi-Fi interface taken down for ten
+  seconds after 11 MB had gone, the connection lived and the letter went
+  once.
+- *Cut off for good.* The same Forward, the interface taken down for 60
+  seconds after 10 MB: `DEADLINE write bound=30s`, `WIRE-ACK
+  err=timedOut`, no `LETTER-LATCH`, so no full stop went, and
+  `OUTBOX-WAITING error=connectionLost`; the sheet said the letter was in
+  the Outbox. Nothing arrived. Back in the app 18 minutes later, Sent Mail
+  was searched for its Message-ID, and it went under that same
+  Message-ID: one copy in the Inbox and one in Sent Mail, the video's CRC
+  the original's. Gmail kept nothing of the attempt with no full stop.
+  Refresh alone did not start the Outbox's pass; coming back to the app
+  did, as B-052 has it.
+- *A draft.* The Forward with the video, Cancel, Save Draft: Gmail held
+  one draft of 25.7 MB, the video's CRC the original's. Reopened and
+  sent: one copy arrived, the same, and the draft was gone.
+
+Not tried on the iPad: the iPad locked during an upload, a plain letter's
+`WIRE-PAYLOAD` on this build, six items at once, and his iPad.
 
 **Not covered.**
 
