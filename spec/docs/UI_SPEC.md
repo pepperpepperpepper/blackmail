@@ -58,9 +58,12 @@ The exact order should be tuned against the visual references, but once chosen i
 - Do not depend on swipe actions.
 - Do not use modern floating menus for core actions unless the old Mail behavior itself did.
 - Do not animate panes dramatically.
-  - The view button's switch slides (B-066): sideways only, 0.6 s in
-    all, with no bounce, no scaling and no dimming. Nothing else moves
-    the panes.
+  - The view button's switch, "< Mailboxes" and a folder tap in two
+    panes move as Mail's do (B-066, B-077, D-015): sideways only, half a
+    second on UIKit's spring, with no bounce and no scaling. A column
+    going under another darkens, black at a tenth. With Prefer
+    Cross-Fade Transitions, "< Mailboxes" and a folder tap fade for half
+    a second instead. Nothing else moves the panes.
 
 ## Portrait mode
 Portrait is secondary. The application may collapse to two panes or one pane if necessary, but:

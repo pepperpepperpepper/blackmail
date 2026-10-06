@@ -457,6 +457,14 @@ this host. Ordered by value, not by size.
       instant, and so does a switch tapped while a list or the letter
       bounces past an end. Checked in `PaneMoveTests` and `PaneArrangementTests`; see
       B-066. What to look at on the iPad is below.*
+- [x] **B-077. The panes move as Mail's.** The owner's ruling on B-066's
+      questions, 2026-10-06: "copy apple mail for these".
+      *Done, not yet seen on the iPad: one half-second motion on UIKit's
+      spring for the view button, the list over the folders at half speed
+      and the folders darkening, no settle; "< Mailboxes" and a folder tap
+      as a pop and a push; Reduce Motion and Prefer Cross-Fade Transitions
+      as Mail has them (`PaneMove`, `PaneMotion`). Seen and measured in the
+      iPadOS 18 simulator. What to look at on the iPad is below.*
 - [x] ~~**B-035. Ship the signature as a compile-time default.**~~ *Ruled
       out by the owner, 2026-09-26: his signature never goes in the repo.
       See the gap review above.* Needs the
@@ -1594,7 +1602,13 @@ this host. Ordered by value, not by size.
       the letter's conversation, not as one of its own.
       *Seen on the iPad 2026-10-03, as written. B-064.*
 - [ ] **B-066, the view button's switch slides.** Switch the Layout
-      button on in the connection log first.
+      button on in the connection log first. *Since B-077 the motion is
+      one half second with no settle, the folders move and darken, Reduce
+      Motion changes nothing, and "< Mailboxes" and a folder tap slide:
+      steps 1, 2, 7 and 10 are B-077's checks below; 3 to 6, 8 and 9
+      stand; in 11 the gap beside the list comes only at the tap from
+      three to two, where the list narrows to 375 pt, and closes as it
+      moves; in 12, "at the settle" is now "as the pictures go".*
       1. *Frame by frame.* A scratch build with the window's `layer.speed`
       at 0.1, so the slide takes 4 s and the settle 2 s; the deadline
       stretches with it. Each of the three switches at 1194 (three to
@@ -1655,6 +1669,54 @@ this host. Ordered by value, not by size.
       end up; the dates at the rows' right ends ride with them and are put
       at the right end at the settle (B-066, Not covered). Whether that
       catches the eye, and a newsletter's centred column the same way.
+- [ ] **B-077, the panes move as Mail's.** On the 11-inch, with the Layout
+      button on in the connection log.
+      1. *At speed.* A 60 fps recording from Control Centre, stepped
+      through frame by frame, and if it can be had a slow-motion film of
+      the glass: each of the five moves, three to two, two to three from
+      the list and from the folders, a folder tapped and "< Mailboxes".
+      One motion of about half a second, no settle. In the first frames
+      after the tap, never the screen as it was again once the first frame
+      of the motion has shown: the simulator's recorder showed that, and
+      the app cannot draw it. The corner's glyph still, Flag to Compose
+      still in the view button's switches. The last frame the same as a
+      screenshot a second later, but for a letter's line ends.
+      2. *The curve.* Half the way in about a tenth of a second and still
+      to the eye by 0.4 s, as on 18.6. If it crawls, a third of the way at
+      a quarter of a second, iPadOS 16 runs the spring otherwise: say so.
+      3. *Three to two, frame by frame*, a scratch build with the window's
+      `layer.speed` at 0.1. At the tap the list is wider on its left, over
+      the folders, with "< Mailboxes" in its bar; it slides to the edge;
+      the folders go left half as far and darken a little; the letter's
+      left edge goes with the list. *Two to three*: the reverse, the
+      folders showing at the list's left at the tap. *The folders in front,
+      to three*: their column draws in and the list is there between.
+      4. *A folder tap and "< Mailboxes"*, frame by frame: the list slides
+      in from the column's right edge over the folders, which go 30%
+      of the column left and darken; "Mailboxes" goes left and fades as
+      "< Mailboxes" and the folder's name come from the right; the letter
+      never moves and nothing goes over it. "< Mailboxes": the reverse,
+      the open folder highlighted at the end.
+      5. *Reduce Motion*: all five slide as before. Then *Prefer
+      Cross-Fade Transitions*: the view button still slides; "< Mailboxes"
+      and a folder tap fade for half a second and nothing moves.
+      6. *Taps and bounces* on "< Mailboxes" and a folder: a double tap on
+      a folder opens it once; a row tapped while the list slides in opens
+      nothing; a flick of the folders and a folder tapped while they
+      spring back opens it at once, with `pane motion: bouncing; switched
+      at once` in the log. Then pull the list down past its top, tap
+      "< Mailboxes" as it is let go, and tap the open folder straight
+      after: both changes are made at once, the log has two bouncing
+      lines, and the rows spring back to the top with no jump. The same
+      with the folders pulled down in three panes, the view button, then
+      "< Mailboxes".
+      7. *A letter and a conversation*, three to two and back: the letter's
+      lines wrap again as the motion ends. Whether that catches his eye.
+      8. *VoiceOver*: after "< Mailboxes" it is on the folders, after a
+      folder tap on the list, and it reads nothing of the pictures.
+      9. *A search with the keyboard up*, then "< Mailboxes": the keyboard
+      goes, the search is there when he taps the folder again.
+      10. *The log*: no `pane motion:` line but the bouncing ones.
 - [ ] **The share sheet's checks** (B-036, with the shrinking of
       2026-10-04 and Apple Mail's way of 2026-10-05). Install the IPA from
       `tools/build-share-ipa.sh` through TrollStore's helper
@@ -2069,16 +2131,26 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       and its Cc in Cc, or puts everyone in Cc as before; a Cc left alone
       moves up to To, or the reply goes with no To; his own letter's
       Reply-To is not followed, or it is.
-- [ ] **The view button's motion** (B-066) — built as pictures of the
+- [x] **The view button's motion** (B-066) — built as pictures of the
       columns sliding 0.4 s and settling 0.2 s, the list sliding over
       the folders from three to two and off them from two to three. Keep
       it; another timing; or later Mail's way, where the folders slide off
       to the left. From two panes with the folders in front, their column
       draws in and the list is there in the middle, which Mail never did;
       keep it, or a plain 0.3 s fade for that switch alone.
-- [ ] **"< Mailboxes" and a folder tap in two panes** (B-066) — instant,
+      *Decided 2026-10-06: "copy apple mail for these". Built, not yet seen
+      on the iPad: one half-second motion on UIKit's spring, no settle; the
+      list over the folders, which go at half its speed and darken; Reduce
+      Motion changes nothing, as in Mail. The folders in front keep their
+      drawing in, as Mail has no such switch. The three panes stay side by
+      side. B-077.*
+- [x] **"< Mailboxes" and a folder tap in two panes** (B-066) — instant,
       as they have always been, and as built. Or a slide, as Mail's
       navigation pushes and pops, about 0.35 s.
+      *Decided 2026-10-06: "copy apple mail for these". Built, not yet seen
+      on the iPad: a push and a pop, the panes on the same half-second
+      spring, the bar's titles over 0.35 s; with Prefer Cross-Fade
+      Transitions a half-second fade. B-077.*
 - [ ] **His second address** (B-061) — Gmail sends as it and delivers it
       to him, and the app cannot tell it is his, so a Reply All to a
       letter that names it sends it a copy, which comes back to his Inbox.

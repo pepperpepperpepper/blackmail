@@ -8239,6 +8239,10 @@ folders' column drawing in, has nothing like it in Mail; its fallback is
 the 0.3 s fade for that switch alone. The timing, 0.4 s and 0.2 s. The
 list sliding over the folders, against later Mail's way, where the folders
 slide off to the left. And "< Mailboxes" and a folder tap, above.
+*Ruled 2026-10-06: "copy apple mail for these". B-077 has what was
+built: one half-second motion on UIKit's spring with no settle, Mail's
+rule for Reduce Motion, and "< Mailboxes" and a folder tap sliding as a
+pop and a push.*
 
 ---
 
@@ -9443,3 +9447,337 @@ list gone; Cancel closed it with nothing asked. Nothing was sent.
 - The on-screen keyboard was not tried in the simulator; the hardware
   one was.
 - Not yet seen on the iPad. The TODO says how.
+
+---
+
+## B-077 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. The panes moved in a way of their own; now they move as Mail's
+
+**Asked** on 2026-10-06. B-066 built the view button's motion and put
+two questions to the owner (TODO, "Blocked on the owner"): keep its
+motion, or later Mail's; and should "< Mailboxes" and a folder tap in two
+panes slide. He answered: "copy apple mail for these".
+
+**What Mail does.** Mail is UIKit's split view, three columns, and in a
+narrow window its navigation controller; it moves as they move. Mail
+itself was not filmed. UIKit was measured in the iPadOS 18.6 simulator on
+2026-10-06, frame by frame and from the animations it installs.
+
+- *The sidebar button*, three columns and two: one motion of half a
+  second on a spring, mass 3 and stiffness 1000, critically damped. Half
+  the way by 0.09 to 0.10 s, 90% by 0.21 s, 99% by 0.37 s, done at 0.5 s.
+  Every column moves at once on the same curve. Nothing moves up or
+  down, and there is no second phase. Hiding the sidebar, the list keeps
+  its width and slides left over it, a shadow on its leading edge; the
+  sidebar goes left at half the list's speed and darkens, black at a
+  tenth; the letter's left edge goes with the list. Showing it is the
+  exact reverse.
+- *A push and a pop*: the new screen slides in from the right edge of its
+  column, over the old, with a shadow on its leading edge; the old goes
+  30% of the column to the left and darkens. A pop is the reverse. The
+  same spring. The bar's title and back button cross-fade and slide over
+  0.35 s on cubic(0.25, 0.1, 0.25, 1).
+- *Reduce Motion* changes neither. With *Prefer Cross-Fade Transitions*
+  as well, the sidebar still slides, the same spring and the same paths;
+  a push and a pop become a cross-fade of 0.5 s, nothing moving.
+- *The layout.* On an iPad 1194 pt wide or narrower, Mail with its
+  sidebar shown pushes the letter partly off the screen and dims it. From
+  1210 pt it puts the three side by side.
+
+**What it was** (B-066). Pictures slid 0.4 s, easing in and out, then
+faded 0.2 s over the panes beneath. The folders stood still; the list kept
+its three-pane width, and from three to two a strip of canvas opened
+beside it. With Reduce Motion or Prefer Cross-Fade Transitions, the screen
+faded for 0.3 s. "< Mailboxes" and a folder tap in two panes were instant.
+
+**Changed.**
+
+1. *One motion, on UIKit's spring.* Half a second, mass 3, stiffness
+   1000, critically damped, every picture at once (`PaneMove.progress`,
+   `Theme.paneMoveDuration`). No settle. UIKit asks for a damping of
+   500, which iPadOS 18 runs as critical; asked for as it is on an older
+   iPadOS it might not be, so the damping given is the critical one,
+   109.5.
+2. *Three to two.* The list, laid out as it will be, 375 pt, slides left
+   over the folders from where its right edge meets the letter's to the
+   screen's edge, 205.5 pt on the 11-inch. A shadow comes on its leading
+   edge. The folders go left half as far, 102.75 pt, and darken to a
+   tenth. The letter's left edge goes with the list.
+3. *Two to three, the list in front.* The exact reverse: the list, laid
+   out as in three, 330 pt, slides right off the folders; they come back
+   from 102.75 pt left, laid out, darkened, and lighten; the shadow goes.
+4. *Two to three, the folders in front.* Mail has no such switch. B-066's
+   shape stays, on the same spring and with no settle: the folders'
+   column draws in, cut off, the letter's edge goes right, and the list
+   is there between them.
+5. *A folder tapped in two panes.* Its list slides in from the column's
+   right edge over the folders, a shadow on its leading edge; the folders
+   go 112.5 pt left, 30% of the column, and darken. Only what is under
+   the bars moves. The folders' bar slides half the column left and fades
+   out, the list's comes from half the column right and fades in, over
+   0.35 s on UIKit's bar curve, over an empty bar that stays. The view
+   button's glyph stays in the corner. Nothing goes over the letter: the
+   pictures are cut off at the column.
+6. *"< Mailboxes"* is the reverse: the list slides off to the right, its
+   shadow going, and the folders come back from 112.5 pt left, lightening,
+   the open one highlighted.
+7. *Reduce Motion*, Mail's rule. The view button's switch slides whatever
+   is set. "< Mailboxes" and a folder tap slide, and with Prefer
+   Cross-Fade Transitions, which iOS gives only with Reduce Motion on,
+   the column as it was fades for 0.5 s over the column as it is, its
+   rows on UIKit's ease in and out, its bar on the bar curve, and nothing
+   moves (`PaneMove.motion`, `PaneMotion.crossFading`).
+
+**The layout is Blackmail's.** The motion is copied, not the layout. The
+three panes stay side by side at every width, his own choice (D-015), where
+Mail on an iPad as narrow as his pushes the letter off. So the letter's
+picture keeps its left edge with the list's right edge, as Mail's does on
+a 1210 pt iPad, and its right edge stays the screen's. The list is 330 pt
+in three panes and 375 in two on the 11-inch, where Mail's is 375 in both;
+its picture has the width it ends at, all the way.
+
+**Not UIKit's own push.** A real push and pop were weighed first, and
+do not fit. The list has a navigation controller of its own
+in both arrangements, beside the Mailboxes' (D-003, D-015). Pushed onto
+the Mailboxes' stack it would leave the window at every switch of the
+view button, the search field and its keyboard with it, and UIKit's back
+button would take the corner where the view button stays. So the push and
+the pop are pictures moved on UIKit's numbers, as the view button's
+switch is.
+
+**When things change their look.** B-066's rule holds: nothing changes its
+look while it moves. Pictures move; the panes are laid out anew at the
+tap, beneath, as before. Then two kinds of picture:
+
+- *Laid out anew*, for what comes or stays: the list, the folders coming
+  back, a list pushed in, the bar coming. Cut from each pane after the
+  layout, while a picture of the whole screen as it was covers the glass.
+  So the list is at its new width, its bar dressed, from the first frame
+  that moves, as UIKit lays its columns out before it moves them, and
+  its last frame is the screen beneath.
+- *As it was*, for what goes or is cut off: the folders going, their
+  column drawing in, a list popped off, the bar going, and the letter.
+  WebKit draws the letter in another process and wraps it again in its
+  own time, so no picture of it at its new width can be had at the tap.
+  Its words go with its left edge and land where they now are.
+
+So the end of the motion is the screen beneath but for the letter's line
+ends, which change at once as the pictures go, as at a switch made at
+once, where B-066 faded them over 0.2 s; and, from two panes with the
+folders in front, the folders' title and counts, which move to the
+column's new width then.
+
+**What stays from B-066.** The cover takes every touch for the half
+second, and VoiceOver reads the real panes beneath, final from the tap. A
+change made while a list, the folders or the letter in the pictures
+bounces past an end is made at once, with `pane motion: bouncing;
+switched at once` in the connection log; one coasting is stopped first.
+That holds for a pane hidden at the tap too. A change made at once hides
+a pane that goes on springing back, and the next can come within the half
+second: the list pulled down, "< Mailboxes" tapped and the open folder
+tapped at once after it. The list coming back would be pictured as laid
+out, past its top, and its rows would jump as the pictures went. The
+cover goes before
+anything else lays the panes out, as the iPad turns, as the app stops
+being in front, and at a deadline a second after the motion's end. The
+letter's actions and the view button's glyph hold still. "No message
+selected" keeps to the middle of the pane. The highlights are in the
+pictures as the panes are laid out: the open folder as the folders come
+back, the open letter's row in the list. A picture that cannot be trusted
+turns the motion down with a `pane motion:` line. The launch, a return
+after a while away and the date jump stay instant.
+
+**The cost.**
+
+- The list changes its width and its bar at the tap, then moves: 45 pt
+  on the 11-inch and 75 on the 10.2-inch the simulator runs, wider over
+  the folders from three to two, narrower from two to three, where the
+  darkened folders show through on its left. On a 12.9-inch, where the
+  list is 377 pt in three panes, it narrows from three to two, and 2 pt
+  of empty canvas show beside it until it covers them.
+- The letter's line ends change at once at the end, not over 0.2 s.
+- Darkening at a tenth and a shadow of a few per cent are hard to see on
+  the app's dark panes.
+- With Reduce Motion on, the panes now slide where they faded, as Mail's
+  do.
+- A list pushed in is pictured as it is at the tap: rows that come during
+  the half second appear as the pictures go.
+
+**Tests.** `PaneMoveTests`, now 26, 12 more, rewritten for the new model;
+`PaneArrangementTests` the same 27, five changed.
+
+- `PaneMove`, at every landscape width from 1024 to 1376 pt. What moves:
+  the view button's three switches, a folder tapped in two panes and
+  "< Mailboxes"; nothing for no change. Each move written out at 1194 and
+  1366, with Prefer Cross-Fade Transitions too. The list keeps its width
+  and its right edge rides the letter's left edge at every twentieth of
+  the way. The folders go half the list's travel the same way, and 30% of
+  the column in the stack. What is darkened and what casts a shadow, from
+  and to what. What is pictured as laid out and what as it was, each
+  checked against the columns alone. The last frame is the screen
+  beneath, or under a picture that is, or past the column's edge, but for
+  the letter. The lines ride their edges; everything is rigid and
+  sideways and goes one way; only the real screen meant to show shows,
+  every half point, every twentieth; the backdrop at the letter's right
+  from three to two; the actions' plate; the view buttons painted over;
+  the letter with its left edge; the empty pane's words in its middle;
+  every pane pictured looked at for a bounce, hidden or not; where a
+  list rests, as before. The
+  spring: 0.5 s, mass 3, stiffness 1000, damping squared four times their
+  product. The curve: half the way at 0.092 s, 90% at 0.213, 99% at
+  0.364, the formula at every thousandth, never back and never past the
+  end. The bars, 0.35 s, (0.25, 0.1, 0.25, 1), half the column; the
+  cross-fade's curve, (0.42, 0, 0.58, 1). Mail's rule for Reduce Motion
+  and Prefer Cross-Fade Transitions. The product spec's rule for moving
+  panes (`spec/docs/UI_SPEC.md`), read against `Theme` and the model:
+  the view button, "< Mailboxes" and a folder tap, half a second on the
+  spring, black at a tenth, and the cross-fade.
+- `PaneShell`: the view button, "< Mailboxes" and a folder tap in two
+  panes say where the panes were; a folder tap in three, "< Mailboxes"
+  with the folders in front, a folder opened another way and a return say
+  nothing.
+- `RootViewController` and `PaneMotion`, which are UIKit, are read. The
+  container asks the model with Prefer Cross-Fade Transitions read at the
+  tap and Reduce Motion asked nowhere, looks at the panes the model names
+  for a bounce, and hands over all three view buttons. The motion cuts the
+  screen as it was only in `cut`, and the panes as laid out only in
+  `play`, after the cover with the screen as it was is up, and before
+  that picture goes and anything moves; checks each picture against the
+  model, as it was where it was and as laid out where it is now; moves on
+  Core Animation's spring with `Theme`'s mass, stiffness, critical damping
+  and duration, the bars on the bar clock, the cross-fade on its curves,
+  and on nothing else; darkens and shadows as the model says; draws the
+  corner's glyph only when the pictures move; never touches a real view,
+  and never asks Reduce Motion.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The motion of 0.4 s,
+as B-066 slid: 302 in 3. UIKit's damping of 500 as asked: 3 in 1. A
+stiffness of 500: 509 in 2. The curve eased in and out, not the spring:
+507 in 1. The folders held still under the list, as in B-066: 23 in 3.
+The folders going half the column under a pushed list: 21 in 2. The
+folders not darkened from three to two: 11 in 2. The list's shadow going
+rather than coming from three to two: 11 in 2. The list starting with its
+left edge where it was rather than its right edge on the letter's: 200
+in 3. The folders coming back pictured as they were: 4 in 2. The letter
+pictured as laid out from three to two: 38 in 2. A pushed list coming in
+from the left: 47 in 4. The bars sliding the list's way round: 4 in 2.
+The bars on the panes' half second: 2 in 1. The view button's switch
+faded with Prefer Cross-Fade Transitions: 3 in 1. Prefer Cross-Fade
+Transitions ignored in the stack: 110 in 2. Only the panes on the
+screen looked at for a bounce, as this change first had it: 103 in 3.
+The product spec's rule put back as B-066 wrote it: 7 in 1. The stack
+not cut off at the column:
+787 in 3. "< Mailboxes" laid out with nothing moving: 2 in 2. A folder
+tapped in two panes laid out with nothing moving: 4 in 2. Read from the
+source: B-066's rule, Reduce Motion fading the stack, 2 in 1; the spring
+given UIKit's damping of 500, 2 in 1; the panes laid out pictured from
+the glass, not drawn first, 1 in 1; the screen as it was taken away
+before the pictures are in, 1 in 1; the cover put up after the panes laid
+out are pictured, 1 in 1; the folders not darkened by the motion, 1 in 1;
+the bars on the spring, 2 in 1; the container not asking for Prefer
+Cross-Fade Transitions, 1 in 1; the container looking only at the panes
+on the screen, 1 in 1; the corner's glyph drawn over a cross-fade too,
+1 in 1. Thirty-one in all, each caught, with nothing failing in any run
+but the tests named. The bars on the spring failed nothing at
+first; the source is now read for each change's clock.
+
+The full suite, serially, with nothing undone: 1,502 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Reviewed 2026-10-06, and fixed.** A review found two things, each fixed
+in the text above. The product spec still gave B-066's rule: 0.6 s, no
+dimming, and nothing but the view button's switch moving the panes. It
+now says what is built (`spec/docs/UI_SPEC.md`, under "Do not animate
+panes dramatically."), and a test reads it. And a bounce was looked for
+only in the panes on the screen at the tap, where B-066 looked in every
+pane it pictured. A pane hidden a moment before by a change made at once,
+still springing back, was then pictured past its end and jumped as the
+pictures went: a list pushed in and the folders coming back. Every pane
+pictured is looked at again. The counts above are after the fixes.
+
+**Seen in the simulator, 2026-10-06**, an iPad (7th generation) on 18.6,
+1080 pt wide, landscape, signed in to the test account, built from this
+branch as it is now. Each motion recorded at 60 frames a second and
+stepped through frame by frame. A divider's place was found in each
+frame, or, in the stack, the shift that lays the list's rows on where
+they rest, and fitted to 1 - (1 + wt)e^(-wt). UIKit's spring has
+w = 18.26 a second.
+
+- *Three to two*, the pane empty and with a letter of the test account's
+  own: the list, at its two-pane width with "< Mailboxes" in its bar
+  from the first frame that moves, slid over the folders, which went left
+  under it; the letter's edge went with it, "No message selected" in the
+  middle of the pane; the corner's glyph and the letter's actions stood
+  still. w = 18.15 to 18.45 in three recordings, fitting to 0.3% of the
+  way; the pictures gone 0.48 s after the first frame
+  that moved. With a letter, its lines wrapped again then.
+- *Two to three*: the reverse; the list narrowed at the tap and the
+  folders showed on its left. w = 18.30, empty and with a letter. *The
+  folders in front, to three*: their column drew in and the list was
+  there between; w = 18.05 and 18.10.
+- *A folder tapped* and *"< Mailboxes"*: as items 5 and 6 above,
+  w = 18.25 and 18.20. The letter pane did not move by a pixel in any
+  frame, empty or with a letter. Earlier the same day, on a build with
+  the same model, Drafts' list slid in as it was at the tap, "Checking
+  for Mail…", and its "No messages" came as the pictures went.
+- *Reduce Motion* on (`ReduceMotionEnabled`): all four slid, unchanged,
+  w = 18.20 to 18.50. *Prefer Cross-Fade Transitions* on as well
+  (`ReduceMotionReduceSlideTransitionsPreference`): the view button's
+  switch slid, w = 18.40 and 18.10; "< Mailboxes" and a folder tap
+  cross-faded for about half a second, nothing moving, the bar half gone by 0.15 s
+  and the rows by 0.24 s.
+- *Two taps* 0.15 s apart on the view button: one switch. *A flick* of
+  the list past its top and the view button tapped while it sprang back:
+  the switch was made at once, with no frame between.
+- *Two changes made at once*, after the review, on the build with every
+  pane pictured looked at. In two panes the list pulled down past its
+  top, "< Mailboxes" tapped as it was let go, and the open Inbox tapped
+  straight after: two `bouncing` lines 184 ms apart, no frame of either
+  change moving, and the list back 4.5 pt past its top, springing back to
+  rest over a quarter of a second with no jump. On the build before, the
+  review saw the list pictured 17.5 to 23.5 pt past its top in the same
+  steps; its rows rode that low for the whole push and jumped up as the
+  pictures went. With 0.45 s between the two taps, the list was at rest
+  and the push slid. The folders pulled down, the view
+  button tapped as they were let go and "< Mailboxes" 0.22 s later: the
+  hide at once, the folders at rest by the second tap, and the pop slid
+  and landed with no jump. Then eight ordinary changes in a row, a new
+  Drafts list and a new Inbox pushed in, the same Inbox pushed in again,
+  three pops and both view-button switches: all eight slid, with no
+  `pane motion:` line.
+- *Against UIKit.* The probe of 2026-10-06, its own recording measured
+  the same way: w = 17.60, to 0.3% of the way; its installed animations
+  fitted at 18.15 to 18.35 for the sidebar and 18.6 to 19.1 for the push
+  and pop. Blackmail's fourteen slides on this build: 18.05 to 18.50.
+- *The recorder.* Within 8 ms of the tap, under half of one frame of the
+  iPad's screen, the recordings hold two to four pictures: the screen as
+  it was, the same under the cover, and the first frame of the motion.
+  In some recordings of the view button's switch, five of twenty earlier
+  in the day and two of eleven on this build, the screen as it was came
+  once more, between two copies of the first frame. A build that marked
+  the cover's picture of the screen in red showed that this one was not
+  the cover. Nothing on the app's side can put the screen as it was back
+  after the motion's first frame: by then the real panes are laid out
+  anew. The stray picture comes only inside those bursts of pictures a
+  few milliseconds apart, never at the screen's own pace, so it is taken
+  as the recorder's. The iPad checks in the TODO look for it on the
+  glass.
+
+**Not covered.**
+
+- Mail itself on iPadOS 18 was never filmed. What it does is UIKit's, as
+  measured, and the evidence that Mail is built of UIKit's split view.
+- Not yet seen on the iPad. The test iPad is on iPadOS 16.5.1; whether
+  it runs this spring as 18.6 does is for the iPad.
+- The darkening and the shadow are sized from UIKit's in its light
+  appearance. On the app's dark panes they could not be measured.
+- The bars move as two whole pictures. Mail moves the old title toward
+  the back button and the new title in from the right, each on its own;
+  here the buttons at the bar's right end slide with them.
+- From two panes with the folders in front there is nothing of Mail's to
+  copy. B-066's shape stays, with its change at the end.
+- Rows that arrive for a list pushed in during the half second, the
+  keyboard, and the letter WebKit is still drawing show as the pictures
+  go, as before.
+- The iPad was not turned in the simulator during a motion, and VoiceOver
+  was not on. The host suite reads both.

@@ -213,9 +213,10 @@ final class PaneShell {
     /// here that fetches: the new list loads the folder's first page.
     var openList: (Mailbox) -> Void = { _ in }
     /// The panes laid out as `arrangement` says, at once. After the view
-    /// button the container also moves from `switchedFrom`, the
-    /// arrangement before the switch, to them (B-066); after anything else
-    /// that is nil, and nothing moves.
+    /// button, "< Mailboxes" and a folder tapped in two panes, the
+    /// container also moves from `switchedFrom`, the arrangement before,
+    /// to them (B-066, B-077); after anything else that is nil, and
+    /// nothing moves.
     var layOut: (PaneArrangement, _ switchedFrom: PaneArrangement?) -> Void = { _, _ in }
 
     init(launching panes: PaneArrangement.Panes) {
@@ -223,9 +224,8 @@ final class PaneShell {
     }
 
     /// The view button: two panes or three, kept for the next launch.
-    /// Nothing is opened, so nothing is fetched. Of all the changes, only
-    /// this one tells the container what the panes were before, since
-    /// only this one moves (B-066).
+    /// Nothing is opened, so nothing is fetched. It tells the container
+    /// what the panes were before, and the switch moves (B-066).
     func switchPanes() {
         let before = arrangement
         arrangement.switchPanes()
@@ -234,19 +234,24 @@ final class PaneShell {
     }
 
     /// "< Mailboxes": the folders in front, the list kept behind them as it
-    /// was, nothing opened.
+    /// was, nothing opened. It tells the container what was in front
+    /// before, and the list slides off them, as Mail's pops (B-077).
     func back() {
+        let before = arrangement
         arrangement.back()
-        layOut(arrangement, nil)
+        layOut(arrangement, moved(from: before))
     }
 
     /// A folder tapped in the Mailboxes, with `shown` the one the list is
     /// showing. Opened, or its list put back in front; see
-    /// `PaneArrangement.tapped`.
+    /// `PaneArrangement.tapped`. In two panes it tells the container that
+    /// the folders were in front, and the list slides in over them, as
+    /// Mail's pushes (B-077); in three nothing moves.
     func tapped(_ folder: Mailbox, showing shown: Mailbox) {
+        let before = arrangement
         switch arrangement.tapped(folder, showing: shown) {
-        case .open: open(folder)
-        case .showList: layOut(arrangement, nil)
+        case .open: open(folder, movingFrom: moved(from: before))
+        case .showList: layOut(arrangement, moved(from: before))
         }
     }
 
@@ -254,11 +259,19 @@ final class PaneShell {
     /// folder (B-003's Inbox), or by the date jump across mailboxes (All
     /// Mail). The new list comes in front in two panes: left behind the
     /// folders it would load out of sight, and a return from a while away
-    /// would land him in the folders rather than the Inbox.
-    func open(_ folder: Mailbox) {
+    /// would land him in the folders rather than the Inbox. Only a tap
+    /// says where the panes were; a return and the date jump lay the new
+    /// list out with nothing moving.
+    func open(_ folder: Mailbox, movingFrom from: PaneArrangement? = nil) {
         openList(folder)
         arrangement.showList()
-        layOut(arrangement, nil)
+        layOut(arrangement, from)
+    }
+
+    /// `before`, if the panes are now laid out otherwise; nil if nothing
+    /// changed, as a tap on a folder in three panes changes nothing.
+    private func moved(from before: PaneArrangement) -> PaneArrangement? {
+        before == arrangement ? nil : before
     }
 
     /// The list put in front with nothing opened: back from a while away to
