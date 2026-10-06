@@ -696,6 +696,8 @@ final class ComposeViewController: UIViewController,
         view.addSubview(suggestionsView)
     }
 
+    /// Going in offers nothing, as in Mail (B-073), and closes a list left
+    /// open under another field.
     @objc private func addressEditingBegan(_ field: UITextField) {
         activeAddressField = field
         refreshSuggestions(after: .entered)
@@ -719,6 +721,7 @@ final class ComposeViewController: UIViewController,
     }
 
     /// What the field offers after `event` (`ComposeForm.suggestions`):
+    /// matches only while he types; nothing as he goes in (B-073), and
     /// nothing once he has picked one, until he types again.
     private func refreshSuggestions(after event: ComposeForm.FieldEvent) {
         guard let field = activeAddressField else { return }

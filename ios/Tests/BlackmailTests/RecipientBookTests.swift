@@ -82,9 +82,10 @@ final class RecipientBookTests: XCTestCase {
     }
 
     func testAnEmptyQueryStillOffersHisMostUsedAddresses() {
-        // This is what makes writing to himself one tap rather than
-        // a whole address: tapping To with nothing typed already
-        // offers him.
+        // The book read whole, his most used first, as the tests here
+        // read it. It no longer reaches the screen: since B-073 an
+        // address field offers nothing until he types, as Mail's does,
+        // and `ComposeLikeMailTests` holds that.
         let all = [entry("carlo@example.org", name: "Carlo", uses: 9),
                    entry("someone@example.com", uses: 1)]
         XCTAssertEqual(rank(all, "").first, "carlo@example.org")

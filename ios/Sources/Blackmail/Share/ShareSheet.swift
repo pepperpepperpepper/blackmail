@@ -139,10 +139,10 @@ final class ShareSheet {
 
     /// What the address field he is in offers after `event`, from the
     /// app's own book as it was mirrored, as the app's composer offers it
-    /// (`ComposeForm.suggestions`): nothing once what he has typed is a
-    /// whole address, his most used when he has typed nothing, which is
-    /// what makes his own second address one tap, nothing already in the
-    /// field, and nothing after a pick until he types again.
+    /// (`ComposeForm.suggestions`): matches only while he types, nothing
+    /// as he goes into a field or with nothing typed (B-073), nothing once
+    /// what he has typed holds an "@", nothing already in the field, and
+    /// nothing after a pick until he types again.
     func suggestions(for field: String,
                      after event: ComposeForm.FieldEvent = .typed) -> [KnownRecipient] {
         ComposeForm.suggestions(shared.recipients, field: field, after: event)

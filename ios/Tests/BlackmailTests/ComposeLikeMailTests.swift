@@ -141,18 +141,17 @@ final class ComposeLikeMailTests: XCTestCase {
                            .map(\.address), ["carlo@example.org", "carla@example.com"])
         XCTAssertEqual(ComposeForm.suggestions(book, field: picked + "carlo", after: .typed)
                            .map(\.address), ["carlo@example.org"])
-        // A letter typed and taken out again.
-        XCTAssertEqual(ComposeForm.suggestions(book, field: picked, after: .typed)
-                           .map(\.address), ["carlo@example.org", "carla@example.com"])
+        // A letter typed and taken out again closes the list. Until B-073
+        // it offered his most used, as an empty field did.
+        XCTAssertEqual(ComposeForm.suggestions(book, field: picked, after: .typed), [])
     }
 
-    /// An empty field still offers his most used as he goes into it, which
-    /// is what makes his own second address one tap; a whole address typed
-    /// offers nothing; an address in the field in another spelling is
-    /// still the one in the field.
-    func testAnEmptyFieldStillOffersHisMostUsed() {
-        XCTAssertEqual(ComposeForm.suggestions(book, field: "", after: .entered).first?.address,
-                       "owner@example.net")
+    /// A whole address typed offers nothing; an address in the field in
+    /// another spelling is still the one in the field (B-069). This test
+    /// also held that an empty field offered his most used as he went in,
+    /// which made his own second address one tap. The owner chose Mail's
+    /// way on 2026-10-06 (B-073), and that is the tests below.
+    func testAWholeAddressOrOneInTheFieldIsNotOffered() {
         XCTAssertEqual(ComposeForm.suggestions(book, field: "carlo@exam", after: .typed), [])
         XCTAssertEqual(ComposeForm.suggestions(book, field: "Carlo <CARLO@example.org>, car",
                                                after: .typed).map(\.address),
@@ -165,10 +164,83 @@ final class ComposeLikeMailTests: XCTestCase {
         let picked = "owner@example.net, "
         XCTAssertEqual(sheet.suggestions(for: picked, after: .picked), [])
         XCTAssertEqual(sheet.suggestions(for: picked, after: .entered), [])
-        XCTAssertFalse(sheet.suggestions(for: picked, after: .typed)
-                           .map(\.address).contains("owner@example.net"))
-        XCTAssertEqual(sheet.suggestions(for: "", after: .entered).first?.address,
+        let typed = sheet.suggestions(for: picked + "e", after: .typed).map(\.address)
+        XCTAssertEqual(typed, ["carlo@example.org", "carla@example.com"])
+        XCTAssertFalse(typed.contains("owner@example.net"))
+        // Going into an empty field offers nothing (B-073). It offered his
+        // most used until the owner chose Mail's way.
+        XCTAssertEqual(sheet.suggestions(for: "", after: .entered), [])
+    }
+
+    // MARK: - Suggestions only as he types (B-073)
+
+    /// Mail offers nothing as he goes into an empty field. It offered his
+    /// most used until 2026-10-06, to make his own second address one tap;
+    /// the owner chose Mail's way.
+    func testGoingIntoAnEmptyFieldOffersNothing() {
+        XCTAssertEqual(ComposeForm.suggestions(book, field: "", after: .entered), [])
+        XCTAssertEqual(ComposeForm.suggestions(book, field: "  ", after: .entered), [])
+    }
+
+    /// Nor as he goes into one that holds something: a whole address, one
+    /// picked with the comma after it, or a name half typed.
+    func testGoingIntoAFilledFieldOffersNothing() {
+        for field in ["owner@example.net", "owner@example.net, ", "c",
+                      "owner@example.net, ca", "Carlo <carlo@example.org>, car"] {
+            XCTAssertEqual(ComposeForm.suggestions(book, field: field, after: .entered), [], field)
+        }
+    }
+
+    /// One letter typed offers what matches it, at once, as Mail's does;
+    /// after a comma too, without the address already there.
+    func testTypingALetterOffersWhatMatches() {
+        XCTAssertEqual(ComposeForm.suggestions(book, field: "c", after: .typed).map(\.address),
+                       ["carlo@example.org", "carla@example.com"])
+        XCTAssertEqual(ComposeForm.suggestions(book, field: "o", after: .typed).first?.address,
                        "owner@example.net")
+        XCTAssertEqual(ComposeForm.suggestions(book, field: " c ", after: .typed).map(\.address),
+                       ["carlo@example.org", "carla@example.com"])
+        XCTAssertEqual(ComposeForm.suggestions(book, field: "carlo@example.org, c", after: .typed)
+                           .map(\.address), ["carla@example.com"])
+    }
+
+    /// Typed and taken out again, back to nothing: the list closes, in an
+    /// empty field and after a comma alike.
+    func testTakingWhatHeTypedBackOutClosesTheList() {
+        for (typed, emptied) in [("c", ""), ("owner@example.net, c", "owner@example.net, "),
+                                 ("owner@example.net, c", "owner@example.net,")] {
+            XCTAssertFalse(ComposeForm.suggestions(book, field: typed, after: .typed).isEmpty, typed)
+            XCTAssertEqual(ComposeForm.suggestions(book, field: emptied, after: .typed), [], emptied)
+        }
+    }
+
+    /// Spaces are nothing typed, alone or after a comma, and so is a line
+    /// break pasted in.
+    func testATokenOfSpacesOffersNothing() {
+        for field in [" ", "   ", "\t", "owner@example.net,   ", "owner@example.net, \n"] {
+            XCTAssertEqual(ComposeForm.suggestions(book, field: field, after: .typed), [],
+                           field.debugDescription)
+        }
+    }
+
+    /// A pick offers nothing, whatever the field reads after it.
+    func testAPickOffersNothing() {
+        for field in ["", "c", "owner@example.net, ", "owner@example.net, c"] {
+            XCTAssertEqual(ComposeForm.suggestions(book, field: field, after: .picked), [], field)
+        }
+    }
+
+    /// The share sheet the same: nothing as he goes in, matches for a
+    /// letter, nothing once it is taken out, nothing for spaces.
+    func testTheShareSheetOffersOnlyAsHeTypes() {
+        let sheet = shareSheet(recipients: book)
+        XCTAssertEqual(sheet.suggestions(for: "", after: .entered), [])
+        XCTAssertEqual(sheet.suggestions(for: "owner@example.net, ", after: .entered), [])
+        XCTAssertEqual(sheet.suggestions(for: "c", after: .typed).map(\.address),
+                       ["carlo@example.org", "carla@example.com"])
+        XCTAssertEqual(sheet.suggestions(for: "", after: .typed), [])
+        XCTAssertEqual(sheet.suggestions(for: "  ", after: .typed), [])
+        XCTAssertEqual(sheet.suggestions(for: "c", after: .picked), [])
     }
 
     // MARK: - The sheets' wiring
@@ -235,6 +307,53 @@ final class ComposeLikeMailTests: XCTestCase {
         XCTAssertTrue(share.contains("t.deselectRow(at: ip, animated: false) "
             + "offer(field, after: .picked) updateSend() }"))
         XCTAssertTrue(share.contains("sheet.suggestions(for: field.text ?? \"\", after: event)"))
+    }
+
+    /// B-073, in both. Going into an address field asks the form as
+    /// `.entered`, which offers nothing, so the share sheet putting him
+    /// straight into To shows no list, and neither does a tap on To, Cc or
+    /// Bcc. The list is shown in one place only, from what the form
+    /// offers after one of the three events, so nothing else, the Cc/Bcc
+    /// reveal among them, can show it.
+    func testOnlyTypingShowsTheListInEither() async throws {
+        func count(_ needle: String, in code: String) -> Int {
+            code.components(separatedBy: needle).count - 1
+        }
+        let composer = try source(Self.composer)
+        for line in ["field.addTarget(self, action: #selector(addressEditingBegan(_:)), "
+                        + "for: .editingDidBegin)",
+                     "@objc private func addressEditingBegan(_ field: UITextField) { "
+                        + "activeAddressField = field refreshSuggestions(after: .entered) }"] {
+            XCTAssertTrue(composer.contains(line), line)
+        }
+        XCTAssertEqual(count("refreshSuggestions(after: .", in: composer), 3)
+        XCTAssertEqual(count("suggestions = ", in: composer), 1)
+        XCTAssertTrue(composer.contains("suggestions = ComposeForm.suggestions("))
+
+        let share = try source(Self.share)
+        for line in ["field.addTarget(self, action: #selector(addressEntered(_:)), "
+                        + "for: .editingDidBegin)",
+                     "@objc private func addressEntered(_ field: UITextField) { "
+                        + "offer(field, after: .entered) }",
+                     "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
+                        + "if draft.to.isEmpty { toField.becomeFirstResponder() } }"] {
+            XCTAssertTrue(share.contains(line), line)
+        }
+        XCTAssertEqual(count("offer(field, after: .", in: share), 3)
+        XCTAssertEqual(count("suggestions = ", in: share), 1)
+        XCTAssertTrue(share.contains("suggestions = sheet.suggestions("))
+        XCTAssertTrue(try source(Self.shareRules).contains(
+            "func suggestions(for field: String, after event: ComposeForm.FieldEvent = .typed) "
+                + "-> [KnownRecipient] { ComposeForm.suggestions(shared.recipients, "
+                + "field: field, after: event) }"))
+
+        for (file, code) in [(Self.composer, composer), (Self.share, share)] {
+            let assigned = count("suggestionsView.isHidden = ", in: code)
+            let closed = count("suggestionsView.isHidden = true", in: code)
+            XCTAssertEqual(count("suggestionsView.isHidden = suggestions.isEmpty", in: code), 1, file)
+            XCTAssertEqual(assigned, closed + 1, file)
+            XCTAssertFalse(code.contains("suggestionsView.isHidden.toggle"), file)
+        }
     }
 
     /// 3. The sheet is held: a tap outside does nothing, a swipe asks what
@@ -386,6 +505,7 @@ final class ComposeLikeMailTests: XCTestCase {
 
     private static let composer = "UI/ComposeViewController.swift"
     private static let share = "Share/ShareViewController.swift"
+    private static let shareRules = "Share/ShareSheet.swift"
 
     private func shareSheet(recipients: [KnownRecipient] = []) -> ShareSheet {
         let account = MailAccount(address: "owner@example.com", username: "owner@example.com",
