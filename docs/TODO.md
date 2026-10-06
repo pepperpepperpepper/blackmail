@@ -2055,6 +2055,42 @@ this host. Ordered by value, not by size.
       them, and open the reply there. Wi-Fi on, and Refresh: the reply goes
       in at the bottom as a closed line, nothing above it moves, and its
       row has no dot.
+- [ ] **B-075, Sent Mail's rows as Mail's.** On the test iPad, three
+      panes, Organize by Thread on, the test account only, every letter
+      to the account itself: "Jane's address" is its address with `+jane`
+      before the `@`, typed `Jane Example <` the address `>`, and "Sam's"
+      the same with `+sam` and `Sam Example`. Send nothing else.
+      1. *Two people.* A letter To Jane's and Sam's addresses, Cc the
+      account's own address, Subject "B-075 one". Send. Sent Mail: its
+      row reads "Jane & Sam", not the Cc, with no count and no mark, the
+      time at the right edge where every row's is.
+      2. *A conversation.* Open "B-075 one", Reply, Send. Sent Mail: the
+      row reads "Jane & Sam", then the time, then a blue chevron in a
+      circle at the right edge, and no "(2)". The names and the subject
+      are where the row below has them. Tap the row: the conversation
+      opens in the reading pane, as before. Edit: the mark stays after
+      the time. Done.
+      3. *A long name.* To `Jane Wolfeschlegelsteinhausen Example <`
+      Jane's address `>`, Subject "B-075 long", Send, then Reply to it
+      and Send. Its row: the name cut with "…", then the time, then the
+      mark, all on the line.
+      4. *Him.* To the account's own address typed alone, then Jane's,
+      Subject "B-075 him": the account's address before its "@", then
+      "& Jane", as Mail keeps the first. Another, To Jane's, then the
+      account's: "Jane Example", whole, him left out.
+      5. *Nobody in To.* A new letter, Sam's address in Cc only, Subject
+      "B-075 nobody", Cancel, Save Draft. Drafts: "No Recipients".
+      Another, To Jane's address with ";" typed after it, Subject "B-075
+      semicolon", Cancel, Save Draft: Drafts reads "Jane Example", not
+      "No Recipients". Do not send it: in the simulator Send refused
+      such a letter.
+      6. *Elsewhere.* The Inbox: the letters of 2 and 3, each the
+      account's name and "(2)", with no mark. Sent Mail searched "B-075",
+      Current Mailbox: a row for each letter, no mark, no count; All
+      Mailboxes: each the account's name.
+      7. *VoiceOver* on, in Sent Mail, touch the row of 2: "Jane & Sam,
+      2 messages", the subject, the time. VoiceOver off.
+      Then delete the B-075 letters and the draft.
 
 ## Blocked on the owner
 
@@ -2096,7 +2132,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
       *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
       carry it, and the header has its line from the tap.*
-- [ ] **A conversation's count in Sent Mail** — the row's top line holds
+- [x] **A conversation's count in Sent Mail** — the row's top line holds
       some 168 points in three panes and 213 in two, and is cut at its
       end, so naming To, Cc and Bcc pushes a conversation's "(2)" past it:
       "Jane Example, Sam Exam…". Accept it, as the Inbox already does with
@@ -2105,6 +2141,21 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       first, or fit the names to leave it room, either of which changes
       the frozen row (B-060, which puts four more questions about these
       rows)
+      *Decided 2026-10-06: "copy apple mail for these", for this and
+      B-060's other four. Built (B-075), seen in the simulator, not yet
+      on the iPad: in Sent Mail, Drafts and the Outbox the To alone, one
+      person whole, two or more by short names joined "Jane & Sam", no
+      count, and Mail's blue chevron in a circle after the date on a
+      conversation. "No Recipients" kept, and his address in Gmail's
+      other spellings left out, as Reply leaves it out, which Mail does
+      not do. The Inbox and the other folders keep their "(2)", to be
+      asked about separately.*
+- [ ] **The count on the Inbox's rows** (B-075) — every folder but Sent
+      Mail, Drafts and the Outbox ends a conversation's names with
+      "(2)", cut off with them under a long list of who wrote. Mail has
+      no count on any row: its blue chevron in a circle after the date
+      marks a conversation everywhere. Keep the count (built), or the
+      mark there too.
 - [ ] **Reply's addressing** (B-061) — built as Mail is believed to do it,
       none of it checked against Mail on an iPad. Reply All to a letter
       with a Reply-To goes to the Reply-To in place of the From, or to

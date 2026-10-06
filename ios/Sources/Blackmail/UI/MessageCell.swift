@@ -28,6 +28,11 @@ final class MessageCell: UITableViewCell {
     private let previewLabel = UILabel()
     private let attachmentIcon = UIImageView()
     private let flagIcon = UIImageView()
+    /// Mail's mark of a conversation, a blue chevron in a circle after the
+    /// date, on a row of more than one letter in Sent Mail, Drafts and the
+    /// Outbox, where the names have no count after them (B-075). A mark
+    /// alone: tapping the row opens the conversation, as anywhere else.
+    private let conversationMark = UIImageView()
     private let spinner = UIActivityIndicatorView(style: .medium)
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -61,12 +66,17 @@ final class MessageCell: UITableViewCell {
         flagIcon.image = UIImage(systemName: "flag.fill")
         flagIcon.tintColor = Theme.flagTint
         flagIcon.contentMode = .scaleAspectFit
+        conversationMark.image = UIImage(systemName: "chevron.forward.circle",
+                                         withConfiguration: Theme.conversationMarkSymbol)
+        conversationMark.tintColor = Theme.tintBlue
+        conversationMark.contentMode = .center
+        conversationMark.isHidden = true
 
         spinner.color = Theme.secondaryText
         spinner.hidesWhenStopped = true
 
         for v in [unreadDot, senderLabel, timestampLabel, subjectLabel,
-                  previewLabel, attachmentIcon, flagIcon, spinner] {
+                  previewLabel, attachmentIcon, flagIcon, conversationMark, spinner] {
             contentView.addSubview(v)
         }
     }
@@ -86,8 +96,15 @@ final class MessageCell: UITableViewCell {
 
     required init?(coder: NSCoder) { fatalError("not used") }
 
-    func configure(with m: MessageSummary) {
-        senderLabel.text = MailFormat.displayName(m.sender)
+    /// `marked`: the row ends its top line with the mark of a
+    /// conversation (`MessageThread.marksConversation(in:)`).
+    func configure(with m: MessageSummary, marked: Bool) {
+        // The top line as the row gives it (`MessageThread.displayRow`),
+        // which has named each sender already (`participants`). Read again
+        // as one sender, a line naming whom was cut at its first "<", and
+        // a name that is itself an address lost the real one after it
+        // (`RowNames.fullName`, B-075).
+        senderLabel.text = m.sender
         timestampLabel.text = MailFormat.listTimestamp(m.date)
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
 
@@ -106,6 +123,7 @@ final class MessageCell: UITableViewCell {
         unreadDot.isHidden = m.isRead
         attachmentIcon.isHidden = !m.hasAttachment
         flagIcon.isHidden = !m.isFlagged
+        conversationMark.isHidden = !marked
         setNeedsLayout()
     }
 
@@ -152,11 +170,26 @@ final class MessageCell: UITableViewCell {
 
         // The timestamp takes what it needs from the right; the sender gets the
         // rest, so a long name truncates instead of colliding with the date.
-        let stampWidth = min(110, textWidth * 0.45)
+        // The mark of a conversation, on a row that has one, ends the line
+        // at the right edge, as Mail's does, and the date ends before it,
+        // inside the room it always had (`RowTopLine`, B-075).
+        let markSize = conversationMark.isHidden ? nil : conversationMark.image?.size
+        let line = RowTopLine(left: left, right: right, mark: markSize?.width,
+                              gap: Theme.conversationMarkGap)
+        if let markSize, let markX = line.markX {
+            // Centred on the date's figures, as Mail's sits beside its date.
+            let scale = UIScreen.main.scale
+            let figures = Theme.senderBaseline * Theme.textScale
+                - timestampLabel.font.capHeight / 2
+            conversationMark.frame = CGRect(
+                x: (markX * scale).rounded() / scale,
+                y: ((figures - markSize.height / 2) * scale).rounded() / scale,
+                width: markSize.width, height: markSize.height)
+        }
         place(timestampLabel, baseline: Theme.senderBaseline,
-              left: right - stampWidth, width: stampWidth)
+              left: line.dateX, width: line.dateWidth)
         place(senderLabel, baseline: Theme.senderBaseline,
-              left: left, width: textWidth - stampWidth - 8)
+              left: line.namesX, width: line.namesWidth)
 
         // The paperclip belongs in the LEADING gutter on the sender line — the
         // same column the unread dot uses — not hung off the trailing end of
