@@ -87,21 +87,54 @@ enum Theme {
     ///     1366 pt (12.9-inch)  375 | 990.5
     static let twoPaneLeftColumnWidth: CGFloat = 375
 
-    /// How long the view button's switch moves, in seconds (B-066).
-    /// Binding, as a position is: it is how long the screen is not still
-    /// after his tap, and it was asked for by the owner.
+    /// How the panes move, as Mail's do (B-066, B-077): the view button's
+    /// switch as UIKit's split view moves its columns, and "< Mailboxes"
+    /// and a folder tap in two panes as its navigation controller pops and
+    /// pushes, measured on iPadOS 18.6. Binding, as a position is: it is
+    /// how long the screen is not still after his tap. `PaneMove` and
+    /// `PaneMotion` are the only readers.
     ///
-    /// Pictures of the panes slide sideways for `paneSlideDuration`,
-    /// easing in and out, with no spring and no overshoot. Then they fade
-    /// for `paneSettleDuration` over the panes laid out anew beneath them,
-    /// so the letter and the rows change their wrapping only while nothing
-    /// moves. 0.6 s in all. With Reduce Motion or Prefer Cross-Fade
-    /// Transitions, one picture of the screen fades for
-    /// `paneDissolveDuration` and nothing travels. `PaneMove.timeline` is
-    /// the only reader.
-    static let paneSlideDuration: TimeInterval = 0.40
-    static let paneSettleDuration: TimeInterval = 0.20
-    static let paneDissolveDuration: TimeInterval = 0.30
+    /// One motion of `paneMoveDuration`, on UIKit's spring: a mass of 3
+    /// and a stiffness of 1000, critically damped. Half the way by 0.09 s,
+    /// 90% by 0.21 s, 99% by 0.36 s, and nothing past the end. UIKit asks
+    /// for a damping of 500, which iPadOS 18 runs as critical: the paths
+    /// measured fit a damping ratio of 1.00 to 1.02. Whether an older
+    /// iPadOS does is not known, and run as asked, 500 would put the panes
+    /// 39% of the way at a quarter of a second. So the damping here is the
+    /// critical one itself, worked out: 2√(3 × 1000), 109.5.
+    static let paneMoveDuration: TimeInterval = 0.5
+    static let paneSpringMass: Double = 3
+    static let paneSpringStiffness: Double = 1000
+    static var paneSpringDamping: Double { 2 * (paneSpringMass * paneSpringStiffness).squareRoot() }
+
+    /// A column going under another is darkened by black at this, as
+    /// UIKit darkens the sidebar and the screen pushed over.
+    static let paneCoveredDim: CGFloat = 0.1
+    /// How far the folders go while the list goes over them or off them:
+    /// half the list's travel beside the letter (the split view), 30% of
+    /// the column under a list pushed over them (the navigation).
+    static let paneSidebarParallax: CGFloat = 0.5
+    static let paneStackParallax: CGFloat = 0.3
+    /// The shadow on the leading edge of a column going over another: a
+    /// band this wide, black at `paneEdgeShadowOpacity` at the edge and
+    /// at nothing at its far side. UIKit's is two to ten points of one to
+    /// four per cent; on the app's dark panes it can hardly be seen.
+    static let paneEdgeShadowWidth: CGFloat = 8
+    static let paneEdgeShadowOpacity: Float = 0.04
+
+    /// The bar's titles and buttons in "< Mailboxes" and a folder tap:
+    /// they cross-fade over `paneBarDuration` on UIKit's bar curve, the bar
+    /// going sliding half the column (`paneBarTravel`) toward where the
+    /// list goes and the bar coming from as far the other way, as UIKit's
+    /// new title comes from half the bar's width.
+    static let paneBarDuration: TimeInterval = 0.35
+    static let paneBarCurve: [Float] = [0.25, 0.1, 0.25, 1]
+    static let paneBarTravel: CGFloat = 0.5
+    /// With Prefer Cross-Fade Transitions, "< Mailboxes" and a folder tap
+    /// do not slide: the column as it was fades for `paneMoveDuration`,
+    /// its rows on this curve, UIKit's ease in and out, and its bar on
+    /// `paneBarCurve`.
+    static let paneCrossFadeCurve: [Float] = [0.42, 0, 0.58, 1]
 }
 
 #if canImport(UIKit)

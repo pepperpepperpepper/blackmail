@@ -31,6 +31,7 @@ import UIKit
 /// it would leave the window at every switch, and the search field with it,
 /// keyboard and all; and a pushed list's own back button always takes the
 /// corner, which is where the view button has to be in both arrangements.
+/// It moves as a push and a pop do, in pictures (`PaneMotion`, B-077).
 final class RootViewController: UIViewController {
 
     /// Not private: a `mailto:` link opened from outside the app writes
@@ -63,8 +64,9 @@ final class RootViewController: UIViewController {
     /// and never again: made afresh, by a return from a while away or
     /// anything else, it would undo his choice (B-037).
     private let shell = PaneShell(launching: PaneArrangement.saved)
-    /// The view button's switch, moving (B-066). Nothing else moves the
-    /// panes.
+    /// The panes moving, as Mail's do: the view button's switch (B-066),
+    /// and "< Mailboxes" and a folder tap in two panes (B-077). Nothing
+    /// else moves them.
     private let motion = PaneMotion()
     /// The arrangement last laid out, so the layout sweep runs each time
     /// what is on screen changes: at a switch, and in two panes at
@@ -368,7 +370,7 @@ final class RootViewController: UIViewController {
         LocalDrafts.shared.uploadWaiting(to: repository, for: .leaving)
     }
 
-    /// Control Centre pulled down, the Home gesture, a call: a switch still
+    /// Control Centre pulled down, the Home gesture, a call: a change still
     /// moving ends now, where it was going, and is not left on its way for
     /// him to come back to. Its pictures can go blank while the app is not
     /// in front, and the screen under them is final already (B-066). On
@@ -418,7 +420,7 @@ final class RootViewController: UIViewController {
     }
 
     override func viewWillTransition(to size: CGSize, with c: UIViewControllerTransitionCoordinator) {
-        // A switch still moving ends first: its pictures are of the screen
+        // A change still moving ends first: its pictures are of the screen
         // the iPad is turning away from.
         motion.finish()
         super.viewWillTransition(to: size, with: c)
@@ -438,27 +440,28 @@ final class RootViewController: UIViewController {
     /// Lays the panes out as `panes` says, at once: what `PaneShell` hands
     /// over after each thing he does.
     ///
-    /// After the view button, and only then, the switch is seen to move
-    /// (B-066, asked for by the owner on 2026-10-03). Pictures of the
-    /// screen as it was are cut first, the panes are laid out anew beneath
-    /// them exactly as they always were, and the pictures slide sideways
-    /// as whole columns to where the panes now are, then fade where they
-    /// are. The letter and every row wrap to their new widths once, at the
-    /// tap, under a still picture, and are seen only when nothing is
-    /// moving: nothing changes its look while it moves, and nothing moves
-    /// while it changes. Nothing moves up or down: the rows are a fixed
-    /// height, the list keeps its scroll offset and the pictures move only
-    /// sideways, so the rows he was looking at stay where his eyes are, a
-    /// pane further left or right. The launch, a turn of the iPad, a
-    /// return, "< Mailboxes" and a folder tapped lay out with nothing
-    /// moving, as before.
+    /// After the view button, "< Mailboxes" and a folder tapped in two
+    /// panes, and only then, the change is seen to move, as Mail's does
+    /// (B-066, B-077). Pictures of the screen as it was are cut first, the
+    /// panes are laid out anew beneath them exactly as they always were,
+    /// and then pictures of the panes that go as they are now laid out;
+    /// the pictures move as whole columns on UIKit's spring to where the
+    /// panes now are, and are taken away. The rows wrap to their new
+    /// widths once, at the tap, and are seen in their new places from the
+    /// first frame that moves; the letter goes as it was and wraps again
+    /// at the end, as WebKit has it by then. Nothing changes its look while
+    /// it moves. Nothing moves up or down: the rows are a fixed height, the
+    /// list keeps its scroll offset and the pictures move only sideways,
+    /// so the rows he was looking at stay where his eyes are, a pane
+    /// further left or right. The launch, a turn of the iPad, a return and
+    /// a folder opened another way lay out with nothing moving, as before.
     ///
-    /// Everything else a switch does is done here at the tap and is
-    /// final under the pictures: the choice kept, nothing fetched or
-    /// closed, the bars dressed, the layout sweep run. A switch still
-    /// moving when anything lays the panes out again is ended first, which
-    /// is only taking its pictures away, and the new layout is then made
-    /// at once, so no tap can leave the panes half one way.
+    /// Everything else a change does is done here at the tap and is final
+    /// under the pictures: the choice kept, the bars dressed, the layout
+    /// sweep run. A change still moving when anything lays the panes out
+    /// again is ended first, which is only taking its pictures away, and
+    /// the new layout is then made at once, so no tap can leave the panes
+    /// half one way.
     ///
     /// Hidden, never zero wide: a view with children and no width is the
     /// B-027 shape `LayoutAudit` hunts. The sweep runs before the pictures
@@ -485,38 +488,42 @@ final class RootViewController: UIViewController {
         if let cut { motion.play(cut) }
     }
 
-    /// The pictures the view button's switch slides (B-066), cut from the
-    /// screen as it is, before anything is laid out anew. Nil when the
-    /// screen is not as the arrangement before the switch has it, and the
-    /// switch is then made at once, as it always was.
+    /// The pictures of the screen as it is, cut before anything is laid out
+    /// anew (B-066, B-077). Nil when nothing moves, or when the screen is
+    /// not as the arrangement before the change has it, and the change is
+    /// then made at once, as it always was.
     private func pictures(from: PaneArrangement, to panes: PaneArrangement) -> PaneMotion.Cut? {
         let emptyLabel = detail.emptyLabel
         guard let move = PaneMove.switching(from: from, to: panes, screenWidth: screenWidth,
-                                            reading: emptyLabel == nil ? .words : .nothing) else {
+                                            reading: emptyLabel == nil ? .words : .nothing,
+                                            crossFading: PaneMotion.crossFading) else {
             return nil
         }
         guard arranged == from else {
             Diagnostics.log(.note, "pane motion: not as laid out; switched at once")
             return nil
         }
-        // Before anything is touched: a list or letter in the pictures that
-        // is bouncing past an end is left to spring back, and the switch is
-        // made at once. Its picture would be of its last frame drawn, past
-        // the end, and its rows would jump to the end at the settle.
-        let scrolls = move.strips.compactMap { scrolling(in: $0.pane) }
+        // Before anything is touched: a list, the folders or the letter in
+        // the pictures that is bouncing past an end is left to spring back,
+        // and the change is made at once. Its picture would be of its last
+        // frame drawn, past the end, and its rows would jump to the end as
+        // the pictures go. Hidden ones too: one hidden by a change made at
+        // once a moment before still springs back while hidden.
+        let scrolls = move.looked.compactMap { scrolling(in: $0) }
         guard !scrolls.contains(where: { PaneMotion.isBouncing($0) }) else {
             Diagnostics.log(.note, "pane motion: bouncing; switched at once")
             return nil
         }
         // One still coasting from a flick, inside its ends, is stopped where
-        // it is before the pictures are cut, or its rows would jump, at the
-        // settle, to wherever the coasting had taken them.
+        // it is before the pictures are cut, or its rows would jump, as the
+        // pictures go, to wherever the coasting had taken them.
         for scroll in scrolls { PaneMotion.holdStill(scroll) }
         let stage = PaneMotion.Stage(
             root: view, mailboxes: mailboxNav.view, list: listNav.view, message: detailNav.view,
-            tapped: from.leftColumn == .list ? listViewButton : mailboxesViewButton,
-            listTwin: listViewButton, letterBar: detailNav.navigationBar, placeholder: emptyLabel)
-        return motion.cut(move, stage: stage, dissolving: PaneMotion.dissolving)
+            corner: from.leftColumn == .list ? listViewButton : mailboxesViewButton,
+            mailboxesButton: mailboxesViewButton, listButton: listViewButton,
+            letterBar: detailNav.navigationBar, placeholder: emptyLabel)
+        return motion.cut(move, stage: stage)
     }
 
     /// What scrolls in a pane's picture: the Mailboxes, the list, or the
@@ -809,7 +816,8 @@ final class RootViewController: UIViewController {
     /// Swaps the list's contents, in the middle in three panes and in the
     /// left column in two. Deliberately `setViewControllers` rather than a
     /// push: the stack stays exactly one deep, so UIKit's back button never
-    /// appears and the folder list never slides away.
+    /// appears and UIKit slides nothing. In two panes the container's
+    /// pictures slide as a push would (B-077).
     ///
     /// The list's half of opening a folder, and called only as
     /// `shell.openList`: `PaneShell.open` then puts the new list in front

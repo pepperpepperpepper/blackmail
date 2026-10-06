@@ -760,6 +760,34 @@ two panes are still instant; whether they should slide, as Mail's
 navigation does, is a question for the owner. The timings are binding
 constants in `Theme`, and also his to judge on the iPad.
 
+**Amended again 2026-10-06, by the owner:** "copy apple mail for these",
+of the motion and of "< Mailboxes" and a folder tap (B-077). Mail is
+UIKit's split view and navigation controller, and moves as they do; they
+were measured on iPadOS 18.6. The bullets above on 0.4 s, the settle, the
+0.3 s fade and the instant "< Mailboxes" are history.
+
+- One motion of half a second on UIKit's spring, mass 3 and stiffness
+  1000, critically damped, every column at once. No settle.
+- Three to two: the list, at its two-pane width, slides over the folders
+  with a shadow on its leading edge, and the letter's edge goes with it;
+  the folders go left at half its speed and darken. Two to three is the
+  exact reverse. With the folders in front, which Mail never has, the
+  middle still opens, on the same spring.
+- "< Mailboxes" and a folder tap in two panes slide, as a pop and a push:
+  the list in from the column's right edge over the folders, which go 30%
+  of the column left and darken, and back. The bar's titles cross-fade and
+  slide over 0.35 s. The letter does not move.
+- Reduce Motion changes nothing, as in Mail. With Prefer Cross-Fade
+  Transitions too, "< Mailboxes" and a folder tap fade for half a second
+  and nothing moves; the view button's switch still slides.
+- The motion is copied, not the layout. Mail on an iPad 1194 pt wide or
+  narrower pushes the letter partly off the screen; here the three panes
+  stay side by side, his choice above.
+- What comes is pictured at its new width from the tap, as UIKit lays a
+  column out before it moves it; the letter, which WebKit wraps in its own
+  time, is pictured as it was, and its line ends change as the motion
+  ends.
+
 ---
 
 ## D-016 — A copy of his mail is kept on the iPad, and it is only ever what the server last said
