@@ -52,6 +52,11 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let organizeSwitch = UISwitch()
     private let bringBackButton = UIButton(type: .system)
     private let statusLabel = UILabel()
+    /// His addresses, as Mail's account lists them under Email (B-076): a
+    /// row each, the account's own first, then "Add Another Email…".
+    private let emailList = UIStackView()
+    /// What "Add Another Email…" has to say of an address it would not add.
+    private let emailNote = UILabel()
 
     private var account: MailAccount
     /// As stored when the sheet opened: what an emptied signature is
@@ -95,6 +100,32 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         addressLabel.textColor = Theme.primaryText
 
         stack.addArrangedSubview(addressLabel)
+
+        // Mail's list of his addresses, under its account's Email: the
+        // account's own, which cannot be taken off, and any he, or whoever
+        // sets up his iPad, adds. Reply All leaves every one of them out,
+        // and a letter from any of them is his own (`OwnAddresses`). Nothing
+        // is put here by the app, as Mail puts nothing, and letters still go
+        // from the account's own. Saved with Save, as the rest of the sheet.
+        stack.addArrangedSubview(caption(Self.emailCaption))
+        emailList.axis = .vertical
+        emailList.spacing = 0
+        stack.addArrangedSubview(emailList)
+        let addEmail = UIButton(type: .system)
+        addEmail.setTitle("Add Another Email…", for: .normal)
+        addEmail.setTitleColor(Theme.tintBlue, for: .normal)
+        addEmail.titleLabel?.font = .systemFont(ofSize: 17)
+        addEmail.contentHorizontalAlignment = .leading
+        addEmail.heightAnchor.constraint(equalToConstant: Theme.minHitTarget).isActive = true
+        addEmail.addTarget(self, action: #selector(addEmailTapped), for: .touchUpInside)
+        stack.addArrangedSubview(addEmail)
+        emailNote.numberOfLines = 0
+        emailNote.font = .systemFont(ofSize: 15)
+        emailNote.textColor = Theme.secondaryText
+        emailNote.isHidden = true
+        stack.addArrangedSubview(emailNote)
+        showEmails()
+
         let nameCaption = "Your name, as recipients will see it"
         stack.addArrangedSubview(caption(nameCaption))
         configure(nameField, placeholder: "your name", secure: false)
@@ -315,6 +346,87 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
                 + "of this as well, which is what most people will see. "
                 + "Editing the text here changes what everyone else sees."
         }
+    }
+
+    // MARK: - His addresses
+
+    private static let emailCaption = "Email — your addresses. Reply All leaves them out, "
+        + "and a letter from any of them is yours."
+
+    /// A row for each of his addresses, the account's own first and alone
+    /// without Remove, as Mail's list has it.
+    private func showEmails() {
+        for row in emailList.arrangedSubviews {
+            emailList.removeArrangedSubview(row)
+            row.removeFromSuperview()
+        }
+        for (index, address) in account.ownAddresses.enumerated() {
+            let label = UILabel()
+            label.text = address
+            label.font = .systemFont(ofSize: 17)
+            label.textColor = Theme.primaryText
+            label.lineBreakMode = .byTruncatingMiddle
+            let row = UIStackView(arrangedSubviews: [label])
+            row.axis = .horizontal
+            row.alignment = .center
+            row.spacing = 12
+            row.heightAnchor.constraint(equalToConstant: Theme.minHitTarget).isActive = true
+            if index > 0 {
+                let remove = UIButton(type: .system)
+                remove.setTitle("Remove", for: .normal)
+                remove.setTitleColor(Theme.destructive, for: .normal)
+                remove.titleLabel?.font = .systemFont(ofSize: 17)
+                remove.accessibilityLabel = "Remove \(address)"
+                remove.setContentHuggingPriority(.required, for: .horizontal)
+                remove.addAction(UIAction { [weak self] _ in self?.removeEmail(address) },
+                                 for: .touchUpInside)
+                row.addArrangedSubview(remove)
+            }
+            emailList.addArrangedSubview(row)
+        }
+    }
+
+    /// "Add Another Email…", as Mail's account has it: one address typed,
+    /// added under the others, to be saved with Save.
+    @objc private func addEmailTapped() {
+        let ask = UIAlertController(title: "Add Another Email",
+                                    message: "An address of yours that mail to you comes to.",
+                                    preferredStyle: .alert)
+        ask.addTextField { field in
+            field.placeholder = "name@example.com"
+            field.keyboardType = .emailAddress
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.smartDashesType = .no
+            field.smartQuotesType = .no
+            field.accessibilityLabel = "Email"
+        }
+        ask.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        ask.addAction(UIAlertAction(title: "Add", style: .default) { [weak self, weak ask] _ in
+            self?.addEmail(ask?.textFields?.first?.text ?? "")
+        })
+        present(ask, animated: true)
+    }
+
+    private func addEmail(_ typed: String) {
+        switch account.adding(typed) {
+        case .success(let added):
+            account = added
+            emailNote.isHidden = true
+            showEmails()
+        case .failure(.notAnAddress):
+            emailNote.text = "That is not an email address. Nothing was added."
+            emailNote.isHidden = false
+        case .failure(.alreadyListed):
+            emailNote.text = "That address is already in the list."
+            emailNote.isHidden = false
+        }
+    }
+
+    private func removeEmail(_ address: String) {
+        account = account.removing(address)
+        emailNote.isHidden = true
+        showEmails()
     }
 
     /// The switch's name, beside it and to VoiceOver.

@@ -299,14 +299,15 @@ final class ComposeLikeMailTests: XCTestCase {
         let composer = try source(Self.composer)
         XCTAssertTrue(composer.contains("t.deselectRow(at: ip, animated: false) "
             + "refreshSuggestions(after: .picked) updateSend() letterEdited() }"))
+        // The field's bubbles, a recipient each, since B-076.
         XCTAssertTrue(composer.contains("ComposeForm.suggestions(RecipientBook.shared.snapshot(), "
-            + "field: field.text ?? \"\", after: event)"))
+            + "in: field.bubbles, after: event)"))
         XCTAssertTrue(composer.contains("refreshSuggestions(after: .entered)"))
         XCTAssertTrue(composer.contains("refreshSuggestions(after: .typed)"))
         let share = try source(Self.share)
         XCTAssertTrue(share.contains("t.deselectRow(at: ip, animated: false) "
             + "offer(field, after: .picked) updateSend() }"))
-        XCTAssertTrue(share.contains("sheet.suggestions(for: field.text ?? \"\", after: event)"))
+        XCTAssertTrue(share.contains("sheet.suggestions(in: field.bubbles, after: event)"))
     }
 
     /// B-073, in both. Going into an address field asks the form as
@@ -322,7 +323,8 @@ final class ComposeLikeMailTests: XCTestCase {
         let composer = try source(Self.composer)
         for line in ["field.addTarget(self, action: #selector(addressEditingBegan(_:)), "
                         + "for: .editingDidBegin)",
-                     "@objc private func addressEditingBegan(_ field: UITextField) { "
+                     // A field of bubbles since B-076, not a text field.
+                     "@objc private func addressEditingBegan(_ field: RecipientField) { "
                         + "activeAddressField = field refreshSuggestions(after: .entered) }"] {
             XCTAssertTrue(composer.contains(line), line)
         }
@@ -333,7 +335,8 @@ final class ComposeLikeMailTests: XCTestCase {
         let share = try source(Self.share)
         for line in ["field.addTarget(self, action: #selector(addressEntered(_:)), "
                         + "for: .editingDidBegin)",
-                     "@objc private func addressEntered(_ field: UITextField) { "
+                     // A field of bubbles since B-076, not a text field.
+                     "@objc private func addressEntered(_ field: RecipientField) { "
                         + "offer(field, after: .entered) }",
                      "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
                         + "if draft.to.isEmpty { toField.becomeFirstResponder() } }"] {
@@ -457,8 +460,9 @@ final class ComposeLikeMailTests: XCTestCase {
     func testSendAndTheTitleFollowTheFields() async throws {
         for file in [Self.composer, Self.share] {
             let code = try source(file)
+            // Read a bubble at a time since B-076.
             XCTAssertTrue(code.contains("sendItem.isEnabled = ComposeForm.canSend("
-                + "to: toField.text ?? \"\", cc: ccField.text ?? \"\", bcc: bccField.text ?? \"\")"),
+                + "to: toField.recipients, cc: ccField.recipients, bcc: bccField.recipients)"),
                 file)
             XCTAssertTrue(code.contains("subjectField.addTarget(self, action: "
                 + "#selector(subjectChanged), for: .editingChanged)"), file)

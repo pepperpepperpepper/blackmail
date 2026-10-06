@@ -148,6 +148,13 @@ final class ShareSheet {
         ComposeForm.suggestions(shared.recipients, field: field, after: event)
     }
 
+    /// The same, for the sheet's fields of bubbles (B-076), as the app's
+    /// composer asks it (`ComposeForm.suggestions(_:in:after:)`).
+    func suggestions(in field: RecipientBubbles,
+                     after event: ComposeForm.FieldEvent = .typed) -> [KnownRecipient] {
+        ComposeForm.suggestions(shared.recipients, in: field, after: event)
+    }
+
     /// A file staged on this device by `AttachmentStore`, to be read from
     /// the disk as the letter goes, at the size it was staged at
     /// (`ShareItems.Staging`). A share has nothing but staged files.
