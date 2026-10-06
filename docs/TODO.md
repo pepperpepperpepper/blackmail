@@ -2250,9 +2250,8 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       on the iPad: in Sent Mail, Drafts and the Outbox the To alone, one
       person whole, two or more by short names joined "Jane & Sam", no
       count, and Mail's blue chevron in a circle after the date on a
-      conversation. "No Recipients" kept, and his address in Gmail's
-      other spellings left out, as Reply leaves it out, which Mail does
-      not do. The Inbox and the other folders keep their "(2)", to be
+      conversation. "No Recipients" kept. His addresses are the ones
+      B-076's Settings list holds, as written, as Mail's are. The Inbox and the other folders keep their "(2)", to be
       asked about separately.*
 - [ ] **The count on the Inbox's rows** (B-075) — every folder but Sent
       Mail, Drafts and the Outbox ends a conversation's names with

@@ -9869,13 +9869,11 @@ off, no row has a mark.
 
 - "No Recipients", not Mail's "No Recipient". Kept as the Outbox's
   words, and one string to change (`RowNames.noRecipients`).
-- His address in Gmail's other spellings, with dots in the name, a +
-  tag, or at googlemail.com, is left out of two or more as well, as
-  Reply leaves it out (B-061), so the row and Reply agree on who he is.
-  Mail knows only the addresses it was given, as written, and would
-  name it: To Jane and "owner.example+lists@gmail.com" reads "Jane
-  Example" here, and "Jane & owner.example+lists" in Mail (found in
-  review).
+- His address in Gmail's other spellings was left out here too, unlike
+  Mail. Since the merge with B-076 (2026-10-06) the row asks B-076's
+  `OwnAddresses`, which knows only his addresses as written, his
+  Settings list among them, as Mail does: To Jane and
+  "owner.example+lists@gmail.com" reads "Jane & owner.example+lists".
 - The mark does nothing of its own when tapped.
 
 **Tests.** `SentRowLikeMailTests`, nineteen, all new. The name line as a

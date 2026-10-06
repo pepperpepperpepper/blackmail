@@ -163,20 +163,22 @@ final class SentRowLikeMailTests: XCTestCase {
 
     // MARK: - His own addresses, and each person once
 
-    /// Among two or more, his own addresses are left out, in any spelling
-    /// Gmail delivers to him, except the first entry, which never is. One
-    /// left is named whole.
+    /// Among two or more, his own addresses are left out, except the first
+    /// entry, which never is. One left is named whole.
     ///
-    /// The other spellings are not Mail's: Mail knows only the addresses
-    /// it was given, as written. They are left out because Reply leaves
-    /// them out (B-061), so the row and Reply agree on who he is.
+    /// His addresses are Mail's: the ones he has, as written, in any letter
+    /// case (`OwnAddresses`, B-076). Gmail's other spellings of his mailbox,
+    /// a dot, a + tag, googlemail.com, are not his, and are named, as Mail
+    /// names them. Until the merge with B-076 they were left out here, as
+    /// Reply then left them out.
     func testHisOwnAddressesAreLeftOutButForTheFirst() {
         XCTAssertEqual(line([Self.jane, Self.me, Self.sam]), "Jane & Sam")
-        XCTAssertEqual(line([Self.jane, "Owner.Example+lists@googlemail.com", Self.sam]), "Jane & Sam")
+        XCTAssertEqual(line([Self.jane, "Owner.Example+lists@googlemail.com", Self.sam]),
+                       "Jane, Owner.Example+lists & Sam")
         XCTAssertEqual(line([Self.jane, Self.me]), "Jane Example")
         XCTAssertEqual(line([Self.me, Self.jane]), "Owner & Jane")
-        XCTAssertEqual(line([Self.me, Self.jane, "OWNER.EXAMPLE@gmail.com"]), "Owner & Jane")
-        XCTAssertEqual(line([Self.me, "ownerexample@gmail.com"]), "Owner Example")
+        XCTAssertEqual(line([Self.me, Self.jane, "OWNER.EXAMPLE@GMAIL.COM"]), "Owner & Jane")
+        XCTAssertEqual(line([Self.me, "ownerexample@gmail.com"]), "Owner & ownerexample")
     }
 
     /// Each person once: an address named again, in any case or with a
