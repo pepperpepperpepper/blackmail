@@ -166,9 +166,10 @@ final class RecipientBook {
 
     /// The pure half, so the ordering can be tested without a store.
     ///
-    /// An EMPTY query is deliberately not empty-handed: it offers the
-    /// addresses he uses most, which is what makes writing to himself one
-    /// tap instead of a whole address.
+    /// An EMPTY query is not empty-handed: it gives every entry, the ones
+    /// he uses most first. The composers never ask with one. Since B-073
+    /// an address field offers nothing until he types, as Mail's does
+    /// (`ComposeForm.suggestions`).
     static func rank(_ all: [KnownRecipient], matching query: String,
                      limit: Int) -> [KnownRecipient] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

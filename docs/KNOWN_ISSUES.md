@@ -8424,9 +8424,11 @@ with no signature set.
    sheet, seen on the test iPad too. *Mail:* the list closes once one is
    picked, and comes back when he types again. *Changed:* what a field
    offers is `ComposeForm.suggestions`, in both sheets. A pick closes
-   the list until he types. Going into an empty field still offers his
-   most used, which makes his own second address one tap (B-036); a
-   field that already holds an address offers nothing until he types.
+   the list until he types. Going into an empty field still offered his
+   most used, which made his own second address one tap (B-036); a
+   field that already held an address offered nothing until he typed.
+   Since B-073 no field offers anything until he types, empty or not,
+   as in Mail: the owner's choice, 2026-10-06.
    No address already in the field is offered again, in any spelling.
    *Seen:* To, empty, offered four; the first picked, the list closed
    and Send went blue (b069-12, b069-13). "c" typed after it offered
@@ -8550,7 +8552,8 @@ with no signature set.
 - *Going back into To.* Built: a field that already holds an address
   offers nothing until he types; an empty one offers his most used as
   he goes in. Mail offers nothing until he types, in any field. Its way
-  would take away the one tap to his own second address.
+  would take away the one tap to his own second address. The owner
+  chose Mail's way on 2026-10-06: "match apple mail" (B-073).
 - *An address in another field.* Built: an address in To is not offered
   again in To, and still is in Cc. Or in neither.
 - *What counts for Send.* Built: anything typed in To, Cc or Bcc, as
@@ -8572,7 +8575,7 @@ a blank; an emptied letter not asked about; the share sheet asking for a
 file taken off; and the suggestions, closed after a pick, nothing on
 going back into a field that holds an address, matches when he types
 without what is in the field in any spelling, and his most used in an
-empty field, in both sheets; and a shared link under an empty first
+empty field (nothing since B-073), in both sheets; and a shared link under an empty first
 line, words typed there on their own line above it, the line gone again
 when left empty, and a photo's blank letter shown as it is. The wiring,
 read from the source of both composers: the sheet above the keyboard
@@ -9315,3 +9318,128 @@ the Outbox, a large draft through a Refresh, and leaving during a pass.
   for them.
 - The screens' wiring is read from the source on the host, not run. The
   pieces under it run.
+
+---
+
+## B-073 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad. Going into an empty address field offered his most used; Mail offers nothing until he types
+
+**Asked** on 2026-10-06. B-069 kept one thing unlike Mail and put it to
+the owner: going into an empty To offered the addresses he uses most,
+which made his own second address one tap. Mail offers nothing there.
+Asked which, he answered: "match apple mail".
+
+**What it was.** What an address field offers is `ComposeForm.suggestions`,
+in both composers since B-069: the app's (`ComposeViewController.
+refreshSuggestions`) and the share sheet's (`ShareSheet.suggestions`, put
+up by `ShareComposeViewController.offer`). Going into a field with no
+address in it offered up to four, his most used first. So did typing whenever
+nothing was left after the last comma: a letter typed and taken out
+again, or the letter after a pick's comma taken out. `RecipientBook.rank`
+gives every entry for an empty query. The share sheet puts him straight
+into To as it opens, so it opened with the list up over the letter.
+
+**What Mail does.** An address field offers addresses only while he types
+a name or an address. Going into a field offers nothing, empty or not.
+Taking out what he typed, back to nothing, closes the list.
+
+**Changed.**
+
+1. *Only typing offers anything* (`ComposeForm.suggestions`). Going into a
+   field offers nothing. A pick offers nothing. Typing offers only with
+   something after the last comma, spaces taken off. Spaces alone are
+   nothing typed, and so is a line break pasted in. One letter typed
+   offers what matches it.
+2. *Both composers* ask the form, as before, so neither has a rule of its
+   own. Going into To, Cc or Bcc asks it as he goes in, which offers
+   nothing and closes a list left open under another field. The share
+   sheet still opens in To, with the caret there and no list. Cc/Bcc
+   shows its two rows and no list. In each sheet the list is shown in
+   one place, from what the form offers, and no other path shows it.
+3. *`RecipientBook.rank` is unchanged.* An empty query still gives every
+   entry, his most used first, and the book's own tests read it whole
+   that way. The composers never ask it with one now. Its comment says
+   so.
+
+**What stays from B-069.** A pick closes the list until he types. No
+address already in the field is offered again, in any spelling. Nothing
+is offered once what he has typed holds an "@". The list moves with its
+field as the sheet scrolls, and goes when he leaves the field. The order
+is the same: the best match first, then the most used.
+
+**The cost.** His own second address, the one most of his shared links go
+to, is one letter and a tap, not one tap.
+
+**Tests.** `ComposeLikeMailTests`, now twenty-eight, eight of them new.
+Going into an empty field offers nothing. Going into one that holds an
+address, one picked with its comma, or a name half typed offers nothing.
+One letter offers what matches it, after a comma too, without the
+address already there. Typed and taken back out, alone and after a
+comma, the list closes. Spaces, a tab and a line break offer nothing. A
+pick offers nothing, whatever the field reads. The share sheet the same.
+Read from the source of both composers: going into an address field
+asks the form as he goes in; the share sheet's start in To only gives
+To the caret; the form is asked after the three events and nowhere
+else; the share sheet's rule is the form's; and the list is shown in one
+place in each sheet, from what the form offers. Changed, each with the
+reason in its comment: B-069's `testAnEmptyFieldStillOffersHisMostUsed`
+is `testAWholeAddressOrOneInTheFieldIsNotOffered`, its empty field gone;
+`testThePickedListClosesUntilHeTypesAgain` expects nothing for a letter
+typed after a pick and taken out; `testTheShareSheetOffersTheSame`
+expects nothing going into an empty field, and matches for "e" after a
+pick; `ShareSheetTests.testTheAddressFieldsOfferTheAppsBook` expects
+nothing for nothing typed, and his most used first among the matches
+for "e". `RecipientBookTests.testAnEmptyQueryStillOffersHisMostUsedAddresses`
+is unchanged but for its comment: it is the book read whole, not the
+screen.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. An empty field
+offering his most used as he goes in, as in B-069: 4 in 3. Going into
+any field offering what its last part matches: 3 in 1. Nothing after the
+last comma offering his most used as he types: 12 in 5. The field's
+emptiness judged, not the part after its last comma: 9 in 4. A line
+break not taken off: 1 in 1. A pick offering as typing does: 3 in 2; the
+first run also failed `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, which fails now and
+then on this host, and run again only the two failed. B-069's rules,
+under the new code: an address with an "@" offered, 1 in 1; an address
+already in the field offered again, 4 in 3. The share sheet with a rule
+of its own, every entry matching what follows the last comma, whatever
+happened: 13 in 4. Read from the source: the app's going in asking as
+typing does, 2 in 2; the share sheet's, 1 in 1; Cc/Bcc putting up his
+most used under the fields, 2 in 1; the share sheet opening with its
+list shown, 3 in 1. Thirteen in all, with nothing else failing in any
+run but the one named. The full suite, serially, with nothing undone:
+1,490 tests, 5 skipped, none failing. The release build for the iPad
+links.
+
+**Seen in the simulator, 2026-10-06**, an iPad (7th generation) on 18.6,
+landscape, a hardware keyboard attached, built from this branch and
+signed in to the test account. Nothing was sent. The composer, a new
+letter: the empty To tapped, no list and Send grey (b073-02). "c"
+typed: four rows (b073-03). Taken out: the list closed, Send grey again
+(b073-04). Cc/Bcc: the two rows and no list (b073-05). The empty Cc
+tapped: no list (b073-06). "c": four rows (b073-07). Taken out: closed
+(b073-08). Cancel closed the letter with nothing asked. The share
+sheet, from Safari on example.com: it opened in To, the caret there, no
+list (b073-10). "c": four rows (b073-11). Taken out: closed (b073-12).
+Cancel closed it with nothing asked (b073-13). The screenshots are in the
+pass's shots folder, not in the repo: the rows show real addresses.
+
+**Seen on the iPad, 2026-10-06**, built from this change, installed
+through TrollStore's helper. In the composer: To tapped, empty, no list;
+"c" typed, four rows; "c" taken out, the list gone, Send grey again; Cancel
+closed it with nothing asked. In the share sheet, from a Wikipedia page in
+Safari: it opened in To with no list; "c" typed, four rows; taken out, the
+list gone; Cancel closed it with nothing asked. Nothing was sent.
+
+**Not covered.**
+
+- Mail itself was not tried for this on a device. What it does is
+  B-069's finding, and the owner's ruling is the rule.
+- A pick and going back into a field that holds an address were not
+  tried in the simulator: a picked address makes Cancel ask, and a test
+  letter could be left in Drafts. The host suite holds both.
+- The on-screen keyboard was not tried in the simulator; the hardware
+  one was.
+- Not yet seen on the iPad. The TODO says how.

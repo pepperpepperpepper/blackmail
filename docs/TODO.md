@@ -1853,9 +1853,11 @@ this host. Ordered by value, not by size.
       bottom as before. Forward a long letter, a newsletter, and type at
       the top of the body: the keys keep up, and the sheet opens without
       a pause.
-      2. *Suggestions.* In To pick his second address: the list closes.
-      Type a letter of a name: it comes back, without the one picked.
-      The same in the share sheet.
+      2. *Suggestions.* In To type the first letter of his second
+      address and pick it: the list closes. Type a letter of a name: it
+      comes back, without the one picked. The same in the share sheet.
+      (Going into To offers nothing since B-073; it offered his most
+      used when this was written.)
       3. *Tapped or swiped away.* A tap outside the composer does
       nothing, with words in it or not. A swipe down with a word typed
       asks Save Draft or Delete Draft; on an untouched letter it closes
@@ -2007,6 +2009,14 @@ this host. Ordered by value, not by size.
       "On this iPad only".
       *Seen 2026-10-05 (B-072): 1, one copy. 2 to 4 not tried on the
       iPad; the host suite holds them.*
+- [x] **B-073, the list only as he types.** On the test iPad, the test
+      account only. Send nothing; Cancel each letter.
+      1. *The composer.* A new letter. Tap the empty To: no list. Type
+      one letter: the list. Delete it: the list closes. Tap Cc/Bcc, then
+      the empty Cc: no list.
+      2. *The share sheet,* from Safari. It opens in To: no list. Type
+      one letter: the list. Delete it: the list closes.
+      *Seen 2026-10-06, as written, in both (B-073).*
 
 ## Blocked on the owner
 

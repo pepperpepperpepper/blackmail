@@ -418,8 +418,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         return false
     }
 
-    /// Straight to To, where the one thing he has to do is, with his most
-    /// used addresses already offered under it.
+    /// Straight to To, where the one thing he has to do is. Nothing is
+    /// offered under it until he types, as in Mail (B-073).
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if draft.to.isEmpty { toField.becomeFirstResponder() }
@@ -563,6 +563,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     // MARK: - Addresses
 
+    /// Going in offers nothing, as in Mail (B-073), and closes a list left
+    /// open under another field.
     @objc private func addressEntered(_ field: UITextField) {
         offer(field, after: .entered)
     }
@@ -572,7 +574,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         updateSend()
     }
 
-    /// What the field offers after `event` (`ShareSheet.suggestions`).
+    /// What the field offers after `event` (`ShareSheet.suggestions`):
+    /// matches only while he types; nothing as he goes in (B-073), and
+    /// nothing after a pick until he types again.
     private func offer(_ field: UITextField, after event: ComposeForm.FieldEvent) {
         activeAddressField = field
         suggestions = sheet.suggestions(for: field.text ?? "", after: event)

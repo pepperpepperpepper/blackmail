@@ -80,42 +80,44 @@ enum ComposeForm {
 
     // MARK: - Suggestions
 
-    /// What has just happened in an address field.
+    /// What has just happened in an address field. Only `typed` can offer
+    /// anything (B-073).
     enum FieldEvent {
-        /// He has gone into it.
+        /// He has gone into it. Offers nothing, as in Mail.
         case entered
         /// He has typed in it, or taken something out.
         case typed
-        /// He has picked an address from the list under it.
+        /// He has picked an address from the list under it. Offers
+        /// nothing until he types again.
         case picked
     }
 
     /// The rows the address field offers under it, from `book`, after
     /// `event`, with `field` as it now reads.
     ///
-    /// Mail's list closes once an address is picked, and comes back only
-    /// when he types again. Here it used to open again at once, with every
-    /// address he uses most, over Cc, Bcc, Subject and Attach Photo. An
-    /// empty field still offers his most used as he goes into it, which is
-    /// what makes his own second address one tap; a field that already
-    /// holds an address offers nothing until he types. Nothing is offered
-    /// once what he has typed is a whole address, and no address already in
-    /// the field is offered again.
+    /// Mail offers addresses only while he types a name or an address.
+    /// Going into a field offers nothing, empty or not, and so does a pick:
+    /// the list closes and comes back only when he types again. Taking out
+    /// what he typed, back to nothing, closes it too. So only typing offers
+    /// anything, and only with something typed after the last comma.
+    ///
+    /// Until B-073 an empty field offered his most used as he went into it,
+    /// to make his own second address one tap. The owner chose Mail's way
+    /// on 2026-10-06. `RecipientBook.rank` still offers everyone for an
+    /// empty query; it is never asked one from here.
+    ///
+    /// Nothing is offered once what he has typed holds an "@", and no
+    /// address already in the field is offered again, in any spelling
+    /// (B-069).
     static func suggestions(_ book: [KnownRecipient], field: String, after event: FieldEvent,
                             limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
+        guard event == .typed else { return [] }
+        let typed = MailFormat.currentRecipientToken(in: field)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty, !typed.contains("@") else { return [] }
         let present = Set(MailFormat.addresses(in: field)
             .map { MailFormat.bareAddress($0).lowercased() }
             .filter { !$0.isEmpty })
-        switch event {
-        case .picked:
-            return []
-        case .entered:
-            guard present.isEmpty else { return [] }
-        case .typed:
-            break
-        }
-        let typed = MailFormat.currentRecipientToken(in: field)
-        guard !typed.contains("@") else { return [] }
         return RecipientBook.rank(book.filter { !present.contains($0.address.lowercased()) },
                                   matching: typed, limit: limit)
     }

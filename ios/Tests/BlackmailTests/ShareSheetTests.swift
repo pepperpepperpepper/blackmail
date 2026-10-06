@@ -469,16 +469,20 @@ final class ShareSheetTests: XCTestCase {
 
     // MARK: - Suggestions
 
-    /// The app's book as it was mirrored: his most used first when nothing
-    /// is typed, a match for what he has typed after the last comma, and
-    /// nothing once that is a whole address.
+    /// The app's book as it was mirrored: a match for what he has typed
+    /// after the last comma, his most used first among the matches, and
+    /// nothing once that is a whole address. With nothing typed, nothing:
+    /// it offered his most used until the owner chose Mail's way on
+    /// 2026-10-06 (B-073).
     func testTheAddressFieldsOfferTheAppsBook() {
         let seen = Date(timeIntervalSince1970: 1_700_000_000)
         let sheet = sheet(ScriptedSubmission(), recipients: [
             KnownRecipient(address: "carlo@example.org", name: "Carlo", uses: 3, lastSeen: seen),
             KnownRecipient(address: "owner@example.net", name: nil, uses: 40, lastSeen: seen),
         ])
-        XCTAssertEqual(sheet.suggestions(for: "").map(\.address).first, "owner@example.net")
+        XCTAssertEqual(sheet.suggestions(for: ""), [])
+        XCTAssertEqual(sheet.suggestions(for: "e").map(\.address),
+                       ["owner@example.net", "carlo@example.org"])
         XCTAssertEqual(sheet.suggestions(for: "owner@example.net, car").map(\.address),
                        ["carlo@example.org"])
         XCTAssertTrue(sheet.suggestions(for: "carlo@example.org").isEmpty)
