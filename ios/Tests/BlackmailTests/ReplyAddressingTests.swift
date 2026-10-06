@@ -1,10 +1,11 @@
 import XCTest
 @testable import Blackmail
 
-/// Whom Reply and Reply All go to (B-061): the letter's Reply-To before its
-/// From, a letter of his own answered to whom it went, his own addresses in
-/// every spelling Gmail delivers to him left out, each recipient once and
-/// with the name the letter gave it.
+/// Whom Reply and Reply All go to (B-061, B-076): the letter's Reply-To
+/// before its From, a letter of his own answered to whom it went, his own
+/// addresses left out in any letter case, each recipient once and with the
+/// name the letter gave it, and a Reply All as Mail's: the sender alone in
+/// To and everyone else in Cc, the letter's To first.
 ///
 /// A wrongly addressed letter cannot be called back, and none of this shows
 /// on the sending screen until it has gone, so every rule in
@@ -71,23 +72,71 @@ final class ReplyAddressingTests: XCTestCase {
         XCTAssertEqual(reply(m).to, ["Jane Example <jane@example.com>"])
     }
 
-    /// Reply All goes to the Reply-To in place of the From, and to the
-    /// letter's To in To and its Cc in Cc, as Mail addresses it.
-    func testReplyAllGoesToTheReplyToTheToAndTheCc() {
+    /// Reply All goes to the Reply-To in place of the From, alone in To,
+    /// and to everyone else in Cc, as Mail addresses it (B-076). B-061 kept
+    /// the letter's To in To.
+    func testReplyAllGoesToTheReplyToAloneAndEveryoneElseInCc() {
         let m = letter(replyTo: ["Garden Club <club@example.org>"],
                        to: ["club@example.org", Self.owner, "Sam Example <sam@example.org>"],
                        cc: ["carlo@example.org"])
         XCTAssertEqual(reply(m, all: true),
-                       ReplyAddressing(to: ["Garden Club <club@example.org>",
-                                            "Sam Example <sam@example.org>"],
-                                       cc: ["carlo@example.org"]))
+                       ReplyAddressing(to: ["Garden Club <club@example.org>"],
+                                       cc: ["Sam Example <sam@example.org>", "carlo@example.org"]))
     }
 
-    func testReplyAllWithNoReplyToGoesToTheFromFirst() {
+    /// The fault the owner's ruling settles (B-076): Mail's Reply All has
+    /// the sender alone in To, and the letter's To, then its Cc, in Cc.
+    func testReplyAllGoesToTheFromAloneAndEveryoneElseInCc() {
         let m = letter(to: [Self.owner, "sam@example.org"], cc: ["carlo@example.org"])
         XCTAssertEqual(reply(m, all: true),
-                       ReplyAddressing(to: ["Jane Example <jane@example.com>", "sam@example.org"],
-                                       cc: ["carlo@example.org"]))
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                       cc: ["sam@example.org", "carlo@example.org"]))
+    }
+
+    /// In Cc, the letter's To people first, then its Cc people, each in
+    /// the letter's order, wherever he was among them.
+    func testReplyAllsCcIsTheLettersToThenItsCcInTheirOrder() {
+        let m = letter(to: ["Sam Example <sam@example.org>", Self.owner, "pat@example.com",
+                            "carlo@example.org"],
+                       cc: ["Lee <lee@example.com>", "jerome@example.com"])
+        XCTAssertEqual(reply(m, all: true),
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                       cc: ["Sam Example <sam@example.org>", "pat@example.com",
+                                            "carlo@example.org", "Lee <lee@example.com>",
+                                            "jerome@example.com"]))
+        // Reply goes to the From alone, as before.
+        XCTAssertEqual(reply(m), ReplyAddressing(to: ["Jane Example <jane@example.com>"], cc: []))
+    }
+
+    /// The address in To is not repeated in Cc, in any letter case, and
+    /// a name given only in the Cc names it in To.
+    func testTheToAddressIsNotRepeatedInCc() {
+        let m = letter(from: "jane@example.com", to: [Self.owner, "JANE@example.com"],
+                       cc: ["Jane Example <Jane@Example.com>", "sam@example.org"])
+        XCTAssertEqual(reply(m, all: true),
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"], cc: ["sam@example.org"]))
+        let replied = letter(replyTo: ["club@example.org"], to: ["Club <CLUB@example.org>", Self.owner])
+        XCTAssertEqual(reply(replied, all: true),
+                       ReplyAddressing(to: ["Club <club@example.org>"], cc: []))
+    }
+
+    /// Nobody in someone else's letter moves up to To (B-076): with the
+    /// To his own, through a Reply-To of his, the reply goes with no To
+    /// and the others in Cc, as one case of his, inferred and not found
+    /// again, suggests Mail does. B-061 moved them up.
+    func testACcNeverMovesUpToToOnSomeoneElsesLetter() {
+        let m = letter(replyTo: ["Owner <\(Self.owner)>"], to: [Self.owner],
+                       cc: ["jane@example.com", "Sam Example <sam@example.org>"])
+        XCTAssertEqual(reply(m, all: true),
+                       ReplyAddressing(to: [], cc: ["jane@example.com", "Sam Example <sam@example.org>"]))
+        let alsoInTo = letter(replyTo: [Self.owner], to: [Self.owner, "carlo@example.org"])
+        XCTAssertEqual(reply(alsoInTo, all: true), ReplyAddressing(to: [], cc: ["carlo@example.org"]))
+        // The usual case, a letter to him alone with others in Cc: the
+        // sender in To, the Cc in Cc.
+        XCTAssertEqual(reply(letter(to: [Self.owner], cc: ["sam@example.org"]), all: true),
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"], cc: ["sam@example.org"]))
+        // Reply, with nobody else to go to, goes to him, as before.
+        XCTAssertEqual(reply(m), ReplyAddressing(to: ["Owner <\(Self.owner)>"], cc: []))
     }
 
     // MARK: - His own letter
@@ -101,13 +150,18 @@ final class ReplyAddressingTests: XCTestCase {
                        ReplyAddressing(to: ["Jane Example <jane@example.com>"], cc: []))
     }
 
-    /// Written as Gmail might show it in another spelling of his address,
-    /// it is still his.
-    func testHisOwnLetterIsKnownInEverySpellingOfHisAddress() {
-        for from in ["Owner_Example@GMAIL.com", "o.wner_example@gmail.com",
-                     "owner_example+lists@googlemail.com", "Owner <OWNER_EXAMPLE@googlemail.com>"] {
+    /// His address in any letter case is his; Gmail's other spellings of
+    /// his mailbox are not, as Mail does not take them for his (B-076).
+    /// B-061 took them all for his.
+    func testHisOwnLetterIsKnownInAnyLetterCaseAndNoOtherSpelling() {
+        for from in ["Owner_Example@GMAIL.com", "Owner <OWNER_EXAMPLE@gmail.com>"] {
             let m = letter(from: from, to: ["sam@example.org"])
             XCTAssertEqual(reply(m).to, ["sam@example.org"], from)
+        }
+        for from in ["o.wner_example@gmail.com", "owner_example+lists@gmail.com",
+                     "owner_example@googlemail.com"] {
+            let m = letter(from: from, to: ["sam@example.org"])
+            XCTAssertEqual(reply(m).to, [from], from)
         }
     }
 
@@ -152,8 +206,10 @@ final class ReplyAddressingTests: XCTestCase {
     }
 
     /// His letter to himself with Jane in Cc: Reply All goes to Jane, in
-    /// To, not to him with Jane in Cc, nor to nobody in To.
-    func testACcLeftAloneMovesUpToTo() {
+    /// To, not to him with Jane in Cc, nor to nobody in To. What Mail does
+    /// with his own letter could not be found out, so B-061's is kept
+    /// (B-076); on anyone else's letter a Cc never moves up.
+    func testACcLeftAloneOnHisOwnLetterMovesUpToTo() {
         let m = letter(from: Self.owner, to: [Self.owner], cc: ["jane@example.com"])
         XCTAssertEqual(reply(m, all: true), ReplyAddressing(to: ["jane@example.com"], cc: []))
         XCTAssertEqual(reply(m), ReplyAddressing(to: [Self.owner], cc: []))
@@ -172,8 +228,8 @@ final class ReplyAddressingTests: XCTestCase {
         XCTAssertEqual(reply(m), ReplyAddressing(to: ["jane@example.com", "Sam Example <sam@example.org>"],
                                                  cc: []))
         XCTAssertEqual(reply(m, all: true),
-                       ReplyAddressing(to: ["jane@example.com", "Sam Example <sam@example.org>",
-                                            "carlo@example.org"], cc: []))
+                       ReplyAddressing(to: ["jane@example.com", "Sam Example <sam@example.org>"],
+                                       cc: ["carlo@example.org"]))
         let named = letter(from: "Jane Example <jane@example.com>",
                            alsoFrom: ["\"Example, Sam\" <sam@example.org>"])
         XCTAssertEqual(reply(named).to, ["Jane Example <jane@example.com>",
@@ -245,22 +301,25 @@ final class ReplyAddressingTests: XCTestCase {
             XCTAssertEqual(reply(m), ReplyAddressing(to: ["Jane Example <jane@example.com>"], cc: []),
                            gap.debugDescription)
             XCTAssertEqual(reply(m, all: true),
-                           ReplyAddressing(to: ["Jane Example <jane@example.com>",
-                                                "\"<other@example.net> Sam\" <sam@example.org>"],
-                                           cc: ["Pat Example <pat@example.com>"]), gap.debugDescription)
+                           ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                           cc: ["\"<other@example.net> Sam\" <sam@example.org>",
+                                                "Pat Example <pat@example.com>"]), gap.debugDescription)
         }
     }
 
     // MARK: - His own addresses
 
-    /// Every spelling Gmail delivers to him is left out of a Reply All.
-    func testReplyAllLeavesOutEverySpellingOfHisAddress() {
+    /// His address is left out of a Reply All in any letter case. Gmail's
+    /// other spellings of it, which Gmail delivers to him, are kept, as
+    /// Mail keeps them (B-076): B-061 left them out.
+    func testReplyAllLeavesOutHisAddressInAnyCaseAndNotItsOtherSpellings() {
         let m = letter(to: ["Owner_Example@Gmail.com", "o.wner_example@gmail.com", "sam@example.org"],
-                       cc: ["owner_example+lists@googlemail.com", "Owner <OWNER_EXAMPLE@GOOGLEMAIL.COM>",
+                       cc: ["owner_example+lists@googlemail.com", "Owner <OWNER_EXAMPLE@GMAIL.COM>",
                             "carlo@example.org"])
         XCTAssertEqual(reply(m, all: true),
-                       ReplyAddressing(to: ["Jane Example <jane@example.com>", "sam@example.org"],
-                                       cc: ["carlo@example.org"]))
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                       cc: ["o.wner_example@gmail.com", "sam@example.org",
+                                            "owner_example+lists@googlemail.com", "carlo@example.org"]))
     }
 
     /// Only Gmail's own domains: elsewhere a dot or a tag may be another
@@ -277,18 +336,27 @@ final class ReplyAddressingTests: XCTestCase {
         let m = letter(to: ["sam.example@example.org", "samexample@example.org"],
                        cc: ["sam.example+x@example.org"])
         XCTAssertEqual(ReplyAddressing.reply(to: m, all: true, mine: his),
-                       ReplyAddressing(to: ["Jane Example <jane@example.com>", "samexample@example.org"],
-                                       cc: ["sam.example+x@example.org"]))
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                       cc: ["samexample@example.org", "sam.example+x@example.org"]))
     }
 
-    func testGmailsSpellingsAreOneMailbox() {
-        XCTAssertEqual(OwnAddresses.key("O.Wner_Example+news@GoogleMail.com"), "owner_example@gmail.com")
-        XCTAssertEqual(OwnAddresses.key("Owner <owner_example@gmail.com>"), "owner_example@gmail.com")
-        // Nothing left of the name but dots and a tag: as written.
+    /// Compared as written, bare and in lower case, on every domain,
+    /// Gmail's too (B-076). B-061 made Gmail's spellings one mailbox.
+    func testHisAddressesAreComparedAsWritten() {
+        XCTAssertEqual(OwnAddresses.key("O.Wner_Example+news@GoogleMail.com"),
+                       "o.wner_example+news@googlemail.com")
+        XCTAssertEqual(OwnAddresses.key("Owner <Owner_Example@gmail.com>"), "owner_example@gmail.com")
         XCTAssertEqual(OwnAddresses.key(".+x@gmail.com"), ".+x@gmail.com")
         XCTAssertNil(OwnAddresses.key("Owner"))
         XCTAssertNil(OwnAddresses.key("@gmail.com"))
+        XCTAssertNil(OwnAddresses.key("owner@"))
         XCTAssertNil(OwnAddresses.key(""))
+        let his = OwnAddresses([Self.owner])
+        XCTAssertTrue(his.contains("OWNER_EXAMPLE@GMAIL.COM"))
+        for other in ["o.wner_example@gmail.com", "owner_example+x@gmail.com",
+                      "owner_example@googlemail.com"] {
+            XCTAssertFalse(his.contains(other), other)
+        }
     }
 
     /// The account's login is his too, where it differs from the address.
@@ -296,7 +364,8 @@ final class ReplyAddressingTests: XCTestCase {
         let account = MailAccount(address: "owner@example.com", username: Self.owner)
         let his = OwnAddresses(account: account)
         XCTAssertTrue(his.contains("owner@example.com"))
-        XCTAssertTrue(his.contains("o.wner_example@googlemail.com"))
+        XCTAssertTrue(his.contains("OWNER_EXAMPLE@gmail.com"))
+        XCTAssertFalse(his.contains("o.wner_example@googlemail.com"), "Mail's way since B-076")
         XCTAssertFalse(his.contains("jane@example.com"))
         XCTAssertFalse(OwnAddresses(account: nil).contains("owner@example.com"))
     }
@@ -320,10 +389,9 @@ final class ReplyAddressingTests: XCTestCase {
                        cc: ["Sam Example <SAM@example.org>", "CARLO@example.org", "jane@EXAMPLE.com",
                             "pat@example.com", "Pat Example <pat@example.com>"])
         XCTAssertEqual(reply(m, all: true),
-                       ReplyAddressing(to: ["Jane Example <jane@example.com>",
-                                            "Sam Example <sam@example.org>",
-                                            "Carlo <carlo@example.org>"],
-                                       cc: ["Pat Example <pat@example.com>"]))
+                       ReplyAddressing(to: ["Jane Example <jane@example.com>"],
+                                       cc: ["Sam Example <sam@example.org>", "Carlo <carlo@example.org>",
+                                            "Pat Example <pat@example.com>"]))
     }
 
     /// Every way a header names a recipient, as the composer's field keeps
@@ -388,11 +456,11 @@ final class ReplyAddressingTests: XCTestCase {
         let raw = built(letter(to: [Self.owner, "Example, J\u{00E9}r\u{00F4}me <jerome@example.com>"],
                                cc: ["\"Example, Pat\" <pat@example.com>"]), all: true)
         XCTAssertEqual(ReplyAddressingTests.recipients("To", in: raw),
-                       [MailFormat.Recipient(name: "Jane Example", address: "jane@example.com"),
-                        MailFormat.Recipient(name: "Example, J\u{00E9}r\u{00F4}me",
-                                             address: "jerome@example.com")])
+                       [MailFormat.Recipient(name: "Jane Example", address: "jane@example.com")])
         XCTAssertEqual(ReplyAddressingTests.recipients("Cc", in: raw),
-                       [MailFormat.Recipient(name: "Example, Pat", address: "pat@example.com")])
+                       [MailFormat.Recipient(name: "Example, J\u{00E9}r\u{00F4}me",
+                                             address: "jerome@example.com"),
+                        MailFormat.Recipient(name: "Example, Pat", address: "pat@example.com")])
     }
 
     /// A header of a built letter, read back as the repository reads one.
@@ -408,8 +476,9 @@ final class ReplyAddressingTests: XCTestCase {
     func testALetterWithNoFromIsAnsweredToItsReplyToOrToNobody() {
         XCTAssertEqual(reply(letter(from: nil)), ReplyAddressing(to: [], cc: []))
         XCTAssertEqual(reply(letter(from: nil, replyTo: ["sam@example.org"])).to, ["sam@example.org"])
+        // Nobody to put in To: the others in Cc, none moved up (B-076).
         XCTAssertEqual(reply(letter(from: nil, to: [Self.owner, "carlo@example.org"]), all: true),
-                       ReplyAddressing(to: ["carlo@example.org"], cc: []))
+                       ReplyAddressing(to: [], cc: ["carlo@example.org"]))
         // Never "(unknown sender)", which used to be put in To.
         XCTAssertEqual(Draft.replying(to: letter(from: nil), all: false, mine: mine).to, [])
     }
@@ -429,11 +498,18 @@ final class ReplyAddressingTests: XCTestCase {
 
     /// Letters made up from awkward entries, seeded so a failure is the
     /// same letter every run: the rules hold for every one of them, Reply
-    /// and Reply All, his own letters and other people's.
+    /// and Reply All, his own letters and other people's. His addresses are
+    /// the account's, in any letter case, and a second one listed under
+    /// Email (B-076); Gmail's other spellings of his mailbox are other
+    /// people, as Mail has them.
     func testEveryRuleHoldsOverManyLetters() throws {
+        let mine = OwnAddresses(account: MailAccount(address: Self.owner, username: Self.owner,
+                                                     otherAddresses: ["Owner.Second@Example.net"]))
+        // Who is his, decided here and not by the code under test.
+        let hisAddresses: Set<String> = [Self.owner, "owner.second@example.net"]
         let his = ["owner_example@gmail.com", "Owner_Example@GMAIL.com",
-                   "owner_example+lists@googlemail.com", "o.wner_example@gmail.com",
-                   "Owner <owner_example@gmail.com>"]
+                   "Owner <owner_example@gmail.com>", "owner.second@example.net",
+                   "Owner <OWNER.SECOND@example.NET>"]
         let others = ["jane@example.com", "Jane Example <JANE@example.com>",
                       "\"Example, Jane\" <jane@example.com>", "Example, Jane <jane@example.com>",
                       "sam@example.org", "Sam Example <sam@example.org>",
@@ -442,7 +518,8 @@ final class ReplyAddressingTests: XCTestCase {
                       "club@example.org", "sam.example@example.org", "samexample@example.org",
                       "sam.example+x@example.org", "J\u{00E9}r\u{00F4}me <jerome@example.com>",
                       "Jane\u{2028}Example <jane@example.com>", "<other@example.net>\nSam <sam@example.org>",
-                      "Pat\u{0085}Example <pat@example.com>", "Carlo\r\nExample <carlo@example.org>"]
+                      "Pat\u{0085}Example <pat@example.com>", "Carlo\r\nExample <carlo@example.org>",
+                      "owner_example+lists@googlemail.com", "o.wner_example@gmail.com"]
         let nobody = ["undisclosed-recipients:;", "Jane", "Friends:;"]
         let pool = his + others + nobody
 
@@ -454,7 +531,12 @@ final class ReplyAddressingTests: XCTestCase {
         func some(_ most: Int) -> [String] { (0..<next(most + 1)).map { _ in pool[next(pool.count)] } }
         func address(_ entry: String) -> String? { MailFormat.recipient(in: entry)?.address.lowercased() }
         func addresses(_ entries: [String]) -> Set<String> { Set(entries.compactMap(address)) }
-        func isHis(_ a: String) -> Bool { mine.contains(a) }
+        /// The addresses in `entries`, in their order, each once.
+        func ordered(_ entries: [String]) -> [String] {
+            var seen = Set<String>()
+            return entries.compactMap(address).filter { seen.insert($0).inserted }
+        }
+        func isHis(_ a: String) -> Bool { hisAddresses.contains(a) }
         func breaksLine(_ s: Unicode.Scalar) -> Bool {
             s.value < 0x20 || (0x7F...0x9F).contains(s.value) || s.value == 0x2028 || s.value == 0x2029
         }
@@ -463,6 +545,7 @@ final class ReplyAddressingTests: XCTestCase {
         // failure for the lot, rather than one for every letter.
         var broken: [String: String] = [:]
         var letters = 0
+        var mailsReplyAlls = 0
         for _ in 0..<3_000 {
             let fromChoice = next(pool.count + 2)
             let from: String? = fromChoice < pool.count ? pool[fromChoice]
@@ -476,11 +559,12 @@ final class ReplyAddressingTests: XCTestCase {
             let replyTo = addresses(m.replyTo)
             let to = addresses(m.to)
             let cc = addresses(m.cc)
-            let author = own ? [] : (replyTo.isEmpty ? fromAddresses : replyTo)
+            let authorEntries = own ? [] : (replyTo.isEmpty ? m.from : m.replyTo)
+            let author = addresses(authorEntries)
 
             for all in [false, true] {
                 letters += 1
-                let r = reply(m, all: all)
+                let r = ReplyAddressing.reply(to: m, all: all, mine: mine)
                 let what = "\(all ? "Reply All" : "Reply") to \(m.from) / \(m.replyTo) / \(m.to) / "
                     + "\(m.cc) gave \(r.to) / \(r.cc)"
                 func check(_ rule: String, _ holds: Bool) {
@@ -502,7 +586,6 @@ final class ReplyAddressingTests: XCTestCase {
                 check("nothing twice", Set(out).count == out.count)
                 check("him only when there is nobody else",
                       !out.contains(where: isHis) || out.allSatisfy(isHis))
-                check("a To whenever there is a Cc", !outTo.isEmpty || outCc.isEmpty)
 
                 let expected: Set<String>
                 if own {
@@ -511,20 +594,27 @@ final class ReplyAddressingTests: XCTestCase {
                           Set(out).isSubset(of: to.union(cc).union(fromAddresses)))
                     check("his own letter to nobody named answered to him alone",
                           !expected.isEmpty || (out.count == 1 && isHis(out[0])))
+                    check("his own letter: a To whenever there is a Cc", !outTo.isEmpty || outCc.isEmpty)
                 } else {
                     expected = all ? author.union(to).union(cc) : author
                     for f in fromAddresses where !replyTo.isEmpty && !expected.contains(f) {
                         check("the From gives way to the Reply-To", !out.contains(f))
                     }
+                    check("nobody moved up to To on someone else's letter",
+                          Set(outTo.filter { !isHis($0) }).isSubset(of: author))
                 }
                 let others = expected.filter { !isHis($0) }
                 check("everyone it should reach, and no one else",
                       Set(out.filter { !isHis($0) }) == others)
                 check("a letter to him alone answered to him",
                       !(others.isEmpty && !expected.isEmpty) || !out.isEmpty)
-                if all, !outTo.isEmpty, !outCc.isEmpty {
-                    check("Reply All keeps the author and the letter's To in To",
-                          author.union(to).filter { !isHis($0) }.isSubset(of: Set(outTo)))
+                if !own, !others.isEmpty {
+                    check("the Reply-To, or the From, alone in To, in its order",
+                          outTo == ordered(authorEntries).filter { !isHis($0) })
+                    let rest = ordered(m.to + m.cc).filter { !isHis($0) && !author.contains($0) }
+                    check("everyone else in Cc, the letter's To then its Cc, in order",
+                          outCc == (all ? rest : []))
+                    if all, !rest.isEmpty { mailsReplyAlls += 1 }
                 }
 
                 // Out of the composer's field as they went in, and once
@@ -533,9 +623,12 @@ final class ReplyAddressingTests: XCTestCase {
                       MailFormat.addresses(in: r.to.joined(separator: ", ")) == r.to
                         && MailFormat.addresses(in: r.cc.joined(separator: ", ")) == r.cc)
                 check("kept as kept", (r.to + r.cc).map(MailFormat.fieldEntry) == r.to + r.cc)
+                check("a bubble each", RecipientBubbles(entries: r.to).entries == r.to
+                        && RecipientBubbles(entries: r.cc).entries == r.cc)
             }
         }
         XCTAssertEqual(letters, 6_000)
+        XCTAssertGreaterThan(mailsReplyAlls, 500, "enough Reply Alls with someone in Cc")
         XCTAssertEqual(broken, [:])
     }
 }
@@ -634,8 +727,9 @@ final class ReplyAddressingRepositoryTests: XCTestCase {
     }
 
     /// Reply All sent: the RCPT TOs are the Reply-To, the letter's other
-    /// recipients and nobody else, not him in any spelling, and the
-    /// letter's To and Cc carry their names.
+    /// recipients and nobody else, not him in any letter case, and the
+    /// letter's To and Cc carry their names: the Reply-To alone in To, the
+    /// others in Cc, as Mail's Reply All (B-076).
     func testASentReplyAllGoesWhereItShouldWithItsNames() async throws {
         let repository = makeRepository()
         let m = try await load(repository, garden(replyTo: [
@@ -653,10 +747,10 @@ final class ReplyAddressingRepositoryTests: XCTestCase {
         let letters = await submission.letters
         let letter = try XCTUnwrap(letters.first)
         XCTAssertEqual(ReplyAddressingTests.recipients("To", in: letter),
-                       [MailFormat.Recipient(name: "Garden Club", address: "club@example.org"),
-                        MailFormat.Recipient(name: "Ex\u{00E4}mple, Sam", address: "sam@example.org")])
+                       [MailFormat.Recipient(name: "Garden Club", address: "club@example.org")])
         XCTAssertEqual(ReplyAddressingTests.recipients("Cc", in: letter),
-                       [MailFormat.Recipient(name: "Example, Pat", address: "pat@example.com")])
+                       [MailFormat.Recipient(name: "Ex\u{00E4}mple, Sam", address: "sam@example.org"),
+                        MailFormat.Recipient(name: "Example, Pat", address: "pat@example.com")])
     }
 
     /// His own letter in Sent Mail is answered to whom it went.
@@ -680,16 +774,18 @@ final class ReplyAddressingRepositoryTests: XCTestCase {
         let repository = makeRepository()
         let m = try await load(repository, garden())
         var draft = Draft.replying(to: m, all: true, mine: mine)
-        XCTAssertEqual(draft.to, ["Jane Example <jane@example.com>",
-                                  "\"Ex\u{00E4}mple, Sam\" <sam@example.org>"])
-        XCTAssertEqual(draft.cc, ["\"Example, Pat\" <pat@example.com>"])
+        XCTAssertEqual(draft.to, ["Jane Example <jane@example.com>"])
+        XCTAssertEqual(draft.cc, ["\"Ex\u{00E4}mple, Sam\" <sam@example.org>",
+                                  "\"Example, Pat\" <pat@example.com>"])
         draft.body = "Half a thought."
         let id = try await XCTUnwrapAsync(try await repository.saveDraft(draft))
         let back = try await repository.loadDraft(id: id, gmailMessageID: nil, mailboxID: Server.drafts)
         XCTAssertEqual(back.to, draft.to)
         XCTAssertEqual(back.cc, draft.cc)
-        // As the composer's field gives them back at Send.
-        XCTAssertEqual(MailFormat.addresses(in: back.to.joined(separator: ", ")), draft.to)
+        // As the composer's field gives them back at Send, a bubble each
+        // (B-076).
+        XCTAssertEqual(RecipientBubbles(entries: back.to).recipients, draft.to)
+        XCTAssertEqual(RecipientBubbles(entries: back.cc).recipients, draft.cc)
         XCTAssertEqual(Submission.recipients(of: back).map(MailFormat.bareAddress),
                        ["jane@example.com", "sam@example.org", "pat@example.com"])
     }
@@ -744,10 +840,9 @@ final class ReplyAddressingRepositoryTests: XCTestCase {
             for all in [false, true] {
                 var draft = Draft.replying(to: m, all: all, mine: mine)
                 XCTAssertFalse((draft.to + draft.cc).contains(where: breaksLine), "\(what): \(draft.to) \(draft.cc)")
-                XCTAssertEqual(draft.to, all ? ["Jane Example <jane@example.com>",
-                                                "\"<other@example.net> Sam\" <sam@example.org>"]
-                                             : ["Jane Example <jane@example.com>"], what)
-                XCTAssertEqual(draft.cc, all ? ["Pat Example <pat@example.com>"] : [], what)
+                XCTAssertEqual(draft.to, ["Jane Example <jane@example.com>"], what)
+                XCTAssertEqual(draft.cc, all ? ["\"<other@example.net> Sam\" <sam@example.org>",
+                                                "Pat Example <pat@example.com>"] : [], what)
                 // As the composer's field gives them back at Send.
                 draft.to = MailFormat.addresses(in: draft.to.joined(separator: ", "))
                 draft.cc = MailFormat.addresses(in: draft.cc.joined(separator: ", "))
@@ -759,8 +854,8 @@ final class ReplyAddressingRepositoryTests: XCTestCase {
                 let on = try await wire(of: try XCTUnwrap(sent.last))
                 XCTAssertEqual(on.rcpt, all ? ["<jane@example.com>", "<sam@example.org>", "<pat@example.com>"]
                                             : ["<jane@example.com>"], what)
-                XCTAssertEqual(on.to, all ? ["jane@example.com", "sam@example.org"] : ["jane@example.com"], what)
-                XCTAssertEqual(on.cc, all ? ["pat@example.com"] : [], what)
+                XCTAssertEqual(on.to, ["jane@example.com"], what)
+                XCTAssertEqual(on.cc, all ? ["sam@example.org", "pat@example.com"] : [], what)
             }
         }
     }
@@ -892,9 +987,10 @@ final class ReplyAddressingWiringTests: XCTestCase {
         XCTAssertFalse(pane.contains("myAddress:"))
 
         let composer = try source("ComposeViewController.swift")
-        for field in ["draft.to = MailFormat.addresses(in: toField.text ?? \"\")",
-                      "draft.cc = MailFormat.addresses(in: ccField.text ?? \"\")",
-                      "draft.bcc = MailFormat.addresses(in: bccField.text ?? \"\")"] {
+        // A recipient for each of the field's bubbles since B-076.
+        for field in ["draft.to = toField.recipients",
+                      "draft.cc = ccField.recipients",
+                      "draft.bcc = bccField.recipients"] {
             XCTAssertTrue(composer.contains(field), field)
         }
     }

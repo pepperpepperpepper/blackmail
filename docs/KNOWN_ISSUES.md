@@ -7084,6 +7084,18 @@ was checked against Mail on an iPad.
   too (seen 2026-10-03, B-060), so this is any letter he sent to Bcc
   alone.
 
+**Settled 2026-10-06** by the owner's ruling, "copy apple mail" (B-076).
+Reply All with a Reply-To: in place of the From, as built. The composer's
+To: a bubble with the name, its address shown when it is tapped. Reply All's fields:
+the Reply-To, or the From, alone in To and everyone else in Cc, the
+letter's To first, as before B-061. A Cc left alone: never moved up on
+anyone else's letter. His own letter's Reply-To: not followed, as built.
+His second address: a list in Settings, as Mail's account has under its
+Email, filled by hand. His own letter by Bcc alone: answered to himself,
+as built; what Mail does could not be found out. His address is matched
+as written, without regard to case, and Gmail's other spellings of it are
+no longer his, as in Mail.
+
 **Seen on the iPad, 2026-10-03**, on carlo's mailbox, every letter from it
 to itself, A standing for its address. carlo's address is on a domain of
 its own, not Gmail's, so a dot in the name and googlemail.com could not be
@@ -9976,4 +9988,344 @@ this change's, and why was not read. The draft was deleted.
   the composer; one sent with no connection would wait there. The suite
   holds its name in the Outbox.
 - VoiceOver was read from the accessibility tree, not heard.
+
+---
+
+## B-076 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. Reply All kept the letter's To in To, moved a Cc up to To, showed names as text, and could not be told his other addresses
+
+**Asked.** B-061 addressed Reply and Reply All as Mail was believed to,
+and put what it could not know to the owner: "Reply's addressing", "His
+second address" and "Reply to his own letter sent by Bcc alone", in the
+TODO under "Blocked on the owner". His ruling, 2026-10-06: "copy apple
+mail for these".
+
+**What Mail does**, gathered on 2026-10-06 from his own mailbox, Apple's
+iPad guide and Apple's forums, and checked a second time. His mailbox
+gives counts only, and cannot tell his iPad from his iPhone.
+
+- *Reply All* (high). The sender alone in To; everyone else in Cc, the
+  letter's To first, then its Cc, each in the letter's order. In about a
+  hundred Reply Alls of his from Mail, 69 of 71 people in a letter's To
+  went to Cc, 56 of 57 in its Cc stayed in Cc, and the order held in 21 of
+  22. Apple's staff call it "expected behavior in iOS as well as OS X
+  Mail". B-061's way, the letter's To kept in To, is not Mail's; the way
+  before it, everyone in Cc, was.
+- *A Cc left alone* (medium). Never moved up to To. In 33 of 34 Reply
+  Alls to a letter whose To was him alone, the sender was in To and the
+  Cc stayed in Cc. The sender always fills To, so these do not say what
+  Mail does when To would be empty. One case of his suggests the reply
+  then goes with no To: To would have been him, through a Reply-To of
+  his. That case is inferred, its Reply-To could not be read, and the
+  second check did not find it again, so it marked this uncertain.
+- *Reply-To.* Reply goes to the Reply-To alone (medium). Reply All puts it
+  in place of the From, not beside it (low: two cases, no header read).
+- *His own letter.* Reply goes to whom it went, never to him (high: none
+  of 29). Reply All on it, and a letter he sent by Bcc alone: not found
+  out. The one first-hand report, from an older iPhone, has Reply All put
+  the user himself in To.
+- *The header* (high). "Name <address>" with the letter's name, 1,652 of
+  1,864 times; the bare address where the letter's name was the address
+  itself, 107 times.
+- *The composer* (medium). Each recipient by name, as an atom, not as
+  "Name <address>" text. No picture of iPadOS 18's composer was found.
+- *His addresses* (medium). Mail leaves out of Reply All the addresses it
+  knows as his: the account's, and any listed under the account's Email
+  with "Add Another Email…". It fills in nothing by itself and does not
+  read Gmail's send-as addresses. His address with a dot or a tag in it is
+  someone else to Mail. Letter case is unsettled: one Reply All of his
+  left out his address in other capitals, and an old report says Mail
+  told case apart. The ruling takes it without regard to case.
+
+**Changed.**
+
+1. *Reply All* (`ReplyAddressing`). The Reply-To, or everyone in the From,
+   alone in To; everyone else in Cc, the letter's To then its Cc, in their
+   order, each once, his addresses left out, and nobody in To repeated in
+   Cc. Nobody on someone else's letter moves up to To: a Reply All whose
+   Reply-To is his goes with no To and the others in Cc, as one case of
+   his, inferred and not found again, suggests. Reply is as it was.
+2. *His own letter* is as B-061 built it, since Mail's way there was not
+   found out: Reply to its To, or its Cc; Reply All to its To and its Cc
+   in the same fields, with the Cc moved up when its To was only him; a
+   letter by Bcc alone to him.
+3. *The header* (`RFC5322Builder`, `MailFormat.recipientEntry`). A name
+   that is the address again, in any letter case, goes as the bare
+   address, typed or kept in a draft as well as in a reply. Every other
+   name goes as before.
+4. *Name bubbles* (`RecipientField`, `RecipientBubbles`), in the composer
+   and the share sheet. To, Cc and Bcc show each recipient as a bubble
+   with the person's name, or the address where there is none. A comma,
+   Return, or leaving the field makes a bubble of what he typed; a comma
+   inside a quoted name or `<…>` does not. A pick makes a bubble with the
+   name the list shows. Backspace with nothing typed picks out the last
+   bubble, which turns the bright tint, and a second takes it off. A tap
+   on a bubble picks it out and shows a small menu, its address over
+   Remove; a tap outside puts it back. A bubble is drawn 30 points tall
+   and at least 44 wide, and takes a tap anywhere on its line's 44
+   points, so every bubble is a 44-point target (D-007). The words, the
+   address in the menu and what VoiceOver reads come from the entry's
+   first line, as the header and the envelope read it (B-061). The field
+   grows a line of 44 points at a time, as Mail's grows with a Reply
+   All's people, and the suggestions sit under it. The words are the
+   field's own size, fixed (D-007), white on the tint dimmed (D-010).
+
+   Underneath, each bubble is one recipient, its entry as kept, and what
+   he is still typing after them is split as the field's text always was
+   (`RecipientField.recipients`). Send, Cancel's untouched-letter rule,
+   the autosave, Drafts, the Outbox and the share sheet read that, so a
+   letter goes to the people the bubbles show. B-069's and B-073's
+   suggestion rules are unchanged: `ComposeForm.suggestions` matches what
+   he types after the bubbles, and leaves out every bubble's address. A
+   pick takes the place of everything he typed after the last bubble, a
+   quoted name cut short after its comma included (B-061, "Not
+   covered").
+5. *His addresses* (`MailAccount.otherAddresses`, `ownAddresses`, Settings).
+   Under the account's address, Settings lists his addresses as Mail's
+   account lists them under Email: the account's own first, without
+   Remove, then each added with "Add Another Email…", each with Remove.
+   One that is not an address, or is already listed in any letter case,
+   is refused, and says so. Saved with Save, stored with the account, and
+   handed to the share extension with it (`ShareMirror`). Nothing is
+   added by itself, and From stays the account's address.
+6. *Is this address his* (`OwnAddresses(account:)`), the one place the app
+   asks: every address in `MailAccount.ownAddresses`, and the account's
+   login, kept from B-061, which on his account is the address. Matched
+   as written, without regard to case. Gmail's other spellings of his
+   mailbox, a dot, a `+` tag, googlemail.com, are no longer his, as in
+   Mail. Reply All leaves every one of his out, and a letter from any of
+   them is his own.
+
+**Why bubbles built by hand, not `UISearchTextField`.** That field's
+tokens, in iOS since 13, would do much of this. The app is installed once
+and never updated, so what it is built on matters more than what it
+saves. A search field's tokens are the system's: how backspace takes one
+off, what a tap on one does, whether its text holds them, and its search
+look, a magnifier and a grey well to undo. They keep to one line and
+slide out of sight, so a Reply All's tenth person would be under the
+first. The bubbles here are a plain text field, its `deleteBackward`,
+buttons laid out by hand and an action sheet, all of which have behaved
+the same for a decade; every recipient stays in sight; and what each key
+and tap does is in one file and in the suite.
+
+**For B-075.** Sent Mail's rows, built at the same time, leave out "his
+own addresses" with the account's address alone. At the merge they ask
+`OwnAddresses(account:)`, or read `MailAccount.ownAddresses` for the
+list.
+
+**What he sees.** To, Cc and Bcc with a dark blue bubble for each person,
+the name on it. A Reply All with the sender alone in To and the others in
+Cc. Settings with his addresses under his account, "Add Another Email…"
+under them, and a Remove beside each one added. New words: "Email — your
+addresses. Reply All leaves them out, and a letter from any of them is
+yours.", "Add Another Email…", "Add Another Email", "An address of yours
+that mail to you comes to.", "Add", "Remove", "That is not an email
+address. Nothing was added.", "That address is already in the list."
+
+**Tests.** `ReplyAddressingTests`, now thirty-five, three of them new:
+Reply All's Cc the letter's To then its Cc in their order, the To not
+repeated in Cc in any letter case, and a Cc never moved up on someone
+else's letter, with its Reply-To his. Changed, each with the reason in
+its comment: the Reply-To and the From each alone in To
+(`testReplyAllGoesToTheReplyToAloneAndEveryoneElseInCc`,
+`testReplyAllGoesToTheFromAloneAndEveryoneElseInCc`), his own letter
+known in any letter case and no other spelling, his address left out in
+any case and Gmail's other spellings kept, his addresses compared as
+written (was `testGmailsSpellingsAreOneMailbox`), the login, a letter
+from several, names broken over lines, another domain's spellings, once
+each with names, the header, a letter with no From, and the 6,000 replies
+made up from awkward letters, which now hold every rule with a second
+address of his listed and Gmail's spellings among the others, Mail's To
+and Cc in their order, and each field a bubble each.
+`testACcLeftAloneMovesUpToTo` is now `…OnHisOwnLetter…`, unchanged.
+`ReplyAddressingRepositoryTests`: a Reply All sent, a reply's draft
+reopened, and names broken over lines, To and Cc as Mail's.
+`ReplyForwardTests` (2) and `ReadingPaneCcTests` (1): Reply All as Mail's.
+`ComposeLikeMailTests` (1): the fields are bubble fields.
+`ReplyLikeMailTests`, twenty-six, new, four of them from the review
+below: his addresses, the account's
+first, each once, added and removed, refused when not an address or
+listed already, stored with the account, read from an account an older
+build kept, handed to the share extension; the one place that asks, the
+list and the login in any case and nothing else; his second address
+listed left out of Reply All and not listed kept, a letter from it his
+own, his letter to it alone answered to him, and nothing filling the
+list but the account's own code; the header naming a person and never
+the address again; the bubbles: a bubble each and the same people
+underneath, the name or the address on each, a comma, Return and leaving,
+a pick and the suggestion rules through the bubbles, a pick right after
+leaving, backspace picking out then taking off, a tap, Remove, and
+Cancel reading the same people; and read from the source, both
+composers' bubble fields, the field's backspace, Return, leaving, menu
+and fixed sizes, and Settings' list.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests: Reply All with the
+letter's To kept in To, as B-061 had it, 41 in 19; its Cc with the
+letter's Cc first, 28 in 14; a Cc moved up on someone else's letter, 4 in
+3; the From beside the Reply-To, 8 in 6; Gmail's spellings his again, 14
+in 6; his addresses compared in their letter case, 17 in 10; the list not
+asked, the address and the login alone, 7 in 5; the list with the added
+first, 4 in 4; the list not once each, 1 in 1; Add Another Email taking
+one already listed, 2 in 1, or what is not an address, 7 in 1; Remove
+matching the letter case, 1 in 1; the list not read back from the stored
+account, 4 in 2; not tidied as it is saved, 2 in 2; a header name that is
+the address again sent as a name, 1 in 1; a field entry keeping one in
+another case, 1 in 1; a comma making no bubble, 9 in 1; a comma inside a
+quoted name ending one, 5 in 1; Return or leaving making none, 8 in 2;
+backspace taking a bubble off at once, 6 in 2; a pick right after leaving
+keeping the half-typed name, 2 in 1; the text without the comma after the
+last bubble, 2 in 2; a bubble saying the entry whole, 5 in 3; the app's
+pick the address alone, 1 in 1, and the share sheet's, 1 in 1; backspace
+not handed to the bubbles, 1 in 1; Remove not told to the sheet, 1 in 1;
+the account's own address given a Remove, 1 in 1. Twenty-eight in all.
+The first run of leaving making no bubble also failed `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, which fails now and
+then on this host; run again, only the two. The full suite, serially,
+with nothing undone: 1,515 tests, 5 skipped, none failing. The release
+build for the iPad links.
+
+**Reviewed 2026-10-06, and fixed.** A review of the change above found
+five things, each fixed in the text above, which says how it is now. A
+bubble's words, the address in its menu and what VoiceOver read came
+from all of its entry, the last `<…>` on any line, where the header and
+the envelope read only its first line (B-061). A `mailto:` link of
+`sam@example.org%0A%3Cother@example.net%3E` showed other@example.net under
+a letter that went to sam@example.org. Now the bubble reads the first
+line too (`RecipientBubbles.words`, `address`). A bubble took taps only
+on its 30-point pill, as narrow as its name: a tap a few points above or
+below it raised the keyboard, and "Al" was 35 points wide, under the 44
+D-007 binds. Now it is at least 44 wide and takes a tap on the whole of
+its line (`BubbleButton`, `RecipientBubbles.touchArea`). Every change to
+the field made every bubble's button again, the one a menu hung from
+among them: Return under a menu left the menu pointing where the bubble
+had been, and the bubble lost its tint. Now the bubbles before the first
+change and after the last keep their buttons (`RecipientBubbles.
+unchanged`), the bubble a menu is up for stays picked out whatever he
+types or ends under it, and a backspace that takes it off takes its menu
+too. Send, the letter and the suggestions read the field written out as
+text and split it again at its commas: one bubble with a quote never
+closed in it, `"Sam`, split every other bubble at its commas, so two
+bubbles went as three recipients, the first `"Example`. Now they read a
+bubble at a time (`RecipientField.recipients`), and a field opened from
+a letter or a draft splits each entry on its own. And this entry and
+`ReplyAddressing`'s comment stated as Mail's that a Reply All whose
+Reply-To is his goes with no To, which rests on one case inferred and
+not found again; they say so now, and "Not covered" has the minute's
+test.
+
+`ReplyLikeMailTests` has four tests more: a bubble naming whom the
+letter goes to, from that `mailto:` link, against the header; a bubble
+taking a tap on its whole line; the same people keeping their buttons,
+and the menu's bubble kept picked out, from the model and the field's
+source; and what the bubbles show being whom the letter goes to, with a
+stray quote in one, through a draft opened again and the header. The
+tests that read the field's text read its recipients now.
+
+Each fix fails with its part undone, nine sabotages one at a time, each
+run once over the whole suite, serially, as failures in tests: a bubble
+read from all of its entry (8 in 2); the touch area not grown (2 in 1);
+a bubble as narrow as its name (1 in 1); bubbles as plain buttons, with
+no grown touch area (2 in 1); no bubble keeping its button (11 in 1);
+every button thrown away at a change, as before (2 in 1); Return under a
+menu not keeping its bubble picked out (2 in 2); the recipients joined
+and split again, as before (3 in 1); and a field opened from a letter
+joining and splitting its entries, as before (1 in 1). The sabotages of
+the first pass, above, were counted before these fixes; the text they
+read is gone, and with it the one that took the comma off after the
+last bubble. The full suite, serially, then: 1,519 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Seen in the simulator, 2026-10-06**, an iPad (7th generation) on 18.6,
+landscape, a hardware keyboard attached, built from this branch and
+signed in to the test account, A standing for its address. The
+screenshots are in the pass's shots folder, not in the repo: they show
+the test account's address and its mail.
+
+1. A new letter: A with `+jane` and a comma in To made a bubble with the
+   address on it, Send blue (b076-03). A with `+sam` in Cc, then a tap on
+   Subject: a bubble too. Subject "B-076 reply all" (b076-04). Sent; it
+   arrived once.
+2. Opened in the Inbox, Reply All: To `+jane`, Cc `+sam`, each a bubble
+   (b076-06). This letter is from the account, so it is his own and
+   answered as B-061 answers his own. Every letter the test account can
+   make is its own; a Reply All to someone else's letter, To and Cc as
+   Mail's, is the suite's.
+3. In Cc with nothing typed, Delete: the `+sam` bubble turned the bright
+   tint (b076-07); Delete again: gone (b076-08). A tap on the To bubble:
+   picked out, and a menu with its address and Remove (b076-09); a tap
+   outside: the menu gone, the bubble plain (b076-10). Tapped again,
+   Remove: To empty and Send grey (b076-11).
+4. "c" in To: four rows (b076-12). The first picked: a bubble saying
+   "Carlo", the name the list gave; VoiceOver's tree has the button
+   "Carlo" with the address as its value (b076-13). Seven more typed
+   into Cc with commas, `"Example, Jane" <jane@example.com>` among them,
+   and an eighth begun: seven bubbles on four lines, "Example, Jane" one
+   of them, the eighth typed after them, and the list under the grown
+   field (b076-14). Save Draft, which made a bubble of the eighth as the
+   field was left; opened from Drafts: the same eight bubbles (b076-16).
+   A word typed, Cancel, Delete Draft: Drafts empty.
+5. Settings: the address, then "Email —", the address alone, and "Add
+   Another Email…" (b076-17). "owner" added: "That is not an email
+   address. Nothing was added." A with `+jane`, typed in capitals, added:
+   listed with Remove (b076-20). Saved; Settings again: still there.
+   Reply All to the letter of 1: To `+sam` alone, `+jane` left out as his
+   in another letter case (b076-21). Cancel. Remove, Save; Settings
+   again: the address alone (b076-22).
+6. The share sheet from Safari on example.com: it opened in To. "c": the
+   list; `+sam` picked: a bubble; "c" again: `+sam` not offered (b076-25). Delete twice: the "c" gone, then the bubble picked
+   out (b076-26). A tap on it: the menu, dark (b076-27). A tap outside,
+   Subject "B-076 share bubbles", Send: it arrived once, To `+sam`.
+
+**Seen in the simulator after the review, 2026-10-06**, the same iPad,
+on a fresh simulator built from the fixed branch, the screenshots kept as
+before.
+
+1. The `mailto:` link above, opened in the app: To one bubble,
+   "sam@example.org". A tap 4 points above the pill, inside the To row:
+   its menu, titled sam@example.org, with no other address in it and the
+   arrow on the pill; VoiceOver's tree gives the bubble no other value
+   (b76f-03, b76f-04). Cancel closed the letter without a word, as it
+   had opened.
+2. A new letter: `Al <al@example.com>` and a comma in To made a bubble
+   "Al", 44 points wide, 30 tall, in a To row of 44 (b76f-07). A tap 4.5
+   points below the pill: its menu, with the address and Remove
+   (b76f-08).
+3. "sa" typed after it, then the menu, then Return under it: "sa" a
+   bubble after "Al", "Al" still bright, the menu still on it (b76f-09).
+   The on-screen keyboard brought up under the menu moved the sheet up
+   17.5 points, and the menu moved with "Al", about 13 points under it
+   before and after (b76f-10, b76f-11). Delete: "Al" gone, and its menu
+   with it, "sa" plain (b76f-12).
+4. To A with `+sim18`; Cc `"Example, Sam"` and A with `+sam` in `<…>`:
+   one bubble, "Example, Sam" (b76f-13). Subject "B-076 fix recipients",
+   Send: it arrived once, To A with `+sim18`, Cc "Example, Sam"
+   (b76f-15).
+5. The share sheet from Safari: `Al <al@example.com>` and a comma, a
+   bubble 44 wide; a tap 4 points above it: its menu (b76f-18). Remove,
+   Cancel: closed without a word.
+
+**Not covered.**
+
+- Mail itself was not tried on an iPad. What it does is the evidence
+  above, and the owner's ruling is the rule.
+- His own letter's Reply All, and a letter he sent by Bcc alone, are
+  answered as B-061 built them. One minute on any iPad running Mail would
+  say what Mail does.
+- A Reply All whose Reply-To is his goes with no To. That rests on one
+  case of his, inferred and not found again. One minute on any iPad
+  running Mail would settle it: a letter From A, Reply-To his address, To
+  him, Cc C, then Reply All. The same letter with a Reply-To of B would
+  also settle whether Mail puts the Reply-To in place of the From.
+- His iPad's own Mail account was not looked at: whether it lists his
+  second address under Email, or has an account for it, is one look at
+  Settings > Apps > Mail > Mail Accounts on the day. His second address
+  is his here only once it is added in Settings; the TODO's install-day
+  line says so.
+- A recipient's Contacts name, which Mail puts in the header now and
+  then, is not used: the app does not read Contacts (B-017).
+- Mail shows a recipient outside his domain in red, when asked to; not
+  built.
+- The on-screen keyboard was not tried in the simulator; the hardware one
+  was. A drag of a bubble from one field to another, which Mail allows,
+  is not built.
 - Not yet seen on the iPad. The TODO says how.

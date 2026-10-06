@@ -30,9 +30,13 @@ final class ComposeViewController: UIViewController,
     /// See `ComposeActions.send`.
     var onDraftSent: ((String) -> Void)?
 
-    private let toField = UITextField()
-    private let ccField = UITextField()
-    private let bccField = UITextField()
+    /// To, Cc and Bcc, each recipient a bubble with the name on it, as
+    /// Mail's (B-076). Send, Cancel, the suggestions and the letter read
+    /// each a recipient at a time (`RecipientField.recipients`), so they
+    /// read the people the bubbles show.
+    private let toField = RecipientField()
+    private let ccField = RecipientField()
+    private let bccField = RecipientField()
     /// One row per attached file, rebuilt whenever the list changes.
     private let attachmentsStack = UIStackView()
     private let subjectField = UITextField()
@@ -82,7 +86,7 @@ final class ComposeViewController: UIViewController,
     /// separator for him.
     private let suggestionsView = UITableView(frame: .zero, style: .plain)
     private var suggestions: [KnownRecipient] = []
-    private weak var activeAddressField: UITextField?
+    private weak var activeAddressField: RecipientField?
     private static let suggestionRowHeight: CGFloat = Theme.suggestionRowHeight
 
     /// Send and Save Draft, in the order each has to happen, what the sheet
@@ -191,13 +195,13 @@ final class ComposeViewController: UIViewController,
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroller.addSubview(stack)
 
-        stack.addArrangedSubview(row(label: "To:", field: toField, text: draft.to.joined(separator: ", ")))
+        stack.addArrangedSubview(addressRow(label: "To:", field: toField, entries: draft.to))
         // Open when the letter arrives with someone in them: a Reply All,
         // a reopened draft, or a `mailto:` link in a letter, which is a
         // stranger's to fill. A Bcc he cannot see is a copy going somewhere
         // he never agreed to.
         ccVisible = draft.showsCcAndBcc
-        ccRow = row(label: "Cc:", field: ccField, text: draft.cc.joined(separator: ", "))
+        ccRow = addressRow(label: "Cc:", field: ccField, entries: draft.cc)
         stack.addArrangedSubview(ccRow)
         ccRow.isHidden = !ccVisible
 
@@ -205,8 +209,7 @@ final class ComposeViewController: UIViewController,
         // the composer was written and only ever revealed Cc — the app
         // naming something that was not there, the same defect as telling
         // him to go to a Settings screen that did not exist.
-        bccRow = row(label: "Bcc:", field: bccField,
-                     text: draft.bcc.joined(separator: ", "))
+        bccRow = addressRow(label: "Bcc:", field: bccField, entries: draft.bcc)
         stack.addArrangedSubview(bccRow)
         bccRow.isHidden = !ccVisible
 
@@ -394,9 +397,9 @@ final class ComposeViewController: UIViewController,
 
     /// Send is grey until To, Cc or Bcc holds an address, as in Mail.
     private func updateSend() {
-        sendItem.isEnabled = ComposeForm.canSend(to: toField.text ?? "",
-                                                 cc: ccField.text ?? "",
-                                                 bcc: bccField.text ?? "")
+        sendItem.isEnabled = ComposeForm.canSend(to: toField.recipients,
+                                                 cc: ccField.recipients,
+                                                 bcc: bccField.recipients)
     }
 
     /// Return in Subject goes to the body, the caret at its top, above his
@@ -641,23 +644,8 @@ final class ComposeViewController: UIViewController,
         field.autocorrectionType = .no
         field.smartDashesType = .no
         field.smartQuotesType = .no
-        // Address fields get the EMAIL keyboard, which is the difference
-        // between "@" being on the main layer and being hidden two taps deep
-        // behind .?123. Found by typing a real address into this form: the
-        // key in that position on the default keyboard is a COMMA, so the
-        // address came out as "someone,example.org" and would have been
-        // rejected as unparseable. A 90-year-old hunting for an @ sign is a
-        // reason not to send the letter at all.
+        // Subject alone since B-076: To, Cc and Bcc are `addressRow`'s.
         field.addTarget(self, action: #selector(letterEdited), for: .editingChanged)
-        if field === toField || field === ccField || field === bccField {
-            field.keyboardType = .emailAddress
-            field.addTarget(self, action: #selector(addressEditingChanged(_:)),
-                            for: .editingChanged)
-            field.addTarget(self, action: #selector(addressEditingBegan(_:)),
-                            for: .editingDidBegin)
-            field.addTarget(self, action: #selector(addressEditingEnded(_:)),
-                            for: .editingDidEnd)
-        }
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
@@ -673,6 +661,49 @@ final class ComposeViewController: UIViewController,
             field.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Theme.detailContentInsetLeft),
             field.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            rule.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
+            rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            rule.heightAnchor.constraint(equalToConstant: 0.5),
+        ])
+        return container
+    }
+
+    /// To, Cc or Bcc: the caption, then the field of bubbles, one line of
+    /// `minHitTarget` for each line of them, as Mail's field grows with a
+    /// Reply All's people (B-076). The caption stays by the first line.
+    private func addressRow(label text: String, field: RecipientField, entries: [String]) -> UIView {
+        let container = UIView()
+        let label = UILabel()
+        label.text = text
+        label.font = Theme.fontDetailMeta
+        label.textColor = Theme.secondaryText
+        field.show(entries)
+        field.font = .systemFont(ofSize: Theme.scaled(17))
+        field.textColor = Theme.primaryText
+        // The caption is a label of its own, which VoiceOver does not read
+        // with the field: "To", not "To:".
+        field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+        // The email keyboard is the field's own (`RecipientField`).
+        field.addTarget(self, action: #selector(letterEdited), for: .editingChanged)
+        field.addTarget(self, action: #selector(addressEditingChanged(_:)), for: .editingChanged)
+        field.addTarget(self, action: #selector(addressEditingBegan(_:)), for: .editingDidBegin)
+        field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
+
+        let rule = UIView()
+        rule.backgroundColor = Theme.separator
+        for v in [label, field, rule] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
+            label.centerYAnchor.constraint(equalTo: container.topAnchor, constant: Theme.minHitTarget / 2),
+            label.widthAnchor.constraint(equalToConstant: 72),
+            field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
+            field.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Theme.detailContentInsetLeft),
+            field.topAnchor.constraint(equalTo: container.topAnchor),
+            field.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
@@ -698,18 +729,18 @@ final class ComposeViewController: UIViewController,
 
     /// Going in offers nothing, as in Mail (B-073), and closes a list left
     /// open under another field.
-    @objc private func addressEditingBegan(_ field: UITextField) {
+    @objc private func addressEditingBegan(_ field: RecipientField) {
         activeAddressField = field
         refreshSuggestions(after: .entered)
     }
 
-    @objc private func addressEditingChanged(_ field: UITextField) {
+    @objc private func addressEditingChanged(_ field: RecipientField) {
         activeAddressField = field
         refreshSuggestions(after: .typed)
         updateSend()
     }
 
-    @objc private func addressEditingEnded(_ field: UITextField) {
+    @objc private func addressEditingEnded(_ field: RecipientField) {
         // Deferred by one runloop turn: a TAP on a suggestion ends editing
         // before the table sees the touch, so hiding immediately would
         // dismiss the row out from under his finger and nothing would be
@@ -726,13 +757,13 @@ final class ComposeViewController: UIViewController,
     private func refreshSuggestions(after event: ComposeForm.FieldEvent) {
         guard let field = activeAddressField else { return }
         suggestions = ComposeForm.suggestions(RecipientBook.shared.snapshot(),
-                                              field: field.text ?? "", after: event)
+                                              in: field.bubbles, after: event)
         suggestionsView.reloadData()
         layoutSuggestions(under: field)
         suggestionsView.isHidden = suggestions.isEmpty
     }
 
-    private func layoutSuggestions(under field: UITextField) {
+    private func layoutSuggestions(under field: RecipientField) {
         guard let row = field.superview,
               let frame = row.superview?.convert(row.frame, to: view) else { return }
         let height = CGFloat(suggestions.count) * Self.suggestionRowHeight
@@ -764,8 +795,11 @@ final class ComposeViewController: UIViewController,
 
     func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
         guard let field = activeAddressField, ip.row < suggestions.count else { return }
-        field.text = MailFormat.replacingRecipientToken(
-            in: field.text ?? "", with: suggestions[ip.row].address)
+        // A bubble with the name the book has for it, in place of what he
+        // typed, as Mail's pick is (B-076). It used to be the address
+        // alone, typed into the field after a comma.
+        let picked = suggestions[ip.row]
+        field.pick(MailFormat.recipient(name: picked.name, address: picked.address).entry)
         t.deselectRow(at: ip, animated: false)
         // Closed, as Mail's closes, until he types again. It used to open
         // again at once with his most used over Cc, Subject and Attach
@@ -902,9 +936,11 @@ final class ComposeViewController: UIViewController,
         // `savedID` is deliberately untouched here: `collect` rebuilds the
         // draft from the form, and the form has no field for which copy on
         // the server this is.
-        draft.to = MailFormat.addresses(in: toField.text ?? "")
-        draft.cc = MailFormat.addresses(in: ccField.text ?? "")
-        draft.bcc = MailFormat.addresses(in: bccField.text ?? "")
+        // A recipient for each bubble, as the field shows them, then any
+        // he is still typing (B-076).
+        draft.to = toField.recipients
+        draft.cc = ccField.recipients
+        draft.bcc = bccField.recipients
         draft.subject = subjectField.text ?? ""
         draft.body = bodyView.text ?? ""
     }

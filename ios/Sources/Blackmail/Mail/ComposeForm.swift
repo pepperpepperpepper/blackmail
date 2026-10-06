@@ -24,10 +24,17 @@ enum ComposeForm {
     /// letter to nobody (`Submission.recipients`), so Send is never live for
     /// a letter that would only say "Message was not sent."
     static func canSend(to: String, cc: String, bcc: String) -> Bool {
+        canSend(to: MailFormat.addresses(in: to), cc: MailFormat.addresses(in: cc),
+                bcc: MailFormat.addresses(in: bcc))
+    }
+
+    /// The same, for fields read a recipient at a time, as the composers'
+    /// bubbles are (`RecipientBubbles.recipients`).
+    static func canSend(to: [String], cc: [String], bcc: [String]) -> Bool {
         var letter = Draft()
-        letter.to = MailFormat.addresses(in: to)
-        letter.cc = MailFormat.addresses(in: cc)
-        letter.bcc = MailFormat.addresses(in: bcc)
+        letter.to = to
+        letter.cc = cc
+        letter.bcc = bcc
         return !Submission.recipients(of: letter).isEmpty
     }
 
@@ -111,11 +118,28 @@ enum ComposeForm {
     /// (B-069).
     static func suggestions(_ book: [KnownRecipient], field: String, after event: FieldEvent,
                             limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
+        suggestions(book, present: MailFormat.addresses(in: field), typing: field,
+                    after: event, limit: limit)
+    }
+
+    /// The same, for a field of bubbles (B-076): matched against what he
+    /// is typing after the bubbles, and nobody offered who is already in a
+    /// bubble or typed (`RecipientBubbles.recipients`), a bubble counted as
+    /// one recipient however its words read.
+    static func suggestions(_ book: [KnownRecipient], in field: RecipientBubbles, after event: FieldEvent,
+                            limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
+        suggestions(book, present: field.recipients, typing: field.typed, after: event, limit: limit)
+    }
+
+    /// The rows for `typing`, its last recipient begun the query, leaving
+    /// out everyone `present`.
+    private static func suggestions(_ book: [KnownRecipient], present: [String], typing: String,
+                                     after event: FieldEvent, limit: Int) -> [KnownRecipient] {
         guard event == .typed else { return [] }
-        let typed = MailFormat.currentRecipientToken(in: field)
+        let typed = MailFormat.currentRecipientToken(in: typing)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !typed.isEmpty, !typed.contains("@") else { return [] }
-        let present = Set(MailFormat.addresses(in: field)
+        let present = Set(present
             .map { MailFormat.bareAddress($0).lowercased() }
             .filter { !$0.isEmpty })
         return RecipientBook.rank(book.filter { !present.contains($0.address.lowercased()) },

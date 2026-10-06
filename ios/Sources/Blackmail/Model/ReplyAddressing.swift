@@ -1,7 +1,7 @@
 import Foundation
 
 /// Whom a Reply or a Reply All goes to, worked out as Apple Mail works it
-/// out (B-061).
+/// out (B-061, B-076).
 ///
 /// Three faults, found in the gap review of 2026-09-30, all in the few lines
 /// this replaces, which addressed every reply to the letter's From:
@@ -12,12 +12,14 @@ import Foundation
 /// - A letter of his own, in Sent Mail, in the Inbox when he sent it to an
 ///   address that comes back to him, or in a conversation, was answered to
 ///   himself, its From. Mail answers it to whom it went.
-/// - Reply All took his own address out only as the account spells it, so
-///   the same mailbox written another way, `Owner_Example@Gmail.com`,
-///   `o.wner_example@gmail.com`, `owner_example+lists@googlemail.com`, all
-///   of which Gmail delivers to him, came back at him as a Cc. Reply All
-///   also took the names off every recipient, and put everyone in Cc, where
-///   Mail keeps the letter's To in To.
+/// - Reply All took his own address out only as the account spells it, and
+///   took the names off every recipient.
+///
+/// B-061 then kept the letter's To in To and moved a Cc left alone up to
+/// To, as Mail was believed to. Mail does neither: across about a hundred
+/// of his own Reply Alls from Mail, and as Apple's staff say of it ("expected
+/// behavior in iOS as well as OS X Mail"), the sender alone is in To and
+/// everyone else in Cc. The owner's ruling, 2026-10-06: copy Mail (B-076).
 ///
 /// Wrongly addressed mail cannot be called back, so the rules are few, and
 /// every one of them is pinned by `ReplyAddressingTests`:
@@ -25,13 +27,15 @@ import Foundation
 /// 1. A letter with one of his addresses in its From is his own. Reply goes
 ///    to its To, or, with nobody in To, its Cc; Reply All to its To and its
 ///    Cc, in the same fields. Its Reply-To is not looked at: it says where
-///    he wanted answers to him to go, and this answer is his.
+///    he wanted answers to him to go, and this answer is his. What Mail's
+///    Reply All does with his own letter could not be found out, so this
+///    is B-061's, kept (B-076).
 /// 2. Any other letter: Reply goes to its Reply-To when it has one, and to
 ///    everyone in its From otherwise, as RFC 5322 §3.6.3 has it for a
-///    letter written by several. Reply All goes to the same, and to the
-///    letter's To, in To, and to its Cc, in Cc. The From is left out when
-///    there is a Reply-To, as Mail leaves it out: the sender has asked for
-///    answers to go there instead.
+///    letter written by several. Reply All goes to the same, alone, in To,
+///    and to everyone else in Cc: the letter's To first, then its Cc, each
+///    in the letter's order. The From is left out when there is a Reply-To:
+///    the sender has asked for answers to go there instead.
 /// 3. Each address once, compared bare and without regard to case, To
 ///    before Cc, with its name: the first time it is named, or a later one
 ///    if the first had none. An entry with no address in it at all, such as
@@ -43,8 +47,13 @@ import Foundation
 ///    the reply going to nobody: then it goes to him, as a letter he sent to
 ///    himself is answered to himself. Never a copy of his own reply to him
 ///    otherwise.
-/// 5. With nobody left in To but someone in Cc, the Cc move up to To, so the
-///    letter is not sent with no To at all.
+/// 5. Someone else's letter: nobody in Cc ever moves up to To. A Reply All
+///    whose Reply-To is his goes with no To and the others in Cc. That is
+///    what one case of his suggests, inferred, its Reply-To unread, and not
+///    found again when the evidence was checked a second time, which left
+///    it uncertain; a minute's test with Mail would settle it (B-076). His
+///    own letter with nobody left in To but someone in Cc has the Cc moved
+///    up to To, as B-061 built it, so it is not sent with no To.
 ///
 /// Forward is not here: it goes to nobody until he says (`Draft.forwarding`).
 struct ReplyAddressing: Equatable {
@@ -66,11 +75,11 @@ struct ReplyAddressing: Equatable {
             first = all || !to.isEmpty ? to : cc
             if all { second = cc }
         } else {
+            // The Reply-To in place of the From, alone in To; everyone else
+            // in Cc, the letter's To before its Cc, as Mail's Reply All has
+            // them. Nobody in the letter's To stays in To.
             first = replyTo.isEmpty ? from : replyTo
-            if all {
-                first += to
-                second = cc
-            }
+            if all { second = to + cc }
         }
         // Once each across both fields, To first, so a name given only in
         // the Cc names the address in To too.
@@ -89,7 +98,8 @@ struct ReplyAddressing: Equatable {
             let him = first.isEmpty ? second : first
             let himInFrom = Array(from.filter { mine.contains($0.address) }.prefix(1))
             addressed = (him.isEmpty && his ? himInFrom : him, [])
-        } else if toOthers.isEmpty {
+        } else if toOthers.isEmpty && his {
+            // His own letter to himself, with others in Cc: B-061's, kept.
             addressed = (ccOthers, [])
         } else {
             addressed = (toOthers, ccOthers)
@@ -133,19 +143,17 @@ struct ReplyAddressing: Equatable {
 
 /// His own addresses: what a reply leaves out, and what makes a letter his.
 ///
-/// Compared as the mailbox they reach rather than as written (`key`): bare,
-/// without regard to case, and, for Gmail's own domains, without the dots in
-/// the name or anything after a `+`, and with googlemail.com the same as
-/// gmail.com, because Gmail delivers every one of those to the same mailbox.
-/// Only for Gmail's domains: another server may well give
-/// `sam.example@example.org` and `samexample@example.org` to two people,
-/// and taking a stranger for him would leave that stranger out of a Reply
-/// All, unseen.
+/// Mail's: the addresses listed under his account's Email in Settings
+/// (`MailAccount.ownAddresses`), the account's own first and any other he
+/// has added there, and the account's login, which is the address on every
+/// account the app has seen. Nothing is added by itself, as Mail adds
+/// nothing (B-076).
 ///
-/// The app knows the account's address and its login. An address of his
-/// on another domain that Gmail sends as and delivers to him, as his second
-/// address is, is not his here until the owner says how the app is to know
-/// it (B-061, decision left to the owner).
+/// Compared as written, bare and without regard to case. B-061 also took
+/// Gmail's other spellings of his mailbox as his, a dot in the name, a
+/// `+` tag, googlemail.com; Mail does not, and a Reply All to a letter
+/// naming him so copies him in Mail too. The owner's ruling, 2026-10-06, is
+/// to copy Mail (B-076).
 struct OwnAddresses {
     private let keys: Set<String>
 
@@ -153,36 +161,23 @@ struct OwnAddresses {
         keys = Set(addresses.compactMap(Self.key))
     }
 
-    /// The account's address and its login, which is usually the same.
+    /// Every address his account lists as his (`MailAccount.ownAddresses`),
+    /// and its login. The one place the app asks whether an address is his.
     init(account: MailAccount?) {
-        self.init([account?.address, account?.username].compactMap { $0 })
+        self.init((account?.ownAddresses ?? []) + [account?.username].compactMap { $0 })
     }
 
     func contains(_ address: String) -> Bool {
         Self.key(address).map(keys.contains) ?? false
     }
 
-    /// The mailbox `address` reaches, as far as can be told from the
-    /// address: lower case, and Gmail's spellings of one mailbox made one.
-    /// Nil for anything with no `@` in it.
+    /// The address as compared: bare and lower case. Nil for anything with
+    /// no `@` in it, or nothing on either side of it.
     static func key(_ address: String) -> String? {
         let bare = MailFormat.bareAddress(address).lowercased()
-        guard let at = bare.lastIndex(of: "@") else { return nil }
-        var local = String(bare[..<at])
-        var domain = String(bare[bare.index(after: at)...])
-        guard !local.isEmpty, !domain.isEmpty else { return nil }
-        if domain == "gmail.com" || domain == "googlemail.com" {
-            var name = local
-            if let plus = name.firstIndex(of: "+") { name = String(name[..<plus]) }
-            name = name.replacingOccurrences(of: ".", with: "")
-            // A name that is nothing but dots and a tag is no Gmail
-            // mailbox: kept as written, so it matches only itself.
-            if !name.isEmpty {
-                local = name
-                domain = "gmail.com"
-            }
-        }
-        return local + "@" + domain
+        guard let at = bare.lastIndex(of: "@"), at != bare.startIndex,
+              bare.index(after: at) != bare.endIndex else { return nil }
+        return bare
     }
 }
 
@@ -334,14 +329,16 @@ extension MailFormat {
 
     /// One recipient as the composer's field keeps it, and as it goes in
     /// the letter's header: `Jane Example <jane@example.com>`, the address
-    /// alone where there is no name, and the name in quotes where it holds
+    /// alone where there is no name or the name is the address again in any
+    /// letter case (B-076), and the name in quotes where it holds
     /// anything the field or the header would read as more than a name, a
     /// comma above all. `"Example, Jane" <jane@example.com>` is one
     /// recipient in the field (`addresses(in:)`); unquoted, the comma would
     /// make it two, the first of them `Example`, which mail cannot be sent
     /// to.
     static func recipientEntry(name: String?, address: String) -> String {
-        guard let name, !name.isEmpty, name != address else { return address }
+        guard let name, !name.isEmpty,
+              name.caseInsensitiveCompare(address) != .orderedSame else { return address }
         let specials = "()<>@,;:\\\".[]"
         guard name.contains(where: { specials.contains($0) }) else {
             return "\(name) <\(address)>"

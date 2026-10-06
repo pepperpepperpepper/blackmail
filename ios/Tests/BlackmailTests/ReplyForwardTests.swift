@@ -165,10 +165,11 @@ final class ReplyForwardTests: XCTestCase {
 
         XCTAssertFalse((draft.to + draft.cc).contains { $0.lowercased().contains("carlo") },
                        "his own address, in any casing, must not come back at him")
-        // The letter's To stays in To, as Mail keeps it (B-061), and the
-        // sender, already there, is not copied again from the Cc.
-        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>", "bob@example.com"])
-        XCTAssertEqual(draft.cc, [])
+        // The sender alone in To and everyone else in Cc, as Mail's Reply
+        // All has them (B-076; B-061 kept the letter's To in To), and the
+        // sender, already in To, not copied again from the Cc.
+        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>"])
+        XCTAssertEqual(draft.cc, ["bob@example.com"])
     }
 
     /// A name with a comma in it stays one recipient, its name kept as the
@@ -178,9 +179,10 @@ final class ReplyForwardTests: XCTestCase {
     func testReplyAllKeepsANameWithACommaAsOneRecipient() {
         let m = message(text: "hi", to: ["\"Smith, Bob\" <bob@example.com>"])
         let draft = Draft.replying(to: m, all: true, myAddress: "me@x.com")
-        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>",
-                                  "\"Smith, Bob\" <bob@example.com>"])
-        XCTAssertEqual(MailFormat.addresses(in: draft.to.joined(separator: ", ")), draft.to)
+        // In Cc, as Mail's Reply All has the letter's To (B-076).
+        XCTAssertEqual(draft.to, ["Jane Smith <jane@example.com>"])
+        XCTAssertEqual(draft.cc, ["\"Smith, Bob\" <bob@example.com>"])
+        XCTAssertEqual(MailFormat.addresses(in: draft.cc.joined(separator: ", ")), draft.cc)
     }
 
     func testPlainReplyCCsNobody() {

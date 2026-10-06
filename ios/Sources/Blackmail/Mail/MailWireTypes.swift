@@ -309,10 +309,16 @@ struct MailAccount: Codable, Equatable {
     /// rendered instead, which is correct and safe.
     var signatureHTML: String = ""
 
+    /// His other addresses, as Mail's account lists them under Email after
+    /// its own: each added in Settings with "Add Another Email…", by him or
+    /// whoever sets up his iPad, in the order added (B-076). Never filled by
+    /// the app, as Mail fills nothing. Letters still go from `address`.
+    var otherAddresses: [String] = []
+
     init(address: String, imapHost: String = "imap.gmail.com", imapPort: UInt16 = 993,
          smtpHost: String = "smtp.gmail.com", smtpPort: UInt16 = 465,
          username: String, displayName: String = "", signature: String = "",
-         signatureHTML: String = "") {
+         signatureHTML: String = "", otherAddresses: [String] = []) {
         self.address = address
         self.imapHost = imapHost
         self.imapPort = imapPort
@@ -322,6 +328,61 @@ struct MailAccount: Codable, Equatable {
         self.displayName = displayName
         self.signature = signature
         self.signatureHTML = signatureHTML
+        self.otherAddresses = otherAddresses
+    }
+
+    /// His addresses, as Mail's account lists them under Email: the
+    /// account's own first, then each other he has added, each once,
+    /// compared without regard to case, blanks left out.
+    ///
+    /// What the app asks wherever it needs to know whether an address is
+    /// his (`OwnAddresses(account:)`): Reply All leaves every one of them
+    /// out, and a letter from any of them is his own.
+    var ownAddresses: [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for a in [address] + otherAddresses {
+            let t = a.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty, seen.insert(t.lowercased()).inserted else { continue }
+            out.append(t)
+        }
+        return out
+    }
+
+    /// Why an address cannot be added to his list (`adding`).
+    enum AddressRefusal: Error, Equatable {
+        /// No `@`, nothing on one side of it, or a space or a comma in it.
+        case notAnAddress
+        /// Already in the list, in any letter case.
+        case alreadyListed
+    }
+
+    /// The account with `typed` added to his other addresses, trimmed, as
+    /// "Add Another Email…" adds it; or why it cannot be.
+    func adding(_ typed: String) -> Result<MailAccount, AddressRefusal> {
+        let t = typed.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let at = t.lastIndex(of: "@"), at != t.startIndex, t.index(after: at) != t.endIndex,
+              !t.contains(where: { $0.isWhitespace || ",;<>()\"".contains($0) }) else {
+            return .failure(.notAnAddress)
+        }
+        guard !ownAddresses.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) else {
+            return .failure(.alreadyListed)
+        }
+        var out = self
+        out.otherAddresses = Array(ownAddresses.dropFirst()) + [t]
+        return .success(out)
+    }
+
+    /// The account without `other`, one of his added addresses. The
+    /// account's own cannot be taken off: it is the account.
+    func removing(_ other: String) -> MailAccount {
+        var out = self
+        out.otherAddresses = otherAddresses.filter {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare(other.trimmingCharacters(in: .whitespacesAndNewlines))
+                != .orderedSame
+        }
+        return out
     }
 
     /// Decodes an account stored by an OLDER build, one field at a time.
@@ -352,5 +413,6 @@ struct MailAccount: Codable, Equatable {
         displayName = try c.decodeIfPresent(String.self, forKey: .displayName) ?? ""
         signature = try c.decodeIfPresent(String.self, forKey: .signature) ?? ""
         signatureHTML = try c.decodeIfPresent(String.self, forKey: .signatureHTML) ?? ""
+        otherAddresses = try c.decodeIfPresent([String].self, forKey: .otherAddresses) ?? []
     }
 }

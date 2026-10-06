@@ -635,7 +635,9 @@ enum MailFormat {
     }
 
     /// Swaps the half-typed address for a chosen one and leaves a
-    /// separator ready for the next.
+    /// separator ready for the next. The composers' fields are bubbles
+    /// since B-076, and a pick is `RecipientBubbles.pick` there; this is
+    /// the same pick on the field's text.
     ///
     /// The trailing ", " is doing real work rather than tidying: the email
     /// keyboard has no comma key, and `ComposeViewController` splits

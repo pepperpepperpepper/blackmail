@@ -600,7 +600,12 @@ enum RFC5322Builder {
             }
             name = unescaped
         }
-        return addressValue(name: name.isEmpty ? nil : name, address: address)
+        // A name that is only the address again, in any letter case, goes
+        // out as the bare address, as Mail sends it (B-076): `"jane@example.com"
+        // <jane@example.com>` is `jane@example.com`.
+        let named = !name.isEmpty
+            && name.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(address) != .orderedSame
+        return addressValue(name: named ? name : nil, address: address)
     }
 
     /// The part of a recipient entry the letter is addressed by: the entry

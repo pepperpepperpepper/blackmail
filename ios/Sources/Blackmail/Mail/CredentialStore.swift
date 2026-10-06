@@ -156,6 +156,9 @@ enum CredentialStore {
         out.smtpHost = trim(account.smtpHost)
         out.username = trim(account.username).isEmpty ? out.address : trim(account.username)
         out.displayName = trim(account.displayName)
+        // His other addresses each once, trimmed, and none of them the
+        // account's own (B-076).
+        out.otherAddresses = Array(out.ownAddresses.dropFirst())
         return out
     }
 

@@ -72,7 +72,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             load. See B-055, and its check under "Blocked on the iPad
             coming back".*
 - [ ] On the day: Smart Invert off, what to do about Apple Mail's badges,
-      the six-task test with him.
+      the six-task test with him. Look at Settings > Apps > Mail > Mail
+      Accounts on his iPad: whether his Gmail account lists his second
+      address under Email, and whether that address is an account of its
+      own. Then add his second address in Blackmail's Settings with "Add
+      Another Email…", and Save (B-076).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -150,7 +154,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       delivers to him. His second address, on another domain, is his only
       once the owner says how the app is to know it (under "Blocked on the
       owner"). See B-061, and its check under "Blocked on the iPad coming
-      back".*
+      back".* *Changed 2026-10-06 by the owner's ruling, "copy apple
+      mail": Reply All has the sender alone in To and everyone else in
+      Cc, his addresses are matched as written in any letter case, and his
+      second address is his once it is listed in Settings. See B-076.*
 - [x] A reply finished from Drafts went with no In-Reply-To and no
       References, and began a conversation of its own (found on the iPad
       in B-061's check). *Done 2026-10-03, seen on the iPad: a
@@ -2091,6 +2098,41 @@ this host. Ordered by value, not by size.
       7. *VoiceOver* on, in Sent Mail, touch the row of 2: "Jane & Sam,
       2 messages", the subject, the time. VoiceOver off.
       Then delete the B-075 letters and the draft.
+- [ ] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
+      iPad, the test account only; A stands for its address. Letters only
+      to A with a `+` tag before the @, subjects beginning "B-076".
+      1. *Bubbles.* A new letter. In To type A with `+jane` and a comma: it
+      becomes a bubble with the address on it. Tap Cc/Bcc, then Cc; type A
+      with `+sam`, then tap Subject: a bubble too. Subject "B-076 bubbles",
+      Send. It arrives once; Gmail's Show original has To and Cc as typed.
+      2. *A pick.* A new letter. In To type one letter and pick a row with
+      a name: a bubble with the name, no list, Send blue. Type the same
+      letter again: the one picked is not offered.
+      3. *Backspace and a tap.* With the caret after the bubbles, Delete
+      once: the last bubble turns bright blue. Delete again: it is gone,
+      and Send is grey if it was the only one. Tap a bubble: a small menu
+      with its address and Remove. Tap outside: the menu goes, the bubble
+      plain again. Tap it again and Remove: gone. Cancel, Delete Draft.
+      3a. *A bubble's whole line.* A new letter. In To type `Al
+      <al@example.com>` and a comma: a bubble "Al", as wide as a finger.
+      Tap just above it, inside the To row: its menu. Tap outside; tap
+      just below it: the menu again. With the menu up, type "sa" and
+      Return: "sa" a bubble after it, "Al" still bright, the menu still on
+      "Al", and still on it as the keyboard moves. Delete: "Al" goes, and
+      its menu with it. Cancel, Delete Draft. Nothing is sent.
+      4. *Reply All.* Open the letter of step 1 in the Inbox, Reply All: To
+      `+jane`, Cc `+sam`, each a bubble (his own letter, answered as B-061
+      answered it). Cancel. Type a word, Save Draft, open it from Drafts:
+      the same bubbles. Cancel, Delete Draft.
+      5. *His addresses.* Settings: under the address, "Email", the address
+      alone, and "Add Another Email…". Add A with `+jane` in capitals:
+      listed, with Remove. Add "owner": "That is not an email address."
+      Save. Reply All to the letter of step 1 again: To `+sam` alone, `+jane`
+      left out as his. Cancel. Settings: Remove `+jane`, Save; Settings
+      again: only the address.
+      6. *The share sheet,* from Safari. It opens in To. Type one letter,
+      pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
+      again, Subject "B-076 share", Send. It arrives once, To `+sam`.
 
 ## Blocked on the owner
 
@@ -2156,7 +2198,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       no count on any row: its blue chevron in a circle after the date
       marks a conversation everywhere. Keep the count (built), or the
       mark there too.
-- [ ] **Reply's addressing** (B-061) — built as Mail is believed to do it,
+- [x] **Reply's addressing** (B-061) — built as Mail is believed to do it,
       none of it checked against Mail on an iPad. Reply All to a letter
       with a Reply-To goes to the Reply-To in place of the From, or to
       both; the composer's To shows "Jane Example <jane@example.com>", or
@@ -2164,6 +2206,14 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       and its Cc in Cc, or puts everyone in Cc as before; a Cc left alone
       moves up to To, or the reply goes with no To; his own letter's
       Reply-To is not followed, or it is.
+      *Ruled 2026-10-06: "copy apple mail". Built (B-076): Reply All has
+      the Reply-To, or the From, alone in To, and everyone else in Cc, the
+      letter's To then its Cc; nobody moves up to To on anyone else's
+      letter; the Reply-To in place of the From. To, Cc and Bcc show a
+      bubble with each person's name, in the composer and the share sheet,
+      and the header names them as before. His own letter: as built, its
+      Reply-To not followed and its Reply All as before, since what Mail
+      does there could not be found out.*
 - [ ] **The view button's motion** (B-066) — built as pictures of the
       columns sliding 0.4 s and settling 0.2 s, the list sliding over
       the folders from three to two and off them from two to three. Keep
@@ -2174,7 +2224,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **"< Mailboxes" and a folder tap in two panes** (B-066) — instant,
       as they have always been, and as built. Or a slide, as Mail's
       navigation pushes and pops, about 0.35 s.
-- [ ] **His second address** (B-061) — Gmail sends as it and delivers it
+- [x] **His second address** (B-061) — Gmail sends as it and delivers it
       to him, and the app cannot tell it is his, so a Reply All to a
       letter that names it sends it a copy, which comes back to his Inbox.
       Leave it; or a line in Settings where his other addresses are
@@ -2182,12 +2232,21 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       From addresses of Sent Mail taken as his at sign-in, which would
       take a stranger for him if a letter of theirs were ever moved into
       Sent Mail.
-- [ ] **Reply to his own letter sent by Bcc alone** (B-061) — its copy
+      *Ruled 2026-10-06: "copy apple mail". Built (B-076): Settings lists
+      his addresses under his account, the account's own first, with "Add
+      Another Email…" and a Remove for each added one, as Mail's account
+      has them under Email. Reply All leaves every one out, and a letter
+      from any is his own. Nothing is added by itself, as in Mail, so his
+      second address is to be added on his iPad at the install.*
+- [x] **Reply to his own letter sent by Bcc alone** (B-061) — its copy
       in Sent Mail keeps its Bcc header, and Reply answers it to himself,
       as built. Or to its Bcc recipients, in Bcc,
       or in To. Gmail keeps the Bcc on its copy of a letter sent from
       Blackmail too (seen 2026-10-03, B-060), so this is any letter he
       sent to Bcc alone.
+      *Ruled 2026-10-06: "copy apple mail". What Mail does could not be
+      found out: his mail has no such reply, and nothing published says.
+      Kept as built: answered to himself (B-076).*
 
 ## Open, recorded, not scheduled
 

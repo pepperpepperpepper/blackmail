@@ -144,6 +144,16 @@ extension Theme {
     /// can share a name.
     static let suggestionRowHeight: CGFloat = 60
 
+    /// A recipient's bubble in the composer's To, Cc and Bcc, and the share
+    /// sheet's (B-076), as Mail shows each recipient by name. Centred in a
+    /// line of `minHitTarget`, the field's height for one line of them, so
+    /// a field of a few people is the 44 points it always was and a Reply
+    /// All to many grows a line at a time, as Mail's does.
+    static let recipientBubbleHeight: CGFloat = 30
+    /// Between two bubbles on a line, and the words' room inside one.
+    static let recipientBubbleGap: CGFloat = 6
+    static let recipientBubblePadding: CGFloat = 10
+
     /// The Current Mailbox / All Mailboxes strip, which exists only while
     /// search is active and so costs the list nothing the rest of the time.
     ///
@@ -395,6 +405,11 @@ extension Theme {
     static let searchFieldFill = UIColor.black            // was white
     static let searchFieldCornerRadius: CGFloat = 5
     static let barFill = UIColor(white: 6 / 255, alpha: 1)             // was 249
+    /// A recipient's bubble (B-076): the tint, dimmed, under white words;
+    /// picked out, by a tap or a backspace, the tint itself, as Mail
+    /// fills a recipient it has selected.
+    static let recipientBubbleFill = UIColor(red: 10 / 255, green: 132 / 255, blue: 255 / 255,
+                                             alpha: 0.3)
     static let canvas = UIColor.black                                  // was white
 
     // MARK: - Toolbar order (BINDING — the most load-bearing constant here)

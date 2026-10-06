@@ -182,9 +182,11 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// "1 photo could not be attached.", or nil (`ShareItems.leftOut`).
     private let leftOut: String?
 
-    private let toField = UITextField()
-    private let ccField = UITextField()
-    private let bccField = UITextField()
+    /// To, Cc and Bcc, a bubble for each recipient, as in the app's
+    /// composer (B-076).
+    private let toField = RecipientField()
+    private let ccField = RecipientField()
+    private let bccField = RecipientField()
     private let subjectField = UITextField()
     private let bodyView = UITextView()
     /// The fields and the body, scrolled as one, as in the app's composer.
@@ -200,7 +202,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     private let suggestionsView = UITableView(frame: .zero, style: .plain)
     private var suggestions: [KnownRecipient] = []
-    private weak var activeAddressField: UITextField?
+    private weak var activeAddressField: RecipientField?
 
     private lazy var sendItem = UIBarButtonItem(
         title: "Send", style: .done, target: self, action: #selector(sendTapped))
@@ -266,11 +268,11 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroller.addSubview(stack)
 
-        stack.addArrangedSubview(row("To:", toField, draft.to.joined(separator: ", ")))
+        stack.addArrangedSubview(addressRow("To:", toField, draft.to))
         // Straight into the stack as ARRANGED subviews, never wrapped: see
         // `ComposeViewController.ccRow` for what a wrapper did to Cc.
-        ccRow = row("Cc:", ccField, draft.cc.joined(separator: ", "))
-        bccRow = row("Bcc:", bccField, draft.bcc.joined(separator: ", "))
+        ccRow = addressRow("Cc:", ccField, draft.cc)
+        bccRow = addressRow("Bcc:", bccField, draft.bcc)
         ccRow.isHidden = !draft.showsCcAndBcc
         bccRow.isHidden = !draft.showsCcAndBcc
         stack.addArrangedSubview(ccRow)
@@ -404,9 +406,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// Send is grey until To, Cc or Bcc holds an address, as in Mail.
     private func updateSend() {
-        sendItem.isEnabled = ComposeForm.canSend(to: toField.text ?? "",
-                                                 cc: ccField.text ?? "",
-                                                 bcc: bccField.text ?? "")
+        sendItem.isEnabled = ComposeForm.canSend(to: toField.recipients,
+                                                 cc: ccField.recipients,
+                                                 bcc: bccField.recipients)
     }
 
     /// Return in Subject goes to the body, the caret at its top, as in Mail.
@@ -440,14 +442,6 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.autocorrectionType = .no
         field.smartDashesType = .no
         field.smartQuotesType = .no
-        if field !== subjectField {
-            // The email keyboard, with "@" on its first layer, for the
-            // reason the app's composer gives.
-            field.keyboardType = .emailAddress
-            field.addTarget(self, action: #selector(addressEntered(_:)), for: .editingDidBegin)
-            field.addTarget(self, action: #selector(addressTyped(_:)), for: .editingChanged)
-            field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
-        }
         let rule = UIView()
         rule.backgroundColor = Theme.separator
         for v in [label, field, rule] {
@@ -464,6 +458,49 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
                                             constant: -Theme.detailContentInsetLeft),
             field.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                          constant: Theme.detailContentInsetLeft),
+            rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            rule.heightAnchor.constraint(equalToConstant: 0.5),
+        ])
+        return container
+    }
+
+    /// To, Cc or Bcc: the caption, then the field of bubbles, a line of
+    /// `minHitTarget` for each line of them, as in the app's composer.
+    private func addressRow(_ text: String, _ field: RecipientField, _ entries: [String]) -> UIView {
+        let container = UIView()
+        let label = UILabel()
+        label.text = text
+        label.font = Theme.fontDetailMeta
+        label.textColor = Theme.secondaryText
+        field.show(entries)
+        field.font = .systemFont(ofSize: Theme.scaled(17))
+        field.textColor = Theme.primaryText
+        // "To", not "To:": the caption is a label of its own.
+        field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+        // The email keyboard is the field's own (`RecipientField`).
+        field.addTarget(self, action: #selector(addressEntered(_:)), for: .editingDidBegin)
+        field.addTarget(self, action: #selector(addressTyped(_:)), for: .editingChanged)
+        field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
+        let rule = UIView()
+        rule.backgroundColor = Theme.separator
+        for v in [label, field, rule] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                           constant: Theme.detailContentInsetLeft),
+            label.centerYAnchor.constraint(equalTo: container.topAnchor,
+                                           constant: Theme.minHitTarget / 2),
+            label.widthAnchor.constraint(equalToConstant: 72),
+            field.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4),
+            field.trailingAnchor.constraint(equalTo: container.trailingAnchor,
+                                            constant: -Theme.detailContentInsetLeft),
+            field.topAnchor.constraint(equalTo: container.topAnchor),
+            field.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
             rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -565,11 +602,11 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// Going in offers nothing, as in Mail (B-073), and closes a list left
     /// open under another field.
-    @objc private func addressEntered(_ field: UITextField) {
+    @objc private func addressEntered(_ field: RecipientField) {
         offer(field, after: .entered)
     }
 
-    @objc private func addressTyped(_ field: UITextField) {
+    @objc private func addressTyped(_ field: RecipientField) {
         offer(field, after: .typed)
         updateSend()
     }
@@ -577,9 +614,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// What the field offers after `event` (`ShareSheet.suggestions`):
     /// matches only while he types; nothing as he goes in (B-073), and
     /// nothing after a pick until he types again.
-    private func offer(_ field: UITextField, after event: ComposeForm.FieldEvent) {
+    private func offer(_ field: RecipientField, after event: ComposeForm.FieldEvent) {
         activeAddressField = field
-        suggestions = sheet.suggestions(for: field.text ?? "", after: event)
+        suggestions = sheet.suggestions(in: field.bubbles, after: event)
         suggestionsView.reloadData()
         place(under: field)
         suggestionsView.isHidden = suggestions.isEmpty
@@ -587,7 +624,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// The list just under the field's row, wherever the sheet has
     /// scrolled it.
-    private func place(under field: UITextField) {
+    private func place(under field: RecipientField) {
         if let row = field.superview, let frame = row.superview?.convert(row.frame, to: view) {
             suggestionsView.frame = CGRect(x: frame.minX, y: frame.maxY, width: frame.width,
                                            height: CGFloat(suggestions.count) * Theme.suggestionRowHeight)
@@ -596,7 +633,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     /// Deferred a turn, so a tap on a suggestion lands before the list goes.
-    @objc private func addressEditingEnded(_ field: UITextField) {
+    @objc private func addressEditingEnded(_ field: RecipientField) {
         DispatchQueue.main.async { [weak self] in
             guard let self, !(self.activeAddressField?.isEditing ?? false) else { return }
             self.suggestionsView.isHidden = true
@@ -622,8 +659,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
         guard let field = activeAddressField, ip.row < suggestions.count else { return }
-        field.text = MailFormat.replacingRecipientToken(in: field.text ?? "",
-                                                        with: suggestions[ip.row].address)
+        // A bubble with its name, as in the app's composer (B-076).
+        let picked = suggestions[ip.row]
+        field.pick(MailFormat.recipient(name: picked.name, address: picked.address).entry)
         t.deselectRow(at: ip, animated: false)
         // Closed until he types again, as in Mail.
         offer(field, after: .picked)
@@ -692,9 +730,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     }
 
     private func collect() {
-        draft.to = MailFormat.addresses(in: toField.text ?? "")
-        draft.cc = MailFormat.addresses(in: ccField.text ?? "")
-        draft.bcc = MailFormat.addresses(in: bccField.text ?? "")
+        // A recipient for each bubble, as the app's composer reads them.
+        draft.to = toField.recipients
+        draft.cc = ccField.recipients
+        draft.bcc = bccField.recipients
         draft.subject = subjectField.text ?? ""
         draft.body = ShareLetter.written(bodyView.text ?? "", began: began)
     }
