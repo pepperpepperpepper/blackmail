@@ -210,6 +210,17 @@ extension Theme {
     /// 15, not 16: three passes read 15.0 / 14.6 / 13.5. The delta is inside a
     /// single pass's error but the bias is consistent across all three.
     static let rowTextRightInset: CGFloat = 15
+    /// The mark of a conversation in Sent Mail, Drafts and the Outbox
+    /// (B-075), Mail's blue chevron in a circle, ends the sender line at the
+    /// text's right edge, and the date's label ends this far before the
+    /// mark's. Mail's gap, measured off a 2024 screenshot of its list on an
+    /// iPhone at 2x, is 17 px, 8.5 pt, from the date's last ink to the
+    /// circle's first, the circle 32 px across and centred on the date's
+    /// figures. The symbol and the date carry 3.5 pt of margin between them
+    /// beyond their ink, measured in the iPadOS 18 simulator, so 5 here puts
+    /// Mail's 8.5 between the inks. Not on the owner's reference, which has
+    /// no conversation on it.
+    static let conversationMarkGap: CGFloat = 5
 
     /// UNVERIFIABLE against the reference, and flagged as such rather than
     /// quietly presented as measured: every row in the owner's screenshot is
@@ -311,6 +322,13 @@ extension Theme {
     /// letter down.
     static var symbolSize: UIImage.SymbolConfiguration {
         UIImage.SymbolConfiguration(pointSize: scaled(17), weight: .regular, scale: .large)
+    }
+
+    /// The conversation mark's chevron at the date's size, as Mail draws it
+    /// beside its date (B-075). It moves with the type, as the date does,
+    /// and not with the text size in Settings (B-071).
+    static var conversationMarkSymbol: UIImage.SymbolConfiguration {
+        UIImage.SymbolConfiguration(font: fontListTimestamp, scale: .medium)
     }
 
     /// An SF Symbol at `symbolSize`.

@@ -174,12 +174,13 @@ enum Outbox {
 
     static let mailboxID = "blackmail:outbox"
 
-    /// Whom a letter in the Outbox is to, as its row says it: each
-    /// recipient's name where he gave one, or the address, To first, each
-    /// person once. Named as Sent Mail's and Drafts' rows name them, since
-    /// B-060 by the one rule (`RowNames`).
+    /// Whom a letter in the Outbox is to, as its row says it: its To,
+    /// named as Sent Mail's and Drafts' rows name it, by the one rule
+    /// (`RowNames.line`, B-060, B-075). His own addresses are not known
+    /// here; the list names the row again with them (`MessageThread.
+    /// displayRow(in:mine:)`), from the To the row carries.
     static func addressees(of draft: Draft) -> String {
-        RowNames.line(RowNames.recipients(Submission.recipients(of: draft)).map(\.name))
+        RowNames.line(to: draft.to, mine: OwnAddresses([]))
     }
 }
 

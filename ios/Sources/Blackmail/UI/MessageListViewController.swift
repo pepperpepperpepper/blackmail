@@ -68,6 +68,10 @@ final class MessageListViewController: UITableViewController {
 
     private let repository: MailRepository
     private let mailbox: Mailbox
+    /// His own addresses, which a row naming whom its letters are to leaves
+    /// out of two or more (`RowNames.line`, B-075). Read once: a new
+    /// account builds the screens again.
+    private lazy var mine = OwnAddresses(account: CredentialStore.loadAccount())
     private var searchBar: SearchHeaderView!
     private let emptyLabel = UILabel()
     private let statusLabel = UILabel()
@@ -1330,7 +1334,8 @@ final class MessageListViewController: UITableViewController {
                   let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
             switch rows[indexPath.row] {
             case let .thread(t):
-                cell.configure(with: t.displayRow(in: mailbox))
+                cell.configure(with: t.displayRow(in: mailbox, mine: mine),
+                               marked: t.marksConversation(in: mailbox))
             }
         }
     }
@@ -2066,11 +2071,13 @@ final class MessageListViewController: UITableViewController {
         switch rows[ip.row] {
         case let .thread(thread):
             // In Sent Mail, Drafts and the Outbox the top line names whom
-            // the letters are to, and VoiceOver reads what it names
-            // (`RowNames`, B-060).
-            cell.configure(with: thread.displayRow(in: mailbox))
+            // the letters are to, a conversation marked after the date in
+            // place of its count, and VoiceOver reads what it names
+            // (`RowNames`, B-060, B-075).
+            cell.configure(with: thread.displayRow(in: mailbox, mine: mine),
+                           marked: thread.marksConversation(in: mailbox))
             cell.isBusy = thread.messages.contains { $0.id == drafts.loading }
-            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox)
+            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
         }
         return cell
     }

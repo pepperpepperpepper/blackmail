@@ -6731,6 +6731,9 @@ those mailboxes. The Outbox alone did already (B-052).
   wrote.
   A draft addressed to nobody says "No Recipients", the Outbox's words
   since B-052.
+  Since B-075 the line is Mail's: the To alone, one person whole, two or
+  more by short names joined "Jane & Sam", and a conversation marked
+  after its date in place of its count.
 - Which folder a row was listed from decides it, not what the letter is.
   A search of Sent Mail alone names whom. A letter of his found by an All
   Mailboxes search is listed from All Mail, and names him, as it does in
@@ -6814,13 +6817,23 @@ known:
   room, either of which changes the row's layout, frozen to the
   reference.
 
+*Decided 2026-10-06 by the owner, for all five: "copy apple mail for
+these". Built in B-075.* Who: the To alone, as Mail on the iPad names it.
+A draft to nobody: "No Recipients" kept; Mail's own string for its rows
+is "No Recipient". His letters found by an All Mailboxes search: his
+name, as built, which is Mail's. VoiceOver: the names as shown, as
+built. The count: none on the names; Mail's chevron in a circle after
+the date marks a conversation, and the names cannot push it off the line.
+
 **Known since 2026-10-03.** Gmail keeps the Bcc on its copy of a letter
 sent through SMTP, though the letter as sent carries none: the ENVELOPE of
 "B-060 two" in Sent Mail, sent from the app to Sam's bare address, Cc Jane
 and Bcc the test account, has the test account as its Bcc. So the Bcc is
 named in Sent Mail too, as it is in Drafts, after the other names and past
 the end of the line the row has room for, and a letter he sent to Bcc
-alone names its Bcc there, not "No Recipients".
+alone names its Bcc there, not "No Recipients". Since B-075 the row names
+the To alone, so neither the Cc nor the Bcc is named there, and a letter
+he sent to Bcc alone says "No Recipients".
 
 **Seen on the iPad, 2026-10-03**, on carlo's mailbox, every letter from it
 to itself, with `+jane` and `+sam` before the `@` for Jane's and Sam's
@@ -9442,4 +9455,244 @@ list gone; Cancel closed it with nothing asked. Nothing was sent.
   letter could be left in Drafts. The host suite holds both.
 - The on-screen keyboard was not tried in the simulator; the hardware
   one was.
+- Not yet seen on the iPad. The TODO says how.
+
+---
+
+## B-075 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. A conversation in Sent Mail lost its count off the end of the names; Mail names the To alone and marks a conversation after the date
+
+**Asked** in B-060, 2026-10-03, with four more questions about the rows
+of Sent Mail, Drafts and the Outbox. B-060 named the To, the Cc and the
+Bcc, each whole, joined by commas, and ended a conversation's line with
+its count. The line is short, some 168 points in three panes, so the
+count was often past its end: "Jane Example, Sam Exam…" for "Jane
+Example, Sam Example (2)". The owner's answer, 2026-10-06, for all five
+questions: "copy apple mail for these".
+
+**What Mail does** on iPadOS 18. Read in Mail's own code for its list
+rows, in the iOS 18.6 runtime, where Mail itself does not run; and in
+guides and screenshots of Mail's list, the newest of them from 2024 and
+2025, on an iPhone.
+
+- In Sent, Drafts and the Outbox, and in a search of one of them, the
+  top line names the letter's To alone. Not the Cc, not the Bcc, and no
+  "To:" before the names. A search of other mailboxes names the sender,
+  as every other mailbox does.
+- Nobody in To: a stand-in. Mail's string for it is "No Recipient".
+- One person: the whole name, the letter's name for them, or the address
+  where there is none.
+- Two or more: his own addresses taken out, except the first entry,
+  which never is. Each person once. If one is left, the whole name.
+  Otherwise each by a short name, joined "Jane & Sam", "Jane, Sam &
+  Bob". No "& 2 more". The line is cut at its end.
+- A name that is itself another address is shown with the real address
+  after it.
+- No count on any row. A conversation is marked with a small blue
+  chevron in a circle, at the right end of the top line, after the date.
+  A tap on the chevron opens the conversation's letters in the list. The
+  names are cut before the date, so they never push the mark off.
+
+Not found: a screenshot of an iPadOS 18 row in Sent with several names
+or with a conversation; how Mail shortens the name of someone not in
+Contacts (it takes the Contacts short name, "Jane" or "Jane E." by a
+setting whose default was not found); whether Mail on the iPad shows its
+"No Recipient" there.
+
+**Changed.**
+
+1. *The names* (`RowNames.line`). In Sent Mail, Drafts and the Outbox
+   the top line names the To alone, by Mail's rule above. One person
+   whole: "Jane Example", or "sam@example.com". A name that is only the
+   address again is no name. Two or more by short names: the name's
+   first word, or the word after the comma of a name written surname
+   first ("Example, Jane" gives "Jane"), or the address before its "@"
+   where there is no name. That rule is inferred: the app has no
+   Contacts, and how Mail shortens a name it finds in none was not read.
+   His own addresses are the ones Reply knows (`OwnAddresses`, B-061):
+   the account's address and login, in every spelling Gmail delivers to
+   him. They are taken out of two or more but for the first entry, as
+   Mail's code keeps it: To him and Jane reads his short name, then "&
+   Jane"; To Jane and him, "Jane Example"; to him alone, his name. Each
+   address once, in any case, and a name given again at another address
+   once. A name that is another address reads "jane@example.com
+   <other@example.net>". An entry with no "@", a draft's half-typed
+   "jan", is named as he left it. An address with a ";" after it is
+   named by its address, "jane@example.com;" as "jane@example.com", and
+   so is the last of a group's people. Only an entry with no address in
+   it, such as the empty group "undisclosed-recipients:;", names nobody.
+   The composer splits a field at commas alone, so a draft or a letter
+   in the Outbox keeps a ";" he typed. The first build dropped every
+   entry that ended in ";", and a draft To "jane@example.com;" read "No
+   Recipients" in Drafts and the Outbox, where B-060 named it (found in
+   review).
+2. *A conversation* names the To of every letter in it, the newest
+   letter's first, by the same rule, as B-060 had it: "Sam & Jane" for a
+   letter to Sam and an older one to Jane. A letter whose row does not
+   know its To, kept by a build before B-060, adds nobody; when none in
+   it knows, the row names their senders, as before.
+3. *No count, and the mark* (`MessageThread.marksConversation(in:)`,
+   `MessageCell`). A conversation's row there has no "(2)". It ends its
+   top line with Mail's chevron in a circle, `chevron.forward.circle`,
+   blue, at the date's size, centred on the date's figures. A mark only:
+   a tap anywhere on the row opens the conversation in the reading pane,
+   as it did. Mail's chevron opens the letters in the list; that is not
+   built.
+4. *Nobody in To* says "No Recipients", the words of the Outbox's rows
+   since B-052. A letter sent to Cc or Bcc alone says so too, where
+   B-060 named them.
+5. *The row's layout* (`RowTopLine`, out of the cell so the suite holds
+   it). The mark ends at the text's right edge. The date's label keeps
+   its left edge and ends before the mark, inside the 110 points it
+   always had. The names keep their width, so they are cut where they
+   were. Nothing else in the row moves, and a row without the mark is
+   as it was to the point. The gap between the date and the circle is
+   Mail's, 8.5 points from ink to ink, measured off Mail's list at 2x;
+   that is 5 between the two frames (`Theme.conversationMarkGap`),
+   measured in the simulator.
+6. *The cell draws the line the row gives it.* It used to read the line
+   again as one sender's, `Name <address>`, which cut a name that is
+   another address at its "<". Every name on the Inbox's line was read
+   so already (`participants`), and a "<" is left only where a sender
+   is written `<address>` with no name, which no row from the server
+   is. So the Inbox's rows read as before.
+7. *VoiceOver* reads the names the row shows, then "2 messages", the
+   subject and the time, as before. Mail's string table has "%@
+   messages"; where Mail reads it was not found.
+
+**Not changed.** The Inbox, All Mail, Trash, Spam and his own folders:
+their rows name who wrote, keep their count, "Carlo, Margaret (3)", and
+have no mark. The owner is to be asked about those separately. A
+search's rows are never gathered into conversations, so they have no
+count and no mark, in any folder. Which folder a row was listed from
+decides it (B-060): a letter of his found by an All Mailboxes search,
+listed from All Mail, names him and keeps its count. Organize by Thread
+off, no row has a mark.
+
+**Not like Mail.**
+
+- "No Recipients", not Mail's "No Recipient". Kept as the Outbox's
+  words, and one string to change (`RowNames.noRecipients`).
+- His address in Gmail's other spellings, with dots in the name, a +
+  tag, or at googlemail.com, is left out of two or more as well, as
+  Reply leaves it out (B-061), so the row and Reply agree on who he is.
+  Mail knows only the addresses it was given, as written, and would
+  name it: To Jane and "owner.example+lists@gmail.com" reads "Jane
+  Example" here, and "Jane & owner.example+lists" in Mail (found in
+  review).
+- The mark does nothing of its own when tapped.
+
+**Tests.** `SentRowLikeMailTests`, nineteen, all new. The name line as a
+pure function: nobody, a blank entry, an empty group; an address with a
+";" after it, the last of a group's people, and the Outbox's name for a
+draft To one; one person whole,
+by a quoted name, a name written surname first, a name that is the
+address again in any case, the address alone; him alone; a half-typed
+address; two, three, four and six joined, with no "more"; short names
+by first word, by the word after a surname's comma, by the address
+before its "@"; a name broken over lines; a name that is another
+address; his own addresses left out but for the first, in Gmail's other
+spellings; each person once, by address and by name. A row naming its
+To alone; a conversation naming every letter's To. The mark and the
+count per mailbox: Sent Mail, Drafts and the Outbox marking a
+conversation with no count, and not a single letter; the Inbox, All
+Mail, Trash, Spam and a folder of his keeping the count, no mark, and
+the row `displayRow()` always drew; hits from All Mail in Sent Mail's
+list, a search and Organize by Thread off unmarked. VoiceOver's count.
+The line's geometry, with and without the mark, at four widths. The
+wiring, read from the source: the list marks its rows at both places
+it draws them, with his addresses from the account; the cell draws the
+line as given, the chevron blue and only on a marked row, with no tap
+of its own, laid out by `RowTopLine`; a tap on a conversation still
+opens it in the pane. `SentRowNamesTests`, B-060's, changed, each with
+B-075's reason in its comment: the To alone, short names joined, no
+count, a letter to Bcc or Cc alone saying "No Recipients", the server's
+rows, the kept copy and the Outbox by the new rule, and a row that does
+not know adding nobody to a conversation, after the letter that knows
+and, a case added, before it.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The Cc and the Bcc
+named with the To, as in B-060: 16 in 8. Each of several named whole,
+not short: 32 in 16. Joined by commas alone: 33 in 16. His own addresses
+kept: 5 in 2. His own address taken out when it is first too: 2 in 1.
+One left after them named short: 6 in 3. An address named twice: 3 in 1.
+A name named twice at two addresses: 1 in 1. A name that is another
+address shown alone: 2 in 1. A name written surname first cut to the
+surname: 2 in 1. An empty group named: 1 in 1. A half-typed address
+dropped: 2 in 1. The count kept in Sent Mail, Drafts and the Outbox: 14
+in 6. The count dropped everywhere: 12 in 3. The mark in every folder:
+11 in 2. The mark on a single letter: 5 in 2. VoiceOver not saying how
+many on a marked row: 2 in 2. A row that does not know its To adding its
+sender: none at first, his name being left out after the To of the
+letter that knows; with a case added where it comes first, 1 in 1. The
+mark taking room from the names: 4 in 1. The date not ending before the
+mark: 4 in 1. Read from the source: the list not marking its rows when
+previews come, 1 in 1; the cell reading the line again as a sender's,
+2 in 1; the cell never showing the mark, 1 in 1; the list without his
+addresses, 1 in 1. The Outbox's own name for a letter by B-060's rule:
+2 in 1. Twenty-five in all. Every failure in every run was in
+`SentRowLikeMailTests` or `SentRowNamesTests`, but for the count
+dropped everywhere, which failed `MessageThreadTests.
+testTheCountRidesOnTheSenderLine` too.
+
+After the review, three more, the same way. An entry that ends in ";"
+dropped before its address is read, as the first build had it: 5 in 1.
+An entry with a ";" and no address in it, an empty group, named as
+written: 3 in 2. His address in Gmail's other spellings no longer his
+(`OwnAddresses.key` without its Gmail rule): 8 in 5, of them 2 in 1 in
+`SentRowLikeMailTests` and the rest in B-061's `ReplyAddressingTests`.
+The full suite, serially, with nothing undone: 1,509 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Seen in the simulator, 2026-10-06**, an iPad (7th generation) on 18.6,
+landscape, three panes, a hardware keyboard, built from this branch and
+signed in to the test account, whose name there is Carlo. Every letter
+to the test account's own address with a tag before the "@". Sent: To
+"Jane Wolfeschlegelsteinhausen Example" at that address, Cc "Sam
+Example" at it, Subject "B-075 one" (b075-04). Sent Mail's row: "Jane
+Wolfeschl…", then the time at the right edge; Sam, the Cc, not named;
+no mark (b075-06). Reply from it went To Jane alone; sent. Sent Mail:
+the conversation's row "Jane Wolfeschl…", cut where the single row was
+cut, then "9:07 AM", then the blue circled chevron at the right edge,
+and no "(2)" (b075-09). Measured on the screenshots: the circle 15
+points across, ending where every plain row's date ends, its centre
+within a point of the date's figures. That build put 8.5 points
+between the frames, which left 12 between the inks (b075-09); with 5,
+the inks are 8.5 apart, as Mail's (b075-11). Another test conversation
+in the same list had the mark too; the single letters around them had
+none, their dates at the right edge. VoiceOver's label for the row: "Unread, Jane
+Wolfeschlegelsteinhausen Example, 2 messages, Re: B-075 one, 9:07 AM".
+A tap on it opened the conversation in the reading pane, the reply and
+the letter under it, as before (b075-12). In Edit mode the mark stayed
+after the date (b075-19). The Inbox: the same two letters, "Carlo (2)",
+no mark (b075-10). A search of Sent Mail for "B-075", Current Mailbox:
+two rows, each "Jane Wolfeschl…", no mark, no count; All Mailboxes:
+both "Carlo" (b075-13, b075-14). A draft with Sam in Cc and nobody in
+To, "B-075 nobody": "No Recipients" in Drafts (b075-15), then deleted.
+The screenshots are in the pass's shots folder, not in the repo: the
+rows show real addresses.
+
+After the review, the same day, the same way: a new letter To the test
+address with ";" typed after it, Subject "B-075 semicolon", Cancel, Save
+Draft. Drafts: its row named the address, without the ";", cut at the
+line's end, then the time; and so after Refresh. The screen does not
+tell the iPad's copy of the draft from the server's. Opened from Drafts,
+its To had lost the ";". With the ";" typed again, Send was refused,
+"Message was not sent.", and it stayed in the composer; that is not
+this change's, and why was not read. The draft was deleted.
+
+**Not covered.**
+
+- Mail itself was not seen with a conversation in Sent on an iPad.
+  What it does is read from its code and from screenshots of an iPhone.
+- Two different people on one row could not be sent in the simulator,
+  where every letter goes to one address: "Jane & Sam" is the suite's.
+  The iPad check in the TODO sends to two.
+- Drafts and the Outbox holding a conversation were not made in the
+  simulator. The suite holds both.
+- A letter in the Outbox To an address with a ";" after it was not
+  made. Sent with a connection, such a letter was refused and stayed in
+  the composer; one sent with no connection would wait there. The suite
+  holds its name in the Outbox.
+- VoiceOver was read from the accessibility tree, not heard.
 - Not yet seen on the iPad. The TODO says how.
