@@ -418,6 +418,12 @@ setting and this build puts newest first, which matches every other list
 in the app. Mail's default has not been confirmed yet, so this is a choice and not
 a copy.
 
+**Settled 2026-10-06 (B-074): oldest first, as Mail's factory settings
+have it.** The setting is off unless he turns it on. The stack now runs
+from the oldest at the top to the newest at the bottom. It opens at the
+oldest letter he has not read, or at the newest when he has read the rest.
+The unread letters open with it, and are marked read at the tap.
+
 ## B-023 — The first tap after an idle period fails, and looks like an empty letter
 
 **RESOLVED 2026-09-21.** Filed as "a reply shows no body"; that was the
@@ -9443,3 +9449,278 @@ list gone; Cancel closed it with nothing asked. Nothing was sent.
 - The on-screen keyboard was not tried in the simulator; the hardware
   one was.
 - Not yet seen on the iPad. The TODO says how.
+
+## B-074 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator. A conversation ran newest first; Mail's runs oldest at the top and opens at the newest
+
+**Asked** on 2026-10-06. B-022 built the stack newest first and said so:
+a choice, not a copy, since Mail's default was not known. It was one of
+the calls put to the owner under "Blocked on the owner". His ruling on
+them: "copy apple mail for these".
+
+**What Mail does.** Mail on iPadOS 18, with its factory settings: Organize
+by Thread on, Collapse Read Messages on, Most Recent Message on Top off,
+Complete Threads on. The defaults were read from Mail's settings module in
+the iOS 18.6 simulator runtime, which the iPad and the iPhone share. A
+fresh simulated iPad has none of the settings stored, so it has those.
+
+- The oldest letter is at the top and the newest at the bottom, in date
+  order. High confidence: the settings module, a first-hand report from
+  an iPad in October 2024, and several guides agree.
+- A letter he has read is closed to a short row: sender and time, and a
+  line of the letter under them. Seen on an iPhone of iOS 16 or 17;
+  medium confidence for the iPad.
+- Unread letters are open in full, and so is the one opened from the list,
+  the newest.
+- It opens at the newest letter, with the older ones above. Low to medium
+  confidence: one first-hand report from an iPad and one iPhone screenshot
+  show this; other reports describe scrolling down to reach the newest.
+  What it does with several unread letters is not known.
+
+Mail itself does not run in the simulator: the runtime ships it without
+its program. Nothing here was seen in Mail on an iPad.
+
+**What it was.** `MessageDetailViewController.show(thread:)` drew the stack
+in the list's order, newest first. The newest was open and every other
+letter closed to its line, read or not. An unread letter kept its dot until
+he opened its line. The pane opened at the top, at the newest. A letter
+that came into the conversation while it was open was not added to it: the
+pane kept what it showed (B-049), and the conversation opened again had it,
+at the top.
+
+**Changed.**
+
+1. *The order* (`ConversationDocument.stack`). The oldest at the top, the
+   newest at the bottom: the list's order turned over. The list's order is
+   the order the letters came into the folder, which is their dates' order
+   but for a letter dated wrong or put back in the folder later. Turned
+   over, the letter the conversation's row stands for, the one he tapped
+   the row to read, is always at the bottom.
+2. *What is open.* The newest, and every letter he has not read. Every
+   other letter is closed to its line. The unread ones are fetched after
+   the newest, which keeps the header and the toolbar
+   (`ConversationDocument.openedWithTheNewest`). The list's tap on the row
+   marks them read with the newest, all at once: one redraw of the rows,
+   and a STORE each (`ConversationDocument.readAtTheTap`). They are in
+   front of him in full, from the top of the pane down (item 3).
+3. *Where it opens* (`ConversationDocument.opensAt`). At the first open
+   letter: the oldest he has not read, or the newest when he has read the
+   rest. Its line goes at the top of the pane, or the line of the letter
+   before it when that one is closed, so he can see there are older
+   letters above. So every letter the tap marks read starts at or below
+   the top of the pane, none of them above it, out of sight, and he
+   scrolls down through them to the newest. What Mail does with several
+   unread letters is not known (above); this is the choice. The document
+   names the place in its head, and the stack's script puts it at the top
+   of the pane as the document ends. The last letter, open or closed, is
+   at least as tall as the pane, so any letter can be put there from the
+   first frame, before the bodies have come. A short last letter, or a
+   closed one, has the black of the pane under it, as a letter alone has.
+   The floor is on the last letter whatever it is, so the stack never gets
+   shorter under him: not when a letter goes in at the bottom closed, nor
+   when he closes the newest by its line. The script holds the place, as
+   bodies come in and the pane changes width, until he touches the pane
+   or the pane scrolls by anything but the script: the status bar tapped,
+   VoiceOver's scroll, the header changing height. The script notes where
+   it put the page, and a scroll to anywhere else lets go.
+4. *His place.* Once he has touched the pane, the letter at the top of the
+   pane stays where it is on the glass when a letter above it grows or
+   shrinks: a body coming in, its pictures loading, the letters above
+   wrapping again at a new width. A letter he opens grows below its own
+   line, which does not move. Inside a long letter a new width still shows
+   other words at the top once it has wrapped again, as B-066 records for
+   a letter alone; the place kept is the letter's, not the line's.
+   WebKit's own anchoring is off in the document, so he is never moved
+   twice. The header changes to the letter he opened once its body has
+   come, and can change height with it, a line for a Cc, a row for each
+   file. The stack is now scrolled by as much the other way, so the line
+   he tapped stays under his finger (`StackPlace`). At the very top of the
+   stack there is nothing to scroll, and it moves as before.
+5. *New mail goes at the bottom.* A letter that comes into the
+   conversation open in the pane goes in at the bottom of its stack as the
+   list takes it (`ConversationDocument.arrivals`,
+   `MessageDetailViewController.takeArrivals`, the list's `onRegrouped`).
+   Nothing above it moves, open or closed. It is open, its body fetched,
+   if he has not read it, and closed if he has, on another device say. It
+   is not marked read: he did not open it and may not have seen it come.
+   Its row keeps its dot, and the conversation opened again marks it. The
+   header stays on the letter he had. Letters older than the
+   stack's newest, as a page further down can bring, are not put in, nor
+   letters of another folder or of a list that does not group. While the
+   stack's page is still loading or lost to WebKit nothing is put in; the
+   list offers them again as it next changes. This changes B-049 for a
+   conversation: the pane keeps every letter it showed, and adds the new
+   one under them.
+
+**What stays.** A read letter closed to its line; a tap on a line opens or
+closes it; opening one marks that letter read and no other; the header,
+Reply, Flag, Move and Delete on the letter he opened last.
+
+**Not changed, and not as Mail.**
+
+- A closed letter is one line: sender, the letter's first words, time.
+  Mail's is two, with the words under the sender. The stack's lines are
+  as B-022 built them.
+- Complete Threads: Mail brings his own replies from Sent into the
+  conversation. Here a conversation holds the letters of the folder it is
+  listed in, as before.
+- No "N Messages" over the stack. It is seen on the iPhone; not known for
+  the iPad.
+
+**The cost.** Opening a conversation with unread letters fetches each of
+them, a round trip each, after the newest. And it marks them read at the
+tap, a STORE each, which nothing calls off: a letter he moves on to waits
+behind them, as it does behind rows he taps past. The rows are drawn again
+once for the lot. The conversation's dot goes at the tap, where before the
+older unread letters kept theirs until he opened their lines. B-022 marked
+one at a time so he would not lose the count for letters he had not seen;
+now every unread one is open in front of him, at or below the top of the
+pane.
+
+**Tests.** `ConversationOrderTests`, twenty-seven, all new. The stack runs
+oldest to newest, in date order. The row's letter is at the bottom
+whatever its date. Each letter is drawn from its row. Read letters are
+closed and the newest open. Unread letters are open with the newest,
+wherever they are. The unread ones are the ones opened with the newest,
+newest first. The tap marks the newest and the unread ones, at once. It
+opens at the newest, under the closed line above it, when he has read the
+rest; at the oldest letter he has not read, under the line before it,
+when he has not. In every way five letters can be read or not, every
+letter the tap marks is at or below where it opens, and it opens no more
+than a line above the first of them. The document names that section in
+its head. A letter that comes goes in at the bottom, oldest first. Older
+letters that join are not put in. The conversation is found by any letter
+still in it. Nothing comes from another folder, another letter under the
+same id, or a list that does not group. The stack takes them only once
+its page has loaded, keeps them for a redraw, and not twice. What goes in
+is the stack's own sections, the sender escaped. The stack moves against
+the header, within what it can scroll. Read from the source: the script
+opens at the named section and holds it until a touch, or a scroll it did
+not make; keeps his place as letters above grow, every section watched,
+nothing scrolled in the toggle, WebKit's anchoring off; the last letter,
+open or closed, is as tall as the pane; it puts letters in at the bottom
+and wires their lines. The pane draws the stack in this order and fetches
+the unread ones after the newest without marking them, a tap on a line
+still marking its letter alone; the list marks the tap's letters with one
+redraw of the rows; letters that come are put in, fetched and not marked,
+the header left alone, wired from the list through the container; the
+header keeps his place. No existing test was changed.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests, and counted again after
+the review below, with the tests as they are now. The stack newest first,
+as before: 16 in 8. Only the newest open, as before: 34 in 3. Every letter
+open: 15 in 7. Read letters opened with the newest: 13 in 3. The unread
+ones not fetched as the stack opens: 1 in 1. Opening at the first open
+letter with no line above it: 6 in 3. Opening at the top: 12 in 4. The
+document naming no place to open at: 1 in 1. The script not holding that
+place: 2 in 2. The script keeping no place: 1 in 1. No letter as tall as
+the pane: 2 in 1. WebKit's anchoring left on: 1 in 1. Older letters that
+join put in: 2 in 1. Letters that come put in newest first: 2 in 2. A
+letter of the stack found by its id alone: 2 in 1. Letters put in while
+the page loads: 2 in 1. Letters that come marked read: 2 in 1. The list
+not wired to the pane: 1 in 1. The header's change of height not made up
+for: 1 in 1. The stack scrolled past its ends: 4 in 1. Twenty in all,
+with nothing else failing in any run.
+
+**Reviewed 2026-10-06, and fixed.** A review of the change above found
+five things, each fixed in the text above, which says how it is now. The
+stack opened at the newest even when unread letters were above it, and
+the tap marked those read where he could not see them. Jane writes "Can
+you do Tuesday?" and then "Wednesday works too". He taps the row and sees
+only the second; the dot and two of the Inbox's count go, and nothing on
+screen says the first came. Now it opens at the oldest letter he has not
+read. Two of the simulator notes, and the first two checks in the TODO,
+described the first build, from before the pane's height rule, and gave
+"medium confidence" for where Mail opens a conversation, where the
+checked finding says low to medium. The floor of a pane's height was on
+the last open letter, so a letter put in at the bottom closed, one read
+on another device, took it away, and the stack dropped on the glass;
+closing the newest by its line did the same. The hold at the opening
+place let go only on a touch, a click, the wheel or a key. A tap on the
+status bar, VoiceOver's scroll or the header changing height scrolled
+the pane with none of them, and the next letter to grow pulled him back
+to where it had opened. And each unread letter opened with the newest
+was marked by the pane, one at a time, each a redraw of the list inside
+the tap, with a STORE that nothing calls off; the cost said nothing of
+either.
+
+Each fix fails with its part undone, seven sabotages one at a time, each
+run once over the whole suite, serially, as failures in tests: opening at
+the newest, as the first build did (34 in 2); the tap marking the newest
+alone, the unread ones never marked (1 in 1); the floor on the last open
+letter, as before (2 in 1); the hold kept over a scroll the script did
+not make (2 in 2); where the script put the page not noted (1 in 1); a
+redraw of the list for each letter marked (2 in 1); and the pane marking
+them one at a time, as before (3 in 2). Nothing else failed in any run.
+The full suite, serially, then: 1,517 tests, 5 skipped, none failing.
+The release build for the iPad links.
+
+**Seen in the simulator, 2026-10-06**, an iPad (7th generation) on 18.6,
+landscape, three panes, built from this branch and signed in to the test
+account. Every letter went to the account itself, subjects beginning
+"B-074": a conversation of five, one of them long and one with a Cc, one
+of two, and, built again with the review's fixes, one of four, its last
+reply sent and read on a second simulated iPad. The first two notes and
+the last three are from that build; the rest are from the build before
+it, and the review changed nothing they show.
+
+- *Three letters, the two replies unread.* The first letter's line at the
+  top of the pane, the first reply open under it, the newest open under
+  that. The row lost its dot and the Inbox two from its count at the tap,
+  14 to 12 (b074fx-03). Nothing in the pane moved in the seconds after
+  (b074fx-04).
+- *Opened again, all read.* The first reply's line at the top of the pane,
+  the first letter's line above it and out of sight, the newest open under
+  it, black below it (b074fx-05). That line tapped: it opened under its
+  line, which did not move, and the header went to it (b074fx-06).
+- *A long fourth letter sent while it was open*, the Inbox at the top.
+  Within half a minute it was at the bottom of the stack, open, its body
+  in. The row went to the top with "(4)" and its dot, and stayed unread
+  (b074-17, b074-18). Recorded: in 19 frames over 32 seconds nothing above
+  it moved by a pixel.
+- *Opened again.* The third letter's line at the top of the pane, the long
+  fourth open under it from its first line (b074-19). Recorded: the stack
+  was drawn in that place with "Loading…", and the body came in under its
+  line with nothing moving (b074-21). The first build drew the stack from
+  its top for half a second and moved it up two lines when the body came;
+  the newest's height of a pane at least is the fix.
+- *Two short letters.* The first a line at the top, the reply open under
+  it, black below (b074-24).
+- *A fifth letter with a Cc*, so the header is a line taller for it. The
+  stack opened at the fourth's line (b074-26). That line tapped: it opened,
+  and when its body came the header lost its Cc line and the stack moved
+  with it, so the line stayed where it was (b074-27; recorded).
+- *The view button*, down the long fourth letter. Three panes to two and
+  back: the fourth letter stayed the one at the top of the pane, its lines
+  wrapped again, and other words of it were at the top in two panes; back
+  in three, the same words as before (b074-28 to b074-30).
+- *The newest closed by its line*, the first reply open above it at the
+  top of the pane. The first reply stayed where it was, and the newest's
+  line had the black of the pane under it (b074fx-07).
+- *The status bar, then the view button.* The three letters opened again,
+  at the first reply's line, the pane not touched (b074fx-08). The status
+  bar tapped: the pane went to its top, the first letter's line
+  (b074fx-09). Three panes to two, which wraps the letters again: the
+  first letter's line stayed at the top (b074fx-10). Before the fix, the
+  review saw the pane go back to where it had opened.
+- *A fourth letter, read on another iPad first.* The three letters open at
+  the first reply's line (b074fx-11). The app paused; from a second
+  simulated iPad on the account, a reply sent and then opened there; the
+  app let go on, and Refresh. The reply went in at the bottom as a closed
+  line, and the pane above it did not change by a pixel. The row has
+  "(4)" and no dot, and the Inbox count did not change (b074fx-12).
+
+The screenshots and recordings are in the pass's folder, not in the repo:
+they show the test account's address.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how.
+- A stack drawn again after WebKit's process ended: it opens at its first
+  open letter, as built, which can be one he opened by hand; not seen.
+- A letter that comes in closed has no words in its line, only the sender
+  and the time (b074fx-12). Not looked into.
+- Pictures loading in a letter above him after he has touched the pane:
+  the script keeps his place for it, not seen.
+- Mail itself was not run. What it does is the finding above, and the
+  owner's ruling is the rule.

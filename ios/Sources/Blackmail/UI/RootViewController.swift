@@ -719,6 +719,12 @@ final class RootViewController: UIViewController {
         list.onSelectThread = { [weak self] thread in
             self?.detail.show(thread: thread)
         }
+        // Letters that came into the conversation in the reading pane go
+        // in at the bottom of its stack (B-074).
+        list.onRegrouped = { [weak self] in
+            guard let self else { return }
+            self.detail.takeArrivals(from: self.list.conversations)
+        }
         list.onMessagesChanged = { [weak self] in
             guard let self else { return }
             self.detail.clearIfShowingDeletedMessage()

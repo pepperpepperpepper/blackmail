@@ -19,6 +19,10 @@ final class MessageListViewController: UITableViewController {
     /// A conversation of more than one letter was chosen. The reading pane
     /// shows the whole stack; see B-022.
     var onSelectThread: ((MessageThread) -> Void)?
+    /// The rows have been drawn again from the letters: a letter come or
+    /// gone, a page, a read mark. The reading pane puts letters that came
+    /// into its conversation at the bottom of its stack (B-074).
+    var onRegrouped: (() -> Void)?
     var onMessagesChanged: (() -> Void)?
     var onRefreshRequested: (() -> Void)?
     /// Returns once the folder counts asked for have come, and at once when
@@ -216,6 +220,9 @@ final class MessageListViewController: UITableViewController {
         return nil
     }
 
+    /// The rows as conversations, for the reading pane's stack (B-074).
+    var conversations: [MessageThread] { threads }
+
     /// The rows as conversations, for the helpers that work on them.
     private var threads: [MessageThread] {
         rows.map { row -> MessageThread in
@@ -262,6 +269,7 @@ final class MessageListViewController: UITableViewController {
         case .stay:
             scroll(to: before, in: threads)
         }
+        onRegrouped?()
     }
 
     /// Where he is now: the rows on screen and how far down the pane each
@@ -2104,11 +2112,19 @@ final class MessageListViewController: UITableViewController {
 
     /// Opens a whole conversation in the reading pane.
     ///
-    /// Only the letter the pane actually shows open is marked read — the
-    /// newest — and the rest keep their unread dots until he expands them.
-    /// Marking the lot read on one tap would empty his unread count for a
-    /// thread he has read one line of, and the count is how he knows what
-    /// is still waiting.
+    /// Only the letters the pane shows open are marked read: the newest,
+    /// and the unread ones it opens with it, as Mail shows them in full
+    /// (B-074). The pane opens at the oldest of those, so each starts at
+    /// or below the top of the pane, none of them above it, out of sight
+    /// (`ConversationDocument.opensAt`). The letters closed to their lines
+    /// are ones he has read. Marking the lot read on one tap would empty
+    /// his unread count for letters he has not seen, and the count is how
+    /// he knows what is still waiting.
+    ///
+    /// All of them here, at once: one redraw of the rows, and a STORE each
+    /// (`ConversationDocument.readAtTheTap`). The pane used to mark the
+    /// unread ones one at a time, through `markRead`, and each was a
+    /// redraw of the list inside the tap.
     @MainActor
     private func open(_ thread: MessageThread, at ip: IndexPath) {
         // Drafts never group into a stack: a tap there has to reopen the
@@ -2123,7 +2139,7 @@ final class MessageListViewController: UITableViewController {
         }
 
         onSelectThread?(thread)
-        markReadIfNeeded(thread.newest)
+        markReadIfNeeded(ConversationDocument.readAtTheTap(thread))
     }
 
     /// Opens one letter in the reading pane and marks it read.
@@ -2152,8 +2168,8 @@ final class MessageListViewController: UITableViewController {
     /// Marks one letter read locally, tells the server, and bills the
     /// folder counters — or puts everything back if the server refuses.
     ///
-    /// Lifted out of `open` so the conversation path can use it for the one
-    /// letter it actually shows open. Doing it twice in two places is how
+    /// Lifted out of `open` so the conversation path can use it for the
+    /// letters it actually shows open. Doing it twice in two places is how
     /// the counter arithmetic drifts.
     ///
     /// At the tap, and a letter tapped and left at once counts as read. The
@@ -2169,19 +2185,36 @@ final class MessageListViewController: UITableViewController {
     /// line before its body did.
     @MainActor
     private func markReadIfNeeded(_ summary: MessageSummary) {
-        var m = summary
-        guard !m.isRead else { return }
-        m.isRead = true
+        markReadIfNeeded([summary])
+    }
+
+    /// Several letters marked read at one tap: a conversation's newest and
+    /// the unread letters its stack opens with it (B-074). Each as one is
+    /// marked, but the rows redrawn once for the lot, highlighting the
+    /// first one's. The STOREs go in the line one after another, and
+    /// nothing calls them off, as for rows he taps past.
+    @MainActor
+    private func markReadIfNeeded(_ summaries: [MessageSummary]) {
+        let marked = summaries.filter { !$0.isRead }
+        guard let first = marked.first else { return }
         // Held over a listing already on its way, whose flags are from
         // before this STORE: at launch, the first page, when the tap is on a
         // row kept on the iPad (D-016). See `ListLetters.reading`.
-        letters.reading(m.id, read: true)
+        for m in marked { letters.reading(m.id, read: true) }
         // Regroup rather than reload the one row: the thread this letter
         // belongs to may have just lost its unread dot. Its row is
         // highlighted as the one open in the pane, except in Edit mode; see
         // `ListEdit.selectedRows`.
-        regroup(highlighting: m.id)
+        regroup(highlighting: first.id)
+        for m in marked { sendRead(m) }
+    }
 
+    /// The STORE of one read mark made here, and what its answer does to
+    /// the dot and the folder counts.
+    @MainActor
+    private func sendRead(_ summary: MessageSummary) {
+        var m = summary
+        m.isRead = true
         Task { @MainActor in
             do {
                 try await repository.setRead(true, id: m.id, gmailMessageID: m.gmailMessageID,
@@ -2210,8 +2243,8 @@ final class MessageListViewController: UITableViewController {
             self.letters.readAnswered(m.id, landed: true)
             // Once per message, ever. A reload can re-derive `isRead` from
             // server FLAGS that predate this STORE and put the unread dot
-            // back, which re-arms the `guard !m.isRead` above — so the guard
-            // alone would let one message be billed twice.
+            // back, which re-arms the `!$0.isRead` in `markReadIfNeeded` —
+            // so that alone would let one message be billed twice.
             self.letters.read(m)
         }
     }
