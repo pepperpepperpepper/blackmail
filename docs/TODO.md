@@ -2017,6 +2017,44 @@ this host. Ordered by value, not by size.
       2. *The share sheet,* from Safari. It opens in To: no list. Type
       one letter: the list. Delete it: the list closes.
       *Seen 2026-10-06, as written, in both (B-073).*
+- [ ] **B-074, a conversation in Mail's order.** On the test iPad, the test
+      account only, every letter to the account itself, subjects beginning
+      "B-074", built from the `conversation-order` worktree; merge only
+      after a pass.
+      1. *The order.* Send a letter, and from the pane Reply to it twice,
+      without opening the replies. Open the conversation: the first
+      letter's line at the top of the pane, the first reply open under it,
+      the newest open under that. The row's dot goes, and two come off the
+      Inbox's count.
+      2. *Read.* Open it again: the first reply's line at the top of the
+      pane, the first letter's line above it and out of sight, the newest
+      open under it, black below it. Tap that line: it opens under its
+      line, which does not move.
+      3. *Where it opens.* Reply with thirty lines or more. Open the
+      conversation once it has come: the line of the letter before it at
+      the top of the pane, the long one open under it from its first line,
+      and nothing moves as its body comes in.
+      4. *New mail.* With the conversation open and the Inbox at the top,
+      send another reply. Within half a minute it is at the bottom of the
+      stack, open, and nothing above it moves. Its row has its dot.
+      5. *The header.* A reply with the account in Cc as well. Open the
+      conversation, and tap the line above the newest: when its body comes
+      the header loses its Cc line, and the line tapped stays where it was.
+      6. *The view button.* Down a long letter in the stack, switch from
+      three panes to two and back: that letter stays the one at the top of
+      the pane. Its lines wrap again, and other words of it can be at the
+      top, as B-066 has it for a letter alone.
+      7. *Closing the newest.* Open the three letters of 1 again, tap the
+      first reply's line, then the newest's line: the newest closes, and
+      the first reply stays where it is, black under the newest's line.
+      8. *The status bar.* Open them again and, without touching the pane,
+      tap the status bar: the pane goes to its top. Then the view button,
+      three panes to two: the letter at the top stays there.
+      9. *A letter already read.* With the three letters open, turn Wi-Fi
+      off on the iPad. From another device on the test account, reply to
+      them, and open the reply there. Wi-Fi on, and Refresh: the reply goes
+      in at the bottom as a closed line, nothing above it moves, and its
+      row has no dot.
 
 ## Blocked on the owner
 
@@ -2037,8 +2075,14 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **The real signature logo** — what ships today is a solid black silhouette
       with no legible mark in either channel
 - [ ] **Signature in the source?** (B-035)
-- [ ] **Mail's conversation stack default** — thirty seconds on an iPhone;
+- [x] **Mail's conversation stack default** — thirty seconds on an iPhone;
       newest-first is currently a guess, not a copy
+      *Decided 2026-10-06 by the owner: "copy apple mail for these". Built,
+      seen in the simulator, not yet on the iPad: oldest at the top and
+      newest at the bottom, the read letters closed, the unread ones open
+      with the newest and marked read at the tap, the pane opening at the
+      oldest letter he has not read, or at the newest when he has read the
+      rest, and a letter that comes put in at the bottom (B-074).*
 - [ ] **Pictures from the web in letters** — they load, as they always
       have, and a tracking pixel tells its sender the letter was opened; the
       spec asks for them blocked by default if feasible (B-055)

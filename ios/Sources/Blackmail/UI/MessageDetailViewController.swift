@@ -48,6 +48,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The list rows of the conversation on screen, by id, so the toolbar
     /// can be pointed at whichever letter he last opened.
     private var threadSummaries: [String: MessageSummary] = [:]
+    /// The same rows in the stack's order, the oldest first, as they were
+    /// when the stack was drawn or a letter came into it: what the list's
+    /// conversation is matched against for letters to put at the bottom
+    /// (`takeArrivals`). Empty when the pane shows no conversation.
+    private var stackLetters: [MessageSummary] = []
     /// The file QuickLook is currently showing. Held because
     /// `QLPreviewController.dataSource` is a WEAK reference and asks for its
     /// item after presentation, by which point a local would be gone.
@@ -224,6 +229,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         message = nil
         loaded = [:]
         threadSummaries = [:]
+        stackLetters = []
         focused = nil
         title = ""
         header.isHidden = true
@@ -269,6 +275,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         message = nil
         loaded = [:]
         threadSummaries = [:]
+        stackLetters = []
         focused = nil
         placeholder.isHidden = true
         header.isHidden = false
@@ -334,8 +341,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     // MARK: - A whole conversation
 
-    /// Shows a thread as a stack of letters, newest open, the rest
-    /// collapsed to a line he can tap.
+    /// Shows a thread as a stack of letters in Mail's order, the oldest at
+    /// the top and the newest at the bottom, open, with every letter he has
+    /// not read, and the rest closed to a line he can tap
+    /// (`ConversationDocument.stack`, B-074). The stack opens at the oldest
+    /// letter he has not read, or at the newest when he has read the rest
+    /// (`ConversationDocument.opensAt`).
     ///
     /// The stack is drawn IMMEDIATELY from the summaries the list already
     /// holds, and the bodies are fetched afterwards and dropped in. The
@@ -349,25 +360,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         focused = thread.newest.id
         threadSummaries = Dictionary(uniqueKeysWithValues:
             thread.messages.map { ($0.id, $0) })
+        stackLetters = thread.messages.reversed()
 
         placeholder.isHidden = true
         header.isHidden = false
         webView.isHidden = false
         setActionsEnabled(true)
 
-        let entries = thread.messages.map { m in
-            ConversationDocument.Entry(
-                id: m.id, sender: m.sender, date: m.date, body: nil,
-                // Newest open, everything else collapsed. Mail's own
-                // choice, and the right one: the latest reply is what he
-                // opened the conversation to read.
-                isExpanded: m.id == thread.newest.id,
-                preview: m.preview)
-        }
+        // The oldest at the top, the newest at the bottom, open, with the
+        // ones he has not read; the rest closed.
+        let entries = ConversationDocument.stack(of: thread)
 
-        // Only the letter that is actually open is fetched. Fetching all of
-        // them would be a round trip each for text he cannot see, down one
-        // IMAP connection that everything else in the app is queuing on.
+        // Only the letters that are open are fetched, the newest first.
+        // Fetching all of them would be a round trip each for text he
+        // cannot see, down one IMAP connection that everything else in the
+        // app is queuing on.
         let newest = thread.newest
         let repository = self.repository
         loads.show(
@@ -396,6 +403,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
             })
+
+        // The unread letters open with it, as Mail opens them: each fetched
+        // after the newest, which keeps the header. The list marks them
+        // read at the tap, with the newest, all at once
+        // (`ConversationDocument.readAtTheTap`); the pane opens at the
+        // oldest of them, so none is above him out of sight. The rows
+        // here say so, as a tap on a line has them say.
+        for letter in ConversationDocument.openedWithTheNewest(thread) {
+            loadBody(for: letter.id, focus: false)
+            var read = letter
+            read.isRead = true
+            threadSummaries[letter.id] = read
+        }
     }
 
     /// The pane's measurements, for the pages built away from the main
@@ -469,13 +489,32 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         if focus { focusLetter(m) }
     }
 
-    /// Points the header and the toolbar at one letter of the stack.
+    /// Points the header and the toolbar at one letter of the stack, and
+    /// keeps the stack where it was on the glass if the header changes
+    /// height with it (`StackPlace`, B-074).
     private func focusLetter(_ m: Message) {
         focused = m.id
         message = m
         summary = threadSummaries[m.id] ?? summary
+        let before = header.frame.height
         header.configure(with: m)
         header.onSelectAttachment = { [weak self] in self?.openAttachment($0) }
+        keepPlace(headerWas: before)
+    }
+
+    /// The header has been given another letter: laid out now, and the
+    /// stack scrolled by as much as the header grew or shrank, so the line
+    /// he tapped does not move under his finger.
+    private func keepPlace(headerWas before: CGFloat) {
+        view.layoutIfNeeded()
+        let scroll = webView.scrollView
+        let lowest = -Double(scroll.adjustedContentInset.top)
+        let highest = max(lowest, Double(scroll.contentSize.height + scroll.adjustedContentInset.bottom
+                                         - scroll.bounds.height))
+        guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y),
+                                        headerGrewBy: Double(header.frame.height - before),
+                                        range: lowest...highest) else { return }
+        scroll.contentOffset.y = CGFloat(y)
     }
 
     /// Puts a body in its letter's section of the stack: now, or once the
@@ -526,18 +565,55 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // send the STORE from here once the body had come, and then reload
         // the whole list and sweep every folder's count to show it.
         //
-        // Read back, mutated, written back, rather than
-        // `threadSummaries[id]?.isRead = true`. The optional-chained
-        // subscript compiles to a `_modify` coroutine accessor, and
-        // this toolchain's iOS 16.5 runtime has no
-        // `swift_coroFrameAlloc` to link it against — the same wall
-        // that makes debug builds of this app unlinkable.
+        markOpened(id)
+    }
+
+    /// Marks one letter of the stack read, through the list, which clears
+    /// the dot, sends the STORE and takes the one off the folder counts,
+    /// once (`ReadBilling`): a letter he opened by its line. The ones the
+    /// stack opens with the newest the list marks at the tap.
+    ///
+    /// Read back, mutated, written back, rather than
+    /// `threadSummaries[id]?.isRead = true`. The optional-chained
+    /// subscript compiles to a `_modify` coroutine accessor, and
+    /// this toolchain's iOS 16.5 runtime has no
+    /// `swift_coroFrameAlloc` to link it against — the same wall
+    /// that makes debug builds of this app unlinkable.
+    private func markOpened(_ id: String) {
         if let row = threadSummaries[id], !row.isRead {
             var read = row
             read.isRead = true
             threadSummaries[id] = read
             onLetterOpened?(row)
         }
+    }
+
+    /// The list has changed: letters that have come into the conversation
+    /// on screen go in at the bottom of its stack, where Mail puts them
+    /// (B-074). Nothing above them moves, so he is not moved.
+    ///
+    /// Each is drawn as the stack draws its letters: open if he has not read
+    /// it, its body fetched, but not marked read, since he did not open it
+    /// and may not have seen it come. Its row keeps its dot, and the
+    /// conversation opened again marks it. The header and the toolbar stay
+    /// on the letter he had.
+    ///
+    /// Nothing while the stack's page is still loading or lost to WebKit:
+    /// the list offers them again as it next changes, and the conversation
+    /// opened again has them. See `ConversationDocument.arrivals`.
+    func takeArrivals(from threads: [MessageThread]) {
+        guard !stackLetters.isEmpty else { return }
+        let more = ConversationDocument.arrivals(after: stackLetters, in: threads)
+        guard !more.isEmpty,
+              let append = document.append(more.map {
+                  ConversationDocument.entry(for: $0, open: !$0.isRead)
+              })
+        else { return }
+        stackLetters += more
+        for letter in more { threadSummaries[letter.id] = letter }
+        webView.callAsyncJavaScript(ConversationDocument.Append.script, arguments: append.arguments,
+                                    in: nil, in: .defaultClient)
+        for letter in more where !letter.isRead { loadBody(for: letter.id, focus: false) }
     }
 
     /// Fills the reading pane with the reason there is nothing in it.
@@ -673,8 +749,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// what it holds, the letter, the stack with the bodies that had come
     /// and the letters he had open, or the grey words, once he can see it;
     /// see `drawAgain`. A body still on its way goes in when it comes, as
-    /// ever. The place he had scrolled to in the letter is not kept: the
-    /// page starts at the top.
+    /// ever. The place he had scrolled to in the letter is not kept: a
+    /// letter starts at the top, a conversation at its first open letter,
+    /// as it opens (B-074).
     func webViewWebContentProcessDidTerminate(_ w: WKWebView) {
         Diagnostics.log(.note, "webview: content process ended")
         document.contentProcessEnded()

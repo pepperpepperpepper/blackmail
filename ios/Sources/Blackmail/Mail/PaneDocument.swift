@@ -163,6 +163,21 @@ struct PaneDocument {
         return entries.first(where: { $0.id == id })?.body
     }
 
+    /// Letters that came into the conversation on screen, for the bottom of
+    /// its stack (B-074). Kept in the stack, so a redraw has them, and
+    /// returned as what puts them in. Nil, with nothing kept, when the stack
+    /// cannot take them now: the pane shows no conversation, its document
+    /// is still loading, or WebKit has lost it. The list offers them again
+    /// as it next changes. Letters already in the stack are left out.
+    mutating func append(_ more: [ConversationDocument.Entry]) -> ConversationDocument.Append? {
+        guard case .conversation(var entries) = content, finished, !lost else { return nil }
+        let new = more.filter { entry in !entries.contains(where: { $0.id == entry.id }) }
+        guard !new.isEmpty else { return nil }
+        entries += new
+        content = .conversation(entries)
+        return ConversationDocument.Append(new)
+    }
+
     /// A letter of the stack opened or closed by hand, so a redraw opens the
     /// same ones.
     mutating func setOpen(_ open: Bool, _ id: String) {
