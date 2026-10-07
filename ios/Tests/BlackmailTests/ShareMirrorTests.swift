@@ -223,6 +223,46 @@ final class ShareMirrorTests: XCTestCase {
         XCTAssertEqual(taken(), ["b@example.org"])
     }
 
+    // MARK: - A ";" after an address (B-081)
+
+    /// A copy of the book made by a build before B-081, which the app has
+    /// not yet made again: the extension reads it filed, each address
+    /// under itself, so the sheet offers Jane once, and nothing once she
+    /// is a bubble, where it offered "jane@example.com;" again and its
+    /// pick named her twice.
+    func testAMirrorKeptBeforeB081ReachesTheExtensionFiled() throws {
+        mirror.publish(account: account, password: "pw")
+        mirror.publish(recipients: [
+            KnownRecipient(address: "jane@example.com;", name: nil, uses: 3,
+                           lastSeen: Date(timeIntervalSince1970: 1_700_000_060)),
+            KnownRecipient(address: "jane@example.com", name: "Jane Example", uses: 1,
+                           lastSeen: Date(timeIntervalSince1970: 1_700_000_000)),
+            recipient("a@example.com; b@example.com", uses: 2),
+        ])
+        let shared = try XCTUnwrap(mirror.load())
+        XCTAssertEqual(shared.recipients.map(\.address).sorted(),
+                       ["a@example.com", "b@example.com", "jane@example.com"])
+        XCTAssertEqual(shared.recipients.first { $0.address == "jane@example.com" }?.uses, 4)
+        XCTAssertEqual(ComposeForm.suggestions(shared.recipients, field: "ja", after: .typed).map(\.display),
+                       ["Jane Example"])
+        var field = RecipientBubbles(entries: ["Jane Example <jane@example.com>"])
+        field.type("ja")
+        XCTAssertEqual(ComposeForm.suggestions(shared.recipients, in: field, after: .typed), [])
+    }
+
+    /// Who a share sent by an earlier build went to, noted with the ";"
+    /// he typed, reaches the app's book filed, and the extension's copy
+    /// with it.
+    func testWhatAnEarlierShareNotedIsFiledInTheBook() throws {
+        mirror.noteSent(["jane@example.com;", "a@example.com; b@example.com"])
+        mirror.sync(account: account, password: "pw", signatureImages: [], book: book)
+
+        XCTAssertEqual(book.snapshot().map(\.address).sorted(),
+                       ["a@example.com", "b@example.com", "jane@example.com"])
+        XCTAssertEqual(try XCTUnwrap(mirror.load()).recipients.map(\.address),
+                       ["a@example.com", "b@example.com", "jane@example.com"])
+    }
+
     /// Nothing is forgotten before the app's book has it written out: an
     /// app killed between the two loses nothing.
     func testNothingIsForgottenBeforeTheBookHasIt() {

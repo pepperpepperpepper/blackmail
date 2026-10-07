@@ -2151,10 +2151,9 @@ this host. Ordered by value, not by size.
       account's: "Jane Example", whole, him left out.
       5. *Nobody in To.* A new letter, Sam's address in Cc only, Subject
       "B-075 nobody", Cancel, Save Draft. Drafts: "No Recipients".
-      Another, To Jane's address with ";" typed after it, Subject "B-075
-      semicolon", Cancel, Save Draft: Drafts reads "Jane Example", not
-      "No Recipients". Do not send it: in the simulator Send refused
-      such a letter.
+      Another, To Jane's address with ";" typed after it, which makes
+      her bubble at once (B-081), Subject "B-075 semicolon", Cancel, Save
+      Draft: Drafts reads "Jane Example", not "No Recipients".
       6. *Elsewhere.* The Inbox: the letters of 2 and 3, each the
       account's name and "(2)", with no mark. Sent Mail searched "B-075",
       Current Mailbox: a row for each letter, no mark, no count; All
@@ -2227,6 +2226,49 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078).*
       *Seen on the test iPad 2026-10-07: all six steps passed, the menu
       under its bubble in each, never beside it.*
+- [ ] **B-081, a To ending in ";".** On the test iPad, the test account
+      only, landscape, the on-screen keyboard, built from the
+      `stray-semicolon` worktree. It is the send path: merge only after a
+      pass. A stands for the account's address; letters only to A with a
+      `+` tag before the @, subjects beginning "B-081". The ";" is on the
+      keyboard's .?123 side.
+      0. *Before installing,* on the iPad's build as it is. A new letter,
+      To A with `+jane`, then ";" and ",", then A with `+sam` and ",";
+      Subject "B-081 old book", Send: it goes to `+sam` alone. Type
+      `+ja` in a new letter's To: two rows for `+jane`, one with ";".
+      Cancel, Delete Draft. Another, To "undisclosed-recipients:;" and
+      ",", Bcc A with `+sam`, Subject "B-081 empty group", Cancel, Save
+      Draft. Then install.
+      1. *Typed.* A new letter. In To type A with `+jane`, then ";": a
+      bubble at once, with the address on it, and nothing typed after it.
+      Type ";", a space, ";": nothing. Subject "B-081 semicolon", Send. The
+      sheet closes, with no "Message was not sent." It arrives once;
+      Gmail's Show original has `To:` the address alone, no ";".
+      2. *Two.* A new letter. In To type A with `+jane`, ";", A with
+      `+sam`, ";": two bubbles. Subject "B-081 two", Send. It arrives
+      once, To both, joined by a comma.
+      3. *A ";" alone.* A new letter. In To type ";": nothing, and Send
+      stays grey. Cancel.
+      4. *A draft.* A new letter, To A with `+jane` and ";", Subject "B-081
+      draft", Cancel, Save Draft. Drafts: its row names the address. Open
+      it: one bubble. Send: it arrives once, and Drafts no longer has it.
+      5. *Reply All.* Open "B-081 two" in the Inbox, Reply All: To `+jane`
+      and `+sam`, a bubble each (his own letter, answered to its To).
+      Cancel.
+      6. *The share sheet,* from Safari. In To type A with `+sam` and ";":
+      a bubble. Subject "B-081 share", Send. It arrives once, To `+sam`.
+      7. *The old book.* A new letter, `+ja` in To: one row for `+jane`,
+      no ";". Tap it: a bubble. Type `+ja` again: no rows. Cancel, Delete
+      Draft. The same in the share sheet from Safari, then Cancel.
+      8. *The empty group.* Drafts, open "B-081 empty group": one bubble,
+      "undisclosed-recipients:;", whole. Send: it arrives once at `+sam`;
+      Show original has `To: undisclosed-recipients:;`; the connection log
+      has one RCPT TO, `+sam`'s, and none for the group.
+      Then move the B-081 letters to Trash.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: steps 1 to 6 passed,
+      with a hardware keyboard and `+sim18` in 1, 4 and 6; 0, 7 and 8
+      passed on a simulated iPad built from master, then given this build
+      (B-081). On the iPad still to do.*
 
 ## Blocked on the owner
 

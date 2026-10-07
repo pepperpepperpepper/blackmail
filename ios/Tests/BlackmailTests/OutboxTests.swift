@@ -2969,6 +2969,37 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(sent.count, 0)
         XCTAssertEqual(held.outbox.count, 1)
     }
+
+    // MARK: - A ";" after an address (B-081)
+
+    /// A letter in the Outbox To an address with a ";" after it, as a
+    /// build before B-081 kept what he typed: kept so, and after a
+    /// relaunch, then sent by a later pass to exactly its addresses, its
+    /// header naming them alone, and gone from the Outbox. Before, its
+    /// `RCPT TO:<jane@example.com;>` was refused, Gmail's 553, and the
+    /// letter stayed in the Outbox with the reason.
+    func testALetterInTheOutboxToAnAddressWithASemicolonGoes() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        var draft = letter(to: "Jane Example <jane@example.com>;")
+        draft.cc = ["a@example.com; b@example.com;", ";"]
+        await sentOffline(draft, kept: kept, repository: repository)
+        XCTAssertEqual(makeKept().outbox.map(\.draft.to), [["Jane Example <jane@example.com>;"]],
+                       "kept as it was, and after a relaunch")
+
+        try await afterAPage(kept, repository)
+
+        let commands = await submissions.commands()
+        XCTAssertEqual(commands.filter { $0.hasPrefix("RCPT TO:") },
+                       ["RCPT TO:<jane@example.com>", "RCPT TO:<a@example.com>", "RCPT TO:<b@example.com>"])
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        let headers = MIMEDecoder.parseHeaders(Data(try XCTUnwrap(sent.first).utf8))
+        XCTAssertEqual(MIMEDecoder.headerValue("To", in: headers), "Jane Example <jane@example.com>")
+        XCTAssertEqual(MIMEDecoder.headerValue("Cc", in: headers), "a@example.com, b@example.com")
+        XCTAssertEqual(kept.outbox.count, 0, "gone from the Outbox")
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
 }
 
 /// The shipping repository, but that the next question of whether the

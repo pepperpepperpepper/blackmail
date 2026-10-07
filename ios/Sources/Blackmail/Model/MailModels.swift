@@ -615,15 +615,39 @@ struct DraftAttachment {
 enum MailFormat {
 
     /// The addresses in a recipient field as he left it: split on the
-    /// commas the suggestions put between them, blanks dropped.
+    /// commas the suggestions put between them, and on a ";", blanks
+    /// dropped.
     ///
-    /// Not on a comma inside a quoted name (`addressList`): a reply keeps
-    /// its recipients' names since B-061, and `"Example, Jane"
+    /// Not on a comma inside a quoted name, `<…>` or a comment: a reply
+    /// keeps its recipients' names since B-061, and `"Example, Jane"
     /// <jane@example.com>` split at every comma was two recipients, the
     /// first of them `"Example`, which mail cannot be sent to. A quote
-    /// never closed is split at every comma, as before.
+    /// never closed is split at every comma and ";", as before at every
+    /// comma.
+    ///
+    /// A ";" separates addresses as a "," does, as Mail takes it (B-081):
+    /// "jane@example.com;" is Jane, and a ";" at the end, alone, or beside
+    /// a "," is nothing. Split at commas alone, the field kept the ";" in
+    /// the address, the letter went `RCPT TO:<jane@example.com;>`, Gmail
+    /// answered 553 5.1.3, "not a valid RFC 5321 address", and he saw
+    /// "Message was not sent." A group, `Friends: …;`, is a header's, not
+    /// his typing's: here its ";" separates too. An empty group,
+    /// `undisclosed-recipients:;`, which a draft written in another client
+    /// can have, is the one exception: it stays one entry, its ";" with it,
+    /// as before. Split there, the bubble read "undisclosed-recipients:",
+    /// and the header went out "To: undisclosed-recipients:", a group
+    /// begun and never ended.
     static func addresses(in field: String) -> [String] {
-        addressList(field)
+        entries(of: field, groups: false)
+    }
+
+    /// An empty group, `undisclosed-recipients:;`: a name for nobody, the
+    /// one entry `addresses(in:)` leaves ending in ";", and no address. It
+    /// stays in the field and the header; the envelope leaves it out
+    /// (`Submission.recipients`, B-081).
+    static func isEmptyGroup(_ entry: String) -> Bool {
+        let trimmed = entry.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasSuffix(";") && trimmed.contains(":") && recipient(in: trimmed) == nil
     }
 
     /// The address currently being typed in a recipient field —
@@ -788,20 +812,48 @@ enum MailFormat {
     /// comma made three, the first of them `"Example`, which the reading
     /// pane showed as a name and Reply All tried to send to.
     ///
+    /// A ";" between addresses separates them as a comma does (B-081):
+    /// `Jane <jane@example.com>; Sam <sam@example.com>`, as some clients
+    /// write a header, and as this app wrote one with a ";" he typed, is
+    /// two entries. Read as one, Reply All named Sam alone, with Jane in his
+    /// name, and could not leave his own address out of it. A ";" that ends
+    /// a group (RFC 5322), `Friends: jane@example.com, sam@example.com;` or
+    /// the empty `undisclosed-recipients:;`, stays with the group's last
+    /// entry, as before, so an empty group is still nobody
+    /// (`MailFormat.recipient(in:)`, `RowNames.person(in:)`).
+    ///
     /// A quote, bracket or comment never closed is a broken header, and it
     /// is split on every comma, as every header used to be, rather than
     /// have one stray quote take every address after it into one entry.
     static func addressList(_ field: String) -> [String] {
+        entries(of: field, groups: true)
+    }
+
+    /// The entries of a header's address list, or of a recipient field,
+    /// split on the commas and the ";"s between them, outside quotes, `<…>`
+    /// and comments; trimmed, blanks dropped. A group is opened by a colon
+    /// outside quotes with no "@" or "<" before it in its entry. With
+    /// `groups`, the ";" that ends a group is kept as the end of its last
+    /// entry; without, every ";" separates, but for the ";" of an empty
+    /// group, nothing but spaces or a comment after its colon, which is
+    /// kept with it in both. A quote, bracket or comment never closed
+    /// splits the field at every comma, and, without `groups`, at every ";"
+    /// too.
+    private static func entries(of field: String, groups: Bool) -> [String] {
         var entries: [String] = []
         var entry = ""
         var quoted = false, escaped = false, bracketed = false
         var comments = 0
+        var inGroup = false
+        // The group opened has nothing in it yet, `undisclosed-recipients:`.
+        var groupEmpty = false
         for c in field {
             if escaped {
                 escaped = false
                 entry.append(c)
                 continue
             }
+            let inComment = comments > 0
             switch c {
             case "\\" where quoted || comments > 0: escaped = true
             case "\"" where !bracketed && comments == 0: quoted.toggle()
@@ -809,17 +861,37 @@ enum MailFormat {
             case ">" where !quoted && comments == 0: bracketed = false
             case "(" where !quoted && !bracketed: comments += 1
             case ")" where !quoted && !bracketed && comments > 0: comments -= 1
+            case ":" where !inGroup && !quoted && !bracketed && comments == 0
+                        && !entry.contains(where: { $0 == "@" || $0 == "<" }):
+                inGroup = true
+                groupEmpty = true
+                entry.append(c)
+                continue
             case "," where !quoted && !bracketed && comments == 0:
+                entries.append(entry)
+                entry = ""
+                groupEmpty = false
+                continue
+            case ";" where !quoted && !bracketed && comments == 0:
+                if inGroup && (groups || groupEmpty) {
+                    // The group's end, kept with its last entry.
+                    entry.append(c)
+                }
+                inGroup = false
+                groupEmpty = false
                 entries.append(entry)
                 entry = ""
                 continue
             default: break
             }
+            // Anything but a space or a comment puts something in the group.
+            if !c.isWhitespace, !inComment, comments == 0 { groupEmpty = false }
             entry.append(c)
         }
         entries.append(entry)
         if quoted || escaped || bracketed || comments > 0 {
-            entries = field.components(separatedBy: ",")
+            entries = groups ? field.components(separatedBy: ",")
+                             : field.components(separatedBy: CharacterSet(charactersIn: ",;"))
         }
         return entries.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

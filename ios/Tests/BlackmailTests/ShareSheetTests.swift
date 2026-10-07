@@ -190,6 +190,33 @@ final class ShareSheetTests: XCTestCase {
         try await lettingGo(server)
     }
 
+    /// A share To an address with a ";" after it, and a ";" alone, as the
+    /// sheet's fields could keep them before B-081: it goes, to exactly the
+    /// addresses, its header names them alone, and the app's book hears
+    /// the addresses without the ";". Before, `RCPT TO:<carlo@example.org;>`
+    /// was refused, and the share stayed with "Message was not sent."
+    func testAShareToAnAddressWithASemicolonGoesToItsAddress() async throws {
+        let server = ScriptedSubmission()
+        let sheet = sheet(server)
+        var draft = letter(sheet, to: ["Carlo <carlo@example.org>;", ";"], [.link(page, title: nil)])
+        draft.cc = ["owner@example.net;"]
+
+        await sheet.send { draft }?.value
+
+        let commands = await server.commands
+        XCTAssertEqual(commands.filter { $0.hasPrefix("RCPT TO:") },
+                       ["RCPT TO:<carlo@example.org>", "RCPT TO:<owner@example.net>"])
+        let letters = await server.letters
+        let wire = try XCTUnwrap(letters.first)
+        let headers = MIMEDecoder.parseHeaders(wire)
+        XCTAssertEqual(MIMEDecoder.headerValue("To", in: headers), "Carlo <carlo@example.org>")
+        XCTAssertEqual(MIMEDecoder.headerValue("Cc", in: headers), "owner@example.net")
+        XCTAssertEqual(errors, [])
+        XCTAssertEqual(log, ["finish"])
+        XCTAssertEqual(noted, [["carlo@example.org", "owner@example.net"]])
+        try await lettingGo(server)
+    }
+
     /// At Send, the memory the extension has left goes in the log three
     /// times: with the files read, in the rehearsal before the server is
     /// reached; once the envelope is taken, before DATA; and once it has

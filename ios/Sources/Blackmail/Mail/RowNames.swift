@@ -95,9 +95,9 @@ enum RowNames {
     ///
     /// An entry that ends in ";" and holds an address is that person:
     /// "jane@example.com;", an address typed with a semicolon after it,
-    /// and the last of a group's people. The composer splits a field at
-    /// commas alone, so a draft or a letter in the Outbox keeps the
-    /// semicolon in the entry.
+    /// and the last of a group's people. The composer split a field at
+    /// commas alone until B-081, so a draft or a letter in the Outbox kept
+    /// by a build before it can keep the semicolon in the entry.
     static func person(in entry: String) -> MailFormat.Recipient? {
         let entry = entry.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !entry.isEmpty else { return nil }

@@ -336,9 +336,21 @@ extension MailFormat {
     /// recipient in the field (`addresses(in:)`); unquoted, the comma would
     /// make it two, the first of them `Example`, which mail cannot be sent
     /// to.
+    ///
+    /// An address alone that the field would split into something that is
+    /// not an address, a letter's malformed `<a;b@example.com>`, keeps its
+    /// brackets. Bare, the field split it at its ";" (B-081), or its comma,
+    /// into "a" and "b@example.com", and the reply went to b@example.com,
+    /// whom the letter never named. One that splits into addresses alone,
+    /// "a@example.com; b@example.com" as a book kept by an earlier build
+    /// can hold it, stays bare, for the field to make a bubble of each.
     static func recipientEntry(name: String?, address: String) -> String {
         guard let name, !name.isEmpty,
-              name.caseInsensitiveCompare(address) != .orderedSame else { return address }
+              name.caseInsensitiveCompare(address) != .orderedSame else {
+            let pieces = addresses(in: address)
+            return pieces.count > 1 && pieces.contains(where: { !$0.contains("@") })
+                ? "<\(address)>" : address
+        }
         let specials = "()<>@,;:\\\".[]"
         guard name.contains(where: { specials.contains($0) }) else {
             return "\(name) <\(address)>"

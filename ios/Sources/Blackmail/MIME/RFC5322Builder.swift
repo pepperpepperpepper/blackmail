@@ -555,8 +555,14 @@ enum RFC5322Builder {
 
     // MARK: - Addresses
 
+    /// A To, Cc or Bcc: each entry split as the composer's field is split,
+    /// at a comma or a ";" between addresses (`MailFormat.addresses(in:)`),
+    /// as `Submission.recipients` splits it for the envelope, so the header
+    /// names exactly whom the letter goes to, joined by commas. An entry
+    /// kept with a ";" after it, "jane@example.com;", went into the header
+    /// as written, with a ";" that ends a group and no group begun (B-081).
     private static func addressListValue(_ raw: [String]) -> String {
-        raw.compactMap(recipient).joined(separator: ", ")
+        raw.flatMap(MailFormat.addresses(in:)).compactMap(recipient).joined(separator: ", ")
     }
 
     /// Accepts whatever the compose field contains: `jane@x.com`,
@@ -605,6 +611,11 @@ enum RFC5322Builder {
         // <jane@example.com>` is `jane@example.com`.
         let named = !name.isEmpty
             && name.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(address) != .orderedSame
+        // An address alone, out of its brackets, that would read as more
+        // than one, `a;b@example.com` from `<a;b@example.com>`, keeps them,
+        // so the header names the one address the envelope goes to, and is
+        // not read back as "a" and "b@example.com" (B-081).
+        if !named, MailFormat.addresses(in: address).count > 1 { return "<\(address)>" }
         return addressValue(name: named ? name : nil, address: address)
     }
 

@@ -142,6 +142,10 @@ struct ShareMirror {
 
     /// What the extension works from, or nil when the app has not mirrored
     /// an account: none set up, or not opened since the build that mirrors.
+    ///
+    /// The book filed again as it is read (`RecipientBook.filed`), each
+    /// address under itself: a copy made by a build before B-081, which
+    /// the app has not yet made again, can hold "jane@example.com;".
     func load() -> Shared? {
         guard let credentials = read(Credentials.self, from: .credentials),
               !credentials.password.isEmpty else { return nil }
@@ -149,7 +153,8 @@ struct ShareMirror {
                       password: credentials.password,
                       signatureImages: read([SignatureImages.InlineImage].self,
                                             from: .signatureImages) ?? [],
-                      recipients: read([KnownRecipient].self, from: .recipients) ?? [])
+                      recipients: RecipientBook.filed(read([KnownRecipient].self,
+                                                           from: .recipients) ?? []))
     }
 
     /// A letter sent from the extension, by the addresses it went to, for

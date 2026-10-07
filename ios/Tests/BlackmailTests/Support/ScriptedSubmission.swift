@@ -328,6 +328,13 @@ actor ScriptedSubmission: MailTransport {
         } else if command.hasPrefix("RCPT TO"),
                   refusedRecipients.contains(where: { command.contains("<\($0)>") }) {
             pending.append("550 5.1.1 The email account that you tried to reach does not exist")
+        } else if command.hasPrefix("RCPT TO"), let address = Self.malformed(line) {
+            // Gmail's answer to an address with a ";" or a "," in it, as it
+            // gave it on 2026-10-07 to `RCPT TO:<…;>` (B-081), its id left out.
+            pending += ["553-5.1.3 The recipient address <\(address)> is not a valid RFC",
+                        "553-5.1.3 5321 address. For more information, go to",
+                        "553-5.1.3  https://support.google.com/a/answer/3221692 and review RFC 5321",
+                        "553 5.1.3 specifications. - gsmtp"]
         } else if command.hasPrefix("MAIL FROM") || command.hasPrefix("RCPT TO") {
             pending.append("250 2.1.0 OK")
         } else if command == "DATA" {
@@ -344,6 +351,15 @@ actor ScriptedSubmission: MailTransport {
         } else {
             pending.append("502 5.5.1 Unrecognized command")
         }
+    }
+
+    /// The address of a `RCPT TO:<…>` that Gmail refuses as no address at
+    /// all, one with a ";" or a "," in it; nil for any other.
+    static func malformed(_ line: String) -> String? {
+        guard let open = line.firstIndex(of: "<"), let close = line.lastIndex(of: ">"),
+              open < close else { return nil }
+        let address = String(line[line.index(after: open)..<close])
+        return address.contains(where: { $0 == ";" || $0 == "," }) ? address : nil
     }
 
     /// The password in `AUTH PLAIN <base64>`, nil if it has none.

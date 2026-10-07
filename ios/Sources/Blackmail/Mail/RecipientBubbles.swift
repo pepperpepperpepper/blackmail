@@ -15,10 +15,10 @@ import CoreGraphics
 /// every bubble at its commas, and the letter went to people the field did
 /// not show (B-076).
 ///
-/// Mail's ways, each here: a pick, or an address he ends with a comma,
-/// Return or by leaving the field, becomes a bubble; backspace with nothing
-/// typed picks out the last bubble, and a second takes it off; a bubble
-/// tapped is picked out, and shows its address.
+/// Mail's ways, each here: a pick, or an address he ends with a comma, a
+/// ";", Return or by leaving the field, becomes a bubble; backspace with
+/// nothing typed picks out the last bubble, and a second takes it off; a
+/// bubble tapped is picked out, and shows its address.
 struct RecipientBubbles: Equatable {
 
     /// One per bubble, each as the field keeps it.
@@ -105,9 +105,11 @@ struct RecipientBubbles: Equatable {
     // MARK: - What he does
 
     /// He has typed, or taken out, after the bubbles, which now reads
-    /// `now`. Each recipient he has ended with a comma becomes a bubble. A
-    /// comma inside quotes, `<…>` or a comment ends nothing: `"Example,
-    /// Jane" <jane@example.com>` is one recipient as he types it.
+    /// `now`. Each recipient he has ended with a comma or a ";" becomes a
+    /// bubble, as in Mail, and a ";" or a comma with nothing before it is
+    /// nothing (B-081). A comma or ";" inside quotes, `<…>` or a comment
+    /// ends nothing: `"Example, Jane" <jane@example.com>` is one recipient
+    /// as he types it.
     mutating func type(_ now: String) {
         selected = nil
         leftWith = 0
@@ -132,13 +134,17 @@ struct RecipientBubbles: Equatable {
     /// leaving the field have made a bubble of that a moment before, as a
     /// tap on the list can, the pick takes its place too, so a name half
     /// typed is not left behind as a recipient.
+    ///
+    /// Split as the field is (`MailFormat.addresses(in:)`), so a pick kept
+    /// with a ";" after its address, which the book of a build before
+    /// B-081 could hold, is the bubble of the address alone.
     mutating func pick(_ entry: String) {
         selected = nil
         if typed.isEmpty, leftWith > 0, leftWith <= entries.count {
             entries.removeLast(leftWith)
         }
         leftWith = 0
-        entries.append(entry)
+        entries += MailFormat.addresses(in: entry)
         typed = ""
     }
 
@@ -172,23 +178,36 @@ struct RecipientBubbles: Equatable {
         leftWith = 0
     }
 
-    /// The recipients `typed` has ended with a comma, each trimmed, blanks
-    /// left out, and what is left after the last of them, its leading
-    /// spaces taken off. Only a comma outside quotes, `<…>` and a comment
-    /// ends one, as `MailFormat.addressList` reads a header; a quote or a
-    /// bracket still open is a recipient still being typed, not a broken
-    /// header, so nothing after it is ended.
+    /// The recipients `typed` has ended with a comma or a ";", each
+    /// trimmed, blanks left out, and what is left after the last of them,
+    /// its leading spaces taken off. Only a comma or ";" outside quotes,
+    /// `<…>` and a comment ends one, as `MailFormat.addresses(in:)` splits
+    /// the field; a quote or a bracket still open is a recipient still
+    /// being typed, not a broken header, so nothing after it is ended.
+    ///
+    /// A ";" ends one as a comma does (B-081). It ended nothing before, and
+    /// "jane@example.com;" became a bubble that showed the address and
+    /// kept the ";", and the letter was refused at Send. The ";" of an
+    /// empty group, `undisclosed-recipients:;`, ends it too, and stays with
+    /// it, as the field keeps it (`MailFormat.addresses(in:)`): without it
+    /// the bubble read "undisclosed-recipients:", and the letter's header a
+    /// group begun and never ended.
     static func ended(_ typed: String) -> (entries: [String], rest: String) {
         var done: [String] = []
         var entry = ""
         var quoted = false, escaped = false, bracketed = false
         var comments = 0
+        // A group opened by a colon, `undisclosed-recipients:`, and whether
+        // there is anything in it yet, as `MailFormat.addresses(in:)` reads
+        // one.
+        var inGroup = false, groupEmpty = false
         for c in typed {
             if escaped {
                 escaped = false
                 entry.append(c)
                 continue
             }
+            let inComment = comments > 0
             switch c {
             case "\\" where quoted || comments > 0: escaped = true
             case "\"" where !bracketed && comments == 0: quoted.toggle()
@@ -196,13 +215,26 @@ struct RecipientBubbles: Equatable {
             case ">" where !quoted && comments == 0: bracketed = false
             case "(" where !quoted && !bracketed: comments += 1
             case ")" where !quoted && !bracketed && comments > 0: comments -= 1
-            case "," where !quoted && !bracketed && comments == 0:
+            case ":" where !inGroup && !quoted && !bracketed && comments == 0
+                        && !entry.contains(where: { $0 == "@" || $0 == "<" }):
+                inGroup = true
+                groupEmpty = true
+                entry.append(c)
+                continue
+            case "," where !quoted && !bracketed && comments == 0,
+                 ";" where !quoted && !bracketed && comments == 0:
+                if c == ";" {
+                    if inGroup && groupEmpty { entry.append(c) }
+                    inGroup = false
+                }
+                groupEmpty = false
                 let t = entry.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !t.isEmpty { done.append(t) }
                 entry = ""
                 continue
             default: break
             }
+            if !c.isWhitespace, !inComment, comments == 0 { groupEmpty = false }
             entry.append(c)
         }
         let rest = String(entry.drop { $0.isWhitespace || $0.isNewline })
