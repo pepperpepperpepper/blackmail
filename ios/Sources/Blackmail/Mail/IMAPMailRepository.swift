@@ -1984,8 +1984,10 @@ actor IMAPMailRepository: MailRepository {
                                   progress: progress)
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
-        // the top of the list.
-        for address in draft.to + draft.cc + draft.bcc {
+        // the top of the list. Each as it went, split at a comma or a ";"
+        // (`Submission.recipients`), so the book never learns an address
+        // with a ";" after it, to offer it again (B-081).
+        for address in Submission.recipients(of: draft) {
             self.recipients.used(address: MailFormat.bareAddress(address))
         }
 

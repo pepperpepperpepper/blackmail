@@ -105,27 +105,95 @@ final class RecipientBook {
         flush()
     }
 
+    /// Each address filed under itself (`keys(for:)`): "jane@example.com;",
+    /// as a share sent by a build before B-081 can still hand the app
+    /// (`ShareMirror.takeSent`), is Jane's. A name goes only with an
+    /// address that is one.
     private func record(address: String, name: String?, chosen: Bool) {
-        let key = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        // A bare word is not an address, and neither is an empty one.
-        guard key.contains("@"), key.count > 2 else { return }
+        let keys = Self.keys(for: address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+            // A bare word is not an address, and neither is an empty one.
+            .filter { $0.contains("@") && $0.count > 2 }
+        guard !keys.isEmpty else { return }
 
         let seen = Date()
 
         lock.lock()
         defer { lock.unlock() }
-        var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
-                                                   lastSeen: .distantPast)
-        // A name once learned is kept unless a better one turns up. Senders
-        // routinely arrive bare in one message and named in the next.
-        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
-            entry.name = name.trimmingCharacters(in: .whitespaces)
+        for key in keys {
+            var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
+                                                       lastSeen: .distantPast)
+            // A name once learned is kept unless a better one turns up.
+            // Senders routinely arrive bare in one message and named in the
+            // next.
+            if keys.count == 1, let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+                entry.name = name.trimmingCharacters(in: .whitespaces)
+            }
+            if chosen { entry.uses += 1 }
+            entry.lastSeen = seen
+            entries[key] = entry
         }
-        if chosen { entry.uses += 1 }
-        entry.lastSeen = seen
-        entries[key] = entry
         evictIfNeeded()
         dirty = true
+    }
+
+    /// The addresses a key of the book stands for, each as a key: lowercased
+    /// and bare. Most are one address and come back as they are.
+    ///
+    /// A build before B-081 learned an address with the ";" typed after it,
+    /// "jane@example.com;", and two typed with a ";" between them as one,
+    /// "a@example.com; b@example.com". Kept so, the list offered Jane twice,
+    /// once with the ";", and offered "jane@example.com;" again after Jane
+    /// was already a bubble, and the pick made a second bubble for her.
+    /// Split at a comma or a ";" as the field is (`MailFormat.addresses(in:)`),
+    /// these are "jane@example.com", and "a@example.com" and
+    /// "b@example.com".
+    ///
+    /// Split only when every piece is an address. A malformed
+    /// "a;b@example.com", as a letter's header can hold it, stays whole:
+    /// split, it would file it under "b@example.com", whom nobody wrote to
+    /// (`MailFormat.recipientEntry`).
+    static func keys(for address: String) -> [String] {
+        let pieces = MailFormat.addresses(in: address).map { MailFormat.bareAddress($0).lowercased() }
+        guard !pieces.isEmpty, pieces.allSatisfy({ $0.contains("@") && $0.count > 2 }) else {
+            return [address]
+        }
+        var seen = Set<String>()
+        return pieces.filter { seen.insert($0).inserted }
+    }
+
+    /// A book as it was stored, each entry filed under its own address
+    /// (`keys(for:)`), so one kept by a build before B-081 offers each
+    /// person once, without a ";". Two entries for one address become one:
+    /// their uses added, the later seen kept, and the name of the entry
+    /// that was already that address alone, or else the first name found.
+    /// An entry holding several addresses gives each its uses, and no name.
+    /// A book with nothing to file again comes back as it was, entry for
+    /// entry, in its order.
+    static func filed(_ stored: [KnownRecipient]) -> [KnownRecipient] {
+        var filed: [String: KnownRecipient] = [:]
+        // In the order stored, so the result does not depend on how a
+        // dictionary happened to be ordered.
+        var order: [String] = []
+        for entry in stored {
+            let keys = Self.keys(for: entry.address)
+            for key in keys {
+                var kept: KnownRecipient
+                if let known = filed[key] {
+                    kept = known
+                } else {
+                    order.append(key)
+                    kept = KnownRecipient(address: key, name: nil, uses: 0, lastSeen: .distantPast)
+                }
+                if keys.count == 1, let name = entry.name,
+                   (kept.name ?? "").isEmpty || (key == entry.address && !name.isEmpty) {
+                    kept.name = name
+                }
+                kept.uses += entry.uses
+                kept.lastSeen = max(kept.lastSeen, entry.lastSeen)
+                filed[key] = kept
+            }
+        }
+        return order.compactMap { filed[$0] }
     }
 
     /// Drops the least useful when full: never-chosen entries first, oldest
@@ -212,11 +280,22 @@ final class RecipientBook {
 
     // MARK: - Storage
 
+    /// The book as last written out. One kept by a build before B-081 is
+    /// filed again as it loads, each address under itself (`filed`), and
+    /// written out again at the next flush; the share sheet's copy of it is
+    /// made again from this one when the app next syncs it (`ShareMirror`).
     private func load() {
         guard let data = defaults.data(forKey: Self.storageKey),
               let stored = try? JSONDecoder().decode([KnownRecipient].self, from: data)
         else { return }
-        entries = Dictionary(stored.map { ($0.address, $0) }, uniquingKeysWith: { a, _ in a })
+        let filed = Self.filed(stored)
+        lock.lock()
+        defer { lock.unlock() }
+        entries = Dictionary(filed.map { ($0.address, $0) }, uniquingKeysWith: { a, _ in a })
+        if stored.contains(where: { Self.keys(for: $0.address) != [$0.address] }) {
+            dirty = true
+        }
+        evictIfNeeded()
     }
 
     /// Writes the book out if anything has changed since it last was.

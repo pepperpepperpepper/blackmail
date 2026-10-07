@@ -11861,3 +11861,337 @@ show the test account's address.
 - A language whose day names are longer than "Wednesday" takes more
   from the names the same way, since the cell measures each row's own
   date. Only English was tried.
+
+---
+
+## B-081 — FIXED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. A letter whose To ended in ";" was refused
+
+**Found** on 2026-10-06, in the simulator, during B-075's check, and noted
+in its entry: a letter To an address with ";" typed after it was refused
+at Send, "Message was not sent.", and stayed in the composer.
+
+**What he saw.** Seen again on 2026-10-07, in a simulated iPad (7th
+generation) on iPadOS 18.6, built from master 596f956. In To, the test
+address with a tag, then ";". Leaving the field made one bubble, with the
+address on it and no ";". Subject "B-081 before", Send: "Message was not
+sent.", and the letter stayed in the sheet. A ";" typed after the bubble,
+with a space either side, made a bubble of its own, ";".
+
+**What it was.** The ";" was in the bubble, out of sight, and Send sent to
+it.
+
+- *The field* split what he typed at commas alone
+  (`RecipientBubbles.ended`, `MailFormat.addresses(in:)`). A ";" ended
+  nothing, and leaving the field made one entry of "address;". The
+  bubble named the address, because `MailFormat.recipient(in:)` reads an
+  entry without a ";" at its end, but the entry kept it.
+- *The envelope* (`SMTPClient.envelopeAddress`) takes what is inside
+  `<…>`, or the whole entry, and drops only spaces and control
+  characters. So `RCPT TO:<address;>`. Gmail answered, the connection log
+  of the send has it: "553-5.1.3 The recipient address <…;> is not a
+  valid RFC 5321 address." With every recipient refused, the send failed
+  (`SMTPClientError.rejected`), and he was told "Message was not sent."
+  (`MailError.notSent`). The letter stays in the sheet when the server
+  refuses it (B-052).
+- *The header* (`RFC5322Builder`) took each entry as it was, and would
+  have carried "To: address;", a ";" that ends a group with no group
+  begun.
+
+Every shape of it went the same way. "a@example.com; b@example.com" was one
+bubble naming both and one `RCPT TO:<a@example.com;b@example.com>`. A ";"
+alone was a bubble ";", Send live, and `RCPT TO:<;>`. Beside an address
+that went, an entry with a ";" was refused alone: the letter went to the
+others, and the app's book of addresses learned "jane@example.com;", to
+offer it again in the list and in the share sheet, which reads the same
+book.
+
+How a ";" gets into To:
+
+- *Typed or pasted.* The iPad's on-screen keyboard has ";" on its .?123
+  side; a hardware keyboard and a paste have it too. This is the case
+  found.
+- *A draft, or a letter in the Outbox,* kept with one by a build before
+  this one. Opened, it is a bubble with the ";" in it; in the Outbox it is
+  sent as kept.
+- *A `mailto:` link* written with ";" between its addresses,
+  `mailto:a@example.com;b@example.com`: one entry, as the link is split
+  at commas alone (`MailtoLink`).
+- *A pick* from the book, once the book had learned such an address.
+- *A letter's header.* A ";" at the end of an entry, in Gmail's copy of
+  a draft among them, was already dropped as the header was read
+  (`recipient(in:)`). The bubble never showed one either, which is why
+  the draft in B-075's check seemed to come back from Drafts without it.
+  A ";" between two people, `Jane <jane@example.com>; Sam <sam@example.com>`,
+  as some clients write a header, was one entry: Reply All named Sam
+  alone, with Jane in his name, and could not leave his own address out
+  of such an entry.
+
+**What Mail does.** Mail takes a ";" between addresses as it takes a ",":
+it separates them, and one at the end, alone or beside a "," is nothing.
+That is the rule this was built to. Mail itself was not tried.
+
+**Changed.**
+
+1. *The field* (`RecipientBubbles.ended`, `MailFormat.addresses(in:)`). A
+   ";" ends a recipient as a "," does. Typed, it makes a bubble of what is
+   before it at once, as a comma does since B-076. A ";" alone, " ; ", ",;"
+   or ";;" make nothing, and the ";" goes from the line. Inside quotes,
+   `<…>` or a comment it is part of the name or the address, as a comma
+   is: `"Example; Jane" <jane@example.com>` is one bubble. A quote never
+   closed splits what he typed at every ";" as at every comma. A field
+   opened from a draft, a letter in the Outbox or a link splits each
+   entry the same way, a bubble for each address, and so does a pick.
+   An empty group, `undisclosed-recipients:;`, as a draft written in
+   another client can have it, stays one entry, its ";" with it, as
+   before: opened, its bubble reads the group whole, and typed, its ";"
+   makes that bubble. A ";" after a colon with nothing but spaces or a
+   comment between is the end of an empty group. A first build of this
+   fix split it there: the bubble read "undisclosed-recipients:", and the
+   header went out "To: undisclosed-recipients:", a group begun and never
+   ended.
+2. *The send* (`Submission.recipients`). Each entry is split the same way
+   before the envelope is made. The bubbles are split already; this is
+   for a letter kept by an earlier build, in Drafts or in the Outbox. No
+   RCPT TO carries a separating ";", and none is empty. A ";" alone is
+   nobody: Send stays grey, and such a letter is refused before the server
+   is reached, as a letter to nobody always was.
+3. *The header* (`RFC5322Builder`). To, Cc and a draft's Bcc are split the
+   same way and joined by commas, so the header names exactly whom the
+   envelope goes to.
+4. *A header read back* (`MailFormat.addressList`). A ";" between
+   addresses separates them as a comma does. A ";" that ends a group, after
+   a colon with no "@" or "<" before it, stays with the group's last
+   entry, as before, so the empty `undisclosed-recipients:;` still names
+   nobody (B-075). Reply All on `Jane <jane@example.com>; owner@example.com;
+   Sam <sam@example.com>` puts Jane and Sam in Cc and leaves him out.
+5. *An address in brackets with a ";" in it* (`MailFormat.recipientEntry`,
+   `RFC5322Builder`). A letter's malformed `<a;b@example.com>` is one
+   address. Split, it was "a" and "b@example.com", someone the letter
+   never named. A reply now keeps it in its brackets when splitting it
+   would leave a piece that is not an address, and the header keeps any
+   address alone that came in brackets and would read as more than one.
+   So the field does not split it, nobody is added, and it goes as the
+   one address it is, for Gmail to refuse as it would have. An address
+   that splits into addresses alone, "a@example.com; b@example.com" as an
+   earlier build's book can hold it, stays bare, and a pick of it makes a
+   bubble of each.
+6. *The book* (`IMAPMailRepository.send`, `RecipientBook`). It learns
+   each address as it went, split, never with a ";" after it. The share
+   sheet already told the app's book the addresses
+   `Submission.recipients` gives. A book kept by an earlier build is
+   filed again as it loads, each address under itself, and written out
+   so: "jane@example.com;" is Jane's, her uses added to hers, and
+   "a@example.com; b@example.com" is each of them. A malformed one,
+   "a;b@example.com", is left whole: split, it would be filed under
+   b@example.com, whom nobody wrote to. What the book learns is filed the
+   same way, so an address a share sent by an earlier build noted with a
+   ";" is filed under the address when the app takes it. The share
+   sheet's copy of the book is filed as the sheet reads it, for the time
+   before the app makes it again. So Jane is offered once, and not again
+   once she is a bubble. A first build of this fix still offered
+   "jane@example.com;" from such a book, with its ";", once Jane was a
+   bubble, and its pick made a second bubble for her: the letter named
+   her twice, in its header and in its envelope.
+
+**Not changed.** An entry that is not an address, "jan", is kept as he
+typed it, without the ";" after it, a bubble he can see and take off,
+and Send treats it as before, with the same words.
+
+**The empty group, changed after the review.** An empty group in To,
+`undisclosed-recipients:;`, stays in the field and the header, and is
+no longer offered to the server: it names nobody. Offered, it went
+`RCPT TO:<undisclosed-recipients:;>` and Gmail refused it, 553 5.1.3,
+while the letter went to the others. Alone in a letter it now leaves
+nobody, and Send refuses the letter before the server is reached, with
+the words a letter to nobody always had. `MailFormat.isEmptyGroup`
+picks it out: the one entry the field's split leaves ending in ";",
+with a colon, and no address. Two tests are new
+(`testALetterToAnEmptyGroupAloneIsALetterToNobody`,
+`testOnlyAnEmptyGroupIsLeftOutOfTheEnvelope`) and two changed to the new
+rule. The filter undone in a scratch copy, the whole suite run serially:
+4 failures in 4 tests, nothing else failing. The full suite, serially:
+1,613 tests, 5 skipped, none failing. `MailtoLink` still splits at commas; the
+field it opens splits the rest. The text helpers that split at commas alone,
+`currentRecipientToken` and `replacingRecipientToken`, are no longer used
+by either composer (B-076), and are as they were.
+
+**What he sees.** A ";" after an address makes a bubble at once, as a
+comma does. A ";" with nothing before it goes, and makes nothing. A letter
+To such an address goes. An address the book learned with a ";" is
+offered once, without it, and not again once it is a bubble. No new
+words.
+
+**Tests.** Thirty, all new: `SemicolonLikeMailTests`, sixteen,
+`SemicolonSendTests`, five, and `SemicolonBookTests`, five, in one file;
+two more in `ShareMirrorTests`, one in `OutboxTests` and one in
+`ShareSheetTests`. `ScriptedSubmission` now answers a RCPT TO
+with a ";" or a "," in its address as Gmail answered on 2026-10-07, 553
+5.1.3 in its four lines, so a test that sends one sees the refusal he
+saw.
+
+- *The field:* every shape above split, "jane@example.com;", a name and
+  its address with ";", two with ";" between, with and without a space,
+  ";;", ",;", ";" first, ";" alone, " ; ", "; ,;; ,"; a ";" kept inside a
+  quoted name, `<…>` and a comment; a quote never closed split at a ";" as
+  at a comma; "jan;" kept as "jan", Send live for it.
+- *The bubbles:* a ";" typed making a bubble, all at once and a letter at
+  a time; nothing for a ";" alone; Return with a ";" inside quotes; a
+  field opened with ";"s, a bubble each; a pick with a ";"; Send grey for
+  ";" alone and live for an address with one.
+- *The letter:* the send's recipients, the header's To, Cc and a draft's
+  Bcc, and no To for ";" alone.
+- *Headers read back:* the cases above, groups and the empty group
+  included; Reply All knowing each person and leaving him out; a
+  bracketed `<a;b@example.com>` kept one through Reply All, the bubbles,
+  the send and the header.
+- *Over the scripted servers:* a letter To each shape, sent once, its
+  RCPT TOs exactly its addresses, its To and Cc as written, no Bcc
+  header, and the book learning the addresses alone; a ";" alone refused
+  with no connection made; a draft kept with ";"s saved to Drafts, read
+  back a bubble each and sent to the same five addresses; the letter sent
+  read back from its header and answered by Reply and Reply All to the
+  same people; a letter in the Outbox kept with a ";", there after a
+  relaunch, sent by a later pass to its three addresses and gone from the
+  Outbox; a share To "Carlo <…>;" and ";" sent to its two addresses.
+- *The empty group:* `undisclosed-recipients:;` one entry in the field,
+  with spaces, a comment, and beside an address; typed a letter at a
+  time, one bubble; a group with people in it still split at its ";"; a
+  draft To it with a Bcc, reopened, one bubble, the send's recipients the
+  group and the Bcc, the header's To the group ended; over the scripted
+  servers, saved to Drafts, read back, sent, its RCPT TOs the group and
+  the Bcc, its To the group, no Bcc header.
+- *The book:* a book as an earlier build kept it, filed again as it
+  loads, Jane once with her name and her uses added, two in one each with
+  their uses, "a;b@example.com" whole, written out so and read the same by
+  a later book; a clean book loaded as it was and not written out again;
+  the clean entry's name kept over a merged one's; "ja" offering Jane once
+  and nothing once she is a bubble; what it learns filed the same way,
+  each address once; the share sheet's copy kept by an earlier build read
+  filed, Jane offered once and not again once a bubble; an earlier share's
+  "jane@example.com;" filed under the address when the app takes it.
+
+The first twenty run against master's code, before the fix: nineteen
+failed, 84 failures in all, the letter To "jane@example.com;" refused with
+`notSent`. The one that passed holds what was right already: a ";"
+inside a quoted name, kept at Return.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The field split at
+commas alone, as before: 45 in 13. A header read back split at commas
+alone, as before: 8 in 2. A group's ";" not kept with it: 4 in 1. A ";"
+typed ending nothing: 16 in 1. A pick not split: 3 in 2. The send's
+recipients not split, as before: 9 in 6. The header's To and Cc not
+split, as before: 15 in 4. The book learning each entry as kept, as
+before: 1 in 1. A quote never closed split at commas alone: 2 in 2. A
+reply's malformed address in brackets left bare: 7 in 1. The header's
+left bare: 2 in 1. Eleven in all. Every failure in every run was in the
+twenty new tests; B-061's and B-076's addressing tests, the replies made
+up from 6,000 awkward letters among them, passed in each. In an earlier
+pass, before the rule for a malformed address in brackets, the run for
+the book also failed `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, which fails now and
+then on this host. Those eleven were counted with the first twenty tests,
+before the ten for the book and the empty group.
+
+The book and the empty group, undone the same way, with all thirty, each
+counted as failures in tests. An empty group's ";" split in the field:
+14 in 3. A comment counted as something in the group: 1 in 1. A typed
+empty group's ";" left off its bubble: 4 in 1. The book not filed as it
+loads: 8 in 2. What it learns not filed: 3 in 2. The share sheet's copy
+not filed: 4 in 1. A malformed key split too: 6 in 3. A key's addresses
+not taken once each: 1 in 1. A merged entry's name kept over the clean
+one's: 1 in 1. Nine in all, and every failure in the ten tests for them.
+The field, the typing, the book and the share sheet's copy all undone at
+once, as the first build of this fix had them: 34 in 8 of the ten. The
+other two hold the filing itself, which was left in place, and a book
+with nothing to file. The full suite, serially, with nothing undone:
+1,611 tests, 5 skipped, none failing. The release build for the iPad
+links.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, simulated iPads (7th
+generation) on iPadOS 18.6, landscape, a hardware keyboard, built from
+this branch and signed in to the test account. Every letter to the test
+address with a tag before the "@". The screenshots are in the pass's
+shots folder, not in the repo: they show the test address.
+
+1. *Typed.* A new letter, To the address with `+sim18`, then ";": a
+   bubble at once, the line after it empty. " ; ,;" typed after it:
+   nothing. Subject "B-081 semicolon", Send: the sheet closed. The
+   connection log of the send: one RCPT TO, the address alone, and
+   Gmail's 250. Read over IMAP: it arrived once, in the Inbox and in
+   Sent Mail, its To the address alone.
+2. *Two.* `+jane`, "; ", `+sam`, ";": two bubbles. Subject "B-081 two",
+   Send: two RCPT TOs, and it arrived once, To "+jane, +sam" joined by a
+   comma. Reply All on it: To `+jane` and `+sam`, a bubble each.
+3. *A ";" alone.* A new letter, ";" then " ; ,; " in To, then Subject: To
+   empty, Send grey.
+4. *A draft.* To `+sim18` and ";", Subject "B-081 draft", Cancel, Save
+   Draft. Gmail's copy in Drafts: To the address alone. Drafts: its row
+   named the address. Opened: one bubble. Send: one RCPT TO, and it
+   arrived once; Drafts empty after.
+5. *Reply All* on "B-081 semicolon": To `+sim18` alone, one bubble. The
+   reading pane's header: To the address alone. Cancel closed it without
+   a word.
+6. *The share sheet,* from Safari on example.com: `+sim18` and ";" then
+   "; ;": one bubble. Subject "B-081 share", Send: it arrived once, To the
+   address alone.
+
+The four letters were moved to Trash in the app. Steps 1 and 4 to 6 were
+seen on a first build of the fix, steps 2 and 3 on a second. Since both,
+the code changed in 5 above, a malformed address in brackets, which
+nothing seen there holds, and in the book and the empty group, seen next.
+
+**The book and the empty group, seen on the iPadOS 18 simulator,
+2026-10-07**, one simulated iPad (7th generation) on iPadOS 18.6, first
+built from master 596f956, then given this branch's final build over it,
+its data kept, as the iPad will be.
+
+7. *An old book.* On master's build, a letter To `+jane` with ";" typed
+   after it and a comma, and `+sam`, Subject "B-081 old book", Send. It
+   went to `+sam` alone: the connection log has the RCPT TO of `+jane`
+   with its ";" refused 553 5.1.3, and `+sam`'s taken. Its To header
+   named `+jane` with the ";", then `+sam`. A new letter, `+ja` typed in
+   To: two rows, the address with ";" and the address without. On this
+   branch's build: one row, the address alone. Picked, a bubble; `+ja`
+   typed again after it: no rows.
+8. *An empty group.* On master's build, a letter To
+   "undisclosed-recipients:;" and a comma, Bcc `+sim18`, Subject "B-081
+   empty group", Cancel, Save Draft. Gmail's copy in Drafts: To
+   "undisclosed-recipients:;", and the Bcc. Its row: "No Recipients". On
+   this branch's build, before the group was left out of the envelope,
+   opened from Drafts: one bubble,
+   "undisclosed-recipients:;", whole. Send: the sheet closed. The log: the
+   RCPT TO of the group refused 553 5.1.3, as master's would be, and the
+   Bcc's taken, 250. It arrived once, its To "undisclosed-recipients:;";
+   Gmail's copy names the Bcc, as it does on every letter sent with one
+   (B-060). Drafts empty after. In a new letter on this build,
+   "undisclosed-recipients:;" typed made one bubble of it, whole. Cancel,
+   Delete Draft.
+9. *Step 1 again,* on this branch's build: To `+sim18` and ";", then
+   " ; ,;": one bubble, the line empty. Subject "B-081 semicolon final",
+   Send: one RCPT TO, the address alone, and Gmail's 250. It arrived
+   once, its To the address alone.
+
+The three letters were moved to Trash in the app. Read over IMAP after:
+the seven B-081 letters of both passes in Trash, once each, none left in
+All Mail or Drafts.
+
+**Not covered.**
+
+- Mail itself was not tried with a ";". The rule is the one asked for.
+- Not yet seen on the iPad. The TODO says how. It is the send path: merge
+  only after that check.
+- A draft or a letter in the Outbox kept with a ";" after an address by
+  an earlier build was not made in the simulator. Master's build there
+  made the old book and the empty group's draft (7 and 8), not these. The
+  suite holds both. Such a letter in the Outbox still names "a@…; b@…" as
+  one on its row (`RowNames`), though it goes to both.
+- A `mailto:` link with ";" was not opened in the simulator. The suite
+  holds a field opened with one.
+- His iPad's own keyboard was not used: the simulator's hardware keyboard
+  typed every ";".
+- The share sheet's copy of a book kept by an earlier build was not
+  seen: the app made it again at launch, before a share could be tried.
+  The suite holds it.
+- The empty group's draft was made by master's build, not by another
+  client.

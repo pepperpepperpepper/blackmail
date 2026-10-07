@@ -30,11 +30,25 @@ enum Submission {
     typealias InlineImage = (contentID: String, filename: String, mimeType: String, data: Data)
 
     /// Everyone the letter is addressed to, To, Cc and Bcc, with blanks
-    /// dropped.
+    /// dropped: each entry split as the composer's field is split, at a
+    /// comma or a ";" between addresses (`MailFormat.addresses(in:)`), so
+    /// no recipient carries a separator and a ";" alone is nobody (B-081).
+    ///
+    /// The bubbles are split so already. This is for an entry kept by a
+    /// build before B-081, in a draft or in the Outbox, which kept the ";"
+    /// he typed: "jane@example.com;" went `RCPT TO:<jane@example.com;>`,
+    /// Gmail answered 553 5.1.3, "not a valid RFC 5321 address", and the
+    /// letter did not go. The header reads its To and Cc the same way
+    /// (`RFC5322Builder`), so it names the people the envelope goes to.
+    ///
+    /// An empty group, `undisclosed-recipients:;`, names nobody: it stays in
+    /// the header and is left out here. Offered to the server it was
+    /// `RCPT TO:<undisclosed-recipients:;>`, which Gmail refused, 553 5.1.3.
+    /// Alone in a letter it leaves nobody, and the letter is refused here as
+    /// one to nobody.
     static func recipients(of draft: Draft) -> [String] {
-        (draft.to + draft.cc + draft.bcc)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        (draft.to + draft.cc + draft.bcc).flatMap(MailFormat.addresses(in:))
+            .filter { !MailFormat.isEmptyGroup($0) }
     }
 
     /// Makes the letter and sends it. Returns at the server's 250 for it.

@@ -26,8 +26,8 @@ import UIKit
 /// Sends `.editingDidBegin` and `.editingDidEnd` as the line he types on
 /// does, and `.editingChanged` whenever what it holds changes under his
 /// hand: a
-/// letter typed or taken out, a bubble made with a comma or Return, one
-/// taken off by backspace or Remove. Not for `show` or `pick`, which the
+/// letter typed or taken out, a bubble made with a comma, a ";" or Return,
+/// one taken off by backspace or Remove. Not for `show` or `pick`, which the
 /// sheet calls itself.
 final class RecipientField: UIControl, UITextFieldDelegate {
 
@@ -127,7 +127,7 @@ final class RecipientField: UIControl, UITextFieldDelegate {
     }
 
     /// A letter typed or taken out. A recipient he has ended with a comma
-    /// becomes a bubble, and the line holds what is left.
+    /// or a ";" becomes a bubble, and the line holds what is left.
     @objc private func changed() {
         // Not while a keyboard is still composing a character.
         guard input.markedTextRange == nil else { return }
@@ -262,8 +262,8 @@ final class RecipientField: UIControl, UITextFieldDelegate {
     /// buttons, only their look changing, so the one a menu hangs from is
     /// not taken away under it: those before the first change and after
     /// the last keep theirs (`RecipientBubbles.unchanged`), and only the
-    /// bubbles between are made again. A bubble made with a comma or Return
-    /// while a menu is up is one more at the end. Every button used to be
+    /// bubbles between are made again. A bubble made with a comma, a ";" or
+    /// Return while a menu is up is one more at the end. Every button used to be
     /// made again at any change, and the menu was left pointing where its
     /// bubble had been.
     private func rebuild() {
