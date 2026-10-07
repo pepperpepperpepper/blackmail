@@ -664,6 +664,27 @@ final class ReplyLikeMailTests: XCTestCase {
 
     /// The file's code with its comment lines dropped and its spacing
     /// made single, so a line is found however it is wrapped.
+    /// Found on the iPadOS 18 simulator, 2026-10-07: an address added in
+    /// Settings stayed named on Sent Mail's rows until the app was started
+    /// again, the list having read his addresses once. Save hands the list
+    /// the account as saved, and it draws its rows again with them.
+    func testSettingsSaveGivesTheListHisAddressesAsSaved() throws {
+        let list = try source("Sources/Blackmail/UI/MessageListViewController.swift")
+        let flat = list.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        XCTAssertTrue(flat.contains("settings.onSaved = { [weak self] saved in"))
+        XCTAssertTrue(flat.contains("self.mine = OwnAddresses(account: saved) self.regroup()"))
+    }
+
+    /// Found on the iPadOS 18 simulator, 2026-10-07: Remove beside an added
+    /// address took a tap on its word alone, 62 by 33 points. Every target
+    /// is 44 by 44 at the least (D-007): the row's height, and as wide.
+    func testRemoveBesideAnAddedAddressIsAWholeTarget() throws {
+        let settings = try source("Sources/Blackmail/UI/SettingsViewController.swift")
+        let flat = settings.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        XCTAssertTrue(flat.contains("remove.heightAnchor.constraint(equalToConstant: Theme.minHitTarget).isActive = true"))
+        XCTAssertTrue(flat.contains("remove.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget) .isActive = true"))
+    }
+
     private func source(_ path: String) throws -> String {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()     // BlackmailTests

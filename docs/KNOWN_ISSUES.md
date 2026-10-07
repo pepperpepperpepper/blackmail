@@ -9742,6 +9742,16 @@ it, and the review changed nothing they show.
 The screenshots and recordings are in the pass's folder, not in the repo:
 they show the test account's address.
 
+**Seen on the iPadOS 18 simulator, 2026-10-07**, the test iPad being out of reach, on simulated iPads (7th generation) on iPadOS 18.6, his iPad's major version, each a build of the four merged together (B-074 to B-077), on the test account. All
+nine steps of its TODO check passed: the order, a conversation opened
+again, the opening place for a long letter, a reply arriving while it
+was open (nothing above it moved), the Cc line leaving the header with
+the tapped line held, three panes to two inside a long letter, the newest
+closed, the status bar then the view button, and a reply read on a second
+simulator arriving as a closed line. Seen in passing: while a letter
+shows "Loading…" its header reads "To: me" for a moment, then the real
+To; not yet looked into.
+
 **Not covered.**
 
 - Not yet seen on the iPad. The TODO says how.
@@ -9975,6 +9985,14 @@ tell the iPad's copy of the draft from the server's. Opened from Drafts,
 its To had lost the ";". With the ";" typed again, Send was refused,
 "Message was not sent.", and it stayed in the composer; that is not
 this change's, and why was not read. The draft was deleted.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, the test iPad being out of reach, on simulated iPads (7th generation) on iPadOS 18.6, his iPad's major version, each a build of the four merged together (B-074 to B-077), on the test account. Every
+step of its TODO check passed: "Jane & Sam" with no Cc, the conversation's
+chevron in place of "(2)" (also in Edit), a long name cut before the
+time, his own address first and second (with his address added in
+Settings, after B-076's fix below), "No Recipients", the semicolon draft,
+the Inbox unchanged, and the VoiceOver labels as the accessibility tree
+gives them.
 
 **Not covered.**
 
@@ -10305,6 +10323,29 @@ before.
 5. The share sheet from Safari: `Al <al@example.com>` and a comma, a
    bubble 44 wide; a tap 4 points above it: its menu (b76f-18). Remove,
    Cancel: closed without a word.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, the test iPad being out of reach, on simulated iPads (7th generation) on iPadOS 18.6, his iPad's major version, each a build of the four merged together (B-074 to B-077), on the test account. Every
+step of its TODO check passed: bubbles from a comma, Return, leaving the
+field and a pick; backspace twice; a bubble's menu; a long Cc wrapping; a
+draft with bubbles saved and opened again; Reply All; his addresses added
+in Settings, Reply All leaving the added one out, and removed again; the
+share sheet from Safari. B-069's and B-073's checks were made again and
+passed. The owner had said that, these passing, B-076 merges on the
+simulator's word while the test iPad is out of reach. Two faults were
+found in passing, and fixed before the merge:
+
+- *An address added in Settings stayed on the rows.* Sent Mail's rows
+  read his addresses once (`MessageListViewController.mine`), so an
+  address added in Settings went on being named there until the app was
+  started again. Save now hands the list the account as saved, and it
+  draws its rows again in place. Reply was not affected: it reads the
+  account at the tap.
+- *Remove was a small target.* Beside an added address it took a tap on
+  its word alone, 62 by 33 points. It is now the row's 44 points high
+  and at least 44 wide (D-007).
+
+Each pinned by a test in `ReplyLikeMailTests`: with the fix undone, 1
+failure in 1 test each.
 
 **Not covered.**
 
@@ -10646,6 +10687,16 @@ w = 18.26 a second.
   few milliseconds apart, never at the screen's own pace, so it is taken
   as the recorder's. The iPad checks in the TODO look for it on the
   glass.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, the test iPad being out of reach, on simulated iPads (7th generation) on iPadOS 18.6, his iPad's major version, each a build of the four merged together (B-074 to B-077), on the test account. Every
+move was recorded at 60 frames a second and measured frame by frame: one
+motion of about half a second, no second phase, the letter pane still
+through a push and a pop, the same with Reduce Motion, and a cross-fade
+for the push and pop with Prefer Cross-Fade Transitions. In 2 of 27
+recordings the old screen shows once within a few milliseconds of the
+first moving frame, inside the recorder's burst, as on 2026-10-06; it is
+for the glass to show whether it is real. VoiceOver and slow motion on a
+scratch build are for the iPad.
 
 **Not covered.**
 

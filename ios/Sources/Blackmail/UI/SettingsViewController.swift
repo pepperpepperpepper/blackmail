@@ -378,6 +378,11 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
                 remove.titleLabel?.font = .systemFont(ofSize: 17)
                 remove.accessibilityLabel = "Remove \(address)"
                 remove.setContentHuggingPriority(.required, for: .horizontal)
+                // The row's whole height and at least as wide, as D-007
+                // asks of every target; the word stays where it was.
+                remove.heightAnchor.constraint(equalToConstant: Theme.minHitTarget).isActive = true
+                remove.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget)
+                    .isActive = true
                 remove.addAction(UIAction { [weak self] _ in self?.removeEmail(address) },
                                  for: .touchUpInside)
                 row.addArrangedSubview(remove)

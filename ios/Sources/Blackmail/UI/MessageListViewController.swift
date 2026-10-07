@@ -74,7 +74,9 @@ final class MessageListViewController: UITableViewController {
     private let mailbox: Mailbox
     /// His own addresses, which a row naming whom its letters are to leaves
     /// out of two or more (`RowNames.line`, B-075). Read once: a new
-    /// account builds the screens again.
+    /// account builds the screens again, and Settings' Save hands the list
+    /// its account as saved, so an address added there leaves the rows at
+    /// once (`showSettings`, found on the iPadOS 18 simulator, B-076).
     private lazy var mine = OwnAddresses(account: CredentialStore.loadAccount())
     private var searchBar: SearchHeaderView!
     private let emptyLabel = UILabel()
@@ -2043,11 +2045,16 @@ final class MessageListViewController: UITableViewController {
         guard presentedViewController == nil,
               let account = CredentialStore.loadAccount() else { return }
         let settings = SettingsViewController(account: account, focusingPassword: focusingPassword)
-        settings.onSaved = { [weak self] _ in
+        settings.onSaved = { [weak self] saved in
             // Nothing on this screen changes what is IN the mailbox, so the
             // list is not reloaded. The signature is read fresh every time a
-            // compose window opens, so the next letter already has it.
-            self?.onRefreshRequested?()
+            // compose window opens, so the next letter already has it. His
+            // addresses are what the rows leave out (B-075, B-076): the list
+            // takes them as saved and draws its rows again, in place.
+            guard let self else { return }
+            self.mine = OwnAddresses(account: saved)
+            self.regroup()
+            self.onRefreshRequested?()
         }
         settings.onPasswordSaved = { [weak self] account, password, notice in
             self?.onPasswordSaved?(account, password, notice)

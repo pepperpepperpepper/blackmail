@@ -1724,6 +1724,7 @@ this host. Ordered by value, not by size.
       9. *A search with the keyboard up*, then "< Mailboxes": the keyboard
       goes, the search is there when he taps the folder again.
       10. *The log*: no `pane motion:` line but the bouncing ones.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all it can show passed (B-077). On the iPad still to do: VoiceOver, slow motion, the glass.*
 - [ ] **The share sheet's checks** (B-036, with the shrinking of
       2026-10-04 and Apple Mail's way of 2026-10-05). Install the IPA from
       `tools/build-share-ipa.sh` through TrollStore's helper
@@ -2124,6 +2125,7 @@ this host. Ordered by value, not by size.
       them, and open the reply there. Wi-Fi on, and Refresh: the reply goes
       in at the bottom as a closed line, nothing above it moves, and its
       row has no dot.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-074). On the iPad still to do.*
 - [ ] **B-075, Sent Mail's rows as Mail's.** On the test iPad, three
       panes, Organize by Thread on, the test account only, every letter
       to the account itself: "Jane's address" is its address with `+jane`
@@ -2160,6 +2162,7 @@ this host. Ordered by value, not by size.
       7. *VoiceOver* on, in Sent Mail, touch the row of 2: "Jane & Sam,
       2 messages", the subject, the time. VoiceOver off.
       Then delete the B-075 letters and the draft.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-075). On the iPad still to do.*
 - [ ] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
       iPad, the test account only; A stands for its address. Letters only
       to A with a `+` tag before the @, subjects beginning "B-076".
@@ -2195,6 +2198,7 @@ this host. Ordered by value, not by size.
       6. *The share sheet,* from Safari. It opens in To. Type one letter,
       pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
       again, Subject "B-076 share", Send. It arrives once, To `+sam`.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076). On the iPad still to do.*
 
 ## Blocked on the owner
 
