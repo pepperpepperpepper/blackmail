@@ -685,6 +685,70 @@ final class ReplyLikeMailTests: XCTestCase {
         XCTAssertTrue(flat.contains("remove.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.minHitTarget) .isActive = true"))
     }
 
+    /// Found on the test iPad, 2026-10-07 (B-078): with the on-screen
+    /// keyboard up, a bubble's menu opened to the right of the bubble, its
+    /// arrow well above it, over the rest of the To line and any bubble
+    /// made after it. The menu may open under the bubble or over it, never
+    /// beside it, and that is set before it is put up.
+    func testABubblesMenuOpensUnderOrOverItNeverBeside() throws {
+        let code = try source(Self.field)
+        XCTAssertTrue(code.contains("menu.popoverPresentationController?.sourceView = sender "
+            + "menu.popoverPresentationController?.sourceRect = sender.bounds "
+            + "menu.popoverPresentationController?.permittedArrowDirections = [.up, .down]"))
+        let sets = arrowDirections(in: code)
+        XCTAssertFalse(sets.isEmpty, "the menu's arrow directions are set")
+        for set in sets {
+            XCTAssertTrue(set.contains(".up") && set.contains(".down"), set)
+            for side in ["left", "right", "any", "unknown", "init", "rawValue"] {
+                XCTAssertFalse(set.contains(side), "\(set): \(side)")
+            }
+        }
+        guard let directions = code.range(of: "permittedArrowDirections ="),
+              let present = code.range(of: "owner.present(menu, animated: true)") else {
+            return XCTFail("the menu is put up once its directions are set")
+        }
+        XCTAssertLessThan(directions.lowerBound, present.lowerBound)
+        XCTAssertEqual(count("permittedArrowDirections", in: code), sets.count)
+        XCTAssertEqual(count("owner.present(menu", in: code), 1)
+    }
+
+    /// Every other popover in the composer and the share sheet hangs from
+    /// a bar button, which the iPad showed in place with the keyboard up.
+    /// One hung from a view in the raised sheet has its arrow kept off its
+    /// sides, as the bubble's menu has (B-078).
+    func testThePopoversInTheComposersHangFromABarButtonOrNeverBeside() throws {
+        for file in [Self.composer, Self.share, Self.field] {
+            let code = try source(file)
+            XCTAssertFalse(code.contains("modalPresentationStyle = .popover"), "\(file): a popover of its own")
+            XCTAssertFalse(code.contains("UIPopoverPresentationController("), file)
+            let anchored = count("popoverPresentationController?.sourceView", in: code)
+                + count("popoverPresentationController?.sourceItem", in: code)
+            let sheets = count("preferredStyle: .actionSheet", in: code)
+            let barred = count("popoverPresentationController?.barButtonItem = navigationItem.leftBarButtonItem",
+                               in: code)
+            XCTAssertEqual(barred + anchored, sheets, file)
+            XCTAssertEqual(arrowDirections(in: code).count, anchored, file)
+            for set in arrowDirections(in: code) {
+                XCTAssertFalse(set.contains("left") || set.contains("right") || set.contains("any"), "\(file): \(set)")
+            }
+        }
+        XCTAssertEqual(count("preferredStyle: .actionSheet", in: try source(Self.composer)), 1)
+        XCTAssertEqual(count("preferredStyle: .actionSheet", in: try source(Self.share)), 1)
+        XCTAssertEqual(count("popoverPresentationController?.sourceView", in: try source(Self.field)), 1)
+    }
+
+    /// What each `permittedArrowDirections =` in `code` is set to, up to
+    /// the end of its set or its line's next statement.
+    private func arrowDirections(in code: String) -> [String] {
+        code.components(separatedBy: "permittedArrowDirections =").dropFirst().map { rest in
+            let value = rest.drop(while: { $0 == " " })
+            if value.hasPrefix("["), let end = value.firstIndex(of: "]") {
+                return String(value[...end])
+            }
+            return String(value.prefix(while: { $0 != " " }))
+        }
+    }
+
     private func source(_ path: String) throws -> String {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()     // BlackmailTests

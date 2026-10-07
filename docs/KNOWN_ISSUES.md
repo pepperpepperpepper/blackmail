@@ -10716,3 +10716,147 @@ scratch build are for the iPad.
   go, as before.
 - The iPad was not turned in the simulator during a motion, and VoiceOver
   was not on. The host suite reads both.
+
+---
+
+## B-078 — FIXED 2026-10-07, found on the iPad, not yet seen there fixed. With the on-screen keyboard up, a bubble's menu opened beside the bubble, over the line he types on
+
+**Found** on 2026-10-07, in B-076's check on the test iPad (step 3a),
+iPadOS 16.5.1, the 11-inch, landscape, the on-screen keyboard up, built
+from master 434422b.
+
+**What he sees.** On his iPad the on-screen keyboard is up whenever he
+writes. A tap on a bubble in To opened its menu (the name, the
+address, Remove) to the right of the bubble. Its arrow pointed left
+at the title bar's line, 54 points above the bubble. The menu covered
+the rest of the To line: the line he types on, and any bubble he made
+next. "sa" and Return under the menu made a bubble hidden under it,
+seen only once the menu closed. Each bubble tried did it, "Example,
+Sam" as well as "Al", both in To. The keyboard hidden with its key,
+the sheet dropped and the arrow landed on the bubble. With the
+keyboard down from the start, UIKit put the menu under the bubble,
+its arrow on it, as the simulator always had. Cancel's question,
+which hangs from a bar button, was in its place.
+
+**What it was.** Measured inside the running app. With the keyboard
+up, the form sheet sits 53 points higher than without it. "Al" was at
+(409, 107) in the window, 44 by 30. The menu was at (453, 55), 317 by
+134, its body centred on the bubble, but UIKit chose the left arrow,
+with an arrow offset of -93 points. The menu's frame pins the arrow at
+its top corner, so the arrow sat 54 points above "Al", and 37 above
+"sa", whose menu is shorter. With the keyboard down: the up arrow,
+offset 0, the menu's top at the bubble's bottom.
+
+The app's anchor is right. `RecipientField.bubbleTapped(_:)` hangs the
+menu, an action sheet and so a popover on the iPad, from the bubble
+and its bounds. It left the arrow's side to UIKit, which allows any.
+On 16.5.1, with the sheet raised for the keyboard, UIKit picks the side
+and the arrow's place from geometry out of date. Set again once the
+menu was up, with its popover laid out again, the same anchor gave an
+offset of 0, but the menu stayed to the right. It happens with taps
+alone, on an app freshly started.
+
+**Changed.** The bubble's menu opens under the bubble or over it,
+never beside it: its popover's `permittedArrowDirections` is
+`[.up, .down]`, set with the anchor, before the menu goes up. Beside the
+bubble, the menu covers the rest of its line, which is the line he
+types on and every bubble after this one. Under it or over it, the menu
+covers the rows below or the bar above, and the line stays in sight.
+Where UIKit already chose up, as with the keyboard down and in the
+simulator, nothing changes. Both composers use the one field for To,
+Cc and Bcc, so the change is in all three, in the app's composer and
+in the share sheet.
+
+Tried on the iPad before it was built, set on the app's own menu as it
+went up, in the running app, the keyboard up: the up arrow, offset -1,
+the menu's top at the bubble's bottom. "sb" and Return made a bubble in
+sight after "sa", and "Al" stayed bright with the menu on it. The
+keyboard hidden, the menu went down with "Al", offset 0.
+
+**The other popovers** that can open in the composer or the share sheet
+while the keyboard is up, looked at for the same fault:
+
+- *Cancel's question,* Save Draft and Delete Draft in the composer,
+  Delete Draft in the share sheet. Each hangs from the Cancel bar
+  button. The iPad showed it on Cancel with the keyboard up, and the
+  simulator under Cancel. Left as they are.
+- *Attach Photo.* The photo picker comes up as a sheet of its own, not
+  as a popover, and has no arrow. In the simulator, with the keyboard
+  up, it covered the composer whole.
+- *The suggestions* under a field are a list laid out in the sheet by
+  hand, not a popover.
+- *A failure* is said in an alert, in the middle of the screen.
+
+No other popover hangs from a view inside the sheet. The bubble's menu
+is the one changed, and a test holds that each of the others hangs
+from a bar button.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, simulated iPads (7th
+generation) on iPadOS 18.6, his iPad's major version, landscape, on the
+test account. The simulator starts with a hardware keyboard. The
+on-screen one was brought up with the keyboard bar's key, then Show
+Keyboard; it then came up at each tap on a field until a key was
+typed on the hardware keyboard. Nothing was sent.
+
+- *Before, built from master 434422b.* A new letter, `Al <al@example.com>`
+  and a comma in To, the on-screen keyboard up: the sheet rose 45
+  points, and "Al" was at (352, 103), 44 by 30. A tap on it: the menu
+  under it, at (222, 146), 304 by 134.5, centred on "Al", its arrow on
+  the bubble. "sa" and Return, typed on the on-screen keys under the
+  menu: "sa" a bubble after "Al", in sight. "sa" tapped: its menu
+  under it, at (272, 146). A new letter, "al" typed on the on-screen
+  keys and Return, the bubble tapped: under it again. So the fault does
+  not show on 18.6 in the simulator. Whether it shows on an iPad
+  running 18 is for the glass; the change holds either way.
+- *After, built from this change.* The same steps, the same frames to
+  the point. The keyboard hidden under the menu: the sheet dropped 17.5
+  points to the keyboard bar, and the menu went with "Al", 13.5 points
+  under it. Brought back: the menu back at (222, 146). Delete under
+  the menu: "Al" gone, and its menu with it, "sa" left plain. With the
+  keyboard down from the start: "Al" at (352, 148), the menu under it
+  at (222, 191). Attach Photo with the keyboard up: the picker as a
+  sheet, no arrow. The share sheet from Safari on example.com: "al" and
+  Return typed on the on-screen keys, the bubble tapped: its menu under
+  it, its arrow on it; "sa" and Return under the menu: a bubble in
+  sight after "al"; Delete: "al" and its menu gone. Cancel's question
+  hung from Cancel in both sheets, the keyboard up.
+- *Cc and Bcc, after.* A new letter, "Al" in To, `Jo <jo@example.com>`
+  in Cc and `Bo <bo@example.com>` in Bcc, each with a comma, the
+  on-screen keyboard up: the sheet rose 45 points, "Jo" at (352, 147)
+  and "Bo" at (352, 191), each 44 by 30. A tap on "Jo": its menu under
+  it, at (222, 190), 304 by 134.5, its arrow on it, the To and Cc lines
+  in sight. A tap on "Bo": its menu under it, at (222, 234), the Bcc
+  line in sight. Remove: "Bo" gone. With the keyboard down, Remove on
+  "Al" took it, and Cancel closed the empty letter.
+
+**Tests.** `ReplyLikeMailTests`, two new tests, read from the source as
+the suite reads the other sheets. The bubble's menu: its directions set
+right after its anchor, before it goes up, up and down, and never
+left, right or any; every setting of them read, not only the first.
+The popovers in the composer, the share sheet and the field: each
+action sheet hangs from the Cancel bar button or from a view, none is
+a popover of its own, and each hung from a view keeps off its sides.
+The composer and the share sheet have one action sheet each, the field
+one hung from a view. That To, Cc and Bcc in both composers are this
+one field, and so have this menu, `testBothComposersShowBubbles`
+already holds.
+
+Each undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests: the directions left
+out, as before, 4 in 2; set to any, 4 in 2; up, down and left, 3 in 2;
+set after the menu has gone up, 2 in 1; Cancel's question in the
+composer hung from the sheet's view, 1 in 1; the share sheet's, 1 in 1.
+Nothing failed in any run but the tests named. The full suite, serially,
+with nothing undone: 1,581 tests, 5 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how.
+- A bubble in Cc or Bcc was not tapped on the iPad. They are the same
+  field, so the change is theirs too. The TODO's step 4 tries them.
+- Why UIKit on 16.5.1 picks the side from geometry out of date is
+  UIKit's. The change keeps the menu off the line whatever it picks.
+- Over the bubble is allowed, for a bubble too low for the menu to fit
+  under it with the keyboard up. That was not seen: the fields are at
+  the sheet's top, and UIKit chose under in every case tried.

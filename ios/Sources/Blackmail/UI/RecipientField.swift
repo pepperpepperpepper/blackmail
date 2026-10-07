@@ -213,6 +213,13 @@ final class RecipientField: UIControl, UITextFieldDelegate {
         // Its arrow on the bubble as drawn, not on the line it takes taps on.
         menu.popoverPresentationController?.sourceView = sender
         menu.popoverPresentationController?.sourceRect = sender.bounds
+        // Under the bubble, or over it, never beside it. Beside it the menu
+        // covers the rest of the line: what he types next and every bubble
+        // after this one. With the on-screen keyboard up, on the iPad's
+        // 16.5.1, UIKit put it to the right of the bubble, its arrow at the
+        // title bar's line, well above the bubble (B-078). Where UIKit
+        // already chose up, as with the keyboard down, nothing changes.
+        menu.popoverPresentationController?.permittedArrowDirections = [.up, .down]
         menu.addAction(UIAlertAction(title: "Remove", style: .destructive) { [weak self] _ in
             self?.menuFor = nil
             self?.menuEntry = nil
