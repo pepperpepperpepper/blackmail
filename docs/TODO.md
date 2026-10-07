@@ -2177,7 +2177,7 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-075).*
       *Seen on the test iPad 2026-10-07: 1 to 6 passed; in 7 the taps went
       to the app, not to VoiceOver. On the iPad still to do: 7.*
-- [ ] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
+- [x] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
       iPad, the test account only; A stands for its address. Letters only
       to A with a `+` tag before the @, subjects beginning "B-076".
       1. *Bubbles.* A new letter. In To type A with `+jane` and a comma: it
@@ -2213,13 +2213,11 @@ this host. Ordered by value, not by size.
       pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
       again, Subject "B-076 share", Send. It arrives once, To `+sam`.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076).*
-      *Seen on the test iPad 2026-10-07, the on-screen keyboard up: 1 to 4
-      passed but for 3a, where the menu stands beside the bubble (B-078),
-      and the end of 4: the draft opened from Drafts was not deleted with
-      Delete Draft. B-073's composer half and B-069's Send grey passed
-      again. On the iPad still to do: the end of 4 (a word typed in the
-      draft opened from Drafts, Cancel, Delete Draft: Drafts empty), 5, 6,
-      B-078's check, and Cancel at once on a new letter (B-069).*
+      *Seen on the test iPad 2026-10-07, the on-screen keyboard up: all
+      steps passed, 3a's menu under the bubble once B-078 was in. Under
+      the address, Settings reads "Email —" and what the addresses do, as
+      built. B-073's check in both halves, and B-069's Send grey and its
+      Cancel at once on a new letter, passed too (B-076).*
 - [x] **B-078, a bubble's menu with the keyboard up.** On the test iPad,
       the test account only, landscape, built from the `bubble-menu`
       worktree; merge only after a pass. The on-screen keyboard up
@@ -2387,3 +2385,10 @@ fetching the binned hits' summaries a page at a time, which needs their
 dates, the merge key, from a second source before the first page can be
 cut (see `IMAPMailRepository.startSearch`), and pipelining its SELECT and
 SEARCH pairs (see `IMAPClient.search(_:across:)`).
+
+Seen on the test iPad on 2026-10-07, after B-076's check: a letter open
+in the reading pane was moved to Trash from another device. Refresh took
+its row from the Inbox, and the reading pane went on showing the letter.
+That is as B-049 has it: a letter taken out elsewhere comes off the
+list, and the pane keeps it. Whether Mail does the same was not looked
+into.

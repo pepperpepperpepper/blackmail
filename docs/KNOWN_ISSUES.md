@@ -10097,7 +10097,7 @@ not looked into.
 
 ---
 
-## B-076 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and in part on the iPad. Reply All kept the letter's To in To, moved a Cc up to To, showed names as text, and could not be told his other addresses
+## B-076 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad. Reply All kept the letter's To in To, moved a Cc up to To, showed names as text, and could not be told his other addresses
 
 **Asked.** B-061 addressed Reply and Reply All as Mail was believed to,
 and put what it could not know to the owner: "Reply's addressing", "His
@@ -10497,6 +10497,54 @@ grey were made again and passed.
   how it opened and an untouched Reply All, each closed with nothing
   asked.
 
+**Seen on the test iPad again, 2026-10-07**, the same iPad, landscape,
+the on-screen keyboard up, built from master 434422b with B-078's fix
+and a first cut of B-079, on the test account, A standing for its
+address. The rest of its TODO check passed, and with it B-078's check,
+B-069's Cancel at once and B-073's share-sheet half. With 3a's menu
+under the bubble (B-078), every step of the check has now passed on the
+iPad.
+
+- *The end of step 4.* The letter of step 1 had gone to Trash, so
+  another went as in step 1: To A with `+jane`, Cc A with `+sam`, each
+  typed with a comma. It arrived once, To and Cc as typed. Reply All: To
+  `+jane`, Cc `+sam`, each a bubble. A word typed, Cancel, Save Draft:
+  one row in Drafts, and one draft on the server with the same To and
+  Cc. Opened from Drafts: the same bubbles and the word. More typed,
+  Cancel, Delete Draft: the sheet closed and Drafts was empty, still so
+  a few seconds later, and empty on the server too.
+- *His addresses* (step 5). Settings: under the address in bold, the
+  line "Email — your addresses. Reply All leaves them out, and a letter
+  from any of them is yours.", then the address alone, then "Add Another
+  Email…". So the line reads "Email" and what the addresses do, as
+  built, where the step has "Email" alone. A with `+jane`, typed in
+  capitals, added: listed as typed, with a red Remove. "owner": "That is
+  not an email address. Nothing was added.", and nothing added. Save.
+  Reply All to the letter of step 1: To `+sam` alone, `+jane` left out
+  as his, no Cc. Cancel on it untouched closed it with nothing asked.
+  Settings again: `+jane` still listed. Remove, Save; Settings again:
+  only the address.
+- *The share sheet* (step 6), from Safari on example.com. It opened in
+  To, the caret there and no list. "s": the list, "Example, Sam" with A
+  with `+sam` first. Picked: a bubble "Example, Sam", the list gone.
+  Delete: the bubble bright blue; again: gone, Send grey. "s" again, the
+  same row picked, and a subject typed over the page's title: the title
+  followed. A tap on the bubble: its menu under it, with A with `+sam`;
+  a tap outside: plain. Send: the sheet closed to Safari. It arrived
+  once, To "Example, Sam" with A with `+sam`, and no Cc.
+- *B-073, the share sheet.* It opened in To, empty, with no list. One
+  letter typed: the list. One Delete: the list closed, To empty, Send
+  grey.
+- *B-069, Cancel at once.* A new letter, nothing touched, Cancel: closed
+  with nothing asked. Drafts empty, on the server too.
+- *B-078's check* passed in each of its six steps; its entry says how.
+- *Seen in passing.* With a bubble's menu up and letters typed, the list
+  of suggestions opens under the menu and only its lowest row shows;
+  Return still makes the letters a bubble and picks nothing. In the share
+  sheet, Cancel and Send go grey while a bubble's menu is up; in the
+  app's composer they stay blue. Once Cc and Bcc are open, the "Cc/Bcc"
+  row stays, under Bcc; it did so earlier the same day too.
+
 **Not covered.**
 
 - Mail itself was not tried on an iPad. What it does is the evidence
@@ -10520,12 +10568,9 @@ grey were made again and passed.
   built.
 - The on-screen keyboard was not tried in the simulator; the hardware one
   was. On the iPad it was the on-screen one, up but where 3a put it away,
-  and a bubble's menu stood beside the bubble (B-078). A drag of a bubble
-  from one field to another, which Mail allows, is not built.
-- On the iPad, Delete Draft on a draft opened from Drafts (the end of
-  step 4), his addresses in Settings (step 5), the share sheet (step 6),
-  B-073's share-sheet half and B-069's Cancel at once on a new letter are
-  still to see. The TODO says how.
+  and a bubble's menu stood beside the bubble until B-078's fix put it
+  under. A drag of a bubble from one field to another, which Mail allows,
+  is not built.
 
 ---
 
