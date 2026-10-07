@@ -2199,7 +2199,7 @@ this host. Ordered by value, not by size.
       pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
       again, Subject "B-076 share", Send. It arrives once, To `+sam`.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076). On the iPad still to do.*
-- [ ] **B-078, a bubble's menu with the keyboard up.** On the test iPad,
+- [x] **B-078, a bubble's menu with the keyboard up.** On the test iPad,
       the test account only, landscape, built from the `bubble-menu`
       worktree; merge only after a pass. The on-screen keyboard up
       throughout but in 6: if a keyboard bar shows instead, its keyboard
@@ -2224,7 +2224,9 @@ this host. Ordered by value, not by size.
       6. *The keyboard down.* A new letter, the bubble of step 1, then
       hide the keyboard with its key. Tap "Al": its menu under it, its
       arrow on it, as before. Remove: gone. Cancel.
-      *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078). On the iPad still to do.*
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078).*
+      *Seen on the test iPad 2026-10-07: all six steps passed, the menu
+      under its bubble in each, never beside it.*
 
 ## Blocked on the owner
 

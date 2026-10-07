@@ -10719,7 +10719,7 @@ scratch build are for the iPad.
 
 ---
 
-## B-078 — FIXED 2026-10-07, found on the iPad, not yet seen there fixed. With the on-screen keyboard up, a bubble's menu opened beside the bubble, over the line he types on
+## B-078 — FIXED 2026-10-07, found on the iPad and seen there fixed. With the on-screen keyboard up, a bubble's menu opened beside the bubble, over the line he types on
 
 **Found** on 2026-10-07, in B-076's check on the test iPad (step 3a),
 iPadOS 16.5.1, the 11-inch, landscape, the on-screen keyboard up, built
@@ -10829,6 +10829,21 @@ typed on the hardware keyboard. Nothing was sent.
   line in sight. Remove: "Bo" gone. With the keyboard down, Remove on
   "Al" took it, and Cancel closed the empty letter.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, the on-screen keyboard up but in step 6, each step of the
+TODO's check. In To, the bubble's menu under "Al", its arrow on the
+bubble. "sa" and Return under it: a bubble after "Al", in sight, "Al"
+still bright and the menu on it. Delete: "Al" and its menu gone, "sa"
+plain. In Cc and Bcc, "Jo" and "Bo": each menu under its bubble, the
+line in sight; Remove took "Bo". In the share sheet from Safari, the
+same three steps, and the wider "Example, Sam" bubble's menu under it
+too. With the keyboard hidden, the menu under "Al" as before. In no
+case beside the bubble. Seen in passing: with a bubble's menu up and
+letters typed, the list of suggestions opens under the menu and only
+its lowest row shows; Return still makes the letters a bubble and
+picks nothing. In the share sheet, Cancel and Send go grey while the
+menu is up; in the app's composer they stay blue.
+
 **Tests.** `ReplyLikeMailTests`, two new tests, read from the source as
 the suite reads the other sheets. The bubble's menu: its directions set
 right after its anchor, before it goes up, up and down, and never
@@ -10852,9 +10867,6 @@ build for the iPad links.
 
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how.
-- A bubble in Cc or Bcc was not tapped on the iPad. They are the same
-  field, so the change is theirs too. The TODO's step 4 tries them.
 - Why UIKit on 16.5.1 picks the side from geometry out of date is
   UIKit's. The change keeps the menu off the line whatever it picks.
 - Over the bubble is allowed, for a bubble too low for the menu to fit
