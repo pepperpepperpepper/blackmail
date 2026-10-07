@@ -630,7 +630,10 @@ final class RootViewController: UIViewController {
         list.view.endEditing(true)
         mailboxList.select(mailboxID: list.mailboxID)
         shell.back()
-        UIAccessibility.post(notification: .screenChanged, argument: nil)
+        // As UIKit's pop does, VoiceOver goes back to the row that pushed:
+        // the open folder's, just highlighted (B-079).
+        UIAccessibility.post(notification: .screenChanged,
+                             argument: mailboxList.tableView.voiceOverPlace(orFirstRow: false))
     }
 
     private func describe(_ panes: PaneArrangement) -> String {
@@ -655,9 +658,16 @@ final class RootViewController: UIViewController {
             guard let self else { return }
             self.shell.tapped(mailbox, showing: self.list.shownMailbox)
             // In two panes the folders VoiceOver was reading have gone
-            // behind the list, as after a push.
+            // behind the list, as after a push. VoiceOver goes to the list:
+            // the row of the letter being read, else the first row, else,
+            // for a folder whose rows have not come, the list itself
+            // (B-079). The list holds the row for it until it is there, in
+            // case its rows are drawn again first, as a folder's fresh page
+            // is drawn over its kept one. `self.list` is read only now,
+            // since a folder opened has a new one.
             if self.shell.arrangement.panes == .two {
-                UIAccessibility.post(notification: .screenChanged, argument: nil)
+                UIAccessibility.post(notification: .screenChanged,
+                                     argument: self.list.placeVoiceOver())
             }
         }
         // Delete, Move and Flag from the reading pane edit the list on

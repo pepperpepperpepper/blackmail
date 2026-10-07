@@ -257,9 +257,13 @@ final class MessageListViewController: UITableViewController {
     /// letters in them and put back where they were on screen, and the
     /// selection by its letters too. Both are taken before the rows are
     /// rebuilt, since row numbers mean nothing after; see `ListPlace`.
+    /// So is the row VoiceOver is on, which is put back on its letter at
+    /// the end, once the list is where it goes (`keepVoiceOver`, B-079).
     @MainActor
     private func regroup(highlighting opened: String? = nil, to move: ListPlaces.Move = .stay) {
         let before = place()
+        let voiceOverOn = voiceOverHeld()
+        defer { keepVoiceOver(voiceOverOn) }
         rebuildRows()
         tableView.reloadData()
         let threads = self.threads
@@ -502,6 +506,10 @@ final class MessageListViewController: UITableViewController {
         // under each counts the letters waiting in the Outbox.
         NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
                                                name: LocalDrafts.changed, object: kept)
+        // Where VoiceOver goes, for a row it has been sent to (B-079).
+        NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
+                                               name: UIAccessibility.elementFocusedNotification,
+                                               object: nil)
 
         // The folder's page kept on the iPad, before anything is sent
         // (D-016): at launch the Inbox is in the first frame, and so is
@@ -633,6 +641,183 @@ final class MessageListViewController: UITableViewController {
         }
     }
 
+    // MARK: - VoiceOver's row (B-079)
+
+    /// The row VoiceOver is on, or has been sent to, kept on its letter when
+    /// the rows are drawn again. See `ListVoiceOver`.
+    private var voiceOver = ListVoiceOver()
+
+    /// Where VoiceOver goes as this list comes in front in two panes: the
+    /// highlighted row if any of it is in sight, else the first row wholly
+    /// in sight, else the table (`voiceOverPlace(orFirstRow:)`). A row is
+    /// held for VoiceOver until it is there: if the rows are drawn again
+    /// first, it goes to the cell that then shows the same letter. The
+    /// container posts what this returns.
+    @MainActor
+    func placeVoiceOver() -> UIView {
+        let place = tableView.voiceOverPlace(orFirstRow: true)
+        voiceOver.send(to: voiceOverRow(of: place), running: UIAccessibility.isVoiceOverRunning,
+                       at: Date())
+        return place
+    }
+
+    /// The row at `index` in the rows as they are now.
+    private func voiceOverRow(at index: Int?) -> ListVoiceOver.Row? {
+        index.flatMap { ListVoiceOver.Row($0, in: threads) }
+    }
+
+    /// The row whose cell `place` is, nil for the table.
+    private func voiceOverRow(of place: UIView) -> ListVoiceOver.Row? {
+        voiceOverRow(at: (place as? UITableViewCell).flatMap { tableView.indexPath(for: $0) }?.row)
+    }
+
+    /// The row of this list `element` is: one of its cells, something
+    /// inside one, or the element UIKit gives VoiceOver for a row, which is
+    /// not a view and whose container is the table. Nil for anything else:
+    /// the search field and its band, the bars, the table itself, the
+    /// folders, the reading pane, a sheet.
+    @MainActor
+    private func listRow(of element: Any) -> Int? {
+        guard var view = holderView(of: element) else { return nil }
+        if view === tableView {
+            // Found by where it is, among the rows, and not on the band.
+            guard !(element is UIView), let frame = (element as? NSObject)?.accessibilityFrame else {
+                return nil
+            }
+            let middle = CGPoint(x: frame.midX, y: frame.midY)
+            if !isOutbox,
+               UIAccessibility.convertToScreenCoordinates(searchBar.bounds, in: searchBar)
+                   .contains(middle) { return nil }
+            return (tableView.indexPathsForVisibleRows ?? []).first { row in
+                UIAccessibility.convertToScreenCoordinates(tableView.rectForRow(at: row), in: tableView)
+                    .contains(middle)
+            }?.row
+        }
+        while view !== tableView {
+            if let cell = view as? UITableViewCell { return tableView.indexPath(for: cell)?.row }
+            guard let up = view.superview else { return nil }
+            view = up
+        }
+        return nil
+    }
+
+    /// The view `element` is, or is in: itself, or the view its containers
+    /// lead to. The element UIKit gives VoiceOver for a row is not a view,
+    /// and its container is the table.
+    @MainActor
+    private func holderView(of element: Any) -> UIView? {
+        var holder: Any? = element
+        for _ in 0..<8 where !(holder is UIView) {
+            holder = (holder as? UIAccessibilityElement)?.accessibilityContainer
+        }
+        return holder as? UIView
+    }
+
+    /// The list's column is in the window and shown. Not after "< Mailboxes"
+    /// in two panes, which hides it, and not for a list a folder opened has
+    /// put out of the window.
+    @MainActor
+    private var listInSight: Bool {
+        var shown: UIView? = tableView
+        while let view = shown {
+            if view.isHidden { return false }
+            shown = view.superview
+        }
+        return tableView.window != nil
+    }
+
+    /// What VoiceOver is on, `element`, as this list sees it, and the row if
+    /// it is one of the list's. `place`, the cell the row VoiceOver was
+    /// sent to is drawn in now, if any. A row of the list first. Then his
+    /// typing: a key, or the search field while he types in it. Then the
+    /// list's own column: its bar with the view button and "< Mailboxes",
+    /// the table itself, the search band, the toolbar. Else elsewhere: the
+    /// folders, the reading pane, a sheet.
+    @MainActor
+    private func voiceOverLanding(on element: Any?, sentTo place: UIView?)
+        -> (landing: ListVoiceOver.Landing, row: Int?) {
+        guard let element else { return (.elsewhere, nil) }
+        if let on = listRow(of: element) {
+            guard let place else { return (.otherRow, on) }
+            let there = (element as AnyObject) === place
+                || (on == voiceOverRow(of: place)?.index
+                    && (element as? NSObject)?.accessibilityLabel == place.accessibilityLabel)
+            return (there ? .sentRow : .otherRow, on)
+        }
+        if (element as? NSObject)?.accessibilityTraits.contains(.keyboardKey) == true
+            || (!isOutbox && searchBar.isTyping) { return (.typing, nil) }
+        if let column = navigationController?.view ?? view,
+           holderView(of: element)?.isDescendant(of: column) == true { return (.listOwn, nil) }
+        return (.elsewhere, nil)
+    }
+
+    /// The row to keep VoiceOver on, taken before the rows are drawn again:
+    /// the one it has been sent to, while it is held, else the row of this
+    /// list it is on. Nil with VoiceOver off, while he types, with the
+    /// list's column out of sight, or on anything else (`ListVoiceOver.held`).
+    @MainActor
+    private func voiceOverHeld() -> ListVoiceOver.Row? {
+        guard listInSight else {
+            voiceOver.letGo()
+            return nil
+        }
+        let running = UIAccessibility.isVoiceOverRunning
+        let on = voiceOverLanding(
+            on: running ? UIAccessibility.focusedElement(using: .notificationVoiceOver) : nil,
+            sentTo: nil)
+        return voiceOver.held(running: running, on: voiceOverRow(at: on.row), landing: on.landing,
+                              at: Date())
+    }
+
+    /// Where VoiceOver goes for `held` in the rows as they are now: the cell
+    /// that shows its letter, or the one now in its place, if any of it is
+    /// in sight; else the first row wholly in sight; else the table. Nil
+    /// for nothing held.
+    @MainActor
+    private func voiceOverPlace(keeping held: ListVoiceOver.Row?) -> UIView? {
+        switch ListVoiceOver.step(after: held, in: threads) {
+        case .leave:
+            return nil
+        case .table:
+            return tableView
+        case .same(let row), .inPlace(let row):
+            // The cells for the rows as they are now: `reloadData` has only
+            // scheduled them.
+            tableView.layoutIfNeeded()
+            return tableView.voiceOverPlace(at: IndexPath(row: row, section: 0), orFirstRow: true)
+        }
+    }
+
+    /// After the rows are drawn again, with the list where it goes: VoiceOver
+    /// put on the cell that now shows the letter it was on, or sent to, with
+    /// a layout change. Nothing when it was on nothing of the list's rows,
+    /// or is off.
+    @MainActor
+    private func keepVoiceOver(_ held: ListVoiceOver.Row?) {
+        guard let place = voiceOverPlace(keeping: held) else { return }
+        voiceOver.redrawn(to: voiceOverRow(of: place), kept: letters.fromShelf, at: Date())
+        UIAccessibility.post(notification: .layoutChanged, argument: place)
+    }
+
+    /// VoiceOver has moved. If it has just been sent to a row and has gone
+    /// to another of the list's rows, to a cell drawn since for another
+    /// letter, or to the list's own bar or table, it is put on the one it
+    /// was sent to, once (`ListVoiceOver.moved`). The list's column out of
+    /// sight, the row is let go.
+    @objc private func voiceOverMoved(_ note: Notification) {
+        let now = Date()
+        guard isViewLoaded, let sent = voiceOver.sentRow(at: now) else { return }
+        guard listInSight else {
+            voiceOver.letGo()
+            return
+        }
+        guard let place = voiceOverPlace(keeping: sent) else { return }
+        let landing = voiceOverLanding(on: note.userInfo?[UIAccessibility.focusedElementUserInfoKey],
+                                       sentTo: place).landing
+        guard voiceOver.moved(to: landing, kept: letters.fromShelf, at: now) != nil else { return }
+        UIAccessibility.post(notification: .layoutChanged, argument: place)
+    }
+
     // MARK: - The copy of his mail kept on the iPad (D-016)
 
     /// The fetch of the folder's fresh first page over the kept one, one at
@@ -654,6 +839,8 @@ final class MessageListViewController: UITableViewController {
     private func showKeptPage() {
         guard let page = ListOpening.kept(for: mailbox, jumpingTo: pendingJump,
                                           from: repository.shelf) else { return }
+        let voiceOverOn = voiceOverHeld()
+        defer { keepVoiceOver(voiceOverOn) }
         letters.showKept(page.rows)
         listKept()
         updated.showingKept(since: page.keptAt)
@@ -1056,6 +1243,8 @@ final class MessageListViewController: UITableViewController {
     /// Replaces the list with the mail around a day, scrolled to the day.
     @MainActor
     private func show(_ window: MessageWindow) {
+        let voiceOverOn = voiceOverHeld()
+        defer { keepVoiceOver(voiceOverOn) }
         // Leaving search on would hide the window we just fetched
         // behind the previous result set.
         letters.showWindow(window.messages)
