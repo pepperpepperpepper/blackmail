@@ -2199,6 +2199,39 @@ this host. Ordered by value, not by size.
       pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
       again, Subject "B-076 share", Send. It arrives once, To `+sam`.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076). On the iPad still to do.*
+- [ ] **B-079, VoiceOver's place after a pane move.** On the test iPad,
+      landscape, the test account only, built from the `vo-focus`
+      worktree; merge only after a pass. Turn VoiceOver and its Caption
+      Panel on in Settings > Accessibility > VoiceOver. A tap goes
+      straight to the control, as on 2026-10-07, and a VoiceOver double
+      tap does the same. The caption names where VoiceOver is, and its box
+      is round it. Nothing is sent, read or flagged.
+      1. *"< Mailboxes".* Two panes, the list in front, a letter open in
+      the pane. "< Mailboxes": VoiceOver is on the open folder's row, the
+      highlighted one, and the caption names that folder, not "Flag,
+      Button".
+      2. *The open folder.* Tap it: the list comes back and VoiceOver is on
+      the letter's row, the highlighted one, not Flag. The list does not
+      move.
+      3. *A new folder.* "< Mailboxes", then a folder not open, such as
+      Sent Mail: VoiceOver goes into its list, on its first row, or, while
+      it has none, at its top, the search field. Not the view button in
+      the corner. The pane is now empty.
+      4. *The pane empty.* "< Mailboxes": VoiceOver is on that folder's row,
+      not on the view button. Tap it again: on the list's first row. The
+      list does not move.
+      5. *The list scrolled.* Scroll it so its top row is half under the
+      search field, the pane empty or the letter's row out of sight.
+      "< Mailboxes", then the open folder: VoiceOver is on the first row
+      wholly below the search field, and the list does not move. Then open
+      a letter, put its row half under the search field, and do the same:
+      VoiceOver is on the letter's row. Note whether the list moves to show
+      all of it.
+      6. *The view button*, as before: two panes to three, VoiceOver on it,
+      "Hide Mailboxes, Button"; three to two, "Show Mailboxes, Button".
+      7. During and after every move nothing of the pictures is read: the
+      caption names only real controls.
+      Then VoiceOver and the Caption Panel off, and the panes as they were.
 
 ## Blocked on the owner
 

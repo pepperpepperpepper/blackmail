@@ -10716,3 +10716,170 @@ scratch build are for the iPad.
   go, as before.
 - The iPad was not turned in the simulator during a motion, and VoiceOver
   was not on. The host suite reads both.
+
+---
+
+## B-079 — FIXED 2026-10-07, not yet seen on the iPad. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
+
+**Found on the iPad, 2026-10-07**, at B-077's check 8: the test iPad on
+iPadOS 16.5.1, the 11-inch, landscape, master 434422b, VoiceOver and its
+Caption Panel on. Seen twice, the second time from a fresh launch, in
+which Flag had never had VoiceOver's cursor.
+
+**What he would hear.** Two panes, the list in front, a letter open in
+the pane. At "< Mailboxes" the folders slid in and VoiceOver said "Flag,
+Button": its cursor was on the letter's Flag, not on a folder. A tap on
+the open folder brought the list back, and VoiceOver went to Flag again,
+not to the list. With the pane empty it went to the view button in the
+corner, "Show Mailboxes, Button": the right column, but not a folder and
+not a row. Nothing of the pictures was read, during or after any move.
+The view button's own switch put VoiceOver on the view button, as meant,
+even while its pictures moved.
+
+**The cause.** In `RootViewController.swift`, `backToMailboxes()` posted
+`UIAccessibility.post(notification: .screenChanged, argument: nil)`, and
+the folder tap in two panes (`mailboxList.onSelectMailbox`, in
+`wireNavigation()`) did the same. With nil, VoiceOver chooses where to go.
+The three panes sit side by side in one view, and on iPadOS 16 it went
+to the reading pane's Flag when a letter was open, and to the view button
+in the corner, in the folders' or the list's bar, when the pane was empty.
+The folders' column being hidden a moment before did not decide it: with
+the pane empty, the same hiding and the same cover ended in the right
+column. The view button's switch names its
+button (`.layoutChanged`), and that worked.
+
+**What Mail does**, as far as it can be known here. Mail in a narrow
+window is UIKit's navigation controller. UIKit's pop puts VoiceOver back
+on what it was on before the push: the row that pushed. Its push names
+nothing, and VoiceOver starts at the top of the new screen. Neither Mail
+nor UIKit was heard with VoiceOver on the iPad.
+
+**Fixed.**
+
+1. *"< Mailboxes"* names the open folder's row, which
+   `mailboxList.select(mailboxID:)` has just highlighted. If none of that
+   row is in sight, it names the folders' table, and VoiceOver takes its
+   first element. This is UIKit's pop.
+2. *A folder tap in two panes* names the list's highlighted row, the
+   letter being read, if any of it is in sight; else the first row wholly
+   in sight, below the search field; else the list's table, whose first
+   element is the search field at its top. The list is read after the
+   shell has acted, since a folder opened has a new list.
+   For the list brought back this is the pop's rule: where he was in it.
+   For a new folder it is the top of the list, under its bar. UIKit's push
+   would start in the bar, but the first thing in the list's bar is the
+   view button, which belongs to the corner, not to the list.
+3. *In sight* means between the table's bars and below the search
+   field, which stays at the top of the list while it scrolls. The rows
+   the table counts as on the screen include the ones under the bar and
+   the search field. Once the list is scrolled, the first of them is
+   partly or wholly under the search field. VoiceOver put on it would
+   scroll the list to show it, or put its box on a row he cannot see.
+   The first row wholly in sight does neither. The folders have no search
+   field, so for them only the bars are left out.
+4. Both stay `.screenChanged`: a pop and a push.
+5. *Shown when posted.* The panes are hidden and shown in `arrange`,
+   which the shell calls before it returns, before `arrange` can return
+   early, and with nothing left for a later turn. The motion's cover is
+   hidden from VoiceOver, but it lies over the panes as their sibling, not
+   around them, and nothing of a real view is faded, moved or hidden by
+   it. So the row or table named is in the window, shown and opaque when
+   posted, and VoiceOver is not left on anything hidden. Nothing needs to
+   be posted later.
+
+**The other posts.** There are three in the app, all in
+`RootViewController`: the view button's switch, which names its button
+and is kept, and the two above. `PaneShell`, `PaneMotion` and the folders'
+and the list's controllers post none. Two changes hide what VoiceOver may
+be on and post nothing, and are not changed: a return after a while
+away, in two panes with the folders in front, puts the list in front
+(B-003), and the date jump across mailboxes puts a new list in place of
+the one whose calendar was used. VoiceOver chooses after both, as before.
+
+**Seen in the simulator, 2026-10-07**, an iPad (7th generation) on iPadOS
+18.6, landscape, on the test account. The simulator has no VoiceOver, so
+where VoiceOver goes was not seen. A scratch build of this change wrote
+to the system log what each post named and its state at the post, on the
+next turn and 0.8 s later. Two panes, a letter open: "< Mailboxes" named
+the Inbox's row, highlighted; the Inbox tapped named the letter's row,
+highlighted. Starred, a new folder with no rows, named the list's table,
+and "< Mailboxes" then named Starred's row. The Inbox, opened anew, had
+rows at once and named its first row. With the pane empty, "< Mailboxes"
+named the Inbox's row, and the Inbox again the list's first row. At every
+post the element named was in the window, on the screen, shown and
+opaque, under nothing hidden from VoiceOver, with the cover up; the same
+on the next turn, and 0.8 s later with the cover gone. When the Inbox
+opened anew had its first page, its rows were put in again, and the row
+named was then the second. Nothing on the screen changed.
+
+**Seen again in the simulator, 2026-10-07**, the same way, with the rows
+under the search field left out. The bars were read as they are: 70
+points of bar over each table, 50 points of toolbar under the list, a
+44.5-point search field in the list and none in the folders. The pane
+empty, the Inbox scrolled 90 points, so that 6 points of its first row
+showed below the search field: "< Mailboxes" named the Inbox's row, and
+the Inbox tapped named the second row, the first wholly in sight. Taken
+from the rows the table counts as on the screen, it would have been the
+first.
+A letter open, its row scrolled until 12 points of it showed: it was
+named. Its row scrolled wholly under the bar: the fourth row was named,
+the first wholly in sight. Sent Mail, opened anew with no rows yet,
+named the list's table. Scrolled the same 90 points, "< Mailboxes" named
+Sent Mail's row, and Sent Mail tapped named its second row. Nothing on
+the screen moved. The simulator has no VoiceOver to move it.
+
+**Tests.** `PaneArrangementTests`, now 28, one more:
+`testVoiceOverIsPutWhereTheMoveTakesHim`, which reads `RootViewController`
+and `PaneMotion`, as B-077's tests do. No post passes nil, and there are
+three. The view button's names its twin in the corner. "< Mailboxes"
+posts `.screenChanged` with the open folder's row or the folders' table,
+after the highlight and after the shell has moved the panes. A folder tap
+posts `.screenChanged`, in two panes only, after the tap, with the list's
+highlighted row if any of it is in sight, else the first row wholly in
+sight, below the search field, else its table, in that order, the list
+read after the tap. What is in sight is worked out from the table's
+bars and the band pinned at its top, not from the rows the table counts
+as on the screen. The panes are hidden and shown in `arrange` before its
+early return, with nothing left for later, and nothing else in the
+container is hidden. The motion hides only its cover
+from VoiceOver, and puts it on the container's view.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. "< Mailboxes" naming
+nothing: 2 in 1. The folder tap naming nothing: 2 in 1. "< Mailboxes"
+naming the folders' table alone: 1 in 1. The folder tap naming the
+folders: 1 in 1. The list read before the tap: 1 in 1. No first row:
+1 in 1. The first row before the highlighted one: 1 in 1. "< Mailboxes"
+posted before the panes move: 1 in 1. "< Mailboxes" as a layout change,
+not a screen change: 2 in 1. The panes hidden and shown on the next
+turn: 2 in 1. The panes hidden and shown after the early return: 3 in 1.
+The motion hiding the list from VoiceOver: 1 in 1. With the rows under
+the search field left out, the two undone in the choosing were undone
+again: no first row, 1 in 1; the first row before the highlighted one,
+1 in 1. And six more. The first row taken from the rows the table counts
+as on the screen, as before: 1 in 1. The search field not left out:
+1 in 1. The bar over the table not left out: 1 in 1. The toolbar under
+it not left out: 1 in 1. The highlighted row named with none of it in
+sight: 1 in 1. A first row named with only part of it in sight: 1 in 1.
+Eighteen in all, each caught, with nothing failing in any run but the
+test named.
+
+The full suite, serially, with nothing undone: 1,580 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- VoiceOver was not heard. The simulator has none, and the iPad check in
+  the TODO is to do.
+- In Edit mode the list's highlighted row is the first one ticked, not
+  the letter being read.
+- A highlighted row wholly out of sight is not named. In the folders the
+  table is, and VoiceOver takes its first element. In the list the first
+  row wholly in sight is.
+- A highlighted row partly in sight is named, since it is where he was.
+  VoiceOver may then scroll the list to show the rest of it, by less than
+  a row. The iPad check looks for this.
+- When a new folder's first page comes, its rows are put in again, and
+  the row VoiceOver was put on can then hold another letter, as with any
+  list that changes under it.
+- What Mail and UIKit do with VoiceOver was not heard on the iPad.

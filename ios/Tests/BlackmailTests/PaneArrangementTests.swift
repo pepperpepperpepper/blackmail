@@ -653,6 +653,102 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertEqual(lines(of: list, containing: "LeftBarButtonItems").count, 1)
     }
 
+    /// Where VoiceOver goes after a move (B-079), read. Each of the three
+    /// names its element, and none leaves VoiceOver to choose: left to
+    /// choose, on the iPad it went to the letter's Flag. The view button's
+    /// switch: its twin in the corner, as before. "< Mailboxes", a pop:
+    /// the open folder's row, highlighted just before, else the folders'
+    /// table. A folder tap in two panes, a push: the list's highlighted
+    /// row, else its first row wholly in sight, below the search band,
+    /// else its table, the list read after the shell has made a new one.
+    /// A highlighted row counts if any of it is in sight. And the column
+    /// named is shown when each is posted: the panes are hidden and shown
+    /// in `arrange` before it can return early, with nothing put off until
+    /// later, and the motion's cover, the one thing hidden from VoiceOver,
+    /// is put beside them, not around them.
+    func testVoiceOverIsPutWhereTheMoveTakesHim() throws {
+        let code = try source("RootViewController.swift")
+
+        XCTAssertFalse(code.contains("argument: nil"))
+        XCTAssertEqual(lines(of: code, containing: "UIAccessibility.post("),
+                       ["UIAccessibility.post(notification: .layoutChanged,",
+                        "UIAccessibility.post(notification: .screenChanged,",
+                        "UIAccessibility.post(notification: .screenChanged,"])
+
+        let viewButton = flat(body(after: "func viewButtonTapped(", in: code))
+        XCTAssertTrue(viewButton.contains(
+            "UIAccessibility.post(notification: .layoutChanged, argument: "
+            + "shell.arrangement.leftColumn == .list ? listViewButton : mailboxesViewButton)"), viewButton)
+
+        let back = flat(body(after: "func backToMailboxes(", in: code))
+        let highlighted = try XCTUnwrap(back.range(of: "mailboxList.select(mailboxID: list.mailboxID)"))
+        let popped = try XCTUnwrap(back.range(of: "shell.back()"))
+        let toFolder = try XCTUnwrap(back.range(of:
+            "UIAccessibility.post(notification: .screenChanged, "
+            + "argument: voiceOverPlace(in: mailboxList.tableView, orFirstRow: false))"), back)
+        XCTAssertLessThan(highlighted.upperBound, popped.lowerBound)
+        XCTAssertLessThan(popped.upperBound, toFolder.lowerBound)
+
+        let tap = flat(body(after: "mailboxList.onSelectMailbox = ", in: code))
+        let tapped = try XCTUnwrap(tap.range(of: "self.shell.tapped(mailbox, showing: self.list.shownMailbox)"))
+        let inTwo = try XCTUnwrap(tap.range(of: "if self.shell.arrangement.panes == .two {"))
+        let toList = try XCTUnwrap(tap.range(of:
+            "UIAccessibility.post(notification: .screenChanged, "
+            + "argument: self.voiceOverPlace(in: self.list.tableView, orFirstRow: true))"), tap)
+        XCTAssertLessThan(tapped.upperBound, inTwo.lowerBound)
+        XCTAssertLessThan(inTwo.upperBound, toList.lowerBound)
+        XCTAssertEqual(tap.components(separatedBy: "self.list").count - 1, 2, tap)
+
+        // In sight: between the bars, and below the band pinned at the top.
+        // A highlighted row with any of it in sight; a first row wholly in
+        // it. Not `visibleCells`, which counts the rows under the band.
+        let placing = flat(body(after: "func voiceOverPlace(in table: UITableView, orFirstRow: Bool) -> UIView",
+                                in: code))
+        let sight = try XCTUnwrap(placing.range(of:
+            "let band = table.numberOfSections > 0 ? table.rectForHeader(inSection: 0).height : 0 "
+            + "let top = table.bounds.minY + table.adjustedContentInset.top + band "
+            + "let bottom = table.bounds.maxY - table.adjustedContentInset.bottom"), placing)
+        let row = try XCTUnwrap(placing.range(of:
+            "if let row = table.indexPathForSelectedRow, "
+            + "table.rectForRow(at: row).maxY >= top + 1, "
+            + "table.rectForRow(at: row).minY <= bottom - 1, "
+            + "let cell = table.cellForRow(at: row) { return cell }"), placing)
+        let first = try XCTUnwrap(placing.range(of:
+            "if orFirstRow, "
+            + "let first = (table.indexPathsForVisibleRows ?? []).sorted().first(where: { row in "
+            + "let rect = table.rectForRow(at: row) "
+            + "return rect.minY >= top - 0.5 && rect.maxY <= bottom + 0.5 }), "
+            + "let cell = table.cellForRow(at: first) { return cell }"), placing)
+        let table = try XCTUnwrap(placing.range(of: "return table }"), placing)
+        XCTAssertLessThan(sight.upperBound, row.lowerBound)
+        XCTAssertLessThan(row.upperBound, first.lowerBound)
+        XCTAssertLessThan(first.upperBound, table.lowerBound)
+        XCTAssertFalse(placing.contains("visibleCells"), placing)
+        XCTAssertEqual(placing.components(separatedBy: "return ").count - 1, 4, placing)
+        XCTAssertEqual(lines(of: code, containing: "voiceOverPlace(").count, 3)
+
+        // Shown, laid out and in the window when posted.
+        let arranging = body(after: "func arrange(", in: code)
+        let early = try XCTUnwrap(arranging.range(of: "guard view.window != nil else { return }"))
+        for line in ["mailboxNav.view.isHidden = !panes.mailboxesOnScreen",
+                     "listNav.view.isHidden = !panes.listOnScreen"] {
+            let hiding = try XCTUnwrap(arranging.range(of: line), line)
+            XCTAssertLessThan(hiding.upperBound, early.lowerBound, line)
+        }
+        for later in ["DispatchQueue", "Task", "async", "perform(#selector", "RunLoop"] {
+            XCTAssertFalse(arranging.contains(later), later)
+        }
+        XCTAssertEqual(lines(of: code, containing: "isHidden ="),
+                       ["mailboxNav.view.isHidden = !panes.mailboxesOnScreen",
+                        "listNav.view.isHidden = !panes.listOnScreen",
+                        "divider1.isHidden = !panes.mailboxDividerOnScreen"])
+        let motion = try source("PaneMotion.swift")
+        XCTAssertEqual(lines(of: motion, containing: "accessibility"),
+                       ["cover.accessibilityElementsHidden = true"])
+        XCTAssertEqual(lines(of: motion, containing: "addSubview(cover)"), ["root.addSubview(cover)"])
+        XCTAssertFalse(motion.contains("accessibilityViewIsModal"))
+    }
+
     // MARK: - The panes, moving
 
     /// `text` with every run of spaces and line breaks made one space.
