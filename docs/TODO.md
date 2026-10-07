@@ -466,12 +466,13 @@ this host. Ordered by value, not by size.
       B-066. What to look at on the iPad is below.*
 - [x] **B-077. The panes move as Mail's.** The owner's ruling on B-066's
       questions, 2026-10-06: "copy apple mail for these".
-      *Done, not yet seen on the iPad: one half-second motion on UIKit's
-      spring for the view button, the list over the folders at half speed
-      and the folders darkening, no settle; "< Mailboxes" and a folder tap
-      as a pop and a push; Reduce Motion and Prefer Cross-Fade Transitions
-      as Mail has them (`PaneMove`, `PaneMotion`). Seen and measured in the
-      iPadOS 18 simulator. What to look at on the iPad is below.*
+      *Done, seen on the iPad 2026-10-07 but for VoiceOver's place
+      (B-079): one half-second motion on UIKit's spring for the view
+      button, the list over the folders at half speed and the folders
+      darkening, no settle; "< Mailboxes" and a folder tap as a pop and a
+      push; Reduce Motion and Prefer Cross-Fade Transitions as Mail has
+      them (`PaneMove`, `PaneMotion`). Seen and measured in the iPadOS 18
+      simulator. What is left to see is below.*
 - [x] ~~**B-035. Ship the signature as a compile-time default.**~~ *Ruled
       out by the owner, 2026-09-26: his signature never goes in the repo.
       See the gap review above.* Needs the
@@ -1687,7 +1688,8 @@ this host. Ordered by value, not by size.
       of the motion has shown: the simulator's recorder showed that, and
       the app cannot draw it. The corner's glyph still, Flag to Compose
       still in the view button's switches. The last frame the same as a
-      screenshot a second later, but for a letter's line ends.
+      screenshot a second later, but for a letter's line ends and, from
+      two panes with the folders in front, the folders' title and counts.
       2. *The curve.* Half the way in about a tenth of a second and still
       to the eye by 0.4 s, as on 18.6. If it crawls, a third of the way at
       a quarter of a second, iPadOS 16 runs the spring otherwise: say so.
@@ -1724,7 +1726,13 @@ this host. Ordered by value, not by size.
       9. *A search with the keyboard up*, then "< Mailboxes": the keyboard
       goes, the search is there when he taps the folder again.
       10. *The log*: no `pane motion:` line but the bouncing ones.
-      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all it can show passed (B-077). On the iPad still to do: VoiceOver, slow motion, the glass.*
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all it can show passed (B-077).*
+      *Seen on the test iPad 2026-10-07: 1 to 7, 9 and 10 passed, 3 and 4
+      at `layer.speed` 0.05; in 6 the folder opened from a tap at the top
+      of the bounce, not as they sprang back. 8 did not: with a letter
+      open, "< Mailboxes" and a folder tap leave VoiceOver on the letter's
+      Flag (B-079). On the iPad still to do: 8, under B-079, and the
+      slow-motion film of the glass if one can be made.*
 - [ ] **The share sheet's checks** (B-036, with the shrinking of
       2026-10-04 and Apple Mail's way of 2026-10-05). Install the IPA from
       `tools/build-share-ipa.sh` through TrollStore's helper
@@ -2087,7 +2095,7 @@ this host. Ordered by value, not by size.
       2. *The share sheet,* from Safari. It opens in To: no list. Type
       one letter: the list. Delete it: the list closes.
       *Seen 2026-10-06, as written, in both (B-073).*
-- [ ] **B-074, a conversation in Mail's order.** On the test iPad, the test
+- [x] **B-074, a conversation in Mail's order.** On the test iPad, the test
       account only, every letter to the account itself, subjects beginning
       "B-074", built from the `conversation-order` worktree; merge only
       after a pass.
@@ -2125,7 +2133,11 @@ this host. Ordered by value, not by size.
       them, and open the reply there. Wi-Fi on, and Refresh: the reply goes
       in at the bottom as a closed line, nothing above it moves, and its
       row has no dot.
-      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-074). On the iPad still to do.*
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-074).*
+      *Seen on the test iPad 2026-10-07: all nine steps passed. In 9 the
+      reply was put into the mailbox already read, the iPad not taken
+      offline. In 3 the long letter's body had come before it was opened,
+      so there was no load to watch (B-074).*
 - [ ] **B-075, Sent Mail's rows as Mail's.** On the test iPad, three
       panes, Organize by Thread on, the test account only, every letter
       to the account itself: "Jane's address" is its address with `+jane`
@@ -2162,7 +2174,9 @@ this host. Ordered by value, not by size.
       7. *VoiceOver* on, in Sent Mail, touch the row of 2: "Jane & Sam,
       2 messages", the subject, the time. VoiceOver off.
       Then delete the B-075 letters and the draft.
-      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-075). On the iPad still to do.*
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-075).*
+      *Seen on the test iPad 2026-10-07: 1 to 6 passed; in 7 the taps went
+      to the app, not to VoiceOver. On the iPad still to do: 7.*
 - [ ] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
       iPad, the test account only; A stands for its address. Letters only
       to A with a `+` tag before the @, subjects beginning "B-076".
@@ -2198,7 +2212,14 @@ this host. Ordered by value, not by size.
       6. *The share sheet,* from Safari. It opens in To. Type one letter,
       pick `+sam`: a bubble. Delete twice: picked out, then gone. Pick it
       again, Subject "B-076 share", Send. It arrives once, To `+sam`.
-      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076). On the iPad still to do.*
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed, two faults fixed (B-076).*
+      *Seen on the test iPad 2026-10-07, the on-screen keyboard up: 1 to 4
+      passed but for 3a, where the menu stands beside the bubble (B-078),
+      and the end of 4: the draft opened from Drafts was not deleted with
+      Delete Draft. B-073's composer half and B-069's Send grey passed
+      again. On the iPad still to do: the end of 4 (a word typed in the
+      draft opened from Drafts, Cancel, Delete Draft: Drafts empty), 5, 6,
+      B-078's check, and Cancel at once on a new letter (B-069).*
 
 ## Blocked on the owner
 
@@ -2222,11 +2243,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [x] **Mail's conversation stack default** — thirty seconds on an iPhone;
       newest-first is currently a guess, not a copy
       *Decided 2026-10-06 by the owner: "copy apple mail for these". Built,
-      seen in the simulator, not yet on the iPad: oldest at the top and
-      newest at the bottom, the read letters closed, the unread ones open
-      with the newest and marked read at the tap, the pane opening at the
-      oldest letter he has not read, or at the newest when he has read the
-      rest, and a letter that comes put in at the bottom (B-074).*
+      seen in the simulator and on the iPad 2026-10-07: oldest at the top
+      and newest at the bottom, the read letters closed, the unread ones
+      open with the newest and marked read at the tap, the pane opening at
+      the oldest letter he has not read, or at the newest when he has read
+      the rest, and a letter that comes put in at the bottom (B-074).*
 - [ ] **Pictures from the web in letters** — they load, as they always
       have, and a tracking pixel tells its sender the letter was opened; the
       spec asks for them blocked by default if feasible (B-055)
@@ -2250,12 +2271,13 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       the frozen row (B-060, which puts four more questions about these
       rows)
       *Decided 2026-10-06: "copy apple mail for these", for this and
-      B-060's other four. Built (B-075), seen in the simulator, not yet
-      on the iPad: in Sent Mail, Drafts and the Outbox the To alone, one
-      person whole, two or more by short names joined "Jane & Sam", no
-      count, and Mail's blue chevron in a circle after the date on a
-      conversation. "No Recipients" kept. His addresses are the ones
-      B-076's Settings list holds, as written, as Mail's are. The Inbox and the other folders keep their "(2)", to be
+      B-060's other four. Built (B-075), seen in the simulator and on the
+      iPad 2026-10-07 but for VoiceOver: in Sent Mail, Drafts and the
+      Outbox the To alone, one person whole, two or more by short names
+      joined "Jane & Sam", no count, and Mail's blue chevron in a circle
+      after the date on a conversation. "No Recipients" kept. His
+      addresses are the ones B-076's Settings list holds, as written, as
+      Mail's are. The Inbox and the other folders keep their "(2)", to be
       asked about separately.*
 - [ ] **The count on the Inbox's rows** (B-075) — every folder but Sent
       Mail, Drafts and the Outbox ends a conversation's names with
@@ -2286,19 +2308,20 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       to the left. From two panes with the folders in front, their column
       draws in and the list is there in the middle, which Mail never did;
       keep it, or a plain 0.3 s fade for that switch alone.
-      *Decided 2026-10-06: "copy apple mail for these". Built, not yet seen
-      on the iPad: one half-second motion on UIKit's spring, no settle; the
-      list over the folders, which go at half its speed and darken; Reduce
-      Motion changes nothing, as in Mail. The folders in front keep their
-      drawing in, as Mail has no such switch. The three panes stay side by
-      side. B-077.*
+      *Decided 2026-10-06: "copy apple mail for these". Built, seen on the
+      iPad 2026-10-07: one half-second motion on UIKit's spring, no
+      settle; the list over the folders, which go at half its speed and
+      darken; Reduce Motion changes nothing, as in Mail. The folders in
+      front keep their drawing in, as Mail has no such switch. The three
+      panes stay side by side. B-077.*
 - [x] **"< Mailboxes" and a folder tap in two panes** (B-066) — instant,
       as they have always been, and as built. Or a slide, as Mail's
       navigation pushes and pops, about 0.35 s.
-      *Decided 2026-10-06: "copy apple mail for these". Built, not yet seen
-      on the iPad: a push and a pop, the panes on the same half-second
-      spring, the bar's titles over 0.35 s; with Prefer Cross-Fade
-      Transitions a half-second fade. B-077.*
+      *Decided 2026-10-06: "copy apple mail for these". Built, seen on the
+      iPad 2026-10-07 but for VoiceOver's place after them (B-079): a push
+      and a pop, the panes on the same half-second spring, the bar's titles
+      over 0.35 s; with Prefer Cross-Fade Transitions a half-second fade.
+      B-077.*
 - [x] **His second address** (B-061) — Gmail sends as it and delivers it
       to him, and the app cannot tell it is his, so a Reply All to a
       letter that names it sends it a copy, which comes back to his Inbox.

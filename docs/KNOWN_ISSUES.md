@@ -9479,7 +9479,7 @@ list gone; Cancel closed it with nothing asked. Nothing was sent.
   one was.
 - Not yet seen on the iPad. The TODO says how.
 
-## B-074 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator. A conversation ran newest first; Mail's runs oldest at the top and opens at the newest
+## B-074 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad. A conversation ran newest first; Mail's runs oldest at the top and opens at the newest
 
 **Asked** on 2026-10-06. B-022 built the stack newest first and said so:
 a choice, not a copy, since Mail's default was not known. It was one of
@@ -9752,9 +9752,57 @@ simulator arriving as a closed line. Seen in passing: while a letter
 shows "Loading…" its header reads "To: me" for a moment, then the real
 To; not yet looked into.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, three panes, the four as merged, on the test account, every
+letter to the account itself. All nine steps of its TODO check passed.
+
+- *Three letters, the two replies unread.* The first letter's line at the
+  top of the pane, the first reply open under it, the newest open under
+  that. The row lost its dot and the Inbox went 14 to 12 at the tap.
+  Nothing in the pane moved in the seconds after.
+- *Opened again, all read.* The first reply's line at the top of the
+  pane, the first letter's line above it and out of sight, the newest
+  open under it, black below it. That line tapped: it opened under its
+  line, which did not move.
+- *A reply of 34 lines*, opened once it had come: the line of the letter
+  before it at the top of the pane, the long one open under it from its
+  first line, and nothing moved. Its body had been fetched as it came
+  into the open stack, so it was there in the first frame, with no
+  "Loading…". "Nothing moves as its body comes in" was not seen: there
+  was no load to watch.
+- *A reply sent while it was open*, the Inbox at the top. It came within
+  45 seconds of Send, about 17 as near as it could be timed, at the
+  bottom of the stack, open, and nothing above it moved by a pixel. The
+  row went to "(5)" with its dot, the Inbox up one, and the header stayed
+  on the letter he had.
+- *A reply with the account in Cc.* The line above the newest tapped: the
+  header lost its Cc line, and the line tapped stayed where it was. The
+  body was there in the first frame, so the moment it came was not seen.
+- *The view button*, down the long letter: three panes to two, it stayed
+  the one at the top of the pane, its lines wrapped again; back in three,
+  the pane as before.
+- *The newest closed by its line*, on a second conversation of three, the
+  first having six letters by then. The first reply above it stayed where
+  it was, not a pixel changed, with black under the newest's line.
+- *The status bar*, the pane not touched: the pane went to its top, the
+  first letter's line. Three panes to two: that line stayed at the top.
+- *A letter already read.* The iPad was not taken offline. With the three
+  letters open, a reply was put into the mailbox already read, as one
+  read on another device would be, and Refresh tapped. It went in at the
+  bottom as a closed line, and nothing above it moved by a pixel. The row
+  has "(4)" and no dot, and the Inbox count did not change. Its line has
+  no words, as under "Not covered".
+
+Seen in passing: in the stack, a reply's signature and what it quotes
+showed on a white sheet with dark words, where the first letter, opened
+alone, showed its signature white on the dark pane. Not looked into.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how.
+- On the iPad, a body coming in under the opening place (step 3) was not
+  seen: the long letter's had come before it was opened. Nor was a reply
+  read on another device while the iPad was offline (step 9): one put
+  into the mailbox already read stood in for it.
 - A stack drawn again after WebKit's process ended: it opens at its first
   open letter, as built, which can be one he opened by hand; not seen.
 - A letter that comes in closed has no words in its line, only the sender
@@ -9766,7 +9814,7 @@ To; not yet looked into.
 
 ---
 
-## B-075 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. A conversation in Sent Mail lost its count off the end of the names; Mail names the To alone and marks a conversation after the date
+## B-075 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad but for VoiceOver. A conversation in Sent Mail lost its count off the end of the names; Mail names the To alone and marks a conversation after the date
 
 **Asked** in B-060, 2026-10-03, with four more questions about the rows
 of Sent Mail, Drafts and the Outbox. B-060 named the To, the Cc and the
@@ -9994,24 +10042,62 @@ Settings, after B-076's fix below), "No Recipients", the semicolon draft,
 the Inbox unchanged, and the VoiceOver labels as the accessibility tree
 gives them.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, three panes, the on-screen keyboard, no hardware one, the four
+as merged, on the test account, Jane's and Sam's addresses its own with
+a tag before the "@". Steps 1 to 6 of its TODO check passed. Step 7 was
+not done: VoiceOver was on, but the taps went to the app, not to
+VoiceOver, so it never read the row; a tap on the row opened the
+conversation.
+
+1. *Two people*, Cc the account: Sent Mail's row "Jane & Sam", the Cc not
+   named, no count, no mark, the time ending where the plain rows' dates
+   end. It had an unread dot, the letter having come back to the account.
+2. *A conversation*: "Jane & Sam", the time, then the blue chevron in a
+   circle at the right edge, and no "(2)"; the names and the subject
+   where the row below has them. A tap opened the conversation in the
+   reading pane. In Edit the mark stayed after the time.
+3. *A long name*: "Jane Wolfeschlege…", cut where the single row was cut,
+   then the time, then the mark, all on the line.
+4. *Him*, Settings holding the account's address alone: the account's
+   address before its "@", then "& Jane"; the other way round, "Jane
+   Example", whole, him left out. Neither had a mark or a count.
+5. *Nobody in To*: "No Recipients" in Drafts. The ";" typed after Jane's
+   address stayed in the field until it was left, which made it a bubble;
+   Drafts read "Jane Example". The server's copy of the draft has no ";"
+   in its To; as in the simulator, the screen does not tell the iPad's
+   copy from the server's.
+6. *Elsewhere*: the Inbox, "Carlo (2)" for the letters of 2 and 3, no
+   mark. Sent Mail searched "B-075", Current Mailbox: a row for each
+   letter, named by its To, no mark, no count; All Mailboxes: the
+   account's name on each, seen on seven of the eight, the eighth's name
+   out of sight.
+
+Deleting them after: the first Delete in Sent Mail, the app back from
+some four minutes in the background, failed with "Can't connect to mail
+server.", and one of the four rows went from the list behind the message.
+Refresh brought it back, and a second Delete took all four. Not B-075's;
+not looked into.
+
 **Not covered.**
 
 - Mail itself was not seen with a conversation in Sent on an iPad.
   What it does is read from its code and from screenshots of an iPhone.
 - Two different people on one row could not be sent in the simulator,
-  where every letter goes to one address: "Jane & Sam" is the suite's.
-  The iPad check in the TODO sends to two.
+  where every letter goes to one address: "Jane & Sam" is the suite's. On
+  the iPad, two tagged addresses of the account's made "Jane & Sam".
 - Drafts and the Outbox holding a conversation were not made in the
   simulator. The suite holds both.
 - A letter in the Outbox To an address with a ";" after it was not
   made. Sent with a connection, such a letter was refused and stayed in
   the composer; one sent with no connection would wait there. The suite
   holds its name in the Outbox.
-- VoiceOver was read from the accessibility tree, not heard.
+- VoiceOver was read from the accessibility tree, not heard. On the iPad
+  it was on, but not made to read the row (TODO, step 7).
 
 ---
 
-## B-076 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. Reply All kept the letter's To in To, moved a Cc up to To, showed names as text, and could not be told his other addresses
+## B-076 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and in part on the iPad. Reply All kept the letter's To in To, moved a Cc up to To, showed names as text, and could not be told his other addresses
 
 **Asked.** B-061 addressed Reply and Reply All as Mail was believed to,
 and put what it could not know to the owner: "Reply's addressing", "His
@@ -10347,6 +10433,70 @@ found in passing, and fixed before the merge:
 Each pinned by a test in `ReplyLikeMailTests`: with the fix undone, 1
 failure in 1 test each.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, the on-screen keyboard up while a field had the caret, but
+where 3a put it away, the four as merged, on the test account, A
+standing for its address. Steps 1 to 4 of its TODO check passed but for
+one thing in 3a and the end of 4. In 3a, with the keyboard up, a
+bubble's menu stands beside the bubble, not under it, now B-078. The end
+of step 4, Delete Draft on the draft opened from Drafts, was not seen.
+Steps 5 and 6 were not done on the iPad, nor B-069's Cancel on an
+untouched new letter. B-073's check in the composer and B-069's Send
+grey were made again and passed.
+
+- *Bubbles.* A with `+jane` and a comma in To: a dark blue bubble with
+  the address, Send blue. Cc, A with `+sam`, a tap on Subject: a bubble
+  too. The title followed the subject. Sent, it arrived once, and its
+  header as Show original gives it read To `+jane` and Cc `+sam`, as
+  typed. No copy of that header was kept; the app's own header for the
+  letter reads the same.
+- *A pick.* "s" in To: the list, "Example, Sam" first. Picked: a bubble
+  "Example, Sam", the list gone, Send blue. "s" again: the list without
+  it.
+- *Backspace and a tap.* Delete took the "s" off and closed the list;
+  again, the bubble turned the bright tint; again, gone, Send grey, no
+  list. Picked again and tapped: bright, and the menu, its name and
+  address over a red Remove. A tap outside: the menu gone, the bubble
+  plain. Tapped again, Remove: gone, Send grey. Cancel closed the letter
+  with nothing asked, as it was back to how it opened (B-069's rule), so
+  there was no Delete Draft to tap. The menu stood beside the bubble here
+  too (below).
+- *A bubble's whole line* (3a). "Al" a bubble 44 points wide and 30 tall
+  in a To row of 44. A tap 4 points above it, inside the row: its menu,
+  "Al" bright. A tap outside; a tap 4 points below: the menu again. With
+  the menu up, "sa" and Return: "Al" still bright and the menu still its.
+  Delete: "Al" gone, and its menu with it, "sa" plain. Cancel, Delete
+  Draft; nothing sent. All as written but where the menu stood. With the
+  keyboard up it opened to the right of the bubble, its arrow pointing
+  left at the title bar's line, 54 points above the bubble's middle, and
+  it covered the rest of the To row: the line he types on, and "sa" as it
+  became a bubble. With the keyboard put away the sheet came down and the
+  arrow landed on the bubble. A menu opened with the keyboard down came
+  under the bubble, its arrow on it, as in the simulator, where the
+  keyboard was the hardware one and the sheet rose 17.5 points. Seen
+  again the same day, with only the on-screen keys used: the same. The
+  menu's body was centred on the bubble, but its arrow was pinned at its
+  top corner, 93 points from where it belongs, so it stood 54 points high
+  for "Al" and 37 for "sa"'s shorter menu; the 54 matching the sheet's
+  rise was chance. A menu allowed only an arrow up or down, tried on the
+  iPad, came under the bubble with the keyboard up as well. Now B-078.
+- *Reply All.* To `+jane`, Cc `+sam`, each a bubble. Cancel on it
+  untouched: closed with nothing asked. Again, a word typed, Cancel: Save
+  Draft or Delete Draft; Save Draft. Opened from Drafts: the same two
+  bubbles, the word and the signature. The rest, Cancel and Delete Draft,
+  was not seen: the draft was moved to Trash on the server instead. As
+  built, Cancel on that draft untouched asks nothing, so there a word is
+  typed first, as in the simulator.
+- *B-073, the composer.* An empty To and an empty Cc offered nothing; one
+  letter typed, the list; taken out, it closed; a To emptied of its
+  bubble offered nothing. The share sheet's half was not done.
+- *B-069, Send.* Grey as each new letter opened, blue once To held a
+  bubble, grey again when the last went, by Delete or by Remove. One
+  letter typed in To turns it blue as well, as B-069 has it. Cancel at
+  once on a new letter was not tried; the nearest, a new letter back to
+  how it opened and an untouched Reply All, each closed with nothing
+  asked.
+
 **Not covered.**
 
 - Mail itself was not tried on an iPad. What it does is the evidence
@@ -10369,13 +10519,17 @@ failure in 1 test each.
 - Mail shows a recipient outside his domain in red, when asked to; not
   built.
 - The on-screen keyboard was not tried in the simulator; the hardware one
-  was. A drag of a bubble from one field to another, which Mail allows,
-  is not built.
-- Not yet seen on the iPad. The TODO says how.
+  was. On the iPad it was the on-screen one, up but where 3a put it away,
+  and a bubble's menu stood beside the bubble (B-078). A drag of a bubble
+  from one field to another, which Mail allows, is not built.
+- On the iPad, Delete Draft on a draft opened from Drafts (the end of
+  step 4), his addresses in Settings (step 5), the share sheet (step 6),
+  B-073's share-sheet half and B-069's Cancel at once on a new letter are
+  still to see. The TODO says how.
 
 ---
 
-## B-077 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator, not yet on the iPad. The panes moved in a way of their own; now they move as Mail's
+## B-077 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad but for VoiceOver's place (B-079). The panes moved in a way of their own; now they move as Mail's
 
 **Asked** on 2026-10-06. B-066 built the view button's motion and put
 two questions to the owner (TODO, "Blocked on the owner"): keep its
@@ -10698,12 +10852,103 @@ first moving frame, inside the recorder's burst, as on 2026-10-06; it is
 for the glass to show whether it is real. VoiceOver and slow motion on a
 scratch build are for the iPad.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, the four as merged, on the test account, the Layout button on
+in the connection log. Steps 1 to 7, 9 and 10 of its TODO check passed.
+Step 8 did not: after "< Mailboxes" and a folder tap VoiceOver lands on
+neither a folder nor a row, now B-079.
+
+- *At speed*, all five moves in a recording of the screen at 60 frames a
+  second, stepped through frame by frame. Each was one motion with no
+  settle, the pictures gone about half a second after the first frame
+  that moved. After that first frame no frame was ever the screen as it
+  was again. The corner's glyph held its place, no longer dimmed from the
+  first frame that moved, the folders' title passing behind it. Flag to
+  Compose did not change in any frame, nor the letter through
+  "< Mailboxes" and a folder tap. The last frame was a screenshot a
+  second later but for a letter's line ends and, from two panes with the
+  folders in front to three, the folders' title and counts: through that
+  motion their picture has no counts, cut off as the column narrows, and
+  its title in the two-pane middle; at the last frame the counts come and
+  the title jumps to the three-pane middle. That is the known cost above;
+  the TODO's step now allows it. The glass was not filmed in slow motion.
+- *The curve*, measured from the recording as in the simulator: w = 18.16
+  to 18.38 a second, against UIKit's 18.26. Half the way by 0.095 to
+  0.104 s, 90% by 0.21 to 0.23 s, and about a point of 205 left at 0.4 s.
+  Within half a point of the end by 0.40 to 0.52 s, about 0.44, on six of
+  the nine edges measured; the other three, the list's edge in three to
+  two and in both "< Mailboxes", could not be followed to the end.
+  Nothing crawls: iPadOS 16.5.1 runs the spring as 18.6 does.
+- *Frame by frame*, on a scratch build with the window's `layer.speed` at
+  0.05, slower than the TODO's 0.1. Three to two: from the first frame
+  that moved, the list at its two-pane width over the folders,
+  "< Mailboxes" in its bar; the list and the letter's left edge went
+  together; the folders went half as far and darkened. Two to three: the
+  folders at the list's left from the first frame, 102.5 points left and
+  darkened, coming back as the list went. The folders in front, to three:
+  their column drew in and the list was there between, laid out and
+  still. A folder tap: the list in from the column's right edge, the
+  folders going left and darkening; "Mailboxes" left and fading as
+  "< Mailboxes", the calendar and "Inbox" came from the right, Edit last,
+  the column cutting it off; the glyph still; the letter unchanged in
+  every frame, nothing over it. "< Mailboxes": the reverse, the open
+  Inbox highlighted at the end.
+- *Reduce Motion*: all five slid, w = 18.08 to 18.40. *Prefer Cross-Fade
+  Transitions* as well: the view button's switch slid, w = 18.22 to
+  18.42. Those two ranges were read from the recording at the time; the
+  fits were not kept. "< Mailboxes" and a folder tap cross-faded over
+  about half a second, each frame a mix of the two screens, nothing
+  moving and the letter unchanged.
+- *Taps and bounces.* A double tap on a folder: one push. A row tapped as
+  the list slid in: nothing opened. The folders flicked twice, a folder
+  tapped each time. The first tap, as they sprang back, opened nothing: a
+  tap on a moving list goes to the list, UIKit's way. The second came at
+  the top of the bounce, before they turned back, and opened it at once
+  with no slide and a `bouncing` line. A folder opened by a tap while
+  they sprang back was not seen. The list pulled past its top,
+  "< Mailboxes" as it was let go and the open folder straight after:
+  both at once, two `bouncing` lines, the list springing back to the top
+  with no jump. The folders pulled down in three panes, the view button,
+  then "< Mailboxes": the same. There the folders' spring ended slower
+  than a bounce left alone, 16 points to rest in half a second against
+  15 in a third, as if it began again from rest; no jump was seen.
+- *A letter and a conversation*, three to two and back. A letter's lines
+  wrapped again on the frame the pictures went. A conversation of 30
+  quoted lines: from three to two its narrow lines rode left and turned
+  wide about 0.7 s after the tap; from two to three its picture kept its
+  width as it went right, so the line ends and the dates at the right of
+  its lines were cut off at the screen's edge until it wrapped again, at
+  about 0.7 s. Whether that catches his eye is the owner's to say.
+- *VoiceOver* read "Hide Mailboxes" and "Show Mailboxes", and was on the
+  button after the view button's switch. After "< Mailboxes" with a
+  letter open it went to the letter's Flag, "Flag, Button", not to the
+  folders; with the pane empty, to the view button in the folders' bar:
+  their column, but not a folder. After a folder tap that brought the
+  list back, a letter open: Flag again. After a tap on another folder,
+  which empties the pane: the view button in the list's bar, not a row.
+  The same from a fresh launch, where Flag had never had VoiceOver. Now
+  B-079. Nothing of the pictures was read: through every move it named
+  only real controls. On the test iPad the app is among VoiceOver's
+  Direct Touch apps, so the controls were tapped, not found with
+  VoiceOver's swipes. A VoiceOver double tap was not tried; it runs the
+  same code.
+- *A search with the keyboard up*, "long" typed, then "< Mailboxes": the
+  keyboard went down as the list slid off, half way at about a quarter of
+  a second, gone by half. Inbox tapped again: "long" still in the field,
+  All Mailboxes, the same results, the keyboard down.
+- *The log*: five `pane motion:` lines, all `bouncing; switched at once`,
+  all from the bounces above; no deadline and no motion turned down; a
+  `layout:` line for each change, and the sweep with no finding. The
+  scratch build's log had no `pane motion:` line. The log keeps its last
+  500 lines, and did not reach back to the recording at speed or to the
+  Reduce Motion and Cross-Fade moves.
+
 **Not covered.**
 
 - Mail itself on iPadOS 18 was never filmed. What it does is UIKit's, as
   measured, and the evidence that Mail is built of UIKit's split view.
-- Not yet seen on the iPad. The test iPad is on iPadOS 16.5.1; whether
-  it runs this spring as 18.6 does is for the iPad.
+- The glass was not filmed in slow motion. The iPad's own recording never
+  showed the screen as it was after the first frame that moved.
 - The darkening and the shadow are sized from UIKit's in its light
   appearance. On the app's dark panes they could not be measured.
 - The bars move as two whole pictures. Mail moves the old title toward
@@ -10714,5 +10959,6 @@ scratch build are for the iPad.
 - Rows that arrive for a list pushed in during the half second, the
   keyboard, and the letter WebKit is still drawing show as the pictures
   go, as before.
-- The iPad was not turned in the simulator during a motion, and VoiceOver
-  was not on. The host suite reads both.
+- The iPad was not turned during a motion, in the simulator or on the
+  iPad; the host suite reads it. VoiceOver was on only on the iPad
+  (B-079), and its own swipes, or its double tap, were not tried there.
