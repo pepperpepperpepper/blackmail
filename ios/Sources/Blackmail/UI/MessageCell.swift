@@ -29,9 +29,9 @@ final class MessageCell: UITableViewCell {
     private let attachmentIcon = UIImageView()
     private let flagIcon = UIImageView()
     /// Mail's mark of a conversation, a blue chevron in a circle after the
-    /// date, on a row of more than one letter in Sent Mail, Drafts and the
-    /// Outbox, where the names have no count after them (B-075). A mark
-    /// alone: tapping the row opens the conversation, as anywhere else.
+    /// date, on a row of more than one letter, in every folder: the names
+    /// have no count after them (B-075, B-080). A mark alone: tapping the
+    /// row opens the conversation, as anywhere else.
     private let conversationMark = UIImageView()
     private let spinner = UIActivityIndicatorView(style: .medium)
 
@@ -172,10 +172,13 @@ final class MessageCell: UITableViewCell {
         // rest, so a long name truncates instead of colliding with the date.
         // The mark of a conversation, on a row that has one, ends the line
         // at the right edge, as Mail's does, and the date ends before it,
-        // inside the room it always had (`RowTopLine`, B-075).
+        // inside the room it always had (`RowTopLine`, B-075). Where the
+        // date's own text needs more, as "Wednesday" in Edit mode in three
+        // panes, the names give it up, never the date (B-080).
         let markSize = conversationMark.isHidden ? nil : conversationMark.image?.size
         let line = RowTopLine(left: left, right: right, mark: markSize?.width,
-                              gap: Theme.conversationMarkGap)
+                              gap: Theme.conversationMarkGap,
+                              date: timestampLabel.intrinsicContentSize.width)
         if let markSize, let markX = line.markX {
             // Centred on the date's figures, as Mail's sits beside its date.
             let scale = UIScreen.main.scale

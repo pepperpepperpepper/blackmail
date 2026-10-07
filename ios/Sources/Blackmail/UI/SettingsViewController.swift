@@ -226,12 +226,12 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         stack.addArrangedSubview(statusLabel)
 
         // Mail's own switch, and the off switch for conversation grouping.
-        // Grouping stays the default — it is what Mail does, the rows
-        // announce their own size ("Margaret, Carlo (3)"), and measurement
-        // against his mail found it disturbs no date by even a week. But
-        // three of twelve recent letters from him are about something
-        // vanishing, and if he ever decides the merged rows are why, this
-        // is here in plain words rather than a code change.
+        // Grouping stays the default — it is what Mail does, a
+        // conversation's row is marked after its date (B-080), and
+        // measurement against his mail found it disturbs no date by even
+        // a week. But three of twelve recent letters from him are about
+        // something vanishing, and if he ever decides the merged rows are
+        // why, this is here in plain words rather than a code change.
         let organizeRow = UIStackView(arrangedSubviews: [organizeLabel(), organizeSwitch])
         organizeRow.axis = .horizontal
         organizeRow.alignment = .center

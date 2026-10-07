@@ -78,20 +78,24 @@ struct MessageThread {
     }
 
     /// Whether the row, in the list of `list`, ends its top line with the
-    /// mark of a conversation, the blue circled chevron after the date, in
-    /// place of the count after the names: a row of more than one letter
-    /// that names whom they are to, in Sent Mail, Drafts and the Outbox, as
-    /// Mail marks one there (B-075). The mark sits apart from the names,
-    /// so however many there are it is never cut off with them. Every
-    /// other list keeps its count, "(2)", on the names.
+    /// mark of a conversation, the blue circled chevron after the date: a
+    /// row of more than one letter, in every folder, as Mail marks one
+    /// everywhere. Sent Mail, Drafts and the Outbox since B-075, every
+    /// other folder since B-080. No row has a count after its names. The
+    /// mark sits apart from the names, so however many there are it is
+    /// never cut off with them.
+    ///
+    /// Only a list that gathers its letters into conversations has rows of
+    /// more than one: a folder, with Organize by Thread on. A search's rows
+    /// are one letter each (`rows(for:grouped:)`), so none is marked.
     func marksConversation(in list: Mailbox) -> Bool {
-        count > 1 && namesRecipients(in: list)
+        count > 1
     }
 
     /// The row the list of `list` draws: in Sent Mail, Drafts and the
-    /// Outbox naming whom the letters are to, with no count, everywhere
-    /// else who they are from, with it. What the list's controller draws
-    /// every row with, beside `marksConversation(in:)`.
+    /// Outbox naming whom the letters are to, everywhere else who they are
+    /// from, never with a count. What the list's controller draws every
+    /// row with, beside `marksConversation(in:)`.
     func displayRow(in list: Mailbox, mine: OwnAddresses) -> MessageSummary {
         displayRow(namingRecipients: namesRecipients(in: list), mine: mine)
     }
@@ -99,11 +103,12 @@ struct MessageThread {
     /// What VoiceOver reads for the row in the list of `list`: "On this
     /// iPad only" for a draft kept on the iPad, "Unread", the names as the
     /// top line has them, how many letters when more than one, the subject
-    /// and the time as the row shows it. The count is read as "3 messages",
-    /// whether the row shows it as "(3)" or marks the conversation after
-    /// its date. No "To" is read before the names where the row names whom
-    /// the letters are to, as none is shown: the folder says so, as it does
-    /// on the screen.
+    /// and the time as the row shows it. The count, which the row no
+    /// longer shows, is read as "3 messages" where the row marks the
+    /// conversation after its date, in every folder (B-075, B-080). No
+    /// "To" is read before the names where the row names whom the letters
+    /// are to, as none is shown: the folder says so, as it does on the
+    /// screen.
     ///
     /// Out of the controller, which used to put it together itself, so the
     /// names it reads are the names the row shows, and tested.
@@ -135,12 +140,13 @@ struct MessageThread {
     /// pane's From, changes with the folder.
     func displayRow(namingRecipients: Bool = false,
                     mine: OwnAddresses = OwnAddresses([])) -> MessageSummary {
-        let who = nameLine(namingRecipients: namingRecipients, mine: mine)
-        // The count rides on the sender line — "Margaret, Carlo (3)" —
-        // rather than in a badge, which would need a new view in a layout
-        // that is frozen. A row naming whom has none: the cell marks it
-        // after the date (`marksConversation(in:)`), as Mail does.
-        let sender = count > 1 && !namingRecipients ? "\(who) (\(count))" : who
+        // The names alone, "Carlo, Margaret", with no count after them.
+        // The count used to ride on this line, "Carlo, Margaret (3)", and
+        // went off its end with a long list of who wrote. Mail has none on
+        // any row: the cell marks a conversation after its date instead
+        // (`marksConversation(in:)`), in every folder (B-075, B-080), and
+        // VoiceOver says how many (`accessibilityLabel(in:mine:now:)`).
+        let sender = nameLine(namingRecipients: namingRecipients, mine: mine)
         return MessageSummary(
             id: id,
             mailboxID: newest.mailboxID,
@@ -194,7 +200,7 @@ struct MessageThread {
     /// thing he does all the time.
     ///
     /// Each result becomes a conversation of one, so the row draws exactly
-    /// as a single letter does — no count, no participants list — and
+    /// as a single letter does — no mark, no participants list — and
     /// everything downstream keeps working on one type.
     static func rows(for messages: [MessageSummary], grouped: Bool) -> [MessageThread] {
         grouped ? group(messages) : messages.map { MessageThread(messages: [$0]) }

@@ -10872,3 +10872,262 @@ build for the iPad links.
 - Over the bubble is allowed, for a bubble too low for the menu to fit
   under it with the keyboard up. That was not seen: the fields are at
   the sheet's top, and UIKit chose under in every case tried.
+
+---
+
+## B-080 — CHANGED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. Every folder but Sent Mail, Drafts and the Outbox ended a conversation's names with its count; Mail has no count on any row and marks a conversation after the date
+
+**Asked** in B-075, 2026-10-06. B-075 took the count off the rows of
+Sent Mail, Drafts and the Outbox and marked a conversation there with
+Mail's blue chevron in a circle after the date. Every other folder kept
+its count on the names and had no mark: "Carlo, Margaret (3)" in the
+Inbox, All Mail, Trash, Spam, Important, Starred and his own folders.
+The names' line is short, 138 points in three panes on the 7th
+generation iPad simulated here, and is cut at its end, so under a long
+list of who wrote the count went off it with the names. And one
+conversation looked two ways: the same two letters read "Carlo (2)" in
+the Inbox and had the mark in Sent Mail (B-075, b075-10). The question
+was put to the owner under "Blocked on the owner": keep the count, or
+the mark there too. His ruling, 2026-10-07: the mark, as Mail.
+
+**What Mail does**, as B-075 found it from Mail's list code in the iOS
+18.6 runtime and from published screenshots. No count on any row of
+the message list, in any mailbox. A conversation is marked by a small
+blue chevron in a circle, `chevron.forward.circle`, at the right end of
+the top line, just after the date. The names are cut before the date,
+so they never push the mark off. A single letter has no mark in the
+iPad's list. How many letters a conversation holds is shown only once
+it is open, as "N Messages" on the iPhone. Mail's strings have "%@
+messages", most likely for VoiceOver.
+
+**Changed.**
+
+1. *No count* (`MessageThread.displayRow`). A conversation's row has no
+   count after its names, in every folder. The names are as they were:
+   who wrote, the newest first, each once, joined by commas, "Carlo,
+   Margaret". Only the count goes. Sent Mail, Drafts and the Outbox name
+   whom the letters are to, as B-075 has it.
+2. *The mark* (`MessageThread.marksConversation(in:)`). Every row of
+   more than one letter, in every folder, ends its top line with the
+   mark Sent Mail's rows have had since B-075. The same symbol at the
+   date's size, the same blue (`Theme.tintBlue`, D-010), in the same
+   place: at the text's right edge, 5 points after the date, the date's
+   label ending before it (`RowTopLine`). Its size moves with the type
+   and not with the text size in Settings (D-007, B-071). The cell and
+   its layout are B-075's, unchanged but for item 5; only which rows
+   have the mark changed. A single letter has none. In Edit mode the mark stays after
+   the date. The mark does nothing of its own when tapped: a tap on the
+   row opens the conversation in the reading pane, as before.
+3. *VoiceOver* says how many, as it did: "Carlo, Margaret, 3 messages",
+   then the subject and the time, in every folder. The label already
+   said it everywhere; it is now the only place the list gives the
+   number.
+4. *A long list of who wrote* is cut with "…" before the date, where it
+   was always cut, but for item 5's few points. The mark is not text on
+   the line, so no length of names can push it off. The count, being
+   text, went with the names.
+5. *A marked row's date is never cut* (`RowTopLine`). In Edit mode in
+   three panes the room before the mark is 74.2 points, and "Wednesday"
+   is 80. There the date's label starts sooner by the difference, 5.8,
+   and the names end sooner by as much, as Mail cuts the names and never
+   the date. The mark stays at the right edge. The cell gives the line
+   each row's own date, as wide as UIKit measures it (`MessageCell`).
+   Where the date fits, which is every other date the list writes and
+   every row out of Edit, nothing moves. A row without the mark is as it
+   was, whatever its date. This reaches Sent Mail, Drafts and the Outbox
+   too, whose "Wednesday" was cut the same way since B-075.
+
+**Where a count was written.** One place wrote "(n)" after a row's
+names: `MessageThread.displayRow`, which draws every row of the list.
+So the change covers every folder, Edit mode, the Outbox, and the rows
+drawn again as previews come. A search's rows are one letter each, never
+gathered into conversations, so they had no count and have no mark, in
+any folder and either scope. With Organize by Thread off, no row has a
+mark. Left as they are, being no conversation's count: the folder pane's
+unread counts beside each folder's name, and the Outbox's "2 Unsent
+Messages" under the list. Comments that described the count on the rows
+were changed with it, in the list, the cell, `Theme` and Settings.
+
+**What stays.** The row's layout to the point, the unread dot, the flag,
+the paperclip, the preview, the highlight of the open letter, the fixed
+type (B-071). A row without the mark is as it was. A plain row's date
+keeps its 110 points; a marked row's date ends before the mark, inside
+them, as in Sent Mail since B-075. A marked row's date is never cut: in
+Edit mode in three panes, "Wednesday", 80 points at 15, takes 5.8 from
+the names (item 5).
+
+**Found after the first pass, 2026-10-07, and fixed.** In Edit mode in
+three panes a marked row's "Wednesday" was cut to "Wednes…" before the
+mark. The list there is 300 points wide on his iPad, in either
+orientation. In Edit its text runs from 29 to 245 points, the date has
+97.2 of them, and a marked row's date 74.2. UIKit, in the iOS 18.6
+simulator, measures "Wednesday" at 80 points in the list's 15-point
+font, "Yesterday" at 68, "Thursday" at 64, and a time or a dd/MM/yy
+date at about 63 or 64. So "Wednesday" was the one date cut, and only in
+Edit in three panes: out of Edit, and in two panes, a marked row's date
+has 87. Before B-080 only Sent Mail, Drafts and the Outbox had marked
+rows; B-080 brought the cut to every folder. Seen so in the simulator,
+with the app's clock moved to a Friday: in Trash, in Edit, "Wednes…" on
+each conversation and "Wednesday" whole on every single letter. Item 5
+is the fix. The first pass ran on a Wednesday, when no row can read
+"Wednesday", and the suite's line was laid out at widths and a mark
+other than his iPad's.
+
+**Not like Mail.**
+
+- Mail's chevron opens the conversation's letters in the list. Here it
+  is a mark only, as B-075 built it.
+- The reading pane has no "N Messages" over the stack (B-074). With the
+  count gone from the rows, he sees how many by the letters in the pane;
+  VoiceOver says it on the row.
+
+**Tests.** `ConversationRowLikeMailTests`, ten, all new. In the Inbox,
+All Mail, Important, Starred, Spam, Trash and two folders of his own, a
+conversation names who wrote with no count and is marked; in Sent Mail,
+Drafts and the Outbox, the same with the To named. The names are
+`participants` joined, as before, his own letters there naming him, and
+the row is the one `displayRow()` always drew. A single letter has no
+mark and no count in every folder. A long list of who wrote ends with
+its last name, not a count, and the line's geometry with a mark keeps
+the names' width, the names ending before the date and the date before
+the mark at the right edge. That is laid out at his iPad's widths, three
+panes and two, in Edit and out, with the 18-point mark and "Yesterday",
+68 points, the widest date that fits. A marked row's date of 80 points,
+"Wednesday", is never cut: at each of those widths its label is at
+least 80 wide, ends 5 before the mark, and starts 8 after the names; in
+Edit in three panes it is 80, the names 105, 5.8 less than before; at
+the others nothing moves. A row without the mark is the same for any
+date, and the names never have less than nothing. The row is the
+newest letter in every field but the names, with the conversation's
+unread, flag and paperclip. VoiceOver says "3 messages" in every folder, unread and read, and
+nothing of a count for a single letter. A search's rows and Organize by
+Thread off: no mark, each named by its own sender. Read from the
+source: the list gathers a folder's letters and never a search's; the
+cell shows or hides the mark by the row alone, with nothing of the
+folder or of Edit mode in it, and the names' label is one line cut at
+its end; nothing in the list, the cell, `RowNames`, the Outbox or
+`ListEdit` writes a count in brackets, and `MessageThread` writes none.
+Changed, each with B-080's reason in its comment:
+`MessageThreadTests.testTheCountRidesOnTheSenderLine`, now
+`testTheSenderLineHasNoCount`; B-075's
+`SentRowLikeMailTests.testEveryOtherListKeepsItsCountAndHasNoMark`,
+now `testEveryOtherListNamesWhoWroteAndMarksAConversation`, and
+`testOnlyAConversationOfTheFoldersOwnIsMarked`, now
+`testOnlyAConversationIsMarked`: a conversation of letters found in All
+Mail, in Sent Mail's list, names him with the mark and no count, where
+B-075 had it keep its count. B-075's wiring test of the cell now reads
+the cell giving the line its date's own width
+(`SentRowLikeMailTests.testTheListMarksItsRowsAndTheCellDrawsTheMark`),
+and its test of the line's geometry says it is of a date that fits; the
+rest hold as they were.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The count kept on the
+names outside Sent Mail, Drafts and the Outbox: 55 in 8. The mark in
+those three alone: 29 in 6. Both, B-075's rows as they were: 84 in 9.
+The count kept on the names in every folder, Sent Mail's too, beside the
+mark: 73 in 14. The mark on a single letter: 40 in 4. VoiceOver saying
+how many in those three alone: 17 in 2. The names of who wrote joined as
+Mail joins a list, "Carlo & Margaret": 47 in 6. The names' label given
+the mark's width, so a long name would run under the date: 12 in 2. Read
+from the source: a search's rows gathered into conversations, 1 in 1;
+the cell hiding the mark in Edit mode, 2 in 1; the list marking the rows
+of those three alone, 2 in 1. Eleven in all. Every failure was in
+`ConversationRowLikeMailTests`, `SentRowLikeMailTests`,
+`SentRowNamesTests` or `MessageThreadTests` but one: in the first run
+of the last, `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, which fails now and
+then on its own, failed too; run again, it passed. These eleven were
+counted before item 5.
+
+Item 5 undone the same way, part by part. The date cut again, as
+before: 5 in 1. The names not ending sooner, so they run under the
+date: 5 in 1. The date's label growing to the right, under the mark:
+3 in 1. No floor under the names: 1 in 1. A row without the mark given
+room for its date too: 4 in 1. Read from the source: the cell giving the
+line no date, 1 in 1; its first run also failed `LargeLetterTests.
+testPicturesStillComingWhenHeMovesOnAreCalledOff`, and run again only
+the one. Six in all. The full suite, serially, with nothing undone:
+1,591 tests, 5 skipped, none failing. The release build for the iPad
+links.
+
+**Seen in the simulator, 2026-10-07**, an iPad (7th generation) on 18.6,
+landscape, three panes, a hardware keyboard, built from this branch and
+signed in to the test account, whose name there is Carlo. Every letter
+to the test account's own address with a tag before the "@", subjects
+beginning "B-080".
+
+- *At launch*, before anything was sent, the Inbox's conversations of
+  earlier passes each read "Carlo", the date, then the circled chevron,
+  and no count; the single letters around them had no mark, their
+  dates at the right edge (b080-01).
+- *A single letter.* "B-080 one" sent from the app. Its Inbox row:
+  "Carlo", the time at the right edge, no mark. VoiceOver's label
+  "Unread, Carlo, B-080 one, 9:28 AM".
+- *A conversation.* Two replies sent from the reading pane. The Inbox's
+  row: the unread dot, "Carlo", "9:30 AM", the blue circled chevron at
+  the right edge, and no "(3)" (b080-06). From the accessibility tree:
+  the names' label 138 wide, as on every row; the date 87 wide, ending
+  at 488.5; the circle's frame 18 by 17 at 493.5, ending at 511.5, where
+  a plain row's date ends. VoiceOver: "Unread, Carlo, 3 messages, Re:
+  B-080 one, 9:30 AM". The tap had opened the conversation in the pane,
+  the highlight on the row.
+- *Sent Mail*, as before: the To, the tagged address, cut at the
+  names' end, then the time and the mark, no count (b080-07).
+- *All Mail*: as the Inbox, "Carlo", the time, the mark, "3 messages"
+  in the label (b080-08). *Trash*: its conversations of earlier passes
+  marked, with no count.
+- *Edit* in the Inbox: the mark after the time on every conversation,
+  in the same place; the names cut shorter for the circles at the left,
+  110.8 wide, the date 74.2 wide, ending before the mark as before
+  (b080-09).
+- *A search* of the Inbox for "B-080", All Mailboxes and then Current
+  Mailbox: three rows, one for each letter, each "Carlo" and its time,
+  no mark, no count (b080-10, b080-11).
+- *A long name.* The account's name in Settings changed to "Carlo
+  Wolfeschlegelsteinhausen Example", and two more replies sent. The
+  Inbox's row: "Carlo Wolfesch…", "9:36 AM", the mark, all on the line;
+  VoiceOver "Unread, Carlo Wolfeschlegelsteinhausen Example, Carlo, 5
+  messages, Re: B-080 one, 9:36 AM" (b080-13). In Edit: "Carlo Wolfe…",
+  the time and the mark on the line (b080-14).
+- Then the conversation deleted from the Inbox in Edit mode: its five
+  letters in Trash, marked there with no count.
+
+**Seen in the simulator after the fix, 2026-10-07**, the same iPad, a
+fresh simulator built from the fixed branch and signed in as before.
+The app's clock was moved two days ahead, to Friday 2026-10-09, by a
+library loaded into it for this alone; the iPad's own clock, in the
+status bar, still read Wednesday. Trash held the day's letters, so they
+read "Wednesday". Its two conversations, "B-080 one" of five letters and
+one of two, each read "Wednesday", then the mark. Out of Edit their
+dates were 87 wide at x 401.5, the mark 18 by 17 at 493.5. In Edit:
+"Wednesday" whole before the mark on both, the date 80 wide at 408.5,
+the mark still at 493.5, the names 105 wide, "Carlo, Carl…"
+(b080r1-03). Every single letter beside them: "Wednesday" in its 97.2,
+as before. Done: back to 87. Nothing was opened, ticked or sent.
+
+Seen in passing: the reply sent just after the name was saved went out
+under the old name, "Carlo"; after the app was quit and started again
+the next went out under the new one. Not this change's; not looked
+into. The screenshots are in the pass's folder, not in the repo: they
+show the test account's address.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how.
+- Mail itself was not seen with a conversation in an iPadOS 18 Inbox.
+  What it does is B-075's finding, from its code and from screenshots
+  of an iPhone.
+- Letters from other people in one conversation could not be made in
+  the simulator, where every letter is from the test account. The long
+  list of who wrote above is the account under two names. Several
+  people's names are the suite's.
+- Spam, Important, Starred and folders of his own were not opened. The
+  row does not ask the folder; the suite holds them.
+- VoiceOver was read from the accessibility tree, not heard.
+- Item 5 was seen with the app's clock moved, not on a real Friday. On
+  the iPad its step needs a Friday to a Tuesday and a conversation
+  whose newest letter came on the Wednesday before.
+- A language whose day names are longer than "Wednesday" takes more
+  from the names the same way, since the cell measures each row's own
+  date. Only English was tried.

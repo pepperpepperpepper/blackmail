@@ -164,14 +164,18 @@ final class MessageThreadTests: XCTestCase {
         MessageThread.group(messages)[0]
     }
 
-    func testTheCountRidesOnTheSenderLine() {
-        // In the sender line rather than a badge, because a badge needs a
-        // new view in a layout that is frozen.
+    func testTheSenderLineHasNoCount() {
+        // The count rode on the sender line, "Carlo, Margaret (2)", until
+        // B-080, and went off its end with a long list of who wrote. Mail
+        // has no count on any row: the row is marked after its date
+        // instead, and VoiceOver says how many.
         let t = thread([
             message("1/2", subject: "s", thread: "t", from: "Carlo <c@x.com>"),
             message("1/1", subject: "s", thread: "t", from: "Margaret <m@x.com>"),
         ])
-        XCTAssertEqual(t.displayRow().sender, "Carlo, Margaret (2)")
+        XCTAssertEqual(t.displayRow().sender, "Carlo, Margaret")
+        XCTAssertTrue(t.marksConversation(in: Mailbox(id: "INBOX", name: "Inbox",
+                                                      unreadCount: 0, role: .inbox)))
     }
 
     func testASingleLetterGetsNoCountAtAll() {
@@ -229,7 +233,7 @@ final class MessageThreadTests: XCTestCase {
     }
 
     func testAnUngroupedRowLooksLikeAPlainLetter() {
-        // No count, no participants list: a search result is one message
+        // No mark, no participants list: a search result is one message
         // and must not claim to be a conversation.
         let rows = MessageThread.rows(for: [message("1/9", subject: "s",
                                                     from: "Carlo <c@x.com>")],

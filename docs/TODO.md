@@ -2156,7 +2156,8 @@ this host. Ordered by value, not by size.
       "No Recipients". Do not send it: in the simulator Send refused
       such a letter.
       6. *Elsewhere.* The Inbox: the letters of 2 and 3, each the
-      account's name and "(2)", with no mark. Sent Mail searched "B-075",
+      account's name, then the time and the blue chevron in a circle,
+      with no "(2)" (B-080). Sent Mail searched "B-075",
       Current Mailbox: a row for each letter, no mark, no count; All
       Mailboxes: each the account's name.
       7. *VoiceOver* on, in Sent Mail, touch the row of 2: "Jane & Sam,
@@ -2227,6 +2228,52 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078).*
       *Seen on the test iPad 2026-10-07: all six steps passed, the menu
       under its bubble in each, never beside it.*
+- [ ] **B-080, every folder's conversation rows as Mail's.** On the test
+      iPad, three panes, Organize by Thread on, the test account only,
+      every letter to the account itself: "Jane's address" is its
+      address with `+jane` before the `@`, typed `Jane Example <` the
+      address `>`. Subjects beginning "B-080". Send nothing else.
+      1. *A single letter.* A new letter To Jane's address, Subject
+      "B-080 one", Send, Refresh. The Inbox: its row reads the account's
+      name, then the time at the right edge, with no mark and no count.
+      2. *A conversation.* Open "B-080 one", Reply, Send. Open the
+      conversation again, Reply, Send. Refresh. The Inbox: the row reads
+      the account's name, then the time, then a blue chevron in a circle
+      at the right edge, and no "(3)". The names and the subject are
+      where the row below has them, and the mark ends where a plain
+      row's time ends. Tap the row: the conversation opens in the
+      reading pane, as before.
+      3. *Other folders.* Sent Mail: "Jane Example", the time, the mark,
+      no count, as B-075 has it. All Mail: as the Inbox. Trash, Spam,
+      Important, Starred or a folder of his: any conversation there has
+      the mark after the time and no count, and a single letter neither.
+      4. *Edit.* In the Inbox, Edit: the mark stays after the time, the
+      names a little shorter. Done.
+      5. *A search.* Search "B-080", Current Mailbox, then All Mailboxes:
+      a row for each letter, the account's name, no mark, no count.
+      Cancel.
+      6. *VoiceOver* on, in the Inbox, touch the row of 3: the account's
+      name, "3 messages", "Re: B-080 one", the time. VoiceOver off.
+      7. *A long name.* Settings: the name "Carlo Wolfeschlegelsteinhausen
+      Example" in place of the account's, Save. Quit the app in the app
+      switcher and open it again: in the simulator the next reply went
+      out under the old name until then. Reply to "B-080 one" again,
+      Send, Refresh. The Inbox: the names cut with "…" before the time,
+      then the mark, all on the line. Edit: the same, cut shorter.
+      Done. Settings: the account's own name back, Save.
+      8. *A Wednesday*, on a Friday to a Tuesday, so on another day if
+      need be. In any folder, Trash too, a conversation whose newest
+      letter came on the Wednesday before: the row reads "Wednesday",
+      then the mark. Edit: the whole word "Wednesday" before the mark,
+      never "Wednes…", the names a few points shorter than on a single
+      letter's row. Done.
+      Then move the B-080 letters to Trash.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator, every letter to the
+      account's own address with a tag, not Jane's: each step as above,
+      VoiceOver read from the accessibility tree; Spam, Important and
+      Starred not opened. Step 8 with the app's clock moved two days
+      ahead, to a Friday: in Trash, in Edit, "Wednesday" whole before the
+      mark (B-080). On the iPad still to do.*
 
 ## Blocked on the owner
 
@@ -2285,12 +2332,17 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       conversation. "No Recipients" kept. His addresses are the ones
       B-076's Settings list holds, as written, as Mail's are. The Inbox and the other folders keep their "(2)", to be
       asked about separately.*
-- [ ] **The count on the Inbox's rows** (B-075) — every folder but Sent
+- [x] **The count on the Inbox's rows** (B-075) — every folder but Sent
       Mail, Drafts and the Outbox ends a conversation's names with
       "(2)", cut off with them under a long list of who wrote. Mail has
       no count on any row: its blue chevron in a circle after the date
       marks a conversation everywhere. Keep the count (built), or the
       mark there too.
+      *Decided 2026-10-07 by the owner: the mark there too, as Mail.
+      Built as B-080, seen in the simulator, not yet on the iPad: no
+      count on any row, the blue chevron in a circle after the date on
+      a conversation's row in every folder, and VoiceOver saying how
+      many.*
 - [x] **Reply's addressing** (B-061) — built as Mail is believed to do it,
       none of it checked against Mail on an iPad. Reply All to a letter
       with a Reply-To goes to the Reply-To in place of the From, or to
