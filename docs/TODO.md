@@ -2220,6 +2220,34 @@ this host. Ordered by value, not by size.
       again. On the iPad still to do: the end of 4 (a word typed in the
       draft opened from Drafts, Cancel, Delete Draft: Drafts empty), 5, 6,
       B-078's check, and Cancel at once on a new letter (B-069).*
+- [x] **B-078, a bubble's menu with the keyboard up.** On the test iPad,
+      the test account only, landscape, built from the `bubble-menu`
+      worktree; merge only after a pass. The on-screen keyboard up
+      throughout but in 6: if a keyboard bar shows instead, its keyboard
+      key, then Show Keyboard. Send nothing.
+      1. *The menu.* A new letter. In To type `Al <al@example.com>` and a
+      comma: a bubble "Al". Tap it: its menu (Al, the address, Remove)
+      opens under "Al", its arrow on the bubble, not to the right of it.
+      2. *A bubble after it.* With the menu up, type "sa" and Return:
+      "sa" a bubble after "Al", in sight, not under the menu. "Al" stays
+      bright, and the menu stays on it.
+      3. *Delete.* With the menu still up, Delete: "Al" goes, and its
+      menu with it. "sa" is left plain. Cancel, Delete Draft.
+      4. *Cc and Bcc.* A new letter. In To `Al <al@example.com>` and a
+      comma, then Cc/Bcc. In Cc `Jo <jo@example.com>` and a comma, and in
+      Bcc `Bo <bo@example.com>` and a comma. Tap "Jo": its menu under
+      "Jo" or over it, its arrow on it, never beside it. The Cc line
+      stays in sight. Tap outside, then tap "Bo": the same, the Bcc line
+      in sight. Remove: "Bo" gone. Cancel, Delete Draft.
+      5. *The share sheet,* from Safari. It opens in To. Steps 1 to 3
+      again: the menu under "Al", "sa" in sight after it, Delete taking
+      "Al" and its menu. Cancel, Delete Draft.
+      6. *The keyboard down.* A new letter, the bubble of step 1, then
+      hide the keyboard with its key. Tap "Al": its menu under it, its
+      arrow on it, as before. Remove: gone. Cancel.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078).*
+      *Seen on the test iPad 2026-10-07: all six steps passed, the menu
+      under its bubble in each, never beside it.*
 
 ## Blocked on the owner
 
