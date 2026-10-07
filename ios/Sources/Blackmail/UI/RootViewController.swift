@@ -633,41 +633,7 @@ final class RootViewController: UIViewController {
         // As UIKit's pop does, VoiceOver goes back to the row that pushed:
         // the open folder's, just highlighted (B-079).
         UIAccessibility.post(notification: .screenChanged,
-                             argument: voiceOverPlace(in: mailboxList.tableView, orFirstRow: false))
-    }
-
-    /// Where VoiceOver goes after "< Mailboxes" or a folder tap in two
-    /// panes (B-079): the table's highlighted row if any of it is in
-    /// sight; else, with `orFirstRow`, its first row wholly in sight, below
-    /// the search band; else the table, whose first element VoiceOver then
-    /// takes. Never nil. Left to choose, VoiceOver on iPadOS 16 went to the
-    /// reading pane's Flag when a letter was open, and to the corner's view
-    /// button when not.
-    ///
-    /// In sight means between the table's bars and below the band pinned at
-    /// its top. `visibleCells` counts the rows under them too: the first of
-    /// them, once the list is scrolled, is under the search field, and
-    /// VoiceOver put on it would scroll the list to show it.
-    ///
-    /// The table's column is shown and laid out by the time this is asked:
-    /// the shell lays the panes out before it returns, hiding and showing
-    /// them at once. The cover over them while they move is hidden from
-    /// VoiceOver, and they are not inside it.
-    private func voiceOverPlace(in table: UITableView, orFirstRow: Bool) -> UIView {
-        let band = table.numberOfSections > 0 ? table.rectForHeader(inSection: 0).height : 0
-        let top = table.bounds.minY + table.adjustedContentInset.top + band
-        let bottom = table.bounds.maxY - table.adjustedContentInset.bottom
-        if let row = table.indexPathForSelectedRow,
-           table.rectForRow(at: row).maxY >= top + 1,
-           table.rectForRow(at: row).minY <= bottom - 1,
-           let cell = table.cellForRow(at: row) { return cell }
-        if orFirstRow,
-           let first = (table.indexPathsForVisibleRows ?? []).sorted().first(where: { row in
-               let rect = table.rectForRow(at: row)
-               return rect.minY >= top - 0.5 && rect.maxY <= bottom + 0.5
-           }),
-           let cell = table.cellForRow(at: first) { return cell }
-        return table
+                             argument: mailboxList.tableView.voiceOverPlace(orFirstRow: false))
     }
 
     private func describe(_ panes: PaneArrangement) -> String {
@@ -695,12 +661,13 @@ final class RootViewController: UIViewController {
             // behind the list, as after a push. VoiceOver goes to the list:
             // the row of the letter being read, else the first row, else,
             // for a folder whose rows have not come, the list itself
-            // (B-079). `self.list` is read only now, since a folder opened
-            // has a new one.
+            // (B-079). The list holds the row for it until it is there, in
+            // case its rows are drawn again first, as a folder's fresh page
+            // is drawn over its kept one. `self.list` is read only now,
+            // since a folder opened has a new one.
             if self.shell.arrangement.panes == .two {
                 UIAccessibility.post(notification: .screenChanged,
-                                     argument: self.voiceOverPlace(in: self.list.tableView,
-                                                                   orFirstRow: true))
+                                     argument: self.list.placeVoiceOver())
             }
         }
         // Delete, Move and Flag from the reading pane edit the list on

@@ -660,7 +660,8 @@ final class PaneArrangementTests: XCTestCase {
     /// the open folder's row, highlighted just before, else the folders'
     /// table. A folder tap in two panes, a push: the list's highlighted
     /// row, else its first row wholly in sight, below the search band,
-    /// else its table, the list read after the shell has made a new one.
+    /// else its table, the list read after the shell has made a new one,
+    /// and the row held by the list for VoiceOver until it is there.
     /// A highlighted row counts if any of it is in sight. And the column
     /// named is shown when each is posted: the panes are hidden and shown
     /// in `arrange` before it can return early, with nothing put off until
@@ -685,7 +686,7 @@ final class PaneArrangementTests: XCTestCase {
         let popped = try XCTUnwrap(back.range(of: "shell.back()"))
         let toFolder = try XCTUnwrap(back.range(of:
             "UIAccessibility.post(notification: .screenChanged, "
-            + "argument: voiceOverPlace(in: mailboxList.tableView, orFirstRow: false))"), back)
+            + "argument: mailboxList.tableView.voiceOverPlace(orFirstRow: false))"), back)
         XCTAssertLessThan(highlighted.upperBound, popped.lowerBound)
         XCTAssertLessThan(popped.upperBound, toFolder.lowerBound)
 
@@ -694,38 +695,56 @@ final class PaneArrangementTests: XCTestCase {
         let inTwo = try XCTUnwrap(tap.range(of: "if self.shell.arrangement.panes == .two {"))
         let toList = try XCTUnwrap(tap.range(of:
             "UIAccessibility.post(notification: .screenChanged, "
-            + "argument: self.voiceOverPlace(in: self.list.tableView, orFirstRow: true))"), tap)
+            + "argument: self.list.placeVoiceOver())"), tap)
         XCTAssertLessThan(tapped.upperBound, inTwo.lowerBound)
         XCTAssertLessThan(inTwo.upperBound, toList.lowerBound)
         XCTAssertEqual(tap.components(separatedBy: "self.list").count - 1, 2, tap)
+        XCTAssertEqual(lines(of: code, containing: "voiceOverPlace(").count, 1)
+        XCTAssertEqual(lines(of: code, containing: "placeVoiceOver(").count, 1)
+
+        // The list's: its highlighted row, else its first row wholly in
+        // sight, else its table, held for VoiceOver as it is posted.
+        let list = try source("MessageListViewController.swift")
+        let placeVoiceOver = flat(body(after: "func placeVoiceOver() -> UIView", in: list))
+        let named = try XCTUnwrap(placeVoiceOver.range(of:
+            "let place = tableView.voiceOverPlace(orFirstRow: true)"), placeVoiceOver)
+        let held = try XCTUnwrap(placeVoiceOver.range(of:
+            "voiceOver.send(to: voiceOverRow(of: place), running: UIAccessibility.isVoiceOverRunning, "
+            + "at: Date())"), placeVoiceOver)
+        let posted = try XCTUnwrap(placeVoiceOver.range(of: "return place }"), placeVoiceOver)
+        XCTAssertLessThan(named.upperBound, held.lowerBound)
+        XCTAssertLessThan(held.upperBound, posted.lowerBound)
 
         // In sight: between the bars, and below the band pinned at the top.
         // A highlighted row with any of it in sight; a first row wholly in
         // it. Not `visibleCells`, which counts the rows under the band.
-        let placing = flat(body(after: "func voiceOverPlace(in table: UITableView, orFirstRow: Bool) -> UIView",
-                                in: code))
+        let geometry = try source("VoiceOverPlace.swift")
+        let selected = flat(body(after: "func voiceOverPlace(orFirstRow: Bool) -> UIView", in: geometry))
+        XCTAssertEqual(selected,
+                       "{ voiceOverPlace(at: indexPathForSelectedRow, orFirstRow: orFirstRow) }")
+        let placing = flat(body(after: "func voiceOverPlace(at row: IndexPath?, orFirstRow: Bool) -> UIView",
+                                in: geometry))
         let sight = try XCTUnwrap(placing.range(of:
-            "let band = table.numberOfSections > 0 ? table.rectForHeader(inSection: 0).height : 0 "
-            + "let top = table.bounds.minY + table.adjustedContentInset.top + band "
-            + "let bottom = table.bounds.maxY - table.adjustedContentInset.bottom"), placing)
+            "let band = numberOfSections > 0 ? rectForHeader(inSection: 0).height : 0 "
+            + "let top = bounds.minY + adjustedContentInset.top + band "
+            + "let bottom = bounds.maxY - adjustedContentInset.bottom"), placing)
         let row = try XCTUnwrap(placing.range(of:
-            "if let row = table.indexPathForSelectedRow, "
-            + "table.rectForRow(at: row).maxY >= top + 1, "
-            + "table.rectForRow(at: row).minY <= bottom - 1, "
-            + "let cell = table.cellForRow(at: row) { return cell }"), placing)
+            "if let row, row.section < numberOfSections, row.row < numberOfRows(inSection: row.section), "
+            + "rectForRow(at: row).maxY >= top + 1, "
+            + "rectForRow(at: row).minY <= bottom - 1, "
+            + "let cell = cellForRow(at: row) { return cell }"), placing)
         let first = try XCTUnwrap(placing.range(of:
             "if orFirstRow, "
-            + "let first = (table.indexPathsForVisibleRows ?? []).sorted().first(where: { row in "
-            + "let rect = table.rectForRow(at: row) "
+            + "let first = (indexPathsForVisibleRows ?? []).sorted().first(where: { row in "
+            + "let rect = rectForRow(at: row) "
             + "return rect.minY >= top - 0.5 && rect.maxY <= bottom + 0.5 }), "
-            + "let cell = table.cellForRow(at: first) { return cell }"), placing)
-        let table = try XCTUnwrap(placing.range(of: "return table }"), placing)
+            + "let cell = cellForRow(at: first) { return cell }"), placing)
+        let table = try XCTUnwrap(placing.range(of: "return self }"), placing)
         XCTAssertLessThan(sight.upperBound, row.lowerBound)
         XCTAssertLessThan(row.upperBound, first.lowerBound)
         XCTAssertLessThan(first.upperBound, table.lowerBound)
         XCTAssertFalse(placing.contains("visibleCells"), placing)
         XCTAssertEqual(placing.components(separatedBy: "return ").count - 1, 4, placing)
-        XCTAssertEqual(lines(of: code, containing: "voiceOverPlace(").count, 3)
 
         // Shown, laid out and in the window when posted.
         let arranging = body(after: "func arrange(", in: code)
@@ -747,6 +766,133 @@ final class PaneArrangementTests: XCTestCase {
                        ["cover.accessibilityElementsHidden = true"])
         XCTAssertEqual(lines(of: motion, containing: "addSubview(cover)"), ["root.addSubview(cover)"])
         XCTAssertFalse(motion.contains("accessibilityViewIsModal"))
+    }
+
+    /// VoiceOver kept on its letter when the list's rows are drawn again
+    /// (B-079, the second change), read. Each of the list's three reloads,
+    /// the regroup, the kept page and a day's mail, takes VoiceOver's row
+    /// before the reload and puts VoiceOver back on its letter at its end,
+    /// once the list is where it goes. There are no other reloads. The row
+    /// taken: the one VoiceOver was sent to, while held, else the one it is
+    /// on, found from where VoiceOver is now, never with it off. Put back
+    /// with a layout change, on the cell for its letter, laid out first. A
+    /// row VoiceOver has been sent to is looked for as VoiceOver moves, and
+    /// it is put there once if it went to another row, or to the list's own
+    /// bar or table. What VoiceOver is on is told apart in that order: a
+    /// row, his typing, the list's own column, anything else. With the
+    /// list's column out of sight nothing is held.
+    func testVoiceOverStaysOnItsLetterWhenTheRowsAreDrawnAgain() throws {
+        let list = try source("MessageListViewController.swift")
+
+        XCTAssertEqual(lines(of: list, containing: "reloadData()"),
+                       ["tableView.reloadData()", "tableView.reloadData()", "tableView.reloadData()"])
+        XCTAssertFalse(list.contains("reloadSections"))
+        XCTAssertFalse(list.contains("reloadRows("))
+        XCTAssertFalse(list.contains("insertRows("))
+        XCTAssertFalse(list.contains("deleteRows("))
+        for opener in ["private func regroup(highlighting opened: String? = nil, "
+                       + "to move: ListPlaces.Move = .stay)",
+                       "private func showKeptPage()",
+                       "private func show(_ window: MessageWindow)"] {
+            let redraw = flat(body(after: opener, in: list))
+            let taken = try XCTUnwrap(redraw.range(of:
+                "let voiceOverOn = voiceOverHeld() defer { keepVoiceOver(voiceOverOn) }"), opener)
+            let rebuilt = try XCTUnwrap(redraw.range(of: "rebuildRows()"), opener)
+            let reloaded = try XCTUnwrap(redraw.range(of: "tableView.reloadData()"), opener)
+            XCTAssertLessThan(taken.upperBound, rebuilt.lowerBound, opener)
+            XCTAssertLessThan(rebuilt.upperBound, reloaded.lowerBound, opener)
+            XCTAssertEqual(redraw.components(separatedBy: "keepVoiceOver(").count - 1, 1, opener)
+            XCTAssertEqual(redraw.components(separatedBy: "defer").count - 1, 1, opener)
+        }
+        XCTAssertEqual(lines(of: list, containing: "keepVoiceOver(voiceOverOn)"),
+                       ["defer { keepVoiceOver(voiceOverOn) }", "defer { keepVoiceOver(voiceOverOn) }",
+                        "defer { keepVoiceOver(voiceOverOn) }"])
+
+        // Taken: VoiceOver's own element, as the list sees it, only with it
+        // on, and nothing with the list's column out of sight.
+        let held = flat(body(after: "private func voiceOverHeld()", in: list))
+        XCTAssertEqual(held, "{ guard listInSight else { voiceOver.letGo() return nil } "
+                       + "let running = UIAccessibility.isVoiceOverRunning "
+                       + "let on = voiceOverLanding( on: running ? UIAccessibility.focusedElement(using: "
+                       + ".notificationVoiceOver) : nil, sentTo: nil) "
+                       + "return voiceOver.held(running: running, on: voiceOverRow(at: on.row), "
+                       + "landing: on.landing, at: Date()) }")
+        let sight = flat(body(after: "private var listInSight: Bool", in: list))
+        XCTAssertEqual(sight, "{ var shown: UIView? = tableView while let view = shown { "
+                       + "if view.isHidden { return false } shown = view.superview } "
+                       + "return tableView.window != nil }")
+
+        // What VoiceOver is on: a row of the list first, the one it was
+        // sent to or another; then his typing, a key or the search field
+        // being edited; then the list's own column; else elsewhere.
+        let landing = flat(body(after: "private func voiceOverLanding(", in: list))
+        let nothing = try XCTUnwrap(landing.range(of: "guard let element else { return (.elsewhere, nil) }"),
+                                    landing)
+        let onRow = try XCTUnwrap(landing.range(of: "if let on = listRow(of: element) {"), landing)
+        let typing = try XCTUnwrap(landing.range(of:
+            "if (element as? NSObject)?.accessibilityTraits.contains(.keyboardKey) == true "
+            + "|| (!isOutbox && searchBar.isTyping) { return (.typing, nil) }"), landing)
+        let own = try XCTUnwrap(landing.range(of:
+            "if let column = navigationController?.view ?? view, "
+            + "holderView(of: element)?.isDescendant(of: column) == true { return (.listOwn, nil) }"), landing)
+        let elsewhere = try XCTUnwrap(landing.range(of: "return (.elsewhere, nil) }", options: .backwards),
+                                      landing)
+        XCTAssertLessThan(nothing.upperBound, onRow.lowerBound)
+        XCTAssertLessThan(onRow.upperBound, typing.lowerBound)
+        XCTAssertLessThan(typing.upperBound, own.lowerBound)
+        XCTAssertLessThan(own.upperBound, elsewhere.lowerBound)
+        XCTAssertTrue(landing.contains("return (there ? .sentRow : .otherRow, on)"), landing)
+        XCTAssertTrue(flat(try source("SearchHeaderView.swift")).contains("var isTyping: Bool { field.isEditing }"))
+
+        // A row of the list: a cell of this table or inside one, or UIKit's
+        // element for a row, by where it is, off the search band. Not the
+        // table, the band, or anything of another table.
+        let row = flat(body(after: "private func listRow(of element: Any) -> Int?", in: list))
+        XCTAssertTrue(flat(body(after: "private func holderView(of element: Any) -> UIView?", in: list))
+            .contains("holder = (holder as? UIAccessibilityElement)?.accessibilityContainer"))
+        for part in ["guard var view = holderView(of: element) else { return nil }",
+                     "if view === tableView {",
+                     "guard !(element is UIView), let frame = (element as? NSObject)?.accessibilityFrame",
+                     "UIAccessibility.convertToScreenCoordinates(searchBar.bounds, in: searchBar) "
+                        + ".contains(middle) { return nil }",
+                     "while view !== tableView {",
+                     "if let cell = view as? UITableViewCell { return tableView.indexPath(for: cell)?.row }"] {
+            XCTAssertTrue(row.contains(part), part)
+        }
+
+        // Put back: laid out, the cell for its letter or in its place, by
+        // the rules of a move, with a layout change.
+        let place = flat(body(after: "private func voiceOverPlace(keeping held: ListVoiceOver.Row?)", in: list))
+        XCTAssertTrue(place.contains("switch ListVoiceOver.step(after: held, in: threads)"), place)
+        let laidOut = try XCTUnwrap(place.range(of: "tableView.layoutIfNeeded()"), place)
+        let cell = try XCTUnwrap(place.range(of:
+            "return tableView.voiceOverPlace(at: IndexPath(row: row, section: 0), orFirstRow: true)"), place)
+        XCTAssertLessThan(laidOut.upperBound, cell.lowerBound)
+        XCTAssertTrue(place.contains("case .leave: return nil"), place)
+        XCTAssertTrue(place.contains("case .table: return tableView"), place)
+        let keep = flat(body(after: "private func keepVoiceOver(", in: list))
+        XCTAssertEqual(keep, "{ guard let place = voiceOverPlace(keeping: held) else { return } "
+                       + "voiceOver.redrawn(to: voiceOverRow(of: place), kept: letters.fromShelf, at: Date()) "
+                       + "UIAccessibility.post(notification: .layoutChanged, argument: place) }")
+
+        // Looked for as VoiceOver moves, and put there at most once.
+        XCTAssertTrue(flat(list).contains(
+            "addObserver(self, selector: #selector(voiceOverMoved(_:)), "
+            + "name: UIAccessibility.elementFocusedNotification, object: nil)"))
+        let moved = flat(body(after: "@objc private func voiceOverMoved(", in: list))
+        XCTAssertTrue(moved.contains("guard isViewLoaded, let sent = voiceOver.sentRow(at: now) "
+                                     + "else { return } guard listInSight else { voiceOver.letGo() return }"),
+                      moved)
+        XCTAssertTrue(moved.contains("let landing = voiceOverLanding(on: note.userInfo?"
+                                     + "[UIAccessibility.focusedElementUserInfoKey], sentTo: place).landing"),
+                      moved)
+        let asked = try XCTUnwrap(moved.range(of: "guard voiceOver.moved(to: landing, "
+                                              + "kept: letters.fromShelf, at: now) != nil"), moved)
+        let put = try XCTUnwrap(moved.range(of:
+            "UIAccessibility.post(notification: .layoutChanged, argument: place)"), moved)
+        XCTAssertLessThan(asked.upperBound, put.lowerBound)
+        XCTAssertEqual(lines(of: list, containing: "UIAccessibility.post(").count, 2)
+        XCTAssertFalse(list.contains(".screenChanged"))
     }
 
     // MARK: - The panes, moving

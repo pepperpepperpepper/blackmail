@@ -10875,7 +10875,7 @@ build for the iPad links.
 
 ---
 
-## B-079 — FIXED 2026-10-07, not yet seen on the iPad. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
+## B-079 — FIXED 2026-10-07, seen on the iPad in part; changed again, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
 
 **Found on the iPad, 2026-10-07**, at B-077's check 8: the test iPad on
 iPadOS 16.5.1, the 11-inch, landscape, master 434422b, VoiceOver and its
@@ -11023,19 +11023,291 @@ test named.
 The full suite, serially, with nothing undone: 1,580 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
+landscape, built from the first change with B-078, VoiceOver and its
+Caption Panel on. A tap went straight to the control and did not move
+VoiceOver, so each step was done with taps. The caption and its box were
+read from frames taken in bursts from each tap. Steps 1, 4, 6 and 7 of the
+TODO's check passed. Steps 2, 3 and 5 did not.
+
+- *Step 1 passed*, four times. At "< Mailboxes" VoiceOver went to the open
+  folder's row, highlighted, at about 1.3 s, and stayed there. It never
+  said "Flag, Button", in the run that began on Flag as well.
+- *Step 4 passed.* The pane empty, "< Mailboxes" put VoiceOver on Sent
+  Mail's row, not on the view button. Sent Mail tapped again: on its first
+  row at 1.3 s, read to the end, and the list did not move.
+- *Step 6 passed.* "Hide Mailboxes, Button" at 1.5 s, and "Show Mailboxes,
+  Button" at 1.5 s, the box on the corner button.
+- *Step 7 passed.* In fourteen bursts nothing of the pictures was read.
+  While a move ran, the caption kept what it had said before.
+- *Step 2 failed once in three.* The open folder tapped, VoiceOver went to
+  the letter's row at 1.4 s, and the list did not move. In one run, at
+  2.75 s, it went to the pane's Flag and stayed. Nothing in the list
+  changed but the box.
+- *Step 3 failed* in each folder with letters. Sent Mail: at 1.3 s
+  VoiceOver was on the view button in the corner, and stayed. Important:
+  at 1.3 s its box was round the first row while it read the second row's
+  words, and at 2.2 s it went to the view button. The Inbox opened anew:
+  the view button. Starred, with no letters, passed: the search field at
+  1.3 s. The pane was empty each time.
+- *Step 5 failed* where the list moved. VoiceOver went to the right rows.
+  The pane empty, the Inbox scrolled 40 points, its first row 40 points
+  under the search field: VoiceOver went to the second row, the first
+  wholly below the search field, and as it did, the list went back the 40
+  points to its top. The letter's row half under the search field:
+  VoiceOver went to it, and the list moved 48 points, so that the row
+  showed whole below the search field.
+
+**What did it.**
+
+- *Step 3: the folder's fresh page.* A folder opened draws its page kept
+  on the iPad at once (`showKeptPage`), and the post named a cell of it.
+  The folder's newest page came 0.4 to 0.9 s after the tap, before
+  VoiceOver had got there, and was drawn over the kept one
+  (`landFreshPage`, `regroup`). `reloadData` hands every cell out again,
+  the same letters or not. At 1.3 s VoiceOver took the cell it had been
+  given, which by then showed another row: in Important, the first row's
+  box and the second row's words. Then it let go of it and took the first
+  element itself, the view button in the list's bar. Starred had no rows,
+  and its table, which was named, is not handed out. The simulator had
+  shown this, the row named then the second, and it was taken for
+  nothing, as nothing on the screen changed.
+- *Step 2: most likely a reload of the list under VoiceOver.* Not caught
+  on the iPad, where the connection log could not be read. VoiceOver let
+  go of the row as in step 3, with nothing changed on the screen, and took
+  Flag, as it did before the first change. With the folder already open,
+  the list reloads only in `regroup`. The watch's check every 30 s reloads it when it puts a letter come
+  or gone on the list, which it does with the list at its top, as it was
+  (`showNewsIfAtTop`), and when the list is owed a fetch afresh. A check
+  with nothing new reloads nothing. A letter gone below the rows in sight
+  changes nothing on the screen, and letters of other checks come into
+  the test account's Inbox and go from it. In the simulator, 31 s after
+  the same tap, the watch took a letter gone from the Inbox off the list
+  and reloaded it. A read mark or a Flag the server refused reloads it
+  too.
+- *Step 5: VoiceOver's own scroll*, not the app's. The tap on the open
+  folder puts its list back in front with nothing fetched. What moves the
+  list in the app is `regroup`, which keeps the rows in sight where they
+  are, or goes to the top for a list replaced or for news put on at the
+  top, which needs the list at its top already; `scrollToTop`; Go to
+  Date's scroll to its day; and the motion, which stops a list still
+  coasting. None of them runs then. On the iPad the list was still at
+  0.85 s, with the motion over, and had moved at 1.3 s, as VoiceOver
+  landed. In the simulator, with a build that logged every change of the
+  list's place, the same steps moved nothing in the 4 s after the tap.
+  Each move on the iPad was the part of a row that was under the search
+  field. In the first, that row was the list's first, 40 points under,
+  and showing it whole is going back to the top. The row VoiceOver was put
+  on was whole already. In the second, it was the letter's row, 48 points
+  under. So as VoiceOver takes up the list, UIKit shows whole the row it
+  is put on, or the row just above it, when part of that row is under the
+  search field. Which of them it picks is UIKit's. The app's sums were
+  right: the row named was wholly in sight.
+
+**Changed again, 2026-10-07.**
+
+1. *VoiceOver kept on its letter.* When the list's rows are drawn again
+   with VoiceOver on a row of the list, or just sent to one, VoiceOver goes
+   after it to the cell that now shows the same letter, with a layout
+   change. The row is taken before the reload by its letters, and found
+   after it as `ListPlace` finds a row he could see: by the conversation's
+   newest letter, else by any letter in it. Its letter gone: the row now in
+   its place, the one that came after it, or the last. That row out of
+   sight: the first row wholly in sight, as after a move. No rows: the
+   table. It is done at the end of the reload, with the list where it goes
+   and the highlight back (`keepVoiceOver` in `MessageListViewController`;
+   the choosing in `ListVoiceOver`).
+2. *On a row* is VoiceOver's own element (`UIAccessibility.focusedElement`):
+   one of the list's cells, or something inside one, or the element UIKit
+   gives VoiceOver for a row, whose container is the table, found by where
+   it is and not on the search band. Anything else is not a row: the
+   list's own bar, its table and its search field, the folders, the
+   reading pane, a sheet. Then nothing is posted, unless VoiceOver has just
+   been sent to a row (3). While he types in the search field, or
+   VoiceOver is on a key, nothing is posted at all. Nor with the list's
+   column out of sight, as after "< Mailboxes": the row sent to is let go.
+   With VoiceOver off nothing is posted.
+3. *Just sent to one.* The folder tap in two panes asks the list where
+   VoiceOver goes (`placeVoiceOver`), by the same rules as before, and the
+   list holds that row for VoiceOver until it has been on it through the
+   folder's fresh page, or for 3 s at most. On the iPad the screen change
+   landed 1.3 to 1.6 s after the tap. If, before it has been on the row,
+   VoiceOver goes to another of the list's rows, to a cell drawn since for
+   another letter, or to the list's own bar or table, it is put on the row
+   it was sent to, once. On the iPad, in Sent Mail and the Inbox, it went
+   straight to the view button, in the list's bar. On the folders, the
+   reading pane or a sheet the row stays held while VoiceOver is on its
+   way, until 1.6 s (`ListVoiceOver.screenChange`), and is let go after.
+   VoiceOver is never taken from there. When he types, the row is let go.
+
+   The list's own post after the fresh page can take VoiceOver to the row
+   before the screen change lands, and the screen change then lands after
+   it, on the cell it named. So when VoiceOver got to the row after a post
+   of the list's own, the row stays held until 1.6 s, and a landing on
+   another row or on the list's bar in that time is put back on the row,
+   once. Which of the two VoiceOver takes first on the iPad is not known.
+   In each order it ends on the row, or is put there once. Any other move
+   after VoiceOver has been on the row lets it go: he may have moved on.
+4. *Once.* A reload posts once, at its end, and a post reloads nothing, so
+   nothing repeats. A landing is put back at most once: the row is let go
+   as it is. So the list now posts too, layout changes only; the
+   container's three posts are as before.
+5. *The reloads.* There are three, all in the list, and each now keeps
+   VoiceOver. `regroup`, at every change of the letters: the fresh page
+   over the kept one, which was step 3; the watch's news put on at the top
+   and a fetch afresh it is owed, likely step 2; a page below or above,
+   which VoiceOver reaches by moving down the list; a read mark at a tap,
+   and one or a Flag the server refused; a Refresh, a return after a while
+   away, a search and its end; the reading pane's and Edit mode's Delete,
+   Move and Flag; Settings saved; Drafts and the Outbox changing. The kept
+   page, drawn once as the list is made, before anything names it. Go to
+   Date's day, drawn as its sheet goes. The ones he starts from a button,
+   a sheet or the reading pane find VoiceOver there, not on a row, and
+   post nothing. A preview fills its row in place and is not a reload.
+6. *A reload with the same rows is not skipped.* `regroup` reloads at every
+   call, whether anything changed or not: the fresh page with the kept
+   page's letters, a Refresh with nothing new, Settings saved with the same
+   addresses. Skipping it is not certain to be safe. A row's time is worked
+   out from now as the row is drawn, so a reload with the same letters is
+   what turns "9:34 AM" into "Yesterday" after midnight, at the Refresh
+   after a night. Settings draws the rows again for his addresses with the
+   same letters, and VoiceOver's words for a row are set only as it is
+   drawn. A skip would have to know all of those. With the change a reload
+   no longer takes VoiceOver off its row, so it is left.
+7. *Step 5 is left.* The move is VoiceOver's, by less than a row, to show a
+   row whole. The TODO's step now expects it.
+8. The sums of what is in sight, which "< Mailboxes" and the folder tap
+   used, and which the list now uses after a reload, are in one place:
+   `UITableView.voiceOverPlace(at:orFirstRow:)`.
+
+**Seen in the simulator, 2026-10-07, the second change**, an iPad (7th
+generation) on iPadOS 18.6, landscape, on the test account. The simulator
+has no VoiceOver. A scratch build took VoiceOver as on, and logged each
+reload, what was held and named, and every change of the list's place.
+Two panes. The Inbox opened anew from Sent Mail: the post named the kept
+page's first row, a conversation of four letters. The fresh page came
+0.27 s after the tap, with a fifth letter in that conversation, and the
+cell named after it was that conversation's, in the window and shown. Sent
+Mail opened anew: the same, at 0.30 s. A letter open, its folder tapped
+again: its row was named and held, and nothing reloaded until the watch,
+31 s later, took a letter gone from the Inbox off the list. The 3 s had
+passed by then; on the iPad VoiceOver would be on the row, which the
+change finds from VoiceOver itself. The Inbox scrolled 50 points, its
+first row 50 points under the search field, the pane empty: the post named
+the second row, and the list did not move in the 4 s after the tap. The
+handling of VoiceOver's landings in 3 was not run there: it acts only on
+VoiceOver's moves, and the simulator has none.
+
+**Tests of the second change.** `ListVoiceOverTests`, twenty-nine, all
+new, with the real grouping. The row after the rows are drawn again: the
+same letter's, a row further down when a letter has come on top; a
+conversation a newer letter has joined, found by the letter that was in
+it; its letter gone, the row in its place, or the last; no rows, the
+table; nothing held, nothing posted. Which row is held: none with
+VoiceOver off, sent or not; none with VoiceOver on anything else, the
+list's bar and the search field too; the row VoiceOver is on; the row sent
+to, over another row or the list's bar, for 3 s and no longer; over the
+folders or the reading pane only until 1.6 s; none while he types, at any
+time; none for the table; none once let go. Letting go: the row held
+follows its letter across a reload; there on the kept page, held through
+the fresh page and let go then; there on the fresh page with nothing
+posted by the list, let go at once; on another row, put back once and let
+go; on the list's bar before ever being on the row, put back once, as late
+as 3 s and not after; there through the list's own post, held, and a
+landing then on another row or the list's bar put back once; there that
+way and drawn again, still held; there that way and a move at 1.6 s, let
+go with nothing posted; there that way and then on the folders or typing,
+let go; not yet on the list, still held; on the folders at 1.6 s, let go;
+typing, let go, and nothing put back after; a move after it was there, to
+another row or the list's bar, let go with nothing posted; after the
+bound, nothing.
+
+`PaneArrangementTests`, now 29. The B-079 test reads the folder tap asking
+the list, and the sums in their new place. One more,
+`testVoiceOverStaysOnItsLetterWhenTheRowsAreDrawnAgain`, reads the list.
+Its three reloads are the only ones, and there is no other kind. Each takes
+the row before it rebuilds the rows, and puts VoiceOver back at its end.
+The row is from VoiceOver's own element, only with it on. A row of the list
+is a cell of its table or inside one, or UIKit's element for a row, off the
+search band, never the table itself. What VoiceOver is on is told apart in
+this order: a row of the list; his typing, a key or the search field being
+edited; the list's own column, all that is in its navigation controller's
+view; else elsewhere. The list's column is in sight when it is in the
+window and nothing over it up to the window is hidden. Out of sight, a
+reload and a move let the row go and post nothing. The cell named is laid
+out first and posted with a layout change. VoiceOver's moves are looked
+for, and a move posts only when `ListVoiceOver` says so. The list posts
+nothing else, and no screen change.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. In the list: the regroup
+not keeping VoiceOver, 1 in 1; the kept page not keeping it, 1 in 1; a
+day's mail not keeping it, 1 in 1; the row taken after the reload, 1 in 1;
+put back with a screen change, 2 in 1; VoiceOver off taken as on, 1 in 1;
+the cell named before it is laid out, 1 in 1; the table itself taken as a
+row, 1 in 1; the search band taken as a row, 1 in 1; the folder tap
+posting a place the list does not hold, 1 in 1; the place not held, 1 in
+1; VoiceOver's moves not looked for, 1 in 1; a move posting whether
+`ListVoiceOver` says so or not, 1 in 1. In `ListVoiceOver`: the row found
+by its number, not its letters, 4 in 3; its letter gone, the table, 2 in
+1; where VoiceOver is put before the row it was sent to, 1 in 1; no bound,
+4 in 2; a row held with VoiceOver off, 1 in 1; a row sent to held with
+VoiceOver off, 2 in 1; the row held not following its letter, 1 in 1; let
+go on the kept page before the fresh one, 2 in 1; a move putting VoiceOver
+back more than once, 4 in 3; let go before VoiceOver reached the list, 3
+in 1; a move after it was there taken back, 1 in 1. In the sums, in their
+new place: the search band not left out, 1 in 1; the highlighted row not
+named, 1 in 1. Twenty-six in all, each caught, with nothing failing in any
+run but the tests named.
+
+Then the handling of VoiceOver's landings, undone the same way. In
+`ListVoiceOver`: a landing on the list's own bar before the row not put
+back, 1 in 1; there through the list's own post let go at once, 6 in 2;
+any arrival before 1.6 s taken as through the list's own post, 4 in 3; a
+landing after such an arrival not put back, 3 in 2; a reload after it
+letting go, 2 in 1; no 1.6 s, 6 in 3; held while he types, 3 in 1; held
+over the folders after 1.6 s, 1 in 1; a move while he types not letting
+go, 2 in 1; a move to the folders after 1.6 s not letting go, 2 in 1;
+letting go doing nothing, 2 in 1. In the list: the list's own column not
+told apart, 1 in 1; the search field being edited not taken as typing,
+1 in 1; a reload with the list out of sight, 1 in 1; a move with it out
+of sight, 1 in 1; a hidden column taken as in sight, 1 in 1. In the
+search field: never typing, 1 in 1. Seventeen in all, each caught, with
+nothing failing in any run but the tests named.
+
+The full suite, serially, with nothing undone: 1,612 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
 **Not covered.**
 
-- VoiceOver was not heard. The simulator has none, and the iPad check in
-  the TODO is to do.
+- The second change was not heard. The simulator has no VoiceOver, and the
+  iPad check in the TODO is to do.
+- Which VoiceOver takes first, the screen change or the list's layout
+  change posted after it, is for the iPad. Either way, a landing on
+  another row, on a cell drawn since for another letter, or on the list's
+  bar or table is put back on the row as it lands. A landing on the
+  folders, the reading pane or a sheet is never put back.
+- The 1.6 s is the latest landing seen on the iPad, from the tap. A screen
+  change that lands later, after the list's own post took VoiceOver to the
+  row, is not put back.
+- A swipe of his own to another row or to the list's bar before VoiceOver
+  has been on the row, or within 1.6 s of the tap after the list's own
+  post took it there, is taken for VoiceOver's landing and put back, once.
+- The element UIKit gives VoiceOver for a row is found through its
+  container. One whose container is not the table is taken as not on the
+  list, and VoiceOver is left where it is.
+- VoiceOver reads the row again at each reload under it.
+- The folders' table is drawn again at each sweep of the counts, and
+  VoiceOver on a folder's row could lose it the same way. Not changed: a
+  sweep draws the same folders in the same places, and step 1 passed four
+  times.
+- What reloaded the list in step 2 was not caught on the iPad.
+- VoiceOver's scroll as it lands is UIKit's, and so is which row it shows
+  whole. The list goes back to its top when its first row is the one partly
+  under the search field.
 - In Edit mode the list's highlighted row is the first one ticked, not
   the letter being read.
 - A highlighted row wholly out of sight is not named. In the folders the
   table is, and VoiceOver takes its first element. In the list the first
   row wholly in sight is.
-- A highlighted row partly in sight is named, since it is where he was.
-  VoiceOver may then scroll the list to show the rest of it, by less than
-  a row. The iPad check looks for this.
-- When a new folder's first page comes, its rows are put in again, and
-  the row VoiceOver was put on can then hold another letter, as with any
-  list that changes under it.
-- What Mail and UIKit do with VoiceOver was not heard on the iPad.
+- What Mail does with VoiceOver was not heard on the iPad.

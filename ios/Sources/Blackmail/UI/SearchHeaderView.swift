@@ -87,6 +87,10 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
 
     var currentQuery: String { field.text ?? "" }
 
+    /// He is typing in the field: VoiceOver is not taken off it, or off the
+    /// keys, when the list's rows are drawn again (B-079).
+    var isTyping: Bool { field.isEditing }
+
     init(width: CGFloat) {
         super.init(frame: CGRect(x: 0, y: 0, width: width, height: Theme.searchBarHeight))
         backgroundColor = Theme.searchBarFill
