@@ -2275,9 +2275,10 @@ final class MessageListViewController: UITableViewController {
         switch rows[ip.row] {
         case let .thread(thread):
             // In Sent Mail, Drafts and the Outbox the top line names whom
-            // the letters are to, a conversation marked after the date in
-            // place of its count, and VoiceOver reads what it names
-            // (`RowNames`, B-060, B-075).
+            // the letters are to (`RowNames`, B-060, B-075). In every
+            // folder a conversation is marked after the date, with no
+            // count, and VoiceOver reads what it names and how many
+            // (B-080).
             cell.configure(with: thread.displayRow(in: mailbox, mine: mine),
                            marked: thread.marksConversation(in: mailbox))
             cell.isBusy = thread.messages.contains { $0.id == drafts.loading }

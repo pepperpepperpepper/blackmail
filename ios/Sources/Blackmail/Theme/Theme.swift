@@ -253,8 +253,8 @@ extension Theme {
     /// 15, not 16: three passes read 15.0 / 14.6 / 13.5. The delta is inside a
     /// single pass's error but the bias is consistent across all three.
     static let rowTextRightInset: CGFloat = 15
-    /// The mark of a conversation in Sent Mail, Drafts and the Outbox
-    /// (B-075), Mail's blue chevron in a circle, ends the sender line at the
+    /// The mark of a conversation in every folder (B-075, B-080), Mail's
+    /// blue chevron in a circle, ends the sender line at the
     /// text's right edge, and the date's label ends this far before the
     /// mark's. Mail's gap, measured off a 2024 screenshot of its list on an
     /// iPhone at 2x, is 17 px, 8.5 pt, from the date's last ink to the

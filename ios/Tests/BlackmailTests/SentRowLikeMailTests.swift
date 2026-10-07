@@ -7,8 +7,9 @@ import XCTest
 /// addresses left out but for the first, each person once, and "No
 /// Recipients" with nobody in To. A conversation there has no count after
 /// the names: the row is marked with Mail's blue circled chevron after its
-/// date, which no length of names can push off the line. Every other list's
-/// rows are as they were, their count on the names.
+/// date, which no length of names can push off the line. Since B-080 every
+/// other list marks a conversation so too, its names who wrote, as before
+/// (`ConversationRowLikeMailTests`).
 final class SentRowLikeMailTests: XCTestCase {
 
     private static let sent = Mailbox(id: "[Gmail]/Sent Mail", name: "Sent Mail",
@@ -243,15 +244,16 @@ final class SentRowLikeMailTests: XCTestCase {
         }
     }
 
-    /// Every other list keeps its count on the names, "(2)", and no mark:
-    /// the Inbox, All Mail, Trash, Spam and a folder of his own, his own
-    /// letters there included. Its rows are as they were before B-075, the
-    /// row `displayRow()` has always drawn.
-    func testEveryOtherListKeepsItsCountAndHasNoMark() {
+    /// Every other list names who wrote, as the row `displayRow()` has
+    /// always drawn: the Inbox, All Mail, Trash, Spam and a folder of his
+    /// own, his own letters there included. B-075 left them their count,
+    /// "(2)", and no mark; since B-080 they have the mark and no count, as
+    /// Sent Mail's rows have.
+    func testEveryOtherListNamesWhoWroteAndMarksAConversation() {
         for list in [Self.inbox, Self.allMail, Self.trash, Self.spam, Self.family] {
             var thread = conversation(in: list)
-            XCTAssertFalse(thread.marksConversation(in: list), list.name)
-            XCTAssertEqual(thread.displayRow(in: list, mine: Self.mine).sender, "Owner Example (2)",
+            XCTAssertTrue(thread.marksConversation(in: list), list.name)
+            XCTAssertEqual(thread.displayRow(in: list, mine: Self.mine).sender, "Owner Example",
                            list.name)
             thread = MessageThread(messages: [
                 letter("1/9", in: list, to: [Self.me], from: "Carlo <carlo@example.org>"),
@@ -259,24 +261,26 @@ final class SentRowLikeMailTests: XCTestCase {
                 letter("1/7", in: list, to: [Self.me], hoursAgo: 2, from: "Carlo <carlo@example.org>"),
             ])
             XCTAssertEqual(thread.displayRow(in: list, mine: Self.mine), thread.displayRow(), list.name)
-            XCTAssertEqual(thread.displayRow(in: list, mine: Self.mine).sender, "Carlo, Margaret Example (3)",
+            XCTAssertEqual(thread.displayRow(in: list, mine: Self.mine).sender, "Carlo, Margaret Example",
                            list.name)
-            XCTAssertFalse(thread.marksConversation(in: list), list.name)
+            XCTAssertTrue(thread.marksConversation(in: list), list.name)
         }
     }
 
-    /// The folder a row was listed from decides it, as it decides the
-    /// names: letters an All Mailboxes search found in All Mail, in Sent
-    /// Mail's list, name him and keep their count, with no mark. A search,
-    /// even of Sent Mail alone, is never gathered into conversations, so its
-    /// rows have neither; nor with Organize by Thread off.
-    func testOnlyAConversationOfTheFoldersOwnIsMarked() {
+    /// The folder a row was listed from decides the names: letters an All
+    /// Mailboxes search found in All Mail, in Sent Mail's list, name him.
+    /// Until B-080 such a row, were it ever a conversation, kept its count
+    /// and had no mark; now it has the mark and no count, as every row of
+    /// more than one letter has. A search, even of Sent Mail alone, is
+    /// never gathered into conversations, so its rows have neither; nor
+    /// with Organize by Thread off.
+    func testOnlyAConversationIsMarked() {
         let found = MessageThread(messages: [
             letter("2/90", in: Self.allMail, to: [Self.jane]),
             letter("2/89", in: Self.allMail, to: [Self.sam], hoursAgo: 1),
         ])
-        XCTAssertFalse(found.marksConversation(in: Self.sent))
-        XCTAssertEqual(found.displayRow(in: Self.sent, mine: Self.mine).sender, "Owner Example (2)")
+        XCTAssertTrue(found.marksConversation(in: Self.sent))
+        XCTAssertEqual(found.displayRow(in: Self.sent, mine: Self.mine).sender, "Owner Example")
 
         let letters = conversation(in: Self.sent).messages
         for row in MessageThread.rows(for: letters, grouped: false) {
@@ -310,7 +314,9 @@ final class SentRowLikeMailTests: XCTestCase {
     /// and ends `gap` before the mark, which ends at the text's right edge.
     /// Without a mark the line is the frozen row's arithmetic: up to 110
     /// points for the date, 45% of a narrow line, 8 between it and the
-    /// names. In three panes on his iPad and in two.
+    /// names. In three panes on his iPad and in two. With a date whose text
+    /// fits before the mark; one that does not is B-080's
+    /// (`ConversationRowLikeMailTests.testAMarkedRowsDateIsNeverCut`).
     func testTheMarkMovesNothingButTheDate() {
         for (left, right) in [(CGFloat(29), CGFloat(315)), (29, 360), (29, 250), (29, 200)] {
             let textWidth = right - left
@@ -380,7 +386,7 @@ final class SentRowLikeMailTests: XCTestCase {
             "conversationMark.isHidden = !marked",
             "let markSize = conversationMark.isHidden ? nil : conversationMark.image?.size",
             "let line = RowTopLine(left: left, right: right, mark: markSize?.width, "
-                + "gap: Theme.conversationMarkGap)",
+                + "gap: Theme.conversationMarkGap, date: timestampLabel.intrinsicContentSize.width)",
             "place(timestampLabel, baseline: Theme.senderBaseline, left: line.dateX, width: line.dateWidth)",
             "place(senderLabel, baseline: Theme.senderBaseline, left: line.namesX, width: line.namesWidth)",
         ] {
