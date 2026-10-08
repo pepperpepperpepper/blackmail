@@ -2386,6 +2386,50 @@ this host. Ordered by value, not by size.
       with a hardware keyboard and `+sim18` in 1, 4 and 6; 0, 7 and 8
       passed on a simulated iPad built from master, then given this build
       (B-081). On the iPad still to do.*
+- [ ] **B-082, a name changed in Settings, at once.** On the test iPad,
+      the test account only, landscape, built from the `account-name`
+      worktree. It is the send path: merge only after a pass. A stands for
+      the account's address; letters only to A with a `+` tag before the
+      @, subjects beginning "B-082". Note the account's name in Settings
+      first: it goes back at the end. Do not quit the app at any step.
+      1. *Before.* A new letter To A with `+sim18`, Subject "B-082
+      before", Send. Show original in Gmail: From the account's name.
+      2. *Save.* Settings, the name "Carlo Wolfeschlegelsteinhausen
+      Example" in place of the account's, Save. The list stays where it
+      was.
+      3. *Reply.* Refresh, open "B-082 before", Reply, a line, Send. Show
+      original: From "Carlo Wolfeschlegelsteinhausen Example".
+      4. *A new letter,* To A with `+sim18`, Subject "B-082 new after",
+      Send: From the new name.
+      5. *A draft.* A new letter, To A with `+sim18`, Subject "B-082 draft
+      after", Cancel, Save Draft. Gmail's Drafts, Show original: From the
+      new name. Then in Blackmail open it from Drafts and Send: From the
+      new name.
+      6. *The book.* A new letter, type the first letters of A in To: A
+      is offered as "Carlo Wolfeschlegelsteinhausen Example". Cancel,
+      Delete Draft.
+      7. *The signature,* only where Settings shows both "Send my
+      signature as plain text instead" and "Restore Original Signature":
+      without the second, the formatted one would not come back. Restore
+      puts back the signature first kept on this iPad, not the one in
+      use, and a formatted one lost so cannot be put back from Settings.
+      So first: Settings, "Restore Original Signature", Restore, look at
+      the box, then Cancel. If its words changed, or a formatted
+      signature has been put on this iPad from outside since, skip 7.
+      Otherwise: Settings, "Send my signature as plain text instead",
+      Save. A new letter To A with `+sim18`, Subject "B-082 plain", Send:
+      Show original has no text/html part. Settings, "Restore Original
+      Signature", Save. Another, "B-082 restored", Send: the formatted
+      signature is back.
+      8. *The share sheet,* from Safari. To A with `+sim18`, Subject "B-082
+      share", Send: From the new name.
+      9. *Put back.* Settings, the account's own name as noted, Save. A new
+      letter To A with `+sim18`, Subject "B-082 name back", Send: From the
+      account's own name. A offered under it again.
+      Then move the B-082 letters to Trash.
+      *Seen 2026-10-07 on the iPadOS 18.6 simulator: steps 1 to 6, 8 and
+      9 passed, the account named "Carlo" and with no signature, so 7 was
+      not tried (B-082). On the iPad still to do.*
 
 ## Blocked on the owner
 

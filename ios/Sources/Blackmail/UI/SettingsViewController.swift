@@ -24,8 +24,10 @@ import UIKit
 /// until the next time he tried to read his mail.
 final class SettingsViewController: UIViewController, UITextViewDelegate {
 
-    /// Called when the name or the signature was saved, so the caller can
-    /// rebuild anything holding the old account.
+    /// Called when the name, the signature or his addresses were saved, for
+    /// the screens to take what they draw from them. Nothing is built
+    /// again: the next letter takes the account as saved when it is made
+    /// (`IMAPMailRepository.sender`, B-082).
     var onSaved: ((MailAccount) -> Void)?
     /// Called once a new password has been checked and saved and this sheet
     /// has gone, for the screens to sign in with it at once

@@ -105,6 +105,28 @@ final class RecipientBook {
         flush()
     }
 
+    /// His own address, under the name his account gives him: it replaces
+    /// any name the book had for it, and an account with no name leaves it
+    /// with none (B-082). Noted at each launch and at each Save in
+    /// Settings, so a changed name is the one offered at once. A letter
+    /// going past in a list does not name his address
+    /// (`IMAPMailRepository.rows`): an old letter of his carries the name
+    /// he had then.
+    func noteOwn(address: String, name: String) {
+        let keys = Self.keys(for: address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        guard keys.count == 1, let key = keys.first, key.contains("@"), key.count > 2 else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        lock.lock()
+        defer { lock.unlock() }
+        var entry = entries[key] ?? KnownRecipient(address: key, name: nil, uses: 0,
+                                                   lastSeen: .distantPast)
+        entry.name = trimmed.isEmpty ? nil : trimmed
+        entry.lastSeen = Date()
+        entries[key] = entry
+        evictIfNeeded()
+        dirty = true
+    }
+
     /// Each address filed under itself (`keys(for:)`): "jane@example.com;",
     /// as a share sent by a build before B-081 can still hand the app
     /// (`ShareMirror.takeSent`), is Jane's. A name goes only with an

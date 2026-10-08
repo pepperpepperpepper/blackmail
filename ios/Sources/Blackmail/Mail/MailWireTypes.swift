@@ -385,6 +385,23 @@ struct MailAccount: Codable, Equatable {
         return out
     }
 
+    /// This account with what Settings saves taken from `saved`: the name,
+    /// the signature and its formatted twin, and his other addresses
+    /// (B-082). Where it connects, and as whom it signs in, stay this
+    /// account's. A `saved` of another address, or none, changes nothing.
+    func withSettings(of saved: MailAccount?) -> MailAccount {
+        func key(_ address: String) -> String {
+            address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        guard let saved, key(saved.address) == key(address) else { return self }
+        var out = self
+        out.displayName = saved.displayName
+        out.signature = saved.signature
+        out.signatureHTML = saved.signatureHTML
+        out.otherAddresses = saved.otherAddresses
+        return out
+    }
+
     /// Decodes an account stored by an OLDER build, one field at a time.
     ///
     /// Written by hand because **Swift's synthesized `Decodable` does not

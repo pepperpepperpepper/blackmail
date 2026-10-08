@@ -100,6 +100,10 @@ enum CredentialStore {
         if let mirror = ShareMirror.app, let password = loadPassword(for: clean) {
             mirror.publish(account: clean, password: password)
         }
+        // His own address offered under the name just saved, from now
+        // (B-082). The repository reads the account as each letter is made
+        // (`IMAPMailRepository.sender`), so nothing else is handed it.
+        RecipientBook.shared.noteOwn(address: clean.address, name: clean.displayName)
     }
 
     static func save(account: MailAccount, password: String) throws {

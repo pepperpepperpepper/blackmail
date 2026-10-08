@@ -2237,9 +2237,12 @@ final class MessageListViewController: UITableViewController {
         settings.onSaved = { [weak self] saved in
             // Nothing on this screen changes what is IN the mailbox, so the
             // list is not reloaded. The signature is read fresh every time a
-            // compose window opens, so the next letter already has it. His
-            // addresses are what the rows leave out (B-075, B-076): the list
-            // takes them as saved and draws its rows again, in place.
+            // compose window opens, so the next letter already has it, and
+            // the repository reads the name and the signature as each letter
+            // is made, so the next one goes as saved (B-082). Nothing is
+            // built again for it. His addresses are what the rows leave out
+            // (B-075, B-076): the list takes them as saved and draws its rows
+            // again, in place.
             guard let self else { return }
             self.mine = OwnAddresses(account: saved)
             self.regroup()

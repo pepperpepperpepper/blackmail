@@ -12195,3 +12195,188 @@ All Mail or Drafts.
   The suite holds it.
 - The empty group's draft was made by master's build, not by another
   client.
+
+---
+
+## B-082 — FIXED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. A name changed in Settings went on his letters only after the app was quit and opened again
+
+**What he saw.** Seen on 2026-10-07, in a simulated iPad on iPadOS 18.6,
+during B-080's check, and noted in its TODO item. The account's name was
+changed in Settings, "Carlo" to "Carlo Wolfeschlegelsteinhausen Example",
+and saved. The next reply still went out From "Carlo". Only after the app
+was quit and opened again did letters go out under the new name. Mail
+uses a changed name at once.
+
+**What it was.** The repository kept the account it was made with, at
+launch (`IMAPMailRepository.account`, a `let`). Every letter it made took
+the name, the signature and its formatted twin from that copy:
+`send`, for a new letter, Reply, Reply All, Forward, a letter sent from
+Drafts and one going from the Outbox, and `append`, for a draft going up
+to Drafts. Settings saved the account through `CredentialStore` and told
+the list (`onSaved`), and the list took his addresses and asked for the
+counts. Nothing handed the repository the account saved, and the screens
+are not built again for a name. A repository is made at launch, and when
+a new password is saved (`PasswordChange`); never for a name.
+
+The same copy kept three more things from Settings waiting for a launch:
+
+- *"Send my signature as plain text instead"*, saved: letters still went
+  with the formatted signature.
+- *"Restore Original Signature"*, saved: letters went without the
+  formatted signature restored.
+- *A changed signature:* the composer signs a new letter with the
+  signature saved, read as it opens, but the repository looked for the
+  old text at the letter's foot to find where the formatted twin goes
+  (`AppleMailHTML.layout`). Not found, the twin was left off until a
+  launch.
+
+And the book of addresses offered his own address under the old name. The
+repository noted the account's name for it once, at launch, and every page
+of his own old letters, From the name he had then, named it again.
+
+Already at once, and not changed: the signature in a new letter, Reply and
+Forward, read by the composer as it opens; his addresses (B-076), read by
+Reply All as it opens and handed to the list by `onSaved`; Organize by
+Thread, which acts as it moves; the signature's pictures, read at each
+letter; and the share sheet, which reads its copy of the account at each
+share and is handed the account saved at Save (`ShareMirror`,
+`CredentialStore.saveAccountOnly`).
+
+**Changed.**
+
+1. *The repository reads the account as each letter is made*
+   (`IMAPMailRepository.sender`). It is the account it signed in as, with
+   the name, the signature and its formatted twin, and his other addresses
+   as Settings last saved them (`MailAccount.withSettings`). Where it
+   connects, and as whom it signs in, stay its own. A saved account of
+   another address, or none, changes nothing. The app's repository reads
+   the account `CredentialStore` keeps, in `UserDefaults`; nothing is
+   rebuilt for it, so the connection, the list, a search, his place, an
+   open letter and one being written stay as they are. The password path
+   is as it was.
+2. *The book* (`RecipientBook.noteOwn`). His own address is offered under
+   the name his account gives him, replacing any name the book had for it,
+   and with no name when the account has none. Noted at launch, as before,
+   and now at each Save too (`CredentialStore.saveAccountOnly`). A page of
+   letters no longer names his own address
+   (`IMAPMailRepository.rows`), so an old letter of his does not put the
+   old name back. The share sheet's copy of the book is made again as the
+   app leaves for Safari, as before.
+
+**A letter waiting in the Outbox** when the name is changed goes with the
+name saved when it goes. The Outbox keeps what he wrote, not a made letter:
+the letter is made at each attempt, its From from the account. So such a
+letter already went under the new name after a launch; now it does without
+one, and the name it goes with no longer depends on whether the app was
+opened again in between. What he wrote, the signature's words among them,
+goes as written; the formatted twin goes only where those words are the
+signature saved, so a letter never carries a formatted signature that is
+not the one its words show. Nothing new is kept with a letter on the iPad
+for it. A draft in Gmail's Drafts keeps the From it went up with until it
+is sent: sent, it goes under the name saved, as a reopened draft always
+has.
+
+**What he sees.** After Save, the next letter goes under the name saved,
+a reply, a forward, a draft and a share alike, with no quit. His own
+address is offered under the name saved. No new words.
+
+**Tests.** Fifteen, all new, in `NameAtOnceTests.swift`:
+`NameAtOnceTests`, three, `NameAtOnceSendTests`, nine, and
+`NameAtOnceWiringTests`, three.
+
+- *The account taken:* the name, the signature, its twin and his other
+  addresses from the account saved, the address, the host and the login
+  kept; another address's account, or none, changes nothing.
+- *The book:* his own address under the name saved, in place of the one
+  before, in any letter case; bare when the name is taken off; two
+  addresses in one are not his; others' names learned as before.
+- *Over the scripted servers,* the repository made at launch with
+  "Carlo", the account then saved as a test hands it in: a new letter
+  From "Carlo", then From the new name, then "Carlo" again once put back;
+  Reply, Reply All and Forward From the new name; a draft saved to Drafts
+  by the repository and by the pass for a letter kept on the iPad, From
+  the new name, and one saved before the change, reopened and sent, From
+  the new name; a letter left in the Outbox with the line down, the name
+  then changed, sent by the pass once the line is back, From the new
+  name; the formatted signature gone from the next letter once "plain
+  text" is saved and back once restored; a changed signature found at
+  the next letter's foot, with its twin; his own address offered under
+  the new name, after a page of his old letters From "Carlo" and after
+  a relaunch over a book that had learned "Carlo"; the name taken off,
+  his address bare, the next letter From the bare address, past a page
+  and a relaunch.
+- *The share sheet:* its copy of the account handed the one saved, the
+  next share From the new name.
+- *The wiring,* read from the source: the app's repository reads
+  `CredentialStore.loadAccount()`; `saveAccountOnly` notes his name in the
+  book and hands the share sheet the account, and writes no password;
+  Settings' `onSaved` builds nothing again, and a new password still signs
+  in afresh once the sheet has gone.
+
+The first fourteen run against the repository as it was, given only the
+new parameter it did not yet read: nine failed, 13 failures, the reply
+From "Carlo". The five that passed hold what was right already or helpers
+written with them: the account taken and the book's rule, the share
+sheet, and Save rebuilding nothing.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The repository's
+letters made from the account it launched with, as before: 11 in 7. Send
+alone so: 9 in 7. A draft going up alone so: 2 in 1. A page naming his
+own address from the letter, as before: 2 in 2. The launch noting his
+name as before: 1 in 1. The book keeping the old name when it is taken
+off: 5 in 2. The formatted twin not taken from the account saved: 2 in 2.
+An account of another address taken: 1 in 1. The app's repository given
+nothing to read: 1 in 1. Save not noting his name in the book: 1 in 1.
+Ten in all, and every failure in each run was in the fifteen new tests.
+
+The full suite, serially, with nothing undone: 1,669 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Seen on the iPadOS 18 simulator, 2026-10-07**, a simulated iPad (7th
+generation) on iPadOS 18.6, landscape, a hardware keyboard, built from
+this branch and signed in to the test account as "Carlo". Every letter to
+the test address with `+sim18` before the "@", and read over IMAP from
+another computer. The screenshots are in the pass's shots folder, not in
+the repo: they show the test address.
+
+1. *Before.* A new letter, Subject "B-082 before", Send: From "Carlo".
+2. *Save.* Settings, the name "Carlo Wolfeschlegelsteinhausen Example",
+   Save. The list stayed where it was; "B-082 before" came in under
+   "Carlo".
+3. *Reply,* without quitting: "B-082 before", Reply, Send. "Re: B-082
+   before" went From "Carlo Wolfeschlegelsteinhausen Example".
+4. *A new letter,* "B-082 new after": From the new name.
+5. *A draft,* "B-082 draft after", Cancel, Save Draft. Gmail's copy in
+   Drafts: From the new name. Opened from Drafts later and sent: From the
+   new name, and Drafts empty after.
+6. *The book.* A new letter, "carlo" typed in To: his own address offered
+   first as "Carlo Wolfeschlegelsteinhausen Example", after the Inbox had
+   listed "B-082 before" From "Carlo". Cancel, Delete Draft.
+7. *The share sheet,* from Safari on example.com: To `+sim18`, Subject
+   "B-082 share", Send: From the new name.
+8. *Put back.* Settings, the name "Carlo", Save. "B-082 name back": From
+   "Carlo". His own address offered as "Carlo" again.
+
+The six letters were moved to Trash in the app. Read over IMAP after: the
+six in Trash, once each, none left in All Mail, the Inbox, Sent Mail or
+Drafts. The account's name is "Carlo" again.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how. It is the send path: merge
+  only after that check.
+- The simulator's account has no signature, so "plain text", "Restore
+  Original Signature" and a changed signature were not seen there. The
+  suite holds them.
+- A letter in the Outbox was not made in the simulator: it needs the
+  line taken down. The suite holds it.
+- A share right after Save, before the app has gone to the background,
+  cannot be made: Safari is another app. The share sheet's copy of the
+  account is handed over at Save as well as on leaving.
+- Whether Mail's own Outbox sends a letter queued before the change under
+  the old name was not looked at.
+- B-080's TODO item asks for a quit after the name is changed. It is no
+  longer needed, and does no harm.
+- His other addresses (B-076) keep whatever names the book learned for
+  them. Only the account's own address takes its name.

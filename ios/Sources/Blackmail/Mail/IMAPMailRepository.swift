@@ -26,7 +26,15 @@ import Foundation
 /// letter the server has named under each UID in this launch (`seen`).
 actor IMAPMailRepository: MailRepository {
 
+    /// The account this repository signed in as: where it connects, and as
+    /// whom. Its name, signature and other addresses are as they were when
+    /// it was made. A letter takes them as Settings last saved them
+    /// (`sender`).
     private let account: MailAccount
+    /// The account as Settings last saved it, nil where there is none to
+    /// read. The app's reads the one `CredentialStore` keeps; a test hands
+    /// in its own.
+    private let saved: @Sendable () -> MailAccount?
     private let password: String
     private let imap: IMAPClient
     private let smtp: SMTPClient
@@ -134,9 +142,12 @@ actor IMAPMailRepository: MailRepository {
     /// the probe only happens after ninety seconds of it. `calendar` is his,
     /// the days a jump to a date counts in (`messages(around:)`); the app's
     /// follows the iPad's zone as it changes, and a test's is the one it
-    /// sets.
+    /// sets. `saved` is where the account Settings saves is read from, as
+    /// each letter is made (`sender`); left out, a letter goes as
+    /// `account`.
     init(account: MailAccount, password: String,
          transport: @escaping MailTransportFactory,
+         saved: @escaping @Sendable () -> MailAccount? = { nil },
          recipients: RecipientBook = .shared,
          now: @escaping @Sendable () -> Date = { Date() },
          calendar: Calendar = .autoupdatingCurrent,
@@ -146,6 +157,7 @@ actor IMAPMailRepository: MailRepository {
          largeLetterBytes: Int = IMAPMailRepository.largeLetterBytes,
          largeLetterSectionBytes: Int = IMAPMailRepository.largeLetterSectionBytes) {
         self.account = account
+        self.saved = saved
         self.password = password
         self.largeAbove = largeLetterBytes
         self.largeSection = largeLetterSectionBytes
@@ -159,16 +171,20 @@ actor IMAPMailRepository: MailRepository {
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
         // book cannot learn by watching his mail go past — a letter to
-        // himself only teaches it after he has already typed it once.
-        recipients.note(address: account.address, name: account.displayName)
+        // himself only teaches it after he has already typed it once. Under
+        // the name his account gives him, whatever name an old letter of
+        // his taught the book (B-082).
+        recipients.noteOwn(address: account.address, name: account.displayName)
     }
 
-    #if canImport(Network)
-    /// The app's own: the real TLS stack, and the copy of his mail kept in
-    /// Application Support, which is this account's alone. Made at launch,
-    /// so another account's copy goes then.
+    #if canImport(Network) && canImport(Security)
+    /// The app's own: the real TLS stack, the account as Settings saves it,
+    /// and the copy of his mail kept in Application Support, which is this
+    /// account's alone. Made at launch, so another account's copy goes
+    /// then.
     init(account: MailAccount, password: String) {
         self.init(account: account, password: password, transport: TLSConnection.factory,
+                  saved: { CredentialStore.loadAccount() },
                   shelf: MailShelf(root: MailShelf.appRoot, address: account.address,
                                    host: account.imapHost))
     }
@@ -184,6 +200,20 @@ actor IMAPMailRepository: MailRepository {
         return IMAPMailRepository(account: account, password: password)
     }
     #endif
+
+    /// Who a letter is from, as it is made: this repository's account, with
+    /// the name, the signature and its formatted twin, and his other
+    /// addresses as Settings last saved them (`MailAccount.withSettings`).
+    ///
+    /// Read for each letter, new, Reply, Reply All or Forward, a draft
+    /// going up to Drafts, a letter sent from Drafts and one going from the
+    /// Outbox, so the next one after Save carries what was saved. It was
+    /// the account this repository was made with at launch: a name changed
+    /// in Settings reached no letter until the app was quit and opened
+    /// again, and a formatted signature dropped there still went (B-082).
+    /// The repository is not made again for it, so the connection, the list
+    /// and anything on its way stay as they are.
+    private var sender: MailAccount { account.withSettings(of: saved()) }
 
     // MARK: - Identity
 
@@ -1101,6 +1131,13 @@ actor IMAPMailRepository: MailRepository {
         return rows(from: fetched, in: mailboxID, name: name, validity: validity)
     }
 
+    /// Whether `address` is the account's own, as the book files it: bare
+    /// and in any letter case.
+    private func isOwn(_ address: String) -> Bool {
+        MailFormat.bareAddress(address).trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            == account.address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     /// Fetched summaries turned into rows, in the order they are given.
     ///
     /// Factored out of `listMessages` when the upward direction, the date
@@ -1132,9 +1169,13 @@ actor IMAPMailRepository: MailRepository {
             // is built out of it without a single extra round trip. See
             // `RecipientBook` for why this rather than the Contacts
             // framework.
+            //
+            // His own address goes by without its name: the book names it
+            // as his account names him (`RecipientBook.noteOwn`), and an old
+            // letter of his carries the name he had then (B-082).
             if let env {
                 for a in env.from + env.to + env.cc {
-                    recipients.note(address: a.address, name: a.name)
+                    recipients.note(address: a.address, name: isOwn(a.address) ? nil : a.name)
                 }
             }
             let from = env?.from.first
@@ -1970,11 +2011,12 @@ actor IMAPMailRepository: MailRepository {
         // quoted pictures are fetched only once the letter is known to be
         // going somewhere, as its files are.
         let images = signatureImages()
-        let letter = AppleMailHTML.letter(for: draft, account: account,
+        let from = sender
+        let letter = AppleMailHTML.letter(for: draft, account: from,
                                           reserving: SignatureImages.contentIDs(of: images))
         guard !Submission.recipients(of: draft).isEmpty else { throw MailError.notSent }
         let pictures = try await loadPictures(letter.pictures)
-        try await Submission.send(draft, from: account, password: password, through: smtp,
+        try await Submission.send(draft, from: from, password: password, through: smtp,
                                   threadHeaders: Self.threadHeaders(for: draft),
                                   attachments: { try await self.letterFiles(letter.files) },
                                   htmlBody: letter.html,
@@ -2393,16 +2435,17 @@ actor IMAPMailRepository: MailRepository {
         // from the server carries attachments that live inside that very
         // copy: delete it first and the files it is carrying go with it.
         let images = signatureImages()
+        let from = sender
         // Marked where the quote begins, so reopening can take the quote up
         // again (`QuotedOriginal.recovered`).
-        let letter = AppleMailHTML.letter(for: draft, account: account,
+        let letter = AppleMailHTML.letter(for: draft, account: from,
                                           reserving: SignatureImages.contentIDs(of: images),
                                           forDraft: true)
         let loaded = try await loadAttachments(letter.files)
         // The quote's pictures too, and for the same reason: a reopened
         // draft's live in the copy about to be replaced.
         let pictures = try await loadPictures(letter.pictures)
-        let raw = RFC5322Builder.build(draft: draft, from: account,
+        let raw = RFC5322Builder.build(draft: draft, from: from,
                                        messageID: messageID,
                                        inReplyToHeaders: Self.threadHeaders(for: draft),
                                        attachments: loaded,
