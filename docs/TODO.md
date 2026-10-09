@@ -2430,6 +2430,50 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: steps 1 to 6, 8 and
       9 passed, the account named "Carlo" and with no signature, so 7 was
       not tried (B-082). On the iPad still to do.*
+- [ ] **B-083, an Outbox letter goes as it was sent.** On the test iPad,
+      the test account only, landscape, built from the `outbox-name`
+      worktree. It is the send path: merge only after a pass. A stands
+      for the account's address; letters only to A with `+jane` before
+      the @, subjects beginning "B-083". *Steps for a person at the iPad:*
+      the iPad is reached for checks over its Wi-Fi, and Airplane Mode
+      cuts that, so these are done by hand, and the iPad's Wi-Fi is on
+      again before anyone reaches it from elsewhere. Note the account's
+      name in Blackmail's Settings first: it goes back at the end.
+      1. *Queued.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
+      if it stays on. Blackmail, a new letter To A with `+jane`, Subject
+      "B-083 queued", Send. Note the time on the iPad's clock. The sheet
+      closes at once: "Message is in the Outbox. It will be sent when the
+      iPad is connected and Blackmail is open." The Outbox lists it.
+      2. *Renamed.* Blackmail's Settings, the name "Carlo Renamed
+      Example", Save.
+      3. *Back.* Wait two minutes. Airplane Mode off, Wi-Fi on, and wait
+      for its mark in the status bar. Blackmail, Refresh: the Outbox
+      empties.
+      4. *Show original* of "B-083 queued" in Gmail: From the account's
+      name as noted, not "Carlo Renamed Example"; Date the time noted in
+      1, minutes before the time Gmail received it. One copy.
+      5. *After.* A new letter To A with `+jane`, "B-083 after", Send:
+      From "Carlo Renamed Example", Date its own Send.
+      6. *Opened and sent again.* Airplane Mode on. A new letter, "B-083
+      reopen", Send: in the Outbox. Settings, the account's own name as
+      noted, Save. The Outbox, open "B-083 reopen", Send again, and note
+      the time: in the Outbox once more. Airplane Mode off, Wi-Fi on,
+      Refresh. Show original: From "Carlo Renamed Example", its name when
+      it was first sent; Date the second Send. One copy.
+      7. *The signature,* only where Settings shows both "Send my
+      signature as plain text instead" and "Restore Original Signature",
+      and only after the check B-082's step 7 asks for first. Airplane
+      Mode on. A new letter, "B-083 signed", Send: in the Outbox.
+      Settings, "Send my signature as plain text instead", Save. Airplane
+      Mode off, Wi-Fi on, Refresh. Show original: a text/html part with
+      the formatted signature, as when it was sent. Settings, "Restore
+      Original Signature", Save.
+      8. *Put back.* The account's name is as noted (6). The iPad's Wi-Fi
+      is on. Move the B-083 letters to Trash.
+      *Seen 2026-10-09 on the iPadOS 18.6 simulator, the line cut by
+      blocking the mail ports: steps 1 to 6 passed, with `+sim18`; the
+      account has no signature there, so 7 was not tried (B-083). On the
+      iPad still to do.*
 
 ## Blocked on the owner
 

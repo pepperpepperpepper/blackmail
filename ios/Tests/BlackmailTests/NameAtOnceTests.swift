@@ -92,9 +92,10 @@ final class NameAtOnceTests: XCTestCase {
 
 /// The letters themselves over the scripted servers (B-082): after Save,
 /// without a relaunch, a new letter, Reply, Reply All and Forward, a draft
-/// saved to Gmail and one sent from Drafts, a letter from the Outbox, and
-/// a shared one all go From the name saved; the signature's formatted twin
-/// as saved too. Put back, the name before goes again.
+/// saved to Gmail and one sent from Drafts, and a shared one all go From
+/// the name saved; the signature's formatted twin as saved too. Put back,
+/// the name before goes again. A letter sent before Save and waiting in the
+/// Outbox goes From the name it was sent with (B-083, `OutboxAsSentTests`).
 @MainActor
 final class NameAtOnceSendTests: XCTestCase {
 
@@ -299,9 +300,10 @@ final class NameAtOnceSendTests: XCTestCase {
     }
 
     /// A letter left in the Outbox before Save goes, once the line is back,
-    /// From the name saved, as it would after a relaunch: what he wrote is
-    /// kept, and the letter is made as it goes.
-    func testALetterInTheOutboxGoesUnderTheNameSavedWhenItGoes() async throws {
+    /// From the name it was sent with, as a letter in Mail's Outbox goes
+    /// (B-083): the name saved after his Send is the next letter's. It went
+    /// From the name saved until B-083.
+    func testALetterInTheOutboxGoesUnderTheNameItWasSentWith() async throws {
         let repository = makeRepository()
         let kept = makeKept()
         line.isUp = false
@@ -323,7 +325,11 @@ final class NameAtOnceSendTests: XCTestCase {
         XCTAssertEqual(kept.outboxRows.count, 0)
         XCTAssertEqual(made().count, 1)
         let sent6 = try await lastSent()
-        XCTAssertEqual(from(sent6), "\(Self.newName) <\(server.username)>")
+        XCTAssertEqual(from(sent6), "Carlo <\(server.username)>")
+
+        try await repository.send(newLetter("B-082 after the Outbox"))
+        let sent7 = try await lastSent()
+        XCTAssertEqual(from(sent7), "\(Self.newName) <\(server.username)>", "the next letter")
     }
 
     // MARK: - The signature

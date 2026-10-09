@@ -49,6 +49,14 @@ struct LocalDraft {
     /// composer. Made when the letter enters the Outbox and handed to the
     /// builder at every attempt, so each is the same message.
     var outbox: String? = nil
+    /// What it went into the Outbox with, written with `outbox`, in the same
+    /// write: the name in its From, the time of his Send, and the signature
+    /// as Settings had them then (B-083). Handed to the builder at every
+    /// attempt, so the letter goes as it was when he tapped Send, whatever
+    /// is saved in Settings meanwhile, as a letter in Mail's Outbox goes.
+    /// Empty for a draft, for a letter taken back into the composer, and
+    /// for one put in the Outbox by a build before it was kept.
+    var atSend = AtSend()
     /// The Message-IDs of attempts whose DATA went and whose 250 never came
     /// back, which may therefore have reached Gmail. Written just before
     /// DATA, so an app ended mid-send still knows to look, and kept, whatever
@@ -298,7 +306,8 @@ extension DraftAttachment {
 final class LocalDraftStore {
 
     let root: URL
-    private let now: () -> Date
+    /// The store's clock: when a letter is kept, cut off, or sent (B-083).
+    let now: () -> Date
     private let files = FileManager.default
 
     /// The file in each letter's directory that says what the letter is.
@@ -718,12 +727,17 @@ final class LocalDraftStore {
     /// only once Sent Mail has been asked and has not got it; should that
     /// copy ever turn up after all, the two are then one message to every
     /// client that goes by Message-ID, Gmail's among them.
-    func enterOutbox(_ key: String) throws -> String {
+    ///
+    /// `atSend` is what every attempt at it is made with (B-083), written in
+    /// the same write as the Message-ID, so the letter is never in the
+    /// Outbox without it, nor it without the letter in the Outbox.
+    func enterOutbox(_ key: String, as atSend: AtSend = AtSend()) throws -> String {
         guard var letter = stored(key), letter.gone != true else { throw NotKept() }
         let domain = letter.account?.split(separator: "@").last.map(String.init) ?? ""
         let messageID = letter.unsettled?.last
             ?? "<\(UUID().uuidString.lowercased())@\(domain.isEmpty ? "localhost" : domain)>"
         letter.outbox = messageID
+        letter.atSend = atSend
         try write(letter)
         return messageID
     }
@@ -767,6 +781,7 @@ final class LocalDraftStore {
     func takeBack(_ key: String) {
         guard var letter = stored(key), letter.outbox != nil else { return }
         letter.outbox = nil
+        letter.atSend = AtSend()
         try? write(letter)
     }
 
@@ -910,6 +925,17 @@ final class LocalDraftStore {
         /// for, so no new format.
         var outbox: String?
         var unsettled: [String]?
+        /// `LocalDraft.atSend` (B-083): the name, the time and the
+        /// signature, with its formatted twin, the letter went into the
+        /// Outbox with. Absent from a draft, and from a letter put in the
+        /// Outbox by a build before them, which goes as it did then, so no
+        /// new format. Each read on its own, and one that cannot be read
+        /// reads as absent: a letter is never passed over, or held, for
+        /// one of these (`Lenient`).
+        var sentName: Lenient<String>?
+        var sentAt: Lenient<Date>?
+        var sentSignature: Lenient<String>?
+        var sentSignatureHTML: Lenient<String>?
         /// `LocalDraft.cutOff`, absent when nothing is unsettled.
         var cutOff: Date?
         /// `LocalDraft.unsettledSaves`, absent until an attempt is written
@@ -982,11 +1008,51 @@ final class LocalDraftStore {
             draft.attachments = files.compactMap { $0.attachment(in: folder) }
             return LocalDraft(key: key, draft: draft, version: version, tried: tried,
                               unfinished: unfinished, keptAt: keptAt, account: account,
-                              gone: gone ?? false, outbox: outbox, unsettled: unsettled ?? [],
+                              gone: gone ?? false, outbox: outbox, atSend: atSend,
+                              unsettled: unsettled ?? [],
                               cutOff: cutOff, markupBytes: quote?.markup ?? 0,
                               passwordSaves: passwordSaves ?? 0,
                               unsettledSaves: unsettledSaves ?? 0,
                               autoAttempts: autoAttempts ?? 0)
+        }
+
+        /// The four fields as one, each part nil where its field is absent
+        /// or cannot be read. The signature is known only with its twin:
+        /// one without the other could put a formatted signature on words
+        /// that are not its own.
+        var atSend: AtSend {
+            get {
+                var out = AtSend(name: sentName?.value, date: sentAt?.value)
+                if let text = sentSignature?.value, let html = sentSignatureHTML?.value {
+                    out.signature = AtSend.Signature(text: text, html: html)
+                }
+                return out
+            }
+            set {
+                sentName = newValue.name.map(Lenient.init)
+                sentAt = newValue.date.map(Lenient.init)
+                sentSignature = newValue.signature.map { Lenient($0.text) }
+                sentSignatureHTML = newValue.signature.map { Lenient($0.html) }
+            }
+        }
+    }
+
+    /// A field of `letter.json` read on its own: a value that cannot be
+    /// read as `T`, cut off or of another type, is nil rather than a
+    /// failure of the whole letter, which would pass the letter over
+    /// (`stored`). For what a letter can go without (B-083).
+    private struct Lenient<T: Codable>: Codable {
+        let value: T?
+
+        init(_ value: T) { self.value = value }
+
+        init(from decoder: Decoder) {
+            value = try? decoder.singleValueContainer().decode(T.self)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            if let value { try container.encode(value) } else { try container.encodeNil() }
         }
     }
 
@@ -1135,8 +1201,12 @@ final class LocalDrafts {
     /// it was opened.
     private var open: [String: Bool] = [:]
     /// Those of them that were in the Outbox as they were opened
-    /// (`DraftKeeping.putBack`).
-    private var fromOutbox: Set<String> = []
+    /// (`DraftKeeping.putBack`), each with what it had gone into the Outbox
+    /// with (B-083). The composer's first keep takes the letter out of the
+    /// Outbox, and that with it, so it is held here: for his Send, which
+    /// keeps its name and signature, as a letter Mail reopens from its
+    /// Outbox keeps its From, and for its going back, which keeps it all.
+    private var fromOutbox: [String: AtSend] = [:]
     /// Letters on their way to the server, or having their leftover copies
     /// removed, and what is waiting for each to be done.
     private var going: Set<String> = []
@@ -1390,10 +1460,25 @@ final class LocalDrafts {
     // MARK: The composer
 
     /// The composer has opened on letter `key`.
+    ///
+    /// One of another account that was in the Outbox is held here without
+    /// its name and signature, which are that account's: sent, it goes from
+    /// this account's address, with this account's name and signature, as a
+    /// letter in Mail whose From address is picked again takes the name of
+    /// the account picked. Put back, it goes back with its time alone.
     func opened(_ key: String) {
         let letter = store.letter(key)
         open[key] = letter != nil
-        if letter?.outbox != nil { fromOutbox.insert(key) } else { fromOutbox.remove(key) }
+        if let letter, letter.outbox != nil {
+            var atSend = letter.atSend
+            if !isMine(letter) {
+                atSend.name = nil
+                atSend.signature = nil
+            }
+            fromOutbox[key] = atSend
+        } else {
+            fromOutbox[key] = nil
+        }
     }
 
     /// The composer on letter `key` has done with it. One that reached the
@@ -1401,7 +1486,7 @@ final class LocalDrafts {
     /// server as it stands, and leaves the iPad now.
     func closed(_ key: String) {
         open[key] = nil
-        fromOutbox.remove(key)
+        fromOutbox[key] = nil
         if let version = landedOpen.removeValue(forKey: key), let letter = store.letter(key),
            !letter.gone, letter.version == version {
             store.remove(key)
@@ -1431,10 +1516,12 @@ final class LocalDrafts {
                 // reached Gmail goes with it (`LocalDraftStore.keep`), and
                 // an attempt still unsettled is the Message-ID it goes
                 // under (`enterOutbox`), so it is looked for first, as
-                // before the sheet opened.
-                guard fromOutbox.contains(key), let letter = store.letter(key),
+                // before the sheet opened. With the name, the time and the
+                // signature it went in with before (B-083): he has not
+                // sent it again.
+                guard let atSend = fromOutbox[key], let letter = store.letter(key),
                       !letter.gone, letter.outbox == nil else { return }
-                _ = try? store.enterOutbox(key)
+                _ = try? store.enterOutbox(key, as: atSend)
             })
     }
 
@@ -1601,10 +1688,14 @@ final class LocalDrafts {
     /// (`Outbox.waits(after:)`). A letter the iPad cannot keep goes straight
     /// to the server, as every letter did before the Outbox, and a failure
     /// stays in the sheet.
+    ///
+    /// It enters the Outbox with the name and the signature it goes with,
+    /// and the time of this Send (`atSend`, B-083), and every attempt at it
+    /// is made with them, this one and those of every pass after it.
     func send(_ draft: Draft, as key: String, to repository: MailRepository,
               progress: UploadProgress?) async throws {
         if store.letter(key) == nil { keep(draft, as: key, unfinished: true) }
-        guard (try? store.enterOutbox(key)) != nil else {
+        guard (try? store.enterOutbox(key, as: atSend(key, from: repository))) != nil else {
             try await repository.send(draft, progress: progress)
             sendingRefused = false
             return
@@ -1623,9 +1714,29 @@ final class LocalDrafts {
         }
     }
 
+    /// What the letter `key` enters the Outbox with at his Send (B-083): the
+    /// time now, and the name and the signature the repository makes a
+    /// letter with now (`MailRepository.sendingAs`), the account's as
+    /// Settings last saved it. A letter opened from the Outbox keeps the
+    /// name and the signature it went into the Outbox with, where it has
+    /// them, as a letter Mail reopens from its Outbox keeps its From and
+    /// its signature, and takes the time of this Send, as Mail's takes a
+    /// new Date. Blackmail sends from one address, so there is no address
+    /// to pick again, which in Mail would bring the name saved.
+    private func atSend(_ key: String, from repository: MailRepository) -> AtSend {
+        let now = repository.sendingAs
+        let before = fromOutbox[key] ?? AtSend()
+        return AtSend(name: before.name ?? now.name, date: store.now(),
+                      signature: before.signature ?? now.signature)
+    }
+
     /// One attempt at the letter in the Outbox kept as `key`, as `draft` if
     /// given, as kept if not. Returns once it has gone, by this attempt or
     /// an earlier one.
+    ///
+    /// Made with what it went into the Outbox with (`LocalDraft.atSend`,
+    /// B-083): the same name, Date and signature at every attempt, as the
+    /// same Message-ID.
     ///
     /// Never twice. An attempt whose DATA went and whose 250 never came
     /// back may have reached Gmail, and nothing on the iPad can tell; sent
@@ -1666,6 +1777,7 @@ final class LocalDrafts {
         do {
             try await repository.send(draft ?? letter.draft, as: OutgoingLetter(
                 messageID: messageID,
+                atSend: letter.atSend,
                 beforeData: { try await store.noteSending(key, messageID) }),
                 progress: progress)
         } catch {

@@ -206,14 +206,29 @@ actor IMAPMailRepository: MailRepository {
     /// addresses as Settings last saved them (`MailAccount.withSettings`).
     ///
     /// Read for each letter, new, Reply, Reply All or Forward, a draft
-    /// going up to Drafts, a letter sent from Drafts and one going from the
-    /// Outbox, so the next one after Save carries what was saved. It was
-    /// the account this repository was made with at launch: a name changed
-    /// in Settings reached no letter until the app was quit and opened
-    /// again, and a formatted signature dropped there still went (B-082).
-    /// The repository is not made again for it, so the connection, the list
-    /// and anything on its way stay as they are.
-    private var sender: MailAccount { account.withSettings(of: saved()) }
+    /// going up to Drafts and a letter sent from Drafts, so the next one
+    /// after Save carries what was saved. It was the account this
+    /// repository was made with at launch: a name changed in Settings
+    /// reached no letter until the app was quit and opened again, and a
+    /// formatted signature dropped there still went (B-082). The repository
+    /// is not made again for it, so the connection, the list and anything
+    /// on its way stay as they are.
+    ///
+    /// A letter going from the Outbox takes from here only what it did not
+    /// go into the Outbox with (`OutgoingLetter.atSend`, B-083): its name
+    /// and signature are those of when he tapped Send.
+    private nonisolated var sender: MailAccount { account.withSettings(of: saved()) }
+
+    /// The name and the signature `sender` gives a letter made now, for the
+    /// Outbox to keep with a letter as Send takes it (B-083). Read on the
+    /// caller's thread, with no wait for the actor: what it reads is the
+    /// account this repository was made with, which never changes, and the
+    /// one `CredentialStore` keeps.
+    nonisolated var sendingAs: AtSend {
+        let from = sender
+        return AtSend(name: from.displayName,
+                      signature: AtSend.Signature(text: from.signature, html: from.signatureHTML))
+    }
 
     // MARK: - Identity
 
@@ -1985,15 +2000,22 @@ actor IMAPMailRepository: MailRepository {
     // MARK: - Sending
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
-        try await send(draft, messageID: nil, beforeData: nil, progress: progress)
-    }
-
-    func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
-        try await send(draft, messageID: letter.messageID, beforeData: letter.beforeData,
+        try await send(draft, messageID: nil, atSend: AtSend(), beforeData: nil,
                        progress: progress)
     }
 
-    private func send(_ draft: Draft, messageID: String?,
+    func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
+        try await send(draft, messageID: letter.messageID, atSend: letter.atSend,
+                       beforeData: letter.beforeData, progress: progress)
+    }
+
+    /// `atSend` is what a letter from the Outbox went into it with (B-083):
+    /// its name in From, in place of the name saved now, at the account's
+    /// own address; its time as the Date; and its signature, which says
+    /// where the formatted twin goes and what it is. What is nil in it is
+    /// as `sender` has it now, and the time now: a new letter, or one put
+    /// in the Outbox by a build before B-083.
+    private func send(_ draft: Draft, messageID: String?, atSend: AtSend,
                       beforeData: (@Sendable () async throws -> Void)?,
                       progress: UploadProgress?) async throws {
         guard !retired else { throw MailError.cannotConnect }
@@ -2011,7 +2033,12 @@ actor IMAPMailRepository: MailRepository {
         // quoted pictures are fetched only once the letter is known to be
         // going somewhere, as its files are.
         let images = signatureImages()
-        let from = sender
+        var from = sender
+        if let name = atSend.name { from.displayName = name }
+        if let signature = atSend.signature {
+            from.signature = signature.text
+            from.signatureHTML = signature.html
+        }
         let letter = AppleMailHTML.letter(for: draft, account: from,
                                           reserving: SignatureImages.contentIDs(of: images))
         guard !Submission.recipients(of: draft).isEmpty else { throw MailError.notSent }
@@ -2023,7 +2050,8 @@ actor IMAPMailRepository: MailRepository {
                                   inlineImages: SignatureImages.parts(of: images) + pictures,
                                   messageID: messageID,
                                   beforeData: beforeData,
-                                  progress: progress)
+                                  progress: progress,
+                                  date: atSend.date ?? Date())
         // Only after the server took it. Ranking an address he tried and
         // failed to reach above one that works would put a bad address at
         // the top of the list. Each as it went, split at a comma or a ";"

@@ -12263,18 +12263,20 @@ share and is handed the account saved at Save (`ShareMirror`,
    old name back. The share sheet's copy of the book is made again as the
    app leaves for Safari, as before.
 
-**A letter waiting in the Outbox** when the name is changed goes with the
-name saved when it goes. The Outbox keeps what he wrote, not a made letter:
-the letter is made at each attempt, its From from the account. So such a
-letter already went under the new name after a launch; now it does without
-one, and the name it goes with no longer depends on whether the app was
-opened again in between. What he wrote, the signature's words among them,
-goes as written; the formatted twin goes only where those words are the
-signature saved, so a letter never carries a formatted signature that is
-not the one its words show. Nothing new is kept with a letter on the iPad
-for it. A draft in Gmail's Drafts keeps the From it went up with until it
-is sent: sent, it goes under the name saved, as a reopened draft always
-has.
+**A letter waiting in the Outbox** when the name is changed went, from
+B-082 until B-083, with the name saved when it went. B-083 made it go as
+Mail's does, with the name, the Date and the signature of his Send; what
+follows is how it was until then. The Outbox keeps what he wrote, not a
+made letter: the letter is made at each attempt, its From from the
+account. So such a letter already went under the new name after a launch;
+now it does without one, and the name it goes with no longer depends on
+whether the app was opened again in between. What he wrote, the
+signature's words among them, goes as written; the formatted twin goes
+only where those words are the signature saved, so a letter never carries
+a formatted signature that is not the one its words show. Nothing new is
+kept with a letter on the iPad for it. A draft in Gmail's Drafts keeps the
+From it went up with until it is sent: sent, it goes under the name saved,
+as a reopened draft always has.
 
 **What he sees.** After Save, the next letter goes under the name saved,
 a reply, a forward, a draft and a share alike, with no quit. His own
@@ -12290,21 +12292,21 @@ address is offered under the name saved. No new words.
 - *The book:* his own address under the name saved, in place of the one
   before, in any letter case; bare when the name is taken off; two
   addresses in one are not his; others' names learned as before.
-- *Over the scripted servers,* the repository made at launch with
-  "Carlo", the account then saved as a test hands it in: a new letter
-  From "Carlo", then From the new name, then "Carlo" again once put back;
-  Reply, Reply All and Forward From the new name; a draft saved to Drafts
-  by the repository and by the pass for a letter kept on the iPad, From
-  the new name, and one saved before the change, reopened and sent, From
-  the new name; a letter left in the Outbox with the line down, the name
-  then changed, sent by the pass once the line is back, From the new
-  name; the formatted signature gone from the next letter once "plain
-  text" is saved and back once restored; a changed signature found at
-  the next letter's foot, with its twin; his own address offered under
-  the new name, after a page of his old letters From "Carlo" and after
-  a relaunch over a book that had learned "Carlo"; the name taken off,
-  his address bare, the next letter From the bare address, past a page
-  and a relaunch.
+- *Over the scripted servers,* the repository made at launch with "Carlo",
+  the account then saved as a test hands it in: a new letter From "Carlo",
+  then From the new name, then "Carlo" again once put back; Reply, Reply
+  All and Forward From the new name; a draft saved to Drafts by the
+  repository and by the pass for a letter kept on the iPad, From the new
+  name, and one saved before the change, reopened and sent, From the new
+  name; a letter left in the Outbox with the line down, the name then
+  changed, sent by the pass once the line is back, From the new name (From
+  the name it was sent with since B-083); the formatted signature gone
+  from the next letter once "plain text" is saved and back once restored;
+  a changed signature found at the next letter's foot, with its twin; his
+  own address offered under the new name, after a page of his old letters
+  From "Carlo" and after a relaunch over a book that had learned "Carlo";
+  the name taken off, his address bare, the next letter From the bare
+  address, past a page and a relaunch.
 - *The share sheet:* its copy of the account handed the one saved, the
   next share From the new name.
 - *The wiring,* read from the source: the app's repository reads
@@ -12375,8 +12377,254 @@ Drafts. The account's name is "Carlo" again.
   cannot be made: Safari is another app. The share sheet's copy of the
   account is handed over at Save as well as on leaving.
 - Whether Mail's own Outbox sends a letter queued before the change under
-  the old name was not looked at.
+  the old name was not looked at. It does: B-083.
 - B-080's TODO item asks for a quit after the name is changed. It is no
   longer needed, and does no harm.
 - His other addresses (B-076) keep whatever names the book learned for
   them. Only the account's own address takes its name.
+
+---
+
+## B-083 — CHANGED 2026-10-09, seen in the iPadOS 18 simulator, not yet on the iPad. A letter waiting in the Outbox went under the name saved when it went, and was dated then; Mail's goes as it was when Send was tapped
+
+**Asked** on 2026-10-08. B-082 made a name changed in Settings go on the
+next letter at once, and said under "Not covered" that Mail's own Outbox
+had not been looked at. It was then, and the owner ruled: "make the
+Outbox work like Mail's — store the name and the time with the letter
+when it enters the Outbox, and when an opened Outbox letter gets re-sent
+it should keep the stored name and take a new Date."
+
+**What Mail does.** Read from iOS 18.6's code, in the iPadOS 18.6
+simulator's runtime, on 2026-10-08. Nothing of it was run.
+
+- *Send makes the letter, whole, on the iPad.* MessageUI's
+  `+[MFComposeTypeFactory headersFromDelegate:originatingBundleID:sourceAccountManagement:]`
+  takes the sending address, gives it the account's name
+  (`fullUserName`) when it has none, writes From, and sets Date to the
+  moment (`[NSDate date]`). Both of the composer's ways of sending go
+  through it. The signature goes into the body before it
+  (`-[MFMailComposeController finalizeSignature:]`).
+- *The Outbox keeps that letter.* The app hands the mail daemon the
+  finished letter and nothing more: Email.framework's
+  `EMOutgoingMessage` carries its bytes, with no account and no name. The
+  daemon files it in the Outbox (`MFDeliveryQueue`) before it tries it,
+  and a try that fails leaves it there.
+- *Every try sends what was kept.* A retry reads the letter back from the
+  Outbox, and `-[MFMailDelivery headersForDelivery]` sends its headers as
+  they are: it takes off Apple's internal ones and adds X-Mailer if there
+  is none. Nothing on that path reads the account's name or touches
+  Date. A name changed in Settings changes nothing in a letter already
+  waiting.
+- *Opened from the Outbox and sent again.* The letter opens in the
+  composer (`-[_MFMailCompositionContext initOutboxRestoreOfMessage:legacyMessage:]`);
+  its copy goes to Trash, and Cancel offers "Leave in Outbox". The
+  composer takes the letter's own From, name and all
+  (`_setupForExistingNewMessage:content:`, `firstSenderAddress`), and
+  Send keeps an address that has a name. So it goes under the name it
+  was first sent with, unless the address is picked again in the From
+  menu, which hands the composer a bare address and so brings the name
+  saved now. Date is set again, at this Send. The signature is not
+  brought up to date (`updateSignature` runs there for another kind of
+  letter only).
+- *Send Later* is the one letter Mail dates again, on purpose
+  (`-[OutgoingMessageRepository_iOS outgoingMessageFromPersistedMessage:]`),
+  and it keeps its From.
+- *A draft* reopens through the same `_setupForExistingNewMessage:content:`,
+  so Mail probably keeps the From a draft was saved with too. That was
+  not traced to the end.
+
+**What it was.** A letter in the Outbox is kept as what he wrote
+(`LocalDrafts`, `letter.json`, B-052), to go under one Message-ID at
+every attempt (B-070). It was made at each attempt
+(`IMAPMailRepository.send`) from the account as Settings had it then
+(B-082's `sender`), and dated then (`Submission.send`'s own Date). Sent
+with no connection as "Carlo", renamed in Settings, and gone at the next
+Refresh, it went From the new name, dated at the Refresh. Two attempts
+at one letter, the first cut off after its DATA, went under one
+Message-ID and two Dates. The formatted signature was chosen at each
+attempt from the signature saved then: "Send my signature as plain text
+instead", saved while a letter waited, took the formatting off it.
+
+**Changed.**
+
+1. *Kept at Send* (`LocalDrafts.send`, `AtSend`). As the letter enters the
+   Outbox at his Send, what it is made with is written with it, in the
+   same write as its Message-ID: the name in use, which is the account's
+   as Settings saved it (B-082's `sender`, read as
+   `MailRepository.sendingAs`), the time, and the signature with its
+   formatted twin. This is so whether the letter then goes at once, waits,
+   or waits after a first attempt has failed. In `letter.json` they are
+   `sentName`, `sentAt`, `sentSignature` and `sentSignatureHTML`, beside
+   `outbox`.
+2. *Every attempt is made with them* (`OutgoingLetter.atSend`,
+   `IMAPMailRepository.send`). From is the kept name at the account's
+   own address, Date the kept time, and the formatted twin is laid out
+   from the kept signature. Every pass: a page, the watch, coming back,
+   his Refresh, leaving the app, the next launch. With the Message-ID,
+   an attempt is the same letter as the one before it.
+3. *Opened from the Outbox and sent again* (`LocalDrafts.opened`,
+   `LocalDrafts.atSend`). The composer's first keep takes the letter out
+   of the Outbox, as before, and what it went in with is held while the
+   composer has it open. His Send keeps the name and the signature, and
+   takes the time of this Send. Its Message-ID is made as before: a new
+   one, unless an attempt whose DATA went may have reached Gmail; then it
+   keeps that attempt's, and Sent Mail is asked first (B-052, B-070).
+   Blackmail sends from one address, so there is no address to pick again.
+   Closed as it opened, the letter goes back with all of it, its time too:
+   he has not sent it again. Kept as a draft, by Save Draft or by a change
+   and a swipe, it is a draft, and keeps nothing of its Send.
+4. *A letter B-057 holds* goes only when he opens it and taps Send: the
+   way above. Brought back from where a safe start set it aside, it comes
+   back with what it went in with.
+5. *A letter written in another account*, opened from the Outbox and
+   sent, goes from this account's address, and so under this account's
+   name and with its signature.
+
+The signature is kept as the name is, because it is small and safe: two
+strings, of a few kilobytes at most, and the twin is laid out by the
+code that laid it out before, from the signature the letter's words were
+signed with. The signature's pictures are still read at each attempt;
+only Restore Original Signature changes them, back to the pictures the
+original's markup names.
+
+**Not changed.** A new letter, Reply, Reply All and Forward written after
+a rename go under the new name at once (B-082). A draft goes under the
+name saved when it is sent, as B-082 left it; Mail probably keeps a
+draft's own From, not traced to the end, and only the Outbox was asked
+about. The share sheet has no Outbox: its letter is made at its Send,
+From the account it was handed, and dated then, and a Send that cannot
+reach the server keeps the sheet. The Outbox's count, its rows and its
+words; the three tries before the pass gives a letter up (B-057); the
+Message-ID and the look in Sent Mail (B-052, B-070).
+
+**A letter kept by an older build**, with none of the four, goes as
+before: under the name saved when it goes, dated then. Each of the four is
+read on its own, and one that cannot be read is taken as not there: a
+letter is never passed over or held for one. The signature is taken only
+with its twin. A kept name that is empty goes as the address alone. A kept
+name with a line break in it cannot start a header: the builder makes it
+one line (`RFC5322Builder.headerSafe`), as it does a name saved.
+
+**What he sees.** A letter he sent while the iPad had no connection
+arrives with the name and the time of his Send, whatever was saved in
+Settings before it went. No new words.
+
+**Tests.** Sixteen, all new, in `OutboxAsSentTests.swift`, and one of
+B-082's changed.
+
+- *Queued, renamed, gone:* sent with the line down as "Carlo", the name
+  then changed, sent by the pass: From "Carlo", Date the time of his
+  Send, the Message-ID it went in with; a letter written after, From the
+  new name and dated as it goes.
+- *A second attempt:* the first cut off after its DATA, the name then
+  changed, Sent Mail asked: the second has the From, the Date and the
+  Message-ID of the first.
+- *Every pass:* his Refresh, leaving the app, a page or the watch, and
+  the next launch with the repository made with the new name: each
+  letter From its own name at Send, dated then.
+- *An older build's letter,* the four taken out of its `letter.json`:
+  the name saved when it goes, dated then, its Message-ID as given.
+- *A field that cannot be read:* a Date of the wrong type leaves the
+  name, a name and a twin of the wrong type leave the Date; both listed,
+  neither held, each sent once.
+- *On the iPad:* the four written with the Message-ID, read back the same
+  by the next launch, kept through the writes of an attempt, gone when
+  the letter is taken back or kept by the composer; an empty name stays
+  empty.
+- *Opened and sent again:* the kept name, the Date of the new Send, a
+  new Message-ID; after a cut, the cut's Message-ID, Sent Mail asked
+  first. *Put back:* all of it as it went in, the time too. *Kept as a
+  draft:* From the name saved when it is sent.
+- *Brought back held (B-057):* with what it went in with; his Send keeps
+  the name and takes a new Date. *Another account's letter:* this
+  account's name.
+- *No name at Send:* the address alone, though a name is saved after.
+  *A kept name with a line break:* one From line, no Bcc header, nobody
+  added to the envelope.
+- *The signature:* the formatted twin of its Send, after "plain text"
+  and new words were saved; the next letter plain.
+- *The share sheet:* no Outbox; a Send that cannot connect keeps the
+  sheet, and the next Send makes the letter then.
+
+B-082's `testALetterInTheOutboxGoesUnderTheNameSavedWhenItGoes` is now
+`testALetterInTheOutboxGoesUnderTheNameItWasSentWith`: From "Carlo", the
+name it was sent with, and the next letter From the new name.
+
+With nothing kept at Send and nothing read at an attempt, as before, the
+new fields left in so the tests build: 13 of the 17 failed, 17 failures.
+The four that passed hold what was right already: the store's file, a
+draft, another account's letter, and the share sheet.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. Every attempt made as
+it goes, what was kept unread: 25 in 12. The kept name alone unread: 14
+in 11. The kept time alone unread: 10 in 6. The kept signature alone
+unread: 1 in 1. The pass not handing on what was kept: 25 in 12. Nothing
+kept at Send: 16 in 12. The repository not saying its name and signature,
+so the protocol's empty default: 20 in 12. A Send from the Outbox keeping
+the first Date: 3 in 3. A Send from the Outbox taking the name saved now:
+3 in 3. Put back with nothing: 3 in 1. A field that cannot be read
+failing the whole letter: 1 in 1. A signature taken without its twin: 1
+in 1. Another account's name kept: 1 in 1. Taken back with what it went
+in with: 1 in 1. Fourteen in all, and every failure in each run was in
+the B-083 tests and the one changed. The known flaky
+`LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff` also
+failed in the first run of the first of these; run again, that run gave
+the count above and nothing else.
+
+The full suite, serially, with nothing undone: 1,685 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Seen on the iPadOS 18 simulator, 2026-10-09**, a simulated iPad (7th
+generation) on iPadOS 18.6, landscape, a hardware keyboard, built from
+this branch and signed in to the test account as "Carlo", with no
+signature. Every letter to the test address with `+sim18` before the
+"@", and read over IMAP from another computer: From, Date, and Gmail's
+INTERNALDATE, when Gmail took it. The line was cut by blocking the mail
+ports, 465, 587 and 993, on the computer running the simulator, for
+about a minute each time. Times are UTC. The screenshots are not in the
+repo: they show the test address.
+
+1. *Queued.* Ports blocked. A new letter, Subject "B-083 queued", Send at
+   06:47:53. About 30 seconds later the sheet closed: "Message is in the
+   Outbox. It will be sent when the iPad is connected and Blackmail is
+   open." The Outbox listed it, "1 Unsent Message". The 30 seconds are
+   the blocked ports': nothing answered, so the connection waited out its
+   deadline. On the iPad, Airplane Mode refuses at once (B-062), so the
+   sheet closes at once there, and the TODO says so.
+2. *Renamed.* Settings, the name "Carlo Renamed Example", Save. Ports
+   open again. Refresh: the Outbox emptied.
+3. *Over IMAP:* "B-083 queued" From "Carlo", Date 06:47:53, the moment
+   Send was tapped; INTERNALDATE 06:49:07, when it went. One copy. The
+   list showed it at 2:47, the simulator's clock.
+4. *After.* A new letter, "B-083 after", Send at 06:49:56: From "Carlo
+   Renamed Example", Date 06:49:56, INTERNALDATE 06:49:57.
+5. *Opened and sent again.* Ports blocked. A new letter, "B-083
+   reopen", Send at 06:51:10: in the Outbox. Settings, the name "Carlo",
+   Save. The Outbox, "B-083 reopen" opened, Send again at 06:52:17: in
+   the Outbox once more. Ports open; it went at 06:52:57, with the first
+   pass after. Over IMAP: From "Carlo Renamed Example", its name when it
+   was first sent, not "Carlo", the name at the second Send; Date
+   06:52:18, the second Send's. One copy.
+
+The account's name is "Carlo" again, as before the run. The three letters
+were moved to Trash in the app. Read over IMAP after: the three in
+Trash, once each, none left in All Mail.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how, by hand: it needs the
+  iPad's connection cut. It is the send path: merge only after that
+  check.
+- The simulator's account has no signature, so the kept signature was
+  not seen there. The suite holds it.
+- What Mail does was read from iOS 18.6's code, not run. His iPad has
+  iPadOS 18.7.9, not compared. Gmail kept the name and the Date as they
+  were sent, in the simulator's letters.
+- The time kept is when Send takes the letter: at the tap, or once the
+  photos chosen before it are in, which can be seconds later. Mail's is
+  when it makes the headers.
+- Mail's From menu, which brings the name saved when the address is
+  picked again, has nothing to match here: one address.
+- A draft keeps B-082's way, the name saved when it is sent. Mail
+  probably keeps a draft's own From; that was not traced to the end.

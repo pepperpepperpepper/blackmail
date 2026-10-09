@@ -90,10 +90,18 @@ protocol MailRepository {
     func send(_ draft: Draft, progress: UploadProgress?) async throws
 
     /// `send`, for a letter from the Outbox (`LocalDrafts.send`): it goes
-    /// under `letter.messageID`, the same at every attempt, and
+    /// under `letter.messageID`, the same at every attempt, made with what
+    /// it went into the Outbox with, `letter.atSend` (B-083), and
     /// `letter.beforeData` is called once the server has taken the envelope,
     /// before DATA (`SMTPClient.send`).
     func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws
+
+    /// The name and the signature a letter made now goes with, as `send`
+    /// would make it: what the Outbox keeps with a letter as Send takes it
+    /// (`LocalDrafts.send`, B-083). Its `date` is nil: the time is the
+    /// caller's to say. Nothing known, all nil, unless the repository makes
+    /// letters itself.
+    var sendingAs: AtSend { get }
 
     /// Which of `messageIDs` Sent Mail holds a letter under, asked with
     /// `UID SEARCH HEADER Message-ID`: whether an attempt at a letter whose
@@ -266,9 +274,41 @@ struct OutgoingLetter: Sendable {
     /// attempt, so an attempt cut off after the server had it can be looked
     /// for in Sent Mail.
     let messageID: String
+    /// What it went into the Outbox with, the same at every attempt: its
+    /// From's name, its Date, and the signature its words end with (B-083).
+    /// What is nil is made as the attempt makes it.
+    var atSend = AtSend()
     /// Writes the attempt down as on its way. DATA waits for it, and is not
     /// sent if it throws.
     var beforeData: @Sendable () async throws -> Void = {}
+}
+
+/// What a letter is made with as Send takes it (B-083): the name in its
+/// From, its Date, and the signature its words end with, with that
+/// signature's formatted twin. The Outbox keeps it with the letter, and
+/// every attempt at the letter is made with it, so the letter goes as it
+/// was when he tapped Send, as a letter in Mail's Outbox goes.
+///
+/// Each part is nil where it is not known: a letter put in the Outbox by a
+/// build before B-083, or a part of `letter.json` that cannot be read. That
+/// part is made as the attempt makes it: the name and the signature as
+/// Settings last saved them (B-082), and the attempt's time.
+struct AtSend: Equatable, Sendable {
+    /// The name in its From. Empty for none: the address alone.
+    var name: String?
+    /// Its Date: the moment Send took it.
+    var date: Date?
+    /// The signature as Settings had it, for the formatted twin
+    /// (`AppleMailHTML.letter`).
+    var signature: Signature?
+
+    struct Signature: Equatable, Sendable {
+        /// Its words, as the composer put them at the letter's foot.
+        var text: String
+        /// Its formatted twin. Empty for none: the signature goes as plain
+        /// text.
+        var html: String
+    }
 }
 
 /// What a letter kept on the iPad became in Drafts.
@@ -447,6 +487,9 @@ extension MailRepository {
 
     /// Nothing to close, unless the repository holds a connection.
     func retire() async {}
+
+    /// Nothing known, unless the repository makes letters itself.
+    var sendingAs: AtSend { AtSend() }
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {
