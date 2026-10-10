@@ -1032,3 +1032,36 @@ of CPU for 19 MB on the A10 by estimate, logged as `ms=`. A file changed
 while its letter goes fails the letter, "not sent", where the whole
 letter read it once. A large letter takes minutes to go from the share
 extension, which has no Outbox behind it, as before.
+
+---
+
+## D-018 — The icon is a photograph: a gloved hand handing over a dark envelope
+
+**Decided 2026-10-10 by the owner**, after seeing it on a simulated iPad
+of his model (7th generation, iPadOS 18.6): on the home screen, in the
+Dock, in Spotlight, in the share sheet, in Settings' list of apps and
+above the app switcher's card. It replaces the white outline of an
+envelope on black that the first build drew.
+
+**The picture** is `docs/icon/app-icon-source.png`, 512 by 512: a rounded
+tile on a clear margin, the envelope's point hanging below the tile.
+`tools/make-app-icons.sh` makes every `AppIcon*.png` from it: the tile's
+square, 2 px in from its edge, which carries a faint line, made opaque and
+resized to each file's own size. iOS rounds the corners. The envelope's
+point, below the tile, is not in the icon. The files stay loose PNGs named
+in `Info.plist`, as before: there is no asset catalog here
+(`docs/INVESTIGATIONS.md`, "No actool").
+
+**Seen** on that simulated iPad, 2026-10-10. At the home screen's and the
+Dock's size, 120 px on his 2x screen, and in the share sheet, the glove,
+the envelope and the handing over all read. The rounded mask trims only
+the sleeve.
+
+**The cost, accepted:**
+
+- At 58 px, in Settings' list of apps and above the app switcher's card,
+  and at 40 px in the App Library, the glove and the envelope run into one
+  dark shape. The outline envelope read as mail at every size.
+- iOS 18's Dark icons leave it a light photograph among dark tiles, and
+  Tinted makes it one blue tile. Their own versions need an asset catalog.
+- On a dark ground the black sleeve at the top right runs into it.
