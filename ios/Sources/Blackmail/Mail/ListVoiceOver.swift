@@ -13,14 +13,23 @@ import Foundation
 /// after it VoiceOver is put on the cell that then shows the same letter.
 ///
 /// The same for the row the container has just sent VoiceOver to (`send`),
-/// before VoiceOver is there. On the iPad it got there about 1.3 seconds
-/// after it was sent, and a folder's fresh page, drawn over its kept one,
-/// came 0.4 to 0.9 seconds after the tap. That row is held for it until it
-/// has been on it through the folder's fresh page, or for `bound` at most.
+/// before VoiceOver is there. On the iPad it got there about 1.1 to 1.4
+/// seconds after it was sent, and a folder's fresh page, drawn over its kept
+/// one, came 0.4 to 1.6 seconds after the tap. That row is held for `bound`.
 /// If VoiceOver lands first on another row, or on the list's own bar or
 /// table, as it went straight to the view button in Sent Mail and the Inbox,
-/// it is put on the row, once. Never from the folders, the reading pane, a
-/// sheet, or the search field while he types.
+/// it is put on the row, once. Not from the folders, the reading pane or a
+/// sheet, where it may still be on its way, and never from the search field
+/// while he types.
+///
+/// And held after VoiceOver has got there, for the same `bound`. Once in each
+/// launch of the app, on the iPad, VoiceOver left the row by itself about
+/// 0.9 seconds after it got there, with nothing in the app moving: to the
+/// reading pane's Flag with a letter open, to the view button in the corner
+/// with the pane empty. A move from the row to what he could not have
+/// reached from it by a swipe, the reading pane or the list's bar, is put
+/// back, once. A move to another row, the search field, the toolbar, a
+/// sheet or the keys is his, and lets the row go.
 ///
 /// Out of `MessageListViewController` for the reason `ListPlace` is: the
 /// controller is UIKit and the suite does not run it. The controller finds
@@ -66,13 +75,15 @@ struct ListVoiceOver {
         return .inPlace(min(held.index, rows.count - 1))
     }
 
-    /// How long a row VoiceOver has been sent to is held for it at most:
-    /// more than twice the 1.3 seconds it took to get there on the iPad.
+    /// How long a row VoiceOver has been sent to is held for it at most,
+    /// from the send: more than twice the 1.3 seconds it took to get there
+    /// on the iPad, and past the 2.0 to 2.75 seconds at which VoiceOver,
+    /// there already, went off by itself.
     static let bound: TimeInterval = 3
 
     /// By when the container's screen change has landed, from the send:
-    /// on the iPad it landed 1.3 to 1.6 seconds after the tap, in every
-    /// step of both rounds. Until then it may still land, on the cell it
+    /// on the iPad it landed 1.1 to 1.6 seconds after the tap, in every
+    /// step of three rounds. Until then it may still land, on the cell it
     /// named, which a reload may have handed out again since.
     static let screenChange: TimeInterval = 1.6
 
@@ -83,13 +94,23 @@ struct ListVoiceOver {
         /// Another of the list's rows, or a cell drawn since for another
         /// letter.
         case otherRow
-        /// The list's own column, but none of its rows: its bar, with the
-        /// view button and "< Mailboxes", the table itself, the search
-        /// field while he is not typing in it, the toolbar.
+        /// The list's own column, but none of its rows and not its bar: the
+        /// table itself, the search field while he is not typing in it, the
+        /// toolbar. A swipe from the first row reaches the search field,
+        /// and one from the last the toolbar.
         case listOwn
+        /// The list's bar, with the view button in the corner and
+        /// "< Mailboxes": a swipe from a row never reaches it, the search
+        /// field being in between. In the Outbox, which has no search
+        /// field, a swipe from the first row reaches the bar's end, Edit,
+        /// and the next its title; those two are `listOwn` there. Its view
+        /// button and "< Mailboxes", further on, are still the bar.
+        case listBar
         /// The search field while he types in it, or a key.
         case typing
-        /// Anything else: the folders, the reading pane, a sheet.
+        /// The panes beside the list: the reading pane, and the folders.
+        case beside
+        /// Anything else: a sheet, an alert.
         case elsewhere
     }
 
@@ -115,7 +136,8 @@ struct ListVoiceOver {
         sent = running ? row.map { Sent(row: $0, at: time) } : nil
     }
 
-    /// Nothing held: the list's column is out of sight.
+    /// Nothing held: the list's column is out of sight, he has opened a
+    /// row, or the panes have been switched.
     mutating func letGo() {
         sent = nil
     }
@@ -137,29 +159,26 @@ struct ListVoiceOver {
     /// is on. Nil with VoiceOver off, and nil while he types. On the
     /// folders, the reading pane or a sheet, only while VoiceOver is still
     /// on its way, before the screen change has landed; after that it is
-    /// his, and he is not taken off it.
+    /// his, and he is not taken off it by a reload.
     func held(running: Bool, on row: Row?, landing: Landing, at time: Date) -> Row? {
         guard running else { return nil }
         switch landing {
         case .typing:
             return nil
-        case .elsewhere:
+        case .beside, .elsewhere:
             guard let sent, !sent.there, waiting(sent, at: time) else { return nil }
             return sentRow(at: time)
-        case .sentRow, .otherRow, .listOwn:
+        case .sentRow, .otherRow, .listOwn, .listBar:
             return sentRow(at: time) ?? row
         }
     }
 
     /// The rows have been drawn again, and VoiceOver put on `row`, nil for
-    /// the table. A row held for it goes with it there; `kept`, the rows are
-    /// still the kept page. Let go when the table was named, and once
-    /// VoiceOver has been on it and the rows are the fresh page, unless it
-    /// got there early and the screen change may still land.
-    mutating func redrawn(to row: Row?, kept: Bool, at time: Date) {
+    /// the table. A row held for it goes with it there, and stays held,
+    /// VoiceOver there already or not. Let go when the table was named.
+    mutating func redrawn(to row: Row?) {
         guard var held = sent else { return }
-        let early = held.early && waiting(held, at: time)
-        guard let row, !(held.there && !kept && !early) else {
+        guard let row else {
             sent = nil
             return
         }
@@ -173,17 +192,21 @@ struct ListVoiceOver {
     ///
     /// Before it has been on the row: put back from another of the list's
     /// rows, or a cell drawn since for another letter, and from the list's
-    /// own column: on the iPad the screen change landed on the view button
-    /// itself. Let go when he types. On the folders, the reading pane or a
-    /// sheet, still held while it is on its way, and let go once the screen
-    /// change has landed.
+    /// own column and bar: on the iPad the screen change landed on the view
+    /// button itself. Let go when he types. On the folders, the reading
+    /// pane or a sheet, still held while it is on its way, and let go once
+    /// the screen change has landed.
     ///
-    /// On the row: held while the rows are the kept page, until the fresh
-    /// page. And held while the screen change may still land, if it got
-    /// there through the list's own post: that screen change can land
-    /// after it, on the cell it named, and is put back once. Any other move
-    /// after it was there lets it go, a move of his own above all.
-    mutating func moved(to landing: Landing, kept: Bool, at time: Date) -> Row? {
+    /// On the row: held, through the folder's fresh page or any other
+    /// reload. A move to the reading pane or the list's bar is put back:
+    /// he could not have swiped there from a row, and VoiceOver went there
+    /// by itself on the iPad. If it got there through the list's own post,
+    /// sooner than the screen change could land, a move to another row or
+    /// the list's own column while it may still land is put back too: that
+    /// screen change can land after it, on the cell it named. Any other move
+    /// lets the row go, a move of his own above all: another row, the
+    /// search field, the toolbar, a sheet, the keys.
+    mutating func moved(to landing: Landing, at time: Date) -> Row? {
         guard var held = sent, let row = sentRow(at: time) else {
             sent = nil
             return nil
@@ -192,29 +215,123 @@ struct ListVoiceOver {
         if held.there {
             if landing == .sentRow { return nil }
             sent = nil
-            let late = landing == .otherRow || landing == .listOwn
-            return held.early && waiting && late ? row : nil
+            switch landing {
+            case .beside, .listBar:
+                return row
+            case .otherRow, .listOwn:
+                return held.early && waiting ? row : nil
+            case .sentRow, .typing, .elsewhere:
+                return nil
+            }
         }
         switch landing {
         case .sentRow:
-            let early = held.posted && waiting
-            guard kept || early else {
-                sent = nil
-                return nil
-            }
             held.there = true
-            held.early = early
+            held.early = held.posted && waiting
             sent = held
             return nil
-        case .otherRow, .listOwn:
+        case .otherRow, .listOwn, .listBar:
             sent = nil
             return row
         case .typing:
             sent = nil
             return nil
-        case .elsewhere:
+        case .beside, .elsewhere:
             if !waiting { sent = nil }
             return nil
         }
+    }
+}
+
+/// VoiceOver held on the open folder's row after "< Mailboxes" (B-079), as
+/// the list holds its row after a folder tap (`ListVoiceOver`).
+///
+/// The container names the row, and on the iPad VoiceOver got there each
+/// time, 1.1 to 1.4 seconds after the tap. But once in a launch it then
+/// left the row by itself, 0.9 seconds later, for the reading pane's Flag.
+/// So once VoiceOver has been on the row, a move from it to what he could
+/// not have reached by a swipe is put back, once, within
+/// `ListVoiceOver.bound` of the tap. That is the view button in the corner,
+/// and the reading pane but from the last folder: the folders' toolbar is
+/// hidden, and so is the list's column, so a swipe from the last folder
+/// goes straight into the reading pane. The rest of the folders' bar is a
+/// swipe from the first folder, and a move there is his, as a move to
+/// another folder is. Before VoiceOver has got there nothing is put back:
+/// the move then is VoiceOver on its way.
+///
+/// Out of `RootViewController`, which the suite does not run.
+struct FoldersVoiceOver {
+
+    /// What VoiceOver has gone to, as the container sees it.
+    enum Landing: Equatable {
+        /// The open folder's row, the one it was sent to.
+        case sentRow
+        /// The view button in the corner: a swipe from a folder never
+        /// reaches it, the rest of the folders' bar being in between.
+        case corner
+        /// The reading pane. A swipe from the last folder reaches it,
+        /// nothing being between them; from any other folder it does not.
+        case pane
+        /// Anything else: another folder, the rest of the folders' bar, a
+        /// sheet.
+        case other
+    }
+
+    private struct Sent {
+        let at: Date
+        /// The row is the folders' last.
+        let last: Bool
+        /// VoiceOver has been on the row.
+        var there = false
+    }
+
+    private var sent: Sent?
+
+    /// The container has named the open folder's row, `row` true, or the
+    /// folders' table, false, which is not held. `last`, the row is the
+    /// folders' last (`isLast`). Only with VoiceOver on.
+    mutating func send(toRow row: Bool, last: Bool, running: Bool, at time: Date) {
+        sent = row && running ? Sent(at: time, last: last) : nil
+    }
+
+    /// Nothing held: a folder tapped, or the panes switched.
+    mutating func letGo() {
+        sent = nil
+    }
+
+    /// The row is held, within the bound from the send.
+    func holding(at time: Date) -> Bool {
+        guard let sent else { return false }
+        return time.timeIntervalSince(sent.at) <= ListVoiceOver.bound
+    }
+
+    /// VoiceOver has moved, to `landing`. True to put it back on the row,
+    /// which lets it go: once, and only from the view button, or the
+    /// reading pane from any folder but the last, after VoiceOver has been
+    /// on the row. Any other move after it has been there lets it go with
+    /// nothing posted.
+    mutating func moved(to landing: Landing, at time: Date) -> Bool {
+        guard holding(at: time), var held = sent else {
+            sent = nil
+            return false
+        }
+        guard held.there else {
+            if landing == .sentRow {
+                held.there = true
+                sent = held
+            }
+            return false
+        }
+        guard landing != .sentRow else { return false }
+        sent = nil
+        return landing == .corner || (landing == .pane && !held.last)
+    }
+
+    /// Row `row` of section `section` is the last of a table whose sections
+    /// have `counts` rows: the last of its own, with no rows in any section
+    /// after it. False for a row the table does not have.
+    static func isLast(_ row: Int, in section: Int, of counts: [Int]) -> Bool {
+        guard counts.indices.contains(section), row >= 0, row == counts[section] - 1 else { return false }
+        return counts[(section + 1)...].allSatisfy { $0 == 0 }
     }
 }

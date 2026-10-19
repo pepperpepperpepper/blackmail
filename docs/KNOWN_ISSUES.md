@@ -11180,7 +11180,7 @@ build for the iPad links.
 
 ---
 
-## B-079 — FIXED 2026-10-07, seen on the iPad in part; changed again, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
+## B-079 — FIXED 2026-10-07 and 2026-10-19, seen on the iPad in part; changed a third time, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
 
 **Found on the iPad, 2026-10-07**, at B-077's check 8: the test iPad on
 iPadOS 16.5.1, the 11-inch, landscape, master 434422b, VoiceOver and its
@@ -11389,7 +11389,9 @@ TODO's check passed. Steps 2, 3 and 5 did not.
   the test account's Inbox and go from it. In the simulator, 31 s after
   the same tap, the watch took a letter gone from the Inbox off the list
   and reloaded it. A read mark or a Flag the server refused reloads it
-  too.
+  too. *Not so, as the third round showed: nothing in the app ran when
+  VoiceOver left the row. It leaves by itself, once in a launch
+  (2026-10-19, below).*
 - *Step 5: VoiceOver's own scroll*, not the app's. The tap on the open
   folder puts its list back in front with nothing fetched. What moves the
   list in the app is `regroup`, which keeps the rows in sight where they
@@ -11407,7 +11409,11 @@ TODO's check passed. Steps 2, 3 and 5 did not.
   under. So as VoiceOver takes up the list, UIKit shows whole the row it
   is put on, or the row just above it, when part of that row is under the
   search field. Which of them it picks is UIKit's. The app's sums were
-  right: the row named was wholly in sight.
+  right: the row named was wholly in sight. *Only in part, as the third
+  round showed: a row named with part of it under the search field is put
+  in the middle of the list, or the list taken to its top, not shown whole
+  with the least scroll. The 48 points were most likely that, stopped at
+  the top (2026-10-19, below).*
 
 **Changed again, 2026-10-07.**
 
@@ -11479,8 +11485,13 @@ TODO's check passed. Steps 2, 3 and 5 did not.
    same letters, and VoiceOver's words for a row are set only as it is
    drawn. A skip would have to know all of those. With the change a reload
    no longer takes VoiceOver off its row, so it is left.
-7. *Step 5 is left.* The move is VoiceOver's, by less than a row, to show a
-   row whole. The TODO's step now expects it.
+7. *Step 5 is left.* The move is VoiceOver's, to show a row whole. The
+   TODO's step now expects it. It was taken here to be by less than a
+   row. It is not: for a row it cannot see whole, VoiceOver puts the row
+   in the middle of the list, or takes the list to its top, 230 and 284
+   points on the iPad for rows 38 and 29 points under the search field.
+   Since the third change the app shows the row whole first (2026-10-19,
+   below).
 8. The sums of what is in sight, which "< Mailboxes" and the folder tap
    used, and which the list now uses after a reload, are in one place:
    `UITableView.voiceOverPlace(at:orFirstRow:)`.
@@ -11583,38 +11594,328 @@ nothing failing in any run but the tests named.
 The full suite, serially, with nothing undone: 1,612 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, built from the second change with B-080 to B-083, VoiceOver
+and its Caption Panel on. A tap went straight to the control, as before.
+The caption and its box were read from bursts of frames taken from each
+tap, about 45 bursts and 860 frames. Steps 1, 3, 4, 5a, 6, 7 and 8 of the
+TODO's check passed. Steps 2 and 5b did not.
+
+- *Step 1 passed*, in 16 runs with a letter open, begun on the row, on
+  Flag or on the view button. VoiceOver went to the open folder's row,
+  highlighted, at 1.1 to 1.35 s, and stayed. It never said "Flag,
+  Button". In 6 runs with the pane empty it went to the folder's row too.
+- *Step 3 passed.* Sent Mail: its fresh page at about 1.1 s, VoiceOver on
+  the first row at 1.39 s, its box and its words that row's to 8.2 s.
+  Important: the fresh page at 0.83 s, the first row at 1.40 s, held to
+  8.2 s. The Inbox opened anew: the first row at 1.42 s, and the fresh
+  page after it, at about 1.55 s; VoiceOver stayed on the row's letter
+  through it, to 8.1 s. It never touched the view button or another row
+  on the way. Starred, with no letters: the search field at 1.40 s.
+- *Step 4 passed.* The pane empty, "< Mailboxes" put VoiceOver on the
+  Inbox's row at 1.12 s, and the Inbox tapped again on its first row at
+  1.42 s. The list did not move.
+- *Step 5a passed.* The Inbox scrolled about 40 points, its first row
+  that much under the search field, the pane empty: VoiceOver went to the
+  second row at 1.15 s, the first wholly below the search field, and as
+  it landed the list went back about 39 points to its top. It moved no
+  further.
+- *Step 6 passed.* "Show Mailboxes, Button" at 1.16 s and "Hide Mailboxes,
+  Button" at 1.14 s, the box on the corner button.
+- *Step 7 passed.* Nothing of the pictures was read. While a move ran,
+  the caption kept what it had said before.
+- *Step 8 passed.* Refresh fetched the page and drew the list again, and
+  VoiceOver stayed on the letter's row, its box and its words, to 8.9 s.
+  It was still there after 45 s, through two checks for new mail.
+- *Step 2 failed once in 15.* In the first run VoiceOver was on the
+  letter's row at 1.11 s, then at 2.27 s went to the reading pane's Flag,
+  and stayed. The list did not move. The other 14 stayed on the row for 5
+  to 12 s.
+- *Step 5b failed.* VoiceOver went to the letter's row each time, but the
+  list moved far more than the part of it under the search field. The
+  third row, 38 points under: the list went about 230 points, to its top,
+  twice. The sixth row, 29 points under: the list moved about 284 points
+  before the caption changed, and the row ended in the middle of the
+  list, with the third row now half under the search field. Then the list
+  stayed.
+
+**What did it.** Both tried again on the iPad the same day.
+
+- *Step 2: VoiceOver choosing again by itself*, once in each launch of the
+  app. In five runs of the app, each from its launch, VoiceOver left the
+  row by itself once. After a fresh launch, four times in four, it was the
+  first tap on the open folder. With a letter open, three times, VoiceOver
+  was on the letter's row at 1.14 to 1.15 s, then on Flag at 2.01 to
+  2.03 s, about 0.9 s after it got there. Not the letter: with the pane
+  empty it went from the list's first row, at 1.15 s, to the view button
+  in the corner, "Show Mailboxes, Button", at 2.03 s. Not the time since
+  the launch: the same after 150 s. Not the view button's switches before
+  it, which passed. With VoiceOver turned on while the app ran, it was
+  "< Mailboxes" instead: on the Inbox's row at 1.33 s, on Flag at 2.22 s.
+  Every later run of each launch passed. The connection log had nothing
+  near the tap or the move: the watch's checks went 22 s before the tap
+  and 8 s after the move. In the run that failed first, a check had gone
+  at the tap itself, with nothing new; in these none did, and VoiceOver
+  left all the same. No fetch, no reload: nothing in the app ran. So the
+  cause named after the first round, a reload under VoiceOver, was wrong.
+  Why it stuck was the app's. VoiceOver there, with the fresh page drawn
+  and nothing posted by the list since, the row was let go at once
+  (`ListVoiceOver.moved`). The move to Flag, which is not the list's, or
+  to the view button, came after that, and was never put back. After
+  "< Mailboxes" nothing held the folder's row at all.
+- *Step 5b: VoiceOver's scroll, for a row the app named that it could not
+  see whole.* With VoiceOver off the same steps moved nothing: the app
+  does not scroll there. The highlighted row is named while any of it is
+  in sight (`voiceOverPlace(at:orFirstRow:)`). VoiceOver put on a row
+  partly under the search field scrolls it in itself, and puts it in the
+  middle of the list, between the bars, or takes the list to its top when
+  the middle cannot be reached. It does not make the least move. A row
+  wholly in sight just below the search field it did not move, in two
+  runs. The 48 points seen on 2026-10-07 were most likely the same, the
+  row put in the middle and the list stopped at its top. The TODO's "just
+  enough, no further" and the note that VoiceOver's scroll is by less
+  than a row rested on a wrong reading of UIKit.
+- *Step 5a* moved the list too, back to its top, with the row named
+  wholly in sight. Why is not known. It was by the part of the first row
+  under the search field.
+
+**Changed a third time, 2026-10-19.**
+
+1. *The row held after VoiceOver is there.* The row a folder tap sends
+   VoiceOver to is held for 3 s from the tap (`ListVoiceOver.bound`),
+   before VoiceOver is on it and after. A reload while it is held moves it
+   to its letter's row, as before, and it stays held; it is no longer let
+   go at the fresh page, or once VoiceOver is there. Once VoiceOver has
+   been on it, a move to what he could not have reached from a row by a
+   swipe is VoiceOver's own, and VoiceOver is put back on the row, once,
+   with a layout change. That is the reading pane (`beside`, with the
+   folders, which are hidden then), and the list's bar, with the view
+   button and "< Mailboxes" (`listBar`): the search field is between the
+   rows and the bar. A move to another row, the search field, the toolbar,
+   a sheet or the keys is his, and lets the row go with nothing posted. In
+   the Outbox, which has no search field, a swipe from the first row
+   reaches the end of the bar, Edit, and the next its title: a move to
+   those is his. Its view button and "< Mailboxes" are further on, and a
+   move there is put back, as in any other folder: on the iPad VoiceOver
+   went by itself to the view button with the pane empty, and the Outbox's
+   pane is always empty. The 3 s covers every leave seen, 2.0 to 2.3 s
+   after the tap, and 2.75 s on 2026-10-07. The list no longer tells
+   `ListVoiceOver` whether its rows are the kept page: the row is held the
+   same either way.
+2. *The folder's row held after "< Mailboxes".* The container holds the
+   open folder's row the same way (`FoldersVoiceOver`). Once VoiceOver has
+   been on it, within 3 s of the tap, a move to the view button in the
+   corner (`corner`) or to the reading pane (`pane`) is put back on the
+   row, once. Not the reading pane from the last folder: the folders'
+   toolbar is hidden, and so is the list's column, so a swipe of his from
+   the last folder goes straight into the reading pane, and that move is
+   his (`isLast`, `voiceOverIsLast`). The rest of the folders' bar is a
+   swipe from the first folder, and a move there is his, as one to another
+   folder is. Before VoiceOver is on the row nothing is put back: it is on
+   its way, and may still be on Flag or on "< Mailboxes". The folders'
+   table, named when none of the row is in sight, is not held. The folders
+   out of sight, the row is let go.
+3. *Let go.* A row he opens or ticks in the list lets the list's row go. A
+   folder tapped lets the folders' row go. The view button lets both go
+   before it names its twin in the corner. The list out of sight lets its
+   row go, as before.
+4. *Once.* A row is put back at most once, and is let go as it is put
+   back. With VoiceOver off nothing is held, so nothing is put back.
+5. *The row shown whole first.* Before VoiceOver is put on a row, the
+   app shows it whole with the least scroll, if part of it is under the
+   search band or a bar (`showWhole(forVoiceOver:)`): down by the part
+   under the band, or up by the part under the toolbar, never so far that
+   its top goes under the band, and never past the list's top or its end.
+   VoiceOver then has nothing to scroll. Only while VoiceOver is running:
+   with it off the list never moves for it. For the tap on the open folder
+   in two panes it is done before the panes move, while the list is still
+   hidden (`showHighlightedRowWhole`), so the motion's pictures are cut
+   where the list now is, and it does not jump as they go. Done after,
+   the list would jump by the part of the row that was hidden, as the
+   cover went. The same for the folder's row at "< Mailboxes", while the
+   folders are hidden. A row the list names after a reload, or puts back
+   after a leave, is shown whole the same way, and so is the folder's row
+   put back. A row with none of it in sight is not named and not moved;
+   the first row wholly in sight is named, as before, and needs no scroll.
+6. *The sums in one place.* What is in sight and the least scroll are
+   worked out in `TableSight`, which the suite runs, from the table's
+   offset, height, bars, band and rows (`voiceOverSight`). The rows
+   VoiceOver is on, the list's and the folders', are found in one place
+   (`voiceOverRow(of:besides:)`), as the list found its own before.
+7. *The letter's text found by where it is.* WebKit gives VoiceOver the
+   letter's text from its own process, and its elements there are neither
+   views nor UIKit's, so no view leads from them (`voiceOverHolder(of:)`).
+   Found only by the view it is in, a leave into the text would be taken
+   as anything else, and let go. So an element that leads to no view is
+   found by where it is: the middle of its frame on a view's part of the
+   screen, with nothing presented over the window (`voiceOverHolds`). The
+   list and the container tell every landing apart this way: the reading
+   pane, the list's column and bar, the view button in the corner. On
+   16.5.1 the leave went to the native Flag each time a letter was open,
+   never into the text.
+
+**Seen in the simulator, 2026-10-19**, an iPad (7th generation) on
+iPadOS 18.6, landscape, two panes, on the test account. The simulator has
+no VoiceOver. A scratch build did the least scroll as if VoiceOver were
+on, and wrote to the system log what it read and did, and the list's
+offset as the panes began to move and a second later. The Inbox's sixth
+row open, 69 points of it under the search field and 27 in sight:
+"< Mailboxes" read the Inbox's row in the folders, hidden then, as whole,
+and moved nothing. The Inbox tapped: with the list still hidden, it read
+the list's bars as 70 points over it and 50 under, the band as 44.5
+points, and moved the list down 69 points. The panes began to move with
+the list there, and it was still there a second later. The row was then
+whole, just below the search field. The seventh row open, the list at its
+top, 26.5 points of the row under the toolbar: the list moved up 26.5
+points, and the row's bottom was on the toolbar's top. No letter was
+sent.
+
+**Tests of the third change.** `ListVoiceOverTests`, now 45, 16 more, with
+twelve of the 29 changed for the hold. The row held: there on the kept
+page, held through the fresh page, on its letter's row, to the bound and
+no longer; there on the fresh page with nothing posted by the list, held,
+where it was let go at once. VoiceOver leaving the row by itself, to the
+reading pane or the list's bar, as on the iPad at 2.03 s, put back once,
+and a second leave left; after the fresh page, put back on its letter's
+row; put back as late as 2.75 s, not after the bound; let go, or with
+VoiceOver off, nothing put back. A move after it was there to another row,
+the search field, a sheet or the keys, let go and nothing put back after.
+Before it is there, the list's bar put back as the table and the view
+button were, and the panes beside held while it is on its way, as the
+folders and the reading pane were. The folder's row: left by itself for
+the reading pane at 2.22 s, or for the view button in the corner, put back
+once; from the last folder, a move to the reading pane his, let go and
+nothing put back after, and a move to the view button still put back once;
+before VoiceOver is there, nothing put back and the row still held; a move
+of his, let go; nothing held for the table, with VoiceOver off, after
+letting go, or past the bound. The folders' last row: the last of the last
+block, or of a block with only empty blocks after it; not a row with
+another after it in any block, and not a row the table does not have. The
+least scroll, in the list's points as the simulator read them: a row
+38 points under the band moved down 38, and the sixth row 29 points under
+moved 29, where VoiceOver went 284, and 69 points under moved from 479 to
+410, as in the simulator; a row under the toolbar moved up by the part
+under it, and the seventh 26.5 points, as in the simulator; one taller
+than the list put just below the band; the first row back to the list's
+top and no further; the last row to the list's end, with or without the
+footer under it, never past it, and not moved back from beyond it; a table
+that cannot move, nothing; a row whole, a hair under the band, wholly
+under the band or below the toolbar, or less than a point in sight: no
+scroll. The folders, with no band: the bars only.
+
+`PaneArrangementTests`, 29, its two B-079 tests rewritten for the wiring.
+The container: four posts now, the folders' put-back the new one.
+"< Mailboxes" shows the folder's row whole after the highlight and before
+the shell moves the panes, names the row after it, and holds it, told
+whether the row is the folders' last from the table's own rows
+(`voiceOverIsLast`). Its moves are looked for, put back only when
+`FoldersVoiceOver` says so, with the row shown whole first, and let go
+with the folders or the row out of sight. The folders' row is found by the
+same finder as the list's; then the corner's view button, then the reading
+pane, each by `voiceOverHolds`; nothing else is put back from. A folder
+tap lets the folders' row go, and in two panes, on the open folder, shows
+the list's highlighted row whole before the tap; the list is read again
+after it. The view button lets both rows go before it names its twin. In
+the sums: what is in sight and wholly in sight from `TableSight`, from the
+table's offset, height, insets, first header and rows; the least scroll
+only with VoiceOver running, laid out first, not animated, and the offset
+set there and nowhere else in the file. In the list: its rows found by the
+shared finder, off the search band but in the Outbox; its bar apart, in
+the Outbox only the items before the calendar, the view button and
+"< Mailboxes", then the panes beside it in the container, then anything
+else, each by `voiceOverHolds`; one post, after the row is shown whole; a
+row opened or ticked lets go first. `voiceOverHolds` itself: by the view
+the element is in, else by the middle of its frame on the view's part of
+the screen, only with nothing presented over the window.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. In `ListVoiceOver`: the
+row let go as soon as VoiceOver is there, as before, 10 in 5; a leave to
+the reading pane not put back, 2 in 2; a leave to the list's bar not put
+back, 3 in 3; a move of his after it was there, to another row or the
+search field, put back, 4 in 2; a sheet or the keys put back, 6 in 3; put
+back without letting go, 29 in 6; a reload after it was there letting go,
+7 in 4; no bound on a move, 3 in 3. In `FoldersVoiceOver`: put back before
+VoiceOver is there, 2 in 1; put back more than once, 10 in 3; a move of
+his put back, 1 in 1; held for the table and with VoiceOver off, 4 in 1;
+no bound, 1 in 1; the reading pane put back from the last folder, 1 in 1;
+nothing put back from the last folder, 1 in 1; the view button not put
+back, 2 in 2; the last row of any block taken as the last, 3 in 1; an
+empty last block not passed over, 1 in 1; a row the table does not have
+taken as the last, 2 in 1. In `TableSight`: the row put in the middle, as
+VoiceOver did, 10 in 4; the band left out, 9 in 4; no stop at the list's
+ends, 3 in 1; a row wholly in sight moved, 2 in 2; a row with none of it
+in sight moved, 3 in 1. In the container: the folder's row not held, 1 in
+1; shown whole after the panes move, 1 in 1; the list's row shown whole
+after the panes move, 1 in 1; the view button letting go of nothing, 1 in
+1; the whole of the folders' bar put back from, 1 in 1; the folder's row
+put back without being shown whole, 2 in 1; the last folder not told, 1 in
+1; the view button taken as the reading pane, 1 in 1; the reading pane
+found by its views only, 3 in 1. In the least scroll: done with VoiceOver
+off, 1 in 1. In the list: a row opened letting go of nothing, 1 in 1; its
+bar taken as its own column, 1 in 1; the Outbox's whole bar taken as its
+bar, 1 in 1; the Outbox's whole bar taken as its own column, as before, 1
+in 1; the panes beside it taken as anything else, 1 in 1; the reading pane
+found by its views only, 1 in 1; put on a row without the least scroll, 1
+in 1. In `voiceOverHolds`: nothing found by where it is, 1 in 1; found by
+where it is with a sheet over the window, 1 in 1. Forty-three in all, each
+caught, with nothing failing in any run but the tests named. Those in
+`FoldersVoiceOver`, the container's landings, the list's bar and panes,
+and `voiceOverHolds` were run on the code as it is now.
+
+The full suite, serially, with nothing undone: 1,701 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
 **Not covered.**
 
-- The second change was not heard. The simulator has no VoiceOver, and the
+- The third change was not heard. The simulator has no VoiceOver, and the
   iPad check in the TODO is to do.
-- Which VoiceOver takes first, the screen change or the list's layout
-  change posted after it, is for the iPad. Either way, a landing on
-  another row, on a cell drawn since for another letter, or on the list's
-  bar or table is put back on the row as it lands. A landing on the
-  folders, the reading pane or a sheet is never put back.
-- The 1.6 s is the latest landing seen on the iPad, from the tap. A screen
-  change that lands later, after the list's own post took VoiceOver to the
-  row, is not put back.
-- A swipe of his own to another row or to the list's bar before VoiceOver
-  has been on the row, or within 1.6 s of the tap after the list's own
-  post took it there, is taken for VoiceOver's landing and put back, once.
+- VoiceOver's leave was seen on iPadOS 16.5.1 only, a tap there going
+  straight to the control, once in each launch. His iPad is on iPadOS 18.
+  A leave later than 3 s after the tap is not put back, and a second leave
+  is left where it goes.
+- A leave from the row to another row, the search field or the toolbar
+  is taken as his and not put back. VoiceOver was not seen to go there by
+  itself.
+- A touch of his own on the reading pane or the list's bar within 3 s of
+  the tap, once VoiceOver has been on the row, is taken for VoiceOver's
+  leave and put back, once; the same for the view button, or the reading
+  pane from any folder but the last, after "< Mailboxes". A second touch
+  goes where he touched. Before VoiceOver has been on the row, a swipe of
+  his own to another row or to the list's bar is put back the same way, as
+  before.
+- In the Outbox, which has no search field, the end of the list's bar,
+  Edit and the title, is a swipe from the first row, and a leave there is
+  not put back.
+- From the last folder a leave by VoiceOver itself to the reading pane is
+  not put back: a swipe of his goes there too. A label at the bottom was
+  not tried on the iPad.
+- A leave into the letter's text is found by where it is: WebKit gives
+  VoiceOver the page from its own process. Whether the app is told of such
+  a move at all was not heard.
+- Why VoiceOver took the list back to its top in step 5a, the row it was
+  put on being whole, is not known. The app moves nothing there.
+- The least scroll was seen in the simulator only in a build that took
+  VoiceOver as on. A row the list puts VoiceOver back on after a reload is
+  shown whole the same way, with the panes still; that was not seen.
+- The folders' row was not tried partly under the folders' bar: the test
+  account's folders fit in their column.
+- The 1.6 s is the latest landing seen on the iPad, from the tap. A
+  screen change that lands later, after the list's own post took
+  VoiceOver to the row, is not put back.
 - The element UIKit gives VoiceOver for a row is found through its
-  container. One whose container is not the table is taken as not on the
-  list, and VoiceOver is left where it is.
+  container. One whose container is not the table is taken as not a row,
+  and VoiceOver is left where it is.
 - VoiceOver reads the row again at each reload under it.
 - The folders' table is drawn again at each sweep of the counts, and
   VoiceOver on a folder's row could lose it the same way. Not changed: a
-  sweep draws the same folders in the same places, and step 1 passed four
-  times.
-- What reloaded the list in step 2 was not caught on the iPad.
-- VoiceOver's scroll as it lands is UIKit's, and so is which row it shows
-  whole. The list goes back to its top when its first row is the one partly
-  under the search field.
+  sweep draws the same folders in the same places, and step 1 passed in
+  16 runs on 2026-10-19.
 - In Edit mode the list's highlighted row is the first one ticked, not
   the letter being read.
-- A highlighted row wholly out of sight is not named. In the folders the
-  table is, and VoiceOver takes its first element. In the list the first
-  row wholly in sight is.
+- A highlighted row wholly out of sight is not named, and not moved. In
+  the folders the table is named, and VoiceOver takes its first element.
+  In the list the first row wholly in sight is.
 - What Mail does with VoiceOver was not heard on the iPad.
 
 ---

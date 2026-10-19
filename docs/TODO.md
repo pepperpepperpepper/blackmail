@@ -2250,7 +2250,7 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-07: all six steps passed, the menu
       under its bubble in each, never beside it.*
 - [ ] **B-079, VoiceOver's place after a pane move.** On the test iPad,
-      landscape, the test account only, built from the `vo-focus`
+      landscape, the test account only, built from the `vo-focus-3`
       worktree; merge only after a pass. Turn VoiceOver and its Caption
       Panel on in Settings > Accessibility > VoiceOver. A tap goes
       straight to the control, as on 2026-10-07, and a VoiceOver double
@@ -2259,10 +2259,15 @@ this host. Ordered by value, not by size.
       1. *"< Mailboxes".* Two panes, the list in front, a letter open in
       the pane. "< Mailboxes": VoiceOver is on the open folder's row, the
       highlighted one, and the caption names that folder, not "Flag,
-      Button".
+      Button". If the folders end with a label, open it and a letter in it
+      already read, tap "< Mailboxes", and as soon as VoiceOver is on the
+      label's row swipe right once: VoiceOver goes into the reading pane,
+      and stays there.
       2. *The open folder.* Tap it: the list comes back and VoiceOver is on
-      the letter's row, the highlighted one, not Flag. The list does not
-      move.
+      the letter's row, the highlighted one, not Flag, and stays there to
+      8 s. If VoiceOver goes by itself to Flag or to the view button, about
+      a second after it got to the row, it is back on the row at once, and
+      stays. The list does not move.
       3. *A new folder.* "< Mailboxes", then a folder not open, such as
       Sent Mail: VoiceOver goes into its list, on its first row, or, while
       it has none, at its top, the search field. Not the view button in
@@ -2278,13 +2283,18 @@ this host. Ordered by value, not by size.
       5. *The list scrolled.* Scroll it so its top row is half under the
       search field, the pane empty or the letter's row out of sight.
       "< Mailboxes", then the open folder: VoiceOver is on the first row
-      wholly below the search field. As VoiceOver lands the list may move
-      down, by no more than the part of the row above it that was under the
-      search field, so that row shows whole: that is VoiceOver's own scroll.
-      With the list's first row there, that takes the list back to its top.
-      It moves no further. Then open a letter, put its row half under the
-      search field, and do the same: VoiceOver is on the letter's row, and
-      the list moves down just enough to show that row whole, no further.
+      wholly below the search field. As VoiceOver lands the list may go back
+      to its top, by the part of the first row that was under the search
+      field: that is VoiceOver's own. It moves no further. Then open a
+      letter, put its row half under the search field, and do the same: as
+      the list slides in, the letter's row is already whole, just below the
+      search field, the list moved down by the part that was under it and
+      no more. VoiceOver goes to that row and the list does not move again:
+      not to the middle, not to the top. The same with the letter's row
+      half under the toolbar at the bottom: the list comes in moved up just
+      enough to show it whole above the toolbar. Then VoiceOver off, the
+      letter's row half under the search field again, "< Mailboxes" and the
+      open folder: the list does not move at all.
       6. *The view button*, as before: two panes to three, VoiceOver on it,
       "Hide Mailboxes, Button"; three to two, "Show Mailboxes, Button".
       7. During and after every move nothing of the pictures is read: the
@@ -2295,11 +2305,33 @@ this host. Ordered by value, not by size.
       the list has come again, VoiceOver is still on that letter's row, its
       box and its words that row's, not on Flag or the view button, for
       5 s. Then wait 40 s, through a check for new mail: still there.
+      9. *From a fresh launch.* VoiceOver chose again by itself once in each
+      launch, about a second after it got to the row. Quit Blackmail from
+      the app switcher and open it again, VoiceOver on. Two panes, the
+      Inbox at its top, a letter open, VoiceOver on the letter's row.
+      "< Mailboxes", then the Inbox: VoiceOver is on the letter's row at
+      about 1.1 s. If at about 2 s it goes to Flag, it is back on the row
+      at once, and stays there to 8 s. Quit and open it again, the pane
+      empty this time: the Inbox's first row, and if it goes to "Show
+      Mailboxes, Button", back on the row. Quit and open it again with
+      VoiceOver off, then turn VoiceOver on, open a letter and tap
+      "< Mailboxes": VoiceOver is on the Inbox's row, and if it goes to
+      Flag, back on that row, and it stays. If a letter is waiting in the
+      Outbox from another check, quit and open Blackmail again, VoiceOver
+      on, and tap "< Mailboxes", then the Outbox: VoiceOver is on its
+      first row, and if it goes to "Show Mailboxes, Button", it is back on
+      the row at once. Leave the letter where it is.
       Then VoiceOver and the Caption Panel off, and the panes as they were.
       *Seen on the test iPad 2026-10-07, the first change: steps 1, 4, 6
       and 7 passed; 2 failed once in three, 3 in each folder with letters,
       and 5 as the list moved. Changed again for 2 and 3, and 5 rewritten
-      for VoiceOver's own scroll (B-079); not yet seen there.*
+      for VoiceOver's own scroll (B-079).*
+      *Seen on the test iPad 2026-10-19, the second change: steps 1, 3, 4,
+      5a, 6, 7 and 8 passed; 2 failed once in 15, VoiceOver leaving the row
+      by itself once in each launch, and 5b as VoiceOver put a half-hidden
+      row in the middle of the list or took the list to its top. Changed a
+      third time for both: 2 and 5 rewritten, 9 added, a line in 1 for the
+      last folder (B-079); not yet seen there.*
 - [x] **B-080, every folder's conversation rows as Mail's.** On the test
       iPad, three panes, Organize by Thread on, the test account only,
       every letter to the account itself: "Jane's address" is its
