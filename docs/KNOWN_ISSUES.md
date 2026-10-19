@@ -12811,3 +12811,137 @@ Seen in passing, none of it B-083's:
   picked again, has nothing to match here: one address.
 - A draft keeps B-082's way, the name saved when it is sent. Mail
   probably keeps a draft's own From; that was not traced to the end.
+
+---
+
+## B-085 — FIXED 2026-10-19, found on the iPad, not yet seen there fixed. A Save in Settings with no connection was followed by "Can't connect to mail server."
+
+**What he saw.** Seen on the iPad on 2026-10-19, during B-083's check,
+with Airplane Mode on. Blackmail's Settings, the name changed, Save:
+Settings closed and "Can't connect to mail server." came up. It came after
+every Save made with no connection that day: the name, the name put back,
+and "Send my signature as plain text instead". Each save had worked:
+Settings opened again showed what was saved, and the next letters went
+with it. Nothing he asked for needed the connection, and the alert reads
+as if the save had failed.
+
+**What it was.** Save hands the list the account saved (`onSaved`). The
+list took his addresses and drew its rows again (B-076), then asked the
+container for the folder counts (`onRefreshRequested`), as his Refresh
+does. That sweep is a LIST and a STATUS per folder. With no connection it
+failed, and a sweep asked for that way is not a quiet one (B-049), so it
+put up the alert.
+
+The sweep was there from the first version, when a new password was
+saved this way too. Since B-056 a new password goes by `onPasswordSaved`,
+which builds the screens again over a repository that signs in with it;
+that fetches what it needs for itself. B-076 kept the sweep and put the
+rows drawn again in front of it. What Save keeps now is the name, the
+signature with its formatted twin and its pictures, and his other
+addresses. None of it is on the server, and no count changes with it.
+B-076 needed only the rows drawn again, which Save already does.
+
+**Changed.** Save asks the server for nothing
+(`MessageListViewController.showSettings`). The sweep is gone, not made
+quiet: there was nothing for it to fetch. The rows are drawn again with
+his addresses, as before. The rest of the save is as it was: the account
+written, the share sheet and the book handed it, the pictures of a
+restored signature saved. The list's `onRefreshRequested` is called in
+one place now, his Refresh. Edit mode's Delete and Move still ask for
+the counts by `requestSweep`, when one may have changed (B-062).
+
+**Not changed.** His Refresh fetches the page and sweeps the counts, and
+with no connection says "Can't connect to mail server." and "No
+Connection", as before. The password path is not touched: a new password
+is checked with Gmail before it is kept, and with no connection Settings
+says "Could not reach Gmail. Your old password is still in place."
+
+**Other places that speak of the connection when he did not ask.** Every
+alert about the connection was looked at, with what sets it off. None
+other is the same case, and none was changed.
+
+- *Organize by Thread:* the rows drawn again, nothing fetched. *Bring
+  Back Set-Aside Letters:* Drafts and the Outbox drawn from the iPad,
+  nothing fetched. *Save Draft:* the letter kept on the iPad and Drafts
+  drawn from it, no alert.
+- *Coming back within fifteen minutes:* nothing fetched for the list. The
+  connection is probed, the letters waiting go if they can, and the watch
+  starts, all with nothing said.
+- *Coming back after fifteen minutes or more* is a new sitting (B-003):
+  the Inbox's newest page is fetched, as at launch, and with no connection
+  one "Can't connect to mail server." comes up, as at launch and at each
+  folder opened (B-053, seen on the iPad). The page is what he has come
+  back to read, and the alert says it is not fresh. Not the same case.
+- *The watch:* its checks, its sweeps and its fetches say nothing when
+  they fail (B-049).
+- *After a Delete, Move or Flag the server took,* from the reading pane
+  or Edit mode: the counts are swept, and that sweep is his (B-049,
+  B-062). It fails only if the line goes in the moment after a write that
+  went.
+- *A letter opened that the server says is another one now* (D-016): it
+  comes off the list and the counts are swept (`onMessagesChanged`). He
+  opened it, and the server had answered.
+- *Delete Draft on a draft opened from Drafts:* Drafts is fetched again
+  after it, and with no connection says so. He asked for something on the
+  server, and the copy in Drafts did not go.
+- *A letter opened, a date jump, Move's list of folders, Send:* each is
+  something he asked for.
+
+**What he sees.** With no connection, Save closes Settings and nothing
+more is said. Refresh after it says "Can't connect to mail server." as
+before. No new words.
+
+**Tests.** Six, all new, in `QuietSaveTests.swift`.
+
+- *Save:* what it runs in the list takes his addresses and draws the rows
+  again, and asks for no sweep, no page and no pass. Drawing the rows
+  again (`regroup()`) asks for none either, and the container, told of
+  it, only hands the reading pane its new letters.
+- *The counts:* the hook Save used, `onRefreshRequested`, is called in
+  one place, his Refresh.
+- *The other ways to the counts:* `requestSweep` is called in one place,
+  Edit mode's Delete and Move, and `onMessagesChanged` in one, a letter
+  opened that is another one now.
+- *His Refresh:* its page is not quiet and puts up the alert when it
+  fails; the counts it asks for are swept as his, and a sweep of his that
+  fails puts up the alert.
+- *A sweep asked for* with nothing said of quiet is not quiet.
+- *The password path:* checked, saved, and the screens built again once
+  the sheet has gone, not by `onSaved`, which Settings calls in one
+  place, a save with no new password.
+
+Five read the source: the controllers are UIKit and are not built on
+the machine the suite runs on. The one on a sweep asked for runs the
+sweeps.
+
+Against the code as it was, with the sweep after Save: 2 of the 6
+failed, 3 failures. The four that passed hold what was right already:
+his Refresh, the other ways to the counts, a sweep asked for, and the
+password path.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. The sweep after Save
+put back: 3 in 2. A sweep after Save by the way Edit mode asks for one:
+3 in 2. His Refresh's counts made quiet: 1 in 1. His Refresh's page made
+quiet: 2 in 2. A failed sweep never saying so: 1 in 1. A sweep quiet
+unless said otherwise: 2 in 2. A new password handed to `onSaved` as
+well, before the screens are built again: 1 in 1. A sweep by Edit mode's
+way at the end of `regroup()`, which Save runs: 3 in 3. A sweep by
+`onMessagesChanged` at the start of the rows' rebuild, which `regroup()`
+runs: 1 in 1. The container sweeping when told the rows were drawn
+again: 2 in 2. Ten in all. Every failure was in the new tests but four,
+one in `RefreshTapTests`, one in `NewMailTests` and two in
+`ConversationOrderTests`, which hold the same code. The known flaky
+`LargeLetterTests.testPicturesStillComingWhenHeMovesOnAreCalledOff` also
+failed in the first run of the sweep quiet unless said otherwise; run
+again, that run gave the count above and nothing else.
+
+The full suite, serially, with nothing undone: 1,691 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen in the simulator: its line was not cut for this.
+- Not yet seen on the iPad. The TODO says how, by hand: it needs
+  Airplane Mode.
+- Mail itself was not tried with no connection.

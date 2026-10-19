@@ -2501,6 +2501,26 @@ this host. Ordered by value, not by size.
       back, before Refresh in 3 and 6. Airplane Mode turned Wi-Fi off and
       on with it, and offline each Save in Settings was followed by "Can't
       connect to mail server.", now B-085.*
+- [ ] **B-085, a save while offline, quietly.** On the test iPad, the
+      test account only, landscape, built from the `quiet-save` worktree.
+      *Steps for a person at the iPad:* the iPad is reached for checks over
+      its Wi-Fi, and Airplane Mode cuts that, so these are done by hand,
+      and the iPad's Wi-Fi is on again before anyone reaches it from
+      elsewhere. Note the account's name in Blackmail's Settings first: it
+      goes back at the end. Leave the signature as it is.
+      1. *Offline.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
+      if it stays on.
+      2. *Nothing changed.* Blackmail's Settings, change nothing, Save.
+      Settings closes, and nothing more is said: no alert.
+      3. *The name.* Settings, the name "Carlo Renamed Example", Save: no
+      alert. Settings again: the new name is there. The name as noted,
+      Save: no alert.
+      4. *Refresh,* still offline: "Can't connect to mail server.", as
+      before, and the line under the list says "No Connection". OK.
+      5. *Back.* Airplane Mode off, Wi-Fi on, and wait for its mark in
+      the status bar. Refresh: the list comes, with no alert.
+      *Not seen on the simulator: its line was not cut for this (B-085).
+      On the iPad still to do.*
 
 ## Blocked on the owner
 

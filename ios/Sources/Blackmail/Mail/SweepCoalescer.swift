@@ -5,10 +5,11 @@ import Foundation
 ///
 /// A sweep is LIST and a STATUS per folder, nine commands on his account,
 /// and about eight things ask for one: a Delete, Move or Flag from the
-/// reading pane, a delete or move of a selection, Refresh, a Settings save,
-/// coming back after a while, launch. Nothing merged them, so a burst of
-/// flags queued a whole sweep each, and every one of them ran, in the line
-/// the previews and the next page wait in.
+/// reading pane, a delete or move of a selection, Refresh, coming back
+/// after a while, launch. A Settings save used to, and asks for none now
+/// (B-085). Nothing merged them, so a burst of flags queued a whole sweep
+/// each, and every one of them ran, in the line the previews and the next
+/// page wait in.
 ///
 /// Now one runs at a time. A request while one is running is remembered and
 /// exactly one more sweep runs after it, however many requests there were.
