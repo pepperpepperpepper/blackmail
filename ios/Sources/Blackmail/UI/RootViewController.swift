@@ -84,6 +84,9 @@ final class RootViewController: UIViewController {
     private var listViewButton: UIButton!
     private var listViewItem: UIBarButtonItem!
     private var backItem: UIBarButtonItem!
+    /// The open folder's row, held for VoiceOver after "< Mailboxes"
+    /// (B-079). See `FoldersVoiceOver`.
+    private var foldersVoiceOver = FoldersVoiceOver()
 
     /// New mail without a tap, while the app is in front (B-049). Started
     /// once the Inbox's first page has been tried, stopped as the app goes
@@ -241,6 +244,11 @@ final class RootViewController: UIViewController {
         wireNavigation()
         arrange(shell.arrangement)
         watchForReturn()
+        // Where VoiceOver goes after "< Mailboxes", for the folder's row it
+        // was sent to (B-079).
+        NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
+                                               name: UIAccessibility.elementFocusedNotification,
+                                               object: nil)
         // A refused password's alert opens Settings at the password, from
         // whichever pane it was put over. A turn later, once the alert has
         // gone.
@@ -617,7 +625,10 @@ final class RootViewController: UIViewController {
         mailboxList.select(mailboxID: list.mailboxID)
         shell.switchPanes()
         // The button VoiceOver was on may now be in a hidden bar. Its twin
-        // is in the same corner, and says the other thing.
+        // is in the same corner, and says the other thing. No row held for
+        // VoiceOver after a move takes it from there (B-079).
+        foldersVoiceOver.letGo()
+        list.letGoOfVoiceOver()
         UIAccessibility.post(notification: .layoutChanged,
                              argument: shell.arrangement.leftColumn == .list
                                 ? listViewButton : mailboxesViewButton)
@@ -629,11 +640,57 @@ final class RootViewController: UIViewController {
     @objc private func backToMailboxes() {
         list.view.endEditing(true)
         mailboxList.select(mailboxID: list.mailboxID)
+        // With VoiceOver on, the open folder's row shown whole, if part of
+        // it is under a bar, while the folders are still hidden: VoiceOver
+        // put on a row it cannot see whole scrolls it to the middle itself
+        // (B-079). The motion's pictures are cut after this.
+        mailboxList.tableView.showWhole(forVoiceOver: mailboxList.tableView.indexPathForSelectedRow)
         shell.back()
         // As UIKit's pop does, VoiceOver goes back to the row that pushed:
-        // the open folder's, just highlighted (B-079).
-        UIAccessibility.post(notification: .screenChanged,
-                             argument: mailboxList.tableView.voiceOverPlace(orFirstRow: false))
+        // the open folder's, just highlighted (B-079). The row is held for
+        // it: once there, VoiceOver left it by itself for the reading pane,
+        // once in a launch, and is put back. Not from the reading pane if
+        // the row is the folders' last, a swipe from which goes there.
+        let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false)
+        UIAccessibility.post(notification: .screenChanged, argument: place)
+        foldersVoiceOver.send(toRow: place is UITableViewCell,
+                              last: mailboxList.tableView.voiceOverIsLast(
+                                  mailboxList.tableView.indexPathForSelectedRow),
+                              running: UIAccessibility.isVoiceOverRunning, at: Date())
+    }
+
+    /// VoiceOver has moved. If it has been on the open folder's row since
+    /// "< Mailboxes", and has gone by itself to the view button in the
+    /// corner, or to the reading pane from any folder but the last, it is
+    /// put back on the row, once (`FoldersVoiceOver`). The folders out of
+    /// sight, or the row with them, the row is let go.
+    @objc private func voiceOverMoved(_ note: Notification) {
+        let now = Date()
+        guard foldersVoiceOver.holding(at: now) else { return }
+        let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false)
+        guard !mailboxNav.view.isHidden, place is UITableViewCell else {
+            foldersVoiceOver.letGo()
+            return
+        }
+        let landing = foldersLanding(on: note.userInfo?[UIAccessibility.focusedElementUserInfoKey])
+        guard foldersVoiceOver.moved(to: landing, at: now) else { return }
+        mailboxList.tableView.showWhole(forVoiceOver: mailboxList.tableView.indexPathForSelectedRow)
+        UIAccessibility.post(notification: .layoutChanged, argument: place)
+    }
+
+    /// What VoiceOver is on, `element`, as the folders' hold sees it: the
+    /// open folder's row; the view button in the corner; the reading pane;
+    /// else anything else. The reading pane by the view the element is in,
+    /// or by where it is for one in no view, as WebKit's in the letter's
+    /// text (`voiceOverHolds`).
+    private func foldersLanding(on element: Any?) -> FoldersVoiceOver.Landing {
+        guard let element else { return .other }
+        let folders: UITableView = mailboxList.tableView
+        if let row = folders.voiceOverRow(of: element) {
+            return row == folders.indexPathForSelectedRow ? .sentRow : .other
+        }
+        if mailboxesViewButton.voiceOverHolds(element) { return .corner }
+        return detailNav.view.voiceOverHolds(element) ? .pane : .other
     }
 
     private func describe(_ panes: PaneArrangement) -> String {
@@ -656,15 +713,25 @@ final class RootViewController: UIViewController {
         shell.layOut = { [weak self] panes, from in self?.arrange(panes, switchedFrom: from) }
         mailboxList.onSelectMailbox = { [weak self] mailbox in
             guard let self else { return }
+            // A folder tapped: the folders' row is no longer held (B-079).
+            self.foldersVoiceOver.letGo()
+            // The open folder's list put back in front in two panes: its
+            // highlighted row shown whole while the list is still hidden,
+            // with VoiceOver on, before the panes move (B-079).
+            if self.shell.arrangement.panes == .two,
+               PaneArrangement.isShowing(mailbox, in: self.list.shownMailbox) {
+                self.list.showHighlightedRowWhole()
+            }
             self.shell.tapped(mailbox, showing: self.list.shownMailbox)
             // In two panes the folders VoiceOver was reading have gone
             // behind the list, as after a push. VoiceOver goes to the list:
             // the row of the letter being read, else the first row, else,
             // for a folder whose rows have not come, the list itself
-            // (B-079). The list holds the row for it until it is there, in
-            // case its rows are drawn again first, as a folder's fresh page
-            // is drawn over its kept one. `self.list` is read only now,
-            // since a folder opened has a new one.
+            // (B-079). The list holds the row for it, before it is there and
+            // after: in case its rows are drawn again, as a folder's fresh
+            // page is drawn over its kept one, and in case VoiceOver leaves
+            // it by itself. `self.list` is read again now, since a folder
+            // opened has a new one.
             if self.shell.arrangement.panes == .two {
                 UIAccessibility.post(notification: .screenChanged,
                                      argument: self.list.placeVoiceOver())
