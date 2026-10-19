@@ -10,14 +10,32 @@ import Foundation
 /// near-identical lines and the newest one is not obviously the newest.
 struct MessageThread {
 
-    /// Newest first, like every list in this app.
+    /// Newest first, like every list in this app: in a folder's list, by
+    /// when the server took each letter (`group`, B-084).
     let messages: [MessageSummary]
 
     /// Stable across regroupings, so a row does not change identity when a
-    /// page is appended. It is the id of the NEWEST message rather than the
-    /// thread key, because the thread key is absent on a server without
-    /// Gmail's extension.
-    var id: String { newest.id }
+    /// page is appended. It is the id of the letter the list has FIRST in
+    /// the conversation, the last the folder took, rather than the thread
+    /// key, because the thread key is absent on a server without Gmail's
+    /// extension.
+    ///
+    /// Not the newest's (`newest`) since B-084. The newest is now the last
+    /// to come, which a page further down can change: a reply deleted
+    /// before the letter it answers is lower in Trash than that letter.
+    /// A page appended below brings letters the folder took earlier, never
+    /// one it took later, so the letter listed first stays first. The two
+    /// are the same letter but for a conversation put in its folder out of
+    /// turn.
+    let id: String
+
+    /// A conversation of `messages`, in the order given, newest first, and
+    /// known by the first of them. `group` gives the id of the letter
+    /// listed first when it puts the letters in the order they came.
+    init(messages: [MessageSummary], id: String? = nil) {
+        self.messages = messages
+        self.id = id ?? messages.first?.id ?? ""
+    }
 
     var newest: MessageSummary { messages[0] }
     var count: Int { messages.count }
@@ -166,10 +184,16 @@ struct MessageThread {
     /// Groups a flat, newest-first list into conversations, preserving the
     /// order the list was already in.
     ///
-    /// Order is preserved deliberately: a thread takes the position of its
-    /// NEWEST message, which is where he last saw that conversation. Any
-    /// re-sort would move rows under a reader's thumb, and the flat list
-    /// this replaces was already in the order the server gave.
+    /// Order is preserved deliberately: a thread takes the position of the
+    /// letter the list has first in it, which is where he last saw that
+    /// conversation. Any re-sort would move rows under a reader's thumb,
+    /// and the flat list this replaces was already in the order the server
+    /// gave.
+    ///
+    /// Inside a conversation the letters go in the order the server took
+    /// them (`byArrival`, B-084), so the row and the stack stand for the
+    /// newest whichever order they were put in the folder. The row keeps
+    /// the id of the letter listed first (`id`).
     static func group(_ messages: [MessageSummary]) -> [MessageThread] {
         var order: [String] = []
         var buckets: [String: [MessageSummary]] = [:]
@@ -179,7 +203,54 @@ struct MessageThread {
             if buckets[key] == nil { order.append(key) }
             buckets[key, default: []].append(message)
         }
-        return order.map { MessageThread(messages: buckets[$0] ?? []) }
+        return order.compactMap { key in
+            guard let listed = buckets[key], let first = listed.first else { return nil }
+            return MessageThread(messages: byArrival(listed), id: first.id)
+        }
+    }
+
+    /// A conversation's letters, `listed` in the list's order, put in the
+    /// order the server took them: by INTERNALDATE (`arrived`), the newest
+    /// first, and by UID where two came in the same second, the higher
+    /// first (B-084).
+    ///
+    /// The list's order is the folder's, by UID: the order the letters were
+    /// put in it. For letters moved in, that is the order they were moved.
+    /// Edit mode's Delete used to move a conversation the newest letter
+    /// first, so in Trash the newest had the lowest UID, and the row named
+    /// the oldest letter, its time, its subject and its sender first, and
+    /// the stack ran upside down. Gmail keeps INTERNALDATE through a MOVE.
+    ///
+    /// Not by the letter's Date (`date`), which its sender's clock wrote: a
+    /// letter dated wrong keeps the place its arrival gives it (B-074).
+    ///
+    /// As listed when any letter's arrival is not known, a row kept by a
+    /// build before rows carried it (`MailShelf`), or a letter kept on the
+    /// iPad: then the folder's order, as before. The UID breaks a tie only
+    /// when every letter is from one folder under one UIDVALIDITY, as a
+    /// folder's list is; otherwise the list's order does.
+    static func byArrival(_ listed: [MessageSummary]) -> [MessageSummary] {
+        let arrivals = listed.compactMap(\.arrived)
+        guard listed.count > 1, arrivals.count == listed.count else { return listed }
+        let uids = listed.compactMap { uid(of: $0, as: listed[0]) }
+        // The higher, the later: the UID, or failing that the list's order
+        // turned over.
+        let later: [Int64] = uids.count == listed.count
+            ? uids.map(Int64.init)
+            : listed.indices.map { -Int64($0) }
+        return listed.indices.sorted { a, b in
+            arrivals[a] != arrivals[b] ? arrivals[a] > arrivals[b] : later[a] > later[b]
+        }.map { listed[$0] }
+    }
+
+    /// The UID of `letter`, from its id, `"<uidvalidity>/<uid>"`, when it is
+    /// listed from the folder `like` is, under the same UIDVALIDITY.
+    private static func uid(of letter: MessageSummary, as like: MessageSummary) -> UInt32? {
+        let parts = letter.id.split(separator: "/", omittingEmptySubsequences: false)
+        let theirs = like.id.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2, theirs.count == 2, parts[0] == theirs[0],
+              letter.mailboxID == like.mailboxID else { return nil }
+        return UInt32(parts[1])
     }
 
     /// The rows a list should show — grouped when browsing a folder, NOT

@@ -69,11 +69,13 @@ enum ConversationDocument {
     /// Read Messages on (B-074).
     ///
     /// The oldest letter at the top and the newest at the bottom: the
-    /// list's order turned over. The list's order is the order the letters
-    /// came into the folder, which is their dates' order but for a letter
-    /// dated wrong or put back in the folder later; turned over, it keeps
-    /// at the bottom the letter the conversation's row stands for, the one
-    /// he tapped the row to read.
+    /// conversation's order turned over. That order is the order the server
+    /// took the letters (`MessageThread.group`, B-084), which is their
+    /// dates' order but for a letter dated wrong; turned over, it keeps at
+    /// the bottom the letter the conversation's row stands for, the one he
+    /// tapped the row to read. It was the folder's order, by UID, until
+    /// B-084, and a conversation put in the folder out of turn, as Edit
+    /// mode's Delete put one in Trash, ran upside down.
     ///
     /// Open: the newest, and every letter he has not read, as Mail shows
     /// them in full. Closed to its line: every letter he has read but the

@@ -1739,7 +1739,8 @@ final class MessageListViewController: UITableViewController {
 
     /// Ticking a conversation acts on ALL of it, which is what Mail does
     /// and what the row means: he chose the thread, not a letter inside it.
-    /// In list order, not the order he ticked the rows in (B-062).
+    /// In the list's order turned over, the oldest first, not the order he
+    /// ticked the rows in (B-062, B-084).
     private var selectedMessages: [MessageSummary] {
         ListBatch.letters(ticked: (tableView.indexPathsForSelectedRows ?? []).map(\.row),
                           in: threads)

@@ -139,6 +139,23 @@ struct MessageSummary: Identifiable, Hashable {
     /// line in Drafts and Sent Mail, so a letter to Bcc alone names the
     /// people it is to rather than nobody.
     var bcc: [String] = []
+    /// When the server took the letter, its INTERNALDATE, which the row is
+    /// fetched with already. Gmail keeps it through a MOVE: a letter put in
+    /// Trash keeps the time it first came. Not the letter's Date, which
+    /// its sender's clock wrote (`date`).
+    ///
+    /// Carried so a conversation's letters go in the order they came
+    /// (`MessageThread.group`, B-084). The folder's own order, by UID, is
+    /// the order they were put in it, which is not that order for letters
+    /// moved in out of turn: a conversation deleted a letter at a time,
+    /// the newest first, as Edit mode's Delete used to, or a reply deleted
+    /// before the letter it answers.
+    ///
+    /// Nil where it is not known: a row kept on the iPad by a build before
+    /// rows carried it (`MailShelf`), a letter kept on the iPad, and a row
+    /// the server gave no INTERNALDATE for. A conversation with such a row
+    /// in it keeps the folder's order, as every conversation did.
+    var arrived: Date? = nil
 }
 
 struct Message: Identifiable {

@@ -744,6 +744,11 @@ final class MailShelf: @unchecked Sendable {
         /// `MessageSummary.bcc`: absent for a letter with none, and in a
         /// page kept before the rows carried it, which reads as none.
         var bcc: [String]?
+        /// `MessageSummary.arrived`, when the server took the letter: absent
+        /// in a page kept before the rows carried it, which reads as not
+        /// known, so that row's conversation keeps the folder's order until
+        /// the folder is listed again (B-084). No new format.
+        var arrived: Date?
 
         init(_ row: MessageSummary, preview: String, size: Int? = nil) {
             id = row.id
@@ -762,6 +767,7 @@ final class MailShelf: @unchecked Sendable {
             cc = row.cc.isEmpty ? nil : row.cc
             to = row.to
             bcc = row.bcc.isEmpty ? nil : row.bcc
+            arrived = row.arrived
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
@@ -769,7 +775,7 @@ final class MailShelf: @unchecked Sendable {
                            preview: preview, date: date, isRead: read, isFlagged: flagged,
                            hasAttachment: attachment, threadID: thread, gmailMessageID: message,
                            countedFolderIDs: counted, attachments: files.map(\.attachment),
-                           to: to, cc: cc ?? [], bcc: bcc ?? [])
+                           to: to, cc: cc ?? [], bcc: bcc ?? [], arrived: arrived)
         }
     }
 

@@ -1221,7 +1221,11 @@ actor IMAPMailRepository: MailRepository {
                 // From the ENVELOPE the row is fetched with already, so the
                 // header has its Cc line from the tap; nothing more is asked.
                 cc: env?.cc.map(\.formatted) ?? [],
-                bcc: env?.bcc.map(\.formatted) ?? [])
+                bcc: env?.bcc.map(\.formatted) ?? [],
+                // When Gmail took it, asked for with every row already, so
+                // a conversation's letters go in the order they came, not
+                // the order they were put in this folder (B-084).
+                arrived: r.internalDate)
         }
     }
 
