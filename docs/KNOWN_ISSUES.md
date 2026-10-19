@@ -12628,3 +12628,205 @@ Trash, once each, none left in All Mail.
   picked again, has nothing to match here: one address.
 - A draft keeps B-082's way, the name saved when it is sent. Mail
   probably keeps a draft's own From; that was not traced to the end.
+
+---
+
+## B-084 — FIXED 2026-10-19, found on the iPad, seen fixed in the iPadOS 18 simulator, not yet on the iPad. After a Delete, a conversation's row in Trash named its oldest letter and its stack ran upside down; Mail's names the newest
+
+**What he saw.** Seen on the test iPad on 2026-10-19, in passing, during
+B-080's check in the third round there, on the build of `ipad-fix2`. A
+conversation of two: a letter sent at 9:45 and a reply at 9:47. Its Inbox
+row was right: 9:47, the mark, the reply's subject with its "Re:", the
+reply's first words. Edit, that row ticked, Delete. Trash: the row read
+9:45, the mark, the subject without "Re:", the first letter's words. The
+same after the app was quit and opened again. Opened, the header named
+the 9:45 letter, and the stack had the 9:47 letter at the top and the
+9:45 letter at the bottom. Older conversations in Trash were the same.
+Mail's row names the newest letter, and its stack runs the oldest at the
+top (B-074).
+
+Over IMAP, the two were UIDs 251 (9:45) and 252 (9:47) in the Inbox, and
+199 (9:45) and 198 (9:47) in Trash: the newest had the lower UID. Gmail
+kept each letter's INTERNALDATE through the move.
+
+**What it was.** Two things together.
+
+- *The app's own batch.* Edit mode's Delete gathered the ticked rows'
+  letters in the list's order, each conversation newest first
+  (`ListBatch.letters`), and sent them one at a time, a UID MOVE each
+  (`ListBatch.run`, B-062). Gmail gives each letter moved in the next UID
+  in the folder it goes to. So the newest letter had the lowest UID in
+  Trash. Move out of a folder in Edit mode did the same.
+- *The order of a conversation.* The list is in UID order, newest first.
+  `MessageThread.group` kept that order, and a conversation's newest was
+  the first of it. So the row, the order of its names, the pane's header
+  and the stack (`ConversationDocument.stack`, the order turned over) all
+  came from the letter the folder took last. That is the newest only when
+  the letters came into the folder in the order they were written. After
+  the app's own Delete it was the oldest, every time. Letters put in a
+  folder out of turn any other way do the same: moved by another mail
+  program, a reply deleted before the letter it answers, a letter put
+  back.
+
+**Changed.**
+
+1. *The batch goes the oldest first* (`ListBatch.letters`). The ticked
+   rows' letters go in the list's order turned over: the bottom row
+   first, each conversation's letters oldest first, each letter once. The
+   folder they go to takes them in the order they came, so their new UIDs
+   follow their times, and the rows keep their order there. Edit mode's
+   Delete and Move both. Every row still leaves at the tap, and nothing
+   he sees changes.
+2. *A conversation goes in the order its letters came*
+   (`MessageThread.byArrival`). Each row now carries when the server took
+   its letter, its INTERNALDATE (`MessageSummary.arrived`), from the FETCH
+   it is drawn with already (`IMAPMailRepository.rows`): nothing more is
+   asked. A conversation's letters go by it, the newest first, and by UID
+   where two came in the same second. The row, its names, the pane's
+   header and the stack then stand for the newest, whatever order the
+   letters are in the folder. Not by the letter's Date, which its
+   sender's clock wrote: a letter dated wrong keeps the place its arrival
+   gives it, as B-074 has it.
+3. *The kept copy* (D-016, `MailShelf`). The time is kept with each row
+   and read back, so a launch draws the same row before the folder is
+   listed. A page kept by a build before has none: its rows read as not
+   knowing it, and a conversation with such a row keeps the folder's
+   order, as before. No new format. The same for a letter kept on the
+   iPad, which has none.
+4. *The row's id* (`MessageThread.id`). It was the newest letter's. It is
+   now the letter the list has first in the conversation, the last the
+   folder took. A page appended below can bring a letter that came later,
+   a reply deleted before its letter, and the newest then changes; the
+   letter listed first does not. So his place, his tick, the letter open
+   and VoiceOver's row (B-079) find the row again as before. The two are
+   the same letter but for a conversation put in its folder out of turn.
+
+**Every way several letters go at once,** looked at:
+
+- Edit mode's Delete and Move, in a folder and in a search's hits:
+  changed, as above.
+- Edit mode's Delete inside Trash erases each letter: the order changes
+  nothing there, and they go in the same order as the rest.
+- Edit mode's Mark moves nothing. Its writes go in the order Delete's
+  do; nothing he sees changes.
+- The reading pane's Delete and Move act on one letter, the one it shows,
+  in a conversation too: nothing to order.
+- The Outbox already sends its letters oldest first, in the order he sent
+  them (`LocalDrafts.uploadWaiting`).
+- The copies of a draft a save leaves in Drafts are erased, not moved to
+  a folder he reads. A letter kept on the iPad goes from the iPad.
+
+**Still as it was.** B-074: the stack runs the oldest at the top and the
+newest open at the bottom, opens at the oldest letter he has not read,
+and puts a letter that comes while it is open at the bottom. B-075 and
+B-080: one mark after the date, no count, the names newest first, the To
+in Sent Mail, Drafts and the Outbox. B-079: VoiceOver's row is found again
+by its id and its letters, and reads the names, how many and the
+subject of the newest. Their tests are unchanged and pass. A search's rows
+are one letter each, as before. In Drafts a tap opens the newest; Gmail
+takes a draft's INTERNALDATE as it is saved, so that is the one saved
+last, as before.
+
+**What he sees.** After a Delete, a conversation's row in Trash names its
+newest letter, its time, its subject and its sender first, as in the
+Inbox, and its stack runs the oldest at the top. The same for a
+conversation whose letters came into a folder out of turn. No new words.
+
+**Tests.** Eleven new and two changed: `ArrivalOrderTests.swift`, nine;
+one in `MailShelfTests` and one in `ListBatchTests`.
+
+- *The batch:* a conversation of three in the Inbox, ticked and deleted,
+  goes the oldest first, one UID MOVE each, and reaches Trash in the
+  order it came; its row there names the last reply by the folder's order
+  alone, as a build without the times groups it, and with them; the stack
+  runs the first letter to the last. The same for another conversation
+  moved out in Edit mode.
+- *By arrival:* Trash after the old Delete, the newest with the lower UID:
+  the row's subject, time, preview, names and VoiceOver's words from the
+  newest, the rows in their places, the stack the oldest first, where it
+  opens, and what a tap marks read. Two letters in one second: the higher
+  UID first, in either order listed; from two folders or two
+  UIDVALIDITYs, the list's order.
+- *A letter dated wrong* keeps its arrival's place: dated 2023 and taken
+  last, the newest, at the bottom, open; dated 2037 and taken first, at
+  the top.
+- *Without the time:* no letter with one, or one without among them, the
+  folder's order; one letter, and none.
+- *The row's id* across a page that brings a letter that came later: the
+  same rows by id, the newest the later letter, his place, his tick and
+  VoiceOver's row found again.
+- *A letter that comes while the stack is open* still goes in at the
+  bottom.
+- *The repository:* each row carries the INTERNALDATE the page's FETCH
+  asked for, and its own Date. Trash with a conversation put there newest
+  first: the row from the last to come, listed and from the kept copy
+  after a launch.
+- *The kept copy:* the time kept and read back; a page kept without it
+  reads, its rows without it, and its conversation in the folder's order.
+
+`testEveryRowGoesAtTheTapAndEachLetterIsMovedToTrashInTurn` takes its
+letters as Edit mode does, and the four go the oldest first.
+`testTickedRowsGoInListOrderWhateverOrderHeTickedThem` is now
+`testTickedRowsGoInTheListsOrderTurnedOverWhateverOrderHeTickedThem`.
+
+With both parts undone, the new field left in so the tests build: 9 of
+the 13 failed, 58 failures. The four that passed hold what was right
+already or helpers written with them: the tie broken by UID, a letter
+dated wrong in a conversation that came in order, a conversation with no
+times, and a letter that comes while the stack is open.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. Edit mode's letters in
+the list's order, as before: 18 in 3. A conversation in the folder's
+order: 26 in 5. The repository's rows without the time: 12 in 2. The kept
+copy not keeping it: 8 in 2. The row known by its newest letter: 5 in 4.
+The tie broken by the list's order alone: 1 in 1. The letter's Date in
+place of the time it came: 11 in 3. A row without the time taken as the
+oldest rather than as not known: 1 in 1. Eight in all, and every failure
+in each run was in the new and changed tests.
+
+The full suite, serially, with nothing undone: 1,696 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Seen on the iPadOS 18 simulator, 2026-10-19**, a simulated iPad (7th
+generation) on iPadOS 18.6, landscape, a hardware keyboard, built from
+this branch and signed in to the test account as "Carlo". Three panes,
+Organize by Thread on. Every letter to the test address with `+sim18`
+before the "@", a minute or so apart. Times are the simulator's clock.
+The screenshots are not in the repo: they show the test address.
+
+1. *Delete in Edit mode.* A new letter, "B-084 one", Send at 1:07. Reply
+   at 1:09, and to that at 1:10, "The third letter, the newest." The
+   Inbox row: Carlo, 1:10 PM, the mark, "Re: B-084 one", the third's
+   words. Edit, that row ticked, Delete.
+2. *Trash:* the row reads Carlo, 1:10 PM, the mark, "Re: B-084 one", "The
+   third letter, the newest." Tapped: the header "Re: B-084 one", Today at
+   1:10 PM; scrolled to the top, the 1:07 letter, then 1:09, then 1:10,
+   open.
+3. *A reply deleted first.* A new letter, "B-084 two", at 1:13. Reply at
+   1:15, "The reply, deleted first." The conversation tapped, and with
+   the reply in the pane, Delete in the pane: the reply alone went. Then
+   Edit, "B-084 two" ticked, Delete. Trash: its row reads 1:15 PM, the
+   mark, "Re: B-084 two", "The reply, deleted first."; the stack the 1:13
+   letter at the top and the reply at the bottom, open. The reply went to
+   Trash first, so this is the order by arrival; by UID the row named the
+   1:13 letter.
+4. *After a launch.* The app quit and opened again, Trash at once: both
+   rows as in 2 and 3.
+
+The five letters are in Trash only: none in the Inbox, Sent Mail or All
+Mail. Trash was not read over IMAP this time; the suite holds the order
+the batch sends.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says how.
+- The rows themselves are still in the folder's order: a conversation
+  put in Trash later stands above one put there earlier, whatever its
+  letters' times. Where Mail puts such a row was not looked at.
+- A letter copied into Gmail by another program with an INTERNALDATE
+  of its own, a wrong one, takes the place that gives it in its
+  conversation (B-058 has such a letter). Not seen in his mail.
+- Seen in passing on the iPad, not looked into: in that upside-down
+  stack, before the 9:47 line was closed, swipes would not scroll down to
+  the 9:45 letter.

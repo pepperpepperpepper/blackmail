@@ -36,29 +36,41 @@ enum ListBatch {
         var refusal: MailError?
     }
 
-    /// The letters of the rows he ticked, `rows`, in list order: the rows
-    /// from the top down, a conversation's letters in the order it holds
-    /// them, and each letter once. UIKit gives the ticked rows in the
-    /// order he ticked them, and taken as they came, the batch went in that
-    /// order rather than the list's.
+    /// The letters of the rows he ticked, `rows`, in the order their writes
+    /// go: the list's order turned over, the oldest first (B-084). The
+    /// list's order is the rows from the top down, a conversation's letters
+    /// in the order it holds them, the newest first, and each letter once.
+    /// UIKit gives the ticked rows in the order he ticked them, and taken
+    /// as they came, the batch went in that order rather than the list's
+    /// (B-062).
+    ///
+    /// Turned over so the folder they go to takes them in the order they
+    /// came. A letter moved in has the next UID there, and the list is in
+    /// UID order: sent the newest first, a conversation reached Trash
+    /// upside down, its newest letter with the lowest UID, and its row
+    /// named the oldest. Every row still leaves at the tap
+    /// (`run(_:on:role:list:repository:requestSweep:)`), so nothing he
+    /// sees changes; the bottom row's letters go first, and the top row's,
+    /// the newest, last, so the rows keep their order in the folder they go
+    /// to.
     ///
     /// Each letter once even though a row can no longer be ticked twice:
     /// two conversations that merge on the next page would otherwise give
-    /// the same letter twice to a Delete.
+    /// the same letter twice to a Delete. Once where the list has it first.
     static func letters(ticked rows: [Int], in threads: [MessageThread]) -> [MessageSummary] {
         var seen = Set<String>()
-        var out: [MessageSummary] = []
+        var listed: [MessageSummary] = []
         for row in Set(rows).sorted() where threads.indices.contains(row) {
-            for m in threads[row].messages where seen.insert(m.id).inserted { out.append(m) }
+            for m in threads[row].messages where seen.insert(m.id).inserted { listed.append(m) }
         }
-        return out
+        return listed.reversed()
     }
 
     /// Takes every one of `letters` off the list, or flags it, at once, and
     /// then sends the writes one at a time, in the order given, which is
-    /// the list's (`letters(ticked:in:)`). `role` is the role of the folder
-    /// a letter was listed from, which for an All Mailboxes hit is not the
-    /// list's.
+    /// the list's turned over, the oldest first (`letters(ticked:in:)`).
+    /// `role` is the role of the folder a letter was listed from, which for
+    /// an All Mailboxes hit is not the list's.
     ///
     /// The first refusal stops the rest: they are put back, unsent. A
     /// refusal is nearly always the connection or the password, which the

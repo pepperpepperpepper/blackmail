@@ -28,8 +28,8 @@ import Foundation
 struct ListVoiceOver {
 
     /// A row: where it was in the rows, and its letters, by which it is found
-    /// again as `ListPlace` finds a row he could see: by its newest letter,
-    /// else by any letter in it.
+    /// again as `ListPlace` finds a row he could see: by its id, the letter
+    /// listed first in it, else by any letter in it.
     struct Row: Equatable {
         let index: Int
         let place: ListPlace

@@ -23,15 +23,16 @@ import Foundation
 /// on every page that added rows it went to whatever row now had the old
 /// row's number.
 ///
-/// So both are held by letter now. A row is found again by the id of its
-/// newest letter, which is what it stays headed by unless newer mail joined
-/// it; and failing that by any letter in it, for rows merged or split by
-/// the grouping switch.
+/// So both are held by letter now. A row is found again by its id, the
+/// letter the list has first in it (`MessageThread.id`), which is what it
+/// stays headed by unless newer mail joined it; and failing that by any
+/// letter in it, for rows merged or split by the grouping switch.
 struct ListPlace: Equatable {
 
     /// A row he could see.
     struct Seen: Equatable {
-        /// The row's id: its newest letter's (`MessageThread.id`).
+        /// The row's id: the letter the list has first in it
+        /// (`MessageThread.id`).
         let id: String
         /// Every letter in the row.
         let letters: [String]

@@ -2474,6 +2474,45 @@ this host. Ordered by value, not by size.
       blocking the mail ports: steps 1 to 6 passed, with `+sim18`; the
       account has no signature there, so 7 was not tried (B-083). On the
       iPad still to do.*
+- [ ] **B-084, a conversation's row from its newest letter, wherever its letters came from.**
+      On the test iPad, three panes, Organize by Thread on, the test
+      account only, landscape, built from the `trash-order` worktree. A
+      stands for the account's address; letters only to A with `+jane`
+      before the @, subjects beginning "B-084". Wait a minute between
+      sends, so each letter has a time of its own.
+      1. *A conversation.* A new letter To A with `+jane`, Subject "B-084
+      one", the line "The first letter.", Send. Refresh, open it, Reply,
+      "The second letter.", Send. Refresh, open the conversation, Reply,
+      "The third letter, the newest.", Send. Refresh. The Inbox: the row
+      reads the account's name, the third letter's time, the mark, "Re:
+      B-084 one", "The third letter, the newest."
+      2. *Delete in Edit mode.* Edit, tick that row only, Delete. Trash: the
+      row reads the same, the third letter's time, the mark, "Re: B-084
+      one", "The third letter, the newest." Tap it: the header "Re: B-084
+      one" and the third letter's time. Scroll up: the first letter at the
+      top, then the second, then the third, open, at the bottom. On the
+      build before, the row read the first letter's time and "B-084 one",
+      and the stack ran the third at the top.
+      3. *Over IMAP,* if it can be read from another computer: in Trash the
+      first letter has the lowest UID of the three and the third the
+      highest, and each keeps the INTERNALDATE it had in the Inbox.
+      4. *A reply deleted first.* A new letter, "B-084 two", "The letter,
+      before its reply.", Send. Refresh, open it, Reply, "The reply,
+      deleted first.", Send. Refresh. Tap the conversation's row and, with
+      the reply in the pane, tap Delete in the pane: the reply alone goes,
+      and the row is "B-084 two" alone. Then Edit, tick it, Delete. Trash:
+      its row reads the reply's time, the mark, "Re: B-084 two", "The
+      reply, deleted first." Tap it: the letter at the top, the reply at
+      the bottom, open.
+      5. *After a launch.* Quit the app in the app switcher, open it, and
+      tap Trash at once: both rows as in 2 and 4.
+      6. *VoiceOver* on, in Trash, touch the "B-084 one" row: the account's
+      name, "3 messages", "Re: B-084 one", the third letter's time.
+      VoiceOver off.
+      The B-084 letters are in Trash already: nothing else to move.
+      *Seen 2026-10-19 on the iPadOS 18.6 simulator, with `+sim18`: steps
+      1, 2, 4 and 5 passed; 3 was not read, and 6 not tried, as the
+      simulator has no VoiceOver (B-084). On the iPad still to do.*
 
 ## Blocked on the owner
 

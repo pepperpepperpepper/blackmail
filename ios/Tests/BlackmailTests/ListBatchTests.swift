@@ -88,14 +88,18 @@ final class ListBatchTests: XCTestCase {
 
     /// Four letters ticked, two of them unread: all four rows go at the tap,
     /// before the server has answered any of them, one UID MOVE each and
-    /// nothing else, no fetch of the list again, each unread one billed
-    /// once, and one sweep asked for at the end for Trash's count, not one
-    /// for each.
+    /// nothing else, the oldest first (B-084), no fetch of the list again,
+    /// each unread one billed once, and one sweep asked for at the end for
+    /// Trash's count, not one for each.
     func testEveryRowGoesAtTheTapAndEachLetterIsMovedToTrashInTurn() async throws {
         let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
-        let chosen = [rows[0], rows[1], rows[10], rows[20]]
-        XCTAssertEqual(chosen.map(\.isRead), [false, false, true, true])
+        let chosen = await ListBatch.letters(ticked: [0, 1, 10, 20],
+                                             in: rows.map { MessageThread(messages: [$0]) })
+        XCTAssertEqual(chosen.map(\.id), [rows[20], rows[10], rows[1], rows[0]].map(\.id))
+        XCTAssertEqual(chosen.map { uid($0.id) }, chosen.map { uid($0.id) }.sorted(),
+                       "the oldest first")
+        XCTAssertEqual(chosen.map(\.isRead), [true, true, false, false])
         let (list, counts) = await makeList(folder: rows)
         let sweeps = Counter()
         server.clearLog()
@@ -427,15 +431,17 @@ final class ListBatchTests: XCTestCase {
         XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(real.id)))
     }
 
-    // MARK: - In list order
+    // MARK: - In the list's order, turned over
 
-    /// The rows he ticked go in list order, whatever order he ticked them
-    /// in, which is the order UIKit gives them: the rows from the top down,
-    /// a conversation's letters together as it holds them, each letter
-    /// once, and a row past the end of the list, which a regroup can leave
-    /// ticked, nothing. Taken in the order ticked, the third row's letter
-    /// went before the first's.
-    func testTickedRowsGoInListOrderWhateverOrderHeTickedThem() async throws {
+    /// The rows he ticked go in the list's order turned over, whatever
+    /// order he ticked them in, which is the order UIKit gives them: the
+    /// rows from the bottom up, a conversation's letters together, the
+    /// oldest first, each letter once, where the list has it first, and a
+    /// row past the end of the list, which a regroup can leave ticked,
+    /// nothing. Taken in the order ticked, the third row's letter went
+    /// before the first's (B-062); taken in the list's order, each row's
+    /// newest went first (B-084).
+    func testTickedRowsGoInTheListsOrderTurnedOverWhateverOrderHeTickedThem() async throws {
         let repository = makeRepository()
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         // The fifth row a conversation that holds the third's letter too,
@@ -447,9 +453,9 @@ final class ListBatchTests: XCTestCase {
             MessageThread(messages: [rows[3]]),
             MessageThread(messages: [rows[4], rows[2]]),
         ]
-        let inListOrder = [rows[0], rows[2], rows[6], rows[4]]
+        let going = [rows[4], rows[6], rows[2], rows[0]]
         let chosen = await ListBatch.letters(ticked: [4, 0, 2, 0, 9], in: threads)
-        XCTAssertEqual(chosen.map(\.id), inListOrder.map(\.id))
+        XCTAssertEqual(chosen.map(\.id), going.map(\.id))
 
         let (list, _) = await makeList(folder: rows)
         let sweeps = Counter()
@@ -457,9 +463,87 @@ final class ListBatchTests: XCTestCase {
         let outcome = await run(.delete, on: chosen, list: list, repository: repository,
                                 sweeps: sweeps)
 
-        XCTAssertEqual(outcome.taken, inListOrder.map(\.id))
+        XCTAssertEqual(outcome.taken, going.map(\.id))
         XCTAssertEqual(server.log.map(\.command),
-                       inListOrder.map { "UID MOVE \(uid($0.id)) \"\(Server.trash)\"" })
+                       going.map { "UID MOVE \(uid($0.id)) \"\(Server.trash)\"" })
+    }
+
+    /// A conversation of three, Carlo's letter and two replies, ticked and
+    /// deleted in Edit mode, reaches Trash in the order it came, the oldest
+    /// first, so its new UIDs there follow its letters' times (B-084).
+    /// Trash's row then names the newest letter by the folder's order
+    /// alone, without the times the server gives: the last reply's subject,
+    /// time and sender, its sender first, and the stack runs from Carlo's
+    /// letter at the top to the last reply. Another conversation moved out
+    /// of the folder in Edit mode is filed the same way. Sent the newest
+    /// first, as before, the newest had the lowest UID in Trash and the row
+    /// named Carlo's letter, "The roof", its time, Carlo first.
+    func testAConversationDeletedOrMovedGoesInTheOrderItCame() async throws {
+        let sent = Mailbox(id: Server.sent, name: "Sent Mail", unreadCount: 0, role: .sent)
+        for (action, folder, subject) in [(PaneAction.delete, Server.trash, "The roof"),
+                                          (.move(to: sent), Server.sent, "The gutter")] {
+            let tag = subject.split(separator: " ").last ?? ""
+            let first = Server.Letter(from: Server.carlo, to: [Server.owner], subject: subject,
+                                      date: Server.newestDate.addingTimeInterval(60),
+                                      text: "The first letter.\r\n", flags: ["\\Seen"],
+                                      messageID: "<\(tag)-1@example.org>")
+            let second = Server.Letter(from: Server.jane, to: [Server.owner],
+                                       subject: "Re: " + subject,
+                                       date: Server.newestDate.addingTimeInterval(120),
+                                       text: "The second letter.\r\n", flags: ["\\Seen"],
+                                       messageID: "<\(tag)-2@example.com>",
+                                       inReplyTo: first.messageID, joins: first.messageID)
+            let third = Server.Letter(from: Server.sam, to: [Server.owner],
+                                      subject: "Re: " + subject,
+                                      date: Server.newestDate.addingTimeInterval(180),
+                                      text: "The newest letter.\r\n", flags: ["\\Seen"],
+                                      messageID: "<\(tag)-3@example.com>",
+                                      inReplyTo: second.messageID, joins: first.messageID)
+            for letter in [first, second, third] {
+                server.deliver(letter, to: [Server.inbox, Server.allMail])
+            }
+            let repository = makeRepository()
+            _ = try await repository.folders()
+            let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+            let threads = MessageThread.group(rows)
+            XCTAssertEqual(threads[0].count, 3, folder)
+            XCTAssertEqual(threads[0].newest.subject, "Re: " + subject, folder)
+            let chosen = await ListBatch.letters(ticked: [0], in: threads)
+            XCTAssertEqual(chosen.map(\.date), [first.date, second.date, third.date],
+                           "the oldest first")
+            let (list, _) = await makeList(folder: rows)
+            let sweeps = Counter()
+            let before = Set(server.uids(in: folder))
+            server.clearLog()
+
+            let outcome = await run(action, on: chosen, list: list, repository: repository,
+                                    sweeps: sweeps)
+
+            XCTAssertEqual(outcome.taken, chosen.map(\.id), folder)
+            XCTAssertEqual(server.log.map(\.command),
+                           chosen.map { "UID MOVE \(uid($0.id)) \"\(folder)\"" }, folder)
+            let landed = server.uids(in: folder).filter { !before.contains($0) }
+            XCTAssertEqual(landed.compactMap { server.letter(uid: $0, in: folder)?.messageID },
+                           [first, second, third].map(\.messageID), "in the order they came")
+
+            let there = try await repository.listMessages(in: folder, beforeUID: nil, limit: 50)
+            // By the folder's order alone, as a build without the times
+            // groups it, and as the app groups it.
+            let byUID = there.map { row -> MessageSummary in
+                var row = row
+                row.arrived = nil
+                return row
+            }
+            for listed in [byUID, there] {
+                let row = try XCTUnwrap(MessageThread.group(listed).first { $0.count == 3 }, folder)
+                XCTAssertEqual(row.subject, "Re: " + subject, folder)
+                XCTAssertEqual(row.date, third.date, folder)
+                XCTAssertEqual(row.participants, ["Sam Example", "jane@example.com", "Carlo"],
+                               folder)
+                XCTAssertEqual(ConversationDocument.stack(of: row).map(\.date),
+                               [first.date, second.date, third.date], folder)
+            }
+        }
     }
 
     // MARK: - The reading pane

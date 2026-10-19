@@ -145,6 +145,51 @@ final class MailShelfTests: XCTestCase {
         XCTAssertEqual(older.map(\.cc), Array(repeating: [], count: 10))
     }
 
+    // MARK: - When the server took a letter
+
+    /// When the server took each letter is kept with its row and read
+    /// back, so a launch draws a conversation put in its folder out of turn
+    /// as a listing does, from the newest that came (B-084). A page kept
+    /// before the rows carried it reads, its rows with none, and each
+    /// conversation in it keeps the folder's order, as it was drawn then:
+    /// no new format, and nothing fails.
+    func testARowsArrivalIsKeptAndAPageKeptWithoutOneStillReads() throws {
+        var kept = rows(10)
+        let morning = Date(timeIntervalSince1970: 1_790_000_000)
+        for i in kept.indices {
+            kept[i].arrived = morning.addingTimeInterval(Double(-i) * 3_600)
+        }
+        // The first two one conversation, in Trash out of turn: the second
+        // listed came later.
+        kept[1].threadID = kept[0].threadID
+        kept[1].arrived = morning.addingTimeInterval(600)
+        let writing = shelf()
+        writing.took(page: kept, of: "INBOX", validity: 1)
+        writing.flush()
+        let read = try XCTUnwrap(shelf().page(of: "inbox")).rows
+        XCTAssertEqual(read.map(\.arrived), kept.map(\.arrived))
+        let row = MessageThread.group(read)[0]
+        XCTAssertEqual(row.newest.id, kept[1].id)
+        XCTAssertEqual(row.id, kept[0].id)
+
+        // The page as a build before the arrival wrote it.
+        let file = try pageFile(of: "INBOX", under: writing.directory)
+        var page = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file))
+                                    as? [String: Any])
+        var records = try XCTUnwrap(page["rows"] as? [[String: Any]])
+        XCTAssertEqual(records.filter { $0["arrived"] != nil }.count, 10)
+        for i in records.indices { records[i]["arrived"] = nil }
+        page["rows"] = records
+        try JSONSerialization.data(withJSONObject: page).write(to: file)
+
+        let older = try XCTUnwrap(shelf().page(of: "inbox")).rows
+        XCTAssertEqual(older.map(\.id), kept.map(\.id))
+        XCTAssertEqual(older.map(\.arrived), Array(repeating: nil, count: 10))
+        let byUID = MessageThread.group(older)
+        XCTAssertEqual(byUID[0].messages.map(\.id), [kept[0].id, kept[1].id])
+        XCTAssertEqual(byUID.count, 9)
+    }
+
     // MARK: - His own counts
 
     /// His read and unread marks move the kept counts as they move the
