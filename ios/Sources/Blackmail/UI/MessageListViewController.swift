@@ -24,6 +24,8 @@ final class MessageListViewController: UITableViewController {
     /// into its conversation at the bottom of its stack (B-074).
     var onRegrouped: (() -> Void)?
     var onMessagesChanged: (() -> Void)?
+    /// The folder counts, for his Refresh, which says so when they cannot
+    /// be fetched. His alone: a Save in Settings asks for none (B-085).
     var onRefreshRequested: (() -> Void)?
     /// Returns once the folder counts asked for have come, and at once when
     /// none is on its way (`MailboxListViewController.countsSwept`): his
@@ -2243,10 +2245,17 @@ final class MessageListViewController: UITableViewController {
             // built again for it. His addresses are what the rows leave out
             // (B-075, B-076): the list takes them as saved and draws its rows
             // again, in place.
+            //
+            // Nothing is asked of the server either (B-085). No count
+            // changes with what is saved here. The counts used to be swept
+            // all the same, from when a new password was saved this way
+            // too; it goes by `onPasswordSaved` now, which builds the
+            // screens again over a repository that signs in with it. With
+            // no connection that sweep put "Can't connect to mail server."
+            // over a save that had worked.
             guard let self else { return }
             self.mine = OwnAddresses(account: saved)
             self.regroup()
-            self.onRefreshRequested?()
         }
         settings.onPasswordSaved = { [weak self] account, password, notice in
             self?.onPasswordSaved?(account, password, notice)
