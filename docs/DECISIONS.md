@@ -1057,6 +1057,14 @@ Dock's size, 120 px on his 2x screen, and in the share sheet, the glove,
 the envelope and the handing over all read. The rounded mask trims only
 the sleeve.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch: the
+photograph on the home screen, in Safari's share sheet's row of apps, and
+in Settings, General, iPad Storage, on its row and larger on its page.
+Each rounded, with no black corners, and the old envelope nowhere. The
+list of apps at the foot of Settings' sidebar does not have it on 16.5.1.
+The app has no Settings bundle, and on the test iPad it went on through
+TrollStore's helper; which of the two leaves it out was not looked into.
+
 **The cost, accepted:**
 
 - At 58 px, in Settings' list of apps and above the app switcher's card,

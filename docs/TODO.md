@@ -2138,7 +2138,7 @@ this host. Ordered by value, not by size.
       reply was put into the mailbox already read, the iPad not taken
       offline. In 3 the long letter's body had come before it was opened,
       so there was no load to watch (B-074).*
-- [ ] **B-075, Sent Mail's rows as Mail's.** On the test iPad, three
+- [x] **B-075, Sent Mail's rows as Mail's.** On the test iPad, three
       panes, Organize by Thread on, the test account only, every letter
       to the account itself: "Jane's address" is its address with `+jane`
       before the `@`, typed `Jane Example <` the address `>`, and "Sam's"
@@ -2176,7 +2176,10 @@ this host. Ordered by value, not by size.
       Then delete the B-075 letters and the draft.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: all steps passed (B-075).*
       *Seen on the test iPad 2026-10-07: 1 to 6 passed; in 7 the taps went
-      to the app, not to VoiceOver. On the iPad still to do: 7.*
+      to the app, not to VoiceOver.*
+      *Seen on the test iPad 2026-10-19: 7 passed, VoiceOver put on the
+      row by B-079's move, a touch still going to the app: "selected,
+      Unread, Jane & Sam, 2 messages", the subject, the time (B-075).*
 - [x] **B-076, Reply as Mail's: bubbles and his addresses.** On the test
       iPad, the test account only; A stands for its address. Letters only
       to A with a `+` tag before the @, subjects beginning "B-076".
@@ -2297,7 +2300,7 @@ this host. Ordered by value, not by size.
       and 7 passed; 2 failed once in three, 3 in each folder with letters,
       and 5 as the list moved. Changed again for 2 and 3, and 5 rewritten
       for VoiceOver's own scroll (B-079); not yet seen there.*
-- [ ] **B-080, every folder's conversation rows as Mail's.** On the test
+- [x] **B-080, every folder's conversation rows as Mail's.** On the test
       iPad, three panes, Organize by Thread on, the test account only,
       every letter to the account itself: "Jane's address" is its
       address with `+jane` before the `@`, typed `Jane Example <` the
@@ -2342,8 +2345,15 @@ this host. Ordered by value, not by size.
       VoiceOver read from the accessibility tree; Spam, Important and
       Starred not opened. Step 8 with the app's clock moved two days
       ahead, to a Friday: in Trash, in Edit, "Wednesday" whole before the
-      mark (B-080). On the iPad still to do.*
-- [ ] **B-081, a To ending in ";".** On the test iPad, the test account
+      mark (B-080).*
+      *Seen on the test iPad 2026-10-19: 1 to 7 passed (B-080). In 6 a
+      touch went to the app, so VoiceOver was put on the row by B-079's
+      move; in 7 the app was ended and opened again, as the swipe into the
+      app switcher could not be sent. 8 could not be done: no letter in
+      any folder had come on the Wednesday before. The suite holds it.
+      Seen in passing: in Trash a conversation's row stood for its oldest
+      letter, now B-084.*
+- [x] **B-081, a To ending in ";".** On the test iPad, the test account
       only, landscape, the on-screen keyboard, built from the
       `stray-semicolon` worktree. It is the send path: merge only after a
       pass. A stands for the account's address; letters only to A with a
@@ -2385,8 +2395,13 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: steps 1 to 6 passed,
       with a hardware keyboard and `+sim18` in 1, 4 and 6; 0, 7 and 8
       passed on a simulated iPad built from master, then given this build
-      (B-081). On the iPad still to do.*
-- [ ] **B-082, a name changed in Settings, at once.** On the test iPad,
+      (B-081).*
+      *Seen on the test iPad 2026-10-19, the on-screen keyboard: 1 to 8
+      passed. 0 was not run: this build was already installed, and the
+      book had no entry with a ";". So 7 ran on a clean book, and 8 on a
+      draft this build made: one RCPT TO, `+sam`'s, none for the group
+      (B-081).*
+- [x] **B-082, a name changed in Settings, at once.** On the test iPad,
       the test account only, landscape, built from the `account-name`
       worktree. It is the send path: merge only after a pass. A stands for
       the account's address; letters only to A with a `+` tag before the
@@ -2429,16 +2444,23 @@ this host. Ordered by value, not by size.
       Then move the B-082 letters to Trash.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: steps 1 to 6, 8 and
       9 passed, the account named "Carlo" and with no signature, so 7 was
-      not tried (B-082). On the iPad still to do.*
-- [ ] **B-083, an Outbox letter goes as it was sent.** On the test iPad,
+      not tried (B-082).*
+      *Seen on the test iPad 2026-10-19, with `+ipad` for `+sim18`: all
+      nine steps passed, 7 included, the formatted signature gone from
+      the plain letter and back, byte for byte, in the restored one. The
+      app was never quit (B-082).*
+- [x] **B-083, an Outbox letter goes as it was sent.** On the test iPad,
       the test account only, landscape, built from the `outbox-name`
       worktree. It is the send path: merge only after a pass. A stands
       for the account's address; letters only to A with `+jane` before
       the @, subjects beginning "B-083". *Steps for a person at the iPad:*
       the iPad is reached for checks over its Wi-Fi, and Airplane Mode
       cuts that, so these are done by hand, and the iPad's Wi-Fi is on
-      again before anyone reaches it from elsewhere. Note the account's
-      name in Blackmail's Settings first: it goes back at the end.
+      again before anyone reaches it from elsewhere. They can also be done
+      with the iPad on its cable, which Airplane Mode does not cut, as on
+      2026-10-19; then too its Wi-Fi is on again at the end. Note the
+      account's name in Blackmail's Settings first: it goes back at the
+      end.
       1. *Queued.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
       if it stays on. Blackmail, a new letter To A with `+jane`, Subject
       "B-083 queued", Send. Note the time on the iPad's clock. The sheet
@@ -2472,8 +2494,13 @@ this host. Ordered by value, not by size.
       is on. Move the B-083 letters to Trash.
       *Seen 2026-10-09 on the iPadOS 18.6 simulator, the line cut by
       blocking the mail ports: steps 1 to 6 passed, with `+sim18`; the
-      account has no signature there, so 7 was not tried (B-083). On the
-      iPad still to do.*
+      account has no signature there, so 7 was not tried (B-083).*
+      *Seen on the test iPad 2026-10-19, the iPad on its cable, Airplane
+      Mode from Control Centre: all eight steps passed, 7 included
+      (B-083). The waiting letter went by itself once the connection was
+      back, before Refresh in 3 and 6. Airplane Mode turned Wi-Fi off and
+      on with it, and offline each Save in Settings was followed by "Can't
+      connect to mail server.", now B-085.*
 
 ## Blocked on the owner
 
@@ -2526,10 +2553,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       rows)
       *Decided 2026-10-06: "copy apple mail for these", for this and
       B-060's other four. Built (B-075), seen in the simulator and on the
-      iPad 2026-10-07 but for VoiceOver: in Sent Mail, Drafts and the
-      Outbox the To alone, one person whole, two or more by short names
-      joined "Jane & Sam", no count, and Mail's blue chevron in a circle
-      after the date on a conversation. "No Recipients" kept. His
+      iPad 2026-10-07, its VoiceOver 2026-10-19: in Sent Mail, Drafts and
+      the Outbox the To alone, one person whole, two or more by short
+      names joined "Jane & Sam", no count, and Mail's blue chevron in a
+      circle after the date on a conversation. "No Recipients" kept. His
       addresses are the ones B-076's Settings list holds, as written, as
       Mail's are. The Inbox and the other folders keep their "(2)", to be
       asked about separately.*
@@ -2540,10 +2567,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       marks a conversation everywhere. Keep the count (built), or the
       mark there too.
       *Decided 2026-10-07 by the owner: the mark there too, as Mail.
-      Built as B-080, seen in the simulator, not yet on the iPad: no
-      count on any row, the blue chevron in a circle after the date on
-      a conversation's row in every folder, and VoiceOver saying how
-      many.*
+      Built as B-080, seen in the simulator and on the iPad 2026-10-19 but
+      for a Wednesday: no count on any row, the blue chevron in a circle
+      after the date on a conversation's row in every folder, and
+      VoiceOver saying how many.*
 - [x] **Reply's addressing** (B-061) — built as Mail is believed to do it,
       none of it checked against Mail on an iPad. Reply All to a letter
       with a Reply-To goes to the Reply-To in place of the From, or to

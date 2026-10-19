@@ -9814,7 +9814,7 @@ alone, showed its signature white on the dark pane. Not looked into.
 
 ---
 
-## B-075 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad but for VoiceOver. A conversation in Sent Mail lost its count off the end of the names; Mail names the To alone and marks a conversation after the date
+## B-075 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad. A conversation in Sent Mail lost its count off the end of the names; Mail names the To alone and marks a conversation after the date
 
 **Asked** in B-060, 2026-10-03, with four more questions about the rows
 of Sent Mail, Drafts and the Outbox. B-060 named the To, the Cc and the
@@ -10079,6 +10079,20 @@ server.", and one of the four rows went from the list behind the message.
 Refresh brought it back, and a second Delete took all four. Not B-075's;
 not looked into.
 
+**Seen on the test iPad, 2026-10-19**, the same iPad, landscape, two
+panes, a build of a0b6062, B-079 to B-083 merged on master 44d953c, on the
+test account, VoiceOver and its Caption Panel on. Step 7 passed. A touch
+on the row went to the app, not to VoiceOver, as before: the app is among
+the iPad's Direct Touch apps. So VoiceOver was put on the row by B-079's
+move: with the conversation open, "< Mailboxes", then Sent Mail, the open
+folder. A letter To Jane and Sam, Cc the account, Subject "R3 B-075 one",
+and a reply to it made the row "Jane & Sam", the time, the mark, no count.
+VoiceOver read "selected, Unread, Jane & Sam, 2 messages, Re: R3 B-075
+one, 11:34 AM", its box on the row, from 1.4 s to 11 s after the tap on
+Sent Mail, the last of the shots. "selected" is the open letter's
+highlight, "Unread" the reply's dot. Every step of the TODO check has now
+passed on the iPad.
+
 **Not covered.**
 
 - Mail itself was not seen with a conversation in Sent on an iPad.
@@ -10092,8 +10106,8 @@ not looked into.
   made. Sent with a connection, such a letter was refused and stayed in
   the composer; one sent with no connection would wait there. The suite
   holds its name in the Outbox.
-- VoiceOver was read from the accessibility tree, not heard. On the iPad
-  it was on, but not made to read the row (TODO, step 7).
+- VoiceOver was read from the accessibility tree in the simulator, and off
+  its Caption Panel on the iPad (2026-10-19), not heard.
 
 ---
 
@@ -11605,7 +11619,7 @@ none failing. The release build for the iPad links.
 
 ---
 
-## B-080 — CHANGED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. Every folder but Sent Mail, Drafts and the Outbox ended a conversation's names with its count; Mail has no count on any row and marks a conversation after the date
+## B-080 — CHANGED 2026-10-07, seen in the iPadOS 18 simulator and on the iPad but for a Wednesday. Every folder but Sent Mail, Drafts and the Outbox ended a conversation's names with its count; Mail has no count on any row and marks a conversation after the date
 
 **Asked** in B-075, 2026-10-06. B-075 took the count off the rows of
 Sent Mail, Drafts and the Outbox and marked a conversation there with
@@ -11842,9 +11856,52 @@ the next went out under the new one. Not this change's; not looked
 into. The screenshots are in the pass's folder, not in the repo: they
 show the test account's address.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, three panes, Organize by Thread on, the on-screen keyboard, a
+build of a0b6062, B-079 to B-083 merged on master 44d953c, on the test
+account, whose name there is Carlo. Every letter To Jane at the account's
+own address with `+jane`, subjects beginning "R3 B-080". Steps 1 to 7 of
+its TODO check passed. Step 8 could not be done: it was a Monday, and no
+folder held a letter from the Wednesday before. A letter cannot be sent
+with a date gone by, and the iPad's clock was not moved.
+
+1. *A single letter.* The unread dot, "Carlo", "9:22 AM" at the right
+   edge, no mark, no count.
+2. *A conversation*, two replies on. "Carlo", "9:24 AM", the blue chevron
+   in a circle at the right edge, "Re: R3 B-080 one", and no "(3)". The
+   names and the subject begin where the row below has them, and the
+   circle ends where that row's "Saturday" ends. A tap opened the three in
+   the reading pane, at the newest.
+3. *Other folders.* Sent Mail: "Jane Example", the time, the mark, no
+   count. All Mail: as the Inbox. Trash: a conversation of an earlier
+   pass marked after the date, with no count, the single letters with
+   neither. Important: seven single letters, none marked. Spam empty.
+   Starred empty, not opened. The account has no folders of its own.
+4. *Edit.* The mark after the time on every conversation, where it was,
+   the names a little shorter. Done: as before.
+5. *A search* for "B-080". Current Mailbox: a row for each of the three
+   letters, "Carlo", no mark, no count. All Mailboxes: the same three,
+   then the earlier B-080 letters in Trash, a row each, no mark, no count.
+6. *VoiceOver.* "Carlo, 3 messages, Re: R3 B-080 one, 9:24 AM", read off
+   its Caption Panel, its box on the row. A touch on the row went to the
+   app, the app being among the iPad's Direct Touch apps, so VoiceOver was
+   put on the row by B-079's move in two panes: "< Mailboxes", then the
+   Inbox.
+7. *A long name.* "Carlo Wolfeschlegelsteinhausen Example", Save. The
+   swipe into the app switcher could not be sent to the iPad, so the app
+   was ended and opened again instead; since B-082 the quit is not needed.
+   A reply, Refresh: "Carlo Wolfeschleg…", "9:35 AM", the mark, all on one
+   line. Edit: "Carlo Wolfesc…", the time and the mark, cut shorter. The
+   name put back.
+
+The four letters were moved to Trash in Edit mode. Seen in passing, now
+B-084: in Trash, the row of that conversation stood for its oldest letter,
+not its newest. It read "9:22 AM" and "R3 B-080 one", the names begun with
+that letter's sender, "Carlo, Carlo Wolfes…". The newest is "Re: R3 B-080
+one", sent at 9:35. The mark was there, with no count, as B-080 has it.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how.
 - Mail itself was not seen with a conversation in an iPadOS 18 Inbox.
   What it does is B-075's finding, from its code and from screenshots
   of an iPhone.
@@ -11852,19 +11909,23 @@ show the test account's address.
   the simulator, where every letter is from the test account. The long
   list of who wrote above is the account under two names. Several
   people's names are the suite's.
-- Spam, Important, Starred and folders of his own were not opened. The
+- In the simulator, Spam, Important, Starred and folders of his own were
+  not opened. On the iPad Spam was empty, Important held single letters
+  alone, Starred was empty, and the account has no folders of its own. The
   row does not ask the folder; the suite holds them.
-- VoiceOver was read from the accessibility tree, not heard.
-- Item 5 was seen with the app's clock moved, not on a real Friday. On
-  the iPad its step needs a Friday to a Tuesday and a conversation
-  whose newest letter came on the Wednesday before.
+- VoiceOver was read from the accessibility tree in the simulator, and off
+  its Caption Panel on the iPad, not heard.
+- Item 5 was seen with the app's clock moved, not on a real Friday. On the
+  iPad its step needs a Friday to a Tuesday and a conversation whose
+  newest letter came on the Wednesday before. On 2026-10-19, a Monday, the
+  test account had none.
 - A language whose day names are longer than "Wednesday" takes more
   from the names the same way, since the cell measures each row's own
   date. Only English was tried.
 
 ---
 
-## B-081 — FIXED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. A letter whose To ended in ";" was refused
+## B-081 — FIXED 2026-10-07, seen in the iPadOS 18 simulator and on the iPad. A letter whose To ended in ";" was refused
 
 **Found** on 2026-10-06, in the simulator, during B-075's check, and noted
 in its entry: a letter To an address with ";" typed after it was refused
@@ -12176,11 +12237,55 @@ The three letters were moved to Trash in the app. Read over IMAP after:
 the seven B-081 letters of both passes in Trash, once each, none left in
 All Mail or Drafts.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, a build of a0b6062, B-079 to B-083 merged on master 44d953c, on
+the test account. Every letter to the test address with a tag before the
+"@", subjects beginning "R3 B-081". Each ";" and "," from the on-screen
+keyboard's .?123 side. Steps 1 to 8 of the TODO check passed. Step 0 was
+not run: this build was already on the iPad, and none of the twelve
+entries in the iPad's book had a ";". So 7 ran on a clean book, and 8 on a
+draft this build made.
+
+1. *Typed.* `+jane`, then ";": a bubble at once, the line after it empty.
+   ";", a space, ";": still the one bubble. Subject "R3 B-081 semicolon",
+   Send: "Sending…", then the sheet closed with no "Message was not sent."
+   The connection log: one RCPT TO, the address alone, and Gmail's 250.
+   Over IMAP it arrived once, its To the address alone, with no ";".
+2. *Two.* `+jane`, ";", `+sam`, ";": two bubbles. Sent: two RCPT TOs, each
+   250, and it arrived once, To the two joined by a comma.
+3. *A ";" alone* in To: nothing, and Send stayed grey. Cancel closed it
+   with nothing asked.
+4. *A draft.* `+jane` and ";", Cancel, Save Draft. Gmail's copy in Drafts:
+   To the address alone. Its row in Drafts named the address; opened, one
+   bubble. Send: one RCPT TO, it arrived once, and Drafts was empty, in
+   the app and on the server.
+5. *Reply All* on "R3 B-081 two": To `+jane` and `+sam`, a bubble each,
+   nothing in Cc or Bcc. Cancel closed it without a word.
+6. *The share sheet,* from Safari on example.com: `+sam` and ";", one
+   bubble. Send: it arrived once, To `+sam` alone. The share sheet sends
+   from a process of its own, so this send is not in the app's log.
+7. *The book.* `+ja` in a new letter's To: one row, "Jane Example" and her
+   address, no ";". Picked, a bubble; `+ja` again, no rows. The same in
+   the share sheet. Each closed with Delete Draft.
+8. *The empty group.* "undisclosed-recipients:" then ";": one bubble,
+   "undisclosed-recipients:;", whole, and Send grey; a "," after it added
+   nothing. Bcc `+sam`, Cancel, Save Draft. Gmail's copy: To
+   "undisclosed-recipients:;" and the Bcc; its row "No Recipients".
+   Opened: the group's bubble whole and the Bcc's. Send: it arrived once,
+   at `+sam`, its To "undisclosed-recipients:;". The connection log: one
+   RCPT TO, `+sam`'s, 250, and none for the group. The simulator saw 8
+   only before the group was left out of the envelope; this is the first
+   sight of it left out.
+
+Each of the five letters arrived once, in the Inbox, Sent Mail and All
+Mail, and none in Spam. They were moved to Trash in the app.
+
 **Not covered.**
 
 - Mail itself was not tried with a ";". The rule is the one asked for.
-- Not yet seen on the iPad. The TODO says how. It is the send path: merge
-  only after that check.
+- Step 0 of the TODO check was not run on the iPad, this build being on it
+  already. So a book and an empty group's draft kept by an earlier build
+  were seen in the simulator alone (7, 8).
 - A draft or a letter in the Outbox kept with a ";" after an address by
   an earlier build was not made in the simulator. Master's build there
   made the old book and the empty group's draft (7 and 8), not these. The
@@ -12188,17 +12293,17 @@ All Mail or Drafts.
   one on its row (`RowNames`), though it goes to both.
 - A `mailto:` link with ";" was not opened in the simulator. The suite
   holds a field opened with one.
-- His iPad's own keyboard was not used: the simulator's hardware keyboard
-  typed every ";".
+- His iPad's own keyboard was not used. In the simulator the hardware
+  keyboard typed every ";", and on the test iPad the on-screen one.
 - The share sheet's copy of a book kept by an earlier build was not
   seen: the app made it again at launch, before a share could be tried.
   The suite holds it.
-- The empty group's draft was made by master's build, not by another
-  client.
+- The empty group's draft was made by master's build in the simulator and
+  by this build on the iPad, not by another client.
 
 ---
 
-## B-082 — FIXED 2026-10-07, seen in the iPadOS 18 simulator, not yet on the iPad. A name changed in Settings went on his letters only after the app was quit and opened again
+## B-082 — FIXED 2026-10-07, seen in the iPadOS 18 simulator and on the iPad. A name changed in Settings went on his letters only after the app was quit and opened again
 
 **What he saw.** Seen on 2026-10-07, in a simulated iPad on iPadOS 18.6,
 during B-080's check, and noted in its TODO item. The account's name was
@@ -12364,15 +12469,47 @@ The six letters were moved to Trash in the app. Read over IMAP after: the
 six in Trash, once each, none left in All Mail, the Inbox, Sent Mail or
 Drafts. The account's name is "Carlo" again.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, the on-screen keyboard, a build of a0b6062, B-079 to B-083
+merged on master 44d953c, on the test account as "Carlo", with a formatted
+signature of 13 lines and its picture. Every letter to the test address
+with `+ipad` before the "@", subjects beginning "R3 B-082", and read over
+IMAP. Every step of the TODO check passed, 7 included, and the app was
+never quit.
+
+1. *Before.* From "Carlo", with the text, the HTML and the picture.
+2. *Save.* The name "Carlo Wolfeschlegelsteinhausen Example". The list,
+   scrolled part way, stayed where it was, each row in its place.
+3. *Reply,* after Refresh: From the new name, in the letter's thread.
+4. *A new letter:* From the new name.
+5. *A draft.* Gmail's copy in Drafts From the new name. Opened from Drafts
+   and sent: From the new name, and Drafts empty after.
+6. *The book.* "carlo" in To offered his address first as "Carlo
+   Wolfeschlegelsteinhausen Example", the Inbox still listing the old
+   letters From "Carlo".
+7. *The signature.* Settings showed both. Restore Original Signature,
+   Restore, left the same 13 lines, and the original kept on the iPad was
+   the signature in use, its words, its HTML and its picture; so 7 was
+   done. Plain text, Save: "R3 B-082 plain" went as text alone, the
+   signature's words in it, no HTML, no picture. Restore Original
+   Signature, Save: "R3 B-082 restored" went with the HTML and the picture
+   again, its HTML byte for byte that of the letters before.
+8. *The share sheet,* from Safari: From the new name.
+9. *Put back.* "Carlo", Save: "carlo" offered "Carlo" first again, and "R3
+   B-082 name back" went From "Carlo".
+
+The eight letters were moved to Trash in the app. The account was as
+found, field for field.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how. It is the send path: merge
-  only after that check.
 - The simulator's account has no signature, so "plain text", "Restore
   Original Signature" and a changed signature were not seen there. The
-  suite holds them.
-- A letter in the Outbox was not made in the simulator: it needs the
-  line taken down. The suite holds it.
+  suite holds them. On the iPad plain text and Restore were seen (7); a
+  changed signature was not.
+- A letter in the Outbox was not made in the simulator: it needs the line
+  taken down. The suite holds it. B-083's check made such letters on the
+  iPad.
 - A share right after Save, before the app has gone to the background,
   cannot be made: Safari is another app. The share sheet's copy of the
   account is handed over at Save as well as on leaving.
@@ -12385,7 +12522,7 @@ Drafts. The account's name is "Carlo" again.
 
 ---
 
-## B-083 — CHANGED 2026-10-09, seen in the iPadOS 18 simulator, not yet on the iPad. A letter waiting in the Outbox went under the name saved when it went, and was dated then; Mail's goes as it was when Send was tapped
+## B-083 — CHANGED 2026-10-09, seen in the iPadOS 18 simulator and on the iPad. A letter waiting in the Outbox went under the name saved when it went, and was dated then; Mail's goes as it was when Send was tapped
 
 **Asked** on 2026-10-08. B-082 made a name changed in Settings go on the
 next letter at once, and said under "Not covered" that Mail's own Outbox
@@ -12611,13 +12748,59 @@ The account's name is "Carlo" again, as before the run. The three letters
 were moved to Trash in the app. Read over IMAP after: the three in
 Trash, once each, none left in All Mail.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, the on-screen keyboard, a build of a0b6062, B-079 to B-083
+merged on master 44d953c, on the test account as "Carlo", with its
+formatted signature. Every letter to the test address with `+jane` before
+the "@", subjects beginning "R3 B-083", and read over IMAP: From, Date and
+INTERNALDATE. The connection was cut with Airplane Mode, from Control
+Centre, the iPad reached by its cable. Times are the iPad's clock. Every
+step of the TODO check passed, 7 included.
+
+1. *Queued.* Airplane Mode on. Send at 10:40:03: the sheet closed at once,
+   "Message is in the Outbox. It will be sent when the iPad is connected
+   and Blackmail is open.", and the status line read "1 Unsent Message",
+   "No Connection". The Outbox listed it.
+2. *Renamed.* "Carlo Renamed Example", Save.
+3. *Back.* Two minutes on, Airplane Mode off, Wi-Fi back with its mark.
+   The letter went by itself, before Refresh, and the Outbox read "No
+   messages".
+4. *Over IMAP:* From "Carlo", Date 10:40:03, the moment of Send; Gmail
+   took it 3 min 48 s later. One copy, under the Message-ID it went in
+   with, with the formatted signature.
+5. *After.* Sent online at 10:44:45: From "Carlo Renamed Example", dated
+   then.
+6. *Opened and sent again.* Airplane Mode on, Send at 10:45:57: in the
+   Outbox. The name "Carlo", Save. Opened from the Outbox, Send again at
+   10:47:04: in the Outbox once more. Airplane Mode off: it went by
+   itself, before Refresh. From "Carlo Renamed Example", the name at the
+   first Send; Date 10:47:04, the second's. One copy, under a new
+   Message-ID; the first never reached Gmail.
+7. *The signature,* after the check B-082's step 7 asks for, made again
+   first: both shown, and the same 13 lines after Restore. Airplane Mode
+   on, Send: in the Outbox. Plain text, Save. Airplane Mode off, Refresh:
+   it went From "Carlo", with the text, the HTML and the picture, the HTML
+   byte for byte that of the letters sent before. Restore Original
+   Signature, Save.
+8. *Put back.* The name "Carlo" and the signature as found, Airplane Mode
+   off, Wi-Fi on. The four letters were moved to Trash in the app.
+
+Seen in passing, none of it B-083's:
+
+- Offline, each Save in Blackmail's Settings was followed by the alert
+  "Can't connect to mail server." Save asks for the folders' counts again
+  (`onSaved`), and that cannot connect; the Save itself was made each
+  time. Now B-085.
+- The waiting letter went by itself once the connection was back: 8 s and
+  19 s after Airplane Mode went off, before any Refresh (3, 6). In 7
+  Refresh was tapped 21 s after, and it went 2 s later.
+- Airplane Mode from Control Centre turned Wi-Fi off with it and back on
+  with it, so the TODO's "Wi-Fi off if it stays on" never applied.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how, by hand: it needs the
-  iPad's connection cut. It is the send path: merge only after that
-  check.
-- The simulator's account has no signature, so the kept signature was
-  not seen there. The suite holds it.
+- The simulator's account has no signature, so the kept signature was not
+  seen there. The suite holds it. On the iPad it was (7).
 - What Mail does was read from iOS 18.6's code, not run. His iPad has
   iPadOS 18.7.9, not compared. Gmail kept the name and the Date as they
   were sent, in the simulator's letters.
