@@ -648,6 +648,10 @@ final class MessageListViewController: UITableViewController {
     /// The row VoiceOver is on, or has been sent to, kept on its letter when
     /// the rows are drawn again. See `ListVoiceOver`.
     private var voiceOver = ListVoiceOver()
+    /// VoiceOver asked where it is while a row is held, and the timer that
+    /// asks (the fourth change). See `FocusWatch`.
+    private var focusWatch = FocusWatch()
+    private var voiceOverTicks: Timer?
 
     /// Where VoiceOver goes as this list comes in front in two panes: the
     /// highlighted row if any of it is in sight, else the first row wholly
@@ -661,6 +665,7 @@ final class MessageListViewController: UITableViewController {
         let place = tableView.voiceOverPlace(orFirstRow: true)
         voiceOver.send(to: voiceOverRow(of: place), running: UIAccessibility.isVoiceOverRunning,
                        at: Date())
+        watchVoiceOver()
         return place
     }
 
@@ -675,11 +680,32 @@ final class MessageListViewController: UITableViewController {
         tableView.showWhole(forVoiceOver: tableView.indexPathForSelectedRow)
     }
 
-    /// The row held for VoiceOver let go: the panes have been switched, and
-    /// the view button names its twin in the corner.
+    /// The row held for VoiceOver let go, and VoiceOver no longer asked
+    /// where it is: the panes have been switched, and the view button names
+    /// its twin in the corner; he has opened or ticked a row; the list's
+    /// column is out of sight.
     @MainActor
     func letGoOfVoiceOver() {
         voiceOver.letGo()
+        stopWatchingVoiceOver()
+    }
+
+    /// VoiceOver asked where it is every tenth of a second while the row
+    /// just sent to is held (`FocusWatch`): from now, from nothing seen. No
+    /// ticks with nothing held.
+    @MainActor
+    private func watchVoiceOver() {
+        voiceOverTicks?.invalidate()
+        voiceOverTicks = focusWatch.start(holding: voiceOver.sentRow(at: Date()) != nil)
+            ? Timer.voiceOverTicks(self, #selector(voiceOverTick)) : nil
+    }
+
+    /// No more ticks.
+    @MainActor
+    private func stopWatchingVoiceOver() {
+        focusWatch.stop()
+        voiceOverTicks?.invalidate()
+        voiceOverTicks = nil
     }
 
     /// The row at `index` in the rows as they are now.
@@ -720,7 +746,11 @@ final class MessageListViewController: UITableViewController {
 
     /// What VoiceOver is on, `element`, as this list sees it, and the row if
     /// it is one of the list's. `place`, the cell the row VoiceOver was
-    /// sent to is drawn in now, if any. A row of the list first. Then his
+    /// sent to is drawn in now, if any. A row of the list first: the row
+    /// sent to if it is that cell's row, by its place in the list alone.
+    /// `place` is worked out for the row's letter at each look, and
+    /// UIKit's element for a row need not have the cell's words, so its
+    /// words are not compared (the fourth change). Then his
     /// typing: a key, or the search field while he types in it. Then the
     /// list's own column: its bar with the view button and "< Mailboxes",
     /// apart, but in the Outbox, which has no search band, only those two,
@@ -736,10 +766,7 @@ final class MessageListViewController: UITableViewController {
         guard let element else { return (.elsewhere, nil) }
         if let on = listRow(of: element) {
             guard let place else { return (.otherRow, on) }
-            let there = (element as AnyObject) === place
-                || (on == voiceOverRow(of: place)?.index
-                    && (element as? NSObject)?.accessibilityLabel == place.accessibilityLabel)
-            return (there ? .sentRow : .otherRow, on)
+            return (on == voiceOverRow(of: place)?.index ? .sentRow : .otherRow, on)
         }
         if (element as? NSObject)?.accessibilityTraits.contains(.keyboardKey) == true
             || (!isOutbox && searchBar.isTyping) { return (.typing, nil) }
@@ -762,7 +789,7 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func voiceOverHeld() -> ListVoiceOver.Row? {
         guard listInSight else {
-            voiceOver.letGo()
+            letGoOfVoiceOver()
             return nil
         }
         let running = UIAccessibility.isVoiceOverRunning
@@ -812,23 +839,53 @@ final class MessageListViewController: UITableViewController {
         UIAccessibility.post(notification: .layoutChanged, argument: place)
     }
 
-    /// VoiceOver has moved. If it has just been sent to a row and has gone
-    /// to another of the list's rows, to a cell drawn since for another
-    /// letter, or to the list's own bar or table, it is put on the one it
-    /// was sent to, once; and if it has been there and has gone by itself
-    /// to the reading pane or the list's bar (`ListVoiceOver.moved`). The
-    /// list's column out of sight, the row is let go.
+    /// VoiceOver has moved. While a row is held, VoiceOver is asked where
+    /// it is on the next turn, after its own move. Not from the element
+    /// this names: on the iPad that was nothing the list could find, at
+    /// the landing on the row and at the leave (`FocusWatch`).
     @objc private func voiceOverMoved(_ note: Notification) {
+        guard isViewLoaded, voiceOver.sentRow(at: Date()) != nil else { return }
+        DispatchQueue.main.async { [weak self] in self?.lookAtVoiceOver(onlyIfMoved: false) }
+    }
+
+    /// A tick while a row is held: VoiceOver asked where it is, in case its
+    /// move was not told.
+    @objc private func voiceOverTick() {
+        lookAtVoiceOver(onlyIfMoved: true)
+    }
+
+    /// Where VoiceOver is, from VoiceOver itself, told apart for the row
+    /// held. At a tick, `onlyIfMoved`, only when it is on another object
+    /// than the one last seen. If it has just been sent to the row and has
+    /// gone to another of the list's rows, to a cell drawn since for
+    /// another letter, or to the list's own bar or table, it is put on the
+    /// one it was sent to, once; and if it has been there and has gone by
+    /// itself to the reading pane or the list's bar (`ListVoiceOver.moved`).
+    /// The ticks stop with nothing held, at the bound, and once the row is
+    /// put back or let go. The list's column out of sight, the row is let
+    /// go. VoiceOver on nothing, as it may be for a moment as it moves, is
+    /// passed over: the row stays held, and the next look tells apart
+    /// where it went.
+    @MainActor
+    private func lookAtVoiceOver(onlyIfMoved: Bool) {
         let now = Date()
-        guard isViewLoaded, let sent = voiceOver.sentRow(at: now) else { return }
-        guard listInSight else {
-            voiceOver.letGo()
+        guard focusWatch.goesOn(holding: isViewLoaded && UIAccessibility.isVoiceOverRunning
+                                    && voiceOver.sentRow(at: now) != nil) else {
+            stopWatchingVoiceOver()
             return
         }
-        guard let place = voiceOverPlace(keeping: sent) else { return }
-        let landing = voiceOverLanding(on: note.userInfo?[UIAccessibility.focusedElementUserInfoKey],
-                                       sentTo: place).landing
-        guard voiceOver.moved(to: landing, at: now) != nil else { return }
+        guard listInSight else {
+            letGoOfVoiceOver()
+            return
+        }
+        guard let element = UIAccessibility.focusedElement(using: .notificationVoiceOver) else { return }
+        let changed = focusWatch.changed(to: element as AnyObject)
+        guard changed || !onlyIfMoved, let sent = voiceOver.sentRow(at: now),
+              let place = voiceOverPlace(keeping: sent) else { return }
+        let landing = voiceOverLanding(on: element, sentTo: place).landing
+        let put = voiceOver.moved(to: landing, at: now)
+        if voiceOver.sentRow(at: now) == nil { stopWatchingVoiceOver() }
+        guard put != nil else { return }
         putVoiceOver(on: place)
     }
 
@@ -2316,7 +2373,7 @@ final class MessageListViewController: UITableViewController {
     override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath) {
         // A row he has opened or ticked: where VoiceOver goes next is his,
         // and a row held for it is let go (B-079).
-        voiceOver.letGo()
+        letGoOfVoiceOver()
         // In Edit mode a tap ticks a row rather than opening it, and the
         // Select All button has to keep up with what that leaves selected.
         guard !t.isEditing else { updateSelectAllTitle(); return }

@@ -691,7 +691,7 @@ final class PaneArrangementTests: XCTestCase {
 
         let viewButton = flat(body(after: "func viewButtonTapped(", in: code))
         let switched = try XCTUnwrap(viewButton.range(of: "shell.switchPanes()"))
-        let foldersLet = try XCTUnwrap(viewButton.range(of: "foldersVoiceOver.letGo()"), viewButton)
+        let foldersLet = try XCTUnwrap(viewButton.range(of: "letGoOfFoldersRow()"), viewButton)
         let listLet = try XCTUnwrap(viewButton.range(of: "list.letGoOfVoiceOver()"), viewButton)
         let twin = try XCTUnwrap(viewButton.range(of:
             "UIAccessibility.post(notification: .layoutChanged, argument: "
@@ -717,25 +717,17 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertLessThan(highlighted.upperBound, whole.lowerBound)
         XCTAssertLessThan(whole.upperBound, popped.lowerBound)
         XCTAssertLessThan(popped.upperBound, placed.lowerBound)
+        let watched = try XCTUnwrap(back.range(of: "watchFoldersRow() }"), back)
         XCTAssertLessThan(placed.upperBound, toFolder.lowerBound)
         XCTAssertLessThan(toFolder.upperBound, heldRow.lowerBound)
+        XCTAssertLessThan(heldRow.upperBound, watched.lowerBound)
 
         // The folder's row held: looked for as VoiceOver moves, put back
-        // only when `FoldersVoiceOver` says so, shown whole first.
+        // only when `FoldersVoiceOver` says so, shown whole first
+        // (`testVoiceOverIsAskedWhereItIsWhileARowIsHeld`).
         XCTAssertTrue(flat(code).contains(
             "addObserver(self, selector: #selector(voiceOverMoved(_:)), "
             + "name: UIAccessibility.elementFocusedNotification, object: nil)"))
-        let moved = flat(body(after: "@objc private func voiceOverMoved(", in: code))
-        XCTAssertEqual(moved, "{ let now = Date() guard foldersVoiceOver.holding(at: now) else { return } "
-                       + "let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false) "
-                       + "guard !mailboxNav.view.isHidden, place is UITableViewCell else { "
-                       + "foldersVoiceOver.letGo() return } "
-                       + "let landing = foldersLanding(on: note.userInfo?"
-                       + "[UIAccessibility.focusedElementUserInfoKey]) "
-                       + "guard foldersVoiceOver.moved(to: landing, at: now) else { return } "
-                       + "mailboxList.tableView.showWhole(forVoiceOver: "
-                       + "mailboxList.tableView.indexPathForSelectedRow) "
-                       + "UIAccessibility.post(notification: .layoutChanged, argument: place) }")
         // The row: the folders' highlighted one, by the same finder as the
         // list's rows. Then the corner's view button, then the reading
         // pane, each by the view the element is in, or by where it is for
@@ -753,7 +745,7 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertFalse(code.contains("isDescendant("), "the container finds by `voiceOverHolds`")
 
         let tap = flat(body(after: "mailboxList.onSelectMailbox = ", in: code))
-        let letGo = try XCTUnwrap(tap.range(of: "self.foldersVoiceOver.letGo()"), tap)
+        let letGo = try XCTUnwrap(tap.range(of: "self.letGoOfFoldersRow()"), tap)
         let showing = try XCTUnwrap(tap.range(of:
             "if self.shell.arrangement.panes == .two, "
             + "PaneArrangement.isShowing(mailbox, in: self.list.shownMailbox) { "
@@ -781,7 +773,8 @@ final class PaneArrangementTests: XCTestCase {
         let list = try source("MessageListViewController.swift")
         XCTAssertEqual(flat(body(after: "func showHighlightedRowWhole()", in: list)),
                        "{ tableView.showWhole(forVoiceOver: tableView.indexPathForSelectedRow) }")
-        XCTAssertEqual(flat(body(after: "func letGoOfVoiceOver()", in: list)), "{ voiceOver.letGo() }")
+        XCTAssertEqual(flat(body(after: "func letGoOfVoiceOver()", in: list)),
+                       "{ voiceOver.letGo() stopWatchingVoiceOver() }")
 
         // The list's: its highlighted row, else its first row wholly in
         // sight, else its table, held for VoiceOver as it is posted.
@@ -791,9 +784,11 @@ final class PaneArrangementTests: XCTestCase {
         let held = try XCTUnwrap(placeVoiceOver.range(of:
             "voiceOver.send(to: voiceOverRow(of: place), running: UIAccessibility.isVoiceOverRunning, "
             + "at: Date())"), placeVoiceOver)
+        let watching = try XCTUnwrap(placeVoiceOver.range(of: "watchVoiceOver()"), placeVoiceOver)
         let posted = try XCTUnwrap(placeVoiceOver.range(of: "return place }"), placeVoiceOver)
         XCTAssertLessThan(named.upperBound, held.lowerBound)
-        XCTAssertLessThan(held.upperBound, posted.lowerBound)
+        XCTAssertLessThan(held.upperBound, watching.lowerBound)
+        XCTAssertLessThan(watching.upperBound, posted.lowerBound)
 
         // In sight: between the bars, and below the band pinned at the top.
         // A highlighted row with any of it in sight; a first row wholly in
@@ -911,7 +906,7 @@ final class PaneArrangementTests: XCTestCase {
         // Taken: VoiceOver's own element, as the list sees it, only with it
         // on, and nothing with the list's column out of sight.
         let held = flat(body(after: "private func voiceOverHeld()", in: list))
-        XCTAssertEqual(held, "{ guard listInSight else { voiceOver.letGo() return nil } "
+        XCTAssertEqual(held, "{ guard listInSight else { letGoOfVoiceOver() return nil } "
                        + "let running = UIAccessibility.isVoiceOverRunning "
                        + "let on = voiceOverLanding( on: running ? UIAccessibility.focusedElement(using: "
                        + ".notificationVoiceOver) : nil, sentTo: nil) "
@@ -956,7 +951,13 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertLessThan(typing.upperBound, own.lowerBound)
         XCTAssertLessThan(own.upperBound, beside.lowerBound)
         XCTAssertLessThan(beside.upperBound, elsewhere.lowerBound)
-        XCTAssertTrue(landing.contains("return (there ? .sentRow : .otherRow, on)"), landing)
+        // The row sent to by its place in the list alone, not by its words
+        // (the fourth change).
+        XCTAssertTrue(landing.contains("if let on = listRow(of: element) { "
+                                       + "guard let place else { return (.otherRow, on) } "
+                                       + "return (on == voiceOverRow(of: place)?.index ? .sentRow : .otherRow, on) }"),
+                      landing)
+        XCTAssertFalse(landing.contains("accessibilityLabel"), landing)
         XCTAssertTrue(flat(try source("SearchHeaderView.swift")).contains("var isTyping: Bool { field.isEditing }"))
 
         // A row of the list: a cell of this table or inside one, or UIKit's
@@ -1024,25 +1025,129 @@ final class PaneArrangementTests: XCTestCase {
         // A row he opens or ticks lets the row held go, first thing.
         let selected = flat(body(after: "override func tableView(_ t: UITableView, didSelectRowAt ip: IndexPath)",
                                  in: list))
-        XCTAssertTrue(selected.hasPrefix("{ voiceOver.letGo() guard !t.isEditing"), selected)
+        XCTAssertTrue(selected.hasPrefix("{ letGoOfVoiceOver() guard !t.isEditing"), selected)
 
-        // Looked for as VoiceOver moves, and put there at most once.
+        // Looked for as VoiceOver moves, and put there at most once
+        // (`testVoiceOverIsAskedWhereItIsWhileARowIsHeld`).
         XCTAssertTrue(flat(list).contains(
             "addObserver(self, selector: #selector(voiceOverMoved(_:)), "
             + "name: UIAccessibility.elementFocusedNotification, object: nil)"))
-        let moved = flat(body(after: "@objc private func voiceOverMoved(", in: list))
-        XCTAssertTrue(moved.contains("guard isViewLoaded, let sent = voiceOver.sentRow(at: now) "
-                                     + "else { return } guard listInSight else { voiceOver.letGo() return }"),
-                      moved)
-        XCTAssertTrue(moved.contains("let landing = voiceOverLanding(on: note.userInfo?"
-                                     + "[UIAccessibility.focusedElementUserInfoKey], sentTo: place).landing"),
-                      moved)
-        let asked = try XCTUnwrap(moved.range(of: "guard voiceOver.moved(to: landing, at: now) != nil"),
-                                  moved)
-        let put = try XCTUnwrap(moved.range(of: "putVoiceOver(on: place)"), moved)
-        XCTAssertLessThan(asked.upperBound, put.lowerBound)
         XCTAssertEqual(lines(of: list, containing: "UIAccessibility.post(").count, 1)
         XCTAssertFalse(list.contains(".screenChanged"))
+    }
+
+    /// Where VoiceOver is, asked of VoiceOver itself while a row is held
+    /// (B-079, the fourth change), read. On the iPad the element named with
+    /// VoiceOver's moves was nothing the app could find, so neither the
+    /// list nor the container ever saw VoiceOver leave the row. Neither
+    /// reads it now. At each of VoiceOver's moves, while a row is held,
+    /// VoiceOver is asked on the next turn; and every tenth of a second, on
+    /// a timer on the main run loop in its common modes, started as the row
+    /// is sent to, and told apart only when VoiceOver is on another object.
+    /// VoiceOver on nothing is passed over, the row still held: it is not
+    /// told apart as elsewhere, which would let the row go.
+    /// The ticks stop with nothing held, VoiceOver off or past the bound,
+    /// once the row is put back or let go, and where the row is let go:
+    /// the list's at the view button, a row opened, the list out of sight;
+    /// the folders' at a folder tap, the view button, the folders out of
+    /// sight. The timer is made in one place and invalidated only where the
+    /// ticks stop or start again. The rest is as before: put back only when
+    /// `ListVoiceOver` or `FoldersVoiceOver` says so, shown whole first.
+    func testVoiceOverIsAskedWhereItIsWhileARowIsHeld() throws {
+        let list = try source("MessageListViewController.swift")
+        let code = try source("RootViewController.swift")
+        let geometry = try source("VoiceOverPlace.swift")
+        for file in [list, code, geometry] {
+            XCTAssertFalse(file.contains("focusedElementUserInfoKey"))
+        }
+
+        // The list.
+        XCTAssertEqual(flat(body(after: "@objc private func voiceOverMoved(", in: list)),
+                       "{ guard isViewLoaded, voiceOver.sentRow(at: Date()) != nil else { return } "
+                       + "DispatchQueue.main.async { [weak self] in "
+                       + "self?.lookAtVoiceOver(onlyIfMoved: false) } }")
+        XCTAssertEqual(flat(body(after: "@objc private func voiceOverTick()", in: list)),
+                       "{ lookAtVoiceOver(onlyIfMoved: true) }")
+        XCTAssertEqual(flat(body(after: "private func lookAtVoiceOver(onlyIfMoved: Bool)", in: list)),
+                       "{ let now = Date() "
+                       + "guard focusWatch.goesOn(holding: isViewLoaded && UIAccessibility.isVoiceOverRunning "
+                       + "&& voiceOver.sentRow(at: now) != nil) else { stopWatchingVoiceOver() return } "
+                       + "guard listInSight else { letGoOfVoiceOver() return } "
+                       + "guard let element = UIAccessibility.focusedElement(using: .notificationVoiceOver) "
+                       + "else { return } "
+                       + "let changed = focusWatch.changed(to: element as AnyObject) "
+                       + "guard changed || !onlyIfMoved, let sent = voiceOver.sentRow(at: now), "
+                       + "let place = voiceOverPlace(keeping: sent) else { return } "
+                       + "let landing = voiceOverLanding(on: element, sentTo: place).landing "
+                       + "let put = voiceOver.moved(to: landing, at: now) "
+                       + "if voiceOver.sentRow(at: now) == nil { stopWatchingVoiceOver() } "
+                       + "guard put != nil else { return } "
+                       + "putVoiceOver(on: place) }")
+        XCTAssertEqual(flat(body(after: "private func watchVoiceOver()", in: list)),
+                       "{ voiceOverTicks?.invalidate() "
+                       + "voiceOverTicks = focusWatch.start(holding: voiceOver.sentRow(at: Date()) != nil) "
+                       + "? Timer.voiceOverTicks(self, #selector(voiceOverTick)) : nil }")
+        XCTAssertEqual(flat(body(after: "private func stopWatchingVoiceOver()", in: list)),
+                       "{ focusWatch.stop() voiceOverTicks?.invalidate() voiceOverTicks = nil }")
+        XCTAssertEqual(lines(of: list, containing: "voiceOver.letGo()"), ["voiceOver.letGo()"])
+        XCTAssertEqual(lines(of: list, containing: "letGoOfVoiceOver()"),
+                       ["func letGoOfVoiceOver() {", "letGoOfVoiceOver()", "letGoOfVoiceOver()",
+                        "letGoOfVoiceOver()"])
+        XCTAssertEqual(lines(of: list, containing: "watchVoiceOver()"),
+                       ["watchVoiceOver()", "private func watchVoiceOver() {"])
+        XCTAssertEqual(lines(of: list, containing: "voiceOverTicks?.invalidate()").count, 2)
+        XCTAssertEqual(lines(of: list, containing: "Timer").count, 2)
+        XCTAssertEqual(lines(of: list, containing: "DispatchQueue").count, 1)
+        XCTAssertEqual(lines(of: list, containing: "focusedElement(").count, 2)
+
+        // The container, for the folder's row.
+        XCTAssertEqual(flat(body(after: "@objc private func voiceOverMoved(", in: code)),
+                       "{ guard foldersVoiceOver.holding(at: Date()) else { return } "
+                       + "DispatchQueue.main.async { [weak self] in "
+                       + "self?.lookAtFoldersRow(onlyIfMoved: false) } }")
+        XCTAssertEqual(flat(body(after: "@objc private func foldersTick()", in: code)),
+                       "{ lookAtFoldersRow(onlyIfMoved: true) }")
+        XCTAssertEqual(flat(body(after: "private func lookAtFoldersRow(onlyIfMoved: Bool)", in: code)),
+                       "{ let now = Date() "
+                       + "guard foldersWatch.goesOn(holding: UIAccessibility.isVoiceOverRunning "
+                       + "&& foldersVoiceOver.holding(at: now)) else { stopWatchingFoldersRow() return } "
+                       + "let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false) "
+                       + "guard !mailboxNav.view.isHidden, place is UITableViewCell else { "
+                       + "letGoOfFoldersRow() return } "
+                       + "guard let element = UIAccessibility.focusedElement(using: .notificationVoiceOver) "
+                       + "else { return } "
+                       + "let changed = foldersWatch.changed(to: element as AnyObject) "
+                       + "guard changed || !onlyIfMoved else { return } "
+                       + "let put = foldersVoiceOver.moved(to: foldersLanding(on: element), at: now) "
+                       + "if !foldersVoiceOver.holding(at: now) { stopWatchingFoldersRow() } "
+                       + "guard put else { return } "
+                       + "mailboxList.tableView.showWhole(forVoiceOver: "
+                       + "mailboxList.tableView.indexPathForSelectedRow) "
+                       + "UIAccessibility.post(notification: .layoutChanged, argument: place) }")
+        XCTAssertEqual(flat(body(after: "private func watchFoldersRow()", in: code)),
+                       "{ foldersTicks?.invalidate() "
+                       + "foldersTicks = foldersWatch.start(holding: foldersVoiceOver.holding(at: Date())) "
+                       + "? Timer.voiceOverTicks(self, #selector(foldersTick)) : nil }")
+        XCTAssertEqual(flat(body(after: "private func letGoOfFoldersRow()", in: code)),
+                       "{ foldersVoiceOver.letGo() stopWatchingFoldersRow() }")
+        XCTAssertEqual(flat(body(after: "private func stopWatchingFoldersRow()", in: code)),
+                       "{ foldersWatch.stop() foldersTicks?.invalidate() foldersTicks = nil }")
+        XCTAssertEqual(lines(of: code, containing: "foldersVoiceOver.letGo()"), ["foldersVoiceOver.letGo()"])
+        XCTAssertEqual(lines(of: code, containing: "letGoOfFoldersRow()"),
+                       ["letGoOfFoldersRow()", "private func letGoOfFoldersRow() {", "letGoOfFoldersRow()",
+                        "self.letGoOfFoldersRow()"])
+        XCTAssertEqual(lines(of: code, containing: "watchFoldersRow()"),
+                       ["watchFoldersRow()", "private func watchFoldersRow() {"])
+        XCTAssertEqual(lines(of: code, containing: "foldersTicks?.invalidate()").count, 2)
+        XCTAssertEqual(lines(of: code, containing: "Timer").count, 2)
+        XCTAssertEqual(lines(of: code, containing: "focusedElement(").count, 1)
+
+        // The timer: a tenth of a second, repeating, on the main run loop
+        // in its common modes.
+        XCTAssertEqual(flat(body(after: "static func voiceOverTicks(_ target: Any, _ selector: Selector) -> Timer",
+                                 in: geometry)),
+                       "{ let ticks = Timer(timeInterval: FocusWatch.every, target: target, selector: selector, "
+                       + "userInfo: nil, repeats: true) RunLoop.main.add(ticks, forMode: .common) return ticks }")
     }
 
     // MARK: - The panes, moving

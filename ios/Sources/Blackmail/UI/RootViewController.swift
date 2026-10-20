@@ -87,6 +87,10 @@ final class RootViewController: UIViewController {
     /// The open folder's row, held for VoiceOver after "< Mailboxes"
     /// (B-079). See `FoldersVoiceOver`.
     private var foldersVoiceOver = FoldersVoiceOver()
+    /// VoiceOver asked where it is while that row is held, and the timer
+    /// that asks (the fourth change). See `FocusWatch`.
+    private var foldersWatch = FocusWatch()
+    private var foldersTicks: Timer?
 
     /// New mail without a tap, while the app is in front (B-049). Started
     /// once the Inbox's first page has been tried, stopped as the app goes
@@ -627,7 +631,7 @@ final class RootViewController: UIViewController {
         // The button VoiceOver was on may now be in a hidden bar. Its twin
         // is in the same corner, and says the other thing. No row held for
         // VoiceOver after a move takes it from there (B-079).
-        foldersVoiceOver.letGo()
+        letGoOfFoldersRow()
         list.letGoOfVoiceOver()
         UIAccessibility.post(notification: .layoutChanged,
                              argument: shell.arrangement.leftColumn == .list
@@ -657,23 +661,72 @@ final class RootViewController: UIViewController {
                               last: mailboxList.tableView.voiceOverIsLast(
                                   mailboxList.tableView.indexPathForSelectedRow),
                               running: UIAccessibility.isVoiceOverRunning, at: Date())
+        watchFoldersRow()
     }
 
-    /// VoiceOver has moved. If it has been on the open folder's row since
-    /// "< Mailboxes", and has gone by itself to the view button in the
-    /// corner, or to the reading pane from any folder but the last, it is
-    /// put back on the row, once (`FoldersVoiceOver`). The folders out of
-    /// sight, or the row with them, the row is let go.
+    /// VoiceOver asked where it is every tenth of a second while the
+    /// folder's row is held (`FocusWatch`): from now, from nothing seen. No
+    /// ticks with nothing held.
+    private func watchFoldersRow() {
+        foldersTicks?.invalidate()
+        foldersTicks = foldersWatch.start(holding: foldersVoiceOver.holding(at: Date()))
+            ? Timer.voiceOverTicks(self, #selector(foldersTick)) : nil
+    }
+
+    /// The folder's row let go, and no more ticks: a folder tapped, the
+    /// panes switched, the folders or the row out of sight.
+    private func letGoOfFoldersRow() {
+        foldersVoiceOver.letGo()
+        stopWatchingFoldersRow()
+    }
+
+    private func stopWatchingFoldersRow() {
+        foldersWatch.stop()
+        foldersTicks?.invalidate()
+        foldersTicks = nil
+    }
+
+    /// VoiceOver has moved. While the folder's row is held, VoiceOver is
+    /// asked where it is on the next turn, after its own move. Not from
+    /// the element this names, which on the iPad the list could not find
+    /// (`FocusWatch`).
     @objc private func voiceOverMoved(_ note: Notification) {
+        guard foldersVoiceOver.holding(at: Date()) else { return }
+        DispatchQueue.main.async { [weak self] in self?.lookAtFoldersRow(onlyIfMoved: false) }
+    }
+
+    /// A tick while the folder's row is held.
+    @objc private func foldersTick() {
+        lookAtFoldersRow(onlyIfMoved: true)
+    }
+
+    /// Where VoiceOver is, from VoiceOver itself, told apart for the
+    /// folder's row. At a tick, `onlyIfMoved`, only when it is on another
+    /// object than the one last seen. If it has been on the open folder's
+    /// row since "< Mailboxes", and has gone by itself to the view button
+    /// in the corner, or to the reading pane from any folder but the last,
+    /// it is put back on the row, once (`FoldersVoiceOver`). The ticks stop
+    /// with nothing held, at the bound, and once the row is put back or let
+    /// go. The folders out of sight, or the row with them, the row is let
+    /// go. VoiceOver on nothing is passed over, and the row stays held.
+    private func lookAtFoldersRow(onlyIfMoved: Bool) {
         let now = Date()
-        guard foldersVoiceOver.holding(at: now) else { return }
-        let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false)
-        guard !mailboxNav.view.isHidden, place is UITableViewCell else {
-            foldersVoiceOver.letGo()
+        guard foldersWatch.goesOn(holding: UIAccessibility.isVoiceOverRunning
+                                      && foldersVoiceOver.holding(at: now)) else {
+            stopWatchingFoldersRow()
             return
         }
-        let landing = foldersLanding(on: note.userInfo?[UIAccessibility.focusedElementUserInfoKey])
-        guard foldersVoiceOver.moved(to: landing, at: now) else { return }
+        let place = mailboxList.tableView.voiceOverPlace(orFirstRow: false)
+        guard !mailboxNav.view.isHidden, place is UITableViewCell else {
+            letGoOfFoldersRow()
+            return
+        }
+        guard let element = UIAccessibility.focusedElement(using: .notificationVoiceOver) else { return }
+        let changed = foldersWatch.changed(to: element as AnyObject)
+        guard changed || !onlyIfMoved else { return }
+        let put = foldersVoiceOver.moved(to: foldersLanding(on: element), at: now)
+        if !foldersVoiceOver.holding(at: now) { stopWatchingFoldersRow() }
+        guard put else { return }
         mailboxList.tableView.showWhole(forVoiceOver: mailboxList.tableView.indexPathForSelectedRow)
         UIAccessibility.post(notification: .layoutChanged, argument: place)
     }
@@ -714,7 +767,7 @@ final class RootViewController: UIViewController {
         mailboxList.onSelectMailbox = { [weak self] mailbox in
             guard let self else { return }
             // A folder tapped: the folders' row is no longer held (B-079).
-            self.foldersVoiceOver.letGo()
+            self.letGoOfFoldersRow()
             // The open folder's list put back in front in two panes: its
             // highlighted row shown whole while the list is still hidden,
             // with VoiceOver on, before the panes move (B-079).

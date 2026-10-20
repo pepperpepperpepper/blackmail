@@ -14,6 +14,10 @@ import XCTest
 /// launch on the iPad; the same for the folder's row after "< Mailboxes"
 /// (`FoldersVoiceOver`); and the least scroll that shows a row whole
 /// before VoiceOver is put on it (`TableSight`).
+///
+/// And the fourth change: VoiceOver asked where it is, at its moves and
+/// every tenth of a second while a row is held (`FocusWatch`), and the row
+/// lifted clear of the toolbar, as VoiceOver wants it (`TableSight`).
 final class ListVoiceOverTests: XCTestCase {
 
     private func letter(_ uid: Int, thread: String) -> MessageSummary {
@@ -664,27 +668,69 @@ final class ListVoiceOverTests: XCTestCase {
     }
 
     /// A row with part of it under the toolbar: the list moves up by that
-    /// part, and the row's bottom is then on the toolbar's top.
+    /// part and by the clearance VoiceOver wants, and the row then ends a
+    /// third of a row above the toolbar's top, not on it.
     func testARowUnderTheBottomBarMovesUpByThePartUnderIt() {
         let row = rect(9)
         let sight = list(at: 200)
         XCTAssertEqual(sight.bottom, 960)
+        XCTAssertEqual(sight.voiceOverBottom, 928)
         XCTAssertEqual(row.maxY - sight.bottom, 44.5)
         let moved = sight.offset(showingWhole: row.minY, row.maxY)
-        XCTAssertEqual(moved, 244.5)
+        XCTAssertEqual(moved, 276.5)
         var after = sight
         after.offset = moved ?? sight.offset
-        XCTAssertEqual(after.bottom, row.maxY)
+        XCTAssertEqual(after.voiceOverBottom, row.maxY)
+        XCTAssertEqual(after.bottom - row.maxY, 32)
         XCTAssertTrue(after.showsWhole(row.minY, row.maxY))
-        // As in the simulator: the seventh row, the list at its top, 26.5
-        // points under the toolbar, moved up 26.5.
+        XCTAssertNil(after.offset(showingWhole: row.minY, row.maxY))
+        // The seventh row, the list at its top, 26.5 points under the
+        // toolbar, as in the simulator: moved up 58.5. The third change
+        // moved it 26.5, flush on the toolbar, and on the iPad VoiceOver
+        // then put the row in the middle of the list.
         let seventh = rect(6)
-        XCTAssertEqual(list(at: -70).offset(showingWhole: seventh.minY, seventh.maxY), -43.5)
+        XCTAssertEqual(list(at: -70).offset(showingWhole: seventh.minY, seventh.maxY), -11.5)
         // Taller than what is in sight: its top just below the band, not
         // under it.
         let tall = (minY: CGFloat(200), maxY: CGFloat(1000))
         let atTop = list(at: 0)
         XCTAssertEqual(atTop.offset(showingWhole: tall.minY, tall.maxY), 85.5)
+    }
+
+    /// On the iPad VoiceOver put in the middle of the list a row it landed
+    /// on that ended 0, 4, 9, 25 or 26.5 points above the toolbar, and left
+    /// one that ended 29, 32.5 or 42.5 points above it. A row in sight but
+    /// ending less than a third of a row above the toolbar is lifted until
+    /// it ends that far above it: one 10 points above moves 22. One ending
+    /// 32 points above or more, or within half a point of that, does not
+    /// move. A row that cannot end that far above the toolbar without its
+    /// top going under the band goes only as far as the band.
+    func testARowCloseAboveTheToolbarIsLiftedClearOfIt() {
+        XCTAssertEqual(TableSight.voiceOverBottomClearance, 32)
+        let row = rect(6)
+        // The list scrolled so that the row ends `gap` points above the
+        // toolbar's top.
+        func sight(_ gap: CGFloat) -> TableSight { list(at: row.maxY + gap - 760) }
+        for (gap, move) in [(CGFloat(0), CGFloat(32)), (4, 28), (9, 23), (10, 22), (25, 7), (26.5, 5.5),
+                            (29, 3)] {
+            let close = sight(gap)
+            XCTAssertEqual(close.bottom - row.maxY, gap)
+            XCTAssertTrue(close.showsPart(row.minY, row.maxY), "\(gap)")
+            XCTAssertFalse(close.showsWhole(row.minY, row.maxY), "\(gap)")
+            XCTAssertEqual(close.offset(showingWhole: row.minY, row.maxY), close.offset + move, "\(gap)")
+        }
+        for gap in [CGFloat(31.6), 32, 32.5, 42.5] {
+            XCTAssertTrue(sight(gap).showsWhole(row.minY, row.maxY), "\(gap)")
+            XCTAssertNil(sight(gap).offset(showingWhole: row.minY, row.maxY), "\(gap)")
+        }
+        // 630 points high, in 645.5 points of sight: 102 points would take
+        // it clear of the toolbar, 85.5 take its top to the band.
+        let high = (minY: CGFloat(200), maxY: CGFloat(830))
+        XCTAssertEqual(list(at: 0).offset(showingWhole: high.minY, high.maxY), 85.5)
+        // The top has no clearance: a row just below the band is whole.
+        let underBand = list(at: row.minY - 114.5)
+        XCTAssertEqual(underBand.top, row.minY)
+        XCTAssertTrue(underBand.showsWhole(row.minY, row.maxY))
     }
 
     /// The list's first row 40 points under the band: back to the list's
@@ -705,8 +751,15 @@ final class ListVoiceOverTests: XCTestCase {
         XCTAssertEqual(last.maxY - sight.bottom, 24.5)
         let end = sight.content + 50 - 810
         XCTAssertEqual(sight.offset(showingWhole: last.minY, last.maxY), end)
-        // With the load-more footer under it, the same move.
-        XCTAssertEqual(list(at: 2140, footer: 60).offset(showingWhole: last.minY, last.maxY), end)
+        // At the end the row ends on the toolbar, with no room for the
+        // clearance: as far as the end, and no further.
+        var atEnd = sight
+        atEnd.offset = end
+        XCTAssertEqual(atEnd.bottom, last.maxY)
+        XCTAssertNil(atEnd.offset(showingWhole: last.minY, last.maxY))
+        // With the load-more footer under it there is room: the part under
+        // the toolbar and the clearance, 56.5 points.
+        XCTAssertEqual(list(at: 2140, footer: 60).offset(showingWhole: last.minY, last.maxY), 2196.5)
         // The height not yet grown for it: to the end, not past it.
         var short = sight
         short.content -= 20
@@ -756,5 +809,306 @@ final class ListVoiceOverTests: XCTestCase {
         XCTAssertEqual(folders.top, 100)
         XCTAssertEqual(folders.offset(showingWhole: 80, 130), 10)
         XCTAssertNil(folders.offset(showingWhole: 100, 150))
+    }
+
+    // MARK: - VoiceOver asked where it is (the fourth change)
+
+    /// A stand-in for one of VoiceOver's elements: the folder's row, the
+    /// letter's row, Flag, the view button.
+    private final class Element {}
+
+    /// The ticks run only from a send with a row held, and stop for good
+    /// once none is: at the bound, let go or put back. Held again later,
+    /// they do not start again; only a send starts them. With nothing held
+    /// at the send, VoiceOver off or the table named, none run.
+    func testTheTicksRunOnlyWhileARowIsHeld() {
+        var watch = FocusWatch()
+        XCTAssertFalse(watch.ticking)
+        XCTAssertFalse(watch.start(holding: false))
+        XCTAssertFalse(watch.ticking)
+        XCTAssertFalse(watch.changed(to: Element()))
+        XCTAssertTrue(watch.start(holding: true))
+        XCTAssertTrue(watch.ticking)
+        XCTAssertTrue(watch.goesOn(holding: true))
+        XCTAssertFalse(watch.goesOn(holding: false))
+        XCTAssertFalse(watch.ticking)
+        XCTAssertFalse(watch.goesOn(holding: true))
+        XCTAssertFalse(watch.changed(to: nil))
+        XCTAssertTrue(watch.start(holding: true))
+        watch.stop()
+        XCTAssertFalse(watch.ticking)
+        XCTAssertFalse(watch.goesOn(holding: true))
+        // A tenth of a second: about 30 looks in the bound.
+        XCTAssertEqual(FocusWatch.every, 0.1)
+        XCTAssertEqual((ListVoiceOver.bound / FocusWatch.every).rounded(), 30)
+    }
+
+    /// A tick tells VoiceOver's element apart only when it is another
+    /// object than the one last seen; the first look after a start always.
+    /// Nothing counts as an element here too, but the controllers never
+    /// ask it of nothing: a read of nothing is passed over before
+    /// (`testAReadOfNothingIsPassedOverAndTheRowStaysHeld`).
+    func testATickLooksOnlyWhenVoiceOverIsOnAnotherObject() {
+        let row = Element(), flag = Element()
+        var watch = FocusWatch()
+        XCTAssertTrue(watch.start(holding: true))
+        XCTAssertTrue(watch.changed(to: row))
+        XCTAssertFalse(watch.changed(to: row))
+        XCTAssertFalse(watch.changed(to: row))
+        XCTAssertTrue(watch.changed(to: flag))
+        XCTAssertFalse(watch.changed(to: flag))
+        XCTAssertTrue(watch.changed(to: row))
+        XCTAssertTrue(watch.changed(to: nil))
+        XCTAssertFalse(watch.changed(to: nil))
+        XCTAssertTrue(watch.changed(to: flag))
+        // Started again, from nothing seen: the first look looks, on the
+        // object seen last before it too, and on nothing.
+        XCTAssertTrue(watch.start(holding: true))
+        XCTAssertTrue(watch.changed(to: flag))
+        XCTAssertTrue(watch.start(holding: true))
+        XCTAssertTrue(watch.changed(to: nil))
+        XCTAssertFalse(watch.changed(to: nil))
+    }
+
+    /// The list's looks, as `MessageListViewController.lookAtVoiceOver`
+    /// makes them: the ticks go on while the row is held; VoiceOver on
+    /// nothing is passed over; at a tick VoiceOver's element is told apart
+    /// only when it is another object;
+    /// the row is put back when `ListVoiceOver.moved` says so; and the
+    /// ticks stop once nothing is held. `looked`, the ticks at which an
+    /// element was told apart; `put`, the ticks at which the row was put
+    /// back, and the row.
+    private struct ListLooks {
+        var voiceOver = ListVoiceOver()
+        var watch = FocusWatch()
+        var looked: [Int] = []
+        var put: [(tick: Int, row: Int)] = []
+        let start: Date
+
+        mutating func send(to row: ListVoiceOver.Row?, running: Bool = true) {
+            voiceOver.send(to: row, running: running, at: start)
+            _ = watch.start(holding: voiceOver.sentRow(at: start) != nil)
+        }
+
+        /// A look at tick `tick`, a tenth of a second each, VoiceOver on
+        /// `element`, which the list tells apart as `landing`. A look
+        /// after one of VoiceOver's moves is told apart on any element.
+        mutating func look(_ tick: Int, on element: AnyObject?, as landing: ListVoiceOver.Landing,
+                           onlyIfMoved: Bool = true) {
+            let now = start.addingTimeInterval(Double(tick) * FocusWatch.every)
+            guard watch.goesOn(holding: voiceOver.sentRow(at: now) != nil) else { return }
+            guard let element else { return }
+            let changed = watch.changed(to: element)
+            guard changed || !onlyIfMoved else { return }
+            looked.append(tick)
+            let row = voiceOver.moved(to: landing, at: now)
+            if voiceOver.sentRow(at: now) == nil { watch.stop() }
+            if let row { put.append((tick, row.index)) }
+        }
+    }
+
+    /// As on the iPad from a fresh launch, VoiceOver on: still on the
+    /// folder's row at the tap, on the letter's row at 0.97 s, then by
+    /// itself on the reading pane's Flag at 1.81 s, with nothing from the
+    /// app. Asked every tenth of a second: the row is put back at the
+    /// first tick after the leave, once, and the ticks stop. VoiceOver back
+    /// on the row is not looked at again. With the pane empty the leave
+    /// was to the view button in the list's bar: the same.
+    func testTheLeaveAtAFreshLaunchIsSeenByTheTicksAndPutBackOnce() throws {
+        for away in [ListVoiceOver.Landing.beside, .listBar] {
+            let onFolder = Element(), onRow = Element(), offRow = Element()
+            var looks = ListLooks(start: start)
+            looks.send(to: try row(2, in: kept))
+            for tick in 1...35 {
+                switch tick {
+                case ..<10: looks.look(tick, on: onFolder, as: .beside)
+                case 10...18: looks.look(tick, on: onRow, as: .sentRow)
+                case 19: looks.look(tick, on: offRow, as: away)
+                default: looks.look(tick, on: onRow, as: .sentRow)
+                }
+            }
+            XCTAssertEqual(looks.looked, [1, 10, 19], "\(away)")
+            XCTAssertEqual(looks.put.map(\.tick), [19], "\(away)")
+            XCTAssertEqual(looks.put.map(\.row), [2], "\(away)")
+            XCTAssertFalse(looks.watch.ticking, "\(away)")
+        }
+        // Told as nothing, as VoiceOver's move named it on the iPad, both
+        // the landing and the leave are elsewhere: the row is let go at
+        // the leave with nothing put back.
+        var blind = ListVoiceOver()
+        blind.send(to: try row(2, in: kept), running: true, at: start)
+        XCTAssertNil(blind.moved(to: .elsewhere, at: start.addingTimeInterval(0.97)))
+        XCTAssertNil(blind.moved(to: .elsewhere, at: start.addingTimeInterval(1.81)))
+        XCTAssertNil(blind.sentRow(at: start.addingTimeInterval(1.81)))
+    }
+
+    /// The same leave told by VoiceOver's own move as well: the look after
+    /// the move puts the row back, and the tick after it finds nothing
+    /// more to do. A look after a move tells apart the element it is on
+    /// even when it is the one last seen: VoiceOver on the row again is
+    /// harmless.
+    func testALookAfterAMoveAndATickPutBackOnlyOnce() throws {
+        let onRow = Element(), flag = Element()
+        var looks = ListLooks(start: start)
+        looks.send(to: try row(0, in: kept))
+        looks.look(10, on: onRow, as: .sentRow, onlyIfMoved: false)
+        looks.look(10, on: onRow, as: .sentRow)
+        looks.look(11, on: onRow, as: .sentRow, onlyIfMoved: false)
+        looks.look(18, on: flag, as: .beside, onlyIfMoved: false)
+        looks.look(19, on: flag, as: .beside)
+        looks.look(20, on: onRow, as: .sentRow, onlyIfMoved: false)
+        XCTAssertEqual(looks.looked, [10, 11, 18])
+        XCTAssertEqual(looks.put.map(\.tick), [18])
+        XCTAssertFalse(looks.watch.ticking)
+    }
+
+    /// VoiceOver on nothing for a moment, as it may be between the row and
+    /// Flag as it moves, at a tick and at the look after its move: passed
+    /// over, the row still held and what was seen last kept. The move to
+    /// Flag or the view button a tenth of a second later is put back, once.
+    /// Told apart, nothing would be elsewhere: the row let go with nothing
+    /// put back, as on the iPad in the third round.
+    func testAReadOfNothingIsPassedOverAndTheRowStaysHeld() throws {
+        for away in [ListVoiceOver.Landing.beside, .listBar] {
+            let onFolder = Element(), onRow = Element(), offRow = Element()
+            var looks = ListLooks(start: start)
+            looks.send(to: try row(2, in: kept))
+            for tick in 1...35 {
+                switch tick {
+                case ..<10: looks.look(tick, on: onFolder, as: .beside)
+                case 10...17: looks.look(tick, on: onRow, as: .sentRow)
+                case 18:
+                    looks.look(tick, on: nil, as: .elsewhere)
+                    looks.look(tick, on: nil, as: .elsewhere, onlyIfMoved: false)
+                case 19: looks.look(tick, on: offRow, as: away)
+                default: looks.look(tick, on: onRow, as: .sentRow)
+                }
+            }
+            XCTAssertEqual(looks.looked, [1, 10, 19], "\(away)")
+            XCTAssertEqual(looks.put.map(\.tick), [19], "\(away)")
+            XCTAssertEqual(looks.put.map(\.row), [2], "\(away)")
+            XCTAssertFalse(looks.watch.ticking, "\(away)")
+        }
+        // Nothing told apart: elsewhere, after the row was reached, lets
+        // it go, and the move to Flag is not put back.
+        var told = ListVoiceOver()
+        told.send(to: try row(2, in: kept), running: true, at: start)
+        XCTAssertNil(told.moved(to: .sentRow, at: start.addingTimeInterval(1.0)))
+        XCTAssertNil(told.moved(to: .elsewhere, at: start.addingTimeInterval(1.8)))
+        XCTAssertNil(told.sentRow(at: start.addingTimeInterval(1.8)))
+        XCTAssertNil(told.moved(to: .beside, at: start.addingTimeInterval(1.9)))
+    }
+
+    /// VoiceOver kept on the row: told apart once, and the ticks stop at
+    /// the bound, with nothing put back. A move of his, to another row,
+    /// lets the row go, and the ticks stop then. VoiceOver off at the send,
+    /// or the table named: no ticks, nothing looked at.
+    func testTheTicksStopAtTheBoundAndAtAMoveOfHis() throws {
+        let onRow = Element(), onOther = Element()
+        var stays = ListLooks(start: start)
+        stays.send(to: try row(1, in: kept))
+        for tick in 10...40 { stays.look(tick, on: onRow, as: .sentRow) }
+        XCTAssertEqual(stays.looked, [10])
+        XCTAssertEqual(stays.put.count, 0)
+        XCTAssertFalse(stays.watch.ticking)
+
+        var his = ListLooks(start: start)
+        his.send(to: try row(1, in: kept))
+        his.look(10, on: onRow, as: .sentRow)
+        his.look(15, on: onOther, as: .otherRow)
+        XCTAssertFalse(his.watch.ticking)
+        his.look(19, on: Element(), as: .beside)
+        XCTAssertEqual(his.looked, [10, 15])
+        XCTAssertEqual(his.put.count, 0)
+
+        let sent: [(row: ListVoiceOver.Row?, running: Bool)] = [(try row(1, in: kept), false), (nil, true)]
+        for (held, running) in sent {
+            var none = ListLooks(start: start)
+            none.send(to: held, running: running)
+            XCTAssertFalse(none.watch.ticking)
+            none.look(10, on: onRow, as: .sentRow)
+            none.look(19, on: onOther, as: .beside)
+            XCTAssertEqual(none.looked, [])
+            XCTAssertEqual(none.put.count, 0)
+        }
+    }
+
+    /// The folder's row after "< Mailboxes", looked at as the container
+    /// does (`RootViewController.lookAtFoldersRow`): there at 1.1 s, then
+    /// by itself on Flag or the view button in the corner: put back at the
+    /// first tick after, once, and the ticks stop.
+    func testTheFoldersRowLeftByItselfIsSeenByTheTicks() {
+        for away in [FoldersVoiceOver.Landing.pane, .corner] {
+            let back = Element(), folder = Element(), elsewhere = Element()
+            var folders = FoldersVoiceOver()
+            var watch = FocusWatch()
+            var looked: [Int] = [], put: [Int] = []
+            folders.send(toRow: true, last: false, running: true, at: start)
+            XCTAssertTrue(watch.start(holding: folders.holding(at: start)))
+            for tick in 1...35 {
+                let now = start.addingTimeInterval(Double(tick) * FocusWatch.every)
+                let element: Element, landing: FoldersVoiceOver.Landing
+                switch tick {
+                case ..<11: (element, landing) = (back, .other)
+                case 20: (element, landing) = (elsewhere, away)
+                default: (element, landing) = (folder, .sentRow)
+                }
+                guard watch.goesOn(holding: folders.holding(at: now)) else { continue }
+                guard watch.changed(to: element) else { continue }
+                looked.append(tick)
+                let putBack = folders.moved(to: landing, at: now)
+                if !folders.holding(at: now) { watch.stop() }
+                if putBack { put.append(tick) }
+            }
+            XCTAssertEqual(looked, [1, 11, 20], "\(away)")
+            XCTAssertEqual(put, [20], "\(away)")
+            XCTAssertFalse(watch.ticking, "\(away)")
+        }
+    }
+
+    /// The folder's row the same way: VoiceOver on nothing for a moment
+    /// after it was on the row, at a tick and at the look after its move,
+    /// is passed over, and the leave a tenth of a second later is put back,
+    /// once. Told apart, nothing would be another place, and the row let go
+    /// with nothing put back.
+    func testTheFoldersRowStaysHeldThroughAReadOfNothing() {
+        for away in [FoldersVoiceOver.Landing.pane, .corner] {
+            let back = Element(), folder = Element(), elsewhere = Element()
+            var folders = FoldersVoiceOver()
+            var watch = FocusWatch()
+            var looked: [Int] = [], put: [Int] = []
+            folders.send(toRow: true, last: false, running: true, at: start)
+            XCTAssertTrue(watch.start(holding: folders.holding(at: start)))
+            for tick in 1...35 {
+                let now = start.addingTimeInterval(Double(tick) * FocusWatch.every)
+                let element: Element?, landing: FoldersVoiceOver.Landing
+                switch tick {
+                case ..<11: (element, landing) = (back, .other)
+                case 19: (element, landing) = (nil, .other)
+                case 20: (element, landing) = (elsewhere, away)
+                default: (element, landing) = (folder, .sentRow)
+                }
+                for onlyIfMoved in tick == 19 ? [true, false] : [true] {
+                    guard watch.goesOn(holding: folders.holding(at: now)) else { continue }
+                    guard let element else { continue }
+                    guard watch.changed(to: element) || !onlyIfMoved else { continue }
+                    looked.append(tick)
+                    let putBack = folders.moved(to: landing, at: now)
+                    if !folders.holding(at: now) { watch.stop() }
+                    if putBack { put.append(tick) }
+                }
+            }
+            XCTAssertEqual(looked, [1, 11, 20], "\(away)")
+            XCTAssertEqual(put, [20], "\(away)")
+            XCTAssertFalse(watch.ticking, "\(away)")
+        }
+        // Nothing told apart: another place, after the row was reached,
+        // lets it go, and the leave is not put back.
+        var told = FoldersVoiceOver()
+        told.send(toRow: true, last: false, running: true, at: start)
+        XCTAssertFalse(told.moved(to: .sentRow, at: start.addingTimeInterval(1.1)))
+        XCTAssertFalse(told.moved(to: .other, at: start.addingTimeInterval(1.9)))
+        XCTAssertFalse(told.holding(at: start.addingTimeInterval(1.9)))
+        XCTAssertFalse(told.moved(to: .corner, at: start.addingTimeInterval(2.0)))
     }
 }

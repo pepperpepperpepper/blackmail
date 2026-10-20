@@ -49,9 +49,12 @@ extension UITableView {
     /// put on a row it cannot see whole scrolls the list itself, and on the
     /// iPad it put the row in the middle of the list, or took the list to
     /// its top, hundreds of points for a row 30 points under the search
-    /// field. Nothing for a row wholly in sight, or with none of it in
-    /// sight, which VoiceOver is not put on. Only while VoiceOver is
-    /// running: with it off the list never moves for it.
+    /// field. At the bottom it wants the row clear of the toolbar, not on
+    /// it, so the row is lifted a third of a row above it
+    /// (`TableSight.voiceOverBottomClearance`). Nothing for a row wholly in
+    /// sight, or with none of it in sight, which VoiceOver is not put on.
+    /// Only while VoiceOver is running: with it off the list never moves
+    /// for it.
     func showWhole(forVoiceOver row: IndexPath?) {
         guard UIAccessibility.isVoiceOverRunning, let row, holds(row) else { return }
         // Its rows as they are now, hidden or not: a reload only schedules
@@ -111,6 +114,20 @@ extension UITableView {
             view = up
         }
         return nil
+    }
+}
+
+extension Timer {
+
+    /// The ticks of a `FocusWatch` (B-079): every tenth of a second on the
+    /// main run loop, in its common modes, so a scroll does not hold them
+    /// up. Each calls `selector` on `target`, which the timer holds until
+    /// it is invalidated: at the bound at the latest, 3 s from the send.
+    static func voiceOverTicks(_ target: Any, _ selector: Selector) -> Timer {
+        let ticks = Timer(timeInterval: FocusWatch.every, target: target, selector: selector,
+                          userInfo: nil, repeats: true)
+        RunLoop.main.add(ticks, forMode: .common)
+        return ticks
     }
 }
 
