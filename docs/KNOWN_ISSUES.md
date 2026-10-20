@@ -14151,3 +14151,125 @@ release build for the iPad links.
   attachment could not be downloaded, as before B-088. For a part after
   the first, the UID kept refused, the letter is looked for once more; for
   the part the search was made for, it is not.
+
+---
+
+## B-089 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A letter read from its All Mailboxes hit kept its unread dot in the Inbox
+
+**What he saw.** Seen on the iPad on 2026-10-03, during B-062's check. In
+the Inbox he searches All Mailboxes and taps an unread hit: its dot goes,
+and the Inbox's count goes down by one. He cancels the search, and the
+Inbox's row for the same letter still has its dot. It kept it until the
+Inbox was fetched again.
+
+**What it was.** An All Mailboxes hit is All Mail's row of the letter,
+under All Mail's id. The Inbox's row under the search is the same letter
+under the Inbox's id. The tap's read mark took the dot off by id
+(`ListLetters.reading`, from `markReadIfNeeded`), so off the hit alone.
+The STORE went on All Mail's UID, and Gmail had the letter as read, since
+`\Seen` is the letter's and not the label's. The counts came off every
+folder the hit is counted in, the Inbox among them. Cancelling the search
+puts the Inbox's rows back as they were, with no round trip
+(`endSearch`), so the Inbox's row kept the dot it had before the tap. A
+tap on that row then would have sent a second STORE, and taken one off
+the counts a second time: one too low until the next sweep. Edit mode's
+Mark on a hit, both ways, and the reading pane's read mark of a letter
+in a conversation went by the same id.
+
+The kept copy did the same. A read mark or a flag the server took changes
+every kept row of the letter (`MailShelf.read`, `MailShelf.flagged`), but
+the letter was found from the row the write named on its own folder's
+kept page. All Mail's page is kept only once All Mail has been opened,
+and holds only its newest letters. A hit found on neither changed
+nothing, and the next launch drew the Inbox's kept row with its dot, or
+without its flag, until the first page came.
+
+The flag on the list was already right: Flag goes on the letter's twins
+under other mailboxes' ids (`ListLetters.setFlagged`), seen on the iPad.
+
+**Changed.**
+
+- A read mark goes on the letter wherever the list holds it: under its
+  own id, and under every other id the list holds with the same Gmail
+  message id (`ListEdit.copies`). A row with no Gmail id is matched as a
+  twin, as Flag's are. Two rows whose Gmail ids differ are two letters.
+  Each copy is held over a listing asked before the server took the mark,
+  as the row's own is, a listing asked after has the say on each, and a
+  refusal puts each back. The list's copy of the letter is used, or the
+  letter itself when the list has no row under its id, as for a letter
+  the reading pane opened from a hit after the search had ended.
+- The tap, Edit mode's Mark as Read and Mark as Unread, and the reading
+  pane's read mark all go this way: each hands the list the letter now,
+  not its id.
+- The kept copy: a read mark or a flag on a row that is not on its
+  folder's kept page goes by the Gmail id the write named, onto every
+  kept row of that letter (`MailShelf.changeLetter`). A row that is there
+  goes as before.
+- The counts go by the letter, not the row (`ReadBilling`): by its Gmail
+  message id, or by the row's id where the row has none. With the dot now
+  on every copy, he can read the letter on one copy and mark it unread on
+  the other, and billed by row the unread forgot only its own row. Read
+  in the Inbox, Mark as Unread on its hit, and the Inbox's row, dotted
+  again once the search was cancelled, tapped: nothing came off the
+  second time. Read from the hit, Mark as Unread on the Inbox's row, and
+  the hit read again in a new search: the same. Either way the counts
+  ended one too high, a count with no dot to go with it, until the next
+  sweep, which with the Inbox showing comes only with news or a Refresh.
+  Now an unread on any copy forgets the billing for all of them, and a
+  read on another copy of a letter billed already takes nothing off.
+
+**Not changed.** One STORE, on the hit's own UID, as before, and the
+counts are billed once per letter, on whichever copy. Delete and Move
+already took the twins (B-062). Flag on the list is still matched as
+twins. Nothing more is fetched.
+
+**What he sees.** A letter read from its All Mailboxes hit has no dot on
+its Inbox row when the search is cancelled, and the Inbox's count is one
+lower, once. Mark as Unread on a hit puts the dot back on the Inbox's
+row too. Read, marked unread and read again, on either copy, the count
+ends one lower than it began. A launch draws the Inbox's kept page the
+same way. No new words.
+
+**Tests.** `ReadOnEveryCopyTests`, ten, over the shipping repository and
+the scripted server where there is a server to ask, with the list's own
+letters: a hit read at the tap, the Inbox's row without its dot at once,
+over a listing asked before the STORE landed and after the search ended,
+one STORE on the hit's UID, billed once, and a listing asked after has
+the say; a refused mark, the dot back on both and nothing billed; Edit
+mode's Mark as Unread and Mark as Read on a hit, each reaching the
+Inbox's row; a read mark made after the search ended, found from the
+letter; the copies found by the Gmail id, by twins only without one,
+never a letter with another Gmail id; the wiring of Edit mode's Mark,
+read from the source; and the kept copy, a read mark and a flag on a hit
+changing the Inbox's kept row with All Mail never opened, and with All
+Mail's page kept without the letter, and a launch drawing both. Three on
+the counts, with the list's letters alone: read in the Inbox, marked
+unread on its hit and read in the Inbox again; read from its hit, marked
+unread in the Inbox and read from its hit again, each one off the
+Inbox's count and All Mail's, as the letter ends read; and the billing
+itself, a read on one copy refused on another, an unread on one
+forgotten for both, rows with no Gmail id billed by their own ids, and a
+binned row with none not billed again when its copy was.
+`KeptPlaceTests`, `KeptCopyTests` and `ConversationOrderTests` hand
+`reading` the row rather than its id.
+
+Each part undone in the worktree, one at a time, the new tests run: the
+copies left out of `reading`, 5 failures in 3 tests; the answer going
+back on the letter's own id alone, 2 in 2; the copies not held over a
+listing, 3 in 2; the kept copy found by the folder's kept row alone, 4
+in 1; the copies matched as twins only, 1 in 1. The list and the kept
+copy both as they were: 9 failures in 4 tests. The counts billed by row
+id, as before: 7 failures in the three tests on them, and the two on the
+list found the counts back where they began, not one lower. The full
+suite, serially: 1,739 tests, 5 skipped, none failing. The release build
+for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad yet. The steps are in the TODO.
+- A search of This Mailbox gives the folder's own rows, under the same
+  ids, and was right already.
+- A copy matched as a twin, because one of the two rows has no Gmail
+  message id, is still billed under its own id. Gmail's listings give
+  the message id with the thread id, in the same FETCH, so it should not
+  come up.

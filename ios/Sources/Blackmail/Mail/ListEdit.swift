@@ -41,6 +41,27 @@ enum ListEdit {
         }
     }
 
+    /// The same letter under the list's other ids, for a read mark: by
+    /// Gmail's message id where both rows carry one, as twins (`twins`)
+    /// where either has none. An All Mailboxes hit from All Mail and the
+    /// Inbox's row under it are one message, and `\Seen` is the message's
+    /// on Gmail, not the mailbox's. Two rows whose Gmail ids differ are two
+    /// letters, whatever else they share. Never the letter's own id, which
+    /// the list changes wherever it holds it already.
+    static func copies(of letter: MessageSummary,
+                       among letters: [MessageSummary]) -> [MessageSummary] {
+        var seen: Set<String> = [letter.id]
+        return letters.filter { other in
+            let same: Bool
+            if let mine = letter.gmailMessageID, let theirs = other.gmailMessageID {
+                same = mine == theirs
+            } else {
+                same = !twins(of: letter, among: [other]).isEmpty
+            }
+            return same && seen.insert(other.id).inserted
+        }
+    }
+
     /// Whether the reading pane, showing `shown`, its letter and every
     /// letter of the conversation it shows, shows one of `letters`, which
     /// Edit mode's Delete or Move is taking off the list (B-062).
@@ -245,24 +266,47 @@ struct RemovedLetters {
 /// and takes the one off only after the server has the flag; a fetch of the
 /// list made before the flag landed can bring the dot back and re-arm the
 /// tap. Without this a letter could be billed on each.
+///
+/// Once per letter, not per row: by Gmail's message id where the row has
+/// one (`Letter`). An All Mailboxes hit and the Inbox's row under it are
+/// one message under two ids, and since a read mark goes on both
+/// (`ListLetters.reading`, B-089) he can read the letter on one and mark
+/// it unread on the other. Billed by row id, the unread forgot only the
+/// row it was made on, and reading the other copy afterwards found that
+/// one billed already: read in the Inbox, marked unread on its hit, then
+/// read in the Inbox again, and the counts ended one too high, a count
+/// for a letter with no dot, until the next sweep.
 struct ReadBilling {
 
-    private(set) var counted: Set<String> = []
+    /// One letter, as billed: Gmail's message id where the row carries
+    /// one, so every copy of it is one entry; the row's id otherwise, on a
+    /// server without Gmail's extension, where a row is a letter.
+    enum Letter: Hashable {
+        case message(UInt64)
+        case row(String)
+
+        init(_ letter: MessageSummary) {
+            self = letter.gmailMessageID.map(Letter.message) ?? .row(letter.id)
+        }
+    }
+
+    private(set) var counted: Set<Letter> = []
 
     /// A letter the server now has as read: the folders to take one off,
-    /// or nil when it has been taken off already.
+    /// or nil when it has been taken off already, under this id or any
+    /// other the letter has.
     mutating func read(_ letter: MessageSummary) -> [String]? {
-        guard counted.insert(letter.id).inserted else { return nil }
+        guard counted.insert(Letter(letter)).inserted else { return nil }
         return Self.folders(of: letter)
     }
 
-    /// A letter marked unread again: the folders to add one back to. The
-    /// billing is forgotten, so reading it again takes the one off again;
-    /// kept, a letter read, marked unread and read again would be free the
-    /// second time and the count would drift low, which says "no new mail"
-    /// when there is some.
+    /// A letter marked unread again, on any of its copies: the folders to
+    /// add one back to. The billing is forgotten, so reading it again, on
+    /// any copy, takes the one off again; kept, a letter read, marked
+    /// unread and read again would be free the second time and the count
+    /// would drift low, which says "no new mail" when there is some.
     mutating func unread(_ letter: MessageSummary) -> [String] {
-        counted.remove(letter.id)
+        counted.remove(Letter(letter))
         return Self.folders(of: letter)
     }
 
@@ -274,7 +318,7 @@ struct ReadBilling {
     /// and one count on the server. Nil when there is nothing to take off.
     mutating func left(_ letter: MessageSummary, twins: [MessageSummary] = []) -> [String]? {
         guard !letter.isRead,
-              !twins.contains(where: { $0.isRead || counted.contains($0.id) }) else { return nil }
+              !twins.contains(where: { $0.isRead || counted.contains(Letter($0)) }) else { return nil }
         return read(letter)
     }
 
