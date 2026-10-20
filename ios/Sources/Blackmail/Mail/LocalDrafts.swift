@@ -1230,8 +1230,14 @@ final class LocalDrafts {
     /// is saved (`passwordSaved`).
     private var refused: [String: String] = [:]
     /// Letters the server has taken since launch, and the id of the copy
-    /// each became there, for a row in Drafts drawn before it went.
+    /// each became there, for a row in Drafts drawn before it went. One
+    /// still kept here stands in for that copy in Drafts, as for the one it
+    /// was reopened from (`replacedInDrafts`): its next upload replaces it.
     private(set) var landed: [String: String] = [:]
+    /// The count of password saves each upload in `landed` went under
+    /// (`LocalDraftStore.passwordSaves`), as it set off. With one saved
+    /// since, the copy's folder and UID may be another mailbox's.
+    private var landedUnder: [String: Int] = [:]
     /// Why each letter in `refused` was not sent or taken to Drafts, where
     /// its row says so: the first line of its row in the Outbox, the line
     /// under the mark in Drafts. Set with `refused`, always (`refuse`).
@@ -1344,12 +1350,34 @@ final class LocalDrafts {
     /// another draft, in a Drafts renumbered under the same UIDVALIDITY or
     /// another mailbox under the same address, and hidden it could not be
     /// seen or opened for as long as the letter waited.
+    ///
+    /// And the copy an upload of a letter still kept here put up in this
+    /// launch (`landed`), which the letter does not name: one that landed
+    /// while the composer had it, opened from its row while its save or a
+    /// pass took it up, and was changed there. Its next upload replaces that
+    /// copy as one of the versions tried, so the letter's row stands for it,
+    /// and listed beside the row it was the same letter twice, from the
+    /// next Save Draft until that save landed, and with no connection until
+    /// a pass (B-087). Sent or deleted, the letter is still kept, as a
+    /// record, until that copy has been removed (`tidy`), and the copy is
+    /// not listed meanwhile: Send names only the copy it was reopened from
+    /// (`ComposeActions.send`'s `draftSent`), and tapped, this one opened
+    /// the letter just sent, to be sent again. Hidden outright, as this
+    /// launch's own: UIDs are never given twice under one UIDVALIDITY. Not
+    /// under a password saved since its upload set off (`landedUnder`), for
+    /// the reason above.
     var replacedInDrafts: [String: UInt64?] {
         var copies: [String: UInt64?] = [:]
-        for letter in store.letters() where open[letter.key] == nil && !letter.gone {
+        let notOpen = store.letters().filter { open[$0.key] == nil }
+        for letter in notOpen where !letter.gone {
             guard let id = letter.draft.savedID,
                   letter.draft.savedLetter != nil || !store.savedSince(letter) else { continue }
             copies.updateValue(letter.draft.savedLetter, forKey: id)
+        }
+        for letter in notOpen {
+            guard let copy = landed[letter.key],
+                  landedUnder[letter.key] == store.passwordSaves else { continue }
+            copies.updateValue(nil, forKey: copy)
         }
         return copies
     }
@@ -1667,6 +1695,7 @@ final class LocalDrafts {
     /// Send from it asks first and sends nothing if it went. Found, no pass
     /// asks again until he changes it or the app is launched again.
     func upload(_ key: String, to repository: MailRepository) async throws {
+        let saves = store.passwordSaves
         await whileGoing(key)
         guard let letter = store.letter(key), !letter.gone else { return }
         going.insert(key)
@@ -1706,7 +1735,10 @@ final class LocalDrafts {
                 landedOpen[key] = version
             }
         }
-        if let id = saved.id { landed[key] = id }
+        if let id = saved.id {
+            landed[key] = id
+            landedUnder[key] = saves
+        }
         announce(DraftLanding(letter: letter, id: saved.id, replaced: saved.replaced))
     }
 

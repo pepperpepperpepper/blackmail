@@ -2653,7 +2653,7 @@ this host. Ordered by value, not by size.
       the test account only, landscape, built from the `draftrow`
       worktree. A stands for the account's address; drafts only, To A with
       `+jane` before the @, subjects beginning "B-087". Nothing is sent.
-      *Steps for a person at the iPad* in 3 to 5: the iPad is reached for
+      *Steps for a person at the iPad* in 4 to 6: the iPad is reached for
       checks over its Wi-Fi, and Airplane Mode cuts that, so they are done
       by hand, and the iPad's Wi-Fi is on again before anyone reaches it
       from elsewhere.
@@ -2666,23 +2666,34 @@ this host. Ordered by value, not by size.
       soon as the picker closes, Cancel, Save Draft. Once the photo is in,
       the row is at the top with its paperclip, one row, and so after the
       save. Refresh: one row, with the paperclip.
-      3. *Offline.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
+      3. *Opened again as it goes.* Tap "B-087 one", add the line "Changed
+      at once.", Cancel, Save Draft, and tap its row as soon as the sheet
+      has gone. It opens at once, with the new line and no spinner on the
+      row; with a spinner the save had landed first: Cancel, and do this
+      step again. Add the line "And again.", Cancel, Save Draft. As the
+      sheet slides away, "B-087 one" is the top row with "On this iPad
+      only", and no second "B-087 one" row without the mark beside it;
+      about a second later the mark goes. Refresh: one row, with both
+      lines.
+      4. *Offline.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
       if it stays on. Blackmail, Drafts: tap "B-087 one", add the line
       "Changed offline.", Cancel, Save Draft. As the sheet slides away the
       top row is "B-087 one" with "On this iPad only", and its old row,
       without the mark, has gone at once, not some eight seconds later.
       Wait fifteen seconds: still one row, and no alert.
-      4. *Opened again at once.* Still offline: tap "B-087 one", add the
+      5. *Opened again at once.* Still offline: tap "B-087 one", add the
       line "Changed again.", Cancel, Save Draft, and tap its row again as
-      soon as the sheet has gone. It opens with both lines. Cancel: it
-      closes without asking, and the row is there, one, "On this iPad
-      only".
-      5. *Back.* Airplane Mode off, Wi-Fi on, and wait for its mark in the
+      soon as the sheet has gone. It opens with "Changed again." under
+      "Changed offline.". Cancel: it closes without asking, and the row
+      is there, one, "On this iPad only".
+      6. *Back.* Airplane Mode off, Wi-Fi on, and wait for its mark in the
       status bar. Refresh: one row "B-087 one", without the mark, with
-      both lines.
-      6. *Put back.* Edit, tick "B-087 one", Delete.
-      *On the build before, 3 left the old row for some eight seconds,
-      and in 1 there was no row until the save had landed.*
+      every line added.
+      7. *Put back.* Edit, tick "B-087 one", Delete.
+      *On the build before, 4 left the old row for some eight seconds,
+      in 1 there was no row until the save had landed, and in 3 the row
+      tapped was the old copy's. On the first build of this fix, 3's
+      second Save Draft listed two rows for about a second.*
 
 ## Blocked on the owner
 

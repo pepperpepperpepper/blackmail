@@ -26,6 +26,7 @@ final class DraftRowAtOnceTests: XCTestCase {
     private var server: ScriptedIMAPServer!
     private var book: RecipientBook!
     private var line: RowLine!
+    private var submissions: RowSubmissions!
     private var clock: ManualClock!
     private var keptClock: ManualClock!
     private var root: URL!
@@ -37,6 +38,7 @@ final class DraftRowAtOnceTests: XCTestCase {
         try await super.setUp()
         server = ScriptedIMAPServer()
         line = RowLine()
+        submissions = RowSubmissions()
         clock = ManualClock()
         keptClock = ManualClock()
         let defaults = UserDefaults(suiteName: Self.suite)!
@@ -57,6 +59,7 @@ final class DraftRowAtOnceTests: XCTestCase {
         server = nil
         book = nil
         line = nil
+        submissions = nil
         clock = nil
         keptClock = nil
         root = nil
@@ -68,6 +71,7 @@ final class DraftRowAtOnceTests: XCTestCase {
     private func makeRepository() -> IMAPMailRepository {
         let imap = server.transportFactory
         let line = self.line!
+        let submissions = self.submissions!
         let clock = self.clock!
         return IMAPMailRepository(
             account: server.account, password: server.password,
@@ -75,7 +79,7 @@ final class DraftRowAtOnceTests: XCTestCase {
                 guard line.isUp else {
                     return port == 465 ? ScriptedSubmission(failsToOpen: true) : imap(host, 1)
                 }
-                return port == 465 ? ScriptedSubmission(failsToOpen: true) : imap(host, port)
+                return port == 465 ? submissions.next() : imap(host, port)
             },
             recipients: book,
             now: { clock.now() },
@@ -113,12 +117,12 @@ final class DraftRowAtOnceTests: XCTestCase {
         return draft
     }
 
-    /// Drafts' newest page, and "Unfinished 1" on it reopened and changed,
-    /// as a tap on its row and a word typed make it.
-    private func reopened(_ repository: IMAPMailRepository) async throws
-        -> (rows: [MessageSummary], copy: MessageSummary, draft: Draft) {
+    /// Drafts' newest page, and `subject` on it reopened and changed, as a
+    /// tap on its row and a word typed make it.
+    private func reopened(_ repository: IMAPMailRepository, _ subject: String = "Unfinished 1")
+        async throws -> (rows: [MessageSummary], copy: MessageSummary, draft: Draft) {
         let rows = try await repository.listMessages(in: Server.drafts, beforeUID: nil, limit: 10)
-        let copy = try XCTUnwrap(rows.first { $0.subject == "Unfinished 1" })
+        let copy = try XCTUnwrap(rows.first { $0.subject == subject })
         var draft = try await repository.reopen(copy)
         draft.body = "Finished on the sofa."
         return (rows, copy, draft)
@@ -142,6 +146,43 @@ final class DraftRowAtOnceTests: XCTestCase {
         server.uids(in: Server.drafts).filter {
             server.letter(uid: $0, in: Server.drafts)?.subject == subject
         }
+    }
+
+    /// The id of the copy in Drafts with `uid`, as its row has it.
+    private func row(_ uid: UInt32) -> String {
+        "\(server.uidValidity(of: Server.drafts))/\(uid)"
+    }
+
+    /// Save Draft on `draft` as `key`, its APPEND held, its row tapped while
+    /// the save is out, and the save let land while the composer the tap
+    /// opened has the letter. Returns that composer, what it opened with,
+    /// and the row of the copy the save became. `meanwhile` is done after
+    /// the tap and before the save lands.
+    private func openedAsItsSaveLands(_ draft: Draft, as key: String = "letter-1",
+                                      kept: LocalDrafts, repository: IMAPMailRepository,
+                                      dismiss: @escaping () -> Void = {},
+                                      meanwhile: () -> Void = {}) async throws
+        -> (again: ComposeActions, opened: Draft, landed: String) {
+        let appends = server.log.filter { $0.verb == "APPEND" }.count
+        server.holdReplies(to: "APPEND")
+        let saving = try XCTUnwrap(makeActions(key, kept: kept, repository: repository)
+            .saveAndClose({ draft }, then: nil))
+        try await until { server.log.filter { $0.verb == "APPEND" }.count > appends }
+        let opened = try XCTUnwrap(kept.letter(key)).draft
+        let again = makeActions(key, kept: kept, repository: repository, dismiss: dismiss)
+        meanwhile()
+        await server.releaseReplies(to: "APPEND")
+        await saving.value
+        let landed = try XCTUnwrap(copies(draft.subject).first)
+        XCTAssertEqual(copies(draft.subject).count, 1)
+        XCTAssertNotNil(kept.store.letter(key), "on the iPad while the composer has it")
+        return (again, opened, row(landed))
+    }
+
+    /// How many rows each redraw had for the letter, of those that had
+    /// other than one: none, when every redraw had one.
+    private func notOneRow(_ drafts: DraftsOnScreen, others: [String]) -> [Int] {
+        drafts.seen.map { $0.filter { !others.contains($0) }.count }.filter { $0 != 1 }
     }
 
     // MARK: - As the sheet goes
@@ -262,6 +303,201 @@ final class DraftRowAtOnceTests: XCTestCase {
         XCTAssertEqual(kept.waiting.count, 0)
     }
 
+    /// Opened from its row while its save is out, and the save lands while
+    /// the composer the tap opened has it: the copy it became is its row
+    /// while that composer is open. Changed there and saved again, it is
+    /// listed as that sheet goes in place of that copy, not beside it, and
+    /// so while the second save is out, though the letter still names the
+    /// copy it was first reopened from: that copy is the letter's own, put
+    /// up by this launch, and its next upload replaces it (`LocalDrafts.landed`).
+    /// Then the copy the second save became. One row for the letter at
+    /// every redraw, and one copy of it on the server.
+    func testSavedAgainFromItsRowAfterItsSaveLandedHasOneRowThroughout() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (rows, copy, draft) = try await reopened(repository)
+        let others = rows.map(\.id).filter { $0 != copy.id }
+        let drafts = DraftsOnScreen(kept: kept, rows: rows)
+        defer { drafts.stop() }
+
+        var asItGoes: [String] = []
+        let (again, opened, first) = try await openedAsItsSaveLands(
+            draft, kept: kept, repository: repository, dismiss: { asItGoes = drafts.ids })
+        XCTAssertEqual(drafts.ids, [first] + others, "its copy, while the composer has it")
+        XCTAssertEqual(opened.savedID, copy.id, "it still names the copy it was reopened from")
+
+        var changed = opened
+        changed.body += "\nAnd a second line."
+        server.holdReplies(to: "APPEND")
+        let saving = try XCTUnwrap(again.saveAndClose({ changed }, then: nil))
+        XCTAssertEqual(asItGoes, ["local:letter-1"] + others,
+                       "its row in place of that copy as the sheet goes")
+        try await until { server.log.filter { $0.verb == "APPEND" }.count == 2 }
+        XCTAssertEqual(drafts.ids, ["local:letter-1"] + others, "while the second save is out")
+
+        await server.releaseReplies(to: "APPEND")
+        await saving.value
+        let last = try XCTUnwrap(copies("Unfinished 1").first)
+        XCTAssertEqual(copies("Unfinished 1").count, 1, "one copy on the server")
+        XCTAssertNotEqual(row(last), first)
+        XCTAssertEqual(drafts.ids, [row(last)] + others, "the copy it became")
+        XCTAssertEqual(notOneRow(drafts, others: others), [],
+                       "one row for the letter at every redraw: \(drafts.seen)")
+        XCTAssertNil(kept.store.letter("letter-1"), "off the iPad")
+    }
+
+    /// The same with no connection for the second save: its row in place
+    /// of the copy the first became, as the sheet goes and once the save
+    /// has failed, until a pass takes it up and that copy is replaced.
+    func testSavedAgainOfflineFromItsRowAfterItsSaveLandedHasOneRowUntilItGoes() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (rows, copy, draft) = try await reopened(repository)
+        let others = rows.map(\.id).filter { $0 != copy.id }
+        let drafts = DraftsOnScreen(kept: kept, rows: rows)
+        defer { drafts.stop() }
+
+        var asItGoes: [String] = []
+        let (again, opened, first) = try await openedAsItsSaveLands(
+            draft, kept: kept, repository: repository, dismiss: { asItGoes = drafts.ids })
+        var changed = opened
+        changed.body += "\nWritten on the train."
+        await takeLineDown()
+        await again.saveAndClose({ changed }, then: nil)?.value
+        XCTAssertEqual(asItGoes, ["local:letter-1"] + others, "as the sheet goes")
+        XCTAssertEqual(drafts.ids, ["local:letter-1"] + others, "and once the save has failed")
+        XCTAssertEqual(copies("Unfinished 1").map(row), [first], "that copy still on the server")
+        XCTAssertEqual(kept.letter("letter-1")?.draft.body, changed.body)
+
+        line.isUp = true
+        _ = try await repository.listMessages(in: Server.inbox, beforeUID: nil, limit: 10)
+        await kept.uploadWaiting(to: repository)?.value
+        let last = try XCTUnwrap(copies("Unfinished 1").first)
+        XCTAssertEqual(copies("Unfinished 1").count, 1, "that copy replaced")
+        XCTAssertEqual(drafts.ids, [row(last)] + others)
+        XCTAssertEqual(notOneRow(drafts, others: others), [],
+                       "one row for the letter at every redraw: \(drafts.seen)")
+    }
+
+    /// Sent from the composer its row opened, after its save had landed
+    /// there: as the sheet closes Drafts has no row for the letter just
+    /// sent, the copy that save put up included, though Send names only
+    /// the copy it was reopened from (`ComposeActions.send`'s `draftSent`).
+    /// Tapped, that row would open the letter to be sent a second time.
+    /// Then that copy is removed, and the letter has gone once.
+    func testSentFromItsRowAfterItsSaveLandedLeavesNoRowAsTheSheetCloses() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (rows, copy, draft) = try await reopened(repository)
+        let others = rows.map(\.id).filter { $0 != copy.id }
+        let drafts = DraftsOnScreen(kept: kept, rows: rows)
+        defer { drafts.stop() }
+
+        var asItCloses: [String] = []
+        let (again, opened, first) = try await openedAsItsSaveLands(
+            draft, kept: kept, repository: repository, dismiss: { asItCloses = drafts.ids })
+        XCTAssertEqual(drafts.ids, [first] + others)
+
+        var named: [String] = []
+        var asItsCopyIsTakenOff: [String] = []
+        await again.send({ opened }, then: nil, draftSent: { id in
+            named.append(id)
+            drafts.sent(id)
+            asItsCopyIsTakenOff = drafts.ids
+        })?.value
+        XCTAssertEqual(named, [copy.id], "Send names the copy it was reopened from")
+        XCTAssertEqual(asItCloses, others, "no row for the letter as the sheet closes")
+        XCTAssertEqual(asItsCopyIsTakenOff, others)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertEqual(copies("Unfinished 1"), [], "the copy its save put up removed")
+        XCTAssertEqual(drafts.ids, others)
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
+    /// Opened from its row while a pass is taking it up, then changed and
+    /// saved once the pass has landed it: its row in place of the copy the
+    /// pass put up as the sheet goes, not beside it, then the copy the save
+    /// became. One row for the letter at every redraw.
+    func testOpenedWhileAPassTakesItUpThenSavedHasOneRowThroughout() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (rows, copy, draft) = try await reopened(repository)
+        let others = rows.map(\.id).filter { $0 != copy.id }
+        let drafts = DraftsOnScreen(kept: kept, rows: rows)
+        defer { drafts.stop() }
+        await takeLineDown()
+        await makeActions("letter-1", kept: kept, repository: repository)
+            .saveAndClose({ draft }, then: nil)?.value
+        XCTAssertEqual(drafts.ids, ["local:letter-1"] + others)
+
+        line.isUp = true
+        _ = try await repository.listMessages(in: Server.inbox, beforeUID: nil, limit: 10)
+        server.holdReplies(to: "APPEND")
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { server.log.contains { $0.verb == "APPEND" } }
+        let opened = try XCTUnwrap(kept.letter("letter-1")).draft
+        var asItGoes: [String] = []
+        let again = makeActions("letter-1", kept: kept, repository: repository,
+                                dismiss: { asItGoes = drafts.ids })
+        await server.releaseReplies(to: "APPEND")
+        await pass.value
+        let first = try XCTUnwrap(copies("Unfinished 1").first)
+        XCTAssertEqual(drafts.ids, [row(first)] + others, "the copy the pass put up")
+
+        var changed = opened
+        changed.body += "\nAnd a second line."
+        await again.saveAndClose({ changed }, then: nil)?.value
+        XCTAssertEqual(asItGoes, ["local:letter-1"] + others,
+                       "its row in place of that copy as the sheet goes")
+        let last = try XCTUnwrap(copies("Unfinished 1").first)
+        XCTAssertEqual(copies("Unfinished 1").count, 1)
+        XCTAssertEqual(drafts.ids, [row(last)] + others)
+        XCTAssertEqual(notOneRow(drafts, others: others), [],
+                       "one row for the letter at every redraw: \(drafts.seen)")
+    }
+
+    /// The copy a letter's upload put up stands for it only under the
+    /// password that upload went with. With a password saved since, the
+    /// same folder and UID may be another draft in another mailbox under
+    /// the same address (B-033), and it is listed, as a copy the letter
+    /// names by folder and UID alone is (`LocalDrafts.replacedInDrafts`):
+    /// hidden, it could not be seen or opened for as long as the letter
+    /// waited. So for a copy that landed before the save, and for one whose
+    /// upload went before the save and landed after it.
+    func testACopyThatLandedStandsForTheLetterOnlyUnderItsOwnPassword() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let first = try await reopened(repository, "Unfinished 1").draft
+        let (sheet, opened, landed) = try await openedAsItsSaveLands(
+            first, kept: kept, repository: repository)
+        var changed = opened
+        changed.body += "\nAnd a second line."
+        sheet.edited { changed }
+        sheet.sheetGone { changed }
+        XCTAssertEqual(kept.waiting.map(\.key), ["letter-1"])
+        XCTAssertTrue(kept.replacedInDrafts.keys.contains(landed), "its own, under this password")
+
+        LocalDraftStore.notePasswordSaved(in: root)
+        kept.passwordSaved()
+        XCTAssertFalse(kept.replacedInDrafts.keys.contains(landed),
+                       "landed before a password saved since")
+
+        let second = try await reopened(repository, "Unfinished 2").draft
+        let (other, otherOpened, after) = try await openedAsItsSaveLands(
+            second, as: "letter-2", kept: kept, repository: repository, meanwhile: {
+                LocalDraftStore.notePasswordSaved(in: root)
+                kept.passwordSaved()
+            })
+        var otherChanged = otherOpened
+        otherChanged.body += "\nAnd a second line."
+        other.edited { otherChanged }
+        other.sheetGone { otherChanged }
+        XCTAssertEqual(Set(kept.waiting.map(\.key)), ["letter-1", "letter-2"])
+        XCTAssertFalse(kept.replacedInDrafts.keys.contains(after),
+                       "gone up before a password saved since, landed after it")
+    }
+
     /// Put away, the letter is listed, and no pass takes it to the server
     /// until its save has been answered and the sheet lets go: the pass and
     /// the save would each take a version of it up. Then the next pass does.
@@ -322,6 +558,14 @@ private final class DraftsOnScreen {
         watching = nil
     }
 
+    /// The composer's `draftSent`, as the list takes it
+    /// (`MessageListViewController.presentComposer`): the row of the copy
+    /// named taken off, as a removal on its way.
+    func sent(_ id: String) {
+        guard let row = list.letter(id) else { return }
+        list.take(row, fromEveryFolder: false)
+    }
+
     private func changed(_ note: Notification) {
         if let landing = note.userInfo?[LocalDrafts.landingKey] as? DraftLanding {
             var copy: MessageSummary?
@@ -348,5 +592,30 @@ private final class RowLine: @unchecked Sendable {
     var isUp: Bool {
         get { lock.lock(); defer { lock.unlock() }; return up }
         set { lock.lock(); up = newValue; lock.unlock() }
+    }
+}
+
+/// The submission server, one made for every connection, each taking
+/// whatever it is sent.
+private final class RowSubmissions: @unchecked Sendable {
+    private let lock = NSLock()
+    private var made: [ScriptedSubmission] = []
+
+    func next() -> ScriptedSubmission {
+        let server = ScriptedSubmission()
+        lock.lock()
+        made.append(server)
+        lock.unlock()
+        return server
+    }
+
+    /// Every letter sent, across them all.
+    func letters() async -> [Data] {
+        lock.lock()
+        let servers = made
+        lock.unlock()
+        var out: [Data] = []
+        for server in servers { out += await server.letters }
+        return out
     }
 }

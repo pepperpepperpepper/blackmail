@@ -170,7 +170,10 @@ final class ComposeActions {
     /// row there, for as long as the tidying takes, and a tap on that row
     /// opened it again as a draft, to be sent a second time. Whatever shows
     /// Drafts takes the row off at this, and `draftsChanged` says when the
-    /// folder is worth asking again.
+    /// folder is worth asking again. The copy an upload of it from the iPad
+    /// put up in this launch, which the letter does not name, is not
+    /// listed from `keeping.forget` on, until the tidying has removed it
+    /// (`LocalDrafts.replacedInDrafts`).
     ///
     /// Background time is asked for at the tap and given back once Drafts
     /// has been tidied, or when iOS wants it back first. That second case
