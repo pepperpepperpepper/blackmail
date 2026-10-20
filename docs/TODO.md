@@ -457,14 +457,14 @@ this host. Ordered by value, not by size.
       on 2026-10-03: "We need better transition animation between the
       three-panel view and the two-panel view." Calm, nothing wobbling,
       nothing moving up or down, nothing reflowing while it moves.
-      *Done, seen on the iPad frame by frame 2026-10-03, then replaced by
-      B-077's motion: pictures of the panes slide sideways for 0.4 s and
-      settle for 0.2 s over the panes already laid out beneath them, and
-      with Reduce Motion the screen fades for 0.3 s (`PaneMove`,
-      `PaneMotion`). "< Mailboxes" and a folder tap stay instant, and so
-      does a switch tapped while a list or the letter bounces past an end.
-      Checked in `PaneMoveTests` and `PaneArrangementTests`; see B-066. What
-      to look at on the iPad is below.*
+      *Done: pictures of the panes slide sideways for 0.4 s and settle for
+      0.2 s over the panes already laid out beneath them, and with Reduce
+      Motion the screen fades for 0.3 s (`PaneMove`, `PaneMotion`).
+      "< Mailboxes" and a folder tap stay instant, and so does a switch
+      tapped while a list or the letter bounces past an end. Checked in
+      `PaneMoveTests` and `PaneArrangementTests`; see B-066. Seen on the
+      iPad frame by frame 2026-10-03, then replaced by B-077's motion, the
+      next item. What to look at on the iPad is below.*
 - [x] **B-077. The panes move as Mail's.** The owner's ruling on B-066's
       questions, 2026-10-06: "copy apple mail for these".
       *Done, seen on the iPad 2026-10-07, VoiceOver's place too under
@@ -504,8 +504,8 @@ this host. Ordered by value, not by size.
       Every HTML letter the app sends with a signature carries the marker
       (`AppleMailHTML.signatureOpen`), so no send is needed. A letter shown
       alone is drawn by `PanePage.letter`, which has no such rule, so its
-      signature shows white on the dark pane (seen in passing in B-074);
-      whether a letter alone should have the sheet too is the owner's to say.
+      signature shows white on the dark pane (seen in passing in B-074,
+      not yet looked into); that is what is left of this item.
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
       sends and arrives; see B-036. Still to try is below.* It is installed
@@ -803,10 +803,10 @@ this host. Ordered by value, not by size.
       it: it arrives with the photo once, and the logo in the signature.
 - [ ] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
       sheet and VoiceOver still to look at.* The sidebar's first row and the list's title read
-      "Inbox" at launch and after tapping it. The Move sheet, opened on a letter
-      in another folder (it leaves out the letter's own folder), says
-      "Inbox" too. With VoiceOver on, the first row reads "Inbox, N unread", or
-      "Inbox" with nothing unread.
+      "Inbox" at launch and after tapping it. The Move sheet, opened on a
+      letter in another folder (it leaves out the letter's own folder),
+      says "Inbox" too. With VoiceOver on, the first row reads
+      "Inbox, N unread", or "Inbox" with nothing unread.
 - [ ] **B-048, two panes or three.** *Partly seen 2026-09-29: both ways
       with a letter open and a search up, "< Mailboxes" and the open
       folder, the choice kept across a relaunch; see B-048. Still to see:
@@ -1122,9 +1122,10 @@ this host. Ordered by value, not by size.
       unread mail: the read mark's `UID FETCH n (UID X-GM-MSGID)` before its
       `UID STORE`, beside the letter's FETCH with the id, and its dot stays
       off. Sent Mail's rows are his own letters, read, so a tap there sends
-      no read mark; after a launch with no connection and then Airplane Mode
-      off, as for the swap under ticks, Edit, a tick on a Sent Mail row and
-      Mark as Unread can all be made before its page lands:
+      no read mark; after a launch with no connection, Sent Mail opened
+      while there is still none, and then Airplane Mode off, as for the
+      swap under ticks, Edit, a tick on a Sent Mail row and Mark as Unread
+      can all be made before its page lands at the watch's next check:
       `UID FETCH n (UID X-GM-MSGID)` before
       `UID STORE n -FLAGS.SILENT (\Seen)`, then Mark as Read to put it back.
       After such a launch too: send the account two letters, force-quit, open
@@ -1673,7 +1674,8 @@ this host. Ordered by value, not by size.
       steps 1, 2, 7 and 10 are B-077's checks below; 3 to 6, 8 and 9
       stand; in 11 the gap beside the list comes only at the tap from
       three to two, where the list narrows to 375 pt, and closes as it
-      moves; in 12, "at the settle" is now "as the pictures go".*
+      moves; in 12, "at the settle" is now "as the pictures go". Step 8
+      was seen under B-077 on 2026-10-07.*
       1. *Frame by frame.* A scratch build with the window's `layer.speed`
       at 0.1, so the slide takes 4 s and the settle 2 s; the deadline
       stretches with it. Each of the three switches at 1194 (three to
