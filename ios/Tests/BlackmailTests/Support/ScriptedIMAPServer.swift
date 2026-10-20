@@ -614,6 +614,16 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     /// prevent. Empty after every test that runs over this server.
     var violations: [String] { locked { $0.violations } }
 
+    /// Runs `change` once, the moment the first command `after` picks out
+    /// has been carried out, and before its reply goes: the mail changed
+    /// between two commands of one thing the client does, as another
+    /// client's move or a server's renumbering lands between them. `change`
+    /// may call anything here; the reply was made before it ran.
+    func change(after: @escaping @Sendable (LogEntry) -> Bool,
+                _ change: @escaping @Sendable () -> Void) {
+        locked { $0.changes.append(Change(after: after, change: change)) }
+    }
+
     func clearLog() {
         locked { s in
             s.log.removeAll()
@@ -833,7 +843,18 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     }
 
     fileprivate func receive(_ data: Data, on id: Int) -> [Reply] {
-        locked { $0.receive(data, on: id) }
+        let (replies, changes) = locked { s -> ([Reply], [@Sendable () -> Void]) in
+            let before = s.log.count
+            let replies = s.receive(data, on: id)
+            var changes: [@Sendable () -> Void] = []
+            for entry in s.log[before...] {
+                guard let i = s.changes.firstIndex(where: { $0.after(entry) }) else { continue }
+                changes.append(s.changes.remove(at: i).change)
+            }
+            return (replies, changes)
+        }
+        for change in changes { change() }
+        return replies
     }
 
     private func locked<T>(_ body: (inout State) throws -> T) rethrows -> T {
@@ -935,6 +956,12 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
 private extension ScriptedIMAPServer {
 
+    /// One `change(after:_:)` not yet made.
+    struct Change {
+        let after: @Sendable (LogEntry) -> Bool
+        let change: @Sendable () -> Void
+    }
+
     struct Folder {
         let name: String
         let attributes: [String]
@@ -1023,6 +1050,7 @@ private extension ScriptedIMAPServer {
         var handshakesHeld = false
         var withheldCapabilities: Set<String> = []
         var held: Set<String> = []
+        var changes: [Server.Change] = []
         var transports: [Int: Server.WeakTransport] = [:]
         /// Every transport ever made, for `transportsInMemory` and
         /// `connectionsBegun`.

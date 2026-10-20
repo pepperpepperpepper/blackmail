@@ -179,15 +179,47 @@ final class KeptReferencesTests: XCTestCase {
             .filter { $0.hasPrefix(prefix) }
     }
 
-    /// Sam's "Plans" with Plans.pdf, the newest letter, in `mailboxes`.
+    /// Sam's "Plans" with Plans.pdf, the newest letter, in `mailboxes`;
+    /// with Costs.pdf and Map.pdf after it too where `threeFiles` says so.
     @discardableResult
-    private func deliverPlans(to mailboxes: [String] = [Server.inbox, Server.allMail])
-        -> [String: UInt32] {
-        server.deliver(Server.Letter(
+    private func deliverPlans(to mailboxes: [String] = [Server.inbox, Server.allMail],
+                              threeFiles: Bool = false) -> [String: UInt32] {
+        var files = [Server.File(name: "Plans.pdf", type: "APPLICATION", subtype: "PDF",
+                                 bytes: plansBytes)]
+        if threeFiles {
+            files += [Server.File(name: "Costs.pdf", type: "APPLICATION", subtype: "PDF",
+                                  bytes: costsBytes),
+                      Server.File(name: "Map.pdf", type: "APPLICATION", subtype: "PDF",
+                                  bytes: mapBytes)]
+        }
+        return server.deliver(Server.Letter(
             from: Server.sam, to: [Server.owner], subject: "Plans", date: Server.newestDate,
             text: "The plans.\r\n", messageID: "<plans@example.com>",
-            files: [Server.File(name: "Plans.pdf", type: "APPLICATION", subtype: "PDF",
-                                bytes: plansBytes)]), to: mailboxes)
+            files: files), to: mailboxes)
+    }
+
+    private let costsBytes = Data((0..<3000).map { UInt8(truncatingIfNeeded: $0 &* 19 &+ 3) })
+    private let mapBytes = Data((0..<3000).map { UInt8(truncatingIfNeeded: $0 &* 29 &+ 7) })
+
+    /// How many times the letter Gmail knows as `letter` was looked for by
+    /// its id, `UID SEARCH X-GM-MSGID`, in All Mail.
+    private func searches(for letter: UInt64) -> Int {
+        server.log.filter {
+            $0.selected == Server.allMail && $0.command == "UID SEARCH X-GM-MSGID \(letter)"
+        }.count
+    }
+
+    /// The parts fetched from All Mail, as UID and section, in order.
+    private func partsFromAllMail() -> [String] {
+        server.log.filter { $0.selected == Server.allMail }.compactMap { entry in
+            guard entry.command.hasPrefix("UID FETCH "),
+                  let open = entry.command.range(of: " (UID BODY.PEEK["),
+                  entry.command.hasSuffix("])") else { return nil }
+            let uid = entry.command[entry.command.index(entry.command.startIndex, offsetBy: 10)
+                                        ..< open.lowerBound]
+            let section = entry.command[open.upperBound...].dropLast(2)
+            return "\(uid) [\(section)]"
+        }
     }
 
     /// Another letter, newer, whose file is at the same section as the
@@ -802,6 +834,127 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(kept.outbox.count, 0)
     }
 
+    /// A forward of a letter with three files, sent with no connection. In
+    /// a later launch the Inbox is another mailbox under the same numbers,
+    /// so its original is looked for in All Mail by its id: once, for the
+    /// first file, and the other two are fetched from where that found it,
+    /// each FETCH naming the letter as ever (B-088). Before, the search went
+    /// again before each file, three times for three files.
+    func testAForwardWithSeveralFilesLooksForItsOriginalInAllMailOnce() async throws {
+        let delivered = deliverPlans(threeFiles: true)
+        let plans = try XCTUnwrap(delivered[Server.allMail])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        XCTAssertEqual(forward.draft.attachments.map(\.filename), ["Plans.pdf", "Costs.pdf", "Map.pdf"])
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        deliverResults()
+        renumberInbox(soThat: try XCTUnwrap(delivered[Server.inbox]))
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.first, bytes), "each file its own")
+        }
+        XCTAssertFalse(carries(sent.first, resultsBytes), "not the results' file")
+        let id = try XCTUnwrap(forward.row.gmailMessageID)
+        XCTAssertEqual(searches(for: id), 1, "looked for once, not once per file")
+        XCTAssertEqual(partsFromAllMail(), ["\(plans) [2]", "\(plans) [3]", "\(plans) [4]"])
+        XCTAssertEqual(notes("CARRIED-PART").filter { $0.hasSuffix("found folder=\(Server.allMail)") }
+            .count, 3)
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
+    /// The same forward kept as a draft and taken to Drafts in a later
+    /// launch: the copy carries the three files, its own, and the original
+    /// is looked for in All Mail once.
+    func testADraftWithSeveralFilesLooksForItsOriginalInAllMailOnce() async throws {
+        let plans = try XCTUnwrap(deliverPlans(threeFiles: true))
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        makeKept().keep(forward.draft, as: "forward", unfinished: false)
+        deliverResults()
+        renumberInbox(soThat: try XCTUnwrap(plans[Server.inbox]))
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let copy = try XCTUnwrap(copies(forward.draft.subject).first)
+        let raw = server.raw(uid: copy, in: Server.drafts).map { String(decoding: $0, as: UTF8.self) }
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(raw, bytes), "each file its own")
+        }
+        XCTAssertFalse(carries(raw, resultsBytes))
+        XCTAssertEqual(searches(for: try XCTUnwrap(forward.row.gmailMessageID)), 1)
+        let at = try XCTUnwrap(plans[Server.allMail])
+        XCTAssertEqual(partsFromAllMail(), ["\(at) [2]", "\(at) [3]", "\(at) [4]"])
+        XCTAssertEqual(kept.waiting.count, 0)
+    }
+
+    /// All Mail renumbered between two of the forward's files, under the
+    /// UIDVALIDITY it had, so that the UID the original was found under
+    /// holds Jane's scans, three files at the same sections: the second
+    /// file is not taken from them, the original is looked for once more,
+    /// and the second and third files come from its new UID. Two searches
+    /// for three files, and each file its own.
+    func testAnOriginalRenumberedBetweenTwoFilesIsLookedForOnceMore() async throws {
+        let plans = try XCTUnwrap(deliverPlans(threeFiles: true))
+        let old = try XCTUnwrap(plans[Server.allMail])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        let scans = [resultsBytes, roof, scan]
+        server.deliver(Server.Letter(
+            from: Server.jane, to: [Server.owner], subject: "Scans",
+            date: Server.newestDate.addingTimeInterval(60), text: "The scans.\r\n",
+            messageID: "<scans@example.com>",
+            files: scans.enumerated().map {
+                Server.File(name: "Scan \($0.offset + 1).pdf", type: "APPLICATION", subtype: "PDF",
+                            bytes: $0.element)
+            }), to: [Server.inbox, Server.allMail])
+        renumberInbox(soThat: try XCTUnwrap(plans[Server.inbox]))
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        let server = self.server!
+        let validity = server.uidValidity(of: Server.allMail)
+        let count = UInt32(server.uids(in: Server.allMail).count)
+        XCTAssertGreaterThan(old, 2 * count, "room below for the new numbers")
+        // The scans, filed last, come to the Plans' old UID.
+        server.change(after: {
+            $0.selected == Server.allMail && $0.command == "UID FETCH \(old) (UID BODY.PEEK[2])"
+        }) {
+            server.renumber(Server.allMail, validity: validity, firstUID: old - 2 * (count - 1))
+        }
+        await kept.uploadWaiting(to: repository)?.value
+
+        XCTAssertEqual(server.letter(uid: old, in: Server.allMail)?.subject, "Scans")
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.first, bytes), "each file its own")
+        }
+        for bytes in scans {
+            XCTAssertFalse(carries(sent.first, bytes), "never a scan")
+        }
+        let id = try XCTUnwrap(forward.row.gmailMessageID)
+        XCTAssertEqual(searches(for: id), 2, "once, and once more after the move")
+        XCTAssertEqual(partsFromAllMail(), ["\(old) [2]", "\(old - 2) [3]", "\(old - 2) [4]"])
+        XCTAssertEqual(notes("CARRIED-PART").filter { $0.contains("folder=\(Server.allMail) reason=") },
+                       ["CARRIED-PART folder=\(Server.allMail) reason=another-letter"])
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
     /// A forward's quoted picture the same: sent from the Outbox in a later
     /// launch with its original's UID holding another letter, the picture in
     /// the quote is the original's own, found in All Mail, and never the
@@ -830,6 +983,42 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertTrue(carries(sent.first, roof), "the roof, in the quote")
         XCTAssertFalse(carries(sent.first, scan), "never the other letter's picture")
         XCTAssertEqual(notes("CARRIED-PART").last, "CARRIED-PART found folder=\(Server.allMail)")
+    }
+
+    /// A forward whose quote shows a picture and which carries a file, both
+    /// of one original, in a later launch with the original's UID holding
+    /// another letter: the picture, fetched first, finds it in All Mail, and
+    /// the file comes from there with no second search (B-088).
+    func testAQuotedPictureAndAFileOfOneOriginalLookForItOnce() async throws {
+        var letter = pictured("The roof", "roof", roof, at: Server.newestDate)
+        letter.files.append(Server.File(name: "Plans.pdf", type: "APPLICATION", subtype: "PDF",
+                                        bytes: plansBytes))
+        let original = try XCTUnwrap(server.deliver(letter, to: [Server.inbox, Server.allMail]))
+        let first = makeRepository()
+        let rows = try await first.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let row = try XCTUnwrap(rows.first { $0.subject == "The roof" })
+        var forward = Draft.forwarding(try await first.open(row))
+        forward.to = ["carlo@example.org"]
+        XCTAssertEqual(forward.quote?.pictures.map(\.letter), [row.gmailMessageID])
+        XCTAssertTrue(forward.attachments.map(\.filename).contains("Plans.pdf"))
+        await sentOffline(forward, as: "forward", kept: makeKept(), repository: first)
+        server.deliver(pictured("A scan", "scan", scan, at: Server.newestDate.addingTimeInterval(60)),
+                       to: [Server.inbox, Server.allMail])
+        renumberInbox(soThat: try XCTUnwrap(original[Server.inbox]))
+
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await makeKept().uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(carries(sent.first, roof), "the roof, in the quote")
+        XCTAssertTrue(carries(sent.first, plansBytes), "the file")
+        XCTAssertFalse(carries(sent.first, scan), "never the other letter's picture")
+        XCTAssertEqual(searches(for: try XCTUnwrap(row.gmailMessageID)), 1)
+        let at = try XCTUnwrap(original[Server.allMail])
+        XCTAssertEqual(partsFromAllMail(), ["\(at) [2]", "\(at) [3]"])
     }
 
     /// A forward's quoted picture whose original is nowhere in this

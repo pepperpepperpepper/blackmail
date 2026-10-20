@@ -67,6 +67,13 @@ actor IMAPMailRepository: MailRepository {
     /// (`fetchAttachmentData`). Not for a forward's parts that name their
     /// letter, which the FETCH that describes it vouches for (`carriedPart`).
     private var lastStructure: (messageID: String, structure: MIMEPart)?
+    /// Where this launch has found each letter a part is carried from in
+    /// All Mail by Gmail's id for it, `UID SEARCH X-GM-MSGID`: the folder's
+    /// name, its UIDVALIDITY then and the letter's UID there. A forward of a
+    /// letter with several files, its original no longer under the UID it
+    /// names, looks for it once and fetches every part from there
+    /// (`carriedPartElsewhere`, B-088).
+    private var foundInAllMail: [UInt64: (folder: String, validity: UInt32, uid: UInt32)] = [:]
     /// The copies this launch has put in Drafts itself, by folder name and
     /// id, as APPENDUID gave them, or as the search by its version's
     /// Message-ID found one a cut-off upload left (`saveDraft`). One
@@ -2239,12 +2246,30 @@ actor IMAPMailRepository: MailRepository {
             }
         }
         let name = try await resolve(mailboxID)
+        if let data = try await carriedPartIfThere(section, of: messageID, in: name,
+                                                   letter: letter) {
+            return data
+        }
+        if let found = try await carriedPartElsewhere(section, letter: letter) {
+            Diagnostics.log(.note, "CARRIED-PART found folder=\(found.folder)")
+            return found.data
+        }
+        Diagnostics.log(.note, "CARRIED-PART not-found nothing-sent")
+        throw MailError.attachmentsMissing
+    }
+
+    /// `carriedPart`, or nil when the letter is not there, the log saying
+    /// why in `name`: another letter is under the UID, none is, or the
+    /// folder is renumbered, deleted or renamed since. A connection that
+    /// goes is thrown, and the letter waits for it.
+    private func carriedPartIfThere(_ section: String, of id: String, in name: String,
+                                    letter: UInt64) async throws -> Data? {
         let reason: String
         do {
-            return try await carriedPart(section, of: messageID, in: name, letter: letter)
+            return try await carriedPart(section, of: id, in: name, letter: letter)
         } catch let other as IMAPClient.NotTheLetter {
             reason = other.named == nil ? "gone" : "another-letter"
-            if let named = other.named, let at = try? Self.parseID(messageID) {
+            if let named = other.named, let at = try? Self.parseID(id) {
                 saw([at.uid: named], validity: at.validity, in: name)
             }
         } catch MailError.cannotConnect {
@@ -2254,12 +2279,7 @@ actor IMAPMailRepository: MailRepository {
             reason = "folder"
         }
         Diagnostics.log(.note, "CARRIED-PART folder=\(name) reason=\(reason)")
-        if let found = try await carriedPartElsewhere(section, letter: letter) {
-            Diagnostics.log(.note, "CARRIED-PART found folder=\(found.folder)")
-            return found.data
-        }
-        Diagnostics.log(.note, "CARRIED-PART not-found nothing-sent")
-        throw MailError.attachmentsMissing
+        return nil
     }
 
     /// The part `section` of `letter`, from the letter at `id` in `name`
@@ -2297,10 +2317,25 @@ actor IMAPMailRepository: MailRepository {
     /// All Mail, because it holds every letter that is not binned, which
     /// is where an original forwarded from the Inbox is once it has been
     /// archived, and where one is under a new UID in a folder renumbered.
+    ///
+    /// Looked for once, not once for each of its parts (B-088): where this
+    /// launch has found the letter in All Mail already, for a file or a
+    /// picture before this one, the part is fetched from there as
+    /// `carriedPart` fetches one, its FETCH naming the letter, and no
+    /// search goes. Not there any more, another letter under that UID or
+    /// none, or All Mail renumbered, and it is looked for again, once, and
+    /// the parts after it are fetched from where that finds it.
     private func carriedPartElsewhere(_ section: String, letter: UInt64)
         async throws -> (data: Data, folder: String)? {
         _ = try await knownListing()
         guard let allMail = folderForAttribute["\\all"] else { return nil }
+        if let at = foundInAllMail[letter], at.folder == allMail,
+           let data = try await carriedPartIfThere(
+            section, of: Self.makeID(validity: at.validity, uid: at.uid), in: allMail,
+            letter: letter) {
+            return (data, allMail)
+        }
+        foundInAllMail[letter] = nil
         do {
             let found = try await retryingIfDisconnected {
                 try await self.connected().findLetter(letter, in: allMail)
@@ -2312,6 +2347,7 @@ actor IMAPMailRepository: MailRepository {
                     mailboxID: allMail, letter: letter)
             }
             saw([uid: letter], validity: found.validity, in: allMail)
+            foundInAllMail[letter] = (allMail, found.validity, uid)
             return (data, allMail)
         } catch is IMAPClient.NotTheLetter {
             return nil
