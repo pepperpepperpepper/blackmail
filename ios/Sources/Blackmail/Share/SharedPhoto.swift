@@ -400,6 +400,25 @@ enum SharedPhoto {
         return .whole(filenameExtension: png.filenameExtension, mimeType: png.mimeType)
     }
 
+    /// What an object going `way` (`objectWay`) is written as, and the
+    /// MIME type it goes with: a PNG, "image/png", where it goes whole, as
+    /// only a PNG of an object does; otherwise a JPEG, "image/jpeg". Both
+    /// from the one way, as its name is (`name`), so the bytes, their type
+    /// and the name's extension say the same.
+    static func objectFile(_ way: Way) -> (png: Bool, mimeType: String) {
+        if case .whole(_, let mimeType) = way { return (true, mimeType) }
+        return (false, "image/jpeg")
+    }
+
+    /// Why an object made a file was left out, `measured` what the file
+    /// written measured on the disk (`ShareItems.Staging.lastMeasured`),
+    /// nil where none was written or it was not measured, with `room` left
+    /// of the letter's 25 MB: "no room" where it was larger, as for a JPEG
+    /// made here; "not written" otherwise.
+    static func objectLeftOut(measured: Int64?, room: Int64) -> Went {
+        .leftOut((measured ?? 0) > room ? "no room" : "not written")
+    }
+
     /// The orientation tag, 1 to 8 as EXIF has it, for a `UIImage`'s
     /// `imageOrientation` by its raw value: up 0, down 1, left 2, right 3,
     /// then the same mirrored, 4 to 7. The object's pixels are written as

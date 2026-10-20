@@ -80,10 +80,11 @@ enum ShareItems {
 
         private(set) var staged: Int64 = 0
 
-        /// What the last file's copy measured on the disk (`file`), staged
-        /// or taken away again for want of room: the size that decided it,
-        /// for the log. Nil when the last file was not copied, or its copy
-        /// could not be measured.
+        /// What the last file's copy measured on the disk (`file`), or the
+        /// last file written there (`written`), staged or taken away again
+        /// for want of room: the size that decided it, for the log. Nil
+        /// when the last file was not copied or not written, or could not
+        /// be measured.
         private(set) var lastMeasured: Int64?
 
         /// The pictures staged with no name of their own, which numbers the
@@ -156,14 +157,19 @@ enum ShareItems {
         /// (`SharedPhoto.Way.own`). Room for `expected` bytes, the size of
         /// the file it is written from, is looked for before anything is
         /// written; the file as written is measured after, and is what the
-        /// letter counts. Nil, with nothing left on the disk, when there is
-        /// no room either time, `write` fails, or the file cannot be
-        /// measured.
+        /// letter counts, and `lastMeasured`. Nil, with nothing left on the
+        /// disk, when there is no room either time, `write` fails, or the
+        /// file cannot be measured.
         func written(named filename: String, mimeType: String, expected: Int64,
                      unnamed: Bool = false, _ write: (URL) -> Bool) -> SharedItem? {
+            lastMeasured = nil
             guard staged + expected <= Self.budget, let url = try? place(filename) else { return nil }
-            guard write(url), let size = Self.measured(url), size > 0,
-                  staged + size <= Self.budget else {
+            guard write(url) else {
+                discard(url)
+                return nil
+            }
+            lastMeasured = Self.measured(url)
+            guard let size = lastMeasured, size > 0, staged + size <= Self.budget else {
                 discard(url)
                 return nil
             }

@@ -1,8 +1,9 @@
 // Guarded so this file compiles away on a host without UIKit or ImageIO.
 // What is decided about a picture handed over as an object is `SharedPhoto`
-// (`objectRefused`, `objectWay`, `exifOrientation`), which the host suite
-// runs; this is UIKit and ImageIO doing it, and its wiring is read from this
-// source by `SharedPhotoTests`.
+// (`objectRefused`, `objectWay`, `objectFile`, `objectLeftOut`,
+// `exifOrientation`), which the host suite runs; this is UIKit and ImageIO
+// doing it, and its wiring is read from this source by
+// `SharePictureFallbackTests` and `SharedPhotoTests`.
 #if canImport(UIKit) && canImport(ImageIO)
 
 import UIKit
@@ -19,7 +20,8 @@ extension ShareItems {
     /// failing that, for its own item, which is the `UIImage` itself where
     /// the sharing app shared one (`item`). Either is made a file here
     /// (`made`), bounded by the memory, and named as a picture with no
-    /// name is: "image0.png", "image0.jpeg".
+    /// name is: "image0.png", "image0.jpeg". An item that is a file or
+    /// bytes is read by ImageIO, as any other is.
     ///
     /// The only `UIImage` in the extension, and only here: everything a
     /// provider hands over as a file or as bytes is read by ImageIO, which
@@ -49,17 +51,24 @@ extension ShareItems {
 
     /// The provider's own item, asked for under the first type tried: the
     /// `UIImage` a sharing app put there as it is, where `loadObject` made
-    /// none. Anything else it may be, a file or bytes, was asked for under
-    /// every type already, and is left out, not opened, as before.
+    /// none. Or a file or bytes, which a sharing app may hand over this way
+    /// and no other: read by ImageIO as a file or bytes given under a type
+    /// are (`picture(item:)`), never as a `UIImage`. Anything else is left
+    /// out, not opened.
     private static func item(_ provider: NSItemProvider, unopened: [String], staging: Staging,
                              done: @escaping (SharedItem?) -> Void) {
         let offered = provider.registeredTypeIdentifiers
-        let named = SharedPhoto.named(suggested: provider.suggestedName, file: nil)
+        let suggested = provider.suggestedName
+        let named = SharedPhoto.named(suggested: suggested, file: nil)
         let type = unopened.first ?? UTType.image.identifier
         provider.loadItem(forTypeIdentifier: type, options: nil) { object, _ in
             var report = SharedPhoto.Report(offered: offered, read: "item", named: named)
             report.unopened = unopened
-            guard let image = object as? UIImage else { return finish(nil, report, done) }
+            guard let image = object as? UIImage else {
+                let staged = picture(item: object, type: type, suggested: suggested,
+                                     staging: staging, report: &report)
+                return finish(staged, report, done)
+            }
             let staged = autoreleasepool {
                 made(image, named: named, offered: offered, staging: staging, report: &report)
             }
@@ -69,10 +78,13 @@ extension ShareItems {
 
     /// `image` made a file, written by ImageIO straight onto the disk where
     /// it is staged (`Staging.written`): a PNG or a JPEG as
-    /// `SharedPhoto.objectWay` says, at its own size, named as
+    /// `SharedPhoto.objectWay` says, its bytes and its MIME type from that
+    /// one way (`SharedPhoto.objectFile`), at its own size, named as
     /// `SharedPhoto.name` names it. Left out, and said, where
     /// `SharedPhoto.objectRefused` says, with the memory read right before:
     /// its size is the `CGImage`'s, read before a pixel of it is decoded.
+    /// Written and too large for what is left of the letter's room, it is
+    /// taken away again and said to be (`SharedPhoto.objectLeftOut`).
     ///
     /// Nothing of where it was can go with it: a `UIImage` carries no
     /// metadata at all, no GPS, no EXIF, only its pixels, their colour
@@ -96,20 +108,21 @@ extension ShareItems {
         default: hasAlpha = true
         }
         let way = SharedPhoto.objectWay(offered: offered, hasAlpha: hasAlpha)
-        var mimeType = "image/jpeg"
-        if case .whole(_, let whole) = way { mimeType = whole }
-        let png = way != .jpeg
+        let file = SharedPhoto.objectFile(way)
         let name = SharedPhoto.name(named, way: way, number: staging.unnamed)
         report.name = name
-        report.went = .object(png: png, available: available)
+        report.went = .object(png: file.png, available: available)
         let orientation = SharedPhoto.exifOrientation(imageOrientation: image.imageOrientation.rawValue)
         // Its size is not known until it is written: the room is weighed
         // on what was written, which is measured.
-        let item = staging.written(named: name, mimeType: mimeType, expected: 0,
+        let item = staging.written(named: name, mimeType: file.mimeType, expected: 0,
                                    unnamed: named == .none) { url in
-            SharedPhoto.write(picture, png: png, orientation: orientation, to: url)
+            SharedPhoto.write(picture, png: file.png, orientation: orientation, to: url)
         }
-        if item == nil { report.went = .leftOut("not written") }
+        if item == nil {
+            report.went = SharedPhoto.objectLeftOut(measured: staging.lastMeasured,
+                                                    room: staging.room)
+        }
         return item
     }
 }

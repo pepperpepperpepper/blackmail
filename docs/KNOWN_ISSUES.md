@@ -14595,6 +14595,15 @@ opens. By the look of it the editor hands its picture over as a `UIImage`,
 an object, and not as a file or as bytes under the type it names; or under
 another type, which was never asked for.
 
+Or the type gave a file or bytes that are no picture. Only a source ImageIO
+did not make was taken as not opened, and ImageIO makes one of what is no
+picture at all, with nothing in it: on a Mac (macOS 26.3, 2026-10-20) a
+keyed archive, words and no bytes at all each opened with a count of
+nought and no type. Such a source went on to `stage`, which found no
+picture at its index and left it out there, `way=left out, no picture in
+it`, as one that could not be made a picture, and tried nothing else. Both
+readings give the same words.
+
 Which of these, the log would have said: each picture's `SHARE-PICTURE`
 line has what the provider offered and how it went. But the log was written
 to a file only at a send's end (`CaptureProbe.dumpTranscript`), and a sheet
@@ -14612,6 +14621,14 @@ with no letter has no Send. The line was never where a check could read it.
   goes on to the next. A picture opened and not made one, or left out for
   the room or the memory, is the same picture whatever type it is read as,
   and is answered there, as before.
+- *Not opened is no picture in it.* A file or bytes are opened only when
+  ImageIO finds a picture in them, a count of one or more (`read`). One it
+  makes a source of and finds nothing in, as it does of what is no
+  picture, is as one not given: the file goes on to its bytes, the bytes
+  to the next type, and the last to the object. A picture in it that
+  cannot be made one is left out there, as before; its line says `no
+  picture at its index`, or `not made a JPEG`. A photo from Photos opens
+  with its one picture, and goes as it did.
 - *Then the object.* With no type left, the provider is asked for a
   `UIImage` (`loadObject`), and failing that for its own item, which is the
   `UIImage` itself where the sharing app put one there (`loadItem`). It is
@@ -14620,10 +14637,18 @@ with no letter has no Send. The line was never where a check could read it.
   PNG where the provider says it is one, as a picture of the screen is, or
   where the picture has a clear part, which a JPEG has not got; otherwise a
   JPEG at the JPEG's quality, as any picture not kept whole is made one
-  (`SharedPhoto.objectWay`). At its own size and never turned; its
-  orientation, where it is not upright, goes as a tag
+  (`SharedPhoto.objectWay`). Its bytes, their MIME type and its name's
+  extension all come from that one way (`SharedPhoto.objectFile`), so an
+  image0.png is a PNG and goes as image/png. At its own size and never
+  turned; its orientation, where it is not upright, goes as a tag
   (`SharedPhoto.exifOrientation`), as a photo sent as its own bytes keeps
   its.
+- *An item that is a file or bytes.* The provider's own item may be a file
+  on the iPad or bytes rather than a `UIImage`. Then it is read by ImageIO,
+  inside the item's callback, as a type's file or bytes are, by the same
+  rules and bounds, and never as a `UIImage`; a file is named by its own
+  name, as one handed over any other way is (`ShareItems.picture(item:)`).
+  Anything else is left out, not opened.
 - *Bounded.* This is the one place the extension decodes a picture whole: a
   `UIImage` cannot be read at a half, a quarter or an eighth. Decoded, a
   picture is four bytes a pixel, and it is taken at three times that while
@@ -14650,13 +14675,18 @@ with no letter has no Send. The line was never where a check could read it.
   (`SharedPhoto.write`), so there is nothing to strip.
 - *The log.* A picture's line says every type tried, in order, the last the
   one that decided: `read=public.png,public.jpeg`, `read=public.png,object`
-  for the `UIImage`, `…,item` for the provider's own item; and for the
-  object `way=PNG made of the object, N MB available`, or `JPEG`. When the
-  sheet says a picture or a video could not be attached, in place of the
-  letter or in a line over it, the log so far is written out as a send's
-  end writes it, `blackmail-send-<time>-left-out.txt` in the extension's
-  tmp, among the newest ten kept (`ShareItems.keepLog`), under its own time
-  rather than the last send's. So the next check can read why.
+  for the `UIImage`, `…,item` for the provider's own item, with `(public.png
+  inside)` where the item was a file or bytes; and for the object `way=PNG
+  made of the object, N MB available`, or `JPEG`. An object written larger
+  than what is left of the letter's room is taken away again and its line
+  says `left out, no room`, as a JPEG made here does; one ImageIO did not
+  write, `not written` (`SharedPhoto.objectLeftOut`, from what
+  `Staging.written` measured, `lastMeasured`). When the sheet says a
+  picture or a video could not be attached, in place of the letter or in a
+  line over it, the log so far is written out as a send's end writes it,
+  `blackmail-send-<time>-left-out.txt` in the extension's tmp, among the
+  newest ten kept (`ShareItems.keepLog`), under its own time rather than
+  the last send's. So the next check can read why.
 
 **Not changed.** A picture that opens as its first type goes as before: as
 its own bytes, whole, or a JPEG made here. A photo from Photos still goes
@@ -14670,7 +14700,7 @@ before.
 comes into the sheet as "image0.png" (or "image0.jpeg"), two of them as
 image0.png and image1.png, and Send sends them. No new words.
 
-**Tests.** `SharePictureFallbackTests`, seventeen. The types tried: the one
+**Tests.** `SharePictureFallbackTests`, twenty-one. The types tried: the one
 chosen first, then the provider's other picture types in its order, each
 once, never one that is not a picture or a private one. The object's
 bound: twelve bytes a pixel; never more than 9 million pixels with a
@@ -14679,19 +14709,32 @@ the 80 MB assumed, three fifths exactly allowed, a byte less refused; the
 screens of his iPad, the test iPad and the largest iPad; none with no
 size; and the line for one left out for the memory. A PNG or a JPEG, by
 what is offered and a clear part; its name, the suggestion's or image0,
-image1; two staged straight onto the disk as image0.png and image1.png,
-nothing through memory. The orientation, all eight. The log's line with
-every type tried, the object and the item. The log written when something
-is left out, with no letter or with one, and not when everything came;
-the newest ten kept with the sends'; under its own time. And the iPad's
+image1; its bytes, its MIME type and its name from the one way, for every
+offer with and without a clear part; two staged straight onto the disk as
+image0.png and image1.png, nothing through memory; one written larger
+than the room left taken away, measured and said `no room`, one not
+written `not written`, the room exactly staged. The orientation, all
+eight. The log's line with every type tried, the object and the item. The
+log written when something is left out, with no letter or with one, and
+not when everything came; the newest ten kept with the sends'; under its
+own time. And the iPad's
 part, read from its source: each type as its file then its bytes, on to
-the next only when not opened, then the object; the object's bound before
-it is decoded, then the way, the name, and the file written by ImageIO
-where it is staged, with the orientation and the quality alone, never
-`pngData`, `jpegData` or a drawing; the `UIImage` in that file only; and
-the sheet writing the log once it has been told. `SharedPhotoTests`' three
-source-reading tests of `picture` changed with it, the object's line going
-through the same `finish`.
+the next only when not opened, then the object; a file or bytes with no
+picture in them not opened, either way; the object's bound before it is
+decoded, then the way, the name, and the file written by ImageIO where it
+is staged, with the orientation and the quality alone, never `pngData`,
+`jpegData` or a drawing, its kind and MIME type only from `objectFile`,
+and `no room` said from what was measured; an item that is a file or
+bytes read as a type's are, before any `UIImage`; the `UIImage` in that
+file only; and the sheet writing the log once it has been told.
+Four of `SharedPhotoTests`' source-reading tests changed with it:
+`testAPictureIsReadFromItsFileThenItsBytesEachInItsOwnPool`, for the next
+type and, after the review below, the count looked for;
+`testEachPictureLeavesOneLineInTheLog`, the object's line going through the
+same `finish`; and after the review,
+`testAPictureOpenedAndNotDecodedIsNotReadAgainAsItsBytes`, for what is not
+opened, and `testTheNameIsTakenFromTheFileWhileThereIsOne`, for the item's
+file named by its own name.
 
 Against the code as it was, the change undone with the tests kept, the
 test target does not build: the rules it calls are not there. Then each
@@ -14715,6 +14758,48 @@ The full suite, serially, with nothing undone: 1,781 tests, 5 skipped,
 none failing. The release build for the iPad links, and the share IPA
 packages and signs with the extension in it.
 
+**Reviewed 2026-10-20, and fixed.** A review of the change above found six
+things, each fixed in the text above, which says how it is now. Only a
+source ImageIO did not make was taken as not opened, and ImageIO makes one,
+with nothing in it, of what is no picture at all: a type that gave a file
+or bytes that are no picture, the editor's `UIImage` archived perhaps, was
+left out there, `no picture in it`, and the next type, the object and the
+item were never tried, so the sheet would have said "The photo could not be
+attached." as before. The item was read only as a `UIImage`, and a file or
+bytes given that way were left out unread. Nothing held where the object's
+kind and MIME type came from: with its PNG and JPEG swapped an image0.png
+went as image/png with a JPEG's bytes, and every test passed. An object
+written larger than the room left said `not written`, where a JPEG made
+here says `no room`. This entry said three of `SharedPhotoTests`' tests had
+changed, where two had, and the third passed unchanged. And B-090's check
+in the TODO expected image0.png outright, with nothing to do were its line
+to say `name=suggested` or `name=file`; it now says what share check 7 says.
+
+What ImageIO does with what is no picture was seen on a Mac (macOS 26.3),
+in a script: a keyed archive, words and no bytes at all each opened as a
+source with a count of nought, no type and its status invalid data; a keyed
+archive written to a file named .png, the same; only a file that is not
+there gave no source.
+
+Each fix fails with its part undone, twelve sabotages one at a time, the
+share's four test classes run each time (`SharedPhotoTests`,
+`SharePictureFallbackTests`, `ShareItemsTests` and `ShareSheetTests`, 102
+tests), counted as failures in tests: a file with no picture in it taken
+as opened (4 in 3); bytes with none taken as opened (4 in 3); the item's
+bytes not read (2 in 2); the item not read by ImageIO, as before (3 in
+2); the object's PNG and JPEG swapped in `objectFile` (29 in 1); the
+object written as the other kind from its name and type (1 in 1); the
+file written not measured (5 in 1); the measure not cleared before each
+write (2 in 1); `no room` never said (3 in 1); the object's line `not
+written` as before (2 in 1); the item's file not named by its own name (4
+in 2); a picture with none at its index worded as before (2 in 2). Each
+failed only the tests of what it undid.
+
+The full suite, serially, with nothing undone: 1,785 tests, 5 skipped,
+none failing. The release build for the iPad links, with nothing in it
+that iOS 16 lacks, and the share IPA packages and signs with the extension
+in it.
+
 **Not covered.**
 
 - Not seen on the iPad. Which way the editor's share goes, a type after
@@ -14722,6 +14807,18 @@ packages and signs with the extension in it.
   its line. That the editor hands over an object at all is the iPad's
   reading, not confirmed. Should it give nothing any of these ways, the
   sheet says so as before, and the line is now on the disk to say why.
+- That ImageIO makes a source with nothing in it of what is no picture was
+  seen on a Mac, in a script, not on iPadOS 16.5.1. The code holds either
+  way: a source not made and one with no picture in it both go on to the
+  next.
+- A file with no picture in it is now read again as its bytes, held in
+  memory and never decoded, before the next type is tried. How large the
+  editor's would be is not known.
+- An item that is a web address, a path given as words, or anything but a
+  file on the iPad, bytes or a `UIImage`, is left out, not opened. A file
+  given as the item is read as it comes, without asking for access to it
+  as to a file the extension picked; one the extension cannot read is not
+  opened.
 - Whether Mail sends the editor's picture as a PNG or a JPEG is not known.
   Here one offered as a PNG, or with a clear part, goes as a PNG; one
   offered as no type ImageIO knows, and opaque, goes as a JPEG.

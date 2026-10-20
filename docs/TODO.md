@@ -2896,7 +2896,8 @@ this host. Ordered by value, not by size.
       (or "image0.jpeg") listed with its size, and no line saying a photo
       could not be attached. To A with `+jane`, Subject "B-090 one", Send:
       the sheet closes, and the letter arrives with image0.png, the screen
-      as it was, upright.
+      as it was, upright. Listed under another name, the picture had one
+      from iOS: send it all the same, and read its name in 3.
       2. *Two.* Take two screenshots, tap the second's thumbnail, so the
       editor holds both; Share, Blackmail: image0.png and image1.png
       listed, no line. To A with `+jane`, Subject "B-090 two", Send: both
@@ -2905,13 +2906,19 @@ this host. Ordered by value, not by size.
       extension's own tmp, each from its last `SHARE-BEGIN` on. For each
       picture of 1 and 2 a `SHARE-PICTURE` line: copy down its `offered=`
       and its `read=`, which says the way the editor's picture came, a
-      type after the first, `object` or `item`, which B-090 did not know.
-      Its `way=` is `copied whole`, `own bytes, metadata replaced`, `JPEG
-      at factor F, N MB available`, or `PNG made of the object, N MB
-      available` (or `JPEG`), N a number. If either share still says a
+      type after the first, `object` or `item`, which B-090 did not know;
+      `item (public.png inside)` where the item was a file or bytes. Its
+      `way=` is `copied whole`, `own bytes, metadata replaced`, `JPEG at
+      factor F, N MB available`, or `PNG made of the object, N MB
+      available` (or `JPEG`), N a number. Its `name=` is `none
+      "image0.png"`, the next `image1`. If it says `name=suggested` or
+      `name=file "{N chars}.png"`, iOS made a name up: read it from the
+      letter that arrived and note it, as share check 7 does; it decides
+      whether such names count as none. If either share still says a
       photo could not be attached, there is no Send: Cancel, and read
       `blackmail-send-<time>-left-out.txt` instead, written as its sheet
-      came up, and copy its lines down.
+      came up, and copy its lines down: the last in each `read=` is the
+      way that decided, and its `way=` says why it gave nothing.
       4. *From Photos, as before.* A full-size camera photo shared from
       Photos alone, To A with `+jane`, Subject "B-090 three", Send. Its
       line `read=public.jpeg`, with no type before it, `name=file

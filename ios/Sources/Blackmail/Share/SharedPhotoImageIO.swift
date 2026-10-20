@@ -31,11 +31,12 @@ extension ShareItems {
     /// its own autorelease pool, so what ImageIO made for one has gone
     /// before the next.
     ///
-    /// Failing the file, none given or none ImageIO can open, its bytes,
-    /// the same way. A file ImageIO opens and then cannot make a picture
-    /// of is not read again as its bytes: they are the same bytes, and
-    /// would only be held in memory to fail the same way. Left out, as a
-    /// file that does not fit is, the sheet says so (`ShareItems.leftOut`).
+    /// Failing the file, none given, none ImageIO can open or one it finds
+    /// no picture in (`read`), its bytes, the same way. A file with a
+    /// picture in it that ImageIO then cannot make a picture of is not
+    /// read again as its bytes: they are the same bytes, and would only be
+    /// held in memory to fail the same way. Left out, as a file that does
+    /// not fit is, the sheet says so (`ShareItems.leftOut`).
     ///
     /// Failing both, the next type the provider offers that is a picture,
     /// in its own order, the same way, file then bytes
@@ -44,9 +45,10 @@ extension ShareItems {
     /// look of it, gives nothing under the type it offers: three times of
     /// three on the test iPad the sheet said "The photo could not be
     /// attached." (B-090).
-    /// Only a picture not opened goes on to the next: one opened and not
-    /// made a picture of, or left out for the room or the memory, is the
-    /// same picture whatever type it is read as.
+    /// Only a picture not opened goes on to the next, one with no picture
+    /// in it among them: one with a picture in it not made a picture of,
+    /// or left out for the room or the memory, is the same picture
+    /// whatever type it is read as.
     ///
     /// One line in the log for each, whichever way it went
     /// (`SharedPhoto.Report`): it is what an iPad check reads.
@@ -74,17 +76,8 @@ extension ShareItems {
             let named = SharedPhoto.named(suggested: suggested, file: url?.lastPathComponent)
             var report = SharedPhoto.Report(offered: offered, read: type, named: named)
             report.unopened = unopened
-            let fromFile = autoreleasepool { () -> Picture in
-                guard let url,
-                      let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading)
-                else { return .unopened }
-                let size = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
-                return stage(source, type: type, size: size, named: named, staging: staging,
-                             report: &report) { name, mimeType in
-                    staging.file(at: url, size: size, named: name, mimeType: mimeType,
-                                 unnamed: named == .none)
-                }
-            }
+            let fromFile = read(file: url, type: type, named: named, staging: staging,
+                                report: &report)
             switch fromFile {
             case .staged(let item): return finish(item, report, done)
             case .undecodable: return finish(nil, report, done)
@@ -92,17 +85,8 @@ extension ShareItems {
             }
             provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
                 var fromItsBytes = report
-                let fromBytes = autoreleasepool { () -> Picture in
-                    guard let data,
-                          let source = CGImageSourceCreateWithData(data as CFData,
-                                                                   SharedPhoto.reading)
-                    else { return .unopened }
-                    return stage(source, type: type, size: Int64(data.count), named: named,
-                                 staging: staging, report: &fromItsBytes) { name, mimeType in
-                        staging.photo(data, named: name, mimeType: mimeType,
-                                      unnamed: named == .none)
-                    }
-                }
+                let fromBytes = read(bytes: data, type: type, named: named, staging: staging,
+                                     report: &fromItsBytes)
                 switch fromBytes {
                 case .staged(let item): finish(item, fromItsBytes, done)
                 case .undecodable: finish(nil, fromItsBytes, done)
@@ -113,6 +97,71 @@ extension ShareItems {
                 }
             }
         }
+    }
+
+    /// `url`, a picture's file, opened by ImageIO and staged (`stage`), in
+    /// its own autorelease pool, inside the callback that is all the file
+    /// lasts. Not opened where there is no file, ImageIO does not open it,
+    /// or it opens with no picture in it: ImageIO opens what is no picture
+    /// at all, a keyed archive or words, and finds nothing in it, with no
+    /// type and a count of nought (on a Mac, 2026-10-20), so a file is
+    /// opened only when there is a picture in it to read.
+    private static func read(file url: URL?, type: String, named: SharedPhoto.Named,
+                             staging: Staging, report: inout SharedPhoto.Report) -> Picture {
+        autoreleasepool { () -> Picture in
+            guard let url,
+                  let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading),
+                  CGImageSourceGetCount(source) > 0
+            else { return .unopened }
+            let size = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+            return stage(source, type: type, size: size, named: named, staging: staging,
+                         report: &report) { name, mimeType in
+                staging.file(at: url, size: size, named: name, mimeType: mimeType,
+                             unnamed: named == .none)
+            }
+        }
+    }
+
+    /// `data`, a picture's bytes, the same way as its file (`read(file:)`),
+    /// and not opened the same way.
+    private static func read(bytes data: Data?, type: String, named: SharedPhoto.Named,
+                             staging: Staging, report: inout SharedPhoto.Report) -> Picture {
+        autoreleasepool { () -> Picture in
+            guard let data,
+                  let source = CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading),
+                  CGImageSourceGetCount(source) > 0
+            else { return .unopened }
+            return stage(source, type: type, size: Int64(data.count), named: named,
+                         staging: staging, report: &report) { name, mimeType in
+                staging.photo(data, named: name, mimeType: mimeType, unnamed: named == .none)
+            }
+        }
+    }
+
+    /// The provider's own item where it is not a `UIImage` (B-090,
+    /// `ShareItems.item`): a picture's file on this iPad, or its bytes,
+    /// which `loadItem` may hand over where neither
+    /// `loadFileRepresentation` nor `loadDataRepresentation` gave them.
+    /// Read as either of those is (`read`), by the same rules and the same
+    /// bounds; a file named by its own name, as a file handed over any
+    /// other way is (`SharedPhoto.named`). Nil for anything else, or what
+    /// ImageIO does not open, the line saying why (`report`).
+    static func picture(item: NSSecureCoding?, type: String, suggested: String?,
+                        staging: Staging, report: inout SharedPhoto.Report) -> SharedItem? {
+        let fromItem: Picture
+        if let url = item as? URL, url.isFileURL {
+            let named = SharedPhoto.named(suggested: suggested, file: url.lastPathComponent)
+            report.named = named
+            fromItem = read(file: url, type: type, named: named, staging: staging,
+                            report: &report)
+        } else if let data = item as? Data {
+            fromItem = read(bytes: data, type: type, named: report.named, staging: staging,
+                            report: &report)
+        } else {
+            return nil
+        }
+        guard case .staged(let staged) = fromItem else { return nil }
+        return staged
     }
 
     /// The picture's line in the log, with the bytes it staged, and then
@@ -130,11 +179,13 @@ extension ShareItems {
         /// Staged, or left out for want of room, of a disk to write it to,
         /// or of memory to make a JPEG of it in.
         case staged(SharedItem?)
-        /// Not opened: no file given, or none ImageIO knows. Its bytes may
-        /// open where the file did not.
+        /// Not opened: no file given, none ImageIO knows, or one with no
+        /// picture in it (`read`). Its bytes may open where the file did
+        /// not, and another type where neither did.
         case unopened
-        /// Opened, and no picture made of it: no image in it, or none
-        /// ImageIO could decode or encode. Its bytes would fail the same.
+        /// Opened, a picture in it, and no picture made of it: none at its
+        /// index, or none ImageIO could decode or encode. Its bytes would
+        /// fail the same.
         case undecodable
     }
 
@@ -149,7 +200,7 @@ extension ShareItems {
                               whole: (String, String) -> SharedItem?) -> Picture {
         let index = CGImageSourceGetPrimaryImageIndex(source)
         guard index < CGImageSourceGetCount(source) else {
-            report.went = .leftOut("no picture in it")
+            report.went = .leftOut("no picture at its index")
             return .undecodable
         }
         let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil)

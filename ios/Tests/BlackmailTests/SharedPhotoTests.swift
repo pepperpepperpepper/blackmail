@@ -928,32 +928,38 @@ final class SharedPhotoTests: XCTestCase {
 
     /// Its file first, inside the callback that is all the file lasts,
     /// opened by ImageIO and staged there, in an autorelease pool; only
-    /// when ImageIO could not open it, its bytes, the same way. One answer
-    /// each way, through `finish`, and nothing tried again once staged or
-    /// left out.
+    /// when ImageIO could not open it, or found no picture in it, its
+    /// bytes, the same way. One answer each way, through `finish`, and
+    /// nothing tried again once staged or left out.
     func testAPictureIsReadFromItsFileThenItsBytesEachInItsOwnPool() throws {
         let code = try source("SharedPhotoImageIO.swift")
         inOrder(["provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
-                 "let fromFile = autoreleasepool {",
-                 "guard let url, let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading) else { return .unopened }",
-                 "staging.file(at: url, size: size, named: name, mimeType: mimeType, unnamed: named == .none)",
+                 "let fromFile = read(file: url, type: type, named: named, staging: staging, report: &report)",
                  "switch fromFile {",
                  "case .staged(let item): return finish(item, report, done)",
                  "case .undecodable: return finish(nil, report, done)",
                  "case .unopened: break",
                  "}",
                  "provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in",
-                 "let fromBytes = autoreleasepool {",
-                 "guard let data, let source = CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading) else { return .unopened }",
-                 "staging.photo(data, named: name, mimeType: mimeType, unnamed: named == .none)",
+                 "let fromBytes = read(bytes: data, type: type, named: named, staging: staging, report: &fromItsBytes)",
                  "switch fromBytes {",
                  "case .staged(let item): finish(item, fromItsBytes, done)",
                  "case .undecodable: finish(nil, fromItsBytes, done)",
-                 "case .unopened:"],
+                 "case .unopened:",
+                 "private static func read(file url: URL?, type: String, named: SharedPhoto.Named, staging: Staging, report: inout SharedPhoto.Report) -> Picture {",
+                 "autoreleasepool { () -> Picture in",
+                 "guard let url, let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading), CGImageSourceGetCount(source) > 0 else { return .unopened }",
+                 "staging.file(at: url, size: size, named: name, mimeType: mimeType, unnamed: named == .none)",
+                 "private static func read(bytes data: Data?, type: String, named: SharedPhoto.Named, staging: Staging, report: inout SharedPhoto.Report) -> Picture {",
+                 "autoreleasepool { () -> Picture in",
+                 "guard let data, let source = CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading), CGImageSourceGetCount(source) > 0 else { return .unopened }",
+                 "staging.photo(data, named: name, mimeType: mimeType, unnamed: named == .none)"],
                 in: code)
         XCTAssertEqual(count("loadFileRepresentation(", in: code), 1)
         XCTAssertEqual(count("loadDataRepresentation(", in: code), 1)
         XCTAssertEqual(count("autoreleasepool", in: code), 2)
+        XCTAssertEqual(count("CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading)", in: code), 1)
+        XCTAssertEqual(count("CGImageSourceCreateWithData(", in: code), 1)
         XCTAssertEqual(count("finish(", in: code), 5, "four answers and the one place they go")
         XCTAssertEqual(count("done(", in: code), 1)
         XCTAssertTrue(code.contains("static let reading = [kCGImageSourceShouldCache: false] as CFDictionary"))
@@ -968,29 +974,40 @@ final class SharedPhotoTests: XCTestCase {
         inOrder(["let suggested = provider.suggestedName",
                  "provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
                  "let named = SharedPhoto.named(suggested: suggested, file: url?.lastPathComponent)",
-                 "let fromFile = autoreleasepool {"],
+                 "let fromFile = read(file: url, type: type, named: named,"],
                 in: code)
-        XCTAssertEqual(count("lastPathComponent", in: code), 1)
-        XCTAssertEqual(count("SharedPhoto.named(", in: code), 1)
+        // And a file the provider's own item is, by the same rule, while
+        // there is a file (B-090, `picture(item:)`).
+        XCTAssertEqual(count("lastPathComponent", in: code), 2)
+        XCTAssertEqual(count("SharedPhoto.named(", in: code), 2)
+        XCTAssertEqual(count("SharedPhoto.named(suggested: suggested, file: url.lastPathComponent)",
+                             in: code), 1)
         XCTAssertEqual(count("unnamed: named == .none", in: code), 4)
         XCTAssertEqual(count("SharedPhoto.name(named, way: way, number: staging.unnamed)", in: code), 2)
         XCTAssertEqual(count("SharedPhoto.name(named, way: .jpeg, number: staging.unnamed)", in: code), 1)
     }
 
-    /// Unopened, and only that, sends it on to its bytes: no file given, or
-    /// none ImageIO knows. Opened and no picture made of it (no image at
-    /// its index, or the JPEG not made) it is left out there, and its
-    /// bytes are never read into memory to fail the same way.
+    /// Unopened, and only that, sends it on to its bytes: no file given,
+    /// none ImageIO knows, or one ImageIO opens and finds no picture in,
+    /// which is how it opens what is no picture at all (B-090). Opened
+    /// with a picture in it and no picture made of it (none at its index,
+    /// or the JPEG not made) it is left out there, and its bytes are never
+    /// read into memory to fail the same way.
     func testAPictureOpenedAndNotDecodedIsNotReadAgainAsItsBytes() throws {
         let code = try source("SharedPhotoImageIO.swift")
         inOrder(["private enum Picture {", "case staged(SharedItem?)", "case unopened",
                  "case undecodable", "}"], in: code)
-        inOrder(["guard index < CGImageSourceGetCount(source) else {",
+        inOrder(["CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading), CGImageSourceGetCount(source) > 0 else { return .unopened }",
+                 "CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading), CGImageSourceGetCount(source) > 0 else { return .unopened }",
+                 "guard index < CGImageSourceGetCount(source) else {",
+                 "report.went = .leftOut(\"no picture at its index\")",
                  "return .undecodable",
                  "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor) else {",
                  "return .undecodable"],
                 in: code)
         XCTAssertEqual(count("return .unopened", in: code), 2, "the file and the bytes not opened")
+        XCTAssertEqual(count("CGImageSourceGetCount(source) > 0", in: code), 2,
+                       "a file or bytes with no picture in them not opened, either way")
         XCTAssertEqual(count("return .undecodable", in: code), 2)
         XCTAssertEqual(count(".unreadable", in: code), 0)
         let between = try part(of: code, from: "switch fromFile {",

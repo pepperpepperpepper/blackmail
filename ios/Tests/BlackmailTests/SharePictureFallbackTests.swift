@@ -164,6 +164,105 @@ final class SharePictureFallbackTests: XCTestCase {
         XCTAssertEqual(name("IMG_0001.HEIC", ["public.heic"], 0), "IMG_0001.jpg")
     }
 
+    /// What an object is written as, the MIME type it goes with and the
+    /// extension of its name, all from the one way: a PNG, "image/png" and
+    /// ".png"; or a JPEG, "image/jpeg" and ".jpeg". Never a PNG's bytes
+    /// under a JPEG's type or name, nor the other way about.
+    func testAnObjectsBytesTheirTypeAndItsNameComeFromTheOneWay() {
+        XCTAssertTrue(SharedPhoto.objectFile(png).png)
+        XCTAssertEqual(SharedPhoto.objectFile(png).mimeType, "image/png")
+        XCTAssertFalse(SharedPhoto.objectFile(.jpeg).png)
+        XCTAssertEqual(SharedPhoto.objectFile(.jpeg).mimeType, "image/jpeg")
+        XCTAssertFalse(SharedPhoto.objectFile(.own).png)
+        XCTAssertEqual(SharedPhoto.objectFile(.own).mimeType, "image/jpeg")
+        let offers: [[String]] = [["public.png"], ["public.jpeg"], ["public.image"], [],
+                                  ["public.jpeg", "public.png"], ["public.url", "public.png"],
+                                  ["public.heic"]]
+        var seen: Set<String> = []
+        for offered in offers {
+            for alpha in [false, true] {
+                let way = SharedPhoto.objectWay(offered: offered, hasAlpha: alpha)
+                let file = SharedPhoto.objectFile(way)
+                let name = SharedPhoto.name(.none, way: way, number: 0)
+                let said = "\(offered) alpha \(alpha)"
+                XCTAssertEqual(file.mimeType, file.png ? "image/png" : "image/jpeg", said)
+                XCTAssertEqual(name, file.png ? "image0.png" : "image0.jpeg", said)
+                let suggested = SharedPhoto.name(.suggested("Markup"), way: way, number: 0)
+                XCTAssertEqual(suggested, file.png ? "Markup.png" : "Markup.jpg", said)
+                seen.insert(file.mimeType)
+            }
+        }
+        XCTAssertEqual(seen, ["image/png", "image/jpeg"], "both ways met")
+        XCTAssertEqual(SharedPhoto.objectFile(SharedPhoto.objectWay(offered: ["public.png"],
+                                                                    hasAlpha: false)).png, true,
+                       "a picture of the screen, a PNG")
+        XCTAssertEqual(SharedPhoto.objectFile(SharedPhoto.objectWay(offered: ["public.jpeg"],
+                                                                    hasAlpha: false)).png, false)
+    }
+
+    /// An object is written before its size is known, so the room is
+    /// weighed on what was written. Larger than what is left of the
+    /// letter's 25 MB, it is taken away again and its line says "no
+    /// room", as a JPEG made here does; one ImageIO did not write says
+    /// "not written". What was written is measured either way.
+    func testAnObjectWrittenLargerThanTheRoomIsSaidToHaveNoRoom() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SharePictureFallbackTests-\(UUID().uuidString)",
+                                    isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var discarded: [String] = []
+        let staging = ShareItems.Staging(
+            write: { _, name in URL(fileURLWithPath: "/staged/\(name)") },
+            copy: { _, name in URL(fileURLWithPath: "/staged/\(name)") },
+            place: { name in
+                let place = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+                try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
+                return place.appendingPathComponent(name)
+            },
+            discard: { url in
+                discarded.append(url.lastPathComponent)
+                _ = try? FileManager.default.removeItem(at: url)
+            })
+        XCTAssertNotNil(staging.photo(Data(count: Int(ShareItems.Staging.budget) - 500),
+                                      named: "IMG_0001.JPG"))
+        XCTAssertEqual(staging.room, 500)
+        func object(_ size: Int, writes: Bool = true) -> SharedItem? {
+            staging.written(named: "image0.png", mimeType: "image/png", expected: 0,
+                            unnamed: true) { url in
+                writes && FileManager.default.createFile(atPath: url.path,
+                                                         contents: Data(count: size))
+            }
+        }
+
+        XCTAssertNil(object(900))
+        XCTAssertEqual(staging.lastMeasured, 900, "what was written, measured")
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: staging.lastMeasured, room: staging.room),
+                       .leftOut("no room"))
+        XCTAssertEqual(discarded, ["image0.png"], "taken away again")
+        var report = SharedPhoto.Report(offered: ["public.png"], read: "object", named: .none)
+        report.unopened = ["public.png"]
+        report.name = "image0.png"
+        report.went = SharedPhoto.objectLeftOut(measured: staging.lastMeasured, room: staging.room)
+        XCTAssertTrue(report.line.hasSuffix(" way=left out, no room bytes=0"), report.line)
+
+        XCTAssertNil(object(900, writes: false))
+        XCTAssertNil(staging.lastMeasured, "nothing written, nothing measured")
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: staging.lastMeasured, room: staging.room),
+                       .leftOut("not written"))
+
+        XCTAssertNil(object(0))
+        XCTAssertEqual(staging.lastMeasured, 0)
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: staging.lastMeasured, room: staging.room),
+                       .leftOut("not written"), "written empty")
+
+        XCTAssertNotNil(object(500), "the room exactly")
+        XCTAssertEqual(staging.lastMeasured, 500)
+        XCTAssertEqual(staging.room, 0)
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: 500, room: 500), .leftOut("not written"))
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: 501, room: 500), .leftOut("no room"))
+        XCTAssertEqual(SharedPhoto.objectLeftOut(measured: nil, room: 0), .leftOut("not written"))
+    }
+
     /// Two from the editor in one share: "image0.png", then "image1.png",
     /// each written straight onto the disk where it is staged and counted
     /// as written, nothing through memory.
@@ -411,6 +510,85 @@ final class SharePictureFallbackTests: XCTestCase {
         XCTAssertEqual(count("SharedPhoto.typesToRead(", in: code), 1)
     }
 
+    /// What ImageIO opens and finds no picture in is not opened (B-090):
+    /// it opens bytes that are no picture at all, a keyed archive or words,
+    /// and finds nothing in them, with no type and a count of nought. So a
+    /// file with no picture in it goes on to its bytes, and bytes with none
+    /// in them to the next type and then the object, as a file not given
+    /// does; never left out there as a picture that could not be made one.
+    func testAFileOrBytesWithNoPictureInThemGoOnToTheNextWay() throws {
+        let code = try source("SharedPhotoImageIO.swift")
+        let file = try part(of: code, from: "private static func read(file url: URL?,",
+                            to: "private static func read(bytes data: Data?,")
+        inOrder(["guard let url,",
+                 "let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading),",
+                 "CGImageSourceGetCount(source) > 0",
+                 "else { return .unopened }",
+                 "return stage(source,"],
+                in: file)
+        let bytes = try part(of: code, from: "private static func read(bytes data: Data?,",
+                             to: "static func picture(item: NSSecureCoding?,")
+        inOrder(["guard let data,",
+                 "let source = CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading),",
+                 "CGImageSourceGetCount(source) > 0",
+                 "else { return .unopened }",
+                 "return stage(source,"],
+                in: bytes)
+        // Every way a picture is read goes through those two.
+        XCTAssertEqual(count("CGImageSourceCreateWithURL(", in: code), 2, "and the read back")
+        XCTAssertEqual(count("CGImageSourceCreateWithData(", in: code), 1)
+        XCTAssertEqual(count("return stage(source,", in: code), 2)
+        XCTAssertEqual(count("read(file: url,", in: code), 2, "a type's file, and the item's")
+        XCTAssertEqual(count("read(bytes: data,", in: code), 2, "a type's bytes, and the item's")
+        // A picture in it that no picture could be made of is answered in
+        // `stage`, as before.
+        let stage = try part(of: code, from: "private static func stage(",
+                             to: "extension SharedPhoto {")
+        inOrder(["guard index < CGImageSourceGetCount(source) else {",
+                 "report.went = .leftOut(\"no picture at its index\")",
+                 "return .undecodable"],
+                in: stage)
+        XCTAssertEqual(count("return .unopened", in: stage), 0)
+    }
+
+    /// The provider's own item, where it is a file on this iPad or bytes
+    /// and not a `UIImage`: read by ImageIO as a type's file or bytes are,
+    /// the file named by its own name; anything else, a web address or
+    /// nothing, left out with the line it has.
+    func testAnItemThatIsAFileOrBytesIsReadAsAFileOrBytesAre() throws {
+        let code = try source("SharedPhotoImageIO.swift")
+        let item = try part(of: code, from: "static func picture(item: NSSecureCoding?,",
+                            to: "static func finish(")
+        inOrder(["static func picture(item: NSSecureCoding?, type: String, suggested: String?, staging: Staging, report: inout SharedPhoto.Report) -> SharedItem? {",
+                 "let fromItem: Picture",
+                 "if let url = item as? URL, url.isFileURL {",
+                 "let named = SharedPhoto.named(suggested: suggested, file: url.lastPathComponent)",
+                 "report.named = named",
+                 "fromItem = read(file: url, type: type, named: named, staging: staging, report: &report)",
+                 "} else if let data = item as? Data {",
+                 "fromItem = read(bytes: data, type: type, named: report.named, staging: staging, report: &report)",
+                 "} else {",
+                 "return nil",
+                 "guard case .staged(let staged) = fromItem else { return nil }",
+                 "return staged"],
+                in: item)
+        for never in ["Diagnostics.log(", "finish(", "done(", "UIImage", "CGImageSourceCreate"] {
+            XCTAssertFalse(item.contains(never), never)
+        }
+        // In the item's callback, where the file lasts, before any
+        // `UIImage` is made of it, and its line through `finish`.
+        let object = try source("SharedPhotoObject.swift")
+        inOrder(["provider.loadItem(forTypeIdentifier: type, options: nil) { object, _ in",
+                 "guard let image = object as? UIImage else {",
+                 "let staged = picture(item: object, type: type, suggested: suggested, staging: staging, report: &report)",
+                 "return finish(staged, report, done)",
+                 "}",
+                 "made(image,"],
+                in: object)
+        XCTAssertEqual(count("picture(item:", in: object), 1)
+        XCTAssertEqual(count("picture(item:", in: code), 1, "its one definition")
+    }
+
     /// The object: a `UIImage` as `UIImage` reads it, or the provider's own
     /// item where that made none, each made a file in its own pool; its
     /// size checked against the bound and the memory read right before,
@@ -433,11 +611,15 @@ final class SharePictureFallbackTests: XCTestCase {
                  "made(image, named: named, offered: offered, staging: staging, report: &report)",
                  "finish(staged, report, done)",
                  "private static func item(",
+                 "let suggested = provider.suggestedName",
+                 "let named = SharedPhoto.named(suggested: suggested, file: nil)",
                  "let type = unopened.first ?? UTType.image.identifier",
                  "provider.loadItem(forTypeIdentifier: type, options: nil) { object, _ in",
                  "var report = SharedPhoto.Report(offered: offered, read: \"item\", named: named)",
                  "report.unopened = unopened",
-                 "guard let image = object as? UIImage else { return finish(nil, report, done) }",
+                 "guard let image = object as? UIImage else {",
+                 "let staged = picture(item: object, type: type, suggested: suggested, staging: staging, report: &report)",
+                 "return finish(staged, report, done)",
                  "let staged = autoreleasepool {",
                  "made(image, named: named, offered: offered, staging: staging, report: &report)",
                  "finish(staged, report, done)"],
@@ -454,14 +636,26 @@ final class SharePictureFallbackTests: XCTestCase {
                  "case .none, .noneSkipFirst, .noneSkipLast: hasAlpha = false",
                  "default: hasAlpha = true",
                  "let way = SharedPhoto.objectWay(offered: offered, hasAlpha: hasAlpha)",
+                 "let file = SharedPhoto.objectFile(way)",
                  "let name = SharedPhoto.name(named, way: way, number: staging.unnamed)",
-                 "report.went = .object(png: png, available: available)",
+                 "report.went = .object(png: file.png, available: available)",
                  "let orientation = SharedPhoto.exifOrientation(imageOrientation: image.imageOrientation.rawValue)",
-                 "let item = staging.written(named: name, mimeType: mimeType, expected: 0, unnamed: named == .none) { url in",
-                 "SharedPhoto.write(picture, png: png, orientation: orientation, to: url)",
-                 "if item == nil { report.went = .leftOut(\"not written\") }",
+                 "let item = staging.written(named: name, mimeType: file.mimeType, expected: 0, unnamed: named == .none) { url in",
+                 "SharedPhoto.write(picture, png: file.png, orientation: orientation, to: url)",
+                 "if item == nil {",
+                 "report.went = SharedPhoto.objectLeftOut(measured: staging.lastMeasured, room: staging.room)",
                  "return item"],
                 in: made)
+        // The bytes, their MIME type and the name all from the one way:
+        // nothing in `made` says PNG or JPEG of its own (`objectFile`).
+        XCTAssertEqual(count("SharedPhoto.objectFile(way)", in: made), 1)
+        XCTAssertEqual(count("file.png", in: made), 2)
+        XCTAssertEqual(count("file.mimeType", in: made), 1)
+        XCTAssertEqual(count("way: way", in: made), 1)
+        for never in ["\"image/", "way != ", "way == ", "case .whole", "png: png",
+                      ".leftOut(\"not written\")", ".leftOut(\"no room\")"] {
+            XCTAssertFalse(made.contains(never), never)
+        }
         XCTAssertEqual(count("staging.written(", in: code), 1)
         XCTAssertEqual(count("staging.photo(", in: code), 0, "nothing through memory")
         XCTAssertEqual(count("staging.file(", in: code), 0)
