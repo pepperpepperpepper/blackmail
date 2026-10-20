@@ -2250,7 +2250,7 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-07: all six steps passed, the menu
       under its bubble in each, never beside it.*
 - [ ] **B-079, VoiceOver's place after a pane move.** On the test iPad,
-      landscape, the test account only, built from the `vo-focus-3`
+      landscape, the test account only, built from the `vo-focus-4`
       worktree; merge only after a pass. Turn VoiceOver and its Caption
       Panel on in Settings > Accessibility > VoiceOver. A tap goes
       straight to the control, as on 2026-10-07, and a VoiceOver double
@@ -2291,10 +2291,13 @@ this host. Ordered by value, not by size.
       search field, the list moved down by the part that was under it and
       no more. VoiceOver goes to that row and the list does not move again:
       not to the middle, not to the top. The same with the letter's row
-      half under the toolbar at the bottom: the list comes in moved up just
-      enough to show it whole above the toolbar. Then VoiceOver off, the
-      letter's row half under the search field again, "< Mailboxes" and the
-      open folder: the list does not move at all.
+      half under the toolbar at the bottom: the list comes in moved up to
+      show it whole, a third of a row clear of the toolbar, not on it.
+      VoiceOver goes to the row and the list does not move again. The same
+      with the letter's row whole but ending just above the toolbar: the
+      list comes in moved up those few points, and then stays. Then
+      VoiceOver off, the letter's row half under the search field again,
+      "< Mailboxes" and the open folder: the list does not move at all.
       6. *The view button*, as before: two panes to three, VoiceOver on it,
       "Hide Mailboxes, Button"; three to two, "Show Mailboxes, Button".
       7. During and after every move nothing of the pictures is read: the
@@ -2305,15 +2308,17 @@ this host. Ordered by value, not by size.
       the list has come again, VoiceOver is still on that letter's row, its
       box and its words that row's, not on Flag or the view button, for
       5 s. Then wait 40 s, through a check for new mail: still there.
-      9. *From a fresh launch.* VoiceOver chose again by itself once in each
-      launch, about a second after it got to the row. Quit Blackmail from
-      the app switcher and open it again, VoiceOver on. Two panes, the
-      Inbox at its top, a letter open, VoiceOver on the letter's row.
-      "< Mailboxes", then the Inbox: VoiceOver is on the letter's row at
-      about 1.1 s. If at about 2 s it goes to Flag, it is back on the row
-      at once, and stays there to 8 s. Quit and open it again, the pane
-      empty this time: the Inbox's first row, and if it goes to "Show
-      Mailboxes, Button", back on the row. Quit and open it again with
+      9. *From a fresh launch.* With VoiceOver on as the app starts, iPadOS
+      moves VoiceOver once in the launch, about 0.9 s after it gets to the
+      row: to Flag, or to the view button. Quit Blackmail from the app
+      switcher and open it again, VoiceOver on. Two panes, the Inbox at its
+      top, a letter open, VoiceOver on the letter's row. "< Mailboxes",
+      then the Inbox: VoiceOver is on the letter's row at about 1.05 s. If
+      at about 1.9 s it goes to Flag, it is back on the row within a few
+      tenths of a second, and stays there to 8 s. Do it in three launches.
+      Quit and open it again, the pane empty this time: the Inbox's first
+      row, and if it goes to "Show Mailboxes, Button", back on the row; in
+      three launches too. Quit and open it again with
       VoiceOver off, then turn VoiceOver on, open a letter and tap
       "< Mailboxes": VoiceOver is on the Inbox's row, and if it goes to
       Flag, back on that row, and it stays. If a letter is waiting in the
@@ -2332,6 +2337,14 @@ this host. Ordered by value, not by size.
       row in the middle of the list or took the list to its top. Changed a
       third time for both: 2 and 5 rewritten, 9 added, a line in 1 for the
       last folder (B-079); not yet seen there.*
+      *Seen on the test iPad 2026-10-19, the third change: steps 1, 2 (11
+      in 11), 3, 4, 5a, 5b under the search field, 5 with VoiceOver off,
+      6, 7, 8 and 9c passed; 9a and 9b failed, iPadOS moving VoiceOver off
+      the row once in each launch and the app never seeing it, and 5b
+      under the toolbar, VoiceOver putting the row in the middle of the
+      list. The last folder's line in 1 and the Outbox in 9 could not be
+      done. Changed a fourth time for both: 5 and 9 rewritten (B-079); not
+      yet seen there.*
 - [x] **B-080, every folder's conversation rows as Mail's.** On the test
       iPad, three panes, Organize by Thread on, the test account only,
       every letter to the account itself: "Jane's address" is its

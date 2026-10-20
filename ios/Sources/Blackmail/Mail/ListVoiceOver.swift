@@ -31,6 +31,9 @@ import Foundation
 /// back, once. A move to another row, the search field, the toolbar, a
 /// sheet or the keys is his, and lets the row go.
 ///
+/// Where VoiceOver is comes from VoiceOver itself, not from what its move
+/// names (`FocusWatch`).
+///
 /// Out of `MessageListViewController` for the reason `ListPlace` is: the
 /// controller is UIKit and the suite does not run it. The controller finds
 /// the row VoiceOver is on, and names the cell this says.
@@ -333,5 +336,85 @@ struct FoldersVoiceOver {
     static func isLast(_ row: Int, in section: Int, of counts: [Int]) -> Bool {
         guard counts.indices.contains(section), row >= 0, row == counts[section] - 1 else { return false }
         return counts[(section + 1)...].allSatisfy { $0 == 0 }
+    }
+}
+
+/// Where VoiceOver is, asked of VoiceOver itself while a row is held for it
+/// (B-079, the fourth change): the list's row after a folder tap
+/// (`ListVoiceOver`), the folder's row after "< Mailboxes"
+/// (`FoldersVoiceOver`).
+///
+/// On the iPad the app never learned where VoiceOver went. Once in each
+/// launch with VoiceOver on at the launch, iPadOS posted a screen change of
+/// its own, naming nothing, about 0.8 seconds after the app's. VoiceOver
+/// got to the row, then took the app's first element: the reading pane's
+/// Flag, or the view button in the corner. The element named with each of
+/// VoiceOver's moves was nothing the app could find, so the landing on the
+/// row and the leave were both taken as elsewhere, and the row was let go
+/// with nothing put back. Asked later in such a launch, VoiceOver itself
+/// named the row it was on (`UIAccessibility.focusedElement`).
+///
+/// So at each of VoiceOver's moves the controller asks VoiceOver where it
+/// is, on the next turn, after VoiceOver's own move. And in case no move
+/// is told at all, it asks every tenth of a second while a row is held,
+/// from the send to `ListVoiceOver.bound`. A tick tells the element apart
+/// only when it is another object than the one last seen: VoiceOver kept on
+/// one element is looked at once. VoiceOver on nothing, as it may be for
+/// a moment as it moves, is passed over: the row stays held, and what was
+/// seen last is kept. The ticks stop at the bound, when the row is let go,
+/// and when it is put back. None run with VoiceOver off, and none with
+/// nothing held.
+///
+/// Out of the controllers, which the suite does not run. They keep the
+/// timer, started and stopped as this says.
+struct FocusWatch {
+
+    /// How often VoiceOver is asked while a row is held: a tenth of a
+    /// second, so a leave is put back at once.
+    static let every: TimeInterval = 0.1
+
+    /// The ticks are to run.
+    private(set) var ticking = false
+    /// What VoiceOver was on at the last look, if it has been looked at
+    /// since the ticks started.
+    private var seen: AnyObject?
+    private var looked = false
+
+    /// A row has just been sent to: the ticks run if it is held,
+    /// `holding`, from nothing seen, so the first tick looks. No ticks with
+    /// nothing held: VoiceOver off, or the table named. True to start them.
+    mutating func start(holding: Bool) -> Bool {
+        stop()
+        ticking = holding
+        return ticking
+    }
+
+    /// The row let go or put back: no ticks, and nothing seen.
+    mutating func stop() {
+        ticking = false
+        seen = nil
+        looked = false
+    }
+
+    /// At a tick, or a look after one of VoiceOver's moves: the ticks go on
+    /// while the row is held, `holding`, and stop for good once it is not:
+    /// past the bound, let go, or put back.
+    mutating func goesOn(holding: Bool) -> Bool {
+        if !holding { stop() }
+        return ticking
+    }
+
+    /// VoiceOver is on `element` now. True when a tick is to tell it apart:
+    /// the first look since the start, or another object than the one last
+    /// seen. It is the one seen after this. False with the ticks stopped.
+    /// The controllers never ask it of nothing: a read of nothing is passed
+    /// over, and the row stays held.
+    mutating func changed(to element: AnyObject?) -> Bool {
+        guard ticking else { return false }
+        defer {
+            seen = element
+            looked = true
+        }
+        return !looked || element !== seen
     }
 }

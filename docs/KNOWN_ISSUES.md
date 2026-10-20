@@ -11180,7 +11180,7 @@ build for the iPad links.
 
 ---
 
-## B-079 — FIXED 2026-10-07 and 2026-10-19, seen on the iPad in part; changed a third time, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
+## B-079 — FIXED 2026-10-07, 2026-10-19 and 2026-10-20, seen on the iPad in part; changed a fourth time, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
 
 **Found on the iPad, 2026-10-07**, at B-077's check 8: the test iPad on
 iPadOS 16.5.1, the 11-inch, landscape, master 434422b, VoiceOver and its
@@ -11662,7 +11662,10 @@ TODO's check passed. Steps 2 and 5b did not.
   and nothing posted by the list since, the row was let go at once
   (`ListVoiceOver.moved`). The move to Flag, which is not the list's, or
   to the view button, came after that, and was never put back. After
-  "< Mailboxes" nothing held the folder's row at all.
+  "< Mailboxes" nothing held the folder's row at all. *In the third
+  round the move came only with VoiceOver on as the app started, after a
+  screen change of iPadOS's own, and the app never saw it (2026-10-19,
+  the third change, below).*
 - *Step 5b: VoiceOver's scroll, for a row the app named that it could not
   see whole.* With VoiceOver off the same steps moved nothing: the app
   does not scroll there. The highlighted row is named while any of it is
@@ -11866,14 +11869,245 @@ and `voiceOverHolds` were run on the code as it is now.
 The full suite, serially, with nothing undone: 1,701 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-19, the third change**, iPadOS 16.5.1,
+the 11-inch, landscape, built from the third change with B-084 and B-085,
+VoiceOver and its Caption Panel on. A tap went straight to the control, as
+before. The caption and its box were read from bursts of frames taken
+from each tap, about 75 bursts. The iPad's own system log was read as the
+steps ran: it records each change an app posts for VoiceOver, and each
+element VoiceOver takes. Steps 1, 2, 3, 4, 5a, 5b under the search field,
+5 with VoiceOver off, 6, 7, 8 and 9c of the TODO's check passed. Steps 9a,
+9b and 5b under the toolbar did not. Two parts could not be done: the
+last folder's line in step 1, the folders ending with Starred, not a
+label; and the Outbox in step 9, with no letter waiting there.
+
+- *Step 1 passed*, in 29 runs from the Inbox, Sent Mail and Important,
+  with a letter open or the pane empty, from a fresh launch or not.
+  VoiceOver went to the open folder's row at 1.07 to 1.12 s, and stayed
+  there to the end, 6.3 to 8.5 s. It never said "Flag, Button", in the
+  run that began on Flag too. It never left the row by itself, so the
+  folder's row was never put back.
+- *Step 2 passed*, 11 times in 11. With VoiceOver turned on while the app
+  ran, five taps on the open folder in a row: VoiceOver on the letter's
+  row at 1.04 to 1.09 s, reading it to 8.5 s. The list did not move. It
+  never left the row by itself in these runs, so nothing was put back.
+- *Step 3 passed.* Sent Mail, Important and the Inbox, each opened anew:
+  the fresh page by 0.72 s, VoiceOver on the first row at 1.10 s, held to
+  8.3 s. It never touched the view button or another row on the way.
+- *Step 4 passed.* The pane empty, "< Mailboxes" put VoiceOver on the
+  folder's row at about 1.1 s, and the folder tapped again put it on the
+  list's first row. The list stayed at its top.
+- *Step 5a passed.* The first row two thirds under the search field:
+  VoiceOver went to the second row at 1.09 s, the first wholly below the
+  search field. Just before, the list went back to its top, by the part
+  of the first row that had been under the search field, and no further.
+- *Step 5b passed under the search field*, twice. The letter's row half
+  under it: as the list slid in, by 0.47 s, it was already moved down by
+  the hidden part, the row whole just below the search field. VoiceOver
+  went to the row at 1.06 to 1.13 s, and the list did not move again.
+- *Step 5 passed with VoiceOver off.* The same steps moved nothing: the
+  row stayed half hidden to 8.5 s.
+- *Step 6 passed.* "Show Mailboxes, Button" at 0.98 and 1.10 s, and "Hide
+  Mailboxes, Button" at 1.09 s, the box on the corner button.
+- *Step 7 passed.* Nothing of the pictures was read. While a move ran,
+  the caption kept what it had said before.
+- *Step 8 passed.* Refresh fetched the page and drew the list again, and
+  VoiceOver stayed on the letter's row to 8.5 s, then for 49 s more,
+  through three checks for new mail.
+- *Step 9c passed*, twice. Blackmail opened with VoiceOver off, then
+  VoiceOver turned on: at "< Mailboxes" VoiceOver was on the Inbox's row,
+  and at the Inbox on the letter's row, and it did not leave.
+- *Step 9a failed.* Blackmail ended and opened again with VoiceOver kept
+  on, a letter open, "< Mailboxes", then the Inbox. "< Mailboxes" held the
+  Inbox's row each time. At the Inbox VoiceOver was on the letter's row
+  at 1.04 to 1.06 s, then on the reading pane's Flag at 1.91 to 1.94 s,
+  and it stayed there. It was never put back: 6 launches in 7. The one
+  that held was the first launch after VoiceOver had been turned on again
+  in Settings. A second try in the same launch held, as before. Tried
+  again later, 2 launches in 2.
+- *Step 9b failed*, the same with the pane empty: VoiceOver on the first
+  row at 1.05 s, then on the view button in the corner, "Show Mailboxes,
+  Button", at 1.90 to 1.92 s, and never put back. 3 launches in 3, and
+  tried again later, 5 in 5, one of them with the app started again only
+  8 s after it ended.
+- *Step 5b failed under the toolbar*, twice, and again when tried once
+  more.
+  The letter's row half under the toolbar: as the list slid in it was
+  moved up by the hidden part, the row whole, its bottom on the toolbar's
+  top. As VoiceOver landed on the row, at about 1.05 s, the list moved
+  about 295 points, and the row was in the middle of the list. It stayed
+  there.
+
+**What did it.** Both from the iPad's own system log.
+
+- *Steps 9a and 9b: the app never saw VoiceOver leave.* Once in each
+  launch with VoiceOver on as the app started, iPadOS posted a screen
+  change of its own, naming nothing, 0.9 s after the folder tap and 0.8 s
+  after the app's. VoiceOver got to the row at 0.97 s. At 1.8 s it acted
+  on iPadOS's screen change by taking the app's first element: the
+  reading pane's Flag with a letter open, the view button in the corner
+  with the pane empty. Nothing in the app ran then: the connection log was
+  idle, and the app posted nothing from the tap to 9 s. With VoiceOver
+  turned on while the app ran, iPadOS posted no such screen change, and
+  VoiceOver did not leave.
+  The leave was within 3 s, to the reading pane or the list's bar, and
+  the list should have put VoiceOver back. It did not, because it told
+  VoiceOver's moves apart by the element each move's notification named,
+  and on the iPad that came to nothing: an element the list could not
+  find, or no notification at all. So the landing on the row and the
+  leave were both taken as elsewhere. Before 1.6 s that keeps the row held
+  but not reached; after it, it lets the row go, silently. A Refresh
+  drawn at 1.9 s, inside the 3 s, with VoiceOver already on the view
+  button, named no row: the row had been let go. VoiceOver itself, asked
+  where it was, did name the row: later in a launch where it had left the
+  row, a Refresh with VoiceOver on a row put it back on that row's cell,
+  found that way. And a Refresh tapped at 1.1 s, before the leave, posted
+  the row at 1.37 s, after iPadOS's screen change, and VoiceOver stayed on
+  the row to 8.4 s: the row posted then, before VoiceOver acted on that
+  screen change, kept it there.
+  The container's hold of the folder's row worked the same way, and could
+  not have seen a leave either.
+- *Step 5b under the toolbar: VoiceOver wants the row clear of it.* The
+  app's least scroll did as meant, before the panes moved, and left the
+  row's bottom on the toolbar's top. The second move came as VoiceOver
+  landed, with nothing fetched and nothing drawn again: VoiceOver's own.
+  Tried seven more times with the row already whole, so that the app
+  moved nothing: VoiceOver put the row in the middle of the list when it
+  ended 4, 9, 25 or 26.5 points above the toolbar, and left it where it
+  was at 29, 32.5 and 42.5 points. At the top it left alone a row just
+  below the search field, as step 5b under it showed.
+
+**Changed a fourth time, 2026-10-20.**
+
+1. *VoiceOver asked where it is.* The list and the container no longer
+   take where VoiceOver went from the notification of its move. At each
+   move, while a row is held, they ask VoiceOver itself
+   (`UIAccessibility.focusedElement`) on the next turn, after VoiceOver's
+   own move, and tell that apart as before. And in case no move is told
+   at all, they ask it every tenth of a second while the row is held,
+   from the tap to 3 s (`ListVoiceOver.bound`), on a timer on the main
+   run loop that a scroll does not hold up. At a tick, what VoiceOver is
+   on is told apart only when it is another object than at the last look
+   (`FocusWatch`). VoiceOver on nothing, as it may be for a moment as it
+   moves, is passed over: the row stays held, and the next look tells
+   apart where it went. The ticks stop at 3 s, when the row is let go, and
+   once it is put back: about 30 looks at most. None run with VoiceOver
+   off, or with nothing held. The same for the folder's row after
+   "< Mailboxes".
+2. *The row by its place.* VoiceOver on the row it was sent to is now
+   told by the row alone, which the list works out for its letter at each
+   look. The row's words were compared too, and UIKit's element for a row
+   need not have the cell's words. A landing on the right row would then
+   have been taken as another row, put back at once and let go, and a
+   later leave left where it went.
+3. *The rules as before.* What is put back, from where, and once; never
+   with VoiceOver off; never after a move of his: another row, the search
+   field while he types, a key, a sheet. A row he opens or ticks, a folder
+   tapped, the view button, and the list or the folders out of sight let
+   the rows go, as before, and now stop the ticks too.
+4. *Clear of the toolbar.* A row counts as wholly in sight only if it
+   ends at least 32 points, a third of a row, above the toolbar
+   (`TableSight.voiceOverBottomClearance`). The least scroll lifts a row
+   that far: by the part under the toolbar and 32 points more, or, for a
+   row in sight but ending closer to the toolbar, by what is missing. 32
+   points, as VoiceOver left the row at 29 and put it in the middle at
+   26.5. Never so far that its top goes under the search field, and never
+   past the list's ends: the last row at the list's end stays where it
+   is. The top has no clearance. The same sums serve the folders.
+
+**Tests of the fourth change.** `ListVoiceOverTests`, now 54, 9 more, and
+two changed. The ticks: run only from a send with a row held; stop for
+good once none is, at the bound, let go or put back, until the next send;
+none with VoiceOver off or the table named; a tenth of a second, 30 looks
+in the bound. A tick tells VoiceOver's element apart only on another
+object than the last seen, the first look always. The looks as the list
+makes them, fed by what VoiceOver is on: the leave seen on the iPad, from
+the folder's row to the letter's row at 1.0 s and to Flag or the view
+button at 1.9 s, looked at three times, put back once at the first tick
+after the leave, the ticks then stopped; told as nothing, as on the iPad,
+the row let go with nothing put back. VoiceOver on nothing for a moment
+after the row, at a tick and at the look after a move: passed over, the
+row still held, and the leave to Flag or the view button a tenth of a
+second later put back once; told apart, nothing would have let the row
+go. A look after a move and a tick: put back once.
+VoiceOver kept on the row: looked at once, the ticks stopped at the
+bound. A move of his to another row: let go, nothing put back, the ticks
+stopped. VoiceOver off or the table named: no ticks, nothing looked at.
+The folder's row the same way, put back once at the first tick after its
+leave to the reading pane or the view button, and held through VoiceOver
+on nothing just before that leave. The least scroll: a row
+under the toolbar lifted by the part under it and 32 points more, the
+seventh row 58.5 points where the third change moved it 26.5; a row
+ending 0 to 29 points above the toolbar lifted by what is missing of 32,
+one 10 points above by 22; one 32 points above or more, or within half a
+point of it, not moved; a row that cannot end that far above the toolbar
+without its top going under the band, only to the band; a row just below
+the band whole; the last row at the list's end not moved, and with the
+load-more footer under it lifted the whole 56.5 points.
+
+`PaneArrangementTests`, now 30, one more:
+`testVoiceOverIsAskedWhereItIsWhileARowIsHeld`, which reads the list, the
+container and the timer. Neither reads the element a move's notification
+names. At a move, while a row is held, each asks VoiceOver on the next
+turn; VoiceOver on nothing is passed over; at a tick, it tells the
+element apart only on another object. The
+ticks go on only while VoiceOver runs and the row is held, and stop, the
+timer invalidated, at the bound, once the row is put back, and wherever
+the row is let go. The timer is made in one place, every tenth of a
+second, repeating, on the main run loop in its common modes, and started
+only as a row is sent to. The two B-079 tests now read the ticks started
+after the send, the letting go that stops them, and the row told by its
+place alone.
+
+Each part undone in a scratch copy, one at a time, the whole suite run
+serially each time, counted as failures in tests. In `FocusWatch`: every
+look told apart, 15 in 7; the first look after a start not always told
+apart, 1 in 1; a start keeping what was seen before it, 1 in 1; the ticks
+going on with nothing held, 5 in 2; started with nothing held, 5 in 2; a
+look told apart after the ticks stopped, 2 in 1. In the list: the element
+named by a move told apart again, 4 in 2; VoiceOver asked on the same
+turn as its move, 2 in 1; no ticks at the send, 2 in 2; the ticks not
+stopped when the row is let go, 1 in 1; not stopped at the bound, 1 in 1;
+not stopped once the row is put back, 1 in 1; every tick telling the
+element apart, 1 in 1; ticks with VoiceOver off, 1 in 1; the row sent to
+known by its words again, 2 in 1; a row opened stopping no ticks, 3 in 2;
+VoiceOver on nothing told apart, as elsewhere, 1 in 1. In the container:
+VoiceOver not asked where it is, 2 in 1; no ticks at "< Mailboxes", 2 in
+2; a folder tap stopping no ticks, 3 in 2; the ticks not stopped once the
+row is put back or at the bound, 1 in 1; every tick telling the element
+apart, 1 in 1; VoiceOver on nothing told apart, 1 in 1. The timer in the main run loop's
+default mode only, which a scroll holds up, 1 in 1. In `TableSight`: no
+clearance, 21 in 3; a row in the clearance taken as whole, 14 in 1; a row
+lifted only to the toolbar, 14 in 3; a clearance at the top too, 4 in 4;
+a row lifted with its top under the band, 2 in 2. Twenty-nine in all,
+each caught, with nothing failing in any run but the tests named.
+
+The full suite, serially, with nothing undone: 1,728 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
 **Not covered.**
 
-- The third change was not heard. The simulator has no VoiceOver, and the
+- The fourth change was not heard. The simulator has no VoiceOver, and the
   iPad check in the TODO is to do.
 - VoiceOver's leave was seen on iPadOS 16.5.1 only, a tap there going
-  straight to the control, once in each launch. His iPad is on iPadOS 18.
-  A leave later than 3 s after the tap is not put back, and a second leave
-  is left where it goes.
+  straight to the control: once in each launch with VoiceOver on as the
+  app started, after a screen change of iPadOS's own. His iPad is on
+  iPadOS 18. A leave later than 3 s after the tap is not put back, and a
+  second leave is left where it goes.
+- Whether VoiceOver's moves are told to the app on the iPad, and with
+  what, is not known; the ticks do not need them. A leave and a return
+  between two ticks, a tenth of a second apart, with no move told, is not
+  seen, and VoiceOver is left where it is then.
+- Whether VoiceOver, asked where it is, names the row and then Flag or
+  the view button in the first 2 s after the tap, in a launch with
+  VoiceOver kept on through the relaunch, was not seen. It named the row
+  later in such a launch. A Refresh drawn at 1.9 s then, with VoiceOver on
+  the view button, named nothing: that is what a row let go gives, and
+  also what a read of nothing usable gives. If VoiceOver names nothing
+  usable there, nothing is put back. A read of nothing at every look
+  holds the row to 3 s, and nothing is put back either.
+- The folder's row was never left by VoiceOver on the iPad, so its
+  put-back has not been seen there.
 - A leave from the row to another row, the search field or the toolbar
   is taken as his and not put back. VoiceOver was not seen to go there by
   itself.
@@ -11891,13 +12125,16 @@ none failing. The release build for the iPad links.
   not put back: a swipe of his goes there too. A label at the bottom was
   not tried on the iPad.
 - A leave into the letter's text is found by where it is: WebKit gives
-  VoiceOver the page from its own process. Whether the app is told of such
-  a move at all was not heard.
+  VoiceOver the page from its own process. Whether VoiceOver, asked where
+  it is, names such an element was not heard.
 - Why VoiceOver took the list back to its top in step 5a, the row it was
-  put on being whole, is not known. The app moves nothing there.
-- The least scroll was seen in the simulator only in a build that took
-  VoiceOver as on. A row the list puts VoiceOver back on after a reload is
-  shown whole the same way, with the panes still; that was not seen.
+  put on being whole, is not known; it did so again in the third round.
+  The app moves nothing there.
+- The least scroll was seen on the iPad under the search field, and under
+  the toolbar before the clearance. The 32 points were measured on iPadOS
+  16.5.1 only, and iPadOS 18 may want more or less. A row the list puts
+  VoiceOver back on after a reload or a leave is shown whole the same
+  way, with the panes still; that was not seen.
 - The folders' row was not tried partly under the folders' bar: the test
   account's folders fit in their column.
 - The 1.6 s is the latest landing seen on the iPad, from the tap. A
