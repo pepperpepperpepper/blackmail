@@ -2766,8 +2766,8 @@ this host. Ordered by value, not by size.
       passed (B-087), 4 in the order it has now, since a draft only on
       Gmail did not open offline. In 1 the mark went 1.8 s after the sheet;
       in 2 the photo was in before Cancel could be tapped, so a photo still
-      coming in was not seen; in 3 the row opened at 1.2 s, its save still
-      out.*
+      coming in was not seen; in 3 the row was taken at 1.2 s, its save
+      still out.*
 - [ ] **B-088, a forward's original looked for in All Mail once, however
       many files it carries.** On the test iPad, the test account only,
       built from the `fix-087-089` worktree. A stands for the account's
@@ -2815,7 +2815,7 @@ this host. Ordered by value, not by size.
       All Mail.
       *Not tried on the simulator: the host tests count the searches and
       the SELECTs over the scripted server (B-088).*
-      *Seen on the test iPad 2026-10-20, the iPad on its cable: 1, 2 and 4
+      *Seen on the test iPad 2026-10-20, the iPad on its cable: 1, 2 and 5
       to 9 passed (B-088), 6 with the app's Move to All Mail. Still to do:
       3, and with it 4's log, as editing the store waits to be agreed.
       Without the edit, 4 went from the original's own UID, no search. In 7
@@ -2868,7 +2868,7 @@ this host. Ordered by value, not by size.
       no "B-089 two" row. Airplane Mode off.
       8. *Put back.* Edit, tick the B-089 rows left, Delete.
       *Seen on the test iPad 2026-10-20: 1 to 8 passed (B-089). In 5 and 7
-      the app was ended from the Home Screen, the swipe into the app
+      the app was ended once the Home Screen was up, the swipe into the app
       switcher not made. In 5 the Inbox's kept row was read with All Mail's
       kept page not holding the letter. Seen in passing: "B-089 three",
       come while scrolled down, was not on the Inbox's kept page, so 7's

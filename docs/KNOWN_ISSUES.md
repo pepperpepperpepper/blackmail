@@ -14033,10 +14033,11 @@ sent.
    nearer two here.
 2. *A photo.* One photo of 537 KB, then Cancel and Save Draft: once the
    sheet had gone, one row with the paperclip and "On this iPad only", the
-   same to 4.9 s, and one row with the paperclip after Refresh. The log:
-   the APPEND, then the old copy removed. The photo was in the composer
-   1.1 s after it was picked, before Cancel could be tapped, so a Save
-   Draft with a photo still coming in was not seen.
+   same to 4.9 s after the photo was picked, and one row with the
+   paperclip after Refresh. The log: the APPEND, then the old copy
+   removed. The photo was in the composer 1.1 s after it was picked,
+   before Cancel could be tapped, so a Save Draft with a photo still
+   coming in was not seen.
 3. *Opened again as it goes.* The first tap on the row, 0.8 s after Save
    Draft, went to the sheet going away, and the save landed first, so the
    step was done again with the line "Changed at once, second try.".
@@ -14055,11 +14056,11 @@ sent.
    So the draft was opened with the line up, and Airplane Mode turned on
    with the composer open. "Changed offline.", Save Draft at 14:42:51:
    from 0.7 s the only row was "R6 B-087 one" with "On this iPad only", in
-   each of 70 frames to 13.6 s, and so with no alert at 30 s. The old row
-   did not show once the sheet had gone. The save's APPEND went out on the
-   connection Airplane Mode had cut and had no answer, so the save was out
-   all the time the iPad was offline, rather than failing some eight
-   seconds on.
+   each of 70 frames to 13.6 s, and so with no alert at about 30 s. The
+   old row did not show once the sheet had gone. The save's APPEND went
+   out on the connection Airplane Mode had cut and had no answer, so the
+   save was out all the time the iPad was offline, rather than failing
+   some eight seconds on.
 5. *Opened again at once.* Still offline, the row opened the kept letter
    at once. "Changed again.", Save Draft, and the row tapped from 0.9 s:
    the composer was up at 1.5 s with "Changed again." under "Changed
@@ -14068,9 +14069,9 @@ sent.
 6. *Back.* Airplane Mode off at 14:44:39, and nothing tapped. Nine seconds
    later a new connection looked in Drafts for the letter's Message-ID, to
    see whether the APPEND left without an answer had landed: it had not.
-   Then one APPEND, and the old copy removed. The row had no mark at 40 s,
-   and Refresh gave one row. Over IMAP one draft, with all six lines and
-   the photo.
+   Then one APPEND, and the old copy removed. The row had no mark 40 s
+   after Airplane Mode went off, and Refresh gave one row. Over IMAP one
+   draft, with all six lines and the photo.
 7. *Put back.* Edit, tick, Delete: the draft went to Trash, and Drafts was
    empty.
 
@@ -14080,9 +14081,10 @@ The draft is in Trash only, and the mailbox is as found.
 
 - Not seen in the simulator.
 - On the iPad the line was cut under an open connection, so the offline
-  save had no answer until the line came back. A save made with no
-  connection from before it fails at the connect, some eight seconds on;
-  that failure was not seen there. The suite holds the row through it.
+  save's APPEND was never answered: it was out until the line came back,
+  and did not fail. A save made with no connection from before it fails
+  at the connect, some eight seconds on; that failure was not seen there.
+  The suite holds the row through it.
 - A Save Draft with a photo still coming in was not seen on the iPad: the
   photo was in before Cancel could be tapped. The suite holds the order.
 - With a connection the row says "On this iPad only" for the second the
@@ -14250,7 +14252,7 @@ with three photos of 8, 177 and 537 KB; the forwards To A with `+b088fwd`.
 The photos were small so that the forward, 749 KB with the quoted
 signature's picture, would go by itself: a forward in the Outbox with a
 megabyte or more to fetch waits for Refresh or for the app to be left
-(B-072). Times are the iPad's clock. Steps 1, 2 and 4 to 9 of the TODO
+(B-072). Times are the iPad's clock. Steps 1, 2 and 5 to 9 of the TODO
 check passed. Step 3, the forward's UID written in the store as another
 letter's, was not made: editing the store waits to be agreed. So 4 and 5
 were made without it, as a control. In 2 and 6 the app was ended once the
@@ -14262,6 +14264,7 @@ Home Screen was up; the swipe into the app switcher was not made.
    Outbox, with four parts in the store, the quoted signature's picture
    and the three photos, each naming the original at Inbox UID 301. The
    app ended at 14:52.
+3. *Its UID another letter's:* not made, as above.
 4. *Back, without the edit.* Airplane Mode off, the app opened at
    14:52:24. After the Inbox's first page the forward went by itself, each
    of its four parts by the letter's FETCH and its `BODY.PEEK` at UID 301
