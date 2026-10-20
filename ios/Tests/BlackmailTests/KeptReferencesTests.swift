@@ -999,6 +999,52 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(kept.store.letters().count, 0)
     }
 
+    /// The original on screen goes before where All Mail had it. Archived,
+    /// its first forward went from the Outbox in the later launch and found
+    /// it in All Mail, which that launch keeps (`foundInAllMail`). Put back
+    /// in the Inbox, under a new UID, opened there and forwarded again, its
+    /// three files come from the letter on screen: nothing is asked of the
+    /// server. Tried first where All Mail had it, at a UID that is not the
+    /// letter on screen's, each file cost a FETCH that describes it and one
+    /// for its bytes, and the first a SELECT of All Mail (B-088).
+    func testTheOriginalOnScreenGoesBeforeWhereAllMailHadIt() async throws {
+        let plans = deliverPlans(threeFiles: true)
+        let inbox = try XCTUnwrap(plans[Server.inbox])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        server.removeElsewhere(uid: inbox, from: Server.inbox)
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        await kept.uploadWaiting(to: repository)?.value
+        XCTAssertEqual(notes("CARRIED-PART").last, "CARRIED-PART found folder=\(Server.allMail)",
+                       "found in All Mail")
+        var sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+
+        let archived = try await repository.listMessages(in: Server.allMail, beforeUID: nil,
+                                                         limit: 10)
+        try await repository.move(try XCTUnwrap(archived.first { $0.subject == "Plans" }),
+                                  to: Server.inbox)
+        let again = try await forwardOfPlans(repository)
+        XCTAssertNotEqual(uid(again.row.id), inbox, "back under a new UID")
+        server.clearLog()
+        Diagnostics.clear()
+        await makeActions("again", kept: kept, repository: repository)
+            .send({ again.draft }, then: nil)?.value
+
+        sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 2)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.last, bytes), "each file its own")
+        }
+        XCTAssertEqual(server.log.map(\.command), [], "the letter on screen has the files")
+        XCTAssertEqual(notes("CARRIED-PART"), [])
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
     /// All Mail renumbered under a new UIDVALIDITY, as a server rebuilding
     /// it does, and seen on the next connection: the line goes as the
     /// second file is asked for, and the connection made again finds All
