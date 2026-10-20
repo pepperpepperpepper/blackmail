@@ -1207,6 +1207,14 @@ final class LocalDrafts {
     /// keeps its name and signature, as a letter Mail reopens from its
     /// Outbox keeps its From, and for its going back, which keeps it all.
     private var fromOutbox: [String: AtSend] = [:]
+    /// Letters Save Draft has put away whose save has not been answered
+    /// yet, each with how many such saves are out (`DraftKeeping.putAway`).
+    /// No longer open: Drafts lists each from the moment its sheet goes,
+    /// in place of the copy it was reopened from (B-087). But no pass takes
+    /// one to the server until its save has been answered, as none did
+    /// while the sheet had it: the pass and the save would each take a
+    /// version of it up.
+    private var saving: [String: Int] = [:]
     /// Letters on their way to the server, or having their leftover copies
     /// removed, and what is waiting for each to be done.
     private var going: Set<String> = []
@@ -1222,8 +1230,14 @@ final class LocalDrafts {
     /// is saved (`passwordSaved`).
     private var refused: [String: String] = [:]
     /// Letters the server has taken since launch, and the id of the copy
-    /// each became there, for a row in Drafts drawn before it went.
+    /// each became there, for a row in Drafts drawn before it went. One
+    /// still kept here stands in for that copy in Drafts, as for the one it
+    /// was reopened from (`replacedInDrafts`): its next upload replaces it.
     private(set) var landed: [String: String] = [:]
+    /// The count of password saves each upload in `landed` went under
+    /// (`LocalDraftStore.passwordSaves`), as it set off. With one saved
+    /// since, the copy's folder and UID may be another mailbox's.
+    private var landedUnder: [String: Int] = [:]
     /// Why each letter in `refused` was not sent or taken to Drafts, where
     /// its row says so: the first line of its row in the Outbox, the line
     /// under the mark in Drafts. Set with `refused`, always (`refuse`).
@@ -1305,7 +1319,8 @@ final class LocalDrafts {
     /// The letters Drafts lists above the server's: every one kept here but
     /// those open in the composer and those in the Outbox, newest first. A
     /// letter written in another account is listed with the rest, and goes
-    /// nowhere until he opens it.
+    /// nowhere until he opens it. One put away by Save Draft is listed as
+    /// its sheet goes, while its save is still out (`saving`, B-087).
     var waiting: [LocalDraft] {
         store.letters().filter { open[$0.key] == nil && !$0.gone && $0.outbox == nil }
     }
@@ -1335,12 +1350,34 @@ final class LocalDrafts {
     /// another draft, in a Drafts renumbered under the same UIDVALIDITY or
     /// another mailbox under the same address, and hidden it could not be
     /// seen or opened for as long as the letter waited.
+    ///
+    /// And the copy an upload of a letter still kept here put up in this
+    /// launch (`landed`), which the letter does not name: one that landed
+    /// while the composer had it, opened from its row while its save or a
+    /// pass took it up, and was changed there. Its next upload replaces that
+    /// copy as one of the versions tried, so the letter's row stands for it,
+    /// and listed beside the row it was the same letter twice, from the
+    /// next Save Draft until that save landed, and with no connection until
+    /// a pass (B-087). Sent or deleted, the letter is still kept, as a
+    /// record, until that copy has been removed (`tidy`), and the copy is
+    /// not listed meanwhile: Send names only the copy it was reopened from
+    /// (`ComposeActions.send`'s `draftSent`), and tapped, this one opened
+    /// the letter just sent, to be sent again. Hidden outright, as this
+    /// launch's own: UIDs are never given twice under one UIDVALIDITY. Not
+    /// under a password saved since its upload set off (`landedUnder`), for
+    /// the reason above.
     var replacedInDrafts: [String: UInt64?] {
         var copies: [String: UInt64?] = [:]
-        for letter in store.letters() where open[letter.key] == nil && !letter.gone {
+        let notOpen = store.letters().filter { open[$0.key] == nil }
+        for letter in notOpen where !letter.gone {
             guard let id = letter.draft.savedID,
                   letter.draft.savedLetter != nil || !store.savedSince(letter) else { continue }
             copies.updateValue(letter.draft.savedLetter, forKey: id)
+        }
+        for letter in notOpen {
+            guard let copy = landed[letter.key],
+                  landedUnder[letter.key] == store.passwordSaves else { continue }
+            copies.updateValue(nil, forKey: copy)
         }
         return copies
     }
@@ -1497,7 +1534,9 @@ final class LocalDrafts {
     /// What the composer on letter `key` keeps here and takes away, and
     /// where its leftover copies are removed from.
     func keeping(_ key: String, in repository: MailRepository) -> DraftKeeping {
-        DraftKeeping(
+        // This sheet's Save Draft, put away and not yet answered.
+        let sheet = PutAway()
+        return DraftKeeping(
             keep: { [self] draft, finished in keep(draft, as: key, unfinished: !finished) },
             forget: { [self] in
                 discard(key)
@@ -1509,7 +1548,18 @@ final class LocalDrafts {
                 if open[key] == false { store.remove(key) }
                 closed(key)
             },
-            letGo: { [self] in closed(key) },
+            letGo: { [self] in
+                // Put away, the sheet was done with it then: what goes now
+                // is the hold on the passes, and nothing else. Opened again
+                // from its row meanwhile, it is that composer's, and stays
+                // open.
+                guard sheet.held else {
+                    closed(key)
+                    return
+                }
+                sheet.held = false
+                saveAnswered(key)
+            },
             tidy: { [self] in await tidy(key, in: repository) },
             putBack: { [self] in
                 // Into the Outbox again, as it is now kept. What may have
@@ -1522,7 +1572,27 @@ final class LocalDrafts {
                 guard let atSend = fromOutbox[key], let letter = store.letter(key),
                       !letter.gone, letter.outbox == nil else { return }
                 _ = try? store.enterOutbox(key, as: atSend)
+            },
+            putAway: { [self] in
+                guard !sheet.held else { return }
+                sheet.held = true
+                saving[key, default: 0] += 1
+                closed(key)
             })
+    }
+
+    /// Whether a sheet has put its letter away by Save Draft and has not
+    /// yet let go of it (`DraftKeeping.putAway`).
+    private final class PutAway {
+        var held = false
+    }
+
+    /// A Save Draft of letter `key` has been answered, however it was: a
+    /// pass may take the letter to the server again.
+    private func saveAnswered(_ key: String) {
+        let out = (saving[key] ?? 1) - 1
+        saving[key] = out > 0 ? out : nil
+        announce()
     }
 
     /// Keeps the letter. Returns false when it could not be written, which
@@ -1625,6 +1695,7 @@ final class LocalDrafts {
     /// Send from it asks first and sends nothing if it went. Found, no pass
     /// asks again until he changes it or the app is launched again.
     func upload(_ key: String, to repository: MailRepository) async throws {
+        let saves = store.passwordSaves
         await whileGoing(key)
         guard let letter = store.letter(key), !letter.gone else { return }
         going.insert(key)
@@ -1664,7 +1735,10 @@ final class LocalDrafts {
                 landedOpen[key] = version
             }
         }
-        if let id = saved.id { landed[key] = id }
+        if let id = saved.id {
+            landed[key] = id
+            landedUnder[key] = saves
+        }
         announce(DraftLanding(letter: letter, id: saved.id, replaced: saved.replaced))
     }
 
@@ -2051,7 +2125,8 @@ final class LocalDrafts {
     }
 
     /// Whether a pass set off by `pass` takes `letter`: not while the
-    /// composer has it open, and, but for the leftovers of one sent or
+    /// composer has it open, nor while a Save Draft that put it away is
+    /// still out (`saving`), and, but for the leftovers of one sent or
     /// deleted, only a letter of this account that names nothing by folder
     /// and UID alone across a password saved since (`goesFromHere`), with no
     /// attempt that may have reached Gmail from before one either, not
@@ -2071,7 +2146,7 @@ final class LocalDrafts {
     /// Nor one the pass has given up on (`isHeld`), which waits, listed
     /// and saying so, for his Send or Save Draft.
     private func isDue(_ letter: LocalDraft, on pass: Pass) -> Bool {
-        guard open[letter.key] == nil else { return false }
+        guard open[letter.key] == nil, saving[letter.key] == nil else { return false }
         guard !letter.gone else { return true }
         guard goesFromHere(letter), !store.unsettledBeforeASave(letter), !isHeld(letter),
               refused[letter.key] != letter.version else { return false }
@@ -2243,7 +2318,8 @@ struct DraftKeeping {
     /// sheet kept goes, and the letter is let go.
     let abandon: @MainActor () -> Void
     /// The sheet has done with the letter: from now on it can go to the
-    /// server with the rest.
+    /// server with the rest. After `putAway`, that alone: the sheet was
+    /// done with it as far as Drafts goes then.
     let letGo: @MainActor () -> Void
     /// After `forget`, once the letter has been sent or its copy deleted:
     /// removes any copy an upload of it left in Drafts.
@@ -2252,6 +2328,12 @@ struct DraftKeeping {
     /// (`ComposeActions.closeWithoutAsking`): one opened from the Outbox
     /// goes back there. Kept again while he wrote, it had come out.
     var putBack: @MainActor () -> Void = {}
+    /// After Save Draft's `keep` of the letter as it is saved, as the sheet
+    /// goes: Drafts lists it from now, in place of the copy it was reopened
+    /// from, and it can be opened from there again, as Mail's Drafts shows
+    /// a draft saved at once (B-087). Nothing but the save takes it to the
+    /// server until `letGo`.
+    var putAway: @MainActor () -> Void = {}
     /// How long after the last change the letter is kept.
     var pause: Duration = .seconds(3)
     /// Waits `pause`. A test hands in one it lets go by hand.

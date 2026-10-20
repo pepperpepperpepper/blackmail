@@ -170,7 +170,10 @@ final class ComposeActions {
     /// row there, for as long as the tidying takes, and a tap on that row
     /// opened it again as a draft, to be sent a second time. Whatever shows
     /// Drafts takes the row off at this, and `draftsChanged` says when the
-    /// folder is worth asking again.
+    /// folder is worth asking again. The copy an upload of it from the iPad
+    /// put up in this launch, which the letter does not name, is not
+    /// listed from `keeping.forget` on, until the tidying has removed it
+    /// (`LocalDrafts.replacedInDrafts`).
     ///
     /// Background time is asked for at the tap and given back once Drafts
     /// has been tidied, or when iOS wants it back first. That second case
@@ -287,6 +290,15 @@ final class ComposeActions {
     /// server does not take leaves it on the iPad, in Drafts, to go later.
     /// The sheet is let go of once the save has been answered, so nothing
     /// else takes the letter to the server meanwhile.
+    ///
+    /// Drafts lists it as the sheet goes (`DraftKeeping.putAway`), in place
+    /// of the copy it was reopened from, as Mail's does. It used to wait for
+    /// the sheet to let go of it, so with no connection the old copy's row
+    /// stayed for the seconds the save took to fail, and a new letter had
+    /// no row at all (B-087). With a photo still on its way in, once the
+    /// photos are in instead: the letter kept at the tap is not the one
+    /// saved, and opened or deleted from its row meanwhile, it would be
+    /// kept again by the save over what he had done.
     @discardableResult
     func saveAndClose(_ letter: @escaping () -> Draft,
                       then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
@@ -295,11 +307,18 @@ final class ComposeActions {
         stopAutosave()
         let time = BackgroundStretch("Save Draft", from: background)
         keeping.keep(letter(), true)
+        let photosWaiting = photosComing > 0
+        if !photosWaiting { keeping.putAway() }
         dismiss()
         return Task {
             defer { time.end() }
             await photosLanded()
-            try? await saveDraft(letter())
+            let draft = letter()
+            if photosWaiting {
+                keeping.keep(draft, true)
+                keeping.putAway()
+            }
+            try? await saveDraft(draft)
             keeping.letGo()
             draftsChanged?()
         }
