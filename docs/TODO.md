@@ -2628,7 +2628,7 @@ this host. Ordered by value, not by size.
       and back online the list came. The connection log has nothing from
       Save. Airplane Mode turned Wi-Fi off and on with it.*
 
-- [ ] **B-086, the folder he tapped stays highlighted at launch.** On the
+- [x] **B-086, the folder he tapped stays highlighted at launch.** On the
       test iPad, three panes, the test account only, built from the
       `sidebar-highlight` worktree. Nothing is sent.
       1. *Early.* Quit Blackmail and open it again. As soon as the folders
@@ -2643,6 +2643,8 @@ this host. Ordered by value, not by size.
       highlighted beside its letters, as before.
       *Not seen on the simulator: the iPad's own timing reproduced it
       (B-086).*
+      *Seen on the test iPad 2026-10-20: step 1 three times, Trash tapped
+      0.4 s after the launch, highlighted to the end each time (B-086).*
 
 ## Blocked on the owner
 

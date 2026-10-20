@@ -13808,7 +13808,7 @@ TODO's "Wi-Fi off if it stays on" never applied.
 
 ---
 
-## B-086 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A folder tapped in the first seconds after launch lost its highlight to the Inbox
+## B-086 — FIXED 2026-10-20, found on the iPad and seen there fixed. A folder tapped in the first seconds after launch lost its highlight to the Inbox
 
 **What he saw.** Seen on the test iPad on 2026-10-19 and 2026-10-20,
 three panes. He opens Blackmail and, while the line under the list
@@ -13839,9 +13839,15 @@ line put back, the whole file run: 2 failures in that test, nothing
 else failing. The full suite, serially: 1,729 tests, 5 skipped, none
 failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-20**, three panes: Blackmail ended and
+opened again, Trash tapped 0.4 s after the launch, the screen watched to
+4 s, three times. Each time Trash stayed highlighted beside its letters
+through the folders' coming, the line's "Updated Just Now" and the
+counts. The build before, with the same tap, put the highlight back on
+the Inbox each time.
+
 **Not covered.**
 
-- Not yet seen on the iPad fixed. The TODO says how.
 - With no connection the wait for the folders lasts the whole connect.
   The same line is passed then, so the same change covers it; it was
   read, not tried.
