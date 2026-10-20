@@ -503,13 +503,15 @@ final class ListLetters: PaneActionList {
     }
 
     /// The server has the letter as read: one off every folder it is
-    /// counted in, once per letter however often it is asked (`ReadBilling`).
+    /// counted in, once per letter however often it is asked, and on
+    /// whichever of its copies (`ReadBilling`).
     func read(_ letter: MessageSummary) {
         guard let folders = billing.read(letter) else { return }
         onUnreadCountChanged(folders, -1)
     }
 
-    /// The server has the letter as unread again: one back on.
+    /// The server has the letter as unread again: one back on, and its
+    /// billing forgotten on every copy of it.
     func unread(_ letter: MessageSummary) {
         onUnreadCountChanged(billing.unread(letter), 1)
     }

@@ -2664,8 +2664,11 @@ this host. Ordered by value, not by size.
       count stays where it is, not one lower again.
       3. *Mark from a hit.* Search "B-089 one", All Mailboxes, Edit, tick
       the hit, Mark, Mark as Unread: the dot on the hit, the count up by
-      one. Cancel: the Inbox's row has its dot. Search again, Edit, tick
-      the hit, Mark, Mark as Read, Cancel: no dot, the count down by one.
+      one. Cancel: the Inbox's row has its dot. Tap it: no dot, the count
+      down by one, back where step 2 left it. Edit, tick it, Mark, Mark
+      as Unread: the count up by one. Search again, Edit, tick the hit,
+      Mark, Mark as Read, Cancel: no dot, and the count down by one, back
+      where step 2 left it again.
       4. *Flag from a hit,* as before: search "B-089 one", All Mailboxes,
       tap the hit, Flag, Cancel: the Inbox's row flagged. Tap it, Flag
       again: not flagged.

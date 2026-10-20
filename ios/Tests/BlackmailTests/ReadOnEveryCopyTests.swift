@@ -54,12 +54,12 @@ final class ReadOnEveryCopyTests: XCTestCase {
     /// first page, fetched from the top, and the hits over it.
     @MainActor
     private func makeList(folder: [MessageSummary],
-                          results: [MessageSummary]) -> (ListLetters, Billed) {
+                          results: [MessageSummary]?) -> (ListLetters, Billed) {
         let list = ListLetters()
         let billed = Billed()
         list.onUnreadCountChanged = { billed.record($0, $1) }
         _ = list.fetchedAfresh(folder)
-        list.showResults(results)
+        if let results { list.showResults(results) }
         return (list, billed)
     }
 
@@ -236,6 +236,80 @@ final class ReadOnEveryCopyTests: XCTestCase {
         XCTAssertTrue(list.contains("for m in marked { letters.reading(m, read: true) }"))
     }
 
+    // MARK: - The counts
+
+    /// Read in the Inbox, marked unread on its All Mailboxes hit, and read
+    /// in the Inbox again, where the dot is back once the search is
+    /// cancelled: the counts end one lower than they began, as the letter
+    /// is read. Billed by row, the unread on the hit forgot only the hit,
+    /// the Inbox's row was billed already, and the counts ended where they
+    /// began, one for a letter with no dot.
+    func testReadInTheInboxMarkedUnreadOnItsHitAndReadThereAgainIsOneOff() async throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = await makeList(folder: [row], results: nil)
+        try await tap(row.id, on: list)
+
+        // He searches All Mailboxes: the server has the letter as read.
+        var readHit = hit
+        readHit.isRead = true
+        await list.showResults([readHit])
+        try await markUnread(hit.id, on: list)
+        _ = await list.endSearch()
+        try await tap(row.id, on: list)
+
+        let (inbox, allMail) = await (billed.net(Server.inbox), billed.net(Server.allMail))
+        XCTAssertEqual(inbox, -1, "one off the Inbox's count: the letter is read")
+        XCTAssertEqual(allMail, -1)
+    }
+
+    /// Read from its hit, marked unread on the Inbox's row once the search
+    /// is cancelled, and read from its hit again in a new search: one off,
+    /// as the letter is read. Billed by row, the hit came off nothing the
+    /// second time.
+    func testReadFromItsHitMarkedUnreadInTheInboxAndReadFromTheHitAgainIsOneOff() async throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = await makeList(folder: [row], results: [hit])
+        try await tap(hit.id, on: list)
+        _ = await list.endSearch()
+        try await markUnread(row.id, on: list)
+
+        // He searches again: the server has the letter as unread.
+        await list.showResults([hit])
+        try await tap(hit.id, on: list)
+
+        let (inbox, allMail) = await (billed.net(Server.inbox), billed.net(Server.allMail))
+        XCTAssertEqual(inbox, -1, "one off the Inbox's count: the letter is read")
+        XCTAssertEqual(allMail, -1)
+    }
+
+    /// The counts go by the letter, not the row: read on one copy, it is
+    /// billed on all of them, and marked unread on any copy, the billing
+    /// is forgotten for all. A row with no Gmail id goes by its own id, so
+    /// two of them are two letters; and the same letter under another id,
+    /// billed by its Gmail id, keeps a row of it with none from being
+    /// billed again when it is binned (`left`).
+    func testTheCountsBillALetterOnceWhicheverCopyIsRead() {
+        let (row, hit) = inboxRowAndHit()
+        let folders = [Server.allMail, Server.inbox]
+        var billing = ReadBilling()
+        XCTAssertEqual(billing.read(hit), folders)
+        XCTAssertNil(billing.read(row), "read on another copy: billed already")
+        XCTAssertEqual(billing.unread(row), [Server.inbox, Server.allMail])
+        XCTAssertEqual(billing.read(hit), folders, "read again after an unread on another copy")
+        XCTAssertNil(billing.left(row))
+
+        let another = letter("1/10", mailbox: Server.inbox, message: 42)
+        XCTAssertNotNil(billing.read(another), "another Gmail id: another letter")
+        XCTAssertNotNil(billing.read(letter("1/11", mailbox: Server.inbox, message: nil)))
+        XCTAssertNotNil(billing.read(letter("1/12", mailbox: Server.inbox, message: nil)),
+                        "no Gmail id: by the row's own id")
+
+        let billedThere = letter("2/13", mailbox: Server.allMail, message: 43)
+        XCTAssertNotNil(billing.read(billedThere))
+        XCTAssertNil(billing.left(letter("1/13", mailbox: Server.inbox, message: nil),
+                                  twins: [billedThere]))
+    }
+
     // MARK: - The kept copy
 
     /// A read mark and a flag on a hit change the Inbox's kept row of the
@@ -278,11 +352,44 @@ final class ReadOnEveryCopyTests: XCTestCase {
     // MARK: - Helpers
 
     private func letter(_ id: String, mailbox: String, message: UInt64?,
-                        subject: String = "Letter 9: garden") -> MessageSummary {
+                        subject: String = "Letter 9: garden",
+                        counted: [String] = []) -> MessageSummary {
         MessageSummary(id: id, mailboxID: mailbox, sender: "Sam Example <sam@example.com>",
                        subject: subject, preview: "", date: Server.newestDate,
                        isRead: false, isFlagged: false, threadID: "77",
-                       gmailMessageID: message)
+                       gmailMessageID: message, countedFolderIDs: counted)
+    }
+
+    /// One unread letter, as the Inbox lists it and as an All Mailboxes
+    /// search finds it in All Mail: two ids, one Gmail id, counted in the
+    /// same folders, each listing its own first.
+    private func inboxRowAndHit() -> (row: MessageSummary, hit: MessageSummary) {
+        (letter("1/9", mailbox: Server.inbox, message: 41, counted: [Server.inbox, Server.allMail]),
+         letter("2/9", mailbox: Server.allMail, message: 41, counted: [Server.allMail, Server.inbox]))
+    }
+
+    /// A tap on the unread row the list shows under `id`, the server
+    /// taking the mark (`markReadIfNeeded`, `sendRead`).
+    @MainActor
+    private func tap(_ id: String, on list: ListLetters) throws {
+        let shown = try XCTUnwrap(list.shown.first { $0.id == id })
+        XCTAssertFalse(shown.isRead, "the row tapped has its dot")
+        list.reading(shown, read: true)
+        list.readAnswered(shown.id, landed: true)
+        var read = shown
+        read.isRead = true
+        list.read(read)
+    }
+
+    /// Edit mode's Mark as Unread on the read row the list shows under
+    /// `id`, the server taking it (`applyRead`).
+    @MainActor
+    private func markUnread(_ id: String, on list: ListLetters) throws {
+        let shown = try XCTUnwrap(list.shown.first { $0.id == id })
+        XCTAssertTrue(shown.isRead, "the row marked has no dot")
+        list.reading(shown, read: false)
+        list.readAnswered(shown.id, landed: true)
+        list.unread(shown)
     }
 
     /// The file's code with its comment lines dropped and its spacing
@@ -312,5 +419,10 @@ private final class Billed {
 
     func record(_ folders: [String], _ delta: Int) {
         if delta < 0 { billed.append(folders) } else { restored.append(folders) }
+    }
+
+    /// What `folder`'s count has moved by, all told.
+    func net(_ folder: String) -> Int {
+        restored.filter { $0.contains(folder) }.count - billed.filter { $0.contains(folder) }.count
     }
 }
