@@ -213,8 +213,10 @@ final class PaneActionsTests: XCTestCase {
         let sweeps = Counter()
         let coalescer = await makeSweeps(repository, counted: sweeps)
         try await repository.setRead(true, on: letter)
-        // What the list does at the tap, and once the read mark has landed.
-        await list.setRead(letter.id, read: true)
+        // What the list does at the tap, and once the read mark has landed
+        // (`markReadIfNeeded`, `sendRead`).
+        await list.reading(letter, read: true)
+        await list.readAnswered(letter.id, landed: true)
         await list.read(letter)
         server.clearLog()
 
@@ -245,7 +247,8 @@ final class PaneActionsTests: XCTestCase {
         let (list, counts) = await makeList(folder: rows)
         let sweeps = Counter()
         let coalescer = await makeSweeps(repository, counted: sweeps)
-        await list.setRead(letter.id, read: true)
+        // The tap (`markReadIfNeeded`).
+        await list.reading(letter, read: true)
         server.clearLog()
 
         server.holdReplies(to: "UID MOVE")
@@ -254,7 +257,8 @@ final class PaneActionsTests: XCTestCase {
                                   repository: repository, requestSweep: { coalescer.request() })
         }
         try await until { self.server.log.contains { $0.verb == "UID MOVE" } }
-        await list.setRead(letter.id, read: false)
+        // The read mark refused (`sendRead`): the dot back.
+        await list.readAnswered(letter.id, landed: false)
         await server.releaseReplies(to: "UID MOVE")
         let done = try await finishing { await deleted.value }
         await coalescer.idle()

@@ -2746,8 +2746,9 @@ this host. Ordered by value, not by size.
 
 - [ ] **B-089, a letter read from its All Mailboxes hit is read in the
       Inbox.** On the test iPad, the test account only, built from the
-      `readdot` worktree. A stands for the account's address; letters
-      only to A with `+b089` before the @, subjects beginning "B-089".
+      `fix-087-089` worktree; the `readdot` one has neither step 6 nor 7.
+      A stands for the account's address; letters only to A with `+b089`
+      before the @, subjects beginning "B-089".
       Do not open All Mail during these steps: a hit on its kept page
       was right before.
       1. *Two letters.* A new letter To A with `+b089`, Subject "B-089
@@ -2775,7 +2776,18 @@ this host. Ordered by value, not by size.
       "Can't connect to mail server.", OK; the Inbox is the one kept on
       the iPad, and "B-089 two" has no dot. Airplane Mode off, Refresh:
       still no dot, and the count as after the tap.
-      6. *Put back.* Edit, tick both B-089 rows, Delete.
+      6. *News held.* Scroll the Inbox down a screen or more, and stay
+      there. A new letter To A with `+b089`, Subject "B-089 three", Send.
+      Wait a minute, still scrolled down. Search "B-089 three", All
+      Mailboxes, tap the hit: its dot goes, the count down by one.
+      Cancel, scroll to the top: "B-089 three" comes on at the top with
+      no dot. Tap it: the count stays.
+      7. *Binned from a hit.* Search "B-089 two", All Mailboxes, tap the
+      hit, Delete. Cancel: no "B-089 two" row. Go to the Home Screen and
+      end Blackmail from the app switcher. Airplane Mode on, open
+      Blackmail: "Can't connect to mail server.", OK; the kept Inbox has
+      no "B-089 two" row. Airplane Mode off.
+      8. *Put back.* Edit, tick the B-089 rows left, Delete.
 
 ## Blocked on the owner
 

@@ -327,9 +327,19 @@ final class MailShelf: @unchecked Sendable {
     /// a draft removed. With `andEveryFolderBut`, out of every folder but
     /// that one, as a letter binned or marked as spam leaves every label
     /// on Gmail, and is kept nowhere until the Trash is listed again.
-    func gone(_ id: String, from folder: String, andEveryFolderBut destination: String? = nil) {
-        guard isAlive, let page = record(of: folder) else { return }
-        let message = destination == nil ? nil : page.rows.first { $0.id == id }?.message
+    ///
+    /// The letter is found as a read mark's is (`changeLetter`): from its
+    /// row on `folder`'s kept page, or, when `folder` has none under `id`,
+    /// from the Gmail message id the write named (`letter`). Binned from an
+    /// All Mailboxes hit with All Mail never opened, so with no kept page
+    /// to find it on, the letter stayed on the Inbox's kept page, and a
+    /// launch drew it there until the first page came (B-089).
+    func gone(_ id: String, letter named: UInt64? = nil, from folder: String,
+              andEveryFolderBut destination: String? = nil) {
+        guard isAlive else { return }
+        let row = record(of: folder)?.rows.first { $0.id == id }
+        let message = destination == nil ? nil : row == nil ? named : row?.message
+        guard row != nil || message != nil else { return }
         if message != nil { loadEverything() }
         locked {
             for (name, var kept) in pages {

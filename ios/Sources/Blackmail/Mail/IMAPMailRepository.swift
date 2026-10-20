@@ -1960,7 +1960,7 @@ actor IMAPMailRepository: MailRepository {
         // exclusive; out of none when it leaves All Mail for a label, since
         // All Mail is every letter not binned; out of its own otherwise.
         if destination == roleNames[.trash] || destination == roleNames[.junk] {
-            shelf?.gone(id, from: source, andEveryFolderBut: destination)
+            shelf?.gone(id, letter: gmailMessageID, from: source, andEveryFolderBut: destination)
         } else if source != folderForAttribute["\\all"] {
             shelf?.gone(id, from: source)
         }

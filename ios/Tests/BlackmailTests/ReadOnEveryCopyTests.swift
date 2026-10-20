@@ -236,6 +236,139 @@ final class ReadOnEveryCopyTests: XCTestCase {
         XCTAssertTrue(list.contains("for m in marked { letters.reading(m, read: true) }"))
     }
 
+    // MARK: - The watch's news
+
+    /// The watch found the letter while he was scrolled down, and holds the
+    /// Inbox's copy, unread, to go on when he is back at the top. He reads
+    /// it from its All Mailboxes hit and cancels the search: the news goes
+    /// on, and the Inbox's row has no dot, billed once. Put on as it was
+    /// fetched, the row had its dot back, and a tap on it sent a second
+    /// STORE. Mark as Unread on a hit reaches a held copy the same way.
+    @MainActor
+    func testALetterReadFromItsHitWhileTheWatchHoldsItsInboxCopyGoesOnRead() throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = makeList(folder: [olderRow()], results: nil)
+        XCTAssertTrue(list.hold(FolderNews(arrived: [row])))
+
+        list.showResults([hit])
+        try tap(hit.id, on: list)
+        _ = list.endSearch()
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false),
+                       .shown([readCopy(of: row)]))
+        XCTAssertEqual(list.shown.map(\.id), [row.id, olderRow().id])
+        XCTAssertEqual(list.letter(row.id)?.isRead, true, "the news goes on without its dot")
+        XCTAssertEqual(billed.billed.count, 1, "billed once")
+
+        // Read on the server, held, and marked unread from its hit.
+        var other = letter("1/10", mailbox: Server.inbox, message: 42,
+                           counted: [Server.inbox, Server.allMail])
+        other.isRead = true
+        var otherHit = letter("2/10", mailbox: Server.allMail, message: 42,
+                              counted: [Server.allMail, Server.inbox])
+        otherHit.isRead = true
+        XCTAssertTrue(list.hold(FolderNews(arrived: [other])))
+        list.showResults([otherHit])
+        try markUnread(otherHit.id, on: list)
+        _ = list.endSearch()
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(other.id)?.isRead, false, "Mark as Unread reaches the news")
+        XCTAssertEqual(billed.restored.count, 1)
+    }
+
+    /// A check of the Inbox asked before the search began, and before the
+    /// STORE, that lands after the server has taken the mark: it brings the
+    /// Inbox's copy as the server had it when asked, unread, and the copy
+    /// takes his mark as it is held, by its Gmail id. The search cancelled,
+    /// it goes on read, billed once. A check that lands while the STORE is
+    /// still out takes the mark too, and keeps it once the STORE lands.
+    /// And once a listing asked after the server took the mark has come,
+    /// the server has the say on news as on the rest.
+    @MainActor
+    func testACheckAskedBeforeTheStoreThatLandsAfterItBringsTheLetterRead() throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = makeList(folder: [olderRow()], results: nil)
+        XCTAssertNotNil(list.toWatch(fromNewest: true, fetched: true), "the check is asked")
+        list.showResults([hit])
+        try tap(hit.id, on: list)
+
+        XCTAssertEqual(list.take(FolderNews(arrived: [row]), fromNewest: true), .new)
+        XCTAssertEqual(list.putNewsOn(atTop: true, searching: true, ticked: false, touching: false),
+                       .wait, "held while the search shows")
+        _ = list.endSearch()
+        _ = list.putNewsOn(atTop: true, searching: false, ticked: false, touching: false)
+        XCTAssertEqual(list.letter(row.id)?.isRead, true, "the news goes on read")
+        XCTAssertEqual(billed.billed.count, 1, "billed once")
+
+        // The STORE still out as the check lands, then taken.
+        let (other, otherHit) = (letter("1/10", mailbox: Server.inbox, message: 42),
+                                 letter("2/10", mailbox: Server.allMail, message: 42))
+        list.showResults([otherHit])
+        list.reading(otherHit, read: true)
+        XCTAssertTrue(list.hold(FolderNews(arrived: [other])))
+        list.readAnswered(otherHit.id, landed: true)
+        _ = list.endSearch()
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(other.id)?.isRead, true, "taken while held")
+
+        // A listing asked after the server took it: the server's word.
+        let (third, thirdHit) = (letter("1/11", mailbox: Server.inbox, message: 43),
+                                 letter("2/11", mailbox: Server.allMail, message: 43))
+        list.showResults([thirdHit])
+        try tap(thirdHit.id, on: list)
+        let since = list.askingAfresh()
+        _ = list.fetchedUnderSearch(list.folder, asked: since)
+        XCTAssertTrue(list.hold(FolderNews(arrived: [third])))
+        _ = list.endSearch()
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(third.id)?.isRead, false, "a listing asked since has the say")
+    }
+
+    /// The server refuses the read mark made on a hit: the dot goes back on
+    /// the Inbox's copy the watch holds, whether it was held before the
+    /// mark or came while the STORE was out, and nothing is billed.
+    @MainActor
+    func testARefusedReadMarkPutsTheDotBackOnTheWatchsNews() {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = makeList(folder: [olderRow()], results: [hit])
+        XCTAssertTrue(list.hold(FolderNews(arrived: [row])))
+        list.reading(hit, read: true)
+        list.readAnswered(hit.id, landed: false)
+        _ = list.endSearch()
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(row.id)?.isRead, false, "held before the mark")
+
+        let (other, otherHit) = (letter("1/10", mailbox: Server.inbox, message: 42),
+                                 letter("2/10", mailbox: Server.allMail, message: 42))
+        list.showResults([otherHit])
+        list.reading(otherHit, read: true)
+        XCTAssertTrue(list.hold(FolderNews(arrived: [other])))
+        list.readAnswered(otherHit.id, landed: false)
+        _ = list.endSearch()
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(other.id)?.isRead, false, "come while the STORE was out")
+        XCTAssertEqual(billed.billed, [])
+    }
+
+    /// Read from its All Mail hit in one search, and marked unread from its
+    /// Starred hit in the next: the Inbox's copy the watch then brings goes
+    /// on unread, as he last left it, whichever mark is found first.
+    @MainActor
+    func testTheNewsTakesTheLastReadMarkMadeOnTheLetter() throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, _) = makeList(folder: [olderRow()], results: [hit])
+        try tap(hit.id, on: list)
+        _ = list.endSearch()
+        let starred = readCopy(of: letter("3/9", mailbox: Server.starred, message: 41,
+                                          counted: [Server.starred, Server.inbox]))
+        list.showResults([starred])
+        try markUnread(starred.id, on: list)
+        _ = list.endSearch()
+
+        XCTAssertTrue(list.hold(FolderNews(arrived: [readCopy(of: row)])))
+        _ = list.showNews()
+        XCTAssertEqual(list.letter(row.id)?.isRead, false)
+    }
+
     // MARK: - The counts
 
     /// Read in the Inbox, marked unread on its All Mailboxes hit, and read
@@ -349,6 +482,37 @@ final class ReadOnEveryCopyTests: XCTestCase {
         XCTAssertEqual(kept(olderRow, on: relaunched)?.isRead, false)
     }
 
+    /// Binned from its All Mailboxes hit, or marked as spam from it, with
+    /// All Mail never opened: the Inbox's kept row of the same letter goes
+    /// with it, found by the Gmail id the MOVE named, and a launch does not
+    /// draw it; the Inbox's other kept rows stay. Found from the hit's own
+    /// kept row alone, there was none, and the Inbox's row stayed.
+    func testALetterBinnedOrMarkedAsSpamFromItsHitLeavesTheInboxsKeptPage() async throws {
+        let shelf = keptShelf(for: server.account)
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.folders()
+        func kept(_ letter: MessageSummary, on kept: MailShelf = shelf) -> MessageSummary? {
+            kept.page(of: "inbox")?.rows.first { $0.id == letter.id }
+        }
+        let (_, _, binned, binnedRow) = try await hitAndInboxRow("Letter 117", repository: repository)
+        let (_, _, spam, spamRow) = try await hitAndInboxRow("Letter 75", repository: repository)
+        XCTAssertNil(shelf.page(of: Server.allMail))
+        let before = try XCTUnwrap(shelf.page(of: "inbox")?.rows.count)
+        XCTAssertNotNil(kept(binnedRow))
+        XCTAssertNotNil(kept(spamRow))
+
+        try await repository.delete(binned)
+        try await repository.move(spam, to: Server.spam)
+        XCTAssertNil(kept(binnedRow), "binned from its hit")
+        XCTAssertNil(kept(spamRow), "marked as spam from its hit")
+
+        shelf.flush()
+        let relaunched = keptShelf(for: server.account)
+        XCTAssertNil(kept(binnedRow, on: relaunched))
+        XCTAssertNil(kept(spamRow, on: relaunched))
+        XCTAssertEqual(relaunched.page(of: "inbox")?.rows.count, before - 2)
+    }
+
     // MARK: - Helpers
 
     private func letter(_ id: String, mailbox: String, message: UInt64?,
@@ -366,6 +530,19 @@ final class ReadOnEveryCopyTests: XCTestCase {
     private func inboxRowAndHit() -> (row: MessageSummary, hit: MessageSummary) {
         (letter("1/9", mailbox: Server.inbox, message: 41, counted: [Server.inbox, Server.allMail]),
          letter("2/9", mailbox: Server.allMail, message: 41, counted: [Server.allMail, Server.inbox]))
+    }
+
+    /// An older letter of the Inbox, read, under the news.
+    private func olderRow() -> MessageSummary {
+        var older = letter("1/5", mailbox: Server.inbox, message: 30, subject: "Older")
+        older.isRead = true
+        return older
+    }
+
+    private func readCopy(of letter: MessageSummary) -> MessageSummary {
+        var read = letter
+        read.isRead = true
+        return read
     }
 
     /// A tap on the unread row the list shows under `id`, the server

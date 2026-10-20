@@ -308,7 +308,7 @@ final class ListLetters: PaneActionList {
             changed = true
         }
         let known = Set(watched)
-        let fresh = news.arrived.filter { !known.contains($0.id) }
+        let fresh = news.arrived.filter { !known.contains($0.id) }.map(withHisRead)
         if !fresh.isEmpty {
             arriving = fresh + arriving
             changed = true
@@ -324,6 +324,43 @@ final class ListLetters: PaneActionList {
             }
         }
         return changed
+    }
+
+    /// A letter the watch has brought, with his read mark on it where he
+    /// has made one on the letter that is still held (`reads`): on its way
+    /// to the server, or taken and not yet seen by a listing asked after.
+    /// Under its own id, as a listing's row is (`holdingHisMarks`), or on
+    /// another copy with the same Gmail message id: the All Mailboxes hit
+    /// he read it from. The last he made, where there are two.
+    ///
+    /// The check that brought it may have been asked before the STORE and
+    /// come after it, with the letter as the server had it before: unread.
+    /// Held, and put on at the top as it came, the Inbox's row had its dot
+    /// back, though the letter was read and the counts had gone down for
+    /// it (B-089). Held from here on as the copy's own mark, and put back
+    /// with the others if the server refuses it (`readAnswered`).
+    private func withHisRead(_ letter: MessageSummary) -> MessageSummary {
+        let made = reads.filter { id, mark in
+            id == letter.id
+                ? ListEdit.sameLetter(mark.letter, letter.gmailMessageID)
+                : mark.letter != nil && mark.letter == letter.gmailMessageID
+        }.max { $0.value.order < $1.value.order }
+        guard let (on, mark) = made else { return letter }
+        reads[letter.id] = Mark(value: mark.value, before: letter.isRead,
+                                letter: letter.gmailMessageID, takenAt: mark.takenAt,
+                                order: mark.order)
+        // Written back whole, not as `marking[tap]?.append(letter.id)`. A
+        // change made in place inside a Dictionary compiles, with this
+        // toolchain, to a coroutine that needs `swift_coroFrameAlloc`, which
+        // the iOS 16 runtime does not have, and the device link fails.
+        if mark.takenAt == nil,
+           let tap = marking.first(where: { $0.value.contains(on) })?.key,
+           let ids = marking[tap], !ids.contains(letter.id) {
+            marking[tap] = ids + [letter.id]
+        }
+        var letter = letter
+        letter.isRead = mark.value
+        return letter
     }
 
     /// What becomes of the news held, with him where he is now.
@@ -383,11 +420,6 @@ final class ListLetters: PaneActionList {
 
     // MARK: - Read and unread
 
-    /// The dot, wherever the list holds the letter.
-    func setRead(_ id: String, read: Bool) {
-        change(id) { $0.isRead = read }
-    }
-
     /// His read mark on its way to the server: the dot now, wherever the
     /// list holds the letter, and held over what a listing brings until
     /// the server has answered (`readAnswered`) and a listing asked after
@@ -402,11 +434,19 @@ final class ListLetters: PaneActionList {
     /// fetched again (B-089). Matched from the list's copy, falling back to
     /// the letter itself when the list has no row with its id: one the
     /// reading pane opens from a hit after the search has ended.
+    ///
+    /// The watch's news held for the list (`arriving`) too: the Inbox's
+    /// copy of a letter that came while he was scrolled down, which he
+    /// then read from its hit, went on at the top with its dot. A copy the
+    /// watch brings after the mark is made takes it as it comes
+    /// (`withHisRead`).
     func reading(_ letter: MessageSummary, read: Bool) {
         let known = self.letter(letter.id) ?? letter
-        let copies = [known] + ListEdit.copies(of: known, among: everything)
+        let copies = [known] + ListEdit.copies(of: known, among: everything + arriving)
+        marksMade += 1
         for copy in copies {
-            reads[copy.id] = Mark(value: read, before: copy.isRead, letter: copy.gmailMessageID)
+            reads[copy.id] = Mark(value: read, before: copy.isRead, letter: copy.gmailMessageID,
+                                  order: marksMade)
             change(copy.id, ifStill: copy.gmailMessageID) { $0.isRead = read }
         }
         marking[letter.id] = copies.map(\.id)
@@ -416,7 +456,7 @@ final class ListLetters: PaneActionList {
     /// over a listing asked before now, and one asked after has the say.
     /// Refused, the dot goes back as it was, on every copy it was made on
     /// that is still that letter and not on another the same id names now,
-    /// and nothing is held.
+    /// the watch's news held among them, and nothing is held.
     func readAnswered(_ id: String, landed: Bool) {
         for copy in marking.removeValue(forKey: id) ?? [id] {
             guard var mark = reads[copy] else { continue }
@@ -455,6 +495,8 @@ final class ListLetters: PaneActionList {
     /// Listings from the top asked for this list, counted, so a mark knows
     /// which of them were asked after the server took it.
     private var asked = 0
+    /// Read marks made, counted, so the last of them on a letter is known.
+    private var marksMade = 0
 
     private struct Mark {
         /// What he made it, and what the row said before, for a refusal.
@@ -466,6 +508,8 @@ final class ListLetters: PaneActionList {
         var letter: UInt64?
         /// `asked` when the server took it; nil while it is on its way.
         var takenAt: Int?
+        /// `marksMade` when he made it; for a read mark only.
+        var order = 0
 
         /// Whether the listing `asked` was asked after the server took it,
         /// and so brings it: the listing has the say from then on.
@@ -599,9 +643,10 @@ final class ListLetters: PaneActionList {
     }
 
     /// Changes the letter with `id` wherever this list holds it, the
-    /// folder's letters and the hits.
+    /// folder's letters, the hits, and the watch's news held to go on.
     private func change(_ id: String, _ edit: (inout MessageSummary) -> Void) {
         ListEdit.change(&folder, id: id, edit)
+        ListEdit.change(&arriving, id: id, edit)
         guard var hits = results else { return }
         ListEdit.change(&hits, id: id, edit)
         results = hits
