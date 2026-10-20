@@ -323,6 +323,37 @@ final class ReadOnEveryCopyTests: XCTestCase {
         XCTAssertEqual(list.letter(third.id)?.isRead, false, "a listing asked since has the say")
     }
 
+    /// The Inbox's page asked before the STORE (a fresh page over the kept
+    /// one, landing under the search) brings the letter's Inbox copy as the
+    /// server had it then, unread, though the list did not hold that copy
+    /// when he read the hit. It takes his mark by its Gmail id, and the
+    /// letter is billed once.
+    @MainActor
+    func testAPageAskedBeforeTheStoreBringsTheLettersInboxCopyRead() throws {
+        let (row, hit) = inboxRowAndHit()
+        let (list, billed) = makeList(folder: [olderRow()], results: [hit])
+        let asked = list.askingAfresh()
+        try tap(hit.id, on: list)
+        _ = list.fetchedUnderSearch([row, olderRow()], asked: asked)
+        _ = list.endSearch()
+        XCTAssertEqual(list.letter(row.id)?.isRead, true, "the page's copy of the hit he read")
+        XCTAssertEqual(billed.billed.count, 1, "billed once")
+    }
+
+    /// The same page landing while the STORE is still out: the copy takes
+    /// the mark, and the dot comes back on it when the server refuses.
+    @MainActor
+    func testAPageThatLandsWhileTheStoreIsOutTakesTheMarkAndARefusalPutsTheDotBack() {
+        let (row, hit) = inboxRowAndHit()
+        let (list, _) = makeList(folder: [olderRow()], results: [hit])
+        let asked = list.askingAfresh()
+        list.reading(hit, read: true)
+        _ = list.fetchedUnderSearch([row, olderRow()], asked: asked)
+        XCTAssertEqual(list.letter(row.id)?.isRead, true, "while the STORE is out")
+        list.readAnswered(hit.id, landed: false)
+        XCTAssertEqual(list.letter(row.id)?.isRead, false, "refused")
+    }
+
     /// The server refuses the read mark made on a hit: the dot goes back on
     /// the Inbox's copy the watch holds, whether it was held before the
     /// mark or came while the STORE was out, and nothing is billed.

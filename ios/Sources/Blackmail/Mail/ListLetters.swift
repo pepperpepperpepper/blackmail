@@ -329,9 +329,12 @@ final class ListLetters: PaneActionList {
     /// A letter the watch has brought, with his read mark on it where he
     /// has made one on the letter that is still held (`reads`): on its way
     /// to the server, or taken and not yet seen by a listing asked after.
-    /// Under its own id, as a listing's row is (`holdingHisMarks`), or on
-    /// another copy with the same Gmail message id: the All Mailboxes hit
-    /// he read it from. The last he made, where there are two.
+    /// Under its own id, or on another copy with the same Gmail message
+    /// id: the All Mailboxes hit he read it from. The last he made, where
+    /// there are two. A listing's rows take it the same way
+    /// (`holdingHisMarks`), once the marks that listing has seen are gone:
+    /// the Inbox's page asked before the STORE and come after it can bring
+    /// a copy the list did not have when he read the hit.
     ///
     /// The check that brought it may have been asked before the STORE and
     /// come after it, with the letter as the server had it before: unread.
@@ -535,10 +538,7 @@ final class ListLetters: PaneActionList {
         flags = flags.filter { !$0.value.seen(by: listing) }
         guard !reads.isEmpty || !flags.isEmpty else { return page }
         return page.map { row in
-            var row = row
-            if let mark = reads[row.id], ListEdit.sameLetter(mark.letter, row.gmailMessageID) {
-                row.isRead = mark.value
-            }
+            var row = withHisRead(row)
             if let mark = flags[row.id], ListEdit.sameLetter(mark.letter, row.gmailMessageID) {
                 row.isFlagged = mark.value
             }

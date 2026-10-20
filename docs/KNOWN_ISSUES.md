@@ -14269,6 +14269,11 @@ iPad. Not on the watch's news held; see Not covered.
   made, where there are two. Taken, it is held over a listing as the
   rest are; refused, it goes back with them, whether the copy was held
   before the mark or came while the STORE was out.
+- A listing's rows take it the same way, once the marks that listing has
+  seen are gone: the Inbox's page asked before the STORE and come after
+  it, over the kept page after a launch or under the search, can bring
+  the letter's Inbox copy the list did not have when he read the hit, as
+  the server had it then, unread. It goes on read.
 - The kept copy: a read mark or a flag on a row that is not on its
   folder's kept page goes by the Gmail id the write named, onto every
   kept row of that letter (`MailShelf.changeLetter`). A row that is there
@@ -14304,7 +14309,7 @@ down, read from its hit, goes on at the top without its dot. A launch
 draws the Inbox's kept page the same way, and without a letter he
 binned or marked as spam from its hit. No new words.
 
-**Tests.** `ReadOnEveryCopyTests`, fifteen, over the shipping repository
+**Tests.** `ReadOnEveryCopyTests`, seventeen, over the shipping repository
 and the scripted server where there is a server to ask, with the list's
 own letters: a hit read at the tap, the Inbox's row without its dot at
 once, over a listing asked before the STORE landed and after the search
@@ -14327,7 +14332,11 @@ that lands while the STORE is out, and once a listing asked after the
 STORE has come the server has the say; a refused mark puts the held copy's
 dot back, held before the mark or come while the STORE was out, and
 nothing is billed; and of two marks on the letter, read and then unread on
-two hits, the news takes the last. Three on the counts, with the list's
+two hits, the news takes the last. Two on a listing, with the list's letters
+alone: the Inbox's page asked before the STORE brings the letter's copy
+the list did not have, and it goes on read, billed once; and the same
+page landing while the STORE is out takes the mark, and the dot comes back
+when the server refuses it. Three on the counts, with the list's
 letters alone: read in the Inbox, marked unread on its hit and read in the
 Inbox again; read from its hit, marked unread in the Inbox and read from
 its hit again, each one off the Inbox's count and All Mail's, as the
@@ -14358,9 +14367,10 @@ mark as it is held: 3 in 2. The news left out of the list's changes, so
 of the mark and of its refusal: 4 in 2. A mark taken on as the news is
 held not put back when refused: 1 in 1. The first mark found taken in
 place of the last: 1 in 1. The kept copy of a Delete or a Spam found by
-the folder's kept row alone: 5 in 1.
+the folder's kept row alone: 5 in 1. The listing's rows taking his mark by their own
+id alone, as before: 2 failures in the two tests on a listing.
 
-The full suite, serially: 1,762 tests, 5 skipped, none failing. The
+The full suite, serially: 1,764 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
