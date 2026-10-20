@@ -14011,3 +14011,143 @@ none failing. The release build for the iPad links.
   that put it up. The app ended with the letter still kept, at the next
   launch that copy is listed beside its row until the letter's next
   upload replaces it, as before.
+
+---
+
+## B-088 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A forward whose original had moved looked for it in All Mail once for each file
+
+**What was seen.** On the iPad on 2026-09-30, in B-051's check: a forward
+of a letter with two PDFs, sent with no connection, its files' UID written
+in the store as another Inbox letter's. In the next launch it went from the
+Outbox with both PDFs, at their own sizes. The connection log had `UID
+SEARCH X-GM-MSGID …` in All Mail before each part: the same letter looked
+for twice. He sees nothing of it but the wait. Each search is a round trip
+to Gmail's search, on the line his taps go on, before the part is asked
+for, and a letter with ten files looked for its original ten times.
+
+**What it was.** A letter being built fetches each file and each quoted
+picture it carries on its own (`fetchCarried`, once for each part, from
+`letterFiles`, `loadAttachments` and `loadPictures`). A part whose letter
+is not under the UID it names is looked for in All Mail by Gmail's id for
+it (`carriedPartElsewhere`, B-051), and where it was found was kept
+nowhere. The next part of the same letter tried the UID it names, as each
+part does, then searched All Mail again.
+
+**Changed.** Where the search finds a letter in All Mail is kept for the
+launch, by Gmail's id for it (`foundInAllMail`): the folder's name, its
+UIDVALIDITY and the UID. Each part after the first is fetched from there
+first, after the letter on screen only and before the folder and UID it
+names (`carriedPartFoundBefore`), as any part a letter carries is
+(`carriedPart`): by the FETCH that describes the letter, which names it
+before the part's bytes are asked for. No search goes, and with All Mail
+still selected no SELECT either; nothing is asked again of the folder the
+part names, where the part before did not find it. Not there any more,
+another letter
+under that UID or none, or All Mail renumbered or refused, and the log says
+so as it does for the folder the part names (`CARRIED-PART
+folder=[Gmail]/All Mail reason=another-letter`, or `gone`, or `folder`).
+What was kept is dropped and the part goes as the first did: the folder and
+UID it names, then one search, and the parts after it come from where that
+finds it. Not found, nothing of the letter goes, as before (`CARRIED-PART
+not-found nothing-sent`).
+
+What a forward of three files costs now, in its later launch. The original
+archived since, as when he archives it while the forward waits in the
+Outbox or in Drafts, so that its Inbox UID holds nothing: the first file a
+SELECT of the Inbox, a FETCH there answered with nothing, a SELECT of All
+Mail, the search and the part's two FETCHes; each file after it the two
+FETCHes. Ten commands where there were eighteen, and one SELECT of All
+Mail, which Gmail answers only once it has counted All Mail, where there
+were three. With another letter under the UID, as on the iPad, the Inbox
+was not asked again after the first file before either, this launch
+having had the other letter there: ten commands where there were twelve,
+the two searches gone.
+
+**Not changed.** The first part of a letter goes as before: the folder and
+UID it names, then a search of All Mail. A part that names no letter goes
+by folder and UID alone. A line that goes while a part is fetched leaves
+the letter waiting for the connection, as before. Where a letter was found
+is kept for the launch, not for one letter: a later forward of the same
+original goes there first too, and its FETCH, naming the letter, decides.
+
+**What he sees.** Nothing new. A forward like it goes a little sooner.
+
+**Tests.** Six, all new, in `KeptReferencesTests.swift`: the shipping
+`LocalDrafts` and repository over the scripted server, and a scripted
+submission server. Each counts `UID SEARCH X-GM-MSGID` in All Mail and
+pins the parts fetched there, by UID and section.
+
+- *Three files, the Outbox:* a forward of a letter with three files, sent
+  with no connection; in a later launch the Inbox is renumbered so that
+  the original's UID holds another letter. One search, the three parts
+  from the UID it gave, each file its own and none the other letter's.
+- *Three files, Drafts:* the same forward kept as a draft and taken to
+  Drafts in a later launch: one search, and the copy carries the three.
+- *A picture and a file:* a forward whose quote shows a picture and which
+  carries a file, both of one original. The picture, fetched first, finds
+  it, and the file comes from there: one search.
+- *Renumbered between two files:* All Mail renumbered under the
+  UIDVALIDITY it had once the first file's bytes are fetched, so that the
+  UID it was found under holds a letter with three files at the same
+  sections. The second file is not taken from it, the log says
+  `reason=another-letter` for All Mail, the original is looked for once
+  more, and the second and third files come from its new UID: two
+  searches for three files.
+- *Three files, the original archived:* the first forward's, the original
+  taken out of the Inbox by another client before the later launch, so
+  that its UID there holds nothing. Two SELECTs in all, the Inbox's and
+  All Mail's, both for the first file; one FETCH asked of the Inbox; one
+  search; the three parts from the UID it gave, two FETCHes each.
+- *All Mail renumbered for the next connection:* the same, and the line
+  goes as the second file's first FETCH is out. The connection made again
+  finds All Mail under a new UIDVALIDITY, numbered from 1. The log says
+  `reason=folder` for All Mail, then `reason=gone` for the Inbox; the
+  original is looked for once more, and the second and third files come
+  from its new UID: two searches, the three files sent, nothing left in
+  the Outbox. RFC 3501 lets UIDs change between sessions only, under a new
+  UIDVALIDITY, so the renumbering is met here as it would be: on the new
+  connection's SELECT.
+
+For the renumberings, the scripted server can change its mail between two
+commands (`change(after:_:)`): the moment the command named has been
+carried out, before its reply goes. For the last, it holds the second
+file's answer (`holdReplies`) until All Mail is renumbered and the line
+cut.
+
+Against the code as it was: all six failed, 18 failures. Three searches
+for three files, two for the picture and the file, three in place of two
+after the renumbering; with the original archived, six SELECTs, three of
+them All Mail's. All Mail renumbered for the next connection, nothing was
+sent: the search found the letter under its old UID, and the FETCH there
+met the renumbering and took it for the letter not found, the forward
+left in the Outbox saying its attachment could not be downloaded. Then
+parts of the change undone one at a time, the six run each time. The
+refusal of the UID kept caught only when it is another letter or none,
+and taken for the connection when its folder is renumbered: the last test
+failed, 9 failures, nothing sent, the forward left in the Outbox as one
+waiting for the connection; the other five passed. No second look after a
+refused UID: both renumbering tests failed, 7 and 9 failures, nothing
+sent; the other four passed. The UID kept used without the FETCH naming
+the letter: the first renumbering test failed, 7 failures, two of the
+other letter's files sent as the second and third, and the last failed on
+its log. The UID kept tried after the folder and UID the part names: the
+archived test failed on its SELECTs, the FETCHes asked of the Inbox and
+its log, and the last on the order of its log.
+
+The full suite, serially: 1,735 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO says what to look at.
+- A letter that moved in the moment between two of its parts, on the
+  iPad. Its UID in All Mail is not known to change as its labels do, only
+  with All Mail renumbered or the letter binned and brought back, and
+  neither can be timed by hand between two parts. The scripted server's
+  renumbering stands in.
+- All Mail renumbered between the search and the FETCH of the part it
+  found, met on a connection made again: that part is taken for not
+  found, and the letter stays in the Outbox or in Drafts saying its
+  attachment could not be downloaded, as before B-088. For a part after
+  the first, the UID kept refused, the letter is looked for once more; for
+  the part the search was made for, it is not.
