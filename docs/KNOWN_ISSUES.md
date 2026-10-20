@@ -13854,7 +13854,7 @@ the Inbox each time.
 
 ---
 
-## B-087 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. Save Draft with no connection left the old copy's row in Drafts for some eight seconds
+## B-087 — FIXED 2026-10-20, found on the iPad and seen there fixed. Save Draft with no connection left the old copy's row in Drafts for some eight seconds
 
 **What he saw.** Seen on the iPad on 2026-09-30, Drafts open in the
 list, with no connection. A draft reopened from its row, changed, Cancel,
@@ -14016,9 +14016,75 @@ as the sheet closed and while the letter waited. Every other test of
 The full suite, serially, with nothing undone: 1,762 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-20**, landscape, a build of the
+`fix-087-089` worktree (daccd64), B-087 to B-089 together, on the test
+account. The draft To A with `+jane` before the "@", its subject "R6 B-087
+one". The connection was cut with Airplane Mode, the iPad reached by its
+cable. Times are the iPad's clock; the seconds are counted from the tap on
+Save Draft, in frames taken several times a second. Every step of the TODO
+check passed, 4 in another order, the one the TODO has now. Nothing was
+sent.
+
+1. *A new letter.* Drafts open with no letters. Save Draft at 14:32:36: at
+   0.6 s, as the sheet slid away, "R6 B-087 one" was the top and only row,
+   with "On this iPad only". The mark went at 2.4 s, with the save's
+   answer: its APPEND set off at 0.5 s and was answered at 2.1 s. One row
+   all through, and one after Refresh. The TODO's "about a second" was
+   nearer two here.
+2. *A photo.* One photo of 537 KB, then Cancel and Save Draft: once the
+   sheet had gone, one row with the paperclip and "On this iPad only", the
+   same to 4.9 s, and one row with the paperclip after Refresh. The log:
+   the APPEND, then the old copy removed. The photo was in the composer
+   1.1 s after it was picked, before Cancel could be tapped, so a Save
+   Draft with a photo still coming in was not seen.
+3. *Opened again as it goes.* The first tap on the row, 0.8 s after Save
+   Draft, went to the sheet going away, and the save landed first, so the
+   step was done again with the line "Changed at once, second try.".
+   Tapped from 0.9 s, the row was taken at 1.2 s with no spinner, and the
+   composer was up at 1.5 s with both new lines: opened from the letter
+   kept on the iPad, its APPEND still out. That save landed while the new
+   composer had the letter. Then "And again.", Save Draft: in each of the
+   50 frames from 0.6 s to 4 s one "R6 B-087 one" row, with the mark to
+   2.4 s and without it after, and never a second row. The log: the
+   APPEND, then the copies before it removed, the one that had landed
+   while the composer was open among them. Over IMAP one draft, with all
+   four lines.
+4. *Offline.* As written the step could not be done. With Airplane Mode on
+   first, a tap on the row spun, and "Can't connect to mail server." came
+   some 30 s later: a draft that is only on Gmail is fetched to be opened.
+   So the draft was opened with the line up, and Airplane Mode turned on
+   with the composer open. "Changed offline.", Save Draft at 14:42:51:
+   from 0.7 s the only row was "R6 B-087 one" with "On this iPad only", in
+   each of 70 frames to 13.6 s, and so with no alert at 30 s. The old row
+   did not show once the sheet had gone. The save's APPEND went out on the
+   connection Airplane Mode had cut and had no answer, so the save was out
+   all the time the iPad was offline, rather than failing some eight
+   seconds on.
+5. *Opened again at once.* Still offline, the row opened the kept letter
+   at once. "Changed again.", Save Draft, and the row tapped from 0.9 s:
+   the composer was up at 1.5 s with "Changed again." under "Changed
+   offline.". Cancel closed it with nothing asked: one row, "On this iPad
+   only", no alert.
+6. *Back.* Airplane Mode off at 14:44:39, and nothing tapped. Nine seconds
+   later a new connection looked in Drafts for the letter's Message-ID, to
+   see whether the APPEND left without an answer had landed: it had not.
+   Then one APPEND, and the old copy removed. The row had no mark at 40 s,
+   and Refresh gave one row. Over IMAP one draft, with all six lines and
+   the photo.
+7. *Put back.* Edit, tick, Delete: the draft went to Trash, and Drafts was
+   empty.
+
+The draft is in Trash only, and the mailbox is as found.
+
 **Not covered.**
 
-- Not seen on the iPad, nor in the simulator.
+- Not seen in the simulator.
+- On the iPad the line was cut under an open connection, so the offline
+  save had no answer until the line came back. A save made with no
+  connection from before it fails at the connect, some eight seconds on;
+  that failure was not seen there. The suite holds the row through it.
+- A Save Draft with a photo still coming in was not seen on the iPad: the
+  photo was in before Cancel could be tapped. The suite holds the order.
 - With a connection the row says "On this iPad only" for the second the
   save takes, then becomes Gmail's copy. Mail's has no such mark; the
   mark is true while it shows.
@@ -14029,7 +14095,7 @@ none failing. The release build for the iPad links.
 
 ---
 
-## B-088 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A forward whose original had moved looked for it in All Mail once for each file
+## B-088 — FIXED 2026-10-20, found on the iPad and seen there fixed but for another letter under the original's UID. A forward whose original had moved looked for it in All Mail once for each file
 
 **What was seen.** On the iPad on 2026-09-30, in B-051's check: a forward
 of a letter with two PDFs, sent with no connection, its files' UID written
@@ -14177,9 +14243,62 @@ other 33 tests of `KeptReferencesTests` passed.
 The full suite, serially: 1,762 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-20**, the same build as B-087's, the same
+day, on the test account, the line cut with Airplane Mode and the iPad
+reached by its cable. The original To A with `+b088`, "R6 B-088 three",
+with three photos of 8, 177 and 537 KB; the forwards To A with `+b088fwd`.
+The photos were small so that the forward, 749 KB with the quoted
+signature's picture, would go by itself: a forward in the Outbox with a
+megabyte or more to fetch waits for Refresh or for the app to be left
+(B-072). Times are the iPad's clock. Steps 1, 2 and 4 to 9 of the TODO
+check passed. Step 3, the forward's UID written in the store as another
+letter's, was not made: editing the store waits to be agreed. So 4 and 5
+were made without it, as a control. In 2 and 6 the app was ended once the
+Home Screen was up; the swipe into the app switcher was not made.
+
+1. *The original*, sent at 14:49: in the Inbox with its three photos, at
+   UID 301 there and 377 in All Mail.
+2. *The forward, offline.* Sent at 14:51 with Airplane Mode on: in the
+   Outbox, with four parts in the store, the quoted signature's picture
+   and the three photos, each naming the original at Inbox UID 301. The
+   app ended at 14:52.
+4. *Back, without the edit.* Airplane Mode off, the app opened at
+   14:52:24. After the Inbox's first page the forward went by itself, each
+   of its four parts by the letter's FETCH and its `BODY.PEEK` at UID 301
+   in the Inbox, where the original still was: no `CARRIED-PART` and no
+   search. Sent at 14:52:30. What 4 asks to see in the log needs 3's edit.
+5. *Arrived:* "Fwd: R6 B-088 three", its three photos at the original's
+   sizes and CRCs.
+6. *The original archived instead,* in the app, the store not edited. The
+   second forward sent offline at 14:56, to the Outbox; the app ended and
+   opened again offline: "Can't connect to mail server.". With no page the
+   pass waits for the watch's first good check, which comes every 30 s.
+   "R6 B-088 three" ticked in Edit. Move lists its folders only with the
+   line up, so Airplane Mode went off and All Mail was tapped in Move 3 s
+   later: `UID MOVE 301 "[Gmail]/All Mail"` at 14:59:14, Gmail's archive.
+   Nothing of the forward had been asked yet.
+7. *Back.* The forward went by itself at the watch's check at 14:59:34,
+   20 s after the move. The log: one `UID FETCH 301` in the Inbox,
+   answered with nothing; `CARRIED-PART folder=INBOX reason=gone`, once;
+   one `UID SEARCH X-GM-MSGID` in All Mail, giving one UID, 377; then for
+   each of the four parts the letter's FETCH and its `BODY.PEEK[n]` at
+   377, each followed by `CARRIED-PART found folder=[Gmail]/All Mail`. No
+   second search. The only SELECTs after the search were the Inbox's,
+   twice, for its previews, each with All Mail's again after it. Sent at
+   14:59:38.
+8. *Arrived:* a second "Fwd: R6 B-088 three", the three photos the same.
+9. *Put back:* the two forwards from the Inbox and the original from All
+   Mail, to Trash with Edit and Delete.
+
+The letters are in Trash only, and the mailbox is as found.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says what to look at.
+- Another letter under the original's UID, the case found, was not seen on
+  the iPad: it needs the store edited, the TODO's step 3, and editing the
+  store waits to be agreed. The archived original, seen there, goes by the
+  same search, and the parts after the first by the same UID kept; the
+  suite holds the other letter.
 - A letter that moved in the moment between two of its parts, on the
   iPad. Its UID in All Mail is not known to change as its labels do, only
   with All Mail renumbered or the letter binned and brought back, and
@@ -14194,7 +14313,7 @@ release build for the iPad links.
 
 ---
 
-## B-089 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A letter read from its All Mailboxes hit kept its unread dot in the Inbox
+## B-089 — FIXED 2026-10-20, found on the iPad and seen there fixed. A letter read from its All Mailboxes hit kept its unread dot in the Inbox
 
 **What he saw.** Seen on the iPad on 2026-10-03, during B-062's check. In
 the Inbox he searches All Mailboxes and taps an unread hit: its dot goes,
@@ -14373,9 +14492,62 @@ id alone, as before: 2 failures in the two tests on a listing.
 The full suite, serially: 1,764 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-20**, the same build as B-087's, the same
+day, three panes, on the test account. Three letters To A with `+b089`,
+subjects beginning "R6 B-089". All Mail was opened before the steps, in
+B-088's put-back, and not during them; its kept page held no B-089 letter.
+Times are the iPad's clock, and the count is the Inbox's. Every step of
+the TODO check passed. In 5 and 7 the app was ended once the Home Screen
+was up; the swipe into the app switcher was not made.
+
+1. *Two letters,* "R6 B-089 one" and "two", both in with the dot: the
+   count from 13 to 15.
+2. *Read from a hit.* "R6 B-089 one" tapped on its All Mailboxes hit: the
+   dot went, 15 to 14. Cancel: the Inbox's row had no dot. Tapped: still
+   14. The log: one STORE, `+FLAGS.SILENT (\Seen)` on the hit's UID in All
+   Mail, 380, and none at the row's tap.
+3. *Mark from a hit.* Mark as Unread on the hit: its dot back, 15, and the
+   bar back to Edit. Cancel: the Inbox's row had its dot. Tapped: no dot,
+   14. Mark as Unread on the row: 15. Searched again, the hit had its dot
+   from that mark; Mark as Read on it, Cancel: no dot, 14. One STORE for
+   each mark, on the UID of the copy marked, All Mail's 380 or the Inbox's
+   304, and the count never one too low or too high.
+4. *Flag from a hit.* Flag on the hit, Cancel: the Inbox's row flagged.
+   Flag again from the row: not flagged.
+5. *The kept copy.* "R6 B-089 two" read from its hit, 14 to 13. The
+   Inbox's kept page had last been listed while it was unread, and its row
+   there was now read; All Mail's kept page did not hold the letter, so
+   the mark went by its Gmail id. The app ended with the search showing,
+   Airplane Mode on, opened: "Can't connect to mail server.", OK. The kept
+   Inbox, "R6 B-089 two" with no dot, 13. Airplane Mode off, Refresh: the
+   same.
+6. *News held.* Scrolled two screens down, "R6 B-089 three" sent. The
+   watch's next check logged `NEWS folder=INBOX arrived=1`, 13 to 14, and
+   a minute on the list was still down. Read from its hit: 14 to 13.
+   Cancel: still down. At the top "R6 B-089 three" came on with no dot.
+   Tapped: still 13, and no second STORE.
+7. *Binned from a hit.* "R6 B-089 two" from its hit, Delete in the reading
+   pane: `UID MOVE 381` to Trash, and the hit gone. Cancel: no row for it,
+   nor on the Inbox's kept page, written again at the Delete. The app
+   ended, Airplane Mode on, opened: the alert, OK, and the kept Inbox had
+   no "R6 B-089 two". Airplane Mode off, Refresh.
+8. *Put back:* the two left, ticked and deleted, to Trash.
+
+The B-087 to B-089 letters are in Trash only, and every other folder is as
+found.
+
+Seen in passing:
+
+- "R6 B-089 three", which the watch brought while the list was scrolled
+  down, came on at the top but was not on the Inbox's kept page, which
+  only a listing from the top replaces (D-016). So 7's offline launch drew
+  the kept Inbox without it until Refresh. As designed; not looked into
+  further.
+- In 4 the reading pane's Flag button looked the same flagged and not. The
+  rows showed the flag. Not looked into.
+
 **Not covered.**
 
-- Not seen on the iPad yet. The steps are in the TODO.
 - A search of This Mailbox gives the folder's own rows, under the same
   ids, and was right already on the list's rows. A copy the watch holds
   under the same id is changed with them now.

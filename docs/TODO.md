@@ -1205,20 +1205,21 @@ this host. Ordered by value, not by size.
       only some eight seconds later, once the save's upload has failed.
       Seen on the iPad 2026-09-30. Nothing is lost; the row should come at
       once, as the letter is kept before the sheet goes.
-      *Done 2026-10-20, not yet seen on the iPad: the row comes as the
+      *Done 2026-10-20, seen on the iPad 2026-10-20: the row comes as the
       sheet goes, in place of the copy's, with a connection or without.
       B-087.*
 - [x] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
-      *Done 2026-10-20, not yet seen on the iPad: looked for once, and
-      every part after it fetched from the UID that search gave, before
-      its own folder and UID are asked again, so that with the original
-      archived each costs its two FETCHes, no SELECT. B-088.*
+      *Done 2026-10-20, seen on the iPad 2026-10-20 but for another letter
+      under the original's UID: looked for once, and every part after it
+      fetched from the UID that search gave, before its own folder and UID
+      are asked again, so that with the original archived each costs its
+      two FETCHes, no SELECT. B-088.*
 - [x] A letter read from its All Mailboxes hit leaves the Inbox's row for
       the same letter with its unread dot until the list is fetched again,
       though the Inbox's count goes down. Seen on the iPad 2026-10-03.
-      *Done 2026-10-20, not yet seen on the iPad: the mark goes on every
+      *Done 2026-10-20, seen on the iPad 2026-10-20: the mark goes on every
       row of the letter by its Gmail id, and on its kept rows. B-089.*
 - [x] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
@@ -2719,14 +2720,10 @@ this host. Ordered by value, not by size.
       (B-086).*
       *Seen on the test iPad 2026-10-20: step 1 three times, Trash tapped
       0.4 s after the launch, highlighted to the end each time (B-086).*
-- [ ] **B-087, Save Draft's row as the sheet goes.** On the test iPad,
-      the test account only, landscape, built from the `draftrow`
+- [x] **B-087, Save Draft's row as the sheet goes.** On the test iPad,
+      the test account only, landscape, built from the `fix-087-089`
       worktree. A stands for the account's address; drafts only, To A with
       `+jane` before the @, subjects beginning "B-087". Nothing is sent.
-      *Steps for a person at the iPad* in 4 to 6: the iPad is reached for
-      checks over its Wi-Fi, and Airplane Mode cuts that, so they are done
-      by hand, and the iPad's Wi-Fi is on again before anyone reaches it
-      from elsewhere.
       1. *A new letter.* Drafts open in the list. A new letter To A with
       `+jane`, Subject "B-087 one", the line "A new letter.", Cancel, Save
       Draft. As the sheet slides away, "B-087 one" is the top row of
@@ -2745,12 +2742,13 @@ this host. Ordered by value, not by size.
       only", and no second "B-087 one" row without the mark beside it;
       about a second later the mark goes. Refresh: one row, with both
       lines.
-      4. *Offline.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
-      if it stays on. Blackmail, Drafts: tap "B-087 one", add the line
-      "Changed offline.", Cancel, Save Draft. As the sheet slides away the
-      top row is "B-087 one" with "On this iPad only", and its old row,
-      without the mark, has gone at once, not some eight seconds later.
-      Wait fifteen seconds: still one row, and no alert.
+      4. *Offline.* Blackmail, Drafts: tap "B-087 one" with the line up,
+      as a draft only on Gmail is fetched to be opened. With it open,
+      Airplane Mode on from Control Centre, and Wi-Fi off if it stays on.
+      Add the line "Changed offline.", Cancel, Save Draft. As the sheet
+      slides away the top row is "B-087 one" with "On this iPad only", and
+      its old row, without the mark, has gone at once, not some eight
+      seconds later. Wait fifteen seconds: still one row, and no alert.
       5. *Opened again at once.* Still offline: tap "B-087 one", add the
       line "Changed again.", Cancel, Save Draft, and tap its row again as
       soon as the sheet has gone. It opens with "Changed again." under
@@ -2764,9 +2762,15 @@ this host. Ordered by value, not by size.
       in 1 there was no row until the save had landed, and in 3 the row
       tapped was the old copy's. On the first build of this fix, 3's
       second Save Draft listed two rows for about a second.*
+      *Seen on the test iPad 2026-10-20, the iPad on its cable: 1 to 7
+      passed (B-087), 4 in the order it has now, since a draft only on
+      Gmail did not open offline. In 1 the mark went 1.8 s after the sheet;
+      in 2 the photo was in before Cancel could be tapped, so a photo still
+      coming in was not seen; in 3 the row opened at 1.2 s, its save still
+      out.*
 - [ ] **B-088, a forward's original looked for in All Mail once, however
       many files it carries.** On the test iPad, the test account only,
-      built from the `fwdsearch` worktree. A stands for the account's
+      built from the `fix-087-089` worktree. A stands for the account's
       address; letters only to A with `+b088` before the @, subjects
       beginning "B-088". The store is edited as in B-051's check, with the
       app ended; Wi-Fi off cuts the line the iPad is reached by, so that
@@ -2791,25 +2795,35 @@ this host. Ordered by value, not by size.
       three photos as in the original.
       6. *The original archived instead.* Open "B-088 three" again,
       Forward, To A with `+b088fwd`, Wi-Fi off, Send: the Outbox. End the
-      app. In Gmail on the web, as the test account, archive "B-088
-      three"; no edit of the store.
-      7. *Back.* Wi-Fi on, open the app: the forward goes by itself. The
-      log: one `UID FETCH` at the original's Inbox UID, answered with
-      nothing, and `CARRIED-PART folder=INBOX reason=gone`, before the
-      first photo only; one `UID SEARCH X-GM-MSGID …`; then for each photo
-      the two FETCHes at the UID that search gave, and between the photos
-      no `SELECT` unless the Inbox's previews came between them. On the
-      build before, each photo had its own FETCH at that Inbox UID and its
-      own search, and each after the first a `SELECT "INBOX"` and a
+      app, and open it with Wi-Fi still off: "Can't connect to mail
+      server.", OK. Edit, tick "B-088 three". Wi-Fi on, and at once Move,
+      All Mail: the app's Move to All Mail is Gmail's archive. Move lists
+      the folders only with the line up, and with no page the forward waits
+      for the watch's first check with the line up, within 30 s, so the
+      archive goes first. No edit of the store.
+      7. *Back.* The forward goes by itself. The log: one `UID FETCH` at
+      the original's Inbox UID, answered with nothing, and
+      `CARRIED-PART folder=INBOX reason=gone`, before the first photo only;
+      one `UID SEARCH X-GM-MSGID …`; then for each photo the two FETCHes at
+      the UID that search gave, and between the photos no `SELECT` unless
+      the Inbox's previews came between them. On the build before, each
+      photo had its own FETCH at that Inbox UID and its own search, and
+      each after the first a `SELECT "INBOX"` and a
       `SELECT "[Gmail]/All Mail"` too.
       8. *Arrived.* A second "Fwd: B-088 three", with the three photos.
       9. *Put back.* Move the B-088 letters to Trash, the original from
       All Mail.
       *Not tried on the simulator: the host tests count the searches and
       the SELECTs over the scripted server (B-088).*
+      *Seen on the test iPad 2026-10-20, the iPad on its cable: 1, 2 and 4
+      to 9 passed (B-088), 6 with the app's Move to All Mail. Still to do:
+      3, and with it 4's log, as editing the store waits to be agreed.
+      Without the edit, 4 went from the original's own UID, no search. In 7
+      one search, then the four parts, the quoted signature's picture and
+      the three photos, from the UID it gave.*
 
 
-- [ ] **B-089, a letter read from its All Mailboxes hit is read in the
+- [x] **B-089, a letter read from its All Mailboxes hit is read in the
       Inbox.** On the test iPad, the test account only, built from the
       `fix-087-089` worktree; the `readdot` one has neither step 6 nor 7.
       A stands for the account's address; letters only to A with `+b089`
@@ -2853,6 +2867,13 @@ this host. Ordered by value, not by size.
       Blackmail: "Can't connect to mail server.", OK; the kept Inbox has
       no "B-089 two" row. Airplane Mode off.
       8. *Put back.* Edit, tick the B-089 rows left, Delete.
+      *Seen on the test iPad 2026-10-20: 1 to 8 passed (B-089). In 5 and 7
+      the app was ended from the Home Screen, the swipe into the app
+      switcher not made. In 5 the Inbox's kept row was read with All Mail's
+      kept page not holding the letter. Seen in passing: "B-089 three",
+      come while scrolled down, was not on the Inbox's kept page, so 7's
+      offline launch drew the Inbox without it until Refresh, as D-016 has
+      it; and the reading pane's Flag looked the same flagged and not.*
 
 ## Blocked on the owner
 
