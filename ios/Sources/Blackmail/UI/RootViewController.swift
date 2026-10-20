@@ -277,9 +277,16 @@ final class RootViewController: UIViewController {
         // and the Inbox's role share, the Inbox's first page, and only then
         // the unread counts, a STATUS per folder. The counts used to go
         // first, the Inbox's SELECT eighteen or so commands deep.
+        //
+        // Then the folder that is open is highlighted: the Inbox, unless he
+        // has tapped another while the folders were coming. LOGIN and LIST
+        // took from half a second to six on the iPad, and a folder tapped in
+        // that time lost its highlight to the Inbox here while its letters
+        // stayed in the list (B-086). `list` is read after the wait, so it is
+        // the list open now.
         Task { @MainActor in
             await mailboxList.showFolders()
-            mailboxList.select(mailboxID: "inbox")   // opens into Inbox, and shows that it did
+            mailboxList.select(mailboxID: list.mailboxID)
         }
         // Asked for now, sent once the Inbox's first page has come: the
         // folder pane holds its sweeps until it is told to let them go. If

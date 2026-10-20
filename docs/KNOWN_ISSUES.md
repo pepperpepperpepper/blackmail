@@ -11180,7 +11180,7 @@ build for the iPad links.
 
 ---
 
-## B-079 — FIXED 2026-10-07, 2026-10-19 and 2026-10-20, seen on the iPad in part; changed a fourth time, not yet seen there. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
+## B-079 — FIXED 2026-10-07, 2026-10-19 and 2026-10-20, changed a fourth time and seen on the iPad fixed. After "< Mailboxes" and a folder tap VoiceOver went to the letter's Flag, not to the folders or the list
 
 **Found on the iPad, 2026-10-07**, at B-077's check 8: the test iPad on
 iPadOS 16.5.1, the 11-inch, landscape, master 434422b, VoiceOver and its
@@ -12084,6 +12084,25 @@ each caught, with nothing failing in any run but the tests named.
 
 The full suite, serially, with nothing undone: 1,728 tests, 5 skipped,
 none failing. The release build for the iPad links.
+
+**Seen on the test iPad, 2026-10-20, the fourth change**, iPadOS
+16.5.1, VoiceOver and its Caption Panel on, each move watched to about
+8 s, with the iPad's own log of VoiceOver beside it. Every step passed.
+VoiceOver left the row by itself 15 times: in each fresh launch and in
+the first move of a session, about 0.9 s after iPadOS's own screen
+change, it took Flag or the view button. Each time the app saw it,
+asking VoiceOver where it was, and put it back 8 to 30 ms later.
+VoiceOver was on the row again within about a second, its own time to
+move, and stayed. The open folder tapped held 6 times in a session;
+from a fresh launch with a letter open, 7 launches; with the pane empty,
+4; launched with VoiceOver off and turned on after, twice. A new folder
+held its first row through its fresh page. A letter's row half under
+the search field, and half under the toolbar, twice each, came in whole
+before the move, the one under the toolbar 32 pt clear of it, and
+nothing moved after VoiceOver landed. The view button, the pictures
+unread, and the rows drawn again under a Refresh and through a check
+for new mail, as before. Not done: the last folder's line in 1 (the
+account has no label) and the Outbox in 9 (no letter waiting).
 
 **Not covered.**
 
@@ -13786,3 +13805,43 @@ TODO's "Wi-Fi off if it stays on" never applied.
 
 - Not seen in the simulator: its line was not cut for this.
 - Mail itself was not tried with no connection.
+
+---
+
+## B-086 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A folder tapped in the first seconds after launch lost its highlight to the Inbox
+
+**What he saw.** Seen on the test iPad on 2026-10-19 and 2026-10-20,
+three panes. He opens Blackmail and, while the line under the list
+still says "Checking for Mail...", taps Trash. Trash's letters come,
+and Trash is highlighted. Then, as the folders' names come from the
+server, the highlight goes back to the Inbox, beside Trash's letters,
+and stays there until Refresh. It happened in each run where the tap
+came before the server had answered for the folders: from half a
+second to almost six seconds after the launch, as Gmail was quick or
+slow. In two panes the folders are behind the list at launch, and no
+tap came early enough.
+
+**What it was.** At launch the app shows the folders kept on the iPad
+and highlights the Inbox, then asks the server for the folders and,
+once they come, highlighted the Inbox again, whatever was open. A
+folder tapped in between was opened and highlighted, and that second
+highlight took it back to the Inbox. Every redraw after kept it there.
+
+**Changed.** When the folders come, the folder that is open is
+highlighted: the Inbox, unless he has tapped another. The first frame's
+Inbox, before anything can be tapped, is as it was. The other places
+that highlight a folder already followed the folder that is open.
+
+**Tests.** `PaneArrangementTests`, one new test, read from the source:
+after the wait for the folders, the next line highlights the folder
+that is open; the Inbox is named only once, before the wait. The old
+line put back, the whole file run: 2 failures in that test, nothing
+else failing. The full suite, serially: 1,729 tests, 5 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad fixed. The TODO says how.
+- With no connection the wait for the folders lasts the whole connect.
+  The same line is passed then, so the same change covers it; it was
+  read, not tried.

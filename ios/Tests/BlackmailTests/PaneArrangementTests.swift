@@ -484,6 +484,23 @@ final class PaneArrangementTests: XCTestCase {
 
     // MARK: - The container
 
+    /// At launch the folders come after LOGIN and LIST, from half a second
+    /// to six on the iPad. A folder he taps in that time keeps its
+    /// highlight when they come: the launch highlights the folder that is
+    /// open, not the Inbox whatever is open (B-086). The Inbox before the
+    /// first frame stays, as nothing can have been tapped then.
+    func testTheLaunchHighlightsTheFolderThatIsOpenWhenTheFoldersCome() throws {
+        let root = try source("RootViewController.swift")
+        let wait = try XCTUnwrap(root.range(of: "await mailboxList.showFolders()"))
+        let next = root[wait.upperBound...].split(separator: "\n", omittingEmptySubsequences: true)
+            .first.map { $0.trimmingCharacters(in: .whitespaces) }
+        XCTAssertEqual(next, "mailboxList.select(mailboxID: list.mailboxID)")
+        XCTAssertEqual(lines(of: root, containing: "mailboxList.select(mailboxID: \"inbox\")").count, 1,
+                       "only the first frame's Inbox, before anything can be tapped")
+        let firstFrame = try XCTUnwrap(root.range(of: "mailboxList.select(mailboxID: \"inbox\")"))
+        XCTAssertLessThan(firstFrame.lowerBound, wait.lowerBound)
+    }
+
     /// A file of the app's source with its comment lines taken out.
     private func source(_ file: String) throws -> String {
         let url = URL(fileURLWithPath: #filePath)

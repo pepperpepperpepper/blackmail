@@ -2249,7 +2249,7 @@ this host. Ordered by value, not by size.
       *Seen 2026-10-07 on the iPadOS 18.6 simulator: in each step the menu under its bubble, its arrow on it, in Cc and Bcc as in To; the fault does not show there (B-078).*
       *Seen on the test iPad 2026-10-07: all six steps passed, the menu
       under its bubble in each, never beside it.*
-- [ ] **B-079, VoiceOver's place after a pane move.** On the test iPad,
+- [x] **B-079, VoiceOver's place after a pane move.** On the test iPad,
       landscape, the test account only, built from the `vo-focus-4`
       worktree; merge only after a pass. Turn VoiceOver and its Caption
       Panel on in Settings > Accessibility > VoiceOver. A tap goes
@@ -2266,8 +2266,9 @@ this host. Ordered by value, not by size.
       2. *The open folder.* Tap it: the list comes back and VoiceOver is on
       the letter's row, the highlighted one, not Flag, and stays there to
       8 s. If VoiceOver goes by itself to Flag or to the view button, about
-      a second after it got to the row, it is back on the row at once, and
-      stays. The list does not move.
+      a second after it got to the row, the app puts it back at once, and
+      VoiceOver is on the row again within about a second, its own time
+      to move, and stays. The list does not move.
       3. *A new folder.* "< Mailboxes", then a folder not open, such as
       Sent Mail: VoiceOver goes into its list, on its first row, or, while
       it has none, at its top, the search field. Not the view button in
@@ -2325,7 +2326,7 @@ this host. Ordered by value, not by size.
       Outbox from another check, quit and open Blackmail again, VoiceOver
       on, and tap "< Mailboxes", then the Outbox: VoiceOver is on its
       first row, and if it goes to "Show Mailboxes, Button", it is back on
-      the row at once. Leave the letter where it is.
+      the row within about a second. Leave the letter where it is.
       Then VoiceOver and the Caption Panel off, and the panes as they were.
       *Seen on the test iPad 2026-10-07, the first change: steps 1, 4, 6
       and 7 passed; 2 failed once in three, 3 in each folder with letters,
@@ -2343,8 +2344,17 @@ this host. Ordered by value, not by size.
       the row once in each launch and the app never seeing it, and 5b
       under the toolbar, VoiceOver putting the row in the middle of the
       list. The last folder's line in 1 and the Outbox in 9 could not be
-      done. Changed a fourth time for both: 5 and 9 rewritten (B-079); not
-      yet seen there.*
+      done. Changed a fourth time for both: 5 and 9 rewritten (B-079).*
+      *Seen on the test iPad 2026-10-20, the fourth change: every step
+      passed. VoiceOver left the row by itself 15 times, each after iPadOS
+      moved it about 0.9 s into the move, in each fresh launch and in the
+      first move of a session; each time the app put it back 8 to 30 ms
+      later and VoiceOver was on the row again within about a second, and
+      stayed. 2 held 6 times in a session, 9a in 7 launches, 9b in 4, 9c
+      twice. 5b under the search field and under the toolbar, twice each:
+      the row came in whole and nothing moved after. The last folder's
+      line in 1 and the Outbox in 9 could not be done: no label and no
+      letter waiting on this account (B-079).*
 - [x] **B-080, every folder's conversation rows as Mail's.** On the test
       iPad, three panes, Organize by Thread on, the test account only,
       every letter to the account itself: "Jane's address" is its
@@ -2617,6 +2627,22 @@ this host. Ordered by value, not by size.
       back. Refresh offline still said "Can't connect to mail server.",
       and back online the list came. The connection log has nothing from
       Save. Airplane Mode turned Wi-Fi off and on with it.*
+
+- [ ] **B-086, the folder he tapped stays highlighted at launch.** On the
+      test iPad, three panes, the test account only, built from the
+      `sidebar-highlight` worktree. Nothing is sent.
+      1. *Early.* Quit Blackmail and open it again. As soon as the folders
+      show, before the line under the list says "Updated Just Now", tap
+      Trash: Trash's letters come, Trash is highlighted, and it stays
+      highlighted when the folders' counts come and after, beside Trash's
+      letters. The Inbox is not highlighted.
+      2. *The same* with Sent Mail and with All Mail.
+      3. *Late.* Quit and open again, wait for "Updated Just Now", tap
+      Sent Mail: highlighted, as before.
+      4. *Untouched.* Quit and open again and tap nothing: the Inbox is
+      highlighted beside its letters, as before.
+      *Not seen on the simulator: the iPad's own timing reproduced it
+      (B-086).*
 
 ## Blocked on the owner
 
