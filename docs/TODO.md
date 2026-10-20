@@ -1143,11 +1143,14 @@ this host. Ordered by value, not by size.
       only makes a tap that early likelier.
       *Done 2026-10-01, seen on the iPad: a folder marked since a
       sweep left keeps the pane's count when it lands. B-059.*
-- [ ] Save Draft with no connection, with Drafts open: the list keeps the
+- [x] Save Draft with no connection, with Drafts open: the list keeps the
       Gmail copy's row, and the new "On this iPad only" row takes its place
       only some eight seconds later, once the save's upload has failed.
       Seen on the iPad 2026-09-30. Nothing is lost; the row should come at
       once, as the letter is kept before the sheet goes.
+      *Done 2026-10-20, not yet seen on the iPad: the row comes as the
+      sheet goes, in place of the copy's, with a connection or without.
+      B-087.*
 - [ ] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
@@ -2645,6 +2648,41 @@ this host. Ordered by value, not by size.
       (B-086).*
       *Seen on the test iPad 2026-10-20: step 1 three times, Trash tapped
       0.4 s after the launch, highlighted to the end each time (B-086).*
+
+- [ ] **B-087, Save Draft's row as the sheet goes.** On the test iPad,
+      the test account only, landscape, built from the `draftrow`
+      worktree. A stands for the account's address; drafts only, To A with
+      `+jane` before the @, subjects beginning "B-087". Nothing is sent.
+      *Steps for a person at the iPad* in 3 to 5: the iPad is reached for
+      checks over its Wi-Fi, and Airplane Mode cuts that, so they are done
+      by hand, and the iPad's Wi-Fi is on again before anyone reaches it
+      from elsewhere.
+      1. *A new letter.* Drafts open in the list. A new letter To A with
+      `+jane`, Subject "B-087 one", the line "A new letter.", Cancel, Save
+      Draft. As the sheet slides away, "B-087 one" is the top row of
+      Drafts, with "On this iPad only" on it; about a second later the
+      mark goes, and one row "B-087 one" stays. Refresh: one row.
+      2. *A photo.* Tap "B-087 one", Attach Photo, pick one photo, and as
+      soon as the picker closes, Cancel, Save Draft. Once the photo is in,
+      the row is at the top with its paperclip, one row, and so after the
+      save. Refresh: one row, with the paperclip.
+      3. *Offline.* The iPad's Settings, Airplane Mode on, and Wi-Fi off
+      if it stays on. Blackmail, Drafts: tap "B-087 one", add the line
+      "Changed offline.", Cancel, Save Draft. As the sheet slides away the
+      top row is "B-087 one" with "On this iPad only", and its old row,
+      without the mark, has gone at once, not some eight seconds later.
+      Wait fifteen seconds: still one row, and no alert.
+      4. *Opened again at once.* Still offline: tap "B-087 one", add the
+      line "Changed again.", Cancel, Save Draft, and tap its row again as
+      soon as the sheet has gone. It opens with both lines. Cancel: it
+      closes without asking, and the row is there, one, "On this iPad
+      only".
+      5. *Back.* Airplane Mode off, Wi-Fi on, and wait for its mark in the
+      status bar. Refresh: one row "B-087 one", without the mark, with
+      both lines.
+      6. *Put back.* Edit, tick "B-087 one", Delete.
+      *On the build before, 3 left the old row for some eight seconds,
+      and in 1 there was no row until the save had landed.*
 
 ## Blocked on the owner
 

@@ -65,6 +65,7 @@ final class ComposeActionsTests: XCTestCase {
             letGo: { [unowned self] in log.append("let go") },
             tidy: { [unowned self] in log.append("tidy") },
             putBack: { [unowned self] in log.append("put back") },
+            putAway: { [unowned self] in log.append("put away") },
             wait: { [pauses] _ in try await pauses.wait() })
         return ComposeActions(
             sendLetter: { [unowned self] _, report in
@@ -307,11 +308,11 @@ final class ComposeActionsTests: XCTestCase {
 
     // MARK: - Save Draft
 
-    /// The letter is kept on the iPad at the tap, then the sheet goes at
-    /// once, the save follows with time asked of iOS for it, then the sheet
-    /// lets the letter go, then the folder is told, then the time is given
-    /// back. If the time runs out first it is given back then, once, and
-    /// the save carries on.
+    /// The letter is kept on the iPad at the tap and put away, for Drafts
+    /// to list it (B-087), then the sheet goes at once, the save follows
+    /// with time asked of iOS for it, then the sheet lets the letter go,
+    /// then the folder is told, then the time is given back. If the time
+    /// runs out first it is given back then, once, and the save carries on.
     ///
     /// A save the server does not answer leaves the letter kept: nothing
     /// takes it off the iPad. It used to go to the server and nowhere else,
@@ -322,12 +323,12 @@ final class ComposeActionsTests: XCTestCase {
         let actions = makeActions(keeping: true)
         let saving = try XCTUnwrap(actions.saveAndClose(draft(),
                                                         then: { [unowned self] in log.append("drafts changed") }))
-        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss"],
-                       "kept on the iPad before the sheet goes")
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "put away", "dismiss"],
+                       "kept on the iPad and put away before the sheet goes")
         try await until { holdSave?.waiting == 1 }
         holdSave?.release()
         await saving.value
-        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss", "save", "let go",
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "put away", "dismiss", "save", "let go",
                              "drafts changed", "end 1"])
         XCTAssertEqual(background.ended, [1])
 
@@ -340,8 +341,8 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(background.ended, [1])
         holdSave?.release(.failure(MailError.cannotConnect))
         await again.value
-        XCTAssertEqual(log, ["begin Save Draft", "keep", "dismiss", "save", "end 1", "let go",
-                             "drafts changed"])
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "put away", "dismiss", "save", "end 1",
+                             "let go", "drafts changed"])
         XCTAssertFalse(log.contains("forget"), "a save that failed leaves the letter kept")
         XCTAssertEqual(background.ended, [1])
         XCTAssertEqual(saves, 1)
@@ -481,6 +482,42 @@ final class ComposeActionsTests: XCTestCase {
         await other.send({ [unowned self] in log.append("letter"); return draft() }, then: nil)?.value
         XCTAssertEqual(log, ["begin Send", "letter", "send", "dismiss", "end 1"],
                        "a photo landing that was never counted holds nothing up")
+    }
+
+    /// Put away for Drafts to list as the sheet goes, before `dismiss`
+    /// (B-087). With a photo still on its way in, not until it is in: the
+    /// letter kept at the tap is not then the one saved, and listed, it
+    /// could be opened or deleted from its row and kept again by the save
+    /// over what he did there. Kept again with the photo first, and put away,
+    /// then saved; the letter taken once after the photos are in, as before.
+    func testSaveDraftPutsTheLetterAwayAsTheSheetGoesOrOnceThePhotosAreIn() async throws {
+        let actions = makeActions(keeping: true)
+        var landed = 0
+        actions.photoComing()
+        holdSave = Held()
+        let saving = try XCTUnwrap(actions.saveAndClose({ [unowned self] in
+            log.append("letter with \(landed)")
+            return draft()
+        }, then: nil))
+        await settled()
+        XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "keep", "dismiss"],
+                       "not put away with a photo still coming")
+
+        landed = 1
+        actions.photoLanded()
+        try await until { holdSave?.waiting == 1 }
+        XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "keep", "dismiss",
+                             "letter with 1", "keep", "put away", "save"])
+        holdSave?.release()
+        await saving.value
+        XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "keep", "dismiss",
+                             "letter with 1", "keep", "put away", "save", "let go", "end 1"])
+        XCTAssertEqual(log.filter { $0 == "put away" }.count, 1)
+
+        reset()
+        await makeActions(keeping: true).saveAndClose(draft(), then: nil)?.value
+        XCTAssertEqual(log, ["begin Save Draft", "keep", "put away", "dismiss", "save", "let go",
+                             "end 1"], "with nothing coming, as the sheet goes")
     }
 
     // MARK: - The composer held while its letter goes (B-063)

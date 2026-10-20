@@ -13851,3 +13851,117 @@ the Inbox each time.
 - With no connection the wait for the folders lasts the whole connect.
   The same line is passed then, so the same change covers it; it was
   read, not tried.
+
+---
+
+## B-087 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. Save Draft with no connection left the old copy's row in Drafts for some eight seconds
+
+**What he saw.** Seen on the iPad on 2026-09-30, Drafts open in the
+list, with no connection. A draft reopened from its row, changed, Cancel,
+Save Draft: the sheet went, and the list kept the row of the copy in
+Gmail, as it was before he changed it. Some eight seconds later the new
+row, "On this iPad only", took its place. Nothing was lost: the letter
+had been kept on the iPad before the sheet went. Mail's Drafts shows a
+draft saved at once.
+
+**What it was.** Save Draft keeps the letter on the iPad at the tap,
+before the sheet goes, and the list is told (`ComposeActions.saveAndClose`).
+But Drafts lists only the letters kept here that no composer has open,
+and hides only the copies those stand for (`LocalDrafts.waiting`,
+`replacedInDrafts`). The sheet had the letter open until it let go of
+it, and it let go only once the save had been answered, so the list drew
+nothing new at the keep. With no connection the save is answered when
+the connect fails, some eight seconds on the iPad; then the sheet let
+go, and the row came. A new letter had no row at all until then. With a
+connection the wait was the second the save takes to land, and the copy
+it became came in the old one's place, so it was hardly seen.
+
+The sheet held the letter for one thing. No pass takes a letter open in
+the composer to the server, and the save has to be the only one taking
+it up, or the pass and the save would each take a version of it. Hiding
+it from the list came with that.
+
+**Changed.** As the sheet goes, Save Draft puts the letter away
+(`DraftKeeping.putAway`): the sheet is done with it as far as Drafts
+goes, and Drafts lists it at once, "On this iPad only", in place of the
+copy it was reopened from, or at the top for a new letter. The hold on
+the passes stays until the save has been answered (`LocalDrafts.saving`),
+and that hold is all the sheet lets go of then. Listed, the letter can
+be opened from its row while its save is still out; it is then the new
+composer's, and the first sheet letting go leaves it open. Letting go
+used to close it outright, which would have let a pass take it from
+under the composer it was open in.
+
+When the save lands, the letter leaves the iPad at once, as one nobody
+has open does, and the list draws the copy it became in its place: one
+row for the letter at every redraw. A letter open in the sheet that
+landed used to stay on the iPad until the sheet let go, unlisted; listed
+now, that would have been two rows for the moment between.
+
+With a photo still on its way in, it is put away once the photos are
+in, kept again with them first. The letter kept at the tap is not then
+the one saved: opened or deleted from its row meanwhile, it would have
+been kept again by the save over what he had done there.
+
+**Not changed.** What is sent, and when: the save's APPEND and the old
+copy's removal after it. A save that fails leaves the letter on the
+iPad, to go with the next pass. Send, Delete Draft, a sheet swiped away,
+Cancel on a letter as it opened, and the Outbox are as they were.
+
+**What he sees.** Save Draft with Drafts open: as the sheet slides away,
+the letter's row is at the top of Drafts with "On this iPad only" on it,
+and the old copy's row has gone. With no connection it stays so. With
+one, about a second later the mark goes, and the row is Gmail's copy.
+No new words.
+
+**Tests.** Five new: four in `DraftRowAtOnceTests.swift` and one in
+`ComposeActionsTests`, whose Save Draft test now has the putting away in
+its order.
+
+- *No connection:* a draft reopened from Drafts, Save Draft. As the
+  sheet goes its row is in place of the copy's, and so after the save
+  has failed, one row for the letter at every redraw. A new letter's row
+  is there as its sheet goes.
+- *A connection:* its row as the sheet goes and while the APPEND is
+  held, and no pass takes it meanwhile. Once it lands, its copy in its
+  place and the old copy gone, one row for the letter at every redraw,
+  one APPEND, nothing left on the iPad.
+- *Opened from its row while the save is out:* the save answered, the
+  letter stays the new composer's, not listed and taken by no pass while
+  it is open. Once that composer is done, listed again, and up once: one
+  copy on the server.
+- *The hold:* put away, listed, and no pass takes it, the pass as he
+  leaves included, until the sheet lets go; then the next pass does.
+- *The order:* kept and put away before `dismiss`. With a photo coming,
+  not put away until it is in, then kept with it, put away and saved,
+  the letter taken once.
+
+The tests draw Drafts as the list draws it from what `LocalDrafts`
+posts, `MessageListViewController.keptChanged`'s two steps over
+`ListLetters`; the controller is UIKit and is not built on the machine
+the suite runs on.
+
+Against the code as it was, the change undone by hand with its new names
+left in place: all 5 new tests failed, 15 failures, and the Save Draft
+test with the putting away in its order 3 more. Then each part undone
+alone, the new and changed tests run each time, counted as failures in
+tests. The first sheet letting go closing the letter as well: 5 in 1,
+the test of a letter opened from its row, which ended with two copies on
+the server. The passes not held: 5 in 2. A letter that landed while its
+save was out left on the iPad: 5 in 1, two rows at the landing.
+
+The full suite, serially, with nothing undone: 1,734 tests, 5 skipped,
+none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad, nor in the simulator.
+- With a connection the row says "On this iPad only" for the second the
+  save takes, then becomes Gmail's copy. Mail's has no such mark; the
+  mark is true while it shows.
+- A letter opened from its row while a pass is taking it up, then
+  changed and saved: the copy the pass landed and the letter's own row
+  are both listed until the save lands, and with no connection until the
+  next pass. With no connection that was so before, after the eight
+  seconds; with one, the save used to land before the row came. Not
+  changed here.

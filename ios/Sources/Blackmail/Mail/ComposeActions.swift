@@ -287,6 +287,15 @@ final class ComposeActions {
     /// server does not take leaves it on the iPad, in Drafts, to go later.
     /// The sheet is let go of once the save has been answered, so nothing
     /// else takes the letter to the server meanwhile.
+    ///
+    /// Drafts lists it as the sheet goes (`DraftKeeping.putAway`), in place
+    /// of the copy it was reopened from, as Mail's does. It used to wait for
+    /// the sheet to let go of it, so with no connection the old copy's row
+    /// stayed for the seconds the save took to fail, and a new letter had
+    /// no row at all (B-087). With a photo still on its way in, once the
+    /// photos are in instead: the letter kept at the tap is not the one
+    /// saved, and opened or deleted from its row meanwhile, it would be
+    /// kept again by the save over what he had done.
     @discardableResult
     func saveAndClose(_ letter: @escaping () -> Draft,
                       then draftsChanged: (() -> Void)?) -> Task<Void, Never>? {
@@ -295,11 +304,18 @@ final class ComposeActions {
         stopAutosave()
         let time = BackgroundStretch("Save Draft", from: background)
         keeping.keep(letter(), true)
+        let photosWaiting = photosComing > 0
+        if !photosWaiting { keeping.putAway() }
         dismiss()
         return Task {
             defer { time.end() }
             await photosLanded()
-            try? await saveDraft(letter())
+            let draft = letter()
+            if photosWaiting {
+                keeping.keep(draft, true)
+                keeping.putAway()
+            }
+            try? await saveDraft(draft)
             keeping.letGo()
             draftsChanged?()
         }
