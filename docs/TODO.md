@@ -1151,9 +1151,11 @@ this host. Ordered by value, not by size.
 - [ ] A forward with several files found in All Mail searches for the
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
-- [ ] A letter read from its All Mailboxes hit leaves the Inbox's row for
+- [x] A letter read from its All Mailboxes hit leaves the Inbox's row for
       the same letter with its unread dot until the list is fetched again,
       though the Inbox's count goes down. Seen on the iPad 2026-10-03.
+      *Done 2026-10-20, not yet seen on the iPad: the mark goes on every
+      row of the letter by its Gmail id, and on its kept rows. B-089.*
 - [x] The folder pane redraws only the Inbox's count after a read mark:
       `adjustUnreadCounts` patches the cell at `IndexPath(row: i, section:
       0)`, `i` an index into the flat list of folders, and the pane has had
@@ -2645,6 +2647,36 @@ this host. Ordered by value, not by size.
       (B-086).*
       *Seen on the test iPad 2026-10-20: step 1 three times, Trash tapped
       0.4 s after the launch, highlighted to the end each time (B-086).*
+
+- [ ] **B-089, a letter read from its All Mailboxes hit is read in the
+      Inbox.** On the test iPad, the test account only, built from the
+      `readdot` worktree. A stands for the account's address; letters
+      only to A with `+b089` before the @, subjects beginning "B-089".
+      Do not open All Mail during these steps: a hit on its kept page
+      was right before.
+      1. *Two letters.* A new letter To A with `+b089`, Subject "B-089
+      one", Send; another, Subject "B-089 two", Send. Refresh: both in
+      the Inbox with the dot. One without it: Edit, tick it, Mark, Mark
+      as Unread. Note the Inbox's count.
+      2. *Read from a hit.* Search "B-089 one", All Mailboxes. Tap the
+      hit: its dot goes, and the Inbox's count goes down by one. Cancel
+      the search: the Inbox's "B-089 one" row has no dot. Tap it: the
+      count stays where it is, not one lower again.
+      3. *Mark from a hit.* Search "B-089 one", All Mailboxes, Edit, tick
+      the hit, Mark, Mark as Unread: the dot on the hit, the count up by
+      one. Cancel: the Inbox's row has its dot. Search again, Edit, tick
+      the hit, Mark, Mark as Read, Cancel: no dot, the count down by one.
+      4. *Flag from a hit,* as before: search "B-089 one", All Mailboxes,
+      tap the hit, Flag, Cancel: the Inbox's row flagged. Tap it, Flag
+      again: not flagged.
+      5. *The kept copy.* "B-089 two" still has its dot. Search "B-089
+      two", All Mailboxes, tap the hit: its dot goes. Leave the search
+      showing, go to the Home Screen, and end Blackmail from the app
+      switcher. Airplane Mode on, from Control Centre. Open Blackmail:
+      "Can't connect to mail server.", OK; the Inbox is the one kept on
+      the iPad, and "B-089 two" has no dot. Airplane Mode off, Refresh:
+      still no dot, and the count as after the tap.
+      6. *Put back.* Edit, tick both B-089 rows, Delete.
 
 ## Blocked on the owner
 

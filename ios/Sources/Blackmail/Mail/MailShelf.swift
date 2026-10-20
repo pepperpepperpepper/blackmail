@@ -284,9 +284,10 @@ final class MailShelf: @unchecked Sendable {
 
     /// The server has taken his read mark: the row, and the same letter on
     /// every other kept page, by its Gmail message id, since `\Seen` is the
-    /// letter's on Gmail and not the folder's.
-    func read(_ read: Bool, id: String, in folder: String) {
-        changeLetter(id, in: folder) { $0.read = read }
+    /// letter's on Gmail and not the folder's. `letter` is the id the write
+    /// named (`MessageSummary.gmailMessageID`); see `changeLetter`.
+    func read(_ read: Bool, id: String, letter: UInt64?, in folder: String) {
+        changeLetter(id, letter: letter, in: folder) { $0.read = read }
     }
 
     /// One off, or one back on, the kept counts of `mailboxIDs`, as the
@@ -318,8 +319,8 @@ final class MailShelf: @unchecked Sendable {
     }
 
     /// The server has taken his flag, on the letter wherever it is kept.
-    func flagged(_ flagged: Bool, id: String, in folder: String) {
-        changeLetter(id, in: folder) { $0.flagged = flagged }
+    func flagged(_ flagged: Bool, id: String, letter: UInt64?, in folder: String) {
+        changeLetter(id, letter: letter, in: folder) { $0.flagged = flagged }
     }
 
     /// The server has taken the letter out of `folder`: moved, deleted, or
@@ -591,16 +592,28 @@ final class MailShelf: @unchecked Sendable {
     }
 
     /// The row `id` of `folder`, and every kept row of the same letter.
-    private func changeLetter(_ id: String, in folder: String, _ edit: (inout RowRecord) -> Void) {
-        guard isAlive, let page = record(of: folder),
-              let row = page.rows.first(where: { $0.id == id }) else { return }
-        if row.message != nil { loadEverything() }
+    ///
+    /// The letter is the one its row on `folder`'s kept page was kept as,
+    /// or, when `folder` has no kept row under `id`, the one the write
+    /// named (`letter`). A read mark or a flag on an All Mailboxes hit names
+    /// a row of All Mail, whose page is kept only once All Mail has been
+    /// opened, and reaches only its newest letters; found by that row
+    /// alone, the hit changed nothing, and the Inbox's kept row for the
+    /// same letter kept its dot or its flag until the Inbox was next listed
+    /// from the top, so a launch drew it so (B-089).
+    private func changeLetter(_ id: String, letter named: UInt64?, in folder: String,
+                              _ edit: (inout RowRecord) -> Void) {
+        guard isAlive else { return }
+        let row = record(of: folder)?.rows.first { $0.id == id }
+        let message = row == nil ? named : row?.message
+        guard row != nil || message != nil else { return }
+        if message != nil { loadEverything() }
         locked {
             for (name, var kept) in pages {
                 var changed = false
                 for i in kept.rows.indices
                 where (name == folder && kept.rows[i].id == id)
-                    || (row.message != nil && kept.rows[i].message == row.message) {
+                    || (message != nil && kept.rows[i].message == message) {
                     edit(&kept.rows[i])
                     changed = true
                 }

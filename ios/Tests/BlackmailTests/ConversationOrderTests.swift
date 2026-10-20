@@ -455,7 +455,7 @@ final class ConversationOrderTests: XCTestCase {
                               to: "private func sendRead(")
         for wiring in [
             "let marked = summaries.filter { !$0.isRead } guard let first = marked.first else { return }",
-            "for m in marked { letters.reading(m.id, read: true) }",
+            "for m in marked { letters.reading(m, read: true) }",
             "regroup(highlighting: first.id) for m in marked { sendRead(m) } }",
         ] {
             XCTAssertTrue(lot.contains(wiring), wiring)

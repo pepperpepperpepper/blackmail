@@ -41,6 +41,27 @@ enum ListEdit {
         }
     }
 
+    /// The same letter under the list's other ids, for a read mark: by
+    /// Gmail's message id where both rows carry one, as twins (`twins`)
+    /// where either has none. An All Mailboxes hit from All Mail and the
+    /// Inbox's row under it are one message, and `\Seen` is the message's
+    /// on Gmail, not the mailbox's. Two rows whose Gmail ids differ are two
+    /// letters, whatever else they share. Never the letter's own id, which
+    /// the list changes wherever it holds it already.
+    static func copies(of letter: MessageSummary,
+                       among letters: [MessageSummary]) -> [MessageSummary] {
+        var seen: Set<String> = [letter.id]
+        return letters.filter { other in
+            let same: Bool
+            if let mine = letter.gmailMessageID, let theirs = other.gmailMessageID {
+                same = mine == theirs
+            } else {
+                same = !twins(of: letter, among: [other]).isEmpty
+            }
+            return same && seen.insert(other.id).inserted
+        }
+    }
+
     /// Whether the reading pane, showing `shown`, its letter and every
     /// letter of the conversation it shows, shows one of `letters`, which
     /// Edit mode's Delete or Move is taking off the list (B-062).

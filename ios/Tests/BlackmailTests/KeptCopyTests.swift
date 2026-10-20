@@ -1211,7 +1211,7 @@ final class KeptCopyTests: XCTestCase {
         server.clearLog()
 
         // The tap's read mark, as `markReadIfNeeded` makes it.
-        list.reading(tapped.id, read: true)
+        list.reading(tapped, read: true)
         let read = await refusal { try await repository.setRead(true, on: tapped) }
         XCTAssertEqual(read as? MailShelf.NotTheKeptLetter, Self.notKept)
         list.readAnswered(tapped.id, landed: false)

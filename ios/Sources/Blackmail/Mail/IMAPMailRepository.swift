@@ -1909,7 +1909,7 @@ actor IMAPMailRepository: MailRepository {
             try await client.store(uid: message.uid, flag: "\\Seen", set: read,
                                    in: name, validity: message.validity)
         }
-        shelf?.read(read, id: id, in: name)
+        shelf?.read(read, id: id, letter: gmailMessageID, in: name)
     }
 
     func setFlagged(_ flagged: Bool, id: String, gmailMessageID: UInt64?,
@@ -1924,7 +1924,7 @@ actor IMAPMailRepository: MailRepository {
             try await client.store(uid: message.uid, flag: "\\Flagged", set: flagged,
                                    in: name, validity: message.validity)
         }
-        shelf?.flagged(flagged, id: id, in: name)
+        shelf?.flagged(flagged, id: id, letter: gmailMessageID, in: name)
     }
 
     // MARK: - Moving and deleting

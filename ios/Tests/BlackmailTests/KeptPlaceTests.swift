@@ -305,7 +305,7 @@ final class KeptPlaceTests: XCTestCase {
         XCTAssertTrue(over.fetch(showingKept: list.fromShelf, quietly: false))
         let asked = list.askingAfresh()
 
-        list.reading("7/150", read: true)
+        list.reading(kept[0], read: true)
         let flagged = try XCTUnwrap(list.letter("7/149"))
         list.setFlagged(true, on: flagged)
         XCTAssertEqual(list.letter("7/150")?.isRead, true)
@@ -337,7 +337,7 @@ final class KeptPlaceTests: XCTestCase {
         list.showKept(kept)
         let asked = list.askingAfresh()
 
-        list.reading("7/150", read: true)
+        list.reading(kept[0], read: true)
         list.readAnswered("7/150", landed: false)
         XCTAssertEqual(list.letter("7/150")?.isRead, false, "put back")
         let flagged = try XCTUnwrap(list.letter("7/149"))
@@ -355,8 +355,8 @@ final class KeptPlaceTests: XCTestCase {
         // either.
         list.showKept(kept)
         let before = list.askingAfresh()
-        list.reading("7/150", read: true)
-        list.reading("7/149", read: true)
+        list.reading(kept[0], read: true)
+        list.reading(kept[1], read: true)
         let keptRow = try XCTUnwrap(list.letter("7/149"))
         list.setFlagged(true, on: keptRow)
         var another = [unread(150, message: 7), unread(149, message: 8)]

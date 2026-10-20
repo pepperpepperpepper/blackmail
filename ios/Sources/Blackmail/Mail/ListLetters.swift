@@ -392,25 +392,42 @@ final class ListLetters: PaneActionList {
     /// list holds the letter, and held over what a listing brings until
     /// the server has answered (`readAnswered`) and a listing asked after
     /// that has come. See `holdingHisMarks`.
-    func reading(_ id: String, read: Bool) {
-        let row = letter(id)
-        reads[id] = Mark(value: read, before: row?.isRead ?? !read, letter: row?.gmailMessageID)
-        setRead(id, read: read)
+    ///
+    /// On the letter and on its copies under other mailboxes' ids, by its
+    /// Gmail message id (`ListEdit.copies`), as a flag is (`setFlagged`).
+    /// Read from an All Mailboxes hit, the Inbox's row under the search
+    /// kept its dot, though the server had the letter as read and the
+    /// Inbox's count had gone down; cancelling the search puts that row
+    /// back without a round trip, so the dot stayed until the Inbox was
+    /// fetched again (B-089). Matched from the list's copy, falling back to
+    /// the letter itself when the list has no row with its id: one the
+    /// reading pane opens from a hit after the search has ended.
+    func reading(_ letter: MessageSummary, read: Bool) {
+        let known = self.letter(letter.id) ?? letter
+        let copies = [known] + ListEdit.copies(of: known, among: everything)
+        for copy in copies {
+            reads[copy.id] = Mark(value: read, before: copy.isRead, letter: copy.gmailMessageID)
+            change(copy.id, ifStill: copy.gmailMessageID) { $0.isRead = read }
+        }
+        marking[letter.id] = copies.map(\.id)
     }
 
     /// The server has answered his read mark on `id`. Taken, it stays on
     /// over a listing asked before now, and one asked after has the say.
-    /// Refused, the dot goes back as it was, on the letter he made it on
-    /// and not on another the same id names now, and nothing is held.
+    /// Refused, the dot goes back as it was, on every copy it was made on
+    /// that is still that letter and not on another the same id names now,
+    /// and nothing is held.
     func readAnswered(_ id: String, landed: Bool) {
-        guard var mark = reads[id] else { return }
-        guard !landed else {
-            mark.takenAt = asked
-            reads[id] = mark
-            return
+        for copy in marking.removeValue(forKey: id) ?? [id] {
+            guard var mark = reads[copy] else { continue }
+            if landed {
+                mark.takenAt = asked
+                reads[copy] = mark
+            } else {
+                reads[copy] = nil
+                change(copy, ifStill: mark.letter) { $0.isRead = mark.before }
+            }
         }
-        reads[id] = nil
-        change(id, ifStill: mark.letter) { $0.isRead = mark.before }
     }
 
     // MARK: - His own marks over a listing
@@ -429,6 +446,9 @@ final class ListLetters: PaneActionList {
     /// behind it.
     private var reads: [String: Mark] = [:]
     private var flags: [String: Mark] = [:]
+    /// The ids each read mark on its way was made on: the letter's, and
+    /// its copies' under other mailboxes' ids (`reading`).
+    private var marking: [String: [String]] = [:]
     /// The ids each Flag on its way was set on: the letter's, and its
     /// copies' under other mailboxes' ids (`setFlagged`).
     private var flagging: [String: [String]] = [:]

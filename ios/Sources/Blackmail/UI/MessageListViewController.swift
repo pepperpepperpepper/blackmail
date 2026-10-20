@@ -1952,7 +1952,7 @@ final class MessageListViewController: UITableViewController {
                 }
                 // Taken: held over a listing asked before now, whose flags
                 // are from before this STORE.
-                self.letters.reading(m.id, read: read)
+                self.letters.reading(m, read: read)
                 self.letters.readAnswered(m.id, landed: true)
                 if read { self.letters.read(m) } else { self.letters.unread(m) }
             }
@@ -2489,7 +2489,7 @@ final class MessageListViewController: UITableViewController {
         // Held over a listing already on its way, whose flags are from
         // before this STORE: at launch, the first page, when the tap is on a
         // row kept on the iPad (D-016). See `ListLetters.reading`.
-        for m in marked { letters.reading(m.id, read: true) }
+        for m in marked { letters.reading(m, read: true) }
         // Regroup rather than reload the one row: the thread this letter
         // belongs to may have just lost its unread dot. Its row is
         // highlighted as the one open in the pane, except in Edit mode; see
