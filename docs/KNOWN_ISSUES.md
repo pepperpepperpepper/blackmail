@@ -2437,7 +2437,7 @@ iPad has since shown is said at the end of each:
 
 ---
 
-## B-037 — BUILT 2026-09-29 as B-048, not yet seen on the iPad. No way to switch between the two-panel and three-panel view
+## B-037 — BUILT 2026-09-29 as B-048, seen on the iPad 2026-09-29. No way to switch between the two-panel and three-panel view
 
 **Built as B-048; the decision is D-015.** What follows is the request as it stood.
 
@@ -7957,7 +7957,7 @@ for it.
 
 ---
 
-## B-066 — CHANGED 2026-10-03, seen on the iPad frame by frame, not yet at speed. The switch between two panes and three jumped
+## B-066 — CHANGED 2026-10-03, seen on the iPad frame by frame, at speed under B-077 (2026-10-07). The switch between two panes and three jumped
 
 **Asked for by the owner, 2026-10-03:** "We need better transition
 animation between the three-panel view and the two-panel view." The view
@@ -10588,7 +10588,7 @@ iPad.
 
 ---
 
-## B-077 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad but for VoiceOver's place (B-079). The panes moved in a way of their own; now they move as Mail's
+## B-077 — CHANGED 2026-10-06, seen in the iPadOS 18 simulator and on the iPad, VoiceOver's place too under B-079 (2026-10-20). The panes moved in a way of their own; now they move as Mail's
 
 **Asked** on 2026-10-06. B-066 built the view button's motion and put
 two questions to the owner (TODO, "Blocked on the owner"): keep its
