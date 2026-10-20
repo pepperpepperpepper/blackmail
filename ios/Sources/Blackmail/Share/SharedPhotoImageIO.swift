@@ -23,7 +23,7 @@ extension ShareItems {
     /// and said, where even an eighth would not fit. Never `UIImage`, which
     /// decodes every pixel: 195 MB for a 48-megapixel photo, in an
     /// extension killed at about 120 MB, and the sheet gone with nothing
-    /// said.
+    /// said. A `UIImage` only as the last resort, bounded (`object`).
     ///
     /// The copy iOS hands over lasts only as long as the callback, so it is
     /// read, written and staged in there, its name taken there too, and the
@@ -37,17 +37,43 @@ extension ShareItems {
     /// would only be held in memory to fail the same way. Left out, as a
     /// file that does not fit is, the sheet says so (`ShareItems.leftOut`).
     ///
+    /// Failing both, the next type the provider offers that is a picture,
+    /// in its own order, the same way, file then bytes
+    /// (`SharedPhoto.typesToRead`); and with none left, the `UIImage` the
+    /// provider gives (`object`). The screenshot editor's share, by the
+    /// look of it, gives nothing under the type it offers: three times of
+    /// three on the test iPad the sheet said "The photo could not be
+    /// attached." (B-090).
+    /// Only a picture not opened goes on to the next: one opened and not
+    /// made a picture of, or left out for the room or the memory, is the
+    /// same picture whatever type it is read as.
+    ///
     /// One line in the log for each, whichever way it went
     /// (`SharedPhoto.Report`): it is what an iPad check reads.
     static func picture(_ provider: NSItemProvider, type: String, staging: Staging,
                         done: @escaping (SharedItem?) -> Void) {
+        let types = SharedPhoto.typesToRead(first: type, offered: provider.registeredTypeIdentifiers,
+                                            isImage: { UTType($0)?.conforms(to: .image) == true })
+        picture(provider, as: types[...], unopened: [], staging: staging, done: done)
+    }
+
+    /// The picture read as the first of `types`, its file and then its
+    /// bytes; neither opened, the rest of `types`; none left, the object.
+    /// `unopened`: the types tried before, for its line in the log.
+    private static func picture(_ provider: NSItemProvider, as types: ArraySlice<String>,
+                                unopened: [String], staging: Staging,
+                                done: @escaping (SharedItem?) -> Void) {
         let suggested = provider.suggestedName
         let offered = provider.registeredTypeIdentifiers
+        guard let type = types.first else {
+            return object(provider, unopened: unopened, staging: staging, done: done)
+        }
         provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
             // The file's own name, taken while there is a file: Photos'
             // library name, "IMG_0776.JPG", which it gives no other way.
             let named = SharedPhoto.named(suggested: suggested, file: url?.lastPathComponent)
             var report = SharedPhoto.Report(offered: offered, read: type, named: named)
+            report.unopened = unopened
             let fromFile = autoreleasepool { () -> Picture in
                 guard let url,
                       let source = CGImageSourceCreateWithURL(url as CFURL, SharedPhoto.reading)
@@ -77,10 +103,13 @@ extension ShareItems {
                                       unnamed: named == .none)
                     }
                 }
-                if case .staged(let item) = fromBytes {
-                    finish(item, fromItsBytes, done)
-                } else {
-                    finish(nil, fromItsBytes, done)
+                switch fromBytes {
+                case .staged(let item): finish(item, fromItsBytes, done)
+                case .undecodable: finish(nil, fromItsBytes, done)
+                case .unopened:
+                    // Nothing ImageIO opens under this type: the next.
+                    picture(provider, as: types.dropFirst(), unopened: unopened + [type],
+                            staging: staging, done: done)
                 }
             }
         }
@@ -88,8 +117,8 @@ extension ShareItems {
 
     /// The picture's line in the log, with the bytes it staged, and then
     /// `done`.
-    private static func finish(_ item: SharedItem?, _ report: SharedPhoto.Report,
-                               _ done: (SharedItem?) -> Void) {
+    static func finish(_ item: SharedItem?, _ report: SharedPhoto.Report,
+                       _ done: (SharedItem?) -> Void) {
         var report = report
         if case .file(_, _, _, let size) = item { report.bytes = size }
         Diagnostics.log(.note, report.line)

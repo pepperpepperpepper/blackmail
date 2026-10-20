@@ -301,6 +301,24 @@ enum ShareItems {
         return .line(photos + " and " + videoWords + " could not be attached.")
     }
 
+    /// What the transcript is tagged when something was left out:
+    /// `blackmail-send-<time>-left-out.txt` (`keepLog`).
+    static let leftOutTag = "left-out"
+
+    /// The log written out when the sheet is to say a picture or a video
+    /// could not be attached (B-090), as a send's end writes it
+    /// (`CaptureProbe.dumpTranscript`), in the extension's own tmp and
+    /// among the newest ten kept. A share of pictures alone of which none
+    /// came has no letter and no Send, and the log was written only at a
+    /// send's end, so the `SHARE-PICTURE` line that says why was never
+    /// where a check could read it. Under its own time, not the send's
+    /// session, which is the last letter's. Nothing when everything came.
+    static func keepLog(for leftOut: LeftOut?,
+                        session: String = String(Int(Date().timeIntervalSince1970))) {
+        guard leftOut != nil else { return }
+        CaptureProbe.dumpTranscript(leftOutTag, session: session)
+    }
+
     /// What a share offered and what came of its pictures and videos,
     /// counted as they are read, one at a time (`oneAtATime`).
     final class Tally {

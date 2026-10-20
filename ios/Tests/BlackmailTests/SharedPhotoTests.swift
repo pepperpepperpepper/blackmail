@@ -946,7 +946,10 @@ final class SharedPhotoTests: XCTestCase {
                  "let fromBytes = autoreleasepool {",
                  "guard let data, let source = CGImageSourceCreateWithData(data as CFData, SharedPhoto.reading) else { return .unopened }",
                  "staging.photo(data, named: name, mimeType: mimeType, unnamed: named == .none)",
-                 "if case .staged(let item) = fromBytes { finish(item, fromItsBytes, done) } else { finish(nil, fromItsBytes, done) }"],
+                 "switch fromBytes {",
+                 "case .staged(let item): finish(item, fromItsBytes, done)",
+                 "case .undecodable: finish(nil, fromItsBytes, done)",
+                 "case .unopened:"],
                 in: code)
         XCTAssertEqual(count("loadFileRepresentation(", in: code), 1)
         XCTAssertEqual(count("loadDataRepresentation(", in: code), 1)
@@ -1195,7 +1198,7 @@ final class SharedPhotoTests: XCTestCase {
     /// staged, and only then the answer; nothing of its metadata in it.
     func testEachPictureLeavesOneLineInTheLog() throws {
         let code = try source("SharedPhotoImageIO.swift")
-        let finish = try part(of: code, from: "private static func finish(",
+        let finish = try part(of: code, from: "static func finish(",
                               to: "private enum Picture {")
         inOrder(["var report = report",
                  "if case .file(_, _, _, let size) = item { report.bytes = size }",
@@ -1204,7 +1207,12 @@ final class SharedPhotoTests: XCTestCase {
                 in: finish)
         XCTAssertEqual(count("Diagnostics.log(", in: code), 1)
         inOrder(["var report = SharedPhoto.Report(offered: offered, read: type, named: named)",
+                 "report.unopened = unopened",
                  "report.inside = kind"], in: code)
+        // The object's line too, through the same `finish` (B-090).
+        let object = try source("SharedPhotoObject.swift")
+        XCTAssertEqual(count("Diagnostics.log(", in: object), 0)
+        XCTAssertEqual(count("finish(", in: object), 3)
         let photo = try source("SharedPhoto.swift")
         let report = try part(of: photo, from: "struct Report {", to: "private static func megabytes(")
         for never in ["properties", "GPS", "Latitude", "{Exif}"] {

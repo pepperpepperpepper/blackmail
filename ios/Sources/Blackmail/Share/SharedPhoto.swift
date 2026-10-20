@@ -99,6 +99,26 @@ enum SharedPhoto {
             ?? offered.first { $0 == "public.image" }
     }
 
+    /// The types a picture is read as, one after another, each as its
+    /// file and then as its bytes, until one gives what ImageIO opens
+    /// (B-090): `first`, the type chosen (`fileType`), then every other
+    /// type the provider `offered` that `isImage` says is a picture, in
+    /// the provider's own order, each once. A provider may say it holds a
+    /// PNG and give nothing under that type, and something under another.
+    ///
+    /// Not another app's private types, the Photos app's thumbnails among
+    /// them: a photo whose own file gave nothing is left out, and said,
+    /// rather than sent as a small copy of itself.
+    static func typesToRead(first: String, offered: [String],
+                            isImage: (String) -> Bool) -> [String] {
+        var types = [first]
+        for type in offered where !types.contains(type) && !type.hasPrefix("com.apple.private.")
+            && isImage(type) {
+            types.append(type)
+        }
+        return types
+    }
+
     // MARK: - Its own bytes, whole, or a JPEG
 
     /// How a picture goes into the letter.
@@ -312,6 +332,93 @@ enum SharedPhoto {
         return peak(width: width, height: height, type: type, factor: last)
     }
 
+    // MARK: - A picture handed over as an object
+
+    /// The last way a picture is read (B-090): where no type the provider
+    /// offers gives a file or bytes ImageIO opens, as the screenshot
+    /// editor's share seemed to on the test iPad, the provider is asked
+    /// for a `UIImage`, which is made a file here (`ShareItems.object`).
+    /// That is the one place the extension decodes a picture whole: a
+    /// `UIImage` cannot be read at a half, a quarter or an eighth, and it
+    /// is made a file from every pixel.
+    ///
+    /// So the bound. Decoded, a picture is four bytes a pixel, and it is
+    /// taken at three times that while it is made a file, as every
+    /// decoder nobody measured is (`decoding`): twelve bytes a pixel. The
+    /// file is written straight onto the disk, never held. Three fifths of
+    /// what is left may go to it (`memoryShare`), read right before, as
+    /// for a JPEG made here, or the 80 MB assumed when the iPad does not
+    /// say. And never more than 9 million pixels, whatever the memory
+    /// says: the most a share extension is known to be allowed is the test
+    /// iPad's 180 MB in all, three fifths of it is 108 MB, and 108 MB at
+    /// twelve bytes a pixel is 9 million. No larger object could be made a
+    /// file even with all of it free; his iPad, at about 120 MB, would
+    /// allow no more than 6 million.
+    ///
+    /// What it is for, a picture of the screen, is well inside: his iPad's,
+    /// 2160 by 1620, 3.5 million pixels, 42 MB at the peak; the test
+    /// iPad's, 2388 by 1668, 4 million, 48 MB, which fits the 80 MB
+    /// assumed; the largest iPad screen, 2752 by 2064, 5.7 million, 68 MB.
+    /// A 48-megapixel object would need 576 MB: it is left out, and said,
+    /// and never decoded.
+    static let objectMostPixels: Int64 = 9_000_000
+
+    /// What making a file of an object `width` by `height` is expected to
+    /// hold at its peak, in bytes: twelve a pixel (`objectMostPixels`).
+    static func objectPeak(width: Int, height: Int) -> Int64 {
+        Int64(max(width, 0)) * Int64(max(height, 0)) * 4 * 3
+    }
+
+    /// Why an object `width` by `height` pixels is not made a file, with
+    /// `available` bytes of memory left, nil when the iPad did not say:
+    /// it has no size; it is larger than `objectMostPixels`; or its peak
+    /// would take more than `memoryShare` of what is left. Nil when it may
+    /// be made one.
+    static func objectRefused(width: Int, height: Int, available: Int64?) -> Went? {
+        guard width > 0, height > 0 else { return .leftOut("an object with no size") }
+        let pixels = Int64(width) * Int64(height)
+        guard pixels <= objectMostPixels else {
+            return .leftOut("an object of \(pixels) pixels, more than \(objectMostPixels)")
+        }
+        let peak = objectPeak(width: width, height: height)
+        guard Double(peak) <= Double(available ?? assumedAvailable) * memoryShare else {
+            return .tooLargeForMemory(needs: peak, available: available)
+        }
+        return nil
+    }
+
+    /// How an object goes, from the types the provider `offered` and
+    /// whether the picture has a clear part (`hasAlpha`): as a PNG where
+    /// the provider says it is one, as a screenshot is, or where it has a
+    /// clear part, which a JPEG has not got, so as the PNG a picture kept
+    /// whole goes; otherwise as a JPEG, as any picture not kept whole is
+    /// made one (`way`). Named as either is (`name`): "image0.png" or
+    /// "image0.jpeg" with no name.
+    static func objectWay(offered: [String], hasAlpha: Bool) -> Way {
+        guard hasAlpha || fileType(offered: offered) == "public.png",
+              let png = keptWhole["public.png"] else { return .jpeg }
+        return .whole(filenameExtension: png.filenameExtension, mimeType: png.mimeType)
+    }
+
+    /// The orientation tag, 1 to 8 as EXIF has it, for a `UIImage`'s
+    /// `imageOrientation` by its raw value: up 0, down 1, left 2, right 3,
+    /// then the same mirrored, 4 to 7. The object's pixels are written as
+    /// they are, never turned, which would decode them a second time, so
+    /// the tag is what turns them, as for a photo sent as its own bytes.
+    /// Up, or a value UIKit does not have, is 1, and no tag is written.
+    static func exifOrientation(imageOrientation raw: Int) -> Int {
+        switch raw {
+        case 1: return 3
+        case 2: return 8
+        case 3: return 6
+        case 4: return 2
+        case 5: return 4
+        case 6: return 5
+        case 7: return 7
+        default: return 1
+        }
+    }
+
     // MARK: - Its name
 
     /// Where a picture's name came from.
@@ -496,6 +603,9 @@ enum SharedPhoto {
         /// Made a JPEG, read at `factor`, with `available` bytes of memory
         /// left, nil when the iPad did not say.
         case jpeg(factor: Int, available: Int64?)
+        /// Made a PNG, or a JPEG, of the `UIImage` the provider gave
+        /// (B-090), with `available` bytes of memory left.
+        case object(png: Bool, available: Int64?)
         /// Left out: even the last factor tried, an eighth or for a picture
         /// decoded whole its least, would hold `needs` bytes at its peak
         /// (`leastPeak`), more than `memoryShare` of what is left.
@@ -510,6 +620,12 @@ enum SharedPhoto {
     /// another; where the name came from and the name; how it went; and the
     /// bytes staged. Nothing of the metadata: no GPS, no place.
     ///
+    /// Where a type gave nothing ImageIO opens and the next was read
+    /// (B-090), `read=` has each one tried, in the order tried, the last
+    /// the one that decided: `read=public.png,public.jpeg`, or
+    /// `read=public.png,object` for the `UIImage` the provider gave,
+    /// `item` for its own item.
+    ///
     /// The name as it is only when a device made it: Photos' "IMG_0776.JPG",
     /// or "image0.jpeg" made here. Any other is a title someone gave it,
     /// "Sam's lab results.png", and goes in the log by its length and its
@@ -519,6 +635,9 @@ enum SharedPhoto {
     struct Report {
         var offered: [String]
         var read: String
+        /// The types tried before `read`, in that order, that gave nothing
+        /// ImageIO opens, as a file or as bytes (B-090).
+        var unopened: [String] = []
         var inside: String?
         var named: Named = .none
         var name = ""
@@ -542,7 +661,8 @@ enum SharedPhoto {
             }
             let file = inside.map { $0 == read ? "" : " (\($0) inside)" } ?? ""
             let back = fellBack.map { " (not as its own bytes: \($0))" } ?? ""
-            return "SHARE-PICTURE offered=\(offered.joined(separator: ",")) read=\(read)\(file)"
+            let tried = (unopened + [read]).joined(separator: ",")
+            return "SHARE-PICTURE offered=\(offered.joined(separator: ",")) read=\(tried)\(file)"
                 + " name=\(source) \"\(Self.logged(name))\" way=\(Self.words(went))\(back)"
                 + " bytes=\(bytes)"
         }
@@ -579,6 +699,8 @@ enum SharedPhoto {
             case .whole: return "copied whole"
             case .jpeg(let factor, let available):
                 return "JPEG at factor \(factor), \(megabytes(available))"
+            case .object(let png, let available):
+                return "\(png ? "PNG" : "JPEG") made of the object, \(megabytes(available))"
             case .tooLargeForMemory(let needs, let available):
                 // What would have had to be left, not the peak itself: a
                 // decode may take `memoryShare` of what is left. Rounded

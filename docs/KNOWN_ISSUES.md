@@ -14570,3 +14570,170 @@ Seen in passing:
 - A letter the watch brings with no Gmail message id takes, as it comes,
   only a mark made under its own id. Held already when he makes the
   mark, it is matched as a twin, as the list's rows are.
+
+---
+
+## B-090 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A screenshot shared from its editor could not be attached
+
+**What he saw.** Seen on the test iPad (iPadOS 16.5.1) on 2026-10-20,
+three times of three. A screenshot taken, its floating thumbnail tapped
+within a second to open the editor, then Share, Blackmail: the sheet came
+up with Cancel and "The photo could not be attached." and nothing else. With
+two screenshots in the editor, "The photos could not be attached.". There
+was no letter to send. The same screenshot shared from Photos goes, as the
+PNG it is (B-036). This is the TODO's share check 7, a picture with no
+name, which expects it to go named as Mail names one: "image0.png", or
+"image0.jpeg".
+
+**What it was.** Not confirmed on the iPad. The words are
+`ShareItems.leftOut`'s for a share of pictures alone of which none came. So
+the provider was counted as a picture, by a picture type it offered
+(`SharedPhoto.fileType`) or by what `UIImage` could read, and
+`ShareItems.picture` staged nothing. It asked for one type only, the one
+chosen, as a file and then as bytes, and neither gave anything ImageIO
+opens. By the look of it the editor hands its picture over as a `UIImage`,
+an object, and not as a file or as bytes under the type it names; or under
+another type, which was never asked for.
+
+Which of these, the log would have said: each picture's `SHARE-PICTURE`
+line has what the provider offered and how it went. But the log was written
+to a file only at a send's end (`CaptureProbe.dumpTranscript`), and a sheet
+with no letter has no Send. The line was never where a check could read it.
+
+**Changed.**
+
+- *Every picture type it offers.* A picture is read as the type chosen, as
+  before, its file and then its bytes. Where neither gives what ImageIO
+  opens, it is read the same way as each other type the provider offers
+  that `UTType` says is a picture, in the provider's own order, each once
+  (`SharedPhoto.typesToRead`). Not another app's private types, Photos'
+  thumbnails among them: a photo whose own file gave nothing is left out,
+  and said, never sent as a small copy of itself. Only a type not opened
+  goes on to the next. A picture opened and not made one, or left out for
+  the room or the memory, is the same picture whatever type it is read as,
+  and is answered there, as before.
+- *Then the object.* With no type left, the provider is asked for a
+  `UIImage` (`loadObject`), and failing that for its own item, which is the
+  `UIImage` itself where the sharing app put one there (`loadItem`). It is
+  made a file by ImageIO, written straight onto the disk where it is staged
+  and measured there (`ShareItems.object`, in `SharedPhotoObject.swift`): a
+  PNG where the provider says it is one, as a picture of the screen is, or
+  where the picture has a clear part, which a JPEG has not got; otherwise a
+  JPEG at the JPEG's quality, as any picture not kept whole is made one
+  (`SharedPhoto.objectWay`). At its own size and never turned; its
+  orientation, where it is not upright, goes as a tag
+  (`SharedPhoto.exifOrientation`), as a photo sent as its own bytes keeps
+  its.
+- *Bounded.* This is the one place the extension decodes a picture whole: a
+  `UIImage` cannot be read at a half, a quarter or an eighth. Decoded, a
+  picture is four bytes a pixel, and it is taken at three times that while
+  it is made a file, as every decoder nobody measured is: twelve bytes a
+  pixel. Its size is the `CGImage`'s, read before a pixel of it is decoded.
+  It may take three fifths of the memory left, read right before, or of the
+  80 MB assumed where the iPad does not say; and never more than 9 million
+  pixels, whatever the memory says (`SharedPhoto.objectRefused`). The most a
+  share extension is known to be given is the test iPad's 180 MB; three
+  fifths of that is 108 MB, and 108 MB at twelve bytes a pixel is 9
+  million. His iPad's screen, 2160 by 1620, is 3.5 million pixels, 42 MB at
+  the peak; the test iPad's, 2388 by 1668, 4 million and 48 MB, inside the
+  80 MB assumed; the largest iPad screen, 2752 by 2064, 68 MB. A
+  48-megapixel object would need 576 MB: it is left out, and said, and
+  never decoded.
+- *Named as Mail names a picture with no name* (B-036): the sharing app's
+  suggestion where it has one, and with none "image0.png" or "image0.jpeg",
+  counted on across the share with the other pictures with no name
+  (`ShareItems.Staging.unnamed`). Two from the editor go as image0.png and
+  image1.png.
+- *No location.* A `UIImage` carries no metadata at all: no GPS, no EXIF,
+  only its pixels, their colour profile and its orientation. Nothing but
+  the orientation, and for a JPEG its quality, is written into the file
+  (`SharedPhoto.write`), so there is nothing to strip.
+- *The log.* A picture's line says every type tried, in order, the last the
+  one that decided: `read=public.png,public.jpeg`, `read=public.png,object`
+  for the `UIImage`, `…,item` for the provider's own item; and for the
+  object `way=PNG made of the object, N MB available`, or `JPEG`. When the
+  sheet says a picture or a video could not be attached, in place of the
+  letter or in a line over it, the log so far is written out as a send's
+  end writes it, `blackmail-send-<time>-left-out.txt` in the extension's
+  tmp, among the newest ten kept (`ShareItems.keepLog`), under its own time
+  rather than the last send's. So the next check can read why.
+
+**Not changed.** A picture that opens as its first type goes as before: as
+its own bytes, whole, or a JPEG made here. A photo from Photos still goes
+as its own bytes, and its line is as it was. A picture is still what the
+provider offers by a picture type, or what `UIImage` could read; a page,
+words, a file and a video go as they did. The sheet's words, and when it
+says them, are as they were. A letter's send writes its transcript as
+before.
+
+**What he sees.** A screenshot shared from its editor, marked up or not,
+comes into the sheet as "image0.png" (or "image0.jpeg"), two of them as
+image0.png and image1.png, and Send sends them. No new words.
+
+**Tests.** `SharePictureFallbackTests`, seventeen. The types tried: the one
+chosen first, then the provider's other picture types in its order, each
+once, never one that is not a picture or a private one. The object's
+bound: twelve bytes a pixel; never more than 9 million pixels with a
+terabyte to spare, 9 million exactly allowed; under it, the memory left or
+the 80 MB assumed, three fifths exactly allowed, a byte less refused; the
+screens of his iPad, the test iPad and the largest iPad; none with no
+size; and the line for one left out for the memory. A PNG or a JPEG, by
+what is offered and a clear part; its name, the suggestion's or image0,
+image1; two staged straight onto the disk as image0.png and image1.png,
+nothing through memory. The orientation, all eight. The log's line with
+every type tried, the object and the item. The log written when something
+is left out, with no letter or with one, and not when everything came;
+the newest ten kept with the sends'; under its own time. And the iPad's
+part, read from its source: each type as its file then its bytes, on to
+the next only when not opened, then the object; the object's bound before
+it is decoded, then the way, the name, and the file written by ImageIO
+where it is staged, with the orientation and the quality alone, never
+`pngData`, `jpegData` or a drawing; the `UIImage` in that file only; and
+the sheet writing the log once it has been told. `SharedPhotoTests`' three
+source-reading tests of `picture` changed with it, the object's line going
+through the same `finish`.
+
+Against the code as it was, the change undone with the tests kept, the
+test target does not build: the rules it calls are not there. Then each
+part undone alone in the worktree, the share's four test classes run, 88
+tests, counted as failures: the first type alone (6, in 1 test); a private
+type kept (1); a type that is not a picture kept (1); no 9 million bound
+(4, in 1); no memory check (4, in 2); four bytes a pixel, not twelve (7,
+in 3); a clear part not counted (3, in 2); never a PNG (10, in 3); a PNG
+only where a JPEG is not offered first, in place of where the PNG is
+chosen (10, in 3); two orientations swapped (1); the line without the
+types tried (5, in 2); no log written (10, in 4); a log written when
+nothing was left out (4, in 2); under the last send's session (5, in 4);
+not on to the next type (3, in 2); no object at the end (3, in 2); the
+object made a file without the bound (1); no item after the object (2, in
+2); a PNG by `pngData` (3, in 1); the object written with a GPS
+dictionary (2, in 1); the object named without its suggestion (1); a
+`UIImage` loaded where the files are read (3, in 3); the sheet keeping no
+log (2, in 1). Each failed only the tests of what it undid.
+
+The full suite, serially, with nothing undone: 1,781 tests, 5 skipped,
+none failing. The release build for the iPad links, and the share IPA
+packages and signs with the extension in it.
+
+**Not covered.**
+
+- Not seen on the iPad. Which way the editor's share goes, a type after
+  the first, `object` or `item`, is for B-090's check in the TODO to read in
+  its line. That the editor hands over an object at all is the iPad's
+  reading, not confirmed. Should it give nothing any of these ways, the
+  sheet says so as before, and the line is now on the disk to say why.
+- Whether Mail sends the editor's picture as a PNG or a JPEG is not known.
+  Here one offered as a PNG, or with a clear part, goes as a PNG; one
+  offered as no type ImageIO knows, and opaque, goes as a JPEG.
+- The bound holds once the `UIImage` is in the extension. What iOS holds to
+  hand it over, before then, is not the extension's to bound; an app that
+  shares a 48-megapixel `UIImage` has not been seen.
+- Twelve bytes a pixel is not measured, only taken as every format nobody
+  measured is (B-036). Whether ImageIO holds the file it makes in memory
+  before it writes it is not known; the three times leaves room for it.
+- An object longer than 4096 px on a side within the 9 million, a long thin
+  one, goes at its own size, not made 4096 as a JPEG made from a file is.
+  It is never more pixels than the 16 million that rule allows at 4:3.
+- An object not upright goes with an orientation tag, its pixels as they
+  are, and fewer mail programs read a PNG's tag than a JPEG's. A picture of
+  the screen is upright.

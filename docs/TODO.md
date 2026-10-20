@@ -1928,6 +1928,15 @@ this host. Ordered by value, not by size.
       next `image1`. If it says `name=file "{N chars}.png"`, iOS made a
       name up: read it from the letter that arrived and note it; it
       decides whether such names count as none.
+      *Tried on the test iPad 2026-10-20, three times of three: the sheet
+      said "The photo could not be attached." in place of the letter,
+      "The photos could not be attached." for two, and no line could be
+      read, none being written without a Send (B-090). Since B-090 the
+      picture is read as every picture type the provider offers, then as
+      the `UIImage` it gives, made a PNG or a JPEG here, and the log is
+      written when something is left out. Made again as B-090's check at
+      the end of this section; its `read=` may then end `,object` or
+      `,item`, and its way `PNG made of the object`.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2874,6 +2883,42 @@ this host. Ordered by value, not by size.
       come while scrolled down, was not on the Inbox's kept page, so 7's
       offline launch drew the Inbox without it until Refresh, as D-016 has
       it; and the reading pane's Flag looked the same flagged and not.*
+- [ ] **B-090, a screenshot shared from its editor is attached.** On the
+      test iPad, the test account only. Build the IPA from the `shot-share`
+      worktree with `tools/build-share-ipa.sh` and install it through
+      TrollStore's helper, never by the deploy that copies files into the
+      bundle; then `killall BlackmailShare` on the iPad, and open the app
+      once, as the share sheet's checks say. A stands for the account's
+      address; letters only to A with `+jane` before the @, subjects
+      beginning "B-090".
+      1. *One.* Take a screenshot, tap its floating thumbnail within a
+      second, Share, Blackmail. The sheet shows the letter, "image0.png"
+      (or "image0.jpeg") listed with its size, and no line saying a photo
+      could not be attached. To A with `+jane`, Subject "B-090 one", Send:
+      the sheet closes, and the letter arrives with image0.png, the screen
+      as it was, upright.
+      2. *Two.* Take two screenshots, tap the second's thumbnail, so the
+      editor holds both; Share, Blackmail: image0.png and image1.png
+      listed, no line. To A with `+jane`, Subject "B-090 two", Send: both
+      arrive, each the screen it was.
+      3. *The log.* Read the two newest `blackmail-send-*.txt` in the share
+      extension's own tmp, each from its last `SHARE-BEGIN` on. For each
+      picture of 1 and 2 a `SHARE-PICTURE` line: copy down its `offered=`
+      and its `read=`, which says the way the editor's picture came, a
+      type after the first, `object` or `item`, which B-090 did not know.
+      Its `way=` is `copied whole`, `own bytes, metadata replaced`, `JPEG
+      at factor F, N MB available`, or `PNG made of the object, N MB
+      available` (or `JPEG`), N a number. If either share still says a
+      photo could not be attached, there is no Send: Cancel, and read
+      `blackmail-send-<time>-left-out.txt` instead, written as its sheet
+      came up, and copy its lines down.
+      4. *From Photos, as before.* A full-size camera photo shared from
+      Photos alone, To A with `+jane`, Subject "B-090 three", Send. Its
+      line `read=public.jpeg`, with no type before it, `name=file
+      "IMG_NNNN.JPG"`, `way=own bytes, metadata replaced`; it arrives
+      under that name at the size it was taken, as in the share sheet's
+      check 1.
+      5. *Put back.* The B-090 letters to Trash.
 
 ## Blocked on the owner
 

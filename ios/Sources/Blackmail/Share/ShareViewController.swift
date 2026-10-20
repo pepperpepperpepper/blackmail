@@ -772,6 +772,10 @@ extension ShareItems {
         oneAtATime(loads) { items in
             let leftOut = tally.leftOut
             Task { @MainActor in completion(items, leftOut) }
+            // The lines that say why, where a check can read them, as a
+            // send's end writes them (B-090); after the sheet is told, so
+            // it does not wait for the file.
+            keepLog(for: leftOut)
         }
     }
 
@@ -785,8 +789,10 @@ extension ShareItems {
     ///
     /// A picture is what the provider offers as one by its type
     /// (`SharedPhoto.fileType`), or, failing a type this knows, what
-    /// `UIImage` could read, which is what decided it before. Each picture
-    /// is counted, and each one attached (`Tally`).
+    /// `UIImage` could read, which is what decided it before. It is read
+    /// as that type, then as any other picture type it offers, then as the
+    /// `UIImage` it gives (`picture`, B-090). Each picture is counted, and
+    /// each one attached (`Tally`).
     private static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
                              tally: Tally, done: @escaping (SharedItem?) -> Void) {
         if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)
