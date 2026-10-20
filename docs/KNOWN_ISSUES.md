@@ -13936,7 +13936,7 @@ one, about a second later the mark goes, and the row is Gmail's copy.
 Opened again from its row at once and saved again, one row as that
 sheet goes too; sent from there, none. No new words.
 
-**Tests.** Ten new: nine in `DraftRowAtOnceTests.swift` and one in
+**Tests.** Eleven new: ten in `DraftRowAtOnceTests.swift` and one in
 `ComposeActionsTests`, whose Save Draft test now has the putting away in
 its order.
 
@@ -13967,6 +13967,12 @@ its order.
 - *Sent from there:* no row for the letter as the sheet closes, the copy
   that landed included, though Send names only the copy it was reopened
   from; then that copy removed, and the letter sent once.
+- *Sent from there with no connection:* it waits in the Outbox, the copy
+  that landed still kept as its own and still in Drafts, and Drafts has
+  no row for the letter as the sheet closes nor while it waits, though
+  the letter in the Outbox names only the copy it was reopened from.
+  With the line back, the pass sends it once and removes that copy, and
+  nothing is left on the iPad.
 - *Opened while a pass takes it up, then saved:* its row in place of the
   copy the pass put up as the sheet goes, then its own copy; one row at
   every redraw.
@@ -13998,7 +14004,16 @@ Then each part undone alone. A sent or deleted letter's copy not hidden:
 test. The count of saves taken as the upload landed rather than as it
 set off: 1 in 1, the copy whose upload went before the save.
 
-The full suite, serially, with nothing undone: 1,739 tests, 5 skipped,
+The Outbox test came after, for the claim above that the copy that
+landed is not listed while the letter waits in the Outbox. The copy
+hidden for a letter in Drafts only, not for one in the Outbox
+(`replacedInDrafts` taking the landed copies of the letters with no
+`outbox` alone): 2 failures in 1, the Outbox test, the copy's row there
+as the sheet closed and while the letter waited. Every other test of
+`DraftRowAtOnceTests`, `ComposeActionsTests`, `OutboxTests` and
+`LocalDraftsTests` passed, 158, so nothing else stood for it.
+
+The full suite, serially, with nothing undone: 1,762 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
 **Not covered.**

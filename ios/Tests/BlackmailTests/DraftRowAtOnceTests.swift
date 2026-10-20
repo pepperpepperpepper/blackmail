@@ -415,6 +415,47 @@ final class DraftRowAtOnceTests: XCTestCase {
         XCTAssertEqual(kept.store.letters().count, 0)
     }
 
+    /// The same sent with no connection, so that it waits in the Outbox:
+    /// as the sheet closes and while it waits, Drafts has no row for it,
+    /// the copy its save put up included, though the letter in the Outbox
+    /// names only the copy it was reopened from. Listed, that row would
+    /// open the letter waiting in the Outbox, to be sent a second time.
+    /// With the line back, the pass sends it once and removes that copy,
+    /// and nothing is left on the iPad.
+    func testSentOfflineFromItsRowAfterItsSaveLandedLeavesNoRowWhileItWaitsInTheOutbox()
+        async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (rows, copy, draft) = try await reopened(repository)
+        let others = rows.map(\.id).filter { $0 != copy.id }
+        let drafts = DraftsOnScreen(kept: kept, rows: rows)
+        defer { drafts.stop() }
+
+        var asItCloses: [String] = []
+        let (again, opened, first) = try await openedAsItsSaveLands(
+            draft, kept: kept, repository: repository, dismiss: { asItCloses = drafts.ids })
+        XCTAssertEqual(drafts.ids, [first] + others)
+
+        await takeLineDown()
+        await again.send({ opened }, then: nil, draftSent: { drafts.sent($0) })?.value
+        XCTAssertEqual(kept.outbox.map(\.key), ["letter-1"], "waiting in the Outbox")
+        XCTAssertEqual(kept.landed["letter-1"], first, "the copy its save put up, still kept")
+        XCTAssertEqual(copies("Unfinished 1").map(row), [first], "and still in Drafts")
+        XCTAssertEqual(asItCloses, others, "no row for the letter as the sheet closes")
+        XCTAssertEqual(drafts.ids, others, "nor while it waits")
+        let none = await submissions.letters()
+        XCTAssertEqual(none.count, 0)
+
+        line.isUp = true
+        _ = try await repository.listMessages(in: Server.inbox, beforeUID: nil, limit: 10)
+        await kept.uploadWaiting(to: repository)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1, "sent once")
+        XCTAssertEqual(copies("Unfinished 1"), [], "the copy its save put up removed")
+        XCTAssertEqual(drafts.ids, others)
+        XCTAssertEqual(kept.store.letters().count, 0, "nothing left on the iPad")
+    }
+
     /// Opened from its row while a pass is taking it up, then changed and
     /// saved once the pass has landed it: its row in place of the copy the
     /// pass put up as the sheet goes, not beside it, then the copy the save
