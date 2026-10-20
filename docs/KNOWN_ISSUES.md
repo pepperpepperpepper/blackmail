@@ -7957,7 +7957,7 @@ for it.
 
 ---
 
-## B-066 — CHANGED 2026-10-03, seen on the iPad frame by frame, at speed under B-077 (2026-10-07). The switch between two panes and three jumped
+## B-066 — CHANGED 2026-10-03, seen on the iPad frame by frame; replaced by B-077's motion, seen at speed 2026-10-07. The switch between two panes and three jumped
 
 **Asked for by the owner, 2026-10-03:** "We need better transition
 animation between the three-panel view and the two-panel view." The view
