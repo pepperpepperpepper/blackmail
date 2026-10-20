@@ -2533,7 +2533,7 @@ this host. Ordered by value, not by size.
       back, before Refresh in 3 and 6. Airplane Mode turned Wi-Fi off and
       on with it, and offline each Save in Settings was followed by "Can't
       connect to mail server.", now B-085.*
-- [ ] **B-084, a conversation's row from its newest letter, wherever its letters came from.**
+- [x] **B-084, a conversation's row from its newest letter, wherever its letters came from.**
       On the test iPad, three panes, Organize by Thread on, the test
       account only, landscape, built from the `trash-order` worktree. A
       stands for the account's address; letters only to A with `+jane`
@@ -2571,8 +2571,15 @@ this host. Ordered by value, not by size.
       The B-084 letters are in Trash already: nothing else to move.
       *Seen 2026-10-19 on the iPadOS 18.6 simulator, with `+sim18`: steps
       1, 2, 4 and 5 passed; 3 was not read, and 6 not tried, as the
-      simulator has no VoiceOver (B-084). On the iPad still to do.*
-- [ ] **B-085, a save while offline, quietly.** On the test iPad, the
+      simulator has no VoiceOver (B-084).*
+      *Seen on the test iPad 2026-10-19: 1 to 6 passed (B-084). In 5 the
+      app was ended and opened again, as the swipe into the app switcher
+      could not be sent; in 6 a touch went to the app, so VoiceOver was
+      put on the row by B-079's move. Move out of the Inbox in Edit mode
+      did the same as Delete: the UIDs in Trash in the order the letters
+      came, the row from the newest. B-074's 1, 2, 4 and 7 (7 in Trash,
+      on a second try) and B-080's 1 to 4 passed again with it in.*
+- [x] **B-085, a save while offline, quietly.** On the test iPad, the
       test account only, landscape, built from the `quiet-save` worktree.
       *Steps for a person at the iPad:* the iPad is reached for checks over
       its Wi-Fi, and Airplane Mode cuts that, so these are done by hand,
@@ -2590,8 +2597,13 @@ this host. Ordered by value, not by size.
       before, and the line under the list says "No Connection". OK.
       5. *Back.* Airplane Mode off, Wi-Fi on, and wait for its mark in
       the status bar. Refresh: the list comes, with no alert.
-      *Not seen on the simulator: its line was not cut for this (B-085).
-      On the iPad still to do.*
+      *Not seen on the simulator: its line was not cut for this (B-085).*
+      *Seen on the test iPad 2026-10-19, the iPad on its cable, Airplane
+      Mode from Control Centre: 1 to 5 passed (B-085). No Save put up an
+      alert, with nothing changed, with the new name or with the name put
+      back. Refresh offline still said "Can't connect to mail server.",
+      and back online the list came. The connection log has nothing from
+      Save. Airplane Mode turned Wi-Fi off and on with it.*
 
 ## Blocked on the owner
 

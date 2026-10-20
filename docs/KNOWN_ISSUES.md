@@ -13115,7 +13115,7 @@ Seen in passing, none of it B-083's:
 
 ---
 
-## B-084 — FIXED 2026-10-19, found on the iPad, seen fixed in the iPadOS 18 simulator, not yet on the iPad. After a Delete, a conversation's row in Trash named its oldest letter and its stack ran upside down; Mail's names the newest
+## B-084 — FIXED 2026-10-19, found on the iPad, seen fixed in the iPadOS 18 simulator and on the iPad. After a Delete, a conversation's row in Trash named its oldest letter and its stack ran upside down; Mail's names the newest
 
 **What he saw.** Seen on the test iPad on 2026-10-19, in passing, during
 B-080's check in the third round there, on the build of `ipad-fix2`. A
@@ -13302,9 +13302,73 @@ The five letters are in Trash only: none in the Inbox, Sent Mail or All
 Mail. Trash was not read over IMAP this time; the suite holds the order
 the batch sends.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, three panes, Organize by Thread on, a build of e13058f, B-079's
+third change, B-084 and B-085 merged together, on the test account as
+"Carlo". Every letter To the test address with `+jane` before the "@", a
+minute or two apart, subjects beginning "R4", and read over IMAP. Times
+are the iPad's clock. Every step of the TODO check passed, 3 and 6
+included.
+
+1. *A conversation.* "R4 B-084 one", "The first letter.", sent at 5:17, a
+   reply at 5:18, and one from the conversation at 5:19, "The third
+   letter, the newest." The Inbox row: Carlo, 5:19 PM, the mark, "Re: R4
+   B-084 one", the third letter's words. Over IMAP, one thread.
+2. *Delete in Edit mode.* That row ticked alone, Delete: it went at the
+   tap. Trash: Carlo, 5:19 PM, the mark, "Re: R4 B-084 one", "The third
+   letter, the newest." Tapped: the header "Re: R4 B-084 one", Today at
+   5:19 PM. Scrolled up: the 5:17 letter at the top, then 5:18, then 5:19
+   open at the bottom.
+3. *Over IMAP.* Inbox UIDs 277, 278 and 279 became Trash UIDs 224, 225
+   and 226: the first letter the lowest, the third the highest. Each kept
+   the INTERNALDATE it had in the Inbox.
+4. *A reply deleted first.* "R4 B-084 two" at 5:21, its reply "The reply,
+   deleted first." at 5:23. With the reply in the pane, Delete in the
+   pane: the reply alone went, and the row read "R4 B-084 two", 5:21 PM,
+   no mark. Then Edit, ticked, Delete. Trash: 5:23 PM, the mark, "Re: R4
+   B-084 two", "The reply, deleted first." Tapped: the 5:21 letter at the
+   top, the reply open at the bottom. In Trash the reply had the lower
+   UID, 227 against 228, so the order came from arrival, not the UID.
+5. *After a launch.* The swipe into the app switcher could not be sent to
+   the iPad, so the app was ended and opened again instead. Trash tapped
+   about 1.5 s after, the line still reading "Checking for Mail...": both
+   rows already as in 2 and 4, and the same once the folder was listed.
+6. *VoiceOver.* "selected, Carlo, 3 messages, Re: R4 B-084 one, 5:19 PM",
+   read off its Caption Panel, its box on the row. A touch on the row
+   went to the app, the app being among the iPad's Direct Touch apps, so
+   VoiceOver was put on the row by B-079's move in two panes:
+   "< Mailboxes", then Trash. VoiceOver off after.
+
+Move out of a folder in Edit mode, not a step of the check, was seen
+too: "R4 B-074 again", four letters, ticked in the Inbox, Move, Trash.
+Over IMAP they took UIDs 229 to 232 in the order they came. The row read
+5:46 PM, the newest's, and the stack ran 5:41, 5:42 and 5:43 from the
+top, the 5:46 letter open at the bottom. With B-084 in, B-074's steps 1,
+2, 4 and 7 and B-080's steps 1 to 4 were run again and passed. B-074's 7
+passed on a second try: on the first, a swipe a second before was still
+slowing, and the stack sat about 2.5 points higher after the tap; with
+the scroll left to settle, on the same three letters in Trash by then,
+nothing above the closed letter moved.
+
+The fifteen letters, B-074's and B-080's with them, are in Trash only,
+put there by the app's own Delete and Move. A letter of the account's
+opened by a stray tap was marked unread again. The account was as found.
+
+Seen in passing:
+
+- Trash's rows are still in the folder's order, as Not covered says: "R4
+  B-074 order", its newest at 5:33, stood above "R4 B-074 again", its
+  newest at 5:46, having gone into Trash later.
+- After the launch in 5, once the line read "Updated Just Now", the
+  folders' highlight was on the Inbox, not Trash, while the list was still
+  Trash's. In 6 VoiceOver read the Inbox's row as "selected" with Trash's
+  list showing. Not looked into.
+- In 6, about 1.5 s after the tap on Trash, VoiceOver was on the row; by
+  4 s it had gone by itself to the reading pane's Flag, and was still
+  there at 8 s. Once. B-079's.
+
 **Not covered.**
 
-- Not yet seen on the iPad. The TODO says how.
 - The rows themselves are still in the folder's order: a conversation
   put in Trash later stands above one put there earlier, whatever its
   letters' times. Where Mail puts such a row was not looked at.
@@ -13317,7 +13381,7 @@ the batch sends.
 
 ---
 
-## B-085 — FIXED 2026-10-19, found on the iPad, not yet seen there fixed. A Save in Settings with no connection was followed by "Can't connect to mail server."
+## B-085 — FIXED 2026-10-19, found on the iPad and seen there fixed. A Save in Settings with no connection was followed by "Can't connect to mail server."
 
 **What he saw.** Seen on the iPad on 2026-10-19, during B-083's check,
 with Airplane Mode on. Blackmail's Settings, the name changed, Save:
@@ -13442,9 +13506,46 @@ again, that run gave the count above and nothing else.
 The full suite, serially, with nothing undone: 1,691 tests, 5 skipped,
 none failing. The release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-19**, iPadOS 16.5.1, the 11-inch,
+landscape, the same build as B-084's, on the test account as "Carlo",
+with its formatted signature. The connection was cut with Airplane Mode,
+from Control Centre, the iPad reached by its cable. Times are the iPad's
+clock. Every step of the TODO check passed. Nothing was sent, and the
+app was never quit.
+
+1. *Offline.* Airplane Mode on at 18:09. Wi-Fi went off with it, so it
+   did not need turning off.
+2. *Nothing changed.* Settings, Save at 18:10:05: the sheet closed, and
+   no alert at 1, 4 or 12 s. The line under the list gained "No
+   Connection" then. That was the watch's: its check sent at 18:09:47,
+   just after Airplane Mode went on, had no answer. Save draws the rows
+   again and touches neither the line nor the server.
+3. *The name.* "Carlo Renamed Example", Save at 18:12:40: no alert.
+   Settings again showed the new name. "Carlo" again, Save at 18:13:41:
+   no alert.
+4. *Refresh,* still offline, at 18:14:13: "Can't connect to mail server."
+   a second later, with OK, and "No Connection" under the list. OK: the
+   alert went, the line the same.
+5. *Back.* Airplane Mode off at about 18:16:50: Wi-Fi came back with it,
+   its mark in the status bar, and the watch connected again by itself at
+   18:16:58. Refresh at 18:17:12: the list, no alert, "Updated Just Now".
+   The connection log has the Refresh's page, its LIST and the eight
+   STATUS, each answered.
+
+The connection log has nothing from Save. Offline that proves little: a
+connect that fails writes nothing there, and the Refresh at 18:14:13 left
+no line either. So, back online, Settings, Save with nothing changed at
+18:17:45: no alert, and no command in the log between the watch's checks
+at 18:17:30 and 18:18:02, no LIST, no STATUS, no FETCH. The sweep Save
+used to ask for is a LIST and a STATUS per folder, as the Refresh's at
+18:17:12 was.
+
+Put back: the name "Carlo", the signature as found, Airplane Mode off,
+Wi-Fi on. The mailbox is as it was. As in B-083's check, Airplane Mode
+from Control Centre turned Wi-Fi off with it and back on with it, so the
+TODO's "Wi-Fi off if it stays on" never applied.
+
 **Not covered.**
 
 - Not seen in the simulator: its line was not cut for this.
-- Not yet seen on the iPad. The TODO says how, by hand: it needs
-  Airplane Mode.
 - Mail itself was not tried with no connection.
