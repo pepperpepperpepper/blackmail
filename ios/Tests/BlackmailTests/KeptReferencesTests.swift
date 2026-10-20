@@ -955,6 +955,118 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(kept.store.letters().count, 0)
     }
 
+    /// A forward of the three files with its original archived since, as
+    /// he does with a letter he has dealt with: in the later launch its
+    /// Inbox UID holds nothing. The first file asks the Inbox, which has
+    /// nothing there, and looks in All Mail. The other two are fetched from
+    /// where that found it, All Mail still selected: two FETCHes each, no
+    /// SELECT, nothing asked of the Inbox again (B-088). Before, each of
+    /// them SELECTed the Inbox, asked it for the UID, SELECTed All Mail
+    /// again and searched it.
+    func testAForwardWhoseOriginalWasArchivedFetchesItsOtherFilesWithNoSelect() async throws {
+        let plans = deliverPlans(threeFiles: true)
+        let inbox = try XCTUnwrap(plans[Server.inbox])
+        let at = try XCTUnwrap(plans[Server.allMail])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        server.removeElsewhere(uid: inbox, from: Server.inbox)
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.first, bytes), "each file its own")
+        }
+        XCTAssertEqual(searches(for: try XCTUnwrap(forward.row.gmailMessageID)), 1)
+        XCTAssertEqual(server.log.filter { $0.verb == "SELECT" }.map(\.command),
+                       ["SELECT \"\(Server.inbox)\"", "SELECT \"\(Server.allMail)\""],
+                       "the Inbox and All Mail once each, for the first file")
+        let fromInbox = server.log.filter { $0.selected == Server.inbox && $0.isUIDCommand }
+        XCTAssertEqual(fromInbox.map(\.command).map { $0.hasPrefix("UID FETCH \(inbox) (UID FLAGS") },
+                       [true], "one FETCH describing the letter, answered with nothing")
+        XCTAssertEqual(partsFromAllMail(), ["\(at) [2]", "\(at) [3]", "\(at) [4]"])
+        XCTAssertEqual(server.log.filter { $0.selected == Server.allMail && $0.isUIDCommand }.count,
+                       7, "the search, and two FETCHes for each file")
+        XCTAssertEqual(notes("CARRIED-PART"),
+                       ["CARRIED-PART folder=INBOX reason=gone"]
+                        + Array(repeating: "CARRIED-PART found folder=\(Server.allMail)", count: 3))
+        XCTAssertEqual(kept.store.letters().count, 0)
+    }
+
+    /// All Mail renumbered under a new UIDVALIDITY, as a server rebuilding
+    /// it does, and seen on the next connection: the line goes as the
+    /// second file is asked for, and the connection made again finds All
+    /// Mail under the new number. The UID the original was found under
+    /// means nothing there now, and the log says so for All Mail,
+    /// `reason=folder`. The Inbox UID the files name is asked, the original
+    /// is looked for in All Mail once more, and the second and third files
+    /// come from its new UID: the forward goes in this pass, each file its
+    /// own. Taken for the connection, the refusal would have kept the
+    /// forward waiting for one that is up, on every pass of the launch
+    /// (B-052).
+    func testAnOriginalWhoseAllMailIsRenumberedForTheNextConnectionIsLookedForOnceMore()
+        async throws {
+        let plans = deliverPlans(threeFiles: true)
+        let inbox = try XCTUnwrap(plans[Server.inbox])
+        let old = try XCTUnwrap(plans[Server.allMail])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        server.removeElsewhere(uid: inbox, from: Server.inbox)
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        let server = self.server!
+        let validity = server.uidValidity(of: Server.allMail)
+        // Once the first file's bytes are fetched, the answer to the next
+        // FETCH at the UID it was found under is held.
+        server.change(after: {
+            $0.selected == Server.allMail && $0.command == "UID FETCH \(old) (UID BODY.PEEK[2])"
+        }) {
+            server.change(after: {
+                $0.selected == Server.allMail && $0.command.hasPrefix("UID FETCH \(old) (UID FLAGS")
+            }) {
+                server.holdReplies(to: "UID FETCH")
+            }
+        }
+        let pass = try XCTUnwrap(kept.uploadWaiting(to: repository))
+        try await until { await server.heldReplies(to: "UID FETCH") > 0 }
+        server.renumber(Server.allMail, validity: validity + 1, firstUID: 1)
+        server.stopHolding("UID FETCH")
+        await server.resetConnections()
+        await pass.value
+
+        let now = try XCTUnwrap(server.uids(in: Server.allMail).first {
+            server.letter(uid: $0, in: Server.allMail)?.subject == "Plans"
+        })
+        XCTAssertNotEqual(now, old)
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.first, bytes), "each file its own")
+        }
+        XCTAssertEqual(searches(for: try XCTUnwrap(forward.row.gmailMessageID)), 2,
+                       "once, and once more after the renumbering")
+        XCTAssertEqual(partsFromAllMail(), ["\(old) [2]", "\(now) [3]", "\(now) [4]"])
+        XCTAssertEqual(notes("CARRIED-PART"),
+                       ["CARRIED-PART folder=INBOX reason=gone",
+                        "CARRIED-PART found folder=\(Server.allMail)",
+                        "CARRIED-PART folder=\(Server.allMail) reason=folder",
+                        "CARRIED-PART folder=INBOX reason=gone",
+                        "CARRIED-PART found folder=\(Server.allMail)",
+                        "CARRIED-PART found folder=\(Server.allMail)"])
+        XCTAssertEqual(kept.store.letters().count, 0)
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
     /// A forward's quoted picture the same: sent from the Outbox in a later
     /// launch with its original's UID holding another letter, the picture in
     /// the quote is the original's own, found in All Mail, and never the
@@ -1401,9 +1513,9 @@ final class KeptReferencesTests: XCTestCase {
     }
 
     private func until(file: StaticString = #filePath, line: UInt = #line,
-                       _ condition: () -> Bool) async throws {
+                       _ condition: () async -> Bool) async throws {
         for _ in 0..<1_000 {
-            if condition() { return }
+            if await condition() { return }
             try await Task.sleep(for: .milliseconds(1))
         }
         XCTFail("never happened", file: file, line: line)

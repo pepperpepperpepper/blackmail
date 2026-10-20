@@ -1152,7 +1152,9 @@ this host. Ordered by value, not by size.
       original once per file (`UID SEARCH X-GM-MSGID` before each part);
       once would do. Seen on the iPad 2026-09-30.
       *Done 2026-10-20, not yet seen on the iPad: looked for once, and
-      every part after it fetched from the UID that search gave. B-088.*
+      every part after it fetched from the UID that search gave, before
+      its own folder and UID are asked again, so that with the original
+      archived each costs its two FETCHes, no SELECT. B-088.*
 - [ ] A letter read from its All Mailboxes hit leaves the Inbox's row for
       the same letter with its unread dot until the list is fetched again,
       though the Inbox's count goes down. Seen on the iPad 2026-10-03.
@@ -2663,18 +2665,33 @@ this host. Ordered by value, not by size.
       `"messageID":"1\/U"`, one for each photo and all the same U: write U
       one lower, which is another letter's UID or none.
       4. *Back.* Wi-Fi on, open the app: the forward goes by itself after
-      the Inbox's first page. The connection log: `CARRIED-PART
-      folder=INBOX reason=another-letter` (or `reason=gone`) for each photo;
-      one `UID SEARCH X-GM-MSGID …` in `[Gmail]/All Mail`, before the first
-      photo only; then for each photo the FETCH that describes the letter
-      and its `BODY.PEEK[n]`, both at the UID that search gave, and
+      the Inbox's first page. The connection log, before the first photo
+      only: `CARRIED-PART folder=INBOX reason=another-letter` (or
+      `reason=gone`), then one `UID SEARCH X-GM-MSGID …` in
+      `[Gmail]/All Mail`. Then for each photo the FETCH that describes the
+      letter and its `BODY.PEEK[n]`, both at the UID that search gave, and
       `CARRIED-PART found folder=[Gmail]/All Mail`. On the build before,
       the search went before each photo, three times.
       5. *Arrived.* Refresh: "Fwd: B-088 three" to `+b088fwd`, with the
       three photos as in the original.
-      6. *Put back.* Move the B-088 letters to Trash.
-      *Not tried on the simulator: the host tests count the searches over
-      the scripted server (B-088).*
+      6. *The original archived instead.* Open "B-088 three" again,
+      Forward, To A with `+b088fwd`, Wi-Fi off, Send: the Outbox. End the
+      app. In Gmail on the web, as the test account, archive "B-088
+      three"; no edit of the store.
+      7. *Back.* Wi-Fi on, open the app: the forward goes by itself. The
+      log: one `UID FETCH` at the original's Inbox UID, answered with
+      nothing, and `CARRIED-PART folder=INBOX reason=gone`, before the
+      first photo only; one `UID SEARCH X-GM-MSGID …`; then for each photo
+      the two FETCHes at the UID that search gave, and between the photos
+      no `SELECT` unless the Inbox's previews came between them. On the
+      build before, each photo had its own FETCH at that Inbox UID and its
+      own search, and each after the first a `SELECT "INBOX"` and a
+      `SELECT "[Gmail]/All Mail"` too.
+      8. *Arrived.* A second "Fwd: B-088 three", with the three photos.
+      9. *Put back.* Move the B-088 letters to Trash, the original from
+      All Mail.
+      *Not tried on the simulator: the host tests count the searches and
+      the SELECTs over the scripted server (B-088).*
 
 ## Blocked on the owner
 

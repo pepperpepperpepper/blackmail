@@ -13875,28 +13875,44 @@ part does, then searched All Mail again.
 
 **Changed.** Where the search finds a letter in All Mail is kept for the
 launch, by Gmail's id for it (`foundInAllMail`): the folder's name, its
-UIDVALIDITY and the UID. The parts after the first are fetched from there
-as any part a letter carries is (`carriedPart`): from the letter on screen
-when it is that letter, otherwise by the FETCH that describes the letter,
-which names it before the part's bytes are asked for. No search goes. Not
-there any more, another letter under that UID or none, or All Mail
-renumbered, and the log says so as it does for the folder the part names
-(`CARRIED-PART folder=[Gmail]/All Mail reason=another-letter`, or `gone`,
-or `folder`); the letter is looked for once more, and the parts after it
-come from where that finds it. Not found, nothing of the letter goes, as
-before (`CARRIED-PART not-found nothing-sent`).
+UIDVALIDITY and the UID. Each part after the first is fetched from there
+first, after the letter on screen only and before the folder and UID it
+names (`carriedPartFoundBefore`), as any part a letter carries is
+(`carriedPart`): by the FETCH that describes the letter, which names it
+before the part's bytes are asked for. No search goes, and with All Mail
+still selected no SELECT either; nothing is asked again of the folder the
+part names, where the part before did not find it. Not there any more,
+another letter
+under that UID or none, or All Mail renumbered or refused, and the log says
+so as it does for the folder the part names (`CARRIED-PART
+folder=[Gmail]/All Mail reason=another-letter`, or `gone`, or `folder`).
+What was kept is dropped and the part goes as the first did: the folder and
+UID it names, then one search, and the parts after it come from where that
+finds it. Not found, nothing of the letter goes, as before (`CARRIED-PART
+not-found nothing-sent`).
+
+What a forward of three files costs now, in its later launch. The original
+archived since, as when he archives it while the forward waits in the
+Outbox or in Drafts, so that its Inbox UID holds nothing: the first file a
+SELECT of the Inbox, a FETCH there answered with nothing, a SELECT of All
+Mail, the search and the part's two FETCHes; each file after it the two
+FETCHes. Ten commands where there were eighteen, and one SELECT of All
+Mail, which Gmail answers only once it has counted All Mail, where there
+were three. With another letter under the UID, as on the iPad, the Inbox
+was not asked again after the first file before either, this launch
+having had the other letter there: ten commands where there were twelve,
+the two searches gone.
 
 **Not changed.** The first part of a letter goes as before: the folder and
-UID it names, then a search of All Mail. Every later part still tries its
-own folder and UID first. That is free when this launch has seen another
-letter there; with none there, as for an original archived since, it is
-one FETCH answered with nothing, as before, and not a search. A part that
-names no letter goes by folder and UID alone. A line that goes while a part
-is fetched leaves the letter waiting for the connection.
+UID it names, then a search of All Mail. A part that names no letter goes
+by folder and UID alone. A line that goes while a part is fetched leaves
+the letter waiting for the connection, as before. Where a letter was found
+is kept for the launch, not for one letter: a later forward of the same
+original goes there first too, and its FETCH, naming the letter, decides.
 
 **What he sees.** Nothing new. A forward like it goes a little sooner.
 
-**Tests.** Four, all new, in `KeptReferencesTests.swift`: the shipping
+**Tests.** Six, all new, in `KeptReferencesTests.swift`: the shipping
 `LocalDrafts` and repository over the scripted server, and a scripted
 submission server. Each counts `UID SEARCH X-GM-MSGID` in All Mail and
 pins the parts fetched there, by UID and section.
@@ -13917,21 +13933,48 @@ pins the parts fetched there, by UID and section.
   `reason=another-letter` for All Mail, the original is looked for once
   more, and the second and third files come from its new UID: two
   searches for three files.
+- *Three files, the original archived:* the first forward's, the original
+  taken out of the Inbox by another client before the later launch, so
+  that its UID there holds nothing. Two SELECTs in all, the Inbox's and
+  All Mail's, both for the first file; one FETCH asked of the Inbox; one
+  search; the three parts from the UID it gave, two FETCHes each.
+- *All Mail renumbered for the next connection:* the same, and the line
+  goes as the second file's first FETCH is out. The connection made again
+  finds All Mail under a new UIDVALIDITY, numbered from 1. The log says
+  `reason=folder` for All Mail, then `reason=gone` for the Inbox; the
+  original is looked for once more, and the second and third files come
+  from its new UID: two searches, the three files sent, nothing left in
+  the Outbox. RFC 3501 lets UIDs change between sessions only, under a new
+  UIDVALIDITY, so the renumbering is met here as it would be: on the new
+  connection's SELECT.
 
-For the last, the scripted server can change its mail between two
+For the renumberings, the scripted server can change its mail between two
 commands (`change(after:_:)`): the moment the command named has been
-carried out, before its reply goes.
+carried out, before its reply goes. For the last, it holds the second
+file's answer (`holdReplies`) until All Mail is renumbered and the line
+cut.
 
-Against the code as it was: all four failed, 5 failures. Three searches
+Against the code as it was: all six failed, 18 failures. Three searches
 for three files, two for the picture and the file, three in place of two
-after the renumbering. Then two parts of the change undone one at a time,
-the four run each time. No second search after a refused UID: the
-renumbered test failed, 7 failures, nothing sent. The UID kept used
-without the FETCH naming the letter: it failed, 7 failures, two of the
-other letter's files sent as the second and third. The other three passed
-both times.
+after the renumbering; with the original archived, six SELECTs, three of
+them All Mail's. All Mail renumbered for the next connection, nothing was
+sent: the search found the letter under its old UID, and the FETCH there
+met the renumbering and took it for the letter not found, the forward
+left in the Outbox saying its attachment could not be downloaded. Then
+parts of the change undone one at a time, the six run each time. The
+refusal of the UID kept caught only when it is another letter or none,
+and taken for the connection when its folder is renumbered: the last test
+failed, 9 failures, nothing sent, the forward left in the Outbox as one
+waiting for the connection; the other five passed. No second look after a
+refused UID: both renumbering tests failed, 7 and 9 failures, nothing
+sent; the other four passed. The UID kept used without the FETCH naming
+the letter: the first renumbering test failed, 7 failures, two of the
+other letter's files sent as the second and third, and the last failed on
+its log. The UID kept tried after the folder and UID the part names: the
+archived test failed on its SELECTs, the FETCHes asked of the Inbox and
+its log, and the last on the order of its log.
 
-The full suite, serially: 1,733 tests, 5 skipped, none failing. The
+The full suite, serially: 1,735 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -13942,3 +13985,9 @@ release build for the iPad links.
   with All Mail renumbered or the letter binned and brought back, and
   neither can be timed by hand between two parts. The scripted server's
   renumbering stands in.
+- All Mail renumbered between the search and the FETCH of the part it
+  found, met on a connection made again: that part is taken for not
+  found, and the letter stays in the Outbox or in Drafts saying its
+  attachment could not be downloaded, as before B-088. For a part after
+  the first, the UID kept refused, the letter is looked for once more; for
+  the part the search was made for, it is not.
