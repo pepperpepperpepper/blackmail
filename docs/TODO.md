@@ -451,28 +451,29 @@ this host. Ordered by value, not by size.
       *Done: the view button, top-left in both arrangements; two panes as
       D-003 laid them out, three as D-009 did and by default; kept across
       launches (`PaneArrangement`, D-015). Checked in
-      `PaneArrangementTests`; see B-048 for what he could notice. Not yet
-      seen on the iPad, below.*
+      `PaneArrangementTests`; see B-048 for what he could notice. Seen on
+      the iPad 2026-09-29 (B-048); what is left is below.*
 - [x] **B-066. The view button's switch moves.** Asked for by the owner
       on 2026-10-03: "We need better transition animation between the
       three-panel view and the two-panel view." Calm, nothing wobbling,
       nothing moving up or down, nothing reflowing while it moves.
-      *Done, not yet seen on the iPad: pictures of the panes slide
-      sideways for 0.4 s and settle for 0.2 s over the panes already laid
-      out beneath them, and with Reduce Motion the screen fades for 0.3 s
-      (`PaneMove`, `PaneMotion`). "< Mailboxes" and a folder tap stay
-      instant, and so does a switch tapped while a list or the letter
-      bounces past an end. Checked in `PaneMoveTests` and `PaneArrangementTests`; see
-      B-066. What to look at on the iPad is below.*
+      *Done: pictures of the panes slide sideways for 0.4 s and settle for
+      0.2 s over the panes already laid out beneath them, and with Reduce
+      Motion the screen fades for 0.3 s (`PaneMove`, `PaneMotion`).
+      "< Mailboxes" and a folder tap stay instant, and so does a switch
+      tapped while a list or the letter bounces past an end. Checked in
+      `PaneMoveTests` and `PaneArrangementTests`; see B-066. Seen on the
+      iPad frame by frame 2026-10-03, then replaced by B-077's motion, the
+      next item. What to look at on the iPad is below.*
 - [x] **B-077. The panes move as Mail's.** The owner's ruling on B-066's
       questions, 2026-10-06: "copy apple mail for these".
-      *Done, seen on the iPad 2026-10-07 but for VoiceOver's place
-      (B-079): one half-second motion on UIKit's spring for the view
-      button, the list over the folders at half speed and the folders
+      *Done, seen on the iPad 2026-10-07, VoiceOver's place too under
+      B-079 (2026-10-20): one half-second motion on UIKit's spring for the
+      view button, the list over the folders at half speed and the folders
       darkening, no settle; "< Mailboxes" and a folder tap as a pop and a
       push; Reduce Motion and Prefer Cross-Fade Transitions as Mail has
       them (`PaneMove`, `PaneMotion`). Seen and measured in the iPadOS 18
-      simulator. What is left to see is below.*
+      simulator.*
 - [x] ~~**B-035. Ship the signature as a compile-time default.**~~ *Ruled
       out by the owner, 2026-09-26: his signature never goes in the repo.
       See the gap review above.* Needs the
@@ -492,29 +493,41 @@ this host. Ordered by value, not by size.
 
 ## Blocked on the iPad coming back
 
-- [ ] See B-037 rendered at all: now B-048, below.
-- [ ] Confirm the signature's white sheet **in the reading pane** — the
-      outgoing half is verified by tests and Chromium renders, but the in-app
-      half only applies to letters carrying the new marker, so it needs one
-      send.
+- [x] See B-037 rendered at all: now B-048, below. *Seen on the iPad
+      2026-09-29: three panes and two, the view button, "< Mailboxes" and
+      the choice kept across a relaunch (B-048).*
+- [ ] Confirm the signature's white sheet **in the reading pane**, in a
+      conversation's stack (`ConversationDocument`'s `.bm-signature` rule).
+      *Seen in passing on the iPad 2026-10-07 (B-074): in a stack, a
+      reply's signature and what it quotes on a white sheet with dark
+      words.* The outgoing half is verified by tests and Chromium renders.
+      Every HTML letter the app sends with a signature carries the marker
+      (`AppleMailHTML.signatureOpen`), so no send is needed. A letter shown
+      alone is drawn by `PanePage.letter`, which has no such rule, so its
+      signature shows white on the dark pane (seen in passing in B-074,
+      not yet looked into); that is what is left of this item.
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
-      sends and arrives; see B-036. Still to try is below.* It also needs `ideviceinstaller`,
-      which is on neither machine, or TrollStore. (B-036 blocker 2) The IPA
+      sends and arrives; see B-036. Still to try is below.* It is installed
+      through TrollStore's helper. (B-036 blocker 2) The IPA
       is `tools/build-share-ipa.sh` → `ios/Blackmail-share.ipa`, installed
       through installd, not the copy-based deploy. Open the app once, then
       share from Safari and from YouTube: that Blackmail is in the row, that
-      the title is the subject, that his second address is offered in To,
-      that it sends and arrives with the link tappable, that five full-size
-      photos shared at once arrive, and that the app's own password still
-      works after the extension build's keychain groups (copy-deploy that
-      build to the dev iPad first). Then take `BLACKMAIL_SHARE_EXT` out of
-      `package.sh`. *Safari seen 2026-09-30; what is left is "The share
-      sheet's checks", the last item of this section.*
-- [ ] Anything else touching the send path. Batch 6 of the lag fixes
+      Safari's page title is the subject (the YouTube app hands over the
+      link alone, so a share from it has no subject; B-036), that his
+      second address is offered in To once a letter of it is typed
+      (B-073), that it sends and arrives with the link tappable, that five
+      full-size photos shared at once arrive, and that the app's own
+      password still works after the extension build's keychain groups
+      (copy-deploy that build to the dev iPad first). Then take
+      `BLACKMAIL_SHARE_EXT` out of `package.sh`. *Safari seen 2026-09-30;
+      what is left is "The share sheet's checks", further down this
+      section.*
+- [x] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
-      first.
-- [ ] Send one letter to confirm the send path still works now that
+      first. *Done 2026-09-29: B-044's checks were made on the iPad; what
+      is left of them is under B-044 below.*
+- [x] Send one letter to confirm the send path still works now that
       `SMTPClient` runs over the `MailTransport` seam and `TLSConnection`
       reads through `ReadBuffer`, and now that the transport has real
       deadlines: a write goes to the stack in 64 KB pieces, each with the
@@ -526,8 +539,13 @@ this host. Ordered by value, not by size.
       tests run (`LinkTransportTests`, `DeadlineWireTests`), and
       `SMTPReplyWaitTests` checks which SMTP reply asks for the long bound.
       No host test sends over TLS, though (the scripted server refuses port
-      465), `TLSConnection`'s `NWConnection` glue only runs on the device,
-      and nothing has been sent through any of this on the device yet.
+      465), and `TLSConnection`'s `NWConnection` glue only runs on the
+      device. *Seen on the iPad 2026-09-29, five pictures sent over it
+      (B-044), and 2026-10-05, a 19 MB video with one `WIRE-OUT`,
+      `LETTER-LATCH ok`, one `WIRE-ACK` and the 250, and `DEADLINE write
+      bound=30s` when the line was cut (B-070). The ten-minute wait for the
+      reply was not seen, Gmail answering in seconds; the host tests stand
+      for it (`SMTPReplyWaitTests`, `LinkTransportTests`).*
 - [ ] Time an All Mailboxes search on the device, and a letter tapped
       while it runs, from the connection log. The one-hold search and the
       interactive line are checked on the scripted server, which knows
@@ -535,19 +553,22 @@ this host. Ordered by value, not by size.
       decides what the binned half of a search still costs.
 - [ ] Watch a cold launch in the connection log: LOGIN, one LIST, the
       Inbox's SELECT, SEARCH and FETCH, and only then a STATUS per folder.
-      Then move an unread letter out of the Inbox from the reading pane and
-      check both folders' counts come right, which they must within one
+      Then mark a letter unread in Edit mode (opening it marks it read) and
+      move it out of the Inbox from the reading pane, and check both
+      folders' counts come right, which they must within one
       sweep of the MOVE (B-040). The order and the counts are checked on the
-      scripted server; the folder pane drawing names first and counts a
-      moment later has not been seen on glass.
+      scripted server; since the kept copy (D-016, B-053) the folders are
+      drawn with their last counts in the first frame, and names alone show
+      only when nothing is kept.
       The host suite checks the rules, not the UIKit wiring that applies
       them, which it cannot compile, so on glass also check: the counts do
       appear after launch (the folder pane holds them until
-      `onFirstLoadFinished` lets them go, and nothing else would), and do
-      not after a launch with Wi-Fi off; tapping the newest unread letter
-      the moment the Inbox appears leaves the Inbox's count right once the
-      counts have settled (`adjustUnreadCounts` asking for one more); and
-      the Move sheet opens with its folders at once.
+      `onFirstLoadFinished` lets them go, and nothing else would), and after
+      a launch with Wi-Fi off the kept counts show and no STATUS goes;
+      tapping the newest unread letter the moment the Inbox appears leaves
+      the Inbox's count right once the counts have settled
+      (`adjustUnreadCounts` asking for one more); and the Move sheet opens
+      with its folders at once.
 - [ ] **B-041, the reading pane at the tap.** Tap from letter to letter
       in the Inbox: the header must change at the tap to the new sender,
       subject and date with "Loading…" under it, and the previous letter
@@ -555,9 +576,11 @@ this host. Ordered by value, not by size.
       frame. Delete a letter, then tap the next: the binned one must not
       appear at all. Tap four letters about a third of a second apart,
       one of them large: the connection log should show two
-      `BODY.PEEK[]` fetches, the first and the last, and the pane should
-      end on the last. Tap Reply while a large letter is loading: nothing
-      should open until it is there. The web view's first paint of
+      `BODY.PEEK[]` fetches, the first and the last (for letters of 5 MB or
+      less, `largeLetterBytes`; a larger one is fetched in parts, its
+      BODYSTRUCTURE first), and the pane should end on the last. Tap Reply
+      while a large letter is loading: the Reply, Reply All and Forward
+      sheet does not open until it is there. The web view's first paint of
       "Loading…" and of the letter after it is the part the host cannot
       see: look for a white flash or a blank frame between them. The
       header's height must not change when a letter with files lands
@@ -565,15 +588,17 @@ this host. Ordered by value, not by size.
 - [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
-      moves or blanks, and the connection log shows `UID MOVE` and nothing
-      after it. Delete stays grey until it lands. Delete an unread letter:
-      the counts drop at once, and the log shows one LIST and a STATUS per
-      folder after the MOVE; Trash's count comes right with them. With an
-      All Mailboxes search showing, open a hit that is also in the Inbox's
-      first page, Delete it, then cancel the search: it must not be in the
-      Inbox, and the search's text, results and scroll must have stayed
-      until the cancel. With the Inbox's first page only loaded, search the
-      Current Mailbox for a letter a few pages down, Delete it from the pane,
+      moves or blanks, and the connection log shows `UID MOVE` and after it
+      only the watch's check every 30 s. Delete stays grey until it lands.
+      Mark a letter unread in Edit mode (opening it marks it read) and
+      Delete it from the pane: its counts drop when the MOVE lands, and the
+      log shows one LIST and a STATUS per folder after the MOVE; Trash's
+      count comes right with them. With an All Mailboxes search showing,
+      open a hit that is also in the Inbox's first page, Delete it, then
+      cancel the search: it must not be in the Inbox, and the search's
+      text, results and scroll must have stayed until the cancel. With the
+      Inbox's first page only loaded, search the Current Mailbox for a
+      letter a few pages down, Delete it from the pane,
       cancel the search and scroll to the bottom: the list must go on to the
       oldest letter, not stop at the page the binned one was in. In All
       Mail, Move a letter to Inbox: the row stays. Flag an All Mailboxes hit
@@ -587,7 +612,9 @@ this host. Ordered by value, not by size.
       within a minute and a half of the last thing he did: the flag goes
       back and "Can't connect" is said (at once, or after the 30 s read
       deadline if the socket is left half open). In a conversation, open
-      an unread collapsed letter: the dot and one count go, and the list
+      an unread letter that arrived while the stack was open and was then
+      closed by its line (since B-074 every unread letter opens with the
+      stack): the dot and one count go, and the list
       does not reload. The host suite checks the rules; the table view's
       reaction to them, row removal, highlight and empty state, is only
       visible here.
@@ -601,12 +628,14 @@ this host. Ordered by value, not by size.
       folder, the Inbox opens as before. Lock the iPad for two minutes
       after reading a letter, unlock, and before touching anything read the
       log: one NOOP, and after a night away a LOGIN on a new connection
-      after it; then the first letter opened should be SELECT and FETCH
-      only. After a night away, unlock and Delete the letter in the pane at
-      once: the log should show the NOOP, a LOGIN, a second NOOP and the
-      MOVE, and the row must not come back. Lock for thirty seconds straight
-      after tapping a letter: nothing at all should be sent on the way out
-      or on the way back.
+      after it; then the first letter opened costs its FETCH alone, since
+      the Inbox's refresh after more than fifteen minutes away has already
+      selected the Inbox. After a night away, unlock and Delete the letter
+      in the pane at once: the log should show the NOOP, a LOGIN, a second
+      NOOP and the MOVE, and the row must not come back. Lock for thirty
+      seconds straight after tapping a letter: nothing should be sent on the
+      way out or back until the watch's first check, about 30 s after the
+      return.
 - [ ] **B-042, where the list is.** In the Inbox, scroll down three pages
       and note the row at the top of the pane. Type a search: the first
       hit must be the first row under the search band, never above the
@@ -619,8 +648,9 @@ this host. Ordered by value, not by size.
       FETCH after the cancel if any were missing). Scroll down again, tap
       Refresh: the list goes to the top when the new page lands. Scroll a
       screen down, Edit, tick two rows in view and Delete: the rows left in
-      view stay where they were. Scroll far past the first page and do the
-      same: the list goes to the top. With
+      view stay where they were. Scroll past the first page and do the
+      same: since B-062 the rows are taken off in place, and the list is not
+      fetched again and stays where it was. With
       Wi-Fi off, search from far down: "Could not search. Check the
       connection." is on screen, not above it.
 - [ ] **B-042, paging upward.** In All Mail, Go to Date a few months back,
@@ -640,12 +670,14 @@ this host. Ordered by value, not by size.
       Mail opens during the slide, saying "Going to <day>…". Double-tap Go
       quickly: one jump in the connection log. With Airplane Mode on, Go:
       "Can't connect to mail server." must appear, once the sheet has gone
-      if the failure came during the slide (the log's timestamps say
-      whether it did), and the status line goes back to what it said. Move a letter from the
+      if the failure came during the slide (the log's timestamps say so
+      only when a connection was up; a failed connect writes no line), and the
+      status line goes back to what it said. Move a letter from the
       reading pane: "Moving…" until the MOVE is answered; with Wi-Fi off,
       the row comes back and the alert appears after the sheet has gone.
       Double-tap a folder in the Move sheet: one MOVE in the log. Edit,
-      tick two, Move: "Moving…" until the list is fetched again. Start to
+      tick two, Move: "Moving…" until the server has answered for both; the
+      list is not fetched again (B-062). Start to
       swipe the Go to Date sheet down and tap Go before letting go, with
       Wi-Fi off: the alert may be lost with the sheet, but alerts after it,
       a second later, must still appear (tap a letter: "Can't connect").
@@ -654,23 +686,26 @@ this host. Ordered by value, not by size.
       letter lands; nothing under the header moves then. Open a
       conversation whose newest letter has files: the stack must not shift
       when its body lands. A letter whose only picture is a signature logo
-      shows no file row before or after. Open a forwarded letter
-      (message/rfc822 inside): the rows before and after must be the same;
-      if they are not, the BODYSTRUCTURE and the downloaded letter
+      shows no file row before or after. Open a letter with a
+      message/rfc822 part (the app's own Forward quotes inline, B-050; such
+      a letter comes from another client): the rows before and after must be
+      the same; if they are not, the BODYSTRUCTURE and the downloaded letter
       disagree about its parts, which the host cannot see with Gmail's own
       structures. Tap a large PDF in one letter, and at once another letter
       with a file: when the first download ends, the second letter's rows
       stay grey until it lands, and a download of its own keeps its
       spinner.
-- [ ] **B-042, Drafts.** Tap a draft: its row stays highlighted with a
-      spinner in the left gutter, the text beside it unmoved, until the
-      composer opens. Tap it again while it spins: one FETCH in the
-      connection log. Tap a second draft while the first spins: only the
-      second opens. With Wi-Fi off: the spinner stops, the highlight goes,
-      and "Can't connect to mail server." appears.
+- [ ] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
+      this iPad only" opens at once, with no spinner. Tap a draft: its row
+      stays highlighted with a spinner in the left gutter, the text beside
+      it unmoved, until the composer opens. Tap it again while it spins: one
+      FETCH in the connection log. Tap a second draft while the first spins:
+      only the second opens. With Wi-Fi off: the spinner stops, the
+      highlight goes, and "Can't connect to mail server." appears.
 - [ ] **B-042, WebKit's content process.** Force it out while a letter is
-      showing: on a device with a shell, `killall -9
-      com.apple.WebKit.WebContent`; otherwise leave for Safari and Photos,
+      showing: on a device with a shell, `kill -9` of Blackmail's own
+      `com.apple.WebKit.WebContent`, never `killall`, which ends every
+      app's; otherwise leave for Safari and Photos,
       open many large pages and a few videos, and come back. The
       connection log must say "webview: content process ended". A single
       letter comes back drawn, at the top, with no FETCH of the letter in
@@ -691,9 +726,7 @@ this host. Ordered by value, not by size.
       B-043. Still to see: the rest below from "a newsletter of a few
       hundred KB", a twenty-letter conversation, a body with backslashes or
       `</script>`, the time zone and 24-hour clock, and the fill's timing.*
-      The app must launch at all: the
-      pane now binds `callAsyncJavaScript` from `libswiftWebKit`, which the
-      16.5 SDK says every iOS 16 has. Open the largest letter in the
+      Open the largest letter in the
       mailbox, a newsletter of a few hundred KB or more, and scroll the list
       while it comes: the list must not catch, and the letter draws. Then a
       long conversation, twenty letters or more, with HTML and plain letters
@@ -718,8 +751,7 @@ this host. Ordered by value, not by size.
       draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
       see: Save Draft then lock, Send the moment the picker closes, a tap
       on the sent draft's row as the sheet closes, Look Up or Share during
-      a send, Send with the Cancel sheet open.* None of it seen on the device yet; B-044 has
-      the same checks on the build before it, to compare with. Write a
+      a send, Send with the Cancel sheet open.* Write a
       plain letter to himself and Send: Send gives way at once to a spinner
       and "Sending…", Cancel and Attach Photo are grey, the sheet will not
       swipe down, and it closes the moment the letter has gone; the letter
@@ -730,14 +762,14 @@ this host. Ordered by value, not by size.
       the Drafts cleanup (NOOP or LOGIN, SELECT, STORE, EXPUNGE), and the
       draft has gone from Drafts afterwards. Attach five photos and send:
       "Sending… n%" climbs while it goes, the sheet closes, and it arrives
-      once with all five. Turn Wi-Fi off and Send: "Can't connect to mail
-      server.", the letter still in the sheet as written, and Send, Cancel,
-      Attach Photo and each Remove live again. Send a photo letter and lock
+      once with all five. Turn Wi-Fi off and Send: the sheet closes
+      with "Message is in the Outbox. It will be sent when the iPad is
+      connected and Blackmail is open." (B-052). Send a photo letter and lock
       the iPad at once; unlock after a minute: either the letter went, once,
-      and the sheet is gone, or it failed with the letter still in the sheet
-      and the reason on screen. A letter that went must not be reported as
-      failed, and none may arrive twice. Then Save Draft on a photo letter
-      and lock at once: the draft is in Drafts when he comes back.
+      and the sheet is gone, or it waits in the Outbox and goes once. A
+      letter that went must not be reported as failed, and none may arrive
+      twice. Then Save Draft on a photo letter and lock at once: the draft
+      is in Drafts when he comes back.
       Choose five photos and tap Send the moment the picker closes: the
       spinner at once, and the letter arrives with all five; the same with
       Save Draft, and the draft has all five. Reopen a saved draft, send
@@ -771,17 +803,22 @@ this host. Ordered by value, not by size.
       it: it arrives with the photo once, and the logo in the signature.
 - [ ] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
       sheet and VoiceOver still to look at.* The sidebar's first row and the list's title read
-      "Inbox" at launch and after tapping it. The Move sheet says "Inbox"
-      too. With VoiceOver on, the first row reads "Inbox, N unread", or
-      "Inbox" with nothing unread.
+      "Inbox" at launch and after tapping it. The Move sheet, opened on a
+      letter in another folder (it leaves out the letter's own folder),
+      says "Inbox" too. With VoiceOver on, the first row reads
+      "Inbox, N unread", or "Inbox" with nothing unread.
 - [ ] **B-048, two panes or three.** *Partly seen 2026-09-29: both ways
       with a letter open and a search up, "< Mailboxes" and the open
       folder, the choice kept across a relaunch; see B-048. Still to see:
-      Edit mode, another folder from "< Mailboxes", VoiceOver, the layout
-      sweep.* Switch the Layout button on in the
+      Edit mode across a switch, the scrolled list with the log quiet, the
+      open folder from "< Mailboxes" in the log, a long folder name ending
+      in "…" in two panes, and the thumb resting on the list, which needs
+      two touches at once. Another folder, VoiceOver and the layout lines
+      were seen in B-077 and B-079.* Switch the Layout button on in the
       connection log first. Open a letter, scroll the list a few pages
       down, and tap the view button both ways: the letter stays drawn with
-      no "Loading…" and nothing new in the connection log, the list keeps
+      no "Loading…" and nothing in the connection log but the watch's check
+      every 30 s, the list keeps
       its rows and the selected one where they were on screen, and the
       folder keeps its highlight. Again with a search active and the
       keyboard up (text, scope, results and keyboard all stay), and with
@@ -789,18 +826,20 @@ this host. Ordered by value, not by size.
       kept). Pane widths: 250 / 330 / 613 in three and 375 / 818.5 in two
       on the 11-inch; the button in the same spot in both. `< Mailboxes`
       shows the folders with the open one highlighted; the open folder
-      tapped shows its list where he left it, with no new commands in the
-      log; another folder loads as it does in three panes. With the
-      folders in front, the view button puts the list back in the middle.
-      Nothing truncates in the list's bar in two panes but a long folder
-      name, which ends in "…"; "Sent Mail" should fit, and `< Mailboxes`
-      is never shortened. Relaunch in two panes: it opens in two, on the
-      Inbox's list. VoiceOver reads "Hide Mailboxes" and "Show
+      tapped shows its list where he left it, with nothing in the log but
+      the watch's check every 30 s; another folder loads as it does in three
+      panes. With the folders in front, the view button puts the list back
+      in the middle. Nothing truncates in the list's bar in two panes but a
+      long folder name, which ends in "…"; "Sent Mail" should fit, and
+      `< Mailboxes` is never shortened. Relaunch in two panes: it opens in
+      two, on the Inbox's list. VoiceOver reads "Hide Mailboxes" and "Show
       Mailboxes", and lands on the button after a switch. A tap on the
       button with a thumb resting on the list does nothing. The connection
       log shows `layout: three panes`, `layout: two panes, …` and no
       finding after either.
-- [ ] **B-050, Reply and Forward as the original looked.** Read what
+- [ ] **B-050, Reply and Forward as the original looked.** *Partly seen
+      2026-09-30: a newsletter forwarded, and a one-word reply to his own
+      letter with a link; see B-050.* Read what
       arrives in Mail on another device and in Gmail on the web, not in
       Blackmail, whose pane draws no bar beside a quote yet. Forward a
       newsletter with pictures to himself: it arrives looking like the
@@ -822,7 +861,9 @@ this host. Ordered by value, not by size.
       rows; send it: it arrives as the same reply sent fresh would. Reply to
       one of his own shared links, a plain-text letter: the link in the
       quote can be tapped.
-- [ ] **B-051, letters kept on the iPad.** None of it seen on the iPad yet.
+- [ ] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
+      offline Save Draft and Refresh, a reopened draft changed offline, and
+      a letter kept across the app's end; see B-051.*
       Turn Wi-Fi off in Control Center, write a letter to himself, Cancel,
       Save Draft: the sheet goes with nothing said, and Drafts has it at
       the top, its preview beginning "On this iPad only". Turn Wi-Fi on
@@ -835,8 +876,10 @@ this host. Ordered by value, not by size.
       app away in the app switcher; open it again: the letter is at the
       top of Drafts with every word, and shortly after in Gmail's Drafts
       on the web. The same with two photos attached before the swipe: both
-      come back, open in the composer, and go up with it. Write a letter
-      and swipe its sheet down: it is in Drafts. Send a letter, Save one
+      come back and open in the composer; at a megabyte or more of files
+      the letter goes up only as he leaves the app (`LocalDraft.goes(by:)`).
+      Write a letter and swipe its sheet down: it asks Save Draft or Delete
+      Draft and does not close (B-069). Send a letter, Save one
       with Wi-Fi on, and Delete one: nothing "On this iPad only" is left.
       Lock the iPad in the middle of a letter and unlock it: the letter is
       still in the sheet as it was. With Wi-Fi off, Save Draft on a letter
@@ -846,8 +889,10 @@ this host. Ordered by value, not by size.
       and does not come back at the next Refresh. Search Drafts, open a
       draft from the hits, change it, Save Draft: the hit is the new copy,
       and opens.
-- [ ] **B-049, new mail on its own.** With the Inbox open and the list at
-      the top, send a letter to himself from the phone: within about half a
+- [ ] **B-049, new mail on its own.** *Partly seen 2026-09-30: a letter
+      from Blackmail at the top by itself, the Inbox's count up; see
+      B-049.* With the Inbox open and the list at
+      the top, send a letter to himself from Blackmail: within about half a
       minute it is at the top of the list with no tap, and the Inbox's count
       goes up. The connection log should show a `NOOP` answered `* n
       EXISTS`, then `UID SEARCH UID …:*`, one `UID FETCH` of that letter,
@@ -867,7 +912,11 @@ this host. Ordered by value, not by size.
       while it is locked. A letter opened, flagged or deleted just after a
       check behaves as before. Hold a finger on a row as a letter arrives:
       it goes on within half a minute of lifting it.
-- [ ] **B-052, the Outbox.** None of it seen on the iPad yet. Turn Wi-Fi
+- [ ] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
+      Outbox row and its line, going once, the lock at once, and Gmail's 553
+      for `nobody`; see B-052. A waiting letter looked for in Sent Mail
+      before it went again was seen under B-070, and one going by itself
+      once the connection was back under B-083.* Turn Wi-Fi
       off in Control Center, write a letter to himself, Send: "Sending…",
       then the sheet closes with "Message is in the Outbox. It will be sent
       when the iPad is connected and Blackmail is open.", an Outbox row
@@ -882,17 +931,17 @@ this host. Ordered by value, not by size.
       `UID SEARCH HEADER Message-ID` in Sent Mail before any second
       `ENVELOPE`. Either way, check in Gmail on the web ("Show original") that
       a letter the app sent is in Sent Mail under the Message-ID the app
-      gave it, which is what the look depends on and has never been seen,
+      gave it, which is what the look depends on (seen 2026-09-30, B-052),
       and note how many seconds after Send it is there: the app gives Gmail
       ten minutes after a cut before it takes "not in Sent Mail" as final
       (`Outbox.settling`), a figure from RFC 5321, not from Gmail.
       Send a letter to an address with no domain, `nobody@`, which Gmail
-      refuses at RCPT: the sheet stays with "Message was not sent." and the
-      letter, as before. Reopen a draft from Drafts, Wi-Fi off,
-      Send: it leaves Drafts' list, waits in the Outbox, and once sent its
-      old copy is gone from Drafts on the web. Tap a letter in the Outbox,
-      Cancel untouched: it is back in the Outbox. In two panes, the Outbox
-      is in the Mailboxes' column and opens like any folder.
+      refuses at RCPT (seen 2026-09-30): the sheet stays with "Message was
+      not sent." and the letter, as before. Reopen a draft from Drafts,
+      Wi-Fi off, Send: it leaves Drafts' list, waits in the Outbox, and once
+      sent its old copy is gone from Drafts on the web. Tap a letter in the
+      Outbox, Cancel untouched: it is back in the Outbox. In two panes, the
+      Outbox is in the Mailboxes' column and opens like any folder.
 - [ ] **B-051, what a kept letter names, by its Gmail id.** Cases 1 to 3
       seen on the iPad 2026-09-30 (B-051); case 4 is for an iPad that had
       letters from before the ids, which his fresh install will not. A draft
@@ -990,12 +1039,14 @@ this host. Ordered by value, not by size.
       and their age offline, a folder never opened, and Refresh bringing a
       letter that came meanwhile. Still to see: the swap scrolled a little
       way down, with a finger resting on the list, and under two rows
-      ticked in Edit, which needs a slower connection than the house Wi-Fi,
-      the page landing about a second in; a flag from the pane in the first
-      second staying on; a letter tapped with no connection showing its
-      header, then the failure; the password saved again in Settings,
-      force-quit and open: the Inbox empty for a moment, as before the
-      copy, and the letters kept in Drafts ("On this iPad only") and the
+      ticked in Edit, made by a launch with no connection, then Airplane
+      Mode off, which lands the fresh page over the kept one at the watch's
+      next check; a flag from the pane before the fresh page lands
+      staying on; a letter tapped with no connection showing its header,
+      then the failure; the password saved again in Settings: the
+      Inbox empty for a moment right after Save (the copy is wiped at the
+      save, B-056), and after a force-quit the kept Inbox in the first frame
+      again, and the letters kept in Drafts ("On this iPad only") and the
       Outbox still there. Time the first frame if a screen recording can:
       the design asks under 500 ms.
 - [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
@@ -1042,16 +1093,17 @@ this host. Ordered by value, not by size.
       probe did. A refusal that is not the password,
       if one can be had (a normal Google password in Settings gets Gmail's
       "Application-specific password required"): the sentence with Google's
-      words under Save. Last, with the signature set: tap "Send my signature
-      as plain text instead" and Cancel, then Use Plain Text and Save; open
-      Settings again, "Restore Original Signature", Restore, Save; write a
-      letter to the account: the formatted signature and its logo are back.
-      Without leaving the app, open a letter's attachment, share it from the
-      preview to Blackmail (or, if Blackmail is not offered there, a link
-      from Safari in Slide Over) and send it to the account: the logo is on
-      that letter too (the share extension handed the pictures at the save,
-      not at the next trip to the background). Empty the box and Save:
-      "Remove Signature?", Cancel keeps it.
+      words under the password field. Last, with the signature set: tap
+      "Send my signature as plain text instead" and Cancel, then Use Plain
+      Text and Save; open Settings again, "Restore Original Signature",
+      Restore, Save; write a letter to the account: the formatted signature
+      and its logo are back. Without leaving the app, open a letter's
+      attachment, share it from the preview to Blackmail (or, if Blackmail
+      is not offered there, a link from Safari in Slide Over) and send it to
+      the account: the logo is on that letter too (the share extension
+      handed the pictures at the save, not at the next trip to the
+      background). Empty the box and Save: "Remove Signature?", Cancel keeps
+      it.
 - [ ] **B-053, every write and every open naming its letter.** Seen
       2026-09-30: the everyday wire after the page (open, Flag, Edit's
       Mark), and a copy made another mailbox's by hand refused under held
@@ -1070,11 +1122,13 @@ this host. Ordered by value, not by size.
       unread mail: the read mark's `UID FETCH n (UID X-GM-MSGID)` before its
       `UID STORE`, beside the letter's FETCH with the id, and its dot stays
       off. Sent Mail's rows are his own letters, read, so a tap there sends
-      no read mark; on the slower connection the swap under ticks needs,
-      Edit, a tick on a Sent Mail row and Mark as Unread can all be made
-      before its page lands: `UID FETCH n (UID X-GM-MSGID)` before
+      no read mark; after a launch with no connection, Sent Mail opened
+      while there is still none, and then Airplane Mode off, as for the
+      swap under ticks, Edit, a tick on a Sent Mail row and Mark as Unread
+      can all be made before its page lands at the watch's next check:
+      `UID FETCH n (UID X-GM-MSGID)` before
       `UID STORE n -FLAGS.SILENT (\Seen)`, then Mark as Read to put it back.
-      On that connection too: send the account two letters, force-quit, open
+      After such a launch too: send the account two letters, force-quit, open
       it, and before the page lands tick, in Edit, the last row of the kept
       Inbox, a read one (read it on an earlier launch if it is not), and a
       read one near the top. Once the page has come and waits for the ticks,
@@ -1086,8 +1140,8 @@ this host. Ordered by value, not by size.
       tick it and the row near the top in Edit and Mark as Read: the two
       STOREs alone, the page below having named it. Another mailbox's copy
       is made by hand by giving kept rows ids of no letter there, with the
-      app ended (B-053); a letter opened from one needs the slower
-      connection too.
+      app ended (B-053); a letter opened from one needs such a launch
+      too.
 - [ ] **B-055, the reading pane locked down, links in plain letters, Cc.**
       Seen 2026-09-30: letters and their web pictures drawn, a conversation's
       letter opened and closed, a plain letter's links asking before they
@@ -1096,13 +1150,16 @@ this host. Ordered by value, not by size.
       Every letter, notice and conversation still draws at all: the pane
       now loads only `about:blank` from `loadHTMLString`, and if WebKit
       named the pane's own page otherwise, nothing would.
-      *A conversation.* Three letters or more: the newest open, the rest
-      lines. Tap a closed line: it opens, its body comes, the header and
-      Reply move to it, its dot and one count go, and the line greys under
-      the finger as it did. Tap it again: it closes. Open two in quick
-      succession; leave the pane fifteen seconds and open another, whose
-      body goes in after WebKit's pause. With letters open, `killall -9
-      com.apple.WebKit.WebContent`: the stack comes back with them open and
+      *A conversation.* Three letters or more: since B-074 oldest at the
+      top, the newest and the unread letters open and the read ones lines,
+      opening at the oldest unread letter, or at the newest when he has read
+      the rest. Tap a closed line: it opens, its body comes, the header and
+      Reply move to it (a read letter, so no dot goes and no count changes),
+      and the line greys under the finger as it did. Tap it again: it
+      closes. Open two in quick succession; leave the pane fifteen seconds
+      and open another, whose body goes in after WebKit's pause. With
+      letters open, `kill -9` of Blackmail's own
+      `com.apple.WebKit.WebContent`: the stack comes back with them open and
       their bodies in (B-042).
       *Links in plain letters.* A plain-text letter, from a client set to
       send plain text, with a YouTube link, a Wikipedia link ending
@@ -1177,7 +1234,8 @@ this host. Ordered by value, not by size.
       painted, left where the keyboard pinned it. Seen on the iPad
       2026-10-03. *Done the same day, seen on the iPad: the footer is
       clear and lets taps through. B-065.*
-- [ ] Watch keepalive find a dead socket during the quiet: open a letter,
+- [ ] Watch a dead socket found (by the watch's 30 s check, or by
+      keepalive when no check runs): open a letter,
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
       after one reconnect, not after a 30 s stall.
@@ -1199,14 +1257,14 @@ this host. Ordered by value, not by size.
       same FETCHes for it, the others' as ever. On a slow connection,
       force-quit and tap it on the kept Inbox before the page lands: the
       first FETCH carries `X-GM-MSGID`. And with the Inbox open, the
-      connection log shows the SEARCH as `* SEARCH {N uids}` and its screen
-      scrolls without a stall. A letter whose HTML is over 2 MB, if one can
-      be had, shows "Only the beginning of this message is shown." above
-      it; Reply to it and Forward it to the second address: the composer's
-      quote ends with the same words under a blank line, and the letter
-      received ends its quote with them in grey, in Mail and on Gmail's web
-      page, once (since 2026-10-01). Save the reply as a draft, reopen it
-      and send it: the line still once.
+      connection log shows the SEARCH as `* SEARCH {N uids}` (seen
+      2026-09-30) and its screen scrolls without a stall. A letter whose
+      HTML is over 2 MB, if one can be had, shows "Only the beginning of
+      this message is shown." above it; Reply to it and Forward it to the
+      second address: the composer's quote ends with the same words under a
+      blank line, and the letter received ends its quote with them in grey,
+      in Mail and on Gmail's web page, once (since 2026-10-01). Save the
+      reply as a draft, reopen it and send it: the line still once.
 - [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
       Seen 2026-10-01 (B-057): steps 1 and 2's first launches, the fifth
       with Bring Back, the leftover, and three tries after a DATA that may
@@ -1625,7 +1683,8 @@ this host. Ordered by value, not by size.
       steps 1, 2, 7 and 10 are B-077's checks below; 3 to 6, 8 and 9
       stand; in 11 the gap beside the list comes only at the tap from
       three to two, where the list narrows to 375 pt, and closes as it
-      moves; in 12, "at the settle" is now "as the pictures go".*
+      moves; in 12, "at the settle" is now "as the pictures go". Step 8
+      was seen under B-077 on 2026-10-07.*
       1. *Frame by frame.* A scratch build with the window's `layer.speed`
       at 0.1, so the slide takes 4 s and the settle 2 s; the deadline
       stretches with it. Each of the three switches at 1194 (three to
@@ -1669,16 +1728,15 @@ this host. Ordered by value, not by size.
       6. *Search and Edit.* A search with the keyboard up, letters typed
       while it moves: the words, scope, results and keyboard stay, and
       the letters are in the field. Edit mode keeps its two ticks.
-      7. *Reduce Motion*, then *Prefer Cross-Fade Transitions* in
-      Settings, Accessibility, Motion: a 0.3 s fade each time, nothing
-      travelling.
+      7. *Reduce Motion*, then *Prefer Cross-Fade Transitions*: now B-077's
+      step 5; since B-077 the view button slides with both on.
       8. *VoiceOver* reads "Hide Mailboxes" and "Show Mailboxes", and
       lands on the button after a switch.
-      9. *The log*: nothing on the wire, the `layout: …` lines, no new
+      9. *The log*: nothing on the wire but the watch's check every 30 s,
+      the `layout: …` lines, no new
       finding, and no `pane motion:` line, a fallback or the deadline,
       but the bouncing ones step 3 asked for.
-      10. "< Mailboxes" and a folder tapped in two panes are still
-      instant.
+      10. "< Mailboxes" and a folder tapped in two panes slide (B-077).
       11. On a 1366 or 1376 pt iPad, if one can be had: 1 and 2 again,
       with the 2 to 5 pt gaps beside the list.
       12. *A conversation* of three letters or more, each switch at speed
@@ -1686,7 +1744,7 @@ this host. Ordered by value, not by size.
       end up; the dates at the rows' right ends ride with them and are put
       at the right end at the settle (B-066, Not covered). Whether that
       catches the eye, and a newsletter's centred column the same way.
-- [ ] **B-077, the panes move as Mail's.** On the 11-inch, with the Layout
+- [x] **B-077, the panes move as Mail's.** On the 11-inch, with the Layout
       button on in the connection log.
       1. *At speed.* A 60 fps recording from Control Centre, stepped
       through frame by frame, and if it can be had a slow-motion film of
@@ -1740,8 +1798,11 @@ this host. Ordered by value, not by size.
       at `layer.speed` 0.05; in 6 the folder opened from a tap at the top
       of the bounce, not as they sprang back. 8 did not: with a letter
       open, "< Mailboxes" and a folder tap leave VoiceOver on the letter's
-      Flag (B-079). On the iPad still to do: 8, under B-079, and the
-      slow-motion film of the glass if one can be made.*
+      Flag (B-079). 8 seen under B-079 on 2026-10-20, every step passing;
+      the glass was not filmed in slow motion, and the 60 fps recording
+      never showed the old screen after the first frame that moved; 7's
+      question, whether the lines wrapping again late catch his eye, is
+      still the owner's to say (B-077).*
 - [ ] **The share sheet's checks** (B-036, with the shrinking of
       2026-10-04 and Apple Mail's way of 2026-10-05). Install the IPA from
       `tools/build-share-ipa.sh` through TrollStore's helper
@@ -1887,13 +1948,15 @@ this host. Ordered by value, not by size.
       anywhere. Where its line says `copied whole`, Photos took the
       location off on saving: read the PNG that arrived for GPS all the
       same, and note that the check could not be made.
-      11. *A link from the YouTube app*: in the row, the video's title as
-      the subject, the link tappable in the letter that arrives.
+      11. *A link from the YouTube app*: in the row, the link in the body
+      (the YouTube app hands over no title, seen 2026-10-04, so the subject
+      is empty), the link tappable in the letter that arrives.
       12. *After these, the app's own password still works* after the
       Keychain groups change: the app signs in and sends.
       13. *Cancel with words in it.* Type a word above the signature and
-      tap Cancel: it asks, Delete Draft ends the share, and Cancel in the
-      question goes back to the letter with the word still there.
+      tap Cancel: it asks, Delete Draft ends the share, and a tap elsewhere
+      on the sheet closes the question with the word still there (on the
+      iPad it is a popover with Delete Draft alone).
       14. *A failed send.* With Wi-Fi off, Send: the reason is shown, the
       letter is left as it was, and Send works once Wi-Fi is back.
       15. *A `mailto:` link* tapped in a letter opens the app's composer
@@ -1902,7 +1965,8 @@ this host. Ordered by value, not by size.
       16. *A video over 25 MB*, shared from Photos alone: the sheet says
       "The video could not be attached." in place of the letter, and no
       letter goes (B-070; the words approved by the owner). Its
-      `SHARE-FILE` line says `went=left out, more than the letter's room`.
+      `SHARE-FILE` line says
+      `went=left out, more than the letter's room, N MB left`.
       17. *A signature changed in Settings* reaches the next share: the
       sheet's letter has the new one under the body.
       *Seen 2026-10-04, before the change of 2026-10-05, on a build
@@ -1911,7 +1975,7 @@ this host. Ordered by value, not by size.
       camera photos, each with its location, each 4032 by 3024, no GPS, the
       date and its zone and the Display P3 profile kept); a 64-megapixel
       panorama (at 4000 by 1000), no 24-megapixel photo or HEIC at hand;
-      11, but with no subject: the YouTube app hands over the link alone;
+      11, with no subject: the YouTube app hands over the link alone;
       12. Every photo check is to be made again on the new build; 13 to 17
       not yet tried (B-036).*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
@@ -1974,8 +2038,9 @@ this host. Ordered by value, not by size.
       Cancel question dark.
       9. *VoiceOver* reads "To", "Cc", "Bcc", "Subject" and "Message",
       in the composer and in the share sheet.
-      10. *The paperclip.* Settings, Display & Brightness, Text Size, at
-      its largest with Larger Accessibility Sizes on: the paperclip stays
+      10. *The paperclip.* Settings, Accessibility, Display & Text Size,
+      Larger Text, Larger Accessibility Sizes on, at its largest: the
+      paperclip stays
       the size of "Attach Photo". Put the text size back.
       *Seen on the simulator, 2026-10-05, on 18.6, and 1 and 3 on
       17.5 (B-069); the review's changes to 1, 4 and 5 on 18.6 as well,
@@ -2008,8 +2073,8 @@ this host. Ordered by value, not by size.
       VoiceOver. Not yet: 2, VoiceOver in 3, and 4.*
 
 - [ ] **B-070, Send streams the letter from its files.** On the test
-      iPad, the test account only, built from the `streaming-send`
-      worktree; merge only after a pass. For every check copy down the
+      iPad, the test account only, on a build of master, where it is merged.
+      For every check copy down the
       `LETTER-`, `SHARE-` and `WIRE-` lines. To check a file that arrived,
       fetch it over IMAP on the host from the test account and compute
       `zlib.crc32` and its sha256.
@@ -2034,10 +2099,10 @@ this host. Ordered by value, not by size.
       pixel size, with no GPS, each CRC its `LETTER-FILE` line's.
       5. *Mixed:* a video and two photos; videos of 19 MB and 8 MB, the
       second left out with "1 video could not be attached."; six items,
-      Blackmail not offered; a 30 MB video alone, the words in place of the
-      letter and nothing sent. The video words, and "The photo and the
-      video could not be attached." for one of each, are the owner's,
-      approved 2026-10-05.
+      Blackmail not offered; a video over 25 MB alone (seen with a 44 MB
+      one), the words in place of the letter and nothing sent. The video
+      words, and "The photo and the video could not be attached." for one of
+      each, are the owner's, approved 2026-10-05.
       6. *The app's composer.* Five photos: `LETTER-PLAN` and five
       `LETTER-FILE` lines, none `not checked`, and they arrive. Forward check 1's letter: the
       video goes from memory, its CRC the same.
@@ -2891,10 +2956,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       as they have always been, and as built. Or a slide, as Mail's
       navigation pushes and pops, about 0.35 s.
       *Decided 2026-10-06: "copy apple mail for these". Built, seen on the
-      iPad 2026-10-07 but for VoiceOver's place after them (B-079): a push
-      and a pop, the panes on the same half-second spring, the bar's titles
-      over 0.35 s; with Prefer Cross-Fade Transitions a half-second fade.
-      B-077.*
+      iPad 2026-10-07, and VoiceOver's place after them under B-079 on
+      2026-10-20: a push and a pop, the panes on the same half-second
+      spring, the bar's titles over 0.35 s; with Prefer Cross-Fade
+      Transitions a half-second fade. B-077.*
 - [x] **His second address** (B-061) — Gmail sends as it and delivers it
       to him, and the app cannot tell it is his, so a Reply All to a
       letter that names it sends it a copy, which comes back to his Inbox.
