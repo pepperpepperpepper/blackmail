@@ -719,6 +719,12 @@ this host. Ordered by value, not by size.
       above the top of the pane (open it, scroll it off, Delete): the rows
       in view do not move. Flip Organize by Thread in Settings: the row at
       the top stays at the top.
+      *Go to the day from part-way down the list, not from a list at its
+      top: from the top the page above comes as the day lands, before any
+      scroll, and there is nothing left for the scroll to bring (B-094,
+      recorded, not changed). So it does, wherever the jump is made from,
+      for a day with a page of older mail below it, which lands at row 10
+      or higher; in the test account's All Mail the day lands at row 20.*
 - [ ] **B-042, Go to Date and Move.** Tap Go: "Going to <day>…" must be on
       the status line while the sheet is still sliding away, then
       "Showing <day>". From the Inbox, go to a day in All Mailboxes: All

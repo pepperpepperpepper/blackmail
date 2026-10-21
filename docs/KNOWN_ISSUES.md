@@ -16066,3 +16066,73 @@ release build for the iPad links.
 - Newer mail taking the top row he can see up the list, on a page put on
   above, is not a row taken out: the row above comes down into its place,
   as before. Mail has no page above to compare it with.
+
+## B-094 — RECORDED 2026-10-21, found on the iPad, not changed. Go to Date from a list at its top fetches the page above as the day lands
+
+**What was seen.** Nothing on screen; the connection log shows it. Seen on
+the test iPad on 2026-10-21, in the list check's step 6b, three times, and
+again when the check was made a second time on a fresh launch. All Mail
+just opened, at its top, Go to Date, Current Mailbox, 5 Oct, Go, and
+nothing touched after. The FETCH of the page above went out 0.14 s after
+the window's `UID FETCH`, with no scroll; the first slow scroll up then had
+nothing left to bring. The same from the Inbox with All Mailboxes, to 4
+Oct: the page above 0.45 s after Go. And from the Inbox just opened, to 5
+Oct: the window's FETCH and the page above's 0.17 s apart. On the fresh
+launch, All Mail opened at its top, Go to 5 Oct: the window's FETCH was
+answered, and 44 ms later the FETCH of the page above went out, before the
+window's first preview fetch, which `show(_ window:)` starts on its last
+line. Each time the day's letter was the top row and the line said "Showing
+October 5": nothing moved. Go to the same day from part-way down the list,
+twice and once more on the fresh launch, fetched the window and its
+previews only; the first two times the page above came with the slow scroll
+up to it, within a second of the drag that brought it.
+
+Not by design. The page above a day waits for him to move the list up to
+it: the lead above (`willDisplay`, ten rows of a page of fifty) is the same
+share of a page as the letters the jump keeps above the day, so the
+landing is inside it, not at its edge.
+
+**What it is.** Two ways, one seen.
+
+- *Laid out where the old list was.* `show(_ window:)` reloads the table
+  and lays it out (`layoutIfNeeded`) before it scrolls to the day, so that
+  the scroll is worked out on the new rows. That layout is at the offset
+  the old list had. From a list at its top it puts the window's first rows
+  on screen, rows 0 to 8, and `willDisplay` starts the page above for any
+  of the first ten. From part-way down, the rows laid out there are past
+  the first ten, which is why nothing was fetched then. The same layout
+  could start the page below, with the old offset near the end of the new
+  window; not seen.
+- *In a deep folder, the rows above the day under the bars.* Not seen: in
+  the test account's All Mail the older side is short, the window kept 21
+  newer letters above the day, and it landed at row 20. With a page of
+  older mail below it, the jump keeps ten newer letters above the day
+  (`PageWindow.newerRowsAboveAnchor`), so it lands at row 10, or higher
+  when two of the ten share a conversation, or when the landing moves up
+  past letters of the evening before, west of Greenwich (B-058). The table
+  runs on under its bars (B-093), so the one or two rows above the day are
+  on screen under the bars and the search band as it lands, and they are
+  among the first ten: the page above starts as the day lands, wherever
+  the list had been.
+
+**What it costs.** One envelope FETCH of a page, up to fifty letters, and
+its previews, as the day lands, on the connection the day's own previews
+wait behind: the first of them went out 80 ms after it on the fresh
+launch. Nothing moves on screen, then or later: the page goes on above
+the day, out of sight, the rows he can see held where they are (B-042).
+And the check that the page above comes as he scrolls up to it cannot be
+made from such a landing; TODO's B-042 check of paging upward says so.
+
+**Why it is left.** A fix has to keep the page above loading whenever he
+scrolls up to it, wherever the day lands, at row 20 or at row 1, and from
+any list. The one tried had to hold off paging while the rows were laid
+out, then look at the rows on screen once, keep the row the day landed on
+until the page above came or the list was fetched afresh, and look at the
+edge again at every move of the list, since at a day landed at row 1 or 2
+every row above it is on screen already and none comes on screen as he
+moves up to it. It grew a tracker of the day's row and a hook on the list's
+scrolling, each with its own ways to go wrong: a row taken out above the
+day, or the grouping switched, left the day's row a row off. A page above
+that never came, and the list stopped at the top of a day with newer mail
+above it, would be worse than one fetched a second early. For a mailbox
+nobody can update, it is left as it is.
