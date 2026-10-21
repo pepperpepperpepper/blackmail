@@ -589,7 +589,11 @@ this host. Ordered by value, not by size.
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
       moves or blanks, and the connection log shows `UID MOVE` and after it
-      only the watch's check every 30 s. Delete stays grey until it lands.
+      only the watch's check every 30 s: a NOOP, and after the first NOOP
+      following the MOVE one `UID SEARCH UID n:*` with
+      `NEWS folder=INBOX arrived=0 gone=N` (the MOVE's own EXPUNGE is news
+      to the watch), then NOOPs alone; no summary FETCH, LIST, STATUS or
+      page FETCH. Delete stays grey until it lands.
       Mark a letter unread in Edit mode (opening it marks it read) and
       Delete it from the pane: its counts drop when the MOVE lands, and the
       log shows one LIST and a STATUS per folder after the MOVE; Trash's
@@ -617,10 +621,11 @@ this host. Ordered by value, not by size.
       open). In a conversation, open
       an unread letter that arrived while the stack was open and was then
       closed by its line (since B-074 every unread letter opens with the
-      stack): the dot and one count go, and the list
-      does not reload. The host suite checks the rules; the table view's
-      reaction to them, row removal, highlight and empty state, is only
-      visible here.
+      stack): the dot goes at the tap, and one count when its STORE is
+      answered (a fraction of a second later, never before, so a refused
+      STORE cannot leave the count too low), and the list does not reload.
+      The host suite checks the rules; the table view's reaction to them,
+      row removal, highlight and empty state, is only visible here.
 - [ ] **B-041, coming back.** With the Inbox showing, scrolled down, a
       letter open and Edit on, leave the app for more than fifteen minutes
       (or shorten `Sitting.awayBeforeReturningToInbox` for the test, as

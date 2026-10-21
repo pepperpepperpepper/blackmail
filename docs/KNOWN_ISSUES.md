@@ -4248,7 +4248,12 @@ exchange gate, one command in a hold of its own:
   letters' summaries alone; each new letter's preview as the list draws
   it, within the usual 2 KB and 8 KB; and one sweep of the counts, merged
   with any other (`SweepCoalescer`). No SEARCH ALL, and no page fetched
-  again.
+  again. A Delete or Move of his own counts as something that left: its
+  EXPUNGE rides on the MOVE's answer, so the first check after it sends
+  the SEARCH, finds the letter gone (already off the list,
+  `RemovedLetters`) and nothing follows. Kept on purpose: an arrival or a
+  removal elsewhere can ride on the same answer, and the session is told
+  of it only once.
 - The Inbox not open on the connection, after another folder's work: its
   SELECT in place of the NOOP, and the SEARCH after it, since a SELECT is a
   view nobody has searched.
@@ -9700,8 +9705,8 @@ it, and the review changed nothing they show.
 - *Three letters, the two replies unread.* The first letter's line at the
   top of the pane, the first reply open under it, the newest open under
   that. The row lost its dot and the Inbox two from its count at the tap,
-  14 to 12 (b074fx-03). Nothing in the pane moved in the seconds after
-  (b074fx-04).
+  14 to 12 (b074fx-03; the count as the two STOREs were answered, before
+  that shot). Nothing in the pane moved in the seconds after (b074fx-04).
 - *Opened again, all read.* The first reply's line at the top of the pane,
   the first letter's line above it and out of sight, the newest open under
   it, black below it (b074fx-05). That line tapped: it opened under its
