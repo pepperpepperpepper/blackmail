@@ -278,10 +278,30 @@ final class MessageListViewController: UITableViewController {
             scrollToTop()
         case .back(let folder):
             if !scroll(to: folder, in: threads) { scrollToTop() }
+        case .putBack(let taken):
+            if !scroll(to: taken, in: threads) { scroll(to: before, in: threads) }
         case .stay:
             scroll(to: before, in: threads)
         }
         onRegrouped?()
+    }
+
+    /// Where the list was before the rows still out were taken out, for a
+    /// row put back. See `TakenRows`.
+    private var taken = TakenRows()
+
+    /// Regroups for a letter the reading pane or Edit mode changed, took
+    /// out or put back (B-093): a row put back with the list as its take
+    /// left it goes back where it stood, the rows below it down a row, as
+    /// before the tap; otherwise the rows he can see stay where they are.
+    /// The place the list is left in is taken once it is laid out there,
+    /// since `scroll(to:)` has only set the offset.
+    @MainActor
+    private func regroup(for change: ListChange) {
+        let here = place()
+        regroup(to: taken.move(for: change, here: here))
+        tableView.layoutIfNeeded()
+        taken.drawn(change, from: here, to: place())
     }
 
     /// Where he is now: the rows he can see and how far down the pane each
@@ -360,8 +380,8 @@ final class MessageListViewController: UITableViewController {
         // stayed open. The rows that are let go on purpose are let go where
         // that is decided (`letGo`, `openDraft`, `openWaiting`).
         clearsSelectionOnViewWillAppear = false
-        letters.changed = { [weak self] in
-            self?.regroup()
+        letters.changed = { [weak self] change in
+            self?.regroup(for: change)
             self?.updateEmptyState()
         }
         letters.onLetGo = { [weak self] letter in self?.letGo(letter) }

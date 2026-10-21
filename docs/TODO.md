@@ -3247,9 +3247,12 @@ this host. Ordered by value, not by size.
       day some weeks back with W a few rows below the day. Open W in the
       reading pane. Drag the list slowly upwards until W's row has gone
       just above the top of the list, hidden under the search field, with
-      the row above it under the status and navigation bars, and the first
-      row in view whole below the search field. A screenshot. Delete in the
-      pane, with a burst of shots from the tap: in the first, at about a
+      the row above it under the status and navigation bars, nothing of
+      W's row showing below the search field, and the first row in view
+      whole below it. With a point or more of W's row showing, W's row is
+      the top row in view, and the rows below close up into it, as in
+      step 2. A screenshot. Delete in the pane, with a burst of shots
+      from the tap: in the first, at about a
       quarter of a second, and in every one after it, each row in view is
       where it was in the shot before, the same letters at the same
       heights. On the build before, every row in view went up one row at
@@ -3270,6 +3273,14 @@ this host. Ordered by value, not by size.
       comes: the rows move only with the finger, and the highlight stays
       on the letter open in the pane.
       4. *Put back.* After each Delete: Trash, open W, Move, Inbox.
+      5. *Refused.* W the top row in view as in step 2, a screenshot.
+      Airplane Mode on, Delete in the pane, with a burst, the list not
+      touched: W's row goes and the rows below close up, as in step 2;
+      with the alert, "Can't connect to mail server.", W's row is back
+      where it was, the rows below it down one, every row as in the
+      screenshot. OK. Then the same with W just above the list as in
+      step 1: back out of sight, nothing in view moving either time.
+      Airplane Mode off.
       *Not tried on the simulator: the host tests hold it, the list laid
       out as on the iPad (B-093).*
 
