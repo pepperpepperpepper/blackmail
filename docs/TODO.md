@@ -513,8 +513,9 @@ this host. Ordered by value, not by size.
       letter with the signature shown alone, for what it shows: no white
       sheet, the thirteen lines white on the black page, its links blue,
       and the logo as drawn, dark ink, a dark box hardly to be seen on the
-      black. Left: the stack, which needs a conversation holding a reply
-      sent from the app; the check sent none.*
+      black. Left: what the letter alone should show, seen as above and
+      not yet looked into; the stack again on purpose needs a conversation
+      holding a reply sent from the app, and the check sent none.*
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
       sends and arrives; see B-036. Still to try is below.* It is installed
@@ -645,7 +646,7 @@ this host. Ordered by value, not by size.
       apart, were three, not four: the first and the last fetched, none
       between, the pane on the last. Reply did nothing while "Loading…"
       showed, and the header kept its height as a letter with a file
-      landed. Left: that first frame, which needs a change to the app.*
+      landed. Left: that first frame, recorded as B-098 and left as it is.*
 - [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
@@ -783,10 +784,10 @@ this host. Ordered by value, not by size.
       *Go to the day from part-way down the list, not from a list at its
       top: from the top the page above comes as the day lands, before any
       scroll, and there is nothing left for the scroll to bring (B-094,
-      recorded, not changed). So it should, by the sums (not seen),
+      recorded, not changed). So it does too, by the sums (not seen),
       wherever the jump is made from, for a day with a page of older mail
       below it, which lands at row 10 or higher; in the test account's All
-      Mail the day lands at row 20.*
+      Mail the day lands at row 20, where the check can still be made.*
       *Seen on the test iPad 2026-10-21, a build of master with B-092
       (1233252), All Mail at a day sixteen days back, 43 letters newer
       than it: every part but the Delete passed (B-042). Scrolled up
@@ -950,25 +951,27 @@ this host. Ordered by value, not by size.
       flicked up and down for 3 s at once: in five runs of six the flings
       went on with no frame standing still, four of them across the body's
       landing at 0.37 to 0.39 s, and the letter drew whole with its
-      pictures. In the sixth the first flick, its finger down 20 ms after
-      the tap lifted, as in the others, was not taken: the list did not
-      move from 0.14 to 0.71 s while the letter came, the touch reaching
-      the app at its usual pace and no gesture beginning; three more tries
-      did not make it again. A plain letter with quotes, backslashes and
-      `</script><b>` in it read as sent, alone and in a conversation
-      (B-055's check), and a conversation came back with its bodies after
-      the pane's process was ended (B-042's). A PDF of 4.4 MB in a letter
-      over 5 MB, opened twice: Quick Look 2.6 s after the tap, then 2.3 s,
-      the whole part fetched again: recorded as B-097, not changed. The
-      fill, from frames, an upper bound: a conversation's newest, 8 KB, in
-      by 0.55 s after two minutes idle, a NOOP of 219 ms going first, and
-      by 0.27 and 0.26 s after 13 s and 2 s. The memory could not be read,
-      the iPad's process list giving 0 for every process; the system log
-      had no WebContent ended and no jetsam line through the fill. Left: a
-      newsletter of a few hundred KB, which the account does not have, a
-      conversation of twenty letters, the time zone and the 24-hour clock,
-      which wait on a yes, "Yesterday" after midnight, the fill timed in
-      the app with a letter of a megabyte, and the memory.*
+      pictures. In the second run the first flick, its finger down 20 ms
+      after the tap lifted, as in the four runs after it, was not taken:
+      the list did not move from 0.14 to 0.71 s while the letter came, the
+      touch reaching the app at its usual pace and no gesture beginning;
+      the three runs after it made the same way did not make it again. A
+      plain letter with quotes, backslashes and `</script><b>` in it read
+      as sent, alone and in a conversation (B-055's check), and a
+      conversation came back with its bodies after the pane's process was
+      ended (B-042's). A PDF of 4.4 MB in a letter over 5 MB, opened twice:
+      Quick Look 2.6 s after the tap, then 2.3 s, the whole part fetched
+      again: recorded as B-097, not changed. The fill, from frames, an
+      upper bound: a conversation's newest, 8 KB, in by 0.55 s after two
+      minutes idle, a NOOP of 219 ms going first, and by 0.27 and 0.26 s
+      after 13 s and 2 s. The memory could not be read, the iPad's process
+      list giving 0 for every process; the system log had no WebContent
+      ended and no jetsam line through the fill. Left: the one flick not
+      taken, why not known; a newsletter of a few hundred KB, which the
+      account does not have, a conversation of twenty letters, the time
+      zone and the 24-hour clock, which wait on a yes, "Yesterday" after
+      midnight, the fill timed in the app with a letter of a megabyte, and
+      the memory.*
 - [ ] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
       draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
       see: Save Draft then lock, Send the moment the picker closes, a tap
@@ -1228,8 +1231,8 @@ this host. Ordered by value, not by size.
       design, as the check now says. After a search's Cancel the letter
       came 32.2 s later, and 31.7 s at a second try: Cancel starts no
       check, so what came during the search waits for the next one; not
-      changed (B-099). Left: that half minute, which needs a change to the
-      app; the archive on the phone, which needs a person; and
+      changed (B-099). Left: that half minute, recorded as B-099 and left
+      as it is; the archive on the phone, which needs a person; and
       "Updated at …" after an hour, which needs Auto-Lock at Never and
       waits on a yes.*
 - [x] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
@@ -2512,7 +2515,8 @@ this host. Ordered by value, not by size.
       body, with no alert, and Cancel closed it asking nothing. The address
       typed into Safari's address bar: Safari asked to open the page in
       "Blackmail", the iPad's handler for `mailto:`, and Open brought the
-      same composer, closed with Cancel and nothing kept.*
+      same composer, closed with Cancel and nothing kept. Left: 12, not
+      part of either, and of 1 to 10 what the note of 2026-10-20 says.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the
@@ -3698,9 +3702,9 @@ this host. Ordered by value, not by size.
 - [ ] **B-095, a finger held on a conversation's line.** On the test iPad,
       the test account only, built from the `line-press` worktree. Three
       panes. A conversation of three letters or more, every one read, each
-      closed to its line, as in the links check's step 7. Each hold with
-      one finger still at one point, and a burst of shots from the touch,
-      the line's padding measured as there: about 20 lit, 0 not.
+      closed to its line, as in B-055's check. Each hold with one finger
+      still at one point, and a burst of shots from the touch, the line's
+      padding measured as there: about 20 lit, 0 not.
       1. *Held 0.3 s* on a closed line: lit from the first frame until the
       lift. At the lift it opens, its body comes and the header and Reply
       move to it, as at a quick tap. No loupe, no word selected, no menu.
@@ -3728,8 +3732,8 @@ this host. Ordered by value, not by size.
       body: WebKit selects it and shows its menu, as before. Then, the
       word still selected and the menu up, a quick tap on a closed line:
       it opens, and the selection, its handles and the menu go.
-      8. *VoiceOver*, if the round turns it on: a closed line found and
-      double-tapped opens, once; again, it closes. VoiceOver off after.
+      8. *VoiceOver*, if it is turned on for the check: a closed line found
+      and double-tapped opens, once; again, it closes. VoiceOver off after.
       *Not tried on the simulator: the host tests read the script, and it
       was run outside WebKit (B-095). What WebKit does with a touch held a
       second, the line no longer selectable, is seen only here.*

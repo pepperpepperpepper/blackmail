@@ -3387,12 +3387,13 @@ body read as sent.
   some 3 s in the same moment, in frames 0.08 s apart. In five runs of six
   the flings went on with no frame standing still, four of them across the
   moment the body landed, 0.37 to 0.39 s after the tap, and the letter then
-  drew whole, its logo and picture in. In the sixth the first flick was not
-  taken: the list did not move from 0.14 to 0.71 s, the letter coming at
-  0.38 s as in the others. Its touch came 20 ms after the tap lifted, as in
-  the others, and reached the app at its usual 16 ms pace, so the main
-  thread was free, but no gesture began on it. Three more tries did not
-  make it again. Why is not known.
+  drew whole, its logo and picture in. In the second run the first flick
+  was not taken: the list did not move from 0.14 to 0.71 s, the letter
+  coming at 0.38 s as in the others. Its touch came 20 ms after the tap
+  lifted, as in the four runs after it, and reached the app at its usual
+  16 ms pace, so the main thread was free, but no gesture began on it. The
+  three runs after it made the same way did not make it again. Why is not
+  known.
 - *A 5 MB PDF:* none on the account, so a public PDF of 4.4 MB, 126 pages,
   was shared from Files, a letter of 6.1 MB on the server, opened in parts.
   The row tapped: its whole part fetched, Quick Look 2.6 s after the tap.
@@ -3409,9 +3410,10 @@ body read as sent.
   ended, no jetsam and no memory limit line for the app or its WebKit
   processes.
 
-Not seen: a letter of a megabyte, a conversation of twenty letters, the
-time zone and the 24-hour clock, which wait on a yes, and "Yesterday" after
-midnight.
+Not seen: a newsletter of a few hundred KB, which the account does not
+have, a letter of a megabyte, a conversation of twenty letters, the time
+zone and the 24-hour clock, which wait on a yes, and "Yesterday" after
+midnight. Not known: why one flick was not taken.
 
 ---
 
@@ -9129,8 +9131,9 @@ turned over and Home, were not tried.
 - *Interrupted:* Control Centre pulled down 0.2 s into one switch, and
   Settings opened 0.2 s into another: back in the app, the arrangement
   final, nothing left over it, and the next tap working. Thirty switches a
-  second apart, twice: every one of the sixty slid, each caught between the
-  two arrangements in a frame of its own.
+  second apart, twice: every one of the sixty slid, with no deadline or
+  fallback in the log, and each of the second thirty was caught between
+  the two arrangements in a frame of its own.
 - *A search,* three characters typed during the motion: the words, the
   scope, the results and the keyboard kept, the characters in the field.
   Edit's two ticks kept.
@@ -16390,8 +16393,10 @@ release build for the iPad links.
 (1233252), three panes, on the test account, three letters To A with
 `+jane` before the "@", "R6 B-092 one", "two" and "three". Every step of
 the TODO check passed, the letters going from the Inbox rather than out
-of the Trash, and the hollow answer came once the same morning, in
-another check, and was taken at the second MOVE.
+of the Trash, one row ticked in Edit mode, not three; two ticked at once
+went the same way in B-042's check that morning. The hollow answer came
+once the same morning, in another check, and was taken at the second
+MOVE.
 
 - *Deleted in the pane:* "one", `UID MOVE 363 "[Gmail]/Trash"`, an
   EXPUNGE and `OK [COPYUID 2 363 308]` 0.17 s on, and nothing after it
@@ -16745,23 +16750,23 @@ release build for the iPad links.
 ## B-094 — RECORDED 2026-10-21, found on the iPad, not changed. Go to Date from a list at its top fetches the page above as the day lands
 
 **What was seen.** Nothing on screen; the connection log shows it. Seen on
-the test iPad on 2026-10-21, in the list check's step 6b, three times, and
-again when the check was made a second time on a fresh launch. All Mail
-just opened, at its top, Go to Date, Current Mailbox, 5 Oct, Go, and
-nothing touched after. The FETCH of the page above went out 0.14 s after
-the window's `UID FETCH`, with no scroll; the first slow scroll up then had
-nothing left to bring. The same from the Inbox with All Mailboxes, to 4
-Oct: the page above 0.45 s after Go. And from the Inbox just opened, to 5
-Oct: the window's FETCH and the page above's 0.17 s apart. On the fresh
-launch, All Mail opened at its top, Go to 5 Oct: the window's FETCH was
-answered, and 44 ms later the FETCH of the page above went out, before the
-window's first preview fetch, which `show(_ window:)` starts on its last
-line. Each time the day's letter was the top row, and the line said
+the test iPad on 2026-10-21, in B-042's check of paging upward, three
+times, and again when the check was made a second time on a fresh launch.
+All Mail just opened, at its top, Go to Date, Current Mailbox, 5 Oct, Go,
+and nothing touched after. The FETCH of the page above went out 0.14 s
+after the window's `UID FETCH`, with no scroll; the first slow scroll up
+then had nothing left to bring. The same from the Inbox with All Mailboxes,
+to 4 Oct: the page above 0.45 s after Go. And from the Inbox just opened,
+to 5 Oct: the window's FETCH and the page above's 0.17 s apart. On the
+fresh launch, All Mail opened at its top, Go to 5 Oct: the window's FETCH
+was answered, and 44 ms later the FETCH of the page above went out, before
+the window's first preview fetch, which `show(_ window:)` starts on its
+last line. Each time the day's letter was the top row, and the line said
 "Showing October 5" ("Showing October 4" for the All Mailboxes jump):
-nothing moved. Go to the same day from part-way down the list,
-twice and once more on the fresh launch, fetched the window and its
-previews only; the first two times the page above came with the slow scroll
-up to it, within a second of the drag that brought it.
+nothing moved. Go to the same day from part-way down the list, twice and
+once more on the fresh launch, fetched the window and its previews only;
+the first two times the page above came with the slow scroll up to it,
+within a second of the drag that brought it.
 
 Not by design. The page above a day waits for him to move the list up to
 it: the lead above (`willDisplay`, ten rows of a page of fifty) is the same
@@ -16815,18 +16820,18 @@ nobody can update, it is left as it is.
 
 ## B-095 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A finger held on a conversation's line never lit it, and began WebKit's selection of a word in it, and its Copy menu
 
-**What he saw.** Seen on the test iPad on 2026-10-21, in the links check's
-step 7, and again when the check was made a second time on a fresh launch,
-with a tap on a link to show the shots could catch a highlight. A
-conversation of three letters, all read, each closed to its line. One
-finger held still on a closed line for a second: the line did not lighten
-in any frame, and at about 0.6 to 0.7 s WebKit began to select a word in
-it, the loupe and its handles, and at about 1.4 s showed its Copy, Look Up,
-Translate, Search Web and Share menu. A tap off it put the menu away, and
-nothing else changed. A plain tap opened the line, and closed it, as it
-should, with no lightening in any frame either. The link in the control
-darkened under the finger at 0.13 s: WebKit's own tap highlight, caught at
-the same pace.
+**What he saw.** Seen on the test iPad on 2026-10-21, in B-055's check of a
+conversation's lines, and again when the check was made a second time on a
+fresh launch, with a tap on a link to show the shots could catch a
+highlight. A conversation of three letters, all read, each closed to its
+line. One finger held still on a closed line for a second: the line did not
+lighten in any frame, and at about 0.6 to 0.7 s WebKit began to select a
+word in it, the loupe and its handles, and at about 1.4 s showed its Copy,
+Look Up, Translate, Search Web and Share menu. A tap off it put the menu
+away, and nothing else changed. A plain tap opened the line, and closed it,
+as it should, with no lightening in any frame either. The link in the
+control darkened under the finger at 0.13 s: WebKit's own tap highlight,
+caught at the same pace.
 
 Not by design. A line is lit under the finger while he presses it, and it
 is not text: Mail's message headers in a conversation are not text to
@@ -17021,16 +17026,14 @@ build for the iPad links.
   down, and a lift does nothing, where a UIKit row or button acts at a
   lift inside it however long it was held; and both ends are timed when
   WebKit's page hands the script the touch, so a busy page can stretch a
-  tap of about a second past it, the margin 0.2 s. Dropping the bound, the
-  light until the lift and a still lift always the tap, or raising it to
-  about 2 s, is a question for the owner; a finger resting on the glass
-  is the case against dropping it.
+  tap of about a second past it, the margin 0.2 s. The bound stays: a
+  finger resting on the glass must not open a letter at its lift.
 
 ## B-096 — RECORDED 2026-10-21, found on the iPad, not changed. A switch of the panes in the middle of a bounce ends the bounce
 
-**What was seen.** Seen on the test iPad on 2026-10-21, in the panes
-check's step 6, and again on a fresh launch with the Layout button off and
-on, each run against the same gesture made with no tap. Three panes, the
+**What was seen.** Seen on the test iPad on 2026-10-21, in B-066's check,
+step 3, and again on a fresh launch with the Layout button off and on,
+each run against the same gesture made with no tap. Three panes, the
 Inbox at its top, pulled down past its top and let go, and the view button
 tapped as it sprang back: the switch was made at once, with
 `pane motion: bouncing; switched at once`, as built. In the first frame in
@@ -17066,18 +17069,19 @@ is never updated. Left as it is.
 
 ## B-097 — RECORDED 2026-10-21, found on the iPad, not changed. A file of a letter too large to fetch whole is fetched again each time it is opened
 
-**What was seen.** Seen on the test iPad on 2026-10-21, in the check of the
-reading pane under load, step 2, and again on a fresh launch. A letter of
-6.1 MB on the server, a PDF of 4.4 MB shared from Files, so over the 5 MB
-above which a letter is opened in parts (B-054). Its file's row tapped:
+**What was seen.** Seen on the test iPad on 2026-10-21, in B-043's check,
+the 5 MB PDF, and again on a fresh launch. A letter of 6.1 MB on the
+server, a PDF of 4.4 MB shared from Files, so over the 5 MB above which a
+letter is opened in parts (B-054). Its file's row tapped:
 `UID FETCH n (UID BODY.PEEK[2])`, the whole part, 6 MB as it is on the
 wire, and Quick Look 2.6 s after the tap. Done, and the row tapped again:
 the same FETCH and the same 6 MB, and Quick Look 2.3 s on, 2.0 s on the
 fresh launch. A letter of 93 KB, fetched whole, with a PDF: tapped twice,
 nothing fetched either time.
 
-Not by design. The TODO's check has a file opened a second time, its bytes
-fetched already, come in a fraction of a second.
+Not by design. A file of a letter fetched whole opens again from what the
+app holds, and nothing in B-054 has a file of a letter opened in parts
+fetched again at every tap.
 
 **What it is.** A file is served without the wire only from the last letter
 fetched whole. A letter opened in parts keeps its structure and none of its
@@ -17091,22 +17095,21 @@ megabytes over the connection, and about 2 s, much as the first open took.
 Only for letters over 5 MB; a file of a letter fetched whole opens from
 what the app holds.
 
-**Why it is left.** Whether the app should keep the last file opened, and
-show it again at the next tap on it, is not yet decided. The change would
-be small, the one copy the pane already keeps marked with its letter and
-its part, and it can be made safely later; but only before the app is
-installed.
+**Why it is left.** Only a file of a letter over 5 MB is fetched again, and
+the second open costs what the first did. A kept copy that ever answered
+for another letter or part would show him the wrong file, which is worse
+than a second wait. For an app that is never updated, it is left as it is.
 
 ## B-098 — RECORDED 2026-10-21, found on the iPad, not changed. A letter tapped shows its header over the previous letter's body for one frame
 
-**What was seen.** Seen on the test iPad on 2026-10-21, in the check of the
-reading pane at the tap, step 3, from screen recordings at 60 frames a
-second, stepped through frame by frame. The new letter's header, its
-sender, subject and date, came in the frame the selection moved, and under
-it, for one frame, some 17 ms, was the previous letter's body, moved down
-with the new header; then "Loading…". It was so in 5 taps of 7. For the
-first letter after a launch, two frames of an empty pane, every time. The
-same first frame showed in passing in two more checks that day.
+**What was seen.** Seen on the test iPad on 2026-10-21, in B-041's check of
+the reading pane at the tap, from screen recordings at 60 frames a second,
+stepped through frame by frame. The new letter's header, its sender,
+subject and date, came in the frame the selection moved, and under it, for
+one frame, some 17 ms, was the previous letter's body, moved down with the
+new header; then "Loading…". It was so in 5 taps of 7. For the first letter
+after a launch, two frames of an empty pane, every time. The same first
+frame showed in passing in two more checks that day.
 
 Not by design. The TODO's check has the previous letter never on screen
 beside the new selection, not even for a frame (B-041).
@@ -17127,8 +17130,8 @@ than one frame of the letter before. For a frame, it is left as it is.
 
 ## B-099 — RECORDED 2026-10-21, found on the iPad, not changed. A letter that comes while a search shows goes on at the check after Cancel, up to some 32 s later
 
-**What was seen.** Seen on the test iPad on 2026-10-21, in the new mail
-check's step 4. A letter sent to the account itself while a search showed
+**What was seen.** Seen on the test iPad on 2026-10-21, in B-049's check,
+under a search. A letter sent to the account itself while a search showed
 over the Inbox, and Cancel tapped as one of the watch's checks began: the
 letter went on the list 32.2 s after Cancel, and 31.7 s at a second try.
 While the search showed, the Inbox's count went up at the check, as built.
@@ -17144,6 +17147,8 @@ next timed one: a whole interval, and the sleep's lateness, at worst.
 to some 32 s after Cancel, the Inbox back and its count already up
 meanwhile. Nothing is lost.
 
-**Why it is left.** The fix, a check at Cancel, is small and safe: the
-watch's own check, made once more at the moment the list comes back. It is
-left for a decision.
+**Why it is left.** After Cancel the letter waits for the next check as
+any new letter does, an interval and the sleep's lateness at worst, and
+the Inbox's count is up meanwhile. A check started at Cancel would be a
+second way into the watch, beside its timer, in an app nobody can update.
+It is left as it is.
