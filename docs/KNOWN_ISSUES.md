@@ -3246,8 +3246,8 @@ before letting go was not tried.
 - *Go to Date from a list at its top* fetched the page above as the day
   landed, nothing touched: the day's rows were laid out at the old
   offset, the top, before the scroll to the day. Nothing moved on screen.
-  Fixed as B-094, not yet seen there fixed. From part-way down the page
-  above waited for the swipe.
+  Recorded as B-094, not changed. From part-way down the page above
+  waited for the swipe.
 - *Go to Date:* "Going to October 3…" as the sheet slid off, "Showing"
   0.1 s later; All Mail opened behind the sheet for All Mailboxes; a
   double Go, one dated SEARCH; offline, the line back and the alert once

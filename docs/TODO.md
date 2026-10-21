@@ -784,10 +784,9 @@ this host. Ordered by value, not by size.
       view up by one: fixed as B-093, not yet seen there fixed. Go to
       Date from a list at its top fetched the page above as the day
       landed, nothing touched, so the scroll up was made after jumps from
-      part-way down: fixed as B-094, not yet seen there fixed. Seen in
-      passing: a letter open before a jump stays in the pane, its row no
-      longer highlighted until tapped again. Left: the Delete, on B-093's
-      build.*
+      part-way down: recorded as B-094, not changed. Seen in passing: a
+      letter open before a jump stays in the pane, its row no longer
+      highlighted until tapped again. Left: the Delete, on B-093's build.*
 - [ ] **B-042, Go to Date and Move.** Tap Go: "Going to <day>…" must be on
       the status line while the sheet is still sliding away, then
       "Showing <day>". From the Inbox, go to a day in All Mailboxes: All
@@ -1376,16 +1375,16 @@ this host. Ordered by value, not by size.
       B-091 (cba64fa): the signature's part passed (B-056). "Send my
       signature as plain text instead", then Cancel, changed nothing; Use
       Plain Text and Save, then Restore Original Signature, Restore and
-      Save, put back the thirteen formatted lines, the words, the
-      formatted twin and the logo each byte for byte as found. A letter's
-      PDF shared from its preview, where Blackmail was offered, went with
-      that logo and the formatted signature, the share extension's last
-      copy before the restore's save having been the plain one. The box
-      emptied and saved asked "Remove Signature?", and Cancel kept it. A
-      letter written after a restore had its formatted signature and logo
-      back on 2026-10-19, in B-082's check. Left: everything before the
-      signature, the app password revoked and made again first, which
-      needs the account's Google settings.*
+      Save, put back the thirteen lines, the formatted twin and the logo,
+      each byte for byte as found. A letter's PDF shared from its preview,
+      where Blackmail was offered, went with that logo and the formatted
+      signature, the share extension's last copy before the restore's save
+      having been the plain one. The box emptied and saved asked "Remove
+      Signature?", and Cancel kept it. A letter written after a restore
+      had its formatted signature and logo back on 2026-10-19, in B-082's
+      check. Left: everything before the signature, the app password
+      revoked and made again first, which needs the account's Google
+      settings.*
 - [ ] **B-053, every write and every open naming its letter.** Seen
       2026-09-30: the everyday wire after the page (open, Flag, Edit's
       Mark), and a copy made another mailbox's by hand refused under held
