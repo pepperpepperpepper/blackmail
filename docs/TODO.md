@@ -3234,7 +3234,7 @@ this host. Ordered by value, not by size.
 
 - [ ] **B-093, a Delete in the pane with the letter's row just above the
       list.** On the test iPad, the test account only, built from the
-      `list-place` worktree. Three panes. W stands for a letter of the
+      `list-place2` worktree. Three panes. W stands for a letter of the
       test account's, read, alone in its conversation, in the Inbox and so
       in All Mail. Times from the iPad's clock.
       1. *Just above the list.* All Mail, Go to Date, Current Mailbox, a
@@ -3250,11 +3250,13 @@ this host. Ordered by value, not by size.
       once (B-093). The log has one `UID MOVE` and no list FETCH.
       2. *The top row in view.* Put W back (step 4) and open it in All Mail
       again. Drag the list until its row is the top row in view, whole
-      below the search field. A screenshot. Delete in the pane, with a burst: W's row
-      goes, the rows below it stay where they were, and the row that was
-      above it, out of sight under the search field, comes down into its
-      place. Copy down how it looks; on the build before, the rows below
-      came up one.
+      below the search field, nothing of the row above showing. A
+      screenshot. Delete in the pane, with a burst: W's row goes, and the
+      rows below it close up into its place, each up one row, as in Mail;
+      the row that was above it stays out of sight under the search field,
+      and the list does not scroll. Put W back, and again with a point or
+      two of the row above showing below the search field: the same. On
+      the build before, the rows below came up one as well.
       3. *Search and the page above.* The Inbox three screens down, Search,
       type a word that finds letters, scroll the results, Cancel: the
       Inbox back with the same rows at the same heights. Then All Mail, Go

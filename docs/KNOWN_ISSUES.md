@@ -15931,6 +15931,31 @@ the folder coming back by the row under the bar.
   edit of his own; and the fresh page over the kept one (D-016).
 - With no row in sight, a pane too short for one below the band, every row
   on screen is taken, as before.
+- When the row taken out is the first he can see, the rows below close up
+  into its place, as in Mail. The row on screen just above it, under the
+  bars or the band, is taken with the rows he can see (`ListPlace.above`,
+  `justAbove`), and it is the row held (`closingUp`): it stays where it
+  was, out of sight, and the list is not scrolled. The first change of
+  this entry held the next row he could see instead, as `landing`'s rule
+  had it: the rows below stayed, and the row above came down into the gap.
+  That was with less than a point of the row above in sight; with a point
+  or more, that row was the first he could see and was held, and the rows
+  below closed up. Which way it closed turned on a point. It closes up
+  now whatever of either row shows.
+- With no row on screen above it, the list's first row, or with that row
+  taken out too, as Edit mode's Delete of several rows can take it, the
+  first of the rows he could see as they stand now goes where the first
+  was, and again the list is not scrolled. The list's first row taken out
+  a little way down, most of it under the search field, used to put the
+  list back at its top.
+- The same when the first row he can see goes down the list: a
+  conversation whose newest letter is taken out, its next letter further
+  down. One whose next letter is next on the list keeps its row where it
+  was, headed by that letter, and nothing moves.
+- The same for every move that keeps his place: Edit mode's Delete or Move
+  of several rows at once, the rows below closing up into the first one's
+  place; a search's Cancel, the top row he could see deleted while the
+  results showed; the newest page fetched afresh without it.
 
 **Not changed.**
 
@@ -15938,30 +15963,33 @@ the folder coming back by the row under the bar.
   the rows below close up, as before.
 - At the top of the list, a Delete of the top row: the list stays at the
   top and the rows below close up, as before.
-- Which row is put back is still `ListPlace.landing`'s rule: the first row
-  he could see still headed by the same letter, else the next, else one
-  holding any of its letters.
+- Otherwise which row is put back is still `ListPlace.landing`'s rule:
+  the first row he could see still headed by the same letter, else the
+  next, else one holding any of its letters. A row newer mail has joined,
+  on a page put on above, has gone up the list and is passed over, as
+  before (list-8): taken from the top row he can see, the next row he
+  could see stays where it was and the row above comes down into the
+  place. The grouping switch merging the top row into another the same.
 
 **What he sees.** A Delete or a Move from the pane, the letter's row out of
 sight just above the list: nothing in view moves. A row put back above the
 list, a page of newer mail put on above it, a search cancelled: the rows
-he could see stay where they were. One change he may notice: a Delete of
-the top row he can see, the list scrolled down. Its row goes, the rows
-below it stay where they were, and the row above it, which was out of
-sight under the search field, comes down into its place. That is the rule
-the list was meant to have (`testARowTakenOffLeavesTheNextWhereItWas`); on
-the iPad the rows below used to come up one instead, because the row held
-was the one under the bars.
+he could see stay where they were. A Delete or a Move of the top row he
+can see, the list scrolled down: its row goes, and the rows below it close
+up into its place, each up a row, as in Mail, whatever of the row above
+shows under the search field; the row above stays out of sight. On the
+iPad that was so before, by the row held under the bars. Near the top of
+the list, the first row deleted with most of it under the search field:
+the rows close up into its place, and the list no longer goes to its top.
 
-**Tests.** In `ListPlaceTests`, seven over the rule, with the list laid out
+**Tests.** In `ListPlaceTests`, six over the rule, with the list laid out
 as on the iPad, the band 43 points, 74 of bars over the table and 50 under
 it, twenty rows of 96: the iPad's Delete, every row in view where it was,
 and what holding every row on screen gave, each a row up; a row in sight
 with a point of it below the band or above the toolbar, not with half a
-point; no row in sight, every row on screen taken; the letter's row the
-first in sight, the rows below it where they were and the row above in its
-strip; a page above taking up the row just under the band, the rows in
-view where they were, a row up held the old way; a Move put back above
+point; no row in sight, every row on screen taken; a page above taking up
+the row just under the band, the rows in view where they were, a row up
+held the old way; a Move put back above
 the list, the rows in view where they were, a row down held the old way,
 and a Mark moving nothing; a search's Cancel coming back by the rows he
 could see with the hidden row gone meanwhile. And one reading the
@@ -15971,6 +15999,30 @@ else, the five places that keep his place take it there, and `sight` is
 the table's offset, height, adjusted insets and the band's height. The
 renamed `sight` is read in `PaneArrangementTests` as `voiceOverSight` was.
 
+For the close-up, seven more, the list laid out the same way: the
+letter's row the first in sight, whole or twenty points of it, and the
+row above with none of it, half a point, a point or ten in sight, the
+rows below each up a row, the row above where it was, the list not
+scrolled; a row taken out under the band or under the status bar, every
+row in view where it was, and one below the first in sight, the rows
+above it where they were and the rows below up a row; the list's first
+row taken out at the top, pulled down past it and a little way down, no
+row above taken, the list not scrolled; Edit mode's Delete of three rows,
+of every row in sight, and of the first in sight with the row above it;
+a conversation's newest letter taken out, its next letter next on the
+list or ten rows down, in the middle of the list and as its first row;
+newer mail taking the first row in sight up the list and the grouping
+switch merging it into the row above, the next row where it was, as
+before; a refused Move put back after the close-up, nothing in view moving
+either time, a search's Cancel and the newest page fetched afresh with
+the first row gone, closed up. Two older tests changed with the rule: the
+top row taken off, the next now in its place
+(`testARowTakenOffHasTheRowsBelowCloseUpIntoItsPlace`, which was
+`testARowTakenOffLeavesTheNextWhereItWas`), and the same for a row binned
+while a search showed (`testResultsGoToTheTopAndTheFolderComesBackWhereHeWas`).
+The first change's test of the letter's row partly in sight, the rows
+below it where they were, was the old rule's, and is gone.
+
 Each part undone in the worktree, one at a time, the tests run, counted as
 failures in tests. Every row on screen taken, as it was, 63 in 6. Only
 rows wholly in sight, 9 in 3. No row in sight taken for none, 2 in 1.
@@ -15979,7 +16031,17 @@ The toolbar not looked at, 8 in 3. `place()` as it was, 1 in 1. The band
 left out of the table's `sight`, 2 in 2, the VoiceOver test among them. A
 place taken a second way in the list, 2 in 1.
 
-The full suite, serially: 1,833 tests, 5 skipped, none failing. The
+For the close-up, the same way. No close-up, the rule as it was, 93 in 7.
+The row above not held, 1 in 1. A row newer mail took up the list closed
+up as one taken out, 10 in 2, the paging test of list-8 among them. What
+is left of a conversation not looked for, 6 in 1. The first of the rows
+standing taken rather than the highest, 5 in 1. No row above taken, 6 in
+3. The first row in sight taken as the row above, 6 in 3. The row above
+held at the first one's offset, 68 in 4. A row above taken with none on
+screen above the first in sight, 5 in 2. And every row on screen taken,
+the first change undone, 94 in 11 now.
+
+The full suite, serially: 1,839 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -15992,3 +16054,15 @@ release build for the iPad links.
 - A row under the toolbar at the bottom is not held either. Holding is by
   the first row in sight, so it counts only once every row he could see
   above it has gone.
+- A Move or an Edit-mode Delete of the top row he can see that the server
+  refuses, its row put back (B-062, B-092): at the tap the rows below
+  close up into its place, and when the row is put back it goes in above
+  them, out of sight under the search field. Nothing in view moves either
+  time. Put back in sight, every row in view would go down a row, and the
+  list cannot tell it from a row that was out of sight above the list
+  when it went, which is to stay there
+  (`testARowPutBackAboveTheListAndAMarkMoveNothingInView`). The alert says
+  the letter was not moved; its row is one up.
+- Newer mail taking the top row he can see up the list, on a page put on
+  above, is not a row taken out: the row above comes down into its place,
+  as before. Mail has no page above to compare it with.

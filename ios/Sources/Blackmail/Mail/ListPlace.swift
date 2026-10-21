@@ -27,10 +27,15 @@ import Foundation
 /// letter the list has first in it (`MessageThread.id`), which is what it
 /// stays headed by unless newer mail joined it; and failing that by any
 /// letter in it, for rows merged or split by the grouping switch.
+///
+/// And the row just above the first he can see is kept too, the one on
+/// screen under the bars or the band: when that first row is taken out,
+/// it is the one held, and the rows below close up into the gap, as in
+/// Mail (`landing`, B-093).
 struct ListPlace: Equatable {
 
-    /// A row he could see: at least partly below the bars and the band
-    /// (`inSight`).
+    /// A row on screen: one he could see, at least partly below the bars
+    /// and the band (`inSight`), or the one just above them (`above`).
     struct Seen: Equatable {
         /// The row's id: the letter the list has first in it
         /// (`MessageThread.id`).
@@ -44,27 +49,38 @@ struct ListPlace: Equatable {
 
     /// The rows he could see, top first.
     let seen: [Seen]
+    /// The row on screen just above the first he could see, under the bars
+    /// or the band, with less than a point of it in sight (`justAbove`):
+    /// the row held when that first row is taken out (`landing`, B-093).
+    /// Nil when the first row he could see was the first on screen, at the
+    /// top of the list, and for a place taken by its rows alone.
+    let above: Seen?
     /// The selected rows, by their ids: the letter open in the reading pane,
     /// or in Edit mode his ticks.
     let selected: [String]
 
     /// Taken from the rows as they are BEFORE they are rebuilt, which is the
-    /// whole point: `visible` and `selected` are row numbers in `rows`, and
-    /// they mean nothing in the rows that replace them.
-    init(rows: [MessageThread], visible: [(row: Int, offset: Double)], selected: [Int]) {
-        seen = visible
-            .filter { rows.indices.contains($0.row) }
-            .map { Seen(id: rows[$0.row].id, letters: rows[$0.row].messages.map(\.id),
-                        offset: $0.offset) }
+    /// whole point: `visible`, `above` and `selected` are row numbers in
+    /// `rows`, and they mean nothing in the rows that replace them.
+    init(rows: [MessageThread], visible: [(row: Int, offset: Double)],
+         above: (row: Int, offset: Double)? = nil, selected: [Int]) {
+        func seen(_ row: (row: Int, offset: Double)) -> Seen {
+            Seen(id: rows[row.row].id, letters: rows[row.row].messages.map(\.id),
+                 offset: row.offset)
+        }
+        self.seen = visible.filter { rows.indices.contains($0.row) }.map(seen)
+        self.above = above.flatMap { rows.indices.contains($0.row) ? seen($0) : nil }
         self.selected = selected.filter(rows.indices.contains).map { rows[$0].id }
     }
 
     /// The same, from the rows the table has on screen, each by its top and
     /// bottom as `rectForRow` gives them, and what of the table is in
-    /// sight: the rows he can see are the ones taken (`inSight`).
+    /// sight: the rows he can see are the ones taken (`inSight`), and the
+    /// row on screen just above them (`justAbove`).
     init(rows: [MessageThread], onScreen: [(row: Int, top: Double, bottom: Double)],
          sight: TableSight, selected: [Int]) {
-        self.init(rows: rows, visible: Self.inSight(onScreen, sight: sight), selected: selected)
+        self.init(rows: rows, visible: Self.inSight(onScreen, sight: sight),
+                  above: Self.justAbove(onScreen, sight: sight), selected: selected)
     }
 
     /// Of the rows on screen, top first, the ones he can see, with how far
@@ -93,27 +109,54 @@ struct ListPlace: Equatable {
         return (seen.isEmpty ? onScreen : seen).map { ($0.row, $0.top - Double(sight.offset)) }
     }
 
+    /// The row on screen just above the first he can see (`inSight`), with
+    /// how far its top is below the top of the pane: under the bars and the
+    /// band, less than a point of it in sight. Nil when the first row he
+    /// can see is the first on screen, and when none is in sight, since
+    /// then every row on screen is taken.
+    static func justAbove(_ onScreen: [(row: Int, top: Double, bottom: Double)],
+                          sight: TableSight) -> (row: Int, offset: Double)? {
+        guard let first = onScreen.firstIndex(where: {
+            sight.showsPart(CGFloat($0.top), CGFloat($0.bottom))
+        }), first > 0 else { return nil }
+        let row = onScreen[first - 1]
+        return (row.row, row.top - Double(sight.offset))
+    }
+
     /// Where he was, in `rows`: the row to put back in place, and how far
     /// below the top of the pane its top goes. Nil when none of the rows he
-    /// could see is in `rows` at all.
+    /// could see is in `rows` at all, nor, the first of them taken out, the
+    /// row above it.
     ///
     /// The first row he could see that is still headed by the same letter
     /// stays exactly where it was on screen, and the rows around it with it.
-    /// A row newer mail has joined has moved up the list, to where that mail
-    /// is, so it is passed over for the next one he could see: the rows he
-    /// was reading stay put, and the one that moved is simply no longer
-    /// among them. The same goes for a row taken off by a Delete. Only if
-    /// every one of them has changed is a row found by any letter in it,
-    /// which is what the grouping switch does to every row at once.
+    /// A row taken out above it, under the bars and the band, closes out of
+    /// sight; one taken out below it, the rows below close up. A row newer
+    /// mail has joined has moved up the list, to where that mail is, so it
+    /// is passed over for the next one he could see: the rows he was
+    /// reading stay put, and the one that moved is simply no longer among
+    /// them. Only if every one of them has changed is a row found by any
+    /// letter in it, which is what the grouping switch does to every row at
+    /// once.
+    ///
+    /// When the first row he could see has itself gone from its place,
+    /// taken out by a Delete or a Move, the rows below close up into it, as
+    /// in Mail (`closingUp`, B-093). It used to be passed over like a row
+    /// newer mail had joined: the rows below stayed, and the row above,
+    /// out of sight under the search field, came down into its place. Which
+    /// of the two he got turned on a point: with a point of the row above
+    /// in sight, that row was the first he could see, and the rows below
+    /// closed up.
     func landing(in rows: [MessageThread]) -> (row: Int, offset: Double)? {
         var headed: [String: Int] = [:]
         for (i, row) in rows.enumerated() { headed[row.id] = i }
-        for row in seen {
-            if let i = headed[row.id] { return (i, row.offset) }
-        }
         var holding: [String: Int] = [:]
         for (i, row) in rows.enumerated() {
             for letter in row.messages where holding[letter.id] == nil { holding[letter.id] = i }
+        }
+        if let closed = closingUp(in: rows, headed: headed, holding: holding) { return closed }
+        for row in seen {
+            if let i = headed[row.id] { return (i, row.offset) }
         }
         for row in seen {
             for letter in row.letters {
@@ -121,6 +164,43 @@ struct ListPlace: Equatable {
             }
         }
         return nil
+    }
+
+    /// Where a row he could see is in `rows`: headed by the same letter, or
+    /// with that letter gone, as what is left of it, the row its other
+    /// letters are in and one of them heads. Nil when it is gone, and when
+    /// its letters are in a row another letter heads: newer mail has
+    /// joined it and taken it up the list, or the grouping switch has
+    /// merged it into another.
+    private func stands(_ row: Seen, in rows: [MessageThread], headed: [String: Int],
+                        holding: [String: Int]) -> Int? {
+        if let i = headed[row.id] { return i }
+        guard let i = row.letters.lazy.compactMap({ holding[$0] }).first else { return nil }
+        return row.letters.contains(rows[i].id) ? i : nil
+    }
+
+    /// The first row he could see gone from its place, taken out, or gone
+    /// down the list with its newest letter: the rows below close up into
+    /// it, as in Mail (B-093). The row on screen just above it, under the
+    /// bars or the band, stays where it was (`above`). With none, at the
+    /// top of the list, or with that one taken out too, by an Edit-mode
+    /// Delete of both, the first of the rows he could see as they stand
+    /// now goes where the first was: what is left of it, or the next below.
+    ///
+    /// Nil, for `landing`'s rule, when the first row is still headed by
+    /// the same letter, and when newer mail has joined it and taken it up
+    /// the list, or the grouping switch has merged it: as before, the next
+    /// row he could see stays where it was.
+    private func closingUp(in rows: [MessageThread], headed: [String: Int],
+                           holding: [String: Int]) -> (row: Int, offset: Double)? {
+        guard let first = seen.first, headed[first.id] == nil else { return nil }
+        let joined = first.letters.contains { letter in
+            holding[letter].map { !first.letters.contains(rows[$0].id) } ?? false
+        }
+        guard !joined else { return nil }
+        if let above, let i = headed[above.id] { return (i, above.offset) }
+        let standing = seen.compactMap { stands($0, in: rows, headed: headed, holding: holding) }
+        return standing.min().map { ($0, first.offset) }
     }
 
     /// The rows to select in `rows`, found by the letters they held
