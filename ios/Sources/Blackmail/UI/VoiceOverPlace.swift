@@ -33,7 +33,7 @@ extension UITableView {
     /// search field, and VoiceOver put on it would scroll the list to show
     /// it.
     func voiceOverPlace(at row: IndexPath?, orFirstRow: Bool) -> UIView {
-        let sight = voiceOverSight
+        let sight = self.sight
         if let row, holds(row), sight.showsPart(rectForRow(at: row).minY, rectForRow(at: row).maxY),
            let cell = cellForRow(at: row) { return cell }
         if orFirstRow,
@@ -61,15 +61,16 @@ extension UITableView {
         // them.
         layoutIfNeeded()
         let rect = rectForRow(at: row)
-        guard let offset = voiceOverSight.offset(showingWhole: rect.minY, rect.maxY) else { return }
+        guard let offset = sight.offset(showingWhole: rect.minY, rect.maxY) else { return }
         setContentOffset(CGPoint(x: contentOffset.x, y: offset), animated: false)
         layoutIfNeeded()
     }
 
     /// What of the table is in sight, for the sums in `TableSight`. The
     /// band is the first section's header, pinned at the top in the list;
-    /// the folders have none.
-    private var voiceOverSight: TableSight {
+    /// the folders have none. VoiceOver's rows go by it, and so does the
+    /// list's place, held by the rows he can see (`ListPlace`, B-093).
+    var sight: TableSight {
         TableSight(offset: contentOffset.y, height: bounds.height,
                    barTop: adjustedContentInset.top, barBottom: adjustedContentInset.bottom,
                    band: numberOfSections > 0 ? rectForHeader(inSection: 0).height : 0,

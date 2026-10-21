@@ -29,7 +29,8 @@ import Foundation
 /// letter in it, for rows merged or split by the grouping switch.
 struct ListPlace: Equatable {
 
-    /// A row he could see.
+    /// A row he could see: at least partly below the bars and the band
+    /// (`inSight`).
     struct Seen: Equatable {
         /// The row's id: the letter the list has first in it
         /// (`MessageThread.id`).
@@ -56,6 +57,40 @@ struct ListPlace: Equatable {
             .map { Seen(id: rows[$0.row].id, letters: rows[$0.row].messages.map(\.id),
                         offset: $0.offset) }
         self.selected = selected.filter(rows.indices.contains).map { rows[$0].id }
+    }
+
+    /// The same, from the rows the table has on screen, each by its top and
+    /// bottom as `rectForRow` gives them, and what of the table is in
+    /// sight: the rows he can see are the ones taken (`inSight`).
+    init(rows: [MessageThread], onScreen: [(row: Int, top: Double, bottom: Double)],
+         sight: TableSight, selected: [Int]) {
+        self.init(rows: rows, visible: Self.inSight(onScreen, sight: sight), selected: selected)
+    }
+
+    /// Of the rows on screen, top first, the ones he can see, with how far
+    /// each one's top is below the top of the pane (B-093): every row with
+    /// a point or more of it between the bars, below the search band
+    /// pinned at the top (`TableSight.showsPart`).
+    ///
+    /// The table runs on under its bars, and the rows it has on screen are
+    /// every row in its bounds: at the top, one or two under the status and
+    /// navigation bars and the band, where he cannot see them. The first of
+    /// those used to be the row held. A letter whose row was out of sight
+    /// just above the top of the list, deleted from the reading pane, took
+    /// its row out between the row held and the rows he could see, and
+    /// every row in view moved up by one at once. Held by the first row he
+    /// can see, a row taken out above it closes out of sight, and so does
+    /// one that newer mail takes up the list, or one put back. The offsets
+    /// are still from the top of the pane, the table's bounds, which is
+    /// what `contentOffset` puts back.
+    ///
+    /// Every row on screen if none of them is in sight: a pane too short
+    /// for a row below the band, or one not laid out. Holding them is no
+    /// worse than holding nothing.
+    static func inSight(_ onScreen: [(row: Int, top: Double, bottom: Double)],
+                        sight: TableSight) -> [(row: Int, offset: Double)] {
+        let seen = onScreen.filter { sight.showsPart(CGFloat($0.top), CGFloat($0.bottom)) }
+        return (seen.isEmpty ? onScreen : seen).map { ($0.row, $0.top - Double(sight.offset)) }
     }
 
     /// Where he was, in `rows`: the row to put back in place, and how far

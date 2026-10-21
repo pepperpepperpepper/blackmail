@@ -1,13 +1,14 @@
 import Foundation
 
-/// What of a table is in sight, for VoiceOver's rows (B-079): between its
-/// bars and below the band pinned at its top, the list's search field. In
-/// the table's own points, down from the top of its rows, as `rectForRow`
-/// gives a row.
+/// What of a table is in sight, for VoiceOver's rows (B-079) and for the
+/// rows the list holds its place by (`ListPlace.inSight`, B-093): between
+/// its bars and below the band pinned at its top, the list's search field.
+/// In the table's own points, down from the top of its rows, as
+/// `rectForRow` gives a row.
 ///
 /// Out of `UITableView` so the suite can run the sums: the table hands these
-/// over (`voiceOverSight`), and the sums of what is in sight and of the
-/// least scroll are here, in one place.
+/// over (`sight`), and the sums of what is in sight and of the least scroll
+/// are here, in one place.
 struct TableSight: Equatable {
     /// How far the table is scrolled: its `contentOffset.y`.
     var offset: CGFloat

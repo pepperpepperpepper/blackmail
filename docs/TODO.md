@@ -3232,6 +3232,39 @@ this host. Ordered by value, not by size.
       *Not tried on the simulator: the host tests run it over the
       scripted server, whose hollow answer is the iPad's (B-092).*
 
+- [ ] **B-093, a Delete in the pane with the letter's row just above the
+      list.** On the test iPad, the test account only, built from the
+      `list-place` worktree. Three panes. W stands for a letter of the
+      test account's, read, alone in its conversation, in the Inbox and so
+      in All Mail. Times from the iPad's clock.
+      1. *Just above the list.* All Mail, Go to Date, Current Mailbox, a
+      day some weeks back with W a few rows below the day. Open W in the
+      reading pane. Drag the list slowly upwards until W's row has gone
+      just above the top of the list, hidden under the search field, with
+      the row above it under the status and navigation bars, and the first
+      row in view whole below the search field. A screenshot. Delete in the
+      pane, with a burst of shots from the tap: in the first, at about a
+      quarter of a second, and in every one after it, each row in view is
+      where it was in the shot before, the same letters at the same
+      heights. On the build before, every row in view went up one row at
+      once (B-093). The log has one `UID MOVE` and no list FETCH.
+      2. *The top row in view.* Put W back (step 4) and open it in All Mail
+      again. Drag the list until its row is the top row in view, whole
+      below the search field. A screenshot. Delete in the pane, with a burst: W's row
+      goes, the rows below it stay where they were, and the row that was
+      above it, out of sight under the search field, comes down into its
+      place. Copy down how it looks; on the build before, the rows below
+      came up one.
+      3. *Search and the page above.* The Inbox three screens down, Search,
+      type a word that finds letters, scroll the results, Cancel: the
+      Inbox back with the same rows at the same heights. Then All Mail, Go
+      to Date to the same day, scroll up slowly until the page above
+      comes: the rows move only with the finger, and the highlight stays
+      on the letter open in the pane.
+      4. *Put back.* After each Delete: Trash, open W, Move, Inbox.
+      *Not tried on the simulator: the host tests hold it, the list laid
+      out as on the iPad (B-093).*
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

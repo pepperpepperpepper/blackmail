@@ -15873,3 +15873,122 @@ release build for the iPad links.
 - On a server without MOVE, a hollow COPY's letter may have reached the
   Trash all the same: the COPY is not sent again, but his next Delete's
   would put a second copy there.
+
+## B-093 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A Delete in the reading pane, the letter's row just above the top of the list, moved every row in view up by one
+
+**What he saw.** Seen on the test iPad on 2026-10-21, and again when the
+check was made a second time on a fresh launch. All Mail after Go to Date,
+three panes. A letter open in the reading pane, the list scrolled slowly up
+until the letter's row was just above the top of the list, hidden under the
+search field, with the row above it under the status and navigation bars.
+Delete in the pane: in the first shot after the tap, at 0.22 s, every row
+in view had moved up by exactly one row, the top row he could see had gone
+up out of sight, and it stayed so. The server side was right, one `UID
+MOVE` and no list fetch.
+
+Not by design. A row binned from the reading pane above the top of the
+pane is not to shift the rows he is looking at (B-042).
+
+**What it was.** The place the list holds while its rows are drawn again.
+The pane's Delete takes the letter's row off at the tap (`PaneActions.start`,
+`ListLetters.take`), and the list draws its rows again keeping his place
+(`regroup`, `ListPlace`): the rows he can see are taken first, by their
+letters and how far down the pane each sits, and the first of them still
+listed is put back where it was. "The rows he can see" were the table's
+visible rows, which are every row in its bounds. The table runs on under
+the status and navigation bars, and the search band is pinned over the
+next 43 points, so one or two of those rows were under them. The first,
+the row under the status bar, was the row held; the letter's row, under the
+band, went from between it and the rows he could see, and they closed up
+under it by one row. Had the first row he could see been held, nothing in
+view would have moved. With the letter's row in view, as in Edit mode's
+Delete the same day, the row held was above it and nothing he could see
+moved, which is why it had not been seen.
+
+The same row was held by every move that keeps his place: a page of newer
+mail put on above after a date jump, where a newer letter in the
+conversation of the row under the band takes that row up the list; a Move
+the server refused, its row put back above the list; a search's Cancel,
+the folder coming back by the row under the bar.
+
+**Changed.**
+
+- The rows he can see are the ones with a point or more of them between
+  the bars, below the search band (`ListPlace.inSight`), by the sums
+  VoiceOver's rows go by (`TableSight`, B-079): the table's offset, its
+  height, its adjusted insets and the band's height, which the table hands
+  over as `sight` (it was `voiceOverSight`, private to VoiceOver). The
+  first of them still listed is held. A row taken out above it, under the
+  bars and the band, closes out of sight: the rows above it come down one
+  row, still under the bars, and every row in view stays where it was.
+- Their offsets are still from the top of the table's bounds, so the list
+  is put back as before.
+- The same for every move that keeps his place, which all take it in
+  `place()`: the regroup after a Delete or a Move from the pane or Edit
+  mode, a Mark, a Flag, a page above or below, the grouping switch, a Save
+  in Settings and a Move put back; a search's Cancel, by the place taken as
+  its results replaced the folder; the newest page fetched afresh after an
+  edit of his own; and the fresh page over the kept one (D-016).
+- With no row in sight, a pane too short for one below the band, every row
+  on screen is taken, as before.
+
+**Not changed.**
+
+- A Delete of a row in view below the top one: the rows above it stay and
+  the rows below close up, as before.
+- At the top of the list, a Delete of the top row: the list stays at the
+  top and the rows below close up, as before.
+- Which row is put back is still `ListPlace.landing`'s rule: the first row
+  he could see still headed by the same letter, else the next, else one
+  holding any of its letters.
+
+**What he sees.** A Delete or a Move from the pane, the letter's row out of
+sight just above the list: nothing in view moves. A row put back above the
+list, a page of newer mail put on above it, a search cancelled: the rows
+he could see stay where they were. One change he may notice: a Delete of
+the top row he can see, the list scrolled down. Its row goes, the rows
+below it stay where they were, and the row above it, which was out of
+sight under the search field, comes down into its place. That is the rule
+the list was meant to have (`testARowTakenOffLeavesTheNextWhereItWas`); on
+the iPad the rows below used to come up one instead, because the row held
+was the one under the bars.
+
+**Tests.** In `ListPlaceTests`, seven over the rule, with the list laid out
+as on the iPad, the band 43 points, 74 of bars over the table and 50 under
+it, twenty rows of 96: the iPad's Delete, every row in view where it was,
+and what holding every row on screen gave, each a row up; a row in sight
+with a point of it below the band or above the toolbar, not with half a
+point; no row in sight, every row on screen taken; the letter's row the
+first in sight, the rows below it where they were and the row above in its
+strip; a page above taking up the row just under the band, the rows in
+view where they were, a row up held the old way; a Move put back above
+the list, the rows in view where they were, a row down held the old way,
+and a Mark moving nothing; a search's Cancel coming back by the rows he
+could see with the hidden row gone meanwhile. And one reading the
+controller: `place()` takes the rows on screen by their tops and bottoms
+and the table's `sight`, the list makes a `ListPlace` there and nowhere
+else, the five places that keep his place take it there, and `sight` is
+the table's offset, height, adjusted insets and the band's height. The
+renamed `sight` is read in `PaneArrangementTests` as `voiceOverSight` was.
+
+Each part undone in the worktree, one at a time, the tests run, counted as
+failures in tests. Every row on screen taken, as it was, 63 in 6. Only
+rows wholly in sight, 9 in 3. No row in sight taken for none, 2 in 1.
+Offsets from the top of what is in sight rather than of the pane, 43 in 7.
+The toolbar not looked at, 8 in 3. `place()` as it was, 1 in 1. The band
+left out of the table's `sight`, 2 in 2, the VoiceOver test among them. A
+place taken a second way in the list, 2 in 1.
+
+The full suite, serially: 1,833 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad yet. TODO's B-093 check is the iPad's Delete again,
+  with shots before and right after, and the top row he can see deleted.
+- The host suite cannot lay out a table: what the table reports, its
+  visible rows, its insets and the band's rect, is taken as UIKit gives
+  it, as VoiceOver's rows take it (B-079).
+- A row under the toolbar at the bottom is not held either. Holding is by
+  the first row in sight, so it counts only once every row he could see
+  above it has gone.

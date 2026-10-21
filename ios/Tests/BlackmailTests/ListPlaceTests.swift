@@ -568,4 +568,302 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertFalse(ListPlaces.isAtTop(offset: -63, topInset: 64))
         XCTAssertFalse(ListPlaces.isAtTop(offset: 200, topInset: 64))
     }
+
+    // MARK: - The rows he can see (B-093)
+
+    /// The list as the iPad lays it out, near enough: the search band 43
+    /// points tall on top of the rows, the table 810 tall, 74 points of
+    /// status and navigation bar over its top and 50 of toolbar under it.
+    private static let band = 43.0
+    private static let barTop = 74.0
+    private static let barBottom = 50.0
+    private static let height = 810.0
+
+    /// The top of row `row` in the table, as `rectForRow` gives it.
+    private func rowTop(_ row: Int) -> Double { Self.band + Double(row) * Self.row }
+
+    /// Twenty rows, a letter each, newest first: row r is the letter
+    /// 200 - r, alone in its conversation. Longer than the pane.
+    private var twenty: [MessageSummary] {
+        (181...200).reversed().map { letter($0, thread: "t\($0)") }
+    }
+
+    /// What of the table is in sight scrolled to `offset`, with `count` rows.
+    private func sight(at offset: Double, rows count: Int) -> TableSight {
+        TableSight(offset: offset, height: Self.height, barTop: Self.barTop,
+                   barBottom: Self.barBottom, band: Self.band,
+                   content: Self.band + Double(count) * Self.row)
+    }
+
+    /// The rows the table has on screen scrolled to `offset`: every row in
+    /// its bounds, the ones under its bars too.
+    private func onScreen(at offset: Double, rows count: Int)
+        -> [(row: Int, top: Double, bottom: Double)] {
+        (0..<count).map { ($0, rowTop($0), rowTop($0) + Self.row) }
+            .filter { $0.2 > offset && $0.1 < offset + Self.height }
+    }
+
+    /// The place taken at `offset`, as `MessageListViewController.place()`
+    /// takes it.
+    private func place(in rows: [MessageThread], at offset: Double) -> ListPlace {
+        ListPlace(rows: rows, onScreen: onScreen(at: offset, rows: rows.count),
+                  sight: sight(at: offset, rows: rows.count), selected: [])
+    }
+
+    /// The place as it used to be taken: every row on screen.
+    private func everyRow(in rows: [MessageThread], at offset: Double) -> ListPlace {
+        ListPlace(rows: rows, visible: onScreen(at: offset, rows: rows.count)
+                    .map { ($0.row, $0.top - offset) }, selected: [])
+    }
+
+    /// Where each letter heading a row is, down from the top of the pane, with
+    /// the table at `offset`.
+    private func onPane(_ rows: [MessageThread], at offset: Double) -> [String: Double] {
+        Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, rowTop($0.offset) - offset) })
+    }
+
+    /// The offset `place` puts the table at in `rows`, from `offset`, as
+    /// `scroll(to:in:)` does: the row landed on where it was, within what
+    /// the table can scroll to, or left alone.
+    private func offset(after place: ListPlace, in rows: [MessageThread], from offset: Double) throws -> Double {
+        let landing = try XCTUnwrap(place.landing(in: rows))
+        let content = Self.band + Double(rows.count) * Self.row
+        let range = -Self.barTop...max(-Self.barTop, content + Self.barBottom - Self.height)
+        return ListPlace.contentOffset(rowTop: rowTop(landing.row), offset: landing.offset,
+                                       range: range, current: offset) ?? offset
+    }
+
+    /// The rows he could see, at `offset` in `rows`: their letters.
+    private func inView(_ rows: [MessageThread], at offset: Double) -> [String] {
+        ListPlace.inSight(onScreen(at: offset, rows: rows.count), sight: sight(at: offset, rows: rows.count))
+            .map { rows[$0.row].id }
+    }
+
+    /// The iPad's Delete (B-093): the letter open in the pane, its row
+    /// scrolled just above the top of the list, under the bars and the
+    /// band, and the row above it under the status bar. Delete in the pane:
+    /// its row is taken out at the tap, and every row he can see stays
+    /// where it was. The row held used to be the first on screen, the one
+    /// under the status bar, and the gap closed below it: every row in view
+    /// moved up by one at once.
+    func testADeleteJustAboveTheListLeavesEveryRowInViewWhereItWas() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        // Row 3, "7/197", ends where the band does; row 2 is under the bar.
+        XCTAssertEqual(rowTop(3) + Self.row, from + Self.barTop + Self.band)
+        XCTAssertEqual(onScreen(at: from, rows: 20).map(\.row), Array(2...11))
+        let seen = inView(before, at: from)
+        XCTAssertEqual(seen, (190...196).reversed().map { "7/\($0)" }, "rows 4 to 10")
+        let here = place(in: before, at: from)
+        XCTAssertEqual(here.seen.first?.id, "7/196")
+        XCTAssertEqual(here.seen.first?.offset, 117)
+
+        let after = grouped(twenty.filter { $0.id != "7/197" })
+        let to = try offset(after: here, in: after, from: from)
+        XCTAssertEqual(to, from - Self.row, "the row's height taken off above, out of sight")
+        let was = onPane(before, at: from)
+        let now = onPane(after, at: to)
+        for id in seen { XCTAssertEqual(now[id], was[id], id) }
+
+        // Held by every row on screen, as it was: the one under the status
+        // bar stays, and everything he could see goes up a row.
+        let old = try offset(after: everyRow(in: before, at: from), in: after, from: from)
+        XCTAssertEqual(old, from, "nothing scrolled")
+        for id in seen { XCTAssertEqual(onPane(after, at: old)[id], was[id].map { $0 - Self.row }, id) }
+    }
+
+    /// A row is in sight with a point or more of it between the bars, below
+    /// the band: one with ten points below the band is held, at its own
+    /// offset, negative for a row partly under the band; half a point is
+    /// not enough. Under the toolbar the same.
+    func testARowIsInSightWithAPointOfItBelowTheBand() {
+        let rows = [(row: 2, top: 235.0, bottom: 331.0), (row: 3, top: 331.0, bottom: 427.0),
+                    (row: 4, top: 427.0, bottom: 523.0), (row: 10, top: 1_003.0, bottom: 1_099.0),
+                    (row: 11, top: 1_099.0, bottom: 1_195.0)]
+        func held(at offset: Double) -> [Int] {
+            ListPlace.inSight(rows, sight: sight(at: offset, rows: 20)).map(\.row)
+        }
+        XCTAssertEqual(held(at: 310), [4, 10], "the band ends where row 3 does")
+        XCTAssertEqual(ListPlace.inSight(rows, sight: sight(at: 310, rows: 20)).map(\.offset),
+                       [117, 693])
+        XCTAssertEqual(held(at: 300), [3, 4, 10], "ten points of row 3 below the band")
+        XCTAssertEqual(ListPlace.inSight(rows, sight: sight(at: 300, rows: 20)).first?.offset, 31)
+        XCTAssertEqual(held(at: 309.5), [4, 10], "half a point")
+        // The toolbar's top 760 points below the offset: at 310, row 10
+        // shows 67 points above it and row 11 none; at 340.5, a point and a
+        // half of row 11; at 339.5, half a point.
+        XCTAssertEqual(held(at: 340.5), [4, 10, 11])
+        XCTAssertEqual(held(at: 339.5), [4, 10])
+    }
+
+    /// Nothing in sight, a pane too short for a row below the band, or one
+    /// not laid out: every row on screen, as before. Nothing on screen,
+    /// nothing.
+    func testWithNoRowInSightEveryRowOnScreenIsTaken() {
+        let rows = [(row: 3, top: 331.0, bottom: 427.0), (row: 4, top: 427.0, bottom: 523.0)]
+        let short = TableSight(offset: 310, height: 160, barTop: 74, barBottom: 50, band: 43,
+                               content: 1_963)
+        let taken = ListPlace.inSight(rows, sight: short)
+        XCTAssertEqual(taken.map(\.row), [3, 4])
+        XCTAssertEqual(taken.map(\.offset), [21, 117])
+        XCTAssertTrue(ListPlace.inSight([], sight: sight(at: 0, rows: 0)).isEmpty)
+    }
+
+    /// The letter's row with a little of it in sight at the top: it is the
+    /// first row he can see, and it is the one taken out. The next row he
+    /// can see stays where it was, and every row below it; the row above,
+    /// under the bars, comes down into the strip the letter's row had.
+    func testADeleteOfTheRowPartlyInSightLeavesTheRowsBelowItWhereTheyWere() throws {
+        let before = grouped(twenty)
+        let from = 290.0
+        XCTAssertEqual(inView(before, at: from).first, "7/197", "20 points of it below the band")
+        let after = grouped(twenty.filter { $0.id != "7/197" })
+        let to = try offset(after: place(in: before, at: from), in: after, from: from)
+        let was = onPane(before, at: from)
+        let now = onPane(after, at: to)
+        for id in inView(before, at: from).dropFirst() { XCTAssertEqual(now[id], was[id], id) }
+        XCTAssertEqual(now["7/198"], was["7/197"], "the row above in its strip")
+    }
+
+    /// A page of newer mail put on above, after a date jump, with a letter
+    /// in the conversation of the row just above the list, under the band:
+    /// that row goes up to the new page, out of sight, and the rows in view
+    /// stay put. Held by the row under the status bar, they went up a row.
+    func testAPageAboveTakingUpTheRowJustAboveTheListLeavesTheRowsInViewWhereTheyWere() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        let seen = inView(before, at: from)
+        let newer = [letter(230, thread: "n230"), letter(229, thread: "t197"),
+                     letter(228, thread: "n228")]
+        let after = grouped(newer + twenty)
+        XCTAssertEqual(after[1].messages.map(\.id), ["7/229", "7/197"], "gone up with its new letter")
+        let to = try offset(after: place(in: before, at: from), in: after, from: from)
+        let was = onPane(before, at: from)
+        for id in seen { XCTAssertEqual(onPane(after, at: to)[id], was[id], id) }
+
+        let old = try offset(after: everyRow(in: before, at: from), in: after, from: from)
+        for id in seen { XCTAssertEqual(onPane(after, at: old)[id], was[id].map { $0 - Self.row }, id) }
+    }
+
+    /// A Move from the pane that the server refused puts its row back where
+    /// it stood, here just above the list, out of sight: the rows in view
+    /// stay put. A Mark or a Flag, which changes no row, moves nothing.
+    func testARowPutBackAboveTheListAndAMarkMoveNothingInView() throws {
+        let taken = grouped(twenty.filter { $0.id != "7/197" })
+        let from = 214.0
+        XCTAssertEqual(inView(taken, at: from).first, "7/196")
+        let back = grouped(twenty)
+        let to = try offset(after: place(in: taken, at: from), in: back, from: from)
+        XCTAssertEqual(to, from + Self.row)
+        let was = onPane(taken, at: from)
+        for id in inView(taken, at: from) { XCTAssertEqual(onPane(back, at: to)[id], was[id], id) }
+        let old = try offset(after: everyRow(in: taken, at: from), in: back, from: from)
+        XCTAssertEqual(onPane(back, at: old)["7/196"], was["7/196"].map { $0 + Self.row },
+                       "held by the row under the bar, the rows in view went down a row")
+
+        var marked = twenty
+        marked[4] = MessageSummary(id: "7/196", mailboxID: "INBOX", sender: marked[4].sender,
+                                   subject: marked[4].subject, preview: "", date: marked[4].date,
+                                   isRead: false, isFlagged: true, threadID: "t196")
+        let here = place(in: grouped(twenty), at: 310)
+        let landing = try XCTUnwrap(here.landing(in: grouped(marked)))
+        XCTAssertNil(ListPlace.contentOffset(rowTop: rowTop(landing.row), offset: landing.offset,
+                                             range: -74...1_203, current: 310), "nothing moves")
+    }
+
+    /// A search's Cancel comes back by the rows he could see when it began:
+    /// the row hidden under the band, deleted from the reading pane while
+    /// the results showed, closes out of sight.
+    func testASearchsCancelComesBackByTheRowsHeCouldSee() throws {
+        var places = ListPlaces()
+        let rows = grouped(twenty)
+        let from = 310.0
+        XCTAssertEqual(places.resultsShown(overFolder: true, here: place(in: rows, at: from)), .top)
+        // Results at the top, scrolled down, then Cancel: the folder's rows
+        // without the one he deleted, the table at the results' offset.
+        guard case .back(let folder) = places.searchEnded(showingResults: true) else {
+            return XCTFail("no place kept")
+        }
+        let now = grouped(twenty.filter { $0.id != "7/197" })
+        let to = try offset(after: folder, in: now, from: 600)
+        let was = onPane(rows, at: from)
+        for id in inView(rows, at: from) { XCTAssertEqual(onPane(now, at: to)[id], was[id], id) }
+    }
+
+    /// The controller's half, read: its place is taken from the rows on
+    /// screen by their tops and bottoms and what of the table is in sight,
+    /// the same `sight` VoiceOver's rows go by, and nowhere else; and every
+    /// move that keeps his place takes it there.
+    func testTheListTakesItsPlaceByTheRowsInSight() throws {
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertEqual(flat(body(after: "private func place() -> ListPlace", in: list)),
+                       "{ let onScreen = (tableView.indexPathsForVisibleRows ?? []) "
+                       + ".filter { $0.section == 0 && $0.row < rows.count } .sorted() "
+                       + ".map { ip -> (row: Int, top: Double, bottom: Double) in "
+                       + "let rect = tableView.rectForRow(at: ip) "
+                       + "return (ip.row, Double(rect.minY), Double(rect.maxY)) } "
+                       + "let selected = (tableView.indexPathsForSelectedRows ?? []).map(\\.row) "
+                       + "return ListPlace(rows: threads, onScreen: onScreen, sight: tableView.sight, "
+                       + "selected: selected) }")
+        XCTAssertEqual(list.components(separatedBy: "ListPlace(rows:").count - 1, 1)
+        XCTAssertEqual(lines(of: list, containing: "place()"),
+                       ["let before = place()", "private func place() -> ListPlace {",
+                        "regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())",
+                        "let here = place()", "let here = place()",
+                        "return places.resultsShown(overFolder: overFolder, here: overFolder ? place() : nil)"])
+        let sight = flat(body(after: "var sight: TableSight", in: try source("UI/VoiceOverPlace.swift")))
+        XCTAssertEqual(sight, "{ TableSight(offset: contentOffset.y, height: bounds.height, "
+                       + "barTop: adjustedContentInset.top, barBottom: adjustedContentInset.bottom, "
+                       + "band: numberOfSections > 0 ? rectForHeader(inSection: 0).height : 0, "
+                       + "content: contentSize.height) }")
+    }
+
+    // MARK: - Reading the source
+
+    /// A file under `Sources/Blackmail`, its comment lines taken out.
+    private func source(_ file: String) throws -> String {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()     // BlackmailTests
+            .deletingLastPathComponent()     // Tests
+            .deletingLastPathComponent()     // ios
+            .appendingPathComponent("Sources/Blackmail/\(file)")
+        return try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+    }
+
+    /// The braces after the first `opener` in `code`, and everything in them.
+    private func body(after opener: String, in code: String,
+                      file: StaticString = #filePath, line: UInt = #line) -> String {
+        guard let start = code.range(of: opener),
+              let brace = code[start.upperBound...].firstIndex(of: "{") else {
+            XCTFail("no \(opener)", file: file, line: line)
+            return ""
+        }
+        var depth = 0
+        var i = brace
+        while i < code.endIndex {
+            if code[i] == "{" { depth += 1 }
+            if code[i] == "}" {
+                depth -= 1
+                if depth == 0 { return String(code[brace...i]) }
+            }
+            i = code.index(after: i)
+        }
+        XCTFail("\(opener) never closes", file: file, line: line)
+        return ""
+    }
+
+    /// The lines of `code` that contain `text`, trimmed.
+    private func lines(of code: String, containing text: String) -> [String] {
+        code.components(separatedBy: "\n")
+            .filter { $0.contains(text) }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    /// Whitespace runs as one space.
+    private func flat(_ text: String) -> String {
+        text.split(whereSeparator: { $0 == " " || $0 == "\n" }).joined(separator: " ")
+    }
 }
