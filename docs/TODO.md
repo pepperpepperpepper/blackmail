@@ -1951,7 +1951,9 @@ this host. Ordered by value, not by size.
       HEIF Max, where one can be had: its line says what Photos offered
       for it and which way it went.
       4. *A photo too large for the room, shrunk.* Share the camera photos
-      and the 48-megapixel JPEG last, five at once. Those that fit the
+      and the 48-megapixel JPEG last, five at once. Photos hands them
+      over in the library's order, by date, not in the order picked: the
+      JPEG is last only behind older ones. Those that fit the
       letter's 25 MB go as their own bytes. A photo is shrunk only past
       that room (B-070): no line says "more than Send could build". The
       first that does not fit says why, `(not as its own bytes: more than
@@ -1960,10 +1962,10 @@ this host. Ordered by value, not by size.
       gives (for the 48-megapixel JPEG a quarter, 1512 by
       2016, upright, stored 8064 by 6048 with orientation 8, with less
       than 264 MB left), upright in its pixels, no orientation tag, no GPS
-      anywhere, the date. Then a video of 15 to 24 MB and the
-      48-megapixel JPEG after it, if Photos offers Blackmail for the two
-      together: the JPEG's line says `more than the letter's room, N MB
-      left`. The sheet says nothing of one left out unless one is.
+      anywhere, the date. Then a video of 15 to 24 MB older than the
+      48-megapixel JPEG, and the JPEG, if Photos offers Blackmail for the
+      two together: the JPEG's line says `more than the letter's room, N
+      MB left`. The sheet says nothing of one left out unless one is.
       5. *A letter near the limit, sent.* Share a video of 20 to 24 MB
       alone, weighed against the 25 MB alone, and Send it. The sheet must
       close at the 250, and the letter arrive. Copy down its lines: its
@@ -1987,9 +1989,9 @@ this host. Ordered by value, not by size.
       7. *A picture with no name.* Take a screenshot, tap its thumbnail,
       and share from that screen; then two the same way at once, if it
       allows. Its line says `name=none "image0.png"` (or `.jpeg`), the
-      next `image1`. If it says `name=file "{N chars}.png"`, iOS made a
-      name up: read it from the letter that arrived and note it; it
-      decides whether such names count as none.
+      next `image1`. If it says `name=suggested` or `name=file "{N
+      chars}.png"`, iOS gave it a name: read it from the letter that
+      arrived and note it; it decides whether such names count as none.
       *Tried on the test iPad 2026-10-20, three times of three: the sheet
       said "The photo could not be attached." in place of the letter,
       "The photos could not be attached." for two, and no line could be
@@ -1999,6 +2001,15 @@ this host. Ordered by value, not by size.
       written when something is left out. Made again as B-090's check at
       the end of this section; its `read=` may then end `,object` or
       `,item`, and its way `PNG made of the object`.*
+      *Seen on the test iPad 2026-10-20 on B-090's build, one picture and
+      two at once: attached, and sent (B-090). Each line said
+      `read=public.image,item name=suggested "{18 chars}.png" way=PNG made
+      of the object`, and each arrived as "View recent photos.png",
+      image/png, some 10.2 MB, with no location: iOS's name for a
+      screenshot taken over Photos, two under the same name. The check
+      looked for image0.png first; the editor gives every screenshot a
+      name, so `name=suggested` is now in it. Whether such names count as
+      none is not yet decided.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2050,6 +2061,24 @@ this host. Ordered by value, not by size.
       11, with no subject: the YouTube app hands over the link alone;
       12. Every photo check is to be made again on the new build; 13 to 17
       not yet tried (B-036).*
+      *Seen on the test iPad 2026-10-20, a build of master with B-087 to
+      B-089 (daccd64): 2, 4, 5, 6's GIF, 9 and 10 passed (B-036). Photos
+      offered a GIF as `com.compuserve.gif`, the rest as on 2026-10-05, and
+      handed the items over in the library's order, not the order picked. In
+      2 all five went as their own bytes. In 4 IMG_0776 went at a quarter
+      behind three older PNGs of 24.2 MB, its N 170. 4's video and JPEG were
+      not made: a video picked first, but newer than the JPEG, came after it
+      and was left out, "1 video could not be attached.", and 4 now says the
+      order is the library's. In 5 a 21.0 MB video went, Photos' H.264 copy
+      of a 22.2 MB camera video, raw 1.37 times the file; the sheet closed
+      at the 250. In 9 the JPEG went as its own bytes and arrived with no
+      EXIF and an empty XMP. The pictures of 9 and 10 were saved to Photos
+      from Files, not Safari. The JPEGs made here carry an empty APP13, an
+      IPTC record with nothing in it, ImageIO's, holding no place. 7 failed
+      on that build and became B-090, seen fixed on B-090's (7). Still to do
+      of 1 to 10: 3's 48-megapixel HEIC, none at hand; 4's video, which
+      needs one older than the JPEG; 5 and 8 on his iPad; and 7's name, not
+      yet decided.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the
@@ -2161,7 +2190,10 @@ this host. Ordered by value, not by size.
       long the upload took. Memory passes when "while it went" is no more
       than 15 MB below the available figure on the "files read" line.
       2. *A video of about 5 MB.* Its fall to "while it went" is within
-      5 MB of check 1's: the memory does not grow with the file.
+      5 MB of that of check 1's video sent with the iPad left unlocked:
+      the memory does not grow with the file. A lock right after Send, as
+      in 3, took some 7 MB more by itself on 2026-10-20, so a locked send
+      is no baseline.
       3. *Lock the iPad right after Send in check 1, and wait 5 minutes.*
       Either it arrives once, or "Message was not sent." shows and Sent
       Mail has nothing. No `LETTER-LATCH withheld … errno`. "Not sent" for
@@ -2208,6 +2240,16 @@ this host. Ordered by value, not by size.
       `LETTER-FILE` lines, none `not checked`, and each arrived with its
       line's CRC (B-070, under B-044's checks). Still not: 2, 3, 4 on this
       build, six items, 9, and 10.*
+      *Seen on the test iPad 2026-10-20, a build of master with B-087 to
+      B-089 (daccd64), shared from Photos: 1 again, 2, 3, 4 and 5's six
+      items passed (B-070). In 3 the 18.7 MB video arrived once, its CRC
+      its line's, the upload ending with the screen off; the test iPad has
+      no passcode. 2 was
+      first measured against 3's locked send, which fell 9 MB where every
+      unlocked one fell 2 MB, whatever its files. Against the 18.7 MB
+      video sent again unlocked, the 7.9 MB one fell the same 2 MB, so 2
+      now names an unlocked send as its baseline. Still not: 9, not yet
+      tried, and 10, which needs his iPad.*
 - [x] **B-072, Refresh sends what waits in the Outbox.** On the test iPad,
       the test account only, every letter to the account itself, built
       from the `refresh-outbox` worktree; merge only after a pass. Copy
@@ -2950,7 +2992,7 @@ this host. Ordered by value, not by size.
       come while scrolled down, was not on the Inbox's kept page, so 7's
       offline launch drew the Inbox without it until Refresh, as D-016 has
       it; and the reading pane's Flag looked the same flagged and not.*
-- [ ] **B-090, a screenshot shared from its editor is attached.** On the
+- [x] **B-090, a screenshot shared from its editor is attached.** On the
       test iPad, the test account only. Build the IPA from the `shot-share`
       worktree with `tools/build-share-ipa.sh` and install it through
       TrollStore's helper, never by the deploy that copies files into the
@@ -2967,8 +3009,8 @@ this host. Ordered by value, not by size.
       from iOS: send it all the same, and read its name in 3.
       2. *Two.* Take two screenshots, tap the second's thumbnail, so the
       editor holds both; Share, Blackmail: image0.png and image1.png
-      listed, no line. To A with `+jane`, Subject "B-090 two", Send: both
-      arrive, each the screen it was.
+      listed, or iOS's names as in 1, and no line. To A with `+jane`,
+      Subject "B-090 two", Send: both arrive, each the screen it was.
       3. *The log.* Read the two newest `blackmail-send-*.txt` in the share
       extension's own tmp, each from its last `SHARE-BEGIN` on. For each
       picture of 1 and 2 a `SHARE-PICTURE` line: copy down its `offered=`
@@ -2993,6 +3035,17 @@ this host. Ordered by value, not by size.
       under that name at the size it was taken, as in the share sheet's
       check 1.
       5. *Put back.* The B-090 letters to Trash.
+      *Seen on the test iPad 2026-10-20, a build of the `shot-share`
+      worktree (9780fe4): 1 to 5 passed (B-090), 4 with IMG_0776, the
+      48-megapixel JPEG, the test iPad's camera photos being HEIC. The
+      editor offered `public.image` alone, and its own item was the
+      `UIImage`: `read=public.image,item`, `way=PNG made of the object`.
+      The pictures went under the name iOS gave them, "View recent
+      photos.png", two under the same name, not image0.png and image1.png;
+      whether such a name counts as none is not yet decided. 1 and 2
+      looked for image0.png: the editor names every screenshot, so 2 now
+      takes iOS's names as 1 did. Each arrived as image/png, the screen as
+      it was, upright, with no location.*
 
 - [ ] **B-091, Flag with Airplane Mode on.** On the test iPad, the test
       account only, built from the `no-path` worktree. A stands for the

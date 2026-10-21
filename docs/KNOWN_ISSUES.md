@@ -2388,6 +2388,39 @@ Not tried: a GIF, a picture with no name, a letter near the limit at
 Send, a JPEG or PNG with a GPS tag made on the host, and the checks of
 the rest of B-036.
 
+**Seen on the test iPad, 2026-10-20**, a build of the `fix-087-089`
+worktree (daccd64), master with B-087 to B-089, every letter shared from
+Photos To A with `+jane` before the "@", each line read from the
+extension's log and each picture that arrived read on the host. Share
+checks 2, 4, 5, 6's GIF, 9 and 10 passed; 7 did not, and became B-090.
+
+- Photos offered a GIF as `com.compuserve.gif`, and the rest as on
+  2026-10-05. It hands the items over in the library's order, by date,
+  not in the order they were picked.
+- *Five camera photos* (2) went as their own bytes, as before.
+- *Shrunk* (4): three older PNGs, 24.2 MB, whole, then IMG_0776 `way=JPEG
+  at factor 4, 170 MB available (not as its own bytes: more than the
+  letter's room, 0 MB left)`. It arrived as IMG_0776.jpg, 1512 by 2016,
+  upright in its pixels, no orientation tag, no GPS, the date kept.
+- *Near the limit* (5): a 21.0 MB video alone, 28.8 MB raw. The sheet
+  closed at the 250, one copy arrived, and 167 MB was the least while it
+  went.
+- *A GIF* (6) of three frames, `copied whole`: it arrived byte for byte,
+  still moving.
+- *A JPEG whose only metadata is a GPS IFD* (9): its own bytes, arriving
+  with no EXIF at all and an empty XMP, the pixels the same. That is how
+  ImageIO takes an empty metadata.
+- *A PNG with GPS in an eXIf chunk* (10): Photos kept the chunk, and the
+  line said `(not as its own bytes: it says where it was)`, `way=JPEG at
+  factor 1`. It arrived as IMG_0786.jpg with no GPS.
+- The JPEGs made here, in 4 and 10, carry an APP13 of 54 bytes: an IPTC
+  record with nothing in it, and its digest. It is ImageIO's writing, and
+  holds no place.
+- *A picture with no name* (7), from the screenshot editor: "The photo
+  could not be attached." three times of three, and no line to read. That
+  was B-090, seen fixed on its own build the same day, the picture going
+  under the name iOS gave it.
+
 **Not covered**, all for the iPad (checks 1 to 10 in the TODO); what the
 iPad has since shown is said at the end of each:
 
@@ -2414,10 +2447,13 @@ iPad has since shown is said at the end of each:
 - Which types Photos offers, in what order, for a camera photo, a
   screenshot and a GIF; the first line of the log will say. Seen
   2026-10-05: `public.jpeg,public.heic` for a camera photo, `public.jpeg`
-  for a JPEG, `public.png` for a PNG; a GIF not yet.
+  for a JPEG, `public.png` for a PNG; 2026-10-20: `com.compuserve.gif`
+  for a GIF.
 - What name iOS gives the file of a provider made from bytes with no name.
   If it makes one up, that is the name, not image0.jpeg; the log will say
   it came from the file, by its length, and the letter will show it.
+  Seen 2026-10-20: the screenshot editor's picture comes with a
+  suggestion, "View recent photos", and goes under it (B-090).
 - Whether `os_proc_available_memory` answers in an extension. It says
   nought for a process that is not an app; then `task_info`, then 80 MB.
   Seen 2026-10-05: it answers.
@@ -2430,7 +2466,9 @@ iPad has since shown is said at the end of each:
   19 MB video on the host. The network's own buffers are not in that
   figure. Whether the extension lives through a letter near 25 MB on the
   iPad, and how low its memory went while it did, is B-070's check, from
-  its `SHARE-SEND` lines; on his iPad when it can be had.
+  its `SHARE-SEND` lines; on his iPad when it can be had. Seen on the
+  test iPad 2026-10-20: letters of 21.0 and 24.4 MB of files went, the
+  least while they went 167 MB.
 - That `ledger_phys_footprint_peak`, in `task_info`, is the extension's
   highest footprint since it started, as its name says: `M MB at the
   least` rests on it.
@@ -9202,6 +9240,42 @@ wire, five `LETTER-FILE` lines, none `not checked`, one `WIRE-OUT`,
 `LETTER-LATCH ok`, one `WIRE-ACK err=none` and the 250, and no 221. The
 first time each photo was fetched over IMAP: each had its line's CRC.
 
+**Seen on the test iPad, 2026-10-20**, a build of the `fix-087-089`
+worktree (daccd64), master with B-087 to B-089, on the test account. Every
+letter shared from Photos To A with `+jane` before the "@", subjects
+beginning "R6 B-070", each arrival fetched over IMAP and its CRC-32
+compared with its `LETTER-FILE` line. The TODO's checks 2, 3 and 4 and
+check 5's six items passed, 2 against a baseline sent unlocked.
+
+1. *Check 1 again,* the 18.7 MB test video: `LETTER-PLAN raw=25658959
+   payload=25658962 ms=151`, `SIZE=` the raw, one `WIRE-OUT`,
+   `LETTER-LATCH ok`, one `WIRE-ACK err=none`, and the 250 some 10 s after
+   DATA.
+2. *Locked right after Send* (3), that same send: the lock button 0.3 s
+   after Send, the upload ending with the screen off. Five minutes on the
+   sheet had gone, no "Message was not sent.", and the letter was in the
+   Inbox and Sent Mail once, the original's bytes. No `LETTER-LATCH
+   withheld`. The test iPad has no passcode.
+3. *Five full-size camera photos* (4), kept as HEIC: five lines
+   `offered=public.jpeg,public.heic read=public.jpeg … way=own bytes,
+   metadata replaced`, none "Send could build", 18.5 MB raw. Each arrived
+   at 4032 by 3024, with no GPS anywhere, the date and its zone and the
+   colour profile kept, its CRC its line's.
+4. *The memory* (2). The locked send fell 9 MB from "files read" to
+   "while it went", 171 to 162 MB, and stayed there. The 7.9 MB video
+   fell 2 MB: 7 apart, a fail by the check's words. Sent again with the
+   iPad left unlocked, from the same 171 MB, the 18.7 MB video fell 2 MB
+   too, and so did the 7.9 MB one after it, and every other share that
+   day, of 7.9 to 24.4 MB of files. So the fall does not grow with the
+   file, and some 7 MB of the 9 came with the lock. The figures are whole
+   MB, one send each. Check 2 now names an unlocked send as its baseline.
+5. *Six items* (5): Blackmail not in the row, and nothing sent.
+
+Photos handed a camera video, HEVC of 22.2 MB in the library, over as an
+H.264 copy of 21.0 MB; it went whole and arrived so, its location in it,
+as a video goes as it is handed over. Still not tried on the iPad: a plain
+letter's `WIRE-PAYLOAD` on this build, and his iPad.
+
 **Not covered.**
 
 - **The network's own buffers.** What `NWConnection` holds behind
@@ -14781,7 +14855,7 @@ Seen in passing:
 
 ---
 
-## B-090 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. A screenshot shared from its editor could not be attached
+## B-090 — FIXED 2026-10-20, found on the iPad and seen there fixed. A screenshot shared from its editor could not be attached
 
 **What he saw.** Seen on the test iPad (iPadOS 16.5.1) on 2026-10-20,
 three times of three. A screenshot taken, its floating thumbnail tapped
@@ -15008,13 +15082,58 @@ none failing. The release build for the iPad links, with nothing in it
 that iOS 16 lacks, and the share IPA packages and signs with the extension
 in it.
 
+**Seen on the test iPad, 2026-10-20**, landscape, a build of the
+`shot-share` worktree (9780fe4), master with B-090, on the test account.
+Letters To A with `+jane` before the "@", subjects beginning "R6 B-090".
+Each screenshot was taken over
+Photos and its floating thumbnail tapped some 1.3 s later, which opened
+the editor. Every step of the TODO check passed. On the build before, the
+same share had said "The photo could not be attached." three times of
+three.
+
+1. *One.* Share, Blackmail: after some 3.5 s the letter, with "View
+   recent photos.png — 10.2 MB" and no line saying a photo could not be
+   attached. Sent, it arrived with that file alone, image/png, 10,239,352
+   bytes, its CRC its `LETTER-FILE` line's: 2388 by 1668, the screen as it
+   was, upright, its pixels the screenshot's to within 32 in 65535. It is
+   a 16-bit PNG with an alpha opaque throughout; Photos keeps the same
+   screen as one of 9.8 MB with none. No orientation tag, no GPS, no XMP,
+   and the screenshot's own Display P3 profile.
+2. *Two.* Two screenshots in one editor: two rows, both "View recent
+   photos.png", and no line. They arrived as two image/png files of that
+   name, each the screen it was, in order.
+3. *The log.* Each picture's line: `SHARE-PICTURE offered=public.image
+   read=public.image,item name=suggested "{18 chars}.png" way=PNG made of
+   the object, 157 MB available` (149 for the two). So the editor offers
+   `public.image` alone, and nothing under it is a file or bytes ImageIO
+   opens; it says it can give no `UIImage` object, so `object` was not
+   asked for; and its own item is the `UIImage`, made a PNG here. Each
+   took some 3.8 s to read, and the least memory went to 124 and 116 MB,
+   inside the bound. Nothing was left out, so no `-left-out.txt` was
+   written.
+4. *From Photos.* IMG_0776, the 48-megapixel JPEG, alone, the test iPad's
+   camera photos being HEIC: `read=public.jpeg`, no type before it,
+   `name=file "IMG_0776.JPG"`, `way=own bytes, metadata replaced`. It
+   arrived under that name at 8064 by 6048, its picture's data and tables
+   byte for byte the original's, the orientation 8 and the date kept, and
+   no GPS anywhere.
+5. *Put back.* The three letters to Trash.
+
+So the first reading under "What it was" holds: the editor hands its
+picture over as a `UIImage`, by its own item (`loadItem`) rather than
+`loadObject`. The name is not as "What he sees" has it. The editor gives
+every screenshot a name, "View recent photos" for one taken over Photos,
+and the picture goes under it, as a sharing app's suggestion goes
+(B-036); image0.png comes only where there is none, and two go under one
+name. Whether such a name counts as none, the suggestion then set aside
+for image0.png, is not yet decided.
+
 **Not covered.**
 
-- Not seen on the iPad. Which way the editor's share goes, a type after
-  the first, `object` or `item`, is for B-090's check in the TODO to read in
-  its line. That the editor hands over an object at all is the iPad's
-  reading, not confirmed. Should it give nothing any of these ways, the
-  sheet says so as before, and the line is now on the disk to say why.
+- On the iPad only the editor's way was seen, its own item; a type after
+  the first and `object` were not reached there, nor a picture left out
+  and its `-left-out.txt`. Should a share give nothing any of these ways,
+  the sheet says so as before, and the line is now on the disk to say why.
 - That ImageIO makes a source with nothing in it of what is no picture was
   seen on a Mac, in a script, not on iPadOS 16.5.1. The code holds either
   way: a source not made and one with no picture in it both go on to the
