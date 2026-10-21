@@ -15071,3 +15071,201 @@ release build for the iPad links.
 - Mail on the iPad keeps a change made offline and sends it later, as far
   as is known without trying it here. D-016 keeps no such queue, so the
   Flag is refused, at once now, where Mail would keep it.
+
+---
+
+## B-092 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A letter Gmail answered OK for and did not move went from the list, and came back only at a Refresh
+
+**What he saw.** Seen once on the test iPad on 2026-10-21, and not again
+when the same three letters were deleted the same way twice more, twelve
+MOVEs in all. Edit, three Inbox rows ticked, Delete: all three rows went.
+Gmail had moved two. The third, the first of the three sent, was in the
+Inbox still, read, and not in the Trash. Its row came back only with a
+Refresh more than two minutes later, and a second Delete took it. The
+letter was never lost; for those minutes the list showed as deleted a
+letter the Inbox still held.
+
+Not by design. A Delete or Move the server did not take puts the row
+back and says so (B-062).
+
+**What it was.** Gmail's answer, and the client's reading of it. With
+INBOX selected, `UID MOVE 343 "[Gmail]/Trash"` was answered in 0.89 s
+with `OK [COPYUID 2 343 0] (Success)`: no EXPUNGE, and 0 for the
+letter's UID in the Trash, which is no UID (RFC 4315). The two after it
+had `* 68 EXPUNGE` and a COPYUID with a UID in it. Of about 116 MOVEs in
+the connection logs kept, 112 had a COPYUID with a UID in it, one sent
+in the wrong mailbox on 2026-09-28 (B-039) was answered `OK Success`
+with no COPYUID, and one is this. Why Gmail answered so is not known.
+
+`IMAPClient.move` took any tagged OK for a move done, and read neither
+the COPYUID nor whether an EXPUNGE came. So the batch was told the
+letter had gone, the row taken off at the tap stayed off, and the
+repository took the letter off the kept pages. The watch did not bring
+it back: the row was still in the folder's list and the letter still in
+the folder, no newer than the newest, which is neither news nor gone.
+Only Refresh, which has the say, did.
+
+**Changed.**
+
+- A MOVE answered OK counts as done only if its answer shows it: a
+  COPYUID whose source holds the letter, with as many UIDs in the
+  destination and none of them 0, or an EXPUNGE (`IMAPMoveAnswer`, new).
+  The COPYUID is read on the tagged OK, where Gmail puts it, or on an
+  untagged OK before the EXPUNGEs, where RFC 6851 puts it. An EXPUNGE
+  names a sequence number, not a UID, so the one in a MOVE's answer is
+  taken for the letter's.
+- An answer that shows nothing is followed, in the same hold of the
+  connection, by a look in the folder the letter was in: a NOOP, then
+  `UID SEARCH UID n`. Gone, the move is done, and nothing is sent again.
+  Still there, the same MOVE goes once more, and its answer is read the
+  same way; showing nothing again, the folder is asked again. Still there
+  after that, the move is refused: the letter is where it was, unmarked,
+  its row back where it stood with "Can't connect to mail server.", and
+  the kept copy keeps it. So too with the second MOVE refused, or the
+  NOOP or the SEARCH. Nothing else is sent: no COPY, no `\Deleted`, no
+  EXPUNGE.
+- Never a COPY after a MOVE answered OK. A MOVE refused still falls back
+  to COPY, `\Deleted` and UID EXPUNGE, as before; one answered OK with
+  nothing to show does not, and neither does the second MOVE refused. The
+  COPY would make a second letter in the Trash wherever the MOVE had
+  landed. The second MOVE goes only once the folder has said it holds
+  the letter still, and on Gmail a letter is in one place, the Trash
+  excluding every other folder, so it has no second copy to make.
+- The NOOP first because a server that has moved a letter and not told
+  the connection can go on listing it in a SEARCH until it does (RFC
+  2180 §4.1). Asked without it, such a letter would be sent again and
+  refused, its row put back though it had gone; on a server that keeps
+  what it has not told of, the second MOVE could copy it again.
+- On a server without MOVE, the fallback's COPY is read for its COPYUID
+  before anything is marked. One with 0 for the letter's UID, or naming
+  another letter: nothing is marked or expunged, which would leave the
+  letter in neither folder, the COPY is not sent again, and the move is
+  refused, the letter where it was, unmarked. A COPY answered OK with no
+  COPYUID, from a server without UIDPLUS, goes on as before: the server
+  can say no more.
+- The connection log names each step in numbers, never the letter:
+  `MOVE-HOLLOW folder=INBOX uid=343 copyuid=dest-0 no-expunge`
+  (`copyuid=none` for no COPYUID, `other` for one naming another letter
+  or unreadable), then `MOVE-CHECKED folder=INBOX uid=343` with `gone`,
+  `there sending-again`, `moved` (the second MOVE's answer showed it),
+  `there not-moved`, `refused not-moved` or `unanswered not-moved`; for
+  the fallback, `MOVE-HOLLOW … UID COPY copyuid=dest-0` and
+  `MOVE-CHECKED … nothing-marked not-moved`.
+- The same for every Delete and Move from Edit mode and from the reading
+  pane, which all go through `IMAPMailRepository.move`: to the Trash, to
+  Spam, to a folder, and out of the Trash or Spam.
+
+**Not changed.**
+
+- A normal MOVE: its one command, as before, and nothing in the log.
+- Delete inside the Trash is no MOVE: it is `\Deleted` and a UID EXPUNGE
+  of the letter (B-062), as it was. Its UID EXPUNGE is rightly answered
+  OK with no EXPUNGE when Gmail's Auto-Expunge has taken the letter at
+  the STORE, so an answer showing nothing says nothing there.
+- Filed from All Mail in a label, a letter stays in All Mail, so it
+  cannot be looked for there: an answer showing nothing is noted,
+  `MOVE-CHECKED … stays-in-folder not-asked`, and taken as before. Its
+  row stays on the list either way (B-041).
+- Edit mode's rule that the first refusal stops the rest (B-062): a
+  letter refused as not moved stops the ones after it, which come back
+  unsent with it, as for any refusal. A letter whose second MOVE lands
+  stops nothing.
+- No new words. "Can't connect to mail server." is what a Delete or Move
+  the server would not do has always said.
+
+**What he sees.** A Delete or Move that Gmail answers so and takes at
+the second MOVE: the row goes at the tap and stays gone, three more
+round trips behind it. One Gmail will not take: the row back where it
+stood and "Can't connect to mail server.", as for any Delete the server
+refused; the letter is in its folder still, and the next Delete is his.
+Every other Delete and Move as before.
+
+**Tests.** `HollowMoveTests`, seventeen, over the answer's reading on
+Gmail's own strings, and over the shipping repository and client, the
+list's own letters, the kept copy and the scripted server, whose
+`hollowMoves` answer the next MOVEs as Gmail answered that one, tagged
+`OK [COPYUID <validity> <uid> 0] (Success)` and no EXPUNGE, with nothing
+moved (`.nothingMoved`) or with the letter moved and the connection not
+told until its next NOOP (`.movedUntold`), and whose `hollowCopies`
+answer a COPY so.
+
+- *The answer:* Gmail's MOVE done, its EXPUNGE and the tagged COPYUID,
+  shows it; the iPad's does not, nor does 2026-09-28's `OK Success`;
+  RFC 6851's untagged COPYUID is read; either the COPYUID or the EXPUNGE
+  alone is enough, an EXISTS is not. A COPYUID for another letter, with
+  fewer UIDs in the destination, `*`, too many digits or unreadable
+  names nothing; ranges either way round; a 0 anywhere is a 0; one on an
+  untagged NO is none; of two, the one naming the letter. A COPY's
+  answer is read for its COPYUID alone, none at all having nothing
+  against it.
+- *Once:* the iPad's answer with the letter still there, a Delete: MOVE,
+  NOOP, `UID SEARCH UID n`, MOVE, on the one connection, then none in
+  the Inbox, one in the Trash, none on the kept Inbox, and the three log
+  lines; a Move to a folder from the pane the same, its row staying off.
+- *Twice:* from the pane, refused, the alert's words, the row back where
+  it stood, the kept copy keeping it, the letter in the Inbox unmarked
+  and not in the Trash, two MOVEs and two questions and nothing else;
+  the second MOVE refused, with no COPY after it; the SEARCH refused,
+  nothing sent again.
+- *It did go:* the answer with the letter moved, the NOOP's EXPUNGE, the
+  SEARCH finding nothing, done, nothing sent again, one copy in the
+  Trash; and the same at the second MOVE.
+- *As before:* a Delete and a Move to a folder, one MOVE each, and a
+  Move out of All Mail, whose answer has no EXPUNGE, one MOVE, none
+  noted; a hollow answer out of All Mail noted and not looked into;
+  Delete inside the Trash, the STORE and UID EXPUNGE, the hollow MOVE
+  waiting not met.
+- *Without MOVE:* COPY, STORE and UID EXPUNGE as before; a hollow COPY,
+  nothing marked, no STORE, no EXPUNGE, no second COPY, refused, the
+  letter in the Inbox and on the kept Inbox.
+- *Edit mode:* three rows deleted, the second sent answered hollow: it
+  goes again and lands, the others one MOVE each, every row off, each
+  letter once in the Trash. The first sent answered hollow twice, the
+  iPad's first: refused, and by the rule above the others unsent, all
+  three rows back where they stood, every letter in the Inbox and kept.
+
+Each part undone in the worktree, one at a time, the seventeen run,
+counted as failures in tests. The code as it was, a tagged OK taken for
+done, 41 in 10, and in the whole suite those 10 alone: nothing else held
+it. A hollow OK falling back to the old COPY, `\Deleted` and EXPUNGE, 37
+in 10. A 0 among the destinations not seen, 52 in 14. The COPYUID not
+read, 2 in 2; the EXPUNGE not read, 2 in 1; the untagged COPYUID not
+read, 3 in 3; the source set not asked for the letter, 2 in 2; the
+counts not compared, 1 in 1. No NOOP before the SEARCH, 9 in 9, among
+them the letter that did go found still there, sent again and refused.
+No second MOVE, 23 in 7; the second sent as a COPY, 28 in 7; a second
+hollow answer refused unasked, 4 in 3; the second MOVE refused falling
+back to the COPY, 2 in 1; the question unanswered taken for gone, 3 in
+1. The client not heeding `leavesSource`, 2 in 1; the repository saying
+every letter stays, 40 in 9. The COPY's COPYUID not read, 5 in 1, the
+letter marked and expunged with no copy anywhere; a COPY with no
+COPYUID taken as hollow, 1 in 1. Every MOVE checked, 3 in 2, and in the
+whole suite 23 in 21, nineteen of them tests that were there before,
+each pinning a Delete's or a Move's commands.
+
+The full suite, serially: 1,816 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad: it came once in about 116 MOVEs and cannot be
+  made to come. TODO's B-092 check is that Deletes and Moves still send
+  one command each and the log has no `MOVE-HOLLOW` line; the hollow
+  answer is held by the host tests, the scripted server's answer being
+  the iPad's word for word.
+- Why Gmail answered so is not known. If it is Gmail not ready to file
+  the letter, the second MOVE, a round trip or two later, may meet the
+  same; then the row comes back with the alert, and the next Delete is
+  his.
+- An EXPUNGE in the MOVE's answer for a letter another program took out
+  at that moment would be taken for this letter's when its COPYUID shows
+  nothing.
+- A hollow answer for a letter filed from All Mail in a label is not
+  looked into (Not changed). The folder it went to may then count it
+  until the next sweep.
+- A server other than Gmail that moved a letter, kept it in the source
+  as well, and answered with no COPYUID and no EXPUNGE, which RFC 6851
+  says it should not, would get a second copy from the second MOVE.
+- On a server without MOVE, a hollow COPY's letter may have reached the
+  Trash all the same: the COPY is not sent again, but his next Delete's
+  would put a second copy there.

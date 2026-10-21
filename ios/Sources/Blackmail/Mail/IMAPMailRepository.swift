@@ -1947,9 +1947,15 @@ actor IMAPMailRepository: MailRepository {
         let message = try Self.parseID(id)
         try await vouch(for: id, named: gmailMessageID, uid: message.uid,
                         validity: message.validity, in: source)
+        // Trash and Spam are exclusive on Gmail; a letter filed in a label
+        // from All Mail stays there, since All Mail is every letter not
+        // binned. Where it stays, the client cannot look for it in the
+        // source to check a MOVE whose answer shows nothing (B-092).
+        let binned = destination == roleNames[.trash] || destination == roleNames[.junk]
+        let staysInSource = !binned && source == folderForAttribute["\\all"]
         try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
-                                  to: destination)
+                                  to: destination, leavesSource: !staysInSource)
         }
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
@@ -1959,9 +1965,12 @@ actor IMAPMailRepository: MailRepository {
         // of every one but the Trash or Spam it went to, which are
         // exclusive; out of none when it leaves All Mail for a label, since
         // All Mail is every letter not binned; out of its own otherwise.
-        if destination == roleNames[.trash] || destination == roleNames[.junk] {
+        // Only once the client has it moved: a MOVE refused, or answered
+        // OK with the letter still there (B-092), throws before this, and
+        // the kept copy keeps it.
+        if binned {
             shelf?.gone(id, letter: gmailMessageID, from: source, andEveryFolderBut: destination)
-        } else if source != folderForAttribute["\\all"] {
+        } else if !staysInSource {
             shelf?.gone(id, from: source)
         }
     }

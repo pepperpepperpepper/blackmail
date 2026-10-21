@@ -1441,8 +1441,13 @@ actor IMAPClient {
         guard result.status == .ok else { throw MailError.cannotConnect }
     }
 
+    /// `leavesSource` says whether the letter leaves `mailbox` with the
+    /// move, as the repository takes it to: not when it is filed in a label
+    /// from Gmail's All Mail, which holds every letter not binned. The
+    /// source is where a MOVE whose answer shows nothing is checked (B-092,
+    /// `confirmMove`), and a letter that stays there cannot be checked so.
     func move(uid: UInt32, from mailbox: String, validity: UInt32,
-              to destination: String) async throws {
+              to destination: String, leavesSource: Bool = true) async throws {
         // The gate is held for the SELECT and the whole copy/mark/expunge
         // sequence, not per command. Every step acts on "the selected
         // mailbox", so a SELECT from another task landing in the middle would
@@ -1458,10 +1463,17 @@ actor IMAPClient {
 
             // An empty capability set means the CAPABILITY response could not
             // be read, not that the server is feature-free, so try the good
-            // path anyway and fall back if it is refused.
+            // path anyway and fall back if it is refused. A MOVE answered OK
+            // never falls back: the COPY would be a second letter in the
+            // Trash wherever the MOVE did land (B-092).
             if self.capabilities.isEmpty || self.capabilities.contains("MOVE") {
-                let result = try await self.performCommand("UID MOVE \(uid) \(target)")
-                if result.status == .ok { return }
+                let command = "UID MOVE \(uid) \(target)"
+                let result = try await self.performCommand(command)
+                if result.status == .ok {
+                    try await self.confirmMove(result, uid: uid, in: mailbox, resending: command,
+                                               leavesSource: leavesSource)
+                    return
+                }
             }
 
             let copied = try await self.performCommand("UID COPY \(uid) \(target)")
@@ -1469,6 +1481,21 @@ actor IMAPClient {
             // anyway, the message is simply gone. Nothing is marked \Deleted
             // until a copy is known to exist at the far end.
             guard copied.status == .ok else { throw MailError.cannotConnect }
+            // Nor when the OK's own COPYUID gives the letter no place there,
+            // 0 for its UID as Gmail's MOVE once did, or names another
+            // letter (B-092): marked and expunged, it would be gone from
+            // both. Not checked in the source, which a COPY leaves it in,
+            // and not sent again, which would be a second copy wherever the
+            // first did land. Refused, the letter where it was, unmarked.
+            // An OK with no COPYUID, from a server without UIDPLUS, is
+            // taken as before: the server can say no more.
+            let copy = IMAPMoveAnswer(copied, uid: uid)
+            guard copy.showsCopy else {
+                let note = "folder=\(mailbox) uid=\(uid)"
+                Diagnostics.log(.note, "MOVE-HOLLOW \(note) UID COPY copyuid=\(copy.copyUID.rawValue)")
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) nothing-marked not-moved")
+                throw MailError.cannotConnect
+            }
 
             let flagged = try await self.performCommand("UID STORE \(uid) +FLAGS.SILENT (\\Deleted)")
             guard flagged.status == .ok else { throw MailError.cannotConnect }
@@ -1482,6 +1509,94 @@ actor IMAPClient {
                 _ = try await self.performCommand("EXPUNGE")
             }
         }
+    }
+
+    /// A MOVE answered OK counts as done only if its answer shows it: a
+    /// COPYUID naming the letter with a UID for it in the destination, or
+    /// an EXPUNGE (`IMAPMoveAnswer`). The caller holds the gate, with
+    /// `mailbox` selected, and has just had `command`'s OK.
+    ///
+    /// On the test iPad on 2026-10-21 Gmail answered a MOVE to the Trash,
+    /// sent in the right mailbox, with `OK [COPYUID 2 343 0] (Success)`
+    /// and no EXPUNGE, and nothing had moved (B-092). Taken for done, the
+    /// row stayed off the list, the kept copy let the letter go, and it
+    /// came back only at a Refresh more than two minutes later.
+    ///
+    /// So an answer that shows nothing is followed, in the same hold, by a
+    /// look in the source: a NOOP, so that the connection has been told of
+    /// whatever the server has taken out of it, as for a search whose
+    /// answer is acted on (`Freshness.now`), and then `UID SEARCH UID n`.
+    /// Gone, the move is done. Still there, the same MOVE goes once more,
+    /// never a COPY, which would be a second letter in the Trash where the
+    /// first did land: there it has not, as the server has just said. Its
+    /// answer is read the same way, and the source asked again if it shows
+    /// nothing; still there after that, or with the second MOVE refused or
+    /// either question unanswered, the move is refused as not moved, and
+    /// the letter is where it was, unmarked. The row then comes back where
+    /// it stood with the refusal, and the kept copy keeps it.
+    ///
+    /// The NOOP has the server say first what it has taken out. A server
+    /// that has moved a letter and not told the connection can go on
+    /// listing it in a SEARCH until it does (RFC 2180 §4.1): asked without
+    /// it, such a letter would be sent again and refused, its row put back
+    /// though it had gone, and on a server that keeps what it has not yet
+    /// told of, the second MOVE could copy it again.
+    ///
+    /// A letter that stays in the source, filed from All Mail in a label
+    /// (`leavesSource`), cannot be looked for there: an answer that shows
+    /// nothing is noted and taken as before. Its row stays on the list
+    /// either way.
+    ///
+    /// The connection log says so in numbers: `MOVE-HOLLOW folder=INBOX
+    /// uid=343 copyuid=dest-0 no-expunge`, then `MOVE-CHECKED folder=INBOX
+    /// uid=343` and `gone`, `there sending-again`, `moved`, `there
+    /// not-moved`, `refused not-moved`, `unanswered not-moved` or
+    /// `stays-in-folder not-asked`.
+    private func confirmMove(_ first: IMAPCommandResult, uid: UInt32, in mailbox: String,
+                             resending command: String, leavesSource: Bool) async throws {
+        let note = "folder=\(mailbox) uid=\(uid)"
+        var answer = first
+        var sent = 1
+        while true {
+            let said = IMAPMoveAnswer(answer, uid: uid)
+            if said.showsMove {
+                if sent > 1 { Diagnostics.log(.note, "MOVE-CHECKED \(note) moved") }
+                return
+            }
+            Diagnostics.log(.note, "MOVE-HOLLOW \(note) \(said.described)")
+            guard leavesSource else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) stays-in-folder not-asked")
+                return
+            }
+            guard let there = try await stillHolds(uid) else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) unanswered not-moved")
+                throw MailError.cannotConnect
+            }
+            guard there else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) gone")
+                return
+            }
+            guard sent == 1 else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) there not-moved")
+                throw MailError.cannotConnect
+            }
+            Diagnostics.log(.note, "MOVE-CHECKED \(note) there sending-again")
+            answer = try await performCommand(command)
+            sent += 1
+            guard answer.status == .ok else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) refused not-moved")
+                throw MailError.cannotConnect
+            }
+        }
+    }
+
+    /// Whether the selected mailbox holds `uid` as the server has it now:
+    /// a NOOP for its news, then `UID SEARCH UID n`. Nil when either is
+    /// refused. The caller holds the gate.
+    private func stillHolds(_ uid: UInt32) async throws -> Bool? {
+        guard try await performNOOP() else { return nil }
+        guard let found = try await performSearch("UID \(uid)") else { return nil }
+        return found.contains(uid)
     }
 
     @discardableResult
