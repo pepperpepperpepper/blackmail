@@ -16483,15 +16483,15 @@ from All Mail.
 
 ## B-093 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A Delete in the reading pane, the letter's row just above the top of the list, moved every row in view up by one
 
-**What he saw.** Seen on the test iPad on 2026-10-21, and again when the
-check was made a second time on a fresh launch. All Mail after Go to Date,
-three panes. A letter open in the reading pane, the list scrolled slowly up
-until the letter's row was just above the top of the list, hidden under the
-search field, with the row above it under the status and navigation bars.
-Delete in the pane: in the first shot after the tap, at 0.22 s, every row
-in view had moved up by exactly one row, the top row he could see had gone
-up out of sight, and it stayed so. The server side was right, one `UID
-MOVE` and no list fetch.
+**What he saw.** Seen on the test iPad on 2026-10-21, in B-042's check of
+paging upward, and again when the check was made a second time on a fresh
+launch. All Mail after Go to Date, three panes. A letter open in the
+reading pane, the list scrolled slowly up until the letter's row was just
+above the top of the list, hidden under the search field, with the row
+above it under the status and navigation bars. Delete in the pane: in the
+first shot after the tap, at 0.22 s, every row in view had moved up by
+exactly one row, the top row he could see had gone up out of sight, and it
+stayed so. The server side was right, one `UID MOVE` and no list fetch.
 
 Not by design. A row binned from the reading pane above the top of the
 pane is not to shift the rows he is looking at (B-042).
@@ -16815,7 +16815,7 @@ moves up to it. It grew a tracker of the day's row and a hook on the list's
 scrolling, each with its own ways to go wrong: a row taken out above the
 day, or the grouping switched, left the day's row a row off. A page above
 that never came, and the list stopped at the top of a day with newer mail
-above it, would be worse than one fetched a second early. For a mailbox
+above it, would be worse than one fetched a second early. For an app
 nobody can update, it is left as it is.
 
 ## B-095 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A finger held on a conversation's line never lit it, and began WebKit's selection of a word in it, and its Copy menu
@@ -16879,7 +16879,7 @@ select. His taps are slow.
   clicks at its lift, the highlight long press, is off in this web view:
   WebKit turns it off when it uses context menus with link previews on
   (`_updateLongPressAndHighlightLongPressGestures`), which is so here, as
-  the link held in step 3 showed, with its context menu. A click would
+  a link held in B-055's check showed, with its context menu. A click would
   come from WebKit's tap recogniser, which is UIKit's, and how long UIKit
   lets a tap be held is not in WebKit. So nothing counts on it: the script
   acts at the lift and stops WebKit's tap.
