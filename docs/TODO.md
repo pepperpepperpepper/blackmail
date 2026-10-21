@@ -3704,15 +3704,15 @@ this host. Ordered by value, not by size.
       *Not tried on the simulator: the host tests hold it, the list laid
       out as on the iPad (B-093).*
       *Seen on the test iPad 2026-10-21, a build of the `line-press`
-      worktree (a6a6c7c), master with B-093 and B-095: 1 to 5 passed
-      (B-093). In 1 no row in view moved, 0 pt in 80 frames to 2.3 s. In 2
-      the rows below came up a row, 96 pt, the row above staying where it
-      was, with none of it showing and with 1.5 pt, and the list did not
-      scroll. Each Delete was of a W of its own, a letter put back from
-      Trash coming under a new UID at the top of the list. In 3 a jump
-      from one fling below All Mail's top fetched the page above as it
-      landed (B-094), so the scroll up was made from three flings down. In
-      5 the refusal came at 0.10 s, offline, and the row was back before
+      worktree (a6a6c7c), master with B-092, B-093 and B-095: 1 to 5
+      passed (B-093). In 1 no row in view moved, 0 pt in 80 frames to
+      2.3 s. In 2 the rows below came up a row, 96 pt, the row above
+      staying where it was, with none of it showing and with 1.5 pt, and
+      the list did not scroll. Each Delete was of a W of its own, a letter
+      put back from Trash coming under a new UID at the top of the list. In
+      3 a jump from one fling below All Mail's top fetched the page above as
+      it landed (B-094), so the scroll up was made from three flings down.
+      In 5 the refusal came at 0.10 s, offline, and the row was back before
       the first frame that could show it gone: nothing moved in any frame,
       and the row gone with the rows closed up, before the alert, was not
       seen.*
@@ -3756,19 +3756,19 @@ this host. Ordered by value, not by size.
       was run outside WebKit (B-095). What WebKit does with a touch held a
       second, the line no longer selectable, is seen only here.*
       *Seen on the test iPad 2026-10-21, a build of the `line-press`
-      worktree (a6a6c7c), master with B-093 and B-095: 1 to 7 passed
-      (B-095), but for 5's finger held half a second and then dragged,
-      which the touch tool cannot make in one touch; a drag from a line, a
-      slow drift still for 0.3 s and a touch on a stack still moving stood
-      in, each lit only while still and opening nothing. 8 was not run,
-      VoiceOver not being on for the check. The 1.5 s hold went dark
-      between 1.23 and 1.32 s. In 6 the pair both ways: the line without a
-      Cc tapped first, both opened, the second at the lift of its 0.85 s
-      touch, never lit, by WebKit's own tap; the line with the Cc first,
-      its body pushed the second line from under the held finger onto the
-      signature's logo, a link, and WebKit put up the link's menu at about
-      1 s: the second did not open. In 7 the handles went at 0.20 s and
-      the menu by 0.57 s.*
+      worktree (a6a6c7c), master with B-092, B-093 and B-095: 1 to 7
+      passed (B-095), but for 5's finger held half a second and then
+      dragged, which cannot be made here in one touch; a drag from a line,
+      a slow drift within 10 px for 0.3 s and a touch on a stack still
+      moving stood in, each lit only while still and opening nothing. 8
+      was not run, VoiceOver not being on for the check. The 1.5 s hold
+      went dark between 1.23 and 1.32 s. In 6 the pair both ways: the line
+      without a Cc tapped first, both opened, the second at the lift of
+      its 0.85 s touch, never lit, by WebKit's own tap; the line with the
+      Cc first, its body pushed the second line down before or as the
+      finger landed, the finger ending on the signature's logo, a link,
+      and WebKit put up the link's menu at about 1 s: the second did not
+      open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
 
 ## Blocked on the owner
 

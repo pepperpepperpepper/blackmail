@@ -16727,15 +16727,17 @@ The full suite, serially: 1,847 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Seen on the test iPad, 2026-10-21**, a build of the `line-press`
-worktree (a6a6c7c), master with B-093 and B-095, three panes, on the test
-account. W was a letter of the account's own, read, alone in its
+worktree (a6a6c7c), master with B-092, B-093 and B-095, three panes, on
+the test account. W was a letter of the account's own, read, alone in its
 conversation. A letter put back from the Trash comes back under a new UID,
 at the top of the Inbox and of All Mail, so each Delete that went was of a
 W of its own; the refused ones used one again. Rows were placed by Go to
 Date, which puts the day's first row exactly at the top of sight, or by a
 slow drag, to within a quarter of a point; the frames, some 25 ms apart
-from the tap, were measured by the rows' separators. Every step of the TODO
-check passed. Nothing was sent.
+from the tap, 0.1 s in the first refused Delete, were measured by the
+rows' separators. Every step of the TODO check passed but for the middle
+of step 5, a refused row gone before the alert, which no frame could
+show. Nothing was sent.
 
 - *Just above the list:* All Mail, Go to Date, 10 Oct, W two rows below
   the day, opened, and the list dragged slowly up until W's row was just
@@ -16758,20 +16760,21 @@ check passed. Nothing was sent.
   its results scrolled, Cancel: the list as it was, pixel for pixel. Then
   All Mail, Go to Date, 5 Oct, from one fling below the top: the page
   above was fetched as the day landed, which is B-094, and the scroll up
-  had nothing to bring. From three flings down it waited, and came 3.2 s
-  into the second slow swipe up, the list moving at the finger's pace with
-  no jump, and the highlight staying on the letter in the pane.
+  had nothing to bring. From three flings down it waited, and was asked
+  for 3.2 s into the second slow swipe up, the list moving at the
+  finger's pace with no jump, and the highlight staying on the letter in
+  the pane.
 - *Put back:* each W from the Trash to the Inbox with the pane's Move,
   read, its labels as they were.
 - *Refused:* W the top row in view by Go to Date, Airplane Mode on, and
   Delete in the pane, the list not touched. `NO-PATH UID MOVE
   nothing-sent` came 0.10 s after the tap, and in every frame each row
-  stood where it had, 0 pt, W's row no longer highlighted and the pane
-  saying "No message selected", then "Can't connect to mail server.".
-  The same again with frames 22 ms apart. With W just above the list as
-  in the first step: nothing in view moved, before the alert or after,
-  and W's row was back out of sight, straight above the first row in
-  view.
+  stood where it had, 0 pt, and from 0.19 s W's row was no longer
+  highlighted and the pane said "No message selected", then "Can't
+  connect to mail server.". The same again with frames 22 ms apart. With W
+  just above the list as in the first step: nothing in view moved, before
+  the alert or after, and W's row was back out of sight, straight above the
+  first row in view.
 
 So the list held its place by the first row he could see: a row taken out
 above it closed out of sight, and the top row he could see closed up as in
@@ -17054,14 +17057,14 @@ The full suite, serially: 1,856 tests, 5 skipped, none failing. The release
 build for the iPad links.
 
 **Seen on the test iPad, 2026-10-21**, a build of the `line-press`
-worktree (a6a6c7c), master with B-093 and B-095, three panes, on the test
-account. A conversation of three letters To A with `+jane` before the
-"@", the first with `+sam` in Cc and the two replies without, the two
-read ones closed lines. Each hold was one finger still at one point, in
-frames about 0.095 s apart from the touch; the line's padding read 20
-while lit and 0 when not, in every hold. Every step of the TODO check
-passed but two not made: a finger held still and then dragged in one
-touch, which the touch tool cannot make, and VoiceOver, not turned on for
+worktree (a6a6c7c), master with B-092, B-093 and B-095, three panes, on
+the test account. A conversation of three letters To A with `+jane`
+before the "@", the first with `+sam` in Cc and the two replies without,
+the two read ones closed lines. Each hold was one finger still at one
+point, in frames about 0.095 s apart from the touch; the line's padding
+read 20 while lit and 0 when not, in every hold. Every step of the TODO
+check passed but two not made: a finger held still and then dragged in
+one touch, which cannot be made here, and VoiceOver, not turned on for
 the check.
 
 - *Held 0.3 s:* lit from the first frame to the lift, and open at 0.59 s,
@@ -17071,28 +17074,29 @@ the check.
   loupe, selection or menu.
 - *Held 1.5 s:* lit to 1.23 s and dark from 1.32 s, so the bound of 1.2 s
   holds there. From 1.32 s to 2.66 s each frame was the frame before the
-  touch, pixel for pixel: no loupe, no word, no menu in any frame, and
-  nothing opened at the lift. On the build before, a word was selected at
-  about 0.7 s and the Copy menu came at about 1.4 s.
+  touch, pixel for pixel below the status bar: no loupe, no word, no menu
+  in any frame, and nothing opened at the lift. On the build before, a word
+  was selected at about 0.7 s and the Copy menu came at about 1.4 s.
 - *An open letter's line* held 0.8 s: lit to the lift, and closed at
   1.14 s, its body gone.
-- *A finger that moves:* a drag of a screen from a closed line lit in no
-  frame, the finger past 10 px before the first, and the stack followed
-  it and coasted on; nothing opened. A slow drift, within 10 px for about
-  0.3 s: lit to 0.38 s, dark as it moved, and the lift at about 1 s opened
-  nothing. A flick, and at once a touch on a line: the stack stopped, the
-  line never lit, nothing opened.
+- *A finger that moves:* a drag of some 375 pt, under half the screen,
+  from a closed line lit in no frame, the finger past 10 px before the
+  first, and the stack followed it and coasted on; nothing opened. A slow
+  drift, within 10 px for about 0.3 s: lit to 0.38 s, dark as it moved, and
+  the lift at about 1 s opened nothing. A flick, and at once a touch on a
+  line: the stack stopped, the line never lit, nothing opened.
 - *Quick taps:* a closed line opened and closed again, as before; two
   0.3 s apart both opened. The pair with and without a Cc, both ways. The
   line without a Cc tapped and at once the one with it held 0.8 s, the
   header losing its Cc line: both opened, the second between 1.13 and
   1.25 s, after the lift, its line never lit, so by WebKit's own tap at
   the lift of a touch of about 0.85 s. The line with the Cc tapped first:
-  its letter opened at 0.20 s, and its body pushed the second line from
-  under the held finger, which ended on the signature's logo, a link. At
-  about 1 s WebKit put up the link's menu and its preview; a tap off it
-  put it away, nothing opened, and the second line stayed closed: a line
-  moved from under a still finger does nothing, as built.
+  its letter opened at 0.20 s, and its body pushed the second line down
+  before or as the finger landed, so the finger was held on the
+  signature's logo, a link. At about 1 s WebKit put up the link's menu
+  and its preview; a tap off it put it away, nothing opened, and the
+  second line stayed closed, as built for a line moved from under the
+  finger.
 - *A letter's text:* a word in the open letter's body held 1 s: the loupe
   and the word selected at about 0.7 s, its menu at about 1.45 s, still
   up after the lift, the lines never lit. Then a quick tap on the closed
@@ -17107,24 +17111,25 @@ scrolled.
 
 - Seen on the iPad, above, but for two things. VoiceOver's activation of
   a line, the click, was not tried on this build. A finger held still and
-  then dragged, in one touch, was not made, the touch tool moving at one
-  pace from touch to lift; a drag, a slow drift and a touch on a moving
-  stack stood in, each lit only while still and opening nothing.
+  then dragged, in one touch, was not made, a touch made here moving at
+  one pace from touch to lift; a drag, a slow drift and a touch on a
+  moving stack stood in, each lit only while still and opening nothing.
 - The host has no WebKit. That WebKit stops its tap at the `preventDefault`
   and sends no click after it is from its source, not seen: on the iPad
-  each press the script took opened or closed its letter once, as it does
-  either way, the click let pass covering one that comes. That the
-  selection's handles and its menu go when the script clears it was seen
-  there: WebKit tells UIKit's text interaction that the selection changed
-  (`_updateChangedSelection`, `selectionChanged`), and the handles went at
-  0.20 s, the menu by 0.57 s.
+  each tap the script took, lifted within the bound, opened or closed its
+  letter once, as it does either way, the click let pass covering one
+  that comes. That the selection's handles and its menu go when the
+  script clears it was seen there: WebKit tells UIKit's text interaction
+  that the selection changed (`_updateChangedSelection`,
+  `selectionChanged`), and the handles were gone by 0.20 s, the menu by
+  0.57 s.
 - A press cut by a scroll not the script's, the pane's own as the header
   changes height among them, is left to WebKit's tap as it was before. On
   the iPad WebKit clicked at the lift of one held about 0.85 s, the header
   losing its Cc line under it: the line opened, never lit. How much longer
   a touch WebKit still clicks for is not known.
-- A line pushed from under a still finger, a letter above it grown, leaves
-  the finger held on whatever comes under it. On the iPad that was the
+- A line pushed down as the finger lands, a letter above it grown, leaves
+  the finger on whatever comes under it. On the iPad that was the
   signature's logo, a link, and WebKit put up its menu and preview at
   about 1 s; nothing opened, and a tap off the menu put it away.
 - Every touchend on a stack's page now waits for the page's script, the
