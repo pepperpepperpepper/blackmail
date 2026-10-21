@@ -24,11 +24,15 @@ final class LinePressTests: XCTestCase {
     /// No selection and no callout on the stack's lines and anything in
     /// them; nothing else in the document is made so, the letters' bodies
     /// least of all. WebKit's own tap highlight, never painted on a line,
-    /// is off, so it cannot be painted over the script's.
+    /// is off, so it cannot be painted over the script's. Important, so a
+    /// sender's own `<style>`, which applies to the whole stack, cannot
+    /// make a line selectable again with an important rule of its own on
+    /// `*` or `div`: among important rules the line's selectors outrank it.
     func testALineIsNotTextToSelectAndALetterIs() {
         XCTAssertTrue(css.contains(
             "body > .bm-letter > .bm-head, body > .bm-letter > .bm-head * { "
-                + "-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }"), css)
+                + "-webkit-user-select: none !important; user-select: none !important; "
+                + "-webkit-touch-callout: none !important; }"), css)
         XCTAssertEqual(css.components(separatedBy: "-webkit-user-select").count, 2, css)
         XCTAssertEqual(css.components(separatedBy: "touch-callout").count, 2, css)
         XCTAssertTrue(css.contains("-webkit-tap-highlight-color: transparent;"), css)
@@ -37,10 +41,12 @@ final class LinePressTests: XCTestCase {
 
     /// Lit from the touch, by a class of the script's, and the light goes
     /// at the lift, a cancel, a finger that moves or a second finger, a
-    /// scroll of the page, and at the end of the hold.
+    /// scroll of the page, and at the end of the hold. Important, as the
+    /// selection rule is, so a sender's important background on `div`
+    /// cannot put it out.
     func testTheLineIsLitFromTheTouchUntilItLifts() {
         XCTAssertTrue(css.contains(
-            "body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08); }"), css)
+            "body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08) !important; }"), css)
         for wiring in [
             "var touch = event.touches[0]; head.classList.add('bm-press');",
             "function bmUnpress() { if (!bmPress) return; clearTimeout(bmPress.timer); "
@@ -64,22 +70,20 @@ final class LinePressTests: XCTestCase {
     /// where it was under it. The script toggles the letter and stops
     /// WebKit's tap, which waits on a touchend a listener may cancel, so
     /// the listener is not passive. Past the hold, or the line moved, the
-    /// lift does nothing, and WebKit's tap is stopped too. A click on a line
-    /// within a second of a touch the script took is let pass, one only.
-    func testAStillTouchLiftedWithinTheHoldIsTheTapAndOnlyOnce() {
+    /// lift does nothing, and WebKit's tap is stopped too.
+    func testAStillTouchLiftedWithinTheHoldIsTheTap() {
         for wiring in [
             "var bmHold = 1200;",
             "function bmStill(press, touch) { return !!touch && Math.abs(touch.clientX - press.x) <= 10 "
                 + "&& Math.abs(touch.clientY - press.y) <= 10; }",
             "if (event.touches.length !== 0 || !bmStill(press, event.changedTouches[0])) return; "
-                + "event.preventDefault(); bmQuiet = performance.now() + 1000; "
+                + "event.preventDefault(); bmQuiet = { head: press.head, until: performance.now() + 1000 }; "
                 + "if (performance.now() - press.at > bmHold) return; "
                 + "if (Math.abs(press.head.getBoundingClientRect().top - press.top) > 10) return; "
+                + "var selection = window.getSelection(); "
+                + "if (selection && !selection.isCollapsed) selection.removeAllRanges(); "
                 + "bmToggle(press.head.parentNode); }",
             "window.addEventListener('touchend', bmPressUp, { capture: true, passive: false });",
-            "head.addEventListener('click', function (event) { "
-                + "if (performance.now() < bmQuiet) { bmQuiet = 0; return; } "
-                + "bmToggle(event.currentTarget.parentNode); });",
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
@@ -88,12 +92,53 @@ final class LinePressTests: XCTestCase {
                        "defined, the click, the tap")
     }
 
+    /// The click let pass after a touch the script took is a click on that
+    /// touch's line, within a second of the lift, before another touch
+    /// lands: WebKit's own click for the same tap, if it came anyway. The
+    /// first click on any line ends it, whatever line it is on, and so
+    /// does the next touch. A click on another line, a touch the script
+    /// left to WebKit (one that landed on a page still scrolling, drifted
+    /// past 10 px, or was cut by a scroll), and a click from VoiceOver or a
+    /// pointer after either, toggle as they did. Tied to the clock alone,
+    /// it let pass the first click on any line for a second: open two in
+    /// quick succession, the second cut by the pane's scroll as the first
+    /// one's header changed height, and the second never opened.
+    func testTheClickLetPassIsThatTouchsLineAndOnlyUntilTheNextTouch() {
+        for wiring in [
+            "var bmQuiet = null;",
+            "bmQuiet = { head: press.head, until: performance.now() + 1000 };",
+            "function bmPressDown(event) { bmUnpress(); bmQuiet = null;",
+            "head.addEventListener('click', function (event) { "
+                + "var quiet = bmQuiet; bmQuiet = null; "
+                + "if (quiet && quiet.head === event.currentTarget && performance.now() < quiet.until) return; "
+                + "bmToggle(event.currentTarget.parentNode); });",
+        ] {
+            XCTAssertTrue(script.contains(wiring), wiring)
+        }
+        XCTAssertEqual(script.components(separatedBy: "bmQuiet =").count - 1, 4,
+                       "null at the start, set at a lift the script takes, gone at a touch and at a click")
+    }
+
+    /// A selection he made in a letter's body, by a finger held on a word
+    /// there, goes at a tap on a line, as it went at WebKit's tap, whose
+    /// mousedown cleared it: the script's `preventDefault` stops that
+    /// tap, and with it the clearing. Only at the tap the script takes:
+    /// a finger that moves, or a touch it leaves to WebKit, leaves it to
+    /// WebKit too.
+    func testASelectionInALetterGoesAtATapOnALine() {
+        XCTAssertTrue(script.contains(
+            "var selection = window.getSelection(); "
+                + "if (selection && !selection.isCollapsed) selection.removeAllRanges(); "
+                + "bmToggle(press.head.parentNode); }"), script)
+        XCTAssertEqual(script.components(separatedBy: "removeAllRanges").count - 1, 1, script)
+    }
+
     /// A touch that lands on a page still scrolling only stops it, as in
     /// WebKit, which takes no tap then; a second finger is a pinch. Neither
     /// is lit, and WebKit decides.
     func testATouchOnAScrollingPageOrWithASecondFingerIsNotATap() {
         XCTAssertTrue(script.contains(
-            "function bmPressDown(event) { bmUnpress(); "
+            "function bmPressDown(event) { bmUnpress(); bmQuiet = null; "
                 + "if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;"), script)
     }
 

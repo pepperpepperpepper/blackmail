@@ -214,16 +214,19 @@ enum ConversationDocument {
              callout (B-095): a finger held on one began WebKit's selection
              of a word at about 0.7 s, and its Copy menu at 1.4 s. The
              stack's own lines and everything in them; the letters' bodies
-             stay selectable. */
+             stay selectable. Important, as the pictures' width is: a
+             sender's own style sheet applies to the whole stack, and its
+             important rule on * or div would beat these otherwise. */
           body > .bm-letter > .bm-head, body > .bm-letter > .bm-head * {
-                     -webkit-user-select: none; user-select: none;
-                     -webkit-touch-callout: none; }
+                     -webkit-user-select: none !important; user-select: none !important;
+                     -webkit-touch-callout: none !important; }
           /* The line lit under the finger, by the stack's script, from the
              touch until it lifts (B-095). WebKit's own tap highlight, which
              was given this colour, is never painted on a line: it leaves
              out anything but a link or a control that spans more than 30%
-             of the pane, and a line spans all of it. */
-          body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08); }
+             of the pane, and a line spans all of it. Important, for the
+             sender's style sheet, as above. */
+          body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08) !important; }
           .bm-from { font-weight: 600; flex: 0 0 auto; }
           .bm-when { color: #8e8e93; font-size: \(bodyPointSize - 3)px;
                      margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
@@ -321,10 +324,13 @@ enum ConversationDocument {
     /// touch on a line that lifts within `bmHold` of landing, the finger
     /// still to 10 px, is the tap: the script toggles the letter itself,
     /// and stops WebKit's own tap by its `preventDefault`, which WebKit's
-    /// tap waits for. A click on a line within a second of one the script
-    /// took is let pass, at most one, so a tap never toggles twice even if
-    /// WebKit's click came anyway. Nothing is done, and the light goes, for
-    /// a finger that moves, a scroll of the page, a second finger, a
+    /// tap waits for. A selection he made in a letter goes at the tap, as
+    /// it went at WebKit's. After a touch the script took, the first click
+    /// on any line is let pass if it is on that touch's line, within a
+    /// second, before another touch, so a tap never toggles twice even if
+    /// WebKit's click came anyway; a click on another line, or after the
+    /// next touch, toggles as it did. Nothing is done, and the light goes,
+    /// for a finger that moves, a scroll of the page, a second finger, a
     /// touch WebKit cancels, a touch that lands on a page still scrolling,
     /// which only stops it, or a line moved under the finger as letters
     /// above it grew; past `bmHold` the light goes and the lift does
@@ -382,7 +388,7 @@ enum ConversationDocument {
     }
     var bmLines = [];
     var bmPress = null;
-    var bmQuiet = 0;
+    var bmQuiet = null;
     var bmScrolled = -1e9;
     var bmHold = 1200;
     function bmLineAt(node) {
@@ -402,6 +408,7 @@ enum ConversationDocument {
     }
     function bmPressDown(event) {
       bmUnpress();
+      bmQuiet = null;
       if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;
       var head = bmLineAt(event.target);
       if (!head) return;
@@ -420,9 +427,11 @@ enum ConversationDocument {
       bmUnpress();
       if (event.touches.length !== 0 || !bmStill(press, event.changedTouches[0])) return;
       event.preventDefault();
-      bmQuiet = performance.now() + 1000;
+      bmQuiet = { head: press.head, until: performance.now() + 1000 };
       if (performance.now() - press.at > bmHold) return;
       if (Math.abs(press.head.getBoundingClientRect().top - press.top) > 10) return;
+      var selection = window.getSelection();
+      if (selection && !selection.isCollapsed) selection.removeAllRanges();
       bmToggle(press.head.parentNode);
     }
     function bmScroll() {
@@ -433,7 +442,9 @@ enum ConversationDocument {
     function bmWire(head) {
       bmLines.push(head);
       head.addEventListener('click', function (event) {
-        if (performance.now() < bmQuiet) { bmQuiet = 0; return; }
+        var quiet = bmQuiet;
+        bmQuiet = null;
+        if (quiet && quiet.head === event.currentTarget && performance.now() < quiet.until) return;
         bmToggle(event.currentTarget.parentNode);
       });
       if (bmWatch) bmWatch.observe(head.parentNode);

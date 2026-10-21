@@ -3540,9 +3540,17 @@ this host. Ordered by value, not by size.
       stack, and a finger put on a line while it still moves: the stack
       stops, and nothing opens.
       6. *A quick tap* on a closed line: it opens, as before; again: it
-      closes. Two lines 0.3 s apart: both open.
+      closes. Two lines 0.3 s apart: both open. Then two closed lines, the
+      first a letter with a Cc and the second one without, or the other
+      way, so the header changes height as the first one's body comes: a
+      quick tap on the first, and at once a finger held 0.8 s on the
+      second, past the moment the first one's body comes. Both open, or
+      say which did not; the second, its press cut by the pane's scroll,
+      is WebKit's own tap at the lift.
       7. *A letter's text.* A finger held on a word in an open letter's
-      body: WebKit selects it and shows its menu, as before.
+      body: WebKit selects it and shows its menu, as before. Then, the
+      word still selected and the menu up, a quick tap on a closed line:
+      it opens, and the selection, its handles and the menu go.
       8. *VoiceOver*, if the round turns it on: a closed line found and
       double-tapped opens, once; again, it closes. VoiceOver off after.
       *Not tried on the simulator: the host tests read the script, and it

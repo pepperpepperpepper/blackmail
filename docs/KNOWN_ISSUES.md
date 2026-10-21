@@ -16611,7 +16611,11 @@ select. His taps are slow.
 - A line, and everything in it, is not text to select and has no callout
   (`-webkit-user-select: none`, `-webkit-touch-callout: none`): the stack's
   own lines only, the letters' bodies selectable as before. WebKit's tap
-  highlight on a line is off.
+  highlight on a line is off. The two rules and the light below are
+  `!important`, as the pictures' width in a body already is: a sender's
+  own style sheet applies to the whole stack, and an important rule of
+  its own on `*` or `div`, an email's reset, would beat them otherwise.
+  Among important rules the line's selectors outrank such a one.
 - The stack's script lights the line itself, a class with the same faint
   white, 8%, from the touch until the finger lifts. The light goes at the
   lift, at a touch WebKit cancels, a finger moved more than 10 px, a second
@@ -16632,9 +16636,17 @@ select. His taps are slow.
   the link held in step 3 showed, with its context menu. A click would
   come from WebKit's tap recogniser, which is UIKit's, and how long UIKit
   lets a tap be held is not in WebKit. So nothing counts on it: the script
-  acts at the lift and stops WebKit's tap. A click on a line within a
-  second of a touch the script took, if WebKit sent one anyway, is let
-  pass, one only, so a tap never opens and closes the letter at once.
+  acts at the lift and stops WebKit's tap.
+- If WebKit clicked anyway, the tap would open and close the letter at
+  once. So after a touch the script took, one click is let pass: the
+  first click on a line, if it is on that touch's line, within a second of
+  the lift, and before another touch lands. The first click on any line
+  ends it, and so does the next touch. A click on another line, or on the
+  same one after the next touch, toggles as it did.
+- A selection he made in a letter's body, with a finger held on a word
+  there, goes at a tap on a line, with its Copy menu, as it went at
+  WebKit's tap: the `preventDefault` that stops WebKit's tap stops its
+  clearing too, so the script clears it before it toggles the letter.
 - Past 1.2 s, the light gone, the lift does nothing, and WebKit's tap is
   stopped the same way. A line that moved from under the still finger,
   a letter above it grown, the same: nothing.
@@ -16643,7 +16655,18 @@ select. His taps are slow.
   scroll, on a stack still moving from a flick, only stops it, as WebKit
   takes no tap then: no light, and WebKit decides. The script's own
   scroll, keeping his place as a letter above him grows, is told from his
-  (`bmMine`) and ends nothing.
+  (`bmMine`) and ends nothing. In each of these WebKit's tap is what it
+  was before, the click let pass above included: a touch the script left
+  to WebKit is never the one whose click is let pass.
+- As first written, before the iPad saw it, the click let pass was tied to
+  the clock alone: the first click on any line within a second of a touch
+  the script took. Each touch left to WebKit in that second lost its tap:
+  a line pressed slowly while the one tapped before it opened, its body
+  in and the header grown, the pane's scroll to keep his place cutting
+  the press, never opened at the lift. Run in a DOM, a touch near a
+  scroll, a finger drifted 15 px, a press cut by a scroll, and a click
+  after a hold past the bound each lost their click. Now it is the
+  touch's line's, until the next touch.
 - The touches are heard on the window, as the hold's are, not on the
   lines. VoiceOver's activation sends an element a touch in place of its
   click when it or a node above it has a touch listener
@@ -16666,21 +16689,25 @@ select. His taps are slow.
 **What he sees.** A finger on a closed line: it lightens at once, and stays
 light while he holds it still. Lifted within about a second, the letter
 opens, as at a quick tap; on an open letter's line, it closes. No word is
-selected and no menu comes, however long he holds it. Held past about
-1.2 s, the light goes, and lifting does nothing. A finger that scrolls the
-stack: the line lights for the moment before the stack moves, goes as it
-moves, and nothing opens.
+selected and no menu comes, however long he holds it. A word he selected
+in a letter, and its menu, go when he taps a line, as they did. Held past
+about 1.2 s, the light goes, and lifting does nothing. A finger that
+scrolls the stack: the line lights for the moment before the stack moves,
+goes as it moves, and nothing opens.
 
-**Tests.** In `LinePressTests`, seven, reading the document and the script
+**Tests.** In `LinePressTests`, nine, reading the document and the script
 as the stack's other tests do: a line not text to select and without a
-callout, and nothing else in the document so, WebKit's highlight off; the
-light, its class, and what puts it out; the tap, its bound, its 10 px, its
-`preventDefault` in a touchend listener that is not passive, and one click
-let pass; a touch on a scrolling page and a second finger; the script's own
-scroll; the touches on the window alone, and the click alone on a line;
-lines put in later, and a letter's own not. One older test changed with
-it: `testTheScriptKeepsHisPlaceAsLettersAboveHimGrow` reads `bmKeep` with
-its new line.
+callout, important, and nothing else in the document so, WebKit's
+highlight off; the light, its class, important, and what puts it out; the
+tap, its bound, its 10 px, its `preventDefault` in a touchend listener
+that is not passive; the click let pass, the touch's line's, within the
+second, ended by the first click on a line and by the next touch; the
+selection cleared at the tap and only there; a touch on a scrolling page
+and a second finger; the script's own scroll; the touches on the window
+alone, and the click alone on a line; lines put in later, and a letter's
+own not. One older test changed with it:
+`testTheScriptKeepsHisPlaceAsLettersAboveHimGrow` reads `bmKeep` with its
+new line.
 
 Each part undone in the worktree, one at a time, the tests run, counted as
 failures in tests. No selection rule, 3 in 1. The rule on the line and not
@@ -16688,13 +16715,18 @@ what is in it, 1 in 1; on every element, 1 in 1. No callout rule, 2 in 1.
 WebKit's highlight as it was, 2 in 1. No lit class, 1 in 1. The touch not
 lighting it, 1 in 1. A scroll not putting it out, 1 in 1; a cancel not,
 2 in 2. The light not out at the bound, 1 in 1. The touchend passive, 1 in
-1. No `preventDefault`, 2 in 1. No click let pass, 1 in 1; every click
-within the second let pass, 1 in 1. No bound, 1 in 1; a bound of 3 s, 1
+1. No `preventDefault`, 2 in 1. No bound, 1 in 1; a bound of 3 s, 1
 in 1. The line's place not checked, 1 in 1. A moved finger a tap, 1 in 1.
 The touches heard on the line, 3 in 1; on the document, 3 in 2. No lines
 known, 2 in 1; any `.bm-head` pressed, a letter's own among them, 1 in 1.
 A touch on a scrolling page a press, 1 in 1; a second finger, 1 in 1. The
-script's own scroll ending a press, 2 in 2.
+script's own scroll ending a press, 2 in 2. The click let pass: tied to the
+clock alone, any line's, as first written, 1 in 1; not ended by a click on
+another line, 1 in 1; not ended by the next touch, 3 in 2; with no second,
+1 in 1; for a minute, 2 in 2; none let pass, 1 in 1; none set at the lift,
+3 in 2; the first version's number, 2 in 2. No selection cleared, 3 in 2;
+cleared at every lift the script takes, 1 in 1. Each of the four
+`!important`s taken off, 1 in 1 each.
 
 Checked outside the suite and not kept: the stack's script run in a DOM
 (jsdom) on a stack of three letters, the touches and clicks made by hand,
@@ -16704,9 +16736,18 @@ nothing at the lift; a moved finger, a scroll, a touch on a stack still
 scrolling, a second finger and a cancel, nothing and nothing stopped; a
 click alone, as VoiceOver's, toggling; a line put in later; a letter's own
 line; a line moved under the finger; two quick taps, open and closed; and
-the script's own scroll during a hold, the tap still taken.
+the script's own scroll during a hold, the tap still taken. Then 20 more.
+Within a second of a tap the script took: a touch near a scroll, a finger
+drifted 15 px, on another line and on the same one, and a press cut by a
+scroll, each left to WebKit and its click toggling; a click on the same
+line at once swallowed, and after the second toggling; a click on another
+line, then on the first, both toggling; two taps and a click after them,
+open and closed. A click on another line within a second of a hold past
+the bound, toggling. The light out after the bound with no lift, and the
+next touch lit. A word selected in a body, gone at a tap on a line and
+kept for a moved finger. All 47 pass; the first version failed 8 of them.
 
-The full suite, serially: 1,854 tests, 5 skipped, none failing. The release
+The full suite, serially: 1,856 tests, 5 skipped, none failing. The release
 build for the iPad links.
 
 **Not covered.**
@@ -16715,14 +16756,31 @@ build for the iPad links.
   0.8 and 1.5 s, scrolls with a held finger, and taps as before.
 - The host has no WebKit. That WebKit stops its tap at the `preventDefault`
   and sends no click after it is from its source, not seen; the click let
-  pass covers one that comes.
+  pass covers one that comes. That the selection's handles and its menu
+  go when the script clears it is not seen either: WebKit tells UIKit's
+  text interaction that the selection changed (`_updateChangedSelection`,
+  `selectionChanged`), and what UIKit does with the menu then is UIKit's.
+  TODO's step 7 looks.
+- A press cut by a scroll not the script's, the pane's own as the header
+  changes height among them, is left to WebKit's tap as it was before, and
+  whether WebKit clicks at the lift of a touch held near a second is the
+  thing not known. TODO's step 6 holds one so.
 - Every touchend on a stack's page now waits for the page's script, the
   listener on the window not being passive: a link tapped in a letter
   while WebKit lays out a large one waits as long. Not measured.
 - A tap on a line no longer makes the web view the first responder, as
   WebKit's tap did (`_singleTapRecognized`). Nothing in the pane is known
-  to need it.
+  to need it, but a keyboard up for the list's search field may stay up
+  when he taps a line, where WebKit's tap would have taken it away. Not
+  seen.
 - A scroll that starts on a line lights it for the moment before the stack
   moves; a row of UIKit's in a scroll view waits a moment before it lights.
 - The bound of 1.2 s is the script's. What Mail does with a header held
-  longer is not known.
+  longer is not known. Past it the light goes while the finger is still
+  down, and a lift does nothing, where a UIKit row or button acts at a
+  lift inside it however long it was held; and both ends are timed when
+  WebKit's page hands the script the touch, so a busy page can stretch a
+  tap of about a second past it, the margin 0.2 s. Dropping the bound, the
+  light until the lift and a still lift always the tap, or raising it to
+  about 2 s, is a question for the owner; a finger resting on the glass
+  is the case against dropping it.
