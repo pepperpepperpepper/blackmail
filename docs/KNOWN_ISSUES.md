@@ -16154,8 +16154,9 @@ Oct: the window's FETCH and the page above's 0.17 s apart. On the fresh
 launch, All Mail opened at its top, Go to 5 Oct: the window's FETCH was
 answered, and 44 ms later the FETCH of the page above went out, before the
 window's first preview fetch, which `show(_ window:)` starts on its last
-line. Each time the day's letter was the top row and the line said "Showing
-October 5": nothing moved. Go to the same day from part-way down the list,
+line. Each time the day's letter was the top row, and the line said
+"Showing October 5" ("Showing October 4" for the All Mailboxes jump):
+nothing moved. Go to the same day from part-way down the list,
 twice and once more on the fresh launch, fetched the window and its
 previews only; the first two times the page above came with the slow scroll
 up to it, within a second of the drag that brought it.
