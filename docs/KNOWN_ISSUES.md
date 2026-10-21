@@ -2773,6 +2773,18 @@ from that day's connection logs): a cold launch sent two commands before
 `SELECT "INBOX"`, where the build before sent about twenty. The rest of
 what the TODO lists for B-040 has not been looked at.
 
+**Seen on the test iPad, 2026-10-20**, a build of the `shot-share`
+worktree (9780fe4), three panes, on the test account, a letter To A with
+`+jane` before the "@". Marked unread in Edit mode and moved from the
+reading pane to All Mail: the row went as the folder was chosen, the `UID
+MOVE` alone, then one sweep, a LIST and a STATUS for each of the eight
+folders, and the Inbox's count down by one within a second, All Mail's
+right. Moved back, marked unread again and deleted from the pane: the
+counts down once the MOVE had landed, Trash's up by one with them. The
+Move sheet had its folders in its first frame, 0.2 s after the tap, and
+nothing was sent for it. The launch's order and counts on this build
+were not part of it.
+
 ---
 
 ## B-041 — CHANGED 2026-09-28. What he sees when he acts
@@ -2913,6 +2925,92 @@ fourteen; the warm-up NOOP found a dead socket and replaced it before the
 first tap; coming back after more than fifteen minutes refreshed the list
 in place. A flag set on a search hit and cleared after the search ended
 missed the folder's copy; that was found there and fixed (`1477ee1`).
+
+**Seen on the test iPad, 2026-10-20 and 2026-10-21**, Delete, Move and
+Flag from the pane, a build of the `shot-share` worktree (9780fe4) and
+then one of master with B-090 and B-091 (cba64fa), three panes, on the
+test account. Letters To A with `+jane` before the "@", subjects
+beginning "R6". The connection was cut with Airplane Mode. Every part of
+the TODO check passed but two, Delete grey while its MOVE is out and a
+Flag on a socket left half open, which need the iPad's Wi-Fi interface
+taken down under the connection, and that waits to be agreed.
+
+- *Delete, scrolled down.* Three screens down, previews filled: the pane
+  empty in the first frame, 0.38 s, and the frames to 5.6 s the same to
+  the pixel. The `UID MOVE` went 0.1 s after the tap, alone; after it the
+  watch's NOOP, one `UID SEARCH UID n:*` with `gone=N`, then NOOPs alone.
+  That SEARCH is by design, the MOVE's own EXPUNGE being news to the
+  watch, and the check now says so.
+- *The row at the tap.* With the row in view, the first frame after the
+  tap, 0.21 s, had it gone and the rows under it one place up, each with
+  its words and preview, and nothing else changed to 3.6 s. A Move to All
+  Mail the same, the row gone in the first frame as the sheet slid away.
+- *Unread, moved and deleted:* as in B-040's note. The MOVE was answered
+  0.28 s after the tap, with the Move sheet still over the line, so
+  "Moving…" could not be seen.
+- *From a search.* An All Mailboxes hit flagged: after Cancel the Inbox's
+  row was flagged. A hit deleted: the search stayed, its words and "No
+  results", until Cancel, and the Inbox had no row for it.
+- *A page further down.* The first page alone loaded, a letter found by a
+  Current Mailbox search and deleted, Cancel, the list scrolled to the
+  bottom: it went on to the oldest letter. The Inbox had 67 letters, so
+  the one FETCH below the first page took them all; a page made up with
+  one more FETCH needs over a hundred, and was not made.
+- *Moved to Inbox from All Mail:* the row stayed in All Mail.
+- *Ticks under a conversation's line.* Three rows ticked, a closed line
+  opened in the pane and flagged: the three ticks stayed, no other row
+  was ticked, and the STORE went alone.
+- *A reply in the open stack* came in open at the bottom, and stayed
+  unread, its row's dot with it. Closed by its line and opened again: the
+  dot went at the tap, and the count 0.4 s later, as its STORE was
+  answered, by design, as the check now says; one STORE, and no reload.
+- *Flags with Airplane Mode on.* On the `shot-share` build the first flag
+  stayed 19 s and the letter tapped behind it said "Loading…" as long:
+  B-091. On its fix the Flag was refused within 0.2 s (B-091). A Flag on
+  a second letter, the connection already gone, was refused at once and
+  never drawn. Gmail had neither flagged.
+
+**Seen on the test iPad, 2026-10-21**, coming back, the build of master
+with B-090 and B-091, three panes, on the test account, a lock of 45
+minutes standing in for the night away. Every step of the TODO check
+passed. The app was never ended by iOS meanwhile.
+
+- *Over fifteen minutes away,* scrolled down, a letter open, a row ticked
+  in Edit, the iPad locking itself meanwhile. Back, the list at the top
+  and out of Edit from the first frame, 0.7 s, with its rows and
+  previews, never black, the letter still in the pane. The page had come
+  at 0.6 s, before that frame, so the rows kept could not be told from
+  the new. In the log the page, then LIST and a STATUS per folder. From
+  Sent Mail: the Inbox, its counts after its page.
+- *Every return lost the connection*, after sixteen minutes away and after
+  locks of three minutes, 45 minutes and 30 seconds. The first command at
+  the return, the warm-up's NOOP or the watch's, had no answer, and a new
+  connection's greeting came 0.06 to 0.07 s later. iPadOS shuts the sockets
+  of an app it suspends: its own log said so 1.7 s after a lock, and said at
+  the return that the path was there, so no `LINK` line came and B-091 had
+  nothing to keep off the link. The check had a new connection only after a
+  night away; it now says the old connection is found gone after any lock
+  and a new one made at once. Nothing was lost or sent twice.
+- *Three minutes:* nothing in the log from the lock to the wake but the
+  watch's check on the wire as it locked; the warm-up at the return; the
+  watch's first check 32 s on, a SELECT and a SEARCH on the new
+  connection, then NOOPs.
+- *Thirty seconds:* nothing sent on the way out or at the return, the
+  quiet being under ninety seconds; the watch's first check, 30 s after
+  the wake, found the connection gone and made a new one, its LOGIN
+  2.7 s.
+- *45 minutes, then Delete at once.* The warm-up's NOOP unanswered, a new
+  connection's LOGIN 0.45 s later, and the Inbox's refresh on it, page then
+  counts, all before the Delete, 1 s after the wake. Then the `UID MOVE`,
+  once, with no NOOP of its own, the connection three seconds old, as the
+  check now says. The row went and stayed gone through the watch's next
+  check. The next letter opened cost its FETCH alone.
+
+Not covered: after a lock with under ninety seconds of quiet the warm-up
+does not go, so the connection iPadOS shut is found by the next command.
+A letter tapped before the watch's first check would, by the code, be
+fetched again on a new connection; what a Delete, Move or Flag tapped
+then does was not tried.
 
 ---
 
@@ -3541,6 +3639,14 @@ of the four places put back to `name`.
 **Confirmed on the iPad, 2026-09-29**: the sidebar's first row and the
 list's title read "Inbox" at launch and after tapping it. VoiceOver and
 the Move sheet have not been looked at.
+
+**Seen on the test iPad, 2026-10-20**, a build of the `shot-share`
+worktree (9780fe4): the Move sheet, opened on a letter in All Mail,
+listed "Inbox", not "INBOX", and left out All Mail; Cancel moved
+nothing. VoiceOver had read the sidebar's first row "Inbox, 12 unread"
+on 2026-10-07, in B-079's check. Not seen: "Inbox" alone with nothing
+unread, the test account's Inbox having unread mail; `MailboxNameTests`
+holds it.
 
 
 ---
@@ -4590,6 +4696,14 @@ Gmail's delivery included, and the Inbox's count in the sidebar went from
 scrolled down or in Edit mode, the line's aging over minutes, and the
 line with Wi-Fi off.
 
+**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+B-091 (cba64fa), three panes, the Inbox with a letter open: the iPad
+locked for three minutes. The watch's check fell as it locked, its NOOP
+written and answered, and then nothing at all in the log until the
+wake. At the return the warm-up's NOOP, and the watch's first check
+32 s later. The connection had not outlived the lock: iPadOS shuts the
+sockets of an app it suspends (B-041).
+
 ---
 
 ## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
@@ -5452,6 +5566,62 @@ the iPad the same day**, on carlo's mailbox, before the branch was merged:
 
 Not caught by hand: a letter opened from such a row, which the listing at
 reconnect beats, and Edit mode ticks rather than opens.
+
+**Seen on the test iPad, 2026-10-20**, the kept copy, a build of the
+`fix-087-089` worktree (daccd64), three panes, on the test account,
+Organize by Thread on. Letters To A with `+jane` before the "@",
+subjects beginning "R6 B-053", sent with Sent Mail in front, so that the
+watch left them off the Inbox's kept page. Each case was made by a
+launch with Airplane Mode on, then Airplane Mode off. Every case the
+TODO still had was seen but three: a flag before the fresh page lands,
+not caught (4), and the password saved again and the first frame timed,
+not tried.
+
+1. *Scrolled a little way down*, about six rows off the top. The watch's
+   check landed the page quietly 29 s after the line came back: in each
+   of 23 frames the rows on screen at the same height with the same
+   letters, nothing jumping to the top, the new letter on above the top
+   and out of sight, the open letter still highlighted.
+2. *A finger resting* on a row: the listing came while it rested, and
+   nothing on the list moved, the new letter not on top. The touch was
+   held some 75 s; within about 0.3 s of its lift, by the log, the fresh
+   page went on, the lift opening the held row as a tap does.
+3. *Two ticks*, one near the top and the kept page's last row, a read
+   letter alone in its conversation among the kept rows, so that the two
+   new letters pushed it off the fresh page. Forty-five seconds after the
+   line came back, the rows and ticks as they were, the fresh page come
+   and waiting. Mark as Unread: `UID FETCH n (UID X-GM-MSGID)` before the
+   last row's STORE, and the STORE alone for the other. The Mark ended
+   Edit and the fresh page went on, the pushed-off row gone; the page
+   below brought it back, and Mark as Read sent the two STOREs alone.
+4. *A flag in the first second*, online, the row tapped 0.6 s after the
+   launch and the pane's Flag 0.5 s later: the header with "Loading…",
+   then the flag on the row, still on after "Updated Just Now". The
+   launch's page FETCH was asked before the STORE, but answered 0.4 s
+   before it went, so the flag came after the page, and one before it was
+   not caught.
+5. *A letter tapped with no connection:* its header, sender, subject and
+   date, in the first frame, 0.33 s, already with "This message could not
+   be downloaded." and the alert, too soon for "Loading…" to be seen.
+
+**Seen on the test iPad, 2026-10-20**, every write and every open:
+Sent Mail's on the same build, the rest on a build of the `shot-share`
+worktree (9780fe4), the same account. In Sent Mail, opened before, after
+a launch with no connection and then the line back, three things went
+before its page landed: a Flag from the pane, at the second try, the
+first having fallen on the watch's check; a tap on an unread row, a
+letter sent to the account itself, which is unread in Sent Mail as in
+the Inbox; and Edit's Mark as Unread. Each sent its `(UID X-GM-MSGID)`
+before its STORE, the letter's own FETCH with the id beside
+`BODY.PEEK[]`, and the tapped row's dot stayed off when the page came.
+Online, with "Updated Just Now": a Move and a Delete from the pane,
+Edit mode's Mark, Move and Delete, a search hit flagged and deleted, a
+row from the page below the first and one from a day jumped to, each
+flagged and unflagged, a conversation's closed line opened, and a draft
+reopened and deleted. Each write went alone, every open was the plain
+`(UID BODY.PEEK[])`, the draft's too, and there was no `KEPT-` line. A
+letter opened from another mailbox's copy was not tried: it needs the
+store edited with the app ended.
 
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
@@ -15164,7 +15334,7 @@ for image0.png, is not yet decided.
 
 ---
 
-## B-091 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. With Airplane Mode on, Flag in the reading pane went back with "Can't connect to mail server." only some 19 s later, and a letter tapped meanwhile said "Loading…" as long
+## B-091 — FIXED 2026-10-20, found on the iPad and seen there fixed. With Airplane Mode on, Flag in the reading pane went back with "Can't connect to mail server." only some 19 s later, and a letter tapped meanwhile said "Loading…" as long
 
 **What he saw.** Seen on the test iPad on 2026-10-20, during the reading
 pane's B-041 check ("Flag with Wi-Fi turned off"), with Airplane Mode in
@@ -15357,12 +15527,52 @@ well, 2 in 1.
 The full suite, serially: 1,778 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+B-091 (cba64fa), three panes, on the test account. Two letters To A with
+`+b091` before the "@", "R6 B-091 one" and "R6 B-091 two". The
+connection was cut with Airplane Mode, which turned Wi-Fi off with it,
+the iPad reached by its cable; frames were taken some 0.07 s apart for
+nearly 3 s after each tap, then to 25 s. Every step of the TODO check
+passed, 2 twice, but for one part not possible on this iPad: the tap on
+"B-091 two" straight after the Flag.
+
+1. *Two letters,* both in the Inbox after Refresh.
+2. *Flag, the connection open.* "R6 B-091 one" open, Airplane Mode on,
+   and some six seconds later Flag in the pane. iPadOS said the link had
+   no network, `LINK port=993 viable=false`, a third of a second after
+   Airplane Mode went on. At the Flag, 0.1 s after the tap, `NO-PATH UID
+   STORE nothing-sent`, and nothing written after it until the LOGIN once
+   Airplane Mode was off. The first time the flag was never drawn; the
+   second, the next tap 0.05 s behind it, it showed at 0.14 s and was gone
+   at 0.21 s. Each time "Can't connect to mail server." was coming up by
+   0.21 s, one alert, the same to 25 s, and no "Loading…" anywhere. The
+   build before held the flag 19 s. The tap on "R6 B-091 two" fell on the
+   alert both times and opened nothing: a tap takes some 0.1 s here, and
+   the alert was up first. The TODO's step now says so.
+3. *A letter, the connection open.* Back online, and Airplane Mode on
+   again with "R6 B-091 one" open: `viable=false` 0.34 s on, then the
+   watch's check, `NO-PATH NOOP not-sent`. "R6 B-091 two" tapped: at
+   0.19 s the pane had its header and "This message could not be
+   downloaded.", and the alert was coming up.
+4. *Back.* Airplane Mode off, a new connection, one LOGIN. Flag: one `UID
+   STORE … +FLAGS.SILENT (\Flagged)`, answered OK, Gmail had it flagged,
+   and the flag stayed through a Refresh. Flag again: one
+   `-FLAGS.SILENT`, and Gmail had it unflagged.
+5. *The log.* Only `port=993` lines. Three `viable=false`, 0.32 to 0.34 s
+   after Airplane Mode went on, before the switch had finished, and never
+   a `viable=true`: each link was let go of at its first command after
+   the word. The watch's NOOP never went just before the word, and there
+   was no DEADLINE line.
+6. *Put back.* The two letters to Trash with Edit and Delete; Airplane
+   Mode off, Wi-Fi on.
+
+Gmail never had a letter flagged by an offline Flag.
+
 **Not covered.**
 
-- Not yet seen on the iPad: whether iPadOS 16.5 says a connection has no
-  path, and at once, when Airplane Mode goes on or Wi-Fi goes off. If it
-  does not, nothing changes there: no `LINK port=993 viable=false` line,
-  and the wait as before. TODO's B-091 check.
+- Wi-Fi turned off alone, Airplane Mode left off, was not tried on the
+  iPad. Airplane Mode, which turned Wi-Fi off with it, was said within a
+  third of a second each time (above).
 - A command already on the wire as the network goes still waits for the
   stack or its deadline, and what he taps meanwhile behind it: the
   stopped run's 41 to 43 s behind the watch's NOOP. See Not changed.
