@@ -13,8 +13,9 @@ import XCTest
 /// and the rest over the shipping repository and client, the list's own
 /// letters (`ListLetters`), the kept copy and `ScriptedIMAPServer`, whose
 /// `hollowMoves` answer the next MOVEs as Gmail answered that one, with
-/// nothing moved or with the letter moved and the connection not told, and
-/// whose `hollowCopies` answer a COPY so.
+/// nothing moved or with the letter moved and the connection not told,
+/// whose `hollowCopies` answer a COPY so, and whose `newsRidesOnMoves` puts
+/// another letter's EXPUNGE on a MOVE's answer.
 final class HollowMoveTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -83,6 +84,20 @@ final class HollowMoveTests: XCTestCase {
             .filter { $0.hasPrefix("MOVE-") }
     }
 
+    /// Lines the client read, in the connection log.
+    private var receivedLines: [String] {
+        Diagnostics.entries.filter { $0.direction == .received }.map(\.text)
+    }
+
+    private func until(file: StaticString = #filePath, line: UInt = #line,
+                       _ condition: () async -> Bool) async throws {
+        for _ in 0..<1_000 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTFail("never happened", file: file, line: line)
+    }
+
     private func moveToTrash(_ row: MessageSummary) -> String {
         "UID MOVE \(uid(row.id)) \"\(Server.trash)\""
     }
@@ -119,31 +134,47 @@ final class HollowMoveTests: XCTestCase {
     /// iPad's, a COPYUID with 0 for the destination and no EXPUNGE, does
     /// not, nor does the `OK Success` with no COPYUID of a MOVE sent in the
     /// wrong mailbox on 2026-09-28. RFC 6851's untagged COPYUID is read as
-    /// well as the tagged one, and either a COPYUID naming the letter or an
-    /// EXPUNGE is enough.
-    func testAMovesAnswerShowsItOnlyWithACopyUIDNamingTheLetterOrAnExpunge() {
+    /// well as the tagged one. A COPYUID naming the letter is enough; an
+    /// EXPUNGE, which cannot be tied to the letter, only where there is no
+    /// COPYUID from a server that gives none, without UIDPLUS: never
+    /// against a COPYUID with a 0 or another letter's, as an EXPUNGE for a
+    /// letter taken out elsewhere would ride on the iPad's answer, nor
+    /// where a server with UIDPLUS gave none.
+    func testAMovesAnswerShowsItOnlyWithACopyUIDNamingTheLetterOrAnExpungeWhereNoneIsGiven() {
         let done = answer("[COPYUID 2 344 288] (Success)", ["* 68 EXPUNGE", "* 68 EXISTS"], uid: 344)
         XCTAssertEqual(done, IMAPMoveAnswer(copyUID: .names, expunged: true))
-        XCTAssertTrue(done.showsMove)
+        XCTAssertTrue(done.showsMove(uidPlus: true))
 
         let hollow = answer("[COPYUID 2 343 0] (Success)", uid: 343)
         XCTAssertEqual(hollow, IMAPMoveAnswer(copyUID: .zero, expunged: false))
-        XCTAssertFalse(hollow.showsMove)
+        XCTAssertFalse(hollow.showsMove(uidPlus: true))
         XCTAssertEqual(hollow.described, "copyuid=dest-0 no-expunge")
 
         let wrongMailbox = answer("Success", uid: 16)
         XCTAssertEqual(wrongMailbox, IMAPMoveAnswer(copyUID: .none, expunged: false))
-        XCTAssertFalse(wrongMailbox.showsMove)
+        XCTAssertFalse(wrongMailbox.showsMove(uidPlus: true))
+        XCTAssertFalse(wrongMailbox.showsMove(uidPlus: false))
         XCTAssertEqual(wrongMailbox.described, "copyuid=none no-expunge")
 
         let rfc = answer("Done", ["* OK [COPYUID 432432 42 1202] (Success)", "* 22 EXPUNGE"], uid: 42)
         XCTAssertEqual(rfc, IMAPMoveAnswer(copyUID: .names, expunged: true))
 
-        XCTAssertTrue(answer("[COPYUID 2 344 288] (Success)", uid: 344).showsMove, "the COPYUID alone")
-        XCTAssertTrue(answer("Success", ["* 68 EXPUNGE"], uid: 344).showsMove, "the EXPUNGE alone")
-        XCTAssertTrue(answer("[COPYUID 2 343 0] (Success)", ["* 68 EXPUNGE"], uid: 343).showsMove,
-                      "an EXPUNGE is taken for the letter's")
-        XCTAssertFalse(answer("Success", ["* 68 EXISTS"], uid: 344).showsMove, "an EXISTS is not")
+        for uidPlus in [true, false] {
+            XCTAssertTrue(answer("[COPYUID 2 344 288] (Success)", uid: 344).showsMove(uidPlus: uidPlus),
+                          "the COPYUID alone")
+            let zeroAndExpunge = answer("[COPYUID 2 343 0] (Success)", ["* 68 EXPUNGE"], uid: 343)
+            XCTAssertEqual(zeroAndExpunge.described, "copyuid=dest-0 expunge")
+            XCTAssertFalse(zeroAndExpunge.showsMove(uidPlus: uidPlus),
+                           "an EXPUNGE is not taken for the letter's against a COPYUID's 0")
+            XCTAssertFalse(answer("[COPYUID 2 344 288] (Success)", ["* 68 EXPUNGE"], uid: 343)
+                .showsMove(uidPlus: uidPlus), "nor against a COPYUID naming another letter")
+            XCTAssertFalse(answer("Success", ["* 68 EXISTS"], uid: 344).showsMove(uidPlus: uidPlus),
+                           "an EXISTS is not")
+        }
+        XCTAssertTrue(answer("Success", ["* 68 EXPUNGE"], uid: 344).showsMove(uidPlus: false),
+                      "the EXPUNGE alone, from a server that gives no COPYUID")
+        XCTAssertFalse(answer("Success", ["* 68 EXPUNGE"], uid: 344).showsMove(uidPlus: true),
+                       "but not from one that should have given one")
     }
 
     /// A COPYUID is read for the letter named: one for another letter, or
@@ -368,6 +399,196 @@ final class HollowMoveTests: XCTestCase {
         XCTAssertEqual(moveNotes.last, "MOVE-CHECKED folder=INBOX uid=\(uid(row.id)) gone")
     }
 
+    // MARK: - An EXPUNGE that is not the letter's
+
+    /// The iPad's answer with an EXPUNGE riding on it, for a letter taken
+    /// out of the Inbox elsewhere at that moment, as a server may send on
+    /// any UID command (RFC 3501 §7.4.1). The EXPUNGE names a sequence
+    /// number, not the letter, and the COPYUID's 0 says the letter has no
+    /// place in the Trash, so the Inbox is asked all the same: the letter
+    /// is there, the same MOVE goes once more and lands. One copy in the
+    /// Trash, the row off, and the kept copy lets the letter go only then.
+    func testAHollowMoveWithAnotherLettersExpungeOnItsAnswerIsStillLookedInto() async throws {
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let elsewhere = rows[9]
+        let id = messageID(of: row)
+        let list = await makeList(rows)
+        server.removeElsewhere(uid: uid(elsewhere.id), from: Server.inbox)
+        server.newsRidesOnMoves = true
+        server.hollowMoves = [.nothingMoved]
+
+        let refusal = try await finishing {
+            await PaneActions.refusal(running: .delete, on: row, inFolderWithRole: .inbox,
+                                      list: list, repository: repository, requestSweep: {})
+        }
+
+        XCTAssertNil(refusal)
+        XCTAssertEqual(server.log.map(\.command), [moveToTrash(row), "NOOP", search(row), moveToTrash(row)])
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 0)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 1)
+        XCTAssertEqual(kept(row), false)
+        let shown = await list.shown.map(\.id)
+        XCTAssertFalse(shown.contains(row.id))
+        let n = uid(row.id)
+        XCTAssertEqual(moveNotes, [
+            "MOVE-HOLLOW folder=INBOX uid=\(n) copyuid=dest-0 expunge",
+            "MOVE-CHECKED folder=INBOX uid=\(n) there sending-again",
+            "MOVE-CHECKED folder=INBOX uid=\(n) moved",
+        ])
+    }
+
+    /// The same with the answer Gmail gave the MOVE sent in the wrong
+    /// mailbox, a plain `OK Success` with no COPYUID, and nothing moved.
+    /// Gmail has UIDPLUS and gave a COPYUID for every MOVE it did, so the
+    /// EXPUNGE riding on it is not taken for the letter's either: asked,
+    /// sent again, lands.
+    func testAMoveAnsweredWithNoCopyUIDAndAnotherLettersExpungeIsStillLookedInto() async throws {
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let id = messageID(of: row)
+        server.removeElsewhere(uid: uid(rows[9].id), from: Server.inbox)
+        server.newsRidesOnMoves = true
+        server.hollowMoves = [.nothingMovedUnsaid]
+
+        try await finishing { try await repository.delete(row) }
+
+        XCTAssertEqual(server.log.map(\.command), [moveToTrash(row), "NOOP", search(row), moveToTrash(row)])
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 0)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 1)
+        XCTAssertEqual(kept(row), false)
+        let n = uid(row.id)
+        XCTAssertEqual(moveNotes, [
+            "MOVE-HOLLOW folder=INBOX uid=\(n) copyuid=none expunge",
+            "MOVE-CHECKED folder=INBOX uid=\(n) there sending-again",
+            "MOVE-CHECKED folder=INBOX uid=\(n) moved",
+        ])
+    }
+
+    /// A server without UIDPLUS gives no COPYUID, and its EXPUNGE is all a
+    /// MOVE's answer can say: taken for the letter's, one MOVE, as before,
+    /// and nothing noted.
+    func testWithoutUIDPLUSAMovesExpungeIsItsWord() async throws {
+        server.withheldCapabilities = ["UIDPLUS"]
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let id = messageID(of: row)
+
+        try await finishing { try await repository.delete(row) }
+
+        XCTAssertEqual(server.log.map(\.command), [moveToTrash(row)])
+        XCTAssertTrue(receivedLines.contains { $0.hasSuffix(" EXPUNGE") })
+        XCTAssertFalse(receivedLines.contains { $0.contains("COPYUID") })
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 0)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 1)
+        XCTAssertEqual(kept(row), false)
+        XCTAssertEqual(moveNotes, [])
+    }
+
+    // MARK: - The connection lost while asking
+
+    /// The path goes with the hollow MOVE's answer on its way (B-091): the
+    /// answer is read, and the NOOP that would ask the Inbox is kept off
+    /// the link. The MOVE has gone, so it is not sent again on a new
+    /// connection: refused, the row back where it stood, the kept copy
+    /// keeping it, the letter in the Inbox, and the log saying how it
+    /// ended.
+    func testAHollowMoveWhosePathGoesBeforeTheQuestionIsRefusedAndNotSentAgain() async throws {
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let id = messageID(of: row)
+        let list = await makeList(rows)
+        server.hollowMoves = [.nothingMoved]
+        server.holdReplies(to: "UID MOVE")
+
+        let deleted = Task {
+            await PaneActions.refusal(running: .delete, on: row, inFolderWithRole: .inbox,
+                                      list: list, repository: repository, requestSweep: {})
+        }
+        try await until { self.server.log.contains { $0.verb == "UID MOVE" } }
+        server.losePathOfOpenLinks()
+        await server.releaseReplies(to: "UID MOVE")
+        let refusal = try await finishing { await deleted.value }
+
+        XCTAssertEqual(refusal, .cannotConnect)
+        XCTAssertEqual(server.log.map { "\($0.connection):\($0.command)" }, ["1:" + moveToTrash(row)])
+        XCTAssertEqual(server.lostWrites, [])
+        XCTAssertEqual(server.connectionsBegun, 1)
+        let shown = await list.shown.map(\.id)
+        XCTAssertEqual(shown, rows.map(\.id))
+        XCTAssertEqual(kept(row), true)
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 1)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 0)
+        let n = uid(row.id)
+        let notes = Diagnostics.entries.filter { $0.direction == .note }.map(\.text)
+            .filter { $0.hasPrefix("MOVE-") || $0.hasPrefix("NO-PATH") }
+        XCTAssertEqual(notes, [
+            "MOVE-HOLLOW folder=INBOX uid=\(n) copyuid=dest-0 no-expunge",
+            "NO-PATH NOOP not-sent",
+            "MOVE-CHECKED folder=INBOX uid=\(n) lost not-moved",
+        ])
+    }
+
+    /// The socket drops with the NOOP on the wire: the same, one MOVE on
+    /// the one connection, refused, and the letter kept.
+    func testAHollowMoveWhoseSocketDropsDuringTheQuestionIsRefusedAndNotSentAgain() async throws {
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let id = messageID(of: row)
+        server.hollowMoves = [.nothingMoved]
+        server.holdReplies(to: "NOOP")
+
+        let deleted = Task { try await repository.delete(row) }
+        try await until { self.server.log.contains { $0.verb == "NOOP" } }
+        await server.resetConnections()
+        var failure: MailError?
+        do { try await finishing { try await deleted.value } }
+        catch { failure = error as? MailError }
+
+        XCTAssertEqual(failure, .cannotConnect)
+        XCTAssertEqual(server.log.map { "\($0.connection):\($0.verb)" }, ["1:UID MOVE", "1:NOOP"])
+        XCTAssertEqual(server.connectionsBegun, 1)
+        XCTAssertEqual(kept(row), true)
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 1)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 0)
+        XCTAssertEqual(moveNotes.last, "MOVE-CHECKED folder=INBOX uid=\(uid(row.id)) lost not-moved")
+        server.stopHolding("NOOP")
+    }
+
+    /// The path goes with the SEARCH's answer on its way, the letter still
+    /// there: the second MOVE is kept off the link and not sent on a new
+    /// connection either. Refused, one MOVE in all, the letter kept.
+    func testAHollowMoveWhosePathGoesBeforeTheSecondMoveIsRefusedAndNotSentAgain() async throws {
+        let (repository, rows) = try await listed()
+        let row = rows[4]
+        let id = messageID(of: row)
+        server.hollowMoves = [.nothingMoved]
+        server.holdReplies(to: "UID SEARCH")
+
+        let deleted = Task { try await repository.delete(row) }
+        try await until { self.server.log.contains { $0.verb == "UID SEARCH" } }
+        server.losePathOfOpenLinks()
+        await server.releaseReplies(to: "UID SEARCH")
+        var failure: MailError?
+        do { try await finishing { try await deleted.value } }
+        catch { failure = error as? MailError }
+
+        XCTAssertEqual(failure, .cannotConnect)
+        XCTAssertEqual(server.log.map { "\($0.connection):\($0.verb)" },
+                       ["1:UID MOVE", "1:NOOP", "1:UID SEARCH"])
+        XCTAssertEqual(server.lostWrites, [])
+        XCTAssertEqual(server.connectionsBegun, 1)
+        XCTAssertEqual(kept(row), true)
+        XCTAssertEqual(copies(of: id, in: Server.inbox), 1)
+        XCTAssertEqual(copies(of: id, in: Server.trash), 0)
+        let n = uid(row.id)
+        XCTAssertEqual(moveNotes, [
+            "MOVE-HOLLOW folder=INBOX uid=\(n) copyuid=dest-0 no-expunge",
+            "MOVE-CHECKED folder=INBOX uid=\(n) there sending-again",
+            "MOVE-CHECKED folder=INBOX uid=\(n) lost not-moved",
+        ])
+    }
+
     // MARK: - A normal OK, as before
 
     /// A MOVE whose answer shows it, to the Trash or to a folder, from the
@@ -389,21 +610,119 @@ final class HollowMoveTests: XCTestCase {
     }
 
     /// A letter in All Mail and nowhere else, listed there.
-    private func archivedRow(by repository: IMAPMailRepository) async throws -> MessageSummary {
-        server.deliver(Server.Letter(from: Server.jane, to: [Server.owner], subject: "Archived",
+    private func archivedRow(by repository: IMAPMailRepository,
+                             subject: String = "Archived") async throws -> MessageSummary {
+        let tag = subject.lowercased().filter(\.isLetter)
+        server.deliver(Server.Letter(from: Server.jane, to: [Server.owner], subject: subject,
                                      date: Server.newestDate.addingTimeInterval(60),
                                      text: "Filed without reading.\r\n",
-                                     messageID: "<archived@example.com>"),
+                                     messageID: "<\(tag)@example.com>"),
                        to: [Server.allMail])
         _ = try await repository.folders()
         let rows = try await repository.listMessages(in: Server.allMail, beforeUID: nil, limit: 50)
-        return try XCTUnwrap(rows.first { $0.subject == "Archived" })
+        return try XCTUnwrap(rows.first { $0.subject == subject })
     }
 
+    // MARK: - Filed from All Mail
+
     /// Filed from All Mail in a label, the letter stays in All Mail, so a
-    /// hollow answer cannot be looked into there: it is noted and taken as
-    /// before, one command, and the row stays on the list either way.
-    func testAHollowMoveOutOfAllMailIsNotedAndNotLookedFor() async throws {
+    /// hollow answer is looked into by its labels there: `UID FETCH n
+    /// (X-GM-LABELS)`, in the same hold. Not labelled, the same MOVE goes
+    /// once more and lands: the letter in the Inbox once, its row on the
+    /// list, now counted in the Inbox too.
+    func testAHollowMoveOutOfAllMailIsLookedForByItsLabelAndSentOnceMore() async throws {
+        let repository = makeRepository()
+        let row = try await archivedRow(by: repository)
+        let list = await makeList([row])
+        server.clearLog()
+        Diagnostics.clear()
+        server.hollowMoves = [.nothingMoved]
+
+        let refusal = try await finishing {
+            await PaneActions.refusal(running: .move(to: self.folders[1]), on: row,
+                                      inFolderWithRole: .archive, list: list,
+                                      repository: repository, requestSweep: {})
+        }
+
+        XCTAssertNil(refusal)
+        let n = uid(row.id)
+        XCTAssertEqual(server.log.map(\.command), [
+            "UID MOVE \(n) \"INBOX\"", "UID FETCH \(n) (X-GM-LABELS)", "UID MOVE \(n) \"INBOX\"",
+        ])
+        XCTAssertEqual(Set(server.log.map(\.selected)), [Server.allMail])
+        XCTAssertEqual(copies(of: "<archived@example.com>", in: Server.inbox), 1)
+        let shown = await list.shown.map(\.id)
+        XCTAssertEqual(shown, [row.id])
+        let counted = await list.letter(row.id)?.countedFolderIDs ?? []
+        XCTAssertTrue(counted.contains(Server.inbox))
+        XCTAssertEqual(moveNotes, [
+            "MOVE-HOLLOW folder=\(Server.allMail) uid=\(n) copyuid=dest-0 no-expunge",
+            "MOVE-CHECKED folder=\(Server.allMail) uid=\(n) unlabelled sending-again",
+            "MOVE-CHECKED folder=\(Server.allMail) uid=\(n) moved",
+        ])
+    }
+
+    /// The hollow answer with the letter filed all the same: in Sent Mail,
+    /// whose label is `\Sent` by its LIST attribute, and in the Inbox,
+    /// whose is `\Inbox`. The label is on it, so the move is done with
+    /// nothing sent again, and the letter is in All Mail still.
+    func testAHollowMoveOutOfAllMailWhoseLabelIsOnIsDoneWithNothingSentAgain() async throws {
+        let repository = makeRepository()
+        for (destination, subject) in [(Server.sent, "Archived"), (Server.inbox, "Archived again")] {
+            let row = try await archivedRow(by: repository, subject: subject)
+            let messageID = "<\(subject.lowercased().filter(\.isLetter))@example.com>"
+            server.clearLog()
+            Diagnostics.clear()
+            server.hollowMoves = [.movedUntold]
+
+            try await finishing { try await repository.move(row, to: destination) }
+
+            let n = uid(row.id)
+            XCTAssertEqual(server.log.map(\.command), [
+                "UID MOVE \(n) \"\(destination)\"", "UID FETCH \(n) (X-GM-LABELS)",
+            ], destination)
+            XCTAssertEqual(copies(of: messageID, in: destination), 1, destination)
+            XCTAssertEqual(copies(of: messageID, in: Server.allMail), 1, destination)
+            XCTAssertEqual(moveNotes, [
+                "MOVE-HOLLOW folder=\(Server.allMail) uid=\(n) copyuid=dest-0 no-expunge",
+                "MOVE-CHECKED folder=\(Server.allMail) uid=\(n) labelled",
+            ], destination)
+        }
+    }
+
+    /// Answered hollow twice, the label never on: refused with the alert.
+    /// The row stays, as it always does out of All Mail, and the Inbox is
+    /// not counted for it; the letter is in All Mail alone.
+    func testAMoveOutOfAllMailHollowTwiceWithNoLabelIsRefused() async throws {
+        let repository = makeRepository()
+        let row = try await archivedRow(by: repository)
+        let list = await makeList([row])
+        server.clearLog()
+        Diagnostics.clear()
+        server.hollowMoves = [.nothingMoved, .nothingMoved]
+
+        let refusal = try await finishing {
+            await PaneActions.refusal(running: .move(to: self.folders[1]), on: row,
+                                      inFolderWithRole: .archive, list: list,
+                                      repository: repository, requestSweep: {})
+        }
+
+        XCTAssertEqual(refusal, .cannotConnect)
+        XCTAssertEqual(server.log.map(\.verb), ["UID MOVE", "UID FETCH", "UID MOVE", "UID FETCH"])
+        XCTAssertEqual(copies(of: "<archived@example.com>", in: Server.inbox), 0)
+        XCTAssertEqual(copies(of: "<archived@example.com>", in: Server.allMail), 1)
+        let shown = await list.shown.map(\.id)
+        XCTAssertEqual(shown, [row.id])
+        let counted = await list.letter(row.id)?.countedFolderIDs ?? []
+        XCTAssertFalse(counted.contains(Server.inbox))
+        XCTAssertEqual(moveNotes.last,
+                       "MOVE-CHECKED folder=\(Server.allMail) uid=\(uid(row.id)) unlabelled not-moved")
+    }
+
+    /// A server without Gmail's labels cannot be asked so: the hollow
+    /// answer is noted and taken as before, one command.
+    func testAHollowMoveOutOfAllMailOnAServerWithoutLabelsIsNotedAndNotLookedFor() async throws {
+        server.withheldCapabilities = ["X-GM-EXT-1"]
         let repository = makeRepository()
         let row = try await archivedRow(by: repository)
         server.clearLog()

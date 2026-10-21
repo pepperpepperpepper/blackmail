@@ -15109,11 +15109,20 @@ Only Refresh, which has the say, did.
 
 - A MOVE answered OK counts as done only if its answer shows it: a
   COPYUID whose source holds the letter, with as many UIDs in the
-  destination and none of them 0, or an EXPUNGE (`IMAPMoveAnswer`, new).
-  The COPYUID is read on the tagged OK, where Gmail puts it, or on an
-  untagged OK before the EXPUNGEs, where RFC 6851 puts it. An EXPUNGE
-  names a sequence number, not a UID, so the one in a MOVE's answer is
-  taken for the letter's.
+  destination and none of them 0; or, from a server without UIDPLUS,
+  which gives no COPYUID, an EXPUNGE (`IMAPMoveAnswer`, new). The
+  COPYUID is read on the tagged OK, where Gmail puts it, or on an
+  untagged OK before the EXPUNGEs, where RFC 6851 puts it.
+- An EXPUNGE names a sequence number, not a UID, and one for a letter
+  taken out of the folder elsewhere at that moment, on another device,
+  by a Gmail filter, can ride on any answer, a Delete's MOVE among them
+  (RFC 3501 §7.4.1). So it is never taken for the letter's against the
+  answer's own COPYUID, a 0 as on the iPad or another letter's: that
+  answer with such an EXPUNGE on it would be this bug again. Nor where
+  a server with UIDPLUS, as Gmail is, gave no COPYUID at all: every
+  MOVE Gmail did had one, and its `OK Success` with none moved nothing.
+  Either is looked into as below. A normal Gmail MOVE, with its COPYUID,
+  is its one command as before.
 - An answer that shows nothing is followed, in the same hold of the
   connection, by a look in the folder the letter was in: a NOOP, then
   `UID SEARCH UID n`. Gone, the move is done, and nothing is sent again.
@@ -15148,9 +15157,30 @@ Only Refresh, which has the say, did.
   (`copyuid=none` for no COPYUID, `other` for one naming another letter
   or unreadable), then `MOVE-CHECKED folder=INBOX uid=343` with `gone`,
   `there sending-again`, `moved` (the second MOVE's answer showed it),
-  `there not-moved`, `refused not-moved` or `unanswered not-moved`; for
-  the fallback, `MOVE-HOLLOW … UID COPY copyuid=dest-0` and
+  `there not-moved`, `refused not-moved`, `unanswered not-moved` or
+  `lost not-moved`, and those below for a letter staying in All
+  Mail; `expunge` in place of `no-expunge` when an EXPUNGE came with
+  the answer and was not taken for the letter's; for the fallback,
+  `MOVE-HOLLOW … UID COPY copyuid=dest-0` and
   `MOVE-CHECKED … nothing-marked not-moved`.
+- Filed from All Mail in a label, a letter stays in All Mail, so it is
+  looked for there by its labels: `UID FETCH n (X-GM-LABELS)` in the same
+  hold, and the destination's label on it (`\Inbox`, a system folder's
+  by its LIST attribute as `\Starred` for `\Flagged`, a user label's by
+  its name), done. Without it, the same MOVE goes once more, a label
+  given twice on Gmail being one label and a MOVE out of All Mail taking
+  nothing out; its answer showing nothing again and the label not on,
+  refused: `MOVE-CHECKED … labelled`, `unlabelled sending-again`,
+  `unlabelled not-moved`. Its row stays on the list either way (B-041),
+  so a refusal there is the alert alone, and the folder is not counted
+  for it. A server without Gmail's labels is not asked:
+  `stays-in-folder not-asked`, taken as before.
+- The connection dropping, or its path going (B-091), during the NOOP,
+  the SEARCH, the FETCH or the second MOVE fails the move as on any
+  dropped connection, and the MOVE, having gone, is not sent again on a
+  new one: refused as not moved, the row back where it stood, the kept
+  copy keeping it, and the log closing `MOVE-CHECKED … lost not-moved`,
+  after the `NO-PATH` line where it was the path.
 - The same for every Delete and Move from Edit mode and from the reading
   pane, which all go through `IMAPMailRepository.move`: to the Trash, to
   Spam, to a folder, and out of the Trash or Spam.
@@ -15162,10 +15192,6 @@ Only Refresh, which has the say, did.
   of the letter (B-062), as it was. Its UID EXPUNGE is rightly answered
   OK with no EXPUNGE when Gmail's Auto-Expunge has taken the letter at
   the STORE, so an answer showing nothing says nothing there.
-- Filed from All Mail in a label, a letter stays in All Mail, so it
-  cannot be looked for there: an answer showing nothing is noted,
-  `MOVE-CHECKED … stays-in-folder not-asked`, and taken as before. Its
-  row stays on the list either way (B-041).
 - Edit mode's rule that the first refusal stops the rest (B-062): a
   letter refused as not moved stops the ones after it, which come back
   unsent with it, as for any refusal. A letter whose second MOVE lands
@@ -15178,26 +15204,32 @@ the second MOVE: the row goes at the tap and stays gone, three more
 round trips behind it. One Gmail will not take: the row back where it
 stood and "Can't connect to mail server.", as for any Delete the server
 refused; the letter is in its folder still, and the next Delete is his.
-Every other Delete and Move as before.
+A Move out of All Mail answered so: the row stays, as ever, and the
+letter is in the folder, or, refused, "Can't connect to mail server."
+with the letter not filed. Every other Delete and Move as before.
 
-**Tests.** `HollowMoveTests`, seventeen, over the answer's reading on
+**Tests.** `HollowMoveTests`, twenty-six, over the answer's reading on
 Gmail's own strings, and over the shipping repository and client, the
 list's own letters, the kept copy and the scripted server, whose
 `hollowMoves` answer the next MOVEs as Gmail answered that one, tagged
 `OK [COPYUID <validity> <uid> 0] (Success)` and no EXPUNGE, with nothing
 moved (`.nothingMoved`) or with the letter moved and the connection not
-told until its next NOOP (`.movedUntold`), and whose `hollowCopies`
-answer a COPY so.
+told until its next NOOP (`.movedUntold`), or `OK Success` with no
+COPYUID and nothing moved (`.nothingMovedUnsaid`), whose `hollowCopies`
+answer a COPY so, and whose `newsRidesOnMoves` puts on a MOVE's answer
+the EXPUNGE of a letter taken out elsewhere (`removeElsewhere`), which
+otherwise comes only on a NOOP. Without UIDPLUS it gives no COPYUID.
 
 - *The answer:* Gmail's MOVE done, its EXPUNGE and the tagged COPYUID,
-  shows it; the iPad's does not, nor does 2026-09-28's `OK Success`;
-  RFC 6851's untagged COPYUID is read; either the COPYUID or the EXPUNGE
-  alone is enough, an EXISTS is not. A COPYUID for another letter, with
-  fewer UIDs in the destination, `*`, too many digits or unreadable
-  names nothing; ranges either way round; a 0 anywhere is a 0; one on an
-  untagged NO is none; of two, the one naming the letter. A COPY's
-  answer is read for its COPYUID alone, none at all having nothing
-  against it.
+  shows it; the iPad's does not, nor does 2026-09-28's `OK Success`; RFC
+  6851's untagged COPYUID is read; the COPYUID alone is enough, the
+  EXPUNGE alone only without UIDPLUS, and an EXPUNGE never against a
+  COPYUID with a 0 or another letter's, with or without; an EXISTS is
+  not. A COPYUID for another letter, with fewer UIDs in the destination,
+  `*`, too many digits or unreadable names nothing; ranges either way
+  round; a 0 anywhere is a 0; one on an untagged NO is none; of two, the
+  one naming the letter. A COPY's answer is read for its COPYUID alone,
+  none at all having nothing against it.
 - *Once:* the iPad's answer with the letter still there, a Delete: MOVE,
   NOOP, `UID SEARCH UID n`, MOVE, on the one connection, then none in
   the Inbox, one in the Trash, none on the kept Inbox, and the three log
@@ -15210,11 +15242,27 @@ answer a COPY so.
 - *It did go:* the answer with the letter moved, the NOOP's EXPUNGE, the
   SEARCH finding nothing, done, nothing sent again, one copy in the
   Trash; and the same at the second MOVE.
+- *An EXPUNGE not the letter's:* the iPad's answer, and the `OK Success`
+  with no COPYUID, each with another letter's EXPUNGE on it: the Inbox
+  asked, the MOVE sent again and landing, `copyuid=dest-0 expunge` and
+  `copyuid=none expunge` in the log, the row off from the pane. Without
+  UIDPLUS, the EXPUNGE with no COPYUID is the answer's word: one MOVE.
+- *Lost:* the path going with the hollow answer on its way, the NOOP
+  kept off the link: one MOVE on the one connection, none lost, no new
+  connection, refused, the row back, kept, the letter in the Inbox, and
+  `NO-PATH NOOP not-sent` then `lost not-moved`; the same with the
+  socket dropping with the NOOP on the wire, and with the path going
+  before the second MOVE.
+- *All Mail:* a hollow answer filing a letter in the Inbox: the FETCH of
+  its labels, the MOVE again, landing, the row staying, counted in the
+  Inbox; the same answer with the letter filed all the same, in Sent
+  Mail and in the Inbox: the FETCH only, done; hollow twice: refused,
+  the row staying, not counted in the Inbox, the letter in All Mail
+  alone; on a server without Gmail's labels, one MOVE, not asked.
 - *As before:* a Delete and a Move to a folder, one MOVE each, and a
   Move out of All Mail, whose answer has no EXPUNGE, one MOVE, none
-  noted; a hollow answer out of All Mail noted and not looked into;
-  Delete inside the Trash, the STORE and UID EXPUNGE, the hollow MOVE
-  waiting not met.
+  noted; Delete inside the Trash, the STORE and UID EXPUNGE, the hollow
+  MOVE waiting not met.
 - *Without MOVE:* COPY, STORE and UID EXPUNGE as before; a hollow COPY,
   nothing marked, no STORE, no EXPUNGE, no second COPY, refused, the
   letter in the Inbox and on the kept Inbox.
@@ -15243,7 +15291,22 @@ COPYUID taken as hollow, 1 in 1. Every MOVE checked, 3 in 2, and in the
 whole suite 23 in 21, nineteen of them tests that were there before,
 each pinning a Delete's or a Move's commands.
 
-The full suite, serially: 1,816 tests, 5 skipped, none failing. The
+Then, with the EXPUNGE, All Mail and a connection lost looked into, each
+part undone again, the twenty-six run. An EXPUNGE taken for the letter's
+whatever the COPYUID says, as it was, 13 in 3, among them the hollow
+answer with another letter's EXPUNGE on it; an EXPUNGE with no COPYUID
+taken from a server with UIDPLUS, 5 in 2. The client taking every server
+for one with UIDPLUS, 2 in 1; for one without, 4 in 1. The connection
+lost taken for a write not sent, so sent again on a new connection, 13
+in 2, and at the second MOVE 7 in 1; taken for done, 7 in 2; its log
+line left out, 2 in 2. All Mail not asked, 11 in 3; the label never seen
+on the letter, 1 in 1, the MOVE sent again and refused though the letter
+was filed; compared without case, 1 in 1; the repository naming a system
+folder's label by its folder's name, or not giving the Inbox `\Inbox`, 1
+in 1 each; the repository giving no labels, 7 in 4; a server without
+Gmail's labels asked all the same, 1 in 1.
+
+The full suite, serially: 1,825 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -15257,12 +15320,19 @@ release build for the iPad links.
   the letter, the second MOVE, a round trip or two later, may meet the
   same; then the row comes back with the alert, and the next Delete is
   his.
-- An EXPUNGE in the MOVE's answer for a letter another program took out
-  at that moment would be taken for this letter's when its COPYUID shows
-  nothing.
-- A hollow answer for a letter filed from All Mail in a label is not
-  looked into (Not changed). The folder it went to may then count it
-  until the next sweep.
+- A server without UIDPLUS gives no COPYUID, so an EXPUNGE in its
+  MOVE's answer is still taken for the letter's: one for another letter
+  riding on an answer with nothing moved would be taken so. Gmail has
+  UIDPLUS.
+- A hollow answer for a letter filed from All Mail on a server without
+  Gmail's labels is not looked into. On Gmail a label is looked for as
+  the folder is named; one Gmail named otherwise, none known, would be
+  missed, and the move sent again and, answered so again, refused with
+  the letter filed all the same.
+- The connection lost during the check refuses the move whether or not
+  the letter had gone. Gone, its row is back until the next Refresh,
+  and a second Delete of it is answered with nothing moved, looked into,
+  found gone and done.
 - A server other than Gmail that moved a letter, kept it in the source
   as well, and answered with no COPYUID and no EXPUNGE, which RFC 6851
   says it should not, would get a second copy from the second MOVE.

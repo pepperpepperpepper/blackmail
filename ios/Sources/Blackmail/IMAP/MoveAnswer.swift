@@ -35,14 +35,30 @@ struct IMAPMoveAnswer: Equatable {
     let copyUID: CopyUID
 
     /// Whether the answer has an EXPUNGE. It names a sequence number, not a
-    /// UID, so an EXPUNGE in a MOVE's answer is taken for the letter moved,
-    /// whatever the COPYUID says: one for a letter another program took out
-    /// at that moment would be taken for it too.
+    /// UID, and can be for any letter: one another program or a Gmail
+    /// filter took out of the mailbox at that moment rides on whatever the
+    /// connection is answered next, a Delete's MOVE as much as a NOOP (RFC
+    /// 3501 §7.4.1, `IMAPClient.askForNews`).
     let expunged: Bool
 
-    /// A MOVE's answer that shows the letter moved: a COPYUID naming it, or
-    /// an EXPUNGE.
-    var showsMove: Bool { copyUID == .names || expunged }
+    /// A MOVE's answer that shows the letter moved: a COPYUID naming it; or
+    /// an EXPUNGE, only where there is no COPYUID at all and the server
+    /// gives none, having no UIDPLUS (`uidPlus` false).
+    ///
+    /// An EXPUNGE cannot be tied to the letter, so it is not taken for the
+    /// letter's against a COPYUID that gives it no place, a 0 as on the
+    /// iPad or another letter's: that answer with an EXPUNGE for a letter
+    /// taken out elsewhere riding on it would be B-092 again. Nor where a
+    /// server with UIDPLUS has given no COPYUID: every MOVE Gmail did had
+    /// one, and its `OK Success` with none moved nothing (B-039). A server
+    /// without UIDPLUS has nothing more to say than the EXPUNGE.
+    func showsMove(uidPlus: Bool) -> Bool {
+        switch copyUID {
+        case .names: return true
+        case .zero, .other: return false
+        case .none: return expunged && !uidPlus
+        }
+    }
 
     /// A COPY's answer with nothing against it: a COPYUID naming the letter,
     /// or none at all, from a server that does not give one. A COPY takes

@@ -2997,16 +2997,25 @@ this host. Ordered by value, not by size.
       3. *Move and the pane.* In Trash, open "B-092 one", Move, Inbox:
       its row goes. In the Inbox, open it, Delete in the pane: gone, and
       in Trash once.
-      4. *The log.* Settings, the connection log. Each Delete and Move
+      4. *Out of All Mail.* In Trash, open "B-092 two", Move, All Mail:
+      its row goes. In All Mail, open it, Move, Inbox: its row stays,
+      and a Refresh of the Inbox shows it there. In the Inbox, open it,
+      Delete in the pane: gone, and in Trash once.
+      5. *The log.* Settings, the connection log. Each Delete and Move
       is one `UID MOVE`, answered with an EXPUNGE and `OK [COPYUID …]`
       with no 0 among its numbers, and no `MOVE-HOLLOW` or
-      `MOVE-CHECKED` line anywhere. If there is a `MOVE-HOLLOW` line,
-      Gmail has answered so again: copy it down, with the commands and
+      `MOVE-CHECKED` line anywhere. The Move out of All Mail has no
+      EXPUNGE, the letter staying there: note whether its answer has a
+      COPYUID. One with none is a `MOVE-HOLLOW … copyuid=none
+      no-expunge` line, then `UID FETCH n (X-GM-LABELS)` and
+      `MOVE-CHECKED … labelled`, which is Gmail not saying, not a
+      fault: copy it down. Any other `MOVE-HOLLOW` line is Gmail
+      answering so again: copy it down, with the commands and
       `MOVE-CHECKED` lines after it (a NOOP, `UID SEARCH UID n`,
       perhaps the MOVE again), and whether the row stayed off with the
       letter once in Trash, or came back with "Can't connect to mail
       server." with the letter where it was.
-      5. *Put back.* Nothing: the B-092 letters are in Trash.
+      6. *Put back.* Nothing: the B-092 letters are in Trash.
       *Not tried on the simulator: the host tests run it over the
       scripted server, whose hollow answer is the iPad's (B-092).*
 

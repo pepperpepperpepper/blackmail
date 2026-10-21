@@ -1441,13 +1441,15 @@ actor IMAPClient {
         guard result.status == .ok else { throw MailError.cannotConnect }
     }
 
-    /// `leavesSource` says whether the letter leaves `mailbox` with the
-    /// move, as the repository takes it to: not when it is filed in a label
-    /// from Gmail's All Mail, which holds every letter not binned. The
-    /// source is where a MOVE whose answer shows nothing is checked (B-092,
-    /// `confirmMove`), and a letter that stays there cannot be checked so.
+    /// `stayingLabelled` is for a letter that stays in `mailbox` with the
+    /// move, as the repository takes it to, filed from Gmail's All Mail in
+    /// a label, All Mail holding every letter not binned: the X-GM-LABELS
+    /// that file it in `destination`, lowercased. Nil for a letter that
+    /// leaves `mailbox`. A MOVE whose answer shows nothing is looked into
+    /// where the move would show (B-092, `confirmMove`): a letter that
+    /// leaves is gone from the source, and one that stays has the label.
     func move(uid: UInt32, from mailbox: String, validity: UInt32,
-              to destination: String, leavesSource: Bool = true) async throws {
+              to destination: String, stayingLabelled labels: Set<String>? = nil) async throws {
         // The gate is held for the SELECT and the whole copy/mark/expunge
         // sequence, not per command. Every step acts on "the selected
         // mailbox", so a SELECT from another task landing in the middle would
@@ -1471,7 +1473,7 @@ actor IMAPClient {
                 let result = try await self.performCommand(command)
                 if result.status == .ok {
                     try await self.confirmMove(result, uid: uid, in: mailbox, resending: command,
-                                               leavesSource: leavesSource)
+                                               stayingLabelled: labels)
                     return
                 }
             }
@@ -1512,15 +1514,19 @@ actor IMAPClient {
     }
 
     /// A MOVE answered OK counts as done only if its answer shows it: a
-    /// COPYUID naming the letter with a UID for it in the destination, or
-    /// an EXPUNGE (`IMAPMoveAnswer`). The caller holds the gate, with
+    /// COPYUID naming the letter with a UID for it in the destination, or,
+    /// from a server without UIDPLUS, which gives no COPYUID, an EXPUNGE
+    /// (`IMAPMoveAnswer.showsMove`). The caller holds the gate, with
     /// `mailbox` selected, and has just had `command`'s OK.
     ///
     /// On the test iPad on 2026-10-21 Gmail answered a MOVE to the Trash,
     /// sent in the right mailbox, with `OK [COPYUID 2 343 0] (Success)`
     /// and no EXPUNGE, and nothing had moved (B-092). Taken for done, the
     /// row stayed off the list, the kept copy let the letter go, and it
-    /// came back only at a Refresh more than two minutes later.
+    /// came back only at a Refresh more than two minutes later. The same
+    /// answer with an EXPUNGE riding on it, for a letter taken out
+    /// elsewhere at that moment, says no more of this letter: the COPYUID
+    /// has the say over an EXPUNGE that cannot be tied to it.
     ///
     /// So an answer that shows nothing is followed, in the same hold, by a
     /// look in the source: a NOOP, so that the connection has been told of
@@ -1543,45 +1549,79 @@ actor IMAPClient {
     /// told of, the second MOVE could copy it again.
     ///
     /// A letter that stays in the source, filed from All Mail in a label
-    /// (`leavesSource`), cannot be looked for there: an answer that shows
-    /// nothing is noted and taken as before. Its row stays on the list
-    /// either way.
+    /// (`labels`), is in the source either way, so it is looked for by its
+    /// labels there instead: `UID FETCH n (X-GM-LABELS)`, with the
+    /// destination's label among them, done; without, the MOVE once more,
+    /// a label given twice being one label on Gmail, and no letter taken
+    /// out of All Mail by it; and without after that, refused. Its row
+    /// stays on the list either way, so a refusal there is the alert
+    /// alone, and the folder is not counted as filed. A server without
+    /// Gmail's labels cannot be asked so: the answer is noted and taken as
+    /// before.
+    ///
+    /// The connection dropping, or its path going (B-091), during any of
+    /// it fails the move as on a dropped connection, never sent again, the
+    /// MOVE having gone: refused as not moved.
     ///
     /// The connection log says so in numbers: `MOVE-HOLLOW folder=INBOX
     /// uid=343 copyuid=dest-0 no-expunge`, then `MOVE-CHECKED folder=INBOX
     /// uid=343` and `gone`, `there sending-again`, `moved`, `there
-    /// not-moved`, `refused not-moved`, `unanswered not-moved` or
+    /// not-moved`, `refused not-moved`, `unanswered not-moved` or `lost
+    /// not-moved`; for a letter staying in All Mail, `labelled`,
+    /// `unlabelled sending-again`, `unlabelled not-moved`, or
     /// `stays-in-folder not-asked`.
     private func confirmMove(_ first: IMAPCommandResult, uid: UInt32, in mailbox: String,
-                             resending command: String, leavesSource: Bool) async throws {
+                             resending command: String,
+                             stayingLabelled labels: Set<String>?) async throws {
         let note = "folder=\(mailbox) uid=\(uid)"
+        // A set that could not be read is not a server without UIDPLUS, and
+        // nothing is concluded from it: the answer is looked into.
+        let uidPlus = capabilities.isEmpty || capabilities.contains("UIDPLUS")
+        let (done, undone) = labels == nil ? ("gone", "there") : ("labelled", "unlabelled")
         var answer = first
         var sent = 1
         while true {
             let said = IMAPMoveAnswer(answer, uid: uid)
-            if said.showsMove {
+            if said.showsMove(uidPlus: uidPlus) {
                 if sent > 1 { Diagnostics.log(.note, "MOVE-CHECKED \(note) moved") }
                 return
             }
             Diagnostics.log(.note, "MOVE-HOLLOW \(note) \(said.described)")
-            guard leavesSource else {
+            // As for UIDPLUS, a set that could not be read is asked.
+            if labels != nil, !capabilities.isEmpty, !capabilities.contains("X-GM-EXT-1") {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) stays-in-folder not-asked")
                 return
             }
-            guard let there = try await stillHolds(uid) else {
+            let still: Bool?
+            do {
+                if let labels {
+                    still = try await lacksLabel(uid, labels)
+                } else {
+                    still = try await stillHolds(uid)
+                }
+            } catch {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) lost not-moved")
+                throw error
+            }
+            guard let still else {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) unanswered not-moved")
                 throw MailError.cannotConnect
             }
-            guard there else {
-                Diagnostics.log(.note, "MOVE-CHECKED \(note) gone")
+            guard still else {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) \(done)")
                 return
             }
             guard sent == 1 else {
-                Diagnostics.log(.note, "MOVE-CHECKED \(note) there not-moved")
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) \(undone) not-moved")
                 throw MailError.cannotConnect
             }
-            Diagnostics.log(.note, "MOVE-CHECKED \(note) there sending-again")
-            answer = try await performCommand(command)
+            Diagnostics.log(.note, "MOVE-CHECKED \(note) \(undone) sending-again")
+            do {
+                answer = try await performCommand(command)
+            } catch {
+                Diagnostics.log(.note, "MOVE-CHECKED \(note) lost not-moved")
+                throw error
+            }
             sent += 1
             guard answer.status == .ok else {
                 Diagnostics.log(.note, "MOVE-CHECKED \(note) refused not-moved")
@@ -1597,6 +1637,18 @@ actor IMAPClient {
         guard try await performNOOP() else { return nil }
         guard let found = try await performSearch("UID \(uid)") else { return nil }
         return found.contains(uid)
+    }
+
+    /// Whether the letter at `uid` in the selected mailbox has none of
+    /// `labels` (lowercased), as Gmail's X-GM-LABELS have it now. Nil when
+    /// the FETCH is refused or says nothing of the letter. The caller holds
+    /// the gate.
+    private func lacksLabel(_ uid: UInt32, _ labels: Set<String>) async throws -> Bool? {
+        let result = try await performCommand("UID FETCH \(uid) (X-GM-LABELS)")
+        guard result.status == .ok,
+              let letter = IMAPParser.parseFetch(result.untagged).first(where: { $0.uid == uid })
+        else { return nil }
+        return !letter.labels.contains { labels.contains($0.lowercased()) }
     }
 
     @discardableResult

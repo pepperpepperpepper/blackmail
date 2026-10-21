@@ -1338,6 +1338,18 @@ actor IMAPMailRepository: MailRepository {
         "\\spam": "\\junk",
     ]
 
+    /// The X-GM-LABELS that file a letter in `folder`, lowercased:
+    /// `countedFolders` the other way round. `\inbox` for the Inbox, a
+    /// system folder's by its LIST attribute, `\starred` for Starred's
+    /// `\Flagged`, and a user label's its name, Gmail naming the folder
+    /// after the label. For a MOVE out of All Mail whose answer shows
+    /// nothing, looked for on the letter (`IMAPClient.move`, B-092).
+    private func labels(filingIn folder: String) -> Set<String> {
+        if folder == (roleNames[.inbox] ?? "INBOX") { return ["\\inbox"] }
+        let system = Self.attributeForLabel.filter { folderForAttribute[$0.value] == folder }.map(\.key)
+        return system.isEmpty ? [folder.lowercased()] : Set(system)
+    }
+
     /// Every folder whose unread count this message contributes to.
     ///
     /// The point of the whole exercise. In Gmail a folder is a LABEL and
@@ -1949,13 +1961,15 @@ actor IMAPMailRepository: MailRepository {
                         validity: message.validity, in: source)
         // Trash and Spam are exclusive on Gmail; a letter filed in a label
         // from All Mail stays there, since All Mail is every letter not
-        // binned. Where it stays, the client cannot look for it in the
-        // source to check a MOVE whose answer shows nothing (B-092).
+        // binned. Where it stays, a MOVE whose answer shows nothing is
+        // checked by the destination's label on the letter there, not by
+        // the letter being gone (B-092).
         let binned = destination == roleNames[.trash] || destination == roleNames[.junk]
         let staysInSource = !binned && source == folderForAttribute["\\all"]
+        let labels = staysInSource ? labels(filingIn: destination) : nil
         try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
-                                  to: destination, leavesSource: !staysInSource)
+                                  to: destination, stayingLabelled: labels)
         }
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
