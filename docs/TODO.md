@@ -1456,7 +1456,8 @@ this host. Ordered by value, not by size.
       opening at the oldest unread letter, or at the newest when he has read
       the rest. Tap a closed line: it opens, its body comes, the header and
       Reply move to it (a read letter, so no dot goes and no count changes),
-      and the line greys under the finger as it did. Tap it again: it
+      and the line lightens under the finger while it is held (B-095; it
+      never did before, which B-095's check sees). Tap it again: it
       closes. Open two in quick succession; leave the pane fifteen seconds
       and open another, whose body goes in after WebKit's pause. With
       letters open, `kill -9` of Blackmail's own
@@ -3516,6 +3517,37 @@ this host. Ordered by value, not by size.
       Airplane Mode off.
       *Not tried on the simulator: the host tests hold it, the list laid
       out as on the iPad (B-093).*
+
+- [ ] **B-095, a finger held on a conversation's line.** On the test iPad,
+      the test account only, built from the `line-press` worktree. Three
+      panes. A conversation of three letters or more, every one read, each
+      closed to its line, as in the links check's step 7. Each hold with
+      one finger still at one point, and a burst of shots from the touch,
+      the line's padding measured as there: about 20 lit, 0 not.
+      1. *Held 0.3 s* on a closed line: lit from the first frame until the
+      lift. At the lift it opens, its body comes and the header and Reply
+      move to it, as at a quick tap. No loupe, no word selected, no menu.
+      2. *Held 0.8 s* on another closed line: the same, lit until the lift,
+      and it opens at the lift.
+      3. *Held 1.5 s* on a closed line: lit until about 1.2 s, then not; no
+      loupe, no word selected and no menu in any frame; nothing opens at
+      the lift, and nothing else changes. On the build before, a word was
+      selected at about 0.7 s and the Copy menu came at about 1.4 s.
+      4. *An open letter's line*, held 0.8 s: it closes at the lift.
+      5. *A held finger that scrolls.* A finger on a closed line, held half
+      a second, then dragged up a screen and lifted: the line may light at
+      the touch and goes as the stack moves; nothing opens. A flick of the
+      stack, and a finger put on a line while it still moves: the stack
+      stops, and nothing opens.
+      6. *A quick tap* on a closed line: it opens, as before; again: it
+      closes. Two lines 0.3 s apart: both open.
+      7. *A letter's text.* A finger held on a word in an open letter's
+      body: WebKit selects it and shows its menu, as before.
+      8. *VoiceOver*, if the round turns it on: a closed line found and
+      double-tapped opens, once; again, it closes. VoiceOver off after.
+      *Not tried on the simulator: the host tests read the script, and it
+      was run outside WebKit (B-095). What WebKit does with a touch held a
+      second, the line no longer selectable, is seen only here.*
 
 ## Blocked on the owner
 

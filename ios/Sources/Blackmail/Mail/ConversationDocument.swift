@@ -208,8 +208,22 @@ enum ConversationDocument {
           /* The tappable line. A whole row rather than a chevron, because a
              44 pt target that spans the pane cannot be missed. */
           .bm-head { padding: 12px \(inset)px; cursor: default;
-                     -webkit-tap-highlight-color: rgba(255,255,255,0.08);
+                     -webkit-tap-highlight-color: transparent;
                      display: flex; align-items: baseline; gap: 8px; }
+          /* A line is not text to select, as Mail's are not, and has no
+             callout (B-095): a finger held on one began WebKit's selection
+             of a word at about 0.7 s, and its Copy menu at 1.4 s. The
+             stack's own lines and everything in them; the letters' bodies
+             stay selectable. */
+          body > .bm-letter > .bm-head, body > .bm-letter > .bm-head * {
+                     -webkit-user-select: none; user-select: none;
+                     -webkit-touch-callout: none; }
+          /* The line lit under the finger, by the stack's script, from the
+             touch until it lifts (B-095). WebKit's own tap highlight, which
+             was given this colour, is never painted on a line: it leaves
+             out anything but a link or a control that spans more than 30%
+             of the pane, and a line spans all of it. */
+          body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08); }
           .bm-from { font-weight: 600; flex: 0 0 auto; }
           .bm-when { color: #8e8e93; font-size: \(bodyPointSize - 3)px;
                      margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
@@ -298,6 +312,29 @@ enum ConversationDocument {
     /// where `ConversationDocument.Fill` and `ConversationDocument.Append`
     /// call them. `bmAppend` puts letters that came while the stack was
     /// open at its bottom, and wires their lines.
+    ///
+    /// **A finger on a line** (B-095). The line is lit from the touch until
+    /// the finger lifts, and the lift opens or closes it, the script's own
+    /// doing and not WebKit's: WebKit paints no tap highlight on an element
+    /// as wide as the pane, and what it does with a touch held a second,
+    /// the line no longer selectable, is UIKit's, not in its source. A
+    /// touch on a line that lifts within `bmHold` of landing, the finger
+    /// still to 10 px, is the tap: the script toggles the letter itself,
+    /// and stops WebKit's own tap by its `preventDefault`, which WebKit's
+    /// tap waits for. A click on a line within a second of one the script
+    /// took is let pass, at most one, so a tap never toggles twice even if
+    /// WebKit's click came anyway. Nothing is done, and the light goes, for
+    /// a finger that moves, a scroll of the page, a second finger, a
+    /// touch WebKit cancels, a touch that lands on a page still scrolling,
+    /// which only stops it, or a line moved under the finger as letters
+    /// above it grew; past `bmHold` the light goes and the lift does
+    /// nothing. The touches are heard on the window, as `bmLetGo`'s are,
+    /// not on the lines: VoiceOver's activation sends a line a touch rather
+    /// than its click when the line or a node above it has a touch
+    /// listener, and the window is not a node. So VoiceOver's activation
+    /// is the click it was, as is a click from a pointer. Only lines
+    /// `bmWire` wired are lit or toggled, those `bmAppend` puts in among
+    /// them.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -318,6 +355,7 @@ enum ConversationDocument {
     var bmSet = null;
     var bmPlace = null;
     var bmWatch = null;
+    var bmMine = null;
     function bmTake() {
       bmPlace = null;
       var letters = document.querySelectorAll('body > .bm-letter');
@@ -334,6 +372,7 @@ enum ConversationDocument {
         var moved = bmPlace.section.getBoundingClientRect().top - bmPlace.top;
         if (moved !== 0) window.scrollBy(0, moved);
       }
+      bmMine = window.pageYOffset;
       bmTake();
     }
     function bmLetGo() {
@@ -341,8 +380,60 @@ enum ConversationDocument {
       bmOpening = null;
       bmTake();
     }
+    var bmLines = [];
+    var bmPress = null;
+    var bmQuiet = 0;
+    var bmScrolled = -1e9;
+    var bmHold = 1200;
+    function bmLineAt(node) {
+      for (; node && node !== document.body; node = node.parentNode) {
+        if (bmLines.indexOf(node) !== -1) return node;
+      }
+      return null;
+    }
+    function bmUnpress() {
+      if (!bmPress) return;
+      clearTimeout(bmPress.timer);
+      bmPress.head.classList.remove('bm-press');
+      bmPress = null;
+    }
+    function bmStill(press, touch) {
+      return !!touch && Math.abs(touch.clientX - press.x) <= 10 && Math.abs(touch.clientY - press.y) <= 10;
+    }
+    function bmPressDown(event) {
+      bmUnpress();
+      if (event.touches.length !== 1 || performance.now() - bmScrolled < 200) return;
+      var head = bmLineAt(event.target);
+      if (!head) return;
+      var touch = event.touches[0];
+      head.classList.add('bm-press');
+      bmPress = { head: head, x: touch.clientX, y: touch.clientY,
+                  top: head.getBoundingClientRect().top, at: performance.now(),
+                  timer: setTimeout(function () { head.classList.remove('bm-press'); }, bmHold) };
+    }
+    function bmPressMove(event) {
+      if (bmPress && (event.touches.length !== 1 || !bmStill(bmPress, event.touches[0]))) bmUnpress();
+    }
+    function bmPressUp(event) {
+      var press = bmPress;
+      if (!press) return;
+      bmUnpress();
+      if (event.touches.length !== 0 || !bmStill(press, event.changedTouches[0])) return;
+      event.preventDefault();
+      bmQuiet = performance.now() + 1000;
+      if (performance.now() - press.at > bmHold) return;
+      if (Math.abs(press.head.getBoundingClientRect().top - press.top) > 10) return;
+      bmToggle(press.head.parentNode);
+    }
+    function bmScroll() {
+      if (bmMine !== null && Math.abs(window.pageYOffset - bmMine) <= 1) return;
+      bmScrolled = performance.now();
+      bmUnpress();
+    }
     function bmWire(head) {
+      bmLines.push(head);
       head.addEventListener('click', function (event) {
+        if (performance.now() < bmQuiet) { bmQuiet = 0; return; }
         bmToggle(event.currentTarget.parentNode);
       });
       if (bmWatch) bmWatch.observe(head.parentNode);
@@ -370,6 +461,11 @@ enum ConversationDocument {
         if (bmOpening && bmSet !== null && Math.abs(window.pageYOffset - bmSet) > 1) bmLetGo();
         else if (!bmOpening) bmTake();
       }, { passive: true });
+      window.addEventListener('touchstart', bmPressDown, { capture: true, passive: true });
+      window.addEventListener('touchmove', bmPressMove, { capture: true, passive: true });
+      window.addEventListener('touchend', bmPressUp, { capture: true, passive: false });
+      window.addEventListener('touchcancel', bmUnpress, { capture: true, passive: true });
+      window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('load', bmKeep);
       bmKeep();
     })();

@@ -374,7 +374,7 @@ final class ConversationOrderTests: XCTestCase {
             "var letters = document.querySelectorAll('body > .bm-letter');",
             "if (box.bottom > 0) { bmPlace = { section: letters[i], top: box.top }; return; }",
             "} else if (bmPlace) { var moved = bmPlace.section.getBoundingClientRect().top - bmPlace.top; "
-                + "if (moved !== 0) window.scrollBy(0, moved); } bmTake(); }",
+                + "if (moved !== 0) window.scrollBy(0, moved); } bmMine = window.pageYOffset; bmTake(); }",
             "if (window.ResizeObserver) bmWatch = new ResizeObserver(bmKeep);",
             "if (bmWatch) bmWatch.observe(head.parentNode);",
             "for (var i = 0; i < heads.length; i++) bmWire(heads[i]);",
