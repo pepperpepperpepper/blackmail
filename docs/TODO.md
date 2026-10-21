@@ -623,9 +623,9 @@ this host. Ordered by value, not by size.
       back with "Can't connect" at once, so quickly that it may never be
       drawn (B-091). OK, open another, which says it could not be
       downloaded, and Flag it: refused the same way. With Edit on and three
-      rows ticked, open a letter inside
-      the conversation still in the pane, and Flag from the pane: the three
-      ticks stay, and no other row is ticked.
+      rows ticked, open a letter inside the conversation still in the pane,
+      and Flag from the pane: the three ticks stay, and no other row is
+      ticked.
       Flag, and the row's flag appears at once; flag with Wi-Fi turned off,
       within a minute and a half of the last thing he did: the flag goes
       back and "Can't connect" is said (at once: nothing is written onto a
@@ -640,25 +640,24 @@ this host. Ordered by value, not by size.
       STORE cannot leave the count too low), and the list does not reload.
       The host suite checks the rules; the table view's reaction to them,
       row removal, highlight and empty state, is only visible here.
-      *Seen on the test iPad 2026-10-20 and 2026-10-21, Airplane Mode for
-      Wi-Fi off: every part but two passed (B-041). Scrolled three screens
-      down, the Delete's pane was empty in the first frame and nothing on
-      the list moved; with the row in view, it was gone in the first frame
-      after the tap, the rows under it one place up with their previews,
-      and so for a Move. After each MOVE the watch's one SEARCH, as the
-      check has it now. The Inbox held 67 letters, so the one FETCH below
-      the first page took the rest and the list went on to the oldest: a
-      page made up with one more FETCH needs over a hundred. The search
-      hit's Delete left "No results" up until the Cancel, with nothing to
-      scroll. The reopened letter's dot went at the tap and its count
-      0.4 s later, as its STORE was answered. The Flag with Wi-Fi off
-      stayed 19 s on the build before, B-091, and was refused within 0.2 s
-      on its fix; the second letter's Flag, the connection gone, was
-      refused at once and never drawn, so the check no longer asks to see
-      both flags. Still to do: Delete grey while its MOVE is out, and a
-      Flag on a socket left half open, both made by taking the iPad's
-      Wi-Fi interface down under the connection, which waits to be
-      agreed.*
+      *Seen on the test iPad 2026-10-20, Airplane Mode for Wi-Fi off: every
+      part but two passed (B-041). Scrolled three screens down, the Delete's
+      pane was empty in the first frame and nothing on the list moved; with
+      the row in view, it was gone in the first frame after the tap, the
+      rows under it one place up with their previews, and so for a Move.
+      After each MOVE the watch's one SEARCH, as the check has it now. The
+      Inbox held 67 letters, so the one FETCH below the first page took the
+      rest and the list went on to the oldest: a page made up with one more
+      FETCH needs over a hundred. The search hit's Delete left "No results"
+      up until the Cancel, with nothing to scroll. The reopened letter's dot
+      went at the tap and its count 0.4 s later, as its STORE was answered.
+      The Flag with Wi-Fi off stayed 19 s on the build before, B-091, and
+      was refused within 0.2 s on its fix; on the build before, the second
+      letter's Flag, the connection then gone, was refused at once and never
+      drawn, so the check no longer asks to see both flags. Still to do:
+      Delete grey while its MOVE is out, and a Flag on a socket left half
+      open, both made by taking the iPad's Wi-Fi interface down under the
+      connection, which waits to be agreed.*
 - [x] **B-041, coming back.** With the Inbox showing, scrolled down, a
       letter open and Edit on, leave the app for more than fifteen minutes
       (or shorten `Sitting.awayBeforeReturningToInbox` for the test, as
@@ -680,11 +679,11 @@ this host. Ordered by value, not by size.
       Lock for thirty seconds straight after tapping a letter: nothing
       should be sent on the way out or back until the watch's first check,
       about 30 s after the return.
-      *Seen on the test iPad 2026-10-21, a lock of 45 minutes for the night
-      away: every step passed (B-041). The iPad locked itself during the
-      fifteen minutes away; at the return the page came in 0.6 s, before
-      the app's first frame, so the rows kept could not be told from the
-      new, and the list was never black. Every lock lost the connection,
+      *Seen on the test iPad 2026-10-20 and 2026-10-21, a lock of 45 minutes
+      for the night away: every step passed (B-041). The iPad locked itself
+      during the fifteen minutes away; at the return the page came in 0.6 s,
+      before the app's first frame, so the rows kept could not be told from
+      the new, and the list was never black. Every lock lost the connection,
       three minutes, 45 minutes and 30 seconds alike: the first command at
       the return had no answer and a new connection was made at once, some
       0.06 s later. The check had a new connection only after a night away,
@@ -853,9 +852,9 @@ this host. Ordered by value, not by size.
       iPad. Send with the Cancel sheet open did not go as written: four
       taps on Send with that sheet up, two after a fresh launch, each only
       closed the sheet, and a second tap sent the letter once; nothing was
-      saved, deleted or lost. The code meant one tap (B-044); whether to
-      make it so, or have this check say a second tap sends, is not yet
-      decided.*
+      saved, deleted or lost. The code meant one tap and does not give
+      it: the sheet, an action sheet in a popover, lets no tap through to
+      Send's bar (B-044). Still to see: this step, sent with one tap.*
 - [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
       B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
@@ -1006,10 +1005,11 @@ this host. Ordered by value, not by size.
       while it is locked. A letter opened, flagged or deleted just after a
       check behaves as before. Hold a finger on a row as a letter arrives:
       it goes on within half a minute of lifting it.
-      *Seen on the test iPad 2026-10-21, the lock: three minutes, and
+      *Seen on the test iPad 2026-10-20, the lock: three minutes, and
       nothing in the log from the lock to the wake but the watch's check
       already on the wire as it locked, answered (B-049). The watch's first
-      check came 32 s after the return.*
+      check came 32 s after the return. The rest of the check was not
+      tried.*
 - [x] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
       Outbox row and its line, going once, the lock at once, and Gmail's 553
       for `nobody`; see B-052. A waiting letter looked for in Sent Mail
@@ -1167,7 +1167,8 @@ this host. Ordered by value, not by size.
       caught. A flag from the pane in the first second stayed on, but the
       launch's page had come 0.4 s before its STORE went, so a flag before
       the page lands was not caught. Not yet tried: the password saved
-      again, and the first frame timed.*
+      again, which waits to be agreed, as editing the store and typing
+      the password do, and the first frame timed.*
 - [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
       two confirmations, a wrong password refused with the old one kept,
       and the refusal shown under the password field (B-056). Still to see,
@@ -1271,7 +1272,8 @@ this host. Ordered by value, not by size.
       pushed off had to be a letter alone in its conversation on the kept
       page: with Organize by Thread on, a conversation with a newer letter
       there keeps its row. Not tried: a letter opened from another
-      mailbox's copy, which needs the store edited with the app ended.*
+      mailbox's copy, which needs the store edited with the app ended, and
+      that waits to be agreed.*
 - [ ] **B-055, the reading pane locked down, links in plain letters, Cc.**
       Seen 2026-09-30: letters and their web pictures drawn, a conversation's
       letter opened and closed, a plain letter's links asking before they
@@ -1370,14 +1372,13 @@ this host. Ordered by value, not by size.
       restart the router (the iPad itself stays on Wi-Fi, so only the path
       dies), wait three minutes, then tap another letter. It should load
       after one reconnect, not after a 30 s stall.
-      *Not seen on the test iPad 2026-10-21: the router restart needs a
-      person, and its stand-in there, a route to nowhere for the mail
-      server for three minutes, waits to be agreed, as taking the Wi-Fi
-      interface down does, and this iPad has no `route` command to make
-      it. Seen in passing: a socket iPadOS shut under a 30-second lock was
-      found by the watch's first check after the return and replaced at
-      once; such a socket fails at once, where a router's leaves it
-      silent.*
+      *Not seen on the test iPad 2026-10-20 and 2026-10-21: the router
+      restart needs a person, and its stand-in there, a route to nowhere for
+      the mail server for three minutes, waits to be agreed, as taking the
+      Wi-Fi interface down does, and this iPad has no `route` command to
+      make it. Seen in passing: a socket iPadOS shut under a 30-second lock
+      was found by the watch's first check after the return and replaced at
+      once; such a socket fails at once, where a router's leaves it silent.*
 - [ ] **B-054, a letter too large to fetch whole.** Seen 2026-09-30: a
       15 MB letter of photographs shown from its structure, its parts cut at
       2 MB and a photograph fetched alone when tapped (B-054). Still to see:
@@ -1554,10 +1555,10 @@ this host. Ordered by value, not by size.
       page, and holds its key from then until the try ends, and the log
       begins `SAFE-START charged-to-letter`, with no `SAFE-START
       unfinished`; the letter goes, or is found in Sent Mail, once, and
-      `trying` goes with the try. Killed once its DATA had begun, it is
-      not in Sent Mail at that look, and by design waits out the ten
-      minutes of `Outbox.settling` before it goes. Half a minute later the
-      count reads 0. The same again, but go to the Home Screen while it sends
+      `trying` goes with the try. Half a minute later the count reads 0.
+      Killed once its DATA had begun, it is not in Sent Mail at that look,
+      and by design waits out the ten minutes of `Outbox.settling` before
+      it goes. The same again, but go to the Home Screen while it sends
       instead of killing it: the count and the mark go at once, as the app
       leaves, while the letter is still on its way, and it arrives once.
       And again, swiping the app away in the app switcher while it sends:
@@ -1575,7 +1576,8 @@ this host. Ordered by value, not by size.
       key through the try at that Refresh. At the Home Screen the letter's
       own count of tries went back down too. Still to see: the swipe in
       the app switcher, in 1 and in 8's third part, which needs a person
-      at the iPad, and a held draft's row.*
+      at the iPad, and a held draft's row, which needs the store edited
+      and waits to be agreed.*
 - [x] **B-060, Sent Mail and Drafts name whom each letter is to.** Only
       letters the test account sends to itself. Gmail delivers mail for its
       address with `+jane` or `+sam` put before the `@` to the same
@@ -1999,9 +2001,10 @@ this host. Ordered by value, not by size.
         `raw.get_ifd(0x8769)`; a maker's note: 37500 in that IFD.
       - the XMP: `im.info.get('xmp')`, searched for GPS, City, State,
         Country and Location.
-      - every segment: `[(m, d[:16]) for m, d in im.applist]`. No APP13
-        and no COM; list any APPn but APP0 JFIF, APP1 Exif or XMP, APP2
-        ICC_PROFILE or MPF, and APP14 Adobe.
+      - every segment: `[(m, d[:16]) for m, d in im.applist]`. No COM,
+        and no APP13 but ImageIO's empty one (an IPTC record with nothing
+        in it, and its digest); list any APPn but APP0 JFIF, APP1 Exif or
+        XMP, APP2 ICC_PROFILE or MPF, and APP14 Adobe.
       - other pictures in it: `im.format`, `getattr(im, 'n_frames', 1)`,
         and any APP2 beginning `b'MPF\0'`; list each one's EXIF and XMP.
       - the thumbnail's IFD: `raw.get_ifd(ExifTags.IFD.IFD1)`.
@@ -2095,9 +2098,9 @@ this host. Ordered by value, not by size.
       of the object`, and each arrived as "View recent photos.png",
       image/png, some 10.2 MB, with no location: iOS's name for a
       screenshot taken over Photos, two under the same name. The check
-      looked for image0.png first; the editor gives every screenshot a
-      name, so `name=suggested` is now in it. Whether such names count as
-      none is not yet decided.*
+      looked for image0.png first; the editor named each screenshot it
+      was given, so `name=suggested` is now in it. Whether such names
+      count as none is not yet decided.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2162,11 +2165,11 @@ this host. Ordered by value, not by size.
       at the 250. In 9 the JPEG went as its own bytes and arrived with no
       EXIF and an empty XMP. The pictures of 9 and 10 were saved to Photos
       from Files, not Safari. The JPEGs made here carry an empty APP13, an
-      IPTC record with nothing in it, ImageIO's, holding no place. 7 failed
-      on that build and became B-090, seen fixed on B-090's (7). Still to do
-      of 1 to 10: 3's 48-megapixel HEIC, none at hand; 4's video, which
-      needs one older than the JPEG; 5 and 8 on his iPad; and 7's name, not
-      yet decided.*
+      IPTC record with nothing in it, ImageIO's, holding no place, and the
+      list of segments now allows it. 7 failed on that build and became
+      B-090, seen fixed on B-090's (7). Still to do of 1 to 10: 3's
+      48-megapixel HEIC, none at hand; 4's video, which needs one older than
+      the JPEG; 5 and 8 on his iPad; and 7's name, not yet decided.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the
@@ -2330,14 +2333,13 @@ this host. Ordered by value, not by size.
       build, six items, 9, and 10.*
       *Seen on the test iPad 2026-10-20, a build of master with B-087 to
       B-089 (daccd64), shared from Photos: 1 again, 2, 3, 4 and 5's six
-      items passed (B-070). In 3 the 18.7 MB video arrived once, its CRC
-      its line's, the upload ending with the screen off; the test iPad has
-      no passcode. 2 was
-      first measured against 3's locked send, which fell 9 MB where every
-      unlocked one fell 2 MB, whatever its files. Against the 18.7 MB
-      video sent again unlocked, the 7.9 MB one fell the same 2 MB, so 2
-      now names an unlocked send as its baseline. Still not: 9, not yet
-      tried, and 10, which needs his iPad.*
+      items passed (B-070). In 3 the 18.7 MB video arrived once, its CRC its
+      line's, the upload ending with the screen off; the test iPad has no
+      passcode. 2 was first measured against 3's locked send, which fell
+      9 MB where every unlocked one fell 2 MB, whatever its files. Against
+      the 18.7 MB video sent again unlocked, the 7.9 MB one fell the same
+      2 MB, so 2 now names an unlocked send as its baseline. Still not: 9,
+      not yet tried, and 10, which needs his iPad.*
 - [x] **B-072, Refresh sends what waits in the Outbox.** On the test iPad,
       the test account only, every letter to the account itself, built
       from the `refresh-outbox` worktree; merge only after a pass. Copy
@@ -3131,7 +3133,7 @@ this host. Ordered by value, not by size.
       The pictures went under the name iOS gave them, "View recent
       photos.png", two under the same name, not image0.png and image1.png;
       whether such a name counts as none is not yet decided. 1 and 2
-      looked for image0.png: the editor names every screenshot, so 2 now
+      looked for image0.png: the editor named each screenshot, so 2 now
       takes iOS's names as 1 did. Each arrived as image/png, the screen as
       it was, upright, with no location.*
 
@@ -3180,16 +3182,17 @@ this host. Ordered by value, not by size.
       *Not tried on the simulator: the host tests run it over the
       scripted server, its no-path model standing in for the iPad's
       (B-091).*
-      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      *Seen on the test iPad 2026-10-20, a build of master with B-090 and
       B-091 (cba64fa), the iPad on its cable: 1 to 6 passed (B-091), 2
-      twice. iPadOS said the link had no network 0.32 to 0.34 s after
-      Airplane Mode went on, each of three times. The Flag was refused
-      within about 0.2 s with one alert, drawn for a frame or not at all.
-      In 2 the alert was up before the tap on "B-091 two" could land, a tap
-      taking some 0.1 s here, and took it both times, so 2 now says so; a
-      letter tapped offline said so at once in 3, at 0.19 s, the watch's
-      check having gone first with `NO-PATH NOOP not-sent`. Back online,
-      one STORE each way.*
+      twice, but for its tap on "B-091 two" landing before the alert,
+      which could not be made here. iPadOS said the link had no network
+      0.32 to 0.34 s after Airplane Mode went on, each of three times. The
+      Flag was refused within about 0.2 s with one alert, drawn for a
+      frame or not at all. In 2 the alert was up before the tap on
+      "B-091 two" could land, a tap taking some 0.1 s here, and took it
+      both times, so 2 now says so; a letter tapped offline said so at
+      once in 3, at 0.19 s, the watch's check having gone first with
+      `NO-PATH NOOP not-sent`. Back online, one STORE each way.*
 
 ## Blocked on the owner
 

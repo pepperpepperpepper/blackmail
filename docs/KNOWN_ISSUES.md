@@ -2926,14 +2926,14 @@ first tap; coming back after more than fifteen minutes refreshed the list
 in place. A flag set on a search hit and cleared after the search ended
 missed the folder's copy; that was found there and fixed (`1477ee1`).
 
-**Seen on the test iPad, 2026-10-20 and 2026-10-21**, Delete, Move and
-Flag from the pane, a build of the `shot-share` worktree (9780fe4) and
-then one of master with B-090 and B-091 (cba64fa), three panes, on the
-test account. Letters To A with `+jane` before the "@", subjects
-beginning "R6". The connection was cut with Airplane Mode. Every part of
-the TODO check passed but two, Delete grey while its MOVE is out and a
-Flag on a socket left half open, which need the iPad's Wi-Fi interface
-taken down under the connection, and that waits to be agreed.
+**Seen on the test iPad, 2026-10-20**, Delete, Move and Flag from the
+pane, a build of the `shot-share` worktree (9780fe4) and then one of
+master with B-090 and B-091 (cba64fa), three panes, on the test account.
+Letters To A with `+jane` before the "@", subjects beginning "R6". The
+connection was cut with Airplane Mode. Every part of the TODO check passed
+but two, Delete grey while its MOVE is out and a Flag on a socket left
+half open, which need the iPad's Wi-Fi interface taken down under the
+connection, and that waits to be agreed.
 
 - *Delete, scrolled down.* Three screens down, previews filled: the pane
   empty in the first frame, 0.38 s, and the frames to 5.6 s the same to
@@ -2966,14 +2966,14 @@ taken down under the connection, and that waits to be agreed.
   answered, by design, as the check now says; one STORE, and no reload.
 - *Flags with Airplane Mode on.* On the `shot-share` build the first flag
   stayed 19 s and the letter tapped behind it said "Loading…" as long:
-  B-091. On its fix the Flag was refused within 0.2 s (B-091). A Flag on
-  a second letter, the connection already gone, was refused at once and
-  never drawn. Gmail had neither flagged.
+  B-091. There, a Flag on a second letter, the connection already gone,
+  was refused at once and never drawn. On the fix the Flag was refused
+  within 0.2 s (B-091). Gmail had none of them flagged.
 
-**Seen on the test iPad, 2026-10-21**, coming back, the build of master
-with B-090 and B-091, three panes, on the test account, a lock of 45
-minutes standing in for the night away. Every step of the TODO check
-passed. The app was never ended by iOS meanwhile.
+**Seen on the test iPad, 2026-10-20 and 2026-10-21**, coming back, the
+build of master with B-090 and B-091, three panes, on the test account,
+a lock of 45 minutes standing in for the night away. Every step of the
+TODO check passed. The app was never ended by iOS meanwhile.
 
 - *Over fifteen minutes away,* scrolled down, a letter open, a row ticked
   in Edit, the iPad locking itself meanwhile. Back, the list at the top
@@ -3414,9 +3414,9 @@ Cancel, takes any tap outside it, Send's bar included, as a tap to close
 itself. It does not leave that bar live, as "Nothing closes the sheet
 under a letter" above has it, and the part of Send that puts the sheet
 away is not reached by a tap. Nothing is lost, and it costs a second tap
-on Send. The code meant one tap; whether to make it so, by letting the
-bar through to Send while the sheet is up, or to have the TODO check and
-this entry say that a second tap sends, is not yet decided.
+on Send. The code meant one tap, and the TODO check still asks for it;
+letting the bar through to Send while the sheet is up would give it. Not
+changed yet.
 
 ---
 
@@ -4696,7 +4696,7 @@ Gmail's delivery included, and the Inbox's count in the sidebar went from
 scrolled down or in Edit mode, the line's aging over minutes, and the
 line with Wi-Fi off.
 
-**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+**Seen on the test iPad, 2026-10-20**, a build of master with B-090 and
 B-091 (cba64fa), three panes, the Inbox with a letter open: the iPad
 locked for three minutes. The watch's check fell as it locked, its NOOP
 written and answered, and then nothing at all in the log until the
@@ -5574,8 +5574,9 @@ subjects beginning "R6 B-053", sent with Sent Mail in front, so that the
 watch left them off the Inbox's kept page. Each case was made by a
 launch with Airplane Mode on, then Airplane Mode off. Every case the
 TODO still had was seen but three: a flag before the fresh page lands,
-not caught (4), and the password saved again and the first frame timed,
-not tried.
+not caught (4); the password saved again, not tried, which waits to be
+agreed, as editing the store and typing the password do; and the first
+frame timed, not tried.
 
 1. *Scrolled a little way down*, about six rows off the top. The watch's
    check landed the page quietly 29 s after the line came back: in each
@@ -5621,7 +5622,7 @@ flagged and unflagged, a conversation's closed line opened, and a draft
 reopened and deleted. Each write went alone, every open was the plain
 `(UID BODY.PEEK[])`, the draft's too, and there was no `KEPT-` line. A
 letter opened from another mailbox's copy was not tried: it needs the
-store edited with the app ended.
+store edited with the app ended, which waits to be agreed.
 
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
@@ -6866,7 +6867,8 @@ and the count, some 0.37 s a look. Times are the iPad's clock.
    and it arrived once.
 
 Not seen: the swipe in the app switcher, in the TODO's steps 1 and 8,
-which needs a person at the iPad, and a held draft's row.
+which needs a person at the iPad, and a held draft's row, which needs the
+store edited and waits to be agreed.
 
 ---
 
@@ -9435,8 +9437,8 @@ check 5's six items passed, 2 against a baseline sent unlocked.
    "while it went", 171 to 162 MB, and stayed there. The 7.9 MB video
    fell 2 MB: 7 apart, a fail by the check's words. Sent again with the
    iPad left unlocked, from the same 171 MB, the 18.7 MB video fell 2 MB
-   too, and so did the 7.9 MB one after it, and every other share that
-   day, of 7.9 to 24.4 MB of files. So the fall does not grow with the
+   too, and so did the 7.9 MB one after it, and every other share on that
+   build, of 7.9 to 24.4 MB of files. So the fall does not grow with the
    file, and some 7 MB of the 9 came with the lock. The figures are whole
    MB, one send each. Check 2 now names an unlocked send as its baseline.
 5. *Six items* (5): Blackmail not in the row, and nothing sent.
@@ -15255,11 +15257,10 @@ in it.
 **Seen on the test iPad, 2026-10-20**, landscape, a build of the
 `shot-share` worktree (9780fe4), master with B-090, on the test account.
 Letters To A with `+jane` before the "@", subjects beginning "R6 B-090".
-Each screenshot was taken over
-Photos and its floating thumbnail tapped some 1.3 s later, which opened
-the editor. Every step of the TODO check passed. On the build before, the
-same share had said "The photo could not be attached." three times of
-three.
+Each screenshot was taken over Photos and its floating thumbnail tapped
+some 1.3 s later, which opened the editor. Every step of the TODO check
+passed. On the build before, the same share had said "The photo could not
+be attached." three times of three.
 
 1. *One.* Share, Blackmail: after some 3.5 s the letter, with "View
    recent photos.png — 10.2 MB" and no line saying a photo could not be
@@ -15291,9 +15292,9 @@ three.
 
 So the first reading under "What it was" holds: the editor hands its
 picture over as a `UIImage`, by its own item (`loadItem`) rather than
-`loadObject`. The name is not as "What he sees" has it. The editor gives
-every screenshot a name, "View recent photos" for one taken over Photos,
-and the picture goes under it, as a sharing app's suggestion goes
+`loadObject`. The name is not as "What he sees" has it. The editor named
+each screenshot it was given, "View recent photos" for one taken over
+Photos, and the picture went under it, as a sharing app's suggestion goes
 (B-036); image0.png comes only where there is none, and two go under one
 name. Whether such a name counts as none, the suggestion then set aside
 for image0.png, is not yet decided.
@@ -15527,7 +15528,7 @@ well, 2 in 1.
 The full suite, serially: 1,778 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
-**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+**Seen on the test iPad, 2026-10-20**, a build of master with B-090 and
 B-091 (cba64fa), three panes, on the test account. Two letters To A with
 `+b091` before the "@", "R6 B-091 one" and "R6 B-091 two". The
 connection was cut with Airplane Mode, which turned Wi-Fi off with it,
