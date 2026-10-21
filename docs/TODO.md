@@ -770,7 +770,7 @@ this host. Ordered by value, not by size.
       the same with one row, the only letter there that would do, and the
       list neither fetched again nor sent to the top. Offline, "Could not
       search. Check the connection." under the search band.*
-- [ ] **B-042, paging upward.** In All Mail, Go to Date a few months back,
+- [x] **B-042, paging upward.** In All Mail, Go to Date a few months back,
       open a letter so its row is highlighted, and scroll up slowly past
       the top of the window until the page above loads: the rows on screen
       must not move, not even by a row, and the highlight must stay on the
@@ -798,12 +798,16 @@ this host. Ordered by value, not by size.
       Edit on, the same three stayed ticked. Organize by Thread off and on
       again kept the top row at the top both times. The Delete in the pane
       of a letter whose row was just above the top of the list moved every
-      row in view up by one: fixed as B-093, not yet seen there fixed. Go
-      to Date from a list at its top fetched the page above as the day
-      landed, nothing touched, so the scroll up was made after jumps from
-      part-way down: recorded as B-094, not changed. Seen in passing: a
-      letter open before a jump stays in the pane, its row no longer
-      highlighted until tapped again. Left: the Delete, on B-093's build.*
+      row in view up by one: fixed as B-093, seen fixed on B-093's build
+      below. Go to Date from a list at its top fetched the page above as
+      the day landed, nothing touched, so the scroll up was made after
+      jumps from part-way down: recorded as B-094, not changed. Seen in
+      passing: a letter open before a jump stays in the pane, its row no
+      longer highlighted until tapped again.*
+      *Seen on the test iPad 2026-10-21, a build of the `line-press`
+      worktree (a6a6c7c), in B-093's check: the Delete passed (B-093),
+      nothing in view moving in any frame, and the scroll up passed again,
+      the rows moving only with the finger and the highlight kept.*
 - [ ] **B-042, Go to Date and Move.** Tap Go: "Going to <day>…" must be on
       the status line while the sheet is still sliding away, then
       "Showing <day>". From the Inbox, go to a day in All Mailboxes: All
@@ -1591,7 +1595,7 @@ this host. Ordered by value, not by size.
       apart both opened; one 15 s on had its body; with letters open, the
       pane's process ended: back as it was. Held 1 s on a line: no light,
       and WebKit's selection of a word at 0.7 s and its Copy menu at 1.4 s:
-      fixed as B-095, not yet seen there fixed. The kept Inbox, offline:
+      fixed as B-095, seen fixed on B-095's build. The kept Inbox, offline:
       the conversation's row gives the header of its newest letter, which
       had no Cc, so none showed, rightly; its letter with a Cc, tapped
       offline, could not be downloaded, and so did not take the header.
@@ -3654,7 +3658,7 @@ this host. Ordered by value, not by size.
       the first MOVE. The row stayed off with no alert, and Trash held
       one copy.*
 
-- [ ] **B-093, a Delete in the pane with the letter's row just above the
+- [x] **B-093, a Delete in the pane with the letter's row just above the
       list.** On the test iPad, the test account only, built from the
       `list-place2` worktree. Three panes. W stands for a letter of the
       test account's, read, alone in its conversation, in the Inbox and so
@@ -3699,8 +3703,21 @@ this host. Ordered by value, not by size.
       Airplane Mode off.
       *Not tried on the simulator: the host tests hold it, the list laid
       out as on the iPad (B-093).*
+      *Seen on the test iPad 2026-10-21, a build of the `line-press`
+      worktree (a6a6c7c), master with B-093 and B-095: 1 to 5 passed
+      (B-093). In 1 no row in view moved, 0 pt in 80 frames to 2.3 s. In 2
+      the rows below came up a row, 96 pt, the row above staying where it
+      was, with none of it showing and with 1.5 pt, and the list did not
+      scroll. Each Delete was of a W of its own, a letter put back from
+      Trash coming under a new UID at the top of the list. In 3 a jump
+      from one fling below All Mail's top fetched the page above as it
+      landed (B-094), so the scroll up was made from three flings down. In
+      5 the refusal came at 0.10 s, offline, and the row was back before
+      the first frame that could show it gone: nothing moved in any frame,
+      and the row gone with the rows closed up, before the alert, was not
+      seen.*
 
-- [ ] **B-095, a finger held on a conversation's line.** On the test iPad,
+- [x] **B-095, a finger held on a conversation's line.** On the test iPad,
       the test account only, built from the `line-press` worktree. Three
       panes. A conversation of three letters or more, every one read, each
       closed to its line, as in B-055's check. Each hold with one finger
@@ -3738,6 +3755,20 @@ this host. Ordered by value, not by size.
       *Not tried on the simulator: the host tests read the script, and it
       was run outside WebKit (B-095). What WebKit does with a touch held a
       second, the line no longer selectable, is seen only here.*
+      *Seen on the test iPad 2026-10-21, a build of the `line-press`
+      worktree (a6a6c7c), master with B-093 and B-095: 1 to 7 passed
+      (B-095), but for 5's finger held half a second and then dragged,
+      which the touch tool cannot make in one touch; a drag from a line, a
+      slow drift still for 0.3 s and a touch on a stack still moving stood
+      in, each lit only while still and opening nothing. 8 was not run,
+      VoiceOver not being on for the check. The 1.5 s hold went dark
+      between 1.23 and 1.32 s. In 6 the pair both ways: the line without a
+      Cc tapped first, both opened, the second at the lift of its 0.85 s
+      touch, never lit, by WebKit's own tap; the line with the Cc first,
+      its body pushed the second line from under the held finger onto the
+      signature's logo, a link, and WebKit put up the link's menu at about
+      1 s: the second did not open. In 7 the handles went at 0.20 s and
+      the menu by 0.57 s.*
 
 ## Blocked on the owner
 
