@@ -3219,6 +3219,63 @@ A draft is fetched again at every tap; nothing fetched is kept. A row "On
 this iPad only" opening at once, with no spinner, was seen under B-087 the
 same day.
 
+**Seen on the test iPad, 2026-10-21**, the list, Go to Date, Move and the
+header's files, a build of master with B-092 (1233252), three panes, on
+the test account, letters To A with `+jane` before the "@", subjects
+beginning "R6". The connection was cut with Airplane Mode. Every part of
+the four TODO checks passed but two found in them, B-093 and B-094, and
+two that cannot be made here, said below; the sheet swiped with Go tapped
+before letting go was not tried.
+
+- *Search, Cancel and Refresh:* from three screens down the first hit
+  under the search band by 3 s, the keyboard up; Cancel put the row he
+  had at the top back at its height by 0.9 s, the two previews missing
+  fetched at once; Refresh went to the top 1.1 s on, as the page landed.
+  Offline, "Could not search. Check the connection." under the band.
+- *Edit's Delete in place:* two rows a screen down, and one past the
+  first page, went at the tap, "Deleting…" until each MOVE was answered,
+  oldest first; nothing else in view moved, and the list was not
+  fetched again.
+- *Paging upward,* All Mail at a day sixteen days back: the page above
+  put on 0.8 s into a slow swipe, the rows moving only with the finger,
+  the highlight and three ticks kept, a conversation with newer replies
+  gone up alone. Organize by Thread off and on: the top row stayed.
+- *A Delete in the pane of a letter whose row was just above the top of
+  the list,* under the search band, the row above it under the bars:
+  every row in view went up one at the tap. The list held its place by a
+  row he could not see. Fixed as B-093, not yet seen there fixed.
+- *Go to Date from a list at its top* fetched the page above as the day
+  landed, nothing touched: the day's rows were laid out at the old
+  offset, the top, before the scroll to the day. Nothing moved on screen.
+  Fixed as B-094, not yet seen there fixed. From part-way down the page
+  above waited for the swipe.
+- *Go to Date:* "Going to October 3…" as the sheet slid off, "Showing"
+  0.1 s later; All Mail opened behind the sheet for All Mailboxes; a
+  double Go, one dated SEARCH; offline, the line back and the alert once
+  the sheet had gone.
+- *Move:* offline, a letter already drawn, `NO-PATH UID MOVE
+  nothing-sent`, the row back and one alert as the sheet went; All Mail
+  tapped twice, one MOVE. "Moving…" for a Move from the pane could not be
+  seen: Gmail answered 0.27 s after the tap, while the sheet still
+  covered the line.
+- *The header's files:* a letter's two PDFs in the header at 0.27 s,
+  grey, blue at 0.41 s, nothing moving; a conversation's newest letter's
+  file row from the first frame, the stack still as its body landed; the
+  signature's logo alone, no row; a message/rfc822 part, an `.eml`
+  shared from Files, one row before and after. A large file tapped, then
+  another letter: its rows grey after the download ended, until it
+  landed. A download of the second letter's own as the first ends cannot
+  be made: the one connection fetches in turn, so the second letter, and
+  any tap on its rows, comes only after the first download.
+
+Seen in passing, not part of the checks: a letter open before a jump
+stays in the pane, its row no longer highlighted until it is tapped
+again; a file tapped on one letter opened in Quick Look over the next
+letter some 0.3 s after that one landed, twice of twice; and the shared
+`.eml` went base64, as every file goes, which RFC 2046 does not allow
+for message/rfc822, Gmail reading its envelope all the same, its row
+saying 375 bytes for a file of 365.
+
 ## B-043 — CHANGED 2026-09-28. The reading pane's own work, off the screen's thread
 
 Behaviour he could notice, from the fifth batch of the lag fixes: nothing
@@ -3990,6 +4047,43 @@ to a letter of his own carrying a link: it arrived with the attribution
 line, the original's link blue and tappable, and the original's
 signature, indented under his. This app's reading pane indents a quote
 but draws no blue bar. Not yet tried: a reply with the quote edited.
+
+**Seen on the test iPad, 2026-10-21**, a build of master with B-092
+(1233252), on the test account, seven letters To A with `+jane` before
+the "@", one with `+sam` in Cc, or to A itself for two replies to his own
+letter, read in their raw MIME as they arrived. Every part of the TODO
+check passed but the look in Mail and on Gmail's web page, which needs a
+person; the seven are in Trash until about 2026-11-20.
+
+- *A newsletter forwarded:* "Begin forwarded message:", then From, Date,
+  To and Subject with bold labels and a bold subject, in the text part
+  too; the original's nine pictures, all https, and sixteen links byte
+  for byte, its tables and 292 of its 294 style attributes kept, its
+  three style blocks, its head and its comments dropped. `WIRE-PAYLOAD
+  raw=` 95,922 bytes for 68,859 of markup, 1.39 times, the dropping
+  taking 9 KB off the quote.
+- *A reply through Drafts:* reopened, no rows; sent, the attribution in
+  one `<blockquote type="cite">`, the original's own markup in the next,
+  the same as the forward's, In-Reply-To and References set, and no
+  `bm-quote` comment; the draft taken out of Drafts at the Send.
+- *The quote edited,* a word changed and a line cut: the HTML the plain
+  rendering of the body as he left it, the cut line gone, its https
+  address a link; bare names of sites, with no `http://`, `https://` or
+  `www.`, not linked, as built.
+- *The quote deleted:* nothing of the original in either part, but for
+  the reply's In-Reply-To and References.
+- *A forward of a letter with a picture in its body, a PDF and a Cc,*
+  one of his own whose logo is shown by `cid:`: the composer listed both
+  with their weights. It went with the picture inline in the
+  multipart/related under `bmquote1.` and the fingerprint of the quote,
+  the quote's `<img>` pointing at it, his own logo once under its own id,
+  the PDF a file with the original's bytes, and Cc after To in both
+  header blocks.
+- *A reply to it:* the original's markup byte for byte but for the
+  picture's `<img>`, and no part of the original carried.
+
+The reply to his own shared link, a plain-text letter, was not part of
+it.
 
 ---
 
@@ -5988,6 +6082,41 @@ photograph alone as `BODY.PEEK[2]`; nothing fetched the letter whole. The
 connection log said `* SEARCH {17 uids}`. Not made by hand: the slow
 letters and the 35 MB one, which the suite and its fuzzing stand for, and
 a part over 2 MB, which the notice and the quote's line wait on.
+
+**Seen on the test iPad, 2026-10-21**, a build of master with B-092
+(1233252), three panes, on the test account. A letter of 16,965,851
+bytes, shared from Files To A with `+jane` before the "@": three camera
+photos, made JPEGs at full size, and a PDF of 1.9 MB, all four as files.
+Every part of the TODO check passed but those that need a letter
+Blackmail cannot make, which waits on a yes.
+
+- *Opened:* `UID FETCH 375 (UID BODYSTRUCTURE BODY.PEEK[HEADER])`, the
+  text and HTML as `BODY.PEEK[1.1.1]<0.2097152>` and
+  `BODY.PEEK[1.1.2]<0.2097152>`, the logo as `BODY.PEEK[1.2]`, and no
+  `BODY.PEEK[]`; the four file rows and the words at 0.44 s. The PDF
+  tapped: `BODY.PEEK[2]` alone, 2.65 MB in 0.73 s, and Quick Look; a
+  photo: `BODY.PEEK[3]` alone, 4.79 MB in 1.34 s.
+- *Forwarded,* To and a Cc: each of the five parts fetched alone at Send
+  behind "Sending…", each after the FETCH that describes the letter, as
+  said above, then "Sending… N%"; one copy, its PDF and photos at the
+  original's sizes.
+- *Replied to* with a screenshot: the quote there, no "Only the
+  beginning". The reply, 268,609 bytes, opened whole in the conversation;
+  the large letter in parts as before, but for its logo, which came from
+  the reply already on the iPad, the two sharing one Content-ID. The
+  newest letter's file row was in the header from the tap.
+- *From the kept Inbox:* ended, opened with Airplane Mode on, the kept
+  row holding the letter's size; Wi-Fi back and the row tapped at once,
+  before the watch's page: `UID FETCH 375 (UID X-GM-MSGID BODYSTRUCTURE
+  BODY.PEEK[HEADER])`, the id the kept row's, and the letter in parts.
+- *The log's screen:* `* SEARCH {73 uids}`, and flung up and down it
+  never stalled.
+
+Not made: three photographs shown in the body, as Mail on an iPhone
+sends them, which Blackmail cannot write, it sending every photo as a
+file, and with them the next letter tapped while they come; and an HTML
+part over 2 MB. Both need a letter from another account, or put in the
+Inbox from this host.
 
 ---
 
@@ -15776,7 +15905,7 @@ Gmail never had a letter flagged by an offline Flag.
 
 ---
 
-## B-092 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A letter Gmail answered OK for and did not move went from the list, and came back only at a Refresh
+## B-092 — FIXED 2026-10-21, found on the iPad and seen there fixed. A letter Gmail answered OK for and did not move went from the list, and came back only at a Refresh
 
 **What he saw.** Seen once on the test iPad on 2026-10-21, and not again
 when the same three letters were deleted the same way twice more, twelve
@@ -16015,17 +16144,76 @@ Gmail's labels asked all the same, 1 in 1.
 The full suite, serially: 1,825 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-21**, a build of master with B-092
+(1233252), three panes, on the test account, three letters To A with
+`+jane` before the "@", "R6 B-092 one", "two" and "three". Every step of
+the TODO check passed, the letters going from the Inbox rather than out
+of the Trash, and the hollow answer came once the same morning, in
+another check, and was taken at the second MOVE.
+
+- *Deleted in the pane:* "one", `UID MOVE 363 "[Gmail]/Trash"`, an
+  EXPUNGE and `OK [COPYUID 2 363 308]` 0.17 s on, and nothing after it
+  but the watch's NOOP 11.6 s later. The row gone at 0.3 s and still
+  gone 37 s on; Trash held it once, as 308.
+- *Moved to All Mail* from the pane's Move sheet: "two", an EXPUNGE and
+  `OK [COPYUID 12 364 438]`, 438 being the UID it had in All Mail
+  already, as Gmail answers an Archive. The row gone, the letter out of
+  the Inbox and in All Mail once.
+- *Deleted in Edit mode:* "three", its MOVE answered with an EXPUNGE and
+  a COPYUID, then the sweep of the counts, the letter being unread.
+- *Out of All Mail:* "two" moved to the Inbox, answered
+  `OK [COPYUID 1 438 366]` with no EXPUNGE, the letter staying in All
+  Mail: a COPYUID all the same, as on 2026-10-20, so no `MOVE-HOLLOW`
+  line and no `X-GM-LABELS` FETCH. Its All Mail row stayed (B-041), and
+  the Inbox held it once after a Refresh. Deleted there: one MOVE again.
+- *The log:* five MOVEs, each answered OK with a COPYUID naming its
+  letter and no 0, in 0.16 to 1.04 s; no `MOVE-HOLLOW` or
+  `MOVE-CHECKED` line, no `UID SEARCH UID n`, no COPY and no label
+  FETCH.
+- *The hollow answer:* a Delete in the pane of a letter in All Mail, at
+  04:33 by the iPad's clock, in B-042's check. Its row, just above the
+  list, went at the tap and did not come back, with no alert; Trash held
+  one copy, as 314, and nothing more was sent for it. The hollow answer
+  came 0.36 s after the MOVE, and the second MOVE's answer 0.43 s after
+  it went:
+
+```
+→ a365 UID MOVE 173 "[Gmail]/Trash"
+← a365 OK [COPYUID 2 173 0] (Success)
+· MOVE-HOLLOW folder=[Gmail]/All Mail uid=173 copyuid=dest-0 no-expunge
+→ a366 NOOP
+← a366 OK Success
+→ a367 UID SEARCH UID 173
+← * SEARCH {1 uids}
+← a367 OK SEARCH completed (Success)
+· MOVE-CHECKED folder=[Gmail]/All Mail uid=173 there sending-again
+→ a368 UID MOVE 173 "[Gmail]/Trash"
+← * 36 EXPUNGE
+← * 75 EXISTS
+← a368 OK [COPYUID 2 173 314] (Success)
+· MOVE-CHECKED folder=[Gmail]/All Mail uid=173 moved
+```
+
+So the fix did on the iPad what the host tests hold: the hollow answer
+read as nothing shown, the folder asked, the MOVE sent once more, and
+the letter moved, 1.07 s from the first MOVE, where before it had been a
+row gone and a letter left behind. Both hollow answers seen were to a
+Delete, a MOVE into the Trash, the first from the Inbox and this one
+from All Mail.
+
 **Not covered.**
 
-- Not seen on the iPad: it came once in about 116 MOVEs and cannot be
-  made to come. TODO's B-092 check is that Deletes and Moves still send
-  one command each and the log has no `MOVE-HOLLOW` line; the hollow
-  answer is held by the host tests, the scripted server's answer being
-  the iPad's word for word.
+- Seen on the iPad once, above, and taken at the second MOVE. Not seen
+  there, as none can be made to come: a second hollow answer to the
+  same letter and its refusal, a hollow answer to a Move out of All
+  Mail and its `X-GM-LABELS` FETCH, and a connection lost during the
+  check. Each is held by the host tests, the scripted server's answer
+  being the iPad's word for word.
 - Why Gmail answered so is not known. If it is Gmail not ready to file
   the letter, the second MOVE, a round trip or two later, may meet the
   same; then the row comes back with the alert, and the next Delete is
-  his.
+  his. On the iPad the second MOVE, sent 0.28 s after the hollow
+  answer, landed.
 - A server without UIDPLUS gives no COPYUID, so an EXPUNGE in its
   MOVE's answer is still taken for the letter's: one for another letter
   riding on an answer with nothing moved would be taken so. Gmail has

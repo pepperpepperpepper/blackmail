@@ -733,7 +733,7 @@ this host. Ordered by value, not by size.
       once; the check now says when a second one goes. After thirty seconds
       the watch's first check found the connection gone, and made a new
       one.*
-- [ ] **B-042, where the list is.** In the Inbox, scroll down three pages
+- [x] **B-042, where the list is.** In the Inbox, scroll down three pages
       and note the row at the top of the pane. Type a search: the first
       hit must be the first row under the search band, never above the
       pane, and the keyboard must stay up as the results land (list-11,
@@ -750,6 +750,18 @@ this host. Ordered by value, not by size.
       fetched again and stays where it was. With
       Wi-Fi off, search from far down: "Could not search. Check the
       connection." is on screen, not above it.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), Airplane Mode for Wi-Fi off: every step passed (B-042).
+      From three screens down the first hit was the first row under the
+      search band by 3 s, the keyboard up, and two more letters started
+      the hits at the top again. Cancel put the noted row back at the
+      same height by 0.9 s, the two previews missing fetched at once.
+      Refresh went to the top as the page landed, 1.1 s on. Two rows
+      ticked a screen down went at the tap, "Deleting…" until both MOVEs
+      were answered, and nothing else in view moved; past the first page
+      the same with one row, the only letter there that would do, and the
+      list neither fetched again nor sent to the top. Offline, "Could not
+      search. Check the connection." under the search band.*
 - [ ] **B-042, paging upward.** In All Mail, Go to Date a few months back,
       open a letter so its row is highlighted, and scroll up slowly past
       the top of the window until the page above loads: the rows on screen
@@ -761,6 +773,23 @@ this host. Ordered by value, not by size.
       above the top of the pane (open it, scroll it off, Delete): the rows
       in view do not move. Flip Organize by Thread in Settings: the row at
       the top stays at the top.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), All Mail at a day sixteen days back, 43 letters newer
+      than it: every part but the Delete passed (B-042). Scrolled up
+      slowly with a letter open, the page above was put on 0.8 s into the
+      swipe, the rows moving only with the finger and the highlight
+      staying on the letter; a conversation in the window with newer
+      replies went up alone to the newest's place. With Edit on, the same
+      three stayed ticked. Organize by Thread off and on again kept the
+      top row at the top both times. The Delete in the pane of a letter
+      whose row was just above the top of the list moved every row in
+      view up by one: fixed as B-093, not yet seen there fixed. Go to
+      Date from a list at its top fetched the page above as the day
+      landed, nothing touched, so the scroll up was made after jumps from
+      part-way down: fixed as B-094, not yet seen there fixed. Seen in
+      passing: a letter open before a jump stays in the pane, its row no
+      longer highlighted until tapped again. Left: the Delete, on B-093's
+      build.*
 - [ ] **B-042, Go to Date and Move.** Tap Go: "Going to <day>…" must be on
       the status line while the sheet is still sliding away, then
       "Showing <day>". From the Inbox, go to a day in All Mailboxes: All
@@ -778,6 +807,22 @@ this host. Ordered by value, not by size.
       swipe the Go to Date sheet down and tap Go before letting go, with
       Wi-Fi off: the alert may be lost with the sheet, but alerts after it,
       a second later, must still appear (tap a letter: "Can't connect").
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), Airplane Mode for Wi-Fi off: every part but two passed
+      (B-042). "Going to October 3…" at 0.42 s as the sheet's last edge
+      slid off, "Showing October 3" at 0.53 s; from the Inbox with All
+      Mailboxes, All Mail open behind the sheet at 0.21 s and "Going to
+      October 4…". Go tapped twice 0.1 s apart: one dated
+      `UID SEARCH RETURN (MIN)`. Go offline: the line back to what it
+      said once the sheet had gone, at 0.61 s, and the alert from 0.82 s.
+      A letter drawn, then moved offline: `NO-PATH UID MOVE nothing-sent`,
+      the row back and one alert as the sheet went. All Mail tapped twice
+      in the Move sheet: one MOVE. Edit, two ticked and Move, was seen
+      under B-062's check on 2026-10-03. Left: "Moving…" for a Move from
+      the pane, not possible on this iPad's network, the MOVE answered
+      0.27 s after the tap while the sheet still covered the line; and
+      the sheet swiped with Go tapped before letting go, offline, not
+      tried.*
 - [ ] **B-042, the header's files.** Open a letter with two PDFs: both file
       rows are in the header at the tap, grey, and turn blue when the
       letter lands; nothing under the header moves then. Open a
@@ -792,6 +837,22 @@ this host. Ordered by value, not by size.
       with a file: when the first download ends, the second letter's rows
       stay grey until it lands, and a download of its own keeps its
       spinner.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): every part but the last passed (B-042). A letter's two
+      PDFs were in the header at 0.27 s, grey, over "Loading…", and blue
+      at 0.41 s, nothing else moving. A reply with a picture to a letter
+      of four files: the newest's file row grey from the first frame,
+      then blue, and the stack's lines unmoved as its body landed. A
+      letter with the signature's logo alone: no file row. A
+      message/rfc822 part, made by sharing an `.eml` from Files: one row,
+      the same before and after. A large PDF tapped, then the two-PDF
+      letter, twice: its rows grey after the download had ended, until it
+      landed. Left: a download of the second letter's own as the first
+      ends, which cannot be made: the app's one connection fetches in
+      turn, so the second letter lands, and its rows can be tapped, only
+      once the first download is over. Seen in passing: each time the
+      first letter's file then opened in Quick Look over the second
+      letter.*
 - [x] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
       this iPad only" opens at once, with no spinner. Tap a draft: its row
       stays highlighted with a spinner in the left gutter, the text beside
@@ -987,6 +1048,26 @@ this host. Ordered by value, not by size.
       rows; send it: it arrives as the same reply sent fresh would. Reply to
       one of his own shared links, a plain-text letter: the link in the
       quote can be tapped.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), read in the raw letters as they arrived: every part but
+      the look passed (B-050). A newsletter forwarded: "Begin forwarded
+      message:", then From, Date, To and Subject with bold labels, in the
+      text part too; its nine pictures and sixteen links as they were,
+      its tables kept, its style blocks, head and comments dropped, and
+      `WIRE-PAYLOAD raw=` 1.39 times its markup. A reply to it saved as a
+      draft and reopened: no rows; sent, the attribution, then the
+      original's markup in a cite blockquote, In-Reply-To and References,
+      and no `bm-quote` comment. A quote with a word changed and a line
+      cut went as plain text with the word, without the line, its https
+      address a link; a quote deleted, nothing of it. A forward of a
+      letter with a picture in its body and a PDF, which had a Cc: the
+      composer listed both with their weights, and it went with the
+      picture inline under a Content-ID of its own, the PDF a file, his
+      signature's logo once beside them, and Cc under To in both header
+      blocks. A reply to it: the letter as it looked but for the picture,
+      and no file. Left: how each looks in Mail and on Gmail's web page,
+      which needs a person, the seven letters being in Trash until about
+      2026-11-20; the reply to his own shared link was not part of it.*
 - [x] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
       offline Save Draft and Refresh, a reopened draft changed offline, and
       a letter kept across the app's end; see B-051.*
@@ -1487,6 +1568,25 @@ this host. Ordered by value, not by size.
       blank line, and the letter received ends its quote with them in grey,
       in Mail and on Gmail's web page, once (since 2026-10-01). Save the
       reply as a draft, reopen it and send it: the line still once.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): every part but the letters Blackmail cannot make passed
+      (B-054). In their place a letter of 17 MB shared from Files, three
+      camera photos and a PDF, all four as files. Opened: its structure
+      and header, its text and HTML cut at `<0.2097152>`, its logo alone,
+      no `BODY.PEEK[]`, and the four rows at once; the PDF and a photo
+      each one `UID FETCH n (UID BODY.PEEK[k])` alone at the tap.
+      Forwarded To and Cc: one copy, the PDF and photos at the original's
+      sizes, fetched part by part behind "Sending…". Replied to with a
+      picture: the quote there; its conversation opened, the large letter
+      in parts again, its logo from the reply's copy, and the reply whole,
+      being 5 MB or less. With Airplane Mode standing in for the slow
+      connection: ended, opened offline, and tapped on the kept Inbox as
+      Wi-Fi came back, before the page, the first FETCH carried
+      `X-GM-MSGID`, the kept row's, and it opened in parts. The log said
+      `* SEARCH {73 uids}` and its screen scrolled with no stall. Left:
+      the photographs shown in the body, the next letter tapped while
+      they come, and the HTML over 2 MB with its Reply, Forward and
+      draft, which need letters from another account and wait on a yes.*
 - [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
       Seen 2026-10-01 (B-057): steps 1 and 2's first launches, the fifth
       with Bring Back, the leftover, and three tries after a DATA that may
@@ -3307,7 +3407,7 @@ this host. Ordered by value, not by size.
       once in 3, at 0.19 s, the watch's check having gone first with
       `NO-PATH NOOP not-sent`. Back online, one STORE each way.*
 
-- [ ] **B-092, a MOVE Gmail answers OK for without moving the letter.**
+- [x] **B-092, a MOVE Gmail answers OK for without moving the letter.**
       On the test iPad, the test account only, built from the
       `hollow-move` worktree. Gmail answered so once in about 116 MOVEs
       and it cannot be made to happen on demand, so the check is that
@@ -3345,6 +3445,25 @@ this host. Ordered by value, not by size.
       6. *Put back.* Nothing: the B-092 letters are in Trash.
       *Not tried on the simulator: the host tests run it over the
       scripted server, whose hollow answer is the iPad's (B-092).*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): each Delete and Move was its one `UID MOVE`, answered
+      `OK [COPYUID …]` with no 0, and nothing after it (B-092). The
+      letters went from the Inbox: one deleted in the pane, one moved to
+      All Mail from the pane's Move sheet, one deleted in Edit mode, and
+      the moved one sent from All Mail back to the Inbox, its row
+      staying, and deleted there. Every other row went at the tap and
+      stayed gone, and Trash held each letter once. The Move out of All
+      Mail had no EXPUNGE and a COPYUID, as on 2026-10-20, so no
+      `MOVE-HOLLOW` line. Letters moved out of the Trash that morning in
+      B-042's checks were each in the Inbox once. In one of those checks
+      the hollow answer came, to a Delete from All Mail:
+      `OK [COPYUID 2 173 0]` with no EXPUNGE, then
+      `MOVE-HOLLOW … copyuid=dest-0 no-expunge`, the NOOP and
+      `UID SEARCH UID 173` finding the letter there,
+      `MOVE-CHECKED … there sending-again`, the second MOVE answered with
+      an EXPUNGE and a COPYUID, and `MOVE-CHECKED … moved`, 1.07 s from
+      the first MOVE. The row stayed off with no alert, and Trash held
+      one copy.*
 
 ## Blocked on the owner
 
