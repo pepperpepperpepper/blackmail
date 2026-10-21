@@ -546,6 +546,9 @@ this host. Ordered by value, not by size.
       bound=30s` when the line was cut (B-070). The ten-minute wait for the
       reply was not seen, Gmail answering in seconds; the host tests stand
       for it (`SMTPReplyWaitTests`, `LinkTransportTests`).*
+      *Seen on the test iPad 2026-10-20 again: five photos sent from the
+      composer, one `WIRE-OUT`, `LETTER-LATCH ok`, one `WIRE-ACK
+      err=none`, then the 250, twice (B-044, B-070).*
 - [ ] Time an All Mailboxes search on the device, and a letter tapped
       while it runs, from the connection log. The one-hold search and the
       interactive line are checked on the scripted server, which knows
@@ -703,13 +706,22 @@ this host. Ordered by value, not by size.
       with a file: when the first download ends, the second letter's rows
       stay grey until it lands, and a download of its own keeps its
       spinner.
-- [ ] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
+- [x] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
       this iPad only" opens at once, with no spinner. Tap a draft: its row
       stays highlighted with a spinner in the left gutter, the text beside
       it unmoved, until the composer opens. Tap it again while it spins: one
       FETCH in the connection log. Tap a second draft while the first spins:
       only the second opens. With Wi-Fi off: the spinner stops, the
       highlight goes, and "Can't connect to mail server." appears.
+      *Seen on the test iPad 2026-10-20, Airplane Mode for Wi-Fi off:
+      every step passed (B-042); a row "On this iPad only" opening at once
+      was seen under B-087 the same day. The highlight and spinner held
+      until the draft had come, 2.9 s for one of 4.9 MB, and the plain row
+      showed for one frame before the sheet. Only the second opened when
+      the first was large; a first of 18 KB came before the second tap.
+      Offline the alert came 34 to 44 s after the tap, its FETCH written
+      onto the connection open from before Airplane Mode, as in B-091, on
+      the build before it.*
 - [ ] **B-042, WebKit's content process.** Force it out while a letter is
       showing: on a device with a shell, `kill -9` of Blackmail's own
       `com.apple.WebKit.WebContent`, never `killall`, which ends every
@@ -788,6 +800,16 @@ this host. Ordered by value, not by size.
       taking it along, and nothing is left held on screen. Tap Cancel on a
       letter with text, and with that sheet still open tap Send: the Cancel
       sheet goes and the letter is sent once.
+      *Seen on the test iPad 2026-10-20: the first four still to see
+      passed, Look Up chosen from the menu (B-044). The picker takes every
+      touch until about 0.9 s after Add, and by then the five photos were
+      in, so a Send with a photo still coming in could not be made on this
+      iPad. Send with the Cancel sheet open did not go as written: four
+      taps on Send with that sheet up, two after a fresh launch, each only
+      closed the sheet, and a second tap sent the letter once; nothing was
+      saved, deleted or lost. The code meant one tap (B-044); whether to
+      make it so, or have this check say a second tap sends, is not yet
+      decided.*
 - [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
       B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
@@ -800,7 +822,7 @@ this host. Ordered by value, not by size.
       search at once for a word from it: it is found, in All Mailboxes and
       in Current Mailbox. Archive a letter in the Inbox from Gmail on the
       web or the phone, and tap Refresh: it leaves the list.
-- [ ] **B-046, the signature's logo in a reopened draft.** *First half
+- [x] **B-046, the signature's logo in a reopened draft.** *First half
       seen 2026-09-29; the draft with a photo is still to try.* A new letter,
       Cancel, Save Draft; open Drafts and tap the draft: no attachment row.
       Send it: it arrives with no paperclip in the list and no file row in
@@ -809,6 +831,10 @@ this host. Ordered by value, not by size.
       fresh gives, not ten kilobytes more. Then a draft with a photo he
       attached: Save Draft, reopen it, the photo's row is there once; send
       it: it arrives with the photo once, and the logo in the signature.
+      *Seen on the test iPad 2026-10-20, a draft with two photos: reopened,
+      a row for each photo once and none for the logo; sent, each photo
+      once, the logo once, inline, and no other file, its `raw=` the
+      photos' base64 and some 18.8 KB, a plain letter's 18.2 KB (B-046).*
 - [ ] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
       sheet and VoiceOver still to look at.* The sidebar's first row and the list's title read
       "Inbox" at launch and after tapping it. The Move sheet, opened on a
@@ -869,7 +895,7 @@ this host. Ordered by value, not by size.
       rows; send it: it arrives as the same reply sent fresh would. Reply to
       one of his own shared links, a plain-text letter: the link in the
       quote can be tapped.
-- [ ] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
+- [x] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
       offline Save Draft and Refresh, a reopened draft changed offline, and
       a letter kept across the app's end; see B-051.*
       Turn Wi-Fi off in Control Center, write a letter to himself, Cancel,
@@ -897,6 +923,14 @@ this host. Ordered by value, not by size.
       and does not come back at the next Refresh. Search Drafts, open a
       draft from the hits, change it, Save Draft: the hit is the new copy,
       and opens.
+      *Seen on the test iPad 2026-10-20, Airplane Mode for Wi-Fi off:
+      every step not seen before passed (B-051). With a return to the app
+      in place of Refresh, the letter went up at the watch's first check,
+      35 s after the return. With the two photos, 3.6 MB as kept, the app
+      was ended by a kill, not a swipe in the app switcher: every word and
+      both photos came back, with no APPEND in nearly two minutes in the
+      app and one as it was left. Nothing read "On this iPad only" after
+      the day's sends, saves and Deletes.*
 - [ ] **B-049, new mail on its own.** *Partly seen 2026-09-30: a letter
       from Blackmail at the top by itself, the Inbox's count up; see
       B-049.* With the Inbox open and the list at
@@ -920,7 +954,7 @@ this host. Ordered by value, not by size.
       while it is locked. A letter opened, flagged or deleted just after a
       check behaves as before. Hold a finger on a row as a letter arrives:
       it goes on within half a minute of lifting it.
-- [ ] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
+- [x] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
       Outbox row and its line, going once, the lock at once, and Gmail's 553
       for `nobody`; see B-052. A waiting letter looked for in Sent Mail
       before it went again was seen under B-070, and one going by itself
@@ -950,6 +984,14 @@ this host. Ordered by value, not by size.
       sent its old copy is gone from Drafts on the web. Tap a letter in the
       Outbox, Cancel untouched: it is back in the Outbox. In two panes, the
       Outbox is in the Mailboxes' column and opens like any folder.
+      *Seen on the test iPad 2026-10-20, Airplane Mode for Wi-Fi off:
+      every step not seen before passed (B-052). The folder rows above
+      the Outbox's were the same to the pixel. Back online with nothing
+      tapped, it went at the watch's first good check, 10 s after
+      Airplane Mode went off. Sent Mail had it under the app's Message-ID
+      within a second of its 250, found by `UID SEARCH HEADER Message-ID`
+      polled each second, three times of three. Deleted from the Outbox
+      offline, a letter never went.*
 - [ ] **B-051, what a kept letter names, by its Gmail id.** Cases 1 to 3
       seen on the iPad 2026-09-30 (B-051); case 4 is for an iPad that had
       letters from before the ids, which his fresh install will not. A draft
@@ -1424,7 +1466,10 @@ this host. Ordered by value, not by size.
       page, and holds its key from then until the try ends, and the log
       begins `SAFE-START charged-to-letter`, with no `SAFE-START
       unfinished`; the letter goes, or is found in Sent Mail, once, and
-      `trying` goes with the try. Half a minute later the count reads 0. The same again, but go to the Home Screen while it sends
+      `trying` goes with the try. Killed once its DATA had begun, it is
+      not in Sent Mail at that look, and by design waits out the ten
+      minutes of `Outbox.settling` before it goes. Half a minute later the
+      count reads 0. The same again, but go to the Home Screen while it sends
       instead of killing it: the count and the mark go at once, as the app
       leaves, while the letter is still on its way, and it arrives once.
       And again, swiping the app away in the app switcher while it sends:
@@ -1434,6 +1479,15 @@ this host. Ordered by value, not by size.
       crash does, with neither the background nor
       `applicationWillTerminate`: write that into B-057, with what step 1's
       swipe left in `Launches/unfinished`.
+      *Seen on the test iPad 2026-10-20: 8's first two parts, the kill and
+      the Home Screen, passed (B-057). The kill came as the DATA began, so
+      the letter was held, not in Sent Mail, and went once at a Refresh
+      after the ten minutes; the check now says so. The relaunch's own
+      try, some 0.13 s, fell between the watch's looks; `trying` held its
+      key through the try at that Refresh. At the Home Screen the letter's
+      own count of tries went back down too. Still to see: the swipe in
+      the app switcher, in 1 and in 8's third part, which needs a person
+      at the iPad, and a held draft's row.*
 - [x] **B-060, Sent Mail and Drafts name whom each letter is to.** Only
       letters the test account sends to itself. Gmail delivers mail for its
       address with `+jane` or `+sam` put before the `@` to the same
@@ -2149,6 +2203,11 @@ this host. Ordered by value, not by size.
       large alone, 19 + 8 MB, a video and two pictures), 6 (a Forward of
       the video), 7 and 8 (cut at 10 MB for 60 s: one copy, same
       Message-ID). Not yet: 2, 3, 4 on this build, six items, 9, and 10.*
+      *Seen on the test iPad 2026-10-20, a build of master: the rest of 6,
+      five photos from the app's composer, `LETTER-PLAN files=5` and five
+      `LETTER-FILE` lines, none `not checked`, and each arrived with its
+      line's CRC (B-070, under B-044's checks). Still not: 2, 3, 4 on this
+      build, six items, 9, and 10.*
 - [x] **B-072, Refresh sends what waits in the Outbox.** On the test iPad,
       the test account only, every letter to the account itself, built
       from the `refresh-outbox` worktree; merge only after a pass. Copy

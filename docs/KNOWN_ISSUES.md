@@ -2986,6 +2986,33 @@ comes quickly.** A body that arrived before the conversation's page had
 finished loading was lost, and the letter said "Loading…" until he closed
 and opened it again. It now waits for the page.
 
+**Seen on the test iPad, 2026-10-20**, the drafts at the tap, a build of
+master (a4c5f18), three panes, on the test account. Drafts held four
+drafts, on Gmail with no mark, from 18 KB to 4.9 MB, and the app was ended
+and opened again first, so that none had been fetched. The connection was
+cut with Airplane Mode. Every step of the TODO check passed.
+
+1. *The tap.* A draft of 4.9 MB, in frames some 0.09 s apart: the row
+   highlighted, its spinner turning where the paperclip was and its words
+   unmoved, from the first frame to the draft's coming 2.9 s on. The row
+   then showed plain for one frame, before the sheet's first: the spinner
+   and the highlight go as the composer is put up. Cancel closed it.
+2. *Twice.* A draft tapped twice 0.1 s apart: one `UID FETCH … BODY.PEEK[]`,
+   the draft whole, and one composer.
+3. *Two drafts.* The 4.9 MB one, then another 0.1 s later: the highlight
+   and spinner went to the second at once, and only its composer opened,
+   once the first had come. With a first of 18 KB, it came in 0.1 s,
+   before the second tap, and opened: that try showed nothing.
+4. *Offline.* A draft tapped with Airplane Mode on: the spinner turned
+   until "Can't connect to mail server." came, 34 to 44 s after the tap,
+   and the highlight went with it. The FETCH had been written onto the
+   connection open from before Airplane Mode and was never answered:
+   B-091's case, on the build before it.
+
+A draft is fetched again at every tap; nothing fetched is kept. A row "On
+this iPad only" opening at once, with no spinner, was seen under B-087 the
+same day.
+
 ## B-043 — CHANGED 2026-09-28. The reading pane's own work, off the screen's thread
 
 Behaviour he could notice, from the fifth batch of the lag fixes: nothing
@@ -3203,6 +3230,58 @@ Two things were changed after it: "Sending…" is drawn in the text's white
 rather than a disabled item's grey, which read faint, and a held Remove is
 drawn grey rather than staying red.
 
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), three
+panes, on the test account. Letters To A with `+jane` before the "@",
+subjects beginning "R6 B-044", the photos full-size ones from the camera.
+Times are the iPad's clock. Of the TODO's five checks still to see, four
+passed; the fifth went otherwise.
+
+1. *Save Draft, then lock.* Two photos, 3.6 MB as the composer made them.
+   Save Draft, and the lock button 0.45 s later: the draft's APPEND, 5 MB,
+   went and was answered with the screen off, 6.9 s after the tap. Woken
+   a minute on, the sheet had gone and Drafts had one row, with its
+   paperclip and no "On this iPad only"; Gmail's Drafts had it once, with
+   both photos.
+2. *The sent draft's row.* That draft reopened and sent, and the row's old
+   place tapped every 0.15 s from Send: at 4.05 s, as the sheet slid away,
+   Drafts already read "No messages", and nothing opened in some 15 s of
+   taps. After the 250 the cleanup, `UID STORE` and `UID EXPUNGE`, with no
+   LOGIN or SELECT, the connection being on Drafts already. Gmail's Drafts
+   empty, the letter in the Inbox once.
+3. *Send the moment the picker closes.* Five photos of some 3 MB each. The
+   picker takes every touch until about 0.9 s after Add: Send tapped at
+   0.3 s and at 0.55 s did nothing. Tapped every 0.05 s from 0.4 s, the
+   first tap to land, at 0.93 s, had "Sending…" at once; the percentage
+   climbed, and the sheet closed at the 250. It arrived once with all
+   five, each photo's CRC its `LETTER-FILE` line's. The same with Cancel
+   and Save Draft: one draft in Gmail's Drafts, with all five. The photos
+   were all in the composer by about 0.9 s, before a tap could reach
+   Send, so a Send or a Save Draft with a photo still coming in, which
+   waits for it, could not be made on this iPad.
+4. *Look Up during a send.* Five photos, the body "Look up this word
+   please". Send, then a double tap on "word" and Look Up from the menu:
+   Look Up was up at 1.9 s over "Sending… 33%". At the 250, 7.2 s, the
+   sheet closed and took Look Up with it, and nothing was left on screen.
+   A row tapped then opened in the reading pane, and the next composer's
+   Cancel closed it at once. It arrived once.
+5. *Send with the Cancel sheet open.* A letter of one line, Cancel, and
+   Send tapped with the Cancel sheet up: the sheet went, and nothing more.
+   Send was not pressed, "Sending…" never showed, and the log had no SMTP.
+   Four times, two of them after a fresh launch and one a press held for
+   0.2 s; a tap on Cancel itself with its sheet up closes it as well. A
+   second tap on Send, the sheet gone, sent the letter at once, and it
+   arrived once. Nothing was saved or deleted: no APPEND, STORE or
+   EXPUNGE, Gmail's Drafts empty, nothing "On this iPad only".
+
+So on this iPad the Cancel sheet, an action sheet in a popover from
+Cancel, takes any tap outside it, Send's bar included, as a tap to close
+itself. It does not leave that bar live, as "Nothing closes the sheet
+under a letter" above has it, and the part of Send that puts the sheet
+away is not reached by a tap. Nothing is lost, and it costs a second tap
+on Send. The code meant one tap; whether to make it so, by letting the
+bar through to Send while the sheet is up, or to have the TODO check and
+this entry say that a second tap sends, is not yet decided.
+
 ---
 
 ## B-045 — FIXED 2026-09-29, confirmed on the iPad. Refresh did not show mail that had come into the open folder
@@ -3373,6 +3452,17 @@ from Drafts: no attachment row. Sent from there it went as 18,131 bytes,
 the same as a fresh letter (the build before sent 28,883), and arrived
 with no paperclip. The draft with a photo he attached has not been tried. The TODO says what to look
 at.
+
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), on the
+test account: the draft with photos. A new letter with two photos from the
+camera, Save Draft, then reopened from Drafts: the composer listed each
+photo once, and no row for the signature's logo. Sent from there, it
+arrived with each photo once, its CRC its `LETTER-FILE` line's, the logo
+once, inline in the signature, and no other file. Its `raw=` was the
+photos' base64 and 18,814 bytes more; a plain letter sent the same day was
+18,211. A reopened draft's rows give each photo's size from its base64,
+3.2 MB and 552 KB against the 3.1 MB and 537 KB they were attached at, an
+estimate, by design.
 
 ---
 
@@ -4149,6 +4239,42 @@ for five seconds, then the app force-quit and relaunched: the letter was
 in Drafts, already uploaded after the Drafts page loaded. Not yet tried:
 photos in a kept letter, and a letter opened while it uploads.
 
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), three
+panes, on the test account. Drafts To A with `+jane` before the "@",
+subjects beginning "R6 B-051"; nothing was sent. The connection was cut
+with Airplane Mode, the iPad reached by its cable. The photos were two
+from the camera, 3,616,092 bytes as kept in `letter.json`, so the letter
+was large. Every step of the TODO check not seen before passed.
+
+1. *Back to the app instead of Refresh.* Saved offline with Drafts open:
+   by 2 s the sheet had gone with nothing said, and the top row read "On
+   this iPad only". Home, Airplane Mode off, back 15 s later, nothing
+   tapped: nothing went on the return itself, and one APPEND went 35 s
+   after it, at the watch's first good check. Drafts listed it once
+   without the mark; Gmail's Drafts had it once.
+2. *Two photos across an end.* The app killed with the letter and its
+   photos in the sheet, and opened again: the top row "On this iPad
+   only", with every word; opened, both photo rows; Cancel untouched
+   closed it with nothing asked, still kept. No APPEND in the nearly two
+   minutes in the app; one as it went to the Home Screen, and Gmail's
+   Drafts had it once, with both photos.
+3. *The sheet swiped down* asked Save Draft or Delete Draft, and stayed.
+4. *Locked mid-letter* for 30 s: the sheet still up, the words as typed.
+5. *Large, saved offline.* Back online and Sent Mail opened: no APPEND.
+   At the Home Screen one, and Gmail's Drafts had it once with both
+   photos.
+6. *Deleted in Edit,* offline: the row went at the tap, and its folder in
+   `Local Drafts` with it. Back online, Refresh did not bring it back, and
+   Gmail never had it.
+7. *Searched,* in Current Mailbox, the hit opened, a word added, Save
+   Draft: the hit's row was the new copy and opened with the word; Gmail's
+   Drafts had one copy, the old one removed.
+
+A large draft saved with a connection went up at once, as his own Save
+Draft does. Nothing read "On this iPad only" after the day's sends, saves
+and Deletes. The app was ended by a kill in 2, not by a swipe in the app
+switcher.
+
 ---
 
 ## B-049 — CHANGED 2026-09-30, seen on the iPad. New mail arrives on its own
@@ -4840,6 +4966,42 @@ between Refresh and Settings; seen right in both states.
 
 Not yet tried: a DATA cut off before the 250 (the Sent Mail look on the
 device), a letter opened from the Outbox and changed, and Delete there.
+
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), three
+panes, on the test account. Letters To A with `+jane` before the "@",
+subjects beginning "R6 B-052". The connection was cut with Airplane Mode,
+the iPad reached by its cable, and the app was in front and offline for
+over a minute before Airplane Mode went off. Every step of the TODO check
+not seen before passed.
+
+1. *Nothing above it moves.* The folder pane before Send and after the
+   notice: the rows from the Inbox to Starred the same to the pixel, the
+   Outbox row with 1 below them, and the line "Updated 1 minute ago / 1
+   Unsent Message / No Connection". The Outbox's row named whom it was to
+   and the subject.
+2. *Back online,* nothing tapped: the watch's first good check 9.8 s after
+   Airplane Mode went off, one ENVELOPE straight after it, the 250 2.3 s
+   later, and the row gone; one copy in the Inbox and one in Sent Mail.
+3. *How soon Gmail files it.* Sent Mail polled each second over IMAP for
+   the app's Message-ID (`UID SEARCH HEADER Message-ID`): found within a
+   second of the 250 each time, three letters that day. So Gmail keeps the
+   app's Message-ID and its SEARCH finds it, and the ten minutes of
+   `Outbox.settling` are far longer than Gmail needs.
+4. *A reopened draft,* sent offline: it left Drafts' list at the tap and
+   waited in the Outbox. Back online it went at the first good check, and
+   after its 250 the old copy was removed from Gmail's Drafts, `UID STORE`
+   and `UID EXPUNGE`; Drafts empty.
+5. *From the Outbox,* in two panes: the Outbox in the Mailboxes' column,
+   opening like any folder. The letter tapped opened in the composer;
+   Cancel untouched closed it with nothing asked, and it was back in the
+   Outbox, not in Drafts.
+6. *Deleted from the Outbox,* offline, in Edit: nothing asked, the row and
+   the Outbox's row gone, and its folder in `Local Drafts` with them. Back
+   online, it went nowhere.
+
+A DATA cut off was seen on the device under B-070 (2026-10-05) and B-057
+(2026-10-20): the look in Sent Mail first, then one copy. A letter opened
+from the Outbox and changed was not tried.
 
 ---
 
@@ -6467,6 +6629,36 @@ arrived once; one copy of the draft in Drafts.
 Not seen by hand: whether a swipe in the app switcher finishes a launch,
 which cannot be made over SSH; a launch charged to a letter, which needs
 the app ended inside a try; and a held draft's row.
+
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), on the
+test account, the TODO's step 8 but for its swipe. Each time a letter with
+five photos from the camera went to the Outbox with Airplane Mode on, the
+app was killed from the Home Screen, Airplane Mode went off, and the app
+was opened with a watch over SSH on the letter's `autoAttempts`, `trying`
+and the count, some 0.37 s a look. Times are the iPad's clock.
+
+1. *A try the app does not live through.* `trying` came with the letter's
+   key and `"autoAttempts":1` 1.2 s after the open, and a kill followed
+   0.5 s later, 0.05 s after the try had been written down as the DATA
+   began. Both stayed, the count read 1, and Gmail had no copy. Opened
+   again: the count 1, not 2; `trying` gone; the log began `SAFE-START
+   charged-to-letter`, with no `SAFE-START unfinished=`, and nothing was
+   wiped. The pass took the letter 0.2 s after the page, looked for it in
+   Sent Mail and did not find it, and held it as a try cut off after its
+   DATA began, `OUTBOX-UNSETTLED not in Sent Mail yet`, as designed. That
+   try, some 0.13 s, fell between the watch's looks; the letter's
+   `autoAttempts` went with it. The count read 0 31 s after that pass.
+   Ten minutes after the cut a Refresh sent it, `trying` holding its key
+   through that try, and it arrived once, each photo's CRC its
+   `LETTER-FILE` line's.
+2. *One the background cuts short.* The same, with the Home Screen 0.5 s
+   after `trying` came: within 0.1 s of the app leaving the count read 0,
+   `trying` had gone and so had the letter's `autoAttempts`, while its
+   DATA was still going up. The 250 came 4.9 s later, in the background,
+   and it arrived once.
+
+Not seen: the swipe in the app switcher, in the TODO's steps 1 and 8,
+which needs a person at the iPad, and a held draft's row.
 
 ---
 
@@ -9002,6 +9194,13 @@ compared with the `LETTER-FILE` line and with the original.
 
 Not tried on the iPad: the iPad locked during an upload, a plain letter's
 `WIRE-PAYLOAD` on this build, six items at once, and his iPad.
+
+**Seen on the test iPad, 2026-10-20**, a build of master (a4c5f18), in
+B-044's checks: five full-size photos from the camera, attached in the
+app's composer and sent, twice. `LETTER-PLAN files=5`, 20.8 MB on the
+wire, five `LETTER-FILE` lines, none `not checked`, one `WIRE-OUT`,
+`LETTER-LATCH ok`, one `WIRE-ACK err=none` and the 250, and no 221. The
+first time each photo was fetched over IMAP: each had its line's CRC.
 
 **Not covered.**
 
