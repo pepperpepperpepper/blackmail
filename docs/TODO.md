@@ -2900,20 +2900,23 @@ this host. Ordered by value, not by size.
       says it could not be downloaded.
       4. *Back.* Airplane Mode off. Open "B-091 one", Flag in the pane:
       the flag stays, and after a Refresh too. Flag again: off.
-      5. *The log.* Settings, the connection log. For 2, `LINK
-      viable=false` within a second or two of Airplane Mode going on, then
-      at the Flag `NO-PATH UID STORE not-sent`, and nothing written, no
-      `UID STORE` and no `UID FETCH`, until the LOGIN after Airplane Mode
-      went off. For 3, `LINK viable=false`, then `NO-PATH UID FETCH
-      not-sent`. Either may have `NO-PATH NOOP not-sent` in its place, if
-      the watch's check came first: then the tap found no connection, and
-      was refused at once all the same. For 4, one LOGIN, then one `UID
-      STORE … +FLAGS.SILENT (\Flagged)` and one `-FLAGS.SILENT`, each
-      once and each answered OK. If the watch's NOOP was written just
-      before `LINK viable=false`, the Flag waits behind it as before
-      (B-091, Not covered): do 2 again. If there is no `LINK viable=false`
-      at all, iPadOS did not say the network had gone and the fix does
-      nothing on this iPad: note how long 2 took, and stop there.
+      5. *The log.* Settings, the connection log. Only `LINK port=993`
+      lines are the mail's connection; `port=465` is a Send's. For 2,
+      `LINK port=993 viable=false` within a second or two of Airplane
+      Mode going on, then at the Flag `NO-PATH UID STORE nothing-sent`,
+      and nothing written, no `UID STORE` and no `UID FETCH`, until the
+      LOGIN after Airplane Mode went off. For 3, `LINK port=993
+      viable=false`, then `NO-PATH UID FETCH not-sent`. Either may have
+      `NO-PATH NOOP not-sent` in its place, if the watch's check came
+      first: then the tap found no connection, and was refused at once
+      all the same. For 4, one LOGIN, then one `UID STORE …
+      +FLAGS.SILENT (\Flagged)` and one `-FLAGS.SILENT`, each once and
+      each answered OK. If the watch's NOOP was written just before `LINK
+      port=993 viable=false`, the Flag waits behind it as before (B-091,
+      Not covered): do 2 again. If there is no `LINK port=993
+      viable=false` at all, iPadOS did not say the network had gone and
+      the fix does nothing on this iPad: note how long 2 took, and stop
+      there.
       6. *Put back.* Edit, tick the B-091 letters, Delete. Airplane Mode
       off, Wi-Fi on.
       *Not tried on the simulator: the host tests run it over the

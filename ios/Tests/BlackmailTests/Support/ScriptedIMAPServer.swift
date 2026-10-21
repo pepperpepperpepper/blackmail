@@ -2463,7 +2463,7 @@ actor ScriptedTransport: LinkTransport {
         self.server = server
         self.port = port
         self.connection = server.newConnectionID()
-        let viability = LinkViability()
+        let viability = LinkViability(port: port)
         self.viability = viability
         self.stream = LinkStream(viability: viability)
     }

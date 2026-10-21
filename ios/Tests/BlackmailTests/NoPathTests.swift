@@ -123,7 +123,7 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertEqual(sentLines, [])
         XCTAssertFalse(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Flagged"))
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH UID STORE not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID STORE nothing-sent"])
         let connected = await repository.isConnected
         XCTAssertFalse(connected)
         XCTAssertEqual(server.connectionsBegun, 2)
@@ -143,7 +143,7 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(failure, .cannotConnect)
         XCTAssertEqual(server.log, [])
         XCTAssertEqual(server.lostWrites, [])
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH NOOP not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH NOOP not-sent"])
         XCTAssertEqual(server.connectionsOpened, 1)
     }
 
@@ -161,7 +161,7 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(server.log, [])
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertEqual(sentLines, [])
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH UID FETCH not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID FETCH not-sent"])
         XCTAssertEqual(server.connectionsBegun, 2)
         XCTAssertEqual(server.connectionsOpened, 1)
     }
@@ -205,7 +205,7 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(failure, .cannotConnect)
         XCTAssertEqual(server.log, [])
         XCTAssertEqual(server.lostWrites, [])
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH NOOP not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH NOOP not-sent"])
     }
 
     // MARK: - Once, never twice
@@ -227,7 +227,7 @@ final class NoPathTests: XCTestCase {
                        ["2:LOGIN", "2:SELECT", "2:UID MOVE"])
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertFalse(server.uids(in: Server.inbox).contains(uid(letter.id)))
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH UID MOVE not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID MOVE nothing-sent"])
         XCTAssertEqual(server.connectionsOpened, 2)
     }
 
@@ -251,7 +251,79 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertTrue(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Flagged"))
         XCTAssertEqual(sentLines.filter { $0.contains("UID STORE") }.count, 1)
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH UID STORE not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID STORE nothing-sent"])
+    }
+
+    // MARK: - A write that went in part
+
+    /// A Delete in the Trash is two commands in one hold, the `\Deleted`
+    /// STORE and the EXPUNGE (B-062). The path goes once the STORE has
+    /// been written, its answer on the way: the STORE is answered and
+    /// taken, and the EXPUNGE is kept off the link. The Delete fails, as
+    /// one does whose connection drops after its STORE, and is not sent
+    /// again: part of it went, so it is no write that was not sent, and on
+    /// a new connection its STORE would go twice. The letter stays in the
+    /// Trash, marked, and the next Delete takes it (`IMAPClient.expunge`).
+    /// The command's refusal is a plain failure for this, never `Unsent`;
+    /// its line says the EXPUNGE alone was kept back, `not-sent`, where a
+    /// Delete of which nothing went says `nothing-sent`.
+    func testADeleteInTheTrashWhoseStoreWentIsNotSentAgainWhenItsExpungeIsKeptOff() async throws {
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let rows = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 50)
+        let letter = rows[1]
+        server.clearLog()
+        Diagnostics.clear()
+
+        server.holdReplies(to: "UID STORE")
+        let erased = Task { try await repository.delete(letter) }
+        try await until { self.server.log.contains { $0.verb == "UID STORE" } }
+        server.losePathOfOpenLinks()
+        await server.releaseReplies(to: "UID STORE")
+        var failure: MailError?
+        do { try await finishing(within: 1) { try await erased.value } }
+        catch { failure = error as? MailError }
+
+        XCTAssertEqual(failure, .cannotConnect)
+        XCTAssertEqual(server.log.map { "\($0.connection):\($0.verb)" }, ["1:UID STORE"])
+        XCTAssertEqual(server.lostWrites, [])
+        XCTAssertEqual(sentLines.filter { $0.contains("UID STORE") }.count, 1)
+        XCTAssertTrue(server.uids(in: Server.trash).contains(uid(letter.id)))
+        XCTAssertTrue(server.flags(uid: uid(letter.id), in: Server.trash).contains("\\Deleted"))
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID EXPUNGE not-sent"])
+        XCTAssertEqual(server.connectionsBegun, 1)
+    }
+
+    /// The same for a Delete on a server without MOVE, which copies the
+    /// letter into the Trash, marks it and expunges it (`IMAPClient.move`).
+    /// The path goes with the COPY on the wire: the COPY is answered and
+    /// the STORE kept off the link, and the Delete fails, with one COPY in
+    /// all. Sent again on a new connection it would copy the letter a
+    /// second time, which on a server that is not Gmail is a second letter
+    /// in the Trash. The letter stays in the Inbox, unmarked, as after a
+    /// connection that drops there.
+    func testADeleteWhoseCopyWentIsNotSentAgainWhenItsStoreIsKeptOff() async throws {
+        server.withheldCapabilities = ["MOVE"]
+        let (repository, rows) = try await listed()
+        let letter = rows[0]
+
+        server.holdReplies(to: "UID COPY")
+        let deleted = Task { try await repository.delete(letter) }
+        try await until { self.server.log.contains { $0.verb == "UID COPY" } }
+        server.losePathOfOpenLinks()
+        await server.releaseReplies(to: "UID COPY")
+        var failure: MailError?
+        do { try await finishing(within: 1) { try await deleted.value } }
+        catch { failure = error as? MailError }
+
+        XCTAssertEqual(failure, .cannotConnect)
+        XCTAssertEqual(server.log.map { "\($0.connection):\($0.verb)" }, ["1:UID COPY"])
+        XCTAssertEqual(server.lostWrites, [])
+        XCTAssertEqual(sentLines.filter { $0.contains("UID COPY") }.count, 1)
+        XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(letter.id)))
+        XCTAssertFalse(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Deleted"))
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID STORE not-sent"])
+        XCTAssertEqual(server.connectionsBegun, 1)
     }
 
     // MARK: - What is left alone
@@ -283,7 +355,7 @@ final class NoPathTests: XCTestCase {
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertTrue(server.flags(uid: uid(letter.id), in: Server.inbox).contains("\\Flagged"))
         XCTAssertEqual(sentLines.filter { $0.contains("UID STORE") }.count, 1)
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "NO-PATH UID FETCH not-sent"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "NO-PATH UID FETCH not-sent"])
     }
 
     /// On a good path nothing changes: a Flag, a letter, a Delete, each its
@@ -307,14 +379,14 @@ final class NoPathTests: XCTestCase {
                        ["1:UID STORE", "1:UID FETCH", "1:UID STORE", "1:UID MOVE"])
         XCTAssertEqual(server.lostWrites, [])
         XCTAssertEqual(server.connectionsBegun, 1)
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "LINK viable=true"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "LINK port=993 viable=true"])
     }
 
     // MARK: - The link
 
     /// What the link is told is what the transport says, a line in the log
-    /// for each change and none for a word that changes nothing; and a link
-    /// never told anything has a path.
+    /// for each change, naming the link by its port, and none for a word
+    /// that changes nothing.
     func testALinkSaysWhenItLosesItsPathAndWhenItIsBack() async throws {
         let transport = server.transportFactory("imap.example.com", server.port)
         try await transport.open()
@@ -328,24 +400,67 @@ final class NoPathTests: XCTestCase {
         server.hasNoPath = false
         gone = await transport.pathIsGone
         XCTAssertFalse(gone)
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "LINK viable=true"])
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "LINK port=993 viable=true"])
+        await transport.close()
+    }
 
-        let untold = LinkViability()
+    /// A link hears the system only while it is up, from the connect's
+    /// report that it is to its close. A word of no path said while it is
+    /// being made is not kept, up being a path, so the LOGIN after it is
+    /// never refused for it; one said once it is closed is about a link
+    /// nobody will use. Neither goes in the log, so every `LINK` line is
+    /// about a link that was up: none for a try to connect with no network,
+    /// should iPadOS say so before the try fails, and none from a link let
+    /// go of as it spoke. A link let go of before it came up never does.
+    func testALinkHearsTheSystemOnlyWhileItIsUp() async throws {
+        server.holdHandshakes()
+        let transport = server.transportFactory("imap.example.com", server.port)
+        let link = try XCTUnwrap(transport as? ScriptedTransport).viability
+        link.said(false)
+        let opening = Task { try await transport.open() }
+        link.said(false)
+        await server.releaseHandshakes()
+        try await finishing(within: 1) { try await opening.value }
+
+        var gone = await transport.pathIsGone
+        XCTAssertFalse(gone)
+        XCTAssertEqual(pathNotes, [])
+
+        link.said(false)
+        gone = await transport.pathIsGone
+        XCTAssertTrue(gone)
+        await transport.close()
+        link.said(true)
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false"])
+
+        let untold = LinkViability(port: 465)
         XCTAssertTrue(untold.isViable)
+        untold.said(false)
+        XCTAssertTrue(untold.isViable)
+        untold.linkIsUp()
         untold.said(true)
-        XCTAssertEqual(pathNotes, ["LINK viable=false", "LINK viable=true"])
         untold.said(false)
         XCTAssertFalse(untold.isViable)
-        await transport.close()
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "LINK port=465 viable=false"])
+
+        // Let go of before its connect said it was up, at the connect's
+        // deadline, and the word up coming after all: it stays deaf.
+        let late = LinkViability(port: 993)
+        late.linkIsClosed()
+        late.linkIsUp()
+        late.said(false)
+        XCTAssertTrue(late.isViable)
+        XCTAssertEqual(pathNotes, ["LINK port=993 viable=false", "LINK port=465 viable=false"])
     }
 
     /// The device's half, from `TLSConnection`'s source, which never builds
     /// here: the link tells the transport's `LinkViability` what
     /// `NWConnection`'s viability says, from a handler set before the
-    /// connection starts, so nothing it says is missed; up is a path,
-    /// told before the report, so the LOGIN after it is never refused for a
-    /// word said while it was being made; and the handler is let go of with
-    /// the connection, before the cancel.
+    /// connection starts, so nothing it says is missed; `.ready` is the
+    /// report and nothing else, which tells the link it is up on the same
+    /// queue, before anything said after it (`LinkTransport.connect`, run
+    /// above over the scripted link); the link is named by its port; and
+    /// the handler is let go of with the connection, before the cancel.
     func testTheDeviceLinkHearsTheSystemsViabilityAndLetsGoOfItWhenClosed() throws {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()     // BlackmailTests
@@ -361,15 +476,18 @@ final class NoPathTests: XCTestCase {
 
         XCTAssertTrue(code.contains(
             "func startLink(reporting report: @escaping @Sendable (Error?) -> Void) { "
-            + "let viability = stream.viability connection.stateUpdateHandler = { state in "
-            + "switch state { case .ready: viability.said(true) report(nil) "))
+            + "connection.stateUpdateHandler = { state in "
+            + "switch state { case .ready: report(nil) case .failed(let error): "))
         XCTAssertTrue(code.contains(
-            "connection.viabilityUpdateHandler = { viability.said($0) } "
+            "let viability = stream.viability "
+            + "connection.viabilityUpdateHandler = { viability.said($0) } "
             + "connection.start(queue: queue) }"))
+        XCTAssertTrue(code.contains("var stream: LinkStream "))
+        XCTAssertTrue(code.contains("self.stream = LinkStream(port: port)"))
         XCTAssertTrue(code.contains(
             "func closeLink() { connection.stateUpdateHandler = nil "
             + "connection.viabilityUpdateHandler = nil connection.cancel() }"))
         XCTAssertEqual(code.components(separatedBy: "viabilityUpdateHandler").count - 1, 2)
-        XCTAssertEqual(code.components(separatedBy: "viability.said(").count - 1, 2)
+        XCTAssertEqual(code.components(separatedBy: "viability.said(").count - 1, 1)
     }
 }

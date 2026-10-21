@@ -1724,10 +1724,12 @@ actor IMAPClient {
     /// the connection up, 19 s on the test iPad with Airplane Mode on, and
     /// then could not be sent again, since nothing could say it had not
     /// gone. `verb` is the write's, for the log: `NO-PATH UID STORE
-    /// not-sent`.
+    /// nothing-sent`, nothing of the write written, where `performCommand`'s
+    /// `NO-PATH UID STORE not-sent` is one command kept back, maybe after
+    /// another of the same write went.
     private func throwUnsentIfDisconnected(_ verb: String) async throws {
         if connected, let conn = connection, await conn.pathIsGone {
-            Diagnostics.log(.note, "NO-PATH \(verb) not-sent")
+            Diagnostics.log(.note, "NO-PATH \(verb) nothing-sent")
             await teardown()
         }
         guard connected, connection != nil else {
@@ -1778,12 +1780,23 @@ actor IMAPClient {
     /// command unwritten, `NO-PATH UID FETCH not-sent` in the log, and the
     /// command fails at once as a dropped connection does. A read is then
     /// retried once into a new connection, which with no network fails at
-    /// once (`IMAPMailRepository.retryingIfDisconnected`); a write has been
-    /// turned away as `Unsent` before its first command came here. Written
+    /// once (`IMAPMailRepository.retryingIfDisconnected`); a write whose
+    /// path had gone by its turn at the gate has been turned away as
+    /// `Unsent` before its first command came here. Written
     /// onto it, the command waited for the stack to give the connection
     /// up, 19 s on the test iPad, or for its deadline, and a letter tapped
     /// meanwhile said "Loading…" behind it. A command already written is
     /// not asked about: its answer is read as ever, and may well come.
+    ///
+    /// Never `Unsent`, though nothing of this command has gone: an earlier
+    /// command of the same hold may have been written and answered, the
+    /// `\Deleted` STORE ahead of `expunge`'s EXPUNGE or `move`'s COPY ahead
+    /// of its STORE, and the write sent again on a new connection would be
+    /// sent twice, the COPY leaving a second letter in the Trash. A write
+    /// of which nothing has gone is turned away as `Unsent` at its turn at
+    /// the gate (`throwUnsentIfDisconnected`); one whose path goes after
+    /// that, during its SELECT or between its commands, fails as a write
+    /// on a dropped connection does, and is not sent again.
     private func performCommand(_ command: String,
                                 continuationPayload: Data? = nil,
                                 wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
@@ -1791,6 +1804,7 @@ actor IMAPClient {
         if await conn.pathIsGone {
             Diagnostics.log(.note, "NO-PATH \(Self.verb(of: command)) not-sent")
             await teardown()
+            // Not `Unsent`: see above.
             throw MailError.cannotConnect
         }
         let tag = nextTag()
