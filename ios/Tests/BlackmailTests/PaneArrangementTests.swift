@@ -816,7 +816,7 @@ final class PaneArrangementTests: XCTestCase {
                        "{ voiceOverPlace(at: indexPathForSelectedRow, orFirstRow: orFirstRow) }")
         let placing = flat(body(after: "func voiceOverPlace(at row: IndexPath?, orFirstRow: Bool) -> UIView",
                                 in: geometry))
-        let sight = try XCTUnwrap(placing.range(of: "let sight = voiceOverSight"), placing)
+        let sight = try XCTUnwrap(placing.range(of: "let sight = self.sight"), placing)
         let row = try XCTUnwrap(placing.range(of:
             "if let row, holds(row), sight.showsPart(rectForRow(at: row).minY, rectForRow(at: row).maxY), "
             + "let cell = cellForRow(at: row) { return cell }"), placing)
@@ -833,7 +833,7 @@ final class PaneArrangementTests: XCTestCase {
         XCTAssertEqual(placing.components(separatedBy: "return ").count - 1, 3, placing)
         // The sums, from the table as it is: its offset and height, its bars
         // as its adjusted insets, the first section's header as the band.
-        XCTAssertEqual(flat(body(after: "private var voiceOverSight: TableSight", in: geometry)),
+        XCTAssertEqual(flat(body(after: "var sight: TableSight", in: geometry)),
                        "{ TableSight(offset: contentOffset.y, height: bounds.height, "
                        + "barTop: adjustedContentInset.top, barBottom: adjustedContentInset.bottom, "
                        + "band: numberOfSections > 0 ? rectForHeader(inSection: 0).height : 0, "
@@ -845,7 +845,7 @@ final class PaneArrangementTests: XCTestCase {
         let least = flat(body(after: "func showWhole(forVoiceOver row: IndexPath?)", in: geometry))
         XCTAssertEqual(least, "{ guard UIAccessibility.isVoiceOverRunning, let row, holds(row) else { return } "
                        + "layoutIfNeeded() let rect = rectForRow(at: row) "
-                       + "guard let offset = voiceOverSight.offset(showingWhole: rect.minY, rect.maxY) "
+                       + "guard let offset = sight.offset(showingWhole: rect.minY, rect.maxY) "
                        + "else { return } "
                        + "setContentOffset(CGPoint(x: contentOffset.x, y: offset), animated: false) "
                        + "layoutIfNeeded() }")

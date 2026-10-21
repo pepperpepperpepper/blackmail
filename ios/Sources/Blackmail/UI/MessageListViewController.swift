@@ -278,23 +278,53 @@ final class MessageListViewController: UITableViewController {
             scrollToTop()
         case .back(let folder):
             if !scroll(to: folder, in: threads) { scrollToTop() }
+        case .putBack(let taken):
+            if !scroll(to: taken, in: threads) { scroll(to: before, in: threads) }
         case .stay:
             scroll(to: before, in: threads)
         }
         onRegrouped?()
     }
 
-    /// Where he is now: the rows on screen and how far down the pane each
+    /// Where the list was before the rows still out were taken out, for a
+    /// row put back. See `TakenRows`.
+    private var taken = TakenRows()
+
+    /// Regroups for a letter the reading pane or Edit mode changed, took
+    /// out or put back (B-093): a row put back with the list as its take
+    /// left it goes back where it stood, the rows below it down a row, as
+    /// before the tap; otherwise the rows he can see stay where they are.
+    /// The place the list is left in is taken once it is laid out there,
+    /// since `scroll(to:)` has only set the offset.
+    @MainActor
+    private func regroup(for change: ListChange) {
+        let here = place()
+        regroup(to: taken.move(for: change, here: here))
+        tableView.layoutIfNeeded()
+        taken.drawn(change, from: here, to: place())
+    }
+
+    /// Where he is now: the rows he can see and how far down the pane each
     /// sits, and the selected rows. See `ListPlace`.
+    ///
+    /// The rows he can see, not every row the table has on screen, which
+    /// counts the ones under the bars and the search band (B-093): the row
+    /// held is the first he can see, at least partly below them
+    /// (`ListPlace.inSight`), for every move that keeps his place, a regroup,
+    /// a search's Cancel, a page put on above, the newest page fetched
+    /// afresh after an edit of his own.
     @MainActor
     private func place() -> ListPlace {
-        let top = Double(tableView.contentOffset.y)
-        let visible = (tableView.indexPathsForVisibleRows ?? [])
+        let onScreen = (tableView.indexPathsForVisibleRows ?? [])
             .filter { $0.section == 0 && $0.row < rows.count }
             .sorted()
-            .map { ($0.row, Double(tableView.rectForRow(at: $0).minY) - top) }
+            .map { ip -> (row: Int, top: Double, bottom: Double) in
+                let rect = tableView.rectForRow(at: ip)
+                return (ip.row, Double(rect.minY), Double(rect.maxY))
+            }
         let selected = (tableView.indexPathsForSelectedRows ?? []).map(\.row)
-        return ListPlace(rows: threads, visible: visible, selected: selected)
+        return ListPlace(rows: threads, onScreen: onScreen, sight: tableView.sight,
+                         selected: selected)
     }
 
     /// Puts `place` back on screen, if any of it is in `threads`. Leaves the
@@ -350,8 +380,8 @@ final class MessageListViewController: UITableViewController {
         // stayed open. The rows that are let go on purpose are let go where
         // that is decided (`letGo`, `openDraft`, `openWaiting`).
         clearsSelectionOnViewWillAppear = false
-        letters.changed = { [weak self] in
-            self?.regroup()
+        letters.changed = { [weak self] change in
+            self?.regroup(for: change)
             self?.updateEmptyState()
         }
         letters.onLetGo = { [weak self] letter in self?.letGo(letter) }

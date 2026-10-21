@@ -102,15 +102,17 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertEqual(landing.offset, -30 + Self.row, "where E was")
     }
 
-    /// A row taken off by a Delete, the top one: the next keeps its place.
-    func testARowTakenOffLeavesTheNextWhereItWas() throws {
+    /// A row taken off by a Delete, the top one: the rows below close up
+    /// into its place, as in Mail (B-093). The next used to keep its own
+    /// place, and the row above come down into the gap.
+    func testARowTakenOffHasTheRowsBelowCloseUpIntoItsPlace() throws {
         let before = grouped(folder)
         let place = ListPlace(rows: before, visible: onScreen(from: 3, count: 5, offset: 10),
                               selected: [])
         let after = grouped(folder.filter { $0.id != "7/146" })
         let landing = try XCTUnwrap(place.landing(in: after))
         XCTAssertEqual(after[landing.row].id, "7/145")
-        XCTAssertEqual(landing.offset, 10 + Self.row)
+        XCTAssertEqual(landing.offset, 10, "where D was")
     }
 
     /// The grouping switch splits every row or merges them. Split, the row
@@ -183,13 +185,14 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertEqual(places.folder, deep, "the folder's place is the one before the search")
 
         // G, the row at the top of the pane, binned from the reading pane
-        // while the search showed.
+        // while the search showed: the rows below close up into its place
+        // (B-093).
         let move = places.searchEnded(showingResults: true)
         guard case .back(let place) = move else { return XCTFail("\(move)") }
         let now = grouped(folder.filter { $0.id != "7/143" })
         let landing = try XCTUnwrap(place.landing(in: now))
-        XCTAssertEqual(now[landing.row].id, "7/142", "H, where it was")
-        XCTAssertEqual(landing.offset, -12 + Self.row)
+        XCTAssertEqual(now[landing.row].id, "7/142", "H, where G was")
+        XCTAssertEqual(landing.offset, -12)
         XCTAssertNil(places.folder)
     }
 
@@ -567,5 +570,805 @@ final class ListPlaceTests: XCTestCase {
         XCTAssertTrue(ListPlaces.isAtTop(offset: -104, topInset: 64), "pulled down past it")
         XCTAssertFalse(ListPlaces.isAtTop(offset: -63, topInset: 64))
         XCTAssertFalse(ListPlaces.isAtTop(offset: 200, topInset: 64))
+    }
+
+    // MARK: - The rows he can see (B-093)
+
+    /// The list as the iPad lays it out, near enough: the search band 43
+    /// points tall on top of the rows, the table 810 tall, 74 points of
+    /// status and navigation bar over its top and 50 of toolbar under it.
+    private static let band = 43.0
+    private static let barTop = 74.0
+    private static let barBottom = 50.0
+    private static let height = 810.0
+
+    /// The top of row `row` in the table, as `rectForRow` gives it.
+    private func rowTop(_ row: Int) -> Double { Self.band + Double(row) * Self.row }
+
+    /// Twenty rows, a letter each, newest first: row r is the letter
+    /// 200 - r, alone in its conversation. Longer than the pane.
+    private var twenty: [MessageSummary] {
+        (181...200).reversed().map { letter($0, thread: "t\($0)") }
+    }
+
+    /// What of the table is in sight scrolled to `offset`, with `count` rows.
+    private func sight(at offset: Double, rows count: Int) -> TableSight {
+        TableSight(offset: offset, height: Self.height, barTop: Self.barTop,
+                   barBottom: Self.barBottom, band: Self.band,
+                   content: Self.band + Double(count) * Self.row)
+    }
+
+    /// The rows the table has on screen scrolled to `offset`: every row in
+    /// its bounds, the ones under its bars too.
+    private func onScreen(at offset: Double, rows count: Int)
+        -> [(row: Int, top: Double, bottom: Double)] {
+        (0..<count).map { ($0, rowTop($0), rowTop($0) + Self.row) }
+            .filter { $0.2 > offset && $0.1 < offset + Self.height }
+    }
+
+    /// The place taken at `offset`, as `MessageListViewController.place()`
+    /// takes it.
+    private func place(in rows: [MessageThread], at offset: Double) -> ListPlace {
+        ListPlace(rows: rows, onScreen: onScreen(at: offset, rows: rows.count),
+                  sight: sight(at: offset, rows: rows.count), selected: [])
+    }
+
+    /// The place as it used to be taken: every row on screen.
+    private func everyRow(in rows: [MessageThread], at offset: Double) -> ListPlace {
+        ListPlace(rows: rows, visible: onScreen(at: offset, rows: rows.count)
+                    .map { ($0.row, $0.top - offset) }, selected: [])
+    }
+
+    /// Where each letter heading a row is, down from the top of the pane, with
+    /// the table at `offset`.
+    private func onPane(_ rows: [MessageThread], at offset: Double) -> [String: Double] {
+        Dictionary(uniqueKeysWithValues: rows.enumerated().map { ($0.element.id, rowTop($0.offset) - offset) })
+    }
+
+    /// The offset `place` puts the table at in `rows`, from `offset`, as
+    /// `scroll(to:in:)` does: the row landed on where it was, within what
+    /// the table can scroll to, or left alone.
+    private func offset(after place: ListPlace, in rows: [MessageThread], from offset: Double) throws -> Double {
+        let landing = try XCTUnwrap(place.landing(in: rows))
+        let content = Self.band + Double(rows.count) * Self.row
+        let range = -Self.barTop...max(-Self.barTop, content + Self.barBottom - Self.height)
+        return ListPlace.contentOffset(rowTop: rowTop(landing.row), offset: landing.offset,
+                                       range: range, current: offset) ?? offset
+    }
+
+    /// The rows he could see, at `offset` in `rows`: their letters.
+    private func inView(_ rows: [MessageThread], at offset: Double) -> [String] {
+        ListPlace.inSight(onScreen(at: offset, rows: rows.count), sight: sight(at: offset, rows: rows.count))
+            .map { rows[$0.row].id }
+    }
+
+    /// The iPad's Delete (B-093): the letter open in the pane, its row
+    /// scrolled just above the top of the list, under the bars and the
+    /// band, and the row above it under the status bar. Delete in the pane:
+    /// its row is taken out at the tap, and every row he can see stays
+    /// where it was. The row held used to be the first on screen, the one
+    /// under the status bar, and the gap closed below it: every row in view
+    /// moved up by one at once.
+    func testADeleteJustAboveTheListLeavesEveryRowInViewWhereItWas() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        // Row 3, "7/197", ends where the band does; row 2 is under the bar.
+        XCTAssertEqual(rowTop(3) + Self.row, from + Self.barTop + Self.band)
+        XCTAssertEqual(onScreen(at: from, rows: 20).map(\.row), Array(2...11))
+        let seen = inView(before, at: from)
+        XCTAssertEqual(seen, (190...196).reversed().map { "7/\($0)" }, "rows 4 to 10")
+        let here = place(in: before, at: from)
+        XCTAssertEqual(here.seen.first?.id, "7/196")
+        XCTAssertEqual(here.seen.first?.offset, 117)
+
+        let after = grouped(twenty.filter { $0.id != "7/197" })
+        let to = try offset(after: here, in: after, from: from)
+        XCTAssertEqual(to, from - Self.row, "the row's height taken off above, out of sight")
+        let was = onPane(before, at: from)
+        let now = onPane(after, at: to)
+        for id in seen { XCTAssertEqual(now[id], was[id], id) }
+
+        // Held by every row on screen, as it was: the one under the status
+        // bar stays, and everything he could see goes up a row.
+        let old = try offset(after: everyRow(in: before, at: from), in: after, from: from)
+        XCTAssertEqual(old, from, "nothing scrolled")
+        for id in seen { XCTAssertEqual(onPane(after, at: old)[id], was[id].map { $0 - Self.row }, id) }
+    }
+
+    /// A row is in sight with a point or more of it between the bars, below
+    /// the band: one with ten points below the band is held, at its own
+    /// offset, negative for a row partly under the band; half a point is
+    /// not enough. Under the toolbar the same.
+    func testARowIsInSightWithAPointOfItBelowTheBand() {
+        let rows = [(row: 2, top: 235.0, bottom: 331.0), (row: 3, top: 331.0, bottom: 427.0),
+                    (row: 4, top: 427.0, bottom: 523.0), (row: 10, top: 1_003.0, bottom: 1_099.0),
+                    (row: 11, top: 1_099.0, bottom: 1_195.0)]
+        func held(at offset: Double) -> [Int] {
+            ListPlace.inSight(rows, sight: sight(at: offset, rows: 20)).map(\.row)
+        }
+        XCTAssertEqual(held(at: 310), [4, 10], "the band ends where row 3 does")
+        XCTAssertEqual(ListPlace.inSight(rows, sight: sight(at: 310, rows: 20)).map(\.offset),
+                       [117, 693])
+        XCTAssertEqual(held(at: 300), [3, 4, 10], "ten points of row 3 below the band")
+        XCTAssertEqual(ListPlace.inSight(rows, sight: sight(at: 300, rows: 20)).first?.offset, 31)
+        XCTAssertEqual(held(at: 309.5), [4, 10], "half a point")
+        // The toolbar's top 760 points below the offset: at 310, row 10
+        // shows 67 points above it and row 11 none; at 340.5, a point and a
+        // half of row 11; at 339.5, half a point.
+        XCTAssertEqual(held(at: 340.5), [4, 10, 11])
+        XCTAssertEqual(held(at: 339.5), [4, 10])
+    }
+
+    /// Nothing in sight, a pane too short for a row below the band, or one
+    /// not laid out: every row on screen, as before. Nothing on screen,
+    /// nothing.
+    func testWithNoRowInSightEveryRowOnScreenIsTaken() {
+        let rows = [(row: 3, top: 331.0, bottom: 427.0), (row: 4, top: 427.0, bottom: 523.0)]
+        let short = TableSight(offset: 310, height: 160, barTop: 74, barBottom: 50, band: 43,
+                               content: 1_963)
+        let taken = ListPlace.inSight(rows, sight: short)
+        XCTAssertEqual(taken.map(\.row), [3, 4])
+        XCTAssertEqual(taken.map(\.offset), [21, 117])
+        XCTAssertNil(ListPlace.justAbove(rows, sight: short), "no row above the ones taken")
+        XCTAssertTrue(ListPlace.inSight([], sight: sight(at: 0, rows: 0)).isEmpty)
+        XCTAssertNil(ListPlace.justAbove([], sight: sight(at: 0, rows: 0)))
+    }
+
+    /// The first row he can see taken out, the row above it under the band
+    /// (B-093): the rows below close up into its place, as in Mail, the row
+    /// above stays where it was, out of sight, and the list is not
+    /// scrolled. Whatever of the two shows: the letter's row whole below
+    /// the band, at 214, or twenty points of it, at 290, and the row above
+    /// with nothing of it in sight or half a point, when it is the row just
+    /// above the first he can see (`above`), or a point or ten, when it is
+    /// the first he can see itself. With less than a point, the rows below
+    /// used to stay where they were, and the row above came down into the
+    /// gap.
+    func testTheFirstRowInSightTakenOutClosesUpTheRowsBelowWhateverOfTheRowAboveShows() throws {
+        let before = grouped(twenty)
+        let after = grouped(twenty.filter { $0.id != "7/197" })
+        let here = place(in: before, at: 214)
+        XCTAssertEqual(here.seen.first?.id, "7/197", "row 3, its top where the band ends")
+        XCTAssertEqual(here.seen.first?.offset, 117)
+        XCTAssertEqual(here.above?.id, "7/198", "row 2, under the band")
+        XCTAssertEqual(here.above?.offset, 21)
+        XCTAssertEqual(inView(before, at: 290).first, "7/197", "twenty points of it")
+        XCTAssertEqual(place(in: before, at: 290).above?.id, "7/198")
+        XCTAssertEqual(inView(before, at: 213.5).first, "7/197", "half a point of the row above")
+        XCTAssertEqual(inView(before, at: 213).first, "7/198", "a point of it")
+        XCTAssertEqual(place(in: before, at: 213).above?.id, "7/199")
+
+        for from in [214.0, 290.0, 213.5, 213.0, 204.0] {
+            let to = try offset(after: place(in: before, at: from), in: after, from: from)
+            XCTAssertEqual(to, from, "\(from): not scrolled")
+            let was = onPane(before, at: from)
+            let now = onPane(after, at: to)
+            XCTAssertEqual(now["7/198"], was["7/198"], "\(from): the row above where it was")
+            XCTAssertEqual(now["7/196"], was["7/197"], "\(from): the next in its place")
+            for row in before[4...11] {
+                XCTAssertEqual(now[row.id], was[row.id].map { $0 - Self.row }, "\(from): \(row.id)")
+            }
+        }
+    }
+
+    /// A row taken out above every row he can see closes out of sight:
+    /// the one just above the first he can see, under the band, or the one
+    /// above that, under the status bar, and every row in view stays where
+    /// it was. One taken out below the first he can see: the rows above it
+    /// stay where they were, and the rows below close up into its place.
+    func testARowTakenOutAboveOrBelowTheFirstInSightLeavesTheRowsAboveItWhereTheyWere() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        let was = onPane(before, at: from)
+        let seen = inView(before, at: from)
+        XCTAssertEqual(seen.first, "7/196")
+        XCTAssertEqual(place(in: before, at: from).above?.id, "7/197")
+        for gone in ["7/197", "7/198"] {
+            let after = grouped(twenty.filter { $0.id != gone })
+            let to = try offset(after: place(in: before, at: from), in: after, from: from)
+            XCTAssertEqual(to, from - Self.row, gone)
+            for id in seen { XCTAssertEqual(onPane(after, at: to)[id], was[id], "\(gone): \(id)") }
+        }
+        let after = grouped(twenty.filter { $0.id != "7/194" })
+        let to = try offset(after: place(in: before, at: from), in: after, from: from)
+        XCTAssertEqual(to, from)
+        let now = onPane(after, at: to)
+        for id in ["7/197", "7/196", "7/195"] { XCTAssertEqual(now[id], was[id], id) }
+        for id in ["7/193", "7/192", "7/191", "7/190"] {
+            XCTAssertEqual(now[id], was[id].map { $0 - Self.row }, id)
+        }
+    }
+
+    /// The list's first row taken out, some of it in sight and no row on
+    /// screen above it: the rows below close up into its place and the list
+    /// is not scrolled, at the top, pulled down past it, and a little way
+    /// down with most of the row under the band. It used to be put back at
+    /// the top a little way down, the next row whole below the band.
+    func testTheListsFirstRowTakenOutClosesUpTheRowsBelowWithNoRowAbove() throws {
+        let before = grouped(twenty)
+        let after = grouped(twenty.filter { $0.id != "7/200" })
+        for from in [-74.0, -104.0, 0.0, 20.0] {
+            let here = place(in: before, at: from)
+            XCTAssertEqual(here.seen.first?.id, "7/200", "\(from)")
+            XCTAssertNil(here.above, "\(from)")
+            let to = try offset(after: here, in: after, from: from)
+            XCTAssertEqual(to, from, "\(from): not scrolled")
+            let was = onPane(before, at: from)
+            let now = onPane(after, at: to)
+            for row in before[1...8] {
+                XCTAssertEqual(now[row.id], was[row.id].map { $0 - Self.row }, "\(from): \(row.id)")
+            }
+        }
+    }
+
+    /// Edit mode's Delete of several rows at once (`ListBatch`): the rows
+    /// ticked go, and the rows below close up into the first one's place,
+    /// the row above it staying where it was. Every row he could see
+    /// ticked: the row above stays, and the list is not scrolled. The row
+    /// above ticked too, before it went under the band: it closes out of
+    /// sight, and the next row he could see comes up into the first one's
+    /// place.
+    func testEditsDeleteOfSeveralRowsClosesUpIntoTheFirstOnesPlace() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        let was = onPane(before, at: from)
+        let here = place(in: before, at: from)
+
+        let three = grouped(twenty.filter { !["7/196", "7/195", "7/193"].contains($0.id) })
+        var to = try offset(after: here, in: three, from: from)
+        XCTAssertEqual(to, from)
+        var now = onPane(three, at: to)
+        XCTAssertEqual(now["7/197"], was["7/197"], "the row above where it was")
+        XCTAssertEqual(now["7/194"], was["7/196"])
+        XCTAssertEqual(now["7/192"], was["7/195"])
+        XCTAssertEqual(now["7/191"], was["7/194"])
+
+        let all = grouped(twenty.filter { !inView(before, at: from).contains($0.id) })
+        to = try offset(after: here, in: all, from: from)
+        XCTAssertEqual(to, from)
+        now = onPane(all, at: to)
+        XCTAssertEqual(now["7/197"], was["7/197"])
+        XCTAssertEqual(now["7/189"], was["7/196"])
+
+        let andAbove = grouped(twenty.filter { $0.id != "7/197" && $0.id != "7/196" })
+        to = try offset(after: here, in: andAbove, from: from)
+        XCTAssertEqual(to, from - Self.row)
+        now = onPane(andAbove, at: to)
+        XCTAssertEqual(now["7/195"], was["7/196"], "the next in the first one's place")
+        XCTAssertEqual(now["7/198"], was["7/197"], "still under the band")
+    }
+
+    /// The first row he can see a conversation of two letters, its newest
+    /// taken out from the reading pane. The other next in the list: the
+    /// row stays where it is, headed by it, and nothing moves. The other
+    /// far down: the row goes down to it, and the rows below close up into
+    /// its place, as for a row taken out. The same for the list's first
+    /// row, with no row above it.
+    func testAConversationsNewestLetterTakenOutLeavesItsRowOrClosesUp() throws {
+        // Row 4 at 310, under the row above; the list's first row at 20,
+        // two points of it in sight.
+        for (first, other, from) in [(196, 195, 310.0), (196, 185, 310.0),
+                                     (200, 199, 20.0), (200, 185, 20.0)] {
+            let letters = twenty.map { $0.id == "7/\(other)" ? letter(other, thread: "t\(first)") : $0 }
+            let before = grouped(letters)
+            let row = try XCTUnwrap(before.firstIndex { $0.id == "7/\(first)" })
+            let what = "\(first) and \(other) at \(from)"
+            XCTAssertEqual(before[row].messages.map(\.id), ["7/\(first)", "7/\(other)"], what)
+            XCTAssertEqual(inView(before, at: from).first, "7/\(first)", what)
+            let after = grouped(letters.filter { $0.id != "7/\(first)" })
+            let to = try offset(after: place(in: before, at: from), in: after, from: from)
+            XCTAssertEqual(to, from, "\(what): not scrolled")
+            let was = onPane(before, at: from)
+            let now = onPane(after, at: to)
+            if row > 0 {
+                let above = before[row - 1].id
+                XCTAssertEqual(now[above], was[above], "\(what): the row above where it was")
+            }
+            let below = before[(row + 1)...(row + 4)].map(\.id)
+            if other == first - 1 {
+                XCTAssertEqual(now["7/\(other)"], was["7/\(first)"], "\(what): its row where it was")
+                for id in below { XCTAssertEqual(now[id], was[id], "\(what): \(id)") }
+            } else {
+                XCTAssertEqual(after.firstIndex { $0.id == "7/\(other)" }, 14, "\(what): gone down")
+                for id in below {
+                    XCTAssertEqual(now[id], was[id].map { $0 - Self.row }, "\(what): \(id)")
+                }
+            }
+        }
+    }
+
+    /// Newer mail joining the first row he can see, on a page put on above,
+    /// takes it up the list to that mail, out of sight. That is not a row
+    /// taken out: as before (list-8), the next row he can see stays where
+    /// it was, and the row above comes down into the place. The grouping
+    /// switch merging the first row he can see into the row above's
+    /// conversation holds the next one the same way, the merged row in the
+    /// first one's place.
+    func testNewerMailOrTheGroupingSwitchTakingTheFirstRowInSightLeaveTheNextWhereItWas() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        let was = onPane(before, at: from)
+        let newer = [letter(230, thread: "n230"), letter(229, thread: "t196"),
+                     letter(228, thread: "n228")]
+        let after = grouped(newer + twenty)
+        XCTAssertEqual(after[1].messages.map(\.id), ["7/229", "7/196"], "gone up with its new letter")
+        let to = try offset(after: place(in: before, at: from), in: after, from: from)
+        let now = onPane(after, at: to)
+        for id in inView(before, at: from).dropFirst() { XCTAssertEqual(now[id], was[id], id) }
+        XCTAssertEqual(now["7/197"], was["7/196"], "the row above in its place")
+
+        let letters = twenty.map { $0.id == "7/196" ? letter(196, thread: "t197") : $0 }
+        let split = MessageThread.rows(for: letters, grouped: false)
+        let merged = grouped(letters)
+        XCTAssertEqual(merged[3].messages.map(\.id), ["7/197", "7/196"])
+        let switched = try offset(after: place(in: split, at: from), in: merged, from: from)
+        let wasSplit = onPane(split, at: from)
+        let nowMerged = onPane(merged, at: switched)
+        XCTAssertEqual(nowMerged["7/195"], wasSplit["7/195"])
+        XCTAssertEqual(nowMerged["7/197"], wasSplit["7/196"], "the merged row in its place")
+    }
+
+    /// A search's Cancel, the first row he could see deleted while the
+    /// results showed, and the newest page fetched afresh without it, newer
+    /// mail on top (`refetched`): the rows below closed up into its place,
+    /// the row above where it was.
+    func testACancelAndAFreshPageAfterTheFirstRowInSightWent() throws {
+        let rows = grouped(twenty)
+        let from = 214.0
+        let without = grouped(twenty.filter { $0.id != "7/197" })
+
+        var places = ListPlaces()
+        _ = places.resultsShown(overFolder: true, here: place(in: rows, at: from))
+        guard case .back(let folder) = places.searchEnded(showingResults: true) else {
+            return XCTFail("no place kept")
+        }
+        XCTAssertEqual(try offset(after: folder, in: without, from: 0), from)
+
+        guard case .back(let here) = places.refetched(here: place(in: rows, at: from)) else {
+            return XCTFail("no place kept")
+        }
+        let fresh = grouped([letter(230, thread: "n230")] + twenty.filter { $0.id != "7/197" })
+        let fetched = try offset(after: here, in: fresh, from: from)
+        XCTAssertEqual(fetched, from + Self.row)
+        let before = onPane(rows, at: from)
+        XCTAssertEqual(onPane(fresh, at: fetched)["7/198"], before["7/198"])
+        XCTAssertEqual(onPane(fresh, at: fetched)["7/196"], before["7/197"])
+    }
+
+    /// The newest page fetched afresh ending at the row just above the first
+    /// he could see: that row is held (`closingUp`), and the list goes to
+    /// the end of the page, its last row just above the toolbar, rather
+    /// than to the top (`refetched`).
+    func testAFreshPageEndingAtTheRowAboveGoesToItsEnd() throws {
+        let rows = grouped(twenty)
+        let here = place(in: rows, at: 214)
+        XCTAssertEqual(here.seen.first?.id, "7/197")
+        XCTAssertEqual(here.above?.id, "7/198")
+        let fresh = grouped((201...218).reversed().map { letter($0, thread: "n\($0)") }
+                            + twenty.prefix(3))
+        XCTAssertEqual(fresh.last?.id, "7/198")
+        var places = ListPlaces()
+        guard case .back(let kept) = places.refetched(here: here) else { return XCTFail("no place kept") }
+        let to = try offset(after: kept, in: fresh, from: 214)
+        XCTAssertEqual(to, Self.band + Double(fresh.count) * Self.row + Self.barBottom - Self.height,
+                       "the end of the page")
+        XCTAssertEqual(onPane(fresh, at: to)["7/198"], Self.height - Self.barBottom - Self.row)
+    }
+
+    /// The list's first row taken out, no row on screen above it, and on
+    /// the same fresh page newer mail has joined the next row he could see
+    /// and taken it up the list: that row is passed over, as one newer mail
+    /// has joined is (`stands`), and the one after it goes where the first
+    /// was.
+    func testTheListsFirstRowGoneAndTheNextJoinedByNewerMailHoldsTheOneAfter() throws {
+        let rows = grouped(twenty)
+        let from = 20.0
+        let here = place(in: rows, at: from)
+        XCTAssertEqual(here.seen.prefix(3).map(\.id), ["7/200", "7/199", "7/198"])
+        XCTAssertNil(here.above)
+        let fresh = grouped([letter(230, thread: "n230"), letter(229, thread: "t199")]
+                            + twenty.filter { $0.id != "7/200" })
+        XCTAssertEqual(fresh[1].messages.map(\.id), ["7/229", "7/199"], "gone up with its new letter")
+        let to = try offset(after: here, in: fresh, from: from)
+        XCTAssertEqual(onPane(fresh, at: to)["7/198"], onPane(rows, at: from)["7/200"])
+    }
+
+    // MARK: - A row put back (B-093)
+
+    /// The controller's redraw for a letter the pane changed
+    /// (`regroup(for:)`): the table at `offset` in `rows`, the rows now
+    /// `next`. Where `taken` sends the list, at the offset that puts it
+    /// there as `scroll(to:in:)` does, and `taken` told where it was left.
+    private func redraw(_ change: ListChange, _ taken: inout TakenRows, in rows: [MessageThread],
+                        at offset: Double, to next: [MessageThread]) throws -> Double {
+        let here = place(in: rows, at: offset)
+        let to: Double
+        switch taken.move(for: change, here: here) {
+        case .putBack(let before) where before.landing(in: next) != nil:
+            to = try self.offset(after: before, in: next, from: offset)
+        case .putBack, .stay:
+            to = try self.offset(after: here, in: next, from: offset)
+        case let move:
+            XCTFail("\(move)")
+            to = offset
+        }
+        taken.drawn(change, from: here, to: place(in: next, at: to))
+        return to
+    }
+
+    /// A row whose Delete or Move is refused (`PaneActions`, B-062, B-092),
+    /// put back with the list as the tap left it: back where it stood, and
+    /// every row with it, as before the tap. The first row he can see,
+    /// whole or twenty points of it, and the list's first at its top: at
+    /// the tap the rows below close up into its place, and put back it is
+    /// where it was, the rows below it down a row. A row just above the
+    /// list, which closed out of sight, back out of sight, nothing in view
+    /// moving; one below the first he can see, back where it was. Put back
+    /// by the rows he could see then, as it was, the first in sight went in
+    /// above them, out of sight under the search field, and every row in
+    /// view stayed a row up.
+    func testARefusedRowPutBackGoesBackWhereItStood() throws {
+        let rows = grouped(twenty)
+        for (gone, from, tapped) in [("7/197", 214.0, 214.0), ("7/197", 290.0, 290.0),
+                                     ("7/200", -74.0, -74.0), ("7/197", 310.0, 214.0),
+                                     ("7/194", 310.0, 310.0)] {
+            let what = "\(gone) at \(from)"
+            let without = grouped(twenty.filter { $0.id != gone })
+            var taken = TakenRows()
+            let to = try redraw(.taken(gone), &taken, in: rows, at: from, to: without)
+            XCTAssertEqual(to, tapped, what)
+            let back = try redraw(.putBack(gone), &taken, in: without, at: to, to: rows)
+            XCTAssertEqual(back, from, "\(what): every row where it was")
+            XCTAssertEqual(taken.move(for: .putBack(gone), here: place(in: rows, at: back)), .stay,
+                           "\(what): nothing kept once it is back")
+        }
+        XCTAssertEqual(place(in: rows, at: 214).seen.first?.id, "7/197")
+        XCTAssertEqual(place(in: rows, at: 310).above?.id, "7/197")
+
+        for (gone, from) in [("7/197", 214.0), ("7/200", -74.0)] {
+            let without = grouped(twenty.filter { $0.id != gone })
+            let old = try offset(after: place(in: without, at: from), in: rows, from: from)
+            XCTAssertEqual(onPane(rows, at: old)[gone], 21, "\(gone): under the band")
+            XCTAssertFalse(inView(rows, at: old).contains(gone), gone)
+        }
+    }
+
+    /// Put back once the list has moved since the tap. Scrolled: the rows he
+    /// can see then stay where they are, the row goes in above them out of
+    /// sight, as any row put back does (`landing`), and the place from
+    /// before the tap is dropped. A page of newer mail put on above
+    /// meanwhile moves nothing he can see, and the row goes back where it
+    /// was. One whose newer mail joins the first row in view moves that
+    /// row: not as the tap left it.
+    func testARowPutBackAfterTheListHasMovedHoldsTheRowsInViewThen() throws {
+        let rows = grouped(twenty)
+        let without = grouped(twenty.filter { $0.id != "7/197" })
+        var taken = TakenRows()
+        XCTAssertEqual(try redraw(.taken("7/197"), &taken, in: rows, at: 214, to: without), 214)
+        let scrolled = 250.0
+        let back = try redraw(.putBack("7/197"), &taken, in: without, at: scrolled, to: rows)
+        let was = onPane(without, at: scrolled)
+        for id in inView(without, at: scrolled) { XCTAssertEqual(onPane(rows, at: back)[id], was[id], id) }
+        XCTAssertFalse(inView(rows, at: back).contains("7/197"))
+        XCTAssertEqual(taken.move(for: .putBack("7/197"), here: place(in: rows, at: back)), .stay)
+
+        taken = TakenRows()
+        XCTAssertEqual(try redraw(.taken("7/197"), &taken, in: rows, at: 214, to: without), 214)
+        let newer = (201...203).reversed().map { letter($0, thread: "n\($0)") }
+        let paged = grouped(newer + twenty.filter { $0.id != "7/197" })
+        let held = try offset(after: place(in: without, at: 214), in: paged, from: 214)
+        XCTAssertEqual(held, 214 + 3 * Self.row)
+        let all = grouped(newer + twenty)
+        let again = try redraw(.putBack("7/197"), &taken, in: paged, at: held, to: all)
+        XCTAssertEqual(again, held)
+        let before = onPane(rows, at: 214)
+        for id in inView(rows, at: 214) { XCTAssertEqual(onPane(all, at: again)[id], before[id], id) }
+
+        taken = TakenRows()
+        XCTAssertEqual(try redraw(.taken("7/197"), &taken, in: rows, at: 214, to: without), 214)
+        let joined = grouped([letter(229, thread: "t196")] + twenty.filter { $0.id != "7/197" })
+        let moved = try offset(after: place(in: without, at: 214), in: joined, from: 214)
+        XCTAssertEqual(taken.move(for: .putBack("7/197"), here: place(in: joined, at: moved)), .stay)
+
+        // Three rows out, scrolled, all put back: each by the rows in view
+        // then, which stay where they are; the place from before the tap
+        // is not taken up again by the second.
+        let three: Set<String> = ["7/197", "7/196", "7/195"]
+        func less(_ ids: Set<String>) -> [MessageThread] {
+            grouped(twenty.filter { !ids.contains($0.id) })
+        }
+        taken = TakenRows()
+        var gone = Set<String>()
+        var at = 214.0
+        for id in ["7/195", "7/196", "7/197"] {
+            at = try redraw(.taken(id), &taken, in: less(gone), at: at, to: less(gone.union([id])))
+            gone.insert(id)
+        }
+        XCTAssertEqual(gone, three)
+        at = scrolled
+        for id in ["7/195", "7/196", "7/197"] {
+            let shown = inView(less(gone), at: at)
+            let was = onPane(less(gone), at: at)
+            at = try redraw(.putBack(id), &taken, in: less(gone), at: at,
+                            to: less(gone.subtracting([id])))
+            gone.remove(id)
+            for row in shown { XCTAssertEqual(onPane(less(gone), at: at)[row], was[row], "\(id): \(row)") }
+        }
+    }
+
+    /// Two rows out at once, the first he could see and then the one that
+    /// closed up into its place, a Move from the pane while the Delete
+    /// before it is still on its way: both refused, put back in either
+    /// order, every row where it was before the first tap. Taken from the
+    /// place before the second take alone, the first put back last went in
+    /// above the second, out of sight.
+    func testTwoRowsOutAtOncePutBackEitherWayGoBackWhereTheyStood() throws {
+        func without(_ ids: Set<String>) -> [MessageThread] {
+            grouped(twenty.filter { !ids.contains($0.id) })
+        }
+        for order in [["7/197", "7/196"], ["7/196", "7/197"]] {
+            var taken = TakenRows()
+            var at = try redraw(.taken("7/197"), &taken, in: without([]), at: 214, to: without(["7/197"]))
+            XCTAssertEqual(inView(without(["7/197"]), at: at).first, "7/196", "closed up into its place")
+            at = try redraw(.taken("7/196"), &taken, in: without(["7/197"]), at: at,
+                            to: without(["7/197", "7/196"]))
+            var gone: Set<String> = ["7/197", "7/196"]
+            for id in order {
+                at = try redraw(.putBack(id), &taken, in: without(gone), at: at,
+                                to: without(gone.subtracting([id])))
+                gone.remove(id)
+            }
+            XCTAssertEqual(at, 214, "\(order): every row where it was")
+        }
+    }
+
+    /// Edit mode's Delete of three rows, the first he can see among them
+    /// (`ListBatch`): taken out one after another at the tap, the oldest
+    /// first, the rows below closing up into the first one's place. All
+    /// three refused and put back one after another in the same order:
+    /// every row where it was before the tap. The oldest taken and the other
+    /// two refused: those two where they were, and the rows below closed up
+    /// into the oldest one's place. Put back by the rows he could see, as
+    /// they were, the first in sight and the next went in above them, out
+    /// of sight.
+    func testEditsRefusedRowsGoBackWhereTheyStood() throws {
+        let from = 214.0
+        let ticked = ["7/194", "7/196", "7/197"]
+        func without(_ ids: Set<String>) -> [MessageThread] {
+            grouped(twenty.filter { !ids.contains($0.id) })
+        }
+        let was = onPane(grouped(twenty), at: from)
+        for refused in [ticked, Array(ticked.dropFirst())] {
+            var taken = TakenRows()
+            var at = from
+            var gone = Set<String>()
+            for id in ticked {
+                at = try redraw(.taken(id), &taken, in: without(gone), at: at,
+                                to: without(gone.union([id])))
+                gone.insert(id)
+            }
+            XCTAssertEqual(at, from, "not scrolled")
+            XCTAssertEqual(onPane(without(gone), at: at)["7/195"], was["7/197"], "closed up")
+            for id in refused {
+                at = try redraw(.putBack(id), &taken, in: without(gone), at: at,
+                                to: without(gone.subtracting([id])))
+                gone.remove(id)
+            }
+            let now = onPane(without(gone), at: at)
+            XCTAssertEqual(at, from, "\(refused): not scrolled")
+            for id in ["7/198", "7/197", "7/196", "7/195"] {
+                XCTAssertEqual(now[id], was[id], "\(refused): \(id)")
+            }
+            if refused.count == 3 {
+                XCTAssertEqual(now["7/194"], was["7/194"], "every row where it was")
+            } else {
+                XCTAssertNil(now["7/194"])
+                XCTAssertEqual(now["7/193"], was["7/194"], "closed up into its place")
+            }
+        }
+
+        var gone = Set(ticked)
+        var at = from
+        for id in ticked {
+            at = try offset(after: place(in: without(gone), at: at), in: without(gone.subtracting([id])),
+                            from: at)
+            gone.remove(id)
+        }
+        XCTAssertFalse(inView(grouped(twenty), at: at).contains("7/197"))
+        XCTAssertFalse(inView(grouped(twenty), at: at).contains("7/196"))
+    }
+
+    /// The list shows what it showed while the same rows are in sight, each
+    /// where it was to half a point. The row out of sight above them and
+    /// the rows selected do not count; a row more or less in sight does.
+    func testTheListShowsTheSameByTheRowsInSightToHalfAPoint() {
+        let rows = grouped(twenty)
+        let here = place(in: rows, at: 214)
+        XCTAssertEqual(here.seen.map(\.id), (191...197).reversed().map { "7/\($0)" })
+        XCTAssertTrue(here.showsTheSame(as: place(in: rows, at: 214)))
+        XCTAssertTrue(here.showsTheSame(as: place(in: rows, at: 214.4)))
+        XCTAssertFalse(here.showsTheSame(as: place(in: rows, at: 214.5)))
+        XCTAssertFalse(here.showsTheSame(as: place(in: rows, at: 310)))
+        let seen = (3...9).map { (row: $0, offset: rowTop($0) - 214) }
+        XCTAssertTrue(here.showsTheSame(as: ListPlace(rows: rows, visible: seen, selected: [4])),
+                      "no row above, a row selected")
+        XCTAssertFalse(here.showsTheSame(as: ListPlace(rows: rows, visible: Array(seen.dropLast()),
+                                                       selected: [])))
+        let other = grouped(twenty.filter { $0.id != "7/193" })
+        XCTAssertFalse(here.showsTheSame(as: place(in: other, at: 214)), "another row in sight")
+    }
+
+    /// The list's letters say which row went or came back: a Delete from
+    /// the pane takes its letter's row out, and refused puts it back, each
+    /// by the letter (`PaneActions`); a Flag, a Flag put back and a folder
+    /// it is filed in are marks.
+    @MainActor
+    func testTheLettersSayWhichRowWentOrCameBack() throws {
+        let list = listed()
+        var told: [ListChange] = []
+        list.changed = { told.append($0) }
+        let letter = try XCTUnwrap(list.letter("7/146"))
+        let started = PaneActions.start(.delete, on: letter, inFolderWithRole: .inbox, list: list)
+        XCTAssertEqual(told, [.taken("7/146")])
+        XCTAssertNotNil(PaneActions.finish(started, failure: MailError.cannotConnect, requestSweep: {}))
+        XCTAssertEqual(told, [.taken("7/146"), .putBack("7/146")])
+        told = []
+        list.setFlagged(true, on: letter)
+        list.flagAnswered(letter, landed: false)
+        list.addCountedFolder("Work", to: "7/146")
+        XCTAssertEqual(told, [.marked, .marked, .marked])
+    }
+
+    /// A page of newer mail put on above, after a date jump, with a letter
+    /// in the conversation of the row just above the list, under the band:
+    /// that row goes up to the new page, out of sight, and the rows in view
+    /// stay put. Held by the row under the status bar, they went up a row.
+    func testAPageAboveTakingUpTheRowJustAboveTheListLeavesTheRowsInViewWhereTheyWere() throws {
+        let before = grouped(twenty)
+        let from = 310.0
+        let seen = inView(before, at: from)
+        let newer = [letter(230, thread: "n230"), letter(229, thread: "t197"),
+                     letter(228, thread: "n228")]
+        let after = grouped(newer + twenty)
+        XCTAssertEqual(after[1].messages.map(\.id), ["7/229", "7/197"], "gone up with its new letter")
+        let to = try offset(after: place(in: before, at: from), in: after, from: from)
+        let was = onPane(before, at: from)
+        for id in seen { XCTAssertEqual(onPane(after, at: to)[id], was[id], id) }
+
+        let old = try offset(after: everyRow(in: before, at: from), in: after, from: from)
+        for id in seen { XCTAssertEqual(onPane(after, at: old)[id], was[id].map { $0 - Self.row }, id) }
+    }
+
+    /// A Move from the pane that the server refused puts its row back where
+    /// it stood, here just above the list, out of sight: the rows in view
+    /// stay put. A Mark or a Flag, which changes no row, moves nothing.
+    func testARowPutBackAboveTheListAndAMarkMoveNothingInView() throws {
+        let taken = grouped(twenty.filter { $0.id != "7/197" })
+        let from = 214.0
+        XCTAssertEqual(inView(taken, at: from).first, "7/196")
+        let back = grouped(twenty)
+        let to = try offset(after: place(in: taken, at: from), in: back, from: from)
+        XCTAssertEqual(to, from + Self.row)
+        let was = onPane(taken, at: from)
+        for id in inView(taken, at: from) { XCTAssertEqual(onPane(back, at: to)[id], was[id], id) }
+        let old = try offset(after: everyRow(in: taken, at: from), in: back, from: from)
+        XCTAssertEqual(onPane(back, at: old)["7/196"], was["7/196"].map { $0 + Self.row },
+                       "held by the row under the bar, the rows in view went down a row")
+
+        var marked = twenty
+        marked[4] = MessageSummary(id: "7/196", mailboxID: "INBOX", sender: marked[4].sender,
+                                   subject: marked[4].subject, preview: "", date: marked[4].date,
+                                   isRead: false, isFlagged: true, threadID: "t196")
+        let here = place(in: grouped(twenty), at: 310)
+        let landing = try XCTUnwrap(here.landing(in: grouped(marked)))
+        XCTAssertNil(ListPlace.contentOffset(rowTop: rowTop(landing.row), offset: landing.offset,
+                                             range: -74...1_203, current: 310), "nothing moves")
+    }
+
+    /// A search's Cancel comes back by the rows he could see when it began:
+    /// the row hidden under the band, deleted from the reading pane while
+    /// the results showed, closes out of sight.
+    func testASearchsCancelComesBackByTheRowsHeCouldSee() throws {
+        var places = ListPlaces()
+        let rows = grouped(twenty)
+        let from = 310.0
+        XCTAssertEqual(places.resultsShown(overFolder: true, here: place(in: rows, at: from)), .top)
+        // Results at the top, scrolled down, then Cancel: the folder's rows
+        // without the one he deleted, the table at the results' offset.
+        guard case .back(let folder) = places.searchEnded(showingResults: true) else {
+            return XCTFail("no place kept")
+        }
+        let now = grouped(twenty.filter { $0.id != "7/197" })
+        let to = try offset(after: folder, in: now, from: 600)
+        let was = onPane(rows, at: from)
+        for id in inView(rows, at: from) { XCTAssertEqual(onPane(now, at: to)[id], was[id], id) }
+    }
+
+    /// The controller's half, read: its place is taken from the rows on
+    /// screen by their tops and bottoms and what of the table is in sight,
+    /// the same `sight` VoiceOver's rows go by, and nowhere else; and every
+    /// move that keeps his place takes it there.
+    func testTheListTakesItsPlaceByTheRowsInSight() throws {
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertEqual(flat(body(after: "private func place() -> ListPlace", in: list)),
+                       "{ let onScreen = (tableView.indexPathsForVisibleRows ?? []) "
+                       + ".filter { $0.section == 0 && $0.row < rows.count } .sorted() "
+                       + ".map { ip -> (row: Int, top: Double, bottom: Double) in "
+                       + "let rect = tableView.rectForRow(at: ip) "
+                       + "return (ip.row, Double(rect.minY), Double(rect.maxY)) } "
+                       + "let selected = (tableView.indexPathsForSelectedRows ?? []).map(\\.row) "
+                       + "return ListPlace(rows: threads, onScreen: onScreen, sight: tableView.sight, "
+                       + "selected: selected) }")
+        XCTAssertEqual(list.components(separatedBy: "ListPlace(rows:").count - 1, 1)
+        XCTAssertEqual(lines(of: list, containing: "place()"),
+                       ["let before = place()", "let here = place()",
+                        "taken.drawn(change, from: here, to: place())",
+                        "private func place() -> ListPlace {",
+                        "regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())",
+                        "let here = place()", "let here = place()",
+                        "return places.resultsShown(overFolder: overFolder, here: overFolder ? place() : nil)"])
+        // A row put back goes back by the place from before its take while
+        // the list is as the take left it (`TakenRows`), told by the letters.
+        XCTAssertTrue(flat(list).contains("letters.changed = { [weak self] change in "
+                                          + "self?.regroup(for: change) self?.updateEmptyState() }"))
+        XCTAssertEqual(flat(body(after: "private func regroup(for change: ListChange)", in: list)),
+                       "{ let here = place() regroup(to: taken.move(for: change, here: here)) "
+                       + "tableView.layoutIfNeeded() taken.drawn(change, from: here, to: place()) }")
+        XCTAssertTrue(flat(body(after: "private func regroup(highlighting", in: list)).contains(
+            "case .putBack(let taken): if !scroll(to: taken, in: threads) { scroll(to: before, in: threads) }"))
+        let sight = flat(body(after: "var sight: TableSight", in: try source("UI/VoiceOverPlace.swift")))
+        XCTAssertEqual(sight, "{ TableSight(offset: contentOffset.y, height: bounds.height, "
+                       + "barTop: adjustedContentInset.top, barBottom: adjustedContentInset.bottom, "
+                       + "band: numberOfSections > 0 ? rectForHeader(inSection: 0).height : 0, "
+                       + "content: contentSize.height) }")
+    }
+
+    // MARK: - Reading the source
+
+    /// A file under `Sources/Blackmail`, its comment lines taken out.
+    private func source(_ file: String) throws -> String {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()     // BlackmailTests
+            .deletingLastPathComponent()     // Tests
+            .deletingLastPathComponent()     // ios
+            .appendingPathComponent("Sources/Blackmail/\(file)")
+        return try String(contentsOf: url, encoding: .utf8)
+            .components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+            .joined(separator: "\n")
+    }
+
+    /// The braces after the first `opener` in `code`, and everything in them.
+    private func body(after opener: String, in code: String,
+                      file: StaticString = #filePath, line: UInt = #line) -> String {
+        guard let start = code.range(of: opener),
+              let brace = code[start.upperBound...].firstIndex(of: "{") else {
+            XCTFail("no \(opener)", file: file, line: line)
+            return ""
+        }
+        var depth = 0
+        var i = brace
+        while i < code.endIndex {
+            if code[i] == "{" { depth += 1 }
+            if code[i] == "}" {
+                depth -= 1
+                if depth == 0 { return String(code[brace...i]) }
+            }
+            i = code.index(after: i)
+        }
+        XCTFail("\(opener) never closes", file: file, line: line)
+        return ""
+    }
+
+    /// The lines of `code` that contain `text`, trimmed.
+    private func lines(of code: String, containing text: String) -> [String] {
+        code.components(separatedBy: "\n")
+            .filter { $0.contains(text) }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+    }
+
+    /// Whitespace runs as one space.
+    private func flat(_ text: String) -> String {
+        text.split(whereSeparator: { $0 == " " || $0 == "\n" }).joined(separator: " ")
     }
 }

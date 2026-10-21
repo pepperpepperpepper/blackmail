@@ -36,8 +36,9 @@ final class ListLetters: PaneActionList {
     private var replaced: [String: UInt64?] = [:]
 
     /// A letter the pane changed, or took off or put back: the rows are to
-    /// be regrouped and redrawn.
-    var changed: () -> Void = {}
+    /// be regrouped and redrawn. Which of the three, so that a row put back
+    /// can go back where it stood (`TakenRows`, B-093).
+    var changed: (ListChange) -> Void = { _ in }
     /// The reading pane has let a letter go. See `letGo`.
     var onLetGo: (MessageSummary) -> Void = { _ in }
     /// The folder counts to change, and by how much.
@@ -573,12 +574,12 @@ final class ListLetters: PaneActionList {
     func take(_ letter: MessageSummary, fromEveryFolder: Bool) {
         let twins = fromEveryFolder ? ListEdit.twins(of: letter, among: everything).map(\.id) : []
         removed.take(letter.id, with: twins)
-        changed()
+        changed(.taken(letter.id))
     }
 
     func putBack(_ letter: MessageSummary) {
         removed.putBack(letter.id)
-        changed()
+        changed(.putBack(letter.id))
     }
 
     func removalLanded(_ letter: MessageSummary, fromEveryFolder: Bool) {
@@ -613,7 +614,7 @@ final class ListLetters: PaneActionList {
             change(copy.id) { $0.isFlagged = flagged }
         }
         flagging[letter.id] = [known.id] + twins.map(\.id)
-        changed()
+        changed(.marked)
     }
 
     /// The server has answered his Flag on `letter`. Taken, it stays on
@@ -631,7 +632,7 @@ final class ListLetters: PaneActionList {
                 change(id, ifStill: mark.letter) { $0.isFlagged = mark.before }
             }
         }
-        if !landed { changed() }
+        if !landed { changed(.marked) }
     }
 
     func addCountedFolder(_ name: String, to id: String) {
@@ -639,7 +640,7 @@ final class ListLetters: PaneActionList {
             guard !letter.countedFolderIDs.contains(name) else { return }
             letter.countedFolderIDs = ReadBilling.folders(of: letter) + [name]
         }
-        changed()
+        changed(.marked)
     }
 
     /// Changes the letter with `id` wherever this list holds it, the
@@ -661,3 +662,16 @@ final class ListLetters: PaneActionList {
     }
 }
 
+/// What the reading pane, or Edit mode, has done to the list's letters, as
+/// `ListLetters.changed` tells the controller.
+enum ListChange: Equatable {
+    /// The letter's row taken off at the tap of a Delete or a Move
+    /// (`ListLetters.take`), by the letter's id.
+    case taken(String)
+    /// The letter's row put back, its Delete or Move refused or never sent
+    /// (`ListLetters.putBack`).
+    case putBack(String)
+    /// A flag set or put back, or a folder the letter is filed in: no row
+    /// in or out.
+    case marked
+}

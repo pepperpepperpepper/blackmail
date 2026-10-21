@@ -16234,3 +16234,340 @@ from All Mail.
 - On a server without MOVE, a hollow COPY's letter may have reached the
   Trash all the same: the COPY is not sent again, but his next Delete's
   would put a second copy there.
+
+## B-093 — FIXED 2026-10-21, found on the iPad, not yet seen there fixed. A Delete in the reading pane, the letter's row just above the top of the list, moved every row in view up by one
+
+**What he saw.** Seen on the test iPad on 2026-10-21, and again when the
+check was made a second time on a fresh launch. All Mail after Go to Date,
+three panes. A letter open in the reading pane, the list scrolled slowly up
+until the letter's row was just above the top of the list, hidden under the
+search field, with the row above it under the status and navigation bars.
+Delete in the pane: in the first shot after the tap, at 0.22 s, every row
+in view had moved up by exactly one row, the top row he could see had gone
+up out of sight, and it stayed so. The server side was right, one `UID
+MOVE` and no list fetch.
+
+Not by design. A row binned from the reading pane above the top of the
+pane is not to shift the rows he is looking at (B-042).
+
+**What it was.** The place the list holds while its rows are drawn again.
+The pane's Delete takes the letter's row off at the tap (`PaneActions.start`,
+`ListLetters.take`), and the list draws its rows again keeping his place
+(`regroup`, `ListPlace`): the rows he can see are taken first, by their
+letters and how far down the pane each sits, and the first of them still
+listed is put back where it was. "The rows he can see" were the table's
+visible rows, which are every row in its bounds. The table runs on under
+the status and navigation bars, and the search band is pinned over the
+next 43 points, so one or two of those rows were under them. The first,
+the row under the status bar, was the row held; the letter's row, under the
+band, went from between it and the rows he could see, and they closed up
+under it by one row. Had the first row he could see been held, nothing in
+view would have moved. With the letter's row in view, as in Edit mode's
+Delete the same day, the row held was above it and nothing he could see
+moved, which is why it had not been seen.
+
+The same row was held by every move that keeps his place: a page of newer
+mail put on above after a date jump, where a newer letter in the
+conversation of the row under the band takes that row up the list; a Move
+the server refused, its row put back above the list; a search's Cancel,
+the folder coming back by the row under the bar.
+
+**Changed.**
+
+- The rows he can see are the ones with a point or more of them between
+  the bars, below the search band (`ListPlace.inSight`), by the sums
+  VoiceOver's rows go by (`TableSight`, B-079): the table's offset, its
+  height, its adjusted insets and the band's height, which the table hands
+  over as `sight` (it was `voiceOverSight`, private to VoiceOver). The
+  first of them still listed is held. A row taken out above it, under the
+  bars and the band, closes out of sight: the rows above it come down one
+  row, still under the bars, and every row in view stays where it was.
+- Their offsets are still from the top of the table's bounds, so the list
+  is put back as before.
+- The same for every move that keeps his place, which all take it in
+  `place()`: the regroup after a Delete or a Move from the pane or Edit
+  mode, a Mark, a Flag, a page above or below, the grouping switch, a Save
+  in Settings and a Move put back; a search's Cancel, by the place taken as
+  its results replaced the folder; the newest page fetched afresh after an
+  edit of his own; and the fresh page over the kept one (D-016).
+- With no row in sight, a pane too short for one below the band, every row
+  on screen is taken, as before.
+- When the row taken out is the first he can see, the rows below close up
+  into its place, as in Mail. The row on screen just above it, under the
+  bars or the band, is taken with the rows he can see (`ListPlace.above`,
+  `justAbove`), and it is the row held (`closingUp`): it stays where it
+  was, out of sight, and the list is not scrolled. The first change of
+  this entry held the next row he could see instead, as `landing`'s rule
+  had it: the rows below stayed, and the row above came down into the gap.
+  That was with less than a point of the row above in sight; with a point
+  or more, that row was the first he could see and was held, and the rows
+  below closed up. Which way it closed turned on a point of the row
+  above. It closes up now whatever of the row above shows. It still turns
+  on a point, of the letter's own row: with less than a point of it below
+  the search field, it is the row just above the first he can see, and
+  closes out of sight, nothing in view moving; with a point or more, it is
+  the first he can see, the row above it is held, and the rows below close
+  up into it, every row in view a row up, as in Mail.
+- With no row on screen above it, the list's first row, or with that row
+  taken out too, as Edit mode's Delete of several rows can take it, the
+  first of the rows he could see as they stand now goes where the first
+  was, and again the list is not scrolled. The list's first row taken out
+  a little way down, most of it under the search field, used to put the
+  list back at its top.
+- The same when the first row he can see goes down the list: a
+  conversation whose newest letter is taken out, its next letter further
+  down. One whose next letter is next on the list keeps its row where it
+  was, headed by that letter, and nothing moves.
+- The same for every move that keeps his place: Edit mode's Delete or Move
+  of several rows at once, the rows below closing up into the first one's
+  place; a search's Cancel, the top row he could see deleted while the
+  results showed; the newest page fetched afresh without it. One edge of
+  that last: with the newest page ending at the row above the first he
+  could see, that row is held and the list goes to the end of the page,
+  its last row above the toolbar, where it used to go to the top
+  (`ListPlaces.refetched` says so).
+- A row put back, its Delete or Move refused, offline or by the server
+  (B-062, B-092), with the list as the tap left it: back where it stood,
+  the rows below it down a row, every row as before the tap. The place
+  from before the tap is kept (`TakenRows`), told which row went and which
+  came back by the letters (`ListChange`), and the row is put back by it
+  (`ListPlaces.Move.putBack`, `regroup(for:)`). Edit mode's Delete or Move
+  keeps one place for every row it took, from before the first, until the
+  last is back. With the close-up alone, the top row he could see went
+  back in above the rows that had closed up into its place, out of sight
+  under the search field: the reading pane emptied at the tap, the alert
+  up, offline "Can't connect to mail server.", no letter in sight, and
+  every row in view one up from where it had been. By the screen alone
+  that row cannot be told from one that was out of sight above the list
+  when it went, which is to stay there; the place from before the tap
+  tells them apart. Once what he sees has moved since the tap, the list
+  scrolled or a row in view joined by newer mail, the rows he can see
+  then are held, as before, and the place is dropped. A page put on above
+  meanwhile moves nothing in view, and the row still goes back where it
+  was.
+
+**Not changed.**
+
+- A Delete of a row in view below the top one: the rows above it stay and
+  the rows below close up, as before.
+- At the top of the list, a Delete of the top row: the list stays at the
+  top and the rows below close up, as before.
+- Otherwise which row is put back is still `ListPlace.landing`'s rule:
+  the first row he could see still headed by the same letter, else the
+  next, else one holding any of its letters. A row newer mail has joined,
+  on a page put on above, has gone up the list and is passed over, as
+  before (list-8): taken from the top row he can see, the next row he
+  could see stays where it was and the row above comes down into the
+  place. The grouping switch merging the top row into another the same.
+
+**What he sees.** A Delete or a Move from the pane, the letter's row out of
+sight just above the list: nothing in view moves. A row put back above the
+list, a page of newer mail put on above it, a search cancelled: the rows
+he could see stay where they were. A Delete or a Move of the top row he
+can see, the list scrolled down: its row goes, and the rows below it close
+up into its place, each up a row, as in Mail, whatever of the row above
+shows under the search field; the row above stays out of sight. With
+less than a point of the letter's own row below the search field, it is
+not the top row he can see but the one above it, and it goes out of
+sight with nothing in view moving. On the iPad the close-up was so
+before, by the row held under the bars. Near the top of the list, the
+first row deleted with most of it under the search field: the rows close
+up into its place, and the list no longer goes to its top. Refused,
+offline or by the server, the row comes back where it was, the rows
+below it down a row, as before the tap, unless he has scrolled the list
+meanwhile.
+
+**Tests.** In `ListPlaceTests`, six over the rule, with the list laid out
+as on the iPad, the band 43 points, 74 of bars over the table and 50 under
+it, twenty rows of 96: the iPad's Delete, every row in view where it was,
+and what holding every row on screen gave, each a row up; a row in sight
+with a point of it below the band or above the toolbar, not with half a
+point; no row in sight, every row on screen taken; a page above taking up
+the row just under the band, the rows in view where they were, a row up
+held the old way; a Move put back above
+the list, the rows in view where they were, a row down held the old way,
+and a Mark moving nothing; a search's Cancel coming back by the rows he
+could see with the hidden row gone meanwhile. And one reading the
+controller: `place()` takes the rows on screen by their tops and bottoms
+and the table's `sight`, the list makes a `ListPlace` there and nowhere
+else, the five places that keep his place take it there, and `sight` is
+the table's offset, height, adjusted insets and the band's height. The
+renamed `sight` is read in `PaneArrangementTests` as `voiceOverSight` was.
+
+For the close-up, seven more, the list laid out the same way: the
+letter's row the first in sight, whole or twenty points of it, and the
+row above with none of it, half a point, a point or ten in sight, the
+rows below each up a row, the row above where it was, the list not
+scrolled; a row taken out under the band or under the status bar, every
+row in view where it was, and one below the first in sight, the rows
+above it where they were and the rows below up a row; the list's first
+row taken out at the top, pulled down past it and a little way down, no
+row above taken, the list not scrolled; Edit mode's Delete of three rows,
+of every row in sight, and of the first in sight with the row above it;
+a conversation's newest letter taken out, its next letter next on the
+list or ten rows down, in the middle of the list and as its first row;
+newer mail taking the first row in sight up the list and the grouping
+switch merging it into the row above, the next row where it was, as
+before; a search's Cancel and the newest page fetched afresh with the
+first row gone, closed up. Two older tests changed with the rule: the
+top row taken off, the next now in its place
+(`testARowTakenOffHasTheRowsBelowCloseUpIntoItsPlace`, which was
+`testARowTakenOffLeavesTheNextWhereItWas`), and the same for a row binned
+while a search showed (`testResultsGoToTheTopAndTheFolderComesBackWhereHeWas`).
+The first change's test of the letter's row partly in sight, the rows
+below it where they were, was the old rule's, and is gone.
+
+Each part undone in the worktree, one at a time, the tests run, counted as
+failures in tests. Every row on screen taken, as it was, 63 in 6. Only
+rows wholly in sight, 9 in 3. No row in sight taken for none, 2 in 1.
+Offsets from the top of what is in sight rather than of the pane, 43 in 7.
+The toolbar not looked at, 8 in 3. `place()` as it was, 1 in 1. The band
+left out of the table's `sight`, 2 in 2, the VoiceOver test among them. A
+place taken a second way in the list, 2 in 1.
+
+For the close-up, the same way. No close-up, the rule as it was, 93 in 7.
+The row above not held, 1 in 1. A row newer mail took up the list closed
+up as one taken out, 10 in 2, the paging test of list-8 among them. What
+is left of a conversation not looked for, 6 in 1. The first of the rows
+standing taken rather than the highest, 5 in 1. No row above taken, 6 in
+3. The first row in sight taken as the row above, 6 in 3. The row above
+held at the first one's offset, 68 in 4. A row above taken with none on
+screen above the first in sight, 5 in 2. And every row on screen taken,
+the first change undone, 94 in 11 now.
+
+For the row put back, six more, the list laid out the same way. A
+refused row put back with the list as the tap left it: the first in
+sight, whole or twenty points of it, and the list's first at its top,
+closed up at the tap and back where it was; the row just above the list
+and one below the first in sight, back where they were; nothing kept
+once it is back; and by the rows in sight alone, as it was, the first in
+sight under the band at 21. Put back after the list has moved: scrolled,
+the rows in view then where they were and the row out of sight; a page
+above meanwhile, back where it was; newer mail joining the row in view,
+not as the tap left it; Edit mode's three rows out, scrolled, each put
+back by the rows in view. Edit mode's three rows, the first in sight
+among them, all refused, every row where it was, and the oldest taken
+and the other two refused, those where they were and the rows below
+closed up into its place; by the rows in sight alone, the two went out
+of sight. Two rows out at once, the first in sight and the one that
+closed up into its place, put back in either order, every row where it
+was. The list showing the same, by the rows in sight to half a point,
+the row above and the selection not counted. The list's letters saying
+which row went and which came back, a Delete refused through
+`PaneActions`, and a Flag, a Flag put back and a folder as marks. And
+the controller read, in `testTheListTakesItsPlaceByTheRowsInSight`: the
+letters' change wired to `regroup(for:)`, which takes the place before
+and, laid out, after, and a place with nothing left holding where he is
+rather than going to the top. The put back that went out of sight is
+gone from the close-up's test of a search's Cancel, now
+`testACancelAndAFreshPageAfterTheFirstRowInSightWent`. Besides, two more
+for edges of the close-up: the newest page ending at the row above, to
+its end; and the list's first row gone with the next joined by newer
+mail, the one after held (`stands`).
+
+Each part undone the same way, in `ListPlaceTests`. The row never put
+back by the place before the tap, 25 in 4. A take not added to the place
+already kept, 14 in 2. The place kept after a row put back by the rows in
+view, 15 in 1. A point of slack in what the list shows, 1 in 1, and the
+offsets not compared, 1 in 1. A take told as a mark, 2 in 1; a put back
+told as a mark, 1 in 1. The place after not laid out, the fallback to the
+top, and the old wiring, 1 in 1 each. The check in `stands` that the row
+is still headed by one of its letters, 1 in 1. The row above held only
+with a row in sight still standing, 2 in 2.
+
+The full suite, serially: 1,847 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad yet. TODO's B-093 check is the iPad's Delete again,
+  with shots before and right after, the top row he can see deleted, and
+  both refused offline.
+- The host suite cannot lay out a table: what the table reports, its
+  visible rows, its insets and the band's rect, is taken as UIKit gives
+  it, as VoiceOver's rows take it (B-079).
+- A row under the toolbar at the bottom is not held either. Holding is by
+  the first row in sight, so it counts only once every row he could see
+  above it has gone.
+- A row put back after he has scrolled the list since the tap, or after
+  newer mail has joined a row in view: the rows he can see then stay
+  where they are, and a row that was the top one he could see at the tap
+  goes back in above them, out of sight under the search field, as any
+  row put back does. By then the reading pane has been empty since the
+  tap, and the alert says only what failed (`MailAlert.reaching`; offline,
+  "Can't connect to mail server."): nothing on screen says where the
+  letter is. Its row is just above the top of the list.
+- Newer mail taking the top row he can see up the list, on a page put on
+  above, is not a row taken out: the row above comes down into its place,
+  as before. Mail has no page above to compare it with.
+
+## B-094 — RECORDED 2026-10-21, found on the iPad, not changed. Go to Date from a list at its top fetches the page above as the day lands
+
+**What was seen.** Nothing on screen; the connection log shows it. Seen on
+the test iPad on 2026-10-21, in the list check's step 6b, three times, and
+again when the check was made a second time on a fresh launch. All Mail
+just opened, at its top, Go to Date, Current Mailbox, 5 Oct, Go, and
+nothing touched after. The FETCH of the page above went out 0.14 s after
+the window's `UID FETCH`, with no scroll; the first slow scroll up then had
+nothing left to bring. The same from the Inbox with All Mailboxes, to 4
+Oct: the page above 0.45 s after Go. And from the Inbox just opened, to 5
+Oct: the window's FETCH and the page above's 0.17 s apart. On the fresh
+launch, All Mail opened at its top, Go to 5 Oct: the window's FETCH was
+answered, and 44 ms later the FETCH of the page above went out, before the
+window's first preview fetch, which `show(_ window:)` starts on its last
+line. Each time the day's letter was the top row, and the line said
+"Showing October 5" ("Showing October 4" for the All Mailboxes jump):
+nothing moved. Go to the same day from part-way down the list,
+twice and once more on the fresh launch, fetched the window and its
+previews only; the first two times the page above came with the slow scroll
+up to it, within a second of the drag that brought it.
+
+Not by design. The page above a day waits for him to move the list up to
+it: the lead above (`willDisplay`, ten rows of a page of fifty) is the same
+share of a page as the letters the jump keeps above the day, so the
+landing is inside it, not at its edge.
+
+**What it is.** Two ways, one seen.
+
+- *Laid out where the old list was.* `show(_ window:)` reloads the table
+  and lays it out (`layoutIfNeeded`) before it scrolls to the day, so that
+  the scroll is worked out on the new rows. That layout is at the offset
+  the old list had. From a list at its top it puts the window's first rows
+  on screen, rows 0 to 8, and `willDisplay` starts the page above for any
+  of the first ten. From part-way down, the rows laid out there are past
+  the first ten, which is why nothing was fetched then. The same layout
+  could start the page below, with the old offset near the end of the new
+  window; not seen.
+- *In a deep folder, the rows above the day under the bars.* Not seen: in
+  the test account's All Mail the older side is short, the window kept 21
+  newer letters above the day, and it landed at row 20. With a page of
+  older mail below it, the jump keeps ten newer letters above the day
+  (`PageWindow.newerRowsAboveAnchor`), so it lands at row 10, or higher
+  when two of the ten share a conversation, or when the landing moves up
+  past letters of the evening before, west of Greenwich (B-058). The table
+  runs on under its bars (B-093), so the one or two rows above the day are
+  on screen under the bars and the search band as it lands, and they are
+  among the first ten: the page above starts as the day lands, wherever
+  the list had been.
+
+**What it costs.** One envelope FETCH of a page, up to fifty letters, and
+its previews, as the day lands, on the connection the day's own previews
+wait behind: the first of them went out 80 ms after it on the fresh
+launch. Nothing moves on screen, then or later: the page goes on above
+the day, out of sight, the rows he can see held where they are (B-042).
+And the check that the page above comes as he scrolls up to it cannot be
+made from such a landing; TODO's B-042 check of paging upward says so.
+
+**Why it is left.** A fix has to keep the page above loading whenever he
+scrolls up to it, wherever the day lands, at row 20 or at row 1, and from
+any list. The one tried had to hold off paging while the rows were laid
+out, then look at the rows on screen once, keep the row the day landed on
+until the page above came or the list was fetched afresh, and look at the
+edge again at every move of the list, since at a day landed at row 1 or 2
+every row above it is on screen already and none comes on screen as he
+moves up to it. It grew a tracker of the day's row and a hook on the list's
+scrolling, each with its own ways to go wrong: a row taken out above the
+day, or the grouping switched, left the day's row a row off. A page above
+that never came, and the list stopped at the top of a day with newer mail
+above it, would be worse than one fetched a second early. For a mailbox
+nobody can update, it is left as it is.

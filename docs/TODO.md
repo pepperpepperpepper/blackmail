@@ -771,6 +771,13 @@ this host. Ordered by value, not by size.
       above the top of the pane (open it, scroll it off, Delete): the rows
       in view do not move. Flip Organize by Thread in Settings: the row at
       the top stays at the top.
+      *Go to the day from part-way down the list, not from a list at its
+      top: from the top the page above comes as the day lands, before any
+      scroll, and there is nothing left for the scroll to bring (B-094,
+      recorded, not changed). So it should, by the sums (not seen),
+      wherever the jump is made from, for a day with a page of older mail
+      below it, which lands at row 10 or higher; in the test account's All
+      Mail the day lands at row 20.*
       *Seen on the test iPad 2026-10-21, a build of master with B-092
       (1233252), All Mail at a day sixteen days back, 43 letters newer
       than it: every part but the Delete passed (B-042). Scrolled up
@@ -3463,6 +3470,52 @@ this host. Ordered by value, not by size.
       an EXPUNGE and a COPYUID, and `MOVE-CHECKED … moved`, 1.07 s from
       the first MOVE. The row stayed off with no alert, and Trash held
       one copy.*
+
+- [ ] **B-093, a Delete in the pane with the letter's row just above the
+      list.** On the test iPad, the test account only, built from the
+      `list-place2` worktree. Three panes. W stands for a letter of the
+      test account's, read, alone in its conversation, in the Inbox and so
+      in All Mail. Times from the iPad's clock.
+      1. *Just above the list.* All Mail, Go to Date, Current Mailbox, a
+      day some weeks back with W a few rows below the day. Open W in the
+      reading pane. Drag the list slowly upwards until W's row has gone
+      just above the top of the list, hidden under the search field, with
+      the row above it under the status and navigation bars, nothing of
+      W's row showing below the search field, and the first row in view
+      whole below it. With a point or more of W's row showing, W's row is
+      the top row in view, and the rows below close up into it, as in
+      step 2. A screenshot. Delete in the pane, with a burst of shots
+      from the tap: in the first, at about a
+      quarter of a second, and in every one after it, each row in view is
+      where it was in the shot before, the same letters at the same
+      heights. On the build before, every row in view went up one row at
+      once (B-093). The log has one `UID MOVE` and no list FETCH.
+      2. *The top row in view.* Put W back (step 4) and open it in All Mail
+      again. Drag the list until its row is the top row in view, whole
+      below the search field, nothing of the row above showing. A
+      screenshot. Delete in the pane, with a burst: W's row goes, and the
+      rows below it close up into its place, each up one row, as in Mail;
+      the row that was above it stays out of sight under the search field,
+      and the list does not scroll. Put W back, and again with a point or
+      two of the row above showing below the search field: the same. On
+      the build before, the rows below came up one as well.
+      3. *Search and the page above.* The Inbox three screens down, Search,
+      type a word that finds letters, scroll the results, Cancel: the
+      Inbox back with the same rows at the same heights. Then All Mail, Go
+      to Date to the same day, scroll up slowly until the page above
+      comes: the rows move only with the finger, and the highlight stays
+      on the letter open in the pane.
+      4. *Put back.* After each Delete: Trash, open W, Move, Inbox.
+      5. *Refused.* W the top row in view as in step 2, a screenshot.
+      Airplane Mode on, Delete in the pane, with a burst, the list not
+      touched: W's row goes and the rows below close up, as in step 2;
+      with the alert, "Can't connect to mail server.", W's row is back
+      where it was, the rows below it down one, every row as in the
+      screenshot. OK. Then the same with W just above the list as in
+      step 1: back out of sight, nothing in view moving either time.
+      Airplane Mode off.
+      *Not tried on the simulator: the host tests hold it, the list laid
+      out as on the iPad (B-093).*
 
 ## Blocked on the owner
 
