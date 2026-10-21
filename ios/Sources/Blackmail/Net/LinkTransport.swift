@@ -40,6 +40,10 @@ protocol LinkTransport: MailTransport {
     /// with the error once it has failed. `report` may be called any number
     /// of times, from any thread, or never: only the first call counts, and
     /// `close()` settles a connect that has not reported.
+    ///
+    /// From then until `closeLink()`, a link that hears from the system
+    /// whether it has a path tells `stream.viability`, from any thread
+    /// (B-091).
     func startLink(reporting report: @escaping @Sendable (Error?) -> Void)
 
     /// The next bytes to arrive, at least one.
@@ -69,6 +73,14 @@ struct LinkStream {
     /// been asked, and the longest wait since.
     fileprivate var quietClock: (@Sendable () -> Date)?
     fileprivate(set) var longestQuiet: TimeInterval = 0
+    /// What the system says of the link's path (`pathIsGone`, B-091). The
+    /// conformer hands it to its link, which tells it from the link's own
+    /// thread; nothing else changes it.
+    let viability: LinkViability
+
+    init(viability: LinkViability = LinkViability()) {
+        self.viability = viability
+    }
 }
 
 extension LinkTransport {
@@ -76,6 +88,10 @@ extension LinkTransport {
     static func transportError(_ sendError: Error) -> Error { sendError }
 
     var serverWorkDeadline: TimeInterval { 3 * ordinaryDeadline }
+
+    /// The system has said this link has no path, and not that it is back
+    /// (`LinkViability`).
+    var pathIsGone: Bool { !stream.viability.isViable }
 
     // MARK: - Lifecycle
 
@@ -324,5 +340,42 @@ final class LinkOpening: @unchecked Sendable {
         waiting = nil
         lock.unlock()
         pending?.resume(with: result)
+    }
+}
+
+/// Whether the system says a link can carry anything: false from the moment
+/// it says the link has no path, true again if it says the path is back
+/// (B-091).
+///
+/// On the device that is `NWConnection`'s viability, which goes false when
+/// the iPad has no network for the connection, Airplane Mode or Wi-Fi off.
+/// The connection itself can stay up for many seconds after that, 19 on the
+/// test iPad, and a command written onto it meanwhile goes nowhere and waits
+/// for the stack to give the connection up, or for its deadline. Told on the
+/// link's own queue and asked on the transport's actor, so it is locked.
+///
+/// True until it is told otherwise: a link that never says, as the scripted
+/// one does not unless a test makes it, has a path, and everything goes as
+/// it went before there was this.
+final class LinkViability: @unchecked Sendable {
+    private let lock = NSLock()
+    private var viable = true
+
+    var isViable: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return viable
+    }
+
+    /// What the system has said. Each change is one line in the connection
+    /// log, `LINK viable=false` or `LINK viable=true`, so the log shows
+    /// whether the iPad said it, and when, beside the commands it then kept
+    /// off the link; a report that changes nothing writes none.
+    func said(_ viable: Bool) {
+        lock.lock()
+        let changed = self.viable != viable
+        self.viable = viable
+        lock.unlock()
+        if changed { Diagnostics.log(.note, "LINK viable=\(viable)") }
     }
 }

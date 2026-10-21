@@ -502,14 +502,15 @@ actor IMAPClient {
     /// SEARCH: the mailbox's news is asked for first, in the same hold,
     /// unless the session has it already. See `catchUp`.
     ///
-    /// `writing` for a write, which is turned away with `Unsent` when its
-    /// turn comes with no connection.
+    /// `writing` for a write, its verb, for the log: turned away with
+    /// `Unsent` when its turn comes with no connection, or with one the
+    /// system has said has no path (B-091).
     private func inMailbox<T>(_ mailbox: String, validity: UInt32?, _ priority: Priority,
-                              catchingUp freshness: Freshness? = nil, writing: Bool = false,
+                              catchingUp freshness: Freshness? = nil, writing: String? = nil,
                               _ body: (IMAPMailboxState) async throws -> T) async throws -> T {
         try await beginExchange(priority)
         defer { endExchange() }
-        if writing { try throwUnsentIfDisconnected() }
+        if let writing { try await throwUnsentIfDisconnected(writing) }
         let (state, selected) = try await select(mailbox)
         if let validity, state.uidValidity != validity {
             Diagnostics.log(.note, "UIDVALIDITY-CHANGED folder=\(mailbox) "
@@ -1434,7 +1435,7 @@ actor IMAPClient {
         // .SILENT suppresses the untagged FETCH echo we would only throw away.
         let op = set ? "+FLAGS.SILENT" : "-FLAGS.SILENT"
         let result = try await inMailbox(mailbox, validity: validity, .interactive,
-                                         writing: true) { _ in
+                                         writing: "UID STORE") { _ in
             try await self.performCommand("UID STORE \(uid) \(op) (\(cleaned))")
         }
         guard result.status == .ok else { throw MailError.cannotConnect }
@@ -1452,7 +1453,7 @@ actor IMAPClient {
         // Cancelled while waiting for the gate, none of it is sent, unless
         // the cancel lands as the gate is handed over (see `beginExchange`);
         // cancelled once it has the gate, all of it is.
-        try await inMailbox(mailbox, validity: validity, .interactive, writing: true) { _ in
+        try await inMailbox(mailbox, validity: validity, .interactive, writing: "UID MOVE") { _ in
             let target = Self.mailboxArgument(destination)
 
             // An empty capability set means the CAPABILITY response could not
@@ -1499,7 +1500,7 @@ actor IMAPClient {
         // happening.
         let result = try await sendCommand(
             "APPEND \(Self.mailboxArgument(mailbox))\(flagPart) {\(raw.count)}",
-            continuationPayload: raw, writing: true)
+            continuationPayload: raw, writing: "APPEND")
         guard result.status == .ok else { throw MailError.notSent }
         return IMAPAppend.uid(in: result.detail)
     }
@@ -1539,7 +1540,8 @@ actor IMAPClient {
     /// folder. A refused STORE or EXPUNGE is thrown; the letter is still
     /// there, marked if the STORE was taken, and the next try takes it.
     func expunge(uid: UInt32, in mailbox: String, validity: UInt32) async throws {
-        try await inMailbox(mailbox, validity: validity, .interactive, writing: true) { _ in
+        try await inMailbox(mailbox, validity: validity, .interactive,
+                            writing: "UID EXPUNGE") { _ in
             let flagged = try await self.performCommand("UID STORE \(uid) +FLAGS.SILENT (\\Deleted)")
             guard flagged.status == .ok else { throw MailError.cannotConnect }
             let command = self.capabilities.contains("UIDPLUS") ? "UID EXPUNGE \(uid)" : "EXPUNGE"
@@ -1697,11 +1699,11 @@ actor IMAPClient {
     /// selected; the rest go through `inMailbox`. `writing` as there.
     private func sendCommand(_ command: String, priority: Priority = .background,
                              continuationPayload: Data? = nil,
-                             writing: Bool = false,
+                             writing: String? = nil,
                              wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         try await beginExchange(priority)
         defer { endExchange() }
-        if writing { try throwUnsentIfDisconnected() }
+        if let writing { try await throwUnsentIfDisconnected(writing) }
         return try await performCommand(command, continuationPayload: continuationPayload,
                                         wait: wait)
     }
@@ -1712,7 +1714,22 @@ actor IMAPClient {
     /// has gone. `performCommand` would throw the same failure a moment
     /// later, and as a plain `MailError` the repository could not tell it
     /// from a write that died on the wire.
-    private func throwUnsentIfDisconnected() throws {
+    ///
+    /// A connection the system has said has no path is no connection for a
+    /// write (B-091): it is let go of here, with nothing written, and the
+    /// write is `Unsent`. So it goes once on a new connection if there is
+    /// a network for one, and with none it fails at once, the new
+    /// connection's `.waiting` being a failure (`TLSConnection`). Written
+    /// onto it, the write went nowhere and waited for the stack to give
+    /// the connection up, 19 s on the test iPad with Airplane Mode on, and
+    /// then could not be sent again, since nothing could say it had not
+    /// gone. `verb` is the write's, for the log: `NO-PATH UID STORE
+    /// not-sent`.
+    private func throwUnsentIfDisconnected(_ verb: String) async throws {
+        if connected, let conn = connection, await conn.pathIsGone {
+            Diagnostics.log(.note, "NO-PATH \(verb) not-sent")
+            await teardown()
+        }
         guard connected, connection != nil else {
             throw Unsent(failure: connectFailure ?? .cannotConnect)
         }
@@ -1755,10 +1772,27 @@ actor IMAPClient {
     /// background or came back during (`Diagnostics.awayOrBack`): iOS may
     /// have held the app still for hours with the answer waiting, and that
     /// time is not Gmail's.
+    ///
+    /// Nothing is written onto a connection the system has said has no
+    /// path, Airplane Mode or Wi-Fi off (B-091): it is let go of with the
+    /// command unwritten, `NO-PATH UID FETCH not-sent` in the log, and the
+    /// command fails at once as a dropped connection does. A read is then
+    /// retried once into a new connection, which with no network fails at
+    /// once (`IMAPMailRepository.retryingIfDisconnected`); a write has been
+    /// turned away as `Unsent` before its first command came here. Written
+    /// onto it, the command waited for the stack to give the connection
+    /// up, 19 s on the test iPad, or for its deadline, and a letter tapped
+    /// meanwhile said "Loading…" behind it. A command already written is
+    /// not asked about: its answer is read as ever, and may well come.
     private func performCommand(_ command: String,
                                 continuationPayload: Data? = nil,
                                 wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         guard connected, let conn = connection else { throw connectFailure ?? MailError.cannotConnect }
+        if await conn.pathIsGone {
+            Diagnostics.log(.note, "NO-PATH \(Self.verb(of: command)) not-sent")
+            await teardown()
+            throw MailError.cannotConnect
+        }
         let tag = nextTag()
         do {
             // Redaction happens inside Diagnostics.log, not here, so a future

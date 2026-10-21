@@ -610,8 +610,11 @@ this host. Ordered by value, not by size.
       ticks stay, and no other row is ticked.
       Flag, and the row's flag appears at once; flag with Wi-Fi turned off,
       within a minute and a half of the last thing he did: the flag goes
-      back and "Can't connect" is said (at once, or after the 30 s read
-      deadline if the socket is left half open). In a conversation, open
+      back and "Can't connect" is said (at once: nothing is written onto a
+      connection the iPad says has no network, B-091; only a command
+      already on the wire as the network went waits, for the stack to drop
+      the connection or the 30 s read deadline, as on a socket left half
+      open). In a conversation, open
       an unread letter that arrived while the stack was open and was then
       closed by its line (since B-074 every unread letter opens with the
       stack): the dot and one count go, and the list
@@ -2874,6 +2877,48 @@ this host. Ordered by value, not by size.
       come while scrolled down, was not on the Inbox's kept page, so 7's
       offline launch drew the Inbox without it until Refresh, as D-016 has
       it; and the reading pane's Flag looked the same flagged and not.*
+
+- [ ] **B-091, Flag with Airplane Mode on.** On the test iPad, the test
+      account only, built from the `no-path` worktree. A stands for the
+      account's address; letters only to A with `+b091` before the @,
+      subjects beginning "B-091". Airplane Mode from Control Centre; if it
+      leaves Wi-Fi on, turn Wi-Fi off too. Times from the iPad's clock.
+      1. *Two letters.* A new letter To A with `+b091`, Subject "B-091
+      one", Send; another, Subject "B-091 two", Send. Refresh: both in
+      the Inbox.
+      2. *Flag, the connection open.* Open "B-091 one" in the reading
+      pane, and within a minute Airplane Mode on. Five seconds later, Flag
+      in the pane, and straight after it tap "B-091 two". Within about a
+      second: the flag off again (it may never show at all), one "Can't
+      connect to mail server.", and the pane saying "B-091 two" could not
+      be downloaded, with no "Loading…" waiting. On the build before, the
+      flag stayed 19 s. OK.
+      3. *A letter, the connection open.* Airplane Mode off, and wait for
+      the connection to come back (the watch's LOGIN in the log, within
+      half a minute). Open "B-091 one", and within a minute Airplane Mode
+      on again. Five seconds later tap "B-091 two": at once, the pane
+      says it could not be downloaded.
+      4. *Back.* Airplane Mode off. Open "B-091 one", Flag in the pane:
+      the flag stays, and after a Refresh too. Flag again: off.
+      5. *The log.* Settings, the connection log. For 2, `LINK
+      viable=false` within a second or two of Airplane Mode going on, then
+      at the Flag `NO-PATH UID STORE not-sent`, and nothing written, no
+      `UID STORE` and no `UID FETCH`, until the LOGIN after Airplane Mode
+      went off. For 3, `LINK viable=false`, then `NO-PATH UID FETCH
+      not-sent`. Either may have `NO-PATH NOOP not-sent` in its place, if
+      the watch's check came first: then the tap found no connection, and
+      was refused at once all the same. For 4, one LOGIN, then one `UID
+      STORE … +FLAGS.SILENT (\Flagged)` and one `-FLAGS.SILENT`, each
+      once and each answered OK. If the watch's NOOP was written just
+      before `LINK viable=false`, the Flag waits behind it as before
+      (B-091, Not covered): do 2 again. If there is no `LINK viable=false`
+      at all, iPadOS did not say the network had gone and the fix does
+      nothing on this iPad: note how long 2 took, and stop there.
+      6. *Put back.* Edit, tick the B-091 letters, Delete. Airplane Mode
+      off, Wi-Fi on.
+      *Not tried on the simulator: the host tests run it over the
+      scripted server, its no-path model standing in for the iPad's
+      (B-091).*
 
 ## Blocked on the owner
 

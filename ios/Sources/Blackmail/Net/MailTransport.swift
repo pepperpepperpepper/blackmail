@@ -4,7 +4,8 @@ import Foundation
 ///
 /// Exactly the surface `IMAPClient` and `SMTPClient` already used on
 /// `TLSConnection`, and nothing more: open, close, write bytes or a line,
-/// read a line or an exact count. Pulled out as a protocol so that everything
+/// read a line or an exact count, and, since B-091, whether the system says
+/// the connection has a path. Pulled out as a protocol so that everything
 /// above the socket compiles on the Linux host too. On the device the only
 /// conformer is `TLSConnection`, so the wire is byte-for-byte what it was; on
 /// the host the tests hand the clients a scripted server instead, which is
@@ -69,6 +70,14 @@ protocol MailTransport: Actor {
 
     /// Exactly `count` bytes, CRLFs and all, for an IMAP literal.
     func read(exactly count: Int) async throws -> Data
+
+    /// The system has said the connection has no network path, Airplane
+    /// Mode or Wi-Fi off, and has not said it is back (B-091). Anything
+    /// written now goes nowhere until the stack gives the connection up or
+    /// a deadline fires. Says nothing about bytes already written: an
+    /// answer already on its way is read as ever. `IMAPClient` asks it
+    /// before each command it writes.
+    var pathIsGone: Bool { get }
 }
 
 extension MailTransport {

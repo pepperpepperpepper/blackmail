@@ -138,9 +138,14 @@ actor TLSConnection: LinkTransport {
     // MARK: - The link
 
     func startLink(reporting report: @escaping @Sendable (Error?) -> Void) {
+        let viability = stream.viability
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
+                // Up is a path now, whatever was said while it was being
+                // made. Before the report, so the LOGIN that follows it
+                // cannot be refused for a word from before.
+                viability.said(true)
                 report(nil)
             case .failed(let error):
                 report(Self.map(error))
@@ -155,6 +160,13 @@ actor TLSConnection: LinkTransport {
                 break
             }
         }
+        // B-091. Once the connection is up, every later state is the
+        // report's to ignore, and nothing else says the network has gone:
+        // with Airplane Mode on, the connection stayed ready for 19 s on the
+        // test iPad while a STORE written onto it went nowhere. Viability is
+        // the system saying so at once, on the same queue as the states, so
+        // in order with them. `IMAPClient` then writes nothing onto it.
+        connection.viabilityUpdateHandler = { viability.said($0) }
         connection.start(queue: queue)
     }
 
@@ -184,9 +196,10 @@ actor TLSConnection: LinkTransport {
 
     /// `cancel()` completes a pending receive or send with an error, and a
     /// pending connect is settled by `close()` itself, so the state handler
-    /// has nothing left to do.
+    /// has nothing left to do, nor the viability handler.
     func closeLink() {
         connection.stateUpdateHandler = nil
+        connection.viabilityUpdateHandler = nil
         connection.cancel()
     }
 
