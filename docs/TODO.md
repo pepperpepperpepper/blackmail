@@ -506,6 +506,15 @@ this host. Ordered by value, not by size.
       alone is drawn by `PanePage.letter`, which has no such rule, so its
       signature shows white on the dark pane (seen in passing in B-074,
       not yet looked into); that is what is left of this item.
+      *Looked for on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): not possible. No conversation on the test account holds a
+      letter with the signature: each of the 22 letters that carry it is
+      alone in its thread, and the conversation chosen for it has none. A
+      letter with the signature shown alone, for what it shows: no white
+      sheet, the thirteen lines white on the black page, its links blue,
+      and the logo as drawn, dark ink, a dark box hardly to be seen on the
+      black. Left: the stack, which needs a conversation holding a reply
+      sent from the app; the check sent none.*
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
       sends and arrives; see B-036. Still to try is below.* It is installed
@@ -630,7 +639,7 @@ this host. Ordered by value, not by size.
       letter's body, or for two over an empty pane for the first letter
       after a launch, before "Loading…" came: in 5 taps of 7, and at every
       first letter after a launch. The header is UIKit, and the web view
-      paints "Loading…" a frame or two after it; seen and not changed. No
+      paints "Loading…" a frame or two after it; not changed (B-098). No
       white or blank frame came between "Loading…" and the letter. The
       binned letter never showed again. The taps, some half a second
       apart, were three, not four: the first and the last fetched, none
@@ -891,6 +900,22 @@ this host. Ordered by value, not by size.
       the pane, and tapping the letter again draws it. Then open a long
       conversation (twenty letters or more) a few times on fast Wi-Fi: its
       newest letter must never stay on "Loading…" (pane-13).
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), the pane's own process found each time in the system log,
+      which names the app it serves, and ended with `kill -9`: every part
+      but the long conversation passed (B-042). A letter alone: "webview:
+      content process ended", the letter at its top again with its picture,
+      the same to the pixel, and no FETCH. Three letters, two open and one
+      a line: back the same way round, bodies and pictures in, and nothing
+      fetched at all, the two having been fetched whole just before, their
+      pictures with them. Ended with Settings in front: the log line,
+      nothing until the return 20 s on, then the stack drawn again. Ended
+      0.36 s after the tap on a letter of 26 MB, its FETCH out: the letter
+      appeared as it landed. Ended again 1.4 s after the redraw: "This
+      message could not be shown.", and its row tapped again drew it. The
+      same on a letter with no text left the pane empty, as built for a
+      notice lost twice, and its row drew it. Left: the conversation of
+      twenty letters or more.*
 - [ ] **B-043, the reading pane's CPU.** *Partly seen 2026-09-28 (launch,
       an HTML letter, a four-letter conversation opened, closed, reopened
       and redrawn after a WebContent kill, a quick tap-through, a PDF); see
@@ -918,6 +943,32 @@ this host. Ordered by value, not by size.
       app to serialize the body, and once warm. The host's 0.1-0.6 ms is the
       app's part only. Watch the app's memory for those 10 s alongside
       B-042's WebContent terminations.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): the newsletter, the body with backslashes and `</script>`,
+      the kill, the PDF and the fill as frames can time it (B-043). The
+      largest newsletter on the test account, 130 KB, tapped, and the list
+      flicked up and down for 3 s at once: in five runs of six the flings
+      went on with no frame standing still, four of them across the body's
+      landing at 0.37 to 0.39 s, and the letter drew whole with its
+      pictures. In the sixth the first flick, its finger down 20 ms after
+      the tap lifted, as in the others, was not taken: the list did not
+      move from 0.14 to 0.71 s while the letter came, the touch reaching
+      the app at its usual pace and no gesture beginning; three more tries
+      did not make it again. A plain letter with quotes, backslashes and
+      `</script><b>` in it read as sent, alone and in a conversation
+      (B-055's check), and a conversation came back with its bodies after
+      the pane's process was ended (B-042's). A PDF of 4.4 MB in a letter
+      over 5 MB, opened twice: Quick Look 2.6 s after the tap, then 2.3 s,
+      the whole part fetched again: recorded as B-097, not changed. The
+      fill, from frames, an upper bound: a conversation's newest, 8 KB, in
+      by 0.55 s after two minutes idle, a NOOP of 219 ms going first, and
+      by 0.27 and 0.26 s after 13 s and 2 s. The memory could not be read,
+      the iPad's process list giving 0 for every process; the system log
+      had no WebContent ended and no jetsam line through the fill. Left: a
+      newsletter of a few hundred KB, which the account does not have, a
+      conversation of twenty letters, the time zone and the 24-hour clock,
+      which wait on a yes, "Yesterday" after midnight, the fill timed in
+      the app with a letter of a megabyte, and the memory.*
 - [ ] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
       draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
       see: Save Draft then lock, Send the moment the picker closes, a tap
@@ -1028,6 +1079,21 @@ this host. Ordered by value, not by size.
       button with a thumb resting on the list does nothing. The connection
       log shows `layout: three panes`, `layout: two panes, …` and no
       finding after either.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), the Layout button on: Edit, the scrolled list and the open
+      folder passed (B-048). A conversation open, the list three screens
+      down, both ways: the conversation drawn in every frame, never
+      "Loading…", the rows and the selected one at the same heights a pane
+      over, the Inbox highlighted, and in the log
+      `layout: two panes, the list in front` and `layout: three panes`, no
+      finding after either, and the watch's NOOPs alone. Edit, two ticked,
+      both ways: still in Edit, the same two, Done in the bar.
+      "< Mailboxes", the open folder: its list where he left it, a NOOP
+      alone; another: its SELECT, UID SEARCH and UID FETCH. Seen in
+      passing: after Done the open letter's row is no longer highlighted,
+      the letter still in the pane. Left: the long folder name, which needs
+      a label made on the account and waits on a yes, and the thumb resting
+      on the list.*
 - [ ] **B-050, Reply and Forward as the original looked.** *Partly seen
       2026-09-30: a newsletter forwarded, and a one-word reply to his own
       letter with a link; see B-050.* Read what
@@ -1073,6 +1139,13 @@ this host. Ordered by value, not by size.
       Mail and on Gmail's web page, which needs a person, the seven
       letters being in Trash until about 2026-11-20; the reply to his own
       shared link was not part of it.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), under B-055's check: in place of a shared link, a reply to
+      a plain-text letter of his own with links in it. The quote's web
+      addresses went as links, its `mailto:` as words, as built, and in the
+      conversation one of the quote's links asked "Open this link?" over
+      its site (B-050). Left: how each looks in Mail and on Gmail's web
+      page.*
 - [x] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
       offline Save Draft and Refresh, a reopened draft changed offline, and
       a letter kept across the app's end; see B-051.*
@@ -1154,8 +1227,8 @@ this host. Ordered by value, not by size.
       The NEWS lines said `gone=3` and `gone=1`, letters deleted before: by
       design, as the check now says. After a search's Cancel the letter
       came 32.2 s later, and 31.7 s at a second try: Cancel starts no
-      check, so what came during the search waits for the next one; seen
-      and not changed. Left: that half minute, which needs a change to the
+      check, so what came during the search waits for the next one; not
+      changed (B-099). Left: that half minute, which needs a change to the
       app; the archive on the phone, which needs a person; and
       "Updated at …" after an hour, which needs Auto-Lock at Never and
       waits on a yes.*
@@ -1494,6 +1567,38 @@ this host. Ordered by value, not by size.
       nothing of the letter. The same letter inside a conversation.
       *Pictures from the web.* A newsletter's pictures still load, as
       before.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), five letters made in the app: every part passed but the
+      hold, the kept Inbox and the letter that tries to go somewhere
+      (B-055). A plain letter, the signature taken out, went as one
+      text/plain part; its first line, with quotes, backslashes and
+      `</script><b>bold?</b>`, read as typed, alone and in a conversation.
+      Each link whole, in `#0A84FF`, `_(film)` kept and the full stop,
+      comma and brackets not; each asked "Open this link?" over its site
+      and opened, the YouTube one in its app; the `mailto:` opened the
+      composer To its address, the signature under the body; and an address
+      typed in a reply, an HTML letter, was a link asking the same. A link
+      held: WebKit's menu and preview, nothing else. Cc, a named address,
+      an unnamed one and `"Example, Pat"`: under To at the tap, under
+      "Loading…", in To's grey, the rule under it, Pat once, and nothing in
+      the header moved as it landed; Reply All put Pat in once; no Cc, no
+      line. The conversation, its newest with the Cc: the stack still as
+      the body came. Three letters: a tap opened a line, its body in by
+      0.7 s, the header and Reply moved to it; a tap closed it; two 0.3 s
+      apart both opened; one 15 s on had its body; with letters open, the
+      pane's process ended: back as it was. Held 1 s on a line: no light,
+      and WebKit's selection of a word at 0.7 s and its Copy menu at 1.4 s:
+      fixed as B-095, not yet seen there fixed. The kept Inbox, offline:
+      the conversation's row gives the header of its newest letter, which
+      had no Cc, so none showed, rightly; its letter with a Cc, tapped
+      offline, could not be downloaded, and so did not take the header.
+      Seen in passing: a header that gains a Cc line at a tap leaves the
+      stack's first line half under it until the stack is scrolled; and an
+      Edit Delete of two rows met Gmail's `* BYE System Error` at its first
+      MOVE, nothing moved, and the rows stayed off the list until a
+      Refresh. Left: the Cc from the kept Inbox, which needs it on the
+      letter the header names, and the letter that tries to go somewhere,
+      which needs a letter from another account and waits on a yes.*
 - [x] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
@@ -2086,6 +2191,36 @@ this host. Ordered by value, not by size.
       end up; the dates at the rows' right ends ride with them and are put
       at the right end at the settle (B-066, Not covered). Whether that
       catches the eye, and a newsletter's centred column the same way.
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), the Layout button on: 3 to 6, 9 and 12 passed but for the
+      bounces and two points of 9 (B-066). In 3 a list flicked and tapped
+      as it coasted stopped where it was and slid in one motion of about
+      0.5 s. A pull past the top, Important flicked past its bottom and a
+      long letter past its end each switched at once,
+      `pane motion: bouncing; switched at once`, and the tap a second on
+      slid; but against the same gesture with no tap, the bounce lost 26 to
+      45 pt of a pull and 66 to 72 pt of the flick in the frame of the
+      switch, the last 6 to 10 pt springing back after it with no jump:
+      recorded as B-096, not changed. The long letter, at its rest at once
+      in two panes, could not show it; the Mailboxes pulled down was seen
+      under B-077 on 2026-10-07. In 4 two taps 0.1 s apart made one switch,
+      a row 0.2 s after opened nothing and fetched nothing, and one 0.9 s
+      after opened. In 5, with Control Centre and with Settings 0.2 s into
+      a switch, the screen was final and taps worked; sixty switches all
+      slid. In 6 the search's words, scope, results and keyboard stayed and
+      three characters typed during the motion were in the field; Edit kept
+      its ticks. In 9 each switch the saved logs reach has its `layout:`
+      line, no finding after any, no deadline, the bounces' lines alone,
+      and the watch's checks alone around the switches; but the
+      three-minute sweep, ended before the first switch, had one finding, a
+      label in iOS's share sheet, not a pane, which the sweep does not
+      leave out, and the switch made to set up 6's search fell between two
+      saved logs. In 12, at 60 frames a second, a newsletter's centred
+      column rode with the letter's edge, landed 44 and 45 pt off its place
+      and was laid out again 0.52 s on, a conversation's text wrapped again
+      at 0.51 s, and the names and header landed where they end up; whether
+      the end frames catch the eye is still 12's question. Left: 1 with a
+      letter, 2, 11, and in 5 the iPad turned over, and Home.*
 - [x] **B-077, the panes move as Mail's.** On the 11-inch, with the Layout
       button on in the connection log.
       1. *At speed.* A 60 fps recording from Control Centre, stepped
@@ -2371,6 +2506,13 @@ this host. Ordered by value, not by size.
       line in the log kept for a share with something left out (B-090).
       In 17 "Seventeen", added in Settings, was in the next share's letter
       under the link. 15, the `mailto:` link, was not part of it.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): 15 passed (B-036). A `mailto:` link in a plain letter
+      opened Blackmail's composer To its address, his signature under the
+      body, with no alert, and Cancel closed it asking nothing. The address
+      typed into Safari's address bar: Safari asked to open the page in
+      "Blackmail", the iPad's handler for `mailto:`, and Open brought the
+      same composer, closed with Cancel and nothing kept.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the
@@ -2462,6 +2604,18 @@ this host. Ordered by value, not by size.
       nothing asked, the word typed lost with it, as on the simulator. An
       untouched Reply and Forward each closed with nothing asked, and
       Drafts had nothing new. Not yet: 9 and 10.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252), VoiceOver's Caption Panel read: 9 in the composer and 10
+      passed (B-069). The app being among VoiceOver's Direct Touch apps
+      here, a tap goes to the app, and VoiceOver goes to a field only as
+      the keyboard comes up for it; so each field was tapped on a fresh
+      letter, Cc/Bcc open: "To", "Cc", "Bcc" and "Subject", each a text
+      field; the body, reached by Return in Subject, "Message", a text
+      field. At the largest accessibility size and two stops above the
+      default the paperclip was as tall as "Attach Photo", and the whole
+      composer the same to the pixel as at the default, its type being
+      fixed (D-007). Left: 9 in the share sheet, which needs the app and
+      Safari taken off the Direct Touch apps and waits on a yes.*
 - [ ] **B-071, a file's preview and the text size.** Seen on the
       simulator only. On the iPad, with a letter open that has two files:
       1. *The highlights.* Tap a file, then Done: the letter's row and the
@@ -2483,6 +2637,21 @@ this host. Ordered by value, not by size.
       4. *The search field*, with VoiceOver on: "Search", a search field.
       *Seen 2026-10-05 on the test iPad (B-071): 1, and 3 without
       VoiceOver. Not yet: 2, VoiceOver in 3, and 4.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): 1 in two panes again, 2, and 3 without VoiceOver passed
+      (B-071). In two panes a PDF's preview and Done left the letter's row
+      highlighted, and "< Mailboxes" showed the Inbox highlighted. At the
+      largest accessibility size and two stops above the default nothing
+      moved against the default, compared to the pixel: the folders' icons
+      and names, the list and its chevrons, the calendar, the pane's
+      buttons, the two 44 pt file rows. In Edit the circles kept their size
+      and the rows' words stayed; the circles sat 12.5 pt lower at the
+      largest size, and about 1 pt lower two stops above. The name field
+      and the app password field, tapped with nothing typed: no "Passwords"
+      over either. Left: VoiceOver in 3, and 4, which need the app taken
+      off VoiceOver's Direct Touch apps and wait on a yes: with VoiceOver
+      on, a tap on Settings' name field brought the keyboard and left
+      VoiceOver where it was.*
 
 - [ ] **B-070, Send streams the letter from its files.** On the test
       iPad, the test account only, on a build of master, where it is merged.
@@ -2560,6 +2729,14 @@ this host. Ordered by value, not by size.
       the 18.7 MB video sent again unlocked, the 7.9 MB one fell the same
       2 MB, so 2 now names an unlocked send as its baseline. Still not: 9,
       not yet tried, and 10, which needs his iPad.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-092
+      (1233252): 9 passed (B-070). A plain letter, the signature taken out:
+      one text/plain part, its lines as typed,
+      `WIRE-PAYLOAD bytes=555 raw=550`; a reply to it went in one
+      conversation with it. A link from Safari shared with Airplane Mode
+      on, the reason shown, and sent once with Wi-Fi back, was seen the
+      same day as the share sheet's check 14, on a build of master with
+      B-090 and B-091 (cba64fa). Still not: 10, which needs his iPad.*
 - [x] **B-072, Refresh sends what waits in the Outbox.** On the test iPad,
       the test account only, every letter to the account itself, built
       from the `refresh-outbox` worktree; merge only after a pass. Copy
