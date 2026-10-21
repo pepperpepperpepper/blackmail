@@ -626,19 +626,17 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-21, a build of master with B-090 and
       B-091 (cba64fa), the taps recorded: every part but the first frame
       passed (B-041). The new header came in the frame the selection
-      moved, but for one or two frames, some 30 ms, it stood over the
-      previous letter's body, or over an empty pane for the first letter
+      moved, but for one frame, some 17 ms, it stood over the previous
+      letter's body, or for two over an empty pane for the first letter
       after a launch, before "Loading…" came: in 5 taps of 7, and at every
       first letter after a launch. The header is UIKit, and the web view
       paints "Loading…" a frame or two after it; seen and not changed. No
       white or blank frame came between "Loading…" and the letter. The
-      binned letter never showed again. The taps a third of a second
-      apart were three, not four, the Inbox's first screen having only
-      two single letters beside the large one: the first and the last
-      fetched, none between, the pane on the last. Reply did nothing while
-      "Loading…" showed, and the header kept its height as a letter with a
-      file landed. Left: that first frame, which needs a change to the
-      app.*
+      binned letter never showed again. The taps, some half a second
+      apart, were three, not four: the first and the last fetched, none
+      between, the pane on the last. Reply did nothing while "Loading…"
+      showed, and the header kept its height as a letter with a file
+      landed. Left: that first frame, which needs a change to the app.*
 - [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
@@ -846,13 +844,13 @@ this host. Ordered by value, not by size.
       letter with the signature's logo alone: no file row. A
       message/rfc822 part, made by sharing an `.eml` from Files: one row,
       the same before and after. A large PDF tapped, then the two-PDF
-      letter, twice: its rows grey after the download had ended, until it
-      landed. Left: a download of the second letter's own as the first
-      ends, which cannot be made: the app's one connection fetches in
-      turn, so the second letter lands, and its rows can be tapped, only
-      once the first download is over. Seen in passing: each time the
-      first letter's file then opened in Quick Look over the second
-      letter.*
+      letter, and again with a large photo: its rows grey after the
+      download had ended, until it landed. Left: a download of the
+      second letter's own as the first ends, which cannot be made: the
+      app's one connection fetches in turn, so the second letter lands,
+      and its rows can be tapped, only once the first download is over.
+      Seen in passing: each time the first letter's file then opened in
+      Quick Look over the second letter.*
 - [x] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
       this iPad only" opens at once, with no spinner. Tap a draft: its row
       stays highlighted with a spinner in the left gutter, the text beside
@@ -1317,7 +1315,8 @@ this host. Ordered by value, not by size.
       B-091 (cba64fa), a screen recording: the first frame timed, the kept
       rows and counts 167 ms after the first frame of the launch's zoom,
       and the screen settled at 300 ms, under the 500 ms asked (B-053).
-      Left: the password saved again, as above.*
+      Left: a flag from the pane before the fresh page lands, not yet
+      caught, and the password saved again, as above.*
 - [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
       two confirmations, a wrong password refused with the old one kept,
       and the refusal shown under the password field (B-056). Still to see,
@@ -2441,20 +2440,20 @@ this host. Ordered by value, not by size.
       3 and 4's Reply and Forward passed (B-069). Ten lines in the share
       sheet from Safari, and eight under four photos from Photos: the
       fields went up, the photos' rows with them, and the caret's line
-      stayed just above the keyboard; swiped back down with the keyboard
-      up, the fields came back, and the next key brought the caret into
-      sight. The same in landscape on a Forward with six files and on a
-      new letter with Cc/Bcc open. A long newsletter forwarded: the sheet
-      began to show 0.67 s after the tap on Forward and was in place at
-      1.06 s, 0.1 s behind a short letter's, the rest being UIKit's menu
-      fading and its sheet sliding, with no pause of the app's own; typed
-      at the top, the keys kept up. Swiped down, a letter with a word
-      asked Save Draft or Delete Draft, one untouched closed, and the share
-      sheet with a word asked Delete Draft. A tap outside the share sheet,
-      on Safari's dimmed page, closed it at once with nothing asked, the
-      word typed lost with it, as on the simulator. An untouched Reply and
-      Forward each closed with nothing asked, and Drafts had nothing new.
-      Not yet: 9 and 10.*
+      stayed just above the keyboard; from Safari, swiped back down with
+      the keyboard up, the fields came back, and the next key brought the
+      caret into sight. The same in landscape on a Forward with six files
+      and on a new letter with Cc/Bcc open. A long newsletter forwarded:
+      the sheet began to show 0.67 s after the tap on Forward and was in
+      place at 1.06 s, 0.1 s behind a short letter's, the rest being
+      UIKit's menu fading and its sheet sliding, with no pause of the
+      app's own; typed at the top, the keys kept up. Swiped down, a letter
+      with a word asked Save Draft or Delete Draft, one untouched closed,
+      and the share sheet with a word asked Delete Draft. A tap outside
+      the share sheet, on Safari's dimmed page, closed it at once with
+      nothing asked, the word typed lost with it, as on the simulator. An
+      untouched Reply and Forward each closed with nothing asked, and
+      Drafts had nothing new. Not yet: 9 and 10.*
 - [ ] **B-071, a file's preview and the text size.** Seen on the
       simulator only. On the iPad, with a letter open that has two files:
       1. *The highlights.* Tap a file, then Done: the letter's row and the
@@ -3447,7 +3446,7 @@ this host. Ordered by value, not by size.
       scripted server, whose hollow answer is the iPad's (B-092).*
       *Seen on the test iPad 2026-10-21, a build of master with B-092
       (1233252): each Delete and Move was its one `UID MOVE`, answered
-      `OK [COPYUID …]` with no 0, and nothing after it (B-092). The
+      `OK [COPYUID …]` with no 0, and no check after it (B-092). The
       letters went from the Inbox: one deleted in the pane, one moved to
       All Mail from the pane's Move sheet, one deleted in Edit mode, and
       the moved one sent from All Mail back to the Inbox, its row

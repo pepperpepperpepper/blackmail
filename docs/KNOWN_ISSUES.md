@@ -3059,8 +3059,8 @@ Every part of the TODO check passed but the first frame:
 
 - *The first frame at the tap.* The new letter's header, sender, subject
   and date, came in the frame the selection moved, but under it, for one
-  frame or two, some 30 ms, was the previous letter's body, moved down
-  with the new header, or an empty pane for the first letter after a
+  frame, some 17 ms, was the previous letter's body, moved down with the
+  new header, or for two an empty pane for the first letter after a
   launch; "Loading…" came after. So it was in 5 taps of 7, and at every
   first letter after a launch. The header is UIKit and goes out with the
   selection; "Loading…" is a page the web view paints in WebKit's own
@@ -3070,11 +3070,10 @@ Every part of the TODO check passed but the first frame:
 - *Delete, then the next:* the pane empty at 0.14 s and the row gone at
   0.27 s; then the next letter's header with "Loading…". The binned
   letter was in no frame after the tap.
-- *Taps a third of a second apart*, the large letter first, fetched whole
+- *Taps some half a second apart*, the large letter first, fetched whole
   as one of 5 MB or less: its `BODY.PEEK[]` and the last one's, nothing
-  for the one between, and the pane on the last. Three taps, not four,
-  the Inbox's first screen having only two single letters beside it. The
-  large letter, unread, had its `\Seen` STORE first.
+  for the one between, and the pane on the last. Three taps, not four.
+  The large letter, unread, had its `\Seen` STORE first.
 - *Reply 0.15 s after the tap* did nothing through the 1.4 s of
   "Loading…"; once the letter was drawn, Reply put up Reply, Reply All
   and Forward.
@@ -5837,7 +5836,8 @@ at 217 ms, and the screen was settled at 300 ms, where the design asks
 under 500 ms. The connection's greeting came some 0.8 s later, so the
 rows were the kept ones. Before them, for about 130 ms, the system's
 launch screen, white, the app's `UILaunchScreen` being an empty dict and
-its style Light. The password saved again was not tried.
+its style Light. A flag before the fresh page lands was still not
+caught, and the password saved again was not tried.
 
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
@@ -6544,14 +6544,14 @@ with B-090 and B-091 (cba64fa), on the test account, whose signature is
 thirteen lines with a formatted twin and a logo. "Send my signature as
 plain text instead" asked "Send Signature as Plain Text?", and Cancel
 left the button and its hint as they were. Use Plain Text and Save took
-the twin off. After a trip to the Home Screen, so that the share
-extension's last copy was the plain one, Restore Original Signature,
-Restore and Save put back the thirteen lines, the twin and the logo,
-each byte for byte as found. Then, without leaving the app, a letter's
-PDF shared from its preview to Blackmail, offered there, went with the
-logo, byte for byte, and the formatted signature, byte for byte that of
-a letter sent before the changes: the extension had the restored
-pictures from the save. The box emptied and saved asked
+the twin off. After a few seconds in Safari, the app in the background,
+so that the share extension's last copy was the plain one, Restore
+Original Signature, Restore and Save put back the thirteen lines, the
+twin and the logo, each byte for byte as found. Then, without leaving
+the app, a letter's PDF shared from its preview to Blackmail, offered
+there, went with the logo, byte for byte, and the formatted signature,
+byte for byte that of a letter sent before the changes: the extension
+had the restored pictures from the save. The box emptied and saved asked
 "Remove Signature?", "Nothing will be added to the bottom of your
 messages."; Cancel, then Settings' Cancel, and the thirteen lines were
 there again.
