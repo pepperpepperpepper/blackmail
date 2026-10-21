@@ -279,8 +279,10 @@ final class ComposeActions {
     /// `letter` is asked for the draft once every photo chosen before the
     /// tap is in it, as for Send. Returns nil, and does nothing, once a
     /// letter is on its way or the sheet has been put away: from the Cancel
-    /// sheet, still open when Send was tapped, it closed the sheet under the
-    /// letter, and a failure then had nowhere to be said.
+    /// sheet, had it still been open when Send went, it would close the
+    /// sheet under the letter, and a failure would then have nowhere to be
+    /// said. On the iPad that sheet's popover takes a tap on Send and only
+    /// closes (B-044), so this is the guard, not a path seen.
     ///
     /// The letter is kept on the iPad as it stands at the tap, before the
     /// sheet goes, and `saveDraft` keeps it again once any photos are in it

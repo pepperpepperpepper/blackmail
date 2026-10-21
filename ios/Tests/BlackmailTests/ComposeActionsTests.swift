@@ -372,11 +372,12 @@ final class ComposeActionsTests: XCTestCase {
     // MARK: - One of the three, once
 
     /// Save Draft and Delete Draft while the letter is on its way do
-    /// nothing. The Cancel sheet they are on can still be open when Send is
-    /// tapped, and either closed the sheet under the letter: a failure then
-    /// had nowhere to be said, and Delete Draft left the letter neither
-    /// sent nor kept. After a failure they work again; after the letter has
-    /// gone, nothing does.
+    /// nothing. Were the Cancel sheet they are on still open as Send went
+    /// (on the iPad its popover takes a tap on Send and only closes,
+    /// B-044), either would close the sheet under the letter: a failure
+    /// would have nowhere to be said, and Delete Draft would leave the
+    /// letter neither sent nor kept. After a failure they work again; after
+    /// the letter has gone, nothing does.
     func testSaveDraftAndDeleteDraftDoNothingWhileTheLetterIsOnItsWay() async throws {
         holdSend = Held()
         var actions = makeActions()
