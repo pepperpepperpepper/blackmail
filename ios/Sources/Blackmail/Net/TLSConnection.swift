@@ -47,7 +47,7 @@ actor TLSConnection: LinkTransport {
 
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "wtf.uhoh.blackmail.net")
-    var stream = LinkStream()
+    var stream: LinkStream
 
     /// Bounds every individual step: the connect with its TLS handshake, each
     /// read, and each piece of a write. A mail server that accepts the TCP
@@ -91,6 +91,8 @@ actor TLSConnection: LinkTransport {
         self.ordinaryDeadline = timeout
         self.uploadReplyDeadline = uploadReplyTimeout
         self.serverWorkDeadline = serverWorkTimeout
+        // Named by its port in the log's `LINK` lines (B-091).
+        self.stream = LinkStream(port: port)
         // Implicit TLS (IMAPS 993, SMTPS 465) rather than STARTTLS. One fewer
         // state to get wrong, and no window in which credentials could be sent
         // over a plaintext socket because an upgrade silently failed.
@@ -141,6 +143,9 @@ actor TLSConnection: LinkTransport {
         connection.stateUpdateHandler = { state in
             switch state {
             case .ready:
+                // Up, and a path from now on until the system says
+                // otherwise: the report says so (`LinkTransport.connect`),
+                // on this queue, before any word said after it.
                 report(nil)
             case .failed(let error):
                 report(Self.map(error))
@@ -155,6 +160,14 @@ actor TLSConnection: LinkTransport {
                 break
             }
         }
+        // B-091. Once the connection is up, every later state is the
+        // report's to ignore, and nothing else says the network has gone:
+        // with Airplane Mode on, the connection stayed ready for 19 s on the
+        // test iPad while a STORE written onto it went nowhere. Viability is
+        // the system saying so at once, on the same queue as the states, so
+        // in order with them. `IMAPClient` then writes nothing onto it.
+        let viability = stream.viability
+        connection.viabilityUpdateHandler = { viability.said($0) }
         connection.start(queue: queue)
     }
 
@@ -184,9 +197,10 @@ actor TLSConnection: LinkTransport {
 
     /// `cancel()` completes a pending receive or send with an error, and a
     /// pending connect is settled by `close()` itself, so the state handler
-    /// has nothing left to do.
+    /// has nothing left to do, nor the viability handler.
     func closeLink() {
         connection.stateUpdateHandler = nil
+        connection.viabilityUpdateHandler = nil
         connection.cancel()
     }
 

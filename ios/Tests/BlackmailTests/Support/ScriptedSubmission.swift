@@ -403,4 +403,8 @@ actor ScriptedSubmission: MailTransport {
     func startTimingQuiet(on clock: @escaping @Sendable () -> Date) {}
 
     var longestQuiet: TimeInterval { 0 }
+
+    /// Never asked: `SMTPClient` writes each line of its one letter's
+    /// session as it comes (B-091).
+    var pathIsGone: Bool { false }
 }

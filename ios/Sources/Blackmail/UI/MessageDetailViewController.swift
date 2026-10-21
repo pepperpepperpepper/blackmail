@@ -560,18 +560,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // take that away.
         //
         // At the tap that opens it, the way a tap on a row marks its letter,
-        // and by the list, which clears the dot, sends the STORE and takes
-        // the one off the folder counts, once (`ReadBilling`). This used to
-        // send the STORE from here once the body had come, and then reload
-        // the whole list and sweep every folder's count to show it.
+        // and by the list: the dot goes at the tap and the STORE with it,
+        // and the one comes off the folder counts once the server has taken
+        // the flag, once (`ReadBilling`, `sendRead`), so a refused STORE
+        // never leaves a count too low. This used to send the STORE from
+        // here once the body had come, and then reload the whole list and
+        // sweep every folder's count to show it.
         //
         markOpened(id)
     }
 
     /// Marks one letter of the stack read, through the list, which clears
-    /// the dot, sends the STORE and takes the one off the folder counts,
-    /// once (`ReadBilling`): a letter he opened by its line. The ones the
-    /// stack opens with the newest the list marks at the tap.
+    /// the dot at once, sends the STORE and, when the server has taken the
+    /// flag, takes the one off the folder counts, once (`ReadBilling`): a
+    /// letter he opened by its line. The ones the stack opens with the
+    /// newest the list marks at the tap.
     ///
     /// Read back, mutated, written back, rather than
     /// `threadSummaries[id]?.isRead = true`. The optional-chained

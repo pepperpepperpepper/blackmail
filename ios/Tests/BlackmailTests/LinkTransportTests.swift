@@ -369,7 +369,7 @@ private final class Progress: @unchecked Sendable {
 /// A link with nothing above it but `LinkTransport`: it comes up at once,
 /// takes every piece at once, and never has anything to say.
 private actor BareLink: LinkTransport {
-    var stream = LinkStream()
+    var stream = LinkStream(port: 993)
     let ordinaryDeadline: TimeInterval = 5
     let uploadReplyDeadline: TimeInterval = 5
     private(set) var taken = 0
@@ -383,7 +383,7 @@ private actor BareLink: LinkTransport {
 /// A bare link that maps every error its sends meet, as `TLSConnection`
 /// maps `NWError`: what it must never do to a letter's own failure.
 private actor MappingLink: LinkTransport {
-    var stream = LinkStream()
+    var stream = LinkStream(port: 993)
     let ordinaryDeadline: TimeInterval = 5
     let uploadReplyDeadline: TimeInterval = 5
 

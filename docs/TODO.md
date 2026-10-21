@@ -589,7 +589,11 @@ this host. Ordered by value, not by size.
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
       moves or blanks, and the connection log shows `UID MOVE` and after it
-      only the watch's check every 30 s. Delete stays grey until it lands.
+      only the watch's check every 30 s: a NOOP, and after the first NOOP
+      following the MOVE one `UID SEARCH UID n:*` with
+      `NEWS folder=INBOX arrived=0 gone=N` (the MOVE's own EXPUNGE is news
+      to the watch), then NOOPs alone; no summary FETCH, LIST, STATUS or
+      page FETCH. Delete stays grey until it lands.
       Mark a letter unread in Edit mode (opening it marks it read) and
       Delete it from the pane: its counts drop when the MOVE lands, and the
       log shows one LIST and a STATUS per folder after the MOVE; Trash's
@@ -610,14 +614,18 @@ this host. Ordered by value, not by size.
       ticks stay, and no other row is ticked.
       Flag, and the row's flag appears at once; flag with Wi-Fi turned off,
       within a minute and a half of the last thing he did: the flag goes
-      back and "Can't connect" is said (at once, or after the 30 s read
-      deadline if the socket is left half open). In a conversation, open
+      back and "Can't connect" is said (at once: nothing is written onto a
+      connection the iPad says has no network, B-091; only a command
+      already on the wire as the network went waits, for the stack to drop
+      the connection or the 30 s read deadline, as on a socket left half
+      open). In a conversation, open
       an unread letter that arrived while the stack was open and was then
       closed by its line (since B-074 every unread letter opens with the
-      stack): the dot and one count go, and the list
-      does not reload. The host suite checks the rules; the table view's
-      reaction to them, row removal, highlight and empty state, is only
-      visible here.
+      stack): the dot goes at the tap, and one count when its STORE is
+      answered (a fraction of a second later, never before, so a refused
+      STORE cannot leave the count too low), and the list does not reload.
+      The host suite checks the rules; the table view's reaction to them,
+      row removal, highlight and empty state, is only visible here.
 - [ ] **B-041, coming back.** With the Inbox showing, scrolled down, a
       letter open and Edit on, leave the app for more than fifteen minutes
       (or shorten `Sitting.awayBeforeReturningToInbox` for the test, as
@@ -2926,6 +2934,51 @@ this host. Ordered by value, not by size.
       under that name at the size it was taken, as in the share sheet's
       check 1.
       5. *Put back.* The B-090 letters to Trash.
+
+- [ ] **B-091, Flag with Airplane Mode on.** On the test iPad, the test
+      account only, built from the `no-path` worktree. A stands for the
+      account's address; letters only to A with `+b091` before the @,
+      subjects beginning "B-091". Airplane Mode from Control Centre; if it
+      leaves Wi-Fi on, turn Wi-Fi off too. Times from the iPad's clock.
+      1. *Two letters.* A new letter To A with `+b091`, Subject "B-091
+      one", Send; another, Subject "B-091 two", Send. Refresh: both in
+      the Inbox.
+      2. *Flag, the connection open.* Open "B-091 one" in the reading
+      pane, and within a minute Airplane Mode on. Five seconds later, Flag
+      in the pane, and straight after it tap "B-091 two". Within about a
+      second: the flag off again (it may never show at all), one "Can't
+      connect to mail server.", and the pane saying "B-091 two" could not
+      be downloaded, with no "Loading…" waiting. On the build before, the
+      flag stayed 19 s. OK.
+      3. *A letter, the connection open.* Airplane Mode off, and wait for
+      the connection to come back (the watch's LOGIN in the log, within
+      half a minute). Open "B-091 one", and within a minute Airplane Mode
+      on again. Five seconds later tap "B-091 two": at once, the pane
+      says it could not be downloaded.
+      4. *Back.* Airplane Mode off. Open "B-091 one", Flag in the pane:
+      the flag stays, and after a Refresh too. Flag again: off.
+      5. *The log.* Settings, the connection log. Only `LINK port=993`
+      lines are the mail's connection; `port=465` is a Send's. For 2,
+      `LINK port=993 viable=false` within a second or two of Airplane
+      Mode going on, then at the Flag `NO-PATH UID STORE nothing-sent`,
+      and nothing written, no `UID STORE` and no `UID FETCH`, until the
+      LOGIN after Airplane Mode went off. For 3, `LINK port=993
+      viable=false`, then `NO-PATH UID FETCH not-sent`. Either may have
+      `NO-PATH NOOP not-sent` in its place, if the watch's check came
+      first: then the tap found no connection, and was refused at once
+      all the same. For 4, one LOGIN, then one `UID STORE …
+      +FLAGS.SILENT (\Flagged)` and one `-FLAGS.SILENT`, each once and
+      each answered OK. If the watch's NOOP was written just before `LINK
+      port=993 viable=false`, the Flag waits behind it as before (B-091,
+      Not covered): do 2 again. If there is no `LINK port=993
+      viable=false` at all, iPadOS did not say the network had gone and
+      the fix does nothing on this iPad: note how long 2 took, and stop
+      there.
+      6. *Put back.* Edit, tick the B-091 letters, Delete. Airplane Mode
+      off, Wi-Fi on.
+      *Not tried on the simulator: the host tests run it over the
+      scripted server, its no-path model standing in for the iPad's
+      (B-091).*
 
 ## Blocked on the owner
 

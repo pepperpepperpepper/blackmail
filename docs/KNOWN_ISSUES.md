@@ -486,7 +486,10 @@ half-open socket can stall the probe for the read timeout, and a command
 whose reply is lost in flight remains ambiguous. (Since B-049, a write
 whose turn at the connection comes after the command ahead of it has torn
 the connection down, with not a byte of the write sent, goes once on a new
-connection; one that went out is still never sent again.) The residue is small and
+connection; one that went out is still never sent again. Since B-091,
+nothing is written onto a connection the iPad has said has no network,
+Airplane Mode or Wi-Fi off: the write is not sent, and goes once on a new
+connection or fails at once.) The residue is small and
 bounded: the flags are idempotent; a UID is never reused within a
 UIDVALIDITY, so a repeated MOVE or EXPUNGE either does the same thing or
 fails to find the message; and APPEND, the one genuinely duplicable
@@ -2809,7 +2812,8 @@ on screen for most of a second. Now:
   letter's Inbox row under the search as well, so cancelling the search
   shows it. If the server refuses, the flag goes back and he is told; it
   used to stay on screen with nothing said, although Gmail did not have
-  it. A second tap on Flag for the same letter while the first is on its
+  it. With no network the refusal is at once, even on a connection still
+  open as Airplane Mode goes on (B-091). A second tap on Flag for the same letter while the first is on its
   way is ignored as a double tap; Flag on another letter he has opened
   meanwhile goes as usual.
 - Opening an unread letter inside a conversation marks it read at the
@@ -4244,7 +4248,12 @@ exchange gate, one command in a hold of its own:
   letters' summaries alone; each new letter's preview as the list draws
   it, within the usual 2 KB and 8 KB; and one sweep of the counts, merged
   with any other (`SweepCoalescer`). No SEARCH ALL, and no page fetched
-  again.
+  again. A Delete or Move of his own counts as something that left: its
+  EXPUNGE rides on the MOVE's answer, so the first check after it sends
+  the SEARCH, finds the letter gone (already off the list,
+  `RemovedLetters`) and nothing follows. Kept on purpose: an arrival or a
+  removal elsewhere can ride on the same answer, and the session is told
+  of it only once.
 - The Inbox not open on the connection, after another folder's work: its
   SELECT in place of the NOOP, and the SEARCH after it, since a SELECT is a
   view nobody has searched.
@@ -9696,8 +9705,8 @@ it, and the review changed nothing they show.
 - *Three letters, the two replies unread.* The first letter's line at the
   top of the pane, the first reply open under it, the newest open under
   that. The row lost its dot and the Inbox two from its count at the tap,
-  14 to 12 (b074fx-03). Nothing in the pane moved in the seconds after
-  (b074fx-04).
+  14 to 12 (b074fx-03; the count as the two STOREs were answered, before
+  that shot). Nothing in the pane moved in the seconds after (b074fx-04).
 - *Opened again, all read.* The first reply's line at the top of the pane,
   the first letter's line above it and out of sight, the newest open under
   it, black below it (b074fx-05). That line tapped: it opened under its
@@ -14834,3 +14843,231 @@ in it.
 - An object not upright goes with an orientation tag, its pixels as they
   are, and fewer mail programs read a PNG's tag than a JPEG's. A picture of
   the screen is upright.
+
+---
+
+## B-091 — FIXED 2026-10-20, found on the iPad, not yet seen there fixed. With Airplane Mode on, Flag in the reading pane went back with "Can't connect to mail server." only some 19 s later, and a letter tapped meanwhile said "Loading…" as long
+
+**What he saw.** Seen on the test iPad on 2026-10-20, during the reading
+pane's B-041 check ("Flag with Wi-Fi turned off"), with Airplane Mode in
+place of Wi-Fi, twice. A letter open in the reading pane, its FETCH
+answered 10 and 24 s before. Airplane Mode on, from Control
+Centre, and four seconds later Flag in the pane, then a tap on another
+row: the flag came on at the tap, and the pane said "Loading…" for the
+other letter. Then nothing. Timed the second time: 19 s, and then in the
+same frame the flag went back, one "Can't connect to mail server." came
+up, and the pane said the letter could not be downloaded. The first time
+it was somewhere between 11 and 38 s, with no frames taken between. In
+an earlier run that was stopped, the Flag waited behind the watch's
+NOOP, already written onto the cut connection, and came back after 41 to
+43 s. A Flag made after that, with the connection gone, was refused
+within a fifth of a second, the flag never drawn. Gmail had neither
+letter flagged afterwards, so the screen ended as the server had it.
+
+Not by design. Nothing is kept to go when the network is back (D-016): a
+refused Flag goes back and he is told (B-041). But TODO's check has that
+with Wi-Fi off at once, or after the 30 s read deadline on a socket left
+half open, and Airplane Mode is neither: the iPad knew the network had
+gone.
+
+**What it was.** The STORE was written onto the connection already open,
+`UID STORE 324 +FLAGS.SILENT (\Flagged)`, with no probe in front of it,
+the connection having been used within ninety seconds (B-024), and
+nothing answered. No DEADLINE line came: the stack gave the connection
+up first, at about 19 s. The letter's FETCH waited behind the STORE at
+the client's gate and failed with it.
+
+Nothing told the client the network had gone. Once a connection is up,
+`TLSConnection` hands every later state to the connect's report, which
+takes only the first (`LinkOpening`), and nothing listened to the
+connection's viability, which is how `NWConnection` says a connection
+that is up has no path. So the client went on writing onto it, and each
+command waited for the stack, or for its deadline. B-024's probe would
+not have helped had it gone: its NOOP would have been written onto the
+same connection and waited the same.
+
+**Changed.**
+
+- The device's link listens: `TLSConnection` sets `NWConnection`'s
+  `viabilityUpdateHandler` before the connection starts, on the queue the
+  states come on, and hands what it says to the transport's
+  `LinkViability` (`LinkTransport.swift`). It is heard only while the
+  link is up: from the connect's report that it is, on the link's own
+  queue and before the connect is settled, to `close()`. Up is a path,
+  so the LOGIN after it is never refused for a word said while it was
+  being made, and nothing a link says once it has been let go of is kept.
+  The handler is let go of with the connection. Each change while the
+  link is up is one line in the connection log, naming the link by its
+  port, never an address: `LINK port=993 viable=false` or `LINK port=993
+  viable=true` for the mail's connection, `port=465` for a Send's, which
+  listens too and is never asked. None comes from a try to connect, nor
+  from a link already closed.
+- `MailTransport.pathIsGone`: the system has said there is no path, and
+  not that it is back.
+- `IMAPClient` writes no command onto a connection whose path is gone.
+  Each command is asked about before it is written (`performCommand`):
+  with no path the connection is let go of, the command is not written,
+  `NO-PATH UID FETCH not-sent` goes in the log, and it fails as a dropped
+  connection does. So a read goes once more, on a new connection, which
+  with no network fails at once, a new connection's `.waiting` being a
+  failure (`TLSConnection`). The probe in front of a write, the watch's
+  NOOP and the LOGOUT go the same way.
+- A write is asked about first, at its turn at the gate and before its
+  SELECT (`throwUnsentIfDisconnected`): the connection let go of the same
+  way, `NO-PATH UID STORE nothing-sent` (`UID MOVE`, `UID EXPUNGE`,
+  `APPEND`), and the write turned away as `Unsent`, not a byte of it
+  written. So it goes once, on a new connection, if there is a network
+  for one, and with none it fails at once (`sendingOnce`, B-049). Written
+  onto the cut connection, it could never have been sent again, since
+  nothing could say it had not gone.
+- A command kept off the link inside a write, once the write has begun,
+  is a plain failure, never `Unsent`, and its line is the command's own,
+  `not-sent`: the EXPUNGE of a Delete in the Trash whose `\Deleted` STORE
+  went and was answered as the path went is `NO-PATH UID EXPUNGE
+  not-sent`, and the Delete fails and is not sent again, the letter left
+  marked for the next Delete. Sent again on a new connection the STORE
+  would have gone twice, and through `move`'s fallback, on a server
+  without MOVE, the COPY twice: on a server other than Gmail, a second
+  letter in the Trash. So `nothing-sent` says nothing of the write went,
+  and `not-sent` that this one command was kept back, perhaps after
+  another of the same write.
+
+**Not changed.**
+
+- A command already written is not asked about. Its answer is read when
+  it comes, and if the path went with it on the wire it waits as before,
+  for the stack or its deadline, with whatever he taps meanwhile waiting
+  behind it at the gate. Closing the connection the moment the path goes
+  would end that wait too, and was not done: at every brief drop it would
+  cut off a command with its answer on the way, and a write cut off can
+  never be sent again.
+- Nothing is kept to go later (D-016). A Flag, Delete or Move refused
+  goes back and he is told, as before, only at once.
+- A good path: the question is one more hop to the transport for each
+  command, and nothing else. A path lost and found again on the same
+  connection, with nothing written meanwhile, leaves the connection in
+  use.
+- **Sending, checked: not the same defect, not changed.** `SMTPClient`
+  makes a connection for each letter and ends it with the letter, so a
+  Send never writes onto a connection made earlier, which is where this
+  came from. With Airplane Mode on, a Send's connect goes `.waiting` and
+  fails at once, and the letter waits in the Outbox at once
+  (`Outbox.waits(after:)`). A Send waits only if the path goes during the
+  letter's own few seconds, mostly its upload, which is on the wire.
+  Asking before each line would gain at most the seconds between two of
+  them, and a wrong word of no path would put in the Outbox a letter that
+  would have gone.
+
+**What he sees.** With Airplane Mode on or Wi-Fi off and the connection
+still open, Flag in the pane: the flag comes off again and "Can't connect
+to mail server." is up within a fraction of a second, so quickly that the
+flag may never be drawn. A letter tapped says at once that it could not
+be downloaded. A Delete or a Move: the row back and the alert, at once.
+With the network back, the next Flag goes once. No new words.
+
+**Tests.** `NoPathTests`, fourteen, over the shipping repository and
+client and the scripted server, whose `hasNoPath` is Airplane Mode: each
+open link told it has no path, as the device's viability tells it, bytes
+written onto such a link going nowhere and never answered, and a new
+connection failing at once. `losePathOfOpenLinks` cuts the open links
+alone, a new connection made as usual. The deadline is five seconds, and
+each call is given one.
+
+- *Refused at once, nothing written:* a Flag with the path gone, within
+  half a second, the flag not set, `LINK port=993 viable=false` and
+  `NO-PATH UID STORE nothing-sent` in the log, and one new connection
+  tried and not made;
+  the same after ninety seconds of quiet, its probe kept off the link; a
+  letter opened, `NO-PATH UID FETCH not-sent`; a Flag and a letter tapped
+  behind it, as on the iPad, both; and the watch's check, its NOOP kept
+  off the link.
+- *Once:* the open link with no path and a network for a new one, a
+  Delete goes once on the new connection, LOGIN, SELECT and UID MOVE, and
+  nothing on the old; the path gone, a Flag refused, and with the path
+  back the next Flag connects and goes once, one STORE in all.
+- *A write that went in part:* a Delete in the Trash whose STORE was
+  answered as the path went: the EXPUNGE kept off the link, `NO-PATH UID
+  EXPUNGE not-sent`, the Delete failed, one STORE in all and no new
+  connection, the letter in the Trash still, marked; and a Delete on a
+  server without MOVE whose COPY was answered as the path went: the STORE
+  kept off, one COPY in all, the letter in the Inbox still, unmarked.
+- *Left alone:* a STORE already written as the path goes is answered and
+  lands, once, and only the letter tapped behind it is kept off the link,
+  and opens on a new connection.
+- *A good path:* a Flag, a letter and a Delete, each its one command on
+  the connection open, nothing in the log about the path; a path lost and
+  found on the same link leaves it in use, with no reconnect.
+- *The link:* a line for each change, naming the link by its port, none
+  for a word that changes nothing, and a link never told anything has a
+  path. It hears only while it is up: a word of no path said while it is
+  being made is not kept, and the link comes up with a path; one said
+  after its close is neither kept nor logged; and a link closed before
+  its connect said it was up never hears.
+- *The device's half,* read from `TLSConnection`'s source, which does
+  not build on the host: the handler set before the start, `.ready` the
+  report and nothing else, the link named by its port, the handler let go
+  of before the cancel.
+
+The scripted server's link has the model above, and the scripted
+submission server says it always has a path.
+
+Against the code as it was, `pathIsGone` false whatever the link is
+told: 9 of the 11 failed, 41 failures. The two that passed hold what was
+right already, a good path, and the device's half, which the next ones
+undo. Each part undone in the worktree, one at a time, the eleven run,
+counted as failures in tests: the command's question left out of
+`performCommand`, 19 in 4; the write's left out, 3 in 3, the write
+refused and never tried on a new connection; an answer read after the
+path went thrown away, or a read cut off once it had, the rejected way,
+1 in 1 each, the command left alone; no path never coming back, 6 in 2;
+in the source, the handler not set, 3 in 1, up not told, 2 in 1, the
+handler kept at the close, 2 in 1.
+
+The three tests added since, with the changes to the log's lines, each
+undone the same way, the fourteen run: the command's refusal thrown as
+`Unsent`, 11 in the two writes that went in part, each sent again on a
+second connection, LOGIN, SELECT, then STORE and EXPUNGE, or COPY, STORE
+and EXPUNGE, and each reported done; the write's line back to
+`not-sent`, 3 in 3; the link not named, 13 in 13; a word heard while the
+link is being made, 4 in 1; after its close, 2 in 1; `close()` not
+telling the link, 2 in 1; the connect's report not telling it it is up,
+54 in 8, every command written onto the cut link and waiting there; a
+link closed before it came up hearing all the same, 2 in 1; in the
+source, the link named port 0, 1 in 1, and `.ready` telling the link as
+well, 2 in 1.
+
+The full suite, serially: 1,778 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad: whether iPadOS 16.5 says a connection has no
+  path, and at once, when Airplane Mode goes on or Wi-Fi goes off. If it
+  does not, nothing changes there: no `LINK port=993 viable=false` line,
+  and the wait as before. TODO's B-091 check.
+- A command already on the wire as the network goes still waits for the
+  stack or its deadline, and what he taps meanwhile behind it: the
+  stopped run's 41 to 43 s behind the watch's NOOP. See Not changed.
+- A word of no path while the network is in fact fine costs the next
+  command a new connection, a LOGIN and a SELECT; a write then goes on it,
+  once, and a read is answered there.
+- A real drop of a second or two, a Wi-Fi reassociation or a moment's
+  roam, behaves differently now. A command he makes in it used to be
+  written, and could ride the drop out on TCP's retransmissions, its
+  answer coming a moment late; now it is refused at once, "Can't connect
+  to mail server.", since the one new connection it is allowed goes
+  `.waiting` while the network is down, and that is a failure. Not seen
+  on the iPad. If it is, the way to do better is a short wait at the
+  gate, a second or two at most, for the path to come back before the
+  connection is let go of; Airplane Mode's refusal would still come far
+  inside the old 19 s.
+- The path gone during a write's SELECT, or after it and before the
+  write's first command: the write is kept off the link, as a plain
+  failure, and is not tried on a new connection, though nothing of it was
+  written. Kept so on purpose: the command's refusal cannot tell a write's
+  first command from its second, which may follow one that went (see
+  Changed), and `Unsent` there sends that one twice. `NoPathTests` holds
+  it.
+- Mail on the iPad keeps a change made offline and sends it later, as far
+  as is known without trying it here. D-016 keeps no such queue, so the
+  Flag is refused, at once now, where Mail would keep it.

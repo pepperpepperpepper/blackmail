@@ -40,6 +40,12 @@ protocol LinkTransport: MailTransport {
     /// with the error once it has failed. `report` may be called any number
     /// of times, from any thread, or never: only the first call counts, and
     /// `close()` settles a connect that has not reported.
+    ///
+    /// From then until `closeLink()`, a link that hears from the system
+    /// whether it has a path tells `stream.viability`, from any thread
+    /// (B-091), and in order with its report: what the system says after
+    /// the link is up is told after `report(nil)`, as `NWConnection`'s
+    /// viability and states come on one queue.
     func startLink(reporting report: @escaping @Sendable (Error?) -> Void)
 
     /// The next bytes to arrive, at least one.
@@ -69,6 +75,20 @@ struct LinkStream {
     /// been asked, and the longest wait since.
     fileprivate var quietClock: (@Sendable () -> Date)?
     fileprivate(set) var longestQuiet: TimeInterval = 0
+    /// What the system says of the link's path (`pathIsGone`, B-091). The
+    /// conformer hands it to its link, which tells it from the link's own
+    /// thread; the connect's report and `close()` say when it is heard
+    /// (`LinkViability`), and nothing else changes it.
+    let viability: LinkViability
+
+    /// For a link made to `port`, which its lines in the log name.
+    init(port: UInt16) {
+        self.init(viability: LinkViability(port: port))
+    }
+
+    init(viability: LinkViability) {
+        self.viability = viability
+    }
 }
 
 extension LinkTransport {
@@ -76,6 +96,10 @@ extension LinkTransport {
     static func transportError(_ sendError: Error) -> Error { sendError }
 
     var serverWorkDeadline: TimeInterval { 3 * ordinaryDeadline }
+
+    /// The system has said this link has no path, and not that it is back
+    /// (`LinkViability`).
+    var pathIsGone: Bool { !stream.viability.isViable }
 
     // MARK: - Lifecycle
 
@@ -109,9 +133,18 @@ extension LinkTransport {
     }
 
     private func connect(_ opening: LinkOpening) async throws {
+        let viability = stream.viability
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             guard opening.wait(c) else { return }
-            startLink(reporting: { opening.settle($0) })
+            startLink(reporting: { error in
+                // Up is a path, whatever was said while it was being made,
+                // and from now on what the system says is heard (B-091).
+                // Before the connect is settled, so the LOGIN after it is
+                // never refused for a word from before; on the link's own
+                // thread, so in order with what it says.
+                if error == nil { viability.linkIsUp() }
+                opening.settle(error)
+            })
         }
     }
 
@@ -131,6 +164,7 @@ extension LinkTransport {
         stream.opening = nil
         stream.isOpen = false
         stream.buffer = ReadBuffer()
+        stream.viability.linkIsClosed()
         closeLink()
     }
 
@@ -324,5 +358,79 @@ final class LinkOpening: @unchecked Sendable {
         waiting = nil
         lock.unlock()
         pending?.resume(with: result)
+    }
+}
+
+/// Whether the system says a link can carry anything: false from the moment
+/// it says the link has no path, true again if it says the path is back
+/// (B-091).
+///
+/// On the device that is `NWConnection`'s viability, which goes false when
+/// the iPad has no network for the connection, Airplane Mode or Wi-Fi off.
+/// The connection itself can stay up for many seconds after that, 19 on the
+/// test iPad, and a command written onto it meanwhile goes nowhere and waits
+/// for the stack to give the connection up, or for its deadline. Told on the
+/// link's own queue and asked on the transport's actor, so it is locked.
+///
+/// Heard only while the link is up: from the connect's report that it is
+/// (`LinkTransport.open`) to `close()`. Up is a path, whatever was said while
+/// it was being made, so the LOGIN after it is never refused for a word from
+/// before; and once the link has been let go of, nothing it says is about a
+/// link anyone will use. Neither is kept, and neither goes in the log, so
+/// every `LINK` line is about a link that was up when it was said: no line
+/// for each try to connect with no network, should the system say so before
+/// the try fails, and none from a link already closed, said as it was.
+///
+/// True until it is told otherwise: a link that never says, as the scripted
+/// one does not unless a test makes it, has a path, and everything goes as
+/// it went before there was this.
+final class LinkViability: @unchecked Sendable {
+    /// Which link the log's lines are about, by the port it was made to and
+    /// never by an address: `port=993` the mail's, and `port=465` a Send's,
+    /// which listens as well and is never asked.
+    let link: String
+    private let lock = NSLock()
+    private var viable = true
+    private var phase = Phase.connecting
+
+    private enum Phase { case connecting, up, closed }
+
+    init(port: UInt16) {
+        link = "port=\(port)"
+    }
+
+    var isViable: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return viable
+    }
+
+    /// The connect has reported the link up. Only the first word of it
+    /// counts, and none once the link has been let go of.
+    func linkIsUp() {
+        lock.lock()
+        if phase == .connecting { phase = .up }
+        lock.unlock()
+    }
+
+    /// The link has been let go of, or is being: nothing it says from now on
+    /// is heard.
+    func linkIsClosed() {
+        lock.lock()
+        phase = .closed
+        lock.unlock()
+    }
+
+    /// What the system has said. Each change while the link is up is one
+    /// line in the connection log, `LINK port=993 viable=false` or `LINK
+    /// port=993 viable=true`, so the log shows whether the iPad said it,
+    /// and when, beside the commands it then kept off the link; a report
+    /// that changes nothing writes none.
+    func said(_ viable: Bool) {
+        lock.lock()
+        let changed = phase == .up && self.viable != viable
+        if changed { self.viable = viable }
+        lock.unlock()
+        if changed { Diagnostics.log(.note, "LINK \(link) viable=\(viable)") }
     }
 }

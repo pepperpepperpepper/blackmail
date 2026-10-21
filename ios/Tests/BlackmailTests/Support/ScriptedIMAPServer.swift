@@ -557,6 +557,36 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.handshakeStalls = newValue } }
     }
 
+    /// The iPad has no network: Airplane Mode on, or Wi-Fi off (B-091).
+    /// Every connection open now is told its link has no path, as
+    /// `NWConnection`'s viability going false tells the device's, and a new
+    /// one fails at once, as one started with no network goes `.waiting`,
+    /// which `TLSConnection` reports as a failure. Bytes written onto a link
+    /// with no path go nowhere (`lostWrites`) and nothing answers them, so
+    /// the read after them waits for its deadline, as the device's waits
+    /// for the stack to give the connection up. An answer already on its
+    /// way when the path went still comes: a reply held, let go, reaches
+    /// the client. Set back to false, every open link is told its path is
+    /// back, and new connections are made as before.
+    var hasNoPath: Bool {
+        get { locked { $0.hasNoPath } }
+        set {
+            let links = locked { s -> [LinkViability] in
+                s.hasNoPath = newValue
+                return s.setPath(gone: newValue)
+            }
+            for link in links { link.said(!newValue) }
+        }
+    }
+
+    /// The links open now lose their path, and new connections are made as
+    /// usual: the network the connection was made on has gone and another
+    /// has come, so the old connection has nowhere to go and a new one has.
+    func losePathOfOpenLinks() {
+        let links = locked { $0.setPath(gone: true) }
+        for link in links { link.said(false) }
+    }
+
     /// Keeps the TLS handshake of every connection opened from now on from
     /// finishing until `releaseHandshakes()`: a connection still being
     /// made, for exactly as long as the test wants. The transport's own
@@ -591,7 +621,8 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var log: [LogEntry] { locked { $0.log } }
 
     /// Commands written into a connection that `resetConnections` had
-    /// already killed. They never reached the server and are not in `log`.
+    /// already killed, or onto a link with no path (`hasNoPath`). They
+    /// never reached the server and are not in `log`.
     var lostWrites: [LogEntry] { locked { $0.lostWrites } }
 
     /// Connections that got as far as `open()`, refused ones excluded.
@@ -1010,6 +1041,8 @@ private extension ScriptedIMAPServer {
         /// An APPEND waiting for the literal it announced.
         var literal: (command: String, count: Int)?
         var reset: MailTransportError?
+        /// Its link has no path (`hasNoPath`, `losePathOfOpenLinks`).
+        var noPath = false
     }
 
     struct State {
@@ -1049,6 +1082,7 @@ private extension ScriptedIMAPServer {
         var handshakeStalls = false
         var handshakesHeld = false
         var withheldCapabilities: Set<String> = []
+        var hasNoPath = false
         var held: Set<String> = []
         var changes: [Server.Change] = []
         var transports: [Int: Server.WeakTransport] = [:]
@@ -1069,6 +1103,17 @@ private extension ScriptedIMAPServer {
 private extension ScriptedIMAPServer.State {
 
     typealias Server = ScriptedIMAPServer
+
+    /// Every open connection's link with a path, or with none, and what
+    /// each link is to be told, which the caller does outside the lock.
+    mutating func setPath(gone: Bool) -> [LinkViability] {
+        var links: [LinkViability] = []
+        for id in sessions.keys.sorted() {
+            sessions[id]?.noPath = gone
+            if let link = transports[id]?.transport?.viability { links.append(link) }
+        }
+        return links
+    }
 
     /// Gmail's post-login list, less `withheldCapabilities`.
     var advertisedAfterLogin: String {
@@ -1193,7 +1238,7 @@ private extension ScriptedIMAPServer.State {
     /// the rest of the line before it has a command at all.
     mutating func receive(_ data: Data, on id: Int) -> [Server.Reply] {
         guard let opened = sessions[id] else { return [] }
-        if opened.reset != nil {
+        if opened.reset != nil || opened.noPath {
             let text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .newlines)
             lostWrites.append(Server.LogEntry(connection: id, selected: opened.selected,
                                               command: Server.untagged(text)))
@@ -2378,7 +2423,11 @@ actor ScriptedTransport: LinkTransport {
     nonisolated let connection: Int
     private let server: ScriptedIMAPServer
     private let port: UInt16
-    var stream = LinkStream()
+    var stream: LinkStream
+    /// `stream`'s, for the server to tell from outside the actor whether
+    /// the link has a path, as `NWConnection` tells the device's from its
+    /// own queue (`hasNoPath`).
+    nonisolated let viability: LinkViability
     /// The handshake has finished and the link has not been let go of.
     private var linkUp = false
     /// How to report a handshake `holdHandshakes()` is holding, once it is
@@ -2414,6 +2463,9 @@ actor ScriptedTransport: LinkTransport {
         self.server = server
         self.port = port
         self.connection = server.newConnectionID()
+        let viability = LinkViability(port: port)
+        self.viability = viability
+        self.stream = LinkStream(viability: viability)
     }
 
     var ordinaryDeadline: TimeInterval { server.timeout(on: connection).timeInterval }
@@ -2440,11 +2492,18 @@ actor ScriptedTransport: LinkTransport {
 
     // MARK: - The link
 
-    /// Refused for anything but the IMAP port, as ECONNREFUSED. Accepted,
-    /// the server greets at once, unless it is silent.
+    /// Refused for anything but the IMAP port, as ECONNREFUSED, and with
+    /// no network at all (`hasNoPath`). Accepted, the server greets at
+    /// once, unless it is silent.
     func startLink(reporting report: @escaping @Sendable (Error?) -> Void) {
         guard port == server.port else {
             report(MailTransportError.posix("POSIX 61"))
+            return
+        }
+        // No network: `.waiting` at once, ENETDOWN, which the device's
+        // link reports as a failure.
+        guard !server.hasNoPath else {
+            report(MailTransportError.posix("POSIX 50"))
             return
         }
         guard !server.handshakeStalls else { return }
