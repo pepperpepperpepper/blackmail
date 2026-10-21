@@ -1338,6 +1338,18 @@ actor IMAPMailRepository: MailRepository {
         "\\spam": "\\junk",
     ]
 
+    /// The X-GM-LABELS that file a letter in `folder`, lowercased:
+    /// `countedFolders` the other way round. `\inbox` for the Inbox, a
+    /// system folder's by its LIST attribute, `\starred` for Starred's
+    /// `\Flagged`, and a user label's its name, Gmail naming the folder
+    /// after the label. For a MOVE out of All Mail whose answer shows
+    /// nothing, looked for on the letter (`IMAPClient.move`, B-092).
+    private func labels(filingIn folder: String) -> Set<String> {
+        if folder == (roleNames[.inbox] ?? "INBOX") { return ["\\inbox"] }
+        let system = Self.attributeForLabel.filter { folderForAttribute[$0.value] == folder }.map(\.key)
+        return system.isEmpty ? [folder.lowercased()] : Set(system)
+    }
+
     /// Every folder whose unread count this message contributes to.
     ///
     /// The point of the whole exercise. In Gmail a folder is a LABEL and
@@ -1947,9 +1959,17 @@ actor IMAPMailRepository: MailRepository {
         let message = try Self.parseID(id)
         try await vouch(for: id, named: gmailMessageID, uid: message.uid,
                         validity: message.validity, in: source)
+        // Trash and Spam are exclusive on Gmail; a letter filed in a label
+        // from All Mail stays there, since All Mail is every letter not
+        // binned. Where it stays, a MOVE whose answer shows nothing is
+        // checked by the destination's label on the letter there, not by
+        // the letter being gone (B-092).
+        let binned = destination == roleNames[.trash] || destination == roleNames[.junk]
+        let staysInSource = !binned && source == folderForAttribute["\\all"]
+        let labels = staysInSource ? labels(filingIn: destination) : nil
         try await sendingOnce {
             try await client.move(uid: message.uid, from: source, validity: message.validity,
-                                  to: destination)
+                                  to: destination, stayingLabelled: labels)
         }
         // The message no longer exists at the old UID, so anything cached
         // against it is stale.
@@ -1959,9 +1979,12 @@ actor IMAPMailRepository: MailRepository {
         // of every one but the Trash or Spam it went to, which are
         // exclusive; out of none when it leaves All Mail for a label, since
         // All Mail is every letter not binned; out of its own otherwise.
-        if destination == roleNames[.trash] || destination == roleNames[.junk] {
+        // Only once the client has it moved: a MOVE refused, or answered
+        // OK with the letter still there (B-092), throws before this, and
+        // the kept copy keeps it.
+        if binned {
             shelf?.gone(id, letter: gmailMessageID, from: source, andEveryFolderBut: destination)
-        } else if source != folderForAttribute["\\all"] {
+        } else if !staysInSource {
             shelf?.gone(id, from: source)
         }
     }

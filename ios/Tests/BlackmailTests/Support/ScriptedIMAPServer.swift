@@ -182,6 +182,25 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         case omitted
     }
 
+    /// How a UID MOVE is answered OK with nothing in the answer to show
+    /// the letter moved (B-092): `OK [COPYUID <validity> <uid> 0]
+    /// (Success)`, a destination UID of 0 and no EXPUNGE, as Gmail once
+    /// answered a MOVE to the Trash on the test iPad.
+    enum HollowMove: Equatable, Sendable {
+        /// Nothing moved, as on the iPad: the letter is in the source
+        /// still, and nowhere else.
+        case nothingMoved
+        /// The letter moved all the same, and the connection that sent the
+        /// MOVE is not told until its next NOOP's EXPUNGE, as for a letter
+        /// taken out elsewhere (`removeElsewhere`). Out of All Mail, filed
+        /// in the label, the letter staying in All Mail.
+        case movedUntold
+        /// Nothing moved, and the answer a plain `OK Success` with no
+        /// COPYUID, as Gmail answered a MOVE of a UID the mailbox did not
+        /// hold, sent in the wrong mailbox (B-039).
+        case nothingMovedUnsaid
+    }
+
     /// The first line on a new connection.
     enum Greeting {
         /// `* OK Gimap ready …`, as Gmail greets.
@@ -430,6 +449,32 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var autoExpunge: Bool {
         get { locked { $0.autoExpunge } }
         set { locked { $0.autoExpunge = newValue } }
+    }
+
+    /// How the next UID MOVEs are answered, one each, in the order given:
+    /// `[.nothingMoved, .nothingMoved]` answers the next two hollow, with
+    /// nothing moved (`HollowMove`). Once it is empty a MOVE is answered as
+    /// ever. A MOVE refused or that names no folder takes none.
+    var hollowMoves: [HollowMove] {
+        get { locked { $0.hollowMoves } }
+        set { locked { $0.hollowMoves = newValue } }
+    }
+
+    /// Whether a UID MOVE's answer carries, ahead of its own lines, an
+    /// EXPUNGE for each letter `removeElsewhere` has taken out that the
+    /// connection has not been told of, and an EXISTS for what `arrive`
+    /// has brought, as RFC 3501 §7.4.1 lets a server do on a UID command.
+    /// Off, as by default, they are told only on a NOOP.
+    var newsRidesOnMoves: Bool {
+        get { locked { $0.newsRidesOnMoves } }
+        set { locked { $0.newsRidesOnMoves = newValue } }
+    }
+
+    /// How many of the next UID COPYs are answered `OK [COPYUID <validity>
+    /// <uid> 0] (Success)` with nothing copied, as a MOVE was (B-092).
+    var hollowCopies: Int {
+        get { locked { $0.hollowCopies } }
+        set { locked { $0.hollowCopies = newValue } }
     }
 
     /// Mailboxes that LIST still names but that SELECT and EXAMINE answer
@@ -1073,6 +1118,9 @@ private extension ScriptedIMAPServer {
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
         var autoExpunge = false
+        var hollowMoves: [Server.HollowMove] = []
+        var newsRidesOnMoves = false
+        var hollowCopies = 0
         var passwordRevoked = false
         var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
         var timeout: Duration = .seconds(1)
@@ -1363,8 +1411,8 @@ private extension ScriptedIMAPServer.State {
             case "UID SEARCH": search(args, in: selected, on: id, into: &r)
             case "UID FETCH":  fetch(args, in: selected, on: id, into: &r)
             case "UID STORE":  storeFlags(args, in: selected, readOnly: session.readOnly, into: &r)
-            case "UID MOVE":   copy(args, from: selected, removing: true, into: &r)
-            case "UID COPY":   copy(args, from: selected, removing: false, into: &r)
+            case "UID MOVE":   copy(args, from: selected, removing: true, on: id, into: &r)
+            case "UID COPY":   copy(args, from: selected, removing: false, on: id, into: &r)
             default:           expunge(args, in: selected, into: &r)
             }
         default:
@@ -1687,7 +1735,7 @@ private extension ScriptedIMAPServer.State {
 
     /// UID MOVE and UID COPY, with Gmail's label semantics for a move.
     mutating func copy(_ args: [Server.Token], from source: String, removing: Bool,
-                       into r: inout Server.Response) {
+                       on id: Int, into r: inout Server.Response) {
         guard args.count == 2, let setText = args[0].text, let set = Server.UIDSet(setText),
               let rawDestination = args[1].text, let from = folders[source] else {
             r.bad("Could not parse command")
@@ -1696,6 +1744,27 @@ private extension ScriptedIMAPServer.State {
         let destination = Server.canonical(rawDestination)
         guard let target = folders[destination], target.selectable else {
             r.no("[TRYCREATE] No folder \(rawDestination) (Failure)")
+            return
+        }
+        if removing, newsRidesOnMoves { announce(on: id, expunging: true, into: &r) }
+        // Gmail's hollow answer, on the tagged line as Gmail puts a COPYUID
+        // (B-092): the UIDs it was asked for, and 0 for where they went.
+        let hollow = "[COPYUID \(target.uidValidity) \(setText) 0] (Success)"
+        var untold = false
+        if removing, !hollowMoves.isEmpty {
+            switch hollowMoves.removeFirst() {
+            case .nothingMoved:
+                r.ok(hollow)
+                return
+            case .nothingMovedUnsaid:
+                r.ok("Success")
+                return
+            case .movedUntold:
+                untold = true
+            }
+        } else if !removing, hollowCopies > 0 {
+            hollowCopies -= 1
+            r.ok(hollow)
             return
         }
         let exclusive = [Server.trash, Server.spam]
@@ -1717,6 +1786,11 @@ private extension ScriptedIMAPServer.State {
             if letters[key]?.mailboxes.contains(destination) == false,
                let filed = file(key, in: destination) {
                 targetUIDs.append(filed)
+            } else if let held = folders[destination]?.keys.first(where: { $0.value == key })?.key {
+                // Already there, as every letter is in All Mail: Gmail's
+                // COPYUID names the UID it has there (`OK [COPYUID 12 319
+                // 395]` for an Archive from the Inbox on the test iPad).
+                targetUIDs.append(held)
             }
             if exclusive.contains(source), !exclusive.contains(destination),
                letters[key]?.mailboxes.contains(Server.allMail) == false {
@@ -1725,11 +1799,22 @@ private extension ScriptedIMAPServer.State {
             // Moving out of All Mail only adds a label and the letter stays,
             // unless it went to Trash or Spam, which take it out of All Mail.
             if removing, source != Server.allMail || exclusive.contains(destination), let seq {
+                if untold, var stored = letters[key] {
+                    // As `removeElsewhere` leaves it: seen as it was by this
+                    // connection until a NOOP tells it.
+                    stored.mailboxes.remove(source)
+                    sessions[id]?.unexpunged[uid] = (key, stored)
+                }
                 unfile(uid, from: source)
                 expunged.append(seq)
             }
         }
-        let copyUID = sourceUIDs.isEmpty ? "" :
+        if untold {
+            r.ok(hollow)
+            return
+        }
+        // A server without UIDPLUS gives none.
+        let copyUID = sourceUIDs.isEmpty || withheldCapabilities.contains("UIDPLUS") ? "" :
             "[COPYUID \(target.uidValidity) \(sourceUIDs.map(String.init).joined(separator: ",")) "
             + "\(targetUIDs.map(String.init).joined(separator: ","))] "
         if removing {

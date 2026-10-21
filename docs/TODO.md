@@ -3193,6 +3193,45 @@ this host. Ordered by value, not by size.
       once in 3, at 0.19 s, the watch's check having gone first with
       `NO-PATH NOOP not-sent`. Back online, one STORE each way.*
 
+- [ ] **B-092, a MOVE Gmail answers OK for without moving the letter.**
+      On the test iPad, the test account only, built from the
+      `hollow-move` worktree. Gmail answered so once in about 116 MOVEs
+      and it cannot be made to happen on demand, so the check is that
+      normal Deletes and Moves still send one command each and the log
+      has no `MOVE-HOLLOW` line; the hollow answer itself, and what the
+      app does with it, is pinned by the host tests (B-092). A stands
+      for the account's address; letters only to A with `+b092` before
+      the @, subjects beginning "B-092".
+      1. *Three letters.* Three new letters To A with `+b092`, Subjects
+      "B-092 one", "B-092 two" and "B-092 three", Send each. Refresh:
+      all three in the Inbox.
+      2. *Edit mode.* Edit, tick the three, Delete: the rows go at the
+      tap and stay gone, and after a Refresh too. Trash holds each once.
+      3. *Move and the pane.* In Trash, open "B-092 one", Move, Inbox:
+      its row goes. In the Inbox, open it, Delete in the pane: gone, and
+      in Trash once.
+      4. *Out of All Mail.* In Trash, open "B-092 two", Move, All Mail:
+      its row goes. In All Mail, open it, Move, Inbox: its row stays,
+      and a Refresh of the Inbox shows it there. In the Inbox, open it,
+      Delete in the pane: gone, and in Trash once.
+      5. *The log.* Settings, the connection log. Each Delete and Move
+      is one `UID MOVE`, answered with an EXPUNGE and `OK [COPYUID …]`
+      with no 0 among its numbers, and no `MOVE-HOLLOW` or
+      `MOVE-CHECKED` line anywhere. The Move out of All Mail has no
+      EXPUNGE, the letter staying there: note whether its answer has a
+      COPYUID. One with none is a `MOVE-HOLLOW … copyuid=none
+      no-expunge` line, then `UID FETCH n (X-GM-LABELS)` and
+      `MOVE-CHECKED … labelled`, which is Gmail not saying, not a
+      fault: copy it down. Any other `MOVE-HOLLOW` line is Gmail
+      answering so again: copy it down, with the commands and
+      `MOVE-CHECKED` lines after it (a NOOP, `UID SEARCH UID n`,
+      perhaps the MOVE again), and whether the row stayed off with the
+      letter once in Trash, or came back with "Can't connect to mail
+      server." with the letter where it was.
+      6. *Put back.* Nothing: the B-092 letters are in Trash.
+      *Not tried on the simulator: the host tests run it over the
+      scripted server, whose hollow answer is the iPad's (B-092).*
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
