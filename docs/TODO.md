@@ -774,15 +774,15 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-21, a build of master with B-092
       (1233252), All Mail at a day sixteen days back, 43 letters newer
       than it: every part but the Delete passed (B-042). Scrolled up
-      slowly with a letter open, the page above was put on 0.8 s into the
-      swipe, the rows moving only with the finger and the highlight
-      staying on the letter; a conversation in the window with newer
-      replies went up alone to the newest's place. With Edit on, the same
-      three stayed ticked. Organize by Thread off and on again kept the
-      top row at the top both times. The Delete in the pane of a letter
-      whose row was just above the top of the list moved every row in
-      view up by one: fixed as B-093, not yet seen there fixed. Go to
-      Date from a list at its top fetched the page above as the day
+      slowly with a letter open, the page above was asked for 0.8 s into
+      the swipe and put on by 1.1 s, the rows moving only with the finger
+      and the highlight staying on the letter; a conversation in the
+      window with newer replies went up alone to the newest's place. With
+      Edit on, the same three stayed ticked. Organize by Thread off and on
+      again kept the top row at the top both times. The Delete in the pane
+      of a letter whose row was just above the top of the list moved every
+      row in view up by one: fixed as B-093, not yet seen there fixed. Go
+      to Date from a list at its top fetched the page above as the day
       landed, nothing touched, so the scroll up was made after jumps from
       part-way down: recorded as B-094, not changed. Seen in passing: a
       letter open before a jump stays in the pane, its row no longer
@@ -1047,24 +1047,25 @@ this host. Ordered by value, not by size.
       quote can be tapped.
       *Seen on the test iPad 2026-10-21, a build of master with B-092
       (1233252), read in the raw letters as they arrived: every part but
-      the look passed (B-050). A newsletter forwarded: "Begin forwarded
-      message:", then From, Date, To and Subject with bold labels, in the
-      text part too; its nine pictures and sixteen links as they were,
-      its tables kept, its style blocks, head and comments dropped, and
-      `WIRE-PAYLOAD raw=` 1.39 times its markup. A reply to it saved as a
-      draft and reopened: no rows; sent, the attribution, then the
-      original's markup in a cite blockquote, In-Reply-To and References,
-      and no `bm-quote` comment. A quote with a word changed and a line
-      cut went as plain text with the word, without the line, its https
-      address a link; a quote deleted, nothing of it. A forward of a
-      letter with a picture in its body and a PDF, which had a Cc: the
-      composer listed both with their weights, and it went with the
-      picture inline under a Content-ID of its own, the PDF a file, his
-      signature's logo once beside them, and Cc under To in both header
-      blocks. A reply to it: the letter as it looked but for the picture,
-      and no file. Left: how each looks in Mail and on Gmail's web page,
-      which needs a person, the seven letters being in Trash until about
-      2026-11-20; the reply to his own shared link was not part of it.*
+      the look and the reply to his own shared link passed (B-050). A
+      newsletter forwarded: "Begin forwarded message:", then From, Date,
+      To and Subject with bold labels, in the text part too; its nine
+      pictures and sixteen links as they were, its tables kept, its style
+      blocks, head and comments dropped, and `WIRE-PAYLOAD raw=` 1.39
+      times its markup. A reply to it saved as a draft and reopened: no
+      rows; sent, the attribution, then the original's markup in a cite
+      blockquote, In-Reply-To and References, and no `bm-quote` comment.
+      A quote with a word changed and a line cut went as plain text with
+      the word, without the line, its https address a link; a quote
+      deleted, nothing of it. A forward of a letter with a picture in its
+      body and a PDF, which had a Cc: the composer listed both with their
+      weights, and it went with the picture inline under a Content-ID of
+      its own, the PDF a file, his signature's logo once beside them, and
+      Cc under To in both header blocks. A reply to it: the letter as it
+      looked but for the picture, and no file. Left: how each looks in
+      Mail and on Gmail's web page, which needs a person, the seven
+      letters being in Trash until about 2026-11-20; the reply to his own
+      shared link was not part of it.*
 - [x] **B-051, letters kept on the iPad.** *Partly seen 2026-09-30: the
       offline Save Draft and Refresh, a reopened draft changed offline, and
       a letter kept across the app's end; see B-051.*

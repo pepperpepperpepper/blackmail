@@ -3235,10 +3235,10 @@ before letting go was not tried.
   first page, went at the tap, "Deleting…" until each MOVE was answered,
   oldest first; nothing else in view moved, and the list was not
   fetched again.
-- *Paging upward,* All Mail at a day sixteen days back: the page above
-  put on 0.8 s into a slow swipe, the rows moving only with the finger,
-  the highlight and three ticks kept, a conversation with newer replies
-  gone up alone. Organize by Thread off and on: the top row stayed.
+- *Paging upward,* All Mail at a day sixteen days back: the page above asked
+  for 0.8 s into a slow swipe and put on by 1.1 s, the rows moving only with
+  the finger, the highlight and three ticks kept, a conversation with newer
+  replies gone up alone. Organize by Thread off and on: the top row stayed.
 - *A Delete in the pane of a letter whose row was just above the top of
   the list,* under the search band, the row above it under the bars:
   every row in view went up one at the tap. The list held its place by a
@@ -4052,7 +4052,8 @@ but draws no blue bar. Not yet tried: a reply with the quote edited.
 the "@", one with `+sam` in Cc, or to A itself for two replies to his own
 letter, read in their raw MIME as they arrived. Every part of the TODO
 check passed but the look in Mail and on Gmail's web page, which needs a
-person; the seven are in Trash until about 2026-11-20.
+person, and the reply to his own shared link, not tried; the seven are in
+Trash until about 2026-11-20.
 
 - *A newsletter forwarded:* "Begin forwarded message:", then From, Date,
   To and Subject with bold labels and a bold subject, in the text part
