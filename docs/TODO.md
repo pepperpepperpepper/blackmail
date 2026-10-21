@@ -2222,8 +2222,9 @@ this host. Ordered by value, not by size.
       column rode with the letter's edge, landed 44 and 45 pt off its place
       and was laid out again 0.52 s on, a conversation's text wrapped again
       at 0.51 s, and the names and header landed where they end up; whether
-      the end frames catch the eye is still 12's question. Left: 1 with a
-      letter, 2, 11, and in 5 the iPad turned over, and Home.*
+      the end frames catch the eye is still 12's question. Left: 11, and
+      in 5 the iPad turned over, and Home; 1 and 2 are B-077's checks,
+      seen there on 2026-10-07.*
 - [x] **B-077, the panes move as Mail's.** On the 11-inch, with the Layout
       button on in the connection log.
       1. *At speed.* A 60 fps recording from Control Centre, stepped

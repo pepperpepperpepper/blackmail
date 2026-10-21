@@ -9111,8 +9111,8 @@ pop and a push.*
 **Seen on the test iPad, 2026-10-21**, the view button's switch, a build of
 master with B-092 (1233252), the Layout button on, on the test account,
 letters already read. TODO's 3 to 6, 9 and 12 passed but for the bounces,
-B-096, and two points of 9; 1 with a letter, 2, 11, and in 5 the iPad
-turned over and Home, were not tried.
+B-096, and two points of 9; 11, and in 5 the iPad turned over and Home,
+were not tried, 1 and 2 being B-077's checks, seen on 2026-10-07.
 
 - *Coasting:* flicked, and tapped 0.15 s later: the rows stopped where they
   were at the tap and slid sideways in one motion, settled about half a
