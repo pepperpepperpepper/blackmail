@@ -523,6 +523,10 @@ this host. Ordered by value, not by size.
       `BLACKMAIL_SHARE_EXT` out of `package.sh`. *Safari seen 2026-09-30;
       what is left is "The share sheet's checks", further down this
       section.*
+      *Seen on the test iPad 2026-10-21: from the YouTube app too,
+      Blackmail in the row, the link alone with no subject, and the link a
+      link in the letter that arrived (share check 11, B-036). What is left
+      is still "The share sheet's checks".*
 - [x] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first. *Done 2026-09-29: B-044's checks were made on the iPad; what
@@ -549,14 +553,26 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-20 again: five photos sent from the
       composer, one `WIRE-OUT`, `LETTER-LATCH ok`, one `WIRE-ACK
       err=none`, then the 250, twice (B-044, B-070).*
-- [ ] Time an All Mailboxes search on the device, and a letter tapped
+- [x] Time an All Mailboxes search on the device, and a letter tapped
       while it runs, from the connection log. The one-hold search and the
       interactive line are checked on the scripted server, which knows
       nothing of Gmail's own SEARCH time on Trash and Spam, and that time
       decides what the binned half of a search still costs.
-- [ ] Watch a cold launch in the connection log: LOGIN, one LIST, the
-      Inbox's SELECT, SEARCH and FETCH, and only then a STATUS per folder.
-      Then mark a letter unread in Edit mode (opening it marks it read) and
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa): a word with 291 hits in Trash took 0.81 s from
+      Trash's SELECT to the page's answer. Trash's SELECT 66 ms, its SEARCH
+      132 ms and the FETCH of its 200 binned hits 201 ms; Spam's SELECT and
+      SEARCH 56 and 51 ms; All Mail's 70 and 56 ms; the page 78 ms; 0.1 s
+      between them. A letter tapped during a search went once the mailbox
+      the search was in was done, as the hold gives way between mailboxes
+      and never inside one: answered 0.51 s after the tap, 2.56 s with
+      Gmail slow that minute, and 0.29 s when the search was over first.
+      The page's FETCH is the list's own, after the hold, and the tapped
+      letter can go before it.*
+- [x] Watch a cold launch in the connection log: LOGIN, one LIST, the
+      Inbox's SELECT, SEARCH and FETCH, and only then the sweep of the
+      counts, a LIST of its own and a STATUS per folder. Then mark a
+      letter unread in Edit mode (opening it marks it read) and
       move it out of the Inbox from the reading pane, and check both
       folders' counts come right, which they must within one
       sweep of the MOVE (B-040). The order and the counts are checked on the
@@ -581,6 +597,16 @@ this host. Ordered by value, not by size.
       The Move sheet had its folders in its first frame, 0.2 s after the
       tap, with nothing sent for it. Not seen with these: the launch's own
       checks.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa): the launch's checks passed (B-040). A cold launch
+      sent LOGIN, one LIST, the Inbox's SELECT, SEARCH and page FETCH, and
+      only then the sweep, whose own LIST comes before its eight STATUS:
+      the check had the STATUS alone, and now names that LIST. 45 s on,
+      every folder had Gmail's count. Launched with Airplane Mode on, the
+      kept counts were in the first frame with one "Can't connect", and
+      nothing went while offline; back on, the watch's first check, the
+      kept page fetched afresh and one sweep. The newest unread letter
+      tapped as the Inbox appears was seen on 2026-10-01, under B-059.*
 - [ ] **B-041, the reading pane at the tap.** Tap from letter to letter
       in the Inbox: the header must change at the tap to the new sender,
       subject and date with "Loading…" under it, and the previous letter
@@ -597,6 +623,22 @@ this host. Ordered by value, not by size.
       see: look for a white flash or a blank frame between them. The
       header's height must not change when a letter with files lands
       (B-042).
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa), the taps recorded: every part but the first frame
+      passed (B-041). The new header came in the frame the selection
+      moved, but for one or two frames, some 30 ms, it stood over the
+      previous letter's body, or over an empty pane for the first letter
+      after a launch, before "Loading…" came: in 5 taps of 7, and at every
+      first letter after a launch. The header is UIKit, and the web view
+      paints "Loading…" a frame or two after it; seen and not changed. No
+      white or blank frame came between "Loading…" and the letter. The
+      binned letter never showed again. The taps a third of a second
+      apart were three, not four, the Inbox's first screen having only
+      two single letters beside the large one: the first and the last
+      fetched, none between, the pane on the last. Reply did nothing while
+      "Loading…" showed, and the header kept its height as a letter with a
+      file landed. Left: that first frame, which needs a change to the
+      app.*
 - [ ] **B-041, Delete, Move and Flag from the pane.** In a folder scrolled
       down a few pages, with previews filled: Delete a read letter. The
       pane empties and the row goes at the tap, nothing else on the list
@@ -988,8 +1030,11 @@ this host. Ordered by value, not by size.
       minute it is at the top of the list with no tap, and the Inbox's count
       goes up. The connection log should show a `NOOP` answered `* n
       EXISTS`, then `UID SEARCH UID …:*`, one `UID FETCH` of that letter,
-      and `NEWS folder=INBOX arrived=1 gone=0`; with nothing arriving, one
-      `NOOP` each half minute and nothing more. Scroll
+      and `NEWS folder=INBOX arrived=1 gone=0`, or `gone=` as many letters
+      as were deleted from the list before: it still holds them, out of
+      sight, for paging, and the watch counts them gone again whenever
+      something else changes. With nothing arriving, one `NOOP` each half
+      minute and nothing more. Scroll
       a few pages down and send another: nothing on the list moves; scroll
       back to the top and it goes on. The same with two rows ticked in Edit
       mode (it goes on at Done), and with a search showing (it is at the top
@@ -1007,8 +1052,27 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-20, the lock: three minutes, and
       nothing in the log from the lock to the wake but the watch's check
       already on the wire as it locked, answered (B-049). The watch's first
-      check came 32 s after the return. The rest of the check was not
-      tried.*
+      check came 32 s after the return.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa), Airplane Mode for Wi-Fi off: every part but three
+      passed (B-049). At the top each letter went on by itself at the next
+      check, the checks 30 to 33 s apart. Scrolled down, under two ticks
+      and under a resting finger nothing on the list moved; the letter went
+      on as the list came to rest at the top, at Done, and 3.6 s after the
+      lift. With Sent Mail in front, the Inbox's count rose at the next
+      check, one STATUS a check and no Inbox FETCH, and Sent's line aged to
+      "Updated 6 minutes ago". A letter opened, flagged and deleted 0.7 s
+      after a check each went as before. With Airplane Mode on, the age
+      over "No Connection" from 37 s; back on, the first check, on a new
+      connection, listed the letter, and the line read "Updated Just Now".
+      The NEWS lines said `gone=3` and `gone=1`, letters deleted before: by
+      design, as the check now says. After a search's Cancel the letter
+      came 32.2 s later, and 31.7 s at a second try: Cancel starts no
+      check, so what came during the search waits for the next one; seen
+      and not changed. Left: that half minute, which needs a change to the
+      app; the archive on the phone, which needs a person; and
+      "Updated at …" after an hour, which needs Auto-Lock at Never and
+      waits on a yes.*
 - [x] **B-052, the Outbox.** *Partly seen 2026-09-30: the notice, the
       Outbox row and its line, going once, the lock at once, and Gmail's 553
       for `nobody`; see B-052. A waiting letter looked for in Sent Mail
@@ -1168,6 +1232,11 @@ this host. Ordered by value, not by size.
       the page lands was not caught. Not yet tried: the password saved
       again, which waits to be agreed, as editing the store and typing
       the password do, and the first frame timed.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa), a screen recording: the first frame timed, the kept
+      rows and counts 167 ms after the first frame of the launch's zoom,
+      and the screen settled at 300 ms, under the 500 ms asked (B-053).
+      Left: the password saved again, as above.*
 - [ ] **B-056, signing in again, and the signature.** Seen 2026-09-30: the
       two confirmations, a wrong password refused with the old one kept,
       and the refusal shown under the password field (B-056). Still to see,
@@ -1223,6 +1292,20 @@ this host. Ordered by value, not by size.
       handed the pictures at the save, not at the next trip to the
       background). Empty the box and Save: "Remove Signature?", Cancel keeps
       it.
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa): the signature's part passed (B-056). "Send my
+      signature as plain text instead", then Cancel, changed nothing; Use
+      Plain Text and Save, then Restore Original Signature, Restore and
+      Save, put back the thirteen formatted lines, the words, the
+      formatted twin and the logo each byte for byte as found. A letter's
+      PDF shared from its preview, where Blackmail was offered, went with
+      that logo and the formatted signature, the share extension's last
+      copy before the restore's save having been the plain one. The box
+      emptied and saved asked "Remove Signature?", and Cancel kept it. A
+      letter written after a restore had its formatted signature and logo
+      back on 2026-10-19, in B-082's check. Left: everything before the
+      signature, the app password revoked and made again first, which
+      needs the account's Google settings.*
 - [ ] **B-053, every write and every open naming its letter.** Seen
       2026-09-30: the everyday wire after the page (open, Flag, Edit's
       Mark), and a copy made another mailbox's by hand refused under held
@@ -2169,6 +2252,18 @@ this host. Ordered by value, not by size.
       B-090, seen fixed on B-090's build, as 7 says. Still to do of 1 to 10:
       3's 48-megapixel HEIC, none at hand; 4's video, which needs one older
       than the JPEG; 5 and 8 on his iPad; and 7's name, not yet decided.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa): 11, 13, 14, 16 and 17 passed (B-036). In 11 the
+      YouTube app's link came alone on the body's first line, above the
+      signature, the subject empty as on 2026-10-04, and arrived a link. In
+      13 the popover was dark, Delete Draft alone. In 14, with Airplane
+      Mode on, "Can't connect to mail server." over the sheet, the letter
+      as it was and Send blue again; with Wi-Fi back it went, once. In 16,
+      the 44 MB camera video, which Photos handed over as 48.5 MB: "The
+      video could not be attached." with Cancel alone, and its `SHARE-FILE`
+      line in the log kept for a share with something left out (B-090).
+      In 17 "Seventeen", added in Settings, was in the next share's letter
+      under the link. 15, the `mailto:` link, was not part of it.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the
@@ -2241,6 +2336,25 @@ this host. Ordered by value, not by size.
       Outbox (it went once), 5, 6, 7 and 8, and the share sheet from
       Safari for 2, 5 and 6. Not yet: 1 in the share sheet, a reply and
       a forward left untouched, the swipe, 9 and 10.*
+      *Seen on the test iPad 2026-10-21, a build of master with B-090 and
+      B-091 (cba64fa): 1 in the share sheet and in landscape, the swipe of
+      3 and 4's Reply and Forward passed (B-069). Ten lines in the share
+      sheet from Safari, and eight under four photos from Photos: the
+      fields went up, the photos' rows with them, and the caret's line
+      stayed just above the keyboard; swiped back down with the keyboard
+      up, the fields came back, and the next key brought the caret into
+      sight. The same in landscape on a Forward with six files and on a
+      new letter with Cc/Bcc open. A long newsletter forwarded: the sheet
+      began to show 0.67 s after the tap on Forward and was in place at
+      1.06 s, 0.1 s behind a short letter's, the rest being UIKit's menu
+      fading and its sheet sliding, with no pause of the app's own; typed
+      at the top, the keys kept up. Swiped down, a letter with a word
+      asked Save Draft or Delete Draft, one untouched closed, and the share
+      sheet with a word asked Delete Draft. A tap outside the share sheet,
+      on Safari's dimmed page, closed it at once with nothing asked, the
+      word typed lost with it, as on the simulator. An untouched Reply and
+      Forward each closed with nothing asked, and Drafts had nothing new.
+      Not yet: 9 and 10.*
 - [ ] **B-071, a file's preview and the text size.** Seen on the
       simulator only. On the iPad, with a letter open that has two files:
       1. *The highlights.* Tap a file, then Done: the letter's row and the

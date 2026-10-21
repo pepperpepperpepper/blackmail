@@ -2421,6 +2421,27 @@ checks 2, 4, 5, 6's GIF, 9 and 10 passed; 7 did not, and became B-090.
   was B-090, seen fixed on its own build the same day, the picture going
   under the name iOS gave it.
 
+**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
+`+jane` before the "@", subjects beginning "R6 share". All five passed.
+
+- *From the YouTube app* (11): Blackmail in the row, the link alone on
+  the body's first line, above the signature, and the subject empty, as
+  on 2026-10-04. It arrived once, the link a link in its HTML, blue and
+  underlined in the pane.
+- *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
+  alone. A tap on the sheet's body closed it with the word still there;
+  Delete Draft ended the share, and nothing went.
+- *Send with Airplane Mode on* (14): "Can't connect to mail server." over
+  the sheet 1.5 s on, the letter under it as it was, Send blue again. Its
+  log stopped at the envelope. With Wi-Fi back, Send: one copy.
+- *The 44 MB camera video alone* (16): "The video could not be
+  attached." with Cancel only. Photos handed over its own export,
+  48.5 MB, and the share kept its log for what was left out (B-090):
+  `went=left out, more than the letter's room, 25 MB left`.
+- *The signature changed* (17): "Seventeen", added in Settings and
+  saved, was in the next share's letter under the link.
+
 **Not covered**, all for the iPad (checks 1 to 10 in the TODO); what the
 iPad has since shown is said at the end of each:
 
@@ -2786,6 +2807,22 @@ Move sheet had its folders in its first frame, 0.2 s after the tap, and
 nothing was sent for it. The launch's order and counts on this build
 were not part of it.
 
+**Seen on the test iPad, 2026-10-21**, the launch, a build of master with
+B-090 and B-091 (cba64fa), three panes, on the test account. Blackmail
+ended and opened again: LOGIN, one LIST, `SELECT "INBOX"`,
+`UID SEARCH ALL` and the page's `UID FETCH`, answered 1.1 s after the
+greeting, and only then the sweep, its own LIST and a STATUS for each of
+the eight folders, with previews between; the watch's first NOOP 30.7 s
+after the page. 45 s on, every folder in the pane had Gmail's count.
+Opened again with Airplane Mode on: the kept counts and rows in the first
+frame, 0.6 s, one "Can't connect to mail server.", and nothing at all in
+the log for the 87 s offline. Back online, the watch's first check on a
+new connection, a STATUS of the Inbox, then the kept page fetched afresh
+and one sweep, since none had landed in that launch and the kept counts
+are not compared. With the newest unread letter tapped as the Inbox
+appears, seen on 2026-10-01 under B-059, every part of the TODO check
+has now been seen.
+
 ---
 
 ## B-041 — CHANGED 2026-09-28. What he sees when he acts
@@ -3012,6 +3049,38 @@ does not go, so the connection iPadOS shut is found by the next command.
 A letter tapped before the watch's first check would, by the code, be
 fetched again on a new connection; what a Delete, Move or Flag tapped
 then does was not tried.
+
+**Seen on the test iPad, 2026-10-21**, the reading pane at the tap, a
+build of master with B-090 and B-091 (cba64fa), three panes, on the test
+account, two letters To A with `+jane` before the "@", "R6 tap big", with
+a photo, 4.2 MB, and "R6 tap del". The taps from letter to letter were
+recorded with the screen, twice, and stepped through frame by frame.
+Every part of the TODO check passed but the first frame:
+
+- *The first frame at the tap.* The new letter's header, sender, subject
+  and date, came in the frame the selection moved, but under it, for one
+  frame or two, some 30 ms, was the previous letter's body, moved down
+  with the new header, or an empty pane for the first letter after a
+  launch; "Loading…" came after. So it was in 5 taps of 7, and at every
+  first letter after a launch. The header is UIKit and goes out with the
+  selection; "Loading…" is a page the web view paints in WebKit's own
+  process a frame or two later, and until then it shows what it painted
+  last, or nothing before its first letter. Not changed. Between
+  "Loading…" and the letter no white or blank frame came.
+- *Delete, then the next:* the pane empty at 0.14 s and the row gone at
+  0.27 s; then the next letter's header with "Loading…". The binned
+  letter was in no frame after the tap.
+- *Taps a third of a second apart*, the large letter first, fetched whole
+  as one of 5 MB or less: its `BODY.PEEK[]` and the last one's, nothing
+  for the one between, and the pane on the last. Three taps, not four,
+  the Inbox's first screen having only two single letters beside it. The
+  large letter, unread, had its `\Seen` STORE first.
+- *Reply 0.15 s after the tap* did nothing through the 1.4 s of
+  "Loading…"; once the letter was drawn, Reply put up Reply, Reply All
+  and Forward.
+- *A letter with a file:* its file row grey from the first frame after
+  the tap, active once the letter was drawn, and the header's lines at
+  the same height to the pixel throughout.
 
 ---
 
@@ -4705,6 +4774,47 @@ wake. At the return the warm-up's NOOP, and the watch's first check
 32 s later. The connection had not outlived the lock: iPadOS shuts the
 sockets of an app it suspends (B-041).
 
+**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+B-091 (cba64fa), three panes, on the test account, seven letters sent
+from the app To A with `+jane` before the "@", subjects beginning
+"R6 B-049". Every part of the TODO check passed but three: the letter
+within half a minute of a search's Cancel, not met; a letter archived on
+the phone, which needs a person; and "Updated at …" after an hour, which
+needs Auto-Lock at Never.
+
+- *At the top:* the next check's NOOP answered `* 67 EXISTS`, then the
+  SEARCH, one FETCH of the letter, its NEWS line and one sweep, the
+  letter on top 10.8 s after Send. Otherwise a NOOP a check, the checks
+  30.0 to 33.0 s apart, 31.8 s on average: the half minute's sleep wakes
+  a second or two late.
+- *Held:* scrolled down, under two ticks, and under a finger resting
+  some 75 s, the list stayed the same to the pixel through the check
+  that found the letter. It went on as the list came to rest at the top,
+  at Done in the first frame, and 3.6 s after the lift, which opened the
+  held row.
+- *A search showing:* a `STATUS "INBOX" (UNSEEN)` a check, a sweep when
+  the count changed, and nothing of the Inbox's list. Cancel tapped as a
+  check began: the letter went on 32.2 s after it, and 31.7 s at a
+  second try. Cancel sends the Inbox's SELECT, whose answer has the new
+  EXISTS, but starts no check, so what came during the search waits for
+  the next timed one, a whole interval and the sleep's lateness at
+  worst. Not changed.
+- *Sent Mail in front:* the Inbox's count up at the next check, 6 s
+  after Send, one STATUS a check and no SEARCH or FETCH of the Inbox;
+  Sent's line "Updated Just Now", then 1 to 6 minutes ago, the Inbox's
+  checks not freshening it.
+- *Just after a check*, 0.7 s: a letter opened, one flagged and one
+  deleted, each as without the watch, and no "Can't connect".
+- *Airplane Mode,* turned on as the sheet closed: the list without the
+  letter, the first failed check 30 s after Send, and from 37 s the age
+  over "No Connection". Back on, the first check made a new connection,
+  LOGIN and SELECT, and listed it, with "Updated Just Now" alone.
+- The NEWS lines said `gone=3` and `gone=1` where the check had `gone=0`:
+  letters deleted from the list before, still held for paging
+  (`RemovedLetters`), are reported gone again whenever something else
+  changes, and the list takes them as known. Nothing moved for them, by
+  design; the check now says so.
+
 ---
 
 ## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
@@ -5625,6 +5735,16 @@ reopened and deleted. Each write went alone, every open was the plain
 letter opened from another mailbox's copy was not tried: it needs the
 store edited with the app ended, which waits to be agreed.
 
+**Seen on the test iPad, 2026-10-21**, the first frame timed, a build of
+master with B-090 and B-091 (cba64fa), from a screen recording at 60
+frames a second. Blackmail ended, its icon tapped: the kept rows and
+counts came 167 ms after the first frame of the launch's zoom, legible
+at 217 ms, and the screen was settled at 300 ms, where the design asks
+under 500 ms. The connection's greeting came some 0.8 s later, so the
+rows were the kept ones. Before them, for about 130 ms, the system's
+launch screen, white, the app's `UILaunchScreen` being an empty dict and
+its style Light. The password saved again was not tried.
+
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
 **Found by timing and measuring, on the development computer, everything
@@ -6289,6 +6409,26 @@ under the password field, the keyboard put down and the line scrolled
 into view (`say`), and seen there. Not made by hand: a password revoked
 and replaced, a 534 and a 535 at the check, which need the account's
 Google settings.
+
+**Seen on the test iPad, 2026-10-21**, the signature, a build of master
+with B-090 and B-091 (cba64fa), on the test account, whose signature is
+thirteen lines with a formatted twin and a logo. "Send my signature as
+plain text instead" asked "Send Signature as Plain Text?", and Cancel
+left the button and its hint as they were. Use Plain Text and Save took
+the twin off. After a trip to the Home Screen, so that the share
+extension's last copy was the plain one, Restore Original Signature,
+Restore and Save put back the thirteen lines, the twin and the logo,
+each byte for byte as found. Then, without leaving the app, a letter's
+PDF shared from its preview to Blackmail, offered there, went with the
+logo, byte for byte, and the formatted signature, byte for byte that of
+a letter sent before the changes: the extension had the restored
+pictures from the save. The box emptied and saved asked
+"Remove Signature?", "Nothing will be added to the bottom of your
+messages."; Cancel, then Settings' Cancel, and the thirteen lines were
+there again.
+A letter from the composer after a restore had been seen on 2026-10-19,
+in B-082's check. Still not made: a password revoked and replaced, and
+the refusals at the check.
 
 ---
 
@@ -9109,11 +9249,43 @@ the HTML alike, nothing else added.
   tried.
 - A very long letter in the body. The body no longer scrolls by itself,
   so its words are laid out whole to give it its height. A forward of
-  a long newsletter was not timed, on the simulator or the iPad.
+  a long newsletter was not timed on the simulator; on the iPad, below.
 - The Outbox in item 4, on the simulator: its line is the Mac's. The
   host suite runs it against the scripted servers.
 - Return in To, Cc and Bcc does what it did.
 - The share sheet has no Attach Photo, so item 10 is the app's alone.
+
+**Seen on the test iPad, 2026-10-21**, a build of master with B-090 and
+B-091 (cba64fa), landscape, on the test account, nothing of it sent.
+Item 1 in the share sheet and in landscape, 3's swipes and 4's untouched
+Reply and Forward passed.
+
+- *The share sheet's keyboard.* From Safari, ten lines typed: the To row
+  went up out of sight and the tenth line, with its caret, sat just
+  above the keyboard. Swiped down with the keyboard up, To, Cc/Bcc and
+  Subject came back, and the next key brought the caret's line back
+  above the keyboard. Four photos from Photos, eight lines: the four
+  rows went up with the fields.
+- *Landscape.* A Forward of five photos, six rows with the original's
+  logo, and a new letter with Cc/Bcc open, eight lines each: the fields
+  and rows went up, the caret's line stayed above the keyboard, and one
+  swipe brought them back down with the keyboard still up.
+- *A long newsletter forwarded*, 123 KB. From the tap on Forward, the
+  menu was gone at 0.56 s, the sheet came in at 0.67 s and was in place
+  at 1.06 s; a short letter's, 0.1 s sooner. The rest is UIKit's menu
+  fading and its sheet sliding, with no pause of the app's own. A
+  sentence typed at the top at some ten keys a second kept pace in every
+  frame.
+- *Swipes.* A new letter with a word: Save Draft or Delete Draft.
+  Untouched: closed at once. The share sheet with a word: Delete Draft,
+  the sheet held.
+- *A tap outside the share sheet,* on Safari's dimmed page, with a word
+  typed: the sheet closed at once with nothing asked, and the word went
+  with it, as "Not covered" has it.
+- *Untouched, then Cancel:* a Reply, and a Forward with two PDFs, each
+  closed with nothing asked, and Drafts had nothing new.
+
+Not tried: 9 and 10.
 
 ---
 
