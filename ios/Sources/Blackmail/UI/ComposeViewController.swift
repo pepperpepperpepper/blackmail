@@ -864,11 +864,17 @@ final class ComposeViewController: UIViewController,
         // for a tap that got in first.
         guard !actions.isSending else { return }
         // The Cancel sheet hangs from the bar Send is on, and a popover
-        // from a bar button leaves its bar live, so Send can be tapped with
-        // that sheet still open. It goes first. Its Save Draft and Delete
-        // Draft would do nothing now, and a failure has to be said over
-        // this sheet, which cannot put up an alert while it has something
-        // else up.
+        // from a bar button is said to leave its bar live; this one does
+        // not. On the iPad the action sheet's popover takes any tap outside
+        // it, Send's bar included, and closes on it, and that tap never
+        // reaches here; a second tap, the sheet gone, sends. The owner's
+        // ruling, 2026-10-21: left as it is, as Mail has it (B-044). So a
+        // tap does not reach what follows with that sheet up. It stays for
+        // anything up here that a tap on Send does get past, which the iPad
+        // has not shown, and puts it away first unless it is going
+        // already: a Cancel sheet's Save Draft and Delete Draft would do
+        // nothing now, and a failure has to be said over this sheet, which
+        // cannot put up an alert while it has something else up.
         if let shown = presentedViewController, !shown.isBeingDismissed {
             shown.dismiss(animated: true)
         }

@@ -536,7 +536,9 @@ this host. Ordered by value, not by size.
       *Seen on the test iPad 2026-10-21: from the YouTube app too,
       Blackmail in the row, the link alone with no subject, and the link a
       link in the letter that arrived (share check 11, B-036). What is left
-      is still "The share sheet's checks".*
+      is still "The share sheet's checks".* *Decided 2026-10-21 by the
+      owner: the share with no subject is left as it is, as the YouTube
+      app hands over the link alone (share check 11).*
 - [x] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first. *Done 2026-09-29: B-044's checks were made on the iPad; what
@@ -976,7 +978,7 @@ this host. Ordered by value, not by size.
       zone and the 24-hour clock, which wait on a yes, "Yesterday" after
       midnight, the fill timed in the app with a letter of a megabyte, and
       the memory.*
-- [ ] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
+- [x] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
       draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
       see: Save Draft then lock, Send the moment the picker closes, a tap
       on the sent draft's row as the sheet closes, Look Up or Share during
@@ -1007,18 +1009,23 @@ this host. Ordered by value, not by size.
       photo letter, select a word in the body while it sends and open Look
       Up or Share from the menu: the sheet still closes at Gmail's answer,
       taking it along, and nothing is left held on screen. Tap Cancel on a
-      letter with text, and with that sheet still open tap Send: the Cancel
-      sheet goes and the letter is sent once.
+      letter with text, and with that sheet still open tap Send: the first
+      tap only closes the Cancel sheet, as in Mail, and a second sends the
+      letter once; nothing is saved or deleted.
       *Seen on the test iPad 2026-10-20: the first four still to see
       passed, Look Up chosen from the menu (B-044). The picker takes every
       touch until about 0.9 s after Add, and by then the five photos were
       in, so a Send with a photo still coming in could not be made on this
-      iPad. Send with the Cancel sheet open did not go as written: four
-      taps on Send with that sheet up, two after a fresh launch, each only
-      closed the sheet, and a second tap sent the letter once; nothing was
-      saved, deleted or lost. The code meant one tap and does not give
-      it: the sheet, an action sheet in a popover, lets no tap through to
-      Send's bar (B-044). Still to see: this step, sent with one tap.*
+      iPad. Send with the Cancel sheet open took two taps: four taps on
+      Send with that sheet up, two after a fresh launch, each only closed
+      the sheet, and a second tap sent the letter once; nothing was saved,
+      deleted or lost. The sheet, an action sheet in a popover, lets no
+      tap through to Send's bar (B-044).*
+      *Decided 2026-10-21 by the owner: "Leave the two-tap Send, the 'View
+      recent photos.png' name, and the subjectless YouTube share as they
+      are, since each matches what Mail or iOS would do." Left as it is,
+      as Mail has it: the popover takes the tap outside it, Send's bar
+      included. That was the last step left.*
 - [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
       B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
@@ -2414,7 +2421,7 @@ this host. Ordered by value, not by size.
       allows. Its line says `name=none "image0.png"` (or `.jpeg`), the
       next `image1`. If it says `name=suggested` or `name=file "{N
       chars}.png"`, iOS gave it a name: read it from the letter that
-      arrived and note it; it decides whether such names count as none.
+      arrived and note it; the picture goes under it, as decided below.
       *Tried on the test iPad 2026-10-20, three times of three: the sheet
       said "The photo could not be attached." in place of the letter,
       "The photos could not be attached." for two, and no line could be
@@ -2431,8 +2438,12 @@ this host. Ordered by value, not by size.
       image/png, some 10.2 MB, with no location: iOS's name for a screenshot
       taken over a video open in Photos, two under the same name. The check
       looked for image0.png first; the editor named each screenshot it was
-      given, so `name=suggested` is now in it. Whether such names count as
-      none is not yet decided.*
+      given, so `name=suggested` is now in it.*
+      *Decided 2026-10-21 by the owner: "Leave the two-tap Send, the 'View
+      recent photos.png' name, and the subjectless YouTube share as they
+      are, since each matches what Mail or iOS would do." The name iOS
+      suggests stands, as iOS gives it; image0.png and image0.jpeg are for
+      a picture that comes with no name at all.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2456,7 +2467,9 @@ this host. Ordered by value, not by size.
       same, and note that the check could not be made.
       11. *A link from the YouTube app*: in the row, the link in the body
       (the YouTube app hands over no title, seen 2026-10-04, so the subject
-      is empty), the link tappable in the letter that arrives.
+      is empty), the link tappable in the letter that arrives. *Decided
+      2026-10-21 by the owner, with 7's name: the empty subject is left as
+      it is, as the YouTube app hands over the link alone.*
       12. *After these, the app's own password still works* after the
       Keychain groups change: the app signs in and sends.
       13. *Cancel with words in it.* Type a word above the signature and
@@ -2501,7 +2514,8 @@ this host. Ordered by value, not by size.
       list of segments now allows it. 7 failed on that build and became
       B-090, seen fixed on B-090's build, as 7 says. Still to do of 1 to 10:
       3's 48-megapixel HEIC, none at hand; 4's video, which needs one older
-      than the JPEG; 5 and 8 on his iPad; and 7's name, not yet decided.*
+      than the JPEG; and 5 and 8 on his iPad. 7's name was decided by the
+      owner on 2026-10-21, as 7 says.*
       *Seen on the test iPad 2026-10-21, a build of master with B-090 and
       B-091 (cba64fa): 11, 13, 14, 16 and 17 passed (B-036). In 11 the
       YouTube app's link came alone on the body's first line, above the
@@ -3518,8 +3532,8 @@ this host. Ordered by value, not by size.
       available` (or `JPEG`), N a number. Its `name=` is `none
       "image0.png"`, the next `image1`. If it says `name=suggested` or
       `name=file "{N chars}.png"`, iOS made a name up: read it from the
-      letter that arrived and note it, as share check 7 does; it decides
-      whether such names count as none. If either share still says a
+      letter that arrived and note it, as share check 7 does; the picture
+      goes under it, as decided below. If either share still says a
       photo could not be attached, there is no Send: Cancel, and read
       `blackmail-send-<time>-left-out.txt` instead, written as its sheet
       came up, and copy its lines down: the last in each `read=` is the
@@ -3537,11 +3551,15 @@ this host. Ordered by value, not by size.
       editor offered `public.image` alone, and its own item was the
       `UIImage`: `read=public.image,item`, `way=PNG made of the object`.
       The pictures went under the name iOS gave them, "View recent
-      photos.png", two under the same name, not image0.png and image1.png;
-      whether such a name counts as none is not yet decided. 1 and 2
-      looked for image0.png: the editor named each screenshot, so 2 now
-      takes iOS's names as 1 did. Each arrived as image/png, the screen as
-      it was, upright, with no location.*
+      photos.png", two under the same name, not image0.png and image1.png.
+      1 and 2 looked for image0.png: the editor named each screenshot, so 2
+      now takes iOS's names as 1 did. Each arrived as image/png, the screen
+      as it was, upright, with no location.*
+      *Decided 2026-10-21 by the owner: "Leave the two-tap Send, the 'View
+      recent photos.png' name, and the subjectless YouTube share as they
+      are, since each matches what Mail or iOS would do." The name iOS
+      suggests stands, as iOS gives it; image0.png is for a picture that
+      comes with no name at all.*
 
 - [x] **B-091, Flag with Airplane Mode on.** On the test iPad, the test
       account only, built from the `no-path` worktree. A stands for the

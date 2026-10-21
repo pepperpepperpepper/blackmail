@@ -2169,14 +2169,17 @@ What changed, in the share extension only:
   file's name as it is: IMG_0776.JPG stays IMG_0776.JPG, IMG_0775.PNG
   stays. A JPEG made here keeps the name and ends .jpg: IMG_0777.JPG goes
   as IMG_0777.jpg, IMG_0412.HEIC as IMG_0412.jpg. A suggestion goes as
-  before, its picture's extension off and the one it goes with on. With no
-  name, image0.jpeg, image1.png: "image", a number, and .jpeg for a JPEG,
-  one count for the share across every type, of the pictures staged
-  (`ShareItems.Staging.unnamed`), so the names in the letter run on without
-  a gap. Two of one name are not told apart. One more than Mail is known
-  to do: a file whose extension says another type than it goes as takes
-  the one it goes with, so a JPEG is never sent as .HEIC. Any other file
-  is named as before (`ShareItems.filename`).
+  before, its picture's extension off and the one it goes with on. One
+  iOS makes up is a suggestion like any other: "View recent photos" goes
+  as "View recent photos.png", by the owner's ruling of 2026-10-21
+  (below, and B-090). With no name at all, image0.jpeg, image1.png:
+  "image", a number, and .jpeg for a JPEG, one count for the share across
+  every type, of the pictures staged (`ShareItems.Staging.unnamed`), so
+  the names in the letter run on without a gap. Two of one name are not
+  told apart. One more than Mail is known to do: a file whose extension
+  says another type than it goes as takes the one it goes with, so a JPEG
+  is never sent as .HEIC. Any other file is named as before
+  (`ShareItems.filename`).
 - **One line in the log for each picture** (`SharedPhoto.Report`). It goes
   in the connection log, which the extension writes to its own tmp as
   `blackmail-send-*.txt` when the letter is sent:
@@ -2428,7 +2431,11 @@ B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
 - *From the YouTube app* (11): Blackmail in the row, the link alone on
   the body's first line, above the signature, and the subject empty, as
   on 2026-10-04. It arrived once, the link a link in its HTML, blue and
-  underlined in the pane.
+  underlined in the pane. *Decided 2026-10-21 by the owner: "Leave the
+  two-tap Send, the 'View recent photos.png' name, and the subjectless
+  YouTube share as they are, since each matches what Mail or iOS would
+  do." The subject stays empty, as the YouTube app hands over the link
+  alone.*
 - *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
   alone. A tap on the sheet's body closed it with the word still there;
   Delete Draft ended the share, and nothing went.
@@ -2483,7 +2490,9 @@ iPad has since shown is said at the end of each:
   it came from the file, by its length, and the letter will show it.
   Seen 2026-10-20: each screenshot taken over a video open in Photos came
   from its editor with a suggestion, "View recent photos", and went under
-  it (B-090).
+  it (B-090). Decided 2026-10-21 by the owner, with 11 above: the
+  suggestion stands, as iOS gives it; image0.jpeg is for a picture that
+  comes with no name at all.
 - Whether `os_proc_available_memory` answers in an extension. It says
   nought for a process that is not an app; then `task_info`, then 80 MB.
   Seen 2026-10-05: it answers.
@@ -3613,9 +3622,15 @@ Cancel, takes any tap outside it, Send's bar included, as a tap to close
 itself. It does not leave that bar live, as "Nothing closes the sheet
 under a letter" above has it, and the part of Send that puts the sheet
 away is not reached by a tap. Nothing is lost, and it costs a second tap
-on Send. The code meant one tap, and the TODO check still asks for it;
-letting the bar through to Send while the sheet is up would give it. Not
-changed yet.
+on Send.
+
+*Decided 2026-10-21 by the owner: "Leave the two-tap Send, the 'View
+recent photos.png' name, and the subjectless YouTube share as they are,
+since each matches what Mail or iOS would do."* Left as it is, as Mail
+has it: its popover takes the tap outside it the same way. The TODO
+check now asks for the two taps, and the comment in `sendTapped` says
+what the iPad showed; the part that puts the sheet away stays, for
+anything up that a tap on Send does get past.
 
 ---
 
@@ -15845,8 +15860,13 @@ picture over as a `UIImage`, by its own item (`loadItem`) rather than
 each screenshot it was given, "View recent photos" for one taken over a
 video open in Photos, and the picture went under it, as a sharing app's
 suggestion goes (B-036); image0.png comes only where there is none, and
-two go under one name. Whether such a name counts as none, the suggestion
-then set aside for image0.png, is not yet decided.
+two go under one name.
+
+*Decided 2026-10-21 by the owner: "Leave the two-tap Send, the 'View
+recent photos.png' name, and the subjectless YouTube share as they are,
+since each matches what Mail or iOS would do." The suggestion stands, as
+iOS gives it; image0.png is for a picture that comes with no name at
+all.*
 
 **Not covered.**
 
