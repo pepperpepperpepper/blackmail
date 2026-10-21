@@ -625,21 +625,20 @@ this host. Ordered by value, not by size.
       downloaded, and Flag it: refused the same way. With Edit on and three
       rows ticked, open a letter inside the conversation still in the pane,
       and Flag from the pane: the three ticks stay, and no other row is
-      ticked.
-      Flag, and the row's flag appears at once; flag with Wi-Fi turned off,
-      within a minute and a half of the last thing he did: the flag goes
-      back and "Can't connect" is said (at once: nothing is written onto a
-      connection the iPad says has no network, B-091; only a command
-      already on the wire as the network went waits, for the stack to drop
-      the connection or the 30 s read deadline, as on a socket left half
-      open). In a conversation, open
-      an unread letter that arrived while the stack was open and was then
-      closed by its line (since B-074 every unread letter opens with the
-      stack): the dot goes at the tap, and one count when its STORE is
-      answered (a fraction of a second later, never before, so a refused
-      STORE cannot leave the count too low), and the list does not reload.
-      The host suite checks the rules; the table view's reaction to them,
-      row removal, highlight and empty state, is only visible here.
+      ticked. Flag, and the row's flag appears at once; flag with Wi-Fi
+      turned off, within a minute and a half of the last thing he did: the
+      flag goes back and "Can't connect" is said (at once: nothing is
+      written onto a connection the iPad says has no network, B-091; only a
+      command already on the wire as the network went waits, for the stack
+      to drop the connection or the 30 s read deadline, as on a socket left
+      half open). In a conversation, open an unread letter that arrived
+      while the stack was open and was then closed by its line (since B-074
+      every unread letter opens with the stack): the dot goes at the tap,
+      and one count when its STORE is answered (a fraction of a second
+      later, never before, so a refused STORE cannot leave the count too
+      low), and the list does not reload. The host suite checks the rules;
+      the table view's reaction to them, row removal, highlight and empty
+      state, is only visible here.
       *Seen on the test iPad 2026-10-20, Airplane Mode for Wi-Fi off: every
       part but two passed (B-041). Scrolled three screens down, the Delete's
       pane was empty in the first frame and nothing on the list moved; with
@@ -2096,11 +2095,11 @@ this host. Ordered by value, not by size.
       two at once: attached, and sent (B-090). Each line said
       `read=public.image,item name=suggested "{18 chars}.png" way=PNG made
       of the object`, and each arrived as "View recent photos.png",
-      image/png, some 10.2 MB, with no location: iOS's name for a
-      screenshot taken over Photos, two under the same name. The check
-      looked for image0.png first; the editor named each screenshot it
-      was given, so `name=suggested` is now in it. Whether such names
-      count as none is not yet decided.*
+      image/png, some 10.2 MB, with no location: iOS's name for a screenshot
+      taken over a video open in Photos, two under the same name. The check
+      looked for image0.png first; the editor named each screenshot it was
+      given, so `name=suggested` is now in it. Whether such names count as
+      none is not yet decided.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2167,9 +2166,9 @@ this host. Ordered by value, not by size.
       from Files, not Safari. The JPEGs made here carry an empty APP13, an
       IPTC record with nothing in it, ImageIO's, holding no place, and the
       list of segments now allows it. 7 failed on that build and became
-      B-090, seen fixed on B-090's (7). Still to do of 1 to 10: 3's
-      48-megapixel HEIC, none at hand; 4's video, which needs one older than
-      the JPEG; 5 and 8 on his iPad; and 7's name, not yet decided.*
+      B-090, seen fixed on B-090's build, as 7 says. Still to do of 1 to 10:
+      3's 48-megapixel HEIC, none at hand; 4's video, which needs one older
+      than the JPEG; 5 and 8 on his iPad; and 7's name, not yet decided.*
 - [x] **B-068, a plain letter is his words.** The test iPad's signature
       has a logo, so a letter there goes plain only with the signature
       taken out of it. A new letter to the test account itself, the

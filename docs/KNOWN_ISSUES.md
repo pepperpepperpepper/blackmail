@@ -2452,8 +2452,9 @@ iPad has since shown is said at the end of each:
 - What name iOS gives the file of a provider made from bytes with no name.
   If it makes one up, that is the name, not image0.jpeg; the log will say
   it came from the file, by its length, and the letter will show it.
-  Seen 2026-10-20: the screenshot editor's picture comes with a
-  suggestion, "View recent photos", and goes under it (B-090).
+  Seen 2026-10-20: each screenshot taken over a video open in Photos came
+  from its editor with a suggestion, "View recent photos", and went under
+  it (B-090).
 - Whether `os_proc_available_memory` answers in an extension. It says
   nought for a process that is not an app; then `task_info`, then 80 MB.
   Seen 2026-10-05: it answers.
@@ -15293,11 +15294,11 @@ be attached." three times of three.
 So the first reading under "What it was" holds: the editor hands its
 picture over as a `UIImage`, by its own item (`loadItem`) rather than
 `loadObject`. The name is not as "What he sees" has it. The editor named
-each screenshot it was given, "View recent photos" for one taken over
-Photos, and the picture went under it, as a sharing app's suggestion goes
-(B-036); image0.png comes only where there is none, and two go under one
-name. Whether such a name counts as none, the suggestion then set aside
-for image0.png, is not yet decided.
+each screenshot it was given, "View recent photos" for one taken over a
+video open in Photos, and the picture went under it, as a sharing app's
+suggestion goes (B-036); image0.png comes only where there is none, and
+two go under one name. Whether such a name counts as none, the suggestion
+then set aside for image0.png, is not yet decided.
 
 **Not covered.**
 
