@@ -1786,6 +1786,11 @@ private extension ScriptedIMAPServer.State {
             if letters[key]?.mailboxes.contains(destination) == false,
                let filed = file(key, in: destination) {
                 targetUIDs.append(filed)
+            } else if let held = folders[destination]?.keys.first(where: { $0.value == key })?.key {
+                // Already there, as every letter is in All Mail: Gmail's
+                // COPYUID names the UID it has there (`OK [COPYUID 12 319
+                // 395]` for an Archive from the Inbox on the test iPad).
+                targetUIDs.append(held)
             }
             if exclusive.contains(source), !exclusive.contains(destination),
                letters[key]?.mailboxes.contains(Server.allMail) == false {

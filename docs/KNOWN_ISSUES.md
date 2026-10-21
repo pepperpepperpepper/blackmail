@@ -15219,6 +15219,10 @@ COPYUID and nothing moved (`.nothingMovedUnsaid`), whose `hollowCopies`
 answer a COPY so, and whose `newsRidesOnMoves` puts on a MOVE's answer
 the EXPUNGE of a letter taken out elsewhere (`removeElsewhere`), which
 otherwise comes only on a NOOP. Without UIDPLUS it gives no COPYUID.
+A MOVE into a folder that holds the letter already, as All Mail holds
+every letter, is answered with the UID the letter has there, as Gmail
+answers an Archive from the Inbox, so an Archive is pinned at its one
+command too.
 
 - *The answer:* Gmail's MOVE done, its EXPUNGE and the tagged COPYUID,
   shows it; the iPad's does not, nor does 2026-09-28's `OK Success`; RFC

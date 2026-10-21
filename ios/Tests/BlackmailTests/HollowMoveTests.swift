@@ -598,8 +598,11 @@ final class HollowMoveTests: XCTestCase {
         let (repository, rows) = try await listed()
         try await finishing { try await repository.delete(rows[3]) }
         try await finishing { try await repository.move(rows[5], to: Server.sent) }
+        try await finishing { try await repository.move(rows[7], to: Server.allMail) }
         XCTAssertEqual(server.log.map(\.command), [moveToTrash(rows[3]),
-                                                   "UID MOVE \(uid(rows[5].id)) \"\(Server.sent)\""])
+                                                   "UID MOVE \(uid(rows[5].id)) \"\(Server.sent)\"",
+                                                   "UID MOVE \(uid(rows[7].id)) \"\(Server.allMail)\""],
+                       "an Archive from the Inbox is its one command too")
 
         let row = try await archivedRow(by: repository)
         server.clearLog()
