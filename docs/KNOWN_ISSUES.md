@@ -18657,8 +18657,10 @@ its pictures and a forward's files.
   no letter over 5 MB, `IMAPMailRepository.largeLetterBytes`, the size
   above which a letter is opened in parts (B-054); keeps waiting for the
   disk at most 16 MB, one past it dropped; and a floor of 512 MB free on
-  the volume (iOS's `volumeAvailableCapacityForOpportunisticUsage`, nil
-  off iOS or where it cannot be read, which keeps): a letter that would
+  the volume (iOS's `volumeAvailableCapacityForOpportunisticUsage`, read
+  through URLs made afresh at each reading, since a URL held from one
+  reading to the next can keep what it read the first time; nil off iOS
+  or where it cannot be read, which keeps): a letter that would
   leave less is not kept, every kept letter goes, said once, and nothing
   more is kept in that launch.
 - *The check.* Every read looks up the four keys and reads the file in
@@ -18707,7 +18709,7 @@ its pictures and a forward's files.
   answered for it. A letter fetched from the server under the same folder
   and id takes its place, so after a first page that disowns the copy the
   server's letter under that id shows its own pictures. A move or a
-  delete forgets it, as it forgets `lastBody`.
+  delete forgets it, as a move forgets `lastBody`.
 - *What goes, and when.* The least recently opened past the bounds; a
   letter the server has taken out of a folder, by `MailShelf.gone`
   (a delete, a move, a letter binned or marked as spam out of every folder
@@ -18728,9 +18730,10 @@ its pictures and a forward's files.
   Outbox (`cannotConnect`). A Reply or Forward quotes the words on screen,
   which are the server's own letter, checked, as from a letter fetched in
   the same launch; built so, the owner's question's default.
-- *The log.* `KEPT-LETTER shown|kept bytes=<n> ms=<n>`, `not-kept
-  reason=…`, `dropped reason=check`, `cleared reason=space`: numbers and a
-  word, never a folder, a UID, a Message-ID, a subject or a name. A
+- *The log.* `KEPT-LETTER shown bytes=<n> ms=<n>`, `kept bytes=<n>
+  ms=<n> free-ms=<n>` (the free-space reading's own part of the keep's
+  time), `not-kept reason=…`, `dropped reason=check`, `cleared
+  reason=space`: numbers and a word, never a folder, a UID, a Message-ID, a subject or a name. A
   showing sends nothing, so nothing of it reaches the wire log.
 
 **Not changed.** `loadMessage`, its signature and its wire, and what calls
@@ -18746,7 +18749,7 @@ with it. Pictures the letter loads from the web do not show offline, as
 in Mail. A letter he never opened, and one over 5 MB, say what they say
 today. No new words.
 
-**Tests.** `KeptLettersTests`, 25, the store through the shelf that
+**Tests.** `KeptLettersTests`, 26, the store through the shelf that
 makes it: a letter read back only under its four keys; the bounds, D-016's;
 the 301st taking the least recently opened, a showing making a letter the
 newest, a second keep only touching; the bytes bounded, and a letter over
@@ -18764,10 +18767,15 @@ cannot be written taking the new file back; keeps past 16 MB waiting
 dropped; gone by UID and a letter binned from every folder but the bin;
 refused; the flush; a shelf freed with its letters; the directories made
 and marked out of backup by the shelf's helper, read from the source;
-nothing of a letter in the log; and a 5 MB letter kept in 58 ms and read
-back checked in a median 46 ms, in the debug build, printed.
-`KeptLetterOpeningTests`, 20, over the shipping repository: opened online,
-the FETCH `loadMessage`'s byte for byte, and again with nothing sent; the
+nothing of a letter in the log; the kept note timing the free-space
+reading on its own beside the whole keep, and the app's reading making its
+URLs afresh each time, read from the source; and a 5 MB letter kept in
+58 ms and read back checked in a median 46 ms, in the debug build, printed.
+`KeptLetterOpeningTests`, 23, over the shipping repository: opened online,
+the FETCH `loadMessage`'s byte for byte, and again with nothing sent;
+opened on a socket that died while the iPad slept, the FETCH lost in it
+and sent again once on the new connection, as `loadMessage`'s is, and the
+letter kept; the
 next launch from the kept rows, online and offline, through the protocol
 as the pane calls it, with no command at all, not even the LOGIN, each
 showing the newest after; a letter never
@@ -18781,15 +18789,22 @@ nor for another Gmail id or none; none shown after a first page that says
 the copy was another mailbox's; a read mark, flag, move and delete on a
 letter shown from the copy each asked about first; never kept: in parts,
 a draft, a row counted in Drafts, a row with no Gmail id, another letter,
-an opening called off; `loadMessage` and `loadDraft` keeping nothing,
+an opening called off, the letter in parts opened with the commands
+`loadMessage` sends for it, its structure first and never the whole
+letter; `loadMessage` and `loadDraft` keeping nothing,
 `loadMessage`'s wire unchanged with a copy present; a Forward of a letter
 shown from a kept file altered with its CRC made to match carrying the
 server's bytes, named by X-GM-MSGID and, a part naming no letter, by folder
 and UID, the same for its draft in Drafts, and waiting offline; its
 pictures and files from the copy with nothing sent, offline, and not under
-the same id in another folder; a letter fetched under the id of one shown
-from the copy serving its own picture; Delete, Trash, Spam and EXPUNGE
-taking it and All Mail to a label not; a password saved, the old
+the same id in another folder; a picture of a letter shown from the copy
+its own, never that of another folder's letter under the same
+"<uidvalidity>/<uid>" fetched last (`lastBody`); a letter fetched under
+the id of one shown from the copy serving its own picture; Delete, Trash,
+Spam and EXPUNGE taking it and All Mail to a label not; a letter shown
+from the copy and then moved to Spam, and another erased from the Trash,
+giving no file from memory under the folder and id each had; a password
+saved, the old
 repository's keep landing nowhere; nothing of it in the log; and, read
 from the source, the pane's three calls and his Sent Mail by `loadMessage`,
 the requirement in the protocol itself, the copy reached in three places
@@ -18816,7 +18831,18 @@ pane's conversation opening by `loadMessage`: 3 in 1. `openLetter` only in
 the protocol's extension: 6 in 2. A row whose Gmail id is not the one the
 server named kept: 2 in 1.
 
-The full suite, serially: 2,025 tests, 5 skipped, none failing. The
+Four tests more since, the in-parts case of the never-kept test made to
+compare the wire with `loadMessage`'s, and each rule they hold undone the
+same way, the two classes at 49 tests. `openLetter` fetching whole
+whatever the size, which would bring back B-054's hang above 5 MB: 3
+failures in 1 test. `openLetter` without the read retry, so the first
+letter after Gmail drops an idle connection would not open: 1 in 1.
+`lastBody` asked before the copy, as the spec had it: 2 in 1. A move not
+forgetting the letter shown from the copy: 2 in 1. An EXPUNGE not
+forgetting it: 2 in 1. The free-space reading's URL made once and held:
+2 in 1. The reading not timed on its own: 2 in 1.
+
+The full suite, serially: 2,029 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -18838,7 +18864,15 @@ release build for the iPad links.
   them from `lastBody` (PERFORMANCE.md).
 - The hitch: a page read from the main thread can wait on the shared disk
   queue behind a letter's write of up to 5 MB and a free-space reading.
-  Timed on the iPad by the kept note's ms, step 8 of the check.
+  Timed on the iPad by the kept note's ms, and the reading's own part by
+  its `free-ms`, step 8 of the check. If the reading is slow, it can be
+  read once a launch or every few minutes instead.
+- The move's and the erasing's forgetting of the letters shown before the
+  last (the 64 of this launch, read again from their files): no test can
+  tell it, since the letter's record goes with it (`gone`) and its file
+  is then read as nothing, except after a move out of All Mail to a
+  label, where the letter is still under that UID and the copy still its
+  own. The letter last shown, held in memory, is tested.
 - A letter deleted in another client stays until it is evicted, reachable
   only from a kept row: the server's last word.
 - The check on the iPad and the simulator, under "Blocked on the iPad

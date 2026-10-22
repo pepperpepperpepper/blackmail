@@ -261,6 +261,30 @@ final class KeptLetterOpeningTests: XCTestCase {
         XCTAssertEqual(notes.filter { $0.hasPrefix("KEPT-LETTER kept") }.count, 1)
     }
 
+    /// The socket died while the iPad slept, as Gmail drops an idle one:
+    /// the first letter he taps costs one reconnect, as `loadMessage`'s
+    /// does. Its FETCH went into the dead socket, is sent again on the new
+    /// connection with the Inbox selected there, the letter opens, and it
+    /// is kept.
+    func testOpenedOnASocketThatDiedTheFetchIsSentAgainAndTheLetterKept() async throws {
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let connections = server.connectionsOpened
+
+        await server.resetConnections()
+        let letter = try await repository.openLetter(rows[0])
+        XCTAssertEqual(letter.subject, rows[0].subject)
+        XCTAssertEqual(server.connectionsOpened, connections + 1)
+        XCTAssertEqual(server.lostWrites.map(\.command), ["UID FETCH \(uid(rows[0].id)) (UID BODY.PEEK[])"])
+        let retried = server.log.filter { $0.connection == connections + 1 && $0.isUIDCommand }
+        XCTAssertEqual(retried.map(\.command), ["UID FETCH \(uid(rows[0].id)) (UID BODY.PEEK[])"])
+        XCTAssertEqual(retried.map(\.selected), [Server.inbox])
+        XCTAssertEqual(shelf.letters.records.map(\.uid), [uid(rows[0].id)], "kept")
+        XCTAssertEqual(notes.filter { $0.hasPrefix("KEPT-LETTER kept") }.count, 1)
+    }
+
     /// The next launch, from the kept rows before any page has come: each
     /// letter opened before is shown with no command at all, not even the
     /// LOGIN, with a connection and without.
@@ -515,8 +539,9 @@ final class KeptLetterOpeningTests: XCTestCase {
 
     // MARK: - Never kept
 
-    /// A letter opened in parts, too large to fetch whole, says why it is
-    /// not kept; so do a Drafts letter, a row counted in Drafts, a row with
+    /// A letter opened in parts, too large to fetch whole, is opened with
+    /// the commands `loadMessage` sends for it, never the whole letter, and
+    /// says why it is not kept; so do a Drafts letter, a row counted in Drafts, a row with
     /// no Gmail id, and an opening called off before its body came. A row
     /// whose Gmail id is not the one the server named is refused, and
     /// nothing of it kept.
@@ -525,8 +550,21 @@ final class KeptLetterOpeningTests: XCTestCase {
         let small = makeRepository(shelf: shelf, largeLetterBytes: 100)
         _ = try await small.listMailboxes()
         let large = try await small.listMessages(in: "inbox", beforeUID: nil, limit: 5)
+        let plainSmall = makeRepository(shelf: nil, largeLetterBytes: 100)
+        _ = try await plainSmall.listMessages(in: "inbox", beforeUID: nil, limit: 5)
+        server.clearLog()
         _ = try await small.openLetter(large[0])
         XCTAssertEqual(notes.last, "KEPT-LETTER not-kept reason=size")
+        // Opened in parts, as `loadMessage` opens the same row: its
+        // structure and header, then its words, and never the whole letter
+        // (B-054), which a letter over 5 MB would bring at every tap.
+        let inParts = server.log.map(\.command)
+        server.clearLog()
+        _ = try await plainSmall.loadMessage(id: large[0].id, gmailMessageID: large[0].gmailMessageID,
+                                             mailboxID: large[0].mailboxID)
+        XCTAssertEqual(inParts, server.log.map(\.command), "loadMessage's wire")
+        XCTAssertEqual(inParts.first, "UID FETCH \(uid(large[0].id)) (UID BODYSTRUCTURE BODY.PEEK[HEADER])")
+        XCTAssertFalse(inParts.contains { $0.contains("BODY.PEEK[]") }, "never the whole letter")
 
         let repository = makeRepository(shelf: shelf)
         _ = try await repository.listMailboxes()
@@ -731,6 +769,65 @@ final class KeptLetterOpeningTests: XCTestCase {
         XCTAssertEqual(server.log, [])
     }
 
+    /// Two folders under the same UIDVALIDITY, each with a letter under
+    /// the same UID, so both letters' ids are the same
+    /// "<uidvalidity>/<uid>", each with one picture at the same part. The
+    /// Porch, in Family, is fetched last, and so is the letter last fetched
+    /// (`lastBody`, matched by id alone); then the Roof, in Friends, is
+    /// shown from the copy. The Roof's picture asked for under Friends is
+    /// the Roof's, from the copy, never the Porch's.
+    func testAPictureOfALetterShownFromTheCopyIsNeverAnotherFoldersLetterFetchedLastUnderItsID()
+        async throws {
+        for folder in ["Family", "Friends"] {
+            server.addFolder(folder, attributes: ["\\HasNoChildren"], label: folder,
+                             validity: 600_100, firstUID: 10)
+        }
+        let porchBytes = Data((0..<1700).map { UInt8(truncatingIfNeeded: $0 &* 23 &+ 2) })
+        server.deliver(Server.Letter(
+            from: Server.jane, to: [Server.owner], subject: "Porch",
+            date: Server.newestDate.addingTimeInterval(30),
+            html: "<p>The porch.</p><img src=\"cid:porch1\">", messageID: "<porch@example.com>",
+            files: [Server.File(name: "porch.jpg", type: "IMAGE", subtype: "JPEG", bytes: porchBytes,
+                                contentID: "porch1")]),
+            to: ["Family", Server.allMail])
+        server.deliver(Server.Letter(
+            from: Server.sam, to: [Server.owner], subject: "Roof",
+            date: Server.newestDate.addingTimeInterval(60),
+            html: "<p>The roof.</p><img src=\"cid:roof1\">", messageID: "<roof@example.com>",
+            files: [Server.File(name: "roof.jpg", type: "IMAGE", subtype: "JPEG", bytes: roofBytes,
+                                contentID: "roof1")]),
+            to: ["Friends", Server.allMail])
+
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let friendsRows = try await repository.listMessages(in: "Friends", beforeUID: nil, limit: 5)
+        let familyRows = try await repository.listMessages(in: "Family", beforeUID: nil, limit: 5)
+        let friends = try XCTUnwrap(friendsRows.first)
+        let family = try XCTUnwrap(familyRows.first)
+        XCTAssertEqual(friends.id, family.id, "the same id in two folders")
+        XCTAssertNotEqual(friends.gmailMessageID, family.gmailMessageID)
+        let fetchedRoof = try await repository.openLetter(friends)
+        XCTAssertEqual(shelf.letters.records.map(\.folder), ["Friends"])
+        let porch = try await repository.openLetter(family)
+        XCTAssertEqual(porch.subject, "Porch")
+        XCTAssertEqual(shown, 0, "both fetched")
+
+        server.clearLog()
+        let roof = try await repository.openLetter(friends)
+        XCTAssertEqual(shown, 1, "the Roof from the copy")
+        XCTAssertEqual(roof.subject, "Roof")
+        let picture = try XCTUnwrap(roof.attachments.first { $0.contentID == "roof1" })
+        XCTAssertEqual(picture.id, try XCTUnwrap(porch.attachments.first { $0.contentID == "porch1" }).id,
+                       "the same part")
+        XCTAssertEqual(picture.id, try XCTUnwrap(fetchedRoof.attachments.first?.id))
+        let data = try await repository.fetchAttachmentData(picture.id, of: roof.id,
+                                                           mailboxID: roof.mailboxID)
+        XCTAssertEqual(data, roofBytes, "the Roof's own picture")
+        XCTAssertNotEqual(data, porchBytes)
+        XCTAssertEqual(server.log, [], "from the copy, nothing sent")
+    }
+
     /// The letter shown from the copy at launch, and then a first page
     /// that says the copy was another mailbox's, its UID now another
     /// letter with a picture at the same part: that letter, opened from the
@@ -809,6 +906,76 @@ final class KeptLetterOpeningTests: XCTestCase {
             _ = await refusal { _ = try await offline.openLetter(row) }
         }
         XCTAssertEqual(shown, 0)
+    }
+
+    /// A letter shown from the copy, then moved to Spam, and another shown
+    /// from it, then erased from the Trash: neither gives its file from
+    /// memory any more under the folder and id it had. Asked for there with
+    /// no connection, nothing answers, as nothing does for a letter fetched
+    /// and then moved (`lastBody`). Another letter is fetched between each
+    /// one's two openings, so the letter last fetched is not the one asked
+    /// for.
+    func testALetterShownFromTheCopyAndThenMovedOrErasedGivesNoFileFromMemory() async throws {
+        deliverPlans()
+        let oldBytes = Data((0..<2000).map { UInt8(truncatingIfNeeded: $0 &* 17 &+ 3) })
+        server.deliver(Server.Letter(
+            from: Server.sam, to: [Server.owner], subject: "Old plans",
+            date: Server.newestDate.addingTimeInterval(90), text: "The old plans.\r\n",
+            messageID: "<oldplans@example.com>",
+            files: [Server.File(name: "Old.pdf", type: "APPLICATION", subtype: "PDF",
+                                bytes: oldBytes)]),
+            to: [Server.trash])
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let inbox = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let trash = try await repository.listMessages(in: Server.trash, beforeUID: nil, limit: 10)
+        let plansRow = try XCTUnwrap(inbox.first { $0.subject == "Plans" })
+        let others = inbox.filter { $0.subject != "Plans" }
+        XCTAssertGreaterThanOrEqual(others.count, 2)
+        let oldRow = try XCTUnwrap(trash.first { $0.subject == "Old plans" })
+
+        /// Opened from the server, another letter fetched, then shown from
+        /// the copy, its file from it: the letter and the file's part.
+        func shownFromTheCopy(_ row: MessageSummary, between: MessageSummary, file name: String,
+                              _ bytes: Data) async throws -> (Message, String) {
+            _ = try await repository.openLetter(row)
+            let fetched = shown
+            _ = try await repository.openLetter(between)
+            XCTAssertEqual(shown, fetched, "the letter between fetched")
+            let before = shown
+            let letter = try await repository.openLetter(row)
+            XCTAssertEqual(shown, before + 1, "from the copy")
+            let file = try XCTUnwrap(letter.attachments.first { $0.filename == name })
+            let data = try await repository.fetchAttachmentData(file.id, of: letter.id,
+                                                               mailboxID: letter.mailboxID)
+            XCTAssertEqual(data, bytes)
+            return (letter, file.id)
+        }
+
+        /// The file asked for with the line down: refused, never served.
+        func refusedOffline(_ letter: Message, _ part: String, _ what: String) async {
+            line.isUp = false
+            await server.resetConnections()
+            let failed = await refusal {
+                _ = try await repository.fetchAttachmentData(part, of: letter.id,
+                                                             mailboxID: letter.mailboxID)
+            }
+            XCTAssertEqual(failed as? MailError, .cannotConnect, what)
+            line.isUp = true
+        }
+
+        let (plans, pdf) = try await shownFromTheCopy(plansRow, between: others[0],
+                                                       file: "Plans.pdf", plansBytes)
+        try await repository.move(plansRow, to: Server.spam)
+        XCTAssertFalse(server.uids(in: Server.inbox).contains(uid(plansRow.id)))
+        await refusedOffline(plans, pdf, "moved")
+
+        let (old, oldPDF) = try await shownFromTheCopy(oldRow, between: others[1],
+                                                         file: "Old.pdf", oldBytes)
+        try await repository.delete(oldRow)
+        XCTAssertFalse(server.uids(in: Server.trash).contains(uid(oldRow.id)))
+        await refusedOffline(old, oldPDF, "erased")
     }
 
     // MARK: - A password saved

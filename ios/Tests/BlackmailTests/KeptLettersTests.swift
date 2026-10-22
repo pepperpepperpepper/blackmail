@@ -484,6 +484,42 @@ final class KeptLettersTests: XCTestCase {
         XCTAssertEqual(read(5, on: unread), raw(5), "nil free space keeps")
     }
 
+    /// The kept note gives the free-space reading's own time beside the
+    /// keep's whole time, so the iPad's check can tell what the reading
+    /// costs from what the write costs. And the app's reading makes its
+    /// URLs afresh each time, read from the source since the reading is
+    /// iOS's: a URL held from one reading to the next can answer from what
+    /// it read the first time.
+    func testTheKeptNoteTimesTheFreeSpaceReadingOnItsOwnAndEachReadingIsAfresh() throws {
+        var options = KeptLetters.Options()
+        options.freeSpace = {
+            Thread.sleep(forTimeInterval: 0.05)
+            return Int64(4) << 30
+        }
+        let shelf = shelf(options: options)
+        keep(1, on: shelf)
+        XCTAssertEqual(read(1, on: shelf), raw(1))
+        let note = try XCTUnwrap(letterNotes.first { $0.hasPrefix("KEPT-LETTER kept") })
+        let fields = Dictionary(uniqueKeysWithValues: note.split(separator: " ").dropFirst(2)
+            .compactMap { field -> (String, Int)? in
+                let pair = field.split(separator: "=")
+                guard pair.count == 2, let n = Int(pair[1]) else { return nil }
+                return (String(pair[0]), n)
+            })
+        XCTAssertEqual(Set(fields.keys), ["bytes", "ms", "free-ms"], note)
+        let reading = try XCTUnwrap(fields["free-ms"], note)
+        XCTAssertGreaterThanOrEqual(reading, 50, note)
+        XCTAssertGreaterThanOrEqual(try XCTUnwrap(fields["ms"]), reading, note)
+
+        let letters = try source("Mail/KeptLetters.swift")
+        let app = try section(of: letters,
+                              from: "static func freeSpace(near root: URL) -> @Sendable () -> Int64? {",
+                              to: "#else")
+        let closure = try section(of: app, from: "return {", to: "return nil")
+        XCTAssertTrue(closure.contains("let kept = URL(fileURLWithPath: path, isDirectory: true)"))
+        XCTAssertFalse(closure.contains("root"), "the URL made once and held")
+    }
+
     // MARK: - A disk that will not write
 
     /// A file where `letters/` goes: the keep writes nothing, and the
@@ -699,7 +735,7 @@ final class KeptLettersTests: XCTestCase {
         }
         let shape = try? NSRegularExpression(
             pattern: "^KEPT-LETTER (shown|kept|not-kept|dropped|cleared)"
-                + "( reason=[a-z]+)?( bytes=[0-9]+)?( ms=[0-9]+)?$")
+                + "( reason=[a-z]+)?( bytes=[0-9]+)?( ms=[0-9]+)?( free-ms=[0-9]+)?$")
         XCTAssertFalse(letterNotes.isEmpty)
         for note in letterNotes {
             let whole = NSRange(note.startIndex..., in: note)

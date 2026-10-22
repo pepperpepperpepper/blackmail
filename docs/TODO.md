@@ -4133,8 +4133,11 @@ this host. Ordered by value, not by size.
       beginning "B-111". Three panes. First mail A: P (plain), H (HTML with
       an inline photo), F (with a PDF), T (a conversation of three with J),
       L (two full photos, over 5 MB) and N, never opened.
-      1. *Kept.* Open P, H, F, T's letters and L: one body FETCH each in
-      the log, and a `KEPT-LETTER kept` note for each but L, which says
+      1. *Kept.* Open P, H, F, T's letters and L: one body FETCH each
+      for P, H, F and T's letters in the log, each with a `KEPT-LETTER
+      kept` note; L in parts, as B-054 opens it (a FETCH for its structure
+      and header, then one for its text and one for its HTML, those it
+      has), with
       `not-kept reason=size`. Open P, H and F again: no FETCH, each at
       once in a screen recording, H's photo shows, and F's PDF opens in
       Quick Look with nothing fetched.
@@ -4158,7 +4161,9 @@ this host. Ordered by value, not by size.
       8. *Time.* A kept 3 MB letter against the same letter fetched (after
       a password save): from the tap to the letter drawn, and the shown
       note's ms. The kept note's ms for writing a 3 MB letter, with a list
-      scrolled at the same moment, for the hitch.
+      scrolled at the same moment, for the hitch, and its `free-ms`, the
+      free-space reading's part of it. If `free-ms` is large, the floor
+      is to be read once a launch, or every few minutes, instead.
       9. *The simulator.* The notes say `kept`, never `reason=space`.
       10. *The container*, where it can be read: `letters/` holds one
       `.eml` per letter kept, beside `letters.json`, and nothing else;

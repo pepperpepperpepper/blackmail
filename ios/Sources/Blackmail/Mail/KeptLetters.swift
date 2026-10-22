@@ -219,8 +219,13 @@ final class KeptLetters: @unchecked Sendable {
         }
         guard let now else { return }
 
-        // The floor, read before anything is written.
-        if let free = freeSpace(), free - Int64(raw.count) < bounds.floor {
+        // The floor, read before anything is written, and timed on its own
+        // for the note: on the shared disk queue a page read from the main
+        // thread waits behind it as well as behind the write.
+        let reading = DispatchTime.now().uptimeNanoseconds
+        let free = freeSpace()
+        let freeMS = (DispatchTime.now().uptimeNanoseconds - reading) / 1_000_000
+        if let free, free - Int64(raw.count) < bounds.floor {
             clear(epoch: epoch)
             return
         }
@@ -265,7 +270,7 @@ final class KeptLetters: @unchecked Sendable {
             try? manager.removeItem(at: files.appendingPathComponent(gone.file))
         }
         let ms = (DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
-        Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms)")
+        Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms) free-ms=\(freeMS)")
     }
 
     /// The least recently opened, out of `records`, until there are at most
@@ -517,10 +522,17 @@ final class KeptLetters: @unchecked Sendable {
     /// The bytes free for what the app keeps, on the volume `Kept/` is on,
     /// as iOS reckons them for what can wait; nil where that cannot be
     /// read, and off iOS.
+    ///
+    /// Each reading makes its URLs afresh from the path. A URL keeps the
+    /// resource values it has read until its thread's run loop turns, and
+    /// the disk queue has none, so one URL held from reading to reading
+    /// could give the first reading again for the rest of the launch.
     static func freeSpace(near root: URL) -> @Sendable () -> Int64? {
         #if os(iOS)
+        let path = root.path
         return {
-            for url in [root, root.deletingLastPathComponent(),
+            let kept = URL(fileURLWithPath: path, isDirectory: true)
+            for url in [kept, kept.deletingLastPathComponent(),
                         URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)] {
                 if let values = try? url.resourceValues(
                     forKeys: [.volumeAvailableCapacityForOpportunisticUsageKey]),
