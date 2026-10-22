@@ -4013,6 +4013,19 @@ this host. Ordered by value, not by size.
       showing: they go to their top and stay. In Edit mode with two ticks:
       the top, and the ticks stay. With the composer open: nothing behind
       it moves.
+      *Seen on the test iPad 2026-10-22, a build of `feat-pullrefresh`
+      (4093de3), three panes and two: 3, 4, 5, 9, 10, 12 and 13 passed,
+      13's Mailboxes part not possible, every folder fitting the column;
+      11 not possible, one finger being all that can be put on the screen
+      from outside. 1, 7 and 8 failed: a page answered as the list sprang
+      back left it 60 pt below its top with no spinner, 11 of 13 such
+      pulls, in two panes too. 2 failed: offline, a quick pull's alert
+      came on as the finger lifted, and after OK the list stayed 168 pt
+      down with the spinner turning until touched, 2 of 2. 6's pass was
+      not supported: the pull at the top of a day's list was never made.
+      All four failures made again on a fresh launch. Both faults fixed
+      since, as B-103 in KNOWN_ISSUES says; 1, 2, 6, 7 and 8 to run again
+      as above, and 11 by hand.*
 - [ ] **B-102, the reply and forward arrows.** On the test iPad, the test
       account only, built from the `feat-arrows` worktree (part 2, when it
       is built, from its own). A stands for the account's address; letters
@@ -4110,6 +4123,50 @@ this host. Ordered by value, not by size.
       the switch.
       After the install on his iPad: read the SLOW notes for `SELECT
       "[Gmail]/Sent Mail"`.
+      *Seen on the test iPad 2026-10-22, a build of B-104 as first built,
+      with other work: 2 to 7 and 8's switch passed. 1 passed untouched
+      and again within ten minutes, and failed with a finger on the pane:
+      J's second letter dropped one line as A's line went in, and went on
+      with the finger from there. 8's VoiceOver could not be tried, the
+      app being on VoiceOver's Direct Touch list there, and 9 was not run.
+      Changed the same day (B-104 in KNOWN_ISSUES): A's line is held while
+      the stack moves under a finger, coasts or bounces back, as the pane's
+      scroll view says and as the page hears, and goes in once it is
+      still. To run again, from a build with both steps of the change: 1
+      in full; 8's VoiceOver, once the app is off the Direct Touch list;
+      and 9. 1 with a finger, as on 2026-10-22: before each run another row
+      selected, Refresh, so nothing is remembered, and J's second letter
+      made unread from the host; a burst of shots from the tap each time,
+      A's line found when the log has the summary FETCH in Sent Mail
+      (about 0.6 s that day). Each time J's second letter's first line
+      moves with the finger alone, with no step of a line, and A's line
+      goes in above it within about a third of a second of the stack
+      coming to rest. (a) *The finger at the tap*, as that day: within
+      0.05 s of the tap, drag the pane up some 100 to 120 px of the shots
+      over 1.5 to 1.8 s; then the same with the finger held still a second
+      in the middle as A's line is found, then dragged on. That finger
+      lands on the page before the stack's, whose first frame came about
+      0.2 s after the tap, so the stack's page hears none of its touches,
+      and only the pane's word holds A's line. (b) *The finger on the
+      stack*: put it down once the stack is drawn, 0.3 s or more after the
+      tap, and the same drag; then with a pause of half a second, and one
+      of six seconds, longer than the page's own five, in the middle as
+      A's line is found, then dragged on; and a flick, A's line found while
+      the stack coasts. (c) *A pull at the top*: the stack opens with J's
+      first line at the top of the pane; once it is drawn, pull it down
+      some 60 px and let go as A's line is found, so it bounces back. J's
+      second letter does not step, and A's line goes in after the bounce.
+      (d) *A finger on J's first line*, put down once the stack is drawn
+      and lifted at about 1 s, A's line found meanwhile: the lift opens
+      that letter, once, its line where it was, and A's line goes in
+      after. Then the same with the finger put down within 0.05 s of the
+      tap: J's first line stays under the finger while it is down, and A's
+      line goes in after the lift; what the lift opens, if anything, is
+      WebKit's, the touch having begun on the page before, so write down
+      what it does. If J's first line moves from under that still finger,
+      or J's second letter steps in (c), UIKit did not count the finger
+      or the bounce as moving: write it down, it is a case KNOWN_ISSUES
+      names as not covered.*
 - [ ] **B-105, several words and recent searches.** On the test iPad, the
       test account only, built from the `feat-search` worktree. A stands
       for the account's address; letters only to A with `+b105` before
@@ -4169,63 +4226,6 @@ this host. Ordered by value, not by size.
       tap in the field: none. The date put back: they show again, as a
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
-      *Seen on the test iPad 2026-10-22, a build of `feat-pullrefresh`
-      (4093de3), three panes and two: 3, 4, 5, 9, 10, 12 and 13 passed,
-      13's Mailboxes part not possible, every folder fitting the column;
-      11 not possible, one finger being all that can be put on the screen
-      from outside. 1, 7 and 8 failed: a page answered as the list sprang
-      back left it 60 pt below its top with no spinner, 11 of 13 such
-      pulls, in two panes too. 2 failed: offline, a quick pull's alert
-      came on as the finger lifted, and after OK the list stayed 168 pt
-      down with the spinner turning until touched, 2 of 2. 6's pass was
-      not supported: the pull at the top of a day's list was never made.
-      All four failures made again on a fresh launch. Both faults fixed
-      since, as B-103 in KNOWN_ISSUES says; 1, 2, 6, 7 and 8 to run again
-      as above, and 11 by hand.*
-      *Seen on the test iPad 2026-10-22, a build of B-104 as first built,
-      with other work: 2 to 7 and 8's switch passed. 1 passed untouched
-      and again within ten minutes, and failed with a finger on the pane:
-      J's second letter dropped one line as A's line went in, and went on
-      with the finger from there. 8's VoiceOver could not be tried, the
-      app being on VoiceOver's Direct Touch list there, and 9 was not run.
-      Changed the same day (B-104 in KNOWN_ISSUES): A's line is held while
-      the stack moves under a finger, coasts or bounces back, as the pane's
-      scroll view says and as the page hears, and goes in once it is
-      still. To run again, from a build with both steps of the change: 1
-      in full; 8's VoiceOver, once the app is off the Direct Touch list;
-      and 9. 1 with a finger, as on 2026-10-22: before each run another row
-      selected, Refresh, so nothing is remembered, and J's second letter
-      made unread from the host; a burst of shots from the tap each time,
-      A's line found when the log has the summary FETCH in Sent Mail
-      (about 0.6 s that day). Each time J's second letter's first line
-      moves with the finger alone, with no step of a line, and A's line
-      goes in above it within about a third of a second of the stack
-      coming to rest. (a) *The finger at the tap*, as that day: within
-      0.05 s of the tap, drag the pane up some 100 to 120 px of the shots
-      over 1.5 to 1.8 s; then the same with the finger held still a second
-      in the middle as A's line is found, then dragged on. That finger
-      lands on the page before the stack's, whose first frame came about
-      0.2 s after the tap, so the stack's page hears none of its touches,
-      and only the pane's word holds A's line. (b) *The finger on the
-      stack*: put it down once the stack is drawn, 0.3 s or more after the
-      tap, and the same drag; then with a pause of half a second, and one
-      of six seconds, longer than the page's own five, in the middle as
-      A's line is found, then dragged on; and a flick, A's line found while
-      the stack coasts. (c) *A pull at the top*: the stack opens with J's
-      first line at the top of the pane; once it is drawn, pull it down
-      some 60 px and let go as A's line is found, so it bounces back. J's
-      second letter does not step, and A's line goes in after the bounce.
-      (d) *A finger on J's first line*, put down once the stack is drawn
-      and lifted at about 1 s, A's line found meanwhile: the lift opens
-      that letter, once, its line where it was, and A's line goes in
-      after. Then the same with the finger put down within 0.05 s of the
-      tap: J's first line stays under the finger while it is down, and A's
-      line goes in after the lift; what the lift opens, if anything, is
-      WebKit's, the touch having begun on the page before, so write down
-      what it does. If J's first line moves from under that still finger,
-      or J's second letter steps in (c), UIKit did not count the finger
-      or the bounce as moving: write it down, it is a case KNOWN_ISSUES
-      names as not covered.*
       *Seen on the test iPad 2026-10-22, a build of the integration
       branch with this one in it (1b5d096): 1, 3, 4, 5, 7, 8, 9d, 10, 11
       and 12 passed, and 2 but for its word with an accent; 6, 9b and 9c
@@ -4255,6 +4255,41 @@ this host. Ordered by value, not by size.
         by hand before Search: the rows that were in sight stay in sight
         below the block, and Cancel leaves the Inbox where it was. With
         VoiceOver on, the delete key once, the same.*
+- [ ] **B-112, a mark set on another device, told inside the listing.** On
+      the test iPad, the test account only, on a build of master, where it
+      is merged. Organize by Thread on, three panes, the Inbox open at its
+      top. A conversation of two letters at the top of the Inbox, sent from
+      the host, the second a reply to the first (In-Reply-To and References
+      naming it), on one row, as in B-102's check. Copy down, for every
+      Refresh, its NOOP, the listing's `UID FETCH` and every line of its
+      answer for the two UIDs, and its `SESSION-IDENT` line.
+      1. *The news inside the listing.* From the host, over IMAP on the
+      test account, `UID STORE <newer> +FLAGS (\Answered)`, and tap Refresh
+      within a second of its OK; then `-FLAGS (\Answered)` and Refresh at
+      once; then `-FLAGS (\Seen)`, `+FLAGS (\Seen)`, `+FLAGS (\Flagged)`
+      and `-FLAGS (\Flagged)`, each with Refresh at once; then the same on
+      the older letter; then once more on the newer with Refresh 2 s
+      after the OK. Repeat until the news, `* n FETCH (UID u FLAGS (…))`,
+      has come inside the listing's answer, after the letter's own line
+      and before the tagged OK, at least three times, the log saying each
+      time whether it came there or on the NOOP before it. Every time,
+      whichever: one row for the conversation, its sender, subject and
+      date the newer letter's, never "(unknown sender)", "(no subject)" or
+      31/12/69, the older letter not on a row of its own, and
+      `SESSION-IDENT … msgid=` a number, never `-`. Where the news came
+      inside the listing, the row shows the new mark at that Refresh: the
+      dot with `\Seen` off, the flag with `\Flagged` on, and, on a build
+      with B-102's arrows, the arrow with `\Answered` on and none with it
+      off. No `FETCH-NO-ENVELOPE` line.
+      2. *Every mark off.* The newer letter with `\Seen` alone, no arrow
+      and no flag: `-FLAGS (\Seen)` from the host, Refresh at once,
+      repeated until the news `FLAGS ()` comes inside the listing: the row
+      whole and with the dot at that Refresh.
+      3. *Put back.* Every mark as it was at the start, from the host, a
+      Refresh to see the row as it was, and the conversation deleted from
+      Edit mode, as at the end of B-102's check.
+      *Not tried on the simulator: the host tests hold it, the scripted
+      server telling of the mark where Gmail told the iPad (B-112).*
 
 ## Blocked on the owner
 

@@ -68,6 +68,76 @@ final class IMAPParserTests: XCTestCase {
         XCTAssertNotNil(r?.internalDate, "INTERNALDATE must parse under en_US_POSIX")
     }
 
+    /// B-112: the news of a mark set on another device, which Gmail sends
+    /// unasked inside the answer to a UID FETCH, `* 68 FETCH (UID 422 FLAGS
+    /// (\Seen))`, after the letter's whole line, is laid over it: one result,
+    /// the letter's, with the news's flags. Ahead of it, the whole line's.
+    /// Either way every item only the whole line carried is the whole
+    /// line's: its labels, arrival, size, envelope, structure, bytes and
+    /// Gmail ids. An empty FLAGS that was sent takes every mark off, and a
+    /// line that carries no X-GM-LABELS leaves the labels. Another letter's
+    /// line, and a line with no UID, are left as they are.
+    func testASecondLineForOneUIDIsLaidOverTheFirst() {
+        let marker = "\(IMAPResponseLine.literalMarker)0\(IMAPResponseLine.literalMarker)"
+        let bytes = Data("Subject: Re: the plan\r\n\r\nMay it is.\r\n".utf8)
+        let whole = line("""
+        * 68 FETCH (X-GM-THRID 1278455344230334865 X-GM-MSGID 1278455344230334999 \
+        X-GM-LABELS ("\\\\Important") UID 422 FLAGS (\\Answered \\Seen) \
+        INTERNALDATE "22-Oct-2026 11:45:02 +0000" RFC822.SIZE 3120 \
+        ENVELOPE ("Thu, 22 Oct 2026 07:45:00 -0400" "Re: the plan" \
+        (("Jane" NIL "jane" "example.com")) NIL NIL NIL NIL NIL "<a@example.com>" "<b@example.com>") \
+        BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 12 1 NIL NIL NIL NIL)\
+        ("APPLICATION" "PDF" ("NAME" "plan.pdf") NIL NIL "BASE64" 820 NIL \
+        ("ATTACHMENT" ("FILENAME" "plan.pdf")) NIL NIL) "MIXED" ("BOUNDARY" "b1") NIL NIL NIL) \
+        BODY[] \(marker))
+        """, literals: [bytes])
+        let news = line("* 68 FETCH (UID 422 FLAGS (\\Seen))")
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let arrived = utc.date(from: DateComponents(year: 2026, month: 10, day: 22,
+                                                    hour: 11, minute: 45, second: 2))
+        let dated = utc.date(from: DateComponents(year: 2026, month: 10, day: 22,
+                                                  hour: 11, minute: 45, second: 0))
+
+        func assertTheLetter(_ results: [IMAPFetchResult], flags: [String], _ order: String,
+                             line: UInt = #line) {
+            XCTAssertEqual(results.count, 1, order, line: line)
+            guard let r = results.first else { return XCTFail("\(order): none", line: line) }
+            XCTAssertEqual(r.uid, 422, order, line: line)
+            XCTAssertEqual(r.flags, flags, order, line: line)
+            XCTAssertEqual(r.labels, ["\\Important"], order, line: line)
+            XCTAssertEqual(r.internalDate, arrived, order, line: line)
+            XCTAssertEqual(r.size, 3120, order, line: line)
+            XCTAssertEqual(r.envelope?.date, dated, order, line: line)
+            XCTAssertEqual(r.envelope?.subject, "Re: the plan", order, line: line)
+            XCTAssertEqual(r.envelope?.from.map(\.address), ["jane@example.com"], order, line: line)
+            XCTAssertEqual(r.envelope?.inReplyTo, "<a@example.com>", order, line: line)
+            XCTAssertEqual(r.envelope?.messageID, "<b@example.com>", order, line: line)
+            XCTAssertEqual(r.bodyStructure?.mimeType, "multipart/mixed", order, line: line)
+            XCTAssertEqual(r.bodyStructure?.children.map(\.mimeType), ["text/plain", "application/pdf"],
+                           order, line: line)
+            XCTAssertEqual(r.bodyStructure?.children.last?.filename, "plan.pdf", order, line: line)
+            XCTAssertEqual(r.body, bytes, order, line: line)
+            XCTAssertEqual(r.threadID, "1278455344230334865", order, line: line)
+            XCTAssertEqual(r.gmailMessageID, 1_278_455_344_230_334_999, order, line: line)
+        }
+
+        assertTheLetter(IMAPParser.parseFetch([whole, news]), flags: ["\\Seen"], "news after")
+        assertTheLetter(IMAPParser.parseFetch([news, whole]), flags: ["\\Answered", "\\Seen"], "news ahead")
+
+        let cleared = IMAPParser.parseFetch([whole, line("* 68 FETCH (UID 422 FLAGS ())")])
+        XCTAssertEqual(cleared.count, 1)
+        XCTAssertEqual(cleared.first?.flags, [])
+        XCTAssertEqual(cleared.first?.labels, ["\\Important"])
+
+        let others = IMAPParser.parseFetch([whole, line("* 12 FETCH (UID 97 FLAGS (\\Flagged))"),
+                                            line("* 68 FETCH (FLAGS (\\Seen))")])
+        XCTAssertEqual(others.map(\.uid), [422, 97, nil])
+        XCTAssertEqual(others.first?.flags, ["\\Answered", "\\Seen"])
+        XCTAssertEqual(others[1].flags, ["\\Flagged"])
+        XCTAssertNil(others[1].envelope)
+    }
+
     // MARK: - Gmail's items
 
     /// X-GM-MSGID as Gmail sends it, a bare decimal number.

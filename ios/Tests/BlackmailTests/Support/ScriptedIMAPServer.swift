@@ -52,6 +52,11 @@ import Foundation
 ///   the mailbox it has selected. Mail that `arrive`s is not in them until
 ///   an EXISTS has announced it, on a NOOP or riding on a UID FETCH, and a
 ///   letter taken out elsewhere stays in them until a NOOP's EXPUNGE.
+/// - A mark set or taken off on another device (`storeElsewhere`) is told
+///   to a connection with the letter's mailbox open by a FETCH of the
+///   server's own, on a NOOP or inside a UID FETCH's answer as `flagNews`
+///   says, and until then its FETCHes carry the flags it last knew, as
+///   Gmail's did on the iPad (B-112).
 /// - Auto-Expunge is off, as in the test account's IMAP settings (B-062):
 ///   a STORE of `\Deleted` marks the letter and leaves it where it is,
 ///   listed, searched and fetched as before; UID EXPUNGE removes the
@@ -486,6 +491,68 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var newsRidesOnMoves: Bool {
         get { locked { $0.newsRidesOnMoves } }
         set { locked { $0.newsRidesOnMoves = newValue } }
+    }
+
+    /// Where a connection is told of a mark set or taken off from another
+    /// device (`storeElsewhere`), with `* 68 FETCH (UID 422 FLAGS (\Seen))`,
+    /// which RFC 3501 §7.4.2 lets a server send at any time. Until it is
+    /// told, the connection's own FETCHes give the letter the flags it was
+    /// last told of, as Gmail's whole line did on the test iPad (B-112).
+    enum FlagNews: Equatable, Sendable {
+        /// On the next NOOP, before its OK, as Gmail told it most times.
+        case onNOOP
+        /// Ahead of the next UID FETCH's own lines, which then carry the
+        /// new flags. Not on a NOOP.
+        case beforeFetch
+        /// In the next UID FETCH's answer, straight after the letter's own
+        /// line, carrying its old flags, as on the test iPad; for a letter
+        /// the FETCH did not ask for, after the answer's first line. Not
+        /// on a NOOP, which Gmail answered without it on the iPad.
+        case insideFetch
+        /// At the end of the next UID FETCH's answer, before its OK, the
+        /// letter's own line carrying its old flags, as Gmail told it a
+        /// few seconds after the change on the iPad. Not on a NOOP.
+        case afterFetch
+    }
+
+    /// `.onNOOP` unless a test says otherwise.
+    var flagNews: FlagNews {
+        get { locked { $0.flagNews } }
+        set { locked { $0.flagNews = newValue } }
+    }
+
+    /// Flags set and taken off the letter at `uid` in `mailbox` from
+    /// another device, a STORE on another connection: on the letter, so in
+    /// every mailbox holding it, as Gmail's flags are the letter's. A
+    /// connection with one of those mailboxes selected that has been told
+    /// of the letter is told of the change as `flagNews` says, and until
+    /// then sees the flags it was last told of. One that SELECTs a mailbox
+    /// afterwards sees the new ones at once.
+    func storeElsewhere(uid: UInt32, in mailbox: String,
+                        adding: Set<String> = [], removing: Set<String> = []) {
+        locked { s in
+            let name = Self.canonical(mailbox)
+            guard let key = s.folders[name]?.keys[uid], var stored = s.letters[key] else { return }
+            let before = stored.flags
+            stored.flags.formUnion(adding)
+            stored.flags.subtract(removing)
+            s.letters[key] = stored
+            for id in s.sessions.keys {
+                guard let selected = s.sessions[id]?.selected,
+                      let here = s.folders[selected]?.keys.first(where: { $0.value == key })?.key,
+                      s.sessions[id]?.unannounced.contains(here) == false,
+                      s.sessions[id]?.untoldFlags[key] == nil else { continue }
+                s.sessions[id]?.untoldFlags[key] = before
+            }
+        }
+    }
+
+    /// UIDs, in whichever mailbox, whose FETCH lines leave out the ENVELOPE
+    /// even when it is asked for, as no server of his has been seen to: how
+    /// a summary comes to have none, which is never made a row (B-112).
+    var envelopeless: Set<UInt32> {
+        get { locked { $0.envelopeless } }
+        set { locked { $0.envelopeless = newValue } }
     }
 
     /// How many of the next UID COPYs are answered `OK [COPYUID <validity>
@@ -1118,6 +1185,10 @@ private extension ScriptedIMAPServer {
         /// Letters `removeElsewhere` has taken out of the selected mailbox
         /// that this connection has not been told of, as they were.
         var unexpunged: [UInt32: (key: Int, stored: Stored)] = [:]
+        /// Letters whose flags `storeElsewhere` has changed that this
+        /// connection has not been told of, by key, with the flags it was
+        /// last told of.
+        var untoldFlags: [Int: Set<String>] = [:]
         /// Bytes written but not yet a whole command.
         var inbound = Data()
         /// A command whose literals are coming in: an APPEND's letter, or a
@@ -1159,6 +1230,8 @@ private extension ScriptedIMAPServer {
         var autoExpunge = false
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
+        var flagNews: Server.FlagNews = .onNOOP
+        var envelopeless: Set<UInt32> = []
         var hollowCopies = 0
         var passwordRevoked = false
         var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
@@ -1474,6 +1547,9 @@ private extension ScriptedIMAPServer.State {
             r.ok("Thats all she wrote! (Success)")
         case "NOOP":
             announce(on: id, expunging: true, into: &r)
+            if flagNews == .onNOOP {
+                for news in tellFlagNews(on: id) { r.wire.data.append(news.line) }
+            }
             r.ok("Success")
         case "LOGOUT":
             r.untagged("BYE LOGOUT Requested")
@@ -1597,6 +1673,7 @@ private extension ScriptedIMAPServer.State {
         // the one it opens it sees as it is.
         sessions[id]?.unannounced = []
         sessions[id]?.unexpunged = [:]
+        sessions[id]?.untoldFlags = [:]
         guard let folder = folders[name], folder.selectable, !refusedMailboxes.contains(name),
               !unlistedMailboxes.contains(name) else {
             // RFC 3501: a failed SELECT leaves NO mailbox selected, not the
@@ -1712,6 +1789,23 @@ private extension ScriptedIMAPServer.State {
         // UID FETCH always answers with the UID, asked for or not.
         if !items.contains(.uid) { items.insert(.uid, at: 0) }
 
+        // Marks set elsewhere that this connection has not been told of,
+        // told in this answer where `flagNews` says. Told ahead of it, the
+        // letters' own lines carry the new flags; otherwise the old ones,
+        // and on `.onNOOP` they stay untold.
+        var untold = sessions[id]?.untoldFlags ?? [:]
+        var news: [(key: Int, line: Data)] = []
+        switch flagNews {
+        case .beforeFetch:
+            for told in tellFlagNews(on: id) { r.wire.data.append(told.line) }
+            untold = [:]
+        case .insideFetch, .afterFetch:
+            news = tellFlagNews(on: id)
+        case .onNOOP:
+            break
+        }
+        var lines: [(key: Int, line: Data)] = []
+
         let seen = view(of: name, on: id)
         for (position, uid) in seen.enumerated() where set.contains(uid, highest: seen.last ?? 0) {
             guard let (key, found) = letter(uid, in: name, on: id) else { continue }
@@ -1719,14 +1813,15 @@ private extension ScriptedIMAPServer.State {
             let seq = position + 1
             var wire = Server.Wire()
             wire.text("* \(seq) FETCH (")
-            for (index, item) in items.enumerated() {
+            let answered = envelopeless.contains(uid) ? items.filter { $0 != .envelope } : items
+            for (index, item) in answered.enumerated() {
                 if index > 0 { wire.text(" ") }
                 switch item {
                 case .uid:
                     wire.text("UID \(uid)")
                 case .flags:
-                    let flags = folder.deleted.contains(uid)
-                        ? stored.flags.union(["\\Deleted"]) : stored.flags
+                    let known = untold[key] ?? stored.flags
+                    let flags = folder.deleted.contains(uid) ? known.union(["\\Deleted"]) : known
                     wire.text("FLAGS (\(flags.sorted().joined(separator: " ")))")
                 case .internalDate:
                     wire.text("INTERNALDATE \"\(Server.internalDate(stored.letter.arrival))\"")
@@ -1764,10 +1859,47 @@ private extension ScriptedIMAPServer.State {
             // A letter taken out elsewhere is served as it was, and not
             // kept: it is no longer in this mailbox to be marked.
             if folder.keys[uid] != nil { letters[key] = stored }
-            r.wire.data.append(wire.data)
+            lines.append((key, wire.data))
+        }
+        switch flagNews {
+        case .insideFetch:
+            let asked = Set(lines.map(\.key))
+            for (index, line) in lines.enumerated() {
+                r.wire.data.append(line.line)
+                for told in news where told.key == line.key { r.wire.data.append(told.line) }
+                if index == 0 {
+                    for told in news where !asked.contains(told.key) { r.wire.data.append(told.line) }
+                }
+            }
+            if lines.isEmpty { for told in news { r.wire.data.append(told.line) } }
+        case .afterFetch:
+            for line in lines { r.wire.data.append(line.line) }
+            for told in news { r.wire.data.append(told.line) }
+        case .onNOOP, .beforeFetch:
+            for line in lines { r.wire.data.append(line.line) }
         }
         announce(on: id, expunging: false, into: &r)
         r.ok("Success")
+    }
+
+    /// The news of every mark `storeElsewhere` has changed that connection
+    /// `id` has not been told of, one `* n FETCH (UID u FLAGS (…))` line
+    /// each with the flags as they are now, in sequence order, by letter
+    /// key; and the connection counted as told.
+    mutating func tellFlagNews(on id: Int) -> [(key: Int, line: Data)] {
+        guard let session = sessions[id], let name = session.selected, let folder = folders[name],
+              !session.untoldFlags.isEmpty else { return [] }
+        sessions[id]?.untoldFlags = [:]
+        let seen = view(of: name, on: id)
+        var out: [(seq: Int, key: Int, line: Data)] = []
+        for key in session.untoldFlags.keys {
+            guard let uid = folder.keys.first(where: { $0.value == key })?.key,
+                  let position = seen.firstIndex(of: uid), let stored = letters[key] else { continue }
+            let flags = folder.deleted.contains(uid) ? stored.flags.union(["\\Deleted"]) : stored.flags
+            let line = "* \(position + 1) FETCH (UID \(uid) FLAGS (\(flags.sorted().joined(separator: " "))))\r\n"
+            out.append((position + 1, key, Data(line.utf8)))
+        }
+        return out.sorted { $0.seq < $1.seq }.map { ($0.key, $0.line) }
     }
 
     mutating func storeFlags(_ args: [Server.Token], in name: String, readOnly: Bool,

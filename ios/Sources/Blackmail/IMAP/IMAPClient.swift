@@ -2198,8 +2198,9 @@ private extension IMAPClient {
         (error as? MailError) ?? .cannotConnect
     }
 
-    /// `fetched` in the order of `uids`, once each, leaving out what did not
-    /// come back.
+    /// `fetched`, the answers of a list's summary FETCHes in the order they
+    /// came, as one summary per UID in the order of `uids`, leaving out what
+    /// did not come back.
     ///
     /// The order asked for rather than the order the server felt like: the
     /// caller hands UIDs over newest first and expects rows back in that
@@ -2207,19 +2208,45 @@ private extension IMAPClient {
     /// result with no UID has no stable identity, so the repository could
     /// neither open it nor reconcile it on the next refresh; dropping it is
     /// the only safe thing to do with it.
+    ///
+    /// The lines for one UID are one summary, the later laid over the
+    /// earlier (`IMAPFetchResult.mergedByUID`). Each answer has been merged
+    /// as it was read; merged again here, the news one chunk's answer
+    /// carried of a letter in another chunk is laid over that letter too.
+    /// Kept last-one-wins, a news line, `* 68 FETCH (UID 422 FLAGS (\Seen))`,
+    /// took the place of the letter's whole line, and its row said
+    /// "(unknown sender)", "(no subject)" and 31/12/69, with no conversation
+    /// (B-112).
+    ///
+    /// A summary is asked for with its ENVELOPE, and one that has none once
+    /// merged is news of a letter whose own line never came: a UID in a
+    /// chunk the server refused, or a letter gone from the mailbox between
+    /// the news and the answer. Or it is a line that came without the
+    /// ENVELOPE asked for, which Gmail has not been seen to send: the
+    /// parser reads any list there as one. It is left out, as a letter the
+    /// FETCH did not answer for is, and never made a row, so no row with no
+    /// sender, subject or date reaches the list or the page kept on the
+    /// iPad. The letter is missing from that listing as a letter gone is: a
+    /// page below the top fills itself from the UIDs after it
+    /// (`IMAPMailRepository.page(olderThan:)`), the page from the top comes
+    /// back one short, and the next listing that brings the letter's line
+    /// lists it. `FETCH-NO-ENVELOPE uid=422 left-out` in the connection log.
     static func ordered(_ fetched: [IMAPFetchResult], as uids: [UInt32]) -> [IMAPFetchResult] {
         var byUID: [UInt32: IMAPFetchResult] = [:]
-        for result in fetched {
+        for result in IMAPFetchResult.mergedByUID(fetched) {
             if let uid = result.uid { byUID[uid] = result }
         }
         var out: [IMAPFetchResult] = []
         out.reserveCapacity(byUID.count)
         var emitted = Set<UInt32>()
         for uid in uids where !emitted.contains(uid) {
-            if let result = byUID[uid] {
-                out.append(result)
-                emitted.insert(uid)
+            guard let result = byUID[uid] else { continue }
+            emitted.insert(uid)
+            guard result.envelope != nil else {
+                Diagnostics.log(.note, "FETCH-NO-ENVELOPE uid=\(uid) left-out")
+                continue
             }
+            out.append(result)
         }
         return out
     }

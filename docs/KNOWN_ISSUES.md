@@ -17445,8 +17445,6 @@ the extension's executable, each:
 - The two sheets' wiring is read from the source on the host, not run.
   The hook under it runs.
 
----
-
 ## B-101 — BUILT 2026-10-22, not yet seen on the iPad. Quoted text had no bar, and a file sent inline, as Apple Mail sends a PDF, had no row and no paperclip
 
 **What Mail does.** (A) *A bar beside quoted text.* Mail's reading pane
@@ -17627,155 +17625,6 @@ Gmail's class matched whole, 5 in 2.
 
 The full suite, serially: 1,866 tests, 5 skipped, none failing. The
 
----
-
-## B-103 — BUILT 2026-10-22, seen on the iPad the same day; two faults found there fixed, not yet seen there fixed. Pulling the list down only bounced; Mail checks for mail
-
-**What Mail does.** Pulled down past the top of the message list and let
-go, Mail's list checks for mail: a spinner turns above the first row, and
-the bar under the list says "Checking for Mail…", then "Updated Just Now".
-It has done so since iOS 6, which took Mail's Refresh button away for it
-(Macworld's and OSXDaily's hands-on of iOS 6 Mail), and Apple Community
-answers for iOS 17 still say to pull down to refresh; Apple's iPadOS 18
-Mail chapter does not describe it. Less sure: the spinner stays until the
-check has answered, and there is no pull in Edit mode or in a search. A
-tap on the status bar takes Mail's list to its top, UIKit's scroll to top.
-
-**What it was.** The list had no pull: pulled down past its top it bounced
-back, and nothing was fetched. Refresh was the labelled button at the
-bottom left, as it is (D-009), and each tap started a run of its own, with
-nothing to stop a second page going beside the first (`RefreshTap`,
-B-072). "Checking for Mail…" was said only over the page kept from an
-earlier launch (D-016). The status bar's tap took the list to its top
-already, seen for the reading pane on the iPad on 2026-10-07; nothing in
-the app set it, and nothing pinned it.
-
-**Changed.**
-
-- A `UIRefreshControl` on the list, grey as the line under it, with no
-  words. Let go past the top, it calls the function the Refresh button
-  calls, `refresh(fromPull:)`, and so the same `RefreshTap`: the newest
-  page, the counts, and once they have come the Outbox's pass (B-072).
-  Nothing else starts the spinner.
-- One page of a Refresh out at a time, the button's or the pull's
-  (`RefreshTap.Gate`, `RefreshTap.start`). The gate is taken as a run
-  starts, let go as its page answers, and let go again as the run ends,
-  however it ends. While it is held a tap or a pull starts nothing, and
-  the pull's spinner turns until the page that is out answers. Once that
-  page has come, a tap or a pull starts a new run even while the first
-  run's counts or Outbox letter are on their way, as a second tap did
-  before; the pass keeps itself to one at a time
-  (`LocalDrafts.uploadWaiting`). A run lets go of its own hold only, so a
-  run that ends after the next one has taken the gate leaves that hold
-  alone. The page has the connection's own deadline, so it always
-  answers, and the gate cannot stay held.
-- `RefreshTap.run` tells `answered` once, as soon as the page has come,
-  failed, thrown or been put aside, before the counts and the pass. The
-  pull's spinner ends there, and does not wait for the counts or a large
-  letter going from the Outbox. It is put away too as the list goes out of
-  sight (`viewWillDisappear`), as the app goes to the background, as
-  another folder's list takes this one's place (`endPull`), and before the
-  pull is taken off the list.
-- The pull is offered only where the newest page can neither move him nor
-  wipe anything (`PullRefresh.allowed`), and taken off the list and put
-  back wherever that may change (`placePull`). Not in Edit mode, where the
-  page would drop his ticks. Not while words are typed, results show, or
-  the search field has the keyboard, all of which the page clears. Not on
-  a list opened at a day, whose top is not the folder's and where
-  scrolling up fetches the newer pages. Not while the panes move
-  (`PaneMotion.onMoving`, told once the pictures are cut and set going,
-  and as the cover goes). The Outbox has it, where Refresh sends. The
-  Mailboxes and the reading pane have none. A pull that comes where none
-  is offered starts nothing.
-- "Checking for Mail…" is on the line under the list from the start of the
-  page to its end, at a tap and at a pull, through `working`, by a `defer`
-  so it cannot outstay the page; then the age the page has set, "Updated
-  Just Now", or what failed. Not in the Outbox, which is on the iPad and
-  has no mail to check for: its line goes on saying what waits there. The
-  words are one string, `StatusLine.checking`, said over the kept page as
-  well.
-- The newest page sent to the top while a finger holds the list at its
-  top, or pulled down past it, leaves the list where the finger has it
-  (`scrollToTop`): let go, it springs back to the top, with the spinner's
-  room above the first row while it turns. Set to the top under the
-  finger, the rows would jump as the page lands during a pull still held.
-
-**Not changed.**
-
-- The Refresh button, where it was, with its alert when there is no
-  connection (D-009).
-- No new IMAP: the same page FETCH, the same counts and the same Outbox
-  pass, whose re-sends keep the stored Message-ID and look in Sent Mail
-  first (B-052, B-072).
-- The status bar's tap: UIKit's, with no code of the app's. At the top the
-  list lands a fresh page waiting over the kept one and puts held mail on
-  (`scrollViewDidScrollToTop`), as before. Pinned now.
-
-**What he sees.** In the Inbox at its top, he pulls the list down and lets
-go: a grey spinner turns above the first row, and the line under the list
-says "Checking for Mail…". The newest letters are at the top as the
-spinner goes, and the line says "Updated Just Now". With no connection,
-the Refresh button's alert, and the spinner goes. In Edit mode, while he
-searches, and on a day's list, a pull only bounces, as before. Refresh
-works as it did, but a second tap while the page is still coming does
-nothing more.
-
-**Tests.** `PullRefreshTests`, eight. Where the pull is offered, all
-sixteen of Edit mode, a search, a list from the newest and the motion.
-The words, one string, said over the kept page through it. The rest read
-from the source, as `RefreshTapTests` reads it: one pull, grey and with
-no words, its let-go and the button's tap both `refresh(fromPull:)`,
-through the gate, one `RefreshTap.start` and one page, the Refresh button
-in the bottom bar as it was, no `beginRefreshing` anywhere and no pull on
-any other screen; "Checking for Mail…" through `working` around the page
-by a `defer`, not in the Outbox; the spinner put away at the answer, at
-`viewWillDisappear`, at the background notification, at the folder change
-before the new list is made, and in `placePull` before the pull is taken
-off, the one place `refreshControl` is set; the pull taken off and put
-back at Edit and Done, as words are typed, as the band grows and shrinks,
-as results come or fail, as the search ends, as a day lands, as the
-newest page is reached or fetched, and as the motion starts and ends,
-from `PullRefresh.allowed` over Edit mode, the search and its field, the
-list's top and the motion; the top not set under a finger at or past it;
-and the status bar: nothing sets `scrollsToTop` false, no
-`scrollViewShouldScrollToTop` says false, and `scrollViewDidScrollToTop`
-still lands a fresh page and puts held mail on. `RefreshTapTests`, seven
-new: the answer told once, before the counts and the pass, when the page
-came, did not come or threw; the answer while the previews and the counts
-are still out; a page that never answers and a second and third tap
-meanwhile, no second page, and Refresh free once it answers; after the
-answer, a new run's page while the first run's previews and counts wait;
-a run whose page throws, and one cancelled while its page is out, each
-letting go of the gate; a run ending while the next one's page is out,
-the gate still the next one's; and thirty in a row, each tapped twice
-while its page is out and its previews and counts left waiting: thirty
-pages, never two out at once, and Refresh free after them. Three older
-tests there have `answered` now, and the pin of the Refresh's wiring reads
-`RefreshTap.start`; `QuietSaveTests`' pin of the page's closure changed
-with it.
-
-Each part undone in a scratch copy, one at a time, the 21 tests of the two
-files run, counted as failures in tests. The gate let go only at the end
-of the run: 4 in 3. The answer after the counts: 7 in 4; at the end of the
-run: 12 in 7. No gate: 44 in 3. Any run letting go of any hold: 2 in 1. A
-throw not answered: 3 in 2; with no `defer` as well, 4 in 2, the gate
-then left held. The `defer` alone taken away: none, the answer letting go
-on every way out of the page; it stays as the second hold. The pull left
-on in Edit mode: 1 in 1. `PullRefresh.allowed` deaf to Edit mode, to a
-search, to a day's list, to the motion: 1 in 1 each. The search field
-with the keyboard not counted as a search: 1 in 1. The pull not placed
-again as words are typed: 1 in 1; as a day lands: 1 in 1; the motion not
-told: 2 in 1. A pull taken where none is offered: 1 in 1. The spinner not
-put away at `viewWillDisappear`, at the background, at the folder change,
-before the pull is taken off: 1 in 1 each; at the answer: 2 in 2. The top
-set under the finger: 1 in 1. No "Checking for Mail…": 2 in 2; the words
-a literal again in the kept page's line: 2 in 1. `scrollsToTop` set
-false: 1 in 1; the status bar's tap without the held mail: 1 in 1.
-
-The full suite, serially: 1,871 tests, 5 skipped, none failing. The
-
----
-
 ## B-102 — BUILT 2026-10-22, not yet seen on the iPad. Rows had no reply or forward arrow; Mail's show one in the gutter
 
 **What Mail does.** A letter he has answered has a small grey arrow on its
@@ -17925,12 +17774,442 @@ whole suite each time: an unread row's arrow gave one failure more,
 counted above, and both as the forward arrow, a conversation's arrow from
 any letter and VoiceOver reading no arrow the same. The full suite,
 serially, with nothing undone: 1,870 tests, 5 skipped, none failing. The
+release build for the iPad links.
 
----
+**Not covered.**
 
-## B-104 — BUILT 2026-10-22, not yet seen on the iPad. An Inbox conversation left out his own replies; Mail brings them in from Sent
+- A letter he answers or forwards in Blackmail gets no arrow. Writing
+  `\Answered` and `$Forwarded` after its 250, as Mail does, is the second
+  half of this entry, and waits for the owner: it needs a bounded
+  exception to D-016's "no queue of offline changes". If he says no, these
+  arrows come out again before the install: arrows only on letters
+  answered elsewhere would make a missing arrow mean nothing ("did I
+  answer this?" answered wrongly), and that would stay so for years.
+  The question, with VoiceOver's two words, is the TODO's under
+  "Blocked on the owner".
+- A letter answered on another device shows its arrow at the next listing,
+  not at once, and only if the program it was answered in writes the
+  mark. Gmail's own pages and its app never do, so a letter answered
+  there has no mark on Gmail and no arrow here. Only a program on IMAP
+  that stores the flag sets it, which is what device step 0 asks of Apple
+  Mail. (Said by a mail library's notes on Gmail,
+  https://www.limilabs.com/blog/search-unanswered-emails-in-gmail; not
+  tried on the test account.) So a missing arrow already says nothing
+  about a letter answered through Gmail itself, whatever is decided for
+  the marks written after a send.
+- Whether Apple Mail sets the two marks on Gmail, and so whether the
+  letters he answered in Mail show arrows on install day: device step 0,
+  on a device with Mail.
+- Mail's own rule for a letter unread and answered, one answered and
+  forwarded, and a conversation, which the choices here stand in for
+  (D-020).
+- Not seen on the iPad, nor on the simulator. The TODO says how, built
+  from the `feat-arrows` worktree.
+- The text size stays fixed (D-007). The square is `Theme.scaled`, so it
+  follows `textScale` if that is ever raised.
 
----
+## B-103 — BUILT 2026-10-22, seen on the iPad the same day; two faults found there fixed, not yet seen there fixed. Pulling the list down only bounced; Mail checks for mail
+
+**What Mail does.** Pulled down past the top of the message list and let
+go, Mail's list checks for mail: a spinner turns above the first row, and
+the bar under the list says "Checking for Mail…", then "Updated Just Now".
+It has done so since iOS 6, which took Mail's Refresh button away for it
+(Macworld's and OSXDaily's hands-on of iOS 6 Mail), and Apple Community
+answers for iOS 17 still say to pull down to refresh; Apple's iPadOS 18
+Mail chapter does not describe it. Less sure: the spinner stays until the
+check has answered, and there is no pull in Edit mode or in a search. A
+tap on the status bar takes Mail's list to its top, UIKit's scroll to top.
+
+**What it was.** The list had no pull: pulled down past its top it bounced
+back, and nothing was fetched. Refresh was the labelled button at the
+bottom left, as it is (D-009), and each tap started a run of its own, with
+nothing to stop a second page going beside the first (`RefreshTap`,
+B-072). "Checking for Mail…" was said only over the page kept from an
+earlier launch (D-016). The status bar's tap took the list to its top
+already, seen for the reading pane on the iPad on 2026-10-07; nothing in
+the app set it, and nothing pinned it.
+
+**Changed.**
+
+- A `UIRefreshControl` on the list, grey as the line under it, with no
+  words. Let go past the top, it calls the function the Refresh button
+  calls, `refresh(fromPull:)`, and so the same `RefreshTap`: the newest
+  page, the counts, and once they have come the Outbox's pass (B-072).
+  Nothing else starts the spinner.
+- One page of a Refresh out at a time, the button's or the pull's
+  (`RefreshTap.Gate`, `RefreshTap.start`). The gate is taken as a run
+  starts, let go as its page answers, and let go again as the run ends,
+  however it ends. While it is held a tap or a pull starts nothing, and
+  the pull's spinner turns until the page that is out answers. Once that
+  page has come, a tap or a pull starts a new run even while the first
+  run's counts or Outbox letter are on their way, as a second tap did
+  before; the pass keeps itself to one at a time
+  (`LocalDrafts.uploadWaiting`). A run lets go of its own hold only, so a
+  run that ends after the next one has taken the gate leaves that hold
+  alone. The page has the connection's own deadline, so it always
+  answers, and the gate cannot stay held.
+- `RefreshTap.run` tells `answered` once, as soon as the page has come,
+  failed, thrown or been put aside, before the counts and the pass. The
+  pull's spinner ends there, and does not wait for the counts or a large
+  letter going from the Outbox. It is put away too as the list goes out of
+  sight (`viewWillDisappear`), as the app goes to the background, as
+  another folder's list takes this one's place (`endPull`), and before the
+  pull is taken off the list.
+- The pull is offered only where the newest page can neither move him nor
+  wipe anything (`PullRefresh.allowed`), and taken off the list and put
+  back wherever that may change (`placePull`). Not in Edit mode, where the
+  page would drop his ticks. Not while words are typed, results show, or
+  the search field has the keyboard, all of which the page clears. Not on
+  a list opened at a day, whose top is not the folder's and where
+  scrolling up fetches the newer pages. Not while the panes move
+  (`PaneMotion.onMoving`, told once the pictures are cut and set going,
+  and as the cover goes). The Outbox has it, where Refresh sends. The
+  Mailboxes and the reading pane have none. A pull that comes where none
+  is offered starts nothing.
+- "Checking for Mail…" is on the line under the list from the start of the
+  page to its end, at a tap and at a pull, through `working`, by a `defer`
+  so it cannot outstay the page; then the age the page has set, "Updated
+  Just Now", or what failed. Not in the Outbox, which is on the iPad and
+  has no mail to check for: its line goes on saying what waits there. The
+  words are one string, `StatusLine.checking`, said over the kept page as
+  well.
+- The newest page sent to the top while a finger holds the list at its
+  top, or pulled down past it, leaves the list where the finger has it
+  (`scrollToTop`): let go, it springs back to the top, with the spinner's
+  room above the first row while it turns. Set to the top under the
+  finger, the rows would jump as the page lands during a pull still held.
+
+**Not changed.**
+
+- The Refresh button, where it was, with its alert when there is no
+  connection (D-009).
+- No new IMAP: the same page FETCH, the same counts and the same Outbox
+  pass, whose re-sends keep the stored Message-ID and look in Sent Mail
+  first (B-052, B-072).
+- The status bar's tap: UIKit's, with no code of the app's. At the top the
+  list lands a fresh page waiting over the kept one and puts held mail on
+  (`scrollViewDidScrollToTop`), as before. Pinned now.
+
+**What he sees.** In the Inbox at its top, he pulls the list down and lets
+go: a grey spinner turns above the first row, and the line under the list
+says "Checking for Mail…". The newest letters are at the top as the
+spinner goes, and the line says "Updated Just Now". With no connection,
+the Refresh button's alert, and the spinner goes. In Edit mode, while he
+searches, and on a day's list, a pull only bounces, as before. Refresh
+works as it did, but a second tap while the page is still coming does
+nothing more.
+
+**Tests.** `PullRefreshTests`, eight. Where the pull is offered, all
+sixteen of Edit mode, a search, a list from the newest and the motion.
+The words, one string, said over the kept page through it. The rest read
+from the source, as `RefreshTapTests` reads it: one pull, grey and with
+no words, its let-go and the button's tap both `refresh(fromPull:)`,
+through the gate, one `RefreshTap.start` and one page, the Refresh button
+in the bottom bar as it was, no `beginRefreshing` anywhere and no pull on
+any other screen; "Checking for Mail…" through `working` around the page
+by a `defer`, not in the Outbox; the spinner put away at the answer, at
+`viewWillDisappear`, at the background notification, at the folder change
+before the new list is made, and in `placePull` before the pull is taken
+off, the one place `refreshControl` is set; the pull taken off and put
+back at Edit and Done, as words are typed, as the band grows and shrinks,
+as results come or fail, as the search ends, as a day lands, as the
+newest page is reached or fetched, and as the motion starts and ends,
+from `PullRefresh.allowed` over Edit mode, the search and its field, the
+list's top and the motion; the top not set under a finger at or past it;
+and the status bar: nothing sets `scrollsToTop` false, no
+`scrollViewShouldScrollToTop` says false, and `scrollViewDidScrollToTop`
+still lands a fresh page and puts held mail on. `RefreshTapTests`, seven
+new: the answer told once, before the counts and the pass, when the page
+came, did not come or threw; the answer while the previews and the counts
+are still out; a page that never answers and a second and third tap
+meanwhile, no second page, and Refresh free once it answers; after the
+answer, a new run's page while the first run's previews and counts wait;
+a run whose page throws, and one cancelled while its page is out, each
+letting go of the gate; a run ending while the next one's page is out,
+the gate still the next one's; and thirty in a row, each tapped twice
+while its page is out and its previews and counts left waiting: thirty
+pages, never two out at once, and Refresh free after them. Three older
+tests there have `answered` now, and the pin of the Refresh's wiring reads
+`RefreshTap.start`; `QuietSaveTests`' pin of the page's closure changed
+with it.
+
+Each part undone in a scratch copy, one at a time, the 21 tests of the two
+files run, counted as failures in tests. The gate let go only at the end
+of the run: 4 in 3. The answer after the counts: 7 in 4; at the end of the
+run: 12 in 7. No gate: 44 in 3. Any run letting go of any hold: 2 in 1. A
+throw not answered: 3 in 2; with no `defer` as well, 4 in 2, the gate
+then left held. The `defer` alone taken away: none, the answer letting go
+on every way out of the page; it stays as the second hold. The pull left
+on in Edit mode: 1 in 1. `PullRefresh.allowed` deaf to Edit mode, to a
+search, to a day's list, to the motion: 1 in 1 each. The search field
+with the keyboard not counted as a search: 1 in 1. The pull not placed
+again as words are typed: 1 in 1; as a day lands: 1 in 1; the motion not
+told: 2 in 1. A pull taken where none is offered: 1 in 1. The spinner not
+put away at `viewWillDisappear`, at the background, at the folder change,
+before the pull is taken off: 1 in 1 each; at the answer: 2 in 2. The top
+set under the finger: 1 in 1. No "Checking for Mail…": 2 in 2; the words
+a literal again in the kept page's line: 2 in 1. `scrollsToTop` set
+false: 1 in 1; the status bar's tap without the held mail: 1 in 1.
+
+The full suite, serially: 1,871 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad or the simulator: the spinner beside the list's
+  own top logic (`ListPlaces.isAtTop`, `scrollToTop`, the kept page's swap,
+  held mail, `PaneMotion.isBouncing`), whether UIKit counts the spinner's
+  room in `adjustedContentInset` as the list reads it, the pull taken off
+  and put back, and VoiceOver's three-finger scroll. If the check shows
+  rows jumping or a gap left above the first row, the way back is to take
+  the `UIRefreshControl` off and let a drag released at least 80 pt past
+  the top call the same `refresh`, with the line under the list the only
+  sign. Not built.
+- Whether the search band, pinned at the top of the list, keeps to the
+  bar when he scrolls down while the spinner turns is not known; the
+  check's first step looks.
+- A spinner turning as the panes start to move is put away under the
+  cover. The pictures show it, so the list may move up by the spinner's
+  room as the cover goes.
+- B-096's shortened bounce is unchanged. A switch made at once while the
+  spinner turns leaves it turning until the page answers.
+- While a jump's day is still being fetched the list is still the
+  folder's newest, and the pull is offered: a pull then fetches the
+  newest page, and the day is dropped, as at a tap on Refresh. A search
+  begun while a pull's page is out is cleared as the page lands, as at a
+  tap on Refresh.
+- The list's other fetches of its newest page, the watch's quiet one, a
+  return to the Inbox, the kept page's at launch, a draft saved, are not
+  behind the gate, as before: a pull while one is out fetches beside it,
+  as a tap did.
+- "Checking for Mail…" during every Refresh and pull is in the owner's
+  words question, built shown, his default until he answers, and held
+  from his iPad until then. The words are on screen already over a kept
+  page. Taking them away is the one `working(StatusLine.checking)` line,
+  pinned by its test.
+
+**Seen on the test iPad, 2026-10-22**, iPadOS 16.5.1, a build of the
+`feat-pullrefresh` worktree (4093de3), three panes and two, on the test
+account, and the four failures made again on a fresh launch. Steps 3, 4,
+5, 9, 10, 12 and 13 of the TODO check passed. 11 could not be made, one
+finger being all that can be put on the screen from outside. 1, 2, 7 and
+8 failed, on two faults, and 6's pass rests on no pull made at the top of
+a day's list.
+
+- *A gap left above the list* (1, 7, 8). A pull whose page answered once
+  the finger had lifted, as the list sprang back, left it resting 60 pt
+  below its top, an empty band above the search field and no spinner,
+  until it was touched: 11 of 13 such pulls, one for 25 s and through the
+  log screen. In the frames the spring-back went 210, 175, 147, and the
+  first frame after the answer was exactly the spinner's rest. A pull held
+  down until the page had come, and one whose page answered with the list
+  already at rest, were clean. The view button tapped while the page was
+  out, or as the list sprang back, made the switch at once (B-096), and
+  the gap was left in two panes too, and stayed in three again. While it
+  stood, `PaneMotion.isBouncing` read true at rest, so every later switch
+  was made at once, with no motion.
+- *A pull left pulled down* (2). With Airplane Mode on, a quick pull's page
+  failed at once, and "Can't connect to mail server." came on as the finger
+  lifted, within one frame. After OK the list stayed about 168 pt down with
+  the spinner turning, 12 s later, 2.5 min later, and after Airplane Mode
+  was off, until a touch: 2 of 2 quick pulls. A slow one, let go 0.3 s
+  after the alert had started to come on, sprang back clean under it.
+
+Not by design. A pull ends with the list at its top, as Mail's does.
+
+**What it was.**
+
+- The gap. The newest page goes to the top as it lands (`regroup(to:
+  .top)`, `scrollToTop`), and `scrollToTop` left the list alone only under
+  a finger. Let go, it set the offset to the top as the list sprang back,
+  the spinner's 60 pt still counted in the top, and so stopped the
+  spring-back at the spinner's rest; at once the page's answer put the
+  spinner away, which takes its room away. UIKit's refresh control told to
+  end while the list springs back leaves it where the spring-back was
+  going: the gap formed too with the answer at the very tail of the
+  spring-back, where the offset set moved almost nothing. Told to end under
+  the finger it waits for the finger to lift, and told to end at rest it
+  takes the list back to its top: both were seen clean.
+- The pull left down. `reload` put its alert up at once, with the finger
+  still on the list, and UIKit takes in no touches while an alert comes
+  on. The end of the drag was lost: the list stayed where the finger had
+  left it, and the spinner's end, which UIKit holds for the end of the
+  drag, never came.
+
+**Changed.**
+
+- `scrollToTop` leaves a list past its top alone while a finger holds it
+  or it coasts or springs back (`ListPlaces.setsTop`). Held, it springs
+  back to the top as he lets go; springing back, it gets there itself. At
+  the top, within half a point, there is nothing to set. A list left at
+  rest past its top, the band, is set to the top as a list further down
+  is, so the next page, mail the watch puts on at the top, or a return to
+  the newest takes a band away rather than keeping it. Its callers all
+  want the newest letters in sight: his Refresh and his pull, the watch's
+  quiet page and the mail it puts on at the top, a search's results, the
+  folder's top after a search, coming back to the newest after a while
+  away, and a place to go back to that is no longer there.
+- The spinner goes from the page's answer only with the list at rest
+  (`PullEnd`, `endPullAtRest`): at once under a finger on the list, which
+  UIKit ends as the finger lets go, and with the list still; held while it
+  coasts or springs back, or is past its top, with no finger on it. A held
+  end goes as UIKit says the list is at rest, at the end of its coasting
+  or spring-back, at the end of a drag with none to come, at the end of
+  an animated scroll, and at the status bar's tap; as a finger takes the
+  list, under the finger; and, if UIKit never says so, after 2 s
+  (`PullEnd.bound`), a few times the spring-back, or, with the list still
+  moving and no finger on it then, after 2 s more, and then whatever it
+  does (`PullEnd.rounds`). Put away at once, with nothing left held, as
+  the list goes out of sight, as the app goes to the background, at
+  another folder, and wherever the pull goes off the list, Edit mode, a
+  search, a day's list and the panes' motion (`putPullAway`); a pull where
+  none is offered, under its finger, the same. `endRefreshing` is called
+  from four functions only: the answer's, the bound's, the rest's and
+  `putPullAway`.
+- A list come to rest past its top with no spinner turning and no finger
+  on it closes up to its top, animated as a spring-back
+  (`closeUpPastTop`, `PullEnd.leftPastTop`): at the end of a coasting or
+  spring-back, and of an animated scroll, before a spinner held for the
+  rest goes, which UIKit takes to the top itself. A spinner put away at
+  once can still end while the list springs back, as Edit, the search
+  field, Home or the list leaving the screen come just then, and the band
+  so left goes as the spring-back ends, with `PaneMotion.isBouncing` false
+  again.
+- His Refresh's counts after a page that did not come are asked for
+  quietly (`RefreshTap.run`, `onRefreshRequested`): the page's alert says
+  what failed. Asked loudly, the sweep failed at once with no connection
+  too, and in three panes put up its own "Can't connect to mail server."
+  from the Mailboxes while the pull's finger was still on the list, where
+  the page's alert now waits for the finger: the end of the drag lost as
+  before, the list left pulled down with the spinner turning, and a
+  second alert as the next touch ended the drag. UIKit had refused the
+  sweep's alert over the page's, which always came first; with a server
+  slow to fail it could come after his OK, a second alert for one tap.
+  After a page that came the counts are asked for as before.
+- The alert of every page he asked for that `reload` fetches, his Refresh
+  and his pull, a folder's first page, coming back to the newest, goes up
+  at once with no finger on the list, as before, and otherwise once the
+  finger has let go (`LetGoHold`, `showWhenLetGo`): at the end of the drag,
+  as the list starts to spring back, which it was seen to do clean under
+  an alert; and for a finger that only rested on the list and never
+  dragged, which tells the list nothing as it lifts, when it is next seen
+  lifted, looked for every quarter second as for the kept page
+  (`liftCheck`). Dropped as the list goes out of sight, with nothing to put
+  it over; the line under the list says what failed. The Refresh button's
+  alert comes as it did: his finger is on the bar, not the list.
+- With no gap left, `PaneMotion.isBouncing` is false at rest after a pull,
+  and the next switch moves the panes. B-096 as it was: a switch while the
+  list springs back is made at once, and a spinner held for the rest goes
+  at the end of the spring-back, in the new arrangement.
+
+**Not changed.** The `UIRefreshControl`: the way back the first entry
+named, the control taken off for a pull of the app's own, is not taken.
+The fault was the list's offset and the moment the spinner was told to
+end, not the control. Nothing new on the wire.
+
+**What he sees.** Pulled and let go, the spinner turns at its rest above
+the first row until the page has come and the list is still, then goes,
+and the list closes up to its top with the newest letters there. With no
+connection, the list springs back to its top as "Can't connect to mail
+server." comes on, one alert in three panes and in two, and after OK
+nothing is left pulled down.
+
+**Tests.** `PullEndTests`, thirteen, new. When the spinner goes, all
+eight of a spinner, a finger and a list moving; a held end going once at
+rest, once at the bound, not at all after it is put away at once, and the
+bound of an old hold, or one put away, finding nothing; at the bound, all
+four of a finger and the list moving, waited for once more only while it
+moves with no finger on it, and at the last round put away whatever it
+does; what counts as moving, at and past the top by the iPad's numbers,
+the spinner's room counted; the bound, 2 s, and two rounds. The band: past
+the top by more than half a point, with no spinner and no finger, all
+four of a spinner and a finger past the top. The top set (`ListPlaces.setsTop`): below the top
+always, past it only at rest, never within half a point of it, the
+spinner's room counted. The alert held for a finger and put up once as it
+lets go; at once with no finger, a held one not put up after it; dropped
+as the list goes. `PullRefreshTests`, four new: the answer's end and the
+bound's read whole, `listMoving` with them; a held end at the end of a
+coasting, of an animated scroll, at the end of a drag only with no
+deceleration to come, at a finger taking the list and at the status bar;
+the alert through `showWhenLetGo` in `reload`, read whole, the drag's end
+putting it up before its deceleration guard, the watch for a finger that
+never dragged, and the drop out of sight; the close-up read whole,
+animated, at the end of a coasting and of an animated scroll, each time
+before the held spinner. Changed there: the top left alone past it only
+while a finger holds it or it moves, read whole; the spinner put away
+through `putPullAway` at the refusal, out of sight, the background, the
+folder and the pull taken off, `endRefreshing` in four functions and no
+more; the status bar's tap ending a held spinner and putting up a held
+alert. `RefreshTapTests`, one new: the counts asked for quietly after a
+page that did not come or threw, and as before after one that came,
+through `start`, and handed on so by the list, the container and the
+folder pane; its order tests tell the quiet counts apart now.
+`QuietSaveTests` pins the alert through `showWhenLetGo`, the counts quiet
+only after a page that did not come, and `RefreshTapTests` the answer
+through `endPullAtRest`.
+
+Each part undone in the worktree, one at a time, the 40 tests of the four
+files run, counted as failures in tests. The top set under a list
+springing back, as before: 1 in 1. The spinner put away at the answer, as
+before: 3 in 2. Held under a finger: 5 in 2; never held: 12 in 5; held
+with no spinner turning: 2 in 1. Moving deaf to the deceleration: 2 in 1;
+to the offset past the top: 3 in 1. Put away at once and still held: 2 in
+1. Any hold due at any bound: 3 in 1. A rest that puts it away twice: 3 in
+1. No bound: 3 in 2; a bound of half a second: 1 in 1. Put away at the end
+of every drag, before its deceleration guard, as the list starts to
+spring back: 1 in 1. Not at a finger taking the list: 2 in 1; not at the
+end of a coasting: 2 in 1; not at the status bar's tap: 2 in 2. The bare
+end, leaving a hold, out of sight, at the background, as the pull goes
+off, at another folder: 3 in 1 each; at the refusal: 3 in 2. The alert at
+once, as before: 3 in 2; the finger not asked: 2 in 2; put up only after
+the deceleration guard: 2 in 2; no watch for a finger that never dragged:
+2 in 2; not dropped out of sight: 2 in 2. The hold deaf to the finger: 5
+in 1; a held alert put up twice: 2 in 1; never dropped: 2 in 1; a held one
+left to follow a later one: 1 in 1.
+
+Then the counts, the top at rest, the second bound and the close-up, the
+45 tests of the four files. The counts asked for loudly whatever the
+page: 6 in 4; the list not handing the quiet on: 3 in 3; nor the
+container: 2 in 2. The top left alone past it at rest too, as before: 3
+in 2; set past it while moving: 4 in 2; set at it: 6 in 2; moving the
+finger alone: 1 in 1. The bound never waiting again: 6 in 1; waiting
+again with no cap: 2 in 1; under a finger: 2 in 1; one round: 7 in 2; the
+list not waiting again: 2 in 1; the round not counted up: 1 in 1; the
+finger not asked: 1 in 1. The band deaf to the spinner: 1 in 1; to the
+finger: 1 in 1; with no half point: 1 in 1. No close-up at the end of a
+coasting: 3 in 2; after the held spinner: 2 in 2; none at the end of an
+animated scroll: 3 in 2; no held spinner put away there: 3 in 2; not
+animated: 1 in 1; the spinner not asked in the list: 1 in 1.
+
+The full suite, serially: 1,889 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad fixed: steps 1, 2, 7 and 8 again, 6 with a
+  pull made at the top of a day's list (the TODO says how), and 11, by
+  hand, with VoiceOver.
+- That UIKit says a spring-back after a pull has ended as the end of a
+  deceleration is its scroll view's own account, read here and not yet
+  seen. If it did not, the bound puts the spinner away 2 s after the
+  answer, the list long at rest, or 4 s after it with the list still
+  moving at 2 s.
+- Edit, the search field or Home tapped in the half second a list springs
+  back after its page has answered puts the spinner away at once, the
+  spring-back still going, so that nothing is left held, and that may
+  still leave the band. It closes up as the spring-back ends if UIKit
+  says it has ended with the band there (`scrollViewDidEndDecelerating`),
+  not yet seen; if not, it goes at the next page, mail put on at the top,
+  a return to the newest, or a touch. Step 7 looks.
+- A sweep of the counts that fails while his finger is on the list after
+  a page that came, the connection lost between the two, still puts its
+  alert up at once in three panes, and the drag's end may be lost as
+  before. Not seen.
+- Whether VoiceOver's three-finger scroll down to the spinner is an
+  animated scroll whose end UIKit reports, so that a band left by a page
+  answering during it closes up there, is not known. Step 11 looks.
+- The kept page's first fetch at launch (`fetchOverKept`) and Go to Date
+  put their alerts up at once, as before, a finger on the list or not.
 
 ## B-104 — BUILT 2026-10-22, seen on the iPad; a drop under a finger found there changed the same day, not yet seen fixed. An Inbox conversation left out his own replies; Mail brings them in from Sent
 
@@ -18217,324 +18496,9 @@ stack's ids not left out. Each fails now, as above. Put back, the
 forty-three pass.
 
 The full suite, serially: 1,899 tests, 5 skipped, none failing. The
-
----
-
-## B-105 — BUILT 2026-10-22, not yet seen on the iPad. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
-
----
-
-## B-105 — BUILT 2026-10-22, seen on the iPad the same day, two faults found there and fixed, not yet seen there fixed. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
-
-Built in the `feat-search` worktree, off master at 88ef40d.
-
-**What Mail does.** (A) Apple's guide names only the fields searched:
-From, To, Cc, Subject and the body. iOS 18.6's Message.framework, read
-from the binary and not run, splits what he typed into words
-(`-[MFMessageCriterion tokenizeUsingTokenizationHandler:]`, called from
-`_fetchArgumentsForCriterion`): the text trimmed; a whole address one
-word, each quoted part one word, each link one word; the rest by the
-locale's word rules, with a shortest word of two letters, so one-letter
-words are left out. Each word is asked for as `(OR FROM w (OR SUBJECT w
-(OR TO w (OR CC w BODY w))))`, and the words side by side, which IMAP
-reads as AND. No X-GM-RAW. That this is 18.6's code is sure; that his 18.7
-takes the same path is likely; whether it takes curly quotes for quote
-marks is not known.
-
-(B) "Before you begin typing, you may see suggested recent searches", the
-same guide says. MailUI's `MUISearchRecentSuggester` (18.6, read from the
-binary): `recentSearches.plist`, out of backup; at most three, newest
-first by the time of last use; each kept 7 days, 604,800 s, from its last
-use; shown only before he types; one used again is newest again; deleted
-by a swipe, probably. What keeps a search is in Mail's own binary, which
-could not be read; most likely a search he ran.
-
-**What it was.** `SearchCriteria.imap(for:)` sent the whole text, trimmed,
-as one string in each of the five fields. Measured read-only on the test
-account on 2026-10-22: Gmail matches several words in From, To, Cc and
-Subject only next to each other and in order; BODY, which on Gmail covers
-the headers too, matches them anywhere, in any order; only whole words
-match. So several words already found the letters with all of them, but
-through BODY alone, which is written down nowhere. A quoted phrase went
-with its quote marks inside the string. And the iPad types curly quotes:
-the field sets autocorrection and capitals off and leaves Smart
-Punctuation on, the iPad's default, so "Plan B" typed comes as “Plan B”,
-and a paste can bring them whatever the field says. Nothing of a search
-was kept.
-
-**Changed.**
-
-(A) `SearchCriteria.words(of:)` reads the text as Mail does, and
-`imap(for:)` asks for each word.
-
-- The text trimmed. A quote mark is ", “ or ”, and the marks pair in
-  order whatever their shape, so “Plan B" is a phrase too. What is
-  between a pair, trimmed, each run of white space one space, is one word
-  without its marks. A mark left over is read as a space. Apostrophes,
-  ' and ’, are not quote marks.
-- The rest is split at white space, and at the dashes Smart Punctuation
-  makes of a typed -- (—), with the en dash, the figure dash and the
-  horizontal bar a paste can bring, as Mail's word rules part words
-  there. The hyphen of "e-mail" stays in its word. Single quotes, ' ‘ ’,
-  come off the ends of a word: the iPad types 'Plan B' as ‘Plan B’. Inside
-  a word, "O’Brien", they are its apostrophe and stay, unescaped. Gmail
-  splits words further itself.
-- A word of one character is left out, as Mail leaves out one-letter
-  words: "Plan B" asks for every "plan". So is a word with no letter or
-  digit in it, "--", "&&" or "...", of which Mail's word rules make no
-  word. With nothing left, the whole text is the one word, its quote marks
-  read as spaces, so "a b" is searched as it always was; quote marks and
-  nothing else ask for nothing, and find nothing.
-- A word given twice, in any case, is asked for once, and the first
-  twenty are asked for.
-- One word goes byte for byte as before, with no parentheses:
-  `OR OR OR OR FROM "w" TO "w" CC "w" SUBJECT "w" BODY "w"`, the fold and
-  the escaping unchanged. Several are each that in parentheses, side by
-  side. Twenty words of a pasted letter make a line of about 1.6 KB;
-  Gmail took a SEARCH of 200 groups, 17.6 KB, in 112 ms.
-- The escaping goes by Unicode scalar. A quote or a backslash with an
-  accent after it is one character, and a replace of the character "
-  passes it by, as it did on the Linux host, so the quote went into the
-  command as it was and ended the string early: a BAD, and "Could not
-  search. Check the connection." Older than B-105, and found writing its
-  tests; with quote marks read as marks, that is the one way a quote
-  reaches a word.
-
-(B) `RecentSearches`: his last three searches, newest first, each kept a
-week from its last use, in `Application Support/Recent Searches.json`,
-written whole, out of backup after every write, read leniently: a file
-that cannot be read is no recent searches. The same words in any case are
-one search, the newer in its place; each is kept with its runs of white
-space one space, so a row is one line, and the words searched are the
-same. A search over 200 characters is not kept: a paste he would not
-search again, and cut short it would be a search he never made. Newest is
-the order of use, not the dates kept: a clock moved back only keeps them
-longer, and the search made after it is still first.
-
-- Kept when he taps Search on the keyboard with words in the field, and
-  when he opens a letter from the results, the words whose results they
-  are, not words typed since and still waiting for their search. Never at
-  a keystroke. Both, until the owner says otherwise, as Mail's own could
-  not be read.
-- Not kept, and not shown from the file, when the search asks for
-  nothing (`RecentSearches.keeps`, over `SearchCriteria.words`): blank,
-  or quote marks with nothing in them, “” as the keyboard types "". That
-  search finds nothing, and kept it would push one he made off the three.
-  One letter or a dash alone is kept, being searched as the whole text.
-- Shown under the scope bar while the field is focused AND empty AND
-  there are some: "Recent Searches", and a row for each, 44 pt, a clock
-  and the words on one line, in the band's type, through `Theme.scaled`
-  with it. The band grows for them as it does for the scope bar
-  (`wantedHeight`, `onHeightChanged`), and is asked again at focus, at
-  each change of the text, at its end and at the clear button. The first
-  letter typed takes them away; emptied again, they are back.
-- A tap puts the words in the field, takes the keyboard down and searches
-  at once, in the scope the band shows, with no wait for more typing,
-  through the same task a keystroke or Cancel calls off; it is newest
-  again.
-- VoiceOver: each row a button, "Recent search, Plan B". A row tapped is
-  hidden as its words go into the field, with VoiceOver's cursor on it,
-  so the band names the field with a layout change, and the cursor is
-  not left on a hidden row for VoiceOver to choose where to go (B-079).
-  The field does not move, and the results drawn under it do not take
-  VoiceOver from it: the list holds only its rows.
-- Gone with the copy of his mail when a password is saved or the account
-  taken out (`CredentialStore.save` and `clear`, beside `MailShelf.wipe`),
-  and at a safe start's second stage (`SafeStart`, which is handed the
-  file as it is handed `Kept/`).
-
-**Not changed.** The two scopes, the Trash and Spam merge, CHARSET, the
-search's key in `SearchSession`, the 350 ms wait after typing. The field's
-Smart Punctuation stays on: Mail's own field is not known to turn it off,
-and a paste brings curly quotes whatever the field says. X-GM-RAW is not
-used: Gmail would read his words as its operators. No suggestions as he
-types: they need an index of the whole mailbox on the iPad, which D-016
-does not keep. No swipe to delete a recent search: the app has no swipe,
-and the week clears them. The folder's rows under the band, `ListPlace`,
-`ListLetters` and B-079's VoiceOver code are as they were. The connection
-log carries the longer SEARCH line; the words of a search were in it
-already (D-016). D-016's "Not kept: searches" is the results; Mail keeps
-the words of the last three, and so does this.
-
-**What he sees.** Several words find the letters that have every one of
-them, each in any of From, To, Cc, Subject or the body: a name only in
-From and a word only in the body find the letter, in either order. A part
-in quotes, typed with the keyboard's curly quotes or not, is asked for as
-one string, as Mail asks it. On Gmail that finds the letters with all its
-words, the phrase among them, because BODY matches them anywhere: “Plan B”
-finds the letters that say Plan B, and those with plan and b apart. Plan B
-with no quotes finds every "plan", as Mail does. A tap in the empty field
-shows his last three searches under Current Mailbox and All Mailboxes; a
-tap on one searches it, and VoiceOver goes to the field, which holds its
-words. New words: "Recent Searches", and VoiceOver's "Recent search,"
-before the words, which are held from his iPad until the owner approves
-them; a word he changes is one line in `RecentSearches`, pinned by its
-test.
-
-**Tests.** `SearchCriteriaTests`, thirteen new: two words two groups side
-by side, the line whole; one word byte for byte as before, and one left
-of several; a quoted phrase one word without its marks, for "Plan B",
-“Plan B”, “Plan B", "Plan B” and ”Plan B“, alone and among words, two of
-them, its white space one space; a mark left over a space; an apostrophe
-kept in its word, straight and curly, and not escaped, and single quotes
-around a word gone; the smart dashes parting words, the hyphen kept, a
-dash inside a phrase kept; one-letter words and words with no letter or
-digit left out, the whole text when nothing is left, nothing at all for
-quote marks alone; a repeat once, in any case; the first twenty; every
-group and the whole key read back by a parser of RFC 3501's grammar, four
-ORs and the five fields in each group, every parenthesis closed; each
-word escaped on its own, and no quote mark reaching a word; a quote or a
-backslash with an accent after it escaped. Two changed: a typed quote is
-now a quote mark, so the test of one ending the string early takes the
-quote with an accent, the one way a quote reaches a word; and non-ASCII
-words come through whole among several. `RecentSearchesTests`,
-seventeen: three at most, newest first; the week, to the second, and a
-search used again starting its week again; the same words in any case
-replacing the older, its white space one space; the 200-character cap;
-blank text not kept; a search that asks for nothing, “”, "" and the
-like, not kept and not shown from the file, while one letter, a dash and
-a phrase are kept, each as it is searched; a file empty, cut short, of
-another shape or not JSON, no recent searches; a file outside the rules
-read within them; the clock moved back; the wipe; the words; and, read
-from the source, the file written whole and out of backup, the wipes at a
-password saved, the account taken out and the safe start, the block shown
-only while the field is focused and empty, and laid out under the scope
-bar, the heading first and each row under the one before, each row a
-button called "Recent search", a tap searching at once with no wait and
-putting VoiceOver on the field, the band's one post, and Search on the
-keyboard and a letter opened from the results keeping the search, a
-keystroke not. `SafeStartTests`: one unfinished launch keeps the recent
-searches, two take them away. `SafeStartTests` and `OutboxTests` hand
-`SafeStart` a file of their own.
-
-Each rule undone in the worktree, one at a time, and the three classes
-run, 65 tests. Curly quotes not taken for quote marks: 19 failures in 6
-tests. One word sent in parentheses: 5 in 3, one of them the old balance
-test. The block shown with text typed: 2 in 1. A mark left over kept in
-its word: 5 in 2. One-letter words kept: 12 in 5. Nothing searched when
-nothing is left: the run ends in a crash, at the old tests' `imap(for:
-"x")!`; with those two skipped, 7 failures in 1. A repeat in another case
-asked for again: 3 in 1. No cap of twenty: 4 in 2. The dashes not parting
-words: 2 in 1. Single quotes left on a word: 3 in 1. Words with no letter
-or digit kept: 1 in 1. A phrase's white space kept: 1 in 1. The escape by
-character, as before: 8 in 2. Recent searches with no cap of three: 6 in
-3; with no week: 7 in 2; told apart by case: 4 in 2; with no cap of 200:
-4 in 2; ordered by their dates: 3 in 1; not out of backup: 2 in 1. Left
-at a safe start: 3 in 2; at a password saved: 3 in 1. A tap through the
-debounce: 2 in 1. Not kept at Search on the keyboard: 3 in 1; nor at a
-letter opened from the results: 3 in 1. Quote marks alone kept: 9 in 1.
-The rows laid out from the top of the scope bar: 2 in 1; with no room
-for the heading: 2 in 1. VoiceOver left on the hidden row: 3 in 1.
-
-The full suite, serially: 1,886 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
-
-- Bars beside plain text quoted with "> ", as Mail draws them: left to
-  the owner.
-- The words in the bar's colour, as Mail has them: the owner may want
-  the bar alone. That is the `color` declaration out of `QuoteBars.css`,
-  one line, and its two tests.
-- A row kept from before. A letter listed by an earlier build has no
-  paperclip for its PDF sent inline, and its kept files leave the PDF
-  out, as that listing did, so its header gains the row only when the
-  letter has come. Both until that folder is next listed from the top.
-  A row listed by this build keeps the PDF with its inline mark, and a
-  launch draws it.
-- A part with no `Content-Disposition` has its row and no paperclip, as
-  before, if it is not text and has no name, a picture say, or is text
-  with a name (`text/calendar; name="invite.ics"`, `text/plain;
-  name="notes.txt"`), unless the pane takes it for the letter's words:
-  with no disposition the paperclip goes by `isAttachment`, which asks a
-  name of a file and takes no text part for one.
-- A picture sent inline with a `Content-ID` that the body does not show,
-  in a plain-text letter or beside HTML that names no such `cid:`: no
-  row, no paperclip and nothing that opens it, as before. The rule goes
-  by the letter's structure alone (`isShownInBody`, `isListedFile`) and
-  does not read the HTML to see whether the picture is in it, so it takes
-  every such picture for one the body shows. Whatever uses the rule
-  later has the same limit.
-- Words after a file in the middle. Apple Mail can split a letter's HTML
-  around a file (multipart/alternative: the plain words, then
-  multipart/mixed of HTML, the PDF, HTML), and the pane shows the first
-  HTML part only (`chooseBodies`): the words after the file are not
-  shown, though the plain words have them all. The host tests have it so
-  (`MIMEDecoderTests`). To be looked for at the check's step 7, and
-  recorded under its own number if seen.
-- A text file sent inline in a letter whose HTML comes first, or in
-  Apple Mail's shape above, is taken for the letter's plain words
-  (`chooseBodies`), as before: the list's preview and the plain words are
-  the file's, and it has no row and no paperclip. Found on the host while
-  building this; not changed, as the body is not this change's.
-
----
-
-- Not yet seen on the iPad or the simulator: the spinner beside the list's
-  own top logic (`ListPlaces.isAtTop`, `scrollToTop`, the kept page's swap,
-  held mail, `PaneMotion.isBouncing`), whether UIKit counts the spinner's
-  room in `adjustedContentInset` as the list reads it, the pull taken off
-  and put back, and VoiceOver's three-finger scroll. If the check shows
-  rows jumping or a gap left above the first row, the way back is to take
-  the `UIRefreshControl` off and let a drag released at least 80 pt past
-  the top call the same `refresh`, with the line under the list the only
-  sign. Not built.
-- Whether the search band, pinned at the top of the list, keeps to the
-  bar when he scrolls down while the spinner turns is not known; the
-  check's first step looks.
-- A spinner turning as the panes start to move is put away under the
-  cover. The pictures show it, so the list may move up by the spinner's
-  room as the cover goes.
-- B-096's shortened bounce is unchanged. A switch made at once while the
-  spinner turns leaves it turning until the page answers.
-- While a jump's day is still being fetched the list is still the
-  folder's newest, and the pull is offered: a pull then fetches the
-  newest page, and the day is dropped, as at a tap on Refresh. A search
-  begun while a pull's page is out is cleared as the page lands, as at a
-  tap on Refresh.
-- The list's other fetches of its newest page, the watch's quiet one, a
-  return to the Inbox, the kept page's at launch, a draft saved, are not
-  behind the gate, as before: a pull while one is out fetches beside it,
-  as a tap did.
-- "Checking for Mail…" during every Refresh and pull is in the owner's
-  words question, built shown, his default until he answers, and held
-  from his iPad until then. The words are on screen already over a kept
-  page. Taking them away is the one `working(StatusLine.checking)` line,
-  pinned by its test.
-
----
-
-- A letter he answers or forwards in Blackmail gets no arrow. Writing
-  `\Answered` and `$Forwarded` after its 250, as Mail does, is the second
-  half of this entry, and waits for the owner: it needs a bounded
-  exception to D-016's "no queue of offline changes". If he says no, these
-  arrows come out again before the install: arrows only on letters
-  answered elsewhere would make a missing arrow mean nothing ("did I
-  answer this?" answered wrongly), and that would stay so for years.
-  The question, with VoiceOver's two words, is the TODO's under
-  "Blocked on the owner".
-- A letter answered on another device shows its arrow at the next listing,
-  not at once, and only if the program it was answered in writes the
-  mark. Gmail's own pages and its app never do, so a letter answered
-  there has no mark on Gmail and no arrow here. Only a program on IMAP
-  that stores the flag sets it, which is what device step 0 asks of Apple
-  Mail. (Said by a mail library's notes on Gmail,
-  https://www.limilabs.com/blog/search-unanswered-emails-in-gmail; not
-  tried on the test account.) So a missing arrow already says nothing
-  about a letter answered through Gmail itself, whatever is decided for
-  the marks written after a send.
-- Whether Apple Mail sets the two marks on Gmail, and so whether the
-  letters he answered in Mail show arrows on install day: device step 0,
-  on a device with Mail.
-- Mail's own rule for a letter unread and answered, one answered and
-  forwarded, and a conversation, which the choices here stand in for
-  (D-020).
-- Not seen on the iPad, nor on the simulator. The TODO says how, built
-  from the `feat-arrows` worktree.
-- The text size stays fixed (D-007). The square is `Theme.scaled`, so it
-  follows `textScale` if that is ever raised.
-
----
 
 - A single answered letter in the Inbox, which Mail may open as a
   conversation on iPadOS 18; not known, and left as it was.
@@ -18575,263 +18539,6 @@ release build for the iPad links.
   opened at.
 - His lines' few words, when he opened a letter of the Inbox while the
   search was out: left off for the ten minutes the answer is remembered.
-
----
-
-- A phrase found as a phrase alone, on Gmail. A quoted part is asked for
-  as one string, as Mail asks it, which is IMAP's way to ask for a
-  phrase: RFC 3501 matches a string as a substring of the field. Gmail
-  reads that string in BODY as all its words, anywhere, in any order, and
-  takes no notice of quote marks inside it (measured on the test account,
-  2026-10-22: BODY with "Tuesday garden" in quotes inside it matched), so
-  the letters with the phrase come among those with all its words. What
-  Mail shows for one on Gmail was not seen.
-- Mail's own reading of curly quotes, of dashes and of single quotes
-  around a word, which could not be read; and of addresses and links,
-  which here are whole words already, as nothing splits them but white
-  space and those dashes.
-- Words not parted by spaces, as Japanese is written: one word here,
-  which Gmail splits itself, where Mail's locale word rules split them.
-- Deleting a recent search.
-- The band's height with the keyboard up, in two panes and three, after
-  turning the iPad and with VoiceOver on, and the clock symbol and the
-  heading as drawn: the device check, under "Blocked on the iPad coming
-  back". So is VoiceOver with the rows on show: the band shrinks at the
-  first letter typed, as it changed only at focus before, which is
-  B-079's typing with VoiceOver on, and the cursor must stay on the keys;
-  where the cursor lands after a row is chosen; and whether the rows,
-  in the list's section header, are read as a heading too, as the field
-  is (B-071).
-- A recent search read at a date past its week is not shown, and is not
-  taken out of the file until the next search is kept: put the date back
-  and it shows again.
-
----
-
-**Seen on the test iPad, 2026-10-22**, iPadOS 16.5.1, a build of the
-`feat-pullrefresh` worktree (4093de3), three panes and two, on the test
-account, and the four failures made again on a fresh launch. Steps 3, 4,
-5, 9, 10, 12 and 13 of the TODO check passed. 11 could not be made, one
-finger being all that can be put on the screen from outside. 1, 2, 7 and
-8 failed, on two faults, and 6's pass rests on no pull made at the top of
-a day's list.
-
-- *A gap left above the list* (1, 7, 8). A pull whose page answered once
-  the finger had lifted, as the list sprang back, left it resting 60 pt
-  below its top, an empty band above the search field and no spinner,
-  until it was touched: 11 of 13 such pulls, one for 25 s and through the
-  log screen. In the frames the spring-back went 210, 175, 147, and the
-  first frame after the answer was exactly the spinner's rest. A pull held
-  down until the page had come, and one whose page answered with the list
-  already at rest, were clean. The view button tapped while the page was
-  out, or as the list sprang back, made the switch at once (B-096), and
-  the gap was left in two panes too, and stayed in three again. While it
-  stood, `PaneMotion.isBouncing` read true at rest, so every later switch
-  was made at once, with no motion.
-- *A pull left pulled down* (2). With Airplane Mode on, a quick pull's page
-  failed at once, and "Can't connect to mail server." came on as the finger
-  lifted, within one frame. After OK the list stayed about 168 pt down with
-  the spinner turning, 12 s later, 2.5 min later, and after Airplane Mode
-  was off, until a touch: 2 of 2 quick pulls. A slow one, let go 0.3 s
-  after the alert had started to come on, sprang back clean under it.
-
-Not by design. A pull ends with the list at its top, as Mail's does.
-
-**What it was.**
-
-- The gap. The newest page goes to the top as it lands (`regroup(to:
-  .top)`, `scrollToTop`), and `scrollToTop` left the list alone only under
-  a finger. Let go, it set the offset to the top as the list sprang back,
-  the spinner's 60 pt still counted in the top, and so stopped the
-  spring-back at the spinner's rest; at once the page's answer put the
-  spinner away, which takes its room away. UIKit's refresh control told to
-  end while the list springs back leaves it where the spring-back was
-  going: the gap formed too with the answer at the very tail of the
-  spring-back, where the offset set moved almost nothing. Told to end under
-  the finger it waits for the finger to lift, and told to end at rest it
-  takes the list back to its top: both were seen clean.
-- The pull left down. `reload` put its alert up at once, with the finger
-  still on the list, and UIKit takes in no touches while an alert comes
-  on. The end of the drag was lost: the list stayed where the finger had
-  left it, and the spinner's end, which UIKit holds for the end of the
-  drag, never came.
-
-**Changed.**
-
-- `scrollToTop` leaves a list past its top alone while a finger holds it
-  or it coasts or springs back (`ListPlaces.setsTop`). Held, it springs
-  back to the top as he lets go; springing back, it gets there itself. At
-  the top, within half a point, there is nothing to set. A list left at
-  rest past its top, the band, is set to the top as a list further down
-  is, so the next page, mail the watch puts on at the top, or a return to
-  the newest takes a band away rather than keeping it. Its callers all
-  want the newest letters in sight: his Refresh and his pull, the watch's
-  quiet page and the mail it puts on at the top, a search's results, the
-  folder's top after a search, coming back to the newest after a while
-  away, and a place to go back to that is no longer there.
-- The spinner goes from the page's answer only with the list at rest
-  (`PullEnd`, `endPullAtRest`): at once under a finger on the list, which
-  UIKit ends as the finger lets go, and with the list still; held while it
-  coasts or springs back, or is past its top, with no finger on it. A held
-  end goes as UIKit says the list is at rest, at the end of its coasting
-  or spring-back, at the end of a drag with none to come, at the end of
-  an animated scroll, and at the status bar's tap; as a finger takes the
-  list, under the finger; and, if UIKit never says so, after 2 s
-  (`PullEnd.bound`), a few times the spring-back, or, with the list still
-  moving and no finger on it then, after 2 s more, and then whatever it
-  does (`PullEnd.rounds`). Put away at once, with nothing left held, as
-  the list goes out of sight, as the app goes to the background, at
-  another folder, and wherever the pull goes off the list, Edit mode, a
-  search, a day's list and the panes' motion (`putPullAway`); a pull where
-  none is offered, under its finger, the same. `endRefreshing` is called
-  from four functions only: the answer's, the bound's, the rest's and
-  `putPullAway`.
-- A list come to rest past its top with no spinner turning and no finger
-  on it closes up to its top, animated as a spring-back
-  (`closeUpPastTop`, `PullEnd.leftPastTop`): at the end of a coasting or
-  spring-back, and of an animated scroll, before a spinner held for the
-  rest goes, which UIKit takes to the top itself. A spinner put away at
-  once can still end while the list springs back, as Edit, the search
-  field, Home or the list leaving the screen come just then, and the band
-  so left goes as the spring-back ends, with `PaneMotion.isBouncing` false
-  again.
-- His Refresh's counts after a page that did not come are asked for
-  quietly (`RefreshTap.run`, `onRefreshRequested`): the page's alert says
-  what failed. Asked loudly, the sweep failed at once with no connection
-  too, and in three panes put up its own "Can't connect to mail server."
-  from the Mailboxes while the pull's finger was still on the list, where
-  the page's alert now waits for the finger: the end of the drag lost as
-  before, the list left pulled down with the spinner turning, and a
-  second alert as the next touch ended the drag. UIKit had refused the
-  sweep's alert over the page's, which always came first; with a server
-  slow to fail it could come after his OK, a second alert for one tap.
-  After a page that came the counts are asked for as before.
-- The alert of every page he asked for that `reload` fetches, his Refresh
-  and his pull, a folder's first page, coming back to the newest, goes up
-  at once with no finger on the list, as before, and otherwise once the
-  finger has let go (`LetGoHold`, `showWhenLetGo`): at the end of the drag,
-  as the list starts to spring back, which it was seen to do clean under
-  an alert; and for a finger that only rested on the list and never
-  dragged, which tells the list nothing as it lifts, when it is next seen
-  lifted, looked for every quarter second as for the kept page
-  (`liftCheck`). Dropped as the list goes out of sight, with nothing to put
-  it over; the line under the list says what failed. The Refresh button's
-  alert comes as it did: his finger is on the bar, not the list.
-- With no gap left, `PaneMotion.isBouncing` is false at rest after a pull,
-  and the next switch moves the panes. B-096 as it was: a switch while the
-  list springs back is made at once, and a spinner held for the rest goes
-  at the end of the spring-back, in the new arrangement.
-
-**Not changed.** The `UIRefreshControl`: the way back the first entry
-named, the control taken off for a pull of the app's own, is not taken.
-The fault was the list's offset and the moment the spinner was told to
-end, not the control. Nothing new on the wire.
-
-**What he sees.** Pulled and let go, the spinner turns at its rest above
-the first row until the page has come and the list is still, then goes,
-and the list closes up to its top with the newest letters there. With no
-connection, the list springs back to its top as "Can't connect to mail
-server." comes on, one alert in three panes and in two, and after OK
-nothing is left pulled down.
-
-**Tests.** `PullEndTests`, thirteen, new. When the spinner goes, all
-eight of a spinner, a finger and a list moving; a held end going once at
-rest, once at the bound, not at all after it is put away at once, and the
-bound of an old hold, or one put away, finding nothing; at the bound, all
-four of a finger and the list moving, waited for once more only while it
-moves with no finger on it, and at the last round put away whatever it
-does; what counts as moving, at and past the top by the iPad's numbers,
-the spinner's room counted; the bound, 2 s, and two rounds. The band: past
-the top by more than half a point, with no spinner and no finger, all
-four of a spinner and a finger past the top. The top set (`ListPlaces.setsTop`): below the top
-always, past it only at rest, never within half a point of it, the
-spinner's room counted. The alert held for a finger and put up once as it
-lets go; at once with no finger, a held one not put up after it; dropped
-as the list goes. `PullRefreshTests`, four new: the answer's end and the
-bound's read whole, `listMoving` with them; a held end at the end of a
-coasting, of an animated scroll, at the end of a drag only with no
-deceleration to come, at a finger taking the list and at the status bar;
-the alert through `showWhenLetGo` in `reload`, read whole, the drag's end
-putting it up before its deceleration guard, the watch for a finger that
-never dragged, and the drop out of sight; the close-up read whole,
-animated, at the end of a coasting and of an animated scroll, each time
-before the held spinner. Changed there: the top left alone past it only
-while a finger holds it or it moves, read whole; the spinner put away
-through `putPullAway` at the refusal, out of sight, the background, the
-folder and the pull taken off, `endRefreshing` in four functions and no
-more; the status bar's tap ending a held spinner and putting up a held
-alert. `RefreshTapTests`, one new: the counts asked for quietly after a
-page that did not come or threw, and as before after one that came,
-through `start`, and handed on so by the list, the container and the
-folder pane; its order tests tell the quiet counts apart now.
-`QuietSaveTests` pins the alert through `showWhenLetGo`, the counts quiet
-only after a page that did not come, and `RefreshTapTests` the answer
-through `endPullAtRest`.
-
-Each part undone in the worktree, one at a time, the 40 tests of the four
-files run, counted as failures in tests. The top set under a list
-springing back, as before: 1 in 1. The spinner put away at the answer, as
-before: 3 in 2. Held under a finger: 5 in 2; never held: 12 in 5; held
-with no spinner turning: 2 in 1. Moving deaf to the deceleration: 2 in 1;
-to the offset past the top: 3 in 1. Put away at once and still held: 2 in
-1. Any hold due at any bound: 3 in 1. A rest that puts it away twice: 3 in
-1. No bound: 3 in 2; a bound of half a second: 1 in 1. Put away at the end
-of every drag, before its deceleration guard, as the list starts to
-spring back: 1 in 1. Not at a finger taking the list: 2 in 1; not at the
-end of a coasting: 2 in 1; not at the status bar's tap: 2 in 2. The bare
-end, leaving a hold, out of sight, at the background, as the pull goes
-off, at another folder: 3 in 1 each; at the refusal: 3 in 2. The alert at
-once, as before: 3 in 2; the finger not asked: 2 in 2; put up only after
-the deceleration guard: 2 in 2; no watch for a finger that never dragged:
-2 in 2; not dropped out of sight: 2 in 2. The hold deaf to the finger: 5
-in 1; a held alert put up twice: 2 in 1; never dropped: 2 in 1; a held one
-left to follow a later one: 1 in 1.
-
-Then the counts, the top at rest, the second bound and the close-up, the
-45 tests of the four files. The counts asked for loudly whatever the
-page: 6 in 4; the list not handing the quiet on: 3 in 3; nor the
-container: 2 in 2. The top left alone past it at rest too, as before: 3
-in 2; set past it while moving: 4 in 2; set at it: 6 in 2; moving the
-finger alone: 1 in 1. The bound never waiting again: 6 in 1; waiting
-again with no cap: 2 in 1; under a finger: 2 in 1; one round: 7 in 2; the
-list not waiting again: 2 in 1; the round not counted up: 1 in 1; the
-finger not asked: 1 in 1. The band deaf to the spinner: 1 in 1; to the
-finger: 1 in 1; with no half point: 1 in 1. No close-up at the end of a
-coasting: 3 in 2; after the held spinner: 2 in 2; none at the end of an
-animated scroll: 3 in 2; no held spinner put away there: 3 in 2; not
-animated: 1 in 1; the spinner not asked in the list: 1 in 1.
-
-The full suite, serially: 1,889 tests, 5 skipped, none failing. The
-release build for the iPad links.
-
-**Not covered.**
-
-- Not yet seen on the iPad fixed: steps 1, 2, 7 and 8 again, 6 with a
-  pull made at the top of a day's list (the TODO says how), and 11, by
-  hand, with VoiceOver.
-- That UIKit says a spring-back after a pull has ended as the end of a
-  deceleration is its scroll view's own account, read here and not yet
-  seen. If it did not, the bound puts the spinner away 2 s after the
-  answer, the list long at rest, or 4 s after it with the list still
-  moving at 2 s.
-- Edit, the search field or Home tapped in the half second a list springs
-  back after its page has answered puts the spinner away at once, the
-  spring-back still going, so that nothing is left held, and that may
-  still leave the band. It closes up as the spring-back ends if UIKit
-  says it has ended with the band there (`scrollViewDidEndDecelerating`),
-  not yet seen; if not, it goes at the next page, mail put on at the top,
-  a return to the newest, or a touch. Step 7 looks.
-- A sweep of the counts that fails while his finger is on the list after
-  a page that came, the connection lost between the two, still puts its
-  alert up at once in three panes, and the drag's end may be lost as
-  before. Not seen.
-- Whether VoiceOver's three-finger scroll down to the spinner is an
-  animated scroll whose end UIKit reports, so that a band left by a page
-  answering during it closes up there, is not known. Step 11 looks.
-- The kept page's first fetch at launch (`fetchOverKept`) and Go to Date
-  put their alerts up at once, as before, a finger on the list or not.
-
----
 
 **Seen on the test iPad, 2026-10-22**, a build of B-104 as first built,
 with other work, three panes, the test account: J1, his reply A1 sent from
@@ -19071,7 +18778,240 @@ more. The release build for the iPad links.
 - While the stack moves after his letters went to the page, the pane
   calls the page ten times a second, a few words each; not otherwise.
 
----
+## B-105 — BUILT 2026-10-22, seen on the iPad the same day, two faults found there and fixed, not yet seen there fixed. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
+
+Built in the `feat-search` worktree, off master at 88ef40d.
+
+**What Mail does.** (A) Apple's guide names only the fields searched:
+From, To, Cc, Subject and the body. iOS 18.6's Message.framework, read
+from the binary and not run, splits what he typed into words
+(`-[MFMessageCriterion tokenizeUsingTokenizationHandler:]`, called from
+`_fetchArgumentsForCriterion`): the text trimmed; a whole address one
+word, each quoted part one word, each link one word; the rest by the
+locale's word rules, with a shortest word of two letters, so one-letter
+words are left out. Each word is asked for as `(OR FROM w (OR SUBJECT w
+(OR TO w (OR CC w BODY w))))`, and the words side by side, which IMAP
+reads as AND. No X-GM-RAW. That this is 18.6's code is sure; that his 18.7
+takes the same path is likely; whether it takes curly quotes for quote
+marks is not known.
+
+(B) "Before you begin typing, you may see suggested recent searches", the
+same guide says. MailUI's `MUISearchRecentSuggester` (18.6, read from the
+binary): `recentSearches.plist`, out of backup; at most three, newest
+first by the time of last use; each kept 7 days, 604,800 s, from its last
+use; shown only before he types; one used again is newest again; deleted
+by a swipe, probably. What keeps a search is in Mail's own binary, which
+could not be read; most likely a search he ran.
+
+**What it was.** `SearchCriteria.imap(for:)` sent the whole text, trimmed,
+as one string in each of the five fields. Measured read-only on the test
+account on 2026-10-22: Gmail matches several words in From, To, Cc and
+Subject only next to each other and in order; BODY, which on Gmail covers
+the headers too, matches them anywhere, in any order; only whole words
+match. So several words already found the letters with all of them, but
+through BODY alone, which is written down nowhere. A quoted phrase went
+with its quote marks inside the string. And the iPad types curly quotes:
+the field sets autocorrection and capitals off and leaves Smart
+Punctuation on, the iPad's default, so "Plan B" typed comes as “Plan B”,
+and a paste can bring them whatever the field says. Nothing of a search
+was kept.
+
+**Changed.**
+
+(A) `SearchCriteria.words(of:)` reads the text as Mail does, and
+`imap(for:)` asks for each word.
+
+- The text trimmed. A quote mark is ", “ or ”, and the marks pair in
+  order whatever their shape, so “Plan B" is a phrase too. What is
+  between a pair, trimmed, each run of white space one space, is one word
+  without its marks. A mark left over is read as a space. Apostrophes,
+  ' and ’, are not quote marks.
+- The rest is split at white space, and at the dashes Smart Punctuation
+  makes of a typed -- (—), with the en dash, the figure dash and the
+  horizontal bar a paste can bring, as Mail's word rules part words
+  there. The hyphen of "e-mail" stays in its word. Single quotes, ' ‘ ’,
+  come off the ends of a word: the iPad types 'Plan B' as ‘Plan B’. Inside
+  a word, "O’Brien", they are its apostrophe and stay, unescaped. Gmail
+  splits words further itself.
+- A word of one character is left out, as Mail leaves out one-letter
+  words: "Plan B" asks for every "plan". So is a word with no letter or
+  digit in it, "--", "&&" or "...", of which Mail's word rules make no
+  word. With nothing left, the whole text is the one word, its quote marks
+  read as spaces, so "a b" is searched as it always was; quote marks and
+  nothing else ask for nothing, and find nothing.
+- A word given twice, in any case, is asked for once, and the first
+  twenty are asked for.
+- One word goes byte for byte as before, with no parentheses:
+  `OR OR OR OR FROM "w" TO "w" CC "w" SUBJECT "w" BODY "w"`, the fold and
+  the escaping unchanged. Several are each that in parentheses, side by
+  side. Twenty words of a pasted letter make a line of about 1.6 KB;
+  Gmail took a SEARCH of 200 groups, 17.6 KB, in 112 ms.
+- The escaping goes by Unicode scalar. A quote or a backslash with an
+  accent after it is one character, and a replace of the character "
+  passes it by, as it did on the Linux host, so the quote went into the
+  command as it was and ended the string early: a BAD, and "Could not
+  search. Check the connection." Older than B-105, and found writing its
+  tests; with quote marks read as marks, that is the one way a quote
+  reaches a word.
+
+(B) `RecentSearches`: his last three searches, newest first, each kept a
+week from its last use, in `Application Support/Recent Searches.json`,
+written whole, out of backup after every write, read leniently: a file
+that cannot be read is no recent searches. The same words in any case are
+one search, the newer in its place; each is kept with its runs of white
+space one space, so a row is one line, and the words searched are the
+same. A search over 200 characters is not kept: a paste he would not
+search again, and cut short it would be a search he never made. Newest is
+the order of use, not the dates kept: a clock moved back only keeps them
+longer, and the search made after it is still first.
+
+- Kept when he taps Search on the keyboard with words in the field, and
+  when he opens a letter from the results, the words whose results they
+  are, not words typed since and still waiting for their search. Never at
+  a keystroke. Both, until the owner says otherwise, as Mail's own could
+  not be read.
+- Not kept, and not shown from the file, when the search asks for
+  nothing (`RecentSearches.keeps`, over `SearchCriteria.words`): blank,
+  or quote marks with nothing in them, “” as the keyboard types "". That
+  search finds nothing, and kept it would push one he made off the three.
+  One letter or a dash alone is kept, being searched as the whole text.
+- Shown under the scope bar while the field is focused AND empty AND
+  there are some: "Recent Searches", and a row for each, 44 pt, a clock
+  and the words on one line, in the band's type, through `Theme.scaled`
+  with it. The band grows for them as it does for the scope bar
+  (`wantedHeight`, `onHeightChanged`), and is asked again at focus, at
+  each change of the text, at its end and at the clear button. The first
+  letter typed takes them away; emptied again, they are back.
+- A tap puts the words in the field, takes the keyboard down and searches
+  at once, in the scope the band shows, with no wait for more typing,
+  through the same task a keystroke or Cancel calls off; it is newest
+  again.
+- VoiceOver: each row a button, "Recent search, Plan B". A row tapped is
+  hidden as its words go into the field, with VoiceOver's cursor on it,
+  so the band names the field with a layout change, and the cursor is
+  not left on a hidden row for VoiceOver to choose where to go (B-079).
+  The field does not move, and the results drawn under it do not take
+  VoiceOver from it: the list holds only its rows.
+- Gone with the copy of his mail when a password is saved or the account
+  taken out (`CredentialStore.save` and `clear`, beside `MailShelf.wipe`),
+  and at a safe start's second stage (`SafeStart`, which is handed the
+  file as it is handed `Kept/`).
+
+**Not changed.** The two scopes, the Trash and Spam merge, CHARSET, the
+search's key in `SearchSession`, the 350 ms wait after typing. The field's
+Smart Punctuation stays on: Mail's own field is not known to turn it off,
+and a paste brings curly quotes whatever the field says. X-GM-RAW is not
+used: Gmail would read his words as its operators. No suggestions as he
+types: they need an index of the whole mailbox on the iPad, which D-016
+does not keep. No swipe to delete a recent search: the app has no swipe,
+and the week clears them. The folder's rows under the band, `ListPlace`,
+`ListLetters` and B-079's VoiceOver code are as they were. The connection
+log carries the longer SEARCH line; the words of a search were in it
+already (D-016). D-016's "Not kept: searches" is the results; Mail keeps
+the words of the last three, and so does this.
+
+**What he sees.** Several words find the letters that have every one of
+them, each in any of From, To, Cc, Subject or the body: a name only in
+From and a word only in the body find the letter, in either order. A part
+in quotes, typed with the keyboard's curly quotes or not, is asked for as
+one string, as Mail asks it. On Gmail that finds the letters with all its
+words, the phrase among them, because BODY matches them anywhere: “Plan B”
+finds the letters that say Plan B, and those with plan and b apart. Plan B
+with no quotes finds every "plan", as Mail does. A tap in the empty field
+shows his last three searches under Current Mailbox and All Mailboxes; a
+tap on one searches it, and VoiceOver goes to the field, which holds its
+words. New words: "Recent Searches", and VoiceOver's "Recent search,"
+before the words, which are held from his iPad until the owner approves
+them; a word he changes is one line in `RecentSearches`, pinned by its
+test.
+
+**Tests.** `SearchCriteriaTests`, thirteen new: two words two groups side
+by side, the line whole; one word byte for byte as before, and one left
+of several; a quoted phrase one word without its marks, for "Plan B",
+“Plan B”, “Plan B", "Plan B” and ”Plan B“, alone and among words, two of
+them, its white space one space; a mark left over a space; an apostrophe
+kept in its word, straight and curly, and not escaped, and single quotes
+around a word gone; the smart dashes parting words, the hyphen kept, a
+dash inside a phrase kept; one-letter words and words with no letter or
+digit left out, the whole text when nothing is left, nothing at all for
+quote marks alone; a repeat once, in any case; the first twenty; every
+group and the whole key read back by a parser of RFC 3501's grammar, four
+ORs and the five fields in each group, every parenthesis closed; each
+word escaped on its own, and no quote mark reaching a word; a quote or a
+backslash with an accent after it escaped. Two changed: a typed quote is
+now a quote mark, so the test of one ending the string early takes the
+quote with an accent, the one way a quote reaches a word; and non-ASCII
+words come through whole among several. `RecentSearchesTests`,
+seventeen: three at most, newest first; the week, to the second, and a
+search used again starting its week again; the same words in any case
+replacing the older, its white space one space; the 200-character cap;
+blank text not kept; a search that asks for nothing, “”, "" and the
+like, not kept and not shown from the file, while one letter, a dash and
+a phrase are kept, each as it is searched; a file empty, cut short, of
+another shape or not JSON, no recent searches; a file outside the rules
+read within them; the clock moved back; the wipe; the words; and, read
+from the source, the file written whole and out of backup, the wipes at a
+password saved, the account taken out and the safe start, the block shown
+only while the field is focused and empty, and laid out under the scope
+bar, the heading first and each row under the one before, each row a
+button called "Recent search", a tap searching at once with no wait and
+putting VoiceOver on the field, the band's one post, and Search on the
+keyboard and a letter opened from the results keeping the search, a
+keystroke not. `SafeStartTests`: one unfinished launch keeps the recent
+searches, two take them away. `SafeStartTests` and `OutboxTests` hand
+`SafeStart` a file of their own.
+
+Each rule undone in the worktree, one at a time, and the three classes
+run, 65 tests. Curly quotes not taken for quote marks: 19 failures in 6
+tests. One word sent in parentheses: 5 in 3, one of them the old balance
+test. The block shown with text typed: 2 in 1. A mark left over kept in
+its word: 5 in 2. One-letter words kept: 12 in 5. Nothing searched when
+nothing is left: the run ends in a crash, at the old tests' `imap(for:
+"x")!`; with those two skipped, 7 failures in 1. A repeat in another case
+asked for again: 3 in 1. No cap of twenty: 4 in 2. The dashes not parting
+words: 2 in 1. Single quotes left on a word: 3 in 1. Words with no letter
+or digit kept: 1 in 1. A phrase's white space kept: 1 in 1. The escape by
+character, as before: 8 in 2. Recent searches with no cap of three: 6 in
+3; with no week: 7 in 2; told apart by case: 4 in 2; with no cap of 200:
+4 in 2; ordered by their dates: 3 in 1; not out of backup: 2 in 1. Left
+at a safe start: 3 in 2; at a password saved: 3 in 1. A tap through the
+debounce: 2 in 1. Not kept at Search on the keyboard: 3 in 1; nor at a
+letter opened from the results: 3 in 1. Quote marks alone kept: 9 in 1.
+The rows laid out from the top of the scope bar: 2 in 1; with no room
+for the heading: 2 in 1. VoiceOver left on the hidden row: 3 in 1.
+
+The full suite, serially: 1,886 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- A phrase found as a phrase alone, on Gmail. A quoted part is asked for
+  as one string, as Mail asks it, which is IMAP's way to ask for a
+  phrase: RFC 3501 matches a string as a substring of the field. Gmail
+  reads that string in BODY as all its words, anywhere, in any order, and
+  takes no notice of quote marks inside it (measured on the test account,
+  2026-10-22: BODY with "Tuesday garden" in quotes inside it matched), so
+  the letters with the phrase come among those with all its words. What
+  Mail shows for one on Gmail was not seen.
+- Mail's own reading of curly quotes, of dashes and of single quotes
+  around a word, which could not be read; and of addresses and links,
+  which here are whole words already, as nothing splits them but white
+  space and those dashes.
+- Words not parted by spaces, as Japanese is written: one word here,
+  which Gmail splits itself, where Mail's locale word rules split them.
+- Deleting a recent search.
+- The band's height with the keyboard up, in two panes and three, after
+  turning the iPad and with VoiceOver on, and the clock symbol and the
+  heading as drawn: the device check, under "Blocked on the iPad coming
+  back". So is VoiceOver with the rows on show: the band shrinks at the
+  first letter typed, as it changed only at focus before, which is
+  B-079's typing with VoiceOver on, and the cursor must stay on the keys;
+  where the cursor lands after a row is chosen; and whether the rows,
+  in the list's section header, are read as a heading too, as the field
+  is (B-071).
+- A recent search read at a date past its week is not shown, and is not
+  taken out of the file until the next search is kept: put the date back
+  and it shows again.
 
 **Seen on the iPad, 2026-10-22**, on the test account, on a build of the
 integration branch with this one in it (1b5d096), three panes, and again
@@ -19243,3 +19183,234 @@ seen. Words not parted by spaces, as Japanese is written, go as one
 literal, where they went as one quoted string, which Gmail refused;
 whether Gmail's own splitting then finds their letters was not tried. The
 iPad again: the TODO's check, steps 2 and 9a.
+
+## B-112 — FIXED 2026-10-22, not yet seen on the iPad. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
+
+**What he saw.** Seen on the test iPad on 2026-10-22, in B-102's check,
+and made again three times in three the same morning. Organize by Thread
+on, a conversation of two letters in the Inbox, the second a reply to the
+first, on one row. From another IMAP connection on the test account,
+`UID STORE +FLAGS (\Answered)` on the newer letter, then Refresh: the
+conversation was two rows. The top one read "(unknown sender)", "(no
+subject)" and 31/12/69, with the newer letter's words and the reply
+arrow, and the older letter sat on its own under it. The next Refresh put
+it right. It came once in four Refreshes after a mark set from the host,
+and then every time: with the mark set, with it taken off, and with
+Refresh tapped 2 s after the mark. On his iPad it would come whenever he
+reads or answers a letter on another device and refreshes within a few
+seconds.
+
+Not by design. A row is its letter's sender, subject and date, in its
+conversation, whatever else the server says.
+
+**What it was.** Gmail's news, and the client's reading of it. RFC 3501
+§7.4.2 lets a server send a FETCH at any time, and Gmail tells a connection
+of a mark set elsewhere with one, `* 68 FETCH (UID 422 FLAGS (\Seen))`.
+In three Refreshes of the first check's four it came on the NOOP a
+Refresh sends before its SEARCH (B-045), and nothing went wrong. In the
+fourth, and in all three tries made again that morning, it came inside
+the listing's own `UID FETCH` answer, after the letter's whole line, once
+some 5 s after the mark:
+
+```
+→ a048 UID FETCH 103,110,…,421:422 (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)
+← * 67 FETCH (X-GM-THRID … UID 421 … FLAGS (\Seen) ENVELOPE (…) …)
+← * 68 FETCH (X-GM-THRID … UID 422 … FLAGS (\Answered \Seen) ENVELOPE (…) …)
+← * 68 FETCH (UID 422 FLAGS (\Seen))
+· SESSION-IDENT folder=INBOX uidv=1 exists=68 uids=68 first-row=1/422 msgid=-
+```
+
+That was `-FLAGS (\Answered)`: the whole line still carried the old
+flags, and the news after it the new.
+
+`IMAPParser.parseFetch` made each line a result of its own, so the news
+was a result with a UID and flags and nothing else. `IMAPClient.ordered`,
+which puts a listing's summaries in order, kept one per UID, the last: the
+news. `IMAPMailRepository.rows(from:)` filled in what it lacked: "(unknown
+sender)"; an empty subject, which the list shows as "(no subject)"; the
+date 1970-01-01, which is 31/12/69 in the iPad's time zone; no Gmail
+thread id, so the letter left its conversation; and no Gmail id,
+`msgid=-`. The page kept on the iPad (D-016) was replaced with that row in
+it. It was so from the first commit, older than B-102, whose marks set
+elsewhere are exactly this news.
+
+Every FETCH of one letter read the answer the same way and took the first
+result under the UID, which with the news ahead of the letter's own line
+is the news. Then the FETCH that vouches for a kept row (D-016) found no
+Gmail id, so the write was not sent and the row came off the kept page as
+another letter's; a kept row's letter opened was refused the same way; a
+draft reopened by the id its upload gave it came with no bytes; a letter
+too large to fetch whole had no structure, or was refused as another
+letter; a file was refused the same way, or not found in the letter; and
+the FETCH of a letter's labels after a hollow MOVE (B-092) found none,
+so the MOVE was sent again. Not seen on the iPad, where the news came
+after the letter's line. The previews and a letter's plain FETCH already
+passed over a result with no bytes.
+
+**Changed.**
+
+- `IMAPParser.parseFetch` gives one result per UID. A later line for a UID
+  already read is laid over it (`IMAPFetchResult.laying`): each item the
+  later line carried in place of the earlier one's, the rest kept. So a
+  news line changes the flags and nothing else, and the letter's sender,
+  subject, date, Gmail ids, labels, structure, size and bytes stay. The
+  later line has the say, the news after the letter's line or the letter's
+  line after the news, as Gmail sends them in the order things happened. A
+  line with no UID is left as it was.
+- FLAGS and X-GM-LABELS go by whether the line carried them (`flagsSent`,
+  `labelsSent`). `FLAGS ()`, every mark taken off, takes them off, where an
+  empty list would have read as no FLAGS at all; a news line, which carries
+  no X-GM-LABELS, leaves the labels, so the letter is still counted in
+  Starred and in its labels' folders.
+- `IMAPClient.ordered` merges again across the answers it is given, so
+  news riding on one FETCH about a letter in another is laid over that
+  letter too. A FETCH whose UIDs run past 7,000 characters goes in several;
+  no list of the app's is that long today, but the rule holds there too.
+- A summary with no ENVELOPE once merged is never made a row. It is news of
+  a letter whose own line never came, its FETCH refused or the letter gone,
+  or a line that came without the ENVELOPE asked for, and it is left out as
+  a letter the FETCH did not answer for is:
+  `FETCH-NO-ENVELOPE uid=422 left-out` in the connection log. So no row
+  with no sender, subject or date reaches the list or the kept page. A
+  page below the top fills itself from the UIDs after it, as for a letter
+  gone; the page from the top comes back one short.
+- Every place results are gathered by UID goes through it: the listing
+  from the top and a date jump (`page`), the pages below and the watch's
+  new letters (`fetchSummaries`), an All Mailboxes search's binned hits
+  (`search(_:across:)`), the previews, a letter's whole bytes, plain,
+  named and asked, the FETCH vouching for a kept row, a letter in parts,
+  a file, and the labels after a hollow MOVE.
+
+**Not changed.**
+
+- What is sent: the same commands, no NOOP more, nothing asked again.
+- News of a letter the FETCH did not ask for, one below the page, is not
+  put on a row already on screen; the next listing that has the letter
+  shows its marks, as before. News on a NOOP, a STORE or a MOVE is not read,
+  as before.
+- No new words.
+
+**What he sees.** A letter read, flagged or answered on another device,
+and Refresh at once: its row is the letter's, its sender, subject and
+date, in its conversation, with the new mark if Gmail told of it inside
+the listing, and with the mark it had until the next Refresh if Gmail held
+the news back longer. The connection log's SESSION-IDENT names the
+letter's Gmail id.
+
+**Tests.** `FetchNewsTests`, seventeen, over the shipping repository and
+client, the kept copy and the scripted server, whose `storeElsewhere` is a
+STORE from another device and whose `flagNews` says where a connection
+with the letter's mailbox open is told of it: on the next NOOP, as Gmail
+did most times; ahead of the next UID FETCH's own lines; straight after
+the letter's own line, which carries its old flags, as on the iPad, or
+after the answer's first line for a letter the FETCH did not ask for; or
+at the end of the answer, before its OK; and whose `envelopeless` leaves
+the ENVELOPE out of a letter's line. All but the two over more than one
+FETCH, and the one with no ENVELOPE, read off the connection log the app
+keeps that the news came where they say, so none of them passes with no
+news on the wire; the one with no ENVELOPE reads off it that the letter's
+line came without one. And one in `IMAPParserTests` on the iPad's lines,
+the names and ids made up, the letter's whole line with a structure and
+bytes as well: with the news after it and with the news ahead of it, each
+of its items is checked, the flags, labels, arrival, size, envelope,
+structure, bytes and both Gmail ids.
+
+- *Inside*, the iPad's: a conversation of two, the newer with a file in
+  it, marked read elsewhere, then Refresh: NOOP, SEARCH, FETCH, the news
+  straight after the letter's line, which carried no flags; the row whole,
+  read, with its file and the paperclip and when it came, and in its
+  conversation, the older as it was, SESSION-IDENT naming the letter's
+  Gmail id, and the kept page the same, in memory and on disk.
+- *Ahead:* the news first and the letter's line with the new flags: the
+  row the letter's, when it came among it.
+- *A launch's first listing:* the letter with a file marked read between
+  the listing's SEARCH and its FETCH, the news ahead of its line, and
+  again straight after it, where a Refresh would still have from the
+  listing before what the line says: the row whole and read, the letter
+  kept with it as large, in memory and on disk, and opened in parts, its
+  file left on the server; the preview its text's.
+- *At the end:* a letter in the middle of the page flagged elsewhere, the
+  news after the fifty lines: the row whole and flagged, no other changed.
+- *Marks taken off:* a letter with only `\Seen` marked unread elsewhere,
+  its news `FLAGS ()`, and a flagged letter in Starred marked unread: both
+  unread, the second still flagged and still counted in Starred.
+- *Not asked for:* a letter below the page flagged elsewhere, told after
+  the answer's first line, the page's oldest letter's: no row changed or
+  added, and the page below has it flagged.
+- *The watch:* a letter come, and marked read between the check's SEARCH
+  and its FETCH: on the list whole and read.
+- *A search:* a letter in the Trash flagged between the Trash's SEARCH and
+  the FETCH of its hits: the binned hit whole and flagged.
+- *Kept rows:* a read mark on a kept row with the news ahead of the
+  vouching FETCH: the mark goes and the row stays kept. A kept row's
+  letter opened with the news ahead: the letter.
+- *One letter:* the news ahead of each FETCH the client makes of one
+  letter, and again straight after the letter's line in each, both
+  FETCHes of the letter in parts and of a file told so: its Gmail id, its
+  bytes named, asked and plain, the letter in parts, its structure,
+  header and text, a file, a preview and its summary, with its size, when
+  it came, its file and its preview's part, each the letter's.
+- *Labels:* a hollow MOVE from All Mail into the Inbox, the news ahead of
+  the FETCH of its labels: labelled, one MOVE.
+- *Two FETCHes:* an Inbox of 1,500, every summary asked for, two FETCHes.
+  A letter of the first flagged once it is answered, the news inside the
+  second: its summary whole and flagged. A letter of the second flagged,
+  the news inside the first, and the second refused: no summary for it,
+  every other whole, and the log line.
+- *No ENVELOPE:* a letter of the first page and one of the page below
+  whose lines come without it: neither a row. The first page one short,
+  the kept page the same, in memory and on disk, and the log line; the
+  page below fifty, filled from the letter after it, and its log line.
+
+Each part undone in the worktree, one at a time, and the eighteen run,
+counted as failures in tests. The code as it was, 186 in 15, the rows on
+the host as on the iPad, "(unknown sender)", "" and 1970-01-01 with no
+ids, and the kept rows refused as another letter's; in the whole suite
+those 15 alone, the three that passed being the two listings with the
+news ahead, whose last line was the letter's, and the letter not asked
+for: nothing else held it. The parser not merging, `IMAPClient.ordered`
+still merging, 39 in 5: every FETCH of one letter with the news ahead,
+the kept rows and the labels, and the parser's own; the listings held,
+merged there, and so did every FETCH of one letter with the news after
+its line, the first line being the letter's. `ordered` not merging across
+answers, 4 in 1, the two FETCHes. A summary with no ENVELOPE made a row,
+15 in 2, the blank row on the list and on the kept page. The later FLAGS
+taken only when not empty, 3 in 3; the later X-GM-LABELS taken whether
+sent or not, 4 in 2; the parser not saying FLAGS came, 14 in 9. The
+first line kept, 80 in 15. The smaller fix, lines with no ENVELOPE
+dropped from a listing and nothing merged, 53 in 15: rows whole and their
+marks stale, every FETCH of one letter as before, and nothing in the log
+of what was left out. A line with nothing but flags laid over the line
+before it, whatever its UID, 8 in 5.
+
+And each item the earlier line keeps when the later one did not carry
+it, undone one at a time. The arrival and the size taken from the later
+line alone, 10 in 4: with the news ahead, the row has no arrival, the
+letter is not kept as large and is opened whole, and its summary has no
+size or arrival, in the parser's test too. The structure taken from the
+later line alone, 23 in 4: with the news after the letter's line, the
+row has no paperclip and no file, on the list and on the kept page, and
+no preview; the letter in parts has no structure and nothing of its
+text, a file is not found, and the summary has no structure, in the
+parser's test too. The bytes taken from the later line alone, 10 in 2:
+with the news after the line, the letter's bytes, named, asked and
+plain, are empty, the letter in parts has no header and no text, a file
+is not found and a preview is empty, in the parser's test too.
+
+The full suite, serially: 1,874 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO's check makes the news come inside
+  the listing as the tries that morning did.
+- A listing from the top with a letter left out for no ENVELOPE comes back
+  one short, which the list takes for the end of the folder until the next
+  Refresh, as for a letter gone between the SEARCH and the FETCH. It needs
+  a news line for a letter whose own line never came; not seen.
+- A letter whose own line always came without its ENVELOPE would be left
+  out of every listing, where it was a row with no sender. Gmail sends one
+  whenever it is asked, and the parser reads any list there as one; the
+  log line names the letter if it ever happens.
+- News with no UID, which RFC 3501 allows outside a UID command, is left
+  aside; Gmail's carries the UID.
