@@ -39,7 +39,8 @@ import Foundation
 /// fails then leaves the counts as they were rather than putting "Can't
 /// connect" over the letter he is reading, since he did nothing. Merged with
 /// one he did ask for, it is his, and says so when it fails, as every sweep
-/// always has.
+/// always has. His Refresh asks quietly too after a page that did not come,
+/// whose own alert has said what failed (`RefreshTap.run`, B-103).
 @MainActor
 final class SweepCoalescer {
 
@@ -70,7 +71,7 @@ final class SweepCoalescer {
 
     /// Asks for a sweep. Starts one if none is running and nothing is
     /// holding them; otherwise it is owed, and one more runs afterwards.
-    /// `quietly` for the watch's.
+    /// `quietly` for the watch's, and his Refresh's after a failed page.
     func request(quietly: Bool = false) {
         owed = true
         if !quietly { owedLoudly = true }

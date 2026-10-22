@@ -284,6 +284,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Refresh button's own path, not in Edit mode, a search or a day's
       list; the status-bar tap pinned as it was. B-103, and its check
       under "Blocked on the iPad coming back".*
+      *Pull to refresh done
+      2026-10-22: on the message list, by the Refresh button's own path,
+      not in Edit mode, a search or a day's list; the status-bar tap
+      pinned as it was. Seen on the iPad the same day: a gap left above
+      the list and, with no connection, a pull left down, both fixed and
+      not yet seen there fixed. B-103, and its check under "Blocked on
+      the iPad coming back", steps 1, 2, 6, 7 and 8 to run again, and 11
+      by hand.*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -3916,10 +3924,23 @@ this host. Ordered by value, not by size.
       there, then let go: the rows do not jump under the finger, and the
       list springs back to the top. Once, while the spinner turns, scroll
       down a little: the search field stays under the bar, with no gap
-      above it.
+      above it. *Run again:* ten quick pulls, each about 0.3 s from the
+      touch to the lift and far enough for the spinner, so that the page
+      answers just after the lift, as the list springs back: each time
+      the spinner stays at its rest until the list is still, then goes,
+      and the list closes up to its top, with no band left above the
+      search field. Then the view button: the panes move, and the log
+      does not say "switched at once".
       2. *No connection.* Airplane Mode on, pull: the Refresh button's
       alert, "Can't connect to mail server.", the spinner goes, and no
-      gap is left above the first row. OK. Airplane Mode off.
+      gap is left above the first row. OK. Airplane Mode off. *Run
+      again,* with three quick pulls let go about 0.3 s after the touch
+      and one slow pull held 1.5 s: the alert comes on only once the
+      finger has lifted, the list springing back to its top under it, and
+      after OK no spinner turns and nothing is left pulled down. In three
+      panes, one alert only: none from the Mailboxes under the finger,
+      and no second "Can't connect to mail server." after OK or at the
+      next touch.
       3. *One page at a time.* Pull, and tap Refresh while the spinner
       turns: one page FETCH in the connection log. Then, after the page
       has come, tap Refresh: a second page FETCH, as before.
@@ -3932,16 +3953,37 @@ this host. Ordered by value, not by size.
       6. *A day.* Go to Date, a day some weeks back, then pull at the top
       of that day's list: nothing but the bounce; scrolling up loads the
       newer pages as before. Refresh: back at the newest, and a pull
-      works again.
+      works again. *Run again, with the pull made at the top of the day's
+      list,* which the first run never reached: the landing fetches the
+      page above the day at once, and scrolling up fetches each next one
+      before the top is in sight. So: in Trash, Go to Date a day with
+      more than 120 letters newer than it, and let it land ("Showing" and
+      the day on the line). Airplane Mode on, which stops the newer pages
+      coming, silently. Scroll up to the very top of the list: its first
+      row is not Trash's newest, and the line still says "Showing". Pull
+      it down past its top as far as in 1 and let go: only the bounce, no
+      spinner, no alert, no page in the log. A pull offered there would
+      turn the spinner and put up "Can't connect to mail server.".
+      Airplane Mode off; scrolling up loads the newer pages as before.
       7. *The spinner left.* Pull, and tap the view button while it
       turns; pull, then Home and back; pull, then another folder while it
       turns, and back to the Inbox: each time no spinner stays turning,
-      and no gap is left above the first row.
+      and no gap is left above the first row. *Run again,* each once with
+      the tap made at once after the lift and once while the spinner
+      turns at its rest; Home or another app opened. Then, as the list
+      springs back after a pull whose page has just answered, Edit and
+      Done, and the search field and Cancel: no spinner stays turning,
+      and a band, if one is left as the spinner goes, closes up to the
+      top as the spring-back ends, with nothing touched; the next switch
+      of the panes moves them. A band left until a touch is the risk
+      B-103 records.
       8. *B-096.* Three panes, the Inbox at its top, pull and let go so
       that the spinner shows, and tap the view button as the list springs
       back: the switch is made, the bounce ends early as B-096 records,
       the spinner goes when the page answers, and no gap is left in two
-      panes.
+      panes. *Run again,* the tap 0.1 to 0.3 s after the lift, and once
+      0.25 s after: the spinner goes as the list comes to rest in two
+      panes, no gap, and the next switch back to three moves the panes.
       9. *The Outbox.* As in B-072's check: open a letter with a file over
       1 MB, Airplane Mode on, Forward it To A with `+b103`, Subject
       "B-103 Outbox": "Message is in the Outbox…". Airplane Mode off; a
@@ -3954,7 +3996,11 @@ this host. Ordered by value, not by size.
       as the list is there: the letter is on the list, once.
       11. *VoiceOver*, if it is turned on for the check: at the top of the
       Inbox, a three-finger scroll down: the refresh is announced, and the
-      connection log has one page FETCH. VoiceOver off after.
+      connection log has one page FETCH. Once the page has answered, the
+      spinner goes and no band is left above the search field; three
+      times, and once with Airplane Mode on, one alert. By hand: from
+      outside only one finger can be put on the screen. VoiceOver off
+      after.
       12. *Thirty.* Thirty pulls in a row, each let go as the last one's
       spinner goes: one page FETCH each, never two out at once in the log,
       and Refresh still works after.
@@ -4120,6 +4166,19 @@ this host. Ordered by value, not by size.
       tap in the field: none. The date put back: they show again, as a
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
+      *Seen on the test iPad 2026-10-22, a build of `feat-pullrefresh`
+      (4093de3), three panes and two: 3, 4, 5, 9, 10, 12 and 13 passed,
+      13's Mailboxes part not possible, every folder fitting the column;
+      11 not possible, one finger being all that can be put on the screen
+      from outside. 1, 7 and 8 failed: a page answered as the list sprang
+      back left it 60 pt below its top with no spinner, 11 of 13 such
+      pulls, in two panes too. 2 failed: offline, a quick pull's alert
+      came on as the finger lifted, and after OK the list stayed 168 pt
+      down with the spinner turning until touched, 2 of 2. 6's pass was
+      not supported: the pull at the top of a day's list was never made.
+      All four failures made again on a fresh launch. Both faults fixed
+      since, as B-103 in KNOWN_ISSUES says; 1, 2, 6, 7 and 8 to run again
+      as above, and 11 by hand.*
 
 ## Blocked on the owner
 

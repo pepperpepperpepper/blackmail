@@ -81,22 +81,23 @@ final class RefreshTapTests: XCTestCase {
         let said = Said()
         await RefreshTap.run(page: { said.lines.append("page"); return true },
                              answered: { said.lines.append("answered") },
-                             counts: { said.lines.append("counts") },
+                             counts: { said.lines.append($0 ? "counts quietly" : "counts") },
                              shown: { said.lines.append("shown") },
                              pass: { said.lines.append("pass") })
         XCTAssertEqual(said.lines, ["page", "answered", "counts", "shown", "pass"])
     }
 
     /// A page that did not come sets no pass off, as before: there is no
-    /// connection for one. The counts are asked for all the same.
+    /// connection for one. The counts are asked for all the same, quietly
+    /// (B-103).
     func testAPageThatDidNotComeSetsNoPassOff() async {
         let said = Said()
         await RefreshTap.run(page: { said.lines.append("page"); return false },
                              answered: { said.lines.append("answered") },
-                             counts: { said.lines.append("counts") },
+                             counts: { said.lines.append($0 ? "counts quietly" : "counts") },
                              shown: { said.lines.append("shown") },
                              pass: { said.lines.append("pass") })
-        XCTAssertEqual(said.lines, ["page", "answered", "counts"])
+        XCTAssertEqual(said.lines, ["page", "answered", "counts quietly"])
     }
 
     private struct Refused: Error {}
@@ -108,14 +109,14 @@ final class RefreshTapTests: XCTestCase {
     func testThePageIsAnsweredOnceBeforeTheCountsAndThePass() async {
         let outcomes: [(String, () throws -> Bool, [String])] = [
             ("came", { true }, ["page", "answered", "counts", "shown", "pass"]),
-            ("did not come, or put aside", { false }, ["page", "answered", "counts"]),
-            ("threw", { throw Refused() }, ["page", "answered", "counts"]),
+            ("did not come, or put aside", { false }, ["page", "answered", "counts quietly"]),
+            ("threw", { throw Refused() }, ["page", "answered", "counts quietly"]),
         ]
         for (name, outcome, expected) in outcomes {
             let said = Said()
             await RefreshTap.run(page: { said.lines.append("page"); return try outcome() },
                                  answered: { said.lines.append("answered") },
-                                 counts: { said.lines.append("counts") },
+                                 counts: { said.lines.append($0 ? "counts quietly" : "counts") },
                                  shown: { said.lines.append("shown") },
                                  pass: { said.lines.append("pass") })
             XCTAssertEqual(said.lines, expected, name)
@@ -131,7 +132,7 @@ final class RefreshTapTests: XCTestCase {
         let run = Task { @MainActor in
             await RefreshTap.run(page: { true },
                                  answered: { said.lines.append("answered") },
-                                 counts: { said.lines.append("counts") },
+                                 counts: { said.lines.append($0 ? "counts quietly" : "counts") },
                                  shown: { try? await shown.wait() },
                                  pass: { said.lines.append("pass") })
         }
@@ -150,7 +151,7 @@ final class RefreshTapTests: XCTestCase {
         let tap = Task { @MainActor in
             await RefreshTap.run(page: { true },
                                  answered: {},
-                                 counts: { said.lines.append("counts") },
+                                 counts: { said.lines.append($0 ? "counts quietly" : "counts") },
                                  shown: {
                                      try? await shown.wait()
                                      said.lines.append("shown")
@@ -186,6 +187,7 @@ final class RefreshTapTests: XCTestCase {
         var mostOut = 0
         var answered = 0
         var counts = 0
+        var quietCounts = 0
         var passes = 0
     }
 
@@ -204,7 +206,10 @@ final class RefreshTapTests: XCTestCase {
                              return try await page()
                          },
                          answered: { runs.answered += 1 },
-                         counts: { runs.counts += 1 },
+                         counts: { quietly in
+                             runs.counts += 1
+                             if quietly { runs.quietCounts += 1 }
+                         },
                          shown: shown,
                          pass: { runs.passes += 1 })
     }
@@ -284,6 +289,46 @@ final class RefreshTapTests: XCTestCase {
         await next.value
         XCTAssertEqual(runs.pages, 3)
         XCTAssertEqual(runs.passes, 1)
+    }
+
+    /// His Refresh's counts are asked for quietly after a page that did not
+    /// come, thrown or not, and as before after one that came (B-103). With
+    /// no connection the sweep failed at once, and in three panes its own
+    /// "Can't connect to mail server." came up from the Mailboxes under the
+    /// pull's finger, while the page's waited for the finger to let go: the
+    /// list would lose the end of its drag, as it did on the iPad on
+    /// 2026-10-22, and stay pulled down with the spinner turning. The
+    /// page's alert says what failed. Through `start`, the one way in.
+    func testAPageThatDidNotComeAsksForTheCountsQuietly() async throws {
+        let outcomes: [(String, @MainActor () async throws -> Bool, Bool)] = [
+            ("came", { true }, false),
+            ("did not come", { false }, true),
+            ("threw", { throw Refused() }, true),
+        ]
+        for (name, page, quiet) in outcomes {
+            let gate = RefreshTap.Gate()
+            let runs = Runs()
+            let run = try XCTUnwrap(start(gate, runs, page: page), name)
+            await run.value
+            XCTAssertEqual(runs.counts, 1, name)
+            XCTAssertEqual(runs.quietCounts, quiet ? 1 : 0, name)
+        }
+
+        // The list hands it on, and the container asks the folder pane for
+        // the counts as it is told: quietly, the sweep puts up no alert.
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertTrue(list.contains("counts: { quietly in self.onRefreshRequested?(quietly) },"))
+        XCTAssertTrue(list.contains("var onRefreshRequested: ((_ quietly: Bool) -> Void)?"))
+        XCTAssertEqual(count("onRefreshRequested?(", in: list), 1)
+        let root = try source("UI/RootViewController.swift")
+        XCTAssertTrue(root.contains("list.onRefreshRequested = { [weak self] quietly in "
+                                    + "self?.refreshMailboxes(quietly: quietly) }"))
+        XCTAssertTrue(root.contains("private func refreshMailboxes(quietly: Bool = false) { "
+                                    + "mailboxList.select(mailboxID: list.mailboxID) "
+                                    + "mailboxList.refreshCounts(quietly: quietly) }"))
+        let folders = try source("UI/MailboxListViewController.swift")
+        XCTAssertTrue(folders.contains(
+            "} catch { if !quietly { ErrorPresenter.show(reaching: error, on: self) } } }"))
     }
 
     /// A run lets go of its own hold only. The first run ends, its previews
@@ -377,8 +422,8 @@ final class RefreshTapTests: XCTestCase {
             + "page: { let checking = self.isOutbox ? nil : self.working(StatusLine.checking) "
             + "defer { checking?() } await self.repository.forgetLettersOfHis() "
             + "return await self.reload(passing: false) }, "
-            + "answered: { self.pull.endRefreshing() }, "
-            + "counts: { self.onRefreshRequested?() }, "
+            + "answered: { self.endPullAtRest() }, "
+            + "counts: { quietly in self.onRefreshRequested?(quietly) }, "
             + "shown: { await self.pagePreviews?.value await self.countsCame() }, "
             + "pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) }) }"))
         XCTAssertTrue(list.contains("func reload(keepingPlace: Bool = false, quietly: Bool = false, "

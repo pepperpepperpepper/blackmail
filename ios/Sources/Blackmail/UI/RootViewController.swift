@@ -885,8 +885,11 @@ final class RootViewController: UIViewController {
             // destination still read 1 while plainly holding two.
             self.refreshMailboxes()
         }
-        list.onRefreshRequested = { [weak self] in
-            self?.refreshMailboxes()
+        // Quietly after his Refresh's page did not come: the page's alert
+        // says what failed, and in three panes a second from the Mailboxes
+        // came up under a pull's finger (`RefreshTap.run`, B-103).
+        list.onRefreshRequested = { [weak self] quietly in
+            self?.refreshMailboxes(quietly: quietly)
         }
         // His Refresh's pass over the Outbox waits for the counts it asked
         // for (`RefreshTap`, B-072).
@@ -948,7 +951,8 @@ final class RootViewController: UIViewController {
     ///
     /// Requests that overlap are merged into at most one more sweep, which
     /// starts after the latest of them; see `SweepCoalescer`. `quietly` for
-    /// the watch's, which puts up no alert if it fails.
+    /// the watch's, and his Refresh's after a page that did not come, which
+    /// put up no alert if they fail.
     private func refreshMailboxes(quietly: Bool = false) {
         mailboxList.select(mailboxID: list.mailboxID)
         mailboxList.refreshCounts(quietly: quietly)

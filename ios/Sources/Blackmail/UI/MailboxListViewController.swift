@@ -110,7 +110,8 @@ final class MailboxListViewController: UITableViewController {
     /// Asks for the unread counts: LIST and a STATUS per folder. Merged with
     /// a sweep already running, and with every other request made while it
     /// runs, into at most one more. `quietly` for a sweep he did not ask
-    /// for, the watch's, whose failure puts up no alert; see
+    /// for, the watch's, and for his Refresh's after a page that did not
+    /// come, which has said so (B-103): its failure puts up no alert; see
     /// `SweepCoalescer.request(quietly:)`.
     @MainActor
     func refreshCounts(quietly: Bool = false) {
