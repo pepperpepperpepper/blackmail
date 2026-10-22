@@ -22,4 +22,16 @@ final class InfoPlistTests: XCTestCase {
             XCTAssertFalse(words?.isEmpty ?? true, key)
         }
     }
+
+    /// Print asks for nothing (B-110): AirPrint's panel finds printers
+    /// itself, so the app asks for no Local Network and names no Bonjour
+    /// service, and the only words iOS shows for a permission are still the
+    /// two for Photos.
+    func testPrintAsksForNoPermission() throws {
+        let info = try appInfo()
+        XCTAssertEqual(info.keys.filter { $0.hasSuffix("UsageDescription") }.sorted(),
+                       ["NSPhotoLibraryAddUsageDescription", "NSPhotoLibraryUsageDescription"])
+        XCTAssertNil(info["NSLocalNetworkUsageDescription"])
+        XCTAssertNil(info["NSBonjourServices"])
+    }
 }

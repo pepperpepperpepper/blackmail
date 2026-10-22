@@ -37,6 +37,34 @@ enum PanePage {
         Set(m.attachments.compactMap(\.contentID))
     }
 
+    /// Where the loader finds a picture a page asks for by `Content-ID`:
+    /// the part, and the letter it is in.
+    struct Picture: Equatable, Sendable {
+        let messageID: String
+        let mailboxID: String
+        /// The part's number, as `fetchAttachmentData` takes it.
+        let section: String
+        let mimeType: String
+    }
+
+    /// The pictures of `letters` by `Content-ID`, for the loader of the
+    /// page that shows them: the pane's (`prepareInlineImages`) and a
+    /// printed letter's (`LetterPrint`, B-110). A `Content-ID` only means
+    /// anything inside the letter that declared it, and two letters can
+    /// both have `cid:image001.png`; where they do, the later letter's is
+    /// served.
+    static func pictures(of letters: [Message]) -> [String: Picture] {
+        var parts: [String: Picture] = [:]
+        for m in letters {
+            for attachment in m.attachments {
+                guard let cid = attachment.contentID else { continue }
+                parts[cid] = Picture(messageID: m.id, mailboxID: m.mailboxID,
+                                     section: attachment.id, mimeType: attachment.mimeType)
+            }
+        }
+        return parts
+    }
+
     /// The page for one letter, or nil when there is nothing in it to draw,
     /// and the pane says so in words instead (`MailText.hasNoVisibleContent`,
     /// B-026).
@@ -58,11 +86,7 @@ enum PanePage {
         // meaning. HTML is left exactly alone, because whitespace there is
         // not reliably whitespace and the document may open with a layout
         // table.
-        let content = isHTML
-            ? TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
-                                                         known: contentIDs(of: m)))
-            : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
-                              escaping: .ampersandAndLessThan)
+        let content = Self.content(text: m.textBody, html: m.htmlBody, known: contentIDs(of: m))
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -114,9 +138,28 @@ enum PanePage {
     /// that, or not at all. Its own style, grey as "Loading…" is, so that
     /// it reads as the app's and not the sender's.
     static func shortened(_ m: Message) -> String {
-        guard m.isShortened else { return "" }
-        return "<p style=\"color: #8e8e93; margin: 0 0 1em 0; white-space: normal;\">"
-            + MailText.shortenedNotice + "</p>"
+        m.isShortened ? shortenedLine : ""
+    }
+
+    /// That line, as the pane draws it; a printed letter has it too, over
+    /// one the pane shortened or the print cut (`PrintPage`, B-110).
+    static let shortenedLine = "<p style=\"color: #8e8e93; margin: 0 0 1em 0; white-space: normal;\">"
+        + MailText.shortenedNotice + "</p>"
+
+    /// What goes in `#bm` for a letter's body, `html` when it has one and
+    /// `text` otherwise: the sender's markup without its wrapper, with its
+    /// pictures by `cid:` pointed at the loader where `known` has them, and
+    /// text escaped with its leading blank lines dropped; with the links it
+    /// writes out made links. The pane's page (`letter`) and a printed
+    /// letter's (`PrintPage`, B-110) both draw it, so a printed letter is
+    /// the letter he read.
+    static func content(text: String?, html: String?, known: Set<String>) -> String {
+        if let html {
+            return TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: html),
+                                                              known: known))
+        }
+        return TextLinks.plain((text ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                               escaping: .ampersandAndLessThan)
     }
 
     /// One letter's body for its section of a conversation's stack: the
