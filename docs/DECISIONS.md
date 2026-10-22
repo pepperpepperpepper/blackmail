@@ -384,6 +384,9 @@ Refresh means "get my mail", not "get my mail but leave the unread counts
 stale". The brief's point is intact: a visible labelled control, never
 pull-to-refresh alone.
 
+**2026-10-22:** Mail's pull to refresh is added on the message list beside
+the Refresh button, never in its place (B-103).
+
 ## D-010 — The app ships dark. Appearance is now a requirement.
 
 **Decision:** black canvas, white text, blue tint, pinned with

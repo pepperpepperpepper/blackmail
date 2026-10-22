@@ -75,15 +75,16 @@ final class RefreshTapTests: XCTestCase {
         var lines: [String] = []
     }
 
-    /// The page first, then the counts, and once the page's previews and the
-    /// counts have come, the pass.
+    /// The page first, its answer, then the counts, and once the page's
+    /// previews and the counts have come, the pass.
     func testThePageAndTheCountsGoBeforeThePass() async {
         let said = Said()
         await RefreshTap.run(page: { said.lines.append("page"); return true },
+                             answered: { said.lines.append("answered") },
                              counts: { said.lines.append("counts") },
                              shown: { said.lines.append("shown") },
                              pass: { said.lines.append("pass") })
-        XCTAssertEqual(said.lines, ["page", "counts", "shown", "pass"])
+        XCTAssertEqual(said.lines, ["page", "answered", "counts", "shown", "pass"])
     }
 
     /// A page that did not come sets no pass off, as before: there is no
@@ -91,10 +92,54 @@ final class RefreshTapTests: XCTestCase {
     func testAPageThatDidNotComeSetsNoPassOff() async {
         let said = Said()
         await RefreshTap.run(page: { said.lines.append("page"); return false },
+                             answered: { said.lines.append("answered") },
                              counts: { said.lines.append("counts") },
                              shown: { said.lines.append("shown") },
                              pass: { said.lines.append("pass") })
-        XCTAssertEqual(said.lines, ["page", "counts"])
+        XCTAssertEqual(said.lines, ["page", "answered", "counts"])
+    }
+
+    private struct Refused: Error {}
+
+    /// The page's answer is told once, as soon as the page has answered,
+    /// before the counts and the pass, whether it came, did not come or was
+    /// put aside for another list, which the page says as not come, or threw
+    /// (B-103). The pull's spinner ends there.
+    func testThePageIsAnsweredOnceBeforeTheCountsAndThePass() async {
+        let outcomes: [(String, () throws -> Bool, [String])] = [
+            ("came", { true }, ["page", "answered", "counts", "shown", "pass"]),
+            ("did not come, or put aside", { false }, ["page", "answered", "counts"]),
+            ("threw", { throw Refused() }, ["page", "answered", "counts"]),
+        ]
+        for (name, outcome, expected) in outcomes {
+            let said = Said()
+            await RefreshTap.run(page: { said.lines.append("page"); return try outcome() },
+                                 answered: { said.lines.append("answered") },
+                                 counts: { said.lines.append("counts") },
+                                 shown: { said.lines.append("shown") },
+                                 pass: { said.lines.append("pass") })
+            XCTAssertEqual(said.lines, expected, name)
+        }
+    }
+
+    /// The answer does not wait for the counts or the pass: it is told while
+    /// the page's previews and the counts are still on their way, and a large
+    /// letter in the Outbox after them.
+    func testTheAnswerDoesNotWaitForTheCountsOrThePass() async throws {
+        let said = Said()
+        let shown = Held()
+        let run = Task { @MainActor in
+            await RefreshTap.run(page: { true },
+                                 answered: { said.lines.append("answered") },
+                                 counts: { said.lines.append("counts") },
+                                 shown: { try? await shown.wait() },
+                                 pass: { said.lines.append("pass") })
+        }
+        try await until { shown.waiting == 1 }
+        XCTAssertEqual(said.lines, ["answered", "counts"])
+        shown.release()
+        await run.value
+        XCTAssertEqual(said.lines, ["answered", "counts", "pass"])
     }
 
     /// The pass waits for the previews and the counts however long they
@@ -104,6 +149,7 @@ final class RefreshTapTests: XCTestCase {
         let shown = Held()
         let tap = Task { @MainActor in
             await RefreshTap.run(page: { true },
+                                 answered: {},
                                  counts: { said.lines.append("counts") },
                                  shown: {
                                      try? await shown.wait()
@@ -119,6 +165,183 @@ final class RefreshTapTests: XCTestCase {
         shown.release()
         await tap.value
         XCTAssertEqual(said.lines, ["counts", "shown", "pass"])
+    }
+
+    // MARK: - One page at a time (B-103)
+
+    /// Polls, a millisecond at a time for up to a second, until `done`.
+    private func until(_ done: () -> Bool,
+                       file: StaticString = #filePath, line: UInt = #line) async throws {
+        for _ in 0..<1_000 where !done() {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTAssertTrue(done(), "never", file: file, line: line)
+    }
+
+    /// What the runs did: pages asked for, how many were out at once at
+    /// most, and each run's answer, counts and pass.
+    private final class Runs {
+        var pages = 0
+        var out = 0
+        var mostOut = 0
+        var answered = 0
+        var counts = 0
+        var passes = 0
+    }
+
+    /// A Refresh started through `gate`, its page `page`, its previews and
+    /// counts `shown`, everything it does counted in `runs`.
+    @discardableResult
+    private func start(_ gate: RefreshTap.Gate, _ runs: Runs,
+                       page: @escaping @MainActor () async throws -> Bool = { true },
+                       shown: @escaping @MainActor () async -> Void = {}) -> Task<Void, Never>? {
+        RefreshTap.start(gate: gate,
+                         page: {
+                             runs.pages += 1
+                             runs.out += 1
+                             runs.mostOut = max(runs.mostOut, runs.out)
+                             defer { runs.out -= 1 }
+                             return try await page()
+                         },
+                         answered: { runs.answered += 1 },
+                         counts: { runs.counts += 1 },
+                         shown: shown,
+                         pass: { runs.passes += 1 })
+    }
+
+    /// A page that does not answer, and a second tap or pull meanwhile: no
+    /// second page. Once it answers, Refresh is free again.
+    func testASecondRefreshWhileThePageIsOutStartsNothing() async throws {
+        let gate = RefreshTap.Gate()
+        let runs = Runs()
+        let page = Held()
+        let first = try XCTUnwrap(start(gate, runs, page: { try await page.wait(); return true }))
+        try await until { page.waiting == 1 }
+        XCTAssertTrue(gate.held)
+        XCTAssertNil(start(gate, runs), "a second while the page is out")
+        XCTAssertNil(start(gate, runs), "and a third")
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertEqual(runs.pages, 1)
+        XCTAssertEqual(runs.answered, 0)
+
+        page.release()
+        await first.value
+        XCTAssertFalse(gate.held)
+        XCTAssertEqual(runs.answered, 1)
+        let next = try XCTUnwrap(start(gate, runs), "free once the page has answered")
+        await next.value
+        XCTAssertEqual(runs.pages, 2)
+    }
+
+    /// The gate is held around the page alone: once it has answered, a tap
+    /// or a pull starts a new page while the first run still waits for its
+    /// previews and its counts, as a second tap did before.
+    func testOnceThePageHasAnsweredANewRefreshStartsWhileTheFirstWaits() async throws {
+        let gate = RefreshTap.Gate()
+        let runs = Runs()
+        let shown = Held()
+        let first = try XCTUnwrap(start(gate, runs, shown: { try? await shown.wait() }))
+        try await until { shown.waiting == 1 }
+        XCTAssertFalse(gate.held, "let go at the answer")
+        XCTAssertEqual(runs.answered, 1)
+        XCTAssertEqual(runs.passes, 0)
+
+        let second = try XCTUnwrap(start(gate, runs, shown: { try? await shown.wait() }))
+        try await until { shown.waiting == 2 }
+        XCTAssertEqual(runs.pages, 2)
+        XCTAssertEqual(runs.answered, 2)
+        shown.release()
+        await first.value
+        await second.value
+        XCTAssertEqual(runs.passes, 2)
+        XCTAssertFalse(gate.held)
+    }
+
+    /// A run whose page throws lets go of the gate, and so does one whose
+    /// task is cancelled while its page is out. Each is answered once.
+    func testARunThatThrowsOrIsCancelledLetsGo() async throws {
+        let gate = RefreshTap.Gate()
+        let runs = Runs()
+        let threw = try XCTUnwrap(start(gate, runs, page: { throw Refused() }))
+        await threw.value
+        XCTAssertFalse(gate.held, "thrown")
+        XCTAssertEqual(runs.answered, 1)
+        XCTAssertEqual(runs.passes, 0)
+
+        let cancelled = try XCTUnwrap(start(gate, runs, page: {
+            try await Task.sleep(for: .seconds(3_600))
+            return true
+        }))
+        try await until { runs.out == 1 }
+        XCTAssertTrue(gate.held)
+        cancelled.cancel()
+        await cancelled.value
+        XCTAssertFalse(gate.held, "cancelled")
+        XCTAssertEqual(runs.answered, 2)
+        XCTAssertEqual(runs.passes, 0)
+
+        let next = try XCTUnwrap(start(gate, runs))
+        await next.value
+        XCTAssertEqual(runs.pages, 3)
+        XCTAssertEqual(runs.passes, 1)
+    }
+
+    /// A run lets go of its own hold only. The first run ends, its previews
+    /// and counts come, while a second run's page is out: the gate stays the
+    /// second's, and a third Refresh meanwhile starts nothing.
+    func testARunEndingLetsGoOfItsOwnHoldOnly() async throws {
+        let gate = RefreshTap.Gate()
+        let runs = Runs()
+        let shown = Held()
+        let page = Held()
+        let first = try XCTUnwrap(start(gate, runs, shown: { try? await shown.wait() }))
+        try await until { shown.waiting == 1 }
+        let second = try XCTUnwrap(start(gate, runs, page: { try await page.wait(); return true }))
+        try await until { page.waiting == 1 }
+
+        shown.release()
+        await first.value
+        XCTAssertEqual(runs.passes, 1)
+        XCTAssertTrue(gate.held, "still the second run's")
+        XCTAssertNil(start(gate, runs))
+        XCTAssertEqual(runs.pages, 2)
+
+        page.release()
+        await second.value
+        XCTAssertFalse(gate.held)
+    }
+
+    /// Thirty in a row, each tapped twice while its page is out, and each
+    /// run's previews and counts left waiting: thirty pages, never two out
+    /// at once, and Refresh free after them.
+    func testThirtyInARowAreThirtyPagesNeverTwoAtOnce() async throws {
+        let gate = RefreshTap.Gate()
+        let runs = Runs()
+        let page = Held()
+        let shown = Held()
+        var started: [Task<Void, Never>] = []
+        for round in 1...30 {
+            let run = try XCTUnwrap(start(gate, runs, page: { try await page.wait(); return true },
+                                          shown: { try? await shown.wait() }), "round \(round)")
+            started.append(run)
+            try await until { page.waiting == 1 }
+            XCTAssertNil(start(gate, runs), "round \(round)")
+            page.release()
+            try await until { shown.waiting == round }
+        }
+        XCTAssertEqual(runs.pages, 30)
+        XCTAssertEqual(runs.mostOut, 1)
+        XCTAssertEqual(runs.answered, 30)
+        XCTAssertEqual(runs.counts, 30)
+        XCTAssertEqual(runs.passes, 0)
+        shown.release()
+        for run in started { await run.value }
+        XCTAssertEqual(runs.passes, 30)
+
+        let after = try XCTUnwrap(start(gate, runs))
+        await after.value
+        XCTAssertEqual(runs.pages, 31)
+        XCTAssertFalse(gate.held)
     }
 
     // MARK: - The wiring, read from the source
@@ -150,11 +373,13 @@ final class RefreshTapTests: XCTestCase {
     func testRefreshAsksForItsPassAfterThePageAndTheCounts() async throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
-            "@objc private func refreshTapped() { Task { @MainActor in await RefreshTap.run( "
-            + "page: { await self.reload(passing: false) }, "
+            "RefreshTap.start( gate: refreshes, "
+            + "page: { let checking = self.isOutbox ? nil : self.working(StatusLine.checking) "
+            + "defer { checking?() } return await self.reload(passing: false) }, "
+            + "answered: { self.pull.endRefreshing() }, "
             + "counts: { self.onRefreshRequested?() }, "
             + "shown: { await self.pagePreviews?.value await self.countsCame() }, "
-            + "pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) }) } }"))
+            + "pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) }) }"))
         XCTAssertTrue(list.contains("func reload(keepingPlace: Bool = false, quietly: Bool = false, "
                                     + "passing: Bool = true) async -> Bool"))
         XCTAssertEqual(count("if passing { kept.uploadWaiting(to: repository) }", in: list), 2,

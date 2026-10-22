@@ -101,6 +101,11 @@ final class PaneMotion {
     /// The cover on the screen, if anything is moving.
     private var cover: UIView?
 
+    /// Told true once the motion has started, its pictures cut and set
+    /// going, and false as the cover goes: the list offers no pull while
+    /// the panes move (B-103).
+    var onMoving: ((Bool) -> Void)?
+
     // MARK: - At the tap
 
     /// The pictures of the screen as it is now, before the container lays
@@ -419,6 +424,7 @@ final class PaneMotion {
         }
         for change in changes { apply(change) }
         CATransaction.commit()
+        onMoving?(true)
     }
 
     // MARK: - Ending it
@@ -433,6 +439,7 @@ final class PaneMotion {
         guard let cover else { return false }
         self.cover = nil
         cover.removeFromSuperview()
+        onMoving?(false)
         return true
     }
 

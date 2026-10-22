@@ -259,6 +259,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       plain-text '>' quotes left to the owner. With it, a file sent
       inline, as Apple Mail sends a PDF, gets its row and its paperclip.
       B-101, and its check under "Blocked on the iPad coming back".*
+      *Pull to refresh done
+      2026-10-22, not yet seen on the iPad: on the message list, by the
+      Refresh button's own path, not in Edit mode, a search or a day's
+      list; the status-bar tap pinned as it was. B-103, and its check
+      under "Blocked on the iPad coming back".*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -3876,6 +3881,70 @@ this host. Ordered by value, not by size.
       paperclip unless it carries files of its own, which have their rows.
       If a real iPad with Mail is at hand, compare the bars with Mail's
       own: their colour, the 1 pt line and the 5 pt to the words.
+- [ ] **B-103, pull to refresh and the status-bar tap.** On the test iPad
+      (16.5.1) and the iOS 18.6 simulator, the test account only, built
+      from the `feat-pullrefresh` worktree, in three panes and in two. A
+      stands for the account's address; letters only to A with `+b103`
+      before the @, subjects beginning "B-103". The connection log is the
+      five taps on the line under the list.
+      1. *A pull.* The Inbox at its top. Pull the list down past its top
+      and let go: a grey spinner turns above the first row, and the line
+      says "Checking for Mail…". Mail a letter To A with `+b103`, Subject
+      "B-103 one", from a host, and pull again: it lands at the top, the
+      spinner goes, nothing jumps, and the line reads "Updated Just Now".
+      Once with the finger held down past the top until the letter is
+      there, then let go: the rows do not jump under the finger, and the
+      list springs back to the top. Once, while the spinner turns, scroll
+      down a little: the search field stays under the bar, with no gap
+      above it.
+      2. *No connection.* Airplane Mode on, pull: the Refresh button's
+      alert, "Can't connect to mail server.", the spinner goes, and no
+      gap is left above the first row. OK. Airplane Mode off.
+      3. *One page at a time.* Pull, and tap Refresh while the spinner
+      turns: one page FETCH in the connection log. Then, after the page
+      has come, tap Refresh: a second page FETCH, as before.
+      4. *Edit mode.* Edit, tick two rows, pull: the list only bounces, no
+      spinner, and the ticks stay. Done.
+      5. *Search.* Tap the search field, pull: only a bounce, the keyboard
+      and the field as they were. Type a word, pull: only a bounce, the
+      words stay. With results showing, pull: only a bounce, the results
+      stay. Cancel, pull: the spinner, as in 1.
+      6. *A day.* Go to Date, a day some weeks back, then pull at the top
+      of that day's list: nothing but the bounce; scrolling up loads the
+      newer pages as before. Refresh: back at the newest, and a pull
+      works again.
+      7. *The spinner left.* Pull, and tap the view button while it
+      turns; pull, then Home and back; pull, then another folder while it
+      turns, and back to the Inbox: each time no spinner stays turning,
+      and no gap is left above the first row.
+      8. *B-096.* Three panes, the Inbox at its top, pull and let go so
+      that the spinner shows, and tap the view button as the list springs
+      back: the switch is made, the bounce ends early as B-096 records,
+      the spinner goes when the page answers, and no gap is left in two
+      panes.
+      9. *The Outbox.* As in B-072's check: open a letter with a file over
+      1 MB, Airplane Mode on, Forward it To A with `+b103`, Subject
+      "B-103 Outbox": "Message is in the Outbox…". Airplane Mode off; a
+      minute in the Inbox leaves it waiting. Open the Outbox and pull: its
+      row says "Sending…", the spinner goes without waiting for it, and it
+      goes once: one copy in Sent Mail, the Outbox empty.
+      10. *Held mail.* The Inbox scrolled down a screen, a letter mailed To
+      A with `+b103` from a host, and the watch's check made (half a
+      minute): not on the list yet. Scroll to the top, and pull as soon
+      as the list is there: the letter is on the list, once.
+      11. *VoiceOver*, if it is turned on for the check: at the top of the
+      Inbox, a three-finger scroll down: the refresh is announced, and the
+      connection log has one page FETCH. VoiceOver off after.
+      12. *Thirty.* Thirty pulls in a row, each let go as the last one's
+      spinner goes: one page FETCH each, never two out at once in the log,
+      and Refresh still works after.
+      13. *The status bar.* Tap it far down the Inbox, over the list: the
+      list goes to its top, and mail held below the top goes on. Over the
+      Mailboxes column: the folders go to their top. In two panes with the
+      list in front: the list goes to its top. With search results
+      showing: they go to their top and stay. In Edit mode with two ticks:
+      the top, and the ticks stay. With the composer open: nothing behind
+      it moves.
 
 ## Blocked on the owner
 

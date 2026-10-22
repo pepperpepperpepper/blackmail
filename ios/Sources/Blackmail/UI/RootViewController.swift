@@ -175,6 +175,10 @@ final class RootViewController: UIViewController {
 
         detailNav.setNavigationBarHidden(false, animated: false)
 
+        // No pull on the list while the panes move (B-103): the list open
+        // at the start and at the end of each motion.
+        motion.onMoving = { [weak self] moving in self?.list.panesMoving = moving }
+
         for child in [mailboxNav, listNav, detailNav] {
             addChild(child)
             child.view.translatesAutoresizingMaskIntoConstraints = false
@@ -964,6 +968,8 @@ final class RootViewController: UIViewController {
         // what it finds, and until it stops it is ahead of the new folder's
         // later pages and previews.
         list.stopSearching()
+        // Nor is its pull's spinner left turning (B-103).
+        list.endPull()
         // The view button and "< Mailboxes" go across to the new list.
         list.itemsBeforeCalendar = []
         list = MessageListViewController(repository: repository, mailbox: mailbox)

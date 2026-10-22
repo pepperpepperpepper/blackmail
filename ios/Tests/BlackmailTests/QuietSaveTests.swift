@@ -77,7 +77,7 @@ final class QuietSaveTests: XCTestCase {
     /// its counts are not quiet, and each puts up the alert when it fails.
     func testHisRefreshStillSaysWhenThereIsNoConnection() throws {
         let list = try source("UI/MessageListViewController.swift")
-        XCTAssertTrue(list.contains("page: { await self.reload(passing: false) },"))
+        XCTAssertTrue(list.contains("return await self.reload(passing: false) },"))
         let start = try XCTUnwrap(list.range(of: "func reload(keepingPlace: Bool = false, "
                                              + "quietly: Bool = false, passing: Bool = true) "
                                              + "async -> Bool {"))

@@ -68,6 +68,11 @@ struct StatusLine: Equatable {
     /// Move is. The pane's Delete is one letter, gone from the pane and the
     /// list at the tap, and says nothing, as before.
     static let deleting = "Deleting…"
+
+    /// While the server is asked for the newest page: at his Refresh and his
+    /// pull (B-103), and over the page kept from an earlier launch
+    /// (`UpdatedLine`, D-016). Mail's words in its bar.
+    static let checking = "Checking for Mail…"
 }
 
 /// Alerts held while a sheet is on its way off the screen.

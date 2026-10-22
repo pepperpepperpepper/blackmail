@@ -360,9 +360,19 @@ final class MessageListViewController: UITableViewController {
     /// searching from part-way down the Inbox put the results under the old
     /// offset, with the first hits scrolled out of sight above the search
     /// field.
+    ///
+    /// Not under a finger that holds the list at its top or pulled down past
+    /// it, as a pull does while the newest page comes (B-103): let go, it
+    /// springs back to the top by itself, and set there under the finger
+    /// the rows would jump.
     @MainActor
     private func scrollToTop() {
         tableView.layoutIfNeeded()
+        guard !(tableView.isTracking
+                && ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
+                                      topInset: Double(tableView.adjustedContentInset.top))) else {
+            return
+        }
         tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
                                    animated: false)
     }
@@ -436,6 +446,9 @@ final class MessageListViewController: UITableViewController {
             guard let self, self.isViewLoaded else { return }
             self.tableView.beginUpdates()
             self.tableView.endUpdates()
+            // The band grows as the field takes the keyboard and shrinks as
+            // it is cleared: no pull while it is in use (B-103).
+            self.placePull()
         }
         searchScope = searchBar.scope
 
@@ -533,6 +546,16 @@ final class MessageListViewController: UITableViewController {
         // pressed again.
         pageFooter.addTarget(self, action: #selector(loadMoreTapped), for: .touchUpInside)
         buildBottomBar()
+        // The pull down past the top of the list, which checks for mail as
+        // the Refresh button does (B-103), beside it and never in its place
+        // (D-009). Grey, as the line under the list, and with no words.
+        // Offered only where it moves nothing (`placePull`).
+        pull.tintColor = Theme.secondaryText
+        pull.addTarget(self, action: #selector(pulled), for: .valueChanged)
+        placePull()
+        NotificationCenter.default.addObserver(self, selector: #selector(wentToBackground),
+                                               name: UIApplication.didEnterBackgroundNotification,
+                                               object: nil)
 
         // Every list: Drafts and the Outbox list what is kept, and the line
         // under each counts the letters waiting in the Outbox.
@@ -625,6 +648,7 @@ final class MessageListViewController: UITableViewController {
         // after a date jump must clear this or the list would keep trying
         // to load mail newer than the newest message there is.
         reachedNewestMessage = true
+        placePull()
         let asked = letters.askingAfresh()
         do {
             let first = try await repository.listMessages(in: mailbox.id, beforeUID: nil,
@@ -654,6 +678,7 @@ final class MessageListViewController: UITableViewController {
             updateEmptyState()
             updatePageFooter()
             pagePreviews = loadPreviews(for: unpreviewed)
+            placePull()
             if passing { kept.uploadWaiting(to: repository) }
             return true
         } catch {
@@ -1391,6 +1416,8 @@ final class MessageListViewController: UITableViewController {
         // Now" on the next refresh.
         showingAge = false
         say("Showing \(IMAPDate.spokenDay(window.landedOn))")
+        // No pull on a day's list, whose top is not the folder's (B-103).
+        placePull()
 
         loadPreviews(for: window.messages)
     }
@@ -1514,7 +1541,11 @@ final class MessageListViewController: UITableViewController {
             }
             guard generation == self.listGeneration else { return }
 
-            if newer.count < Self.pageSize { self.reachedNewestMessage = true }
+            if newer.count < Self.pageSize {
+                self.reachedNewestMessage = true
+                // At the folder's top again: the pull with it (B-103).
+                self.placePull()
+            }
 
             let fresh = self.letters.prependPage(newer)
             guard !fresh.isEmpty else { return }
@@ -1776,17 +1807,108 @@ final class MessageListViewController: UITableViewController {
     /// fetched from Gmail do not hold them up (`RefreshTap`, B-072). The page
     /// sets off no pass of its own. A page that did not come sets off none,
     /// as before.
+    ///
+    /// The pull down past the top of the list is the same Refresh (B-103):
+    /// both come here. One page out at a time: a tap or a pull while one is
+    /// out starts nothing, and that page's answer ends the pull's spinner.
+    /// "Checking for Mail…" is on the line under the list while the page
+    /// is out, and once it has come the age the page has set, "Updated Just
+    /// Now". Not in the Outbox, which is on the iPad and has no mail to
+    /// check for: its line says what waits there.
     @objc private func refreshTapped() {
-        Task { @MainActor in
-            await RefreshTap.run(
-                page: { await self.reload(passing: false) },
-                counts: { self.onRefreshRequested?() },
-                shown: {
-                    await self.pagePreviews?.value
-                    await self.countsCame()
-                },
-                pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) })
+        refresh(fromPull: false)
+    }
+
+    /// The pull, let go of past the top of the list (B-103).
+    @objc private func pulled() {
+        refresh(fromPull: true)
+    }
+
+    @MainActor
+    private func refresh(fromPull: Bool) {
+        // A pull where none is offered now: its spinner put away, and
+        // nothing fetched.
+        if fromPull, !pullAllowed {
+            pull.endRefreshing()
+            return
         }
+        RefreshTap.start(
+            gate: refreshes,
+            page: {
+                let checking = self.isOutbox ? nil : self.working(StatusLine.checking)
+                defer { checking?() }
+                return await self.reload(passing: false)
+            },
+            answered: { self.pull.endRefreshing() },
+            counts: { self.onRefreshRequested?() },
+            shown: {
+                await self.pagePreviews?.value
+                await self.countsCame()
+            },
+            pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) })
+    }
+
+    // MARK: - The pull (B-103)
+
+    /// Pulled down past the top of the list and let go, it checks for mail
+    /// as Mail's list does: `refresh`.
+    private let pull = UIRefreshControl()
+
+    /// One page of his Refresh out at a time, the button's or the pull's.
+    private let refreshes = RefreshTap.Gate()
+
+    /// The panes are moving (`PaneMotion`): no pull meanwhile. Set by the
+    /// container as the motion starts and ends.
+    var panesMoving = false {
+        didSet {
+            guard panesMoving != oldValue else { return }
+            placePull()
+        }
+    }
+
+    /// Whether the pull is offered for the list as it is now; see
+    /// `PullRefresh`. A search counts from the field taking the keyboard,
+    /// which grows the band, to Cancel.
+    @MainActor
+    private var pullAllowed: Bool {
+        PullRefresh.allowed(editing: tableView.isEditing,
+                            searching: isSearchingOrTyping || searchBar.isExpanded,
+                            fromNewest: reachedNewestMessage,
+                            moving: panesMoving)
+    }
+
+    /// The pull put on the list, or taken off it, as `pullAllowed` says:
+    /// called whenever one of the things it asks may have changed. Its
+    /// spinner is put away before it is taken off, so a spinner can never
+    /// be left on a list that no longer has the pull. A page it set off goes
+    /// on, as a tap's does.
+    @MainActor
+    private func placePull() {
+        // Asked first: `tableView` loads the view.
+        guard isViewLoaded else { return }
+        let offered: UIRefreshControl? = pullAllowed ? pull : nil
+        guard tableView.refreshControl !== offered else { return }
+        if offered == nil { pull.endRefreshing() }
+        tableView.refreshControl = offered
+    }
+
+    /// The pull's spinner put away, the page it set off going on: this list
+    /// is leaving the screen for another folder's (`RootViewController`).
+    @MainActor
+    func endPull() {
+        pull.endRefreshing()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        pull.endRefreshing()
+    }
+
+    /// Home, or another app: the spinner is not left turning for him to
+    /// come back to. The line under the list says the page is out until it
+    /// has come.
+    @objc private func wentToBackground() {
+        pull.endRefreshing()
     }
 
     /// Multi-select, which is what Edit is for. Deliberately the ONLY route to
@@ -1795,6 +1917,8 @@ final class MessageListViewController: UITableViewController {
     @objc private func editTapped() {
         let editing = !tableView.isEditing
         tableView.setEditing(editing, animated: true)
+        // No pull in Edit mode, where the page would drop his ticks (B-103).
+        placePull()
         navigationItem.rightBarButtonItem?.title = editing ? "Done" : "Edit"
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
@@ -2168,6 +2292,8 @@ final class MessageListViewController: UITableViewController {
     private func queryChanged(_ text: String) {
         searchQuery = text
         searchDebounce?.cancel()
+        // No pull while words are typed (B-103).
+        placePull()
 
         // Clearing the field is not a search and must not wait: he is
         // asking for his mail back.
@@ -2216,6 +2342,7 @@ final class MessageListViewController: UITableViewController {
         // Back in the folder, where he was: letters the watch found while
         // the search showed go on if that was the top.
         showNewsIfAtTop()
+        placePull()
     }
 
     @objc private func cancelSearch() {
@@ -2256,6 +2383,7 @@ final class MessageListViewController: UITableViewController {
             regroup(to: move)
             updateEmptyState()
             updatePageFooter()
+            placePull()
             return
         case .draw(let found):
             hits = found
@@ -2268,6 +2396,8 @@ final class MessageListViewController: UITableViewController {
         regroup(to: move)
         updateEmptyState()
         updatePageFooter()
+        // Results showing: no pull (B-103).
+        placePull()
         loadPreviews(for: hits.filter { $0.preview.isEmpty })
     }
 
