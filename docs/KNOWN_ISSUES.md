@@ -17315,8 +17315,10 @@ reply arrow; a conversation's row shows its newest letter's mark.
 **What it was.** Every row's FETCH asks for FLAGS (`IMAPClient`), and Gmail
 sends `\Answered` and `$Forwarded` with them, but only `\Seen` and
 `\Flagged` were read. No row carried either mark, and the gutter held the
-dot or the paperclip. "Did I answer this?" could be told only by opening
-the conversation, or Sent Mail.
+dot or the paperclip. "Did I answer this?" could be told only in Sent
+Mail, or from a later letter that quotes him: an Inbox conversation's
+stack holds only the Inbox's letters, not his replies in Sent Mail (Mail's
+Complete Threads, still open in the TODO), so opening it did not show them.
 
 **Changed.**
 
@@ -17359,13 +17361,20 @@ the conversation, or Sent Mail.
    arrow, in the place it reads "Unread" for the dot: "Replied, Carlo,
    Lunch on Sunday", then the time. An unread row reads "Unread" and no
    "Replied". New words, so the owner's to approve, and held from his iPad
-   until he does; a changed word is one line, `RowArrow.spoken`, pinned by
-   its test.
+   until he does (the TODO's question under "Blocked on the owner"); a
+   changed word is one line, `RowArrow.spoken`, pinned by its test.
 
 The plan had the arrow in a 16-point box, as the paperclip in the gutter
 is. Measured on Apple's picture that draws it 16 points wide, a quarter
 larger than Mail's. The 12-point square draws it 12 wide and about 10
 high, as Mail's, and as wide as the dot whose place it takes.
+
+Its grey is not Mail's. Measured on the same picture, Mail's arrow is
+filled at about 196 on white, iOS's tertiary grey, lighter than the
+preview's words at 126 at most, its secondary grey. Here it is drawn in
+the preview's grey, 142 on black, as the plan asked: the inversion of
+Mail's, about 59 on black, would be too dim for him to see (D-019).
+Device step 6 sets it beside Mail's in that picture, on the simulator.
 
 **Not changed.**
 
@@ -17378,9 +17387,9 @@ high, as Mail's, and as wide as the dot whose place it takes.
 - The reading pane and a conversation's stack show no arrow.
 - The row's metrics, the dot, the flag and the conversation's mark.
 
-**What he sees.** A letter answered or forwarded in Apple Mail, on Gmail's
-pages or anywhere else that sets the marks shows its grey arrow from the
-first listing, if the program set them (device step 0). An unread one
+**What he sees.** A letter answered or forwarded in Apple Mail, or in any
+other mail program on IMAP that sets the marks, shows its grey arrow from
+the first listing, if the program set them (device step 0). An unread one
 shows its dot, and its arrow once read. A read letter with a file and an
 arrow: the arrow in the gutter, the paperclip at the end of the subject's
 line. A conversation whose newest letter is answered has the arrow; one
@@ -17394,18 +17403,20 @@ arrow for each mark, both shown as the reply, the symbols and the words;
 the dot winning the gutter. A conversation takes its newest letter's
 marks, the last to come, and the row the list draws carries them; any
 letter unread keeps the dot. VoiceOver's label with each mark, both, none,
-unread, and a conversation's, newest and older. Kept on the iPad: a round
-trip, a key written only for a row with the mark, and a page without the
-keys read as none; `answered` and `forwarded` on every kept row of the
-letter, from either folder and by the Gmail id alone, and one taken off
-written as nothing, through a relaunch. Over the shipping repository and
-client against the scripted server: four letters with the marks, listed
-from the Inbox, each row as its flags say, no STORE, and a relaunch's kept
-page the same. Read from the source: the two symbols made once at
-`Theme.rowArrowSymbol`, grey, scaled to fit, in the 12-point square
-centred on the dot; the gutter's order, the paperclip in it only with no
-dot and no arrow, and the arrow faded under the spinner and drawn below
-it. `SteadyChromeTests` reads the cell's new symbols as sized.
+unread, and a conversation's: newest, older, and newest answered with an
+older letter unread, which reads "Unread" and no "Replied", as the row
+shows the dot. Kept on the iPad: a round trip, a key written only for a
+row with the mark, and a page without the keys read as none; `answered`
+and `forwarded` on every kept row of the letter, from either folder and by
+the Gmail id alone, and one taken off written as nothing, through a
+relaunch. Over the shipping repository and client against the scripted
+server: four letters with the marks, listed from the Inbox, each row as
+its flags say, no STORE, and a relaunch's kept page the same. Read from
+the source: the two symbols made once at `Theme.rowArrowSymbol`, grey,
+scaled to fit, in the 12-point square centred on the dot; the gutter's
+order, the paperclip in it only with no dot and no arrow, and the arrow
+faded under the spinner and drawn below it. `SteadyChromeTests` reads the
+cell's new symbols as sized.
 
 Each rule broken in a scratch copy, one at a time, the whole suite run
 serially each time, counted as failures in tests. `\Answered` never read:
@@ -17413,17 +17424,26 @@ serially each time, counted as failures in tests. `\Answered` never read:
 forwarded by a part of the word: 2 in 1. The listing leaving the marks off
 the row: 13 in 1. The shelf keeping neither: 19 in 3. The shelf writing
 false for no mark: 2 in 1. A mark taken off written as false: 1 in 1.
-`forwarded` patching nothing: 4 in 1. An unread row showing its arrow: 10
+`forwarded` patching nothing: 4 in 1. An unread row showing its arrow: 11
 in 4. Both shown as the forward arrow: 7 in 5. A conversation's arrow from
 any letter's mark: 3 in 2. The row drawn without the newest's marks: 4 in
-2. VoiceOver not reading the arrow: 4 in 1. In the cell, read from the
-source: the paperclip kept in the gutter beside the arrow, 2 in 1; the
-arrow not faded under the spinner, 2 in 1; the arrow shown from its marks
-alone on an unread row, 2 in 1; the paperclip's 16-point box, 2 in 1; the
-arrow blue, 2 in 1; a symbol made with no size of its own, 3 in 2, one of
-them `SteadyChromeTests`. Nineteen in all, with nothing else failing in
-any run. The full suite, serially, with nothing undone: 1,870 tests, 5
-skipped, none failing. The release build for the iPad links.
+2. VoiceOver not reading the arrow: 4 in 1. VoiceOver reading the newest
+letter's own arrow, not the row's, so "Unread, Replied" for a conversation
+whose older letter is unread: 1 in 1. In the cell, read from the source:
+the paperclip kept in the gutter beside the arrow, 2 in 1; the arrow not
+faded under the spinner, 2 in 1; the arrow shown from its marks alone on
+an unread row, 2 in 1; the paperclip's 16-point box, 2 in 1; the arrow
+blue, 2 in 1; a symbol made with no size of its own, 3 in 2, one of them
+`SteadyChromeTests`. Twenty in all, with nothing else failing, apart from
+one test that reads `spec/`, which the scratch copy lacked in the first
+thirteen runs and which was taken out of their counts. The VoiceOver case
+of a conversation whose older letter is unread came after the first
+nineteen; with it in place the four rules it reads were broken again, the
+whole suite each time: an unread row's arrow gave one failure more,
+counted above, and both as the forward arrow, a conversation's arrow from
+any letter and VoiceOver reading no arrow the same. The full suite,
+serially, with nothing undone: 1,870 tests, 5 skipped, none failing. The
+release build for the iPad links.
 
 **Not covered.**
 
@@ -17434,8 +17454,18 @@ skipped, none failing. The release build for the iPad links.
   arrows come out again before the install: arrows only on letters
   answered elsewhere would make a missing arrow mean nothing ("did I
   answer this?" answered wrongly), and that would stay so for years.
+  The question, with VoiceOver's two words, is the TODO's under
+  "Blocked on the owner".
 - A letter answered on another device shows its arrow at the next listing,
-  not at once.
+  not at once, and only if the program it was answered in writes the
+  mark. Gmail's own pages and its app never do, so a letter answered
+  there has no mark on Gmail and no arrow here. Only a program on IMAP
+  that stores the flag sets it, which is what device step 0 asks of Apple
+  Mail. (Said by a mail library's notes on Gmail,
+  https://www.limilabs.com/blog/search-unanswered-emails-in-gmail; not
+  tried on the test account.) So a missing arrow already says nothing
+  about a letter answered through Gmail itself, whatever is decided for
+  the marks written after a send.
 - Whether Apple Mail sets the two marks on Gmail, and so whether the
   letters he answered in Mail show arrows on install day: device step 0,
   on a device with Mail.

@@ -3823,17 +3823,25 @@ this host. Ordered by value, not by size.
       in the app: the blue dot and no arrow. Opened and read: the dot goes
       and the arrow comes.
       3. *A conversation.* Two letters in one thread, "B-102 thread" and
-      "Re: B-102 thread", both read. `\Answered` on the newer alone: the
+      "Re: B-102 thread", both read, the second with In-Reply-To and
+      References naming the first's Message-ID, and the two seen as one
+      row before the flags are set. `\Answered` on the newer alone: the
       row has the arrow. Taken off it and put on the older alone: no arrow.
+      Back on the newer alone, and the older made unread from the host
+      (`-FLAGS (\Seen)`): the dot, and no arrow.
       4. *VoiceOver*, if it is turned on for the check: the rows of 1 read
       "Replied, …", "Forwarded, …" and "Replied, …" before the names; the
-      unread row of 2 "Unread, …", with no "Replied". VoiceOver off after.
+      unread row of 2 "Unread, …", with no "Replied"; the conversation of
+      3, its older letter unread, "Unread, …", with no "Replied".
+      VoiceOver off after.
       5. *Kept.* End the app, Airplane Mode on, open it: the rows of 1 to 3
       keep their arrows as the server last said, under "Updated …".
       Airplane Mode off.
       6. *Two panes and three*, and Edit mode: the arrow stays in the
       gutter beside the circles, where the dot goes. The look again on the
-      iPadOS 18.6 simulator on the Mac.
+      iPadOS 18.6 simulator on the Mac, its grey set beside Mail's in
+      Apple's picture (the guide's "Flag emails" page): Mail's is lighter
+      than the preview's words, this one the preview's grey (D-019).
       7. *Put back.* Move the B-102 letters to Trash.
 
 ## Blocked on the owner
@@ -3965,6 +3973,15 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       *Ruled 2026-10-06: "copy apple mail". What Mail does could not be
       found out: his mail has no such reply, and nothing published says.
       Kept as built: answered to himself (B-076).*
+- [ ] **B-102 part 2: write `\Answered` and `$Forwarded` after a send?**
+      As Mail does, once, right after the reply's or forward's own 250. It
+      needs a bounded exception to D-016's "no queue of offline changes":
+      a reply waiting in the Outbox carries which letter it answers. If
+      no, take part 1, the arrows on the rows, out again before the
+      install: arrows only on letters answered elsewhere would make a
+      missing arrow mean nothing. Either way, VoiceOver's "Replied" and
+      "Forwarded" await his approval, and are held from his iPad until he
+      gives it (B-102).
 
 ## Open, recorded, not scheduled
 

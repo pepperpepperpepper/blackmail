@@ -64,11 +64,14 @@ struct MessageSummary: Identifiable, Hashable {
     var isRead: Bool
     var isFlagged: Bool
     /// The letter has been answered (`\Answered`) or forwarded
-    /// (`$Forwarded`), as the FLAGS the row is fetched with say, whoever
-    /// did it: Apple Mail, Gmail's own pages, another device. The row
-    /// shows Mail's grey arrow for it (`RowArrow`, B-102). False where it
-    /// is not known: a row kept on the iPad by a build before rows carried
-    /// it (`MailShelf`), a letter kept on the iPad, the Outbox's.
+    /// (`$Forwarded`), as the FLAGS the row is fetched with say: set only
+    /// by a mail program on IMAP that writes the mark when its answer
+    /// goes, as Apple Mail is taken to (B-102's device step 0). Gmail's own
+    /// pages and its app write neither, so a letter answered there has no
+    /// mark. The row shows Mail's grey arrow for it (`RowArrow`, B-102).
+    /// False where it is not known: a row kept on the iPad by a build
+    /// before rows carried it (`MailShelf`), a letter kept on the iPad,
+    /// the Outbox's.
     var isAnswered: Bool = false
     var isForwarded: Bool = false
     var hasAttachment: Bool = false

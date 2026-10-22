@@ -1111,3 +1111,10 @@ none.
 **The arrow is Mail's size, not the paperclip's box.** 12 points wide, the
 dot's width, about 10 high, measured on Apple's picture; the paperclip's
 16-point box would have drawn it a quarter larger.
+
+**The arrow is the preview's grey, not Mail's.** Mail's arrow is its
+tertiary grey, about 196 on white on Apple's picture, lighter than the
+preview's words, its secondary grey. It is drawn here in the preview's
+grey (`Theme.secondaryText`, 142 on black) so he can see it: the
+inversion of Mail's, about 59 on black, would be too dim. B-102's device
+step 6 sets the two side by side, on the iPadOS 18.6 simulator.

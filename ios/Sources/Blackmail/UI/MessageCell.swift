@@ -76,6 +76,8 @@ final class MessageCell: UITableViewCell {
         flagIcon.image = UIImage(systemName: "flag.fill")
         flagIcon.tintColor = Theme.flagTint
         flagIcon.contentMode = .scaleAspectFit
+        // The preview's grey. Mail's arrow is its lighter tertiary grey,
+        // whose inversion, about 59 on black, would be too dim (D-019).
         statusIcon.tintColor = Theme.secondaryText
         statusIcon.contentMode = .scaleAspectFit
         statusIcon.isHidden = true

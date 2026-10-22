@@ -155,7 +155,9 @@ final class RowArrowsTests: XCTestCase {
 
     /// VoiceOver reads "Replied" or "Forwarded" where the row shows the
     /// arrow, in the place it reads "Unread" for the dot, and neither where
-    /// it shows none: an unread answered letter reads "Unread" alone.
+    /// it shows none: an unread answered letter reads "Unread" alone, and
+    /// so does a conversation whose newest letter is answered and whose
+    /// older one is unread.
     func testVoiceOverReadsTheArrowOnlyWhereItShows() {
         let one = { (read: Bool, answered: Bool, forwarded: Bool) in
             MessageThread(messages: [self.letter("1/9", read: read, answered: answered,
@@ -182,6 +184,15 @@ final class RowArrowsTests: XCTestCase {
             letter("1/8", from: "Margaret <m@example.org>", hoursAgo: 1, forwarded: true),
         ])[0]
         XCTAssertEqual(label(olderOnly), "Carlo, Margaret, 2 messages, Lunch on Sunday, \(Self.stamp)")
+        // The newest letter read and answered, an older one unread: the row
+        // shows the dot, so VoiceOver reads "Unread" and no "Replied", the
+        // conversation's arrow and not the newest letter's own.
+        let unreadOlder = MessageThread.group([
+            letter("1/9", answered: true),
+            letter("1/8", from: "Margaret <m@example.org>", hoursAgo: 1, read: false),
+        ])[0]
+        XCTAssertEqual(label(unreadOlder),
+                       "Unread, Carlo, Margaret, 2 messages, Lunch on Sunday, \(Self.stamp)")
     }
 
     // MARK: - Kept on the iPad
