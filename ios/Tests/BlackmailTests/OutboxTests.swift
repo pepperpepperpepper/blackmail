@@ -1778,6 +1778,36 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(kept.outbox.count, 0)
     }
 
+    /// A letter with a photo put in the Outbox with no connection, and the
+    /// app launched again: it goes once, the photo in the letter under his
+    /// words (B-109), an inline part under the Content-ID its markup shows
+    /// it by, read from the letter's own link to it, and no copy of it as a
+    /// file.
+    func testAPhotoInTheOutboxGoesInTheLetterOnceAfterARelaunch() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        let draft = try photoLetter("Photo", bytes: 200_000)
+        await sentOffline(draft, as: "photo", kept: kept, repository: repository)
+        XCTAssertEqual(kept.outbox.map(\.key), ["photo"])
+
+        let relaunched = makeKept()
+        try await afterAPage(relaunched, makeRepository())
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        let raw = Data(try XCTUnwrap(sent.first).utf8)
+        let decoded = MIMEDecoder.decodeMessage(raw)
+        XCTAssertEqual(decoded.attachments.map(\.filename), ["Garden.jpg"])
+        XCTAssertEqual(decoded.attachments.map(\.isInline), [true])
+        let id = try XCTUnwrap(decoded.attachments.first?.contentID)
+        let html = try XCTUnwrap(decoded.html)
+        XCTAssertEqual(AppleMailHTML.contentIDsAmongHisWords(in: html), [id])
+        XCTAssertTrue(html.contains("Lunch at one?<div><br><br><img id=\"\(id)\""), html)
+        let bytes = Data((0..<200_000).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ 7) })
+        XCTAssertEqual(sent.first?.components(separatedBy: RFC5322Builder.base64Wrapped(bytes)).count, 2,
+                       "the photo once")
+        XCTAssertEqual(relaunched.outbox.count, 0)
+    }
+
     /// The photo of a letter in the Outbox rewritten as its DATA goes, the
     /// same size and other bytes: the dot is withheld, so the server never
     /// had it, and the attempt is settled, not cut off. Refused, "Message

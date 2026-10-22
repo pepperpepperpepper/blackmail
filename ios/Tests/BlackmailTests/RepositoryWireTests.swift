@@ -958,12 +958,20 @@ final class RepositoryWireTests: XCTestCase {
             return String(text[range.upperBound...].prefix(32))
         }
         var drawn = ["alternative", "related", "mixed"].compactMap(token)
-        let html = AppleMailHTML.letter(for: draft, account: server.account, forDraft: true).html
-        XCTAssertEqual(drawn.count, html == nil ? 1 : 2, "the files', and the twin's if it has one")
+        // The photo goes in the letter, under his words (B-109): the twin's
+        // and the related set's boundaries, and the photo an inline part
+        // under the Content-ID read back out of the literal, which the
+        // reference builder writes as it wrote a picture held in memory.
+        let photoID = try XCTUnwrap(MIMEDecoder.decodeMessage(literal).attachments.first?.contentID)
+        let html = AppleMailHTML.letter(for: draft, account: server.account, forDraft: true,
+                                        pictureID: { photoID }).html
+        XCTAssertNotNil(html)
+        XCTAssertEqual(drawn.count, 2, "the twin's and the related set's")
         let reference = ReferenceBuilder.build(draft: draft, from: server.account, date: date,
                                                messageID: messageID,
-                                               attachments: [("Garden.jpg", "image/jpeg", photo)],
                                                includeBcc: true, htmlBody: html,
+                                               inlineImages: [(photoID, "Garden.jpg", "image/jpeg",
+                                                               photo)],
                                                boundaryToken: { drawn.removeFirst() })
         XCTAssertEqual(literal, reference)
         XCTAssertTrue(text.contains("\r\nBcc: owner@example.net\r\n"))

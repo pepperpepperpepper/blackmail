@@ -593,6 +593,15 @@ the body flow as `cid:` parts inside `multipart/related`. Exactly one
 message in 433 is a photo he placed in his own typed region, so this
 is deferred rather than dismissed — see B-025.
 
+**2026-10-22, with the owner's yes (B-109):** his photos go in the letter
+after his last typed line and above his signature, as in all 16 of his
+Apple Mail letters with a picture in a year, each in a `<div>` of its own
+as nearly all of them have it; none of them had a picture between words,
+and none is placed there.
+The editor is unchanged: still a `String`, his photos still rows, their
+place made from the rows as the letter is built (`AppleMailHTML.letter`),
+never an `NSTextAttachment`.
+
 ## D-014 — "Organize by Thread", Mail's own switch, hung on the seam
 
 The measurement said keep grouping (see INVESTIGATIONS, 2026-09-21: no

@@ -46,6 +46,8 @@ enum RFC5322Builder {
     /// - Parameters:
     ///   - attachments: already-loaded bytes. Reading files is the caller's
     ///     job, so this stays synchronous and pure.
+    ///   - bodyPictures: his photos in the letter, already loaded, as
+    ///     `plan`'s `inlineFiles` with their bytes (B-109).
     ///   - the rest: as `plan`'s.
     static func build(draft: Draft,
                       from: MailAccount,
@@ -57,13 +59,17 @@ enum RFC5322Builder {
                       htmlBody: String? = nil,
                       inlineImages: [(contentID: String, filename: String,
                                       mimeType: String, data: Data)] = [],
+                      bodyPictures: [(contentID: String, filename: String,
+                                      mimeType: String, data: Data)] = [],
                       boundaryToken: () -> String = randomToken) -> Data {
         plan(draft: draft, from: from, date: date, messageID: messageID,
              inReplyToHeaders: inReplyToHeaders,
              files: attachments.map { ($0.filename, $0.mimeType) },
              includeBcc: includeBcc, htmlBody: htmlBody, inlineImages: inlineImages,
+             inlineFiles: bodyPictures.map { ($0.contentID, $0.filename, $0.mimeType) },
              boundaryToken: boundaryToken)
-            .rendered(from: attachments.map(\.data))
+            // The plan's places: the photos first, then the files.
+            .rendered(from: bodyPictures.map(\.data) + attachments.map(\.data))
     }
 
     /// Plans one complete message (B-070): its text as bytes, and each of
@@ -90,6 +96,15 @@ enum RFC5322Builder {
     ///     so the order is not cosmetic. Left nil, nothing about the output
     ///     changes, which is what keeps the quarter of his mail that has
     ///     nothing rich in it going out as plain text the way Mail sends it.
+    ///   - inlineFiles: his photos the markup shows under his words, each by
+    ///     its Content-ID (B-109): parts inside the related set beside
+    ///     `inlineImages`, before them, each with `Content-ID` and
+    ///     `Content-Disposition: inline` and its file's name as a file's is
+    ///     written (`partName`), but each a place for its file's base64 as a
+    ///     file is, never its bytes. The plan numbers them first, from 0,
+    ///     and `files` after them, so the places come in the order of their
+    ///     numbers. With no `htmlBody` there is nothing to show them in, and
+    ///     each goes as a file, under the letter, rather than not at all.
     ///   - boundaryToken: where the boundaries' randomness comes from. Pass
     ///     one only to make a build reproducible; see `uniqueBoundary`.
     static func plan(draft: Draft,
@@ -102,11 +117,14 @@ enum RFC5322Builder {
                      htmlBody: String? = nil,
                      inlineImages: [(contentID: String, filename: String,
                                      mimeType: String, data: Data)] = [],
+                     inlineFiles: [(contentID: String, filename: String,
+                                    mimeType: String)] = [],
                      boundaryToken: () -> String = randomToken) -> LetterPlan {
         // Inline images are the HTML twin's companions — a `cid:` reference
         // only means anything inside markup — so without an `htmlBody` there
         // is nowhere for them to be referred from and they are dropped
-        // rather than sent as orphan parts.
+        // rather than sent as orphan parts. His photos are not: they are his
+        // files, and a photo he attached never stays behind (above).
         let inline = htmlBody == nil ? [] : inlineImages
 
         // MARK: Body and attachment payloads first
@@ -131,31 +149,29 @@ enum RFC5322Builder {
         // only as it was written. Since B-070 it is never held whole.
         let encodedAttachments: [(filename: String, mimeType: String)] =
             files.map { att in
-                let name = headerSafe(att.filename)
-                    .trimmingCharacters(in: .whitespaces)
-                    // A quote or backslash in a filename would end the quoted
-                    // string early and shove the rest of the name into the
-                    // parameter list; strip rather than escape, because a
-                    // 90-year-old does not need to know why his file is called
-                    // `re\"port.pdf`.
-                    .replacingOccurrences(of: "\"", with: "")
-                    .replacingOccurrences(of: "\\", with: "")
-                let mime = headerSafe(att.mimeType)
-                    .trimmingCharacters(in: .whitespaces)
-                    .replacingOccurrences(of: "\"", with: "")
-                return (filename: name.isEmpty ? "attachment" : name,
-                        mimeType: mime.isEmpty ? "application/octet-stream" : mime)
+                (filename: partName(att.filename), mimeType: partType(att.mimeType))
             }
+        // His photos in the body: named and typed as his files are, since
+        // that is what they are, and each under the Content-ID the markup
+        // shows it by, which `AppleMailHTML` made (B-109).
+        let encodedInlineFiles: [(contentID: String, filename: String, mimeType: String)] =
+            inlineFiles.map { file in
+                (contentID: contentIDValue(file.contentID), filename: partName(file.filename),
+                 mimeType: partType(file.mimeType))
+            }
+        // With no markup to show them in, they go as files (above): every
+        // one of them, numbered first all the same.
+        let shownInline = htmlBody == nil ? [] : encodedInlineFiles
+        let underLetter = htmlBody == nil ? encodedInlineFiles : []
 
         let encodedInline: [(contentID: String, filename: String,
                              mimeType: String, base64: String)] = inline.map { img in
-            let id = headerSafe(img.contentID).trimmingCharacters(in: .whitespaces)
-                .replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "")
+            let id = contentIDValue(img.contentID)
             let name = headerSafe(img.filename).trimmingCharacters(in: .whitespaces)
                 .replacingOccurrences(of: "\"", with: "").replacingOccurrences(of: "\\", with: "")
             let mime = headerSafe(img.mimeType).trimmingCharacters(in: .whitespaces)
                 .replacingOccurrences(of: "\"", with: "")
-            return (contentID: id.isEmpty ? UUID().uuidString : id,
+            return (contentID: id,
                     filename: name.isEmpty ? "inline.png" : name,
                     mimeType: mime.isEmpty ? "application/octet-stream" : mime,
                     base64: base64Wrapped(img.data))
@@ -185,6 +201,11 @@ enum RFC5322Builder {
             candidates.append(img.filename)
             candidates.append(img.mimeType)
         }
+        for file in encodedInlineFiles {
+            candidates.append(file.contentID)
+            candidates.append(file.filename)
+            candidates.append(file.mimeType)
+        }
 
         // Up to three nested multiparts. With everything present the tree is
         //
@@ -200,10 +221,10 @@ enum RFC5322Builder {
         let alternativeBoundary = encodedHTML == nil
             ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
         if let alternativeBoundary { candidates.append(alternativeBoundary) }
-        let relatedBoundary = (encodedHTML == nil || encodedInline.isEmpty)
+        let relatedBoundary = (encodedHTML == nil || (encodedInline.isEmpty && shownInline.isEmpty))
             ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
         if let relatedBoundary { candidates.append(relatedBoundary) }
-        let boundary = encodedAttachments.isEmpty
+        let boundary = (encodedAttachments.isEmpty && underLetter.isEmpty)
             ? nil : uniqueBoundary(avoiding: candidates, token: boundaryToken)
 
         // MARK: Headers
@@ -323,46 +344,61 @@ enum RFC5322Builder {
             return out
         }
 
-        /// One `cid:` image, as a part inside the related set.
+        /// The headers of one part the markup shows by `cid:`, inside the
+        /// related set: a picture of the signature's or the quote's, or one
+        /// of his photos (B-109).
         ///
         /// `Content-Disposition: inline`, because that is what tells the
         /// READING side this picture belongs in the body flow rather than
         /// stapled underneath it — Mail's signature images and Apple Mail's
         /// inserted photographs both arrive exactly this shape.
+        func inlineHeaders(_ contentID: String, _ filename: String, _ mimeType: String) -> String {
+            var out = headerLine("Content-Type", "\(mimeType); name=\"\(filename)\"")
+            out += headerLine("Content-Transfer-Encoding", "base64")
+            out += headerLine("Content-ID", "<\(contentID)>")
+            out += headerLine("Content-Disposition", "inline; filename=\"\(filename)\"")
+            return out
+        }
+
+        /// One `cid:` image, as a part inside the related set.
         func inlinePart(_ img: (contentID: String, filename: String,
                                 mimeType: String, base64: String),
                         within rel: String) -> String {
             var out = "--" + rel + crlf
-            out += headerLine("Content-Type", "\(img.mimeType); name=\"\(img.filename)\"")
-            out += headerLine("Content-Transfer-Encoding", "base64")
-            out += headerLine("Content-ID", "<\(img.contentID)>")
-            out += headerLine("Content-Disposition",
-                              "inline; filename=\"\(img.filename)\"")
+            out += inlineHeaders(img.contentID, img.filename, img.mimeType)
             out += crlf
             return out + terminated(img.base64)
         }
 
-        /// The letter as it sits inside the message: either the alternatives
-        /// alone, or the alternatives AND their `cid:` images inside a
-        /// related set — the markup and the pictures it names travel as one
-        /// unit, which is what makes a client resolve them for the reader
-        /// instead of showing a box.
-        ///
-        /// `containerHeaders` are the part's own headers when the letter is
-        /// nested inside something else, and empty when it IS the message.
-        var letterBody = alternativeParts()
+        /// The headers of a file's part under the letter.
+        func fileHeaders(_ filename: String, _ mimeType: String) -> String {
+            let name = encodeIfNeeded(filename)
+            // `name=` on the Content-Type is obsolete but harmless, and old
+            // clients that ignore Content-Disposition entirely still find a
+            // filename there.
+            var out = headerLine("Content-Type", "\(mimeType); name=\"\(name)\"")
+            out += headerLine("Content-Transfer-Encoding", "base64")
+            out += headerLine("Content-Disposition", "attachment; filename=\"\(name)\"")
+            return out
+        }
+
+        // The letter, as text, and a place for each file's base64 where its
+        // part's headers end, which never ends in CRLF; the CRLF after it
+        // begins the next delimiter, as `terminated` ends an inline
+        // image's. `text` is what is not yet a piece.
+        var pieces: [LetterPlan.Piece] = []
+        var text = headers + crlf     // the blank line that ends the header block
+        func place(_ index: Int) {
+            pieces.append(.text(Data(text.utf8)))
+            pieces.append(.file(index))
+            text = crlf
+        }
+
+        // `containerHeaders` are the letter's own headers as a part, when
+        // it is nested inside the multipart/mixed, and empty when it IS
+        // the message.
         var containerHeaders = ""
-        if let relatedBoundary, let alternativeBoundary {
-            var wrapped = "--" + relatedBoundary + crlf
-            wrapped += headerLine("Content-Type",
-                                  "multipart/alternative; boundary=\"\(alternativeBoundary)\"")
-            wrapped += crlf
-            wrapped += letterBody
-            for img in encodedInline {
-                wrapped += inlinePart(img, within: relatedBoundary)
-            }
-            wrapped += "--" + relatedBoundary + "--" + crlf
-            letterBody = wrapped
+        if let relatedBoundary, alternativeBoundary != nil {
             containerHeaders = headerLine(
                 "Content-Type",
                 "multipart/related; boundary=\"\(relatedBoundary)\"; "
@@ -379,48 +415,72 @@ enum RFC5322Builder {
                 "multipart/alternative; boundary=\"\(alternativeBoundary)\"")
         }
 
-        let head = headers + crlf     // the blank line that ends the header block
+        if let boundary {
+            text += "--" + boundary + crlf
+            if !containerHeaders.isEmpty {
+                text += containerHeaders     // ends in its own CRLF
+                text += crlf                 // part headers ↵ body separator
+            }
+        }
 
-        guard let boundary else {
+        // The letter as it sits inside the message: either the alternatives
+        // alone, or the alternatives AND their `cid:` images inside a
+        // related set — the markup and the pictures it names travel as one
+        // unit, which is what makes a client resolve them for the reader
+        // instead of showing a box. His photos come first among them, as
+        // they come first in the markup, each read from its file as it
+        // goes (B-109).
+        if let relatedBoundary, let alternativeBoundary {
+            text += "--" + relatedBoundary + crlf
+            text += headerLine("Content-Type",
+                               "multipart/alternative; boundary=\"\(alternativeBoundary)\"")
+            text += crlf
+            text += alternativeParts()
+            for (index, file) in shownInline.enumerated() {
+                text += "--" + relatedBoundary + crlf
+                text += inlineHeaders(file.contentID, encodeIfNeeded(file.filename), file.mimeType)
+                text += crlf
+                place(index)
+            }
+            for img in encodedInline {
+                text += inlinePart(img, within: relatedBoundary)
+            }
+            text += "--" + relatedBoundary + "--" + crlf
+        } else if alternativeBoundary == nil, boundary == nil {
             // A letter of one part, plain text alone, is its encoded text
             // and nothing more. Its Content-Type and transfer encoding are
-            // the message's own header lines, above. `letterBody` is the
-            // text as a part of a multipart/mixed, with those two lines as
-            // the part's header. Written here, they were the first two
+            // the message's own header lines, above. `alternativeParts` is
+            // the text as a part of a multipart/mixed, with those two lines
+            // as the part's header. Written here, they were the first two
             // lines of the letter, in the list, in the pane and in every
             // reader's client, and a draft reopened took them up as words
             // and wrapped them again at each save (B-068). Nothing follows
             // the last line, so a draft comes back as he left it; SMTP ends
             // the line itself (`DataStuffer.finish`).
-            return LetterPlan(pieces: [
-                .text(Data((head + (alternativeBoundary == nil ? encodedBody : letterBody)).utf8)),
-            ])
+            text += encodedBody
+        } else {
+            text += alternativeParts()
         }
 
-        var text = head + "--" + boundary + crlf
-        if !containerHeaders.isEmpty {
-            text += containerHeaders     // ends in its own CRLF
-            text += crlf                 // part headers ↵ body separator
+        guard let boundary else {
+            pieces.append(.text(Data(text.utf8)))
+            return LetterPlan(pieces: pieces)
         }
-        text += letterBody
 
         // Each file is its part's headers, as text, and then a place for
-        // its base64, which never ends in CRLF; the CRLF after it begins the
-        // next delimiter.
-        var pieces: [LetterPlan.Piece] = []
-        for (index, att) in encodedAttachments.enumerated() {
-            let name = encodeIfNeeded(att.filename)
+        // its base64: his photos first when there is no markup to show them
+        // in, numbered first as they are, then the files.
+        for (index, file) in underLetter.enumerated() {
             text += "--" + boundary + crlf
-            // `name=` on the Content-Type is obsolete but harmless, and old
-            // clients that ignore Content-Disposition entirely still find a
-            // filename there.
-            text += headerLine("Content-Type", "\(att.mimeType); name=\"\(name)\"")
-            text += headerLine("Content-Transfer-Encoding", "base64")
-            text += headerLine("Content-Disposition", "attachment; filename=\"\(name)\"")
+            text += fileHeaders(file.filename, file.mimeType)
             text += crlf
-            pieces.append(.text(Data(text.utf8)))
-            pieces.append(.file(index))
-            text = crlf
+            place(index)
+        }
+        for (index, att) in encodedAttachments.enumerated() {
+            text += "--" + boundary + crlf
+            text += fileHeaders(att.filename, att.mimeType)
+            text += crlf
+            place(encodedInlineFiles.count + index)
         }
 
         text += "--" + boundary + "--" + crlf
@@ -955,6 +1015,42 @@ enum RFC5322Builder {
     }
 
     // MARK: - Sanitising
+
+    /// A file's name as its part's headers carry it, before `encodeIfNeeded`:
+    /// on one line, without blanks at its ends, and "attachment" when
+    /// nothing is left.
+    ///
+    /// A quote or backslash in a filename would end the quoted string early
+    /// and shove the rest of the name into the parameter list; they are
+    /// stripped rather than escaped, because a 90-year-old does not need to
+    /// know why his file is called `re\"port.pdf`. His photos in the letter
+    /// are named so too, and the markup's `alt` is the same name
+    /// (`AppleMailHTML.pictureMarkup`, B-109).
+    static func partName(_ raw: String) -> String {
+        let name = headerSafe(raw)
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "\"", with: "")
+            .replacingOccurrences(of: "\\", with: "")
+        return name.isEmpty ? "attachment" : name
+    }
+
+    /// A part's type as its Content-Type carries it, octet-stream when
+    /// there is none.
+    private static func partType(_ raw: String) -> String {
+        let mime = headerSafe(raw)
+            .trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "\"", with: "")
+        return mime.isEmpty ? "application/octet-stream" : mime
+    }
+
+    /// A Content-ID as the header carries it, inside its angle brackets:
+    /// on one line, with no bracket of its own, and a fresh one when
+    /// nothing is left.
+    private static func contentIDValue(_ raw: String) -> String {
+        let id = headerSafe(raw).trimmingCharacters(in: .whitespaces)
+            .replacingOccurrences(of: "<", with: "").replacingOccurrences(of: ">", with: "")
+        return id.isEmpty ? UUID().uuidString : id
+    }
 
     /// Removes the three characters that can break out of a header value.
     ///

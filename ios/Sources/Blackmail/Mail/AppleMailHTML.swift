@@ -135,7 +135,12 @@ enum AppleMailHTML {
     /// The letters with nothing rich in them stay text/plain, which is a
     /// quarter of his traffic and is also what Mail does. Sending HTML for
     /// a one-line note would be a deviation in the other direction.
-    static func isNeeded(body: String, signature: String, signatureHTML: String) -> Bool {
+    ///
+    /// A photo of his among `files` is rich too: it goes in the letter,
+    /// under his words, which only the HTML can show (B-109).
+    static func isNeeded(body: String, signature: String, signatureHTML: String,
+                         files: [DraftAttachment] = []) -> Bool {
+        if files.contains(where: \.isBodyPicture) { return true }
         let layout = layout(of: body, signature: signature)
         if layout.quote != nil { return true }
         return !signatureHTML.isEmpty && !layout.signature.isEmpty
@@ -161,8 +166,30 @@ enum AppleMailHTML {
         /// letter's rows. A reply carrying none of the original's parts
         /// sends none.
         var pictures: [(contentID: String, picture: QuotedOriginal.Picture)] = []
-        /// The files: the draft's own, less any that now go in the quote.
+        /// His photos the HTML shows under his words, each under the
+        /// Content-ID it shows it by, in the order of his rows (B-109).
+        /// Made with the HTML, from the one list, so every `cid:` it writes
+        /// for one has its part and every part its `cid:`. Empty whenever
+        /// `html` is nil.
+        var bodyPictures: [BodyPicture] = []
+        /// The files: the draft's own, less any that now go in the quote or
+        /// under his words. Each row is in one of the three, never two, so
+        /// nothing goes twice.
         var files: [DraftAttachment] = []
+    }
+
+    /// One of his photos in the letter (B-109): his row, and the Content-ID
+    /// the letter shows it by, a fresh uppercase UUID each time a letter is
+    /// made, as his iPad gives each picture it places.
+    struct BodyPicture: Equatable {
+        let contentID: String
+        let file: DraftAttachment
+    }
+
+    /// A fresh Content-ID for one of his photos: an uppercase UUID, as his
+    /// iPad writes them.
+    static func freshPictureID() -> String {
+        UUID().uuidString.uppercased()
     }
 
     /// The most of an original's markup a quote carries: 4 MB.
@@ -182,15 +209,22 @@ enum AppleMailHTML {
     /// HTML shows, and the files.
     ///
     /// `taken` are Content-IDs the letter already uses, the signature's
-    /// pictures', so none of the original's is renamed onto one of them.
-    /// `forDraft` marks where the quote begins, with its fingerprint, for
-    /// `QuotedOriginal.recovered` to find when the draft is reopened; a
-    /// letter that is sent carries no such mark.
+    /// pictures', so none of the original's is renamed onto one of them,
+    /// nor any of his photos given one. `forDraft` marks where the quote
+    /// begins, with its fingerprint, for `QuotedOriginal.recovered` to find
+    /// when the draft is reopened; a letter that is sent carries no such
+    /// mark. `pictureID` makes each of his photos' Content-IDs, for a test.
+    ///
+    /// His photos go after his words and above his signature, as every one
+    /// of his Apple Mail letters with a picture had them (B-109): the rows
+    /// `DraftAttachment.isBodyPicture` names, less any the quote shows.
     static func letter(for draft: Draft, account: MailAccount,
-                       reserving taken: Set<String> = [], forDraft: Bool = false) -> Letter {
+                       reserving taken: Set<String> = [], forDraft: Bool = false,
+                       pictureID: () -> String = freshPictureID) -> Letter {
         guard let quote = draft.quote, quote.isIntact(in: draft.body),
               let quoted = layout(of: quote.region, signature: "").quote else {
-            return changedLetter(draft, account: account, forDraft: forDraft)
+            return changedLetter(draft, account: account, reserving: taken, forDraft: forDraft,
+                                 pictureID: pictureID)
         }
 
         // Everything above the quote, less the line break that ends it,
@@ -251,16 +285,19 @@ enum AppleMailHTML {
         // not inside a table or a link of the sender's.
         if quote.isShortened { inner += shortenedLine }
         let pictures = renamed.filter { shown.contains($0.contentID) }
-        let files = draft.attachments.filter { row in
+        let rest = draft.attachments.filter { row in
             !pictures.contains { $0.picture.isSource(of: row) }
         }
+        let (body, files) = bodyPictures(among: rest, reserving: used, pictureID: pictureID)
 
-        var out = documentOpen + head(above, signatureHTML: account.signatureHTML)
+        var out = documentOpen + head(above, signatureHTML: account.signatureHTML,
+                                      pictures: body)
         if let own = above.quote {
             out += quoteBlock(own, inner: paragraphs(own.body, firstLineBare: true), marker: nil)
         }
         out += quoteBlock(quoted, inner: inner, marker: forDraft ? fingerprint : nil)
-        return Letter(html: out + documentClose, pictures: pictures, files: files)
+        return Letter(html: out + documentClose, pictures: pictures, bodyPictures: body,
+                      files: files)
     }
 
     /// The letter when he has changed the quote, or there is none to keep.
@@ -269,16 +306,21 @@ enum AppleMailHTML {
     /// carried, from the body as it stands, so the HTML holds only what the
     /// plain text holds. For a letter that did quote something, its
     /// addresses are made links, and a draft is marked so the same rendering
-    /// is taken up again when it is reopened. The files go as files.
+    /// is taken up again when it is reopened. The files go as files, but
+    /// for his photos, which go under his words (B-109).
     private static func changedLetter(_ draft: Draft, account: MailAccount,
-                                      forDraft: Bool) -> Letter {
+                                      reserving taken: Set<String>, forDraft: Bool,
+                                      pictureID: () -> String) -> Letter {
         guard isNeeded(body: draft.body, signature: account.signature,
-                       signatureHTML: account.signatureHTML) else {
+                       signatureHTML: account.signatureHTML, files: draft.attachments) else {
             return Letter(html: nil, files: draft.attachments)
         }
+        let (body, files) = bodyPictures(among: draft.attachments, reserving: taken,
+                                         pictureID: pictureID)
         let layout = layout(of: draft.body, signature: account.signature)
         let quoting = draft.quote != nil
-        var out = documentOpen + head(layout, signatureHTML: account.signatureHTML)
+        var out = documentOpen + head(layout, signatureHTML: account.signatureHTML,
+                                      pictures: body)
         if let quote = layout.quote {
             let marker = forDraft && quoting
                 ? quoteRegion(of: draft.body).map { QuotedOriginal.fingerprint($0.region) }
@@ -287,7 +329,30 @@ enum AppleMailHTML {
                                                        linked: quoting),
                               marker: marker)
         }
-        return Letter(html: out + documentClose, files: draft.attachments)
+        return Letter(html: out + documentClose, bodyPictures: body, files: files)
+    }
+
+    /// `rows` divided: his photos that go under his words, each given its
+    /// Content-ID, none of `taken` and no two alike, and the rest, which go
+    /// as files. In the order of his rows, each row in exactly one of the
+    /// two.
+    private static func bodyPictures(among rows: [DraftAttachment], reserving taken: Set<String>,
+                                     pictureID: () -> String)
+        -> (pictures: [BodyPicture], files: [DraftAttachment]) {
+        var pictures: [BodyPicture] = []
+        var files: [DraftAttachment] = []
+        var used = taken
+        for row in rows {
+            guard row.isBodyPicture else {
+                files.append(row)
+                continue
+            }
+            var id = pictureID()
+            while id.isEmpty || used.contains(id) { id += "X" }
+            used.insert(id)
+            pictures.append(BodyPicture(contentID: id, file: row))
+        }
+        return (pictures, files)
     }
 
     // MARK: - Reading the plain body back
@@ -439,10 +504,15 @@ enum AppleMailHTML {
 
     // MARK: - Writing it out
 
-    /// The whole document.
-    static func document(body: String, signature: String, signatureHTML: String) -> String {
+    /// The whole document: `pictures` under his words (B-109), and
+    /// `typed` made of the markup of his words, as the share sheet makes
+    /// links of them (`ShareLetter.letter`), before the pictures follow.
+    static func document(body: String, signature: String, signatureHTML: String,
+                         pictures: [BodyPicture] = [],
+                         typed: (String) -> String = { $0 }) -> String {
         let layout = layout(of: body, signature: signature)
-        var out = documentOpen + head(layout, signatureHTML: signatureHTML)
+        var out = documentOpen + head(layout, signatureHTML: signatureHTML, pictures: pictures,
+                                      typed: typed)
         if let quote = layout.quote {
             out += quoteBlock(quote, inner: paragraphs(quote.body, firstLineBare: true),
                               marker: nil)
@@ -450,9 +520,17 @@ enum AppleMailHTML {
         return out + documentClose
     }
 
-    /// What he typed, then his signature.
-    private static func head(_ layout: Layout, signatureHTML: String) -> String {
-        var out = paragraphs(layout.typed, firstLineBare: true)
+    /// What he typed, then his photos, then his signature.
+    ///
+    /// The photos go after his last typed line and before the signature's
+    /// line break, each in a `<div>` of its own after two line breaks, as
+    /// every one of his Apple Mail letters with a picture has it (B-109):
+    /// none had a picture among its words, or words after one.
+    private static func head(_ layout: Layout, signatureHTML: String,
+                             pictures: [BodyPicture] = [],
+                             typed: (String) -> String = { $0 }) -> String {
+        var out = typed(paragraphs(layout.typed, firstLineBare: true))
+        for picture in pictures { out += pictureMarkup(picture) }
 
         if !layout.signature.isEmpty {
             out += signatureAnchor
@@ -470,6 +548,51 @@ enum AppleMailHTML {
             out += signatureClose
         }
         return out
+    }
+
+    /// One of his photos as his iPad places one (B-109), byte for byte the
+    /// shape nearly all of his 16 Apple Mail letters with a picture in a
+    /// year have: two line breaks and the picture in a `<div>` of its own,
+    /// the `<img>` carrying its Content-ID as its id, Mail's padding, and
+    /// its file's name, as its part is named (`RFC5322Builder.partName`).
+    static func pictureMarkup(_ picture: BodyPicture) -> String {
+        let id = attribute(picture.contentID)
+        return "<div><br><br><img id=\"\(id)\" style=\"padding:0px 1px 1px 0px;\" alt=\""
+            + attribute(RFC5322Builder.partName(picture.file.filename))
+            + "\" src=\"cid:\(id)\"></div>"
+    }
+
+    /// The Content-IDs `html` shows among his words: before his signature's
+    /// line break and before any quote, whichever comes first, a quote
+    /// being where the first `<blockquote` or this app's quote mark is
+    /// (B-109). What a reopened draft's parts are known by to have been his
+    /// photos in the letter (`Draft.reopening`): this app's drafts have
+    /// them there, and so do Mail's. A picture of the signature or of the
+    /// quote is never among them.
+    ///
+    /// Bytes, as `QuotedMarkup` reads markup, in any letter case, each mark
+    /// looked for only before the one found already: a forward's megabytes
+    /// of quoted markup are not searched through for a signature.
+    static func contentIDsAmongHisWords(in html: String) -> Set<String> {
+        let bytes = Array(html.utf8)
+        var end = bytes.count
+        for mark in ["<blockquote", quoteMarkOpen, signatureAnchor] {
+            let needle = Array(mark.utf8)
+            if let at = QuotedMarkup.find(needle, in: Array(bytes[..<end]), from: 0,
+                                          caseInsensitive: true) {
+                end = at
+            }
+        }
+        return QuotedMarkup.contentIDs(shownBy: String(decoding: bytes[..<end], as: UTF8.self))
+    }
+
+    /// `text` as the value of an attribute in double quotes: `escape`, and
+    /// `"` as `&quot;`, so a name cannot end the attribute early.
+    static func attribute(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
     }
 
     /// The quote: the attribution or the forwarded-message header, then

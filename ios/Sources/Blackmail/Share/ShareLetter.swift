@@ -110,17 +110,34 @@ enum ShareLetter {
     /// link is exactly the rich element Mail sends HTML for; otherwise
     /// whatever the app would send for the same letter.
     static func html(for draft: Draft, account: MailAccount) -> String? {
+        letter(for: draft, account: account).html
+    }
+
+    /// The letter a share sends: `html`, and his photos in it, under his
+    /// words and above his signature as the app places them, each under
+    /// the Content-ID the markup shows it by (B-109), and the rest of the
+    /// files as files. Made by `AppleMailHTML.letter`, the app's own, so
+    /// the markup and the parts come from one list; the share's links are
+    /// made only in his words, before the photos follow them.
+    ///
+    /// `taken` are the signature's pictures' Content-IDs, as the app's
+    /// letter reserves them; `pictureID` is for a test.
+    static func letter(for draft: Draft, account: MailAccount,
+                       reserving taken: Set<String> = [],
+                       pictureID: () -> String = AppleMailHTML.freshPictureID)
+        -> AppleMailHTML.Letter {
+        var letter = AppleMailHTML.letter(for: draft, account: account, reserving: taken,
+                                          pictureID: pictureID)
         let layout = AppleMailHTML.layout(of: draft.body, signature: account.signature)
-        guard firstLink(in: layout.typed) != nil else {
-            return AppleMailHTML.part(for: draft, account: account)
-        }
-        let document = AppleMailHTML.document(body: draft.body, signature: account.signature,
-                                              signatureHTML: account.signatureHTML)
+        guard firstLink(in: layout.typed) != nil else { return letter }
         // Only the part he typed, which the envelope writes first: a link in
-        // the signature's own markup is his signature's business.
-        let end = document.range(of: AppleMailHTML.signatureAnchor)?.lowerBound
-            ?? document.endIndex
-        return linked(String(document[..<end])) + document[end...]
+        // the signature's own markup is his signature's business, and the
+        // photos' markup is not his words.
+        letter.html = AppleMailHTML.document(body: draft.body, signature: account.signature,
+                                             signatureHTML: account.signatureHTML,
+                                             pictures: letter.bodyPictures,
+                                             typed: linked)
+        return letter
     }
 
     /// `html`'s escaped text with each web address wrapped in an anchor.

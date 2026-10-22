@@ -657,6 +657,7 @@ final class LocalDraftStore {
         for attachment in draft.attachments {
             var file = StoredFile(filename: attachment.filename, mimeType: attachment.mimeType,
                                   size: attachment.size)
+            if attachment.inBody { file.inBody = Lenient(true) }
             switch attachment.source {
             case let .messagePart(messageID, mailboxID, section, original):
                 file.messageID = messageID
@@ -1127,6 +1128,13 @@ final class LocalDraftStore {
         var mailboxID: String?
         var section: String?
         var letter: UInt64?
+        /// `DraftAttachment.inBody` (B-109): a reopened draft's part that
+        /// was one of his photos in the letter. Only ever true, when
+        /// present: absent from every other file, and from one kept before
+        /// it was, which reads as false, so no new format. Read on its own,
+        /// and one that cannot be read reads as absent (`Lenient`): the file
+        /// then goes under the letter, never not at all.
+        var inBody: Lenient<Bool>?
 
         init(filename: String, mimeType: String, size: Int64?) {
             self.filename = filename
@@ -1145,7 +1153,7 @@ final class LocalDraftStore {
                 return nil
             }
             return DraftAttachment(source: source, filename: filename, mimeType: mimeType,
-                                   size: size)
+                                   size: size, inBody: inBody?.value ?? false)
         }
     }
 }

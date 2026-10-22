@@ -2256,9 +2256,10 @@ actor IMAPMailRepository: MailRepository {
         //
         // Built and sent by `Submission`, which the share extension sends
         // through too. The HTML twin and which of the original's parts go
-        // are the quote's (`AppleMailHTML.letter`, B-050). A forward's
-        // quoted pictures are fetched only once the letter is known to be
-        // going somewhere, as its files are.
+        // are the quote's (`AppleMailHTML.letter`, B-050), and his photos go
+        // under his words (B-109). A forward's quoted pictures are fetched
+        // only once the letter is known to be going somewhere, as its files
+        // are.
         let images = signatureImages()
         var from = sender
         if let name = atSend.name { from.displayName = name }
@@ -2272,7 +2273,7 @@ actor IMAPMailRepository: MailRepository {
         let pictures = try await loadPictures(letter.pictures)
         try await Submission.send(draft, from: from, password: password, through: smtp,
                                   threadHeaders: Self.threadHeaders(for: draft),
-                                  attachments: { try await self.letterFiles(letter.files) },
+                                  attachments: { try await self.letterFiles(letter) },
                                   htmlBody: letter.html,
                                   inlineImages: SignatureImages.parts(of: images) + pictures,
                                   messageID: messageID,
@@ -2450,10 +2451,17 @@ actor IMAPMailRepository: MailRepository {
     /// Throws as `loadAttachments` does for a part that cannot be fetched.
     /// A file on the disk that cannot go is refused by `Submission`, before
     /// the server is reached.
-    private func letterFiles(_ attachments: [DraftAttachment]) async throws -> [Submission.File] {
+    ///
+    /// His photos in the letter first, each under the Content-ID its
+    /// markup shows it by, and read as a file is, from the disk or, for a
+    /// reopened draft's, from Gmail (B-109); then the files.
+    private func letterFiles(_ built: AppleMailHTML.Letter) async throws -> [Submission.File] {
+        let attachments = built.bodyPictures.map {
+            ($0.file, LetterFileRole.inBody(contentID: $0.contentID))
+        } + built.files.map { ($0, LetterFileRole.file) }
         var files: [Submission.File] = []
         files.reserveCapacity(attachments.count)
-        for attachment in attachments {
+        for (attachment, role) in attachments {
             let source: LetterSource
             switch attachment.source {
             case let .messagePart(messageID, mailboxID, section, letter):
@@ -2463,7 +2471,7 @@ actor IMAPMailRepository: MailRepository {
                 source = .disk(url, attachedSize: attachment.size)
             }
             files.append((filename: attachment.filename, mimeType: attachment.mimeType,
-                          source: source))
+                          source: source, role: role))
         }
         return files
     }
@@ -2910,6 +2918,13 @@ actor IMAPMailRepository: MailRepository {
                                           reserving: SignatureImages.contentIDs(of: images),
                                           forDraft: true)
         let loaded = try await loadAttachments(letter.files)
+        // His photos in the letter, under the Content-IDs its markup shows
+        // them by (B-109), whole as the files are: a draft goes up whole.
+        let photos = try await loadAttachments(letter.bodyPictures.map(\.file))
+        let inBody = zip(letter.bodyPictures, photos).map { picture, photo in
+            (contentID: picture.contentID, filename: photo.filename, mimeType: photo.mimeType,
+             data: photo.data)
+        }
         // The quote's pictures too, and for the same reason: a reopened
         // draft's live in the copy about to be replaced.
         let pictures = try await loadPictures(letter.pictures)
@@ -2926,7 +2941,8 @@ actor IMAPMailRepository: MailRepository {
                                        // draft too: a draft is reopened by
                                        // parsing it back, and the parts are
                                        // what make its markup's cid: resolve.
-                                       inlineImages: SignatureImages.parts(of: images) + pictures)
+                                       inlineImages: SignatureImages.parts(of: images) + pictures,
+                                       bodyPictures: inBody)
         try await noting?()
         // One send, on a new connection if its turn came after a check had
         // found the socket dead (`sendingOnce`, B-049).

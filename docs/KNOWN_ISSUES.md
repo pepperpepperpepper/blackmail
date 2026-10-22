@@ -550,6 +550,10 @@ account itself), beside a `signatureHTML` whose logo `<img>` points at
 `cid:sig-logo`. Whoever does Sam's real setup edits the plist once
 more; the procedure is in INVESTIGATIONS.
 
+*Closed in its minimal form by B-109: his photos go in the letter after
+his words and above the signature, as his Apple Mail letters did; a photo
+between words is left out.*
+
 ## B-026 — One blank body, observed once, not reproduced
 
 Opening a message showed the header filled in — sender, To, subject,
@@ -19189,6 +19193,201 @@ release build for the iPad links.
   the bound on an iCloud original and the Inbox at the next launch, on the
   iPad: the check under "Blocked on the iPad coming back", built from the
   worktree before it is merged, since it touches what Send carries.
+
+## B-109 — BUILT 2026-10-22, not yet seen on the iPad. His photos went as attachments under the letter; Mail's sit in it, under his words
+
+Built in the `feat-photos` worktree, off `feat-composer` (master at
+88ef40d with B-100 to B-105, B-111, B-107 and B-108). The batch waited on
+the owner's yes, and he gave it on 2026-10-22: "All three are still
+wanted" (Print, his photos in the body, and the letters kept on the iPad).
+It asked nothing else.
+
+**What Mail does.** Apple's iPadOS 18 guide
+(support.apple.com/guide/ipad/ipadcf744d81/18.0/ipados/18.0), high: Mail
+inserts a photo at the cursor, and "Depending on the file size, the
+attachment might appear inline with the text in the message or as [an
+icon] at the end". His own Sent Mail, the last year: 16 Apple Mail
+letters with a picture among his words. In every one the picture comes
+after all his typed words and before `<br
+id="lineBreakAtBeginningOfSignature">`, nearly all as `<div><br><br><img
+id="UUID" style="padding:0px 1px 1px 0px;" alt="IMG_0077.jpg"
+src="cid:UUID"></div>`, one `<div>` a picture; each part is inline, its
+Content-ID that same uppercase UUID, with the file's name; none has words
+after a picture. How Mail nests the parts was not read (medium): only the
+markup and the list of parts.
+
+**What it was.** A photo he attached, from Photo Library, Attach File or
+the share sheet, went as a file under the letter, `Content-Disposition:
+attachment`, after the alternatives; a note with a photo and no rich
+signature went as plain text with the photo under it. Only the
+signature's logo and a forward's quoted pictures went inline, each from
+memory (B-025's machinery).
+
+**Changed.**
+
+1. *Which rows* (`DraftAttachment.isBodyPicture`). A JPEG, PNG or GIF he
+   attached himself: a file on the iPad (`.localFile`), whichever of
+   Photo Library, Attach File and the share sheet put it there, or a
+   reopened draft's part marked as in the letter (5). Never a forward's
+   or a reply's rows of the original's parts (B-107), a video, a PDF, a
+   HEIC, a quote's picture or the signature's logo. *Beyond the spec:* it
+   named Photo Library and the share sheet; a picture from Attach File is
+   as much his own file, Mail places one the same way, and it goes the
+   same way.
+2. *Where* (`AppleMailHTML.letter`, `head`, `pictureMarkup`). After his
+   typed paragraphs and before the signature's line break, each
+   `<div><br><br><img id="ID" style="padding:0px 1px 1px 0px;" alt="NAME"
+   src="cid:ID"></div>`, in the order of his rows; with no signature,
+   before the quote, or last. ID a fresh uppercase UUID each time a letter
+   is made (`freshPictureID`), never one of the signature's pictures' or
+   another in the letter. NAME the part's own name
+   (`RFC5322Builder.partName`, B-108's: no `"` or `\`), escaped for the
+   attribute. `isNeeded` is true for a letter with one, so a note with a
+   photo goes as HTML, as Mail sends it.
+3. *One list* (`Letter.bodyPictures`). The markup and the parts are made
+   from it together, so every `cid:` has its part and every part its
+   `cid:`. Each row goes in one of three places only, the quote (a
+   picture of the original's its quote shows), under his words, or under
+   the letter (`files`), so nothing goes twice.
+4. *As parts* (`RFC5322Builder.plan`'s `inlineFiles`). Each photo is a
+   part inside the related set, before the signature's pictures, with
+   `Content-ID: <ID>`, `Content-Disposition: inline; filename="NAME"`, the
+   name in encoded words past ASCII as a file's is, and a place for its
+   file's base64: read from the disk a block at a time as the letter
+   goes, as any file is (D-017), never held whole, in the app or in the
+   share extension. The plan numbers them first and the files after, so
+   `LetterBytes` meets the places in order. With no markup they go as
+   files, never left behind. `Submission.File` has a role
+   (`LetterFileRole`, `.file` or `.inBody(contentID:)`); Send hands the
+   photos over through the attachments closure, the repository from the
+   disk or, for a reopened draft's, from Gmail, the share sheet from its
+   staging. `LETTER-PLAN` ends `in-body=N` and a photo's `LETTER-FILE`
+   line `in-body`. A draft's APPEND loads them whole, as it loads its
+   files (`build`'s `bodyPictures`).
+5. *Reopened drafts* (`Draft.reopening`, `DraftAttachment.inBody`). A part
+   whose `cid:` the saved markup shows before the signature's line break
+   and before any quote, the first `<blockquote` or this app's quote mark
+   (`AppleMailHTML.contentIDsAmongHisWords`), comes back marked: where this
+   app places his photos, and where Mail on another device does. Every
+   other part is a row as before. The mark is kept on the iPad
+   (`LocalDraftStore`'s `StoredFile.inBody`, `Lenient`, written only when
+   true): a letter kept before it reads unmarked, and so does one whose
+   mark cannot be read, its file then under the letter.
+6. *The share sheet* (`ShareLetter.letter`). Made by
+   `AppleMailHTML.letter`, the app's own; with a link in his words, the
+   link is made there before the photos follow, through
+   `AppleMailHTML.document`'s `typed`, not by repeating the markup. The
+   same bytes as before for a share with no photo, but one: words after a
+   typed "Begin forwarded message:" line in a share with no signature,
+   which read as a quote, are no longer made links. With a signature they
+   never were.
+
+**Not changed.** The editor (D-013): a `String`, and his photos his rows,
+with their weight and their Remove; the composer's screen is as it was. A
+photo between words, which needs an `NSTextAttachment` in the text view,
+full images in memory and the U+FFFC bookkeeping, for something none of
+his letters did. No thumbnail on the rows, which the spec left optional.
+The plain-text part. The 25 MB check: a photo's base64 is a file's. The
+reading pane, which shows a picture by `cid:` in the body already.
+
+**What he sees.** Nothing new on the iPad: the composer is as it was, and
+no new words. The people he writes to see his photos in the letter under
+his words and above his signature, as from his Apple Mail; a reader with
+only text lists them as files, as it does Mail's. In Sent Mail in the
+app, the photo in the letter.
+
+**Tests.** `PhotosInTheLetterTests`, 25: the photo's markup after his
+words and above his signature, plain and rich, to the byte; with no
+signature last, with no words first; several, each in its own `<div>` in
+the order of his rows, a PDF and a video among them files; a reply, its
+quote as given and changed, and with no signature; a forward's PDF a file,
+its picture in the quote and his photo under his words; a reply's carried
+photo (B-107) never one, its quote as given or changed; which rows are, by
+type and by where they come from; a note with a photo HTML, with a video
+or a PDF text; fresh uppercase UUIDs, never two alike nor one the letter
+uses; the name escaped in the `alt`; the Content-IDs among his words in
+this app's drafts, Mail's and Gmail's; a draft with two photos, a PDF and
+the logo saved and reopened three times, each photo once each time; a
+reopened forward's quote picture never marked, signed and not; a draft
+begun in Mail on another device; the mark kept on the iPad, written only
+when true, and an old record, a string, a number and null read unmarked;
+each photo a file's place inside the related set with its headers, before
+the logo, numbered first; a name past ASCII in encoded words; with no
+markup, the photos files, never left behind; the plan with its photos the
+reference builder's with them as pictures in memory, made whole, built and
+streamed from the disk, to the byte and with as many boundary draws, at
+every size about a line's, a block's and a piece's edge, with the logo,
+files, Bcc and threading; every `cid:` with exactly one part and every
+inline part shown, in a new letter, a reply and a forward, sent and saved,
+no photo twice; Python's `email` package, its default policy, reading such
+a letter with no defect, its photos and the logo in the related set, the
+file under it, every byte as it went (skipped where there is no Python);
+the rehearsal counting a photo handed over after a file, read and logged
+first, `in-body` in its lines, the letter the in-memory build's; a shared
+photo where the app puts one, with a link and without. `ShareSheetTests`,
+1: a photo and a PDF shared and sent, the photo inline under the
+Content-ID its markup shows, beside the logo, its bytes as they were,
+`in-body` in its line, the PDF a file. `OutboxTests`, 1: a letter with a
+photo put in the Outbox with no connection and sent after a relaunch, the
+photo once, in the letter. Changed: `DraftSignatureImagesTests`, 2, the
+reopened draft's photo inline, once, under his words, its Content-ID
+fresh with each letter; `RepositoryWireTests`, 1, a draft's literal the
+reference builder's with its photo an inline picture; and
+`StreamingSendTests` and `StreamingSendMemoryTests` give each file its
+role.
+
+Each rule undone in the worktree, one at a time, and the 29 classes that
+touch it run (`PhotosInTheLetterTests`, `ShareSheetTests`,
+`ShareLetterTests`, `OutboxTests`, `DraftSignatureImagesTests`,
+`RepositoryWireTests`, `LetterPlanTests`, `StreamingSendTests`,
+`SubmissionTests`, `AppleMailHTMLTests`, `RichQuoteTests`,
+`RichQuoteRepositoryTests`, `LocalDraftsTests`, `ReplyFilesTests`,
+`ComposerFilesTests`, `BoundaryTests`, `OutgoingMailTests`,
+`DraftLifecycleTests`, `AttachmentSourceTests`, `SharedPhotoTests`,
+`SharePictureFallbackTests`, `Base64BlockTests`, `DraftThreadingTests`,
+`ReplyForwardTests`, `PlainLetterTests`, `ShareItemsTests`,
+`ComposeLikeMailTests`, `DraftHeadersRoundTripTests`,
+`ReplyLikeMailTests`), 622 tests. No photo in the markup: 53 failures in
+17 tests. The photos after the signature: 28 in 12. A photo a file as
+well: 59 in 20. Any picture a photo of his: 2 in 1. A carried part one:
+6 in 4. `isNeeded` blind to photos: 24 in 10. Content-IDs not kept apart:
+1 in 1. A reopened draft never marked: 21 in 5. The cut blind to the
+quote: 2 in 2; to the signature's line break: 4 in 3; in one letter case:
+1 in 1. The mark not kept on the iPad: 4 in 2; read strictly: 1 in 1. A
+photo's part an attachment: 129 in 12; its name raw: 3 in 1. Photos
+dropped with no markup: 4 in 1. No related set for photos alone: 156 in
+12. Photos after the logo: 11 in 3. `build`'s bytes in the wrong order: 6
+in 3. `Submission` taking the files as given: 3 in 1; no `in-body` in the
+log: 2 in 2. Send without the photos: 16 in 6; with them as files: 6 in 3.
+A draft's APPEND without them: 20 in 8. The share sheet without them: 4
+in 3; its link case without them: 2 in 1. The `alt` not escaped: 1 in 1;
+the raw name in it: 1 in 1. Lowercase Content-IDs: 11 in 3. The quote's
+path without the photos: 14 in 5.
+
+The full suite, serially: 2,124 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Whether Gmail's web page, Mail on another device and the people he
+  writes to show the photos in place: the check.
+- How Mail nests the parts (medium). This app's are mixed > related >
+  alternative > {plain, html} + the photos + the signature's pictures, as
+  its letters with the logo have been since B-025; Mail's may put the
+  related set inside the alternative.
+- Several photos: the shape his iPad gives two or more in one letter was
+  not read; here each has its own `<div>`, as the spec says.
+- A large photo: Mail's guide says one "might appear ... as [an icon] at
+  the end". Here every JPEG, PNG and GIF of his goes in the letter, within
+  the 25 MB.
+- A draft begun elsewhere whose own signature holds a picture, with no
+  Mail line break before it and no quote: the picture is taken as his and
+  goes under his words, as a row he can take off.
+- Memory in the share extension with five full-size photos: the check,
+  against B-070's low-water mark.
+- The check on the iPad, under "Blocked on the iPad coming back", built
+  from the worktree before it is merged, since it changes what Send
+  carries and how.
 
 ## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 

@@ -560,10 +560,11 @@ extension Draft {
     /// Any OTHER inline picture, such as a photograph placed in the body of
     /// a draft begun in another client, stays a file row. The composer is
     /// plain text with an HTML twin built at send (D-013), so there is
-    /// nowhere in the body to keep it; as a file it still goes with the
+    /// nowhere in the text to keep it; as a row it still goes with the
     /// letter, and he can see it and remove it. Dropping it would send a
     /// letter that says "here is the photo" without the photo, and nothing
-    /// on the sending screen would say so.
+    /// on the sending screen would say so. Where it goes in the letter is
+    /// `inBody`'s, below.
     ///
     /// A draft of a reply or forward this app saved comes back with its
     /// quote (`QuotedOriginal.recovered`), so the letter sent from it is the
@@ -581,12 +582,19 @@ extension Draft {
     /// them and does not add the letter answered to References a second
     /// time (`RFC5322Builder.messageIDs`). A forward this app saved has
     /// neither, and a letter begun afresh, so they come back with none.
+    ///
+    /// A part its saved markup shows among his words, before his signature
+    /// and any quote, is one of his photos in the letter: its row comes back
+    /// marked so (`DraftAttachment.inBody`), and it goes in the letter again
+    /// (B-109). That covers a draft begun in Mail on another device, which
+    /// places its photos there too. Every other part is a row as before.
     static func reopening(_ m: Message,
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
         // `quotableText` rather than `textBody`, so a draft written in
         // another client as HTML reopens with its words in it instead of
         // empty.
         let body = m.textBody ?? m.quotableText
+        let amongHisWords = m.htmlBody.map(AppleMailHTML.contentIDsAmongHisWords) ?? []
         // Each recipient as the composer's field keeps it, so that a name
         // whose comma came out of an encoded word, `Example, Jane
         // <jane@example.com>` once decoded, is still one recipient when the
@@ -609,7 +617,9 @@ extension Draft {
                                                                   letter: m.gmailMessageID),
                                              filename: $0.filename,
                                              mimeType: $0.mimeType,
-                                             size: $0.size)
+                                             size: $0.size,
+                                             inBody: $0.contentID.map(amongHisWords.contains)
+                                                 ?? false)
                          },
                      savedID: m.id,
                      savedLetter: m.gmailMessageID,
@@ -661,6 +671,40 @@ struct DraftAttachment: Equatable {
     /// is NOT what the send-time limit check uses. That one counts the real
     /// built message.
     let size: Int64?
+    /// A part of a draft reopened from Drafts that its saved letter showed
+    /// among his words, before his signature and any quote: one of his
+    /// photos in the letter, which goes there again (`isBodyPicture`,
+    /// B-109). False for every other row, a photo on the iPad included,
+    /// which is one by what it is.
+    ///
+    /// Declared last so the memberwise initializer keeps the argument order
+    /// every existing call site uses.
+    var inBody: Bool = false
+
+    /// The kinds of picture that go in the letter, under his words: the
+    /// three his Apple Mail letters' pictures were, and that every mail
+    /// program shows (B-109).
+    static let bodyPictureTypes: Set<String> = ["image/jpeg", "image/png", "image/gif"]
+
+    /// True for a photo of his that goes in the letter, after his last
+    /// typed line and above his signature, as every one of his Apple Mail
+    /// letters with a picture had it (B-109), rather than as a file under
+    /// it: a JPEG, PNG or GIF he attached himself, a file on this iPad from
+    /// Photo Library, Attach File or the share sheet, or a part of a
+    /// reopened draft that was in the letter (`inBody`).
+    ///
+    /// Never a part of a letter on the server otherwise: a forward's
+    /// files, a reply's (B-107) and a quote's pictures go as they did. Nor
+    /// a video, a PDF or any other kind, nor the signature's pictures,
+    /// which are no row. It is still his row, with its weight and its
+    /// Remove; only where it goes in the letter is decided here
+    /// (`AppleMailHTML.letter`).
+    var isBodyPicture: Bool {
+        let type = mimeType.trimmingCharacters(in: .whitespaces).lowercased()
+        guard Self.bodyPictureTypes.contains(type) else { return false }
+        if case .localFile = source { return true }
+        return inBody
+    }
 
     /// The parts of `m` as a letter made from it carries them, a row each,
     /// with its weight and a Remove: every part, the pictures its body

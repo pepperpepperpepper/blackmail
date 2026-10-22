@@ -539,8 +539,12 @@ this host. Ordered by value, not by size.
       *Done 2026-09-30: `-X KEY=FILE` (`tools/zsign/`, TOOLCHAIN.md), signing
       through `tools/sign-ipa.sh`, and `tools/check-signature.py` failing any
       IPA whose extension is not signed as itself.*
-- [ ] **B-025. Insert a photo at the cursor** (`NSTextAttachment` in the
+- [x] **B-025. Insert a photo at the cursor** (`NSTextAttachment` in the
       composer). Last, deliberately: exactly 1 of his 433 sent messages did it.
+      *Done 2026-10-22 in its minimal form, not yet seen on the iPad: his
+      photos sit in the letter under his words, above the signature, as all
+      of his Apple Mail picture letters did. B-109, and its check under
+      "Blocked on the iPad coming back".*
 
 ## Blocked on the iPad coming back
 
@@ -4289,6 +4293,32 @@ this host. Ordered by value, not by size.
       still coming by its name, or, with none, "Photo" or "Video".
       14. *Put back.* The "B-108" letters to Trash, the files and the
       video off the iPad.
+- [ ] **B-109, photos in the letter under his words.** On the test iPad,
+      the test account only, built from the `feat-photos` worktree before
+      it is merged (it changes what Send carries and how). A stands for the
+      account's address; letters only to A with `+b109` before the @,
+      subjects beginning "B-109"; each arrival's raw MIME read over IMAP.
+      1. *Two photos* from Photo Library, with the signature on. The raw
+      message has one related set with two inline parts whose Content-IDs
+      match the `<img>` ids, and no attachment copies. In Gmail's web page
+      and in Mail on another device, both pictures sit under the words,
+      above the signature.
+      2. *Drafts.* Save Draft, reopened from Drafts, Send: each picture
+      arrives once, in the letter, and Drafts holds none.
+      3. *The Outbox.* The same with Airplane Mode on: it goes to the
+      Outbox; off, Refresh: it leaves once, each picture in the letter.
+      Again, the app ended in the app switcher before Airplane Mode goes
+      off, and opened again.
+      4. *The share sheet.* A letter with one photo from Photos: the photo
+      in the letter, above the signature.
+      5. *A forward* of a letter from A with a PDF, a photo added from
+      Photo Library: the PDF arrives as a file, the photo in the body.
+      6. *The log.* The `LETTER-PLAN` line ends `in-body=2` for step 1, and
+      each photo's `LETTER-FILE` line ends `in-body`, its CRC the
+      arrival's.
+      7. *Memory.* Five full-size photos through the share sheet: the
+      `SHARE-SEND` lines' least memory stays where B-070 measured it.
+      8. *Put back.* The "B-109" letters to Trash, the drafts deleted.
 
 ## Blocked on the owner
 

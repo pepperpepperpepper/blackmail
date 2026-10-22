@@ -176,11 +176,16 @@ final class DraftSignatureImagesTests: XCTestCase {
         XCTAssertEqual(sent.filter { $0.data == logoBytes }.map(\.contentID), ["sig-logo"],
                        "the logo once, in the signature, and no second copy as a file")
         XCTAssertEqual(sent.filter { $0.data == logoBytes }.map(\.isInline), [true])
+        // The photo once, and in the letter, under his words, as a photo he
+        // attached goes since B-109: inline, and no copy under the letter.
         XCTAssertEqual(sent.filter { $0.data == photoBytes }.map(\.filename), ["Garden.jpg"])
-        XCTAssertEqual(sent.filter { $0.data == photoBytes }.map(\.isInline), [false])
+        XCTAssertEqual(sent.filter { $0.data == photoBytes }.map(\.isInline), [true])
         XCTAssertEqual(sent.count, 2, "\(sent.map(\.filename))")
-        // What raises a paperclip in the list and a file row in the header.
-        XCTAssertEqual(sent.filter { !$0.isInline }.map(\.filename), ["Garden.jpg"])
+        XCTAssertEqual(sent.filter { !$0.isInline }.map(\.filename), [])
+        let photoID = try XCTUnwrap(sent.first { $0.data == photoBytes }?.contentID)
+        let html = try XCTUnwrap(MIMEDecoder.decodeMessage(try XCTUnwrap(letters.last)).html)
+        XCTAssertEqual(AppleMailHTML.contentIDsAmongHisWords(in: html), [photoID],
+                       "shown among his words, before the signature")
     }
 
     func testTheReopenedDraftSendsTheSameLetterAsTheFreshOneWould() async throws {
@@ -196,7 +201,22 @@ final class DraftSignatureImagesTests: XCTestCase {
         let letters = await submission.letters()
         XCTAssertEqual(letters.count, 2)
         guard letters.count == 2 else { return }
-        XCTAssertEqual(parts(of: letters[1]), parts(of: letters[0]))
+        // The same parts, but for the photo's Content-ID, which is made
+        // afresh, an uppercase UUID, each time a letter is (B-109).
+        let photoIDs = letters.map { parts(of: $0).first { $0.data == photoBytes }?.contentID }
+        for id in photoIDs {
+            XCTAssertEqual(id.flatMap(UUID.init(uuidString:))?.uuidString, id)
+        }
+        XCTAssertNotEqual(photoIDs[0], photoIDs[1])
+        func photoUnnamed(_ raw: Data) -> [Part] {
+            parts(of: raw).map { part in
+                part.data == photoBytes
+                    ? Part(filename: part.filename, contentID: nil, isInline: part.isInline,
+                           data: part.data)
+                    : part
+            }
+        }
+        XCTAssertEqual(photoUnnamed(letters[1]), photoUnnamed(letters[0]))
         XCTAssertLessThan(abs(letters[1].count - letters[0].count), 64,
                           "\(letters[0].count) fresh, \(letters[1].count) reopened")
     }

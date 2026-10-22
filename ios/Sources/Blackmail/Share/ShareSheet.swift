@@ -59,14 +59,25 @@ final class ShareSheet {
                 // at any step of its progress while it went, which is what
                 // says whether that held on the iPad.
                 let going = LowWater(memory)
+                // His photos go in the letter, under his words, and are read
+                // from the disk as they go, as the files are (B-109): the
+                // markup and the parts are made from one list.
+                let letter = ShareLetter.letter(
+                    for: draft, account: account,
+                    reserving: SignatureImages.contentIDs(of: shared.signatureImages))
                 try await Submission.send(
                     draft, from: account, password: shared.password,
                     through: SMTPClient(account: account, transport: transport),
                     threadHeaders: nil,
                     attachments: {
-                        try draft.attachments.map { ($0.filename, $0.mimeType, try openFile($0)) }
+                        try letter.bodyPictures.map {
+                            ($0.file.filename, $0.file.mimeType, try openFile($0.file),
+                             .inBody(contentID: $0.contentID))
+                        } + letter.files.map {
+                            ($0.filename, $0.mimeType, try openFile($0), .file)
+                        }
                     },
-                    htmlBody: ShareLetter.html(for: draft, account: account),
+                    htmlBody: letter.html,
                     inlineImages: SignatureImages.parts(of: shared.signatureImages),
                     rehearsed: { rehearsal in
                         Diagnostics.log(.note, SharedPhoto.sendNote(

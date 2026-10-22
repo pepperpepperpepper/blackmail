@@ -74,7 +74,7 @@ final class StreamingSendMemoryTests: XCTestCase {
                 through: SMTPClient(account: account, transport: { _, _ in server }),
                 threadHeaders: nil,
                 attachments: { [("IMG_0001.MOV", "video/quicktime",
-                                 .disk(url, attachedSize: Int64(size)))] },
+                                 .disk(url, attachedSize: Int64(size)), .file)] },
                 htmlBody: nil, inlineImages: [], messageID: messageID, progress: nil,
                 date: date, boundaryToken: Counting().next)
         }

@@ -183,6 +183,52 @@ final class ShareSheetTests: XCTestCase {
         try await lettingGo(server)
     }
 
+    /// A shared photo goes in the letter, under the words and above the
+    /// signature, as the app's own letters place one (B-109): an inline
+    /// part in the related set with the markup, under the Content-ID its
+    /// `<img>` shows it by, beside the signature's logo, its bytes as they
+    /// were, read as it goes and logged as in the body. A PDF shared with
+    /// it goes under the letter, and the photo is not there too.
+    func testASharedPhotoGoesInTheLetterUnderTheWords() async throws {
+        Diagnostics.clear()
+        let server = ScriptedSubmission()
+        let logo = SignatureImages.InlineImage(contentID: "sig-logo", filename: "logo.png",
+                                               mimeType: "image/png",
+                                               dataBase64: logoBytes.base64EncodedString())
+        let sheet = sheet(server, signatureImages: [logo])
+        let jpeg = Data((0..<6000).map { UInt8(truncatingIfNeeded: $0 &* 11 &+ 5) })
+        let pdf = Data((0..<500).map { UInt8(truncatingIfNeeded: $0 &* 3) })
+        let draft = letter(sheet, [file(jpeg, "IMG_0776.JPG", "image/jpeg"),
+                                   file(pdf, "Plans.pdf", "application/pdf")])
+
+        await sheet.send { draft }?.value
+
+        let letters = await server.letters
+        let wire = try XCTUnwrap(letters.first)
+        let decoded = MIMEDecoder.decodeMessage(wire)
+        let parsed = MIMEDecoder.parse(wire)
+        let photo = try XCTUnwrap(decoded.attachments.first { $0.filename == "IMG_0776.JPG" })
+        XCTAssertTrue(photo.isInline)
+        let id = try XCTUnwrap(photo.contentID)
+        XCTAssertEqual(UUID(uuidString: id)?.uuidString, id, "an uppercase UUID, as Mail's")
+        XCTAssertEqual(MIMEDecoder.decodeTransfer(parsed.bodies[photo.id] ?? Data(), encoding: "base64"),
+                       jpeg)
+        let html = try XCTUnwrap(decoded.html)
+        XCTAssertTrue(html.contains("<div><br><br><img id=\"\(id)\" style=\"padding:0px 1px 1px 0px;\" "
+                                    + "alt=\"IMG_0776.JPG\" src=\"cid:\(id)\"></div>"
+                                    + AppleMailHTML.signatureAnchor), html)
+        XCTAssertEqual(AppleMailHTML.contentIDsAmongHisWords(in: html), [id])
+        XCTAssertEqual(decoded.attachments.filter { !$0.isInline }.map(\.filename), ["Plans.pdf"])
+        XCTAssertEqual(decoded.attachments.filter { $0.isInline }.map(\.contentID),
+                       [id, "sig-logo"])
+        let lines = Diagnostics.entries.map(\.text)
+        XCTAssertTrue(lines.contains { $0.hasPrefix("LETTER-FILE 1 bytes=6000 ") && $0.hasSuffix(" in-body") },
+                      "\(lines.filter { $0.hasPrefix("LETTER") })")
+        XCTAssertTrue(lines.contains { $0.hasPrefix("LETTER-FILE 2 bytes=500 ") && !$0.hasSuffix(" in-body") })
+        XCTAssertEqual(log, ["finish"])
+        try await lettingGo(server)
+    }
+
     /// An address picked or typed with a name on it goes to the app's book
     /// as the bare address, the form its entries are kept in.
     func testWhoItWentToIsNotedAsBareAddresses() async throws {
