@@ -228,7 +228,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [x] His own replies missing from Inbox conversations (Mail's Complete
-      Threads). *Done 2026-10-22, not yet seen on the iPad: in an Inbox
+      Threads). *Done 2026-10-22, seen on the iPad the same day; a drop
+      under a finger found there changed, not yet seen fixed: in an Inbox
       conversation of more than one letter, his letters of it that are
       only in Sent Mail come in closed, by date, "Found in Sent Mail" when
       opened, read only and never acted on; a Complete Threads switch
@@ -3805,11 +3806,12 @@ this host. Ordered by value, not by size.
       J's second letter, the one open, does not move as A's line goes
       in: its first line stays where it is on the glass, and A's line takes
       the place of J's first line at the top. Once without touching the
-      pane, a burst of shots from the tap; once with a finger on the pane
-      and the stack scrolled a little before A's line comes, J's second
-      letter's first line again staying where it is. Then open it again
-      within ten minutes: the same picture from the first frame, A's line
-      at the top and J's second letter under it.
+      pane, a burst of shots from the tap; once with a finger dragging the
+      pane slowly as A's line comes: J's second letter's first line moves
+      with the finger alone, with no step of a line, and A's line goes in
+      above it once the stack is still. Then open it again within ten
+      minutes: the same picture from the first frame, A's line at the top
+      and J's second letter under it.
       2. *Before and after.* A conversation A began, J answering twice: A's
       letter at the top. One A answered last: A's letter below the newest,
       and the pane still opens at the Inbox letter it opened at before.
@@ -3838,6 +3840,30 @@ this host. Ordered by value, not by size.
       the switch.
       After the install on his iPad: read the SLOW notes for `SELECT
       "[Gmail]/Sent Mail"`.
+      *Seen on the test iPad 2026-10-22, a build of B-104 as first built,
+      with other work: 2 to 7 and 8's switch passed. 1 passed untouched
+      and again within ten minutes, and failed with a finger on the pane:
+      J's second letter dropped one line as A's line went in, and went on
+      with the finger from there. 8's VoiceOver could not be tried, the
+      app being on VoiceOver's Direct Touch list there, and 9 was not run.
+      Changed the same day (B-104 in KNOWN_ISSUES): A's line is held while
+      the stack moves under a finger or coasts after it, and goes in once
+      it is still. To run again, from a build with the change: 1 in full;
+      8's VoiceOver, once the app is off the Direct Touch list; and 9.
+      1 with a finger, as on 2026-10-22: before each run another row
+      selected, Refresh, so nothing is remembered, and J's second letter
+      made unread from the host. Tap the row and, within 0.05 s, drag the
+      reading pane up some 100 to 120 px of the shots over 1.5 to 1.8 s,
+      so that A's line is found mid-drag (at about 0.6 s that day; in the
+      log, the summary FETCH in Sent Mail). J's second letter's first line
+      moves with the finger alone, and A's line goes in above it within
+      about a third of a second of the stack coming to rest. Then the same
+      with a flick, A's line found while the stack coasts; with the finger
+      held still half a second in the middle of the drag as A's line is
+      found, then dragged on; and with a finger put on J's first line just
+      after the tap and lifted at about 1 s, A's line found meanwhile: the
+      lift opens that letter, once, its line where it was, and A's line
+      goes in after. A burst of shots from the tap each time.*
 
 ## Blocked on the owner
 
