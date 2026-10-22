@@ -18018,11 +18018,25 @@ The scripted server answered BODY[2.1], so no test met Gmail's refusal.
    the rest of the letter is drawn around it (with the note refused, the
    forwarded letter's lines and words; with the forwarded words refused,
    the note and the lines), and the pane says "Only the beginning of this
-   message is shown.", the notice a letter cut short has. A connection
-   that drops fails the letter as before, after the one try more on a new
-   connection every read has.
+   message is shown.", the notice a letter cut short has. HTML the parts
+   refused leave with nothing to show gives way to plain words that came:
+   the plain words are drawn under the notice. A letter none of whose
+   words came, its one part refused or every part, fails as a refused
+   FETCH failed it before: "This message could not be downloaded. Check
+   the connection and tap it again." Gmail's NO can be a passing failure,
+   and an empty letter would give him nothing to tap again for. A
+   connection that drops fails the letter as before, after the one try
+   more on a new connection every read has, in the FETCH of the parts or
+   in one of a part asked for alone.
 3. *A preview refused costs that row.* A preview FETCH answered NO keeps
-   every letter's data that came with it.
+   every letter's data that came with it (`fetchPartialBodies`). The FETCH
+   of his Sent Mail's lines in a conversation (B-104,
+   `fetchPartialBodiesWhileOpen`) was written apart from this change, and
+   throws them away still: where the two are merged it must keep them too
+   (TODO, B-114), and a test here fails until it does.
+4. *Never "no text" for a letter shown in part.* A letter shown only in
+   part is never said to have no text (`PanePage.isEmpty`): its page, and
+   its body in a conversation, are the notice over whatever came.
 
 *Tests.* The scripted server serves a letter as Gmail does
 (`ScriptedIMAPServer.deliver(described:)`): the one-part body of a
@@ -18060,6 +18074,51 @@ The full suite, serially: 1,904 tests, 5 skipped, none failing. The
 release build for the iPad links. Step 6, and step 5's list with its
 preview beside other rows', are to be run again on the iPad.
 
+*Changed again, 2026-10-22, the same day, before the iPad saw it.* As
+first changed, a large letter whose only words were refused, its one part
+or the note and the letter it forwards, came to the pane as an empty
+letter said to be short: "This message has no text." for the one part,
+since the pane drew an empty letter as one whatever it was said to be,
+and the forwarded letter's header lines alone under the notice for the
+two. Before, the same NO had said it could not be downloaded, and a tap
+again could bring it. The HTML of a plain and HTML pair refused alone
+drew the empty HTML, the notice over nothing, the plain words that came
+not shown. And a connection that dropped while a refused part was asked
+for alone could be taken for a refusal with nothing to show it: the
+scripted server dropped it only at the FETCH of all the parts. Now the
+letter with no words fails as it did, the HTML gives way to the plain
+words, a letter shown in part is never "no text" (2 and 4 above), and
+the letter's plan gives each part by the name it is asked for by, its
+bytes kept and read back under that name, so the structure is not
+searched again for each part.
+
+*Tests, again.* The scripted server can drop the connection only at a
+FETCH of one section alone (`hangsUpOnSectionsAlone`). `LargeLetterTests`,
+four more: the forwarded words refused and the connection dropped when
+they are asked for alone, "Can't connect" after a second connection, the
+same FETCHes there; a letter of one part of words refused, "Can't
+connect", that part asked once and on the one connection; the note and
+the forwarded words both refused, the same; and the HTML of a pair
+refused, the plain words under the notice, no HTML. `PanePageTests`, one:
+a letter with nothing in it, said to be short, has a page and a stack body
+with the notice and never "This message has no text.", and the same
+letter whole still has it. `RepositoryWireTests`, one: read from the
+client's source, no FETCH of previews looks at its status, so the one of
+B-104 fails it on a merge until it keeps what came.
+
+Each change undone by hand, those run, then put back and passing: the
+letter with no words not failed, 2 failures in 2 tests; the pane drawing
+a short letter as having no text, 1 in 1; the HTML kept, 2 in 1; the HTML
+given way but not said to be short, 2 in 1; a drop at a part asked for
+alone swallowed as a refusal, 4 in 1; the plan naming each part by its
+number, 15 in 5; its bytes read back by its number, 3 in 2; a part
+refused looked for by its number, 2 in 1; and a preview FETCH that looks
+at its status, 2 in 2.
+
+The full suite, serially: 1,910 tests, 5 skipped, none failing. The
+release build for the iPad links. Step 6 and step 5's list are still to
+be run again on the iPad, and a forward of a forward with them (TODO).
+
 **Not covered.**
 
 - How Mail's reading pane draws a forwarded letter, a box or a line about
@@ -18087,8 +18146,19 @@ preview beside other rows', are to be run again on the iPad.
   them and Gmail served a multipart's parts on the iPad, but not tried
   against Gmail under a message/rfc822. A refusal there costs those parts
   alone now, said to be only the beginning.
+- A forward of a forward, a message/rfc822 whose body is itself one: the
+  words of the letter inside it asked for as 2.1.TEXT, RFC 3501's name.
+  Gmail may refuse it as it refuses 2.1, since it seems not to number the
+  one-part body; not tried against Gmail. Refused, those words are left
+  out under the notice, the note and the header lines shown (TODO,
+  B-114's step 6 run again).
 - Which parts Gmail refuses beyond these is not known; any is left out of
   the letter, the rest shown, and not asked for again under another name.
+  A letter none of whose words come fails as one that could not be
+  downloaded, every time if the refusal is for good.
+- The HTML of a plain and HTML pair refused, the plain words shown in its
+  place: a picture only the HTML shows by `cid:` is in neither, and is
+  not listed as a file either. Not seen.
 - A letter forwarded with a name and sent inline is drawn, not a row,
   decided here by the rule every file goes by; how Mail draws one is not
   compared on a screen. A row, if the owner wants one for a named

@@ -452,6 +452,15 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.hangsUpOnSections = newValue } }
     }
 
+    /// The same, only for a FETCH that asks for one of them and no other
+    /// section: `["2.TEXT"]` with the letter's 2.TEXT refused, a FETCH of
+    /// its parts answered NO, and the connection gone when the part is
+    /// asked for again alone.
+    var hangsUpOnSectionsAlone: Set<String> {
+        get { locked { $0.hangsUpOnSectionsAlone } }
+        set { locked { $0.hangsUpOnSectionsAlone = newValue } }
+    }
+
     /// Gmail's IMAP setting "When I mark a message in IMAP as deleted":
     /// off by default here, "Wait for the client to update the server", as
     /// the test account has it. On, "Auto-Expunge on", Gmail's own default,
@@ -1204,6 +1213,7 @@ private extension ScriptedIMAPServer {
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
         var hangsUpOnSections: Set<String> = []
+        var hangsUpOnSectionsAlone: Set<String> = []
         var autoExpunge = false
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
@@ -1706,7 +1716,8 @@ private extension ScriptedIMAPServer.State {
             if case let .section(section, _, _) = item { return section }
             return nil
         })
-        if !asked.isDisjoint(with: hangsUpOnSections) {
+        if !asked.isDisjoint(with: hangsUpOnSections)
+            || (asked.count == 1 && !asked.isDisjoint(with: hangsUpOnSectionsAlone)) {
             r.untagged("BYE System Error")
             r.hangsUp = true
             return

@@ -40,8 +40,13 @@ enum PanePage {
     /// The page for one letter, or nil when there is nothing in it to draw,
     /// and the pane says so in words instead (`MailText.hasNoVisibleContent`,
     /// B-026).
+    ///
+    /// Never nil for a letter shown only in part (`Message.isShortened`):
+    /// what was not fetched, or what the server would not give, can be all
+    /// its words, and it is not a letter with no text. Its page says it is
+    /// only the beginning, over whatever came (B-114).
     static func letter(_ m: Message, style: Style) -> String? {
-        guard !MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody) else { return nil }
+        guard !isEmpty(m) else { return nil }
         let isHTML = m.htmlBody != nil
         // Leading blank lines are dropped from PLAIN TEXT before rendering.
         //
@@ -130,7 +135,7 @@ enum PanePage {
     /// them.
     static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
-        let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
+        let empty = isEmpty(m)
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
@@ -139,5 +144,12 @@ enum PanePage {
                : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                  escaping: .ampersandAndBrackets))
         return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
+    }
+
+    /// Whether the pane says the letter has no text: nothing in it to draw,
+    /// and all of it there. A letter shown only in part is never said to
+    /// have none, but to be only the beginning (B-114).
+    static func isEmpty(_ m: Message) -> Bool {
+        !m.isShortened && MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
     }
 }

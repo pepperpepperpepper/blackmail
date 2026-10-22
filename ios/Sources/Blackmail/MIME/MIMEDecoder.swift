@@ -1714,26 +1714,34 @@ enum MIMEDecoder {
         var html: [String: Int] = [:]
         var text: [String: Int] = [:]
         /// What to fetch: each part with the more of its two, the plain
-        /// words' first, and none given nothing.
+        /// words' first, and none given nothing. Each by the name it is
+        /// asked for by on the wire (`MIMEPart.fetchSection`), which its
+        /// bytes come back under (`IMAPClient.LetterInPart.sections`):
+        /// "2.TEXT" for the words numbered 2.1 of a letter forwarded as 2,
+        /// taken from the part the plan holds, so no structure is searched
+        /// for it (B-114).
         var fetches: [(section: String, bytes: Int)] = []
 
         init(_ plan: BodyPlan, limit: Int) {
             let text = Self.shares(plan.text, limit: limit)
             let html = Self.shares(plan.html, limit: limit)
-            self.text = Dictionary(text, uniquingKeysWith: { first, _ in first })
-            self.html = Dictionary(html, uniquingKeysWith: { first, _ in first })
+            self.text = Dictionary(text.map { ($0.part.section, $0.bytes) },
+                                   uniquingKeysWith: { first, _ in first })
+            self.html = Dictionary(html.map { ($0.part.section, $0.bytes) },
+                                   uniquingKeysWith: { first, _ in first })
             var listed = Set<String>()
-            for (section, _) in text + html where listed.insert(section).inserted {
-                let bytes = max(self.text[section] ?? 0, self.html[section] ?? 0)
-                if bytes > 0 { fetches.append((section, bytes)) }
+            for (part, _) in text + html where listed.insert(part.section).inserted {
+                let bytes = max(self.text[part.section] ?? 0, self.html[part.section] ?? 0)
+                if bytes > 0 { fetches.append((part.fetchSection, bytes)) }
             }
         }
 
-        private static func shares(_ pieces: [BodyPiece], limit: Int) -> [(String, Int)] {
+        private static func shares(_ pieces: [BodyPiece],
+                                   limit: Int) -> [(part: MIMEPart, bytes: Int)] {
             var left = limit
-            var out: [(String, Int)] = []
+            var out: [(part: MIMEPart, bytes: Int)] = []
             for part in pieces.compactMap(\.words) {
-                out.append((part.section, left))
+                out.append((part, left))
                 left -= min(part.size ?? left, left)
             }
             return out

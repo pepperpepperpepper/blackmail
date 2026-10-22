@@ -1321,12 +1321,14 @@ actor IMAPClient {
         var letter: UInt64?
         var structure: MIMEPart?
         var header = Data()
-        /// By section path, as `sections` named them.
+        /// By section, as `sections` named them: the name each part was
+        /// asked for by on the wire (`MIMEPart.fetchSection`), not always
+        /// its number (B-114).
         var sections: [String: Data] = [:]
-        /// The sections the server would not give, asked alone: each part
-        /// is left out of the letter, which is said to be only the
-        /// beginning, as one cut short is, and the rest of the letter
-        /// shown (B-114).
+        /// The sections the server would not give, asked alone, named as
+        /// in `sections`: each part is left out of the letter, which is
+        /// said to be only the beginning, as one cut short is, and the rest
+        /// of the letter shown (B-114).
         var refused: Set<String> = []
     }
 
@@ -1369,15 +1371,18 @@ actor IMAPClient {
     /// with the id the server named; the caller shows nothing of it, as it
     /// shows nothing of a whole letter whose FETCH named another (B-053).
     ///
-    /// Each section is asked for by the name the server serves it by
-    /// (`MIMEPart.fetchSection`), and kept under its own. A FETCH of them
-    /// the server answers NO, as Gmail answers the whole FETCH when it will
-    /// not give one of them, costs only the parts it refuses: what it did
-    /// send is kept, each part it did not is asked for alone, and one
-    /// refused alone too is `refused`, the letter shown without it. Until
-    /// B-114 that NO failed the whole letter as "Can't connect to mail
-    /// server.", the note in the same FETCH with it. A connection that
-    /// drops fails it as before.
+    /// Each section is the name the part is asked for by, the one the
+    /// server serves it by (`MIMEPart.fetchSection`, B-114): "2.TEXT" for
+    /// the words numbered 2.1 of a letter forwarded as 2, and its bytes are
+    /// kept under it. A FETCH of them the server answers NO, as Gmail
+    /// answers the whole FETCH when it will not give one of them, costs
+    /// only the parts it refuses: what it did send is kept, each part it
+    /// did not is asked for alone, and one refused alone too is `refused`,
+    /// the letter shown without it, unless none of its words came at all
+    /// (`IMAPMailRepository.loadLetterInPartOnce`). Until B-114 that NO
+    /// failed the whole letter as "Can't connect to mail server.", the note
+    /// in the same FETCH with it. A connection that drops fails it as
+    /// before, in the FETCH of them or of one alone.
     func fetchLetterInPart(uid: UInt32, in mailbox: String, validity: UInt32,
                            question: LetterQuestion,
                            sections: @Sendable (MIMEPart) -> [(section: String, bytes: Int)])
@@ -1405,23 +1410,19 @@ actor IMAPClient {
                 return LetterInPart(letter: letter.letter)
             }
             guard let structure = letter.structure else { return letter }
-            let wanted = sections(structure).map { asked in
-                (section: asked.section, bytes: asked.bytes,
-                 name: Self.sanitizedSection(
-                    MIMEDecoder.part(at: asked.section, in: structure)?.fetchSection ?? asked.section))
-            }
+            let wanted = sections(structure)
             // Asks for `batch` in one FETCH and keeps what comes, however
             // the FETCH is answered: whether it was answered OK.
-            func fetch(_ batch: ArraySlice<(section: String, bytes: Int, name: String)>)
-                async throws -> Bool {
-                let items = batch.map { "BODY.PEEK[\($0.name)]<0.\($0.bytes)>" }
+            func fetch(_ batch: ArraySlice<(section: String, bytes: Int)>) async throws -> Bool {
+                let items = batch.map { "BODY.PEEK[\(Self.sanitizedSection($0.section))]<0.\($0.bytes)>" }
                 let result = try await self.performCommand(
                     "UID FETCH \(uid) (UID \(items.joined(separator: " ")))")
                 let fetched = IMAPParser.parseFetch(result.untagged)
                 let its = fetched.filter { $0.uid == uid }
-                for asked in batch {
-                    letter.sections[asked.section] = its.lazy.compactMap { $0.sections[asked.name] }.first
-                        ?? fetched.lazy.compactMap { $0.sections[asked.name] }.first
+                for (section, _) in batch {
+                    let path = Self.sanitizedSection(section)
+                    letter.sections[section] = its.lazy.compactMap { $0.sections[path] }.first
+                        ?? fetched.lazy.compactMap { $0.sections[path] }.first
                 }
                 return result.status == .ok
             }

@@ -1071,6 +1071,32 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status), ["NO"])
     }
 
+    /// Every FETCH of previews the client has keeps what came under a NO,
+    /// as `fetchPartialBodies` does since B-114: none looks at the answer's
+    /// status. Read from the source, so that one written beside it on
+    /// another branch, as his Sent Mail's lines in a conversation have
+    /// theirs (B-104), fails here once the two are merged, until it keeps
+    /// them too and has a test like the one above of its own.
+    func testNoPreviewFetchThrowsAwayWhatCameUnderANo() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()     // BlackmailTests
+            .deletingLastPathComponent()     // Tests
+            .deletingLastPathComponent()     // ios
+            .appendingPathComponent("Sources/Blackmail/IMAP/IMAPClient.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+        let functions = code.components(separatedBy: "\n    func fetchPartialBodies").dropFirst()
+        XCTAssertFalse(functions.isEmpty)
+        for function in functions {
+            let name = "fetchPartialBodies" + function.prefix { $0 != "(" }
+            let body = try XCTUnwrap(function.range(of: "\n    }\n").map { function[..<$0.lowerBound] },
+                                     name)
+            XCTAssertFalse(body.contains(".status"),
+                           "\(name) looks at the FETCH's status and can throw away every row's "
+                           + "preview for one the server will not give: keep what came, as "
+                           + "fetchPartialBodies does (B-114)")
+        }
+    }
+
     // MARK: - Writes are never sent twice
 
     func testAWriteIntoADeadSocketGoesOutOnceAndIsNotRepeatedOnANewConnection() async throws {

@@ -858,6 +858,130 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertEqual(server.connectionsOpened, connections + 1)
     }
 
+    /// The same drop when the part refused is asked for again alone: not
+    /// a part refused, but the letter failing as it always has, after the
+    /// one try more on a new connection, the same again there. Taken for a
+    /// refusal, the drop showed the note on a connection that was gone,
+    /// left the forwarded words out for good, and never asked again.
+    func testAConnectionThatDropsWhileAPartIsAskedForAloneStillFailsTheLetter() async throws {
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(forwarded), envelope: forwardedEnvelope,
+                                      refusing: ["2.TEXT"], by: repository)
+        let n = uid(row.id)
+        let connections = server.connectionsOpened
+        server.clearLog()
+        server.hangsUpOnSectionsAlone = ["2.TEXT"]
+
+        do {
+            let letter = try await repository.open(row)
+            XCTFail("opened over a connection that dropped: \(letter.textBody ?? "nil")")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        let note = "BODY.PEEK[1]<0.\(Self.section)>"
+        let words = "BODY.PEEK[2.TEXT]<0.\(Self.section - 12)>"
+        let once = [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID \(note) \(words))",
+            "UID FETCH \(n) (UID \(note))",
+            "UID FETCH \(n) (UID \(words))",
+        ]
+        XCTAssertEqual(uidFetches, once + once)
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status),
+                       ["OK", "NO", "OK", nil, "OK", "NO", "OK", nil])
+        XCTAssertEqual(server.connectionsOpened, connections + 1)
+    }
+
+    /// A large letter whose only words the server will not give: not a
+    /// letter with no text, nor the notice above nothing, but the letter
+    /// failing as a refused FETCH failed it before B-114, "This message
+    /// could not be downloaded. Check the connection and tap it again.",
+    /// which a passing failure of Gmail's is worth. Asked once, the one
+    /// part not asked again alone, on the one connection.
+    func testALargeLetterNoneOfWhoseWordsAreGivenFailsAsItAlwaysHas() async throws {
+        let raw = Data((top + mime("mixed", "ONE", [
+            "Content-Type: text/plain; charset=utf-8\r\n\r\nThe only words of the letter.",
+            bigPDF,
+        ])).utf8)
+        let repository = makeRepository()
+        let row = try await delivered(raw, refusing: ["1"], by: repository)
+        let n = uid(row.id)
+        let connections = server.connectionsOpened
+        server.clearLog()
+
+        do {
+            let letter = try await repository.open(row)
+            XCTFail("opened with none of its words: \(String(reflecting: letter.textBody)), "
+                    + "shortened \(letter.isShortened)")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)>)",
+        ])
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status), ["OK", "NO"])
+        XCTAssertEqual(server.connectionsOpened, connections)
+    }
+
+    /// The same for the note and the letter it forwards, both refused: the
+    /// letter fails, not shown as the forwarded letter's header lines
+    /// alone under the notice.
+    func testANoteAndAForwardBothRefusedFailTheLetter() async throws {
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(forwarded), envelope: forwardedEnvelope,
+                                      refusing: ["1", "2.TEXT"], by: repository)
+        let connections = server.connectionsOpened
+        server.clearLog()
+
+        do {
+            let letter = try await repository.open(row)
+            XCTFail("opened with none of its words: \(String(reflecting: letter.textBody))")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status),
+                       ["OK", "NO", "NO", "NO"])
+        XCTAssertEqual(server.connectionsOpened, connections)
+    }
+
+    /// The HTML of a plain and HTML pair refused, its plain words given:
+    /// the pane has the plain words, not the empty HTML, and says it is
+    /// only the beginning, the HTML the letter is drawn by not given. Kept,
+    /// the empty HTML was drawn, the notice above nothing.
+    func testAnHTMLPartRefusedLeavesThePlainWordsShown() async throws {
+        let raw = Data((top + mime("mixed", "MIX", [
+            mime("alternative", "ALT", [
+                "Content-Type: text/plain; charset=utf-8\r\n\r\nPlain words here.",
+                "Content-Type: text/html; charset=utf-8\r\n\r\n<p>HTML words here.</p>",
+            ]),
+            bigPDF,
+        ])).utf8)
+        let repository = makeRepository()
+        let row = try await delivered(raw, refusing: ["1.2"], by: repository)
+        let n = uid(row.id)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        let plain = "BODY.PEEK[1.1]<0.\(Self.section)>"
+        let html = "BODY.PEEK[1.2]<0.\(Self.section)>"
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID \(plain) \(html))",
+            "UID FETCH \(n) (UID \(plain))",
+            "UID FETCH \(n) (UID \(html))",
+        ])
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status),
+                       ["OK", "NO", "OK", "NO"])
+        XCTAssertEqual(letter.textBody, "Plain words here.")
+        XCTAssertNil(letter.htmlBody)
+        XCTAssertTrue(letter.isShortened)
+        let page = try XCTUnwrap(PanePage.letter(letter, style: .init(inset: 26, bodyPointSize: 17,
+                                                                      lineHeight: 1.41)))
+        XCTAssertTrue(page.contains(MailText.shortenedNotice + "</p>Plain words here.</div>"), page)
+        XCTAssertEqual(letter.listedAttachments.map(\.filename), ["Programme.pdf"])
+    }
+
     /// A file that is the whole of a letter forwarded in a large one, a
     /// scan sent as a letter of its own: its row, and its bytes asked for
     /// as 2.TEXT, the name Gmail serves them by, both while the letter is
