@@ -25,8 +25,10 @@ final class MessageListViewController: UITableViewController {
     var onRegrouped: (() -> Void)?
     var onMessagesChanged: (() -> Void)?
     /// The folder counts, for his Refresh, which says so when they cannot
-    /// be fetched. His alone: a Save in Settings asks for none (B-085).
-    var onRefreshRequested: (() -> Void)?
+    /// be fetched, but for `quietly`, after a page that did not come, whose
+    /// own alert says what failed (`RefreshTap.run`, B-103). His alone: a
+    /// Save in Settings asks for none (B-085).
+    var onRefreshRequested: ((_ quietly: Bool) -> Void)?
     /// Returns once the folder counts asked for have come, and at once when
     /// none is on its way (`MailboxListViewController.countsSwept`): his
     /// Refresh's pass waits for them (`RefreshTap`, B-072).
@@ -361,18 +363,21 @@ final class MessageListViewController: UITableViewController {
     /// offset, with the first hits scrolled out of sight above the search
     /// field.
     ///
-    /// A list at its top, or pulled down past it, is left where it is, with
-    /// a finger on it or not (B-103): under the finger, the rows would jump
-    /// as the newest page lands during a pull still held; let go, it springs
-    /// back to the top by itself. Set to the top as it sprang back, the
-    /// offset stopped the spring-back at the spinner's rest, and the spinner
-    /// put away there left the list 60 pt below its top, seen on the iPad on
-    /// 2026-10-22. At the top already, there is nothing to set.
+    /// A list pulled down past its top is left where it is while a finger
+    /// is on it or it springs back (`ListPlaces.setsTop`, B-103): under the
+    /// finger, the rows would jump as the newest page lands during a pull
+    /// still held; let go, it springs back to the top by itself. Set to the
+    /// top as it sprang back, the offset stopped the spring-back at the
+    /// spinner's rest, and the spinner put away there left the list 60 pt
+    /// below its top, seen on the iPad on 2026-10-22. One left at rest past
+    /// its top is set to the top, as from anywhere below it. At the top
+    /// already, there is nothing to set.
     @MainActor
     private func scrollToTop() {
         tableView.layoutIfNeeded()
-        guard !ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
-                                  topInset: Double(tableView.adjustedContentInset.top)) else {
+        guard ListPlaces.setsTop(offset: Double(tableView.contentOffset.y),
+                                 topInset: Double(tableView.adjustedContentInset.top),
+                                 moving: tableView.isTracking || tableView.isDecelerating) else {
             return
         }
         tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
@@ -1268,12 +1273,23 @@ final class MessageListViewController: UITableViewController {
         letters.isSearching || !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// At rest: the pull's spinner held for it goes (`PullEnd`, B-103).
+    /// At rest: a list left past its top closes up to it, and the pull's
+    /// spinner held for the rest goes (`PullEnd`, B-103).
     override func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        closeUpPastTop()
         pullSettled()
         showHeldAlert()
         landFreshPage()
         showNewsIfAtTop()
+    }
+
+    /// An animated scroll has ended, at rest: as at the end of a coasting
+    /// (B-103). The list's own is only `closeUpPastTop`'s; VoiceOver's
+    /// three-finger scroll down to the spinner may end here too, not yet
+    /// seen.
+    override func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        closeUpPastTop()
+        pullSettled()
     }
 
     /// The finger has let go: a page's alert held for it goes up now, as
@@ -1861,7 +1877,7 @@ final class MessageListViewController: UITableViewController {
                 return await self.reload(passing: false)
             },
             answered: { self.endPullAtRest() },
-            counts: { self.onRefreshRequested?() },
+            counts: { quietly in self.onRefreshRequested?(quietly) },
             shown: {
                 await self.pagePreviews?.value
                 await self.countsCame()
@@ -1921,25 +1937,72 @@ final class MessageListViewController: UITableViewController {
     /// spinner put away now under a finger on the list, which UIKit ends as
     /// the finger lets go, or with the list still; held while the list
     /// springs back or coasts with no finger on it, until it comes to rest
-    /// (`pullSettled`), and put away after `PullEnd.bound` if UIKit never
-    /// says so. Put away as it sprang back, the spinner left the list 60 pt
-    /// below its top, seen on the iPad on 2026-10-22 (B-103).
+    /// (`pullSettled`), and put away at the bound if UIKit never says so
+    /// (`putAwayAtBound`). Put away as it sprang back, the spinner left the
+    /// list 60 pt below its top, seen on the iPad on 2026-10-22 (B-103).
     @MainActor
     private func endPullAtRest() {
-        let moving = PullEnd.moving(decelerating: tableView.isDecelerating,
-                                    offset: Double(tableView.contentOffset.y),
-                                    topInset: Double(tableView.adjustedContentInset.top))
         switch pullEnd.answered(spinning: pull.isRefreshing, fingerDown: tableView.isTracking,
-                                moving: moving) {
+                                moving: listMoving) {
         case .now:
             pull.endRefreshing()
         case .held(let hold):
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(PullEnd.bound))
-                guard let self, self.pullEnd.due(hold) else { return }
+            putAwayAtBound(hold, round: 1)
+        }
+    }
+
+    /// A held end put away once `PullEnd.bound` has gone by, if UIKit has
+    /// not said meanwhile that the list is at rest: at once with a finger
+    /// on it or the list still, and with it still moving waited for one
+    /// more bound, and then put away whatever it does (`PullEnd.rounds`).
+    @MainActor
+    private func putAwayAtBound(_ hold: Int, round: Int) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(PullEnd.bound))
+            guard let self else { return }
+            switch self.pullEnd.due(hold, round: round, fingerDown: self.tableView.isTracking,
+                                    moving: self.listMoving) {
+            case .gone:
+                return
+            case .now:
                 self.pull.endRefreshing()
+            case .again:
+                self.putAwayAtBound(hold, round: round + 1)
             }
         }
+    }
+
+    /// Whether the list, with no finger on it, still moves: coasting or
+    /// springing back, or past its top, the spinner's room counted
+    /// (`PullEnd.moving`).
+    @MainActor
+    private var listMoving: Bool {
+        PullEnd.moving(decelerating: tableView.isDecelerating,
+                       offset: Double(tableView.contentOffset.y),
+                       topInset: Double(tableView.adjustedContentInset.top))
+    }
+
+    /// A list come to rest past its top, with no spinner turning and no
+    /// finger on it, taken up to its top, as the spring-back would have
+    /// taken it (`PullEnd.leftPastTop`, B-103). Seen on the iPad on
+    /// 2026-10-22: the spinner put away as the list sprang back left it
+    /// resting 60 pt below its top until it was touched, and while it rested
+    /// there `PaneMotion.isBouncing` had every switch made with no motion.
+    /// The answer's end waits for the rest now, but the spinner put away at
+    /// once can still end mid-spring-back: Edit, the search field, Home or
+    /// the list leaving the screen just then, or a bound gone by. At the end
+    /// of a coasting or spring-back, and of an animated scroll, before a
+    /// spinner held for the rest is put away, which UIKit takes to the top
+    /// itself.
+    @MainActor
+    private func closeUpPastTop() {
+        guard PullEnd.leftPastTop(spinning: pull.isRefreshing, fingerDown: tableView.isTracking,
+                                  offset: Double(tableView.contentOffset.y),
+                                  topInset: Double(tableView.adjustedContentInset.top)) else {
+            return
+        }
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
+                                   animated: true)
     }
 
     /// The list has come to rest, or a finger has taken it: a spinner held

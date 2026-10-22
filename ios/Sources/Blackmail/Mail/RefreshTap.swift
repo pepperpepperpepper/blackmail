@@ -15,7 +15,16 @@ import Foundation
 ///
 /// A page that could not be fetched sets no pass off, as before: there is
 /// no connection for one. The counts are asked for whether or not it came,
-/// as Refresh has always asked for them.
+/// as Refresh has always asked for them, but after a page that did not
+/// come, quietly (B-103): the page's own alert, or the line under the list,
+/// says what failed. Asked loudly, the sweep failed at once with no
+/// connection, and in three panes put up its own "Can't connect to mail
+/// server." from the Mailboxes while the pull's finger was still on the
+/// list, where the page's alert now waits for it to let go: the list would
+/// lose the end of its drag, as it did on the iPad on 2026-10-22, and stay
+/// pulled down with the spinner turning. UIKit had refused the sweep's
+/// alert over the page's, which had always come first; with a server that
+/// takes its time to fail, the sweep's came after his OK, a second alert.
 ///
 /// The Refresh button and the pull down past the top of the list are the
 /// same Refresh (B-103), one page of it out at a time (`Gate`, `start`).
@@ -30,18 +39,18 @@ enum RefreshTap {
     /// another list, before anything else: the pull's spinner is put away
     /// from there, at once or as the list comes to rest (`PullEnd`), and
     /// does not wait for the counts or a large letter in the Outbox.
-    /// `counts` asks for the folder counts; `shown` returns once the page's
-    /// previews and the counts have come; `pass` sets the Refresh's pass
-    /// off.
+    /// `counts` asks for the folder counts, told to ask quietly when the
+    /// page did not come; `shown` returns once the page's previews and the
+    /// counts have come; `pass` sets the Refresh's pass off.
     @MainActor
     static func run(page: @MainActor () async throws -> Bool,
                     answered: @MainActor () -> Void,
-                    counts: @MainActor () -> Void,
+                    counts: @MainActor (_ quietly: Bool) -> Void,
                     shown: @MainActor () async -> Void,
                     pass: @MainActor () -> Void) async {
         let came = (try? await page()) ?? false
         answered()
-        counts()
+        counts(!came)
         guard came else { return }
         await shown()
         pass()
@@ -94,7 +103,7 @@ enum RefreshTap {
     static func start(gate: Gate,
                       page: @escaping @MainActor () async throws -> Bool,
                       answered: @escaping @MainActor () -> Void,
-                      counts: @escaping @MainActor () -> Void,
+                      counts: @escaping @MainActor (_ quietly: Bool) -> Void,
                       shown: @escaping @MainActor () async -> Void,
                       pass: @escaping @MainActor () -> Void) -> Task<Void, Never>? {
         guard let run = gate.take() else { return nil }

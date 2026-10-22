@@ -334,6 +334,22 @@ struct ListPlaces {
         offset <= -topInset + 0.5
     }
 
+    /// Whether the list, sent to its top, has its offset set there (B-103).
+    /// `moving` is a finger on the list, or the list coasting or springing
+    /// back. At its top, within half a point, there is nothing to set. Past
+    /// it and moving, it is left where it is: under the finger the rows
+    /// would jump, and springing back it gets to the top by itself, where
+    /// the offset set as it sprang back stopped it at the spinner's rest,
+    /// seen on the iPad on 2026-10-22. Past it at rest, as a spinner put
+    /// away while the list sprang back left it, and anywhere below it, set,
+    /// as it always was: a band left above the first row goes then, at the
+    /// next page, mail put on at the top, or a return to the newest.
+    static func setsTop(offset: Double, topInset: Double, moving: Bool) -> Bool {
+        let top = -topInset
+        guard abs(offset - top) > 0.5 else { return false }
+        return offset > top || !moving
+    }
+
     /// The list fetched afresh after an edit of his own: a Delete or a Move
     /// from Edit mode, or a draft saved, sent or deleted in Drafts. He was
     /// working where he was, and the rows he could see stay there, `here`,

@@ -40,18 +40,55 @@ final class PullEndTests: XCTestCase {
         XCTAssertTrue(end.settled())
         XCTAssertNil(end.holding)
         XCTAssertFalse(end.settled(), "once")
-        XCTAssertFalse(end.due(1), "the bound after the rest puts nothing away")
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: false), .gone,
+                       "the bound after the rest puts nothing away")
     }
 
     /// One UIKit never says has come to rest goes when the bound has gone
-    /// by, and once: no way through leaves the spinner turning.
+    /// by with the list still, and once: no way through leaves the spinner
+    /// turning.
     func testAHeldEndGoesAtTheBoundWhenNoRestIsReported() {
         var end = PullEnd()
         XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true), .held(1))
-        XCTAssertTrue(end.due(1))
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: false), .now)
         XCTAssertNil(end.holding)
-        XCTAssertFalse(end.due(1), "once")
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: false), .gone, "once")
         XCTAssertFalse(end.settled(), "the rest after the bound puts nothing away")
+    }
+
+    /// At the bound, a list still moving with no finger on it is waited for
+    /// once more, as after a long flick that ends bouncing off the top: put
+    /// away then, it would end mid-spring-back, which left the band on the
+    /// iPad. Under a finger, or with the list still, it goes, as at the
+    /// answer. After the last round it goes whatever the list does, so the
+    /// spinner cannot turn for ever.
+    func testAtTheBoundAMovingListIsWaitedForOnceMore() {
+        for fingerDown in [false, true] {
+            for moving in [false, true] {
+                var end = PullEnd()
+                XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true),
+                               .held(1))
+                let waits = !fingerDown && moving
+                XCTAssertEqual(end.due(1, round: 1, fingerDown: fingerDown, moving: moving),
+                               waits ? .again : .now, "finger \(fingerDown), moving \(moving)")
+                XCTAssertEqual(end.holding, waits ? 1 : nil)
+            }
+        }
+
+        var end = PullEnd()
+        XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true), .held(1))
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: true), .again)
+        XCTAssertEqual(end.due(1, round: PullEnd.rounds, fingerDown: false, moving: true), .now,
+                       "the last round, still moving")
+        XCTAssertNil(end.holding)
+
+        // Waited for again, it still goes at the rest, and the bound after
+        // finds it gone.
+        var rested = PullEnd()
+        XCTAssertEqual(rested.answered(spinning: true, fingerDown: false, moving: true), .held(1))
+        XCTAssertEqual(rested.due(1, round: 1, fingerDown: false, moving: true), .again)
+        XCTAssertTrue(rested.settled())
+        XCTAssertEqual(rested.due(1, round: 2, fingerDown: false, moving: true), .gone)
     }
 
     /// Put away at once, as the list leaves the screen or the pull goes off
@@ -62,7 +99,7 @@ final class PullEndTests: XCTestCase {
         end.putAway()
         XCTAssertNil(end.holding)
         XCTAssertFalse(end.settled())
-        XCTAssertFalse(end.due(1))
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: true), .gone)
     }
 
     /// The bound of a hold since put away, or one a later answer has taken
@@ -72,14 +109,15 @@ final class PullEndTests: XCTestCase {
         var end = PullEnd()
         XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true), .held(1))
         XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true), .held(2))
-        XCTAssertFalse(end.due(1))
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: false), .gone)
+        XCTAssertEqual(end.due(1, round: 1, fingerDown: false, moving: true), .gone)
         XCTAssertEqual(end.holding, 2)
-        XCTAssertTrue(end.due(2))
+        XCTAssertEqual(end.due(2, round: 1, fingerDown: false, moving: false), .now)
 
         XCTAssertEqual(end.answered(spinning: true, fingerDown: false, moving: true), .held(3))
         XCTAssertEqual(end.answered(spinning: true, fingerDown: true, moving: true), .now)
         XCTAssertNil(end.holding)
-        XCTAssertFalse(end.due(3))
+        XCTAssertEqual(end.due(3, round: 1, fingerDown: false, moving: true), .gone)
         XCTAssertFalse(end.settled())
     }
 
@@ -112,6 +150,76 @@ final class PullEndTests: XCTestCase {
     /// spinner nobody reports the rest for goes soon after.
     func testTheBoundIsAFewTimesTheSpringBack() {
         XCTAssertEqual(PullEnd.bound, 2)
+        XCTAssertEqual(PullEnd.rounds, 2, "4 s at most, the spinner turning")
+    }
+
+    // MARK: - A band left above the first row
+
+    /// A list come to rest past its top, by more than half a point, with no
+    /// spinner turning and no finger on it, is the band the iPad showed:
+    /// 60 pt with the spinner put away. Not while the spinner turns, its
+    /// room counted in the top, nor under a finger, nor at the top or below
+    /// it. The numbers are the iPad's three panes: 74 pt of bars, 60 of
+    /// spinner.
+    func testABandLeftAboveTheFirstRowIsClosedUp() {
+        let bars = 74.0, spinner = 60.0
+        XCTAssertTrue(PullEnd.leftPastTop(spinning: false, fingerDown: false,
+                                          offset: -(bars + spinner), topInset: bars), "the band")
+        XCTAssertTrue(PullEnd.leftPastTop(spinning: false, fingerDown: false,
+                                          offset: -bars - 0.6, topInset: bars))
+        XCTAssertFalse(PullEnd.leftPastTop(spinning: false, fingerDown: false,
+                                           offset: -bars - 0.5, topInset: bars), "the top")
+        XCTAssertFalse(PullEnd.leftPastTop(spinning: false, fingerDown: false,
+                                           offset: -bars, topInset: bars))
+        XCTAssertFalse(PullEnd.leftPastTop(spinning: false, fingerDown: false,
+                                           offset: 400, topInset: bars), "far down")
+        // The spinner turning at its rest: its room is in the top.
+        XCTAssertFalse(PullEnd.leftPastTop(spinning: true, fingerDown: false,
+                                           offset: -(bars + spinner), topInset: bars + spinner))
+        // Every one of the four past the top: only with no spinner and no
+        // finger.
+        for spinning in [false, true] {
+            for fingerDown in [false, true] {
+                XCTAssertEqual(PullEnd.leftPastTop(spinning: spinning, fingerDown: fingerDown,
+                                                   offset: -(bars + spinner), topInset: bars),
+                               !spinning && !fingerDown,
+                               "spinning \(spinning), finger \(fingerDown)")
+            }
+        }
+    }
+
+    // MARK: - The top set
+
+    /// The list sent to its top has its offset set there only where that
+    /// moves nothing under him and stops nothing (`ListPlaces.setsTop`):
+    /// below the top, as always, moving or not; past it only at rest, the
+    /// band left by a spinner put away as the list sprang back; never at
+    /// the top, within half a point, where there is nothing to set; and
+    /// never past it while a finger holds it or it springs back, where the
+    /// offset set stopped the spring-back at the spinner's rest on the iPad.
+    func testTheTopIsSetOnlyWhereItStopsNothing() {
+        let bars = 74.0, spinner = 60.0
+        for moving in [false, true] {
+            XCTAssertTrue(ListPlaces.setsTop(offset: 400, topInset: bars, moving: moving),
+                          "far down, moving \(moving)")
+            XCTAssertTrue(ListPlaces.setsTop(offset: -bars + 0.6, topInset: bars, moving: moving))
+            XCTAssertFalse(ListPlaces.setsTop(offset: -bars, topInset: bars, moving: moving),
+                           "at the top, moving \(moving)")
+            XCTAssertFalse(ListPlaces.setsTop(offset: -bars + 0.5, topInset: bars, moving: moving))
+            XCTAssertFalse(ListPlaces.setsTop(offset: -bars - 0.5, topInset: bars, moving: moving))
+            // The spinner at its rest: at the top, its room counted.
+            XCTAssertFalse(ListPlaces.setsTop(offset: -(bars + spinner), topInset: bars + spinner,
+                                              moving: moving))
+        }
+        // Past the top: springing back to the spinner's rest, held under a
+        // finger, left alone; the band at rest, set.
+        XCTAssertFalse(ListPlaces.setsTop(offset: -(bars + 150), topInset: bars + spinner,
+                                          moving: true))
+        XCTAssertFalse(ListPlaces.setsTop(offset: -(bars + spinner), topInset: bars, moving: true))
+        XCTAssertTrue(ListPlaces.setsTop(offset: -(bars + spinner), topInset: bars, moving: false),
+                      "the band at rest")
+        XCTAssertTrue(ListPlaces.setsTop(offset: -bars - 0.6, topInset: bars, moving: false))
+        XCTAssertFalse(ListPlaces.setsTop(offset: -bars - 0.6, topInset: bars, moving: true))
     }
 
     // MARK: - The alert

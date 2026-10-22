@@ -254,7 +254,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       pinned as it was. Seen on the iPad the same day: a gap left above
       the list and, with no connection, a pull left down, both fixed and
       not yet seen there fixed. B-103, and its check under "Blocked on
-      the iPad coming back", steps 1, 2, 6, 7 and 8 to run again.*
+      the iPad coming back", steps 1, 2, 6, 7 and 8 to run again, and 11
+      by hand.*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -3822,7 +3823,10 @@ this host. Ordered by value, not by size.
       again,* with three quick pulls let go about 0.3 s after the touch
       and one slow pull held 1.5 s: the alert comes on only once the
       finger has lifted, the list springing back to its top under it, and
-      after OK no spinner turns and nothing is left pulled down.
+      after OK no spinner turns and nothing is left pulled down. In three
+      panes, one alert only: none from the Mailboxes under the finger,
+      and no second "Can't connect to mail server." after OK or at the
+      next touch.
       3. *One page at a time.* Pull, and tap Refresh while the spinner
       turns: one page FETCH in the connection log. Then, after the page
       has come, tap Refresh: a second page FETCH, as before.
@@ -3854,8 +3858,11 @@ this host. Ordered by value, not by size.
       the tap made at once after the lift and once while the spinner
       turns at its rest; Home or another app opened. Then, as the list
       springs back after a pull whose page has just answered, Edit and
-      Done, and the search field and Cancel: no spinner stays turning; a
-      gap left there until a touch is the risk B-103 records.
+      Done, and the search field and Cancel: no spinner stays turning,
+      and a band, if one is left as the spinner goes, closes up to the
+      top as the spring-back ends, with nothing touched; the next switch
+      of the panes moves them. A band left until a touch is the risk
+      B-103 records.
       8. *B-096.* Three panes, the Inbox at its top, pull and let go so
       that the spinner shows, and tap the view button as the list springs
       back: the switch is made, the bounce ends early as B-096 records,
@@ -3875,7 +3882,11 @@ this host. Ordered by value, not by size.
       as the list is there: the letter is on the list, once.
       11. *VoiceOver*, if it is turned on for the check: at the top of the
       Inbox, a three-finger scroll down: the refresh is announced, and the
-      connection log has one page FETCH. VoiceOver off after.
+      connection log has one page FETCH. Once the page has answered, the
+      spinner goes and no band is left above the search field; three
+      times, and once with Airplane Mode on, one alert. By hand: from
+      outside only one finger can be put on the screen. VoiceOver off
+      after.
       12. *Thirty.* Thirty pulls in a row, each let go as the last one's
       spinner goes: one page FETCH each, never two out at once in the log,
       and Refresh still works after.
@@ -3898,7 +3909,7 @@ this host. Ordered by value, not by size.
       not supported: the pull at the top of a day's list was never made.
       All four failures made again on a fresh launch. Both faults fixed
       since, as B-103 in KNOWN_ISSUES says; 1, 2, 6, 7 and 8 to run again
-      as above.*
+      as above, and 11 by hand.*
 
 ## Blocked on the owner
 

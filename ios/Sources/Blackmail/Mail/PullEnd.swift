@@ -14,11 +14,16 @@ import Foundation
 /// So the end is put away at once under a finger on the list or with the
 /// list still, and otherwise held until the list has come to rest or a
 /// finger takes it. A held end that UIKit never reports the rest for is
-/// put away all the same after `bound`, so no way through can leave the
-/// spinner turning. Put away at once, and nothing left held, as the list
-/// leaves the screen, as the app goes to the background, at another folder,
-/// and wherever the pull is taken off the list: Edit mode, a search, a
-/// day's list and the panes' motion (`MessageListViewController`).
+/// put away all the same after `bound`, or, with the list still moving and
+/// no finger on it then, after one more (`rounds`), so no way through can
+/// leave the spinner turning. Put away at once, and nothing left held, as
+/// the list leaves the screen, as the app goes to the background, at
+/// another folder, and wherever the pull is taken off the list: Edit mode,
+/// a search, a day's list and the panes' motion (`MessageListViewController`).
+///
+/// Put away at once, the spinner can still end while the list springs
+/// back, and leave the band: a list left at rest past its top, with no
+/// spinner and no finger on it, is taken up to its top (`leftPastTop`).
 ///
 /// Out of `MessageListViewController` for the reason `RefreshTap` is: the
 /// controller is UIKit and does not exist on the machine the suite runs on.
@@ -29,12 +34,29 @@ struct PullEnd {
     /// iPad.
     static var bound: TimeInterval { 2 }
 
+    /// How many bounds a held end waits at most: one, and one more while
+    /// the list still moves with no finger on it, as after a long flick
+    /// that ends bouncing off the top, or a rest UIKit reports late. Put
+    /// away after that whatever the list does.
+    static var rounds: Int { 2 }
+
     /// Whether a list with no finger on it is still moving: coasting or
     /// springing back, or past its top, where it is about to spring back.
     /// `topInset` is the room the list keeps above its first row, the
     /// spinner's included while it turns; half a point of it is the top.
     static func moving(decelerating: Bool, offset: Double, topInset: Double) -> Bool {
         decelerating || offset < -topInset - 0.5
+    }
+
+    /// Whether a list that has come to rest, at the end of a coasting, a
+    /// spring-back or an animated scroll, is left past its top with no
+    /// spinner turning and no finger on it: the band the iPad showed, a
+    /// spinner put away as the list sprang back, which UIKit leaves until a
+    /// touch. Taken up to its top then. Not while the spinner turns, which
+    /// keeps its room above the first row, counted in `topInset`.
+    static func leftPastTop(spinning: Bool, fingerDown: Bool,
+                            offset: Double, topInset: Double) -> Bool {
+        !spinning && !fingerDown && offset < -topInset - 0.5
     }
 
     /// What to do with the spinner as the page answers.
@@ -44,6 +66,16 @@ struct PullEnd {
         /// Put it away once the list is at rest, or once `bound` has gone
         /// by: the number is what `due` is handed then.
         case held(Int)
+    }
+
+    /// What to do as a held end's bound goes by.
+    enum Due: Equatable {
+        /// Nothing: put away since, or a later answer has taken its place.
+        case gone
+        /// Put it away now.
+        case now
+        /// Wait one more bound: the list still moves with no finger on it.
+        case again
     }
 
     /// The end waiting for the list to come to rest, if one is.
@@ -72,13 +104,16 @@ struct PullEnd {
         return true
     }
 
-    /// The bound for the hold `hold` has gone by: whether it is still held.
-    /// Once; never for a hold put away since, or one a later answer took
-    /// the place of.
-    mutating func due(_ hold: Int) -> Bool {
-        guard holding == hold else { return false }
+    /// The bound for the hold `hold` has gone by, the `round`th time, 1 the
+    /// first. Put away now, once, with a finger on the list or the list
+    /// still, as at the answer, or at the last round whatever it does;
+    /// otherwise waited for again. Gone for a hold put away since, or one a
+    /// later answer took the place of.
+    mutating func due(_ hold: Int, round: Int, fingerDown: Bool, moving: Bool) -> Due {
+        guard holding == hold else { return .gone }
+        if !fingerDown, moving, round < Self.rounds { return .again }
         holding = nil
-        return true
+        return .now
     }
 
     /// The spinner put away at once: nothing is held.

@@ -46,12 +46,12 @@ final class QuietSaveTests: XCTestCase {
     /// The list calls `onRefreshRequested` in one place: his Refresh.
     func testOnlyHisRefreshCallsOnRefreshRequested() throws {
         let list = try source("UI/MessageListViewController.swift")
-        XCTAssertEqual(count("onRefreshRequested?()", in: list), 1)
+        XCTAssertEqual(count("onRefreshRequested?(", in: list), 1)
         let start = try XCTUnwrap(list.range(of: "@objc private func refreshTapped() {"))
         let end = try XCTUnwrap(list.range(of: "@objc private func editTapped()",
                                            range: start.upperBound..<list.endIndex))
         XCTAssertTrue(list[start.upperBound..<end.lowerBound]
-            .contains("counts: { self.onRefreshRequested?() },"))
+            .contains("counts: { quietly in self.onRefreshRequested?(quietly) },"))
     }
 
     /// The list's other two ways to the counts are each called in one
@@ -73,8 +73,10 @@ final class QuietSaveTests: XCTestCase {
             + "self.onMessagesChanged?() return }"))
     }
 
-    /// His Refresh still says when there is no connection: its page and
-    /// its counts are not quiet, and each puts up the alert when it fails.
+    /// His Refresh still says when there is no connection: its page is not
+    /// quiet, and puts up the alert when it fails. Its counts are not quiet
+    /// after a page that came; after one that did not, the page's alert has
+    /// said what failed, and they are asked for quietly (B-103).
     func testHisRefreshStillSaysWhenThereIsNoConnection() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains("return await self.reload(passing: false) },"))
@@ -94,7 +96,10 @@ final class QuietSaveTests: XCTestCase {
 
         let root = try source("UI/RootViewController.swift")
         XCTAssertTrue(root.contains(
-            "list.onRefreshRequested = { [weak self] in self?.refreshMailboxes() }"))
+            "list.onRefreshRequested = { [weak self] quietly in "
+            + "self?.refreshMailboxes(quietly: quietly) }"))
+        XCTAssertTrue(try source("Mail/RefreshTap.swift").contains(
+            "let came = (try? await page()) ?? false answered() counts(!came)"))
         XCTAssertTrue(root.contains(
             "private func refreshMailboxes(quietly: Bool = false) { "
             + "mailboxList.select(mailboxID: list.mailboxID) "
