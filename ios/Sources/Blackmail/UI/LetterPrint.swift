@@ -197,7 +197,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
                                      url: action.request.url) {
         case .allow:
             decisionHandler(.allow)
-        case .cancel, .follow:
+        case .cancel, .follow, .openFile:
             decisionHandler(.cancel)
         }
     }

@@ -174,7 +174,7 @@ final class PrintWiringTests: XCTestCase {
         let job = try self.job
         XCTAssertNotNil(place(of: "switch PaneNavigation.decide(PaneNavigation.Kind(action.navigationType), "
                                   + "mainFrame: action.targetFrame?.isMainFrame, url: action.request.url) { "
-                                  + "case .allow: decisionHandler(.allow) case .cancel, .follow: "
+                                  + "case .allow: decisionHandler(.allow) case .cancel, .follow, .openFile: "
                                   + "decisionHandler(.cancel) }", in: job))
         XCTAssertEqual(count("decisionHandler(.allow)", in: job), 1)
         XCTAssertFalse(job.contains(".open("))
