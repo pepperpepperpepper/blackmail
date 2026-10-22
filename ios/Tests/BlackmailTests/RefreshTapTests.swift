@@ -151,7 +151,8 @@ final class RefreshTapTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains(
             "@objc private func refreshTapped() { Task { @MainActor in await RefreshTap.run( "
-            + "page: { await self.reload(passing: false) }, "
+            + "page: { await self.repository.forgetLettersOfHis() "
+            + "return await self.reload(passing: false) }, "
             + "counts: { self.onRefreshRequested?() }, "
             + "shown: { await self.pagePreviews?.value await self.countsCame() }, "
             + "pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) }) } }"))

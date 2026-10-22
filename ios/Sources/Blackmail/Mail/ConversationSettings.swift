@@ -33,4 +33,22 @@ enum ConversationSettings {
             UserDefaults.standard.set(newValue, forKey: key)
         }
     }
+
+    /// Mail's Complete Threads (B-104), its switch under Organize by Thread.
+    /// Not private, for the reason `key` is not.
+    static let completeThreadsKey = "blackmail.completeThreads"
+
+    /// Whether an Inbox conversation brings in his own letters of it from
+    /// Sent Mail (`CompleteThreads`). On unless he has said otherwise, as
+    /// Mail's is from the factory; read with `object(forKey:)`, as
+    /// `organizeByThread` is and for the same reason. The next conversation
+    /// opened goes by it; one on screen stays as it was drawn.
+    static var completeThreads: Bool {
+        get {
+            UserDefaults.standard.object(forKey: completeThreadsKey) as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: completeThreadsKey)
+        }
+    }
 }

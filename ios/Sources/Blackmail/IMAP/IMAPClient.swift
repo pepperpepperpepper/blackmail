@@ -246,6 +246,13 @@ actor IMAPClient {
 
     var isConnected: Bool { connected }
 
+    /// Whether the connection up now is to a server that has Gmail's
+    /// extension, X-GM-EXT-1, after LOGIN. False with no connection, or with
+    /// capabilities that could not be read: nothing is concluded from those.
+    /// For work that only Gmail can answer and that nobody waits for, which
+    /// asks nothing of a server without it (`IMAPMailRepository.lettersOfHis`).
+    var offersGmailExtension: Bool { connected && capabilities.contains("X-GM-EXT-1") }
+
     /// How many commands are waiting behind the one on the wire. How a test
     /// knows a command has joined the line without sleeping on it.
     var waitingForExchange: Int { exchangeWaiters.count }
@@ -852,7 +859,16 @@ actor IMAPClient {
     /// a Current Mailbox search, usually, and the Trash that an "All
     /// Mailboxes" search starts in when the Trash is the folder he has open;
     /// every other mailbox is SELECTed, which asks.
-    func search(_ criteria: String, across targets: [IMAPSearchTarget]) async throws -> [IMAPMailboxSearch] {
+    ///
+    /// `freshness` is how recently that question must have gone for a
+    /// mailbox already open: a keystroke's, by default. His letters of a
+    /// conversation looked for in Sent Mail ask as a listing does
+    /// (`Freshness.asked`): the answer is remembered for ten minutes, and a
+    /// reply he sent a few seconds ago, filed while Sent Mail was open,
+    /// would be missing from the stack for all of them
+    /// (`IMAPMailRepository.lettersOfHis`, B-104).
+    func search(_ criteria: String, across targets: [IMAPSearchTarget],
+                catchingUp freshness: Freshness = .typing) async throws -> [IMAPMailboxSearch] {
         try await beginExchange(.background)
         var holding = true
         defer { if holding { endExchange() } }
@@ -875,7 +891,7 @@ actor IMAPClient {
                 do {
                     let (state, selected) = try await select(target.mailbox)
                     try Task.checkCancellation()
-                    try await catchUp(.typing, selected: selected)
+                    try await catchUp(freshness, selected: selected)
                     try Task.checkCancellation()
                     if let uids = try await performSearch(criteria) {
                         hits = IMAPMailboxUIDs(validity: state.uidValidity, uids: uids)

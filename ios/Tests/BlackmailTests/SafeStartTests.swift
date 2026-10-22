@@ -1076,6 +1076,7 @@ final class SafeStartTests: XCTestCase {
     /// from their source.
     func testTheViewSettingsAreTheKeysTheScreensUse() async throws {
         XCTAssertEqual(SafeStart.viewSettings, [PaneArrangement.key, ConversationSettings.key,
+                                                ConversationSettings.completeThreadsKey,
                                                 "blackmail.lastJumpScope", "blackmail.lastJumpDate",
                                                 "blackmail.layoutAudit"])
         let jump = try source("Blackmail/UI/JumpToDateViewController.swift")
@@ -1087,6 +1088,7 @@ final class SafeStartTests: XCTestCase {
         XCTAssertTrue(audit.contains("static let enabledKey = \"blackmail.layoutAudit\""))
         XCTAssertEqual(PaneArrangement.key, "blackmail.panes")
         XCTAssertEqual(ConversationSettings.key, "blackmail.organizeByThread")
+        XCTAssertEqual(ConversationSettings.completeThreadsKey, "blackmail.completeThreads")
 
         // And over the defaults the screens read.
         let app = try source("Blackmail/Mail/SafeStart.swift")

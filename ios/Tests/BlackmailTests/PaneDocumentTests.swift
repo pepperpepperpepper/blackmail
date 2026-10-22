@@ -48,9 +48,9 @@ final class PaneDocumentTests: XCTestCase {
         XCTAssertNil(document.fill("7/3", with: body), "the document is still loading")
         let later = ConversationDocument.Entry.Rendered(html: "<p>Dear Carlo,</p>", isHTML: true)
         XCTAssertNil(document.fill("7/2", with: later))
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)),
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)).fills,
                        [filling("7/3", body), filling("7/2", later)], "in the order they came")
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)), [], "once")
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)), PaneDocument.Finished(), "once")
         XCTAssertEqual(document.fill("7/3", with: body), filling("7/3", body), "loaded: at once")
     }
 
@@ -65,11 +65,11 @@ final class PaneDocumentTests: XCTestCase {
         document.loaded(.conversation([entry("7/3", open: true)]), navigation: ObjectIdentifier(first))
         XCTAssertNil(document.fill("7/3", with: body))
         document.loaded(.conversation([entry("7/9", open: true)]), navigation: ObjectIdentifier(second))
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(first)), [])
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(first)), PaneDocument.Finished())
         // The first one's finishing did not finish the second: a body for it
         // still waits, and goes in when the second has loaded.
         XCTAssertNil(document.fill("7/9", with: body), "the second document is still loading")
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(second)), [filling("7/9", body)])
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(second)).fills, [filling("7/9", body)])
 
         XCTAssertNil(document.fill("7/3", with: body), "not a letter of this stack")
         document.loaded(.notice([PaneNotice.loading]), navigation: ObjectIdentifier(first))
@@ -155,7 +155,7 @@ final class PaneDocumentTests: XCTestCase {
         let navigation = Navigation()
         document.loaded(redraw.content, navigation: ObjectIdentifier(navigation))
         for (id, body) in redraw.bodies { XCTAssertNil(document.fill(id, with: body)) }
-        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)),
+        XCTAssertEqual(document.didFinish(ObjectIdentifier(navigation)).fills,
                        [filling("7/3", broken), filling("7/2", failed)])
         XCTAssertEqual(entries(document.content)?.map(\.body), [broken, failed, nil])
         XCTAssertNil(document.redraw(), "drawn again once")

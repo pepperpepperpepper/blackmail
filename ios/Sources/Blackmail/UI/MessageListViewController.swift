@@ -17,8 +17,10 @@ final class MessageListViewController: UITableViewController {
 
     var onSelectMessage: ((MessageSummary) -> Void)?
     /// A conversation of more than one letter was chosen. The reading pane
-    /// shows the whole stack; see B-022.
-    var onSelectThread: ((MessageThread) -> Void)?
+    /// shows the whole stack; see B-022. With its Gmail thread number when
+    /// his own letters of it are to be brought in from Sent Mail, nil
+    /// otherwise (`CompleteThreads`, B-104).
+    var onSelectThread: ((MessageThread, UInt64?) -> Void)?
     /// The rows have been drawn again from the letters: a letter come or
     /// gone, a page, a read mark. The reading pane puts letters that came
     /// into its conversation at the bottom of its stack (B-074).
@@ -1779,7 +1781,12 @@ final class MessageListViewController: UITableViewController {
     @objc private func refreshTapped() {
         Task { @MainActor in
             await RefreshTap.run(
-                page: { await self.reload(passing: false) },
+                page: {
+                    // His letters of each conversation looked for afresh in
+                    // Sent Mail at the next one opened (B-104).
+                    await self.repository.forgetLettersOfHis()
+                    return await self.reload(passing: false)
+                },
                 counts: { self.onRefreshRequested?() },
                 shown: {
                     await self.pagePreviews?.value
@@ -2457,7 +2464,12 @@ final class MessageListViewController: UITableViewController {
             return
         }
 
-        onSelectThread?(thread)
+        // His own letters of it from Sent Mail, in an Inbox conversation
+        // listed grouped, with the switch on (B-104). Never in the list:
+        // only the pane's stack has them.
+        onSelectThread?(thread, CompleteThreads.thread(
+            toComplete: thread, listedIn: mailbox.role, searching: letters.isSearching,
+            switchedOn: ConversationSettings.completeThreads))
         markReadIfNeeded(ConversationDocument.readAtTheTap(thread))
     }
 

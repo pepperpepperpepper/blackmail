@@ -860,8 +860,8 @@ final class RootViewController: UIViewController {
         list.onSelectMessage = { [weak self] summary in
             self?.detail.show(summary: summary)
         }
-        list.onSelectThread = { [weak self] thread in
-            self?.detail.show(thread: thread)
+        list.onSelectThread = { [weak self] thread, completing in
+            self?.detail.show(thread: thread, completing: completing)
         }
         // Letters that came into the conversation in the reading pane go
         // in at the bottom of its stack (B-074).
