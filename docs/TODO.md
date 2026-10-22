@@ -232,7 +232,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] Replied and forwarded arrows on rows.
 - [x] Search: several words may be searched as one phrase (not yet checked
       against Gmail); no suggestions or recent searches. *Done 2026-10-22,
-      not yet seen on the iPad: checked against Gmail first (several words
+      seen on the iPad the same day, two faults found there fixed since,
+      not yet seen there fixed: checked against Gmail first (several words
       were already found anywhere, through BODY alone); now each word is
       asked for in From, To, Cc, Subject or the body, as Mail asks, a
       quoted phrase as one, curly quotes too; Mail's three recent searches
@@ -3855,6 +3856,35 @@ this host. Ordered by value, not by size.
       tap in the field: none. The date put back: they show again, as a
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
+      *Seen on the test iPad 2026-10-22, a build of the integration
+      branch with this one in it (1b5d096): 1, 3, 4, 5, 7, 8, 9d, 10, 11
+      and 12 passed, and 2 but for its word with an accent; 6, 9b and 9c
+      could not be run. Two faults, fixed since (B-105): Müller read
+      "Could not search. Check the connection." in both scopes, Gmail
+      refusing 8-bit text in a quoted string; and the keyboard's delete
+      back to an empty field put the block over the first rows, and Cancel
+      left the Inbox 164 points down. To run again, on a build from the
+      `feat-search` worktree, Smart Punctuation on:*
+      - *2, the accented words, in All Mailboxes and in Current Mailbox:
+        Müller, the ü from the u key's accent popover; "garden müller";
+        don’t, the keyboard's apostrophe, with a "B-105" letter whose
+        subject says "don’t"; and a paragraph with “ ” and ’ in it, typed
+        in a "B-105" letter on the iPad, copied and pasted into the field.
+        Hits, never "Could not search. Check the connection." The
+        connection log has one UID SEARCH line for each mailbox, answered
+        OK, each such word in it as `{7+} Müller`, its size and the word,
+        and each ASCII word in its quotes as before.*
+      - *9a, the Inbox at its top, three recent searches kept, in three
+        panes and in two: Search, q, its hit, then each way of emptying
+        the field in turn: the keyboard's delete; Select All and Cut; the
+        undo on the keyboard's shortcut bar; a recent search tapped, the
+        field tapped and its words deleted; the clear button. Each time
+        the block comes back with the first row wholly below it, and stays
+        so; Cancel leaves the Inbox at its top, and after five rounds
+        still at its top. The same from part-way down the Inbox, scrolled
+        by hand before Search: the rows that were in sight stay in sight
+        below the block, and Cancel leaves the Inbox where it was. With
+        VoiceOver on, the delete key once, the same.*
 
 ## Blocked on the owner
 

@@ -31,7 +31,8 @@ import Foundation
 /// been read, or two reads waiting at once, means the exchange gate in
 /// `IMAPClient` was not held. Either is recorded in `violations`, and the
 /// second read fails at once rather than waiting for bytes that the first
-/// will take.
+/// will take. So is a synchronising literal's bytes written with its `{n}`,
+/// before the "+" the client has to wait for.
 ///
 /// Gmail's rules that the repository leans on are kept:
 ///
@@ -44,6 +45,9 @@ import Foundation
 /// - Trash and Spam are exclusive: moving a letter into either takes it out
 ///   of everything else. Moving out of All Mail keeps it in All Mail.
 /// - A UID command with no mailbox selected on that connection is BAD.
+/// - A command with 8-bit text anywhere but in a literal is BAD: Gmail's
+///   answer to `BODY "Müller"`, with CHARSET UTF-8 or without (B-105).
+///   LITERAL- is advertised, as Gmail advertises it (`receive`).
 /// - A connection's SEARCH and FETCH answer from what it has been told of
 ///   the mailbox it has selected. Mail that `arrive`s is not in them until
 ///   an EXISTS has announced it, on a NOOP or riding on a UID FETCH, and a
@@ -533,6 +537,16 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusesCharset = newValue } }
     }
 
+    /// A synchronising literal answered BAD at its announcement, in place
+    /// of the "+" that would let it be sent, as RFC 3501 lets a server
+    /// refuse one: the command is over, and the client is not to send the
+    /// literal or the rest of the command. Whatever it sends after is read
+    /// as a command of its own.
+    var refusesLiterals: Bool {
+        get { locked { $0.refusesLiterals } }
+        set { locked { $0.refusesLiterals = newValue } }
+    }
+
     /// Verbs whose replies come in two chunks: the untagged lines, and then
     /// the tagged line as a reply of its own, named `completion(of:)` for
     /// `holdReplies(to:)`, so a test can hold the answer's end apart from
@@ -658,6 +672,15 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     var withheldCapabilities: Set<String> {
         get { locked { $0.withheldCapabilities } }
         set { locked { $0.withheldCapabilities = newValue } }
+    }
+
+    /// Capabilities put at the end of the post-login list, for a server
+    /// that has them where Gmail has not: `["LITERAL+"]`, with `LITERAL-`
+    /// withheld, is one that takes `{n+}` of any size. Only LITERAL+ is
+    /// acted on.
+    var addedCapabilities: [String] {
+        get { locked { $0.addedCapabilities } }
+        set { locked { $0.addedCapabilities = newValue } }
     }
 
     // MARK: - Inspection
@@ -1083,8 +1106,9 @@ private extension ScriptedIMAPServer {
         var unexpunged: [UInt32: (key: Int, stored: Stored)] = [:]
         /// Bytes written but not yet a whole command.
         var inbound = Data()
-        /// An APPEND waiting for the literal it announced.
-        var literal: (command: String, count: Int)?
+        /// A command whose literals are coming in: an APPEND's letter, or a
+        /// SEARCH's words (`Incoming`).
+        var incoming: Incoming?
         var reset: MailTransportError?
         /// Its link has no path (`hasNoPath`, `losePathOfOpenLinks`).
         var noPath = false
@@ -1115,6 +1139,7 @@ private extension ScriptedIMAPServer {
         var ignoresSearchReturn = false
         var esearchItems: (@Sendable ([UInt32]) -> String)?
         var refusesCharset = false
+        var refusesLiterals = false
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
         var autoExpunge = false
@@ -1130,6 +1155,7 @@ private extension ScriptedIMAPServer {
         var handshakeStalls = false
         var handshakesHeld = false
         var withheldCapabilities: Set<String> = []
+        var addedCapabilities: [String] = []
         var hasNoPath = false
         var held: Set<String> = []
         var changes: [Server.Change] = []
@@ -1163,10 +1189,11 @@ private extension ScriptedIMAPServer.State {
         return links
     }
 
-    /// Gmail's post-login list, less `withheldCapabilities`.
+    /// Gmail's post-login list, less `withheldCapabilities`, and then
+    /// `addedCapabilities`.
     var advertisedAfterLogin: String {
-        Server.postLoginCapabilities.split(separator: " ")
-            .filter { !withheldCapabilities.contains(String($0)) }
+        (Server.postLoginCapabilities.split(separator: " ").map(String.init)
+            .filter { !withheldCapabilities.contains($0) } + addedCapabilities)
             .joined(separator: " ")
     }
 
@@ -1281,9 +1308,16 @@ private extension ScriptedIMAPServer.State {
 private extension ScriptedIMAPServer.State {
 
     /// Assembles whole commands out of whatever the client wrote, answering
-    /// each as it completes. A line ending in `{n}` is an APPEND announcing a
-    /// synchronising literal: the server says "+" and waits for n bytes and
-    /// the rest of the line before it has a command at all.
+    /// each as it completes. A line ending in `{n}` announces a synchronising
+    /// literal, an APPEND's letter or a SEARCH's word: the server says "+"
+    /// and waits for n bytes and then the rest of the command, which may
+    /// announce another. One ending in `{n+}` is a non-synchronising literal
+    /// (RFC 7888), taken with no "+" where the server advertises LITERAL+,
+    /// or LITERAL-, Gmail's, up to 4,096 bytes; one over that is read and
+    /// the command answered BAD. A server with neither takes `{n+}` for
+    /// text, and the line for a whole command, which it refuses, and reads
+    /// the bytes after it as commands of their own: the stream out of step,
+    /// as it would be on such a server.
     mutating func receive(_ data: Data, on id: Int) -> [Server.Reply] {
         guard let opened = sessions[id] else { return [] }
         if opened.reset != nil || opened.noPath {
@@ -1297,51 +1331,97 @@ private extension ScriptedIMAPServer.State {
         let crlf = Data("\r\n".utf8)
         var replies: [Server.Reply] = []
         while var session = sessions[id] {
-            if let pending = session.literal {
-                guard session.inbound.count >= pending.count else { break }
-                let bytes = Data(session.inbound.prefix(pending.count))
-                let rest = Data(session.inbound.dropFirst(pending.count))
-                guard let end = rest.range(of: crlf) else { break }
-                let tail = String(decoding: rest[..<end.lowerBound], as: UTF8.self)
-                session.inbound = Data(rest[end.upperBound...])
-                session.literal = nil
+            if var incoming = session.incoming, let count = incoming.awaiting {
+                guard session.inbound.count >= count else { break }
+                incoming.literals.append(Data(session.inbound.prefix(count)))
+                incoming.awaiting = nil
+                session.inbound = Data(session.inbound.dropFirst(count))
+                session.incoming = incoming
                 sessions[id] = session
-                replies += execute(pending.command + tail, literal: bytes, on: id)
                 continue
             }
             guard let end = session.inbound.range(of: crlf) else { break }
             let line = String(decoding: session.inbound[..<end.lowerBound], as: UTF8.self)
             session.inbound = Data(session.inbound[end.upperBound...])
-            if let count = Server.trailingLiteralLength(line) {
-                session.literal = (line, count)
+            var incoming = session.incoming ?? Server.Incoming()
+            session.incoming = nil
+            let advertised = Set((session.authenticated ? advertisedAfterLogin
+                                                        : Server.preLoginCapabilities)
+                .split(separator: " ").map(String.init))
+            if let announced = Server.trailingLiteral(line),
+               announced.synchronising || advertised.contains("LITERAL+")
+                || advertised.contains("LITERAL-") {
+                incoming.text += String(line[..<announced.at])
+                    + Server.literalMark(incoming.announced.count)
+                incoming.announced.append(String(line[announced.at...]))
+                incoming.awaiting = announced.count
+                // RFC 7888's limit, written here and not taken from the
+                // client, so a client that had it wrong would be refused.
+                if !announced.synchronising, !advertised.contains("LITERAL+"),
+                   announced.count > 4_096 {
+                    incoming.refused = true
+                }
+                // Bytes already here after `{n}` were written with it, before
+                // the "+" a client has to wait for (RFC 3501 §7.5).
+                if announced.synchronising, !session.inbound.isEmpty {
+                    violations.append("c\(id): a literal was sent before its \"+\"")
+                }
+                if announced.synchronising, refusesLiterals {
+                    incoming.awaiting = nil
+                    incoming.refused = true
+                    sessions[id] = session
+                    replies += execute(incoming, on: id)
+                    continue
+                }
+                session.incoming = incoming
                 sessions[id] = session
                 // Not held with the command's own reply: `holdReplies(to:
                 // "APPEND")` keeps back the tagged answer to a letter the
                 // server has taken, not the "+" that lets it be sent.
-                if !isSilent {
+                if announced.synchronising, !isSilent {
+                    let verb = Server.verb(of: Server.untagged(incoming.text))
                     replies.append(Server.Reply(bytes: Data("+ go ahead\r\n".utf8), delay: .zero,
-                                                verb: "+ " + Server.verb(of: Server.untagged(line))))
+                                                verb: "+ " + verb))
                 }
                 continue
             }
+            incoming.text += line
             sessions[id] = session
-            replies += execute(line, literal: nil, on: id)
+            replies += execute(incoming, on: id)
         }
         return replies
     }
 
-    mutating func execute(_ line: String, literal: Data?, on id: Int) -> [Server.Reply] {
+    /// `incoming.text`, the whole command with its tag, and its literals.
+    /// The log has the command as it came: each literal announced, a line
+    /// break and its text, but for an APPEND's letter, which is in the
+    /// mailbox and not in the log. Answered BAD, as Gmail answers it, for
+    /// 8-bit text anywhere but in a literal, and for a literal over
+    /// LITERAL-'s limit.
+    mutating func execute(_ incoming: Server.Incoming, on id: Int) -> [Server.Reply] {
+        let line = incoming.text
         let space = line.firstIndex(of: " ") ?? line.endIndex
         let tag = String(line[..<space])
         let command = Server.untagged(line)
-        var entry = Server.LogEntry(connection: id, selected: sessions[id]?.selected, command: command)
+        let shown = Server.shown(command, incoming,
+                                 withLiterals: Server.verb(of: command) != "APPEND")
+        var entry = Server.LogEntry(connection: id, selected: sessions[id]?.selected, command: shown)
         guard !isSilent else {
             log.append(entry)
             return []
         }
 
         var response = Server.Response(tag: tag)
-        dispatch(Server.tokens(command), literal: literal, on: id, into: &response)
+        if incoming.refused || command.unicodeScalars.contains(where: { $0.value > 127 }) {
+            // Gmail's answer to `BODY "Müller"`, with CHARSET UTF-8 or
+            // without, and to `BODY "O’Brien"` (measured 2026-10-22). RFC
+            // 3501 keeps an atom to 7-bit text too; Gmail's answer to one
+            // was not measured.
+            response.bad("Could not parse command")
+        } else {
+            dispatch(Server.tokens(command, literals: incoming.literals),
+                     literal: incoming.literals.last, on: id, into: &response)
+        }
         entry.status = response.status
         log.append(entry)
         let bytes = response.wire.data
@@ -2170,11 +2250,55 @@ private extension ScriptedIMAPServer {
         return String(line[line.index(after: space)...])
     }
 
-    static func trailingLiteralLength(_ line: String) -> Int? {
+    /// The literal a line from the client announces at its end, `{n}` or
+    /// `{n+}`: its size, whether the client waits for "+", and where the
+    /// announcement starts.
+    static func trailingLiteral(_ line: String)
+        -> (count: Int, synchronising: Bool, at: String.Index)? {
         guard line.hasSuffix("}"), let open = line.lastIndex(of: "{") else { return nil }
         var digits = line[line.index(after: open)..<line.index(before: line.endIndex)]
-        if digits.hasSuffix("+") { digits = digits.dropLast() }
-        return Int(digits)
+        let synchronising = !digits.hasSuffix("+")
+        if !synchronising { digits = digits.dropLast() }
+        guard !digits.isEmpty, digits.allSatisfy({ $0.isASCII && $0.isNumber }),
+              let count = Int(digits) else { return nil }
+        return (count, synchronising, open)
+    }
+
+    /// Where literal `index` stood in a command's text, for `tokens`.
+    static func literalMark(_ index: Int) -> String { "\u{0}\(index)\u{0}" }
+
+    /// `command` as the log has it: each literal's mark as its announcement,
+    /// and with `withLiterals`, a line break and its text after it, as the
+    /// client wrote them.
+    static func shown(_ command: String, _ incoming: Incoming, withLiterals: Bool) -> String {
+        var out = command
+        for (index, announced) in incoming.announced.enumerated() {
+            var literal = announced
+            if withLiterals, index < incoming.literals.count {
+                literal += "\r\n" + String(decoding: incoming.literals[index], as: UTF8.self)
+            }
+            out = out.replacingOccurrences(of: literalMark(index), with: literal)
+        }
+        return out
+    }
+}
+
+private extension ScriptedIMAPServer {
+
+    /// A command still coming in, with the literals in it.
+    struct Incoming {
+        /// The command so far, its tag first, with `literalMark(i)` where
+        /// literal i stands.
+        var text = ""
+        /// Each literal as it was announced, `{7+}` or `{5000}`.
+        var announced: [String] = []
+        /// Each literal's bytes, once they are all in.
+        var literals: [Data] = []
+        /// How many bytes of the literal being read are to come.
+        var awaiting: Int?
+        /// A `{n+}` over LITERAL-'s limit was among them, or a `{n}` was
+        /// refused at its announcement (`refusesLiterals`).
+        var refused = false
     }
 }
 
@@ -2188,11 +2312,14 @@ private extension ScriptedIMAPServer {
     indirect enum Token: Equatable {
         case atom(String)
         case string(String)
+        /// A literal the client sent, its bytes as they came.
+        case literal(Data)
         case list([Token])
 
         var text: String? {
             switch self {
             case .atom(let value), .string(let value): return value
+            case .literal(let bytes): return String(decoding: bytes, as: UTF8.self)
             case .list: return nil
             }
         }
@@ -2203,7 +2330,8 @@ private extension ScriptedIMAPServer {
         }
     }
 
-    static func tokens(_ text: String) -> [Token] {
+    /// `literals` are the command's, each where `literalMark` says.
+    static func tokens(_ text: String, literals: [Data] = []) -> [Token] {
         let chars = Array(text)
         var stack: [[Token]] = [[]]
         var i = 0
@@ -2212,6 +2340,17 @@ private extension ScriptedIMAPServer {
             switch c {
             case " ":
                 i += 1
+            case "\u{0}":
+                var digits = ""
+                i += 1
+                while i < chars.count, chars[i] != "\u{0}" {
+                    digits.append(chars[i])
+                    i += 1
+                }
+                i += 1
+                if let index = Int(digits), literals.indices.contains(index) {
+                    stack[stack.count - 1].append(.literal(literals[index]))
+                }
             case "(":
                 stack.append([])
                 i += 1

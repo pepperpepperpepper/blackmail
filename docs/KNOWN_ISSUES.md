@@ -17294,7 +17294,7 @@ the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
 
-## B-105 — BUILT 2026-10-22, not yet seen on the iPad. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
+## B-105 — BUILT 2026-10-22, seen on the iPad the same day, two faults found there and fixed, not yet seen there fixed. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
 
 Built in the `feat-search` worktree, off master at 88ef40d.
 
@@ -17528,3 +17528,174 @@ release build for the iPad links.
 - A recent search read at a date past its week is not shown, and is not
   taken out of the file until the next search is kept: put the date back
   and it shows again.
+
+**Seen on the iPad, 2026-10-22**, on the test account, on a build of the
+integration branch with this one in it (1b5d096), three panes, and again
+from a fresh launch of the app for the two faults. Steps 1, 3, 4, 5, 7,
+8, 9d, 10, 11 and 12 of the TODO's check passed, and step 2 but for its
+word with an accent: “Plan B” found the phrase among the letters with
+plan and b apart, as written above, and a paragraph pasted from a letter,
+about 70 words of ASCII, went as 20 groups in a line of 1,695 bytes and
+found its letters. Steps 6, 9b and 9c could not be run. Two faults:
+
+1. *A word with an accent.* Müller typed in the field, the ü from the u
+   key's accent popover, in All Mailboxes and in Current Mailbox: "Could
+   not search. Check the connection.", from "mü" on, while a letter in the
+   Trash said "Herr Müller". "garden" alone found that letter at once, so
+   the connection was well, and "garden müller" failed as Müller did. The
+   connection log had `UID SEARCH CHARSET UTF-8 OR OR OR OR FROM "müller"
+   …` answered `BAD Could not parse command`, and the same without
+   CHARSET answered BAD too, in the Trash, Spam and All Mail. Asked
+   read-only on the test account from the host, Gmail answered BAD to any
+   8-bit text in a quoted string, with CHARSET UTF-8 or without, and to
+   "O’Brien" with the curly apostrophe; `CHARSET UTF-8 BODY {7}` with
+   Müller after its "+" found the letter, and so did `{7+}` and the bytes
+   at once, all five fields so, and the word so beside "garden" in its
+   quoted strings. After ENABLE UTF8=ACCEPT a quoted word was found only
+   without CHARSET.
+2. *The band, emptied again.* Three recent searches kept, the Inbox at
+   its top. Search: the block, the first row below it. q: the block went
+   and its hit showed. The keyboard's delete: the block came back over the
+   first row and most of the second, and stayed. Cancel: the Inbox was
+   left scrolled down 164 points, the block's height, though nobody had
+   scrolled it, and each time again it went further. With the field's
+   clear button in place of the delete key nothing of it, and Cancel left
+   the Inbox at its top; with q and the delete inside the 350 ms wait,
+   so that no results were drawn, nothing either.
+
+**Why.** (1) Every word goes in a quoted string (`SearchCriteria.anyField`),
+and RFC 3501 keeps a quoted string to 7-bit text. CHARSET UTF-8 does not
+change that, and the second try without it could not help. Older than
+B-105: master's one word went in the same quoted strings. But B-105 puts
+every word in one command, so one é, ü or ’ anywhere in it failed the
+whole search, the ’ Smart Punctuation types in every "don’t" among them,
+and a paragraph pasted from a letter typed on an iPad would have been one.
+The SEARCH refused is a search that could not be run, which the list says
+as "Could not search. Check the connection." (2) `editingChanged` grew
+the band, and only then told the list. With the field emptied the band
+grows by the block, 164 points, and the list then put the folder back from
+the place it took when the results replaced it, under the band of the
+field and the scope bar alone: each row where it had been on the pane
+(`ListPlace`), which the grown block now covered. Cancel keeps the rows
+where they are on the pane as the band shrinks, so the 164 points stayed
+in the scroll. The clear button tells the list first and grows the band
+after (`textFieldShouldClear`), so it was well. New with B-105: on master
+the band was as tall empty as not.
+
+**Changed.** (1) `IMAPWireCommand`, in `IMAP/IMAPLiterals.swift`: every
+SEARCH goes through `IMAPClient.performSearchCommand`, so both scopes,
+each mailbox of an All Mailboxes search, the second try without CHARSET,
+a page's SEARCH and Go to Date's `RETURN (MIN)`. Each quoted string with
+a scalar above 127 in it goes as a literal of its UTF-8 bytes, its `\\`
+and `\"` taken back to what they stand for; the rest of the command goes
+byte for byte as before, so a search of ASCII words is sent exactly as
+it was. CHARSET UTF-8 stays.
+
+- Where the server advertises LITERAL+ or LITERAL-, Gmail LITERAL-, the
+  literal goes at once, `{7+}`, a line break and the bytes, inside the
+  one command written. Over LITERAL-'s 4,096 bytes, a phrase pasted long
+  between quote marks, and on a server with neither, or whose capabilities
+  could not be read, it goes as `{n}`, and the rest of the command after
+  the server's "+". `awaitResult` takes what goes after each "+" in turn,
+  where it took one thing, an APPEND's letter, which is one of them now,
+  with its wait after the upload as before. A server that answers BAD in
+  place of the "+" has ended the command, and nothing more of it is sent.
+- The cleaning that takes CR, LF and NUL out of the text still runs on
+  all of it first, so the only line breaks in a SEARCH are its literals'.
+- The connection log has the command on one line, each literal as `{7+}
+  Müller`: his words as often as they were in it before, in their quoted
+  strings, and in no line of their own.
+- Not ENABLE UTF8=ACCEPT: Gmail then refuses CHARSET UTF-8, and it
+  changes how mailbox names and envelopes come back. A SEARCH refused on
+  a connection that is up still reads "Could not search. Check the
+  connection.": it is still a search that could not be run, it is not "No
+  results", and other words for it would be new words on his iPad.
+
+(2) `editingChanged` tells the list first and grows the band after, the
+clear button's order. Every way into and out of an empty field was gone
+through:
+
+- The delete key, a cut, an undo, dictation: each comes to the band as
+  `.editingChanged`, so each now goes in that order. The clear button:
+  as before.
+- A recent search tapped: the block goes before the list searches, and
+  its results take the folder's place under the band as it is then, the
+  field and the scope bar. Emptied after, it is the delete key's way.
+- Cancel: the band goes back to the field first, and the folder comes
+  back where it was on the pane, as the iPad showed after the clear
+  button. Unchanged.
+- VoiceOver: the same delete key and the same clear button. B-079's code
+  is not touched, and the list leaves VoiceOver alone while he types.
+- Text the app puts in the field, a recent search's or none at Cancel,
+  sends no `.editingChanged`; each of those tells the list itself.
+
+**Tests.** `SearchLiteralTests`, seventeen, new: a command with nothing
+8-bit in it byte for byte as given, in every form, his ASCII words, a
+quoted phrase, escapes, a Message-ID, a date, a range of UIDs; Müller a
+literal of its 7 bytes, at once on LITERAL- and LITERAL+, after "+" on
+neither, and on one line in the log; a literal what its quoted string
+said, a quote and a backslash raw, a quote with an accent after it too;
+LITERAL-'s 4,096 bytes at once and 4,097 after "+", the rest of the
+command after it, on LITERAL+ none waiting, on neither each its own "+";
+a quoted string with no end left as it was; the form from the
+capabilities. And over the scripted server: Müller found in Current
+Mailbox and All Mailboxes, the Trash, Spam and All Mail each asked once,
+each field a literal, nothing BAD; "don’t" found, alone and beside an
+ASCII word quoted as before; a pasted paragraph with “ ” and five ’ found,
+in one SEARCH, its four words with ’ literals and the rest quoted; a
+phrase of 4,829 bytes waiting for its "+" in each field and found; a
+server with neither LITERAL found on the one connection; one with LITERAL+
+taking the long phrase at once; CHARSET answered BAD and the second try
+found, its word still a literal; a search refused still one that could
+not be run, in both scopes; a literal answered BAD before its "+", nothing
+more sent, nothing of the word read as a command, and the next search on
+the connection found; Go to Date's `RETURN (MIN)` with the word a literal;
+and the log, on both kinds of server, the search on one line, his words
+put back in quotes giving the line the build before wrote, and in no
+other line. `RecentSearchesTests`, two new: read from the source, the
+list told before the band grows at the delete key and at the clear
+button, those two the only ones to tell it of the text, the block gone
+before a recent search searches, and Cancel's band back first; and the
+iPad's repro on `ListPlace` itself, each step in the order the band's code
+takes it, from the top of the Inbox and from far down it, through q, a
+recent search and the clear button: the rows he saw back below the block,
+and Cancel leaving the Inbox where it was. One changed: the band asked
+again at each change of the text, now after the list is told.
+`DeadlineWireTests`, one changed: its word with an accent now a literal.
+`ScriptedIMAPServer` answers BAD to 8-bit text anywhere but in a literal,
+as Gmail answered it in a quoted string; takes literals anywhere in a
+command, `{n}` after its "+", `{n+}` with none on LITERAL- up to 4,096
+bytes and on LITERAL+ (`addedCapabilities`), and reads `{n+}` on a server
+with neither as text, the stream out of step; records a literal's bytes
+written before its "+" as a violation; and with `refusesLiterals` answers
+BAD in place of the "+".
+
+Each undone in the worktree, one at a time, and the three classes run,
+53 tests. The SEARCH sent as before, quoted: 13 failures in 12 tests,
+every search with an accent failing as on the iPad. Every literal at once
+whatever the server: 11 in 5. Every literal after "+" whatever the
+server: 19 in 9. LITERAL-'s limit one byte short: 1 in 1. Escapes left in
+a literal: 2 in 1. A literal's size counted in characters: 16 in 11. A
+quoted string with no end made a literal: 1 in 1. Every quoted string a
+literal, ASCII too: 54 in 7. Only the first thing after a "+" sent: 4 in
+4. The APPEND's answer on the ordinary wait: 1 in 1, the existing slow
+APPEND test. The log with the line breaks and bytes of the wire: 11 in 1;
+with the quoted form: 8 in 1. The band grown before the list is told: 12
+in 3. The clear button's order turned: 6 in 2. Go to Date's SEARCH quoted:
+1 in 1. The second try quoted: 4 in 4. A literal's bytes sent with its
+`{n}`, no wait for "+": 5 in 4. A refused SEARCH taken as no hits: 3 in 2.
+In the iPad's order the repro gave the iPad's numbers: the first row 164
+points under the block, and the Inbox left 164 points down after Cancel.
+
+The full suite, serially: 1,905 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.** Gmail's answer to a literal over 4,096 bytes after its
+"+" was not measured; the read-only asking went to 7 bytes, and RFC 7888
+has the server take it. No server with LITERAL+, or with neither, was at
+hand: both are the scripted server's. That UIKit sends `.editingChanged`
+for an undo and for a cut is believed, as for the delete key, and not
+seen. Words not parted by spaces, as Japanese is written, go as one
+literal, where they went as one quoted string, which Gmail refused;
+whether Gmail's own splitting then finds their letters was not tried. The
+iPad again: the TODO's check, steps 2 and 9a.
