@@ -2314,10 +2314,10 @@ final class MessageListViewController: UITableViewController {
                     continue          // leave this one as it was
                 }
                 // Taken: held over a listing asked before now, whose flags
-                // are from before this STORE.
+                // are from before this STORE, and billed, as the reading
+                // pane's Mark is (`ListLetters.readTaken`).
                 self.letters.reading(m, read: read)
-                self.letters.readAnswered(m.id, landed: true)
-                if read { self.letters.read(m) } else { self.letters.unread(m) }
+                self.letters.readTaken(m, read: read)
             }
             if self.tableView.isEditing { self.editTapped() }
             self.regroup()

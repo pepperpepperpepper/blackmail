@@ -232,7 +232,7 @@ final class ReadOnEveryCopyTests: XCTestCase {
     func testEditModesMarkHandsTheListTheLetter() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains("self.letters.reading(m, read: read) "
-                                    + "self.letters.readAnswered(m.id, landed: true)"), list)
+                                    + "self.letters.readTaken(m, read: read)"), list)
         XCTAssertTrue(list.contains("for m in marked { letters.reading(m, read: true) }"))
     }
 

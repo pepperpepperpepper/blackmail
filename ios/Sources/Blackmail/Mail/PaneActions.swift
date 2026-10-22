@@ -1,10 +1,13 @@
 import Foundation
 
-/// A Delete, Move or Flag from the reading pane's toolbar.
+/// A Delete, Move or Flag from the reading pane's toolbar, or a Mark as
+/// Unread or Mark as Read from its Flag button's sheet (B-106).
 enum PaneAction: Equatable {
     case delete
     case move(to: Mailbox)
     case flag(Bool)
+    /// `\Seen` set, true, or cleared, false.
+    case read(Bool)
 }
 
 /// The list beside the reading pane, as its Delete, Move and Flag edit it.
@@ -35,6 +38,17 @@ protocol PaneActionList: AnyObject {
     /// The server has answered the Flag set on `letter`: taken, or refused
     /// and put back as it was, on the copies that are still that letter.
     func flagAnswered(_ letter: MessageSummary, landed: Bool)
+    /// The reading pane's Mark as Unread or Mark as Read, at the tap: the
+    /// dot on the letter and its copies, as a tap on a row changes it, held
+    /// over a listing until the server has answered.
+    func setRead(_ read: Bool, on letter: MessageSummary)
+    /// The server has taken a read mark made on `letter`, the list's copy
+    /// as it was before the mark: the one off or back on the folder counts,
+    /// as Edit mode's Mark bills it. The one function both call.
+    func readTaken(_ letter: MessageSummary, read: Bool)
+    /// The server refused the read mark made on `letter`, or it was never
+    /// sent: the dot back as it was.
+    func readRefused(_ letter: MessageSummary)
     /// A letter that stays on the list, now filed in `folder` as well, so
     /// reading it later takes one off there too.
     func addCountedFolder(_ folder: String, to id: String)
@@ -88,6 +102,10 @@ enum PaneActions {
     ///   unread letter and the destination gains it, and a sweep says so.
     /// - Flag keeps the row. An unread letter flagged or unflagged changes
     ///   Starred's count.
+    /// - Mark as Unread or Mark as Read keeps the row and leaves no folder,
+    ///   and sweeps for nothing: the one it puts on or takes off the
+    ///   folders the letter is counted in is the whole change, and the list
+    ///   works it out itself, as for Edit mode's Mark (`readTaken`).
     ///
     /// A read letter changes no count, so none of them sweeps for one.
     nonisolated static func effect(of action: PaneAction,
@@ -96,6 +114,9 @@ enum PaneActions {
         case .flag:
             return Effect(removesRow: false, leavesEveryFolder: false,
                           alsoFiledIn: nil, sweepsIfUnread: true)
+        case .read:
+            return Effect(removesRow: false, leavesEveryFolder: false,
+                          alsoFiledIn: nil, sweepsIfUnread: false)
         case .delete:
             return Effect(removesRow: true, leavesEveryFolder: true,
                           alsoFiledIn: nil, sweepsIfUnread: role != .trash)
@@ -172,7 +193,8 @@ enum PaneActions {
         fileprivate let before: MessageSummary
     }
 
-    /// Edits the list at the tap: the flag set, or the row taken off.
+    /// Edits the list at the tap: the flag set, the dot changed, or the row
+    /// taken off.
     static func start(_ action: PaneAction, on letter: MessageSummary,
                       inFolderWithRole role: Mailbox.Role?,
                       list shown: PaneActionList?) -> Started {
@@ -184,6 +206,8 @@ enum PaneActions {
         switch action {
         case .flag(let flagged):
             list?.setFlagged(flagged, on: before)
+        case .read(let read):
+            list?.setRead(read, on: before)
         case .delete, .move:
             list?.letGo(before)
             if effect.removesRow { list?.take(before, fromEveryFolder: effect.leavesEveryFolder) }
@@ -205,6 +229,10 @@ enum PaneActions {
             try await repository.setFlagged(flagged, id: letter.id,
                                             gmailMessageID: letter.gmailMessageID,
                                             mailboxID: letter.mailboxID)
+        case .read(let read):
+            try await repository.setRead(read, id: letter.id,
+                                         gmailMessageID: letter.gmailMessageID,
+                                         mailboxID: letter.mailboxID)
         }
     }
 
@@ -224,6 +252,7 @@ enum PaneActions {
         }
 
         if case .flag = started.action { list?.flagAnswered(before, landed: true) }
+        if case .read(let read) = started.action { list?.readTaken(before, read: read) }
         let landed = list?.letter(started.letter.id) ?? before
         if effect.removesRow {
             list?.removalLanded(landed, fromEveryFolder: effect.leavesEveryFolder)
@@ -234,11 +263,13 @@ enum PaneActions {
     }
 
     /// Never sent, or refused: the list as it was before the tap, the flag
-    /// back as it was or the row back where it stood.
+    /// or the dot back as it was, or the row back where it stood.
     static func withdraw(_ started: Started) {
         switch started.action {
         case .flag:
             started.list?.flagAnswered(started.before, landed: false)
+        case .read:
+            started.list?.readRefused(started.before)
         case .delete, .move:
             if started.effect.removesRow { started.list?.putBack(started.before) }
         }
@@ -266,8 +297,8 @@ enum PaneActions {
     }
 }
 
-/// The reading pane's Delete and Flags on their way to the server, and so
-/// what the next tap on either does.
+/// The reading pane's Delete, Flags and read marks on their way to the
+/// server, and so what the next tap on any of them does.
 ///
 /// Out of `MessageDetailViewController` for the reason `PaneLoads` is: the
 /// controller is UIKit and does not exist on the machine the suite runs on.
@@ -281,6 +312,9 @@ struct PaneWrites {
     /// he opens before the first has gone. Greyed, so it is never a tap
     /// that silently does nothing.
     private(set) var deleting = false
+
+    /// Letters with a Mark as Unread's or Mark as Read's STORE on its way.
+    private var marking: Set<String> = []
 
     /// Whether a Flag tapped on the letter `id` goes. Not while that
     /// letter's last one is on its way: that is a double tap, and two
@@ -301,6 +335,33 @@ struct PaneWrites {
     /// The server has answered the letter's Flag, either way.
     mutating func flagAnswered(_ id: String) {
         flagging.remove(id)
+    }
+
+    /// Whether a Mark as Unread or Mark as Read on the letter `id` goes
+    /// (B-106): not while that letter's last one is on its way, for the
+    /// reason a second Flag does not. The sheet opened again meanwhile
+    /// offers the other item, and two STOREs in flight that both fail would
+    /// leave the mark the first one only asked for.
+    mutating func startRead(_ id: String) -> Bool {
+        marking.insert(id).inserted
+    }
+
+    /// Whether the letter's Flag is on its way, for the Flag button's sheet
+    /// to grey its Flag or Unflag until it has been answered: greyed, so it
+    /// is never a tap that silently does nothing.
+    func flagOnItsWay(_ id: String) -> Bool {
+        flagging.contains(id)
+    }
+
+    /// Whether the letter's read mark is on its way, for the sheet to grey
+    /// its Mark as Unread or Mark as Read meanwhile.
+    func readOnItsWay(_ id: String) -> Bool {
+        marking.contains(id)
+    }
+
+    /// The server has answered the letter's read mark, either way.
+    mutating func readAnswered(_ id: String) {
+        marking.remove(id)
     }
 
     /// Whether a Delete tapped now goes.

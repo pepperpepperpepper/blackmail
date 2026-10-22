@@ -1233,3 +1233,51 @@ A letter he taps meanwhile waits for that hold, and how long Gmail takes to
 open his Sent Mail is not known (PERFORMANCE.md, "What would change most",
 4). New words on screen, held from his iPad until he approves them:
 "Complete Threads", the line under it, and "Found in Sent Mail".
+
+---
+
+## D-022 — The Flag button opens a sheet, Flag and Mark as Unread, as in Mail's toolbar era; Move to Junk left out
+
+**Decided 2026-10-22, with B-106**, by the standing rule "copy Apple Mail",
+the owner's answers to both questions still to come.
+
+**The sheet.** The reading pane's toolbar is Mail's from the years it had
+a Flag button, and that button opened a sheet: in iOS 6 it held Mark as
+Unread beside the flag, and iOS 7 kept "Flag/Unflag and Mark As
+Read/Unread" there (Macworld). iPadOS 18 has no Flag button by default,
+and its More Actions sheet holds the same two items, Unflag in Apple's
+word. So the Flag button opens Flag or Unflag, then Mark as Unread or
+Mark as Read, and Cancel, a popover under the button on the iPad. Flag
+takes two taps where it took one, as in both eras of Mail; he flags six
+to eight letters a month. Edit mode's Mark sheet is left as it is.
+
+**What it acts on.** The letter the toolbar acts on, in a conversation the
+one he opened last, one letter at a time. Whether it offers Mark as Unread
+or Mark as Read follows the dot on the list's row, as Mail's item follows
+the letter, and not the pane's idea of it: Edit mode's Mark, which leaves
+the pane as it was, and a read mark the server refused both change the
+dot without the pane, which then offered the item that changed nothing.
+Only for a letter the list has no row for, a hit after its search ended,
+the pane's own: read, since opening it marked it read, unless the pane
+marked it unread itself, and only until it shows another letter or his
+tap on the letter's line marks it read again. The read item is greyed
+while a read mark on the letter is on its way, the pane's or the list's.
+The read mark goes through the list as Edit mode's does: the dot at the
+tap, the STORE, and the folder counts once the server has it
+(`ListLetters.readTaken`). Nothing is queued offline (D-016): refused,
+everything is put back and he is told.
+
+**Move to Junk is not in it.** iOS 7 put Move to Junk in that same sheet,
+and Apple Community users wrote of junking letters while reaching for Mark
+as Unread just beside it (thread 5362045, 2013); there Mail's shake to undo
+brought the letter back, and Blackmail has no Undo. It is the one item
+that can lose a letter: a mis-tap hides a friend's letter in a folder he
+never opens (579 of the 588 letters in his Spam are unread), which Gmail
+empties after 30 days. The evidence that he uses it is weak: four of the
+eight read letters in his Spam are his own link shares, which he would
+not junk on purpose. And the Move sheet already reaches Spam. So it is
+built, on the `feat-flagmenu` branch's last commit, and not merged. If
+the owner wants it: one letter at a time from the pane, never from Edit
+mode, where Select All is the 30,000-letter accident; to the folder LIST
+names `\Junk`, never a guessed name, and with no such folder listed, no
+item; Move to Inbox in its place inside Spam.

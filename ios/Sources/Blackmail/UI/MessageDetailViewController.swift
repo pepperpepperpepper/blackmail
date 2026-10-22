@@ -19,9 +19,9 @@ import QuickLook
 final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                           WKScriptMessageHandler {
 
-    /// Runs a Delete, Move or Flag and edits the list beside the pane to
-    /// match (`PaneActions`). Returns nil once the server has taken it, and
-    /// why not if it has not, for the alert to say.
+    /// Runs a Delete, Move, Flag or read mark and edits the list beside the
+    /// pane to match (`PaneActions`). Returns nil once the server has taken
+    /// it, and why not if it has not, for the alert to say.
     var perform: ((PaneAction, MessageSummary) async -> MailError?)?
     /// A letter opened inside a conversation, to be marked read the way a
     /// tap on its row marks it.
@@ -34,6 +34,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// in Trash, which Delete erases (`EraseQuestion`, B-062). From the
     /// container, which knows every folder's role.
     var questionBeforeDeleting: ((MessageSummary) -> EraseQuestion?)?
+    /// The dot on the list's row for a letter the pane shows, which the
+    /// Flag button's sheet offers Mark as Unread or Mark as Read by
+    /// (B-106); nil where the list has no row that is the letter
+    /// (`ListLetters.dot(on:)`). From the container, which holds the list.
+    var dotOnList: ((MessageSummary) -> FlagMenu.Dot?)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -80,9 +85,19 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The body fetches for what the pane shows, called off when it shows
     /// something else. See `PaneLoads`.
     private let loads = PaneLoads()
-    /// The Delete and the Flags on their way to the server, which decide
-    /// what the next tap on either does. See `PaneWrites`.
+    /// The Delete, the Flags and the read marks on their way to the server,
+    /// which decide what the next tap on any of them does. See `PaneWrites`.
     private var writes = PaneWrites()
+    /// The letter the pane marked unread itself, from the Flag button's
+    /// sheet (B-106), by its id; nil when it marked none, or the pane has
+    /// shown another letter since, or his tap on the letter's line in the
+    /// stack has marked it read again. The sheet goes by the dot on the
+    /// list's row (`dotOnList`), and by this only where the list has no
+    /// row that is the letter, a hit after its search has ended: any
+    /// other letter the pane shows is then read, since opening it marked
+    /// it read. Never by `summary.isRead`, which the pane was handed
+    /// before the tap that opened the letter marked it read.
+    private var markedUnreadHere: String?
     /// What the web view holds, which emptying the pane has to clear and
     /// which is drawn again if WebKit loses it, and the conversation's
     /// bodies waiting for its document to load. Nothing until the first
@@ -237,6 +252,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         threadSummaries = [:]
         stackLetters = []
         related.clear()
+        markedUnreadHere = nil
         focused = nil
         title = ""
         header.isHidden = true
@@ -284,6 +300,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         threadSummaries = [:]
         stackLetters = []
         related.clear()
+        markedUnreadHere = nil
         focused = nil
         placeholder.isHidden = true
         header.isHidden = false
@@ -372,6 +389,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         summary = thread.newest
         message = nil
         loaded = [:]
+        markedUnreadHere = nil
         focused = thread.newest.id
         threadSummaries = Dictionary(uniqueKeysWithValues:
             thread.messages.map { ($0.id, $0) })
@@ -714,6 +732,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // here once the body had come, and then reload the whole list and
         // sweep every folder's count to show it.
         //
+        // A letter the Flag button's sheet marked unread is marked read
+        // again by this tap, as in Mail, and the sheet offers Mark as
+        // Unread for it again (B-106).
+        if markedUnreadHere == id { markedUnreadHere = nil }
         markOpened(id)
     }
 
@@ -1002,16 +1024,68 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     // MARK: - Actions
 
+    /// The Flag button's sheet (B-106), as Mail's Flag button opened one:
+    /// Flag or Unflag, then Mark as Unread or Mark as Read, and Cancel
+    /// (`FlagMenu`). A popover under the Flag button on the iPad, which a
+    /// tap outside closes with nothing done, as Reply's sheet is. It used
+    /// to flag the letter at the first tap, and nothing in the pane could
+    /// mark a letter unread.
+    ///
+    /// For the letter the toolbar acts on, in a conversation the one he
+    /// opened last, and for that letter only: an item chosen after the
+    /// pane has moved on does nothing. An item whose write on the letter
+    /// is still on its way as the sheet opens is greyed, the pane's own or,
+    /// for the read item, the list's.
+    ///
+    /// Mark as Unread or Mark as Read as the dot on the list's row says,
+    /// as Mail's item follows the letter (`dotOnList`). The pane's own idea
+    /// of it went wrong whenever the dot changed without it: Edit mode's
+    /// Mark on the letter open here, which leaves the pane as it was, or
+    /// the read mark of the tap that opened it refused and put back. The
+    /// sheet then offered the item that changed nothing. The pane's own
+    /// (`markedUnreadHere`) only where the list has no row that is the
+    /// letter.
+    @objc private func flagTapped() {
+        guard let s = summary else { return }
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]
+        let dot = dotOnList?(s)
+        let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id),
+                                   local: LocalDraft.key(ofRow: s.id) != nil)
+        for item in items {
+            let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in
+                guard let self, self.summary?.id == s.id else { return }
+                self.choose(item)
+            }
+            switch item {
+            case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)
+            case .markAsUnread, .markAsRead:
+                action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true
+            }
+            sheet.addAction(action)
+        }
+        sheet.addAction(UIAlertAction(title: FlagMenu.cancel, style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    private func choose(_ item: FlagMenu.Item) {
+        switch item {
+        case .flag: setFlag(true)
+        case .unflag: setFlag(false)
+        case .markAsUnread: setRead(false)
+        case .markAsRead: setRead(true)
+        }
+    }
+
     /// Flags the letter at once, in the pane and in the list, and puts the
     /// flag back and says so if the server refuses. It used to be sent
     /// with `try?`, so a refused STORE left a flag on screen that Gmail did
     /// not have, and nothing said so until the next Refresh.
     ///
-    /// A second tap on the same letter while its STORE is on its way is a
-    /// double tap, and ignored; another letter's Flag goes. See `PaneWrites`.
-    @objc private func flagTapped() {
+    /// A second Flag on the same letter while its STORE is on its way is
+    /// ignored; another letter's Flag goes. See `PaneWrites`.
+    private func setFlag(_ flagged: Bool) {
         guard let s = summary, writes.startFlag(s.id) else { return }
-        let flagged = !s.isFlagged
         setFlagged(flagged, on: s.id)
         Task { @MainActor in
             let refused = await self.performed(.flag(flagged), on: s)
@@ -1019,6 +1093,50 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             guard let refused else { return }
             self.setFlagged(s.isFlagged, on: s.id)
             ErrorPresenter.show(reaching: refused, on: self)
+        }
+    }
+
+    /// Mark as Unread or Mark as Read from the Flag button's sheet (B-106):
+    /// the dot on the list's row changes at the tap, the letter stays in
+    /// the pane, and the sheet offers the other next time. Marked unread, a
+    /// tap on its line in the stack marks it read again, as a tap on its
+    /// row does, and nothing else does: no redraw, reload or new mail.
+    /// Refused, all of it is put back and he is told, as for a Flag.
+    /// Nothing is queued while there is no connection (D-016).
+    ///
+    /// Handed to `perform` with the read mark the sheet had it with, the
+    /// one the item changes: the list bills the change from its own copy
+    /// where it has one, and from this where it has not, a letter opened
+    /// from a search since ended.
+    private func setRead(_ read: Bool) {
+        guard let s = summary, writes.startRead(s.id) else { return }
+        markHere(read, on: s.id)
+        var letter = s
+        letter.isRead = !read
+        Task { @MainActor in
+            let refused = await self.performed(.read(read), on: letter)
+            self.writes.readAnswered(s.id)
+            guard let refused else { return }
+            self.markHere(!read, on: s.id)
+            ErrorPresenter.show(reaching: refused, on: self)
+        }
+    }
+
+    /// The pane's own copies of a letter's read mark: what the sheet
+    /// offers where the list has no row that is the letter, and its row in
+    /// the conversation if the pane is showing one, so a tap on its line
+    /// marks it read again. Marked unread only while the toolbar still
+    /// acts on it; nothing is kept for a letter the pane has let go.
+    private func markHere(_ read: Bool, on id: String) {
+        if read {
+            if markedUnreadHere == id { markedUnreadHere = nil }
+        } else if summary?.id == id {
+            markedUnreadHere = id
+        }
+        // Read back, mutated, written back; see `userContentController`.
+        if var row = threadSummaries[id] {
+            row.isRead = read
+            threadSummaries[id] = row
         }
     }
 

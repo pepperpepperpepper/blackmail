@@ -801,9 +801,10 @@ final class RootViewController: UIViewController {
                                      argument: self.list.placeVoiceOver())
             }
         }
-        // Delete, Move and Flag from the reading pane edit the list on
-        // screen in place, and ask for the folder counts only when one may
-        // have changed; see `PaneActions`. They used to reload the whole
+        // Delete, Move and Flag from the reading pane, and the read marks
+        // of its Flag button's sheet (B-106), edit the list on screen in
+        // place, and ask for the folder counts only when one may have
+        // changed; see `PaneActions`. They used to reload the whole
         // list and sweep every count, which blanked the previews and threw
         // away a search, a date jump and his place in the list. The counts
         // were missing from this path once, a live bug: moving an unread
@@ -830,6 +831,13 @@ final class RootViewController: UIViewController {
             guard let self else { return nil }
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
             return EraseQuestion.before(deleting: [letter], role: { folders.role(of: $0) })
+        }
+        // The Flag button's sheet offers Mark as Unread or Mark as Read by
+        // the dot on the list's row (B-106), which Edit mode's Mark and a
+        // refused read mark change without the pane. `self.list` is read
+        // at the tap, since a folder opened has a new one.
+        detail.dotOnList = { [weak self] letter in
+            self?.list.letters.dot(on: letter)
         }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
