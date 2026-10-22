@@ -272,9 +272,15 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Recipients), shown before it can go; Forward asks Mail's Include or
       Don't Include. B-107, and its check under "Blocked on the iPad
       coming back".*
-- [ ] Attach documents from Files, and video. *The app's picker is
+- [x] Attach documents from Files, and video. *The app's picker is
       unchanged by B-070: photos only, made a JPEG at 0.85. The share
       sheet takes videos since B-070; Send streams them from the disk.*
+      *Done 2026-10-22, not yet seen on the iPad: 'Photo Library' (photos
+      and videos) and 'Attach File' in the composer, through the share
+      sheet's own intake; photos sent as Apple Mail sends them; a file
+      that cannot be attached is said, and Send never goes without one he
+      picked. B-108, and its check under "Blocked on the iPad coming
+      back".*
 - [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
@@ -4229,6 +4235,51 @@ this host. Ordered by value, not by size.
       with a picture the body shows.
       11. *Put back.* The "B-107" letters to Trash, the second address out
       of Settings.
+- [ ] **B-108, files and videos in the composer.** On the test iPad, the
+      test account only, built from the `feat-composer` worktree before it
+      is merged (it touches what Send carries). A stands for the account's
+      address; letters only to A with `+b108` before the @, subjects
+      beginning "B-108"; each arrival fetched over IMAP and its CRC
+      compared with its LETTER-FILE line. Put on the iPad first, from a
+      host: a PDF and a 30 MB file in On My iPad, a 19 MB video and a
+      photo with a location in Photos, and a file named with a double
+      quote.
+      1. *The picker at all.* The test iPad has no Files app (B-028): does
+      Attach File open the document picker? If it does, a PDF from On My
+      iPad arrives byte for byte, under its own name, and the log's
+      `COMPOSE-PICK` line says `moves=true`, the copy in the app's Inbox.
+      2. *A reply.* Reply to a letter from A with a PDF attached: the
+      reply stays in the conversation.
+      3. *Several.* Three files at once: three rows; Remove one; the two
+      arrive.
+      4. *Too large.* The 30 MB file: "The file could not be attached.",
+      no row, and nothing is sent.
+      5. *A video.* The 19 MB video through Photo Library: one
+      `WIRE-OUT`, `LETTER-LATCH ok`, and the CRC matches the expected
+      copy, Photos' compatible one.
+      6. *While it comes.* Send tapped while the video loads: the spinner,
+      then it goes with it. Airplane Mode on while an iCloud original
+      loads, Send: at three minutes "The photo could not be attached.",
+      the sheet stays with Send, and nothing goes.
+      7. *A photo.* A composer photo arrives as its own bytes, with no
+      GPS, as "IMG_####.jpg": the picker's suggestion, which has no
+      extension, and the one the intake gives a JPEG that goes as itself
+      (B-108, Not covered).
+      8. *Drafts.* Save Draft with the video, reopened from Drafts, Send:
+      one copy arrives, and Drafts holds none.
+      9. *Locked.* The iPad locked while the video uploads: it goes.
+      10. *Ended.* Pick a file and end the app in the app switcher at
+      once: at the next launch `tmp/<bundle id>-Inbox` and
+      `tmp/Attachments` are empty, where the container can be read.
+      11. *A double quote.* The file named with one: the arrival's headers
+      parse, and the name reads right on Gmail's web page, without the
+      quote.
+      12. *The share sheet again.* Its checks for a photo, a video and a
+      Safari link, as before.
+      13. *VoiceOver* reads "Photo Library" and "Attach File", and a row
+      still coming by its name.
+      14. *Put back.* The "B-108" letters to Trash, the files and the
+      video off the iPad.
 
 ## Blocked on the owner
 

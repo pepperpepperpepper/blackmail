@@ -312,18 +312,22 @@ final class AttachmentStoreTests: XCTestCase {
         XCTAssertFalse(code.contains("previewURL!"))
     }
 
-    /// The composer: each photo it stages recorded, and the lot removed
-    /// in `deinit` and nowhere else. Send and Save Draft are handed a
-    /// closure that holds the composer, so it cannot go while either is
-    /// still reading the photos (`ComposeActionsTests`).
+    /// The composer: each file the intake stages and puts in the letter
+    /// recorded, and the lot removed in `deinit` and nowhere else (B-108:
+    /// the intake stages them now, where the composer wrote its own JPEG).
+    /// Send and Save Draft are handed a closure that holds the composer, so
+    /// it cannot go while either is still reading the files
+    /// (`ComposeActionsTests`).
     func testTheComposerRemovesWhatItStagedOnlyAsItGoes() throws {
         let code = try source("ComposeViewController.swift")
-        inOrder(["guard let url = try? AttachmentStore.write(data, named: filename) else {",
+        inOrder(["landed: { [weak self] url, row in self?.landed(url, row) },",
+                 "private func landed(_ url: URL, _ row: DraftAttachment) {",
                  "staged.record(url)",
-                 "draft.attachments.append(DraftAttachment(source: .localFile(url),"], in: code)
+                 "draft.attachments.append(row)"], in: code)
         XCTAssertTrue(code.contains("deinit { staged.removeAll() }"))
         XCTAssertEqual(code.components(separatedBy: "removeAll()").count - 1, 1)
-        XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 1)
+        XCTAssertEqual(code.components(separatedBy: "staged.record(").count - 1, 1)
+        XCTAssertEqual(code.components(separatedBy: "AttachmentStore.write(").count - 1, 0)
         XCTAssertFalse(code.contains("removeStaged"))
         XCTAssertTrue(code.contains("self.actions.saveAndClose({ self.draft }, then: nil)"))
         XCTAssertTrue(code.contains("actions.send({ self.draft }, then: onDraftsChanged, "

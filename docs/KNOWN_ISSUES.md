@@ -18875,6 +18875,247 @@ release build for the iPad links.
   coming back", built from the worktree before it is merged, since it
   touches Send.
 
+## B-108 — BUILT 2026-10-22, not yet seen on the iPad. The composer could attach only photos, made JPEGs; Mail's attaches any file and videos
+
+Built in the `feat-composer` worktree, off `feat-replyfiles` (master at
+88ef40d with B-100 to B-105, B-111 and B-107). The owner has not yet
+answered the batch's questions; built to their defaults: photos and videos
+the share sheet's way, a video as Photos' compatible copy, two buttons and
+no paperclip.
+
+**What Mail does.** Apple's iPadOS 18 guide
+(support.apple.com/guide/ipad/add-email-attachments-ipadcf744d81/18.0/ipados/18.0),
+high: the paperclip at the right of the keyboard's shortcut bar offers
+Attach File (the Files browser), Photo Library (photos and videos), Take
+Photo or Video, Scan Document (as a PDF) and Insert Drawing. Whether Mail's
+picker makes a video another copy, and how many it takes at once, is not
+known (low). Gmail takes 25 MB (support.google.com/mail/answer/6584) and
+blocks some types of file. His Sent Mail, the last year: about 65 files
+that are not pictures on new letters (about 37 PDFs, 10 audio, 4 Word, 3
+videos), about 5 replies with a new file, 7 videos of 0.8 to 19 MB, and no
+scanned document in two years.
+
+**What it was.** One row under the files, "Attach Photo", opened PHPicker
+for photos alone, five at a time. Each was decoded whole as a `UIImage` and
+made a JPEG at 0.85 with `jpegData`, named its suggestion with ".jpg": its
+own bytes, its date and everything else it carried went, where the share
+sheet sends a photo as Apple Mail does. A provider that gave no `UIImage`
+was skipped, and a photo that could not be decoded attached nothing, both
+with nothing said; one that could not be written said "Attachment could not
+be downloaded.", wrong for a file on the iPad. No video, no other file.
+Send and Save Draft waited for photos still coming (`photoComing`), for
+as long as they took.
+
+**Changed.**
+
+1. *Mail's two names* (`ComposeViewController.attachRow`). The row is two
+   labelled buttons side by side, "Photo Library" (`photo.on.rectangle`)
+   and "Attach File" (`doc`), each symbol the size of its words, always
+   there and never moving (BRIEF.md). Both held while a letter goes, with the
+   Removes. Mail's paperclip in the keyboard's shortcut bar is not built:
+   it comes and goes with the keyboard.
+2. *One intake.* `ShareItems.read`, the share sheet's reading of what it is
+   offered, with its `Tally`, reads what Photo Library hands over too. It
+   is not moved: it is already in the library both bundles link, and the
+   share tests pin its body where it is. It is made reachable, `private`
+   taken off, and is otherwise byte for byte as it was. `Staging` gains its
+   starting room: `init(room:unnamed:)`, `limit`, never more than the 25 MB,
+   and `room(after:)`, what the letter's rows leave of it, a row whose size
+   is not known counting as all of it. A share's `Staging()` begins as
+   before.
+3. *Photo Library.* PHPicker, `.any(of: [.images, .videos])`, five at a
+   time, `preferredAssetRepresentationMode = .compatible`, Photos' JPEG of
+   a HEIC photo and H.264 copy of an HEVC video. No permission asked. A
+   photo goes as the share sheet's: its own bytes under its own name, its
+   metadata replaced and no location, made a JPEG of at most 4096 px only
+   when it has to be. No `jpegData` or `loadObject` is left in the
+   composer, and no `UIImage` made of a photo.
+4. *Attach File.* `UIDocumentPickerViewController(forOpeningContentTypes:
+   [UTType.data], asCopy: true)`, several at a time: any file, not a folder
+   or a package. No security-scoped access, no Info.plist key. Each copy
+   the picker puts in the app's Inbox, `tmp/<bundle id>-Inbox`
+   (`AttachmentStore.inbox`), is MOVED into the staging by the new
+   `AttachmentStore.move`, into a directory of its own as `copy` places a
+   file, class C, then measured and refused past the room, as the share
+   sheet copies one (`ComposeIntake.file`). Its name is its own, made safe
+   (`safeFilename`); its type from its extension
+   (`AttachmentStore.mimeType`, `UTType`'s preferred type on the iPad,
+   `application/octet-stream` without one). What does not go in is
+   removed from the Inbox, and nothing outside it ever is
+   (`isInInbox`, `removeFromInbox`); a file that is not in the Inbox is
+   copied and left where it is.
+5. *One at a time, each with the room left* (`Mail/ComposeIntake.swift`,
+   which the suite runs). Every pick goes into one queue, read in order, as
+   the share sheet reads a share; each begins with what the letter's rows
+   leave by then, every row before it already in, so two picks together
+   never make a letter that could not go. Each has its own staging and
+   tally, so one counted out and come after all touches nothing of the
+   next. Pictures with no name are numbered on from pick to pick.
+6. *Never stuck.* Each is given three minutes (`ComposeIntake.bound`) from
+   when it begins. Not in by then, it is counted out: its row goes, the
+   next begins, and it is said with its pick. Come after all, it is thrown
+   away and its file removed. The case is a photo kept only in iCloud with
+   no connection, which the picker can wait for for ever.
+7. *Never short* (`ComposeActions`). Everything chosen counts from the pick
+   until it is in, has failed or is counted out (`itemComing`,
+   `itemLanded`, which were `photoComing` and `photoLanded`), so Send, Save
+   Draft and the keep as he leaves the app wait for it, and Cancel asks. A
+   pick that ends with something missing says so as it ends, once, and
+   tells the actions it came short (`itemLanded(cameShort:)`). A Send that
+   was waiting for it does not take the letter nor send: the sheet is put
+   back as it was, Send and all, with the rows that did come and the words
+   over it, and his next Send goes without it because he chose to. *Beyond
+   the spec:* it had only a count-out stop the Send. A file that failed
+   another way while Send waited, too large, not given, not written, would
+   have gone missing just the same, with the words put over a sheet
+   closing, which UIKit drops; so would one that failed before the tap in
+   a pick that ended after it. Now any pick that ends short during the
+   wait stops it. One said before the tap does not.
+8. *Save Draft* closes the sheet first, as before: one counted out then is
+   not in the draft kept, which reopens without its row. Nothing is sent.
+9. *While it comes,* a row with its name and a spinner where its Remove
+   will be, after the letter's rows (`comingRow`).
+10. *The words.* The share sheet's approved ones for photos and videos
+    (`ShareItems.leftOut`), and for any other file "The file could not be
+    attached." when it was all he picked, "1 file could not be attached."
+    or "N files could not be attached." otherwise; a mix as a list, "1
+    photo, 1 video and 1 file could not be attached."
+    (`ComposeIntake.words`). Said in an alert over the sheet once nothing
+    else is up over it, the picker sliding away or another notice, and not
+    once the sheet has gone (`say`). Nothing says "downloaded" for a file
+    on the iPad any more.
+11. *A file named with a double quote: already well formed, which is not
+    what the spec said.* It read the quoted `name=` and `filename=` of a
+    file (`RFC5322Builder`, the attachments' headers) and of a picture sent
+    inline, and `encodeIfNeeded` and `safeFilename`, which keep `"`, and
+    took the header to be broken. The plan that builds every letter
+    (`RFC5322Builder.plan`) takes `"` and `\` out of every file's and every
+    inline picture's name before any of that, and has since its first
+    version, the share sheet's letters included; the reference builder the
+    corpus is held to does the same. Nothing is changed; it is pinned now:
+    a name with either, for a file and an inline picture, gives one quoted
+    name in each header and nothing after it, the app's parser reads the
+    names back as they went ("re\"port.pdf" as "report.pdf"), and Python's
+    `email` package, its default policy, read the same letter with no
+    defect and the same names.
+12. *The launch purge* (`AttachmentStore.purge`, at launch in the app and
+    as the share sheet opens) clears the Inbox with `tmp/Attachments`.
+13. *Drafts.* The whole-letter APPEND is kept, about 2.4 times the file in
+    the app's process, measured; D-017's revisit, recorded there.
+
+**Not changed.** Take Photo or Video, Scan Document and Insert Drawing are
+left out: each needs the camera's permission, whose one "Don't Allow" is
+for good and looks like a broken button (B-020), and nothing shows he uses
+them. No paperclip in the shortcut bar. IMAP and SMTP. Send, the Outbox and
+a kept letter work on a picked file as on a photo: streamed from the disk
+(D-017), kept by a hard link (`LocalDraftStore`). The share sheet: every
+Share test passes unchanged.
+
+**What he sees.** Under the files, "Photo Library" and "Attach File" in
+place of "Attach Photo". Photo Library shows his photos and videos, five at
+a time; Attach File the Files browser, several at a time. Each thing chosen
+is a row with its name and a spinner, then a row with its weight and
+Remove. One that cannot be attached says so, in the share sheet's words or
+"The file could not be attached.". With Send tapped while something comes,
+the spinner until it is in, then the letter goes with it; if it does not
+come, the words, and the sheet back with Send. New words, held from his
+iPad until he approves them: "Photo Library", "Attach File", "The file
+could not be attached." and "N files could not be attached.".
+
+**Tests.** `ComposerFilesTests`, 18: the room the rows leave, a row of no
+known size leaving none, a staging that begins below the whole copying
+what fits and not even copying what does not, a share's beginning with
+all of it; `move` into a directory of its own, the name made safe, the
+source gone, a failed move leaving no directory; the Inbox's place, and
+only what is in it moved or removed, however the path is written; the
+launch purge clearing it; the MIME type from the extension and
+octet-stream; picks read one at a time, each with the room left; what
+could not be attached said once as its pick ends; a load that never
+returns counted out at 180 s, the next begun with its own bound, the late
+arrival's file removed; Send waiting for a load and going with it; Send
+not going when a load is counted out, or fails, while it waits, the sheet
+back with the row that landed and the words, and the second Send going;
+Send going without what he was told of before, and not without what a pick
+still open at the tap left out; Save Draft keeping the draft without one
+counted out, nothing sent; a file from Attach File moved, named, typed and
+measured, one past the room left out and removed from the Inbox, one
+outside it copied and left, a folder no file; unnamed pictures numbered on;
+a name with `"` or `\` well formed, for a file and an inline picture; the
+words in every combination. `ComposerFilesWiringTests`, 7, read from the
+source: Photo Library's filter, limit and compatible mode, no library and
+so no permission; the document picker as copies, several at a time, and no
+`startAccessingSecurityScopedResource` in any source; no camera, scanner or
+drawing, and no Info.plist key for them; no `jpegData`, `loadObject` or
+".jpg" left in the composer, and `ShareItems.read` reachable; the two
+buttons in Mail's words, held while a letter goes; the rows while it comes
+and the words after; the purge and the move's class C. `OutboxTests`, 1: a
+PDF moved out of the Inbox, kept by a hard link to the staged file, which
+outlives it, and sent from the Outbox from the link, its bytes as they
+were. `DraftAppendMemoryTests`, 1, behind `BLACKMAIL_LARGE_TESTS`: a 25 MB
+video's draft, its letter built whole, about 60 MB above the mark before
+(59,981,824 and 60,092,416 bytes in two runs); the whole Save Draft with
+the scripted server's own copies, about 197 MB. Changed: `ComposeActionsTests` calls `itemComing` and
+`itemLanded`, and `AttachmentStoreTests` pins the composer's staged files
+through `landed`.
+
+Each rule undone in the worktree, one at a time, and the fifteen classes
+that touch it run (`ComposerFilesTests`, `ComposerFilesWiringTests`,
+`ComposeActionsTests`, `AttachmentStoreTests`, `OutboxTests`,
+`ShareItemsTests`, `SharedPhotoTests`, `SharePictureFallbackTests`,
+`ShareSheetTests`, `OutgoingMailTests`, `LetterPlanTests`,
+`StreamingSendTests`, `ComposeLikeMailTests`, `LocalDraftsTests`,
+`BoundaryTests`), 372 tests. The send going on after a pick came short: 8
+failures in 3 tests. A pick that came short before the tap stopping a
+later Send: 1 in 1. A count-out alone stopping a Send, as the spec had it:
+4 in 2. Send not waiting at all: 16 in 5. Save Draft not waiting: 6 in 3.
+The bound at 60 s: 3 in 1. A late arrival kept: 1 in 1. Two read at once:
+6 in 1. The room blind to the rows: 7 in 2. A row of no known size weighing
+nothing: 6 in 2. A staging's limit ignored before the copy: 2 in 1. The
+builder's strip of `"` and `\` taken out: 32 in 3, two of them the
+corpus's reference tests. The Inbox left by the purge: 3 in 2. Any file
+taken for one in the Inbox: 8 in 2. Attach File copying, not moving: 6 in
+2. `move` copying: 4 in 4. A failed move leaving its directory: 1 in 1. A
+file left out not removed from the Inbox: 2 in 1. A kept letter's file
+copied, not linked: 1 in 1. "The file" for any number: 6 in 2. The words
+said before the pick ends: 6 in 3. Unnamed pictures not numbered on: 1 in
+1. The MIME type's fallback empty: 3 in 1. Photo Library for photos alone:
+2 in 1; without the compatible mode: 1 in 1. The document picker one file
+at a time: 1 in 1. Security-scoped access taken: 1 in 1. A camera key in
+the Info.plist: 1 in 1. `jpegData` back in the composer: 1 in 1. The move
+without class C: 1 in 1. No row while it comes: 1 in 1. Attach File live
+while a letter goes: 1 in 1. Behind `BLACKMAIL_LARGE_TESTS`, the APPEND's
+bound tightened to twice the file: 1 in 1.
+
+The full suite, serially: 2,090 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Save Draft with something counted out: the draft is kept without it, and
+  the words, said after the sheet has gone, are not seen. Nothing is sent.
+- Mail's paperclip in the keyboard's shortcut bar, left to the owner.
+- The test iPad has no Files app: whether the document picker opens there
+  at all, and whether its copies are in `tmp/<bundle id>-Inbox`, where the
+  move and the purge look (the `COMPOSE-PICK` line says `moves=`). Outside
+  it, a file is copied and left, and the system's tmp clearing is all
+  that takes it.
+- The name a picked photo goes by: PHPicker's suggestion is the library
+  name with no extension (B-020's row read "IMG_0772.jpg"), and the
+  intake takes a suggestion first, so it goes as "IMG_0772.jpg", where the
+  share sheet's, named by its file, keeps "IMG_0772.JPG". Step 7 of the
+  check.
+- The room is measured as each begins. Rows a reply puts in afterwards for
+  someone new (B-107) are not in it; Send refuses a letter over the limit,
+  as before (B-007).
+- A type Gmail blocks goes to the server and is refused at DATA, the sheet
+  kept with the reason (B-052). A full disk leaves the file out, said.
+- The alert waits while anything is up over the sheet, Cancel's question
+  included; on the iPad, the check.
+- The picker, the document picker, the rows, VoiceOver on the two buttons,
+  the bound on an iCloud original and the Inbox at the next launch, on the
+  iPad: the check under "Blocked on the iPad coming back", built from the
+  worktree before it is merged, since it touches what Send carries.
+
 ## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
 Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d

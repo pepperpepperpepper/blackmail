@@ -375,7 +375,7 @@ final class ComposeActionsTests: XCTestCase {
     /// has gone, the sound.
     func testASendWaitingForAPhotoPlaysTheSoundOnlyOnceTheLetterHasGone() async throws {
         let actions = makeActions(sound: true)
-        actions.photoComing()
+        actions.itemComing()
         holdSend = Held()
         let sending = try XCTUnwrap(actions.send({ [unowned self] in
             log.append("letter")
@@ -384,7 +384,7 @@ final class ComposeActionsTests: XCTestCase {
         await settled()
         XCTAssertEqual(swooshes, 0, "nothing while the photo is awaited")
 
-        actions.photoLanded()
+        actions.itemLanded()
         try await until { holdSend?.waiting == 1 }
         XCTAssertEqual(swooshes, 0, "nor while the letter goes")
         holdSend?.release()
@@ -579,8 +579,8 @@ final class ComposeActionsTests: XCTestCase {
     func testASendWaitsForPhotosStillOnTheirWayIn() async throws {
         let actions = makeActions()
         var landed = 0
-        actions.photoComing()
-        actions.photoComing()
+        actions.itemComing()
+        actions.itemComing()
         let sending = try XCTUnwrap(actions.send({ [unowned self] in
             log.append("letter with \(landed)")
             return draft()
@@ -591,12 +591,12 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertNil(actions.send(draft(), then: nil), "and a second tap sends nothing meanwhile")
 
         landed = 1
-        actions.photoLanded()
+        actions.itemLanded()
         await settled()
         XCTAssertEqual(log, ["begin Send"], "one still to come")
 
         landed = 2
-        actions.photoLanded()
+        actions.itemLanded()
         await sending.value
         XCTAssertEqual(log, ["begin Send", "letter with 2", "send", "dismiss", "end 1"])
     }
@@ -607,7 +607,7 @@ final class ComposeActionsTests: XCTestCase {
     func testSaveDraftWaitsForPhotosStillOnTheirWayIn() async throws {
         let actions = makeActions()
         var landed = 0
-        actions.photoComing()
+        actions.itemComing()
         let saving = try XCTUnwrap(actions.saveAndClose({ [unowned self] in
             log.append("letter with \(landed)")
             return draft()
@@ -618,14 +618,14 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "dismiss"])
 
         landed = 1
-        actions.photoLanded()
+        actions.itemLanded()
         await saving.value
         XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "dismiss", "letter with 1",
                              "save", "end 1"])
 
         reset()
         let other = makeActions()
-        other.photoLanded()
+        other.itemLanded()
         await other.send({ [unowned self] in log.append("letter"); return draft() }, then: nil)?.value
         XCTAssertEqual(log, ["begin Send", "letter", "send", "dismiss", "end 1"],
                        "a photo landing that was never counted holds nothing up")
@@ -640,7 +640,7 @@ final class ComposeActionsTests: XCTestCase {
     func testSaveDraftPutsTheLetterAwayAsTheSheetGoesOrOnceThePhotosAreIn() async throws {
         let actions = makeActions(keeping: true)
         var landed = 0
-        actions.photoComing()
+        actions.itemComing()
         holdSave = Held()
         let saving = try XCTUnwrap(actions.saveAndClose({ [unowned self] in
             log.append("letter with \(landed)")
@@ -651,7 +651,7 @@ final class ComposeActionsTests: XCTestCase {
                        "not put away with a photo still coming")
 
         landed = 1
-        actions.photoLanded()
+        actions.itemLanded()
         try await until { holdSave?.waiting == 1 }
         XCTAssertEqual(log, ["begin Save Draft", "letter with 0", "keep", "dismiss",
                              "letter with 1", "keep", "put away", "save"])
@@ -792,10 +792,10 @@ final class ComposeActionsTests: XCTestCase {
         reset()
         actions = makeActions(keeping: true)
         actions.edited { [unowned self] in draft() }
-        actions.photoComing()
+        actions.itemComing()
         let aside = try XCTUnwrap(actions.putAside { [unowned self] in draft() })
         XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished"])
-        actions.photoLanded()
+        actions.itemLanded()
         await aside.value
         XCTAssertEqual(log, ["begin Keep Draft", "keep unfinished", "keep unfinished", "end 1"])
         XCTAssertEqual(background.ended, [1])
@@ -804,10 +804,10 @@ final class ComposeActionsTests: XCTestCase {
         reset()
         actions = makeActions(keeping: true)
         actions.edited { [unowned self] in draft() }
-        actions.photoComing()
+        actions.itemComing()
         let expiring = try XCTUnwrap(actions.putAside { [unowned self] in draft() })
         background.expire(1)
-        actions.photoLanded()
+        actions.itemLanded()
         await expiring.value
         XCTAssertEqual(background.ended, [1])
     }
@@ -894,9 +894,9 @@ final class ComposeActionsTests: XCTestCase {
     func testAPhotoStillComingInIsAChange() {
         let actions = makeActions()
         XCTAssertFalse(actions.asksAnyway)
-        actions.photoComing()
+        actions.itemComing()
         XCTAssertTrue(actions.asksAnyway)
-        actions.photoLanded()
+        actions.itemLanded()
         XCTAssertFalse(actions.asksAnyway)
     }
 

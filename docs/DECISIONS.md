@@ -1091,6 +1091,30 @@ while its letter goes fails the letter, "not sent", where the whole
 letter read it once. A large letter takes minutes to go from the share
 extension, which has no Outbox behind it, as before.
 
+**Revisited 2026-10-22, with the composer's video picker (B-108).** A
+draft's APPEND is still made whole, and kept so. Measured on the host
+behind `BLACKMAIL_LARGE_TESTS` (`DraftAppendMemoryTests`, a debug build,
+Linux's high-water mark): for a draft of a 25,000,000-byte video, the
+file read whole and the letter of 34,211,189 bytes built from it, as
+`IMAPMailRepository.append` makes it, raised the mark by 60 MB, 2.4 times
+the file, not the 4 times estimated; the whole Save Draft through the
+shipping repository to the scripted server, which keeps its own copies of
+what it is sent, by 197 MB, an upper bound. It is the app's process, not
+the extension's, whose 120 MB was what Send's streaming was for, and
+nothing else in the app holds that much at once. Streaming the APPEND
+would still need the exchange gate, `sendingOnce`, the synchronising
+literal and the scripted transport proven again, for the rare draft of a
+video: seven videos went in his year of Sent Mail. Revisit if a draft of
+a large video fails on the iPad.
+
+**Composer photos go Apple Mail's way (B-108).** The composer's Photo
+Library reads what he picks as the share sheet reads a share
+(`ShareItems.read`): a photo as its own bytes under its own name, its
+metadata replaced and no location, made a JPEG only when it has to be; a
+video as Photos' compatible copy. It made every photo a JPEG at 0.85 with
+`jpegData`. Its files are staged and sent as the share sheet's are, from
+the disk.
+
 ---
 
 ## D-018 — The icon is a photograph: a gloved hand handing over a dark envelope

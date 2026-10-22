@@ -796,7 +796,11 @@ extension ShareItems {
     /// as that type, then as any other picture type it offers, then as the
     /// `UIImage` it gives (`picture`, B-090). Each picture is counted, and
     /// each one attached (`Tally`).
-    private static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
+    ///
+    /// The composer's Photo Library reads what he picks here too, through a
+    /// `Staging` of its own (`ComposeIntake`, B-108), so a photo or a video
+    /// goes from the app as it goes from the share sheet.
+    static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
                              tally: Tally, done: @escaping (SharedItem?) -> Void) {
         if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)
             ?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {
