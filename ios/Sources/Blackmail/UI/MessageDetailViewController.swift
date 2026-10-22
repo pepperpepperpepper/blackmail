@@ -34,6 +34,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// in Trash, which Delete erases (`EraseQuestion`, B-062). From the
     /// container, which knows every folder's role.
     var questionBeforeDeleting: ((MessageSummary) -> EraseQuestion?)?
+    /// The dot on the list's row for a letter the pane shows, which the
+    /// Flag button's sheet offers Mark as Unread or Mark as Read by
+    /// (B-106); nil where the list has no row that is the letter
+    /// (`ListLetters.dot(on:)`). From the container, which holds the list.
+    var dotOnList: ((MessageSummary) -> FlagMenu.Dot?)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -86,10 +91,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The letter the pane marked unread itself, from the Flag button's
     /// sheet (B-106), by its id; nil when it marked none, or the pane has
     /// shown another letter since, or his tap on the letter's line in the
-    /// stack has marked it read again. Any other letter the pane shows is
-    /// read, since opening it marked it read: what the sheet offers is
-    /// read off this and not off `summary.isRead`, which the pane was
-    /// handed before the tap that opened the letter marked it read.
+    /// stack has marked it read again. The sheet goes by the dot on the
+    /// list's row (`dotOnList`), and by this only where the list has no
+    /// row that is the letter, a hit after its search has ended: any
+    /// other letter the pane shows is then read, since opening it marked
+    /// it read. Never by `summary.isRead`, which the pane was handed
+    /// before the tap that opened the letter marked it read.
     private var markedUnreadHere: String?
     /// What the web view holds, which emptying the pane has to clear and
     /// which is drawn again if WebKit loses it, and the conversation's
@@ -984,12 +991,23 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// For the letter the toolbar acts on, in a conversation the one he
     /// opened last, and for that letter only: an item chosen after the
     /// pane has moved on does nothing. An item whose write on the letter
-    /// is still on its way as the sheet opens is greyed.
+    /// is still on its way as the sheet opens is greyed, the pane's own or,
+    /// for the read item, the list's.
+    ///
+    /// Mark as Unread or Mark as Read as the dot on the list's row says,
+    /// as Mail's item follows the letter (`dotOnList`). The pane's own idea
+    /// of it went wrong whenever the dot changed without it: Edit mode's
+    /// Mark on the letter open here, which leaves the pane as it was, or
+    /// the read mark of the tap that opened it refused and put back. The
+    /// sheet then offered the item that changed nothing. The pane's own
+    /// (`markedUnreadHere`) only where the list has no row that is the
+    /// letter.
     @objc private func flagTapped() {
         guard let s = summary else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]
-        let items = FlagMenu.items(flagged: s.isFlagged, read: markedUnreadHere != s.id,
+        let dot = dotOnList?(s)
+        let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id),
                                    local: LocalDraft.key(ofRow: s.id) != nil)
         for item in items {
             let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in
@@ -998,7 +1016,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             }
             switch item {
             case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)
-            case .markAsUnread, .markAsRead: action.isEnabled = !writes.readOnItsWay(s.id)
+            case .markAsUnread, .markAsRead:
+                action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true
             }
             sheet.addAction(action)
         }
@@ -1042,10 +1061,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Refused, all of it is put back and he is told, as for a Flag.
     /// Nothing is queued while there is no connection (D-016).
     ///
-    /// Handed to `perform` with the read mark the pane has on it, read
-    /// unless it marked it unread itself: the list bills the change from
-    /// its own copy where it has one, and from this where it has not, a
-    /// letter opened from a search since ended.
+    /// Handed to `perform` with the read mark the sheet had it with, the
+    /// one the item changes: the list bills the change from its own copy
+    /// where it has one, and from this where it has not, a letter opened
+    /// from a search since ended.
     private func setRead(_ read: Bool) {
         guard let s = summary, writes.startRead(s.id) else { return }
         markHere(read, on: s.id)
@@ -1061,10 +1080,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// The pane's own copies of a letter's read mark: what the sheet
-    /// offers, and its row in the conversation if the pane is showing one,
-    /// so a tap on its line marks it read again. Marked unread only while
-    /// the toolbar still acts on it; nothing is kept for a letter the pane
-    /// has let go.
+    /// offers where the list has no row that is the letter, and its row in
+    /// the conversation if the pane is showing one, so a tap on its line
+    /// marks it read again. Marked unread only while the toolbar still
+    /// acts on it; nothing is kept for a letter the pane has let go.
     private func markHere(_ read: Bool, on id: String) {
         if read {
             if markedUnreadHere == id { markedUnreadHere = nil }

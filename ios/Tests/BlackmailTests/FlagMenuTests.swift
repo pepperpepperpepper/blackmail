@@ -356,9 +356,9 @@ final class FlagMenuTests: XCTestCase {
 
     /// The Flag button presents an action sheet anchored on its own bar
     /// item, with `FlagMenu`'s items for the letter the toolbar acts on,
-    /// read unless the pane marked it unread itself, and Cancel. An item
-    /// does nothing once the pane has moved on, and is greyed while its
-    /// write on the letter is on its way.
+    /// read as the dot on the list's row says, and Cancel. An item does
+    /// nothing once the pane has moved on, and is greyed while its write on
+    /// the letter is on its way.
     func testTheFlagButtonOpensASheetAnchoredOnItsItem() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         let tapped = try section(of: code, from: "@objc private func flagTapped() {",
@@ -367,12 +367,14 @@ final class FlagMenuTests: XCTestCase {
             "guard let s = summary else { return }",
             "let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)",
             "sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]",
-            "let items = FlagMenu.items(flagged: s.isFlagged, read: markedUnreadHere != s.id, "
+            "let dot = dotOnList?(s)",
+            "let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id), "
                 + "local: LocalDraft.key(ofRow: s.id) != nil)",
             "let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in "
                 + "guard let self, self.summary?.id == s.id else { return } self.choose(item) }",
             "case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)",
-            "case .markAsUnread, .markAsRead: action.isEnabled = !writes.readOnItsWay(s.id)",
+            "case .markAsUnread, .markAsRead: "
+                + "action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true",
             "sheet.addAction(UIAlertAction(title: FlagMenu.cancel, style: .cancel))",
             "present(sheet, animated: true)",
         ] {
@@ -389,6 +391,26 @@ final class FlagMenuTests: XCTestCase {
                      "case .markAsUnread: setRead(false)", "case .markAsRead: setRead(true)"] {
             XCTAssertTrue(chosen.contains(line), line)
         }
+    }
+
+    /// Which read item the sheet offers is the list's to say, by the dot on
+    /// its row, handed from the container, which holds the list, read at
+    /// the tap; the pane's own mark only where the list has no row that is
+    /// the letter, and never the pane's `summary.isRead`, which it was
+    /// handed before the tap that opened the letter marked it read.
+    func testTheReadItemFollowsTheDotOnTheListsRow() throws {
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains("var dotOnList: ((MessageSummary) -> FlagMenu.Dot?)?"))
+        let tapped = try section(of: pane, from: "@objc private func flagTapped() {",
+                                 to: "private func choose(")
+        XCTAssertTrue(tapped.contains("read: dot?.read ?? (markedUnreadHere != s.id)"), tapped)
+        XCTAssertFalse(tapped.contains("read: markedUnreadHere != s.id"))
+        XCTAssertFalse(tapped.contains("s.isRead"))
+        XCTAssertEqual(count("dotOnList", in: pane), 2, "declared, and asked in the sheet alone")
+
+        let root = try source("UI/RootViewController.swift")
+        XCTAssertTrue(root.contains(
+            "detail.dotOnList = { [weak self] letter in self?.list.letters.dot(on: letter) }"))
     }
 
     /// Flag and Unflag are the Flag button's write as it was: set at once
@@ -587,6 +609,95 @@ final class FlagMenuTests: XCTestCase {
         list.setRead(false, on: read)
         list.readTaken(read, read: false)
         XCTAssertEqual(changes, [.marked, .marked, .marked])
+    }
+
+    // MARK: - Which read item, by the dot on the list's row
+
+    /// The sheet offers Mark as Unread or Mark as Read as the dot on the
+    /// list's row says, as Mail's item follows the letter, and not as the
+    /// pane has it: the dot gone at the tap that opened the letter, while
+    /// the pane's copy, handed before, still says unread; back when the
+    /// server refuses that mark; back again at Edit mode's Mark as Unread
+    /// on the letter open in the pane, which leaves the pane as it was; and
+    /// gone at Edit mode's Mark as Read after the pane's own Mark as
+    /// Unread. On its way while a read mark made on the letter, or on its
+    /// copy under another mailbox's id, has not been answered.
+    @MainActor
+    func testTheSheetGoesByTheDotOnTheListsRow() {
+        var opened = summary(id: "1/1", counted: ["INBOX"])
+        opened.gmailMessageID = 11
+        let (list, _) = makeList(folder: [opened])
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: false, onItsWay: false))
+
+        // The tap that opened it, its STORE on the wire, then refused.
+        list.reading(opened, read: true)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: true, onItsWay: true))
+        list.readAnswered(opened.id, landed: false)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: false, onItsWay: false),
+                       "refused: Mark as Read, though the pane opened it")
+        // Opened again, and taken.
+        list.reading(opened, read: true)
+        list.readAnswered(opened.id, landed: true)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: true, onItsWay: false))
+
+        // Edit mode's Mark as Unread on it, made once its STORE has landed.
+        let read = list.letter(opened.id)!
+        list.reading(read, read: false)
+        list.readTaken(read, read: false)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: false, onItsWay: false),
+                       "Edit mode's Mark as Unread: Mark as Read")
+
+        // The pane's own Mark as Read, on its way, then taken.
+        let started = PaneActions.start(.read(true), on: opened, inFolderWithRole: .inbox, list: list)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: true, onItsWay: true))
+        PaneActions.finish(started, failure: nil, requestSweep: {})
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: true, onItsWay: false))
+        // Its Mark as Unread, then Edit mode's Mark as Read.
+        PaneActions.finish(PaneActions.start(.read(false), on: opened, inFolderWithRole: .inbox,
+                                             list: list),
+                           failure: nil, requestSweep: {})
+        XCTAssertEqual(list.dot(on: opened)?.read, false)
+        let unread = list.letter(opened.id)!
+        list.reading(unread, read: true)
+        list.readTaken(unread, read: true)
+        XCTAssertEqual(list.dot(on: opened), FlagMenu.Dot(read: true, onItsWay: false),
+                       "Edit mode's Mark as Read: Mark as Unread")
+
+        // Read from its All Mailboxes hit: the Inbox's row has the mark on
+        // its way too, and the hit's search ended, the list has no row
+        // that is the hit.
+        var hit = MessageSummary(id: "9/40", mailboxID: "[Gmail]/All Mail", sender: opened.sender,
+                                 subject: opened.subject, preview: "", date: opened.date,
+                                 isRead: false, isFlagged: false, countedFolderIDs: ["INBOX"])
+        hit.gmailMessageID = opened.gmailMessageID
+        list.showResults([hit])
+        list.reading(hit, read: true)
+        XCTAssertEqual(list.dot(on: hit), FlagMenu.Dot(read: true, onItsWay: true))
+        XCTAssertEqual(list.dot(on: opened)?.onItsWay, true, "made on its copy")
+        list.readAnswered(hit.id, landed: true)
+        XCTAssertEqual(list.dot(on: opened)?.onItsWay, false)
+        list.endSearch()
+        XCTAssertNil(list.dot(on: hit), "the pane's own, for a hit after its search")
+    }
+
+    /// No dot where the row under the letter's id is another letter now:
+    /// one kept on the iPad that a listing has put another letter under
+    /// (`ListEdit.sameLetter`). The pane's own then, and not the other
+    /// letter's.
+    @MainActor
+    func testNoDotFromARowThatIsAnotherLetter() {
+        var keptRow = summary(id: "1/7")
+        keptRow.gmailMessageID = 70
+        keptRow.isRead = true
+        var another = summary(id: "1/7")
+        another.gmailMessageID = 71
+        let (list, _) = makeList(folder: [another])
+        XCTAssertNil(list.dot(on: keptRow))
+        XCTAssertNil(list.dot(on: summary(id: "1/8")), "no row under its id")
+        var noID = keptRow
+        noID.gmailMessageID = nil
+        XCTAssertEqual(list.dot(on: noID), FlagMenu.Dot(read: false, onItsWay: false),
+                       "a row with no Gmail id is taken for the letter, as everywhere")
     }
 
     // MARK: - Helpers

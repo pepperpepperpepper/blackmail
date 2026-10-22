@@ -18598,8 +18598,9 @@ release build for the iPad links.
 
 ## B-106 — BUILT 2026-10-22, not yet seen on the iPad. The Flag button flagged at once and nothing in the pane could mark a letter unread; Mail's Flag button opened Flag and Mark as Unread
 
-Built in the `feat-flagmenu` worktree, off `featAB-int` at 1b5d096, which
-is master at 88ef40d with B-100 to B-105.
+Built in the `bm-flagmenu` worktree (branch `feat-flagmenu`), off
+`featAB-int` at 1b5d096, which is master at 88ef40d with B-100, B-101,
+B-102 part 1, B-103, B-104 and B-105.
 
 **What Mail does.** In iOS 6 the Flag button in a letter's toolbar opened
 a sheet with Mark as Unread beside the flag: "tap the flag icon and select
@@ -18625,24 +18626,34 @@ row and mark it.
    iPad a popover under the Flag button, the kind Reply's is, not iPadOS
    18's menu: Flag or Unflag, then Mark as Unread or Mark as Read, and
    Cancel, which UIKit leaves out of a popover, a tap outside it being its
-   Cancel. For the
-   letter the toolbar acts on, in a conversation the one he opened last,
-   as Flag was. An item chosen after the pane has moved on to another
-   letter does nothing; an item whose write on the letter is on its way as
-   the sheet opens is greyed. A draft kept on the iPad or a letter in the
-   Outbox gets Flag alone, though the pane shows neither: their rows open
-   the composer and the Outbox's sheet.
+   Cancel. For the letter the toolbar acts on, in a conversation the one
+   he opened last, as Flag was. An item chosen after the pane has moved
+   on to another letter does nothing; an item whose write on the letter
+   is on its way as the sheet opens is greyed, the pane's own write or,
+   for the read item, a read mark the list has on its way too. A draft
+   kept on the iPad or a letter in the Outbox gets Flag alone, though the
+   pane shows neither: their rows open the composer and the Outbox's
+   sheet.
 2. *Flag and Unflag* are the Flag button's write as it was (`setFlag`): at
    once in the pane and on the list, one at a time per letter, put back
    and said if refused. They set or clear the flag as the item says, where
    the button turned it over.
-3. *Which item.* A letter shown in the pane counts as read, since opening
-   it marked it read, unless the pane marked it unread itself
-   (`markedUnreadHere`, the letter's id). That is forgotten when the pane
-   shows another letter or empties, and when his tap on the letter's line
-   in a stack marks it read again. Not read off the pane's own
-   `summary.isRead`, which it was handed before the tap that opened the
-   letter marked it read.
+3. *Which item.* Mark as Unread or Mark as Read as the dot on the list's
+   row says, as Mail's item follows the letter (`ListLetters.dot(on:)`,
+   handed to the pane by `RootViewController` as `dotOnList`), while the
+   list's row under the letter's id is that letter (`ListEdit.sameLetter`).
+   The list's dot goes at the tap that opens the letter, comes back at
+   Edit mode's Mark as Unread, which leaves the pane as it was, and when
+   the server refuses either, and the pane is told of none of it: read
+   off the pane, the sheet offered the item that changed nothing in each
+   of those, a dead tap. Where the list has no row that is the letter, a
+   hit after its search ended or a kept row a listing has put another
+   letter under, the pane's own: read, since opening it marked it read,
+   unless the pane marked it unread itself (`markedUnreadHere`, the
+   letter's id), which is forgotten when the pane shows another letter or
+   empties, and when his tap on the letter's line in a stack marks it read
+   again. Never the pane's own `summary.isRead`, which it was handed
+   before the tap that opened the letter marked it read.
 4. *Mark as Unread and Mark as Read* are a new `PaneAction.read(Bool)`
    through `PaneActions.run`, as Flag is. Its effect keeps the row, leaves
    no folder and sweeps nothing. At the tap the list's dot changes on the
@@ -18660,12 +18671,13 @@ row and mark it.
    list, and nothing is sent.
 5. *Billed from the list's copy as it was at the tap.* Nothing goes on or
    comes off when the list had the letter so already. Edit mode marks only
-   rows whose dot says otherwise, so for it this is what it did. The pane
-   has a letter it opened as read, and the read mark of the tap that
-   opened it can have been refused and the dot put back: a Mark as Unread
-   then put one on for a letter that was counted already. A letter the
-   list has no row for, a hit after its search ended, is billed from the
-   pane's copy, which says read unless the pane marked it unread.
+   rows whose dot says otherwise, so for it this is what it did. The sheet
+   offers its item by the same dot, but the dot can change while the
+   sheet is open, the read mark of the tap that opened the letter refused
+   meanwhile: a Mark as Unread then put one on for a letter that was
+   counted already. A letter the list has no row for, a hit after its
+   search ended, is billed from the pane's copy, which says read unless
+   the pane marked it unread.
 6. *The pane.* The letter stays in it. In a stack, the pane's row for the
    letter is marked unread too, so a tap that opens its line marks it read
    again, as in Mail. Nothing else marks it read: no redraw, reload, new
@@ -18674,7 +18686,11 @@ row and mark it.
    last one is still on its way goes nowhere, and the sheet greys it, as a
    second Flag goes nowhere. Two STOREs in flight that both fail, as they
    do into a dead socket, would leave the mark the first one only asked
-   for.
+   for. The read item is greyed too while the list has a read mark on the
+   letter or on its copy on its way (`FlagMenu.Dot.onItsWay`): the tap
+   that opened it, its STORE still on the wire. The list answers a read
+   mark by the letter's id (`readAnswered`), and the answer to that one
+   would have acted on the pane's.
 
 **Not changed.**
 
@@ -18696,34 +18712,42 @@ Unflag, then Mark as Unread. Flag flags the letter as the button did, and
 is two taps now. Mark as Unread puts the blue dot back on its row at once
 and one back on the Inbox's count, and the letter stays where it is; next
 time the sheet offers Mark as Read. A tap on its row marks it read again.
+The sheet goes by the dot on the row, however it got there: marked
+unread in Edit mode, the letter in the pane gets Mark as Read.
 
-**Tests.** `FlagMenuTests`, twenty-one, new. The sheet's
-items for a letter flagged or not and read or not, in their order, and
-for a letter kept on the iPad; Mail's words; a read mark's effect from
-every folder; one read mark per letter at a time, apart from the Flags,
-and the greying. Over the shipping repository and client against the
-scripted server: Mark as Unread sends one `UID STORE n -FLAGS.SILENT
-(\Seen)` and nothing else, with the dot back at the tap and one back on
-the letter's folders once taken, nothing swept; read again by a tap on
-its row, one off, once, and Mark as Read from the pane one `+FLAGS.SILENT`
-and one off; refused, the dot back, `\Seen` kept and the counts as they
-were; a letter the list has unread already counts nothing; a hit after its
-search ended reaches the Inbox's copy and its folders; a kept row that is
-another letter now sends nothing, the flags under its UID as they were,
-and the row comes off; after a Mark as Unread, a listing asked before the
-STORE, the list fetched afresh and new mail found by a NOOP answered with
-EXISTS send no `+FLAGS` and leave the dot. On the list alone: billed only
-where the list had the letter otherwise, a refusal counting nothing, and
-the rows redrawn at the tap and at a refusal. Read from the source: the
-sheet anchored on the Flag button's own item, its items, Cancel, the
-guard and the greying, and nothing written at the first tap; Flag and
-Unflag written as the button wrote; the read mark handed as the pane has
-the letter, and put back if refused; the pane's own mark forgotten at each
-show and at the line's tap; no read STORE without a tap, the calls counted
-across the app and none in the pane's redraws; Edit mode's Mark sheet as
-it was, its bookkeeping `readTaken`; and no Move to Junk anywhere in the
-app. `ReadOnEveryCopyTests` reads Edit mode's bookkeeping as `readTaken`
-now.
+**Tests.** `FlagMenuTests`, twenty-four, new. The sheet's items for a
+letter flagged or not and read or not, in their order, and for a letter
+kept on the iPad; Mail's words; a read mark's effect from every folder;
+one read mark per letter at a time, apart from the Flags, and the greying.
+Over the shipping repository and client against the scripted server: Mark
+as Unread sends one `UID STORE n -FLAGS.SILENT (\Seen)` and nothing else,
+with the dot back at the tap and one back on the letter's folders once
+taken, nothing swept; read again by a tap on its row, one off, once, and
+Mark as Read from the pane one `+FLAGS.SILENT` and one off; refused, the
+dot back, `\Seen` kept and the counts as they were; a letter the list has
+unread already counts nothing; a hit after its search ended reaches the
+Inbox's copy and its folders; a kept row that is another letter now sends
+nothing, the flags under its UID as they were, and the row comes off;
+after a Mark as Unread, a listing asked before the STORE, the list fetched
+afresh and new mail found by a NOOP answered with EXISTS send no `+FLAGS`
+and leave the dot. On the list alone: billed only where the list had the
+letter otherwise, a refusal counting nothing, and the rows redrawn at the
+tap and at a refusal. Which read item, by the dot on the list's row: gone
+and on its way at the tap that opened the letter, back when that is
+refused, back at Edit mode's Mark as Unread, gone at Edit mode's Mark as
+Read after the pane's Mark as Unread, on its way for a mark made on its
+All Mailboxes hit, and none for a hit after its search ended, a row under
+its id that is another letter, or no row. Read from the source: the sheet
+anchored on the Flag button's own item, its items, Cancel, the guard and
+the greying, and nothing written at the first tap; the read item from the
+dot the container hands (`dotOnList`, the list's `dot(on:)`), the pane's
+own mark only without one, never `summary.isRead`; Flag and Unflag written
+as the button wrote; the read mark handed as the pane has the letter, and
+put back if refused; the pane's own mark forgotten at each show and at the
+line's tap; no read STORE without a tap, the calls counted across the app
+and none in the pane's redraws; Edit mode's Mark sheet as it was, its
+bookkeeping `readTaken`; and no Move to Junk anywhere in the app.
+`ReadOnEveryCopyTests` reads Edit mode's bookkeeping as `readTaken` now.
 
 Each rule undone in the worktree, one at a time, and ten classes run, 231
 tests, counted as failures in tests. The sheet with no read item: 4 in 1;
@@ -18749,22 +18773,36 @@ line's tap not clearing it, 2 in 1; a redraw marking the letter read, 2 in
 In the first round, Flag at the first tap again passed every test; the
 test now reads that nothing in the button's own tap writes.
 
-The full suite, serially: 2,001 tests, 5 skipped, none failing. The
+Then the sheet following the list's dot, each undone in the worktree
+with the whole suite run, 2,004 tests: the item read off the pane's own
+mark again, 3 in 2; the dot taken from a row that is another letter, 1 in
+1; on its way only for a mark made under its own id, 1 in 1; never on its
+way, 4 in 1; the dot from the pane's copy and not the row's, 7 in 2; the
+read item not greyed for the list's mark, 1 in 1; no dot handed by the
+container, 1 in 1. Seven more, with nothing else failing. And two of the
+first round's again, on this code: the item read off the pane's
+`summary.isRead`, 3 in 2; the read item never greyed, 1 in 1.
+
+The full suite, serially: 2,004 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
 
 - Not yet seen on the iPad or the simulator: the popover, whether a
-  Cancel shows in it, the greyed item, VoiceOver.
-- Two read marks on one letter on their way at once, one from the list
-  and one from the pane, and the first refused: the list answers a mark
-  by the letter's id (`readAnswered`), so the answer to the first acts on
-  the second, and the dot can be wrong until the folder is next listed
-  from the top, and a count one high until the next sweep. It needs a
-  connection that dies inside the few seconds a read STORE can wait
-  behind a letter's body on the wire, between the tap that opened the
-  letter and Mark as Unread, or between that and a tap on its row. Both
-  taken, as on a working connection, it ends right.
+  Cancel shows in it, the greyed item, VoiceOver; and whether the read
+  item is ever seen greyed just after a letter is opened, its STORE still
+  on the wire, which a sheet opened again after the answer does not.
+- Two read marks on one letter on their way at once, and the first
+  refused: the list answers a mark by the letter's id (`readAnswered`),
+  so the answer to the first acts on the second, and the dot can be wrong
+  until the folder is next listed from the top, and a count one high until
+  the next sweep. The pane's mark made while the read mark of the tap that
+  opened the letter is still on the wire cannot happen now: the sheet
+  greys its read item until the list has that answer. The other order
+  can: the pane's Mark as Unread on its way, then a tap on the letter's
+  row or its line in a stack, and the connection dying inside the few
+  seconds between. Both taken, as on a working connection, it ends
+  right.
 - One flag, as before: no colours, which iPadOS 18's sheet offers.
 - Move to Junk, Move to Inbox inside Spam, and their words ("Move to Junk"
   or "Move to Spam", his sidebar's word): the owner's, on the branch's

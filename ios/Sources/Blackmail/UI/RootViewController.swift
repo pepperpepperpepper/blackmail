@@ -832,6 +832,13 @@ final class RootViewController: UIViewController {
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
             return EraseQuestion.before(deleting: [letter], role: { folders.role(of: $0) })
         }
+        // The Flag button's sheet offers Mark as Unread or Mark as Read by
+        // the dot on the list's row (B-106), which Edit mode's Mark and a
+        // refused read mark change without the pane. `self.list` is read
+        // at the tap, since a folder opened has a new one.
+        detail.dotOnList = { [weak self] letter in
+            self?.list.letters.dot(on: letter)
+        }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
         }

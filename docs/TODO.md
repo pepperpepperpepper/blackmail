@@ -4126,10 +4126,11 @@ this host. Ordered by value, not by size.
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
 - [ ] **B-106, the Flag button's sheet.** On the test iPad, the test
-      account only, built from the `feat-flagmenu` worktree at the merged
-      commit. A stands for the account's address; letters only to A with
-      `+b106` before the @, subjects beginning "B-106". Three letters to A,
-      two of them answered from Gmail's web so they make a conversation.
+      account only, built from the `bm-flagmenu` worktree (branch
+      `feat-flagmenu`) at the merged commit. A stands for the account's
+      address; letters only to A with `+b106` before the @, subjects
+      beginning "B-106". Three letters to A, two of them answered from
+      Gmail's web so they make a conversation.
       1. *The sheet.* A letter opened, then Flag: the sheet opens under the
       Flag button, Flag and Mark as Unread. UIKit draws no Cancel in a
       popover, as for Reply's sheet; whether one shows, written down. A
@@ -4140,7 +4141,9 @@ this host. Ordered by value, not by size.
       3. *Mark as Unread.* The dot comes back at once, the Inbox's count
       goes up by one, the letter stays in the pane, and the sheet then
       offers Mark as Read. Mark as Read: the dot goes, the count down by
-      one. Mark as Unread again.
+      one. Then Edit, its row ticked, Mark, Mark as Unread: the dot comes
+      back, the letter stays in the pane, and the sheet offers Mark as
+      Read, as the dot says.
       4. *Nothing reads it again.* Refresh, a letter sent to A arriving,
       and the view button switched both ways: the letter keeps its dot
       and the count stays. A tap on its row: read, the count down by one.

@@ -41,17 +41,36 @@ enum FlagMenu {
     static let cancel = "Cancel"
 
     /// The items, in their order, for the letter the toolbar acts on:
-    /// whether it is flagged, whether the pane has it as read, and whether
-    /// it is a letter kept on the iPad (a draft in Drafts or a letter in
-    /// the Outbox), which has no read mark on the server to change and
-    /// gets Flag alone.
+    /// whether it is flagged, whether it is read, and whether it is a
+    /// letter kept on the iPad (a draft in Drafts or a letter in the
+    /// Outbox), which has no read mark on the server to change and gets
+    /// Flag alone.
     ///
-    /// `read` is the pane's, not the row's: a letter shown in the pane is
-    /// read, since opening it marks it read, unless the pane marked it
-    /// unread itself (`MessageDetailViewController.markedUnreadHere`).
+    /// `read` is the dot on the list's row where the list has the letter
+    /// (`Dot`), and never the pane's own `summary.isRead`, which it was
+    /// handed before the tap that opened the letter marked it read. Where
+    /// the list has no row that is the letter, a hit after its search
+    /// has ended, the pane's: read, since opening it marked it read,
+    /// unless the pane marked it unread itself
+    /// (`MessageDetailViewController.markedUnreadHere`).
     static func items(flagged: Bool, read: Bool, local: Bool) -> [Item] {
         let flag: Item = flagged ? .unflag : .flag
         guard !local else { return [flag] }
         return [flag, read ? .markAsUnread : .markAsRead]
+    }
+
+    /// The dot on the list's row for the letter the sheet is for
+    /// (`ListLetters.dot(on:)`): which read item the sheet offers, and
+    /// whether it is greyed.
+    struct Dot: Equatable {
+        /// No dot: the letter is read, and the sheet offers Mark as Unread.
+        var read: Bool
+        /// A read mark on the letter is on its way to the server, from the
+        /// tap that opened it, say, its STORE still waiting on the wire. The
+        /// sheet greys its read item meanwhile, as it does while its own is
+        /// on its way: the list answers a read mark by the letter's id, and
+        /// the answer to the first of two on their way at once would act on
+        /// the second.
+        var onItsWay: Bool
     }
 }

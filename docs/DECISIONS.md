@@ -1252,13 +1252,20 @@ takes two taps where it took one, as in both eras of Mail; he flags six
 to eight letters a month. Edit mode's Mark sheet is left as it is.
 
 **What it acts on.** The letter the toolbar acts on, in a conversation the
-one he opened last, one letter at a time. A letter in the pane counts as
-read, since opening it marked it read, unless the pane marked it unread
-itself, and only until it shows another letter or his tap on the letter's
-line marks it read again. The read mark goes through the list as Edit
-mode's does: the dot at the tap, the STORE, and the folder counts once the
-server has it (`ListLetters.readTaken`). Nothing is queued offline
-(D-016): refused, everything is put back and he is told.
+one he opened last, one letter at a time. Whether it offers Mark as Unread
+or Mark as Read follows the dot on the list's row, as Mail's item follows
+the letter, and not the pane's idea of it: Edit mode's Mark, which leaves
+the pane as it was, and a read mark the server refused both change the
+dot without the pane, which then offered the item that changed nothing.
+Only for a letter the list has no row for, a hit after its search ended,
+the pane's own: read, since opening it marked it read, unless the pane
+marked it unread itself, and only until it shows another letter or his
+tap on the letter's line marks it read again. The read item is greyed
+while a read mark on the letter is on its way, the pane's or the list's.
+The read mark goes through the list as Edit mode's does: the dot at the
+tap, the STORE, and the folder counts once the server has it
+(`ListLetters.readTaken`). Nothing is queued offline (D-016): refused,
+everything is put back and he is told.
 
 **Move to Junk is not in it.** iOS 7 put Move to Junk in that same sheet,
 and Apple Community users wrote of junking letters while reaching for Mark

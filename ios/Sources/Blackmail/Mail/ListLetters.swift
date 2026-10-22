@@ -495,10 +495,12 @@ final class ListLetters: PaneActionList {
     /// Nothing comes off or goes on when the list had the letter so
     /// already: the count was right before the STORE. Edit mode marks only
     /// the letters whose dot says otherwise, so for it this is the
-    /// bookkeeping it always did. The pane has its letter as read once
-    /// opened (`FlagMenu.items`), and the tap that opened it can have been
-    /// refused and put the dot back: a Mark as Unread then put one on for a
-    /// letter that was counted already, one too many until the next sweep.
+    /// bookkeeping it always did. The pane's sheet offers its item by the
+    /// row's dot (`dot(on:)`), but the dot can change between the sheet
+    /// opening and the item's tap, the read mark of the tap that opened the
+    /// letter refused and put back meanwhile: a Mark as Unread then put one
+    /// on for a letter that was counted already, one too many until the
+    /// next sweep.
     func readTaken(_ letter: MessageSummary, read: Bool) {
         readAnswered(letter.id, landed: true)
         guard letter.isRead != read else { return }
@@ -511,6 +513,27 @@ final class ListLetters: PaneActionList {
     func readRefused(_ letter: MessageSummary) {
         readAnswered(letter.id, landed: false)
         changed(.marked)
+    }
+
+    /// The dot on the list's row for a letter the reading pane shows, for
+    /// its Flag button's sheet to offer Mark as Unread or Mark as Read by
+    /// (B-106), as Mail's item follows the letter: read or not as the row
+    /// says, and whether a read mark made on it, or on a copy of it under
+    /// another mailbox's id, is still on its way to the server.
+    ///
+    /// The row's and not the pane's. The row's changes at the tap that
+    /// opens the letter, at Edit mode's Mark, which leaves the pane as it
+    /// was, and back again when the server refuses either, and the pane is
+    /// told of none of them.
+    ///
+    /// Nil when the list has no row under the letter's id, a hit after its
+    /// search has ended, or the row there is another letter now, a row
+    /// kept on the iPad that a listing has put another letter under
+    /// (`ListEdit.sameLetter`).
+    func dot(on letter: MessageSummary) -> FlagMenu.Dot? {
+        guard let row = self.letter(letter.id), ListEdit.sameLetter(row, letter) else { return nil }
+        return FlagMenu.Dot(read: row.isRead,
+                            onItsWay: marking.values.contains { $0.contains(letter.id) })
     }
 
     // MARK: - His own marks over a listing
