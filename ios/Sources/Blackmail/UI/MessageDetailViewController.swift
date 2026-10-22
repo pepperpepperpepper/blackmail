@@ -818,9 +818,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// share button already on it. The share sheet is what makes "save"
     /// work — "Save to Files", "Print", "Copy to Photos" — without this app
     /// growing a file manager of its own.
-    private func openAttachment(_ attachment: Attachment) {
-        guard let m = message else { return }
-        header.setAttachment(attachment.id, busy: true)
+    ///
+    /// `letter` is the letter the file is of, when it is not `message`: a
+    /// row among the words of another letter of the conversation. The
+    /// header's row shows it busy only when the header shows its letter.
+    private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
+        guard let m = letter ?? message else { return }
+        if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
 
         Task { @MainActor in
             // Only while the header still shows the letter the file came
@@ -988,7 +992,22 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         case .follow(let url):
             decisionHandler(.cancel)
             follow(url)
+        case .openFile(let letter, let section):
+            decisionHandler(.cancel)
+            openFile(section, of: letter)
         }
+    }
+
+    /// A file's row among a letter's words, tapped (`BodyFiles`, B-113):
+    /// the file opened as its row in the header opens it. The letter is the
+    /// one on its own in the pane, or one of the conversation's, opened or
+    /// not the last; a file it does not list opens nothing.
+    private func openFile(_ section: String, of letter: String) {
+        let shown = message?.id == letter ? message : loaded[letter]
+        guard let m = shown, let file = m.listedAttachments.first(where: { $0.id == section }) else {
+            return
+        }
+        openAttachment(file, of: m)
     }
 
     /// Links open in Safari after a confirmation, and never navigate the pane

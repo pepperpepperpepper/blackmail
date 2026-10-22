@@ -1348,13 +1348,12 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// A file the header lists, inline or not (`MIMEPart.isListedFile`,
     /// B-101), but for the parts the pane shows as the letter's words
-    /// (`MIMEDecoder.bodyParts(of:)`), which the header does not list
-    /// either: a text part sent inline with a name can be the letter's own
-    /// words, and a paperclip with no file under it would send him looking
-    /// for one.
+    /// (`MIMEDecoder.bodyPlan(of:)`, every one of them since B-113), which
+    /// the header does not list either: a text part sent inline with a name
+    /// can be the letter's own words, and a paperclip with no file under it
+    /// would send him looking for one.
     static func hasAttachment(_ structure: MIMEPart) -> Bool {
-        let body = MIMEDecoder.bodyParts(of: structure)
-        let words = Set([body.text, body.html].compactMap { $0?.section })
+        let words = MIMEDecoder.bodyPlan(of: structure).sections
         func walk(_ part: MIMEPart) -> Bool {
             if part.isListedFile, !words.contains(part.section) { return true }
             return part.children.contains(where: walk)
@@ -1673,8 +1672,9 @@ actor IMAPMailRepository: MailRepository {
         let started = DispatchTime.now().uptimeNanoseconds
         guard let raw = shelf.letters.letter(in: name, validity: at.validity, uid: at.uid,
                                              message: letter, touch: true) else { return nil }
+        let decoded = MIMEDecoder.decodeMessage(raw)
         let message = Self.letter(row.id, in: row.mailboxID, headers: MIMEDecoder.parseHeaders(raw),
-                                  decoded: MIMEDecoder.decodeMessage(raw), named: letter)
+                                  decoded: decoded, named: letter, shortened: decoded.isShortened)
         keptOnScreen = (name, row.id, letter, raw)
         keptShown.removeAll { $0.folder == name && $0.validity == at.validity && $0.uid == at.uid }
         keptShown.append((name, at.validity, at.uid, letter))
@@ -1775,8 +1775,9 @@ actor IMAPMailRepository: MailRepository {
         // copy, that was another mailbox's letter (`keptPart`).
         forgetKeptShown(id, in: name)
 
+        let decoded = MIMEDecoder.decodeMessage(raw)
         let shown = Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
-                                decoded: MIMEDecoder.decodeMessage(raw), named: named)
+                                decoded: decoded, named: named, shortened: decoded.isShortened)
         if let row {
             keep(raw, of: row, named: named, in: name, uid: message.uid, validity: message.validity)
         }
@@ -1844,10 +1845,9 @@ actor IMAPMailRepository: MailRepository {
             ?? (named == nil && appendedHere.contains(Self.key(id, in: name)) ? .ifNamed : .none)
         let limit = largeSection
         let fetched = try await client.fetchLetterInPart(
-            uid: uid, in: name, validity: validity, question: question, sectionBytes: limit
+            uid: uid, in: name, validity: validity, question: question
         ) { structure in
-            let chosen = MIMEDecoder.bodyParts(of: structure)
-            return [chosen.text, chosen.html].compactMap { $0?.section }
+            MIMEDecoder.Allowance(MIMEDecoder.bodyPlan(of: structure), limit: limit).fetches
         }
         if let asked {
             try settle(fetched.letter, askedOf: id, uid: uid, validity: validity, as: asked,
@@ -1861,15 +1861,22 @@ actor IMAPMailRepository: MailRepository {
         var decoded = DecodedBody(text: nil, html: nil)
         var shortened = false
         if let structure = fetched.structure {
-            // The files, less the two parts shown, as `flatten` lists them
-            // for a letter fetched whole.
+            // The files, less the parts shown, as `flatten` lists them for
+            // a letter fetched whole.
             decoded = MIMEDecoder.flatten(structure) { _ in nil }
-            let chosen = MIMEDecoder.bodyParts(of: structure)
-            let text = Self.text(of: chosen.text, fetched: fetched.sections, limit: limit)
-            let html = Self.text(of: chosen.html, fetched: fetched.sections, limit: limit)
+            // Each body joined from its parts as `flatten` joins them, each
+            // part as much of it as its allowance (B-113), a forwarded
+            // letter's header lines from the envelope its structure carries
+            // (B-114).
+            let plan = MIMEDecoder.bodyPlan(of: structure)
+            let allowance = MIMEDecoder.Allowance(plan, limit: limit)
+            let text = Self.body(plan.text, asHTML: false, goesOn: plan.textGoesOn,
+                                 allowance: allowance.text, fetched: fetched.sections)
+            let html = Self.body(plan.html, asHTML: true, goesOn: plan.htmlGoesOn,
+                                 allowance: allowance.html, fetched: fetched.sections)
             decoded.text = text.text
             decoded.html = html.text
-            // By the part the pane shows, which is the HTML whenever there
+            // By the body the pane shows, which is the HTML whenever there
             // is any (`PanePage`): a text alternative cut short under HTML
             // that came whole is not what he reads.
             shortened = html.text != nil ? html.cut : text.cut
@@ -1879,14 +1886,36 @@ actor IMAPMailRepository: MailRepository {
                            decoded: decoded, named: named, shortened: shortened)
     }
 
+    /// One body of a letter fetched in part, its parts joined as `flatten`
+    /// joins them, and whether it is only the beginning: a part cut short,
+    /// or more parts of words than a body holds (`goesOn`).
+    private static func body(_ pieces: [MIMEDecoder.BodyPiece], asHTML: Bool, goesOn: Bool,
+                             allowance: [String: Int],
+                             fetched: [String: Data]) -> (text: String?, cut: Bool) {
+        var cut = goesOn
+        let text = MIMEDecoder.joined(pieces, asHTML: asHTML, goesOn: goesOn, words: { part in
+            let words = Self.text(of: part, fetched: fetched, limit: allowance[part.section] ?? 0)
+            if words.cut { cut = true }
+            return words.text.map { ($0, words.cut) }
+        }, fields: { MIMEDecoder.forwardedFields(of: $0, header: nil) })
+        return (text, text == nil ? false : cut)
+    }
+
     /// The text of `part` from its section in `fetched`, and whether that
     /// is only its first `limit` bytes. A section cut short can end inside
     /// a character, which would make the whole of it fail as UTF-8 and read
     /// as Latin-1, so what is left of that character is dropped between the
-    /// two decodings, as a preview drops it.
+    /// two decodings, as a preview drops it. A part given nothing, the
+    /// parts before it having had the whole limit, is not fetched, and cut
+    /// short unless it is empty.
     private static func text(of part: MIMEPart?, fetched: [String: Data],
                              limit: Int) -> (text: String?, cut: Bool) {
-        guard let part, let data = fetched[part.section] else { return (nil, false) }
+        guard let part else { return (nil, false) }
+        guard limit > 0 else { return (nil, (part.size ?? 1) > 0) }
+        guard var data = fetched[part.section] else { return (nil, false) }
+        // Fetched once for both bodies, as much as the more of the two
+        // allows: this one reads its own.
+        if data.count > limit { data = Data(data.prefix(limit)) }
         let charset = MIMEDecoder.parameter("charset", in: part.parameters)
         let cut = part.size.map { $0 > limit } ?? (data.count >= limit)
         guard cut else {

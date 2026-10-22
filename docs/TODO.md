@@ -3928,7 +3928,7 @@ this host. Ordered by value, not by size.
       going on after the PDF (multipart/alternative: the plain words, then
       multipart/mixed of HTML, the PDF, HTML): say whether the words after
       the PDF show. The host tests say they do not (B-101, Not covered);
-      if so, record it under the next free number above B-111.
+      if so, record it under the next free number above B-114.
       8. *A signature's logo,* inline with a `Content-ID`, shown by `cid:`:
       the logo in the letter, no row in the header and no paperclip.
       9. *A forward sent inline as message/rfc822,* unnamed: its words in
@@ -3936,6 +3936,26 @@ this host. Ordered by value, not by size.
       paperclip unless it carries files of its own, which have their rows.
       If a real iPad with Mail is at hand, compare the bars with Mail's
       own: their colour, the 1 pt line and the 5 pt to the words.
+      *Seen on the test iPad 2026-10-22, two rounds, three panes and two.
+      The first, a build of `featA-int` (7eefcb4) with replies the app
+      sent itself and no letter put in from the host: 1, 3, 4, 5's first
+      half, 6 and 8 passed, and nothing new on the wire; 2, 5's second
+      half, 7 and 9 were not possible, the account holding no letter of
+      their shapes. The second, a build of `featAB-int` with letters the
+      host made and APPENDed to the Inbox, never sent: 2 passed, Gmail's
+      grey bar gone and the violet bar at the content's edge, the words 5
+      pt from it; 5's second half passed, the quote inside a sheet in
+      Mail's light violet and teal on the white; 7's first part passed,
+      the PDF's row grey from the tap and blue at 0.89 s, the paperclip
+      after Refresh, Quick Look on a tap; 9 passed, a forward's words with
+      no row for itself, and a forwarded letter's own PDF with its row and
+      the paperclip. 7's second part failed as the host tests said it
+      would: the words after the PDF were nowhere, nor "Sent from my
+      iPad" after the PDF in 7's first letter. Recorded as B-113, below.
+      A shape beyond 9's, a note and then the letter it forwards inline,
+      showed the note alone, the forwarded letter nowhere: B-114, below.
+      Not yet tried: the iOS 18.6 simulator, and Mail's own bars beside
+      these.*
 - [ ] **B-103, pull to refresh and the status-bar tap.** On the test iPad
       (16.5.1) and the iOS 18.6 simulator, the test account only, built
       from the `feat-pullrefresh` worktree, in three panes and in two. A
@@ -4601,6 +4621,82 @@ this host. Ordered by value, not by size.
       Share, Print, and Done as soon as the panel has gone. The printout is
       whole. If it prints, a line in B-063's seen note: "Print tried
       2026-10-xx with B-110's check: …".
+
+- [ ] **B-113, the words after a file among them.** On the test iPad, the
+      test account only, built from the `bm-readpane` worktree (branch
+      `feat-readpane`). The host makes each letter and APPENDs it to the
+      test account's Inbox; none is sent. Three panes, then two.
+      1. *Apple Mail's shape:* multipart/alternative of the plain words
+      and a multipart/mixed of an HTML part, a PDF sent inline with no
+      `Content-ID`, and an HTML part after it with more words and "Sent
+      from my iPad" (as `06-pdf-among.eml` of 2026-10-22). Tapped: the
+      PDF's row in the header grey from the tap, then blue; in the body
+      the words before it, the PDF's name and size in blue on a line of
+      its own, then the words after it and "Sent from my iPad". The blue
+      name tapped: the PDF in Quick Look; Done, the letter as it was. The
+      header's row tapped: the same. A paperclip on its list row.
+      2. *The plain mixed of the same:* multipart/mixed of an HTML part,
+      a PDF of about 1 MB sent inline, and "Sent from my iPad" in an HTML
+      part after it: as 1, "Sent from my iPad" under the PDF's name.
+      3. *In a conversation:* a letter of 1's shape and a reply to it, as
+      one conversation: in the stack, the PDF's name where it sat, blue,
+      and a tap on it opens it, the letter's line open or not the last
+      one opened.
+      4. *Reply and Forward* of 1, opened and Cancelled with Delete
+      Draft, never sent: the quote holds the words after the PDF and
+      "Sent from my iPad"; the Forward lists the PDF.
+      5. *A letter too large to fetch whole:* 1's shape with a PDF of 6 MB
+      or more: the words before and after it shown, the row among them,
+      and no "Only the beginning of this message is shown."
+      6. *Nothing else moved:* a letter with a PDF attached after its
+      words in Gmail's shape (multipart/mixed of a multipart/alternative
+      and the PDF), and one with a signature's logo: as before, no row
+      among the words. Apple Mail's own letter with a PDF at the end puts
+      "Sent from my iPad" in an HTML part after it (as `05-pdf-one.eml`),
+      so its PDF has a row among the words above the signature and its
+      row in the header: say whether the two rows read as two files to
+      him, for the owner, who decides whether one goes.
+      7. *A bounce,* multipart/report of the explanation, the delivery
+      status and the letter returned: the explanation alone, no "Begin
+      forwarded message:".
+      8. *More parts than a body holds:* a letter of a hundred parts of
+      HTML: the first 64 and "Only the beginning of this message is
+      shown." above them; a Reply's quote ends with the same line.
+      9. *Moving on from a large one:* a letter over 5 MB of 300 parts of
+      words and a PDF, tapped, and at once the letter below it: that
+      letter shows in the time any letter takes, not after the first has
+      come.
+
+- [ ] **B-114, a letter forwarded after a note.** On the test iPad, the
+      test account only, built from the `bm-readpane` worktree. The host
+      makes each letter and APPENDs it to the test account's Inbox; none
+      is sent. Three panes, then two.
+      1. *A note, then the forwarded letter inline,* multipart/mixed of a
+      text/plain note and a message/rfc822 sent inline with no name,
+      holding a plain letter (as `09-fwd-note.eml` of 2026-10-22): the
+      note, then "Begin forwarded message:", a blank line, From, Date,
+      To and Subject, the forwarded letter's Date in the iPad's zone,
+      then its words. No row in the header, no paperclip on its list row.
+      2. *The forwarded letter of HTML,* multipart/alternative: the same,
+      the labels and the subject bold, the letter's own markup under them.
+      3. *With a file of its own:* the forwarded letter carrying a PDF as
+      an attachment: its row in the header, the paperclip, Quick Look.
+      4. *Forwarded as a file:* the message/rfc822 named `forwarded.eml`
+      and sent as an attachment: its row and paperclip as before, nothing
+      of it in the body; the row tapped, Quick Look shows the letter or
+      says it cannot, and say which.
+      5. *A forward with nothing before it:* the forwarded letter's words
+      alone, as before, no header lines.
+      6. *A large one,* the note, the forwarded letter and a PDF of 6 MB or
+      more: the header lines as in 1, drawn from the letter's structure.
+      7. *Reply* of 1, opened and Cancelled with Delete Draft, never sent:
+      the quote holds the note, the header lines and the forwarded words.
+      8. *Forwarded under an encoding:* 1 with the message/rfc822 part sent
+      `Content-Transfer-Encoding: base64`: as 1, its words and not the
+      encoded lines.
+      9. *Named and sent inline:* 1 with the message/rfc822 named
+      `Earlier letter.eml` and `Content-Disposition: inline`: as 1, drawn
+      under the note, no row and no paperclip.
 
 ## Blocked on the owner
 
