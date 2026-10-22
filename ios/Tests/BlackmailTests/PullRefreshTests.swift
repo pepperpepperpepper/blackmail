@@ -165,7 +165,8 @@ final class PullRefreshTests: XCTestCase {
         let refresh = body(after: "private func refresh(fromPull: Bool)", in: try list())
         XCTAssertTrue(refresh.contains(
             "page: { let checking = self.isOutbox ? nil : self.working(StatusLine.checking) "
-            + "defer { checking?() } return await self.reload(passing: false) },"), refresh)
+            + "defer { checking?() } await self.repository.forgetLettersOfHis() "
+            + "return await self.reload(passing: false) },"), refresh)
     }
 
     /// The spinner is put away as the page answers, as the list goes out of

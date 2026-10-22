@@ -3893,7 +3893,7 @@ this host. Ordered by value, not by size.
       going on after the PDF (multipart/alternative: the plain words, then
       multipart/mixed of HTML, the PDF, HTML): say whether the words after
       the PDF show. The host tests say they do not (B-101, Not covered);
-      if so, record it under the next free number above B-109.
+      if so, record it under the next free number above B-111.
       8. *A signature's logo,* inline with a `Content-ID`, shown by `cid:`:
       the logo in the letter, no row in the header and no paperclip.
       9. *A forward sent inline as message/rfc822,* unnamed: its words in
