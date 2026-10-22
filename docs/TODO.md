@@ -273,9 +273,6 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       to Junk is built on the `feat-flagmenu` branch and not merged, for
       the owner. B-106, and its check under "Blocked on the iPad coming
       back".*
-- [ ] Reply with the original's attachments.
-- [ ] Attach documents from Files, and video. *The app's picker is
-- [ ] Mark as Unread and Move to Junk from the Flag menu.
 - [x] Reply with the original's attachments. *Done 2026-10-22, not yet
       seen on the iPad: a reply carries the original's files as rows when
       he adds someone the original did not go to (Mail's When Adding
@@ -305,11 +302,6 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       plain-text '>' quotes left to the owner. With it, a file sent
       inline, as Apple Mail sends a PDF, gets its row and its paperclip.
       B-101, and its check under "Blocked on the iPad coming back".*
-      *Pull to refresh done
-      2026-10-22, not yet seen on the iPad: on the message list, by the
-      Refresh button's own path, not in Edit mode, a search or a day's
-      list; the status-bar tap pinned as it was. B-103, and its check
-      under "Blocked on the iPad coming back".*
       *Pull to refresh done
       2026-10-22: on the message list, by the Refresh button's own path,
       not in Edit mode, a search or a day's list; the status-bar tap

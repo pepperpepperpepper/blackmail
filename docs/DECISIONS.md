@@ -1174,6 +1174,8 @@ TrollStore's helper; which of the two leaves it out was not looked into.
   Tinted makes it one blue tile. Their own versions need an asset catalog.
 - On a dark ground the black sleeve at the top right runs into it.
 
+---
+
 ## D-019 — The sent sound: AudioToolbox's id 1001, not ToneLibrary, and for a letter put in the Outbox too, as Mail's 'sent' result covers it
 
 **Decided 2026-10-22** for B-100, by the standing rule "copy Apple Mail".
@@ -1252,8 +1254,6 @@ preview's words, its secondary grey. It is drawn here in the preview's
 grey (`Theme.secondaryText`, 142 on black) so he can see it: the
 inversion of Mail's, about 59 on black, would be too dim. B-102's device
 step 6 sets the two side by side, on the iPadOS 18.6 simulator.
-
----
 
 ---
 
@@ -1380,7 +1380,7 @@ item; Move to Inbox in its place inside Spam.
 
 ---
 
-## D-022 — A reply carries the original's files when it goes to someone new, as rows he sees first; Forward asks Mail's question
+## D-023 — A reply carries the original's files when it goes to someone new, as rows he sees first; Forward asks Mail's question
 
 **Decided 2026-10-22 for B-107**, by the standing rule "copy Apple Mail".
 The owner has not yet read his iPad's setting, nor answered the Forward
