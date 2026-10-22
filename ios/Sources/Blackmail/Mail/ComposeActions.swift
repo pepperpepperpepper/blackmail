@@ -127,6 +127,13 @@ final class ComposeActions {
         }
     }
 
+    /// Whether the sheet is his to change: no letter on its way or gone,
+    /// and not put away by Save Draft or Delete Draft. What changes the
+    /// letter by itself, as a reply's files coming and going with its
+    /// recipients do (`ReplyFiles`, B-107), changes it only then, so the
+    /// letter that goes or is saved is the one he saw.
+    var isWriting: Bool { stage == .writing }
+
     // MARK: - Photos on their way in
 
     /// A photo chosen in the picker has started to be read in. Every one

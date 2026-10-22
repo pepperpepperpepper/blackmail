@@ -266,7 +266,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       letter; both keys are in, iOS asks, and "Save Image" is offered.
       B-067.*
 - [ ] Mark as Unread and Move to Junk from the Flag menu.
-- [ ] Reply with the original's attachments.
+- [x] Reply with the original's attachments. *Done 2026-10-22, not yet
+      seen on the iPad: a reply carries the original's files as rows when
+      he adds someone the original did not go to (Mail's When Adding
+      Recipients), shown before it can go; Forward asks Mail's Include or
+      Don't Include. B-107, and its check under "Blocked on the iPad
+      coming back".*
 - [ ] Attach documents from Files, and video. *The app's picker is
       unchanged by B-070: photos only, made a JPEG at 0.85. The share
       sheet takes videos since B-070; Send streams them from the disk.*
@@ -4171,6 +4176,52 @@ this host. Ordered by value, not by size.
       exclusion (xattr com.apple.metadata:com_apple_backup_excludeItem).
       The bounds, a full disk, a failed check, leftover files and the
       races are the host tests'.
+- [ ] **B-107, a reply's files and the Forward question.** On the test
+      iPad, the test account only, built from the `feat-replyfiles`
+      worktree before it is merged (it touches Send). A stands for the
+      account's address; letters only to A with `+b107` before the @,
+      subjects beginning "B-107"; each arrival's raw MIME read over IMAP
+      from a host. A's second address is A with `+b107b`, added under the
+      account in Settings for step 5 and taken out after. First mail A: P,
+      a PDF and a photo shown in its body; L, a signature's logo alone.
+      1. *Someone new.* Reply to P, a Cc of A with `+b107c` made a bubble
+      with a comma: the photo's row and the PDF's appear under Subject
+      with their weights. Send: at the Cc, and at the To, the PDF arrives
+      as a file and the photo inline in the quote, under a `bmquote` id.
+      2. *No one new.* Reply to P and Send: no rows, and nothing of P's in
+      the raw MIME, as before.
+      3. *Taken off.* Reply to P, the Cc added: the rows; the Cc taken
+      off: they go. The Cc again, the PDF's row Removed, the Cc taken
+      off: the photo's row stays, and goes in the quote.
+      4. *Reply All* to a letter to A and A with `+b107c`: no rows.
+      5. *His second address.* Reply to P with only the second address in
+      Cc: the rows.
+      6. *At Send.* Reply to P, a Cc typed WITHOUT a comma and Send tapped
+      at once: nothing is sent, the rows appear, and VoiceOver, if on,
+      goes to the first; Send again: it goes with the files. Reply again,
+      a Cc typed and a tap into the body, which leaves the field: the
+      rows appear at once.
+      7. *Drafts.* Reply to P with the Cc and its rows, Save Draft,
+      reopened from Drafts: the rows and the Cc are back. Send: one copy
+      arrives, the photo inline and the PDF a file, and Drafts holds none.
+      8. *The Outbox.* Airplane Mode on, Reply to P with the Cc, Send: it
+      goes to the Outbox. Off, Refresh: it leaves once, with its parts.
+      Again, P deleted meanwhile in Gmail's web page and the app ended in
+      the app switcher; Airplane Mode off, the app opened, Refresh: it
+      leaves once with P's files, the log saying `CARRIED-PART found
+      folder=[Gmail]/Trash`.
+      9. *Forward.* Forward P: "Include attachments from original
+      message?" at the Reply button, with Include, Don't Include and
+      Cancel. Include: both rows. Don't Include: the photo's row alone,
+      which goes in the quote. Cancel, and a tap outside: no letter.
+      Forward L: no question, and its logo's row as before. Reply to L
+      with the Cc: the logo's row, which goes in the quote.
+      10. *Reference, not blocking.* On a real iOS 18 device with Mail (the
+      owner's): when the files appear after a Cc is added, and whether
+      they go when it is taken off; and what Mail's Don't Include does
+      with a picture the body shows.
+      11. *Put back.* The "B-107" letters to Trash, the second address out
+      of Settings.
 
 ## Blocked on the owner
 

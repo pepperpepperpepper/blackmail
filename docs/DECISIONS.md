@@ -1287,3 +1287,65 @@ A letter he taps meanwhile waits for that hold, and how long Gmail takes to
 open his Sent Mail is not known (PERFORMANCE.md, "What would change most",
 4). New words on screen, held from his iPad until he approves them:
 "Complete Threads", the line under it, and "Found in Sent Mail".
+
+---
+
+## D-022 — A reply carries the original's files when it goes to someone new, as rows he sees first; Forward asks Mail's question
+
+**Decided 2026-10-22 for B-107**, by the standing rule "copy Apple Mail".
+The owner has not yet read his iPad's setting, nor answered the Forward
+and Trash questions; this is built to the defaults.
+
+**The mode is his iPad's.** Mail takes it from Settings, Apps, Mail,
+Composing, Include Attachments with Replies: Never, When Adding
+Recipients, Ask or Always. When Adding Recipients is built
+(`ReplyFiles.mode`): named as Mail's factory default by Symprex, and what
+his own Sent Mail shows, 35 of the 41 replies that carried files having
+added someone and none of 36 sampled carrying files without. If his iPad
+says another, it is one line; the other three are in the rule already
+and its tests, not tried on the iPad.
+
+**The rule.** The original's people are everyone in its From, Reply-To,
+To, Cc and Bcc, compared bare and in lower case. When anyone the reply
+is to is not among them, the original's parts go in as rows, after any
+of his own; when no one new is left, those rows go again, and only
+those. His own second address is someone new, as in his Sent Mail. A
+Remove on one of the rows is his choice, and the rule stops for that
+letter. It follows the bubbles, not what he is still typing, so rows do
+not come and go as he spells an address.
+
+**The check at Send.** Tapping Send does not end editing, so an address
+typed with no comma reaches the letter with no change sent. Send asks the
+rule about everyone the letter would go to; if the rows would go in, they
+go in and nothing is sent, Send stays live, VoiceOver is taken to the
+first row, and his next tap sends. No alert and no new words: the rows
+with their weights are what he sees. A reply never goes without the files
+the rule calls for, nor with files he has not seen.
+
+**The rows are a forward's, the pictures among them.** A picture of the
+original goes in the quote only as one of the letter's rows
+(`AppleMailHTML.letter`, which no longer asks whether the quote is a
+forward's): with no row, a photograph the letter showed cannot go at all.
+And the composer shows the quote as words, so a row is the only thing on
+screen that says a photograph is going and what it weighs. So the reply's
+rows are made by the forward's mapper (`DraftAttachment.carried(from:)`),
+byte for byte, and the rule puts them in for any original with parts. A
+photograph sent in the body, as Apple Mail on an iPhone sends one, is the
+commonest case; a letter whose only part is a signature's logo gets a row
+for the logo too, as a forward does. The plan had the files alone as rows
+and the pictures in the quote regardless; the code could not do both.
+
+**The Forward question.** Mail's: "Include attachments from original
+message?", Include, Don't Include, and Cancel, an action sheet at the
+Reply button, asked only when the letter has a file the header lists. A
+logo or a photograph in the body alone asks nothing. Include carries
+every part, as a forward always has; Don't Include only the pictures the
+body shows, which the quote shows. About 186 forwards a year with files
+take one tap more. New words, held from his iPad until he approves them.
+
+**The Trash.** A reply or forward waiting in the Outbox names its
+original's parts by folder, UID and X-GM-MSGID; when the original has
+gone from its folder, it was looked for in All Mail, which holds neither
+the Trash nor Spam. He deletes about ten letters a day. Now, once All
+Mail has not got it, it is looked for in the Trash by the same id, and a
+part taken only from one hit. Spam is not looked in.

@@ -771,6 +771,13 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(notes("CARRIED-PART"),
                        ["CARRIED-PART folder=INBOX reason=another-letter",
                         "CARRIED-PART not-found nothing-sent"])
+        // Looked for by its id in All Mail, then in the Trash (B-107), once
+        // each, and nowhere else.
+        let id = try XCTUnwrap(forward.row.gmailMessageID)
+        XCTAssertEqual(server.log.filter { $0.command.hasPrefix("UID SEARCH X-GM-MSGID") }
+                        .map { "\($0.selected ?? "-") \($0.command)" },
+                       ["\(Server.allMail) UID SEARCH X-GM-MSGID \(id)",
+                        "\(Server.trash) UID SEARCH X-GM-MSGID \(id)"])
 
         server.clearLog()
         await later.uploadWaiting(to: repository)?.value
@@ -785,6 +792,127 @@ final class KeptReferencesTests: XCTestCase {
         XCTAssertEqual(dismissals, 0, "the sheet stays with the letter")
         sent = await submissions.letters()
         XCTAssertEqual(sent.count, 1)
+    }
+
+    /// A reply to the Plans copied to Carlo, whom they did not go to,
+    /// carries their file as a row (B-107), and is sent with no connection.
+    /// He deletes the Plans meanwhile, which takes them out of All Mail
+    /// too. In a later launch the pass finds them neither under their UID
+    /// in the Inbox nor in All Mail, then in the Trash, by their id, and
+    /// their own file goes. Before, the reply stayed in the Outbox for good,
+    /// saying its file could not be downloaded.
+    func testAReplyInTheOutboxWhoseOriginalHeDeletedFindsItInTheTrash() async throws {
+        deliverPlans()
+        let first = makeRepository()
+        let rows = try await first.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let row = try XCTUnwrap(rows.first { $0.subject == "Plans" })
+        let m = try await first.open(row)
+        var draft = Draft.replying(to: m, all: false, myAddress: server.username)
+        draft.cc = ["carlo@example.org"]
+        var files = try XCTUnwrap(ReplyFiles(replyingTo: m))
+        draft.attachments = try XCTUnwrap(files.recipientsChanged(
+            to: draft.to, cc: draft.cc, bcc: draft.bcc, in: draft.attachments))
+        XCTAssertEqual(draft.attachments.map(\.filename), ["Plans.pdf"])
+        await sentOffline(draft, as: "reply", kept: makeKept(), repository: first)
+        // Deleted, the line back, from its row.
+        let deleting = makeRepository()
+        let listed = try await deleting.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let shown = try XCTUnwrap(listed.first { $0.subject == "Plans" })
+        try await deleting.delete(shown.id, gmailMessageID: shown.gmailMessageID, from: Server.inbox)
+        func plans(in mailbox: String) -> [UInt32] {
+            server.uids(in: mailbox).filter { server.letter(uid: $0, in: mailbox)?.subject == "Plans" }
+        }
+        XCTAssertEqual(plans(in: Server.inbox), [])
+        XCTAssertEqual(plans(in: Server.allMail), [], "the Trash holds it alone")
+        let binned = try XCTUnwrap(plans(in: Server.trash).first)
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(carries(sent.first, plansBytes), "the Plans' own file")
+        XCTAssertTrue(sent.first?.contains("Plans.pdf") == true)
+        let id = try XCTUnwrap(row.gmailMessageID)
+        XCTAssertEqual(server.log.filter { $0.command.hasPrefix("UID SEARCH X-GM-MSGID") }
+                        .map { "\($0.selected ?? "-") \($0.command)" },
+                       ["\(Server.allMail) UID SEARCH X-GM-MSGID \(id)",
+                        "\(Server.trash) UID SEARCH X-GM-MSGID \(id)"],
+                       "All Mail first, then the Trash, by its id, once each")
+        XCTAssertTrue(server.log.contains {
+            $0.selected == Server.trash && $0.command.hasPrefix("UID FETCH \(binned) ")
+                && $0.command.contains("BODY.PEEK[2]")
+        }, "its file from the Trash")
+        XCTAssertEqual(notes("CARRIED-PART").last, "CARRIED-PART found folder=\(Server.trash)")
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(kept.store.letters().count, 0)
+        XCTAssertEqual(plans(in: Server.trash), [binned], "left where he put it")
+    }
+
+    /// A forward of a letter with three files, its original deleted while
+    /// the forward waited: looked for in All Mail and in the Trash once
+    /// each, for the first file, and the other two fetched from where the
+    /// Trash had it, with no search more, as All Mail's finds are (B-088).
+    func testAnOriginalInTheTrashWithSeveralFilesIsLookedForThereOnce() async throws {
+        deliverPlans(threeFiles: true)
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        let deleting = makeRepository()
+        let listed = try await deleting.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let shown = try XCTUnwrap(listed.first { $0.subject == "Plans" })
+        try await deleting.delete(shown.id, gmailMessageID: shown.gmailMessageID, from: Server.inbox)
+        let binned = try XCTUnwrap(server.uids(in: Server.trash).first {
+            server.letter(uid: $0, in: Server.trash)?.subject == "Plans"
+        })
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        for bytes in [plansBytes, costsBytes, mapBytes] {
+            XCTAssertTrue(carries(sent.first, bytes), "each file its own")
+        }
+        let id = try XCTUnwrap(forward.row.gmailMessageID)
+        XCTAssertEqual(server.log.filter { $0.command == "UID SEARCH X-GM-MSGID \(id)" }
+                        .map { $0.selected ?? "-" }, [Server.allMail, Server.trash])
+        let parts = server.log.filter {
+            $0.selected == Server.trash && $0.command.hasPrefix("UID FETCH \(binned) ")
+                && $0.command.contains("BODY.PEEK[")
+        }
+        XCTAssertEqual(parts.count, 3, "\(server.log)")
+        XCTAssertEqual(notes("CARRIED-PART").filter { $0.hasSuffix("found folder=\(Server.trash)") }
+            .count, 3)
+        XCTAssertEqual(kept.outbox.count, 0)
+    }
+
+    /// An original All Mail has is taken from there, and the Trash is
+    /// never opened or searched for it.
+    func testAnOriginalInAllMailIsNeverLookedForInTheTrash() async throws {
+        deliverPlans()
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        server.renumber(Server.inbox, validity: 777, firstUID: 1)
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 1)
+        XCTAssertTrue(carries(sent.first, plansBytes))
+        XCTAssertEqual(notes("CARRIED-PART").last, "CARRIED-PART found folder=\(Server.allMail)")
+        XCTAssertFalse(server.log.contains { $0.selected == Server.trash
+                           || $0.command.contains(Server.trash) }, "\(server.log)")
     }
 
     /// The letter under the Plans' old UID, opened in the later launch, is
@@ -1001,7 +1129,7 @@ final class KeptReferencesTests: XCTestCase {
 
     /// The original on screen goes before where All Mail had it. Archived,
     /// its first forward went from the Outbox in the later launch and found
-    /// it in All Mail, which that launch keeps (`foundInAllMail`). Put back
+    /// it in All Mail, which that launch keeps (`foundElsewhere`). Put back
     /// in the Inbox, under a new UID, opened there and forwarded again, its
     /// three files come from the letter on screen: nothing is asked of the
     /// server. Tried first where All Mail had it, at a UID that is not the

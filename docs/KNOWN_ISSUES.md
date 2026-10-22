@@ -4027,7 +4027,9 @@ What changed is the HTML twin, which is what most people read.
   another device, or sent after the socket had died, would fail where it
   goes today, with nothing on screen he could take off. Carrying them is an
   owner decision, and would want rows with their weight and a cap, as a
-  forward has.
+  forward has. *Since B-107, a reply carries them as rows when it goes to
+  someone the original did not, as Mail's When Adding Recipients does;
+  otherwise as before.*
 - **A forward's pictures** the original shows by `cid:` go inline, as
   related parts beside the markup, each under a Content-ID of this letter's
   own (`bmquote1.` and a fingerprint), so a sender's own `cid:sig-logo`
@@ -4102,7 +4104,8 @@ markup when he taps Forward, 0.18 s for a megabyte, on the main thread.
 Markup over 4 MB, which is markup with pictures pasted into it as `data:`
 addresses, is not carried: that quote goes as its words with their addresses
 linked, and a forward's pictures as files. A reply adds nothing but the
-markup, as it carries none of the original's parts. Linking the addresses in
+markup, as it carries none of the original's parts. *Since B-107, one to
+someone new carries them as a forward does.* Linking the addresses in
 a plain quote is one pass over each line; it searched the rest of the line
 again after every address, 12 s for a 200 kB line with an address every
 hundred bytes in a release build, on the actor Send and Save Draft wait on.
@@ -18596,6 +18599,236 @@ release build for the iPad links.
   taken out of the file until the next search is kept: put the date back
   and it shows again.
 
+## B-107 — BUILT 2026-10-22, not yet seen on the iPad. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
+
+Built in the `feat-replyfiles` worktree, off `feat-kept` (master at
+88ef40d with B-100 to B-105 and B-111). B-102's part 2 is not built, so
+nothing here depends on it. The owner has not yet answered the batch's
+questions; built to their defaults: When Adding Recipients, the Forward
+question on, the Trash looked in.
+
+**What Mail does.** (A) *Reply.* Settings, Apps, Mail, Composing, Include
+Attachments with Replies has four answers, Never, When Adding Recipients,
+Ask and Always (discussions.apple.com/thread/253436241;
+slashgear.com/1707699/iphone-email-app-settings-to-change/), high. When
+Adding Recipients is the factory default per Symprex
+(support.symprex.com/signature-365/frequently-asked-questions/apple-mail-application-replaces-images-with-when-replying),
+medium: a 2019 article said Ask. Under it a reply carries the files only
+when it goes to someone the original did not; otherwise Mail's quote shows
+a picture as a placeholder. His own Sent Mail: 35 of the 41 replies that
+carried files had added someone, 4 of them only his second address, and
+none of 36 sampled carried files without. When the files appear in Mail's
+composer, and whether they go again when the person added is taken out,
+is not known (low). (B) *Forward.* Apple's iPadOS 18 guide: "If there are
+attachments in the original message… you can decide whether to include
+them in the forwarded message. Choose Include or Don't Include."
+(support.apple.com/guide/ipad/reply-to-and-forward-emails-ipad45e27452/18.0/ipados/18.0),
+high. The title, "Include attachments from original message?", is from
+third-party quotes and screenshots, medium-high; the iPad's layout of it
+was not seen.
+
+**What it was.** `Draft.replying` carried nothing, and `AppleMailHTML.letter`
+gave the quote's pictures to a forward alone (`quote.kind == .forward`), so
+a reply's quote left out its `cid:` pictures with their `<img>`. A reply he
+copied to someone new went without the original's files, and nothing said
+so: the person he added never had the file. B-050 and INVESTIGATIONS gave
+the reasons: every reply to a photograph would send it back, with no row
+to show it, and Send and Save Draft would have to fetch first. Forward
+carried every part as a row and asked nothing. A letter waiting in the
+Outbox whose original had gone from its folder was looked for in All Mail
+alone (`carriedPartElsewhere`), which holds neither the Trash nor Spam, so
+one whose original he had deleted stayed there saying its files could not
+be downloaded.
+
+**Changed.**
+
+1. *One mapper* (`DraftAttachment.carried(from:)`): each part of the
+   original a row, named by its id, folder, section and X-GM-MSGID, with
+   its weight and a Remove. `Draft.forwarding` makes its rows with it, as
+   it made them before, and so does the reply's rule, so the two are the
+   same rows byte for byte. `DraftAttachment` and its `Source` are
+   `Equatable`.
+2. *The rule* (`Mail/ReplyFiles.swift`, pure). The original's people are
+   everyone in its From, Reply-To, To, Cc and Bcc, each address bare and
+   in lower case. `recipientsChanged` puts the rows in, after any of his
+   own, when anyone the reply is to is not among them, his own second
+   address included; takes the rule's rows out again, and no others, when
+   no one new is left; and otherwise does nothing. A Remove on one of the
+   rule's rows is his choice (`hisChoice`) and the rule stops for that
+   letter. `wouldAdd` says, changing nothing, whether it would put them in
+   now. Each entry is split as the envelope splits it, and one with no
+   address in it is no one. The mode is one of Mail's four
+   (`ReplyFiles.mode`); built, When Adding Recipients. Never, Ask and
+   Always are in the rule too, one line away: Always opens with the rows
+   and follows nothing, Ask puts the Forward question at Reply and Reply
+   All for a letter with files the header lists, and Never carries
+   nothing.
+3. *The composer* (`ComposeViewController`) holds the rule as
+   `replyFiles`, handed in by the pane's Reply and Reply All alone
+   (`openCompose`). A forward, a new letter, a `mailto:` link and a
+   letter reopened from Drafts, the iPad or the Outbox are made without
+   it, and keep the rows they were saved with. It follows the bubbles,
+   never what he is still typing: from `addressEditingChanged`, from
+   `addressEditingEnded`, since leaving a field makes a bubble of what he
+   typed and sends `.editingDidEnd` alone (`RecipientField.ended`), after
+   a pick, and as the fields are first shown, before the letter is taken
+   as it opened. Never while a letter goes, nor once Save Draft or Delete
+   Draft has put the sheet away (`ComposeActions.isWriting`). A Remove
+   tells it. The rows come and go through `rebuildAttachments` and
+   `letterEdited`, so the letter kept on the iPad has them.
+4. *The check at Send* (`sendTapped`). Tapping Send does not end editing,
+   and `collect()` reads what he typed and never made a bubble too
+   (`RecipientBubbles.recipients`, B-076), so such an address reached the
+   letter with no change sent. After `collect()` and before
+   `actions.send`, the rule is asked about everyone the letter would go
+   to: if the rows would go in, they go in, VoiceOver is taken to the
+   first (`.layoutChanged`), and nothing is sent; Send stays live, and his
+   next tap sends. No alert and no new words.
+5. *The quote's pictures.* `AppleMailHTML.letter` no longer asks whether
+   the quote is a forward's: a picture of the original goes in the quote,
+   under a `bmquote` id of the letter's own, when it is one of the
+   letter's rows, and the rest of the rows go as files, fetched at Send as
+   a forward's are. A reply with no rows has no picture to send, and its
+   HTML is what it was.
+6. *The pictures are rows, as a forward's are, which is not what the spec
+   said.* It had a reply's rows be the files alone (`!isShownInBody`) and
+   its pictures go in the quote all the same. The code cannot do both: a
+   picture of the original goes in the quote only as one of the letter's
+   rows (point 5), so with no row a photograph the letter showed cannot go
+   at all, and its `<img>` is left out. And the composer shows the quote
+   as words, so a row is the only thing on screen that says a photograph
+   is going and what it weighs. So the reply's rows are the forward's,
+   pictures included, and the rule puts them in for any original with
+   parts, a photograph in the body with no file listed among them, as
+   Apple Mail on an iPhone sends one. A letter whose only part is a
+   signature's logo has a row for it too, as a forward has.
+7. *The Forward question* (`MessageDetailViewController.replyTapped`,
+   `askAboutFiles`), only for a letter with a file the header lists
+   (`ReplyFiles.forwardAsks`, `Message.listedAttachments`): an action
+   sheet at the Reply button, "Include attachments from original
+   message?", Include, Don't Include and Cancel, which on the iPad is a
+   tap outside it and begins no letter. Include: every part, as before.
+   Don't Include: the pictures the body shows alone
+   (`Draft.forwarding(_:includingFiles:)`), which its quote shows. A logo
+   or a photograph in the body, alone, asks nothing.
+8. *The Trash* (`carriedPartElsewhere`). Once All Mail has not got the
+   original, it is looked for in the Trash (`roleNames[.trash]`) by the
+   same id, and a part taken from it only when the search found it under
+   one UID. Where it is found is kept for the launch, as All Mail's finds
+   were, so the parts after the first are fetched from there with no
+   search more (`foundElsewhere`, which was `foundInAllMail`,
+   `carriedPartFoundBefore`). Spam is not looked in.
+
+**Not changed.** A Reply and a Reply All open with no rows. A reply with no
+rows: its HTML, its parts, and its wire, nothing fetched. Save Draft, the
+pass that takes kept letters to Gmail's Drafts, the Outbox and its large
+letters work on a reply's rows as on a forward's: a draft's APPEND
+fetches them whole (`loadAttachments`), and a reply carrying a megabyte
+or more of them waits for his Refresh in the Outbox
+(`LocalDraft.fetchesLarge`). A forward with no question asked. The share
+sheet. IMAP and SMTP.
+
+**What he sees.** Reply and Reply All open as before. When he adds someone
+the letter did not go to, made a bubble by a comma, Return, a pick or by
+leaving the field, the original's files appear as rows under Subject,
+each with its weight and Remove, the pictures in its body among them; he
+takes the person off again, and they go. He takes one row off, and the
+rest stay whoever the letter goes to. With an address typed and Send
+tapped at once, the rows appear and nothing goes; Send again sends. The
+person added gets the files, and the photographs in the quote where the
+letter showed them. Forward of a letter with a file asks "Include
+attachments from original message?" at the Reply button. New words, held
+from his iPad until he approves them: the question, "Include" and "Don't
+Include".
+
+**Tests.** `ReplyFilesTests`, 16, the rule: Reply and Reply All to the
+sender and the Cc, and a reply to a letter of his own, no one new; the
+Reply-To, the authors of a letter written by several and the Bcc among the
+people; the same address in another case, with another name or quoted,
+no one new, and an empty group, a bare name and nothing no one; a stranger
+in Cc, a Bcc, his second address, each putting the rows in after his
+photo, and nothing more once in; the stranger taken off taking the rule's
+rows out and leaving his photo, and back to the start; a Remove of a
+rule's row stopping it, and of his photo not; a Remove with nothing
+carried changing nothing; `wouldAdd` agreeing with `recipientsChanged`
+in each state for seven sets of people; an address still being typed
+counted at Send and not before; the rows a forward's byte for byte, with
+their sections and Gmail id, and Don't Include's the pictures alone; no
+rule for an original with no parts; a reply carrying 1.2 MB waiting in
+the Outbox as a forward does, and 600 kB not; the four modes; the
+question asked of a PDF, a PDF sent inline and a picture sent as a file,
+and not of a logo, a photograph in the body or nothing, and at Reply
+only under Ask; its words. `ReplyFilesWiringTests`, 4, read from the
+source: the composer following the bubbles from the four places, only
+while writing, a Remove told, and leaving a field sending
+`.editingDidEnd` alone; Send asking `wouldAdd` after `collect()` and
+returning before `actions.send` with VoiceOver moved; the question at the
+Reply button in Mail's words, said once in the sources, asked only when
+the header lists a file; the rule handed in by Reply and Reply All alone,
+not by a forward, a `mailto:` link or Drafts. `RichQuoteTests`, 3: a reply
+to someone new sending her photograph and her logo inline under `bmquote`
+ids and the PDF as a file, his logo once, every id shown, and the plain
+part byte for byte a reply's; a row taken off sending no part and no
+`<img>`, every row taken off a reply that carried nothing; a reply with no
+rows, for three originals, sent and as a draft, its HTML that of the same
+reply with no picture to show, and nothing to fetch.
+`RichQuoteRepositoryTests`, 4, over the shipping repository: a reply to
+someone new sent with the picture inline and the PDF as a file, from the
+letter on screen with nothing asked of the server; fetched at Send once
+it is not; not sent at all when its original cannot be fetched; saved,
+reopened with its rows, its Cc and its quote's picture, and sent so.
+`KeptReferencesTests`, 3: a reply carrying the Plans' file, sent with no
+connection, its original deleted meanwhile, going from the Trash in a
+later launch after All Mail, one search in each, its own file; a forward
+of three files whose original is in the Trash, looked for there once and
+its three parts fetched from there; an original in All Mail never looked
+for in the Trash. Changed: the forward whose original is nowhere now
+pins one search in All Mail then one in the Trash; two pins of the
+composer's and the pane's wiring take the new lines (`ComposeLikeMailTests`,
+`ReplyAddressingWiringTests`).
+
+Each rule undone in the worktree, one at a time, and the ten classes that
+touch it run, 281 tests, 282 once the Trash's three-file test was in. The `.editingDidEnd` call removed: 2 failures in
+1 test. The check at Send removed: 2 in 2. The forward test put back in
+`AppleMailHTML.letter`: 18 in 5. No Trash: 9 in 2. The Trash before All
+Mail: 4 in 4. A find in the Trash not kept for the next part: 1 in 1.
+`wouldAdd` blind to the state: 7 in 2. No one new taking every row out,
+his photo too: 2 in 1. A Remove not stopping the rule: 4 in 2. The Bcc not
+among the people: 3 in 1; the Reply-To not: 2 in 1. Addresses compared in
+their case: 8 in 2. His own addresses taken for people already: 5 in 2.
+The reply's rows the files alone, as the spec had them: 25 in 9. Forward
+always asking: 6 in 1; never: 2 in 1. Don't Include carrying nothing: 1 in
+1. Reply asking under the default: 16 in 1. The rule run while a letter
+goes: 1 in 1; following what he types: 1 in 1; not after a pick: 3 in 2;
+not as the fields are shown: 2 in 1; a Remove not told: 1 in 1. A forward
+handed the rule: 3 in 1. The question's words changed: 2 in 2. A
+forward's rows not from the shared mapper: 92 in 19. The Trash's one-hit
+rule removed: none, as below.
+
+The full suite, serially: 2,059 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Mail's own timing: when its files appear after a Cc is added, and
+  whether they go when it is taken off (low confidence, written in
+  `ReplyFiles`). Step 10 of the check, on a real iOS 18 device with Mail.
+- The modes other than When Adding Recipients, on the iPad: Ask's
+  question at Reply and Reply All, Always and Never are tried only here.
+- The Trash's one-hit rule: Gmail files a letter in a folder once, and so
+  does the scripted server, so no test can give the search two UIDs.
+- The rows can flash: an address half typed, left by a tap on a
+  suggestion, is made a bubble a moment before the pick takes its place
+  (`RecipientBubbles.pick`), and if it was someone new by then the rows
+  come and go again.
+- A reply to a letter whose only part is a signature's logo carries a row
+  for the logo once he adds someone, as a forward does.
+- What Mail's Don't Include does with a picture the body shows; here it
+  stays, as a row and in the quote.
+- The question's popover at the Reply button, and VoiceOver on the first
+  new row, on the iPad: the check under "Blocked on the iPad coming back",
+  built from the worktree before it is merged, since it touches Send.
+
 ## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
 Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d
@@ -18861,7 +19094,8 @@ release build for the iPad links.
 - A Forward of a kept letter whose original has gone from the server and
   from All Mail meanwhile fails with its parts missing, kept in the Outbox
   saying so, where a letter fetched in the same launch would have carried
-  them from `lastBody` (PERFORMANCE.md).
+  them from `lastBody` (PERFORMANCE.md). *Since B-107, one whose original
+  he deleted is found in the Trash.*
 - The hitch: a page read from the main thread can wait on the shared disk
   queue behind a letter's write of up to 5 MB and a free-space reading.
   Timed on the iPad by the kept note's ms, and the reading's own part by

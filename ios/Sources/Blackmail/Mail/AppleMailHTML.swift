@@ -150,13 +150,16 @@ enum AppleMailHTML {
 
     /// What a letter sends besides its plain text. Worked out together,
     /// because each depends on the others: which of the original's pictures
-    /// go is decided by what the quote's markup still shows, and a forward's
-    /// picture that goes in the quote no longer goes as a file.
+    /// go is decided by what the quote's markup still shows, and a picture
+    /// of a forward's, or of a reply carrying the original's parts, that
+    /// goes in the quote no longer goes as a file.
     struct Letter {
         /// The HTML part, or nil when the letter goes as text.
         var html: String?
         /// The quoted original's pictures the HTML shows, each under the
-        /// Content-ID it shows it by. A forward's only: a reply sends none.
+        /// Content-ID it shows it by: only those that are also among the
+        /// letter's rows. A reply carrying none of the original's parts
+        /// sends none.
         var pictures: [(contentID: String, picture: QuotedOriginal.Picture)] = []
         /// The files: the draft's own, less any that now go in the quote.
         var files: [DraftAttachment] = []
@@ -198,21 +201,21 @@ enum AppleMailHTML {
                            signature: account.signature)
         let fingerprint = QuotedOriginal.fingerprint(quote.region)
 
-        // A forward's pictures are file rows he can see and take off; one he
-        // took off does not go, in the quote or anywhere.
-        //
-        // A reply carries none of them, as a reply has never carried the
-        // original's parts (INVESTIGATIONS, "Forwarding now carries the
-        // files"): every reply to a letter of photographs would send the
-        // photographs back, with no row to show they were going or what
-        // they weighed, and Send and Save Draft would each have to fetch
-        // them first, which fails once the original has been archived
-        // elsewhere and there is nothing on screen he could take off. The
-        // `<img>` that showed one goes with it (`QuotedMarkup.made`); the
-        // original's words, links, tables and pictures on the web stay.
-        let candidates = quote.kind == .forward
-            ? quote.pictures.filter { picture in draft.attachments.contains(where: picture.isSource) }
-            : []
+        // A picture of the original goes only as one of the letter's rows,
+        // which he can see and take off; one he took off does not go, in
+        // the quote or anywhere. A forward's are rows from the start. A
+        // reply's are rows only once it goes to someone the original did
+        // not, as Mail's reply carries them then (`ReplyFiles`, B-107);
+        // otherwise it carries none, as a reply never did: every reply to a
+        // letter of photographs would send the photographs back, with no
+        // row to show they were going or what they weighed, and Send and
+        // Save Draft would each have to fetch them first. The `<img>` that
+        // showed one that does not go goes with it (`QuotedMarkup.made`);
+        // the original's words, links, tables and pictures on the web stay.
+        // Whether it is a reply or a forward is not asked: the rows decide.
+        let candidates = quote.pictures.filter { picture in
+            draft.attachments.contains(where: picture.isSource)
+        }
         var names: [String: String] = [:]
         var used = taken
         var renamed: [(contentID: String, picture: QuotedOriginal.Picture)] = []

@@ -1053,19 +1053,59 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// Reply / Reply All / Forward as a three-item sheet, which is what old
     /// Mail did. Three labelled choices beats one button that guesses.
+    ///
+    /// Forward of a letter with files the header lists asks Mail's question
+    /// first (B-107). So do Reply and Reply All, only if his iPad's Mail is
+    /// set to Ask (`ReplyFiles.mode`), which it is not taken to be.
     @objc private func replyTapped() {
         guard let m = message else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
 
         sheet.addAction(UIAlertAction(title: "Reply", style: .default) { [weak self] _ in
-            self?.openCompose(replyTo: m, all: false, forward: false)
+            guard let self else { return }
+            guard ReplyFiles.asks(m) else {
+                return self.openCompose(replyTo: m, all: false, forward: false)
+            }
+            self.askAboutFiles { [weak self] in
+                self?.openCompose(replyTo: m, all: false, forward: false, included: $0)
+            }
         })
         sheet.addAction(UIAlertAction(title: "Reply All", style: .default) { [weak self] _ in
-            self?.openCompose(replyTo: m, all: true, forward: false)
+            guard let self else { return }
+            guard ReplyFiles.asks(m) else {
+                return self.openCompose(replyTo: m, all: true, forward: false)
+            }
+            self.askAboutFiles { [weak self] in
+                self?.openCompose(replyTo: m, all: true, forward: false, included: $0)
+            }
         })
         sheet.addAction(UIAlertAction(title: "Forward", style: .default) { [weak self] _ in
-            self?.openCompose(replyTo: m, all: false, forward: true)
+            guard let self else { return }
+            guard ReplyFiles.forwardAsks(m) else {
+                return self.openCompose(replyTo: m, all: false, forward: true)
+            }
+            self.askAboutFiles { [weak self] in
+                self?.openCompose(replyTo: m, all: false, forward: true, included: $0)
+            }
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    /// Mail's question about the original's files (B-107), as an action
+    /// sheet at the Reply button, where the choice was made: Include, Don't
+    /// Include, and Cancel, which on the iPad is a tap outside it, and
+    /// begins no letter. `answer` hears true for Include.
+    private func askAboutFiles(_ answer: @escaping (Bool) -> Void) {
+        let sheet = UIAlertController(title: ReplyFiles.question, message: nil,
+                                      preferredStyle: .actionSheet)
+        sheet.popoverPresentationController?.barButtonItem = actionItems[.reply]
+        sheet.addAction(UIAlertAction(title: ReplyFiles.include, style: .default) { _ in
+            answer(true)
+        })
+        sheet.addAction(UIAlertAction(title: ReplyFiles.dontInclude, style: .default) { _ in
+            answer(false)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(sheet, animated: true)
@@ -1083,17 +1123,29 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Reply-To, or to whom it went when it is his own (`ReplyAddressing`).
     /// Every address of his the app knows is handed in, the login as well
     /// as the address, so that none of them is sent a copy of his reply.
-    private func openCompose(replyTo m: Message?, all: Bool, forward: Bool) {
+    ///
+    /// A Reply or Reply All hands the composer its files' rule
+    /// (`ReplyFiles`, B-107), and nothing else does. `included` is his
+    /// answer to Mail's question, nil where none was asked.
+    private func openCompose(replyTo m: Message?, all: Bool, forward: Bool,
+                             included: Bool? = nil) {
         let account = CredentialStore.loadAccount()
         let signature = account?.signature ?? ""
         var draft = Draft.blank(signature: signature)
+        var replyFiles: ReplyFiles?
         if let m {
-            draft = forward
-                ? .forwarding(m, signature: signature)
-                : .replying(to: m, all: all, mine: OwnAddresses(account: account),
-                            signature: signature)
+            if forward {
+                draft = .forwarding(m, signature: signature, includingFiles: included ?? true)
+            } else {
+                draft = .replying(to: m, all: all, mine: OwnAddresses(account: account),
+                                  signature: signature)
+                let opening = ReplyFiles.opening(m, included: included)
+                draft.attachments = opening.rows
+                replyFiles = opening.rule
+            }
         }
-        let compose = ComposeViewController(repository: repository, draft: draft)
+        let compose = ComposeViewController(repository: repository, draft: draft,
+                                            replyFiles: replyFiles)
         let nav = UINavigationController(rootViewController: compose)
         nav.modalPresentationStyle = .formSheet
         present(nav, animated: true)

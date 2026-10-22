@@ -167,11 +167,22 @@ final class ComposeViewController: UIViewController,
     /// are never recorded here, nor removed (`AttachmentStore.removeStaged`).
     private let staged = StagedFiles()
 
+    /// A reply's files (`ReplyFiles`, B-107): the original's parts, put in
+    /// as rows once the reply goes to someone the original did not go to,
+    /// and taken out again when no one new is left, until he takes one off
+    /// himself. Made by the pane's Reply and Reply All alone; nil for a
+    /// forward, a new letter and a letter reopened from Drafts, the iPad or
+    /// the Outbox, which keep the rows they were saved with.
+    private var replyFiles: ReplyFiles?
+
     /// `key` is the letter's on the iPad when it was reopened from there;
-    /// any other letter is given a new one.
-    init(repository: MailRepository, draft: Draft, key: String? = nil) {
+    /// any other letter is given a new one. `replyFiles` is a Reply's or a
+    /// Reply All's, nil for every other letter.
+    init(repository: MailRepository, draft: Draft, key: String? = nil,
+         replyFiles: ReplyFiles? = nil) {
         self.repository = repository
         self.draft = draft
+        self.replyFiles = replyFiles
         self.key = key ?? UUID().uuidString.lowercased()
         self.kept = .shared
         super.init(nibName: nil, bundle: nil)
@@ -319,6 +330,9 @@ final class ComposeViewController: UIViewController,
 
         subjectField.delegate = self
         subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
+        // The fields as shown: a reply's files as its first recipients have
+        // it, before the letter is taken as it opened.
+        followRecipients()
         opened = currentLetter()
         updateSend()
         // A tap outside the sheet does nothing, and a swipe down asks what
@@ -570,9 +584,47 @@ final class ComposeViewController: UIViewController,
 
     @objc private func removeAttachment(_ sender: UIButton) {
         guard sender.tag < draft.attachments.count else { return }
-        draft.attachments.remove(at: sender.tag)
+        let removed = draft.attachments.remove(at: sender.tag)
+        // One of a reply's files taken off is his choice: what is left stays.
+        replyFiles?.removed(removed)
         rebuildAttachments()
         letterEdited()
+    }
+
+    /// A reply's files as its recipients now have it (`ReplyFiles`,
+    /// B-107): put in after any of his own when someone is new, taken out
+    /// when no one new is left. By default the bubbles, never what he is
+    /// still typing, so the rows do not come and go as he spells an
+    /// address; Send hands in everyone the letter would go to, what he is
+    /// still typing too. Run as the fields are
+    /// first shown, when the bubbles change under his hand, when he leaves
+    /// a field, which makes a bubble of what he typed, and after a pick.
+    ///
+    /// Only while the sheet is his to change (`ComposeActions.isWriting`):
+    /// nothing changes once a letter is on its way, or once Save Draft or
+    /// Delete Draft has put the sheet away. Returns where the first row
+    /// put in is, nil when none was.
+    @discardableResult
+    private func followRecipients(to: [String]? = nil, cc: [String]? = nil,
+                                  bcc: [String]? = nil) -> Int? {
+        guard actions.isWriting, var files = replyFiles,
+              let rows = files.recipientsChanged(to: to ?? toField.bubbles.entries,
+                                                 cc: cc ?? ccField.bubbles.entries,
+                                                 bcc: bcc ?? bccField.bubbles.entries,
+                                                 in: draft.attachments) else { return nil }
+        replyFiles = files
+        let first = rows.count > draft.attachments.count ? draft.attachments.count : nil
+        draft.attachments = rows
+        rebuildAttachments()
+        letterEdited()
+        return first
+    }
+
+    /// The words of the row at `index`, which VoiceOver is moved to.
+    private func attachmentWords(at index: Int) -> UIView? {
+        let rows = attachmentsStack.arrangedSubviews
+        guard rows.indices.contains(index) else { return nil }
+        return rows[index].subviews.first { $0 is UILabel }
     }
 
     // MARK: - Choosing a photo
@@ -753,9 +805,13 @@ final class ComposeViewController: UIViewController,
         activeAddressField = field
         refreshSuggestions(after: .typed)
         updateSend()
+        followRecipients()
     }
 
+    /// Leaving the field, which has made a bubble of what he typed and
+    /// sends this alone, no change of its own (`RecipientField.ended`).
     @objc private func addressEditingEnded(_ field: RecipientField) {
+        followRecipients()
         // Deferred by one runloop turn: a TAP on a suggestion ends editing
         // before the table sees the touch, so hiding immediately would
         // dismiss the row out from under his finger and nothing would be
@@ -823,6 +879,7 @@ final class ComposeViewController: UIViewController,
         updateSend()
         // Set by hand, the field sends no change of its own.
         letterEdited()
+        followRecipients()
     }
 
     @objc private func toggleCc() {
@@ -896,6 +953,18 @@ final class ComposeViewController: UIViewController,
         // The fields as they are at the tap; the letter itself is taken
         // once any photo still on its way in has landed in it.
         collect()
+        // A reply to someone new carries the original's files (B-107). An
+        // address he typed and never made a bubble, which reaches the
+        // letter with no change sent, can call for them only now: then
+        // they go in, VoiceOver is taken to the first, and nothing is sent.
+        // His next tap sends. A reply never goes without the files the rule
+        // calls for, nor with files he has not seen.
+        if replyFiles?.wouldAdd(to: draft.to, cc: draft.cc, bcc: draft.bcc) == true {
+            if let first = followRecipients(to: draft.to, cc: draft.cc, bcc: draft.bcc) {
+                UIAccessibility.post(notification: .layoutChanged, argument: attachmentWords(at: first))
+            }
+            return
+        }
         actions.send({ self.draft }, then: onDraftsChanged, draftSent: onDraftSent)
     }
 
