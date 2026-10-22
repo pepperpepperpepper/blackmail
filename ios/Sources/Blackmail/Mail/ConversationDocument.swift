@@ -421,6 +421,30 @@ enum ConversationDocument {
     /// has touched the pane, stays where it is (`bmKeep`), and what is below
     /// the place moves down.
     ///
+    /// **Held while the stack moves** (B-104, seen on the iPad 2026-10-22).
+    /// While a finger drags the pane, or the stack coasts after it, the
+    /// page's offset is WKWebView's scroll view's, in another process, and
+    /// a `scrollBy` of the script's made then is lost: the letter he was
+    /// reading dropped a line as his line went in, and went on with the
+    /// finger from there. So `bmInsert` holds what it is given while the
+    /// stack moves (`bmMoving`): while a finger is on the page, from its
+    /// touch to the touchend or touchcancel that leaves none, or two
+    /// seconds after the last of its touches if WebKit never says it went;
+    /// and while a scroll not the script's own came in the last quarter of
+    /// a second, as a coast's do. It looks again every tenth of a second
+    /// (`bmRelease`) and puts them in once the stack is still, as at rest,
+    /// where the `scrollBy` holds. What comes while one is held waits
+    /// behind it, in the order it came, so the page keeps the pane's
+    /// order: more of his letters, letters for the bottom (`bmAppend`), and
+    /// a body for a section not on the page yet (`bmFill`), which would
+    /// otherwise find nothing; a body for a letter on the page goes in at
+    /// once. Each runs once, and one that throws takes none of the rest
+    /// with it. What is held is the page's own: a new page, another letter
+    /// or the stack drawn again, starts with nothing held, and the pane's
+    /// document has his letters for a redraw (`PaneDocument.insert`). With
+    /// nothing moving nothing is held, so the stack opened and left alone
+    /// takes them at once, as it did.
+    ///
     /// **A finger on a line** (B-095). The line is lit from the touch until
     /// the finger lifts, and the lift opens or closes it, the script's own
     /// doing and not WebKit's: WebKit paints no tap highlight on an element
@@ -456,7 +480,10 @@ enum ConversationDocument {
     }
     function bmFill(id, html, isHTML) {
       var el = document.getElementById(id);
-      if (!el) return;
+      if (!el) {
+        if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML); });
+        return;
+      }
       var body = el.querySelector('.bm-body');
       if (!body) return;
       body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
@@ -544,6 +571,33 @@ enum ConversationDocument {
       bmScrolled = performance.now();
       bmUnpress();
     }
+    var bmHeld = [];
+    var bmHeldTimer = null;
+    var bmFingers = 0;
+    var bmFingered = -1e9;
+    var bmSettle = 250;
+    var bmLostTouch = 2000;
+    function bmFinger(event) {
+      bmFingers = event.touches.length;
+      bmFingered = performance.now();
+    }
+    function bmMoving() {
+      var now = performance.now();
+      return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch);
+    }
+    function bmLater(change) {
+      bmHeld.push(change);
+      if (bmHeldTimer === null) bmHeldTimer = setTimeout(bmRelease, 100);
+    }
+    function bmRelease() {
+      bmHeldTimer = null;
+      if (bmMoving()) { bmHeldTimer = setTimeout(bmRelease, 100); return; }
+      var held = bmHeld;
+      bmHeld = [];
+      for (var i = 0; i < held.length; i++) {
+        try { held[i](); } catch (e) {}
+      }
+    }
     function bmWire(head) {
       bmLines.push(head);
       head.addEventListener('click', function (event) {
@@ -555,6 +609,7 @@ enum ConversationDocument {
       if (bmWatch) bmWatch.observe(head.parentNode);
     }
     function bmAppend(html) {
+      if (bmHeld.length) { bmLater(function () { bmAppend(html); }); return; }
       var holder = document.createElement('div');
       holder.innerHTML = html;
       while (holder.firstElementChild) {
@@ -564,6 +619,7 @@ enum ConversationDocument {
       }
     }
     function bmInsert(html, beforeID) {
+      if (bmHeld.length || bmMoving()) { bmLater(function () { bmInsert(html, beforeID); }); return; }
       var at = null;
       if (beforeID) {
         var letters = document.querySelectorAll('body > .bm-letter');
@@ -620,6 +676,9 @@ enum ConversationDocument {
       window.addEventListener('touchmove', bmPressMove, { capture: true, passive: true });
       window.addEventListener('touchend', bmPressUp, { capture: true, passive: false });
       window.addEventListener('touchcancel', bmUnpress, { capture: true, passive: true });
+      ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (name) {
+        window.addEventListener(name, bmFinger, { capture: true, passive: true });
+      });
       window.addEventListener('scroll', bmScroll, { passive: true });
       window.addEventListener('load', bmKeep);
       bmKeep();

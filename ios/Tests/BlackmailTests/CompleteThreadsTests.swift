@@ -360,11 +360,14 @@ final class CompleteThreadsTests: XCTestCase {
     /// closed lines: read before they go in, the page scrolled by as much as
     /// it moved, or, while the stack holds the line it opened at, the hold
     /// passed to the last of his, now directly above it. Otherwise the place
-    /// is kept as it always is, the line held or the letter at the top.
+    /// is kept as it always is, the line held or the letter at the top. All
+    /// of it once the stack is still (below).
     func testTheScriptKeepsTheLetterHeIsReadingWhereItIs() {
         let script = flat(ConversationDocument.script)
         XCTAssertTrue(script.contains(
-            "function bmInsert(html, beforeID) { var at = null; if (beforeID) { "
+            "function bmInsert(html, beforeID) { "
+                + "if (bmHeld.length || bmMoving()) { bmLater(function () { bmInsert(html, beforeID); }); return; } "
+                + "var at = null; if (beforeID) { "
                 + "var letters = document.querySelectorAll('body > .bm-letter'); "
                 + "for (var i = 0; i < letters.length; i++) { "
                 + "if (letters[i].id === beforeID) { at = letters[i]; break; } } if (!at) return; } "
@@ -384,6 +387,46 @@ final class CompleteThreadsTests: XCTestCase {
                 + "for (var s = at.previousElementSibling; s; s = s.previousElementSibling) { "
                 + "if (s.getBoundingClientRect().bottom <= 0) break; "
                 + "if (s.classList.contains('bm-open')) return false; } return true; }"), script)
+    }
+
+    /// Held while the stack moves under a finger or coasts after it, as the
+    /// iPad showed it must be (2026-10-22): a `scrollBy` made then was lost,
+    /// and the letter he was reading dropped a line. Held while a finger is
+    /// on the page, from its touchstart to the touchend or touchcancel that
+    /// leaves none, or two seconds after the last of its touches, whichever
+    /// is first, and while a scroll not the script's own came in the last
+    /// quarter of a second; looked at again every tenth of a second, and
+    /// then put in as at rest. What comes while one is held waits behind
+    /// it, in the order it came: more of his letters, letters put in at the
+    /// bottom, and a body for a section not on the page yet. Each held
+    /// change runs once, the next not lost if one throws. Read from the
+    /// script, for a host without node; `HisLineUnderTheFingerTests` runs it.
+    func testTheScriptHoldsHisLettersWhileTheStackMovesUnderAFinger() {
+        let script = flat(ConversationDocument.script)
+        for wiring in [
+            "var bmHeld = []; var bmHeldTimer = null; var bmFingers = 0; var bmFingered = -1e9; "
+                + "var bmSettle = 250; var bmLostTouch = 2000;",
+            "function bmFinger(event) { bmFingers = event.touches.length; bmFingered = performance.now(); }",
+            "function bmMoving() { var now = performance.now(); "
+                + "return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch); }",
+            "function bmLater(change) { bmHeld.push(change); "
+                + "if (bmHeldTimer === null) bmHeldTimer = setTimeout(bmRelease, 100); }",
+            "function bmRelease() { bmHeldTimer = null; "
+                + "if (bmMoving()) { bmHeldTimer = setTimeout(bmRelease, 100); return; } "
+                + "var held = bmHeld; bmHeld = []; "
+                + "for (var i = 0; i < held.length; i++) { try { held[i](); } catch (e) {} } }",
+            "function bmInsert(html, beforeID) { "
+                + "if (bmHeld.length || bmMoving()) { bmLater(function () { bmInsert(html, beforeID); }); return; }",
+            "function bmAppend(html) { if (bmHeld.length) { bmLater(function () { bmAppend(html); }); return; }",
+            "var el = document.getElementById(id); if (!el) { "
+                + "if (bmHeld.length) bmLater(function () { bmFill(id, html, isHTML); }); return; }",
+            "['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function (name) { "
+                + "window.addEventListener(name, bmFinger, { capture: true, passive: true }); });",
+        ] {
+            XCTAssertTrue(script.contains(wiring), wiring)
+        }
+        XCTAssertEqual(script.components(separatedBy: "bmLater(").count - 1, 4,
+                       "defined, his letters, the bottom's, a body")
     }
 
     /// Kept in the stack, so a redraw has them and their bodies a section to
