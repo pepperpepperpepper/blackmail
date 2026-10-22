@@ -944,7 +944,7 @@ launch; a write on it is asked about once, at one round trip, and its
 letter opened asks in its own FETCH, at none more, where the proven mailbox
 let both go unasked. That stays: asking is the safer, and it is rare.
 Not built: the letters (phase 2). If it is built, it keeps none of his
-letters from Sent Mail that an Inbox conversation brings in (D-019).
+letters from Sent Mail that an Inbox conversation brings in (D-021).
 
 **Alongside it, the letters kept in `Local Drafts/`, 2026-09-30** (B-051).
 They are not this copy and are never wiped with it, but they name letters
@@ -1077,7 +1077,7 @@ TrollStore's helper; which of the two leaves it out was not looked into.
 
 ---
 
-## D-019 — Complete Threads: his own letters in Inbox conversations, read only, never kept
+## D-021 — Complete Threads: his own letters in Inbox conversations, read only, never kept
 
 **Decided 2026-10-22, the owner's answer still to come.** Mail's Complete
 Threads, under Settings, Apps, Mail, Threading, is on from the factory, and

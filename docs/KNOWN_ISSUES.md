@@ -17463,7 +17463,7 @@ and Reply still act on the conversation's letter he opened last. Opened
 again within ten minutes, his letters are there from the first frame. In
 Settings, a Complete Threads switch under Organize by Thread. New words,
 held from his iPad until he approves them: "Complete Threads", the line
-under it, and "Found in Sent Mail" (D-019).
+under it, and "Found in Sent Mail" (D-021).
 
 **Tests.** `CompleteThreadsTests`, forty-three. Pure: where his letters go,
 before, between and after the conversation's, by when Gmail took them, ties
