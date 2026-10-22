@@ -25,8 +25,8 @@ import Foundation
 ///
 /// - 2: the copy of his mail is thrown away (`MailShelf.wipe`), as it can
 ///   be at any time, being only ever what the server last said (D-016), so
-///   no kept page is drawn; and the view settings go back to their
-///   defaults (`viewSettings`).
+///   no kept page is drawn, and his recent searches with it (B-105); and
+///   the view settings go back to their defaults (`viewSettings`).
 /// - 3: no automatic pass over the letters kept on the iPad in this launch.
 ///   His own Send and Save Draft go as ever.
 /// - 5: the letters kept on the iPad are moved, folder and all, to a dated
@@ -138,6 +138,7 @@ final class SafeStart {
     /// mail and the letters kept on the iPad, over the same `UserDefaults`
     /// the screens read.
     static let app = SafeStart(directory: appDirectory, kept: MailShelf.appRoot,
+                               searches: RecentSearches.appFile,
                                letters: LocalDraftStore.appRoot, defaults: .standard)
 
     nonisolated static var appDirectory: URL {
@@ -164,6 +165,7 @@ final class SafeStart {
 
     let directory: URL
     private let kept: URL
+    private let searches: URL
     private let letters: URL
     private let defaults: UserDefaults
     private let now: () -> Date
@@ -181,11 +183,12 @@ final class SafeStart {
     /// Waits for the healthy point, once the first page has been tried.
     private var watching: Task<Void, Never>?
 
-    /// `kept` is the copy of his mail, `Kept/`, and `letters` the store of
-    /// letters kept on the iPad, `Local Drafts/`; the dated folder goes
+    /// `kept` is the copy of his mail, `Kept/`, `searches` the file of his
+    /// recent searches (B-105), which goes with it, and `letters` the store
+    /// of letters kept on the iPad, `Local Drafts/`; the dated folder goes
     /// beside it, named in `timeZone`. `wait` stands in for the half minute
     /// to the healthy point, for a test.
-    init(directory: URL, kept: URL, letters: URL, defaults: UserDefaults,
+    init(directory: URL, kept: URL, searches: URL, letters: URL, defaults: UserDefaults,
          now: @escaping () -> Date = { Date() },
          timeZone: TimeZone = .current,
          log: @escaping (String) -> Void = { Diagnostics.log(.note, $0) },
@@ -193,6 +196,7 @@ final class SafeStart {
             = { try await Task.sleep(for: $0) }) {
         self.directory = directory
         self.kept = kept
+        self.searches = searches
         self.letters = letters
         self.defaults = defaults
         self.now = now
@@ -233,6 +237,7 @@ final class SafeStart {
         var setAside: String?
         if steps.forgetsKeptState {
             MailShelf.wipe(root: kept)
+            RecentSearches.wipe(searches)
             log("SAFE-START kept-copy=wiped")
             taken.append(Self.keptCopyWiped)
             for key in Self.viewSettings { defaults.removeObject(forKey: key) }

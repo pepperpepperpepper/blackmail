@@ -136,10 +136,13 @@ final class OutboxTests: XCTestCase {
 
     /// The safe start of a launch over this test's Application Support, as
     /// `SafeStart.app` is the app's: the count and the pass's mark in
-    /// `launches`, the copy of his mail in `keptCopy`, these letters, and
-    /// the view settings in this test's defaults.
+    /// `launches`, the copy of his mail in `keptCopy` and the recent
+    /// searches beside it, these letters, and the view settings in this
+    /// test's defaults.
     private func makeStart() -> SafeStart {
-        SafeStart(directory: launches, kept: keptCopy, letters: root,
+        SafeStart(directory: launches, kept: keptCopy,
+                  searches: URL(fileURLWithPath: root.path + "-Recent Searches.json"),
+                  letters: root,
                   defaults: UserDefaults(suiteName: Self.suite)!,
                   timeZone: TimeZone(identifier: "UTC")!)
     }
