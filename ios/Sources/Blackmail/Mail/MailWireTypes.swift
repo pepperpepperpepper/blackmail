@@ -202,6 +202,10 @@ struct IMAPFetchResult {
         out.envelope = later.envelope ?? envelope
         out.bodyStructure = later.bodyStructure ?? bodyStructure
         out.body = later.body ?? body
+        // Each section by its own name: a later line's bytes for a section
+        // in place of this one's, the others kept (B-113's several to a
+        // FETCH, B-112's news among them).
+        out.sections = sections.merging(later.sections) { _, newer in newer }
         out.threadID = later.threadID ?? threadID
         out.gmailMessageID = later.gmailMessageID ?? gmailMessageID
         return out

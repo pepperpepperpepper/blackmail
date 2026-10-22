@@ -673,8 +673,8 @@ final class FetchNewsTests: XCTestCase {
 
         markElsewhere(again: true)
         let inPart = try await client.fetchLetterInPart(uid: n, in: Server.inbox, validity: inboxValidity,
-                                                        question: .expecting(letter), sectionBytes: 64,
-                                                        sections: { _ in ["1"] })
+                                                        question: .expecting(letter),
+                                                        sections: { _ in [(section: "1", bytes: 64)] })
         told("the letter in parts", fetches: 2)
         XCTAssertEqual(inPart.letter, letter)
         XCTAssertEqual(inPart.structure.map(MIMEDecoder.listedAttachments(in:))?.map(\.filename),
