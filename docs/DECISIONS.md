@@ -1074,7 +1074,7 @@ TrollStore's helper; which of the two leaves it out was not looked into.
   Tinted makes it one blue tile. Their own versions need an asset catalog.
 - On a dark ground the black sleeve at the top right runs into it.
 
-## D-019 — The row's gutter holds one thing: the spinner, the dot, the arrow, the paperclip
+## D-020 — The row's gutter holds one thing: the spinner, the dot, the arrow, the paperclip
 
 **Decided 2026-10-22, with B-102**, where Mail's grey reply and forward
 arrows came to the rows. The leading gutter on the sender's line is the

@@ -3841,7 +3841,7 @@ this host. Ordered by value, not by size.
       gutter beside the circles, where the dot goes. The look again on the
       iPadOS 18.6 simulator on the Mac, its grey set beside Mail's in
       Apple's picture (the guide's "Flag emails" page): Mail's is lighter
-      than the preview's words, this one the preview's grey (D-019).
+      than the preview's words, this one the preview's grey (D-020).
       7. *Put back.* Move the B-102 letters to Trash.
 
 ## Blocked on the owner

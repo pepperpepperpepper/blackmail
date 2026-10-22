@@ -77,7 +77,7 @@ final class MessageCell: UITableViewCell {
         flagIcon.tintColor = Theme.flagTint
         flagIcon.contentMode = .scaleAspectFit
         // The preview's grey. Mail's arrow is its lighter tertiary grey,
-        // whose inversion, about 59 on black, would be too dim (D-019).
+        // whose inversion, about 59 on black, would be too dim (D-020).
         statusIcon.tintColor = Theme.secondaryText
         statusIcon.contentMode = .scaleAspectFit
         statusIcon.isHidden = true
@@ -222,7 +222,7 @@ final class MessageCell: UITableViewCell {
         // gutter and the clip falls back to trailing when they collide.
         //
         // The gutter holds one thing, in this order: the spinner over all,
-        // then the dot, then the arrow, then the clip (D-019, B-102). So the
+        // then the dot, then the arrow, then the clip (D-020, B-102). So the
         // clip goes to the end of the subject's line whenever the dot or the
         // arrow has the gutter, as Mail's sits there beside its arrow.
         let clipInGutter = attachmentIcon.isHidden == false && unreadDot.isHidden

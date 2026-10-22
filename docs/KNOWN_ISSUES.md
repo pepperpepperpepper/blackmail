@@ -17308,7 +17308,7 @@ the arrow is 12 to 12.7 points wide and 10 high, a light grey, centred on
 the name's capitals as the dot is. iPadOS 18's is taken to be the same,
 from that picture and from 18.6's Mail code, which knows `\Answered`,
 `$Forwarded` and `Forwarded`; read from that code, less surely, it sets the
-mark as the letter goes, not as it is written. Not known, and chosen here (D-019): an unread letter that is
+mark as the letter goes, not as it is written. Not known, and chosen here (D-020): an unread letter that is
 answered shows its dot; a letter both answered and forwarded shows the
 reply arrow; a conversation's row shows its newest letter's mark.
 
@@ -17353,7 +17353,7 @@ Complete Threads, still open in the TODO), so opening it did not show them.
    in iOS since 13, each made once at a size of its own
    (`Theme.rowArrowSymbol`), so no text size in Settings changes them
    (B-071). The gutter holds one thing, in this order: the spinner, which
-   fades what is under it; the dot; the arrow; the paperclip (D-019). So
+   fades what is under it; the dot; the arrow; the paperclip (D-020). So
    the paperclip goes to the end of the subject's line whenever the dot or
    the arrow has the gutter, as it did beside the dot. Every other number
    in the row is as it was.
@@ -17373,7 +17373,7 @@ Its grey is not Mail's. Measured on the same picture, Mail's arrow is
 filled at about 196 on white, iOS's tertiary grey, lighter than the
 preview's words at 126 at most, its secondary grey. Here it is drawn in
 the preview's grey, 142 on black, as the plan asked: the inversion of
-Mail's, about 59 on black, would be too dim for him to see (D-019).
+Mail's, about 59 on black, would be too dim for him to see (D-020).
 Device step 6 sets it beside Mail's in that picture, on the simulator.
 
 **Not changed.**
@@ -17471,7 +17471,7 @@ release build for the iPad links.
   on a device with Mail.
 - Mail's own rule for a letter unread and answered, one answered and
   forwarded, and a conversation, which the choices here stand in for
-  (D-019).
+  (D-020).
 - Not seen on the iPad, nor on the simulator. The TODO says how, built
   from the `feat-arrows` worktree.
 - The text size stays fixed (D-007). The square is `Theme.scaled`, so it

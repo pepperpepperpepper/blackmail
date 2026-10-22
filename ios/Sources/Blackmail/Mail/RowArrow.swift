@@ -11,7 +11,7 @@ import Foundation
 /// disagree.
 ///
 /// The gutter is the unread dot's, and holds one thing at a time, in this
-/// order (D-019): the spinner over everything while a draft is on its way,
+/// order (D-020): the spinner over everything while a draft is on its way,
 /// then the unread dot, then the arrow, then the paperclip, which goes to
 /// the end of the subject's line whenever the gutter is taken. So an
 /// unread letter shows its dot and no arrow, and its arrow once it is read.
