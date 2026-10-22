@@ -18875,335 +18875,6 @@ release build for the iPad links.
   coming back", built from the worktree before it is merged, since it
   touches Send.
 
-## B-110 — BUILT 2026-10-22, not yet seen on the iPad. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
-
-Built in the `feat-print` worktree, off `feat-replyfiles` (master at
-88ef40d with B-100 to B-105, B-111 and B-107). It touches nothing B-108 or
-B-109 touch, so it merges before or after them. The owner, 2026-10-22:
-"No, no, no, we should have print on there. All three are still wanted."
-(Print, his photos in the body, and D-016's phase 2.) So the plan's "leave
-it out", and "Print as a batch" among its dropped items, are withdrawn.
-His three questions about it are not answered yet, and it is built to
-their defaults: no paper for the check, the preview and a saved PDF read
-instead; nothing done at his house; the printed header in names, as the
-pane shows them, with the date written out in full. Either answer about
-the header is a one-line change pinned by its test.
-
-**What Mail does.**
-
-- *Where, on iPadOS 18* (high). Apple: "In the message, tap [More
-  Actions] in the bottom-right corner, then tap Print."
-  (support.apple.com/guide/ipad/print-emails-ipad2cfe223f/18.0/ipados/18.0).
-  Its place in that sheet (medium-high): low, after Notify Me and before
-  Block Sender, the order of iOS 18.6's own identifiers for the sheet's
-  rows in MailSupport, read statically from the simulator runtime; an
-  iOS 13 list agrees
-  (ios.gadgethacks.com/news/22-new-features-ios-13s-mail-app-help-you-master-art-email-0206374/).
-- *Where, in the toolbar era this app copies, iOS 4.2 to 12* (high): the
-  fourth row of the Reply button's sheet. Apple's iPad guide for iOS 12:
-  "Tap [the Reply button], then tap Print."
-  (support.apple.com/guide/ipad/print-emails-ipad2cfe223f/12.0/ios/12.0);
-  an iPad answer of 2011, "You will be presented with options: Reply;
-  Reply All; Forward; Print." (discussions.apple.com/thread/3148646);
-  CNET for iOS 8, "tap the Reply button (the little curved arrow), and
-  then tap Print" (cnet.com/tech/mobile/how-to-print-nearly-anything-in-ios-8/).
-- *What is printed* (high; iOS 18.6's MobileMailUI read statically).
-  `-[MFMessageContentView viewPrintFormatter]` returns its web view's
-  formatter, and `-[MFMessageHeaderView drawRect:forViewPrintFormatter:]`
-  draws the header into the print: one message, its header as drawn on
-  screen, then its body as its web view shows it, pictures and quoted
-  text included. Each letter of a conversation has its own content view,
-  so a print is one letter, never the stack (medium-high, inferred from
-  that). A file prints through a page renderer handed to the shared
-  print controller.
-- *Light* (high for WebKit today, medium for the 16.5 and 18 builds).
-  While printing, WebKit turns dark appearance off
-  (`Page::useDarkAppearance`), prints no backgrounds unless asked, and
-  darkens text too light for white paper
-  (`adjustColorForVisibilityOnBackground`): white text prints a mid grey,
-  readable but faint.
-- *Its wait* (high for today's WebKit, medium for 16.5 and 18). WebKit's
-  page count for printing lays the page out and answers at once, without
-  waiting for pictures still loading (`WebPage::computePagesForPrintingiOS`),
-  so the UI process's wait with no limit is a wait for layout and drawing,
-  never for the network.
-- *The panel* is AirPrint's (`UIPrintInteractionController`): printer,
-  copies, range and preview, the one QuickLook's Print opens. Files print
-  from QuickLook's Share, Print (the iPadOS 18 page above), as they
-  already do here.
-- *Not known* (low): Mail's paper size and margins, how its header prints
-  in Dark Mode, and whether its printed date says "Today".
-
-**What it was.** Nothing printed a letter: no print controller, print
-formatter or page renderer anywhere in the app; only a file, from
-QuickLook. Nor could the pane simply have been printed. Its page is dark
-(D-010): plain text white on black and HTML under an invert, which, with
-no backgrounds printed, is white words on white paper. Its header is
-UIKit, outside the page. And a conversation's stack would print every
-letter open in it, the last at least a screen tall.
-
-**Changed.**
-
-1. *The sheet* (`replyTapped`). Print is its fourth row: Reply, Reply
-   All, Forward, Print, Cancel, anchored on the Reply button as before.
-   Its letter is the sheet's own, the one the header shows and Reply
-   answers: in a conversation the letter opened last, never one of his
-   brought in from Sent Mail (B-104). Greyed only while a print is being
-   made ready (`printing?.isPreparing`), at most the 10 s limit, the
-   drawing and the 10 s wait for the pane. No toolbar button;
-   `Theme.ToolbarAction` is unchanged. The one new word is Mail's
-   "Print".
-2. *The page* (`Mail/PrintPage.swift`, Foundation only). One light HTML
-   document: `color-scheme` light only, white with black words, no filter
-   or invert anywhere, `#bm` wrapping a long line as the pane's does,
-   pictures and tables no wider than the paper, links `#007AFF`, and
-   Mail's bars beside quoted text in its light colours, the pane's own
-   string (`QuoteBars.css`, B-101, which was one string already). The
-   header in `#bm-head`, never split across pages: the sender's name,
-   semibold and blue; "To: …" or "To: me"; "Cc: …" only when there is
-   one; a 0.5 px rule, `#c8c8c8`; the subject or "(no subject)", bold and
-   black; the date; a line per file the header lists, "name (size)", or
-   the name alone when the size is not known; a rule. The lines grey,
-   `#8e8e8e`, every size the pane's (`Theme`). Each value from the same
-   expressions the pane's header uses, escaped
-   (`ConversationDocument.escape`), as text, never in an attribute. The
-   date is written out in full by `MailFormat.fullTimestamp`, new, "d
-   MMMM yyyy 'at' h:mm a", never "Today" or "Yesterday", since the paper
-   is read on another day; `detailTimestamp` calls it for every letter
-   older than yesterday, the same words as before. The body is the
-   pane's, `PanePage.content`, factored out of `PanePage.letter`, whose
-   page is byte for byte what it was: the sender's wrapper off, its
-   pictures pointed at the loader, its links made links, plain text
-   escaped with its leading blank lines dropped, kept to its lines. A
-   plain body over 128 KiB, about 60 pages, or an HTML one over 512 KiB,
-   is cut before anything else is done to it, at the last whole character
-   that fits, and the pane's grey line, "Only the beginning of this
-   message is shown.", is above it, as above a letter the pane already
-   shortened. A letter with nothing in it prints the pane's "This message
-   has no text.", grey. `words` is the same letter in plain words, for
-   when the page cannot be drawn: the header's lines, a blank line, the
-   text, under the same limit and line. `jobName` is the subject. US
-   Letter, 612 × 792 pt, a 36 pt margin. The pane's map of pictures by
-   Content-ID is now `PanePage.pictures(of:)`, which the pane and the
-   print both read; the later letter wins a clash, as before.
-3. *The steps* (`Mail/PrintSteps.swift`, pure): loading, drawing, ready,
-   presented, ended; made ready in the first three. Loading: the page's
-   own commit waits, its finish draws, its failure or WebKit's content
-   process ending draws the words, the 10 s limit draws what has come if
-   the page has committed and the words if not, and the app gone ends it.
-   Another navigation that commits is a failure; another's failure is
-   nothing, so a letter's meta refresh, cancelled, does not turn the
-   print into words. Drawing takes nothing more. No pages from the page:
-   the words; none from the words: the end, with nothing to print. Ready:
-   the pane looked at now and every 0.5 s; moved on, the end; nothing over
-   it and the app active, the panel; otherwise it waits, up to 10 s from
-   the PDF, then ends. A moment inactive, Control Center or an alert of
-   the system's, waits; the app gone ends it. The panel refused, the end.
-4. *The job* (`UI/LetterPrint.swift`). The page and the words are made
-   away from the main thread, as the pane's page is. Then a web view of
-   its own, its configuration set before it is built: the letter's script
-   off, WebKit's data in memory only, a picture loader of its own, and no
-   script of any kind, the app's or the letter's. Light
-   (`overrideUserInterfaceStyle`), so a sender's rules for a dark
-   appearance, Apple Mail's own, never apply. 540 × 720, the printable
-   width, in the pane's view behind everything, alpha 0, untouchable and
-   hidden from VoiceOver, so WebKit counts it visible and does not
-   suspend it. Its navigations decided by `PaneNavigation`; nothing is
-   followed or opened. Each navigation call is compared with its own page's
-   navigation, by identity. Its loader answers the letter's own pictures
-   through `fetchAttachmentData`, the job's only call on the repository,
-   a read: from memory for the letter last downloaded, from the iPad for
-   one kept there (B-111), and from the server otherwise. Before drawing,
-   it checks that the pane still shows the letter, by its id and its
-   folder, in its window, with the app active. A page renderer of Letter
-   paper, by its own two rectangles and nothing set by key, draws the
-   web view's print formatter, or the words at 17 pt in black, into a PDF
-   in memory; as soon as the PDF has pages the web view is torn down. The
-   panel: when a look finds nothing presented over the pane and the app
-   active, and only if the PDF can be printed, the shared controller is
-   given a fresh print info named for the subject and the PDF's bytes,
-   never a formatter or a renderer, and presented from the Reply button.
-   Its completion clears the controller only while it still holds this
-   job's print info, so QuickLook's print, or another, is never changed
-   under it. Every end is one, however it is reached: the web view's
-   loading stopped while it is alive, so each picture still coming is
-   stopped and its fetch called off (`PictureRequests`), the view taken
-   out, and the limit, the looks and the observer of the app's going
-   stopped.
-5. *The pane* (`MessageDetailViewController`) holds one job, `printing`,
-   replaced only once its panel is up, when it holds nothing of WebKit's
-   and no bytes, and let go by its own end alone.
-6. *The log*, counts only, never a name or a subject: `PRINT ready
-   pages=N bytes=B ms=T`, T from the tap to the PDF; `PRINT words
-   why=failed|ended|late|blank`; `PRINT ended
-   why=away|moved|covered|refused|empty`; `PRINT panel over=true|false`;
-   `PRINT closed done=true|false`.
-
-The lifetime, in one place. From the tap to the panel the pane holds the
-job. The web view lives from its load to the end of the drawing, or an
-earlier end. From the PDF to the panel, at most 10 s, the job holds the
-PDF's bytes and nothing of WebKit; once the panel is up, only the system's
-print controller holds anything, the bytes, until it closes. One job at a
-time: even if a completion never came, at most one PDF stays, replaced by
-the next print, and Print is never greyed by a panel or a job held.
-Cancel or a tap outside closes the panel. The app gone before the panel:
-the job ends, and no panel comes later, since the app is looked at again
-just before presenting; with the panel up, it holds bytes only, and
-nothing of WebKit or the pane is touched. Another letter tapped, or the
-pane emptied, before the panel: the job ends quietly, logged. Something
-presented over the pane: the panel waits for it to go, up to 10 s, then
-the job ends quietly, logged. Nothing is written to disk, nothing goes
-into `tmp/Attachments`, MailShelf or LocalDrafts, and nothing is marked,
-flagged, moved or sent.
-
-Where the spec and the code differ, the code's way, and why:
-
-- B-101's quote rules were one string already (`QuoteBars.css(in:)`), so
-  nothing was factored out of PanePage; the print reads the same.
-- `detailTimestamp` gives the full date for every letter older than
-  yesterday, not only for one older than a week, as the spec read it:
-  its `thisWeek` and `earlier` share the branch. `fullTimestamp` is the
-  same words for both.
-- The words are made with the page, away from the main thread, and an
-  HTML letter's from its markup cut to the page's limit first. Made at
-  the moment of drawing they would have been made on the main thread,
-  and an HTML-only letter's words go through `HTMLText`, which on a
-  letter of 2 MiB is not free.
-- The steps answer `look` when the PDF is made, and `drawWords` says why,
-  for the log; the spec's five answers had none for the first.
-  `coverLimit` is applied in the steps, so the job reads `timeLimit` and
-  `coverRetry` and the steps `coverLimit`.
-- The app's going is heard by a selector, not a block. A block observer's
-  closure is not the main actor's to the compiler and would have needed a
-  hop, after which a look could run before the going was taken.
-- WebKit's kind of navigation, mapped for `PaneNavigation`, was private
-  to the pane; it is shared now, so the print's page is decided exactly
-  as the pane's.
-- A delegate call that comes with no navigation is taken for another
-  navigation's, and a load that gives no navigation at all is a failure,
-  printed in words.
-- The built job is main-actor isolated by its declaration, and the build
-  warns that its conformance to WebKit's navigation delegate crosses into
-  it ("an error in the Swift 6 language mode"). The package is in Swift 5
-  mode, where no check is made at run time, and WebKit calls the delegate
-  on the main thread; the pane's own conformance inherits UIKit's
-  isolation and is not warned about.
-
-**Not changed.** The pane's page and its conversation's stack, byte for
-byte; `detailTimestamp`'s words on screen; QuickLook's Print; the toolbar;
-the error sentences (no new alert); Info.plist, with no new permission;
-the send path, and no IMAP write.
-
-**What he sees.** Print under Forward in the Reply sheet. A second or a
-few after the tap, AirPrint's panel from the Reply button: printer,
-copies, range, and a preview black on white, his header as the pane has
-it with the date in full, then the letter, its pictures and its own
-colours. A sheet he opens meanwhile has Print greyed, and the panel comes
-once it is closed, never over it. Cancel, or a tap outside, and nothing
-has happened.
-
-**Tests.** `PrintPageTests`, 18, the page: light for every one of the
-pane's letters (its fixtures, moved to `Support/PaneLetters.swift` so both
-suites read them), with none of the pane's dark rules; the pane's sizes;
-the header's lines in the pane's order and words, "To: me", the Cc only
-when there is one, "(no subject)", the files from `listedAttachments`
-with their sizes or their names alone, a picture the body shows with no
-line and a PDF sent inline with one; the date in full for a letter of
-today, of yesterday, of three days ago and of over a year ago, never
-"Today" or "Yesterday", and `detailTimestamp`'s words on screen as they
-were, the same as `fullTimestamp`'s for any letter older than
-yesterday; a sender
-`Smith & Sons <x@y>`, a subject with `<script>` in it and a file name
-with `&` and `<`, escaped, no attribute in the header but its classes,
-and no `<script` of ours; the body byte for byte `PanePage.content` for
-every letter, and the same as the pane's page has; its pictures pointed
-at the loader for known ids only, and plain text with its leading blank
-lines dropped; the pane's line above a letter it shortened, and above
-one over each limit, cut to a whole é under the limit; the cut through a
-letter with its accent after it, a flag, a character of four bytes and a
-string bridged from Foundation; the pane's words for a letter with
-nothing in it; the quote bars the pane's own string; the words, an HTML
-letter's from `HTMLText`, and the words cut, with the line; the job's
-name; the paper and the limits. `PrintStepsTests`, 14: every row of the
-steps as a sequence, the look covered for 9.5 s and then clear, covered
-to 10 s, inactive, moved on, the app gone in each step, the panel
-refused; Print greyed only in the first three steps; the times.
-`PrintWiringTests`, 14, read from the source: the sheet's rows in order,
-Print greyed while made ready and given the sheet's own letter, no
-toolbar button; one job, let go only by its own end with the `===` check;
-one map of pictures for the pane and the print; the printed header's
-expressions the pane's header's; the job's web view locked down before it
-is built, light, unseen and untouchable; its page going nowhere, the one
-allow; each navigation call compared with its own; its only call on the
-repository a read, and nothing written; drawn into a PDF only while the
-letter is shown in its window with the app in front, by the renderer's
-own rectangles; the panel given bytes, only in the turn of a look, and
-cleared only while it is still the job's; one teardown, on every end and
-after the drawing; the app's going and the times; the log, counts only.
-`PanePageTests`, one more: `PanePage.pictures(of:)` is the map the pane
-built, the later letter winning. `InfoPlistTests`, one more: the usage
-keys still only the two for Photos, no Local Network and no Bonjour.
-
-Each rule broken in place, one at a time, and the five classes run, with
-`ShareInfoPlistTests`, which the filter takes too: 57 tests. The spec's
-list: the pane's invert put back, 51 failures in 1 test; the escape
-dropped, 4 in 1; Print moved below Cancel, 2 in 1; drawn(0) answered
-present, 6 in 1; late answered end, 3 in 1; the teardown left out of the
-end, which every way out of the job goes through, 3 in 1; printFormatter
-set to the web view's formatter, 1 in 1; the cut made mid-character, 13
-in 3; the own-navigation check left out of didFailProvisionalNavigation,
-3 in 1; the look before presenting left out, 1 in 1; detailTimestamp
-used for the printed date, 8 in 2. And one for each other test: the meta
-lines at the body's size, 1 in 1; the subject above the first rule, 2 in
-2; "To: me" dropped, 3 in 3; the pictures' ids not handed in, 4 in 2; a
-letter the pane shortened not said, 1 in 1; the empty letter's words
-dropped, 6 in 2; the quote bars dropped, 10 in 1; an HTML letter's words
-not made, 4 in 1; the words' blank line dropped, 5 in 3; the words'
-shortened line dropped, 1 in 1; "(no subject)" dropped, 4 in 4; the
-margin 18 pt, 1 in 1; a failure drawn as the page, 4 in 2; the finish
-waited on, 65 in 10; the app gone while it loads waited on, 6 in 2;
-drawing taking the app's going, 1 in 1; an inactive app given the panel,
-2 in 1; the cover limit inclusive, 5 in 3; a pane moved on waited on, 4
-in 1; ready taking a failure, 2 in 1; a refused panel kept ready, 2 in
-1; Print greyed with the panel up, 1 in 1; the looks a second apart, 1
-in 1; the earlier letter's picture winning, 5 in 1; a Local Network key
-in Info.plist, 2 in 1; a job replaced while it is made ready, 1 in 1;
-the pane's own picture map back, 3 in 1; a user script in the job's web
-view, 3 in 1; the web view seen, 2 in 1; a tapped link allowed, 3 in 1;
-the PDF written to disk, 2 in 1; drawn without the look at the pane, 2 in
-1; the observer of the app's going kept, 2 in 1; the subject logged, 2
-in 1. Every one of the 48 new tests failed under at least one, and all
-passed again once each rule was put back.
-
-The full suite, serially: 2,111 tests, 5 skipped, none failing. The
-release build for the iPad links.
-
-**Not covered.**
-
-- Names, not addresses, in the printed header, and the date in full: the
-  defaults of the owner's question.
-- Backgrounds are not printed, WebKit's default as Safari's: a dark
-  newsletter's white text prints grey.
-- A hang inside WebKit's own layout for print, which the main thread
-  waits on; Mail has the same exposure.
-- Remote pictures are fetched again for the print, so a tracking pixel
-  tells its sender a second time: the owner's open question on remote
-  content. A picture a newsletter loads only once it is scrolled to
-  (`loading="lazy"`) may print blank below the first page.
-- The paper is always Letter, scaled on A4.
-- The limits: 128 KiB of text and 512 KiB of HTML.
-- No sign on screen while a print is made ready, but Print greyed in the
-  sheet.
-- With no connection, pictures are missing for a letter neither the last
-  downloaded nor kept on the iPad (B-111).
-- Paper was not tried: no printer has been used, the owner's question.
-  The check on the simulator and the test iPad, under "Blocked on the iPad
-  coming back", built from the worktree before it is merged.
-- Whether the panel is a presentation over the pane (`PRINT panel
-  over=`): if it is not, a print started while a panel is up would not
-  wait for it, and Print would have to be greyed while one is up too.
-  Step 8 of the check.
-
 ## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
 Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d
@@ -19487,3 +19158,409 @@ release build for the iPad links.
 - The check on the iPad and the simulator, under "Blocked on the iPad
   coming back", built from the worktree before it is merged, since it
   changes one call in a forward's carried parts.
+
+## B-110 — BUILT 2026-10-22, not yet seen on the iPad. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
+
+Built in the `feat-print` worktree, off `feat-replyfiles` (master at
+88ef40d with B-100 to B-105, B-111 and B-107). It shares no hunk with
+B-108 or B-109 (B-109 also edits `Model/MailModels.swift`, elsewhere in
+it), so it merges before or after them. This entry is the file's last,
+after B-111, where theirs, put just before B-111, do not meet it. Its
+check's item is the last under "Blocked on the iPad coming back" in
+TODO.md, where B-108's and B-109's go too: there the three meet, an
+insertion conflict only, resolved in number order, B-108, B-109, B-110.
+The owner, 2026-10-22:
+"No, no, no, we should have print on there. All three are still wanted."
+(Print, his photos in the body, and D-016's phase 2.) So the plan's "leave
+it out", and "Print as a batch" among its dropped items, are withdrawn.
+His three questions about it are not answered yet, and it is built to
+their defaults: no paper for the check, the preview and a saved PDF read
+instead; nothing done at his house; the printed header in names, as the
+pane shows them, with the date written out in full. Either answer about
+the header is a one-line change pinned by its test.
+
+**What Mail does.**
+
+- *Where, on iPadOS 18* (high). Apple: "In the message, tap [More
+  Actions] in the bottom-right corner, then tap Print."
+  (support.apple.com/guide/ipad/print-emails-ipad2cfe223f/18.0/ipados/18.0).
+  Its place in that sheet (medium-high): low, after Notify Me and before
+  Block Sender, the order of iOS 18.6's own identifiers for the sheet's
+  rows in MailSupport, read statically from the simulator runtime; an
+  iOS 13 list agrees
+  (ios.gadgethacks.com/news/22-new-features-ios-13s-mail-app-help-you-master-art-email-0206374/).
+- *Where, in the toolbar era this app copies, iOS 4.2 to 12* (high): the
+  fourth row of the Reply button's sheet. Apple's iPad guide for iOS 12:
+  "Tap [the Reply button], then tap Print."
+  (support.apple.com/guide/ipad/print-emails-ipad2cfe223f/12.0/ios/12.0);
+  an iPad answer of 2011, "You will be presented with options: Reply;
+  Reply All; Forward; Print." (discussions.apple.com/thread/3148646);
+  CNET for iOS 8, "tap the Reply button (the little curved arrow), and
+  then tap Print" (cnet.com/tech/mobile/how-to-print-nearly-anything-in-ios-8/).
+- *What is printed* (high; iOS 18.6's MobileMailUI read statically).
+  `-[MFMessageContentView viewPrintFormatter]` returns its web view's
+  formatter, and `-[MFMessageHeaderView drawRect:forViewPrintFormatter:]`
+  draws the header into the print: one message, its header as drawn on
+  screen, then its body as its web view shows it, pictures and quoted
+  text included. Each letter of a conversation has its own content view,
+  so a print is one letter, never the stack (medium-high, inferred from
+  that). A file prints through a page renderer handed to the shared
+  print controller.
+- *Light* (high for WebKit today, medium for the 16.5 and 18 builds).
+  While printing, WebKit turns dark appearance off
+  (`Page::useDarkAppearance`), prints no backgrounds unless asked, and
+  darkens text too light for white paper
+  (`adjustColorForVisibilityOnBackground`): white text prints a mid grey,
+  readable but faint.
+- *Its wait* (high for today's WebKit, medium for 16.5 and 18). WebKit's
+  page count for printing lays the page out and answers at once, without
+  waiting for pictures still loading (`WebPage::computePagesForPrintingiOS`),
+  so the UI process's wait with no limit is a wait for layout and drawing,
+  never for the network.
+- *The panel* is AirPrint's (`UIPrintInteractionController`): printer,
+  copies, range and preview, the one QuickLook's Print opens. Files print
+  from QuickLook's Share, Print (the iPadOS 18 page above), as they
+  already do here.
+- *Not known* (low): Mail's paper size and margins, how its header prints
+  in Dark Mode, and whether its printed date says "Today".
+
+**What it was.** Nothing printed a letter: no print controller, print
+formatter or page renderer anywhere in the app; only a file, from
+QuickLook. Nor could the pane simply have been printed. Its page is dark
+(D-010): plain text white on black and HTML under an invert, which, with
+no backgrounds printed, is white words on white paper. Its header is
+UIKit, outside the page. And a conversation's stack would print every
+letter open in it, the last at least a screen tall.
+
+**Changed.**
+
+1. *The sheet* (`replyTapped`). Print is its fourth row: Reply, Reply
+   All, Forward, Print, Cancel, anchored on the Reply button as before.
+   Its letter is the sheet's own, the one the header shows and Reply
+   answers: in a conversation the letter opened last, never one of his
+   brought in from Sent Mail (B-104). Greyed only while a print is being
+   made ready (`printing?.isPreparing`), at most the 10 s limit, the
+   drawing and the 10 s wait for the pane. No toolbar button;
+   `Theme.ToolbarAction` is unchanged. The one new word is Mail's
+   "Print".
+2. *The page* (`Mail/PrintPage.swift`, Foundation only). One light HTML
+   document: `color-scheme` light only, white with black words, no filter
+   or invert anywhere, `#bm` wrapping a long line as the pane's does,
+   pictures and tables no wider than the paper, links `#007AFF`, and
+   Mail's bars beside quoted text in its light colours, the pane's own
+   string (`QuoteBars.css`, B-101, which was one string already). The
+   header in `#bm-head`, never split across pages: the sender's name,
+   semibold and blue; "To: …" or "To: me"; "Cc: …" only when there is
+   one; a 0.5 px rule, `#c8c8c8`; the subject or "(no subject)", bold and
+   black; the date; a line per file the header lists, "name (size)", or
+   the name alone when the size is not known; a rule. The lines grey,
+   `#8e8e8e`, every size the pane's (`Theme`). Each value from the same
+   expressions the pane's header uses, escaped
+   (`ConversationDocument.escape`), as text, never in an attribute. The
+   date is written out in full by `MailFormat.fullTimestamp`, new, "d
+   MMMM yyyy 'at' h:mm a", never "Today" or "Yesterday", since the paper
+   is read on another day; `detailTimestamp` calls it for every letter
+   older than yesterday, the same words as before. The body is the
+   pane's, `PanePage.content`, factored out of `PanePage.letter`, whose
+   page is byte for byte what it was: the sender's wrapper off, its
+   pictures pointed at the loader, its links made links, plain text
+   escaped with its leading blank lines dropped, kept to its lines. A
+   plain body over 128 KiB, about 60 pages, or an HTML one over 512 KiB,
+   is cut before anything else is done to it, at the last whole character
+   that fits, and the pane's grey line, "Only the beginning of this
+   message is shown.", is above it, as above a letter the pane already
+   shortened. A letter with nothing in it prints the pane's "This message
+   has no text.", grey. `words` is the same letter in plain words, for
+   when the page cannot be drawn: the header's lines, a blank line, the
+   text, under the same limit and line. `jobName` is the subject. US
+   Letter, 612 × 792 pt, a 36 pt margin. The pane's map of pictures by
+   Content-ID is now `PanePage.pictures(of:)`, which the pane and the
+   print both read; the later letter wins a clash, as before.
+3. *The steps* (`Mail/PrintSteps.swift`, pure): loading, drawing, ready,
+   presented, ended; made ready in the first three. Loading: the page and
+   its words made, away from the main thread, load the page, and nothing
+   of its navigation counts before, so nothing is drawn before the words
+   are there to fall back on. Then the page's own commit waits, its
+   finish draws, its failure or WebKit's content process ending draws the
+   words, the 10 s limit draws what has come if the page has committed
+   and the words if not, or, before the page is made, the words as soon
+   as they are; the app gone ends it. Another navigation that commits is
+   a failure; another's failure is nothing, so a letter's meta refresh,
+   cancelled, does not turn the print into words. Drawing takes nothing
+   more. What is drawn, the page or the words, is the steps' word
+   (`inWords`), read by the drawing. No pages from the page: the words;
+   none from the words: the end, with nothing to print. The pane is
+   looked at every 0.5 s from the tap: moved on, the end, while the page
+   loads as with the PDF ready. Ready: looked at at once; nothing over it
+   and the app active, the panel; otherwise it waits, up to 10 s from the
+   PDF, then ends. A moment inactive, Control Center or an alert of the
+   system's, waits; the app gone ends it. The panel refused, the end.
+4. *The job* (`UI/LetterPrint.swift`). The page and the words are made
+   away from the main thread, as the pane's page is. Then a web view of
+   its own, its configuration set before it is built: the letter's script
+   off, WebKit's data in memory only, a picture loader of its own, and no
+   script of any kind, the app's or the letter's. Light
+   (`overrideUserInterfaceStyle`), so a sender's rules for a dark
+   appearance, Apple Mail's own, never apply. 540 × 720, the printable
+   width, in the pane's view behind everything, alpha 0, untouchable and
+   hidden from VoiceOver, so WebKit counts it visible and does not
+   suspend it. Its navigations decided by `PaneNavigation`; nothing is
+   followed or opened. Each navigation call is compared with its own page's
+   navigation, by identity. Its loader answers the letter's own pictures
+   through `fetchAttachmentData`, the job's only call on the repository,
+   a read: from memory for the letter last downloaded, from the iPad for
+   one kept there (B-111), and from the server otherwise; and none once
+   the pane has moved on. Before drawing, it checks that the pane still
+   shows the letter, by its id and its folder, in its window, with the
+   app not in the background. A page renderer of Letter
+   paper, by its own two rectangles and nothing set by key, draws the
+   web view's print formatter, or the words at 17 pt in black, into a PDF
+   in memory; as soon as the PDF has pages the web view is torn down. The
+   panel: when a look finds nothing presented over the pane and the app
+   active, and only if the PDF can be printed, the shared controller is
+   given a fresh print info named for the subject and the PDF's bytes,
+   never a formatter or a renderer, and presented from the Reply button.
+   Its completion clears the controller only while it still holds this
+   job's print info, so QuickLook's print, or another, is never changed
+   under it. Every end is one, however it is reached: the web view's
+   loading stopped while it is alive, so each picture still coming is
+   stopped and its fetch called off (`PictureRequests`), the view taken
+   out, and the limit, the looks and the observer of the app's going
+   stopped.
+5. *The pane* (`MessageDetailViewController`) holds one job, `printing`,
+   replaced only once its panel is up, when it holds nothing of WebKit's
+   and no bytes, and let go by its own end alone.
+6. *The log*, counts only, never a name or a subject: `PRINT ready
+   pages=N bytes=B ms=T`, T from the tap to the PDF; `PRINT words
+   why=failed|ended|late|blank`; `PRINT ended
+   why=away|moved|covered|refused|empty`; `PRINT panel over=true|false`;
+   `PRINT closed done=true|false`.
+
+The lifetime, in one place. From the tap to the panel the pane holds the
+job. The web view lives from its load to the end of the drawing, or an
+earlier end. From the PDF to the panel, at most 10 s, the job holds the
+PDF's bytes and nothing of WebKit; once the panel is up, only the system's
+print controller holds anything, the bytes, until it closes. One job at a
+time: even if a completion never came, at most one PDF stays, replaced by
+the next print, and Print is never greyed by a panel or a job held.
+Cancel or a tap outside closes the panel. The app gone before the panel:
+the job ends, and no panel comes later, since the app is looked at again
+just before presenting; with the panel up, it holds bytes only, and
+nothing of WebKit or the pane is touched. Another letter tapped, or the
+pane emptied, before the panel: the job ends quietly within half a
+second, logged, its web view and the pictures still coming for it with
+it, and no picture of the old letter is asked for after. Something
+presented over the pane: the panel waits for it to go, up to 10 s, then
+the job ends quietly, logged. Nothing is written to disk, nothing goes
+into `tmp/Attachments`, MailShelf or LocalDrafts, and nothing is marked,
+flagged, moved or sent.
+
+Where the spec and the code differ, the code's way, and why:
+
+- B-101's quote rules were one string already (`QuoteBars.css(in:)`), so
+  nothing was factored out of PanePage; the print reads the same.
+- `detailTimestamp` gives the full date for every letter older than
+  yesterday, not only for one older than a week, as the spec read it:
+  its `thisWeek` and `earlier` share the branch. `fullTimestamp` is the
+  same words for both.
+- The words are made with the page, away from the main thread, and an
+  HTML letter's from its markup cut to the page's limit first. Made at
+  the moment of drawing they would have been made on the main thread,
+  and an HTML-only letter's words go through `HTMLText`, which on a
+  letter of 2 MiB is not free.
+- The steps answer `look` when the PDF is made, and `drawWords` says why,
+  for the log; the spec's five answers had none for the first.
+  `coverLimit` is applied in the steps, so the job reads `timeLimit` and
+  `coverRetry` and the steps `coverLimit`.
+- The app's going is heard by a selector, not a block. A block observer's
+  closure is not the main actor's to the compiler and would have needed a
+  hop, after which a look could run before the going was taken.
+- WebKit's kind of navigation, mapped for `PaneNavigation`, was private
+  to the pane; it is shared now, so the print's page is decided exactly
+  as the pane's.
+- A delegate call that comes with no navigation is taken for another
+  navigation's, and a load that gives no navigation at all is a failure,
+  printed in words.
+- The page and its words made is an event of the steps (`built`), and
+  loading the page an answer of theirs (`load`). The spec's steps began
+  with the page loading, and a time limit that came before the page was
+  made then left the job, outside the steps, to remember to draw the
+  words once they came; a wrong edit there left Print greyed until the
+  app was started again, with every test green. Now it is a row of the
+  steps, tested here.
+- What is drawn, the page or the words, is read from the steps
+  (`inWords`) rather than passed to the drawing, so it is decided where a
+  drawing of no pages is decided too, and the two cannot differ.
+- The pane is looked at from the tap, not only once the PDF is made, and
+  the loader asks for no picture once it has moved on. The spec's
+  lifetime has the job end quietly when another letter is tapped; looked
+  at only at the drawing, the job went on, up to the 10 s limit, asking
+  for the old letter's pictures, which for a letter neither the last
+  downloaded nor kept are fetches on the one connection, ahead of the
+  letter he had tapped.
+- At the drawing, only the background ends a print, not a moment
+  inactive, as the ready step already had it. The spec ended it there for
+  any state but active. What it guards is WebKit's view going unanswered,
+  and WebKit counts a view in a window visible until its scene is in the
+  background or unattached, never for its being merely inactive
+  (`ApplicationStateTracker::isWindowAndSceneInBackground`, and
+  `PageClientImpl::isActiveViewVisible`, which reads it, read on WebKit's
+  main branch); the panel itself still waits for the app to be active.
+- The built job is main-actor isolated by its declaration, and the build
+  warns that its conformance to WebKit's navigation delegate crosses into
+  it ("an error in the Swift 6 language mode"). The package is in Swift 5
+  mode, where no check is made at run time, and WebKit calls the delegate
+  on the main thread; the pane's own conformance inherits UIKit's
+  isolation and is not warned about.
+
+**Not changed.** The pane's page and its conversation's stack, byte for
+byte; `detailTimestamp`'s words on screen; QuickLook's Print; the toolbar;
+the error sentences (no new alert); Info.plist, with no new permission;
+the send path, and no IMAP write.
+
+**What he sees.** Print under Forward in the Reply sheet. A second or a
+few after the tap, AirPrint's panel from the Reply button: printer,
+copies, range, and a preview black on white, his header as the pane has
+it with the date in full, then the letter, its pictures and its own
+colours. A sheet he opens meanwhile has Print greyed, and the panel comes
+once it is closed, never over it. Cancel, or a tap outside, and nothing
+has happened.
+
+**Tests.** `PrintPageTests`, 18, the page: light for every one of the
+pane's letters (its fixtures, moved to `Support/PaneLetters.swift` so both
+suites read them), with none of the pane's dark rules; the pane's sizes;
+the header's lines in the pane's order and words, "To: me", the Cc only
+when there is one, "(no subject)", the files from `listedAttachments`
+with their sizes or their names alone, a picture the body shows with no
+line and a PDF sent inline with one; the date in full for a letter of
+today, of yesterday, of three days ago and of over a year ago, never
+"Today" or "Yesterday", and `detailTimestamp`'s words on screen as they
+were, the same as `fullTimestamp`'s for any letter older than
+yesterday; a sender
+`Smith & Sons <x@y>`, a subject with `<script>` in it and a file name
+with `&` and `<`, escaped, no attribute in the header but its classes,
+and no `<script` of ours; the body byte for byte `PanePage.content` for
+every letter, and the same as the pane's page has; its pictures pointed
+at the loader for known ids only, and plain text with its leading blank
+lines dropped; the pane's line above a letter it shortened, and above
+one over each limit, cut to a whole é under the limit; the cut through a
+letter with its accent after it, a flag, a character of four bytes and a
+string bridged from Foundation; the pane's words for a letter with
+nothing in it; the quote bars the pane's own string; the words, an HTML
+letter's from `HTMLText`, and the words cut, with the line; the job's
+name; the paper and the limits. `PrintStepsTests`, 17: every row of the
+steps as a sequence; the page loaded only once it and its words are
+made, nothing of its navigation counted before, and a commit from before
+not its page's; the time limit before the page is made, the words once
+they are, and the app's going and the pane's moving on meanwhile; the
+pane moved on while the page is made or loads, covered or not, active or
+not, and nothing else counted then; what is drawn, the page or the
+words, after each way to the drawing, and never the page again after a
+drawing of none; the look covered for 9.5 s and then clear, covered to
+10 s, inactive, moved on, the app gone in each step, the panel refused;
+Print greyed only in the first three steps; the times.
+`PrintWiringTests`, 18, read from the source: the sheet's rows in order,
+Print greyed while made ready and given the sheet's own letter, no
+toolbar button; one job, let go only by its own end with the `===` check;
+one map of pictures for the pane and the print; the printed header's
+expressions the pane's header's; the job's web view locked down before it
+is built, light, unseen and untouchable; its page going nowhere, the one
+allow; each navigation call compared with its own; its only call on the
+repository a read, and nothing written; drawn into a PDF only while the
+letter is shown in its window with the app in front, by the renderer's
+own rectangles; the panel given bytes, only in the turn of a look, and
+cleared only while it is still the job's; one teardown, on every end and
+after the drawing; the app's going and the times; the log, counts only;
+the drawing ended by the background alone, and the panel waiting for
+the app to be active; every answer of the steps done, `load` loading, `draw` and
+`drawWords` drawing; what is drawn read from the steps, the words never
+from the web view; the page loaded only at the steps' `built`, which
+the making takes, and let go once loaded; the pane looked at from the
+tap, one look waiting at a time and none after the panel, and no
+picture asked for once the pane has moved on.
+`PanePageTests`, one more: `PanePage.pictures(of:)` is the map the pane
+built, the later letter winning. `InfoPlistTests`, one more: the usage
+keys still only the two for Photos, no Local Network and no Bonjour.
+
+Each rule broken in place, one at a time, and the five classes run, with
+`ShareInfoPlistTests`, which the filter takes too: 57 tests. The spec's
+list: the pane's invert put back, 51 failures in 1 test; the escape
+dropped, 4 in 1; Print moved below Cancel, 2 in 1; drawn(0) answered
+present, 6 in 1; late answered end, 3 in 1; the teardown left out of the
+end, which every way out of the job goes through, 3 in 1; printFormatter
+set to the web view's formatter, 1 in 1; the cut made mid-character, 13
+in 3; the own-navigation check left out of didFailProvisionalNavigation,
+3 in 1; the look before presenting left out, 1 in 1; detailTimestamp
+used for the printed date, 8 in 2. And one for each other test: the meta
+lines at the body's size, 1 in 1; the subject above the first rule, 2 in
+2; "To: me" dropped, 3 in 3; the pictures' ids not handed in, 4 in 2; a
+letter the pane shortened not said, 1 in 1; the empty letter's words
+dropped, 6 in 2; the quote bars dropped, 10 in 1; an HTML letter's words
+not made, 4 in 1; the words' blank line dropped, 5 in 3; the words'
+shortened line dropped, 1 in 1; "(no subject)" dropped, 4 in 4; the
+margin 18 pt, 1 in 1; a failure drawn as the page, 4 in 2; the finish
+waited on, 65 in 10; the app gone while it loads waited on, 6 in 2;
+drawing taking the app's going, 1 in 1; an inactive app given the panel,
+2 in 1; the cover limit inclusive, 5 in 3; a pane moved on waited on, 4
+in 1; ready taking a failure, 2 in 1; a refused panel kept ready, 2 in
+1; Print greyed with the panel up, 1 in 1; the looks a second apart, 1
+in 1; the earlier letter's picture winning, 5 in 1; a Local Network key
+in Info.plist, 2 in 1; a job replaced while it is made ready, 1 in 1;
+the pane's own picture map back, 3 in 1; a user script in the job's web
+view, 3 in 1; the web view seen, 2 in 1; a tapped link allowed, 3 in 1;
+the PDF written to disk, 2 in 1; drawn without the look at the pane, 2 in
+1; the observer of the app's going kept, 2 in 1; the subject logged, 2
+in 1. Every one of the 48 tests of the first build failed under at least
+one, and all passed again once each rule was put back. Those counts are
+the first build's.
+
+The rules added since, each broken the same way, with the classes of
+Print, PanePage and InfoPlist run, 75 tests:
+`built` answered with nothing to do, 26 failures in 14 tests; the time
+limit before the page is made drawing the words at once, with none yet,
+9 in 1; the page's navigation taken before it is made, 6 in 1; the
+pane's moving on not looked at while the page loads, 11 in 2; the
+words, once asked for, not marked as what is drawn, 8 in 4; a drawing
+of no pages not marking the words, 3 in 1; `drawWords` answered with no
+drawing, 3 in 1; the words drawn from the web view whenever it is
+there (`let web = webView`), 3 in 1; the page loaded as soon as it is
+made, past the steps, 4 in 2; `load` answered with nothing, 3 in 1; the
+loader asking for the old letter's pictures once the pane has moved on,
+1 in 1; no look at the pane before the PDF, 3 in 1; a waiting look not
+called off by the next, 2 in 1; looks going on after the panel, 2 in 1;
+the drawing ended for an app merely inactive, 4 in 1. Every one of the
+seven new tests failed under at least one, and all 75 passed again once
+each was put back.
+
+The full suite, serially: 2,118 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Names, not addresses, in the printed header, and the date in full: the
+  defaults of the owner's question.
+- Backgrounds are not printed, WebKit's default as Safari's: a dark
+  newsletter's white text prints grey.
+- A hang inside WebKit's own layout for print, which the main thread
+  waits on; Mail has the same exposure.
+- Remote pictures are fetched again for the print, so a tracking pixel
+  tells its sender a second time: the owner's open question on remote
+  content. A picture a newsletter loads only once it is scrolled to
+  (`loading="lazy"`) may print blank below the first page.
+- The paper is always Letter, scaled on A4.
+- The limits: 128 KiB of text and 512 KiB of HTML.
+- No sign on screen while a print is made ready, but Print greyed in the
+  sheet.
+- A page whose making never ended would leave Print greyed until the app
+  is started again, since a time limit that comes first waits for the
+  words: the making is plain work on a letter cut to the limits, away
+  from the main thread, with nothing to wait on.
+- With no connection, pictures are missing for a letter neither the last
+  downloaded nor kept on the iPad (B-111).
+- Paper was not tried: no printer has been used, the owner's question.
+  The check on the simulator and the test iPad, under "Blocked on the iPad
+  coming back", built from the worktree before it is merged.
+- Whether the panel is a presentation over the pane (`PRINT panel
+  over=`): if it is not, a print started while a panel is up would not
+  wait for it, and Print would have to be greyed while one is up too.
+  Step 8 of the check.

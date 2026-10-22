@@ -218,16 +218,17 @@ final class PrintWiringTests: XCTestCase {
     // MARK: - Drawing, and the panel
 
     /// Drawn only while the pane shows the letter in its window with the
-    /// app in front, through a renderer of Letter paper set by its own
-    /// rectangles, into a PDF; then the web view is torn down before the
-    /// panel.
+    /// app in front, the app gone to the background ending it and a
+    /// moment's interruption not, through a renderer of Letter paper set by
+    /// its own rectangles, into a PDF; then the web view is torn down before
+    /// the panel.
     func testTheLetterIsDrawnIntoAPDFFirst() throws {
         let job = try self.job
         for wiring in [
-            "private func draw(inWords: Bool) { guard stillShown(), pane?.viewIfLoaded?.window != nil else "
-                + "{ return end(.moved) } guard UIApplication.shared.applicationState == .active else "
+            "private func draw() { guard stillShown(), pane?.viewIfLoaded?.window != nil else "
+                + "{ return end(.moved) } guard UIApplication.shared.applicationState != .background else "
                 + "{ return end(.away) }",
-            "renderer.addPrintFormatter(webView.viewPrintFormatter(), startingAtPageAt: 0)",
+            "renderer.addPrintFormatter(web.viewPrintFormatter(), startingAtPageAt: 0)",
             "UISimpleTextPrintFormatter(text: words",
             "let pages = renderer.numberOfPages",
             "renderer.prepare(forDrawingPages: NSRange(location: 0, length: pages))",
@@ -241,6 +242,87 @@ final class PrintWiringTests: XCTestCase {
         }
         XCTAssertFalse(job.contains("setValue("), "nothing set by key")
         XCTAssertFalse(job.contains("perform(NSSelectorFromString"))
+        // The drawing ends only for the background; the panel waits for the
+        // app to be active.
+        XCTAssertEqual(count("UIApplication.shared.applicationState", in: job), 2)
+        XCTAssertEqual(count("applicationState != .background", in: job), 1)
+        XCTAssertEqual(count("applicationState == .active", in: job), 1)
+    }
+
+    /// What the steps answer is what is done: the page loaded only at
+    /// `load`, the page drawn at `draw`, and the letter drawn again at
+    /// `drawWords`, every row of the answer acted on, none left out.
+    func testEachAnswerOfTheStepsIsDone() throws {
+        let job = try self.job
+        XCTAssertNotNil(place(of: "private func act(_ answer: PrintSteps.Answer) { switch answer { "
+                                  + "case .wait: break case .load: load() case .draw: draw() "
+                                  + "case .drawWords(let why): Diagnostics.log(.note, "
+                                  + "\"PRINT words why=\\(why.rawValue)\") draw() "
+                                  + "case .look: look() case .present: present() "
+                                  + "case .end(let why): end(why) } }", in: job))
+        XCTAssertEqual(count("load()", in: job), 2, "its one call, from `load`, and itself")
+        XCTAssertEqual(count("draw()", in: job), 3, "from `draw`, from `drawWords`, and itself")
+        XCTAssertEqual(count("act(", in: job), 5, "itself, take, the look, the drawing and a refused panel")
+    }
+
+    /// The words, never the page, once the steps say so: a page that failed,
+    /// whose process ended or that drew nothing is drawn again in words,
+    /// never from its web view, which would give nothing again. What is
+    /// drawn is read from the steps, the one place that also decides what a
+    /// drawing of no pages means next.
+    func testTheWordsAreNeverDrawnFromTheWebView() throws {
+        let job = try self.job
+        XCTAssertNotNil(place(of: "let web = steps.inWords ? nil : webView if let web { "
+                                  + "renderer.addPrintFormatter(web.viewPrintFormatter(), startingAtPageAt: 0) "
+                                  + "} else { let text = UISimpleTextPrintFormatter(text: words ?? "
+                                  + "PrintPage.jobName(letter))", in: job))
+        XCTAssertEqual(count("viewPrintFormatter()", in: job), 1)
+        XCTAssertEqual(count("inWords", in: job), 1, "read from the steps, never passed in")
+        XCTAssertFalse(job.contains("if let webView"))
+    }
+
+    /// The page is loaded, or the words drawn, only once the page and its
+    /// words are made, by the steps' `built`: a time limit that comes first
+    /// waits for them in the steps, so the job is never left made ready
+    /// with nothing to come, Print greyed until the app is started again.
+    func testThePageIsLoadedOnlyOnceItAndItsWordsAreMade() throws {
+        let job = try self.job
+        XCTAssertNotNil(place(of: "building = Task { @MainActor [weak self] in "
+                                  + "let made = await Self.made(m, style: style) guard let self else { return } "
+                                  + "self.page = made.page self.words = made.words self.take(.built) }", in: job))
+        XCTAssertEqual(count("take(.built)", in: job), 1)
+        XCTAssertNotNil(place(of: "private func load() { guard let page, let pane, "
+                                  + "let paneView = pane.viewIfLoaded else { return end(.moved) } "
+                                  + "self.page = nil", in: job))
+        XCTAssertEqual(count("self.page = ", in: job), 2, "made, and let go once loaded")
+        XCTAssertEqual(count("self.words = ", in: job), 1)
+        XCTAssertFalse(job.contains("steps.step"), "what comes next is the steps', never read here")
+    }
+
+    /// The pane is looked at from the tap, one look waiting at a time, so
+    /// a letter tapped while the page loads ends the print within the
+    /// moment; and once it has moved on, the job's loader asks the
+    /// repository for none of the old letter's pictures.
+    func testAPaneMovedOnEndsThePrintAndAsksForNoPicture() throws {
+        let job = try self.job
+        let start = try part(of: job, from: "func start() {", to: "private nonisolated static func made(")
+        XCTAssertNotNil(place(of: "DispatchQueue.main.asyncAfter(deadline: .now() + PrintSteps.timeLimit, "
+                                  + "execute: limit) lookAgain()", in: start))
+        XCTAssertNotNil(place(of: "private func look() { nextLook?.cancel() nextLook = nil "
+                                  + "let answer = steps.look(", in: job))
+        XCTAssertNotNil(place(of: "guard answer == .wait else { return act(answer) } "
+                                  + "if steps.isPreparing { lookAgain() } }", in: job))
+        XCTAssertNotNil(place(of: "private func lookAgain() { let again = DispatchWorkItem { [weak self] in "
+                                  + "self?.look() } nextLook = again DispatchQueue.main.asyncAfter(deadline: "
+                                  + ".now() + PrintSteps.coverRetry, execute: again) }", in: job))
+        XCTAssertEqual(count("lookAgain()", in: job), 3, "at the start, after a look, and itself")
+        XCTAssertEqual(count("nextLook = again", in: job), 1)
+
+        let fetch = try part(of: job, from: "loader.fetch = {", to: "paneView.insertSubview(")
+        XCTAssertTrue(fetch.hasPrefix("loader.fetch = { @MainActor contentID in guard stillShown(), "
+                                      + "let part = pictures[contentID] else { throw MailError.attachmentFailed } "
+                                      + "let data = try await repository.fetchAttachmentData("), fetch)
+        XCTAssertNotNil(place(of: "let repository = self.repository, stillShown = self.stillShown", in: job))
     }
 
     /// The panel is given the PDF's bytes, never a live formatter or

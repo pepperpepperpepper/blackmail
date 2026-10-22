@@ -20,13 +20,14 @@ import WebKit
 /// What each thing that happens means is `PrintSteps`'.
 ///
 /// The lifetime, in one place. The pane holds the job from the tap to the
-/// panel (`MessageDetailViewController.printing`). The web view lives from
-/// its load to the end of the drawing, or an earlier end. From then to the
-/// panel, at most `PrintSteps.coverLimit`, the job holds the PDF and
-/// nothing of WebKit; once the panel is up, only the system's print
-/// controller holds anything, the PDF, until it closes. Nothing is written
-/// to disk, and nothing is asked of the server but the letter's own
-/// pictures, read.
+/// panel (`MessageDetailViewController.printing`), and is looked at every
+/// `PrintSteps.coverRetry` all that time: once it has moved on, the job
+/// ends. The web view lives from its load to the end of the drawing, or an
+/// earlier end. From then to the panel, at most `PrintSteps.coverLimit`,
+/// the job holds the PDF and nothing of WebKit; once the panel is up, only
+/// the system's print controller holds anything, the PDF, until it closes.
+/// Nothing is written to disk, and nothing is asked of the server but the
+/// letter's own pictures, read, and none once the pane has moved on.
 @MainActor
 final class LetterPrint: NSObject, WKNavigationDelegate {
 
@@ -52,6 +53,8 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     /// The page's own navigation, which every delegate call is compared
     /// with.
     private var navigation: WKNavigation?
+    /// The letter's page, from its making until it is loaded.
+    private var page: String?
     /// The letter in words, made with its page, for a page that cannot be
     /// drawn.
     private var words: String?
@@ -78,8 +81,9 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
     // MARK: - Start
 
-    /// Builds the page away from the main thread, then loads it; the time
-    /// limit runs from now.
+    /// Builds the page and its words away from the main thread; what is
+    /// done once they are made is the steps' (`built`). The time limit runs
+    /// from now, and the pane is looked at every `coverRetry` from now.
     func start() {
         NotificationCenter.default.addObserver(self, selector: #selector(wentAway),
                                                name: UIApplication.didEnterBackgroundNotification,
@@ -88,18 +92,15 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         let limit = DispatchWorkItem { [weak self] in self?.take(.late) }
         timeLimit = limit
         DispatchQueue.main.asyncAfter(deadline: .now() + PrintSteps.timeLimit, execute: limit)
+        lookAgain()
 
         let m = letter, style = style
         building = Task { @MainActor [weak self] in
             let made = await Self.made(m, style: style)
             guard let self else { return }
+            self.page = made.page
             self.words = made.words
-            guard self.steps.step == .loading else {
-                // The time limit came first, and asked for the words.
-                if self.steps.step == .drawing, self.webView == nil { self.draw(inWords: true) }
-                return
-            }
-            self.load(made.page)
+            self.take(.built)
         }
     }
 
@@ -114,8 +115,10 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
     /// The page in a web view of its own, locked down as the pane's is, and
     /// light.
-    private func load(_ page: String) {
-        guard let pane, let paneView = pane.viewIfLoaded else { return end(.moved) }
+    private func load() {
+        // The page is made with the words, before `built`.
+        guard let page, let pane, let paneView = pane.viewIfLoaded else { return end(.moved) }
+        self.page = nil
         let config = WKWebViewConfiguration()
         // None of the letter's script runs, nothing of WebKit's is kept,
         // and its pictures come from the loader, as in the pane.
@@ -137,11 +140,14 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         web.accessibilityElementsHidden = true
         web.navigationDelegate = self
 
-        // The letter's own pictures, and nothing else of the repository's.
+        // The letter's own pictures, and nothing else of the repository's;
+        // none once the pane has moved on, so the letter he has gone to
+        // never waits behind them on the one connection. The loader makes a
+        // throw an empty answer.
         let pictures = PanePage.pictures(of: [letter])
-        let repository = self.repository
-        loader.fetch = { contentID in
-            guard let part = pictures[contentID] else { throw MailError.attachmentFailed }
+        let repository = self.repository, stillShown = self.stillShown
+        loader.fetch = { @MainActor contentID in
+            guard stillShown(), let part = pictures[contentID] else { throw MailError.attachmentFailed }
             let data = try await repository.fetchAttachmentData(part.section, of: part.messageID,
                                                                 mailboxID: part.mailboxID)
             return (data, part.mimeType)
@@ -207,17 +213,19 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         act(steps.take(event))
     }
 
+    /// What the steps answer, done. What is drawn, the page or its words,
+    /// is the steps' too (`inWords`), read by the drawing.
     private func act(_ answer: PrintSteps.Answer) {
         switch answer {
         case .wait:
             break
+        case .load:
+            load()
         case .draw:
-            draw(inWords: false)
+            draw()
         case .drawWords(let why):
             Diagnostics.log(.note, "PRINT words why=\(why.rawValue)")
-            // The words are made with the page; until then, they are drawn
-            // as soon as they are (`start`).
-            if words != nil { draw(inWords: true) }
+            draw()
         case .look:
             look()
         case .present:
@@ -229,15 +237,23 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
     // MARK: - Drawing
 
-    /// The page, or the words, drawn into a PDF of Letter-sized pages, if
-    /// the pane still shows the letter in its window with the app in front.
-    private func draw(inWords: Bool) {
+    /// The page, or the words when the steps say so, drawn into a PDF of
+    /// Letter-sized pages, if the pane still shows the letter in its window
+    /// with the app in front. The app gone to the background ends it here,
+    /// not a moment's interruption, Control Center or an alert of the
+    /// system's: WebKit counts a view in a window visible until its scene
+    /// is in the background (`ApplicationStateTracker`), and the panel
+    /// itself waits for the app to be active (`look`).
+    private func draw() {
         guard stillShown(), pane?.viewIfLoaded?.window != nil else { return end(.moved) }
-        guard UIApplication.shared.applicationState == .active else { return end(.away) }
+        guard UIApplication.shared.applicationState != .background else { return end(.away) }
         let paper = CGRect(x: 0, y: 0, width: PrintPage.paperWidth, height: PrintPage.paperHeight)
         let renderer = PaperRenderer()
-        if !inWords, let webView {
-            renderer.addPrintFormatter(webView.viewPrintFormatter(), startingAtPageAt: 0)
+        // Never the page once it has failed, its process has ended or it has
+        // drawn nothing: the words.
+        let web = steps.inWords ? nil : webView
+        if let web {
+            renderer.addPrintFormatter(web.viewPrintFormatter(), startingAtPageAt: 0)
         } else {
             let text = UISimpleTextPrintFormatter(text: words ?? PrintPage.jobName(letter))
             text.font = .systemFont(ofSize: 17)
@@ -280,17 +296,25 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
 
     // MARK: - The panel
 
-    /// The pane looked at with the PDF ready: the panel if nothing is over
-    /// it and the app is in front, and otherwise again in a moment
-    /// (`PrintSteps.look`). So a Reply sheet he opened again meanwhile has
-    /// the panel once it is closed, never over it.
+    /// The pane looked at, from the tap, and at once with the PDF ready:
+    /// the end if it has moved on, and with the PDF, the panel if nothing is
+    /// over it and the app is in front; otherwise again in a moment
+    /// (`PrintSteps.look`). So a letter tapped while the page loads ends the
+    /// print within the moment, and a Reply sheet he opened again meanwhile
+    /// has the panel once it is closed, never over it. One look waits at a
+    /// time.
     private func look() {
+        nextLook?.cancel()
         nextLook = nil
         let answer = steps.look(covered: pane?.presentedViewController != nil,
                                 active: UIApplication.shared.applicationState == .active,
                                 shown: stillShown() && pane?.viewIfLoaded?.window != nil,
                                 at: ProcessInfo.processInfo.systemUptime)
         guard answer == .wait else { return act(answer) }
+        if steps.isPreparing { lookAgain() }
+    }
+
+    private func lookAgain() {
         let again = DispatchWorkItem { [weak self] in self?.look() }
         nextLook = again
         DispatchQueue.main.asyncAfter(deadline: .now() + PrintSteps.coverRetry, execute: again)

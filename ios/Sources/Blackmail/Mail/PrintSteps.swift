@@ -11,23 +11,26 @@ import Foundation
 ///
 /// The letter is drawn into a PDF first, while the app is in front and the
 /// page in its window, and the panel is given the PDF: plain bytes, which
-/// nothing of WebKit or the pane is behind. So the steps are: its page
-/// loading; drawing; the PDF ready, waiting for the pane to be clear for the
-/// panel; the panel presented; and the end. He is never given nothing: a
-/// page that fails, or draws no pages, is printed in words instead.
+/// nothing of WebKit or the pane is behind. So the steps are: its page made
+/// and loading; drawing; the PDF ready, waiting for the pane to be clear for
+/// the panel; the panel presented; and the end. He is never given nothing:
+/// a page that fails, or draws no pages, is printed in words instead, and
+/// nothing is drawn before the words are made, so the words are always
+/// there to fall back on.
 struct PrintSteps {
 
     enum Step: Equatable {
         case loading, drawing, ready, presented, ended
     }
 
-    /// What happens to the job. `committed`, `finished` and `failed` are
+    /// What happens to the job. `built` is its page and its words made,
+    /// away from the main thread. `committed`, `finished` and `failed` are
     /// its own page's navigation's; another navigation that commits in the
     /// page is `failed`, as the page is no longer the job's, and another's
     /// failure is nothing. `processEnded` is WebKit's content process gone,
     /// `late` the time limit, `away` the app gone to the background.
     enum Event: Equatable {
-        case committed, finished, failed, processEnded, late, away
+        case built, committed, finished, failed, processEnded, late, away
     }
 
     /// Why the letter is printed in words, for the log.
@@ -36,7 +39,7 @@ struct PrintSteps {
         case failed
         /// WebKit's content process ended.
         case ended
-        /// The time limit came before the page had begun to draw.
+        /// The time limit came before the page had committed.
         case late
         /// The page drew no pages.
         case blank
@@ -50,6 +53,8 @@ struct PrintSteps {
     enum Answer: Equatable {
         /// Nothing to do now.
         case wait
+        /// Load the page, made now.
+        case load
         /// Draw the page.
         case draw
         /// Draw the letter in words.
@@ -72,10 +77,17 @@ struct PrintSteps {
     static let coverLimit: TimeInterval = 10
 
     private(set) var step = Step.loading
+    /// The words are drawn, not the page: what the drawing gives its
+    /// renderer, read from here so that what is drawn and what a drawing of
+    /// no pages means next can never differ.
+    private(set) var inWords = false
+    /// The page and its words are made: nothing is loaded or drawn before.
+    private var built = false
+    /// The time limit came before they were: the words are drawn as soon
+    /// as they are.
+    private var lateBeforeBuilt = false
     /// The page's navigation has committed: there is something to draw.
     private var committed = false
-    /// The words were drawn, not the page.
-    private var inWords = false
     /// When the PDF was made, for `coverLimit`.
     private var readyAt: TimeInterval = 0
 
@@ -88,6 +100,22 @@ struct PrintSteps {
         switch step {
         case .loading:
             switch event {
+            case .built:
+                guard !built else { return .wait }
+                built = true
+                // The time limit came first: the words, now they are made.
+                return lateBeforeBuilt ? drawing(.drawWords(.late)) : .load
+            case .away:
+                step = .ended
+                return .end(.away)
+            case .late where !built:
+                lateBeforeBuilt = true
+                return .wait
+            case _ where !built:
+                // No navigation of its page comes before the page is made
+                // and loaded, and nothing is drawn before its words are
+                // there to fall back on.
+                return .wait
             case .committed:
                 committed = true
                 return .wait
@@ -99,9 +127,6 @@ struct PrintSteps {
                 return drawing(.drawWords(.ended))
             case .late:
                 return drawing(committed ? .draw : .drawWords(.late))
-            case .away:
-                step = .ended
-                return .end(.away)
             }
         case .ready:
             // The page is gone by now; only the app's going counts.
@@ -137,19 +162,23 @@ struct PrintSteps {
         return .drawWords(.blank)
     }
 
-    /// A look at the pane with the PDF ready, at `now`: `covered` when
-    /// something is presented over it, `active` when the app is in front
-    /// and not interrupted, `shown` while it still shows the letter. Shown,
-    /// clear and active: the panel. The pane moved on: the end. Otherwise
-    /// it waits, looked at again every `coverRetry`, for `coverLimit` from
-    /// the PDF made, and then ends. A moment's interruption, Control Center
-    /// or an alert of the system's, waits; the app gone is `away`.
+    /// A look at the pane, at `now`, every `coverRetry` from the tap to
+    /// the panel: `covered` when something is presented over it, `active`
+    /// when the app is in front and not interrupted, `shown` while it still
+    /// shows the letter. The pane moved on: the end, while the page loads
+    /// as with the PDF ready, so the letter he has gone to never waits
+    /// behind this one's pictures. While it loads, nothing else counts.
+    /// With the PDF ready: shown, clear and active, the panel; otherwise it
+    /// waits, for `coverLimit` from the PDF made, and then ends. A moment's
+    /// interruption, Control Center or an alert of the system's, waits; the
+    /// app gone is `away`.
     mutating func look(covered: Bool, active: Bool, shown: Bool, at now: TimeInterval) -> Answer {
-        guard step == .ready else { return .wait }
+        guard step == .loading || step == .ready else { return .wait }
         guard shown else {
             step = .ended
             return .end(.moved)
         }
+        guard step == .ready else { return .wait }
         if !covered && active { return .present }
         guard now - readyAt < Self.coverLimit else {
             step = .ended

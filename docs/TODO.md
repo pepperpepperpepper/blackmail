@@ -4278,9 +4278,14 @@ this host. Ordered by value, not by size.
       be greyed while a panel is up).
       9. *Leaving.* Home right after Print, before the panel: back in the
       app, no panel, the pane as it was, and Print works again. With the
-      panel up, Home and back: no crash, and Print works again.
+      panel up, Home and back: no crash, and Print works again. Control
+      Center pulled down right after Print, and put away: the panel comes
+      once it has gone.
       10. *Moving on.* Tap another letter right after Print: no panel
-      (`PRINT ended why=moved`).
+      (`PRINT ended why=moved`, within half a second of the tap), and the
+      letter tapped opens as quickly as with no print; the same right
+      after Print of the letter with the inline photo, neither the last
+      opened nor kept on the iPad.
       11. *Big.* The plain letter over 128 KiB: the "Only the beginning…"
       line on top, about 60 pages, the panel within a few seconds (ms
       written down).
