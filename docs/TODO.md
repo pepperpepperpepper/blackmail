@@ -3927,6 +3927,16 @@ this host. Ordered by value, not by size.
       9. *Named and sent inline:* 1 with the message/rfc822 named
       `Earlier letter.eml` and `Content-Disposition: inline`: as 1, drawn
       under the note, no row and no paperclip.
+      *Run 2026-10-22, three panes and two: 1 to 5 and 7 to 9 passed. 6
+      failed, twice: the large one could not be opened at all, "This
+      message could not be downloaded." and "Can't connect to mail
+      server.", Gmail refusing BODY[2.1] of the forwarded letter's words,
+      which it serves as BODY[2.TEXT]; and a row beside 5's lone forward
+      lost its preview to the same refusal. Fixed since (KNOWN_ISSUES,
+      B-114). To run again: 6, its note, header lines and forwarded words
+      shown, the PDF's row there and Quick Look opening it; and 5's list,
+      the lone forward's row with its preview, and the rows beside it
+      with theirs, in a folder where they share a page.*
 
 ## Blocked on the owner
 

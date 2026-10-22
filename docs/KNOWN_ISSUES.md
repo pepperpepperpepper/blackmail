@@ -17826,7 +17826,7 @@ release build for the iPad links.
   with its paperclip.
 - The row's tap was read from the source, not tried: the iPad's check.
 
-## B-114 — FIXED 2026-10-22, not yet seen on the iPad. A letter forwarded inline after a note was nowhere: not its words, its From or its Subject, and no row
+## B-114 — FIXED 2026-10-22, seen on the iPad 2026-10-22 but for its check's step 6, a letter too large to fetch whole that could not be opened, fixed since and not yet seen there. A letter forwarded inline after a note was nowhere: not its words, its From or its Subject, and no row
 
 **What he saw.** Seen on the test iPad on 2026-10-22, at B-101's check, a
 shape beyond step 9's own, with letters the host made and APPENDed to the
@@ -17966,6 +17966,100 @@ in 1, and the header read without undoing it, 1 in 1, the base64 one. The
 full suite with B-113's, 1,897 tests, 5 skipped, none failing. The release
 build for the iPad links.
 
+**Seen on the test iPad, 2026-10-22**, three panes and two, against the
+test account on Gmail, with letters the host made and APPENDed to its
+Inbox (TODO, B-114's check): steps 1 to 5 and 7 to 9 passed. Step 6
+failed, and again from a fresh start of the app. The large one, a note, a
+plain letter forwarded inline and a PDF of 6.5 MB, 8.9 MB in all, could
+not be opened at all: nothing of it showed, the pane said "This message
+could not be downloaded. Check the connection and tap it again.", an
+alert said "Can't connect to mail server.", the PDF's row stayed grey and
+the header read "To: me". A second tap, and two panes, the same. The
+connection was fine: every other letter opened, among them one of 8.9 MB
+with a PDF and no forward, which takes the same way. The app's log had
+the letter's structure come, and then `UID FETCH <uid> (UID
+BODY.PEEK[1]<0.2097152> BODY.PEEK[2.1]<0.2097070>)` answered "NO Some
+messages could not be FETCHed (Failure)". Asked from the host, read only,
+Gmail gave BODY[1], BODY[2], BODY[2.HEADER], BODY[2.MIME], BODY[3] and
+BODY[2.TEXT], the forwarded words, and refused BODY[2.1], with a range or
+without; [1] with [2.1] in one FETCH, refused, and [1] with [2.TEXT],
+both. The same refusal cost a list its previews: Trash's FETCH of
+BODY.PEEK[1.1] for eleven letters, one of them step 5's lone forward, had
+the other ten's data and then NO, and a row beside it that had shown "A
+PDF attached after the words..." showed no preview.
+
+*What it was.* RFC 3501 numbers the body of a message/rfc822 part that is
+one part, not a multipart, 2.1 under the letter's 2, and gives the same
+bytes as 2.TEXT. Gmail serves only the second. The parser numbered it 2.1
+(as `MIMEDecoder` numbers it for a letter fetched whole, which reply,
+forward, a file's row and a kept copy go by), and every FETCH asked for it
+by that number. A letter at or under 5 MB is opened by fetching it whole,
+so only a large one could not be opened; a list's previews ask for any
+letter's part. And `fetchLetterInPart` took any answer but OK to its FETCH
+of the parts as a connection lost, so one part refused cost the whole
+letter, the note with it, blamed on the connection. A preview FETCH
+answered NO was thrown away whole, though its doc said it kept what came.
+The scripted server answered BODY[2.1], so no test met Gmail's refusal.
+
+*Changed.*
+
+1. *Asked for by the name Gmail serves.* The parser marks that body
+   (`MIMEPart.isMessageText`), and every FETCH asks for it as 2.TEXT
+   (`MIMEPart.fetchSection`): the parts of a large letter, a list row's
+   preview (a lone forward's words are 1.TEXT, asked for apart from the
+   1.1 of a plain and HTML pair), and a file that is the whole of a
+   forwarded letter, both while the letter is the one last opened and when
+   its structure is fetched again. Its number stays 2.1 everywhere else.
+   A forwarded letter whose body is a multipart is asked for by its
+   parts' numbers, as before.
+2. *A part refused costs that part.* A FETCH of a large letter's parts
+   answered NO keeps what came, asks for each part that did not come
+   alone, and leaves out one refused alone too (`LetterInPart.refused`):
+   the rest of the letter is drawn around it (with the note refused, the
+   forwarded letter's lines and words; with the forwarded words refused,
+   the note and the lines), and the pane says "Only the beginning of this
+   message is shown.", the notice a letter cut short has. A connection
+   that drops fails the letter as before, after the one try more on a new
+   connection every read has.
+3. *A preview refused costs that row.* A preview FETCH answered NO keeps
+   every letter's data that came with it.
+
+*Tests.* The scripted server serves a letter as Gmail does
+(`ScriptedIMAPServer.deliver(described:)`): the one-part body of a
+forwarded letter as 2.TEXT, and a FETCH asking 2.1 of it answered NO,
+nothing sent of that letter and every other letter's as asked; and it can
+drop the connection at a FETCH of a part (`hangsUpOnSections`).
+`LargeLetterTests`' forward over the limit now expects BODY.PEEK[2.TEXT],
+every FETCH answered OK and the letter whole; four more there: a part
+refused, the note and the lines shown, each part asked for alone, said to
+be only the beginning, one connection; the note refused, the lines and the
+forwarded words shown; the connection dropped at the parts, "Can't
+connect" after a second connection, nothing asked alone; and a scan that
+is the whole of a forwarded letter, its row 2.1 and its bytes
+BODY.PEEK[2.TEXT], in this launch and the next. `RepositoryWireTests`,
+two: a lone forward's preview asked for as 1.TEXT apart from a 1.1 beside
+it, both rows with their previews; and one row's preview refused in a
+shared FETCH, the other keeping its own. `IMAPParserTests`, one: the body
+numbered 2.1 and asked for as 2.TEXT, a forwarded multipart's parts, the
+letter, the note and a file by their numbers, and a letter that is itself
+a message/rfc822, 1.1 as 1.TEXT.
+
+With the tip's own client, parser and repository and these tests, all
+eight fail, 13 failures, the forward over the limit throwing "Can't
+connect" as on the iPad. Each change undone by hand, those eight run,
+then put back and passing, counted as failures in tests: the body never
+marked, 18 in 7; the parts asked for by number, 11 in 4; a refused FETCH
+of the parts failing the letter, 2 in 2; a refused part not left out, 4 in
+2 (with the note refused the body was empty and not said to be short); a
+dropped connection taken for a refusal, 3 in 1; previews asked for by
+number, 3 in 1; a preview FETCH answered NO thrown away, 1 in 1; a file of
+the letter last opened asked for by number, 1 in 1; and one fetched with
+its structure, 1 in 1.
+
+The full suite, serially: 1,904 tests, 5 skipped, none failing. The
+release build for the iPad links. Step 6, and step 5's list with its
+preview beside other rows', are to be run again on the iPad.
+
 **Not covered.**
 
 - How Mail's reading pane draws a forwarded letter, a box or a line about
@@ -17988,6 +18082,13 @@ build for the iPad links.
 - A letter too large to fetch whole that forwards one under an encoding:
   drawn from the server's structure of it, as the server reads it. Not
   tried against Gmail.
+- A forwarded letter whose body is a multipart, in a letter too large to
+  fetch whole: its parts asked for as 2.1 and 2.2, which RFC 3501 gives
+  them and Gmail served a multipart's parts on the iPad, but not tried
+  against Gmail under a message/rfc822. A refusal there costs those parts
+  alone now, said to be only the beginning.
+- Which parts Gmail refuses beyond these is not known; any is left out of
+  the letter, the rest shown, and not asked for again under another name.
 - A letter forwarded with a name and sent inline is drawn, not a row,
   decided here by the rule every file goes by; how Mail draws one is not
   compared on a screen. A row, if the owner wants one for a named

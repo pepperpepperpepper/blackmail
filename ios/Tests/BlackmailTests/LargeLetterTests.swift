@@ -563,47 +563,20 @@ final class LargeLetterTests: XCTestCase {
 
     // MARK: - Every part of its words (B-113, B-114)
 
-    /// `raw` delivered to the Inbox as Gmail would describe it: its
-    /// BODYSTRUCTURE made from its parts, the letter a message/rfc822 part
-    /// holds with `envelope` for its ENVELOPE, and every part's BODY[].
-    private func delivered(_ raw: Data, envelope: String = "NIL",
+    /// `raw` delivered to the Inbox as Gmail describes and serves it
+    /// (`ScriptedIMAPServer.deliver(described:)`): its BODYSTRUCTURE made
+    /// from its parts, the letter a message/rfc822 part holds with
+    /// `envelope` for its ENVELOPE, and every part's BODY[], the one-part
+    /// body of a forwarded letter by its TEXT alone, as Gmail serves it
+    /// (B-114). `refusing`, more sections the server will not give.
+    private func delivered(_ raw: Data, envelope: String = "NIL", refusing: Set<String> = [],
                            by repository: IMAPMailRepository) async throws -> MessageSummary {
-        func quoted(_ s: String) -> String { "\"" + s + "\"" }
-        func list(_ d: [String: String]) -> String {
-            d.isEmpty ? "NIL" : "(" + d.sorted { $0.key < $1.key }
-                .map { quoted($0.key.uppercased()) + " " + quoted($0.value) }
-                .joined(separator: " ") + ")"
-        }
-        func disposition(_ p: MIMEPart) -> String {
-            p.disposition.map { "(" + quoted($0.uppercased()) + " " + list(p.dispositionParameters) + ")" }
-                ?? "NIL"
-        }
-        func wire(_ p: MIMEPart) -> String {
-            if p.isMultipart {
-                return "(" + p.children.map(wire).joined() + " " + quoted(p.subtype.uppercased()) + " "
-                    + list(p.parameters) + " " + disposition(p) + " NIL NIL)"
-            }
-            let basic = "(" + quoted(p.type.uppercased()) + " " + quoted(p.subtype.uppercased()) + " "
-                + list(p.parameters) + " " + (p.id.map(quoted) ?? "NIL") + " NIL "
-                + quoted(p.encoding.uppercased()) + " \(p.size ?? 0)"
-            if p.type == "text" {
-                return basic + " \(p.lines ?? 0) NIL " + disposition(p) + " NIL NIL)"
-            }
-            if p.type == "message", p.subtype == "rfc822", let inner = p.children.first {
-                return basic + " " + envelope + " " + wire(inner) + " 0 NIL " + disposition(p) + " NIL NIL)"
-            }
-            return basic + " NIL " + disposition(p) + " NIL NIL)"
-        }
-        var sections = MIMEDecoder.parse(raw).bodies
-        let headerEnd = try XCTUnwrap(raw.range(of: Data("\r\n\r\n".utf8)))
-        sections["HEADER"] = raw[..<headerEnd.upperBound]
         let letter = Server.Letter(from: Server.Address(name: "Jane", address: "jane@example.com"),
                                    to: [Server.owner], subject: "The programme",
                                    date: Server.newestDate, text: "",
                                    messageID: "<programme-\(raw.count)@example.com>")
-        let placed = try XCTUnwrap(server.deliver(
-            raw: raw, sections: sections, structure: wire(MIMEDecoder.parseStructure(raw)),
-            as: letter, to: [Server.inbox])[Server.inbox])
+        let placed = try XCTUnwrap(server.deliver(described: raw, envelope: envelope, as: letter,
+                                                  refusing: refusing, to: [Server.inbox])[Server.inbox])
         let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
         return try XCTUnwrap(rows.first { uid($0.id) == placed })
     }
@@ -734,10 +707,12 @@ final class LargeLetterTests: XCTestCase {
     }
 
     /// A note and the letter it forwards inline, over the limit: their
-    /// words in one FETCH (one each, before); the forwarded letter's header
-    /// lines come from the envelope its structure carries, nothing more is
-    /// fetched for them, and they are the lines the whole letter's own
-    /// header gives.
+    /// words in one FETCH (one each, before), the forwarded words asked
+    /// for as 2.TEXT, the name Gmail serves them by: asked as 2.1 they were
+    /// refused, and the whole letter with them (B-114). The forwarded
+    /// letter's header lines come from the envelope its structure carries,
+    /// nothing more is fetched for them, and they are the lines the whole
+    /// letter's own header gives.
     func testALargeForwardDrawsItsHeaderLinesFromItsStructure() async throws {
         let inner = "From: Sam Example <sam@example.com>\r\nTo: Jane <jane@example.com>\r\n"
             + "Subject: The forwarded words\r\nDate: Wed, 21 Oct 2026 14:36:17 +0000\r\n"
@@ -760,8 +735,10 @@ final class LargeLetterTests: XCTestCase {
         let letter = try await repository.open(row)
         XCTAssertEqual(uidFetches, [
             "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
-            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)> BODY.PEEK[2.1]<0.\(Self.section - 12)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)> BODY.PEEK[2.TEXT]<0.\(Self.section - 12)>)",
         ])
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+        XCTAssertFalse(letter.isShortened)
         let when = try XCTUnwrap(IMAPParser.parseHeaderDate("Wed, 21 Oct 2026 14:36:17 +0000"))
         XCTAssertEqual(letter.textBody, "My own note.\n\nBegin forwarded message:\n\n"
                        + "From: Sam Example <sam@example.com>\nDate: \(MailFormat.forwardedDate(when))\n"
@@ -772,6 +749,148 @@ final class LargeLetterTests: XCTestCase {
 
         let whole = try await makeRepository(appLimits: true).open(row)
         XCTAssertEqual(letter.textBody, whole.textBody)
+    }
+
+    // MARK: - A part the server will not give (B-114)
+
+    /// The forwarded letter of B-114's step 6 on the iPad, a plain one, and
+    /// its ENVELOPE.
+    private let forwarded = "From: Sam Example <sam@example.com>\r\nTo: Jane <jane@example.com>\r\n"
+        + "Subject: The forwarded words\r\nDate: Wed, 21 Oct 2026 14:36:17 +0000\r\n"
+        + "Message-ID: <inner@example.com>\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n"
+        + "The forwarded letter's words."
+    private let forwardedEnvelope = "(\"Wed, 21 Oct 2026 14:36:17 +0000\" \"The forwarded words\" "
+        + "((\"Sam Example\" NIL \"sam\" \"example.com\")) ((\"Sam Example\" NIL \"sam\" \"example.com\")) "
+        + "((\"Sam Example\" NIL \"sam\" \"example.com\")) ((\"Jane\" NIL \"jane\" \"example.com\")) "
+        + "NIL NIL NIL \"<inner@example.com>\")"
+
+    /// Its header lines, as the plain words draw them.
+    private func forwardedLines() throws -> String {
+        let when = try XCTUnwrap(IMAPParser.parseHeaderDate("Wed, 21 Oct 2026 14:36:17 +0000"))
+        return "Begin forwarded message:\n\nFrom: Sam Example <sam@example.com>\n"
+            + "Date: \(MailFormat.forwardedDate(when))\nTo: Jane <jane@example.com>\n"
+            + "Subject: The forwarded words\n"
+    }
+
+    /// A note, `inner` forwarded inline after it, and the PDF that makes
+    /// the letter too large to fetch whole: step 6's letter.
+    private func noteAndForward(_ inner: String) -> Data {
+        Data((top + mime("mixed", "FWD", [
+            "Content-Type: text/plain; charset=utf-8\r\n\r\nMy own note.",
+            "Content-Type: message/rfc822\r\nContent-Disposition: inline\r\n\r\n" + inner,
+            bigPDF,
+        ])).utf8)
+    }
+
+    /// A FETCH of a large letter's words answered NO, as Gmail answers one
+    /// asking for a part it will not give, costs that part alone: each part
+    /// is asked for again alone, the note comes, the forwarded words do
+    /// not, and the pane has the note and the forwarded letter's lines,
+    /// says it is only the beginning, and lists the PDF, on the one
+    /// connection. On the iPad that NO was "This message could not be
+    /// downloaded." and "Can't connect to mail server.", the note lost
+    /// with it (B-114).
+    func testAPartTheServerWillNotGiveCostsThatPartAlone() async throws {
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(forwarded), envelope: forwardedEnvelope,
+                                      refusing: ["2.TEXT"], by: repository)
+        let n = uid(row.id)
+        let connections = server.connectionsOpened
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        let note = "BODY.PEEK[1]<0.\(Self.section)>"
+        let words = "BODY.PEEK[2.TEXT]<0.\(Self.section - 12)>"
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID \(note) \(words))",
+            "UID FETCH \(n) (UID \(note))",
+            "UID FETCH \(n) (UID \(words))",
+        ])
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status),
+                       ["OK", "NO", "OK", "NO"])
+        XCTAssertEqual(letter.textBody, try "My own note.\n\n" + forwardedLines() + "\n")
+        XCTAssertNil(letter.htmlBody)
+        XCTAssertTrue(letter.isShortened)
+        XCTAssertEqual(letter.listedAttachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(server.connectionsOpened, connections)
+    }
+
+    /// The same for the note: refused, it is left out, and the letter it
+    /// forwards comes after it as ever, its lines and its words, said to
+    /// be only the beginning.
+    func testAForwardedLetterStillComesAfterANoteTheServerWillNotGive() async throws {
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(forwarded), envelope: forwardedEnvelope,
+                                      refusing: ["1"], by: repository)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status),
+                       ["OK", "NO", "NO", "OK"])
+        XCTAssertEqual(letter.textBody, try forwardedLines() + "\nThe forwarded letter's words.")
+        XCTAssertTrue(letter.isShortened)
+    }
+
+    /// A connection that drops while a large letter's words come is not a
+    /// part refused: the letter fails as it always has, after the one try
+    /// more on a new connection every read has (B-023), and nothing is
+    /// asked for alone on a connection that is gone.
+    func testAConnectionThatDropsWhileItsWordsComeStillFailsTheLetter() async throws {
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(forwarded), envelope: forwardedEnvelope,
+                                      by: repository)
+        let n = uid(row.id)
+        let connections = server.connectionsOpened
+        server.clearLog()
+        server.hangsUpOnSections = ["2.TEXT"]
+
+        do {
+            let letter = try await repository.open(row)
+            XCTFail("opened over a connection that dropped: \(letter.textBody ?? "nil")")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        let structure = "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])"
+        let words = "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)> "
+            + "BODY.PEEK[2.TEXT]<0.\(Self.section - 12)>)"
+        XCTAssertEqual(uidFetches, [structure, words, structure, words])
+        XCTAssertEqual(server.connectionsOpened, connections + 1)
+    }
+
+    /// A file that is the whole of a letter forwarded in a large one, a
+    /// scan sent as a letter of its own: its row, and its bytes asked for
+    /// as 2.TEXT, the name Gmail serves them by, both while the letter is
+    /// the one last opened, its structure known, and in a later launch,
+    /// the structure fetched again. As 2.1 Gmail refuses them, and the row
+    /// opened nothing (B-114).
+    func testAFileThatIsAWholeForwardedLetterIsFetchedByTheNameGmailServes() async throws {
+        let scan = "From: Sam Example <sam@example.com>\r\nSubject: The scan\r\n"
+            + "Content-Type: application/pdf; name=\"scan.pdf\"\r\n"
+            + "Content-Disposition: attachment; filename=\"scan.pdf\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n"
+            + photo.base64EncodedString(options: [.lineLength76Characters,
+                                                  .endLineWithCarriageReturn, .endLineWithLineFeed])
+        let repository = makeRepository()
+        let row = try await delivered(noteAndForward(scan), by: repository)
+        let n = uid(row.id)
+
+        let letter = try await repository.open(row)
+        XCTAssertEqual(letter.listedAttachments.map(\.filename), ["scan.pdf", "Programme.pdf"])
+        XCTAssertEqual(letter.listedAttachments.first?.id, "2.1")
+        server.clearLog()
+        let bytes = try await repository.fetchAttachmentData("2.1", of: row.id, mailboxID: "inbox")
+        XCTAssertEqual(bytes, photo)
+        XCTAssertEqual(uidFetches, ["UID FETCH \(n) (UID BODY.PEEK[2.TEXT])"])
+
+        let later = makeRepository()
+        _ = try await later.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        let again = try await later.fetchAttachmentData("2.1", of: row.id, mailboxID: "inbox")
+        XCTAssertEqual(again, photo)
+        XCTAssertEqual(uidFetches.count, 2)
+        XCTAssertEqual(uidFetches.last, "UID FETCH \(n) (UID BODY.PEEK[2.TEXT])")
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
     }
 
     /// A large letter of 300 tiny parts of words and a PDF: the 64 a body

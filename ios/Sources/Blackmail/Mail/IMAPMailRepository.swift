@@ -1525,6 +1525,10 @@ actor IMAPMailRepository: MailRepository {
 
         struct Request: Hashable {
             let validity: UInt32
+            /// As the server serves the part (`MIMEPart.fetchSection`): a
+            /// lone forward's words are "1.TEXT", not the "1.1" of a plain
+            /// and HTML pair beside them, which Gmail refuses for it, and
+            /// they are asked for apart (B-114).
             let section: String
             let byteCount: Int
         }
@@ -1543,7 +1547,7 @@ actor IMAPMailRepository: MailRepository {
             if part.size == 0 { continue }
             parts[id] = part
             let isHTML = part.subtype == "html"
-            grouped[Request(validity: message.validity, section: part.section,
+            grouped[Request(validity: message.validity, section: part.fetchSection,
                             byteCount: isHTML ? Self.htmlPreviewBytes : Self.plainPreviewBytes),
                     default: []].append(message.uid)
         }
@@ -1702,9 +1706,11 @@ actor IMAPMailRepository: MailRepository {
             let plan = MIMEDecoder.bodyPlan(of: structure)
             let allowance = MIMEDecoder.Allowance(plan, limit: limit)
             let text = Self.body(plan.text, asHTML: false, goesOn: plan.textGoesOn,
-                                 allowance: allowance.text, fetched: fetched.sections)
+                                 allowance: allowance.text, fetched: fetched.sections,
+                                 refused: fetched.refused)
             let html = Self.body(plan.html, asHTML: true, goesOn: plan.htmlGoesOn,
-                                 allowance: allowance.html, fetched: fetched.sections)
+                                 allowance: allowance.html, fetched: fetched.sections,
+                                 refused: fetched.refused)
             decoded.text = text.text
             decoded.html = html.text
             // By the body the pane shows, which is the HTML whenever there
@@ -1720,11 +1726,21 @@ actor IMAPMailRepository: MailRepository {
     /// One body of a letter fetched in part, its parts joined as `flatten`
     /// joins them, and whether it is only the beginning: a part cut short,
     /// or more parts of words than a body holds (`goesOn`).
+    ///
+    /// A part the server refused (`IMAPClient.LetterInPart.refused`) is left
+    /// out and the rest drawn around it, as a part with no words would be:
+    /// a note it would not give costs the note, and the forwarded letter's
+    /// header lines and words after it still come. The body is then said to
+    /// be only the beginning, with the notice a body cut short has (B-114).
     private static func body(_ pieces: [MIMEDecoder.BodyPiece], asHTML: Bool, goesOn: Bool,
-                             allowance: [String: Int],
-                             fetched: [String: Data]) -> (text: String?, cut: Bool) {
+                             allowance: [String: Int], fetched: [String: Data],
+                             refused: Set<String>) -> (text: String?, cut: Bool) {
         var cut = goesOn
         let text = MIMEDecoder.joined(pieces, asHTML: asHTML, goesOn: goesOn, words: { part in
+            if refused.contains(part.section) {
+                cut = true
+                return ("", false)
+            }
             let words = Self.text(of: part, fetched: fetched, limit: allowance[part.section] ?? 0)
             if words.cut { cut = true }
             return words.text.map { ($0, words.cut) }
@@ -2977,13 +2993,15 @@ actor IMAPMailRepository: MailRepository {
     /// The part at `section` of the letter `messageID`, described by `part`
     /// from a structure already fetched: `UID FETCH <uid> (UID
     /// BODY.PEEK[<section>])`, in one hold with its SELECT and UIDVALIDITY
-    /// check (B-039), and decoded as `part` says it is wrapped.
+    /// check (B-039), and decoded as `part` says it is wrapped. Asked for by
+    /// the name the server serves it by, "2.TEXT" for a file that is the
+    /// whole of a letter forwarded as 2 (`MIMEPart.fetchSection`, B-114).
     private func fetchKnownPartOnce(_ section: String, _ part: MIMEPart, of messageID: String,
                                     mailboxID: String) async throws -> Data {
         let client = try await connected()
         let name = try await resolve(mailboxID)
         let message = try Self.parseID(messageID)
-        let raw = try await client.fetchBody(uid: message.uid, section: section, in: name,
+        let raw = try await client.fetchBody(uid: message.uid, section: part.fetchSection, in: name,
                                              validity: message.validity)
         guard !raw.isEmpty else { throw MailError.attachmentFailed }
         let decoded = MIMEDecoder.decodeTransfer(raw, encoding: part.encoding)
