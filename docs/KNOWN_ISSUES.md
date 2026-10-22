@@ -17293,3 +17293,192 @@ any new letter does, an interval and the sleep's lateness at worst, and
 the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
+
+## B-112 — FIXED 2026-10-22, not yet seen on the iPad. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
+
+**What he saw.** Seen on the test iPad on 2026-10-22, in B-102's check,
+and made again three times in three the same morning. Organize by Thread
+on, a conversation of two letters in the Inbox, the second a reply to the
+first, on one row. From another IMAP session on the test account,
+`UID STORE +FLAGS (\Answered)` on the newer letter, then Refresh: the
+conversation was two rows. The top one read "(unknown sender)", "(no
+subject)" and 31/12/69, with the newer letter's words and the reply
+arrow, and the older letter sat on its own under it. The next Refresh put
+it right. It came once in four Refreshes after a mark set from the host,
+and then every time: with the mark set, with it taken off, and with
+Refresh tapped 2 s after the mark. On his iPad it would come whenever he
+reads or answers a letter on another device and refreshes within a few
+seconds.
+
+Not by design. A row is its letter's sender, subject and date, in its
+conversation, whatever else the server says.
+
+**What it was.** Gmail's news, and the client's reading of it. RFC 3501
+§7.4.2 lets a server send a FETCH at any time, and Gmail tells a session
+of a mark set elsewhere with one, `* 68 FETCH (UID 422 FLAGS (\Seen))`.
+In three Refreshes of the first check's four it came on the NOOP a
+Refresh sends before its SEARCH (B-045), and nothing went wrong. In the
+fourth, and in all three tries made again that morning, it came inside
+the listing's own `UID FETCH` answer, after the letter's whole line, once
+some 5 s after the mark:
+
+```
+→ a048 UID FETCH 103,110,…,421:422 (UID FLAGS INTERNALDATE RFC822.SIZE ENVELOPE BODYSTRUCTURE X-GM-LABELS X-GM-THRID X-GM-MSGID)
+← * 67 FETCH (X-GM-THRID … UID 421 … FLAGS (\Seen) ENVELOPE (…) …)
+← * 68 FETCH (X-GM-THRID … UID 422 … FLAGS (\Answered \Seen) ENVELOPE (…) …)
+← * 68 FETCH (UID 422 FLAGS (\Seen))
+· SESSION-IDENT folder=INBOX uidv=1 exists=68 uids=68 first-row=1/422 msgid=-
+```
+
+That was `-FLAGS (\Answered)`: the whole line still carried the old
+flags, and the news after it the new.
+
+`IMAPParser.parseFetch` made each line a result of its own, so the news
+was a result with a UID and flags and nothing else. `IMAPClient.ordered`,
+which puts a listing's summaries in order, kept one per UID, the last: the
+news. `IMAPMailRepository.rows(from:)` filled in what it lacked: "(unknown
+sender)"; an empty subject, which the list shows as "(no subject)"; the
+date 1970-01-01, which is 31/12/69 in the iPad's time zone; no Gmail
+thread id, so the letter left its conversation; and no Gmail id,
+`msgid=-`. The page kept on the iPad (D-016) was replaced with that row in
+it. It was so from the first commit, older than B-102, whose marks set
+elsewhere are exactly this news.
+
+Every FETCH of one letter read the answer the same way and took the first
+result under the UID, which with the news ahead of the letter's own line
+is the news. Then the FETCH that vouches for a kept row (D-016) found no
+Gmail id, so the write was not sent and the row came off the kept page as
+another letter's; a kept row's letter opened was refused the same way; a
+draft reopened by the id its upload gave it came with no bytes; a letter
+too large to fetch whole had no structure, or was refused as another
+letter; a file was refused the same way, or not found in the letter; and
+the FETCH of a letter's labels after a hollow MOVE (B-092) found none,
+so the MOVE was sent again. Not seen on the iPad, where the news came
+after the letter's line. The previews and a letter's plain FETCH already
+passed over a result with no bytes.
+
+**Changed.**
+
+- `IMAPParser.parseFetch` gives one result per UID. A later line for a UID
+  already read is laid over it (`IMAPFetchResult.laying`): each item the
+  later line carried in place of the earlier one's, the rest kept. So a
+  news line changes the flags and nothing else, and the letter's sender,
+  subject, date, Gmail ids, labels, structure, size and bytes stay. The
+  later line has the say, the news after the letter's line or the letter's
+  line after the news, as Gmail sends them in the order things happened. A
+  line with no UID is left as it was.
+- FLAGS and X-GM-LABELS go by whether the line carried them (`flagsSent`,
+  `labelsSent`). `FLAGS ()`, every mark taken off, takes them off, where an
+  empty list would have read as no FLAGS at all; a news line, which carries
+  no X-GM-LABELS, leaves the labels, so the letter is still counted in
+  Starred and in its labels' folders.
+- `IMAPClient.ordered` merges again across the answers it is given, so
+  news riding on one FETCH about a letter in another is laid over that
+  letter too. A FETCH whose UIDs run past 7,000 characters goes in several;
+  no list of the app's is that long today, but the rule holds there too.
+- A summary with no ENVELOPE once merged is never made a row. It is news of
+  a letter whose own line never came, its FETCH refused or the letter gone,
+  and it is left out as a letter the FETCH did not answer for is:
+  `FETCH-NO-ENVELOPE uid=422 left-out` in the connection log. So no row
+  with no sender, subject or date reaches the list or the kept page. A
+  page below the top fills itself from the UIDs after it, as for a letter
+  gone; the page from the top comes back one short.
+- Every place results are gathered by UID goes through it: the listing
+  from the top and a date jump (`page`), the pages below and the watch's
+  new letters (`fetchSummaries`), an All Mailboxes search's binned hits
+  (`search(_:across:)`), the previews, a letter's whole bytes, plain,
+  named and asked, the FETCH vouching for a kept row, a letter in parts,
+  a file, and the labels after a hollow MOVE.
+
+**Not changed.**
+
+- What is sent: the same commands, no NOOP more, nothing asked again.
+- News of a letter the FETCH did not ask for, one below the page, is not
+  put on a row already on screen; the next listing that has the letter
+  shows its marks, as before. News on a NOOP, a STORE or a MOVE is not read,
+  as before.
+- No new words.
+
+**What he sees.** A letter read, flagged or answered on another device,
+and Refresh at once: its row is the letter's, its sender, subject and
+date, in its conversation, with the new mark if Gmail told of it inside
+the listing, and with the mark it had until the next Refresh if Gmail held
+the news back longer. The connection log's SESSION-IDENT names the
+letter's Gmail id.
+
+**Tests.** `FetchNewsTests`, thirteen, over the shipping repository and
+client, the kept copy and the scripted server, whose `storeElsewhere` is a
+STORE from another device and whose `flagNews` says where a connection
+with the letter's mailbox open is told of it: on the next NOOP, as Gmail
+did most times; ahead of the next UID FETCH's own lines; straight after
+the letter's own line, which carries its old flags, as on the iPad, or
+after the answer's first line for a letter the FETCH did not ask for; or
+at the end of the answer, before its OK. All but the two over more than
+one FETCH read off the connection log the app keeps that the news came
+where they say, so none passes with no news on the wire. And one in `IMAPParserTests` on the
+iPad's lines, the names and ids made up.
+
+- *Inside*, the iPad's: a conversation of two, the newer marked read
+  elsewhere, then Refresh: NOOP, SEARCH, FETCH, the news straight after
+  the letter's line, which carried no flags; the row whole, read and in
+  its conversation, the older as it was, SESSION-IDENT naming the letter's
+  Gmail id, and the kept page the same, in memory and on disk.
+- *Ahead:* the news first and the letter's line with the new flags: the
+  row the letter's.
+- *At the end:* a letter in the middle of the page flagged elsewhere, the
+  news after the fifty lines: the row whole and flagged, no other changed.
+- *Marks taken off:* a letter with only `\Seen` marked unread elsewhere,
+  its news `FLAGS ()`, and a flagged letter in Starred marked unread: both
+  unread, the second still flagged and still counted in Starred.
+- *Not asked for:* a letter below the page flagged elsewhere, told after
+  the answer's first line, the page's oldest letter's: no row changed or
+  added, and the page below has it flagged.
+- *The watch:* a letter come, and marked read between the check's SEARCH
+  and its FETCH: on the list whole and read.
+- *A search:* a letter in the Trash flagged between the Trash's SEARCH and
+  the FETCH of its hits: the binned hit whole and flagged.
+- *Kept rows:* a read mark on a kept row with the news ahead of the
+  vouching FETCH: the mark goes and the row stays kept. A kept row's
+  letter opened with the news ahead: the letter.
+- *One letter:* the news ahead of each FETCH the client makes of one
+  letter: its Gmail id, its bytes named, asked and plain, the letter in
+  parts, a file, a preview and its summary, each the letter's.
+- *Labels:* a hollow MOVE from All Mail into the Inbox, the news ahead of
+  the FETCH of its labels: labelled, one MOVE.
+- *Two FETCHes:* an Inbox of 1,500, every summary asked for, two FETCHes.
+  A letter of the first flagged once it is answered, the news inside the
+  second: its summary whole and flagged. A letter of the second flagged,
+  the news inside the first, and the second refused: no summary for it,
+  every other whole, and the log line.
+
+Each part undone in the worktree, one at a time, and the fourteen run,
+counted as failures in tests. The code as it was, 113 in 12, the rows on
+the host as on the iPad, "(unknown sender)", "" and 1970-01-01 with no
+ids, and the kept rows refused as another letter's; in the whole suite
+those 12 alone, the two that passed being the news ahead of a listing,
+whose last line was the letter's, and the letter not asked for: nothing
+else held it. The parser not merging, `IMAPClient.ordered` still merging,
+23 in 5: every FETCH of one letter, the kept rows and the labels, and the
+parser's own; the listings held, merged there. `ordered` not merging
+across answers, 4 in 1, the two FETCHes. A summary with no ENVELOPE made a
+row, 3 in 1. The later FLAGS taken only when not empty, 2 in 2; the later
+X-GM-LABELS taken whether sent or not, 4 in 2; the parser not saying FLAGS
+came, 12 in 7. The first line kept, 38 in 12. The smaller fix, lines
+with no ENVELOPE dropped from a listing and nothing merged, 33 in 12: rows
+whole and their marks stale, and every FETCH of one letter as before. A
+line with nothing but flags laid over the line before it, whatever its
+UID, 8 in 5.
+
+The full suite, serially: 1,870 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad. The TODO's check makes the news come inside
+  the listing as the tries that morning did.
+- A listing from the top with a letter left out for no ENVELOPE comes back
+  one short, which the list takes for the end of the folder until the next
+  Refresh, as for a letter gone between the SEARCH and the FETCH. It needs
+  a news line for a letter whose own line never came; not seen.
+- News with no UID, which RFC 3501 allows outside a UID command, is left
+  aside; Gmail's carries the UID.

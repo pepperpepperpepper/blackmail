@@ -785,6 +785,15 @@ enum IMAPParser {
     /// this walks pairwise rather than by position. An unrecognised item is
     /// skipped along with its value: a server extension we have never heard of
     /// must not cost the user the message.
+    ///
+    /// One result per UID, not per line. A second line for a UID already read
+    /// is the server's news of it, a mark set or taken off elsewhere, which
+    /// RFC 3501 §7.4.2 lets it send unasked inside any answer, and it is laid
+    /// over the letter's own (`IMAPFetchResult.mergedByUID`). Read as a
+    /// result of its own, it took the letter's place in a listing, and the
+    /// row had no sender, subject, date or conversation (B-112); ahead of
+    /// the letter's own line, it was what a FETCH of one letter found under
+    /// the UID, with no Gmail id and no bytes.
     static func parseFetch(_ untagged: [IMAPResponseLine]) -> [IMAPFetchResult] {
         var out: [IMAPFetchResult] = []
 
@@ -809,7 +818,10 @@ enum IMAPParser {
                 case "UID":
                     result.uid = value?.uint32(line) ?? result.uid
                 case "FLAGS":
-                    if let list = value?.listItems { result.flags = list.compactMap { $0.text(line) } }
+                    if let list = value?.listItems {
+                        result.flags = list.compactMap { $0.text(line) }
+                        result.flagsSent = true
+                    }
                 case "INTERNALDATE":
                     if let text = value?.text(line) { result.internalDate = parseInternalDate(text) }
                 case "RFC822.SIZE":
@@ -827,6 +839,7 @@ enum IMAPParser {
                     if let list = value?.listItems {
                         result.labels = list.compactMap { $0.text(line) }
                             .map(decodeModifiedUTF7)
+                        result.labelsSent = true
                     }
                 case "BODYSTRUCTURE", "BODY", "BODY.PEEK":
                     // A bare BODY with a list value is the non-extensible form
@@ -851,7 +864,7 @@ enum IMAPParser {
                 && result.body == nil
             if !empty { out.append(result) }
         }
-        return out
+        return IMAPFetchResult.mergedByUID(out)
     }
 
     // MARK: - ENVELOPE

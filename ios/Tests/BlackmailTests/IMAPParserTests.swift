@@ -68,6 +68,54 @@ final class IMAPParserTests: XCTestCase {
         XCTAssertNotNil(r?.internalDate, "INTERNALDATE must parse under en_US_POSIX")
     }
 
+    /// B-112: the news of a mark set on another device, which Gmail sends
+    /// unasked inside the answer to a UID FETCH, `* 68 FETCH (UID 422 FLAGS
+    /// (\Seen))`, after the letter's whole line, is laid over it: one result,
+    /// the letter's, with the news's flags. Ahead of it, the whole line's.
+    /// An empty FLAGS that was sent takes every mark off, and a line that
+    /// carries no X-GM-LABELS leaves the labels. Another letter's line, and
+    /// a line with no UID, are left as they are.
+    func testASecondLineForOneUIDIsLaidOverTheFirst() {
+        let whole = line("""
+        * 68 FETCH (X-GM-THRID 1278455344230334865 X-GM-MSGID 1278455344230334999 \
+        X-GM-LABELS ("\\\\Important") UID 422 FLAGS (\\Answered \\Seen) \
+        INTERNALDATE "22-Oct-2026 11:45:02 +0000" RFC822.SIZE 3120 \
+        ENVELOPE ("Wed, 22 Oct 2026 07:45:00 -0400" "Re: the plan" \
+        (("Jane" NIL "jane" "example.com")) NIL NIL NIL NIL NIL "<a@example.com>" "<b@example.com>"))
+        """)
+        let news = line("* 68 FETCH (UID 422 FLAGS (\\Seen))")
+
+        let after = IMAPParser.parseFetch([whole, news])
+        XCTAssertEqual(after.count, 1)
+        XCTAssertEqual(after.first?.uid, 422)
+        XCTAssertEqual(after.first?.flags, ["\\Seen"])
+        XCTAssertEqual(after.first?.envelope?.subject, "Re: the plan")
+        XCTAssertEqual(after.first?.envelope?.from.first?.address, "jane@example.com")
+        XCTAssertEqual(after.first?.threadID, "1278455344230334865")
+        XCTAssertEqual(after.first?.gmailMessageID, 1_278_455_344_230_334_999)
+        XCTAssertEqual(after.first?.labels, ["\\Important"])
+        XCTAssertEqual(after.first?.size, 3120)
+        XCTAssertNotNil(after.first?.internalDate)
+
+        let ahead = IMAPParser.parseFetch([news, whole])
+        XCTAssertEqual(ahead.count, 1)
+        XCTAssertEqual(ahead.first?.flags, ["\\Answered", "\\Seen"])
+        XCTAssertEqual(ahead.first?.envelope?.subject, "Re: the plan")
+        XCTAssertEqual(ahead.first?.gmailMessageID, 1_278_455_344_230_334_999)
+
+        let cleared = IMAPParser.parseFetch([whole, line("* 68 FETCH (UID 422 FLAGS ())")])
+        XCTAssertEqual(cleared.count, 1)
+        XCTAssertEqual(cleared.first?.flags, [])
+        XCTAssertEqual(cleared.first?.labels, ["\\Important"])
+
+        let others = IMAPParser.parseFetch([whole, line("* 12 FETCH (UID 97 FLAGS (\\Flagged))"),
+                                            line("* 68 FETCH (FLAGS (\\Seen))")])
+        XCTAssertEqual(others.map(\.uid), [422, 97, nil])
+        XCTAssertEqual(others.first?.flags, ["\\Answered", "\\Seen"])
+        XCTAssertEqual(others[1].flags, ["\\Flagged"])
+        XCTAssertNil(others[1].envelope)
+    }
+
     // MARK: - Gmail's items
 
     /// X-GM-MSGID as Gmail sends it, a bare decimal number.

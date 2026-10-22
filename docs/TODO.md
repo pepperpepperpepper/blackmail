@@ -3788,6 +3788,42 @@ this host. Ordered by value, not by size.
       and WebKit put up the link's menu at about 1 s: the second did not
       open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
 
+- [ ] **B-112, a mark set on another device, told inside the listing.** On
+      the test iPad, the test account only, on a build of master, where it
+      is merged. Organize by Thread on, three panes, the Inbox open at its
+      top. A conversation of two letters at the top of the Inbox, sent from
+      the host, the second a reply to the first (In-Reply-To and References
+      naming it), on one row, as in B-102's check. Copy down, for every
+      Refresh, its NOOP, the listing's `UID FETCH` and every line of its
+      answer for the two UIDs, and its `SESSION-IDENT` line.
+      1. *The news inside the listing.* From the host, over IMAP on the
+      test account, `UID STORE <newer> +FLAGS (\Answered)`, and tap Refresh
+      within a second of its OK; then `-FLAGS (\Answered)` and Refresh at
+      once; then `-FLAGS (\Seen)`, `+FLAGS (\Seen)`, `+FLAGS (\Flagged)`
+      and `-FLAGS (\Flagged)`, each with Refresh at once; then the same on
+      the older letter; then once more on the newer with Refresh 2 s
+      after the OK. Repeat until the news, `* n FETCH (UID u FLAGS (…))`,
+      has come inside the listing's answer, after the letter's own line
+      and before the tagged OK, at least three times, the log saying each
+      time whether it came there or on the NOOP before it. Every time,
+      whichever: one row for the conversation, its sender, subject and
+      date the newer letter's, never "(unknown sender)", "(no subject)" or
+      31/12/69, the older letter not on a row of its own, and
+      `SESSION-IDENT … msgid=` a number, never `-`. Where the news came
+      inside the listing, the row shows the new mark at that Refresh: the
+      dot with `\Seen` off, the flag with `\Flagged` on, and, on a build
+      with B-102's arrows, the arrow with `\Answered` on and none with it
+      off. No `FETCH-NO-ENVELOPE` line.
+      2. *Every mark off.* The newer letter with `\Seen` alone, no arrow
+      and no flag: `-FLAGS (\Seen)` from the host, Refresh at once,
+      repeated until the news `FLAGS ()` comes inside the listing: the row
+      whole and with the dot at that Refresh.
+      3. *Put back.* Every mark as it was at the start, from the host, a
+      Refresh to see the row as it was, and the conversation deleted from
+      Edit mode, as at the end of B-102's check.
+      *Not tried on the simulator: the host tests hold it, the scripted
+      server telling of the mark where Gmail told the iPad (B-112).*
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

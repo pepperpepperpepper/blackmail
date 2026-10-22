@@ -146,9 +146,75 @@ struct IMAPFetchResult {
     /// `X-GM-LABELS ()` from INBOX and `("\\Inbox")` from All Mail. The
     /// selected folder is implicit and the caller has to add it back.
     var labels: [String] = []
+    /// Whether the line carried FLAGS at all, and X-GM-LABELS at all. A
+    /// line's `FLAGS ()` is every mark taken off, which `flags` alone cannot
+    /// tell from a line that said nothing of them (`laying`, B-112).
+    var flagsSent = false
+    var labelsSent = false
 
     var isSeen: Bool    { flags.contains { $0.caseInsensitiveCompare("\\Seen") == .orderedSame } }
     var isFlagged: Bool { flags.contains { $0.caseInsensitiveCompare("\\Flagged") == .orderedSame } }
+
+    /// This result with `later` laid over it, a later FETCH line for the
+    /// same UID: every item `later` carried in place of this one's, every
+    /// item it did not carry kept. FLAGS and X-GM-LABELS go by whether the
+    /// line carried them, so a later `FLAGS ()` takes every mark off and a
+    /// line without FLAGS takes none.
+    ///
+    /// For the server's news. RFC 3501 §7.4.2 lets it send a FETCH at any
+    /// time, and Gmail tells a mark set on another device so, unasked,
+    /// inside the answer to a UID FETCH of its own, as `* 68 FETCH (UID 422
+    /// FLAGS (\Answered \Seen))` after the letter's whole line (B-112). On
+    /// the test iPad the whole line carried the letter's old flags and the
+    /// news after it the new, so the later line has the say. The rest of a
+    /// letter does not change, and a news line carries none of it.
+    func laying(_ later: IMAPFetchResult) -> IMAPFetchResult {
+        var out = self
+        if later.flagsSent {
+            out.flags = later.flags
+            out.flagsSent = true
+        }
+        if later.labelsSent {
+            out.labels = later.labels
+            out.labelsSent = true
+        }
+        out.internalDate = later.internalDate ?? internalDate
+        out.size = later.size ?? size
+        out.envelope = later.envelope ?? envelope
+        out.bodyStructure = later.bodyStructure ?? bodyStructure
+        out.body = later.body ?? body
+        out.threadID = later.threadID ?? threadID
+        out.gmailMessageID = later.gmailMessageID ?? gmailMessageID
+        return out
+    }
+
+    /// One result per UID, in the order each UID first came, each later
+    /// line for it laid over what came before (`laying`). A result with no
+    /// UID is kept as it is, where it is: nothing says which letter it is.
+    ///
+    /// Every answer `IMAPParser.parseFetch` reads goes through this, and the
+    /// summaries of several FETCHes gathered for one list go through it
+    /// again (`IMAPClient.ordered`), so the news riding on one chunk's
+    /// answer about a letter of another's is laid over that letter too.
+    static func mergedByUID(_ results: [IMAPFetchResult]) -> [IMAPFetchResult] {
+        var out: [IMAPFetchResult] = []
+        out.reserveCapacity(results.count)
+        var at: [UInt32: Int] = [:]
+        for result in results {
+            guard let uid = result.uid else {
+                out.append(result)
+                continue
+            }
+            if let index = at[uid] {
+                // Written back whole: see `IMAPClient.noteSizeChanges`.
+                out[index] = out[index].laying(result)
+            } else {
+                at[uid] = out.count
+                out.append(result)
+            }
+        }
+        return out
+    }
 }
 
 /// RFC 3501 ENVELOPE. Enough to build a list row without downloading bodies,
