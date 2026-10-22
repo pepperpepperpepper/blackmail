@@ -18,7 +18,18 @@ import Foundation
 /// meanwhile is replaced at the next move or the next frame, as WKWebView's
 /// scroll view, in another process, replaced it. A pan begins once the
 /// finger has moved 10 px. The touches go to the window's listeners, as
-/// WebKit sends them, on whatever is under the finger.
+/// WebKit sends them, on whatever is under the finger, or nowhere for a
+/// finger that landed on the page before this one, which WebKit does not
+/// send this page. The stack is never scrolled past its top or its bottom:
+/// a pull past the top, or a coast into it, as the bounce back from it is
+/// here, holds the page at the top and sends it no scroll.
+///
+/// The pane's side is modelled too, as `MessageDetailViewController` has
+/// it (`ConversationDocument.Motion`): with each insert it says whether its
+/// scroll view is moving the stack, a finger down or the stack coasting,
+/// and while it is it says so again every tenth of a second until it says
+/// it is still. A finger down counts from the moment it lands, still or
+/// not, as UIKit's `isTracking` is taken to.
 ///
 /// Run only where node is: elsewhere the tests that use it skip, and the
 /// script's own pins, read from its source, still hold it.
@@ -40,8 +51,11 @@ enum ModelPage {
             case at, action = "do", y, silent, coast, html, before, id, isHTML
         }
 
-        /// A finger lands at `y` on the pane.
-        static func down(_ at: Int, y: Int) -> Step { Step(at: at, action: "down", y: y) }
+        /// A finger lands at `y` on the pane; `silent`, with no touchstart
+        /// sent, as for a finger that landed on the page before.
+        static func down(_ at: Int, y: Int, silent: Bool = false) -> Step {
+            Step(at: at, action: "down", y: y, silent: silent ? true : nil)
+        }
         /// The finger moves to `y`; `silent`, with no touchmove sent.
         static func move(_ at: Int, y: Int, silent: Bool = false) -> Step {
             Step(at: at, action: "move", y: y, silent: silent ? true : nil)
@@ -133,6 +147,17 @@ enum ModelPage {
         }
     }
 
+    /// What the pane tells the page of its scroll view.
+    enum Pane {
+        /// As the pane does (`ConversationDocument.Motion`).
+        case tells
+        /// With an insert, and never again, as if its ticks were lost.
+        case tellsOnce
+        /// Nothing: the insert as it was before the pane told the page
+        /// anything, `bmInsert(html, before)`, the script on its own.
+        case silent
+    }
+
     /// No node on this host.
     struct NoNode: Error {}
 
@@ -143,15 +168,26 @@ enum ModelPage {
 
     /// Runs `script` on the model of `page`, a document the pane draws
     /// (`ConversationDocument.html`), its head's `bm-opens` and its body's
-    /// letters, through `steps`, to `end` ms. The page has loaded at 0.
-    static func run(_ script: String, page: String, steps: [Step], end: Int) throws -> Run {
+    /// letters, through `steps`, to `end` ms, the pane telling the page of
+    /// its scroll view as `pane` has it. The page has loaded at 0.
+    static func run(_ script: String, page: String, steps: [Step], end: Int,
+                    pane: Pane = .tells) throws -> Run {
         struct Input: Encodable {
             let script: String
             let html: String
             let steps: [Step]
             let end: Int
+            let insert: String
+            let motion: String?
+            let ticks: Bool
+            let every: Int
         }
-        let input = try JSONEncoder().encode(Input(script: script, html: page, steps: steps, end: end))
+        let input = try JSONEncoder().encode(Input(
+            script: script, html: page, steps: steps, end: end,
+            insert: pane == .silent ? "bmInsert(html, before)" : ConversationDocument.Insert.script,
+            motion: pane == .silent ? nil : ConversationDocument.Motion.script,
+            ticks: pane == .tells,
+            every: Int((ConversationDocument.Motion.every * 1_000).rounded())))
 
         let node = Process()
         node.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -357,8 +393,9 @@ enum ModelPage {
 
     let scrollY = 0;
     let scrollPending = false;
+    function clampScroll(y) { return Math.max(0, Math.min(Math.max(0, layout().height - VIEW), y)); }
     function setScroll(y) {
-      const c = Math.max(0, Math.min(Math.max(0, layout().height - VIEW), y));
+      const c = clampScroll(y);
       if (c !== scrollY) { scrollY = c; scrollPending = true; }
     }
     const windowListeners = {};
@@ -413,18 +450,42 @@ enum ModelPage {
         finger.last = y;
       }
       if (finger.panning) {
-        moved += finger.last - y;
+        moved += clampScroll(finger.startScroll + (finger.startY - y))
+               - clampScroll(finger.startScroll + (finger.startY - finger.last));
         finger.last = y;
         setScroll(finger.startScroll + (finger.startY - y));
       }
       finger.y = y;
     }
 
+    // The pane: whether its scroll view moves the stack, and its word to
+    // the page, run as callAsyncJavaScript runs a body, its arguments by
+    // name.
+    function paneMoving() { return !!finger || !!coast; }
+    function callBody(body, args) {
+      const names = Object.keys(args);
+      return new Function(names.join(','), body).apply(null, names.map(function (n) { return args[n]; }));
+    }
+    let ticking = false;
+    function paneTick() {
+      const moving = paneMoving();
+      try { callBody(INPUT.motion, { moving: moving }); } catch (e) { errors.push('motion: ' + e.message); }
+      if (moving) modelSetTimeout(paneTick, INPUT.every); else ticking = false;
+    }
+    function paneInsert(step) {
+      const moving = typeof INPUT.motion === 'string' && paneMoving();
+      try {
+        callBody(INPUT.insert, { html: step.html, before: step.before, moving: moving });
+      } finally {
+        if (moving && INPUT.ticks && !ticking) { ticking = true; modelSetTimeout(paneTick, INPUT.every); }
+      }
+    }
+
     const out = { frames: [], posts: posts, errors: errors, calls: [] };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
-        moved += step;
+        moved += clampScroll(coast.pos + step) - clampScroll(coast.pos);
         coast.pos += step;
         coast.v *= 0.9;
         setScroll(coast.pos);
@@ -461,7 +522,7 @@ enum ModelPage {
         case 'down':
           finger = { startY: step.y, y: step.y, panning: false };
           coast = null;
-          dispatch('touchstart', touchEvent(step.y, true));
+          if (!step.silent) dispatch('touchstart', touchEvent(step.y, true));
           return;
         case 'move':
           fingerTo(step.y);
@@ -482,7 +543,7 @@ enum ModelPage {
       }
       const was = body.children.map(function (s) { return s.id; }).join(' ');
       try {
-        if (step.do === 'insert') globalThis.bmInsert(step.html, step.before);
+        if (step.do === 'insert') paneInsert(step);
         else if (step.do === 'append') globalThis.bmAppend(step.html);
         else if (step.do === 'fill') globalThis.bmFill(step.id, step.html, step.isHTML);
         else throw new Error('no such step: ' + step.do);

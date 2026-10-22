@@ -14,6 +14,14 @@ import XCTest
 /// replaces an offset the script sets while the finger or the coast moves
 /// the stack, as the iPad did, so these fail on the script as it was.
 ///
+/// The page does not hear every finger: one put down at the tap lands on
+/// the page before the stack's, which then hears none of its touches, and
+/// a finger held still, or a bounce at the top, sends it no scroll. So the
+/// pane says whether its scroll view moves the stack (`Motion`), as the
+/// model's pane does unless a test says otherwise; and where the script
+/// alone cannot hold it, the test shows that too, so the case is known to
+/// be one where the pane's word is what holds it.
+///
 /// The stack is the usual one: J1, read, closed to its line, J2, the
 /// newest, open, the pane opened at J1's line; and his reply A1 between
 /// them, found late.
@@ -60,18 +68,22 @@ final class HisLineUnderTheFingerTests: XCTestCase {
     }
 
     /// A finger landing on J2's body at `start`, and dragging the stack up
-    /// `by` px at an even pace over `ms`, a move each frame.
-    private func drag(from start: Int, y: Int = 480, by dy: Int, over ms: Int) -> [Step] {
+    /// `by` px at an even pace over `ms`, a move each frame; down for a
+    /// negative `by`. `unheard`, none of its touches sent to the page, as
+    /// for a finger that landed on the page before the stack's.
+    private func drag(from start: Int, y: Int = 480, by dy: Int, over ms: Int,
+                      unheard: Bool = false) -> [Step] {
         let moves = ms / 16
-        return [.down(start, y: y)] + (1...moves).map { i in
-            .move(start + i * 16, y: y - Int((Double(dy) * Double(i) / Double(moves)).rounded()))
+        return [.down(start, y: y, silent: unheard)] + (1...moves).map { i in
+            .move(start + i * 16, y: y - Int((Double(dy) * Double(i) / Double(moves)).rounded()),
+                  silent: unheard)
         }
     }
 
-    private func run(_ steps: [Step], end: Int = 4_000,
+    private func run(_ steps: [Step], end: Int = 4_000, pane: ModelPage.Pane = .tells,
                      script: String = ConversationDocument.script) throws -> ModelPage.Run {
         do {
-            return try ModelPage.run(script, page: page, steps: steps, end: end)
+            return try ModelPage.run(script, page: page, steps: steps, end: end, pane: pane)
         } catch is ModelPage.NoNode {
             throw XCTSkip("node is not on this host")
         }
@@ -135,18 +147,129 @@ final class HisLineUnderTheFingerTests: XCTestCase {
         XCTAssertEqual(run.order, [j1, a1, j2])
     }
 
-    /// A lift WebKit never sends, or a finger resting on the glass, holds
-    /// it two seconds from the finger's last move and no longer: it goes
-    /// in then, whatever else happens, and J2 does not move.
-    func testALiftNeverHeardHoldsItTwoSecondsAtMost() throws {
+    /// A lift WebKit never sends holds it five seconds from the finger's
+    /// last touch and no longer, the pane having said its scroll view is
+    /// still: it goes in then, whatever else happens, and J2 does not move.
+    func testALiftNeverHeardHoldsItFiveSecondsAtMost() throws {
         let dragging = drag(from: 50, by: 60, over: 1_500)
         let lastMove = try XCTUnwrap(dragging.last?.at)
         let run = try run([j2Body(40)] + dragging + [.up(1_550, silent: true), .insert(600, a1BeforeJ2)],
-                          end: 5_000)
+                          end: 8_000)
         XCTAssertEqual(run.jumps(of: j2).map(\.by), [])
         let came = try XCTUnwrap(run.firstFrame(with: a1), "it goes in")
-        XCTAssertGreaterThanOrEqual(came, Double(lastMove + 2_000))
-        XCTAssertLessThanOrEqual(came, Double(lastMove + 2_000 + 100 + 16))
+        XCTAssertGreaterThanOrEqual(came, Double(lastMove + 5_000))
+        XCTAssertLessThanOrEqual(came, Double(lastMove + 5_000 + 100 + 16))
+        XCTAssertEqual(run.order, [j1, a1, j2])
+        XCTAssertEqual(run.held, 0)
+    }
+
+    // MARK: - What the page cannot hear
+
+    /// A finger put down at the tap lands on the page before the stack's,
+    /// and the stack's page hears none of its touches, only the scrolls of
+    /// a drag. Dragged on without a stop, and held still 0.8 s in the
+    /// middle of the drag as A1 comes, then dragged on: J2 moves only with
+    /// the finger, and A1 goes in after the lift, held by the pane's word.
+    /// The script alone held the first, by its scrolls, and lost the
+    /// second: A1 went in during the pause, and J2 dropped a line at the
+    /// next move.
+    func testAFingerThePageNeverHearsIsHeldByThePanesWord() throws {
+        let dragging = [j2Body(40)] + drag(from: 50, by: 100, over: 1_500, unheard: true)
+            + [.up(1_550, silent: true), .insert(600, a1BeforeJ2)]
+        let dragged = try run(dragging)
+        XCTAssertEqual(dragged.jumps(of: j2).map(\.by), [])
+        XCTAssertGreaterThan(try XCTUnwrap(dragged.firstFrame(with: a1)), 1_550)
+        XCTAssertEqual(dragged.order, [j1, a1, j2])
+        XCTAssertEqual(dragged.held, 0)
+
+        let first = drag(from: 50, by: 40, over: 496, unheard: true)
+        let second = drag(from: 1_346, y: 440, by: 40, over: 496, unheard: true).dropFirst()
+        let paused = [j2Body(40)] + first + second + [.up(1_850, silent: true), .insert(800, a1BeforeJ2)]
+        let held = try run(paused)
+        XCTAssertEqual(held.jumps(of: j2).map(\.by), [])
+        XCTAssertGreaterThan(try XCTUnwrap(held.firstFrame(with: a1)), 1_850)
+        XCTAssertEqual(held.order, [j1, a1, j2])
+        XCTAssertEqual(held.errors, [])
+
+        let alone = try self.run(paused, pane: .silent)
+        XCTAssertEqual(alone.jumps(of: j2).map(\.by), [38], "the script alone")
+        XCTAssertLessThan(try XCTUnwrap(alone.firstFrame(with: a1)), 1_346, "in during the pause")
+    }
+
+    /// A finger on J1's line, put down at the tap on the page before, as
+    /// A1 comes: J1's line stays under it while it is down, held by the
+    /// pane's word, and A1 goes in after the lift. Nothing opens: the page
+    /// heard no touch, and what WebKit does at that lift is WebKit's. The
+    /// script alone put A1 in at once, and moved J1's line from under the
+    /// finger.
+    func testAFingerThePageNeverHeardOnALineKeepsTheLineUnderIt() throws {
+        let steps = [j2Body(40), .down(500, y: 20, silent: true), .insert(550, a1BeforeJ2),
+                     .up(650, silent: true)]
+        let run = try run(steps)
+        let down = run.frames.filter(\.fingerDown)
+        XCTAssertFalse(down.isEmpty)
+        XCTAssertEqual(Set(down.compactMap { $0.top(j1) }), [0])
+        XCTAssertGreaterThan(try XCTUnwrap(run.firstFrame(with: a1)), 650)
+        XCTAssertEqual(run.posts, [])
+        XCTAssertEqual(run.order, [j1, a1, j2])
+        XCTAssertEqual(run.held, 0)
+
+        let alone = try self.run(steps, pane: .silent)
+        XCTAssertTrue(alone.frames.filter(\.fingerDown).contains { $0.top(j1) == -38 },
+                      "the script alone moved the line from under the finger")
+    }
+
+    /// A finger held still longer than the script's own bound for a lift
+    /// it never heard, six seconds in the middle of a drag, A1 coming
+    /// meanwhile, then dragged on: held by the pane's word for as long as
+    /// the finger is down. The script alone let it go five seconds after
+    /// the finger's last move, and J2 dropped a line at the next.
+    func testAFingerStillLongerThanTheScriptsBoundIsHeldByThePanesWord() throws {
+        let first = drag(from: 50, by: 40, over: 496)
+        let second = drag(from: 6_346, y: 440, by: 40, over: 496).dropFirst()
+        let steps = [j2Body(40)] + first + second + [.up(6_850), .insert(800, a1BeforeJ2)]
+        let run = try run(steps, end: 8_000)
+        XCTAssertEqual(run.jumps(of: j2).map(\.by), [])
+        XCTAssertGreaterThan(try XCTUnwrap(run.firstFrame(with: a1)), 6_850)
+        XCTAssertEqual(run.order, [j1, a1, j2])
+        XCTAssertEqual(run.held, 0)
+
+        let alone = try self.run(steps, end: 8_000, pane: .silent)
+        XCTAssertEqual(alone.jumps(of: j2).map(\.by), [38])
+    }
+
+    /// The stack pulled down at its top, where it opens, A1 coming as it is
+    /// pulled, and bouncing back after the lift: the page stays at the top
+    /// through it and hears no scroll. Held by the pane's word until the
+    /// bounce is over, J2 never moving. The script alone put A1 in at the
+    /// lift, and the bounce held the page at the top, J2 a line lower.
+    func testAPullDownAtTheTopBouncingBackIsHeldByThePanesWord() throws {
+        let steps = [j2Body(40)] + drag(from: 50, y: 300, by: -60, over: 496)
+            + [.up(600, coast: -0.6), .insert(300, a1BeforeJ2)]
+        let run = try run(steps)
+        XCTAssertEqual(run.jumps(of: j2).map(\.by), [])
+        let bounced = try XCTUnwrap(run.frames.last { $0.coasting }?.t)
+        XCTAssertGreaterThan(try XCTUnwrap(run.firstFrame(with: a1)), bounced)
+        XCTAssertEqual(run.order, [j1, a1, j2])
+        let last = try XCTUnwrap(run.frames.last)
+        XCTAssertEqual(last.top(a1), 0)
+        XCTAssertEqual(last.top(j2), 38)
+
+        let alone = try self.run(steps, pane: .silent)
+        XCTAssertEqual(alone.jumps(of: j2).map(\.by), [38])
+    }
+
+    /// The pane's word that its scroll view moves holds it a second at
+    /// most if no word follows, as if the pane's ticks were lost: it goes
+    /// in then, the finger still down.
+    func testThePanesWordNeverFollowedHoldsItASecondAtMost() throws {
+        let steps = [j2Body(40), .down(500, y: 480, silent: true), .insert(600, a1BeforeJ2),
+                     .up(5_000, silent: true)]
+        let run = try run(steps, end: 6_000, pane: .tellsOnce)
+        let came = try XCTUnwrap(run.firstFrame(with: a1))
+        XCTAssertGreaterThanOrEqual(came, 600 + 1_000)
+        XCTAssertLessThanOrEqual(came, 600 + 1_000 + 100 + 16)
+        XCTAssertEqual(run.jumps(of: j2).map(\.by), [])
         XCTAssertEqual(run.order, [j1, a1, j2])
         XCTAssertEqual(run.held, 0)
     }

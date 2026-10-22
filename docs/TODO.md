@@ -3847,23 +3847,43 @@ this host. Ordered by value, not by size.
       with the finger from there. 8's VoiceOver could not be tried, the
       app being on VoiceOver's Direct Touch list there, and 9 was not run.
       Changed the same day (B-104 in KNOWN_ISSUES): A's line is held while
-      the stack moves under a finger or coasts after it, and goes in once
-      it is still. To run again, from a build with the change: 1 in full;
-      8's VoiceOver, once the app is off the Direct Touch list; and 9.
-      1 with a finger, as on 2026-10-22: before each run another row
+      the stack moves under a finger, coasts or bounces back, as the pane's
+      scroll view says and as the page hears, and goes in once it is
+      still. To run again, from a build with both steps of the change: 1
+      in full; 8's VoiceOver, once the app is off the Direct Touch list;
+      and 9. 1 with a finger, as on 2026-10-22: before each run another row
       selected, Refresh, so nothing is remembered, and J's second letter
-      made unread from the host. Tap the row and, within 0.05 s, drag the
-      reading pane up some 100 to 120 px of the shots over 1.5 to 1.8 s,
-      so that A's line is found mid-drag (at about 0.6 s that day; in the
-      log, the summary FETCH in Sent Mail). J's second letter's first line
-      moves with the finger alone, and A's line goes in above it within
-      about a third of a second of the stack coming to rest. Then the same
-      with a flick, A's line found while the stack coasts; with the finger
-      held still half a second in the middle of the drag as A's line is
-      found, then dragged on; and with a finger put on J's first line just
-      after the tap and lifted at about 1 s, A's line found meanwhile: the
-      lift opens that letter, once, its line where it was, and A's line
-      goes in after. A burst of shots from the tap each time.*
+      made unread from the host; a burst of shots from the tap each time,
+      A's line found when the log has the summary FETCH in Sent Mail
+      (about 0.6 s that day). Each time J's second letter's first line
+      moves with the finger alone, with no step of a line, and A's line
+      goes in above it within about a third of a second of the stack
+      coming to rest. (a) *The finger at the tap*, as that day: within
+      0.05 s of the tap, drag the pane up some 100 to 120 px of the shots
+      over 1.5 to 1.8 s; then the same with the finger held still a second
+      in the middle as A's line is found, then dragged on. That finger
+      lands on the page before the stack's, whose first frame came about
+      0.2 s after the tap, so the stack's page hears none of its touches,
+      and only the pane's word holds A's line. (b) *The finger on the
+      stack*: put it down once the stack is drawn, 0.3 s or more after the
+      tap, and the same drag; then with a pause of half a second, and one
+      of six seconds, longer than the page's own five, in the middle as
+      A's line is found, then dragged on; and a flick, A's line found while
+      the stack coasts. (c) *A pull at the top*: the stack opens with J's
+      first line at the top of the pane; once it is drawn, pull it down
+      some 60 px and let go as A's line is found, so it bounces back. J's
+      second letter does not step, and A's line goes in after the bounce.
+      (d) *A finger on J's first line*, put down once the stack is drawn
+      and lifted at about 1 s, A's line found meanwhile: the lift opens
+      that letter, once, its line where it was, and A's line goes in
+      after. Then the same with the finger put down within 0.05 s of the
+      tap: J's first line stays under the finger while it is down, and A's
+      line goes in after the lift; what the lift opens, if anything, is
+      WebKit's, the touch having begun on the page before, so write down
+      what it does. If J's first line moves from under that still finger,
+      or J's second letter steps in (c), UIKit did not count the finger
+      or the bounce as moving: write it down, it is a case KNOWN_ISSUES
+      names as not covered.*
 
 ## Blocked on the owner
 

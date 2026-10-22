@@ -336,7 +336,8 @@ final class CompleteThreadsTests: XCTestCase {
 
     /// What goes in is his letters' sections as the stack draws them,
     /// closed, with the section they go before, "" for after the last, as
-    /// the arguments of the stack's `bmInsert`.
+    /// the arguments of the stack's `bmInsert`, after the pane's word on
+    /// whether its scroll view is moving the stack.
     func testWhatGoesInIsHisSectionsAndTheSectionTheyGoBefore() {
         let entries = [ConversationDocument.entry(forHis: his(1), foundIn: "Sent Mail"),
                        ConversationDocument.entry(forHis: his(2), foundIn: "Sent Mail")]
@@ -346,10 +347,14 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertFalse(insert.html.contains("bm-open"))
         XCTAssertEqual(insert.before, "m1_3")
         XCTAssertEqual(ConversationDocument.Insert(entries, before: nil).before, "")
-        XCTAssertEqual(ConversationDocument.Insert.script, "bmInsert(html, before)")
-        XCTAssertEqual(insert.arguments["html"] as? String, insert.html)
-        XCTAssertEqual(insert.arguments["before"] as? String, "m1_3")
-        XCTAssertEqual(insert.arguments.count, 2)
+        XCTAssertEqual(ConversationDocument.Insert.script, "bmPaneMoving(moving); bmInsert(html, before)")
+        for moving in [false, true] {
+            let arguments = insert.arguments(moving: moving)
+            XCTAssertEqual(arguments["html"] as? String, insert.html)
+            XCTAssertEqual(arguments["before"] as? String, "m1_3")
+            XCTAssertEqual(arguments["moving"] as? Bool, moving)
+            XCTAssertEqual(arguments.count, 3)
+        }
     }
 
     /// The script puts them in before the section named, one of the
@@ -391,11 +396,13 @@ final class CompleteThreadsTests: XCTestCase {
 
     /// Held while the stack moves under a finger or coasts after it, as the
     /// iPad showed it must be (2026-10-22): a `scrollBy` made then was lost,
-    /// and the letter he was reading dropped a line. Held while a finger is
-    /// on the page, from its touchstart to the touchend or touchcancel that
-    /// leaves none, or two seconds after the last of its touches, whichever
-    /// is first, and while a scroll not the script's own came in the last
-    /// quarter of a second; looked at again every tenth of a second, and
+    /// and the letter he was reading dropped a line. Held while the pane's
+    /// last word said its scroll view moves the stack, or a second after a
+    /// word never followed; while a finger is on the page, from its
+    /// touchstart to the touchend or touchcancel that leaves none, or five
+    /// seconds after the last of its touches, whichever is first; and while
+    /// a scroll not the script's own came in the last quarter of a second;
+    /// looked at again every tenth of a second, and
     /// then put in as at rest. What comes while one is held waits behind
     /// it, in the order it came: more of his letters, letters put in at the
     /// bottom, and a body for a section not on the page yet. Each held
@@ -405,10 +412,12 @@ final class CompleteThreadsTests: XCTestCase {
         let script = flat(ConversationDocument.script)
         for wiring in [
             "var bmHeld = []; var bmHeldTimer = null; var bmFingers = 0; var bmFingered = -1e9; "
-                + "var bmSettle = 250; var bmLostTouch = 2000;",
+                + "var bmPane = -1e9; var bmSettle = 250; var bmLostTouch = 5000; var bmPaneLapse = 1000;",
             "function bmFinger(event) { bmFingers = event.touches.length; bmFingered = performance.now(); }",
+            "function bmPaneMoving(moving) { bmPane = moving ? performance.now() : -1e9; }",
             "function bmMoving() { var now = performance.now(); "
-                + "return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch); }",
+                + "return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch) "
+                + "|| now - bmPane < bmPaneLapse; }",
             "function bmLater(change) { bmHeld.push(change); "
                 + "if (bmHeldTimer === null) bmHeldTimer = setTimeout(bmRelease, 100); }",
             "function bmRelease() { bmHeldTimer = null; "
@@ -1208,11 +1217,60 @@ final class CompleteThreadsTests: XCTestCase {
                                     + "guard let insert = document.insert(place.entries, before: place.before) "
                                     + "else { continue } run(insert) } }"), take)
         XCTAssertTrue(code.contains("private func run(_ insert: ConversationDocument.Insert) { "
+                                    + "let moving = stackMoving "
                                     + "webView.callAsyncJavaScript(ConversationDocument.Insert.script, "
-                                    + "arguments: insert.arguments, in: nil, in: .defaultClient) }"))
+                                    + "arguments: insert.arguments(moving: moving), in: nil, in: .defaultClient) "
+                                    + "if moving { watchTheStack() } }"))
         XCTAssertTrue(code.contains("let finished = document.didFinish(ObjectIdentifier(navigation)) "
                                     + "for insert in finished.inserts { run(insert) } "
                                     + "for fill in finished.fills { run(fill) }"))
+    }
+
+    /// The pane's word to the stack's script on its scroll view (B-104):
+    /// moving while UIKit's scroll view tracks a finger, drags or
+    /// decelerates, which is how the page learns of a finger it never
+    /// heard, held still or not, and of a bounce. Said with each insert,
+    /// and while it moves, every tenth of a second on the main run loop's
+    /// common modes, which a drag does not hold up, to the page on screen;
+    /// the ticks stop at the first word that it is still, and are the
+    /// only other way the word goes. `HisLineUnderTheFingerTests` runs the
+    /// script with a model of it.
+    func testThePaneTellsTheStackWhetherItsScrollViewMovesIt() throws {
+        for tracking in [false, true] {
+            for dragging in [false, true] {
+                for decelerating in [false, true] {
+                    XCTAssertEqual(ConversationDocument.Motion.stack(tracking: tracking, dragging: dragging,
+                                                                     decelerating: decelerating),
+                                   tracking || dragging || decelerating)
+                }
+            }
+        }
+        XCTAssertEqual(ConversationDocument.Motion.every, 0.1)
+        XCTAssertEqual(ConversationDocument.Motion.script, "bmPaneMoving(moving)")
+        XCTAssertEqual(ConversationDocument.Motion.arguments(true)["moving"] as? Bool, true)
+        XCTAssertEqual(ConversationDocument.Motion.arguments(false)["moving"] as? Bool, false)
+        XCTAssertEqual(ConversationDocument.Motion.arguments(true).count, 1)
+
+        let code = try source("UI/MessageDetailViewController.swift")
+        for wiring in [
+            "private var stackMoving: Bool { let scroll = webView.scrollView "
+                + "return ConversationDocument.Motion.stack(tracking: scroll.isTracking, dragging: scroll.isDragging, "
+                + "decelerating: scroll.isDecelerating) }",
+            "private var motionTicks: Timer?",
+            "private func watchTheStack() { guard motionTicks == nil else { return } "
+                + "let ticks = Timer(timeInterval: ConversationDocument.Motion.every, target: self, "
+                + "selector: #selector(motionTick), userInfo: nil, repeats: true) "
+                + "RunLoop.main.add(ticks, forMode: .common) motionTicks = ticks }",
+            "@objc private func motionTick() { let moving = stackMoving "
+                + "webView.callAsyncJavaScript(ConversationDocument.Motion.script, "
+                + "arguments: ConversationDocument.Motion.arguments(moving), in: nil, in: .defaultClient) "
+                + "guard !moving else { return } motionTicks?.invalidate() motionTicks = nil }",
+        ] {
+            XCTAssertTrue(code.contains(wiring), wiring)
+        }
+        XCTAssertEqual(code.components(separatedBy: "watchTheStack()").count - 1, 2, "defined, and run by an insert")
+        XCTAssertEqual(code.components(separatedBy: "ConversationDocument.Motion.script").count - 1, 1)
+        XCTAssertEqual(code.components(separatedBy: "motionTicks = ").count - 1, 2, "set by the watch, cleared by a tick")
     }
 
     /// A tap on his line opens or closes it and fetches its body, and does

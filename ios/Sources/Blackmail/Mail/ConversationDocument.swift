@@ -427,11 +427,17 @@ enum ConversationDocument {
     /// a `scrollBy` of the script's made then is lost: the letter he was
     /// reading dropped a line as his line went in, and went on with the
     /// finger from there. So `bmInsert` holds what it is given while the
-    /// stack moves (`bmMoving`): while a finger is on the page, from its
-    /// touch to the touchend or touchcancel that leaves none, or two
-    /// seconds after the last of its touches if WebKit never says it went;
-    /// and while a scroll not the script's own came in the last quarter of
-    /// a second, as a coast's do. It looks again every tenth of a second
+    /// stack moves (`bmMoving`): while the pane's last word said its scroll
+    /// view moves the stack, a finger on it, dragging, coasting or bouncing
+    /// back (`Motion`, `bmPaneMoving`), or a second after a word never
+    /// followed; while a finger is on the page, from its touch to the
+    /// touchend or touchcancel that leaves none, or five seconds after the
+    /// last of its touches if WebKit never says it went; and while a scroll
+    /// not the script's own came in the last quarter of a second, as a
+    /// coast's do. The page alone does not hear enough: a finger put down
+    /// at the tap lands on the page before the stack's, which then hears
+    /// none of its touches, a finger held still sends no scroll, and nor
+    /// does a bounce at the top. It looks again every tenth of a second
     /// (`bmRelease`) and puts them in once the stack is still, as at rest,
     /// where the `scrollBy` holds. What comes while one is held waits
     /// behind it, in the order it came, so the page keeps the pane's
@@ -575,15 +581,21 @@ enum ConversationDocument {
     var bmHeldTimer = null;
     var bmFingers = 0;
     var bmFingered = -1e9;
+    var bmPane = -1e9;
     var bmSettle = 250;
-    var bmLostTouch = 2000;
+    var bmLostTouch = 5000;
+    var bmPaneLapse = 1000;
     function bmFinger(event) {
       bmFingers = event.touches.length;
       bmFingered = performance.now();
     }
+    function bmPaneMoving(moving) {
+      bmPane = moving ? performance.now() : -1e9;
+    }
     function bmMoving() {
       var now = performance.now();
-      return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch);
+      return now - bmScrolled < bmSettle || (bmFingers > 0 && now - bmFingered < bmLostTouch)
+        || now - bmPane < bmPaneLapse;
     }
     function bmLater(change) {
       bmHeld.push(change);
@@ -781,10 +793,47 @@ enum ConversationDocument {
         }
 
         /// What `callAsyncJavaScript` runs, in the app's content world,
-        /// where `script` defined `bmInsert`.
-        static let script = "bmInsert(html, before)"
+        /// where `script` defined `bmInsert`: the pane's word on its scroll
+        /// view first (`Motion`), so the script holds them if it is moving
+        /// the stack, then the letters.
+        static let script = "bmPaneMoving(moving); bmInsert(html, before)"
 
-        var arguments: [String: Any] { ["html": html, "before": before] }
+        /// `moving`, whether the pane's scroll view is moving the stack as
+        /// they are sent (`Motion.stack`).
+        func arguments(moving: Bool) -> [String: Any] {
+            ["html": html, "before": before, "moving": moving]
+        }
+    }
+
+    /// What the pane tells the stack's script of its scroll view (B-104,
+    /// the second change of 2026-10-22). While a finger drags the stack, or
+    /// it coasts or bounces back after one, a `scrollBy` of the script's is
+    /// lost, and the script can hear that only by the page's own touches
+    /// and scrolls. A finger put down at the tap lands on the page before
+    /// the stack's, and the stack's page hears none of its touches; a
+    /// finger held still sends no scroll, nor does a bounce at the top.
+    /// UIKit's scroll view knows all of them, and always ends them. So
+    /// the pane says, with each `Insert`, whether it is moving the stack,
+    /// and while it is, every tenth of a second, until it says it is still;
+    /// the script holds what goes in for as long as the last word said it
+    /// moves (`bmPaneMoving`), and a second at most after a word that was
+    /// never followed.
+    enum Motion {
+        /// Moving the stack: UIKit's scroll view tracking a finger on it,
+        /// dragging, or decelerating, which is taken to count the bounce
+        /// back from an edge too.
+        static func stack(tracking: Bool, dragging: Bool, decelerating: Bool) -> Bool {
+            tracking || dragging || decelerating
+        }
+
+        /// How often the pane looks again while it moves, in seconds.
+        static let every: TimeInterval = 0.1
+
+        /// What `callAsyncJavaScript` runs each time it looks, in the app's
+        /// content world, where `script` defined `bmPaneMoving`.
+        static let script = "bmPaneMoving(moving)"
+
+        static func arguments(_ moving: Bool) -> [String: Any] { ["moving": moving] }
     }
 
     static func escape(_ text: String) -> String {
