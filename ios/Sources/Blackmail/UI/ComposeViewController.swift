@@ -604,6 +604,11 @@ final class ComposeViewController: UIViewController,
     /// nothing changes once a letter is on its way, or once Save Draft or
     /// Delete Draft has put the sheet away. Returns where the first row
     /// put in is, nil when none was.
+    ///
+    /// Rows a bubble puts in are told to VoiceOver, their words read after
+    /// what it is saying, and it is left in the field he is in; a Send that
+    /// puts them in takes it to them instead (`showRow`). Told nothing, a
+    /// VoiceOver user's next Send carried files he had not heard of.
     @discardableResult
     private func followRecipients(to: [String]? = nil, cc: [String]? = nil,
                                   bcc: [String]? = nil) -> Int? {
@@ -617,7 +622,29 @@ final class ComposeViewController: UIViewController,
         draft.attachments = rows
         rebuildAttachments()
         letterEdited()
+        if let first, to == nil {
+            let words = (first..<rows.count).compactMap { (attachmentWords(at: $0) as? UILabel)?.text }
+            UIAccessibility.post(notification: .announcement, argument: NSAttributedString(
+                string: words.joined(separator: ", "),
+                attributes: [.accessibilitySpeechQueueAnnouncement: true]))
+        }
         return first
+    }
+
+    /// The row at `index` brought into the part of the sheet showing, and
+    /// VoiceOver taken to it: what a Send that put a reply's files in shows
+    /// in place of sending. The rows are under To, Cc, Bcc and Subject, and
+    /// with a Reply All's Cc of several lines and the keyboard up, the first
+    /// of them could be below what showed: he saw a Send that did nothing,
+    /// and his next tap sent files he had not seen.
+    private func showRow(at index: Int) {
+        view.layoutIfNeeded()
+        let rows = attachmentsStack.arrangedSubviews
+        if rows.indices.contains(index) {
+            let row = rows[index]
+            scroller.scrollRectToVisible(row.convert(row.bounds, to: scroller), animated: true)
+        }
+        UIAccessibility.post(notification: .layoutChanged, argument: attachmentWords(at: index))
     }
 
     /// The words of the row at `index`, which VoiceOver is moved to.
@@ -909,6 +936,16 @@ final class ComposeViewController: UIViewController,
         sheet.addAction(UIAlertAction(title: "Save Draft", style: .default) { [weak self] _ in
             guard let self else { return }
             self.collect()
+            // A reply to someone he typed and never made a bubble (B-107):
+            // the rows go into the draft he saves, as Send would put them
+            // in, nothing being sent. Reopened from Drafts or the iPad,
+            // where no rule follows it, it would otherwise go to that
+            // person without the files, unseen.
+            let collected = self.draft
+            if self.replyFiles?.wouldAdd(to: collected.to, cc: collected.cc,
+                                         bcc: collected.bcc) == true {
+                self.followRecipients(to: collected.to, cc: collected.cc, bcc: collected.bcc)
+            }
             // The order, the background time around the save, and the wait
             // for photos still on their way in are
             // `ComposeActions.saveAndClose`, which also refuses once a
@@ -961,7 +998,7 @@ final class ComposeViewController: UIViewController,
         // calls for, nor with files he has not seen.
         if replyFiles?.wouldAdd(to: draft.to, cc: draft.cc, bcc: draft.bcc) == true {
             if let first = followRecipients(to: draft.to, cc: draft.cc, bcc: draft.bcc) {
-                UIAccessibility.post(notification: .layoutChanged, argument: attachmentWords(at: first))
+                showRow(at: first)
             }
             return
         }

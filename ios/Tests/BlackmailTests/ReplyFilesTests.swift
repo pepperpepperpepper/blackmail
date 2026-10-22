@@ -27,15 +27,16 @@ final class ReplyFilesTests: XCTestCase {
                                        mimeType: "application/pdf", size: 22)
 
     /// Jane's letter to him, Carlo copied: her photograph and her logo
-    /// shown in its body, and a PDF.
-    private func letter(from: String? = nil, to: [String]? = nil, cc: [String]? = nil,
-                        bcc: [String] = [], replyTo: [String] = [],
+    /// shown in its body, and a PDF. `authors`, a From of several, each
+    /// its own entry, the first of them the sender.
+    private func letter(from: String? = nil, authors: [String]? = nil, to: [String]? = nil,
+                        cc: [String]? = nil, bcc: [String] = [], replyTo: [String] = [],
                         attachments: [Attachment]? = nil) -> Message {
-        let author = from ?? jane
+        let author = from ?? authors?.first ?? jane
         return Message(id: "600001/41", mailboxID: "INBOX", sender: author,
                        senderAddress: MailFormat.bareAddress(author),
                        to: to ?? [sam], cc: cc ?? [carlo], bcc: bcc, replyTo: replyTo,
-                       from: [author], subject: "The garden",
+                       from: authors ?? [author], subject: "The garden",
                        date: Date(timeIntervalSince1970: 1_790_000_000),
                        textBody: "Here is the garden.", htmlBody: nil,
                        attachments: attachments ?? [garden, logo, programme],
@@ -98,6 +99,46 @@ final class ReplyFilesTests: XCTestCase {
         for one in ["jane@example.com", "Ann <ann@example.com>", "BEA@example.com",
                     "club@example.org"] {
             XCTAssertNil(files.recipientsChanged(to: [one], cc: [], bcc: [], in: []), one)
+        }
+    }
+
+    /// A letter whose names are broken over lines, as `ReplyAddressingTests`
+    /// feeds them in: in a From of two, a Reply-To, a To, a Cc, and an
+    /// address itself. The reply goes to each on one line, and each is among
+    /// the letter's people, so neither Reply nor Reply All opens with a row,
+    /// nor would Send put them in. Read from each entry's first line, these
+    /// were a name alone, or another address, and the reply's own To or Cc
+    /// was someone new.
+    func testNamesBrokenOverLinesAreAmongThePeople() throws {
+        for gap in ["\n", "\r\n", "\u{2028}", "\u{0085}"] {
+            let letters: [(String, Message, String)] = [
+                ("a From of two", letter(authors: ["Jane\(gap)Example <jane@example.com>",
+                                                   "Ann\(gap)Other <ann@example.com>"]),
+                 "Ann Other <ann@example.com>"),
+                ("a Reply-To", letter(replyTo: ["Club\(gap)News <club@example.org>"]),
+                 "Club News <club@example.org>"),
+                ("a To", letter(to: [sam, "<other@example.net>\(gap)Pat <pat@example.org>"]),
+                 "\"<other@example.net> Pat\" <pat@example.org>"),
+                ("a Cc", letter(cc: ["Carlo\(gap)Rossi <carlo@example.org>"]),
+                 "Carlo Rossi <carlo@example.org>"),
+                ("an address", letter(cc: ["Carlo <carlo@exa\(gap)mple.org>"]),
+                 "Carlo <carlo@example.org>"),
+            ]
+            for (field, m, entry) in letters {
+                let said = "\(field), \(gap.debugDescription)"
+                var addressed: [String] = []
+                for all in [false, true] {
+                    let draft = reply(m, all: all)
+                    addressed += draft.to + draft.cc
+                    var files = try rule(m)
+                    XCTAssertFalse(files.wouldAdd(to: draft.to, cc: draft.cc, bcc: draft.bcc),
+                                   "\(said), all: \(all), people \(files.people.sorted())")
+                    XCTAssertNil(files.recipientsChanged(to: draft.to, cc: draft.cc, bcc: draft.bcc,
+                                                         in: []), "\(said), all: \(all)")
+                    XCTAssertEqual(files.state, .notCarried, said)
+                }
+                XCTAssertTrue(addressed.contains(entry), "\(said): the reply goes to it, \(addressed)")
+            }
         }
     }
 
@@ -423,7 +464,7 @@ final class ReplyFilesWiringTests: XCTestCase {
                 + "let rows = files.recipientsChanged(to: to ?? toField.bubbles.entries, "
                 + "cc: cc ?? ccField.bubbles.entries, bcc: bcc ?? bccField.bubbles.entries, "
                 + "in: draft.attachments) else { return nil } replyFiles = files",
-            "draft.attachments = rows rebuildAttachments() letterEdited() return first",
+            "draft.attachments = rows rebuildAttachments() letterEdited() if let first, to == nil {",
             "let removed = draft.attachments.remove(at: sender.tag) replyFiles?.removed(removed) "
                 + "rebuildAttachments() letterEdited()",
         ] {
@@ -442,8 +483,9 @@ final class ReplyFilesWiringTests: XCTestCase {
 
     /// Send asks the rule about everyone the letter would go to, after the
     /// fields are read and before the letter is handed to its send; when it
-    /// would put the rows in, they go in, VoiceOver is taken to the first,
-    /// and nothing is sent.
+    /// would put the rows in, they go in, the first is scrolled into the
+    /// part of the sheet showing and VoiceOver taken to it, and nothing is
+    /// sent.
     func testSendShowsTheRowsInsteadOfSendingWithoutThem() throws {
         let code = try source(Self.composer)
         let send = try function("@objc private func sendTapped()", in: code)
@@ -451,7 +493,7 @@ final class ReplyFilesWiringTests: XCTestCase {
                      "collect()",
                      "if replyFiles?.wouldAdd(to: draft.to, cc: draft.cc, bcc: draft.bcc) == true {",
                      "if let first = followRecipients(to: draft.to, cc: draft.cc, bcc: draft.bcc) {",
-                     "UIAccessibility.post(notification: .layoutChanged, argument: attachmentWords(at: first))",
+                     "showRow(at: first)",
                      "} return }",
                      "actions.send({ self.draft }, then: onDraftsChanged, draftSent: onDraftSent)"]
         var at = send.startIndex
@@ -460,10 +502,43 @@ final class ReplyFilesWiringTests: XCTestCase {
             at = found.upperBound
         }
         XCTAssertEqual(count("actions.send(", in: code), 1)
-        XCTAssertEqual(count(".wouldAdd(", in: code), 1)
+        XCTAssertEqual(count(".wouldAdd(", in: code), 2, "Send's, and Save Draft's")
+        XCTAssertEqual(count("showRow(at", in: code), 2, "made once, called from Send alone")
+        XCTAssertTrue(code.contains("private func showRow(at index: Int) { view.layoutIfNeeded() "
+            + "let rows = attachmentsStack.arrangedSubviews if rows.indices.contains(index) { "
+            + "let row = rows[index] scroller.scrollRectToVisible(row.convert(row.bounds, to: scroller), "
+            + "animated: true) } UIAccessibility.post(notification: .layoutChanged, "
+            + "argument: attachmentWords(at: index)) }"), "laid out, scrolled to, then VoiceOver")
         XCTAssertTrue(code.contains("let rows = attachmentsStack.arrangedSubviews "
             + "guard rows.indices.contains(index) else { return nil } "
             + "return rows[index].subviews.first { $0 is UILabel }"))
+    }
+
+    /// Rows a bubble puts in are read out to VoiceOver, after what it is
+    /// saying, without taking it from the field; at Send, and at Save
+    /// Draft, which hand in what he typed, nothing is read out.
+    func testRowsABubblePutsInAreReadOut() throws {
+        let code = try source(Self.composer)
+        let follow = try function("private func followRecipients(", in: code)
+        XCTAssertTrue(follow.contains("letterEdited() if let first, to == nil { "
+            + "let words = (first..<rows.count).compactMap { (attachmentWords(at: $0) as? UILabel)?.text } "
+            + "UIAccessibility.post(notification: .announcement, argument: NSAttributedString( "
+            + "string: words.joined(separator: \", \"), "
+            + "attributes: [.accessibilitySpeechQueueAnnouncement: true])) } return first }"), follow)
+        XCTAssertEqual(count("notification: .announcement", in: code), 1)
+    }
+
+    /// Save Draft asks the rule about everyone the letter would go to, what
+    /// he typed and never made a bubble included, and the rows go into the
+    /// draft it saves, before it is handed to the save.
+    func testSaveDraftKeepsTheRowsTheRuleCallsFor() throws {
+        let code = try source(Self.composer)
+        XCTAssertTrue(code.contains("title: \"Save Draft\", style: .default) { [weak self] _ in "
+            + "guard let self else { return } self.collect() let collected = self.draft "
+            + "if self.replyFiles?.wouldAdd(to: collected.to, cc: collected.cc, bcc: collected.bcc) "
+            + "== true { self.followRecipients(to: collected.to, cc: collected.cc, bcc: collected.bcc) } "
+            + "self.actions.saveAndClose({ self.draft }, then: nil) }"))
+        XCTAssertEqual(count("followRecipients(to: collected.to", in: code), 1)
     }
 
     /// Forward asks Mail's question only of a letter with files the header

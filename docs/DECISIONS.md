@@ -1306,7 +1306,9 @@ says another, it is one line; the other three are in the rule already
 and its tests, not tried on the iPad.
 
 **The rule.** The original's people are everyone in its From, Reply-To,
-To, Cc and Bcc, compared bare and in lower case. When anyone the reply
+To, Cc and Bcc, compared bare and in lower case, each entry read as the
+reply reads it, a name broken over lines made one line, so that whoever
+the reply is addressed to is among them. When anyone the reply
 is to is not among them, the original's parts go in as rows, after any
 of his own; when no one new is left, those rows go again, and only
 those. His own second address is someone new, as in his Sent Mail. A
@@ -1317,10 +1319,14 @@ not come and go as he spells an address.
 **The check at Send.** Tapping Send does not end editing, so an address
 typed with no comma reaches the letter with no change sent. Send asks the
 rule about everyone the letter would go to; if the rows would go in, they
-go in and nothing is sent, Send stays live, VoiceOver is taken to the
-first row, and his next tap sends. No alert and no new words: the rows
-with their weights are what he sees. A reply never goes without the files
-the rule calls for, nor with files he has not seen.
+go in and nothing is sent, Send stays live, the sheet is scrolled to the
+first row and VoiceOver taken to it, and his next tap sends. No alert and
+no new words: the rows with their weights are what he sees. A reply never
+goes from the sheet without the files the rule calls for, nor with files
+he has not seen. Rows a bubble puts in are read out to VoiceOver. Save
+Draft asks the rule the same way, so a draft saved with an address typed
+and never made a bubble has its rows when it is reopened, where no rule
+follows it.
 
 **The rows are a forward's, the pictures among them.** A picture of the
 original goes in the quote only as one of the letter's rows

@@ -915,6 +915,55 @@ final class KeptReferencesTests: XCTestCase {
                            || $0.command.contains(Server.trash) }, "\(server.log)")
     }
 
+    /// A part is taken from the Trash only when its search finds the
+    /// original there under one UID (B-107). The Plans filed in the Trash
+    /// twice, Gmail's id the same at both, and deleted from the Inbox while
+    /// a forward of them waited: in a later launch nothing is fetched from
+    /// the Trash and nothing is sent, the forward stays in the Outbox saying
+    /// its file could not be downloaded, and the Plans are looked for once
+    /// in All Mail and once in the Trash.
+    func testAnOriginalTheTrashHasTwiceIsNotTakenFrom() async throws {
+        deliverPlans(to: [Server.inbox, Server.trash, Server.trash])
+        let first = makeRepository()
+        let forward = try await forwardOfPlans(first)
+        await sentOffline(forward.draft, as: "forward", kept: makeKept(), repository: first)
+        let deleting = makeRepository()
+        let listed = try await deleting.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        let shown = try XCTUnwrap(listed.first { $0.subject == "Plans" })
+        try await deleting.delete(shown.id, gmailMessageID: shown.gmailMessageID, from: Server.inbox)
+        func plans(in mailbox: String) -> [UInt32] {
+            server.uids(in: mailbox).filter { server.letter(uid: $0, in: mailbox)?.subject == "Plans" }
+        }
+        let id = try XCTUnwrap(forward.row.gmailMessageID)
+        let binned = plans(in: Server.trash)
+        XCTAssertEqual(binned.map { server.gmailMessageID(uid: $0, in: Server.trash) }, [id, id],
+                       "the one letter, twice")
+        XCTAssertEqual(plans(in: Server.inbox), [])
+        XCTAssertEqual(plans(in: Server.allMail), [])
+
+        let repository = makeRepository()
+        let kept = makeKept()
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 10)
+        server.clearLog()
+        await kept.uploadWaiting(to: repository)?.value
+
+        let sent = await submissions.letters()
+        XCTAssertEqual(sent.count, 0, "nothing sent")
+        XCTAssertEqual(kept.outbox.map(\.key), ["forward"])
+        XCTAssertEqual(kept.whyNotSent("forward"), .attachmentsMissing)
+        XCTAssertEqual(notes("CARRIED-PART").last, "CARRIED-PART not-found nothing-sent")
+        XCTAssertEqual(server.log.filter { $0.command.hasPrefix("UID SEARCH X-GM-MSGID") }
+                        .map { "\($0.selected ?? "-") \($0.command)" },
+                       ["\(Server.allMail) UID SEARCH X-GM-MSGID \(id)",
+                        "\(Server.trash) UID SEARCH X-GM-MSGID \(id)"],
+                       "All Mail, then the Trash, once each")
+        XCTAssertFalse(server.log.contains {
+            $0.selected == Server.trash && $0.command.hasPrefix("UID FETCH")
+                && $0.command.contains("BODY.PEEK[")
+        }, "nothing fetched from the Trash: \(server.log)")
+        XCTAssertEqual(plans(in: Server.trash), binned, "left where they are")
+    }
+
     /// The letter under the Plans' old UID, opened in the later launch, is
     /// the one the repository has to hand when the pass comes: it is not
     /// taken for the Plans, whose file is found in All Mail.

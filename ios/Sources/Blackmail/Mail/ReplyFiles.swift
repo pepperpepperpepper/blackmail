@@ -18,7 +18,8 @@ import Foundation
 ///
 /// - The original's people are everyone in its From, Reply-To, To, Cc and
 ///   Bcc, each address compared bare and in lower case, a name or another
-///   case making no difference. His own addresses are not taken out: a
+///   case making no difference, and each entry read as the reply reads it
+///   (`people(of:)`). His own addresses are not taken out: a
 ///   reply to a letter sent to his first address that he copies to his
 ///   second is to someone new.
 /// - When anyone the reply is to is not among them, the rows go in, after
@@ -170,16 +171,33 @@ struct ReplyFiles: Equatable {
         }
     }
 
-    /// Everyone `m` names in its From, Reply-To, To, Cc and Bcc.
+    /// Everyone `m` names in its From, Reply-To, To, Cc and Bcc, each entry
+    /// read two ways. Whole, as the reply reads it (`ReplyAddressing`,
+    /// `MailFormat.recipient(in:)`), a name broken over lines made one line,
+    /// so that whoever the reply is addressed to is among them. And split
+    /// and from its first line (`key`), as before, so that no address read
+    /// so is new either.
+    ///
+    /// From the first line alone, a name a letter breaks over lines, as a
+    /// Windows "…" sent as ISO-8859-1 breaks one (U+0085), was no one: a
+    /// Reply-To `Club<U+2028>News <club@example.org>` read as "Club", a Cc
+    /// `Carlo<U+0085>Rossi <carlo@example.org>` as "Carlo", a To
+    /// `<other@example.net><U+2028>Pat <pat@example.org>` as
+    /// other@example.net. The reply went to the address the whole entry
+    /// names, which was then someone new, and a plain Reply or Reply All
+    /// opened with every part of hers as a row, to go back to her.
     static func people(of m: Message) -> Set<String> {
         let named = (m.from.isEmpty ? [m.sender] : m.from) + [m.senderAddress]
             + m.replyTo + m.to + m.cc + m.bcc
-        return Set(named.flatMap(MailFormat.addresses(in:)).compactMap(key))
+        let whole = named.compactMap { MailFormat.recipient(in: $0)?.address.lowercased() }
+        return Set(whole + named.flatMap(MailFormat.addresses(in:)).compactMap(key))
     }
 
     /// The address in `entry`, bare and in lower case, as compared: read
     /// from its first line, where the letter's envelope reads it
     /// (`RFC5322Builder.recipientLine`). Nil for an entry with no address.
+    /// The reply's own entries, the bubbles, are read so: what the letter
+    /// is sent to.
     static func key(_ entry: String) -> String? {
         let line = RFC5322Builder.recipientLine(entry)
         if let recipient = MailFormat.recipient(in: line) { return recipient.address.lowercased() }

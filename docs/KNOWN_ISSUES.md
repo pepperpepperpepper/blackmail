@@ -18657,8 +18657,15 @@ be downloaded.
    rule's rows is his choice (`hisChoice`) and the rule stops for that
    letter. `wouldAdd` says, changing nothing, whether it would put them in
    now. Each entry is split as the envelope splits it, and one with no
-   address in it is no one. The mode is one of Mail's four
-   (`ReplyFiles.mode`); built, When Adding Recipients. Never, Ask and
+   address in it is no one. Each entry of the original is read whole too,
+   as the reply reads it (`ReplyAddressing`, `MailFormat.recipient(in:)`),
+   a name broken over lines made one line: read from its first line
+   alone, a Reply-To `Club<U+2028>News <club@example.org>` was "Club", no
+   one, the reply went to club@example.org, someone new, and a plain
+   Reply opened with every part of hers as a row, to go back to her; so
+   did a Reply All to a Cc broken so, and a reply to a From of several.
+   The mode is one of Mail's four (`ReplyFiles.mode`); built, When
+   Adding Recipients. Never, Ask and
    Always are in the rule too, one line away: Always opens with the rows
    and follows nothing, Ask puts the Forward question at Reply and Reply
    All for a letter with files the header lists, and Never carries
@@ -18681,9 +18688,18 @@ be downloaded.
    (`RecipientBubbles.recipients`, B-076), so such an address reached the
    letter with no change sent. After `collect()` and before
    `actions.send`, the rule is asked about everyone the letter would go
-   to: if the rows would go in, they go in, VoiceOver is taken to the
-   first (`.layoutChanged`), and nothing is sent; Send stays live, and his
-   next tap sends. No alert and no new words.
+   to: if the rows would go in, they go in, the sheet is scrolled to the
+   first and VoiceOver taken to it (`showRow`, `.layoutChanged`), and
+   nothing is sent; Send stays live, and his next tap sends. No alert and
+   no new words. Under To, Cc, Bcc and Subject, with a Reply All's Cc of
+   several lines and the keyboard up, the first row could be below what
+   showed, and a Send that did nothing was tapped again. Rows a bubble
+   puts in are read out to VoiceOver, their own words after what it is
+   saying, and it is left in the field. Save Draft asks the rule the same
+   way after `collect()`, so the draft he saves with an address typed and
+   never made a bubble has its rows: reopened from Drafts or the iPad,
+   where no rule follows it, it would have gone to that person without
+   them.
 5. *The quote's pictures.* `AppleMailHTML.letter` no longer asks whether
    the quote is a forward's: a picture of the original goes in the quote,
    under a `bmquote` id of the letter's own, when it is one of the
@@ -18734,18 +18750,23 @@ leaving the field, the original's files appear as rows under Subject,
 each with its weight and Remove, the pictures in its body among them; he
 takes the person off again, and they go. He takes one row off, and the
 rest stay whoever the letter goes to. With an address typed and Send
-tapped at once, the rows appear and nothing goes; Send again sends. The
-person added gets the files, and the photographs in the quote where the
+tapped at once, the rows appear, scrolled to, and nothing goes; Send
+again sends. The person added gets the files, and the photographs in the
+quote where the
 letter showed them. Forward of a letter with a file asks "Include
 attachments from original message?" at the Reply button. New words, held
 from his iPad until he approves them: the question, "Include" and "Don't
 Include".
 
-**Tests.** `ReplyFilesTests`, 16, the rule: Reply and Reply All to the
+**Tests.** `ReplyFilesTests`, 17, the rule: Reply and Reply All to the
 sender and the Cc, and a reply to a letter of his own, no one new; the
 Reply-To, the authors of a letter written by several and the Bcc among the
-people; the same address in another case, with another name or quoted,
-no one new, and an empty group, a bare name and nothing no one; a stranger
+people; names broken over lines by `\n`, `\r\n`, U+2028 and U+0085, as
+`ReplyAddressingTests` has them, in a From of two, a Reply-To, a To, a Cc
+and an address itself, the reply going to each on one line and neither
+Reply nor Reply All someone new; the same address in another case, with
+another name or quoted, no one new, and an empty group, a bare name and
+nothing no one; a stranger
 in Cc, a Bcc, his second address, each putting the rows in after his
 photo, and nothing more once in; the stranger taken off taking the rule's
 rows out and leaving his photo, and back to the start; a Remove of a
@@ -18758,11 +18779,14 @@ rule for an original with no parts; a reply carrying 1.2 MB waiting in
 the Outbox as a forward does, and 600 kB not; the four modes; the
 question asked of a PDF, a PDF sent inline and a picture sent as a file,
 and not of a logo, a photograph in the body or nothing, and at Reply
-only under Ask; its words. `ReplyFilesWiringTests`, 4, read from the
+only under Ask; its words. `ReplyFilesWiringTests`, 6, read from the
 source: the composer following the bubbles from the four places, only
 while writing, a Remove told, and leaving a field sending
 `.editingDidEnd` alone; Send asking `wouldAdd` after `collect()` and
-returning before `actions.send` with VoiceOver moved; the question at the
+returning before `actions.send`, the first row laid out and scrolled to
+before VoiceOver is moved to it; rows a bubble puts in read out, queued,
+and those Send or Save Draft put in not; Save Draft asking the rule after
+`collect()` and before the save; the question at the
 Reply button in Mail's words, said once in the sources, asked only when
 the header lists a file; the rule handed in by Reply and Reply All alone,
 not by a forward, a `mailto:` link or Drafts. `RichQuoteTests`, 3: a reply
@@ -18777,13 +18801,18 @@ someone new sent with the picture inline and the PDF as a file, from the
 letter on screen with nothing asked of the server; fetched at Send once
 it is not; not sent at all when its original cannot be fetched; saved,
 reopened with its rows, its Cc and its quote's picture, and sent so.
-`KeptReferencesTests`, 3: a reply carrying the Plans' file, sent with no
+`KeptReferencesTests`, 4: a reply carrying the Plans' file, sent with no
 connection, its original deleted meanwhile, going from the Trash in a
 later launch after All Mail, one search in each, its own file; a forward
 of three files whose original is in the Trash, looked for there once and
 its three parts fetched from there; an original in All Mail never looked
-for in the Trash. Changed: the forward whose original is nowhere now
-pins one search in All Mail then one in the Trash; two pins of the
+for in the Trash; an original the Trash holds under two UIDs, Gmail's id
+the same at both (the scripted server files a letter in a folder as often
+as it is told to), taken from neither: nothing fetched there, nothing
+sent, the forward left in the Outbox saying its file could not be
+downloaded, one search in All Mail and one in the Trash. Changed: the
+forward whose original is nowhere now pins one search in All Mail then
+one in the Trash; two pins of the
 composer's and the pane's wiring take the new lines (`ComposeLikeMailTests`,
 `ReplyAddressingWiringTests`).
 
@@ -18803,9 +18832,19 @@ goes: 1 in 1; following what he types: 1 in 1; not after a pick: 3 in 2;
 not as the fields are shown: 2 in 1; a Remove not told: 1 in 1. A forward
 handed the rule: 3 in 1. The question's words changed: 2 in 2. A
 forward's rows not from the shared mapper: 92 in 19. The Trash's one-hit
-rule removed: none, as below.
+rule removed: 5 in 1, counted as below.
 
-The full suite, serially: 2,059 tests, 5 skipped, none failing. The
+The later changes each undone the same way, one at a time, and the eight
+classes that touch them run (`ReplyFilesTests`, `ReplyFilesWiringTests`,
+`KeptReferencesTests`, `RichQuoteTests`, `RichQuoteRepositoryTests`,
+`ReplyAddressingTests`, `ReplyAddressingWiringTests`,
+`ComposeLikeMailTests`), 170 tests. The original's people read from each
+entry's first line alone, as before: 84 failures in 1 test. The Trash's
+one-hit rule removed: 5 in 1. No scroll to the first row at Send: 1 in 1.
+No read-out of rows a bubble puts in: 3 in 2. Save Draft not asking the
+rule: 3 in 2.
+
+The full suite, serially: 2,063 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -18815,8 +18854,6 @@ release build for the iPad links.
   `ReplyFiles`). Step 10 of the check, on a real iOS 18 device with Mail.
 - The modes other than When Adding Recipients, on the iPad: Ask's
   question at Reply and Reply All, Always and Never are tried only here.
-- The Trash's one-hit rule: Gmail files a letter in a folder once, and so
-  does the scripted server, so no test can give the search two UIDs.
 - The rows can flash: an address half typed, left by a tap on a
   suggestion, is made a bubble a moment before the pick takes its place
   (`RecipientBubbles.pick`), and if it was someone new by then the rows
@@ -18825,9 +18862,18 @@ release build for the iPad links.
   for the logo once he adds someone, as a forward does.
 - What Mail's Don't Include does with a picture the body shows; here it
   stays, as a row and in the quote.
-- The question's popover at the Reply button, and VoiceOver on the first
-  new row, on the iPad: the check under "Blocked on the iPad coming back",
-  built from the worktree before it is merged, since it touches Send.
+- A reply kept on the iPad by itself, after the pause or as he leaves the
+  app, with an address typed and never made a bubble: kept with that
+  address and without the rows, which the sheet, still open, puts in at
+  Send. Reopened after the app was ended, from Drafts or the iPad, where
+  no rule follows it, it goes to that person without the files, as every
+  reply did before. Save Draft puts them in; the keeps by themselves do
+  not, since rows he has not seen would then be in the letter.
+- The question's popover at the Reply button, VoiceOver on the first new
+  row and the read-out of rows a bubble puts in, and the scroll to the
+  first row at Send, on the iPad: the check under "Blocked on the iPad
+  coming back", built from the worktree before it is merged, since it
+  touches Send.
 
 ## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 

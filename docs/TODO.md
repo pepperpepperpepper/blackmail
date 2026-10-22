@@ -4200,10 +4200,17 @@ this host. Ordered by value, not by size.
       at once: nothing is sent, the rows appear, and VoiceOver, if on,
       goes to the first; Send again: it goes with the files. Reply again,
       a Cc typed and a tap into the body, which leaves the field: the
-      rows appear at once.
+      rows appear at once. In landscape with the keyboard up, Reply All to
+      a letter with P's files whose Cc runs to several lines (A with
+      `+b107d` to `+b107k`), a Cc typed WITHOUT a comma and Send: the
+      sheet scrolls to the first row. With VoiceOver on, Reply to P and a
+      Cc made a bubble with a comma: the rows' names and weights are read
+      out, and VoiceOver stays in the Cc.
       7. *Drafts.* Reply to P with the Cc and its rows, Save Draft,
       reopened from Drafts: the rows and the Cc are back. Send: one copy
       arrives, the photo inline and the PDF a file, and Drafts holds none.
+      Again with the Cc typed WITHOUT a comma, then Cancel, Save Draft:
+      reopened from Drafts, the Cc and the rows are there.
       8. *The Outbox.* Airplane Mode on, Reply to P with the Cc, Send: it
       goes to the Outbox. Off, Refresh: it leaves once, with its parts.
       Again, P deleted meanwhile in Gmail's web page and the app ended in
