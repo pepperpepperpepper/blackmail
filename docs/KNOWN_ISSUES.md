@@ -18951,11 +18951,30 @@ as long as they took.
    never make a letter that could not go. Each has its own staging and
    tally, so one counted out and come after all touches nothing of the
    next. Pictures with no name are numbered on from pick to pick.
-6. *Never stuck.* Each is given three minutes (`ComposeIntake.bound`) from
-   when it begins. Not in by then, it is counted out: its row goes, the
-   next begins, and it is said with its pick. Come after all, it is thrown
-   away and its file removed. The case is a photo kept only in iCloud with
-   no connection, which the picker can wait for for ever.
+6. *Never stuck.* While he writes, each is given three minutes
+   (`ComposeIntake.bound`) from when it begins. Not in by then, it is
+   counted out: its row goes, the next begins, and it is said with its
+   pick. Come after all, it is thrown away and its file removed, the
+   composer gone or not. The case is a photo kept only in iCloud with no
+   connection, which the picker can wait for for ever. A Send or a Save
+   Draft waits at most three minutes from the tap for all of it together
+   (`ComposeIntake.hurry`, told at the tap by
+   `ComposeActions.whenWaiting`): what is still coming then, the one being
+   read and every one waiting its turn, is counted out at once, those not
+   begun by what they are (`Item.kind`, from the types the picker offers,
+   read as `ShareItems.read` reads them), and said in one alert. The one
+   being read keeps its own bound when that ends first. With one bound
+   after another, as this was first built, five iCloud photos with no
+   connection held "Sending…", Cancel and the swipe for up to 15 minutes,
+   two picks of five for 30, with nothing said until the last was counted
+   out. The worst case now: three minutes of "Sending…" from the tap.
+   The bounds run only while the app is in front (`away` as it goes into
+   the background, `back` as it returns). Left for longer than three
+   minutes while a video came, the bound and the video would each have
+   waited for the app, in no set order, and a video that had come could
+   have been counted out on his return. Back, each has its bound again
+   from then, a Send's wait too; a bound cancelled as the app went counts
+   nothing out, even one that had just run out.
 7. *Never short* (`ComposeActions`). Everything chosen counts from the pick
    until it is in, has failed or is counted out (`itemComing`,
    `itemLanded`, which were `photoComing` and `photoLanded`), so Send, Save
@@ -18964,7 +18983,11 @@ as long as they took.
    tells the actions it came short (`itemLanded(cameShort:)`). A Send that
    was waiting for it does not take the letter nor send: the sheet is put
    back as it was, Send and all, with the rows that did come and the words
-   over it, and his next Send goes without it because he chose to. *Beyond
+   over it, and his next Send goes without it because he chose to. The
+   letter is kept on the iPad as it is then, the rows that came during
+   the wait in it, and counts as changed, so leaving the app keeps it
+   again: the autosave stopped at the tap, and a row that lands during a
+   Send is no edit of his. *Beyond
    the spec:* it had only a count-out stop the Send. A file that failed
    another way while Send waited, too large, not given, not written, would
    have gone missing just the same, with the words put over a sheet
@@ -18974,7 +18997,9 @@ as long as they took.
 8. *Save Draft* closes the sheet first, as before: one counted out then is
    not in the draft kept, which reopens without its row. Nothing is sent.
 9. *While it comes,* a row with its name and a spinner where its Remove
-   will be, after the letter's rows (`comingRow`).
+   will be, after the letter's rows (`comingRow`). One the picker gives
+   no name is "Photo" or "Video" (`ComposeIntake.shown`), so the row, and
+   VoiceOver, have a word for it.
 10. *The words.* The share sheet's approved ones for photos and videos
     (`ShareItems.leftOut`), and for any other file "The file could not be
     attached." when it was all he picked, "1 file could not be attached."
@@ -19000,8 +19025,14 @@ as long as they took.
     defect and the same names.
 12. *The launch purge* (`AttachmentStore.purge`, at launch in the app and
     as the share sheet opens) clears the Inbox with `tmp/Attachments`.
-13. *Drafts.* The whole-letter APPEND is kept, about 2.4 times the file in
-    the app's process, measured; D-017's revisit, recorded there.
+13. *Drafts.* The whole-letter APPEND is kept; D-017's revisit, recorded
+    there. Measured on the host: the letter's build alone, the file read
+    whole and the letter made from it, raised the mark by about 2.4 times
+    the file, 60 MB for 25 MB. The APPEND's own copies, in
+    `IMAPClient.append` and the transport, were not measured apart from
+    the scripted server's: the whole Save Draft with the server's copies
+    came to about 197 MB. The app's own peak for such a draft lies between
+    the two.
 
 **Not changed.** Take Photo or Video, Scan Document and Insert Drawing are
 left out: each needs the camera's permission, whose one "Don't Allow" is
@@ -19015,14 +19046,22 @@ Share test passes unchanged.
 place of "Attach Photo". Photo Library shows his photos and videos, five at
 a time; Attach File the Files browser, several at a time. Each thing chosen
 is a row with its name and a spinner, then a row with its weight and
-Remove. One that cannot be attached says so, in the share sheet's words or
-"The file could not be attached.". With Send tapped while something comes,
-the spinner until it is in, then the letter goes with it; if it does not
-come, the words, and the sheet back with Send. New words, held from his
-iPad until he approves them: "Photo Library", "Attach File", "The file
-could not be attached." and "N files could not be attached.".
+Remove; one with no name is "Photo" or "Video" while it comes. One that
+cannot be attached says so, in the share sheet's words or the new ones
+below. With Send tapped while something comes, the spinner until it is
+in, then the letter goes with it; if it does not come, at most three
+minutes after the tap, one alert with the words, and the sheet back with
+Send. New words, held from his iPad until he approves them: "Photo
+Library" and "Attach File"; "The file could not be attached." (one file
+picked alone), "1 file could not be attached." and "N files could not be
+attached."; with photos or videos missing as well, one list, "1 photo and
+1 file could not be attached.", "2 videos and 3 files could not be
+attached.", "1 photo, 1 video and 1 file could not be attached.", each
+number as it comes, "photo", "video" and "file" for one and "photos",
+"videos" and "files" for more; and "Photo" and "Video" as the name of a
+row still coming that the picker named nothing.
 
-**Tests.** `ComposerFilesTests`, 18: the room the rows leave, a row of no
+**Tests.** `ComposerFilesTests`, 24: the room the rows leave, a row of no
 known size leaving none, a staging that begins below the whole copying
 what fits and not even copying what does not, a share's beginning with
 all of it; `move` into a directory of its own, the name made safe, the
@@ -19032,23 +19071,37 @@ launch purge clearing it; the MIME type from the extension and
 octet-stream; picks read one at a time, each with the room left; what
 could not be attached said once as its pick ends; a load that never
 returns counted out at 180 s, the next begun with its own bound, the late
-arrival's file removed; Send waiting for a load and going with it; Send
-not going when a load is counted out, or fails, while it waits, the sheet
-back with the row that landed and the words, and the second Send going;
+arrival's file removed; a late arrival after the composer has gone
+removed; Send waiting for a load and going with it; Send not going when a
+load is counted out, or fails, while it waits, the sheet back with the
+row that landed meanwhile and the words, the letter kept with that row
+and counted a change, and the second Send going; Send's wait bounded at
+180 s from the tap for three photos and a file in two picks, with a fake
+clock: the first out at its own bound and nothing said, the rest at the
+tap's, two of them never begun, one alert, "3 photos and 1 file could not
+be attached.", nothing sent; Save Draft's the same; no bound running while
+the app is away, a video coming in then kept, and each bound, a Send's
+too, given again from the return; a bound cancelled just after it ran
+out counting nothing out; what a Photo Library pick is by its types, and
+the name of a row with none;
 Send going without what he was told of before, and not without what a pick
 still open at the tap left out; Save Draft keeping the draft without one
 counted out, nothing sent; a file from Attach File moved, named, typed and
 measured, one past the room left out and removed from the Inbox, one
-outside it copied and left, a folder no file; unnamed pictures numbered on;
+outside it copied into the staging and left where it is, one outside it
+past the room left where it is, a folder no file; unnamed pictures numbered on;
 a name with `"` or `\` well formed, for a file and an inline picture; the
-words in every combination. `ComposerFilesWiringTests`, 7, read from the
+words in every combination. `ComposerFilesWiringTests`, 8, read from the
 source: Photo Library's filter, limit and compatible mode, no library and
 so no permission; the document picker as copies, several at a time, and no
 `startAccessingSecurityScopedResource` in any source; no camera, scanner or
 drawing, and no Info.plist key for them; no `jpegData`, `loadObject` or
-".jpg" left in the composer, and `ShareItems.read` reachable; the two
+".jpg" left in the composer, and `ShareItems.read` reachable, each pick
+handed over with its kind and its name, or none; the two
 buttons in Mail's words, held while a letter goes; the rows while it comes
-and the words after; the purge and the move's class C. `OutboxTests`, 1: a
+and the words after; the bound stopped as the app goes into the
+background and given again as it returns; the purge and the move's class
+C. `OutboxTests`, 1: a
 PDF moved out of the Inbox, kept by a hard link to the staged file, which
 outlives it, and sent from the Outbox from the link, its bytes as they
 were. `DraftAppendMemoryTests`, 1, behind `BLACKMAIL_LARGE_TESTS`: a 25 MB
@@ -19086,13 +19139,34 @@ without class C: 1 in 1. No row while it comes: 1 in 1. Attach File live
 while a letter goes: 1 in 1. Behind `BLACKMAIL_LARGE_TESTS`, the APPEND's
 bound tightened to twice the file: 1 in 1.
 
-The full suite, serially: 2,090 tests, 6 skipped, none failing. The
+The rules that bound Send's wait as a whole, stop the bounds while the
+app is away, keep the letter a stopped Send leaves and name a row with
+none, undone the same way, with the four classes that touch them run
+(`ComposerFilesTests`, `ComposerFilesWiringTests`, `ComposeActionsTests`,
+`AttachmentStoreTests`), 84 tests. Send's wait not bounded from the tap:
+7 failures in 3 tests. Save Draft's not: 3 in 2. Those never begun
+counted as files whatever they are: 1 in 1. One alert a pick at the
+tap's bound: 2 in 1. The bound running on while the app is away: 14 in
+2. Not given again on its return: 5 in 2. A bound cancelled after it ran
+out still counting out: 3 in 1. A Send stopped short keeping nothing: 2
+in 1; not counting as a change: 1 in 1. A late arrival after the
+composer has gone left on the disk: 1 in 1. No name for a row with none:
+3 in 1. Every pick from Photo Library taken for a picture: 3 in 1. The
+composer not stopping the bound as the app goes: 2 in 1. A file outside
+the Inbox moved, not copied: 2 in 1.
+
+The full suite, serially: 2,097 tests, 6 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
 
 - Save Draft with something counted out: the draft is kept without it, and
   the words, said after the sheet has gone, are not seen. Nothing is sent.
+- The bounds while the app is away are given again from his return, not
+  paused: a load two minutes in when he leaves has three minutes more
+  after it. A Send waiting as he leaves has no bound while he is away and
+  three minutes from his return; nothing goes meanwhile, and the sheet is
+  as he left it. Steps 6 and 9 of the check.
 - Mail's paperclip in the keyboard's shortcut bar, left to the owner.
 - The test iPad has no Files app: whether the document picker opens there
   at all, and whether its copies are in `tmp/<bundle id>-Inbox`, where the

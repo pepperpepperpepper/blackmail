@@ -21,6 +21,18 @@ import Foundation
 /// its file removed. A photo kept only in iCloud, with no connection, is
 /// the case: the picker can wait for it for ever.
 ///
+/// Nor is a Send or a Save Draft waiting for them: from the tap,
+/// everything still coming or waiting its turn is given one `bound`
+/// together (`hurry`), not one each after the one before, which for five
+/// iCloud photos with no connection was a quarter of an hour of
+/// "Sending…". At it, all of it is counted out at once and said in one
+/// alert.
+///
+/// The bound runs only while the app is in front (`away`, `back`). Left
+/// for longer than it while a video comes, it would have counted out on
+/// his return a video that had come meanwhile, the bound and the video
+/// each waiting for the app in no set order.
+///
 /// Never short: everything chosen counts in `ComposeActions` from the pick
 /// until it is in, has failed or has been counted out (`itemComing`,
 /// `itemLanded`), so Send and Save Draft wait for it. A pick that ends with
@@ -29,10 +41,20 @@ import Foundation
 @MainActor
 final class ComposeIntake {
 
-    /// One thing he chose: the name its row shows while it comes, and how
-    /// it is read in.
+    /// What one thing he chose is, as it is said when it could not be
+    /// attached: a photo, a video, or any other file.
+    enum Kind: Equatable {
+        case picture, video, file
+    }
+
+    /// One thing he chose: the name its row shows while it comes, what it
+    /// is, and how it is read in.
     struct Item {
         let name: String
+        /// What the words call it should it be counted out before it has
+        /// begun (`hurry`). Once begun, it is what its load counts it as,
+        /// as the share sheet counts what it is offered.
+        let kind: Kind
         /// Whether it is a file the document picker handed over, to be
         /// moved into the staging rather than copied (`AttachmentStore.move`).
         let moves: Bool
@@ -41,13 +63,34 @@ final class ComposeIntake {
         /// thread, with what was staged, or nil.
         let load: (ShareItems.Staging, ShareItems.Tally, @escaping (SharedItem?) -> Void) -> Void
 
-        init(name: String, moves: Bool = false,
+        /// `name` as the picker gives it; with none, "Photo" or "Video",
+        /// so the row and VoiceOver have a word while it comes.
+        init(name: String?, kind: Kind, moves: Bool = false,
              load: @escaping (ShareItems.Staging, ShareItems.Tally,
                               @escaping (SharedItem?) -> Void) -> Void) {
-            self.name = name
+            self.name = ComposeIntake.shown(name, kind)
+            self.kind = kind
             self.moves = moves
             self.load = load
         }
+    }
+
+    /// The name a row shows while it comes: its own, or with none, what it
+    /// is.
+    nonisolated static func shown(_ name: String?, _ kind: Kind) -> String {
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { return name }
+        return kind == .video ? "Video" : "Photo"
+    }
+
+    /// What Photo Library hands over is, by the types it offers, as
+    /// `ShareItems.read` will take it: a picture first, by its type
+    /// (`SharedPhoto.fileType`), then a video (`ShareItems.movieType`).
+    /// Anything else is a picture, since Photo Library offers no other
+    /// (`ComposeViewController`).
+    nonisolated static func kind(offered: [String], isMovie: (String) -> Bool) -> Kind {
+        if SharedPhoto.fileType(offered: offered) != nil { return .picture }
+        if ShareItems.movieType(offered: offered, isMovie: isMovie) != nil { return .video }
+        return .picture
     }
 
     /// Something on its way in: its row's name, shown with a spinner.
@@ -81,18 +124,26 @@ final class ComposeIntake {
     }
 
     /// The one being read in: its own tally and staging, so one counted out
-    /// and come after all touches nothing of the next, and its bound.
+    /// and come after all touches nothing of the next, and its bound, none
+    /// while the app is away.
     private struct Current {
         let id: Int
         let pick: Pick
         let tally: ShareItems.Tally
         let staging: ShareItems.Staging
-        let timer: Task<Void, Never>
+        var timer: Task<Void, Never>?
     }
 
     private var queue: [Queued] = []
     private var current: Current?
     private var numbered = 0
+    /// A Send or a Save Draft is waiting for what is still coming, which
+    /// has one bound for all of it from the tap (`hurry`), and its timer,
+    /// none while the app is away.
+    private var hurried = false
+    private var hurryTimer: Task<Void, Never>?
+    /// The app is not in front: no bound runs (`away`, `back`).
+    private var isAway = false
     /// The pictures with no name put in the letter so far, which numbers
     /// the next: "image0.jpeg", "image1.jpeg" (`SharedPhoto.name`).
     private var unnamed = 0
@@ -131,6 +182,7 @@ final class ComposeIntake {
         self.discard = discard
         self.limit = bound
         self.sleep = sleep
+        actions.whenWaiting { [weak self] in self?.hurry() }
     }
 
     /// The app's staging: in `tmp/Attachments`, as the share sheet's, a
@@ -162,13 +214,8 @@ final class ComposeIntake {
         let id = next.id
         let staging = self.staging(ShareItems.Staging.room(after: rows()), unnamed, next.item.moves)
         let tally = ShareItems.Tally()
-        let limit = self.limit
-        let sleep = self.sleep
-        let timer = Task { [weak self] in
-            do { try await sleep(limit) } catch { return }
-            self?.countOut(id)
-        }
-        current = Current(id: id, pick: next.pick, tally: tally, staging: staging, timer: timer)
+        current = Current(id: id, pick: next.pick, tally: tally, staging: staging,
+                          timer: isAway ? nil : timer(for: id))
         let discard = self.discard
         next.item.load(staging, tally) { [weak self] item in
             Task { @MainActor [weak self] in
@@ -180,6 +227,62 @@ final class ComposeIntake {
                 self.arrived(id, item)
             }
         }
+    }
+
+    /// The bound of the one numbered `id`, from now. Cancelled, it counts
+    /// nothing out, even when it has already run its time and waits only
+    /// for its turn on the main thread.
+    private func timer(for id: Int) -> Task<Void, Never> {
+        let limit = self.limit
+        let sleep = self.sleep
+        return Task { [weak self] in
+            do { try await sleep(limit) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.countOut(id)
+        }
+    }
+
+    /// Send or Save Draft has begun to wait for what is still coming
+    /// (`ComposeActions.whenWaiting`): from now, all of it, the one being
+    /// read and every one waiting its turn, is given one `bound` together.
+    /// The one being read keeps its own bound if that ends first. Nothing
+    /// when nothing is coming, or when a wait is bounded already.
+    func hurry() {
+        guard !coming.isEmpty, !hurried else { return }
+        hurried = true
+        if !isAway { hurryTimer = hurryBound() }
+        Diagnostics.log(.note, "COMPOSE-WAIT coming=\(coming.count)")
+    }
+
+    private func hurryBound() -> Task<Void, Never> {
+        let limit = self.limit
+        let sleep = self.sleep
+        return Task { [weak self] in
+            do { try await sleep(limit) } catch { return }
+            guard !Task.isCancelled else { return }
+            self?.countOutAll()
+        }
+    }
+
+    /// The app has gone into the background: no bound runs until it is
+    /// back. iOS suspends the app soon after, with the clock still going,
+    /// and on its return a bound that had run out and a load that had come
+    /// would each wait for the main thread in no set order.
+    func away() {
+        isAway = true
+        current?.timer?.cancel()
+        current?.timer = nil
+        hurryTimer?.cancel()
+        hurryTimer = nil
+    }
+
+    /// The app is in front again: the one being read, and a wait already
+    /// bounded, each have their bound again from now.
+    func back() {
+        guard isAway else { return }
+        isAway = false
+        if let id = current?.id, current?.timer == nil { current?.timer = timer(for: id) }
+        if hurried, hurryTimer == nil { hurryTimer = hurryBound() }
     }
 
     /// The staged file of `item`, where it is one.
@@ -198,7 +301,7 @@ final class ComposeIntake {
             }
             return
         }
-        now.timer.cancel()
+        now.timer?.cancel()
         current = nil
         unnamed = now.staging.unnamed
         var attached = false
@@ -208,7 +311,7 @@ final class ComposeIntake {
             attached = true
         }
         count(now.tally, attached: attached, into: now.pick)
-        settle(id, now.pick)
+        settle([(id, now.pick)])
     }
 
     /// Not in at its bound: counted out, and the next begun.
@@ -217,7 +320,39 @@ final class ComposeIntake {
         current = nil
         Diagnostics.log(.note, "COMPOSE-ITEM counted out after \(limit.components.seconds) s")
         count(now.tally, attached: false, into: now.pick)
-        settle(id, now.pick)
+        settle([(id, now.pick)])
+    }
+
+    /// A Send's or a Save Draft's bound has passed (`hurry`): the one being
+    /// read and every one waiting its turn counted out at once, those not
+    /// begun as what they are (`Item.kind`), and said together, once.
+    private func countOutAll() {
+        hurryTimer = nil
+        var out: [(Int, Pick)] = []
+        if let now = current {
+            now.timer?.cancel()
+            current = nil
+            count(now.tally, attached: false, into: now.pick)
+            out.append((now.id, now.pick))
+        }
+        for waiting in queue {
+            count(waiting.item.kind, into: waiting.pick)
+            out.append((waiting.id, waiting.pick))
+        }
+        queue = []
+        guard !out.isEmpty else { return }
+        Diagnostics.log(.note, "COMPOSE-WAIT counted out \(out.count) after \(limit.components.seconds) s")
+        settle(out)
+    }
+
+    /// One counted out before it began, by what it is.
+    private func count(_ kind: Kind, into pick: Pick) {
+        pick.tally.offered += 1
+        switch kind {
+        case .picture: pick.tally.pictures += 1
+        case .video: pick.tally.videos += 1
+        case .file: pick.files += 1
+        }
     }
 
     /// What came of one, added to its pick's count. A picture or a video
@@ -239,23 +374,45 @@ final class ComposeIntake {
         }
     }
 
-    /// One done with: its row gone, the pick said when it is the last of
-    /// it, `ComposeActions` told, and the next begun.
-    private func settle(_ id: Int, _ pick: Pick) {
-        coming.removeAll { $0.id == id }
-        pick.left -= 1
-        let words = pick.left == 0
-            ? Self.words(pictures: pick.tally.pictures, attached: pick.tally.attached,
-                         videos: pick.tally.videos, videosAttached: pick.tally.videosAttached,
-                         files: pick.files, filesAttached: pick.filesAttached)
-            : nil
+    /// Those done with, one or, at a wait's bound, all: their rows gone,
+    /// the picks they end said together, once, `ComposeActions` told of
+    /// each, and the next begun. A wait's bound lets go once nothing is
+    /// coming.
+    private func settle(_ done: [(Int, Pick)]) {
+        var ended: [Pick] = []
+        for (id, pick) in done {
+            coming.removeAll { $0.id == id }
+            pick.left -= 1
+            if pick.left == 0 { ended.append(pick) }
+        }
+        let words = ended.isEmpty ? nil : Self.words(for: ended)
+        if coming.isEmpty {
+            hurried = false
+            hurryTimer?.cancel()
+            hurryTimer = nil
+        }
         changed()
-        actions.itemLanded(cameShort: words != nil)
+        for _ in done { actions.itemLanded(cameShort: words != nil) }
         if let words {
             Diagnostics.log(.note, "COMPOSE-PICK left out: \(words)")
             tell(words)
         }
         startNext()
+    }
+
+    /// What is said of `picks` ended together, counted as one.
+    private static func words(for picks: [Pick]) -> String? {
+        var pictures = 0, attached = 0, videos = 0, videosAttached = 0, files = 0, filesAttached = 0
+        for pick in picks {
+            pictures += pick.tally.pictures
+            attached += pick.tally.attached
+            videos += pick.tally.videos
+            videosAttached += pick.tally.videosAttached
+            files += pick.files
+            filesAttached += pick.filesAttached
+        }
+        return words(pictures: pictures, attached: attached, videos: videos,
+                     videosAttached: videosAttached, files: files, filesAttached: filesAttached)
     }
 
     /// What is said when something he picked could not be attached: the
@@ -301,7 +458,7 @@ final class ComposeIntake {
                                  mimeType lookup: @escaping (String) -> String?) -> Item {
         let name = AttachmentStore.safeFilename(url.lastPathComponent)
         let moves = AttachmentStore.isInInbox(url, inbox: inbox)
-        return Item(name: name, moves: moves) { staging, _, done in
+        return Item(name: name, kind: .file, moves: moves) { staging, _, done in
             let mime = AttachmentStore.mimeType(of: name, lookup: lookup)
             let values = try? url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
             var item: SharedItem?

@@ -4260,14 +4260,23 @@ this host. Ordered by value, not by size.
       6. *While it comes.* Send tapped while the video loads: the spinner,
       then it goes with it. Airplane Mode on while an iCloud original
       loads, Send: at three minutes "The photo could not be attached.",
-      the sheet stays with Send, and nothing goes.
+      the sheet stays with Send, and nothing goes. Then several: five
+      photos kept only in iCloud picked at once with Airplane Mode on,
+      and Send tapped a minute after the pick: "Sending…" for three
+      minutes from the tap at most, never fifteen, then one alert, "The
+      photos could not be attached.", the sheet with Send, nothing gone,
+      and the log's `COMPOSE-WAIT` line counting them out together.
       7. *A photo.* A composer photo arrives as its own bytes, with no
       GPS, as "IMG_####.jpg": the picker's suggestion, which has no
       extension, and the one the intake gives a JPEG that goes as itself
       (B-108, Not covered).
       8. *Drafts.* Save Draft with the video, reopened from Drafts, Send:
       one copy arrives, and Drafts holds none.
-      9. *Locked.* The iPad locked while the video uploads: it goes.
+      9. *Locked.* The iPad locked while the video uploads: it goes. And
+      the iPad locked, or another app opened, for more than three minutes
+      while a large video is still coming into the composer: back in the
+      app, the video comes in, or has three minutes more, and is not
+      counted out at once.
       10. *Ended.* Pick a file and end the app in the app switcher at
       once: at the next launch `tmp/<bundle id>-Inbox` and
       `tmp/Attachments` are empty, where the container can be read.
@@ -4277,7 +4286,7 @@ this host. Ordered by value, not by size.
       12. *The share sheet again.* Its checks for a photo, a video and a
       Safari link, as before.
       13. *VoiceOver* reads "Photo Library" and "Attach File", and a row
-      still coming by its name.
+      still coming by its name, or, with none, "Photo" or "Video".
       14. *Put back.* The "B-108" letters to Trash, the files and the
       video off the iPad.
 

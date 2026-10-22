@@ -364,6 +364,8 @@ final class ComposeViewController: UIViewController,
                            name: UITextView.textDidChangeNotification, object: bodyView)
         centre.addObserver(self, selector: #selector(leavingTheApp),
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        centre.addObserver(self, selector: #selector(backInTheApp),
+                           name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
     /// The letter as the fields have it now, for what keeps it.
@@ -377,7 +379,14 @@ final class ComposeViewController: UIViewController,
     }
 
     @objc private func leavingTheApp() {
+        // No bound on what is coming in runs while the app is away
+        // (`ComposeIntake.away`).
+        intake.away()
         actions.putAside { self.currentLetter() }
+    }
+
+    @objc private func backInTheApp() {
+        intake.back()
     }
 
     /// The presented navigation controller is the sheet, and it is its
@@ -772,7 +781,12 @@ final class ComposeViewController: UIViewController,
         picker.dismiss(animated: true)
         intake.take(results.map { result in
             let provider = result.itemProvider
-            return ComposeIntake.Item(name: provider.suggestedName ?? "") { staging, tally, done in
+            // What it is, by the types it offers, for the words should it
+            // be counted out before it begins; with no name, the row says
+            // "Photo" or "Video" (`ComposeIntake.Item`).
+            let kind = ComposeIntake.kind(offered: provider.registeredTypeIdentifiers,
+                                          isMovie: { UTType($0)?.conforms(to: .movie) == true })
+            return ComposeIntake.Item(name: provider.suggestedName, kind: kind) { staging, tally, done in
                 ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done)
             }
         })

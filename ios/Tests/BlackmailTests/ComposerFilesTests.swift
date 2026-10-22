@@ -21,6 +21,8 @@ final class ComposerFilesTests: XCTestCase {
     private var rows: [DraftAttachment] = []
     private var sends = 0
     private var saves = 0
+    /// The letters kept on the iPad while he writes, by their rows' names.
+    private var keeps: [[String]] = []
     private var background = FakeBackground()
     private var bound = FakeBound()
     private var directory: URL!
@@ -33,6 +35,7 @@ final class ComposerFilesTests: XCTestCase {
         rows = []
         sends = 0
         saves = 0
+        keeps = []
         background = FakeBackground()
         bound = FakeBound()
         directory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -63,7 +66,12 @@ final class ComposerFilesTests: XCTestCase {
             dismiss: { [unowned self] in log.append("dismiss") },
             showError: { [unowned self] _ in log.append("error") },
             draw: { [unowned self] in draws.append($0) },
-            background: background.time)
+            background: background.time,
+            keeping: DraftKeeping(
+                keep: { [unowned self] draft, finished in
+                    if !finished { keeps.append(draft.attachments.map(\.filename)) }
+                },
+                forget: {}, abandon: {}, letGo: {}))
     }
 
     private func makeIntake(_ actions: ComposeActions) -> ComposeIntake {
@@ -92,7 +100,7 @@ final class ComposerFilesTests: XCTestCase {
         return draft
     }
 
-    private enum Kind { case picture, video, file }
+    private typealias Kind = ComposeIntake.Kind
 
     /// One thing picked whose load waits for the test: counted as
     /// `ShareItems.read` counts it as it begins, a picture or a video, and
@@ -105,7 +113,7 @@ final class ComposerFilesTests: XCTestCase {
     }
 
     private func item(_ name: String, _ kind: Kind, _ load: Load) -> ComposeIntake.Item {
-        ComposeIntake.Item(name: name) { staging, tally, done in
+        ComposeIntake.Item(name: name, kind: kind) { staging, tally, done in
             switch kind {
             case .picture: tally.pictures += 1
             case .video: tally.videos += 1
@@ -150,6 +158,23 @@ final class ComposerFilesTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(1))
         }
         XCTFail("never happened", file: file, line: line)
+    }
+
+    private final class Flag {
+        var on = false
+    }
+
+    /// Whether `task` ends, given a second or so: a test whose wait has no
+    /// end fails, rather than hanging the suite.
+    private func ends(_ task: Task<Void, Never>, file: StaticString = #filePath,
+                      line: UInt = #line) async throws -> Bool {
+        let over = Flag()
+        Task { @MainActor in
+            await task.value
+            over.on = true
+        }
+        try await until(file: file, line: line) { over.on }
+        return over.on
     }
 
     private func file(_ name: String, bytes: Int, in folder: URL? = nil) throws -> URL {
@@ -445,18 +470,21 @@ final class ComposerFilesTests: XCTestCase {
 
     /// Send tapped while a load is coming, and the load counted out while
     /// it waits: nothing sent, the sheet put back as it was with the row
-    /// that did land, and the words said. His second Send goes without the
+    /// that did land meanwhile, and the words said. The letter is kept on
+    /// the iPad as it is then, that row and all, and counts as changed, so
+    /// leaving the app keeps it again. His second Send goes without the
     /// one counted out, because he chose to.
     func testSendDoesNotGoWhenALoadIsCountedOutWhileItWaits() async throws {
         let actions = makeActions()
         let intake = makeIntake(actions)
         let photo = Load(), video = Load()
         intake.take([item("IMG_0301", .picture, photo), item("IMG_0302", .video, video)])
-        land(photo, "IMG_0301.JPG", .picture)
-        try await until { video.begun }
         let sending = try XCTUnwrap(actions.send({ [unowned self] in letter() }, then: nil))
         await settled()
-        try await until { bound.waiting == 1 }
+        land(photo, "IMG_0301.JPG", .picture)
+        try await until { video.begun }
+        // The video's own bound, and the wait's.
+        try await until { bound.waiting == 2 }
         bound.pass()
         await sending.value
         XCTAssertEqual(sends, 0, "sendLetter never called")
@@ -466,11 +494,195 @@ final class ComposerFilesTests: XCTestCase {
         XCTAssertTrue(actions.isWriting)
         XCTAssertFalse(log.contains("dismiss"))
         XCTAssertEqual(background.ended, [1], "its time given back")
+        XCTAssertEqual(keeps, [["IMG_0301.JPG"]], "kept as it is now, with the row from the wait")
+        XCTAssertNil(actions.putAside { [unowned self] in letter() })
+        XCTAssertEqual(keeps.count, 2, "changed, so kept again as he leaves the app")
 
         await actions.send({ [unowned self] in letter() }, then: nil)?.value
         XCTAssertEqual(sends, 1)
         XCTAssertEqual(log.last(where: { $0.hasPrefix("send") }), "send with [\"IMG_0301.JPG\"]")
         for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
+    /// Send's wait as a whole is bounded from the tap, not each thing one
+    /// after another. Three photos and a file, none of which ever comes,
+    /// in two picks; Send 100 s after them. The first is counted out at
+    /// its own bound, 180 s after it began, nothing said yet, its pick not
+    /// ended; the second begins with its own. At the tap's bound, 280 s,
+    /// the second, the third and the file, which never began, are counted
+    /// out at once, by what each is, and said in one alert. Nothing is
+    /// sent, and the sheet is his again. One after another, it was 720 s.
+    func testSendWaitsOneBoundFromTheTapForEverythingStillComing() async throws {
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let loads = [Load(), Load(), Load()], plans = Load()
+        intake.take(loads.enumerated().map { item("IMG_070\($0.offset)", .picture, $0.element) })
+        intake.take([item("Plans.pdf", .file, plans)])
+        try await until { bound.waiting == 1 }
+        bound.advance(by: .seconds(100))
+        let sending = try XCTUnwrap(actions.send({ [unowned self] in letter() }, then: nil))
+        try await until { bound.waiting == 2 }
+
+        bound.advance(by: .seconds(80))
+        try await until { loads[1].begun }
+        try await until { bound.waiting == 2 }
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0701", "IMG_0702", "Plans.pdf"])
+        XCTAssertEqual(told, [], "its pick not ended")
+        XCTAssertEqual(draws, [.sending("Sending…")])
+        XCTAssertTrue(actions.isSending)
+
+        bound.advance(by: .seconds(99))
+        await settled()
+        XCTAssertEqual(intake.coming.count, 3, "not before the tap's bound")
+        bound.advance(by: .seconds(1))
+        guard try await ends(sending) else { return }
+        XCTAssertFalse(loads[2].begun, "the third never began")
+        XCTAssertFalse(plans.begun)
+        XCTAssertEqual(intake.coming, [])
+        XCTAssertEqual(told, ["3 photos and 1 file could not be attached."], "one alert")
+        XCTAssertEqual(sends, 0, "sendLetter never called")
+        XCTAssertEqual(draws, [.sending("Sending…"), .writing])
+        XCTAssertTrue(actions.isWriting)
+        XCTAssertFalse(actions.asksAnyway)
+        XCTAssertEqual(background.ended, [1])
+        try await until { bound.waiting == 0 }
+
+        // Come after all, each is thrown away.
+        let late = try XCTUnwrap(land(loads[1], "IMG_0701.JPG", .picture))
+        await settled()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: late.path))
+        XCTAssertEqual(rows, [])
+        XCTAssertEqual(told.count, 1)
+    }
+
+    /// Save Draft's wait is bounded from the tap as Send's is: two photos
+    /// that never come, Save Draft 50 s after them; both are counted out
+    /// by 230 s, and the draft is kept without them.
+    func testSaveDraftWaitsOneBoundFromTheTap() async throws {
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let first = Load(), second = Load()
+        intake.take([item("IMG_0801", .picture, first), item("IMG_0802", .picture, second)])
+        try await until { bound.waiting == 1 }
+        bound.advance(by: .seconds(50))
+        let saving = try XCTUnwrap(actions.saveAndClose({ [unowned self] in letter() }, then: nil))
+        try await until { bound.waiting == 2 }
+        bound.advance(by: .seconds(130))
+        try await until { second.begun }
+        XCTAssertEqual(saves, 0)
+        bound.advance(by: .seconds(50))
+        guard try await ends(saving) else { return }
+        XCTAssertEqual(log.filter { $0.hasPrefix("save") }, ["save with []"])
+        XCTAssertEqual(told, ["The photos could not be attached."])
+        XCTAssertEqual(sends, 0)
+    }
+
+    /// No bound runs while the app is away: a video that takes longer than
+    /// three minutes while he is in another app is in the letter when he
+    /// comes back, not counted out. Back, each has its bound again from
+    /// then, and so does a Send that was waiting.
+    func testTheBoundDoesNotRunWhileTheAppIsAway() async throws {
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let video = Load()
+        intake.take([item("IMG_0901", .video, video)])
+        try await until { bound.waiting == 1 }
+        intake.away()
+        try await until { bound.waiting == 0 }
+        bound.advance(by: .seconds(600))
+        await settled()
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0901"], "not counted out")
+        land(video, "IMG_0901.MOV", .video)
+        try await until { intake.coming.isEmpty }
+        intake.back()
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0901.MOV"])
+        XCTAssertEqual(told, [])
+        XCTAssertEqual(bound.asked, [.seconds(180)])
+
+        let photo = Load()
+        intake.take([item("IMG_0902", .picture, photo)])
+        let sending = try XCTUnwrap(actions.send({ [unowned self] in letter() }, then: nil))
+        try await until { bound.waiting == 2 }
+        intake.away()
+        try await until { bound.waiting == 0 }
+        bound.advance(by: .seconds(1_000))
+        await settled()
+        XCTAssertEqual(sends, 0)
+        XCTAssertEqual(told, [])
+        intake.back()
+        try await until { bound.waiting == 2 }
+        XCTAssertEqual(bound.asked.count, 5, "the photo's and the wait's again, from now")
+        bound.advance(by: .seconds(180))
+        guard try await ends(sending) else { return }
+        XCTAssertEqual(told, ["The photo could not be attached."])
+        XCTAssertEqual(sends, 0)
+        XCTAssertTrue(actions.isWriting)
+        for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
+    /// A bound that ran out just as he left the app, its turn on the main
+    /// thread not yet come: cancelled as the app went, it counts nothing
+    /// out, and the one it was for has its bound again from his return.
+    func testABoundCancelledAfterItRanOutCountsNothingOut() async throws {
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let video = Load()
+        intake.take([item("IMG_1101", .video, video)])
+        try await until { bound.waiting == 1 }
+        bound.advance(by: .seconds(180))
+        intake.away()
+        intake.back()
+        await settled()
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_1101"], "not counted out")
+        XCTAssertEqual(told, [])
+        try await until { bound.waiting == 1 }
+        XCTAssertEqual(bound.asked, [.seconds(180), .seconds(180)])
+        land(video, "IMG_1101.MOV", .video)
+        try await until { intake.coming.isEmpty }
+        XCTAssertEqual(rows.map(\.filename), ["IMG_1101.MOV"])
+        for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
+    /// The composer gone with something still coming: what comes after it
+    /// is removed from the disk, there being no letter to put it in.
+    func testWhatComesAfterTheComposerHasGoneIsRemoved() async throws {
+        let actions = makeActions()
+        var intake: ComposeIntake? = makeIntake(actions)
+        weak var gone = intake
+        let photo = Load()
+        intake?.take([item("IMG_1001", .picture, photo)])
+        XCTAssertTrue(photo.begun)
+        intake = nil
+        XCTAssertNil(gone, "nothing else holds it")
+        let late = try XCTUnwrap(land(photo, "IMG_1001.JPG", .picture))
+        try await until { !FileManager.default.fileExists(atPath: late.path) }
+        XCTAssertEqual(rows, [])
+    }
+
+    /// What a pick from Photo Library is, by the types it offers, as the
+    /// share sheet's reading takes it: a picture first, a video next,
+    /// anything else a picture. A row with no name says what it is.
+    func testWhatAPickIsAndTheNameOfOneWithNone() {
+        let isMovie: (String) -> Bool = { $0.hasSuffix("-movie") || $0 == "public.movie" }
+        XCTAssertEqual(ComposeIntake.kind(offered: ["public.jpeg"], isMovie: isMovie), .picture)
+        XCTAssertEqual(ComposeIntake.kind(offered: ["public.heic", "com.apple.quicktime-movie"],
+                                          isMovie: isMovie), .picture, "a Live Photo is a photo")
+        XCTAssertEqual(ComposeIntake.kind(offered: ["com.apple.quicktime-movie"], isMovie: isMovie),
+                       .video)
+        XCTAssertEqual(ComposeIntake.kind(offered: ["public.mpeg-4"], isMovie: { _ in false }), .video)
+        XCTAssertEqual(ComposeIntake.kind(offered: ["org.example.other-movie"], isMovie: isMovie),
+                       .video)
+        XCTAssertEqual(ComposeIntake.kind(offered: ["org.example.thing"], isMovie: isMovie), .picture)
+        XCTAssertEqual(ComposeIntake.kind(offered: [], isMovie: isMovie), .picture)
+
+        let noLoad: (ShareItems.Staging, ShareItems.Tally, @escaping (SharedItem?) -> Void) -> Void = { _, _, _ in }
+        XCTAssertEqual(ComposeIntake.Item(name: nil, kind: .picture, load: noLoad).name, "Photo")
+        XCTAssertEqual(ComposeIntake.Item(name: "", kind: .video, load: noLoad).name, "Video")
+        XCTAssertEqual(ComposeIntake.Item(name: "  ", kind: .picture, load: noLoad).name, "Photo")
+        XCTAssertEqual(ComposeIntake.Item(name: "IMG_0001", kind: .video, load: noLoad).name,
+                       "IMG_0001")
+        XCTAssertEqual(ComposeIntake.Item(name: "Plans.pdf", kind: .file, load: noLoad).name,
+                       "Plans.pdf")
     }
 
     /// The same for a load that fails while Send waits, which the spec
@@ -535,7 +747,8 @@ final class ComposerFilesTests: XCTestCase {
         let saving = try XCTUnwrap(actions.saveAndClose({ [unowned self] in letter() }, then: nil))
         await settled()
         XCTAssertEqual(saves, 0, "waiting for it")
-        try await until { bound.waiting == 1 }
+        // Its own bound, and the wait's.
+        try await until { bound.waiting == 2 }
         bound.pass()
         await saving.value
         XCTAssertEqual(log.filter { $0.hasPrefix("save") }, ["save with [\"IMG_0501.JPG\"]"])
@@ -549,34 +762,44 @@ final class ComposerFilesTests: XCTestCase {
     /// A file from Attach File: moved out of the Inbox into the staging,
     /// under its own name made safe, its type from its extension, its row
     /// what the disk measured. One too large for the room left is not
-    /// moved, is removed from the Inbox, and is said.
+    /// moved, is removed from the Inbox, and is said. One outside the
+    /// Inbox is copied in and left where it is, and one of those too large
+    /// is left where it is too.
     func testAFileFromAttachFileIsMovedNamedAndTypedOrLeftOutAndRemoved() async throws {
         let inbox = try XCTUnwrap(AttachmentStore.inbox(in: directory, bundle: "org.example.blackmail"))
         let pdf = try file("Plans: May.pdf", bytes: 4_000, in: inbox)
         let video = try file("Garden.mov", bytes: 9_000, in: inbox)
-        let elsewhere = try file("Notes.txt", bytes: 2_000)
+        let elsewhere = try file("Notes.txt", bytes: 500)
+        let large = try file("Minutes.txt", bytes: 2_000)
         let types = ["pdf": "application/pdf", "txt": "text/plain"]
         let actions = makeActions()
         let intake = makeIntake(actions)
         rows = [row("Forwarded.pdf", size: ShareItems.Staging.budget - 5_000)]
-        let items = [pdf, video, elsewhere].map {
+        let items = [pdf, video, elsewhere, large].map {
             ComposeIntake.file(at: $0, inbox: inbox, mimeType: { types[$0] })
         }
-        XCTAssertEqual(items.map(\.name), ["Plans May.pdf", "Garden.mov", "Notes.txt"])
-        XCTAssertEqual(items.map(\.moves), [true, true, false])
+        XCTAssertEqual(items.map(\.name), ["Plans May.pdf", "Garden.mov", "Notes.txt", "Minutes.txt"])
+        XCTAssertEqual(items.map(\.moves), [true, true, false, false])
+        XCTAssertEqual(items.map(\.kind), [.file, .file, .file, .file])
         intake.take(items)
         try await until { intake.coming.isEmpty }
 
-        XCTAssertEqual(rows.dropFirst().map(\.filename), ["Plans May.pdf"])
-        XCTAssertEqual(rows.last?.mimeType, "application/pdf")
-        XCTAssertEqual(rows.last?.size, 4_000)
-        guard case .localFile(let moved)? = rows.last?.source else { return XCTFail("a file") }
+        XCTAssertEqual(rows.dropFirst().map(\.filename), ["Plans May.pdf", "Notes.txt"])
+        XCTAssertEqual(rows.dropFirst().map(\.mimeType), ["application/pdf", "text/plain"])
+        XCTAssertEqual(rows.dropFirst().map(\.size), [4_000, 500])
+        XCTAssertEqual(rows.count, 3)
+        guard rows.count == 3, case .localFile(let moved) = rows[1].source,
+              case .localFile(let copied) = rows[2].source else { return XCTFail("two files") }
         XCTAssertNotNil(AttachmentStore.stagingDirectory(of: moved))
+        XCTAssertNotNil(AttachmentStore.stagingDirectory(of: copied), "copied into the staging")
+        XCTAssertEqual(try Data(contentsOf: copied), try Data(contentsOf: elsewhere))
         XCTAssertFalse(FileManager.default.fileExists(atPath: pdf.path), "moved out of the Inbox")
         XCTAssertFalse(FileManager.default.fileExists(atPath: video.path), "and the one left out removed")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: elsewhere.path), "nothing outside it")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: elsewhere.path), "the copied one left")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: large.path), "nothing outside it removed")
         XCTAssertEqual(told, ["2 files could not be attached."])
         AttachmentStore.removeStaged(moved)
+        AttachmentStore.removeStaged(copied)
 
         // A folder is no file.
         rows = []
@@ -704,12 +927,16 @@ final class ComposerFilesTests: XCTestCase {
 }
 
 /// The bound's clock as a test moves it: each wait is parked until the
-/// test says the time has passed, and one cancelled ends at once.
+/// test says the time has passed, and one cancelled ends at once. Each ends
+/// at the clock's time as it began, plus what it asked (`advance`).
 @MainActor
 final class FakeBound {
     private(set) var asked: [Duration] = []
     private var parked: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var ends: [Int: Duration] = [:]
     private var next = 0
+    /// The clock: how long the test has said has passed.
+    private(set) var now: Duration = .zero
 
     nonisolated init() {}
 
@@ -719,8 +946,12 @@ final class FakeBound {
         asked.append(duration)
         next += 1
         let id = next
+        let end = now + duration
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { parked[id] = $0 }
+            try await withCheckedThrowingContinuation {
+                parked[id] = $0
+                ends[id] = end
+            }
         } onCancel: {
             Task { @MainActor in self.cancel(id) }
         }
@@ -730,16 +961,30 @@ final class FakeBound {
     func pass() {
         let all = parked
         parked = [:]
+        ends = [:]
         for continuation in all.values { continuation.resume() }
+    }
+
+    /// `time` has passed: every wait that ends by then is over, the
+    /// earliest first.
+    func advance(by time: Duration) {
+        now += time
+        let due = ends.filter { $0.value <= now }.sorted { $0.value < $1.value }.map(\.key)
+        for id in due {
+            ends.removeValue(forKey: id)
+            parked.removeValue(forKey: id)?.resume()
+        }
     }
 
     func cancelAll() {
         let all = parked
         parked = [:]
+        ends = [:]
         for continuation in all.values { continuation.resume(throwing: CancellationError()) }
     }
 
     private func cancel(_ id: Int) {
+        ends.removeValue(forKey: id)
         parked.removeValue(forKey: id)?.resume(throwing: CancellationError())
     }
 }

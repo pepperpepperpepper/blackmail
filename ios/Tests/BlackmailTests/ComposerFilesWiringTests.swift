@@ -56,9 +56,12 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "picker.dismiss(animated: true)",
                  "intake.take(results.map { result in",
                  "let provider = result.itemProvider",
-                 "return ComposeIntake.Item(name: provider.suggestedName ?? \"\") { staging, tally, done in",
+                 "let kind = ComposeIntake.kind(offered: provider.registeredTypeIdentifiers, "
+                    + "isMovie: { UTType($0)?.conforms(to: .movie) == true })",
+                 "return ComposeIntake.Item(name: provider.suggestedName, kind: kind) { staging, tally, done in",
                  "ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done)"],
                 in: code)
+        XCTAssertFalse(code.contains("suggestedName ?? \"\""), "a row with no name says what it is")
         XCTAssertEqual(count("PHPickerConfiguration(", in: code), 1)
         XCTAssertEqual(count("PHPickerConfiguration(photoLibrary", in: code), 0,
                        "no library, so no permission")
@@ -180,6 +183,25 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "self?.say(words)",
                  "return",
                  "ErrorPresenter.tell(words, on: self)"], in: code)
+    }
+
+    /// The bound on what is coming in stops as the app goes into the
+    /// background and runs again from its return (`ComposeIntake.away`,
+    /// `back`).
+    func testTheBoundStopsWhileTheAppIsAway() throws {
+        let code = try source(Self.composer)
+        inOrder(["centre.addObserver(self, selector: #selector(leavingTheApp), "
+                    + "name: UIApplication.didEnterBackgroundNotification, object: nil)",
+                 "centre.addObserver(self, selector: #selector(backInTheApp), "
+                    + "name: UIApplication.willEnterForegroundNotification, object: nil)",
+                 "@objc private func leavingTheApp() {",
+                 "intake.away()",
+                 "actions.putAside { self.currentLetter() }",
+                 "@objc private func backInTheApp() {",
+                 "intake.back()",
+                 "}"], in: code)
+        XCTAssertEqual(count("intake.away()", in: code), 1)
+        XCTAssertEqual(count("intake.back()", in: code), 1)
     }
 
     /// At launch the staging and the Inbox go, in the app and the share

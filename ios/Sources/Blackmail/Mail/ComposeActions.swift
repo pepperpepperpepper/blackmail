@@ -67,6 +67,9 @@ final class ComposeActions {
     /// not in the letter, and he is being told so only now
     /// (`itemLanded(cameShort:)`). The letter does not go (`send`).
     private var cameShort = false
+    /// Told as Send or Save Draft begins to wait for what is still coming
+    /// (`whenWaiting`).
+    private var waiting: () -> Void = {}
 
     private let sendLetter: (Draft, @escaping UploadProgress) async throws -> Void
     private let saveDraft: (Draft) async throws -> Void
@@ -147,6 +150,15 @@ final class ComposeActions {
         itemsComing += 1
     }
 
+    /// `waiting` is told, at the tap, when Send or Save Draft is to wait
+    /// for something still coming: what is bringing it in gives all of it
+    /// one bound from then (`ComposeIntake.hurry`), so the wait as a whole
+    /// is bounded, not each thing one after the other (B-108). Not as he
+    /// leaves the app, which waits only while iOS lets it.
+    func whenWaiting(_ waiting: @escaping () -> Void) {
+        self.waiting = waiting
+    }
+
     /// Something chosen is in the letter, could not be attached, or was
     /// counted out at its bound (`ComposeIntake.bound`). `cameShort` when
     /// it ends a pick of which something did not come, which he is told
@@ -170,8 +182,9 @@ final class ComposeActions {
     /// it stood at the tap: the photos landed in the sheet after it, and the
     /// letter went, or the draft was kept, without them, with nothing to
     /// say so. Now both wait for them, behind the spinner or after the sheet
-    /// has gone, and take the letter once they are in. Each is bounded, so
-    /// the wait is too (`ComposeIntake.bound`).
+    /// has gone, and take the letter once they are in. Each is bounded, and
+    /// the wait of Send or Save Draft is, as a whole, from the tap
+    /// (`whenWaiting`, `ComposeIntake.bound`).
     private func itemsLanded() async {
         guard itemsComing > 0 else { return }
         await withCheckedContinuation { waitingForItems.append($0) }
@@ -184,12 +197,15 @@ final class ComposeActions {
     /// sheet has been put away.
     ///
     /// `letter` is asked for the letter once every photo, video and file
-    /// chosen before the tap is in it (`itemsLanded`), not at the tap. If
-    /// any of them came to nothing meanwhile (`itemLanded(cameShort:)`),
-    /// the letter is not taken and nothing is sent: the sheet is put back
+    /// chosen before the tap is in it (`itemsLanded`), not at the tap,
+    /// waiting at most `ComposeIntake.bound` from the tap for all of them
+    /// together (`whenWaiting`). If any of them came to nothing meanwhile
+    /// (`itemLanded(cameShort:)`), nothing is sent: the sheet is put back
     /// as it was, with the rows that did come, the words saying what did
-    /// not, and Send to tap again (B-108). It never goes without something
-    /// he picked unless he has been told.
+    /// not, and Send to tap again (B-108); the letter is kept on the iPad
+    /// as it is then, rows and all, as the autosave stopped at the tap
+    /// would have kept it. It never goes without something he picked
+    /// unless he has been told.
     ///
     /// `draftsChanged` is taken now rather than read from the sheet later:
     /// it is called after the sheet has gone, and the sheet with it.
@@ -240,6 +256,7 @@ final class ComposeActions {
         cameShort = false
         words = Self.sendingWords(written: 0, of: 0)
         draw(.sending(words))
+        if itemsComing > 0 { waiting() }
 
         let time = BackgroundStretch("Send", from: background)
         // Holds this strongly, as the send's task below does anyway, and
@@ -256,6 +273,11 @@ final class ComposeActions {
             guard !cameShort else {
                 cameShort = false
                 stage = .writing
+                // Kept as it is now: the autosave stopped at the tap, and
+                // rows that came while this waited were no edit of his.
+                let draft = letter()
+                if !draft.isEmptyLetter { keeping.keep(draft, false) }
+                changed = true
                 draw(.writing)
                 return
             }
@@ -325,8 +347,9 @@ final class ComposeActions {
     /// would simply not be there.
     ///
     /// `letter` is asked for the draft once every photo, video and file
-    /// chosen before the tap is in it, as for Send. One that comes to
-    /// nothing is not in it: the sheet has gone, and the draft is kept
+    /// chosen before the tap is in it, as for Send, at most
+    /// `ComposeIntake.bound` from the tap for all of them. One that comes
+    /// to nothing is not in it: the sheet has gone, and the draft is kept
     /// without it (B-108). Returns nil, and does nothing, once a
     /// letter is on its way or the sheet has been put away: from the Cancel
     /// sheet, had it still been open when Send went, it would close the
@@ -361,6 +384,7 @@ final class ComposeActions {
         keeping.keep(letter(), true)
         let itemsWaiting = itemsComing > 0
         if !itemsWaiting { keeping.putAway() }
+        if itemsWaiting { waiting() }
         dismiss()
         return Task {
             defer { time.end() }

@@ -1095,11 +1095,16 @@ extension, which has no Outbox behind it, as before.
 draft's APPEND is still made whole, and kept so. Measured on the host
 behind `BLACKMAIL_LARGE_TESTS` (`DraftAppendMemoryTests`, a debug build,
 Linux's high-water mark): for a draft of a 25,000,000-byte video, the
-file read whole and the letter of 34,211,189 bytes built from it, as
-`IMAPMailRepository.append` makes it, raised the mark by 60 MB, 2.4 times
-the file, not the 4 times estimated; the whole Save Draft through the
-shipping repository to the scripted server, which keeps its own copies of
-what it is sent, by 197 MB, an upper bound. It is the app's process, not
+letter's build alone, the file read whole and the letter of 34,211,189
+bytes made from it as `IMAPMailRepository.append` makes it, raised the
+mark by 60 MB, 2.4 times the file. That is not the whole APPEND:
+`IMAPClient.append` and the transport handle the letter again, and their
+copies were not measured apart from the scripted server's, which keeps
+its own of what it is sent. The whole Save Draft through the shipping
+repository to that server raised the mark by 197 MB. So the app's own
+peak for such a draft lies between about 60 MB and 197 MB; the estimate
+of about four times the file for the whole APPEND, 100 MB, is within
+that, neither borne out nor ruled out. It is the app's process, not
 the extension's, whose 120 MB was what Send's streaming was for, and
 nothing else in the app holds that much at once. Streaming the APPEND
 would still need the exchange gate, `sendingOnce`, the synchronising
