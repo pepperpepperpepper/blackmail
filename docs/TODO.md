@@ -229,7 +229,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
       Threads).
-- [ ] Replied and forwarded arrows on rows.
+- [ ] Replied and forwarded arrows on rows. *Shown 2026-10-22, not yet
+      seen on the iPad: Mail's grey arrow in the gutter for a letter
+      answered or forwarded, from the flags Gmail sends with the row.
+      Writing the marks after a reply or forward goes waits for the owner.
+      B-102, and its check under "Blocked on the iPad coming back".*
 - [ ] Search: several words may be searched as one phrase (not yet checked
       against Gmail); no suggestions or recent searches.
 
@@ -3787,6 +3791,50 @@ this host. Ordered by value, not by size.
       finger landed, the finger ending on the signature's logo, a link,
       and WebKit put up the link's menu at about 1 s: the second did not
       open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
+
+- [ ] **B-102, the reply and forward arrows.** On the test iPad, the test
+      account only, built from the `feat-arrows` worktree (part 2, when it
+      is built, from its own). A stands for the account's address; letters
+      only to A with `+b102` before the @, subjects beginning "B-102".
+      Flags are set from a host over IMAP for part 1, on the test
+      account's Inbox: `UID STORE n +FLAGS (\Answered)`, `+FLAGS
+      ($Forwarded)`, and `-FLAGS` to take them off; the app shows them at
+      its next Refresh. The letters can be put in the Inbox from the host
+      by APPEND, so nothing is sent. Nothing in the app is answered or
+      forwarded for this check.
+      0. *Informative, not blocking*, on any Apple device with Mail (the
+      owner's; the test iPad has none, B-028): add the test account, reply
+      to one "B-102" letter and forward another, then from a host `UID
+      FETCH n FLAGS` on both originals in INBOX and in All Mail. Expect
+      `\Answered` on the first and `$Forwarded` (or `Forwarded`) on the
+      second. This says whether the letters he answered in Apple Mail show
+      arrows from the first launch.
+      1. *The three marks.* Three read letters, "B-102 replied", "B-102
+      forwarded" and "B-102 both", each its own conversation; `\Answered`
+      on the first, `$Forwarded` on the second, both on the third.
+      Refresh: a grey arrow turning left in the first row's gutter, where
+      the unread dot goes; one turning right in the second's; the left one
+      in the third's. Each about the dot's width, grey as the preview's
+      words, centred on the name's line; the names, the dates and the
+      previews where they were.
+      2. *Beside a file, and unread.* A read letter with a photo, "B-102
+      file", `\Answered`: the arrow in the gutter and the paperclip at the
+      end of the subject's line. "B-102 unread", `\Answered`, marked unread
+      in the app: the blue dot and no arrow. Opened and read: the dot goes
+      and the arrow comes.
+      3. *A conversation.* Two letters in one thread, "B-102 thread" and
+      "Re: B-102 thread", both read. `\Answered` on the newer alone: the
+      row has the arrow. Taken off it and put on the older alone: no arrow.
+      4. *VoiceOver*, if it is turned on for the check: the rows of 1 read
+      "Replied, …", "Forwarded, …" and "Replied, …" before the names; the
+      unread row of 2 "Unread, …", with no "Replied". VoiceOver off after.
+      5. *Kept.* End the app, Airplane Mode on, open it: the rows of 1 to 3
+      keep their arrows as the server last said, under "Updated …".
+      Airplane Mode off.
+      6. *Two panes and three*, and Edit mode: the arrow stays in the
+      gutter beside the circles, where the dot goes. The look again on the
+      iPadOS 18.6 simulator on the Mac.
+      7. *Put back.* Move the B-102 letters to Trash.
 
 ## Blocked on the owner
 

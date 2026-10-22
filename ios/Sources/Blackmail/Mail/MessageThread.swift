@@ -47,6 +47,15 @@ struct MessageThread {
     var isFlagged: Bool { messages.contains(where: \.isFlagged) }
     var hasAttachment: Bool { messages.contains(where: \.hasAttachment) }
 
+    /// The grey arrow the row shows in its gutter (`RowArrow`, B-102): the
+    /// newest letter's, the one whose date and preview the row shows, and
+    /// none while any letter in it is unread, the dot having the gutter.
+    /// A conversation whose older letter alone was answered shows none:
+    /// the arrow says the last thing said has had its answer.
+    var arrow: RowArrow? {
+        RowArrow(read: isRead, answered: newest.isAnswered, forwarded: newest.isForwarded)
+    }
+
     /// What the row says. The newest message's subject, because a thread's
     /// subject can drift ("Re: the roof" → "Re: the roof and the gutter")
     /// and the latest wording is the one he was last reading.
@@ -119,14 +128,15 @@ struct MessageThread {
     }
 
     /// What VoiceOver reads for the row in the list of `list`: "On this
-    /// iPad only" for a draft kept on the iPad, "Unread", the names as the
-    /// top line has them, how many letters when more than one, the subject
-    /// and the time as the row shows it. The count, which the row no
-    /// longer shows, is read as "3 messages" where the row marks the
-    /// conversation after its date, in every folder (B-075, B-080). No
-    /// "To" is read before the names where the row names whom the letters
-    /// are to, as none is shown: the folder says so, as it does on the
-    /// screen.
+    /// iPad only" for a draft kept on the iPad, "Unread", or "Replied" or
+    /// "Forwarded" where the row shows the grey arrow in the dot's place
+    /// (`arrow`, B-102), the names as the top line has them, how many
+    /// letters when more than one, the subject and the time as the row
+    /// shows it. The count, which the row no longer shows, is read as "3
+    /// messages" where the row marks the conversation after its date, in
+    /// every folder (B-075, B-080). No "To" is read before the names where
+    /// the row names whom the letters are to, as none is shown: the folder
+    /// says so, as it does on the screen.
     ///
     /// Out of the controller, which used to put it together itself, so the
     /// names it reads are the names the row shows, and tested.
@@ -134,6 +144,7 @@ struct MessageThread {
         [
             list.role == .drafts && LocalDraft.key(ofRow: id) != nil ? LocalDraft.mark : nil,
             isRead ? nil : "Unread",
+            arrow?.spoken,
             nameLine(namingRecipients: namesRecipients(in: list), mine: mine),
             count > 1 ? "\(count) messages" : nil,
             subject,
@@ -174,6 +185,10 @@ struct MessageThread {
             date: date,
             isRead: isRead,
             isFlagged: isFlagged,
+            // The newest letter's marks, never any letter's, so the row's
+            // arrow is the conversation's (`arrow`).
+            isAnswered: newest.isAnswered,
+            isForwarded: newest.isForwarded,
             hasAttachment: hasAttachment,
             threadID: newest.threadID,
             countedFolderIDs: newest.countedFolderIDs)

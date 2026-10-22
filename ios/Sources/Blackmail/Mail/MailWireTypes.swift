@@ -149,6 +149,21 @@ struct IMAPFetchResult {
 
     var isSeen: Bool    { flags.contains { $0.caseInsensitiveCompare("\\Seen") == .orderedSame } }
     var isFlagged: Bool { flags.contains { $0.caseInsensitiveCompare("\\Flagged") == .orderedSame } }
+    /// A reply to the letter has gone: `\Answered`, the flag RFC 3501
+    /// (§2.3.2) has for it, which Apple Mail sets once a reply is sent and
+    /// shows as a grey arrow on the row (`RowArrow`, B-102). Gmail keeps it
+    /// with every row's FLAGS, which the list fetches already.
+    var isAnswered: Bool { flags.contains { $0.caseInsensitiveCompare("\\Answered") == .orderedSame } }
+    /// The letter has been forwarded: the keyword `$Forwarded` (RFC 5550,
+    /// IANA's registry of IMAP keywords), or `Forwarded`, the same mark
+    /// without the dollar, which iOS's Mail knows too. Never a system flag,
+    /// so no backslash. Any case: a keyword is matched without it.
+    var isForwarded: Bool {
+        flags.contains { flag in
+            flag.caseInsensitiveCompare("$Forwarded") == .orderedSame
+                || flag.caseInsensitiveCompare("Forwarded") == .orderedSame
+        }
+    }
 }
 
 /// RFC 3501 ENVELOPE. Enough to build a list row without downloading bodies,

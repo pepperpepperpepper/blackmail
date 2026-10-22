@@ -323,6 +323,19 @@ final class MailShelf: @unchecked Sendable {
         changeLetter(id, letter: letter, in: folder) { $0.flagged = flagged }
     }
 
+    /// The server has the letter as answered (`\Answered`), on the letter
+    /// wherever it is kept, as a flag is: Gmail's flags are the letter's.
+    /// Written only as true; false is written as nothing, as a page kept
+    /// before the rows carried it reads (B-102).
+    func answered(_ answered: Bool, id: String, letter: UInt64?, in folder: String) {
+        changeLetter(id, letter: letter, in: folder) { $0.answered = answered ? true : nil }
+    }
+
+    /// The server has the letter as forwarded (`$Forwarded`), the same way.
+    func forwarded(_ forwarded: Bool, id: String, letter: UInt64?, in folder: String) {
+        changeLetter(id, letter: letter, in: folder) { $0.forwarded = forwarded ? true : nil }
+    }
+
     /// The server has taken the letter out of `folder`: moved, deleted, or
     /// a draft removed. With `andEveryFolderBut`, out of every folder but
     /// that one, as a letter binned or marked as spam leaves every label
@@ -772,6 +785,13 @@ final class MailShelf: @unchecked Sendable {
         /// known, so that row's conversation keeps the folder's order until
         /// the folder is listed again (B-084). No new format.
         var arrived: Date?
+        /// `MessageSummary.isAnswered` and `isForwarded`, for the row's grey
+        /// arrow (B-102): written only for a letter that has the mark, and
+        /// absent for every other and in a page kept before the rows
+        /// carried them, which reads as no mark. No new format: a page
+        /// kept so draws no arrow until the folder is listed again.
+        var answered: Bool?
+        var forwarded: Bool?
 
         init(_ row: MessageSummary, preview: String, size: Int? = nil) {
             id = row.id
@@ -791,11 +811,14 @@ final class MailShelf: @unchecked Sendable {
             to = row.to
             bcc = row.bcc.isEmpty ? nil : row.bcc
             arrived = row.arrived
+            answered = row.isAnswered ? true : nil
+            forwarded = row.isForwarded ? true : nil
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
             MessageSummary(id: id, mailboxID: mailboxID, sender: sender, subject: subject,
                            preview: preview, date: date, isRead: read, isFlagged: flagged,
+                           isAnswered: answered ?? false, isForwarded: forwarded ?? false,
                            hasAttachment: attachment, threadID: thread, gmailMessageID: message,
                            countedFolderIDs: counted, attachments: files.map(\.attachment),
                            to: to, cc: cc ?? [], bcc: bcc ?? [], arrived: arrived)
