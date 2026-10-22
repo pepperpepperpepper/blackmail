@@ -248,7 +248,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
-      status bar to go to the top, Print.
+      status bar to go to the top, Print. *The sent sound done 2026-10-22,
+      not yet seen on the iPad: Mail's Swoosh once as the sheet closes
+      after Send, for a letter that went or was put in the Outbox, from
+      the composer and the share sheet. B-100, and its check under
+      "Blocked on the iPad coming back".*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -3787,6 +3791,47 @@ this host. Ordered by value, not by size.
       finger landed, the finger ending on the signature's logo, a link,
       and WebKit put up the link's menu at about 1 s: the second did not
       open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
+
+- [ ] **B-100, the sent sound.** On the test iPad, the test account only,
+      built from the `feat-sentsound` worktree. A stands for the account's
+      address; letters only to A with `+b100` before the @, subjects
+      beginning "B-100".
+      1. *Send.* In the composer, a letter to A with `+b100`, Send: the
+      spinner, then one swoosh as the sheet closes. None before the sheet
+      goes.
+      2. *Silent and the volume.* Silent Mode on in Control Center, Send:
+      no sound. Silent off, Settings, Sounds, the Ringer and Alerts slider
+      low, Send: quiet. Then the volume buttons alone, the slider left as
+      it was, Send: note whether they change it. Say which volume governs
+      it.
+      3. *Refused.* A letter Gmail refuses, over 25 MB: no sound, and the
+      sheet stays with the alert.
+      4. *The Outbox.* Airplane Mode on, Send: the sheet closes with one
+      swoosh and the Outbox notice. Wi-Fi back, Refresh: the letter goes
+      once, with no second sound.
+      5. *The share sheet.* A page shared from Safari, Send: one whole
+      swoosh as the sheet slides away (say if it is cut short), the share
+      completes, and Safari is not held.
+      6. *With music.* Music playing, Send: the two mix; the music does
+      not stop.
+      7. *VoiceOver.* VoiceOver on, Send: the swoosh and VoiceOver both
+      heard, and focus lands where it did on the build before. VoiceOver
+      off after.
+      8. *Two quick taps* on Send: one sound.
+      9. *The simulator.* The iOS 18.6 simulator on the Mac:
+      /System/Library/Audio/UISounds/mail-sent.caf is in the runtime, and
+      a Send plays it.
+      10. *Headphones.* Wired headphones or a Bluetooth headset connected,
+      Send: say where the swoosh plays, the headphones, the speaker or
+      both. Informative, not blocking.
+      11. *The share sheet offline.* Airplane Mode on, a page shared, Send:
+      refused, no sound, the sheet stays.
+      12. *Locked after Send.* A letter with a few photos, Send, and the
+      iPad locked at once: say whether a swoosh comes from the locked
+      iPad when the letter goes, and that the sheet has gone when it is
+      unlocked. Informative, not blocking.
+      *Not tried on the simulator but for step 9: the host tests hold the
+      hook; the sound is the iPad's.*
 
 ## Blocked on the owner
 

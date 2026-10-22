@@ -73,6 +73,7 @@ final class ComposeActions {
     private let background: BackgroundTime
     private let keeping: DraftKeeping
     private let queued: () -> Void
+    private let sent: () -> Void
 
     /// The autosave waiting for him to stop, and whether he has changed the
     /// letter since the sheet opened.
@@ -91,7 +92,11 @@ final class ComposeActions {
     /// where the letter is kept on the iPad; the composer's is
     /// `LocalDrafts`. `queued` is told, just before `dismiss`, that the
     /// letter did not go and waits in the Outbox: `sendLetter` threw
-    /// `Outbox.Waiting`.
+    /// `Outbox.Waiting`. `sent` is told once, before `queued` and
+    /// `dismiss`, that the sheet is closing on a letter that has gone or
+    /// waits in the Outbox, as Mail's composer plays its sent sound for
+    /// both (B-100): never for a refusal, Save Draft, Delete Draft or a
+    /// sheet put away without Send.
     init(sendLetter: @escaping (Draft, @escaping UploadProgress) async throws -> Void,
          saveDraft: @escaping (Draft) async throws -> Void,
          deleteDraft: @escaping (String, UInt64?) async throws -> Void,
@@ -100,7 +105,8 @@ final class ComposeActions {
          draw: @escaping (Look) -> Void,
          background: BackgroundTime,
          keeping: DraftKeeping = .nowhere,
-         queued: @escaping () -> Void = {}) {
+         queued: @escaping () -> Void = {},
+         sent: @escaping () -> Void = {}) {
         self.sendLetter = sendLetter
         self.saveDraft = saveDraft
         self.deleteDraft = deleteDraft
@@ -110,6 +116,7 @@ final class ComposeActions {
         self.background = background
         self.keeping = keeping
         self.queued = queued
+        self.sent = sent
     }
 
     /// Whether a letter is on its way, or has gone.
@@ -193,6 +200,11 @@ final class ComposeActions {
     /// that went, `queued` says so once, and nothing is drawn after it or
     /// taken out of Drafts, since nothing has gone. Anything else it throws
     /// is about the letter or the account, and the sheet stays with it.
+    ///
+    /// `sent` is told as the sheet closes either way, once, after
+    /// `sendLetter` has returned or thrown `Outbox.Waiting` and never
+    /// before: Mail's composer has one 'sent' for a letter that went and
+    /// one put in its Outbox, and plays its sound for it (B-100).
     @discardableResult
     func send(_ letter: @escaping () -> Draft, then draftsChanged: (() -> Void)?,
               draftSent: ((String) -> Void)? = nil) -> Task<Void, Never>? {
@@ -223,6 +235,7 @@ final class ComposeActions {
                 // sheet is done with it, and from now on the pass takes it.
                 stage = .sent
                 keeping.letGo()
+                sent()
                 queued()
                 dismiss()
                 return
@@ -244,6 +257,7 @@ final class ComposeActions {
             }
             stage = .sent
             keeping.forget()
+            sent()
             dismiss()
             // A sent letter must not stay in Drafts. Without this, finishing
             // a draft left the half-written version behind and he would find

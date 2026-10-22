@@ -4,6 +4,7 @@
 
 import UIKit
 import UniformTypeIdentifiers
+import AudioToolbox
 
 /// The share extension (B-036): what Safari, YouTube or Photos show when
 /// Blackmail is chosen in the share sheet.
@@ -233,6 +234,8 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
             noteSent: { ShareMirror.device.noteSent($0) },
             finish: finish,
             cancel: cancel,
+            // Mail's sent sound, as the app's composer plays it (B-100).
+            sent: { AudioServicesPlaySystemSound(ComposeViewController.sentMailSound) },
             showError: { [weak self] error in
                 guard let self else { return }
                 ErrorPresenter.show(error, on: self)

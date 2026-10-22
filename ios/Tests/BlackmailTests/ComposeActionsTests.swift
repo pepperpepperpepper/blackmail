@@ -13,6 +13,8 @@ final class ComposeActionsTests: XCTestCase {
     private var errors: [MailError] = []
     private var sends = 0
     private var saves = 0
+    /// How many times the sent sound was asked for (B-100).
+    private var swooshes = 0
     private var background = FakeBackground()
 
     /// What the send, the save and the draft's removal do when they are
@@ -44,6 +46,7 @@ final class ComposeActionsTests: XCTestCase {
         errors = []
         sends = 0
         saves = 0
+        swooshes = 0
         background = FakeBackground()
         sendOutcome = .success(())
         holdSend = nil
@@ -55,8 +58,10 @@ final class ComposeActionsTests: XCTestCase {
     }
 
     /// With `keeping`, what the letter is kept as on the iPad, and taken
-    /// off it, is written into the log as well.
-    private func makeActions(keeping: Bool = false) -> ComposeActions {
+    /// off it, is written into the log as well. With `sound`, so are the
+    /// sent sound and a send that returned, the server's 250; the sound is
+    /// counted either way.
+    private func makeActions(keeping: Bool = false, sound: Bool = false) -> ComposeActions {
         background.log = { [unowned self] in log.append($0) }
         let kept = DraftKeeping(
             keep: { [unowned self] _, finished in log.append(finished ? "keep" : "keep unfinished") },
@@ -75,6 +80,7 @@ final class ComposeActionsTests: XCTestCase {
                 for (written, total) in progress { report(written, total) }
                 try await holdSend?.wait()
                 try sendOutcome.get()
+                if sound { log.append("250") }
             },
             saveDraft: { [unowned self] _ in
                 saves += 1
@@ -90,7 +96,11 @@ final class ComposeActionsTests: XCTestCase {
             draw: { [unowned self] in draws.append($0) },
             background: background.time,
             keeping: keeping ? kept : .nowhere,
-            queued: { [unowned self] in log.append("queued") })
+            queued: { [unowned self] in log.append("queued") },
+            sent: { [unowned self] in
+                swooshes += 1
+                if sound { log.append("swoosh") }
+            })
     }
 
     private func draft(savedAs id: String? = nil) -> Draft {
@@ -245,6 +255,142 @@ final class ComposeActionsTests: XCTestCase {
         XCTAssertTrue(actions.isSending, "done with: nothing more goes from it")
         XCTAssertNil(actions.send({ [unowned self] in draft() }, then: nil))
         XCTAssertEqual(sends, 1)
+    }
+
+    // MARK: - The sent sound (B-100)
+
+    /// Mail plays its sent sound once, as its sheet closes on a letter
+    /// sent. Here: once the send has returned, the server's 250, and the
+    /// letter taken off the iPad, just before the sheet is told to close,
+    /// and never while the letter is still on its way. Drafts is tidied
+    /// after, as before, and a tap after it plays nothing.
+    func testTheSentSoundPlaysOnceAfterTheLetterHasGoneAsTheSheetCloses() async throws {
+        holdSend = Held()
+        let actions = makeActions(keeping: true, sound: true)
+        let sending = try XCTUnwrap(actions.send(draft(savedAs: "600003/7"), then: nil))
+        try await until { holdSend?.waiting == 1 }
+        XCTAssertEqual(swooshes, 0, "nothing while the letter is on its way")
+
+        holdSend?.release()
+        await sending.value
+        XCTAssertEqual(log, ["begin Send", "keep unfinished", "send", "250", "forget", "swoosh",
+                             "dismiss", "delete 600003/7", "tidy", "end 1"])
+        XCTAssertEqual(swooshes, 1)
+        XCTAssertNil(actions.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 1, "nothing at a tap after it has gone")
+    }
+
+    /// A letter put in the Outbox: the sound too, once, before the notice
+    /// and the sheet closing, as Mail's composer has one 'sent' for a letter
+    /// that went and one queued in its Outbox.
+    func testALetterPutInTheOutboxPlaysTheSentSoundAsMailsDoes() async throws {
+        sendOutcome = .failure(Outbox.Waiting())
+        let actions = makeActions(keeping: true, sound: true)
+        await actions.send(draft(savedAs: "600003/7"), then: nil)?.value
+        XCTAssertEqual(log, ["begin Send", "keep unfinished", "send", "let go", "swoosh", "queued",
+                             "dismiss", "end 1"])
+        XCTAssertEqual(swooshes, 1)
+        XCTAssertNil(actions.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 1)
+    }
+
+    /// A send the server refused, or that failed for any other reason, is
+    /// silent, and the sheet stays with the reason. Send after it, the
+    /// letter going: the sound, once.
+    func testARefusedSendIsSilentAndTheSheetStays() async throws {
+        sendOutcome = .failure(MailError.messageTooLarge)
+        let actions = makeActions(sound: true)
+        await actions.send(draft(), then: nil)?.value
+        XCTAssertEqual(log, ["begin Send", "send", "error", "end 1"])
+        XCTAssertEqual(draws, [.sending("Sending…"), .writing], "the sheet stays")
+        XCTAssertEqual(swooshes, 0)
+
+        sendOutcome = .failure(CancellationError())
+        await actions.send(draft(), then: nil)?.value
+        XCTAssertEqual(errors, [.messageTooLarge, .notSent])
+        XCTAssertEqual(swooshes, 0)
+
+        sendOutcome = .success(())
+        await actions.send(draft(), then: nil)?.value
+        XCTAssertEqual(Array(log.suffix(6)), ["begin Send", "send", "250", "swoosh", "dismiss",
+                                              "end 3"])
+        XCTAssertEqual(swooshes, 1)
+    }
+
+    /// Save Draft, Delete Draft, an autosave, his leaving the app, Cancel
+    /// on a letter as it opened and a swipe that puts the sheet away: no
+    /// sound. Nor any Send after them.
+    func testNothingButASendMakesTheSentSound() async throws {
+        let saved = makeActions(keeping: true)
+        await saved.saveAndClose(draft(), then: nil)?.value
+        XCTAssertNil(saved.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 0, "Save Draft")
+
+        reset()
+        let deleted = makeActions(keeping: true)
+        await deleted.deleteAndClose("600003/7", letter: nil, then: nil)?.value
+        XCTAssertNil(deleted.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 0, "Delete Draft")
+
+        reset()
+        let writing = makeActions(keeping: true)
+        writing.edited { [unowned self] in draft() }
+        try await until { pauses.waiting == 1 }
+        pauses.release()
+        try await until { log.contains("keep unfinished") }
+        await settled()
+        XCTAssertEqual(swooshes, 0, "an autosave")
+        await writing.putAside { [unowned self] in draft() }?.value
+        XCTAssertEqual(swooshes, 0, "leaving the app")
+        writing.closeWithoutAsking { [unowned self] in draft() }
+        XCTAssertNil(writing.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 0, "Cancel on a letter as it opened")
+
+        reset()
+        let swiped = makeActions(keeping: true)
+        swiped.edited { [unowned self] in draft() }
+        swiped.sheetGone { [unowned self] in draft() }
+        XCTAssertNil(swiped.send(draft(), then: nil))
+        XCTAssertEqual(swooshes, 0, "a swipe")
+    }
+
+    /// Two quick taps on Send, and a third while the letter is on the wire:
+    /// one letter, and one sound.
+    func testTwoQuickTapsOnSendMakeOneSound() async throws {
+        holdSend = Held()
+        let actions = makeActions(sound: true)
+        let first = try XCTUnwrap(actions.send(draft(), then: nil))
+        XCTAssertNil(actions.send(draft(), then: nil))
+        try await until { holdSend?.waiting == 1 }
+        XCTAssertNil(actions.send(draft(), then: nil))
+        holdSend?.release()
+        await first.value
+        XCTAssertEqual(sends, 1)
+        XCTAssertEqual(swooshes, 1)
+        XCTAssertEqual(log.filter { $0 == "swoosh" }, ["swoosh"])
+    }
+
+    /// Send while a photo is still on its way into the letter: no sound
+    /// while the photo is awaited, nor while the letter then goes; once it
+    /// has gone, the sound.
+    func testASendWaitingForAPhotoPlaysTheSoundOnlyOnceTheLetterHasGone() async throws {
+        let actions = makeActions(sound: true)
+        actions.photoComing()
+        holdSend = Held()
+        let sending = try XCTUnwrap(actions.send({ [unowned self] in
+            log.append("letter")
+            return draft()
+        }, then: nil))
+        await settled()
+        XCTAssertEqual(swooshes, 0, "nothing while the photo is awaited")
+
+        actions.photoLanded()
+        try await until { holdSend?.waiting == 1 }
+        XCTAssertEqual(swooshes, 0, "nor while the letter goes")
+        holdSend?.release()
+        await sending.value
+        XCTAssertEqual(log, ["begin Send", "letter", "send", "250", "swoosh", "dismiss", "end 1"])
+        XCTAssertEqual(swooshes, 1)
     }
 
     // MARK: - Background time

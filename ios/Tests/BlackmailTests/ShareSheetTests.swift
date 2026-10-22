@@ -21,6 +21,8 @@ final class ShareSheetTests: XCTestCase {
     private var errors: [MailError] = []
     private var noted: [[String]] = []
     private var files: [URL: Data] = [:]
+    /// How many times the sent sound was asked for (B-100).
+    private var swooshes = 0
 
     override func setUp() {
         super.setUp()
@@ -63,10 +65,13 @@ final class ShareSheetTests: XCTestCase {
         }
     }
 
+    /// With `sound`, the sent sound is written into the log as well; it
+    /// is counted either way.
     private func sheet(_ server: ScriptedSubmission,
                        recipients: [KnownRecipient] = [],
                        signatureImages: [SignatureImages.InlineImage] = [],
-                       memory: @escaping @Sendable () -> SharedPhoto.Memory = { .init() })
+                       memory: @escaping @Sendable () -> SharedPhoto.Memory = { .init() },
+                       sound: Bool = false)
         -> ShareSheet {
         let shared = ShareMirror.Shared(account: account, password: "app-password",
                                         signatureImages: signatureImages, recipients: recipients)
@@ -83,6 +88,10 @@ final class ShareSheetTests: XCTestCase {
             noteSent: { [unowned self] in noted.append($0) },
             finish: { [unowned self] in log.append("finish") },
             cancel: { [unowned self] in log.append("cancel") },
+            sent: { [unowned self] in
+                swooshes += 1
+                if sound { log.append("swoosh") }
+            },
             showError: { [unowned self] in errors.append($0); log.append("error") },
             draw: { [unowned self] in draws.append($0) },
             background: BackgroundTime(begin: { _, _ in nil }, end: { _ in }))
@@ -437,6 +446,53 @@ final class ShareSheetTests: XCTestCase {
         let letters = await server.letters
         XCTAssertTrue(letters.isEmpty)
         XCTAssertEqual(log, ["cancel"])
+    }
+
+    // MARK: - The sent sound (B-100)
+
+    /// Mail's share sheet is its composer, and plays the sent sound as it
+    /// goes. Here: nothing while the letter's 250 is still to come, then
+    /// the sound once, just before the share ends. A second tap, and one
+    /// after, play nothing.
+    func testTheSentSoundPlaysOnceJustBeforeTheShareEnds() async throws {
+        let server = ScriptedSubmission(holdsLetterReply: true)
+        let sheet = sheet(server, sound: true)
+        let draft = letter(sheet, [.link(page, title: nil)])
+
+        let sending = try XCTUnwrap(sheet.send { draft })
+        try await until { await server.isHoldingLetterReply }
+        XCTAssertNil(sheet.send { draft })
+        XCTAssertEqual(log, [], "nothing before the 250")
+        await server.releaseLetterReply()
+        await sending.value
+        XCTAssertNil(sheet.send { draft })
+        XCTAssertEqual(log, ["swoosh", "finish"])
+        XCTAssertEqual(swooshes, 1)
+        try await lettingGo(server)
+    }
+
+    /// A letter Gmail refuses, and one sent with no connection, which the
+    /// share sheet refuses as it has no Outbox: no sound, the sheet stays.
+    /// Cancel after them, and Cancel before any Send: no sound.
+    func testARefusedSendAndCancelMakeNoSound() async throws {
+        let tooBig = ScriptedSubmission(letterReply: "552 5.3.4 Message too big")
+        let refused = sheet(tooBig, sound: true)
+        let draft = letter(refused, [.link(page, title: nil)])
+        await refused.send { draft }?.value
+        XCTAssertEqual(errors, [.messageTooLarge])
+        XCTAssertEqual(log, ["error"], "the sheet stays")
+        try await lettingGo(tooBig, outcome: "fail")
+
+        let offline = sheet(ScriptedSubmission(failsToOpen: true), sound: true)
+        let unsent = letter(offline, [.link(page, title: nil)])
+        await offline.send { unsent }?.value
+        XCTAssertEqual(log, ["error", "error"], "the sheet stays")
+        await offline.cancel()?.value
+        XCTAssertEqual(log, ["error", "error", "cancel"])
+
+        await sheet(ScriptedSubmission(), sound: true).cancel()?.value
+        XCTAssertEqual(log, ["error", "error", "cancel", "cancel"])
+        XCTAssertEqual(swooshes, 0)
     }
 
     /// Nobody to send to is refused before a connection is made, as in the

@@ -5,6 +5,7 @@
 
 import UIKit
 import PhotosUI
+import AudioToolbox
 
 /// The classic modal composer. Cancel fixed left, Send fixed right, always.
 final class ComposeViewController: UIViewController,
@@ -101,7 +102,21 @@ final class ComposeViewController: UIViewController,
         },
         draw: { [weak self] look in self?.draw(look) },
         background: .app,
-        queued: { [weak self] in self?.queuedOnClose = true })
+        queued: { [weak self] in self?.queuedOnClose = true },
+        sent: { AudioServicesPlaySystemSound(ComposeViewController.sentMailSound) })
+
+    /// Mail's sent sound, its Swoosh, played once as the sheet closes on a
+    /// letter that went or was put in the Outbox, as Mail's composer plays
+    /// it (B-100). The share sheet plays the same.
+    ///
+    /// mail-sent.caf, 1001 in AudioToolbox's built-in table of system
+    /// sounds, next to new-mail.caf at 1000. Apple does not document the
+    /// number: it was read from iOS 18.6's AudioToolbox, and lists of the
+    /// system sounds have given it since iPhone OS 2. Played at the
+    /// system's volume, with no volume of the app's own. The tone chosen in
+    /// Settings, Sounds, Sent Mail is not read, so this is Swoosh, the
+    /// factory one, whatever is chosen there.
+    static let sentMailSound: SystemSoundID = 1001
 
     /// Send could not reach the server and the letter waits in the Outbox:
     /// the sheet closes with one notice over what it came from
