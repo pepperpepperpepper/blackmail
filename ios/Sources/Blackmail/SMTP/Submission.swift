@@ -26,7 +26,11 @@ import Foundation
 /// what he sees under that name; this is only the handing over.
 enum Submission {
 
-    typealias File = (filename: String, mimeType: String, source: LetterSource)
+    /// One file of the letter: its name, its type, where its bytes are,
+    /// and what it is to the letter, one of its files or one of his photos
+    /// in its body (B-109).
+    typealias File = (filename: String, mimeType: String, source: LetterSource,
+                      role: LetterFileRole)
     typealias InlineImage = (contentID: String, filename: String, mimeType: String, data: Data)
 
     /// Everyone the letter is addressed to, To, Cc and Bcc, with blanks
@@ -70,6 +74,13 @@ enum Submission {
     /// is called once the server has taken the envelope and nothing is left
     /// but the letter itself (`SMTPClient.send`).
     ///
+    /// His photos in the body come from `attachments` as the files do,
+    /// each with the Content-ID `htmlBody` shows it by (`LetterFileRole`,
+    /// B-109), and are read from where they are as the letter goes, as a
+    /// file is, never held whole: the share extension has about 120 MB.
+    /// They are opened, read, checked and logged first, as the plan numbers
+    /// them, then the files, each in the order given.
+    ///
     /// `date`, `boundaryToken` and `opening` are for a test, to make the
     /// letter reproducible and its files' reads its own.
     static func send(_ draft: Draft, from account: MailAccount, password: String,
@@ -88,7 +99,13 @@ enum Submission {
         async throws {
         let recipients = recipients(of: draft)
         guard !recipients.isEmpty else { throw MailError.notSent }
-        let files = try await attachments()
+        let given = try await attachments()
+        let files = given.filter { $0.role != .file } + given.filter { $0.role == .file }
+        let inBody: [(contentID: String, filename: String, mimeType: String)] =
+            files.compactMap { file in
+                guard case let .inBody(contentID) = file.role else { return nil }
+                return (contentID, file.filename, file.mimeType)
+            }
         let opened: LetterFiles
         do {
             opened = try opening(files.map(\.source))
@@ -105,9 +122,11 @@ enum Submission {
                                        date: date,
                                        messageID: messageID,
                                        inReplyToHeaders: threadHeaders,
-                                       files: files.map { ($0.filename, $0.mimeType) },
+                                       files: files.dropFirst(inBody.count)
+                                           .map { ($0.filename, $0.mimeType) },
                                        htmlBody: htmlBody,
                                        inlineImages: inlineImages,
+                                       inlineFiles: inBody,
                                        boundaryToken: boundaryToken)
         let letter: DataStream
         do {
@@ -119,7 +138,8 @@ enum Submission {
         Diagnostics.log(.note,
             "LETTER-PLAN files=\(rehearsal.files.count) "
             + "file-bytes=\(rehearsal.files.reduce(0) { $0 + $1.bytes }) "
-            + "raw=\(rehearsal.rawCount) payload=\(rehearsal.payloadCount) ms=\(rehearsal.ms)")
+            + "raw=\(rehearsal.rawCount) payload=\(rehearsal.payloadCount) ms=\(rehearsal.ms)"
+            + (inBody.isEmpty ? "" : " in-body=\(inBody.count)"))
         for (index, file) in rehearsal.files.enumerated() {
             var line = "LETTER-FILE \(index + 1) bytes=\(file.bytes) crc=\(CRC32.hex(file.crc))"
             // A file on the disk with no size when attached: its size was
@@ -127,6 +147,8 @@ enum Submission {
             if case .disk(_, attachedSize: nil) = files[index].source {
                 line += " attached=- not checked"
             }
+            // One of his photos in the body, streamed as a file is (B-109).
+            if files[index].role != .file { line += " in-body" }
             Diagnostics.log(.note, line)
         }
         rehearsed?(rehearsal)

@@ -102,7 +102,7 @@ final class StreamingSendTests: XCTestCase {
             through: SMTPClient(account: account, transport: { _, _ in opened.set(); return server }),
             threadHeaders: nil,
             attachments: {
-                zip(files, sizes).map { ($0.0, $0.1, .disk($0.2, attachedSize: $1)) }
+                zip(files, sizes).map { ($0.0, $0.1, .disk($0.2, attachedSize: $1), .file) }
             },
             htmlBody: markup, inlineImages: [LetterCorpus.logo], messageID: messageID,
             beforeData: beforeData, progress: progress, date: date,
@@ -309,7 +309,8 @@ final class StreamingSendTests: XCTestCase {
                     draft, from: account, password: "app-password",
                     through: SMTPClient(account: account,
                                         transport: { _, _ in opened.set(); return server }),
-                    threadHeaders: nil, attachments: { files }, htmlBody: nil, inlineImages: [],
+                    threadHeaders: nil, attachments: { files.map { ($0.0, $0.1, $0.2, .file) } },
+                    htmlBody: nil, inlineImages: [],
                     progress: nil, opening: opening ?? { try LetterFiles(opening: $0) })
                 XCTFail("\(label): sent")
             } catch let error as MailError {
@@ -338,9 +339,10 @@ final class StreamingSendTests: XCTestCase {
             draft, from: account, password: "app-password",
             through: SMTPClient(account: account, transport: { _, _ in server }),
             threadHeaders: nil,
-            attachments: { [("IMG_0005.MOV", "video/quicktime", .disk(videoURL, attachedSize: nil)),
+            attachments: { [("IMG_0005.MOV", "video/quicktime", .disk(videoURL, attachedSize: nil),
+                             .file),
                             ("Notes.txt", "text/plain",
-                             .disk(notesURL, attachedSize: Int64(notes.count)))] },
+                             .disk(notesURL, attachedSize: Int64(notes.count)), .file)] },
             htmlBody: markup, inlineImages: [LetterCorpus.logo], messageID: messageID,
             progress: nil, date: date, boundaryToken: Counting().next)
 

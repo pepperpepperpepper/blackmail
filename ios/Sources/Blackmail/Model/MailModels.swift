@@ -338,7 +338,10 @@ struct Draft {
     /// chain rather than restarting it. A reply reopened from Drafts has
     /// the draft's own, which ends with the parent already.
     var references: String?
-    /// Files travelling with this message. Only forwards set these.
+    /// Files travelling with this message: the photos he attached, a
+    /// forward's parts of its original, a reopened draft's own, and a
+    /// reply's parts of its original once it goes to someone the original
+    /// did not (`ReplyFiles`, B-107).
     var attachments: [DraftAttachment] = []
 
     /// The copy of this letter already saved in the Drafts folder, as
@@ -479,15 +482,26 @@ extension Draft {
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region)
 
-        // Deliberately NO attachments. Quoting somebody's text back is
-        // normal; posting their files back to them is not, and doing it by
-        // default would make every reply to a photograph re-upload the
-        // photograph.
+        // No attachments here. Quoting somebody's text back is normal;
+        // posting their files back to them is not, and doing it with every
+        // reply would make each reply to a photograph upload the photograph
+        // again. A reply carries them only once it goes to someone the
+        // original did not, as Mail's does, and then as rows he sees before
+        // it can go: the composer's `ReplyFiles` (B-107), which the pane
+        // hands it with this draft.
         return draft
     }
 
     /// The draft a Forward starts from.
-    static func forwarding(_ m: Message, signature: String = "") -> Draft {
+    ///
+    /// `includingFiles` is his answer to Mail's question, "Include
+    /// attachments from original message?", which Forward asks of a letter
+    /// with files the header lists (`ReplyFiles.forwardAsks`, B-107):
+    /// Include, or no question, carries every part, as a forward always
+    /// has; Don't Include only the pictures the original shows in its body,
+    /// which its quote shows too (`DraftAttachment.carried(from:)`).
+    static func forwarding(_ m: Message, signature: String = "",
+                           includingFiles: Bool = true) -> Draft {
         var draft = Draft()
         draft.subject = m.subject.hasPrefix("Fwd:") ? m.subject : "Fwd: \(m.subject)"
         // Apple's header block, not Gmail's. The old one read
@@ -511,7 +525,8 @@ extension Draft {
         // The files come too. Forwarding a receipt and leaving its two PDFs
         // behind sends a letter about nothing, and does it silently — which
         // is the part that matters, because nothing on the sending screen
-        // said they had been dropped.
+        // said they had been dropped. They are left only when he answers
+        // Don't Include to the question Forward asks first.
         //
         // Every part is a row, the pictures the original shows in its body
         // included, so he can see what the forward weighs and take any of
@@ -519,17 +534,10 @@ extension Draft {
         // rather than as files (`AppleMailHTML.letter`); if he has changed
         // the quote, they go as files, as they always did.
         //
-        // Each names the original by Gmail's id as well as by folder and
-        // UID, so a forward kept on the iPad and sent in a later launch
-        // carries its own files or none (`Message.gmailMessageID`).
-        draft.attachments = m.attachments.map {
-            DraftAttachment(source: .messagePart(messageID: m.id,
-                                                 mailboxID: m.mailboxID,
-                                                 section: $0.id,
-                                                 letter: m.gmailMessageID),
-                            filename: $0.filename,
-                            mimeType: $0.mimeType, size: $0.size)
-        }
+        // Made by the mapper a reply's files are made by
+        // (`DraftAttachment.carried(from:)`), so the two name every part
+        // the same way.
+        draft.attachments = DraftAttachment.carried(from: m, filesToo: includingFiles)
         // No threading headers on a forward: it starts a new conversation
         // with a new recipient, and claiming the original as its parent
         // would file it into a thread they have never seen.
@@ -552,17 +560,19 @@ extension Draft {
     /// Any OTHER inline picture, such as a photograph placed in the body of
     /// a draft begun in another client, stays a file row. The composer is
     /// plain text with an HTML twin built at send (D-013), so there is
-    /// nowhere in the body to keep it; as a file it still goes with the
+    /// nowhere in the text to keep it; as a row it still goes with the
     /// letter, and he can see it and remove it. Dropping it would send a
     /// letter that says "here is the photo" without the photo, and nothing
-    /// on the sending screen would say so.
+    /// on the sending screen would say so. Where it goes in the letter is
+    /// `inBody`'s, below.
     ///
     /// A draft of a reply or forward this app saved comes back with its
     /// quote (`QuotedOriginal.recovered`), so the letter sent from it is the
     /// one he would have sent before putting it down: the original as it
     /// looked, if he has still not touched the quote. A forward's pictures
-    /// are rows, as they were when he began it; a reply has none to bring
-    /// back, as it carries none of the original's parts.
+    /// are rows, as they were when he began it, and so are a reply's when
+    /// it was carrying the original's parts (B-107); a reply that carried
+    /// none has none to bring back.
     ///
     /// A reply comes back still answering its letter: the draft's
     /// In-Reply-To, which names it, and its References, which already end
@@ -572,12 +582,19 @@ extension Draft {
     /// them and does not add the letter answered to References a second
     /// time (`RFC5322Builder.messageIDs`). A forward this app saved has
     /// neither, and a letter begun afresh, so they come back with none.
+    ///
+    /// A part its saved markup shows among his words, before his signature
+    /// and any quote, is one of his photos in the letter: its row comes back
+    /// marked so (`DraftAttachment.inBody`), and it goes in the letter again
+    /// (B-109). That covers a draft begun in Mail on another device, which
+    /// places its photos there too. Every other part is a row as before.
     static func reopening(_ m: Message,
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
         // `quotableText` rather than `textBody`, so a draft written in
         // another client as HTML reopens with its words in it instead of
         // empty.
         let body = m.textBody ?? m.quotableText
+        let amongHisWords = m.htmlBody.map(AppleMailHTML.contentIDsAmongHisWords) ?? []
         // Each recipient as the composer's field keeps it, so that a name
         // whose comma came out of an encoded word, `Example, Jane
         // <jane@example.com>` once decoded, is still one recipient when the
@@ -600,7 +617,9 @@ extension Draft {
                                                                   letter: m.gmailMessageID),
                                              filename: $0.filename,
                                              mimeType: $0.mimeType,
-                                             size: $0.size)
+                                             size: $0.size,
+                                             inBody: $0.contentID.map(amongHisWords.contains)
+                                                 ?? false)
                          },
                      savedID: m.id,
                      savedLetter: m.gmailMessageID,
@@ -619,7 +638,7 @@ extension Draft {
 /// instead puts the wait where a wait is already expected, and usually costs
 /// nothing at all: the repository still has the whole source message cached
 /// from displaying it a moment earlier.
-struct DraftAttachment {
+struct DraftAttachment: Equatable {
 
     /// Where the bytes come from when the letter is finally built.
     ///
@@ -636,7 +655,7 @@ struct DraftAttachment {
     /// The folder and UID are how it is fetched; the id is how the bytes
     /// are known to be that letter's once the letter has waited on the iPad
     /// into a later launch (`IMAPMailRepository.fetchCarried`).
-    enum Source {
+    enum Source: Equatable {
         case messagePart(messageID: String, mailboxID: String, section: String,
                          letter: UInt64? = nil)
         case localFile(URL)
@@ -652,6 +671,66 @@ struct DraftAttachment {
     /// is NOT what the send-time limit check uses. That one counts the real
     /// built message.
     let size: Int64?
+    /// A part of a draft reopened from Drafts that its saved letter showed
+    /// among his words, before his signature and any quote: one of his
+    /// photos in the letter, which goes there again (`isBodyPicture`,
+    /// B-109). False for every other row, a photo on the iPad included,
+    /// which is one by what it is.
+    ///
+    /// Declared last so the memberwise initializer keeps the argument order
+    /// every existing call site uses.
+    var inBody: Bool = false
+
+    /// The kinds of picture that go in the letter, under his words: the
+    /// three his Apple Mail letters' pictures were, and that every mail
+    /// program shows (B-109).
+    static let bodyPictureTypes: Set<String> = ["image/jpeg", "image/png", "image/gif"]
+
+    /// True for a photo of his that goes in the letter, after his last
+    /// typed line and above his signature, as every one of his Apple Mail
+    /// letters with a picture had it (B-109), rather than as a file under
+    /// it: a JPEG, PNG or GIF he attached himself, a file on this iPad from
+    /// Photo Library, Attach File or the share sheet, or a part of a
+    /// reopened draft that was in the letter (`inBody`).
+    ///
+    /// Never a part of a letter on the server otherwise: a forward's
+    /// files, a reply's (B-107) and a quote's pictures go as they did. Nor
+    /// a video, a PDF or any other kind, nor the signature's pictures,
+    /// which are no row. It is still his row, with its weight and its
+    /// Remove; only where it goes in the letter is decided here
+    /// (`AppleMailHTML.letter`).
+    var isBodyPicture: Bool {
+        let type = mimeType.trimmingCharacters(in: .whitespaces).lowercased()
+        guard Self.bodyPictureTypes.contains(type) else { return false }
+        if case .localFile = source { return true }
+        return inBody
+    }
+
+    /// The parts of `m` as a letter made from it carries them, a row each,
+    /// with its weight and a Remove: every part, the pictures its body
+    /// shows by `cid:` among them, or with `filesToo` false those pictures
+    /// alone (`Attachment.isShownInBody`). In the letter's order.
+    ///
+    /// What a forward carries (`Draft.forwarding`) and what a reply carries
+    /// once it goes to someone the original did not (`ReplyFiles`, B-107):
+    /// one mapper, so the two make the same rows, byte for byte. The
+    /// pictures are rows too, so he sees what they weigh and can take any
+    /// off; at Send the ones the quote still shows go in the quote, and the
+    /// rest as files (`AppleMailHTML.letter`).
+    ///
+    /// Each names the original by Gmail's id as well as by folder and UID,
+    /// so a letter kept on the iPad and sent in a later launch carries its
+    /// own files or none (`Message.gmailMessageID`).
+    static func carried(from m: Message, filesToo: Bool = true) -> [DraftAttachment] {
+        m.attachments.filter { filesToo || $0.isShownInBody }.map {
+            DraftAttachment(source: .messagePart(messageID: m.id,
+                                                 mailboxID: m.mailboxID,
+                                                 section: $0.id,
+                                                 letter: m.gmailMessageID),
+                            filename: $0.filename,
+                            mimeType: $0.mimeType, size: $0.size)
+        }
+    }
 }
 
 // MARK: - Formatting

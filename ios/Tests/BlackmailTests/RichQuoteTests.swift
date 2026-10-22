@@ -8,8 +8,10 @@ import XCTest
 /// markup inside Mail's quote, under Mail's attribution or its "Begin
 /// forwarded message:" block, as long as he has not touched the quote; a
 /// forward's pictures go as related parts under Content-IDs of their own,
-/// and a reply carries none of the original's parts. Once he has touched
-/// the quote, the HTML shows only what he left.
+/// and a reply carries none of the original's parts, until it goes to
+/// someone the original did not, when it carries them as a forward does
+/// (B-107). Once he has touched the quote, the HTML shows only what he
+/// left.
 ///
 /// Each letter here is built and read back with the app's own MIME reader,
 /// so what is checked is what a recipient's client would be handed. The
@@ -287,6 +289,106 @@ final class RichQuoteTests: XCTestCase {
         XCTAssertEqual(forwarded.parts.filter { $0.data == programmeBytes }.map(\.isInline),
                        [false])
         XCTAssertEqual(forwarded.parts.filter { $0.data == gardenBytes }.map(\.isInline), [true])
+    }
+
+    // MARK: - A reply to someone new (B-107)
+
+    /// The reply with Pat in Cc, whom her letter did not go to, and the
+    /// rows `ReplyFiles` puts in for it, as the composer does.
+    private func replyToSomeoneNew(_ m: Message? = nil) throws -> Draft {
+        let m = m ?? original()
+        var draft = reply(m)
+        draft.cc = ["pat@example.org"]
+        var files = try XCTUnwrap(ReplyFiles(replyingTo: m))
+        draft.attachments = try XCTUnwrap(files.recipientsChanged(
+            to: draft.to, cc: draft.cc, bcc: draft.bcc, in: draft.attachments))
+        return draft
+    }
+
+    /// Her photograph and her logo go in the quote, where her letter showed
+    /// them, each under an id of the letter's own, and the PDF as a file:
+    /// a picture the body shows is never a file of the reply. His logo
+    /// once, by his signature. The words are a reply's as they always were.
+    func testAReplyToSomeoneNewSendsItsQuotesPicturesInlineAndItsFileAsAFile() throws {
+        let draft = try replyToSomeoneNew()
+        XCTAssertEqual(draft.attachments.map(\.filename), ["garden.jpg", "logo.png", "Programme.pdf"])
+        let sent = read(built(draft))
+
+        let garden = sent.parts.filter { $0.data == gardenBytes }
+        let hers = sent.parts.filter { $0.data == janeLogoBytes }
+        XCTAssertEqual(garden.map(\.isInline), [true])
+        XCTAssertEqual(hers.map(\.isInline), [true])
+        for part in garden + hers {
+            XCTAssertTrue(part.contentID?.hasPrefix("bmquote") == true, "\(part.contentID ?? "none")")
+        }
+        XCTAssertEqual(sent.parts.filter { $0.data == logoBytes }.map(\.contentID), ["sig-logo"])
+        XCTAssertEqual(occurrences(of: "cid:sig-logo", in: sent.html), 1, sent.html)
+        XCTAssertEqual(sent.parts.filter { !$0.isInline }.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(sent.parts.filter { $0.data == programmeBytes }.map(\.isInline), [false])
+        XCTAssertEqual(sent.parts.count, 4, "\(sent.parts.map(\.filename))")
+
+        let ids = sent.parts.compactMap(\.contentID)
+        XCTAssertEqual(Set(ids).count, ids.count, "\(ids)")
+        XCTAssertEqual(QuotedMarkup.contentIDs(shownBy: sent.html), Set(ids))
+        XCTAssertTrue(quoted(sent.html).contains("<img src=\"cid:\(garden.first?.contentID ?? "?")\" "
+                                                 + "width=\"400\" alt=\"The garden\">"), sent.html)
+        XCTAssertEqual(sent.plain, read(built(reply())).plain)
+        XCTAssertEqual(sent.plainWire, read(built(reply())).plainWire)
+    }
+
+    /// A row he took off does not go, in the quote or anywhere: the
+    /// photograph taken off leaves no part and no `<img>`, the rest going;
+    /// every row taken off, the reply is one that carried nothing.
+    func testAReplysRowsTakenOffSendNoPictureAndNoImg() throws {
+        var some = try replyToSomeoneNew()
+        some.attachments.removeAll { $0.filename == "garden.jpg" }
+        let fewer = read(built(some))
+        XCTAssertFalse(fewer.parts.contains { $0.data == gardenBytes })
+        XCTAssertFalse(fewer.html.contains("alt=\"The garden\""), "its <img> goes with it")
+        XCTAssertEqual(fewer.parts.filter { $0.data == janeLogoBytes }.map(\.isInline), [true])
+        XCTAssertEqual(fewer.parts.filter { !$0.isInline }.map(\.filename), ["Programme.pdf"])
+
+        var none = try replyToSomeoneNew()
+        none.attachments = []
+        let sent = read(built(none))
+        XCTAssertEqual(sent.parts.map(\.contentID), ["sig-logo"], "\(sent.parts.map(\.filename))")
+        XCTAssertFalse(quoted(sent.html).contains("cid:"), sent.html)
+        XCTAssertFalse(sent.html.contains("alt=\"The garden\""))
+        XCTAssertTrue(quoted(sent.html).contains("<p>Here is the <b>garden</b> in June.</p>"))
+    }
+
+    /// A reply with no rows is the letter a reply always was: its HTML the
+    /// HTML of the same reply with no picture of hers to show at all, and
+    /// nothing of hers to fetch, whatever she sent; sent and as a draft.
+    func testAReplyWithNoRowsIsTheLetterItAlwaysWas() {
+        let m = Message(id: "600001/42", mailboxID: Server.inbox,
+                        sender: "Jane Example <jane@example.com>",
+                        senderAddress: "jane@example.com", to: ["sam@example.com"], cc: [],
+                        subject: "The garden", date: when, textBody: originalText,
+                        htmlBody: originalHTML,
+                        attachments: [
+                            Attachment(id: "2", filename: "garden.jpg", mimeType: "image/jpeg",
+                                       size: 1200, contentID: "ii_garden01", isInline: true),
+                            Attachment(id: "4", filename: "Programme.pdf",
+                                       mimeType: "application/pdf", size: 22,
+                                       contentID: "programme@example.com"),
+                        ])
+        for original in [original(), original(cc: ["carlo@example.org"]), m] {
+            let draft = reply(original)
+            XCTAssertEqual(draft.attachments.count, 0)
+            var bare = draft
+            bare.quote?.pictures = []
+            for forDraft in [false, true] {
+                let letter = AppleMailHTML.letter(for: draft, account: account,
+                                                  reserving: ["sig-logo"], forDraft: forDraft)
+                let without = AppleMailHTML.letter(for: bare, account: account,
+                                                   reserving: ["sig-logo"], forDraft: forDraft)
+                XCTAssertTrue(letter.pictures.isEmpty)
+                XCTAssertTrue(letter.files.isEmpty)
+                XCTAssertEqual(letter.html, without.html)
+                XCTAssertFalse((letter.html ?? "").contains("bmquote"))
+            }
+        }
     }
 
     // MARK: - Forward
@@ -997,6 +1099,101 @@ final class RichQuoteRepositoryTests: XCTestCase {
         XCTAssertEqual(again.html, first.html)
         XCTAssertEqual(again.parts, first.parts)
         XCTAssertTrue(first.html.contains("<b>garden</b>"), first.html)
+    }
+
+    // MARK: - A reply to someone new (B-107)
+
+    /// The reply with Pat in Cc, whom her letter did not go to, and the
+    /// rows `ReplyFiles` puts in for it, as the composer does.
+    private func replyToSomeoneNew(_ m: Message) throws -> Draft {
+        var draft = reply(to: m)
+        draft.cc = ["pat@example.org"]
+        var files = try XCTUnwrap(ReplyFiles(replyingTo: m))
+        draft.attachments = try XCTUnwrap(files.recipientsChanged(
+            to: draft.to, cc: draft.cc, bcc: draft.bcc, in: draft.attachments))
+        return draft
+    }
+
+    /// Sent by the shipping repository: the photograph inline in the quote,
+    /// under an id of the letter's own, and the PDF as a file, its bytes
+    /// hers; both from the letter on screen, so nothing is asked of the
+    /// server.
+    func testASentReplyToSomeoneNewCarriesThePictureInlineAndTheFileAsAFile() async throws {
+        let repository = makeRepository()
+        let m = try await delivered(repository)
+        let draft = try replyToSomeoneNew(m)
+        XCTAssertEqual(draft.attachments.map(\.filename), ["garden.jpg", "Programme.pdf"])
+        server.clearLog()
+        try await repository.send(draft)
+        let letters = await submission.letters()
+        XCTAssertEqual(letters.count, 1)
+        let sent = read(try XCTUnwrap(letters.last))
+
+        let garden = sent.parts.filter { $0.data == gardenBytes }
+        XCTAssertEqual(garden.map(\.isInline), [true])
+        XCTAssertTrue(garden.first?.contentID?.hasPrefix("bmquote") == true)
+        XCTAssertTrue(sent.html.contains("<img src=\"cid:\(garden.first?.contentID ?? "?")\""), sent.html)
+        XCTAssertEqual(sent.parts.filter { !$0.isInline }.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(sent.parts.first { $0.filename == "Programme.pdf" }?.data, programmeBytes)
+        XCTAssertEqual(server.log.map(\.command), [], "from the letter on screen")
+    }
+
+    /// The letter no longer the one on screen: its parts are fetched at
+    /// Send, as a forward's are, and go.
+    func testAReplyToSomeoneNewFetchesItsPartsAtSend() async throws {
+        let repository = makeRepository()
+        let m = try await delivered(repository)
+        let draft = try replyToSomeoneNew(m)
+        let at = try uid(of: m)
+        try await readAnother(repository)
+        server.clearLog()
+        try await repository.send(draft)
+        let letters = await submission.letters()
+        let sent = read(try XCTUnwrap(letters.last))
+        XCTAssertEqual(sent.parts.filter { $0.data == gardenBytes }.map(\.isInline), [true])
+        XCTAssertEqual(sent.parts.filter { !$0.isInline }.map(\.data), [programmeBytes])
+        let fetches = server.log.filter { $0.command.hasPrefix("UID FETCH \(at) ") }
+        XCTAssertFalse(fetches.isEmpty, "\(server.log)")
+    }
+
+    /// Its original gone where it can no longer be fetched from: nothing is
+    /// sent, and the reason is the letter's own, a row he can take off.
+    func testAReplyToSomeoneNewIsNotSentWithoutItsFiles() async throws {
+        let repository = makeRepository()
+        let m = try await delivered(repository)
+        let draft = try replyToSomeoneNew(m)
+        try await repository.move(m.id, from: Server.inbox, to: Server.allMail)
+        do {
+            try await repository.send(draft)
+            XCTFail("sent without the files it carries")
+        } catch {
+            XCTAssertEqual(error as? MailError, .attachmentFailed)
+        }
+        let letters = await submission.letters()
+        XCTAssertEqual(letters.count, 0)
+    }
+
+    /// Saved with its rows and reopened: the rows are back, the quote with
+    /// its picture, and Pat; sent from there, the photograph goes inline
+    /// and the PDF as a file, as from the fresh reply.
+    func testAReopenedReplyToSomeoneNewKeepsItsRowsAndStillSendsThePictureInline() async throws {
+        let repository = makeRepository()
+        let m = try await delivered(repository)
+        let saved = try await repository.saveDraft(try replyToSomeoneNew(m))
+        let reopened = try await repository.loadDraft(id: try XCTUnwrap(saved),
+                                                      mailboxID: Server.drafts)
+        XCTAssertEqual(reopened.attachments.map(\.filename).sorted(), ["Programme.pdf", "garden.jpg"])
+        XCTAssertEqual(reopened.quote?.kind, .reply)
+        XCTAssertEqual(reopened.quote?.pictures.map(\.filename), ["garden.jpg"])
+        XCTAssertEqual(reopened.cc, ["pat@example.org"])
+
+        try await repository.send(reopened)
+        let letters = await submission.letters()
+        let sent = read(try XCTUnwrap(letters.last))
+        XCTAssertEqual(sent.parts.filter { $0.data == gardenBytes }.map(\.isInline), [true])
+        XCTAssertEqual(sent.parts.filter { !$0.isInline }.map(\.filename), ["Programme.pdf"])
+        XCTAssertTrue(sent.html.contains("alt=\"The garden\""), sent.html)
+        XCTAssertTrue(sent.html.contains("<b>garden</b>"))
     }
 
     func testAReopenedForwardKeepsItsRowsAndStillSendsThePictureInline() async throws {

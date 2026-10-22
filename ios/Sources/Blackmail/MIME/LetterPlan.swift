@@ -9,9 +9,21 @@ enum LetterSource {
     case disk(URL, attachedSize: Int64?)
 }
 
+/// What a file is to its letter (B-109): one of its files, a part of its
+/// own under the letter; or one of his photos the letter's markup shows
+/// under his words, by `cid:` and this Content-ID, a part inside the
+/// related set with the markup. Either way it is read and made as it goes,
+/// from wherever `LetterSource` says.
+enum LetterFileRole: Equatable {
+    case file
+    case inBody(contentID: String)
+}
+
 /// A letter as `RFC5322Builder.plan` makes it: every header, boundary,
 /// part header and line of text as bytes, and each file as a place for its
-/// base64, by its index among the letter's files (B-070).
+/// base64, by its index among the letter's files (B-070): his photos in its
+/// body first, then its files (B-109), each place in the order of its
+/// index, as `LetterBytes` reads them.
 ///
 /// Pure. It says what the letter is and nothing is read to make it; its
 /// exact length is known from the files' sizes alone (`length`). Reading

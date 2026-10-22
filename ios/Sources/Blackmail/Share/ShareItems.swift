@@ -93,8 +93,14 @@ enum ShareItems {
         /// staged, so the names in the letter run on without a gap.
         private(set) var unnamed = 0
 
-        /// What is left of `budget`.
-        var room: Int64 { Self.budget - staged }
+        /// What this staging may take: `budget` for a share, which begins
+        /// a letter; for the composer, what the letter's rows leave of it
+        /// (`room(after:)`, B-108), so a file picked there never makes a
+        /// letter that could not go.
+        let limit: Int64
+
+        /// What is left of `limit`.
+        var room: Int64 { limit - staged }
         private let write: (Data, String) throws -> URL
         private let copy: (URL, String) throws -> URL
         private let place: (String) throws -> URL
@@ -103,11 +109,18 @@ enum ShareItems {
         /// `write` puts bytes on the disk and `copy` a file the sharing app
         /// handed over, each under the name given, and says where. `place`
         /// says where a file of that name is to be written, for `written`,
-        /// and `discard` takes one away again.
-        init(write: @escaping (Data, String) throws -> URL = AttachmentStore.write,
+        /// and `discard` takes one away again. `room` is what the files may
+        /// weigh together, never more than `budget`, and `unnamed` the
+        /// pictures with no name already in the letter, which numbers the
+        /// next (B-108): a share begins with all of the one and none of the
+        /// other.
+        init(room: Int64 = budget, unnamed: Int = 0,
+             write: @escaping (Data, String) throws -> URL = AttachmentStore.write,
              copy: @escaping (URL, String) throws -> URL = AttachmentStore.copy,
              place: @escaping (String) throws -> URL = AttachmentStore.place,
              discard: @escaping (URL) -> Void = { AttachmentStore.removeStaged($0) }) {
+            limit = max(0, min(room, Self.budget))
+            self.unnamed = max(0, unnamed)
             self.write = write
             self.copy = copy
             self.place = place
@@ -138,11 +151,11 @@ enum ShareItems {
         func file(at url: URL, size: Int64, named filename: String,
                   mimeType: String, unnamed: Bool = false) -> SharedItem? {
             lastMeasured = nil
-            guard staged + size <= Self.budget, let copied = try? copy(url, filename) else {
+            guard staged + size <= limit, let copied = try? copy(url, filename) else {
                 return nil
             }
             lastMeasured = Self.measured(copied)
-            guard let measured = lastMeasured, staged + measured <= Self.budget else {
+            guard let measured = lastMeasured, staged + measured <= limit else {
                 discard(copied)
                 return nil
             }
@@ -163,19 +176,32 @@ enum ShareItems {
         func written(named filename: String, mimeType: String, expected: Int64,
                      unnamed: Bool = false, _ write: (URL) -> Bool) -> SharedItem? {
             lastMeasured = nil
-            guard staged + expected <= Self.budget, let url = try? place(filename) else { return nil }
+            guard staged + expected <= limit, let url = try? place(filename) else { return nil }
             guard write(url) else {
                 discard(url)
                 return nil
             }
             lastMeasured = Self.measured(url)
-            guard let size = lastMeasured, size > 0, staged + size <= Self.budget else {
+            guard let size = lastMeasured, size > 0, staged + size <= limit else {
                 discard(url)
                 return nil
             }
             return stage(size: size, filename: filename, mimeType: mimeType, unnamed: unnamed) {
                 url
             }
+        }
+
+        /// What `rows`, a letter's files, leave of `budget` for more: the
+        /// room the composer's picks begin with (B-108). A row whose size
+        /// is not known counts as the whole of it, since what it weighs
+        /// could be anything, and the letter with it might not go.
+        static func room(after rows: [DraftAttachment]) -> Int64 {
+            var left = budget
+            for row in rows {
+                guard let size = row.size else { return 0 }
+                left -= max(0, size)
+            }
+            return max(0, left)
         }
 
         /// The size of the file at `url`, as the disk has it.
@@ -186,7 +212,7 @@ enum ShareItems {
 
         private func stage(size: Int64, filename: String, mimeType: String, unnamed: Bool,
                            _ put: () throws -> URL) -> SharedItem? {
-            guard staged + size <= Self.budget, let url = try? put() else { return nil }
+            guard staged + size <= limit, let url = try? put() else { return nil }
             // Readable while the iPad is locked, as a letter that takes
             // minutes to go must be (`AttachmentStore.readableWhileLocked`):
             // a picture written straight onto the disk by ImageIO too.

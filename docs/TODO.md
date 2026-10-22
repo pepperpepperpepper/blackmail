@@ -224,7 +224,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       their age with no connection, the copy thrown away when it is not
       this mailbox's, an early write and an early letter opened vouched for.
       See B-053, and what is left to try under "Blocked on the iPad coming
-      back".* Phase 2, the last 300 letters he opened.
+      back".* Phase 2, the last 300 letters he opened. *Done 2026-10-22,
+      not yet seen on the iPad: the last 300 letters he opened, at most
+      64 MB and none over 5 MB, kept whole, shown from the iPad at once
+      with a connection or without; never a draft or a letter Complete
+      Threads brings from Sent Mail; nothing of them sent. B-111, and its
+      check under "Blocked on the iPad coming back".*
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
@@ -270,8 +275,22 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       back".*
 - [ ] Reply with the original's attachments.
 - [ ] Attach documents from Files, and video. *The app's picker is
+- [ ] Mark as Unread and Move to Junk from the Flag menu.
+- [x] Reply with the original's attachments. *Done 2026-10-22, not yet
+      seen on the iPad: a reply carries the original's files as rows when
+      he adds someone the original did not go to (Mail's When Adding
+      Recipients), shown before it can go; Forward asks Mail's Include or
+      Don't Include. B-107, and its check under "Blocked on the iPad
+      coming back".*
+- [x] Attach documents from Files, and video. *The app's picker is
       unchanged by B-070: photos only, made a JPEG at 0.85. The share
       sheet takes videos since B-070; Send streams them from the disk.*
+      *Done 2026-10-22, not yet seen on the iPad: 'Photo Library' (photos
+      and videos) and 'Attach File' in the composer, through the share
+      sheet's own intake; photos sent as Apple Mail sends them; a file
+      that cannot be attached is said, and Send never goes without one he
+      picked. B-108, and its check under "Blocked on the iPad coming
+      back".*
 - [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
@@ -538,8 +557,12 @@ this host. Ordered by value, not by size.
       *Done 2026-09-30: `-X KEY=FILE` (`tools/zsign/`, TOOLCHAIN.md), signing
       through `tools/sign-ipa.sh`, and `tools/check-signature.py` failing any
       IPA whose extension is not signed as itself.*
-- [ ] **B-025. Insert a photo at the cursor** (`NSTextAttachment` in the
+- [x] **B-025. Insert a photo at the cursor** (`NSTextAttachment` in the
       composer). Last, deliberately: exactly 1 of his 433 sent messages did it.
+      *Done 2026-10-22 in its minimal form, not yet seen on the iPad: his
+      photos sit in the letter under his words, above the signature, as all
+      of his Apple Mail picture letters did. B-109, and its check under
+      "Blocked on the iPad coming back".*
 
 ## Blocked on the iPad coming back
 
@@ -4331,6 +4354,185 @@ this host. Ordered by value, not by size.
       the letter is in Spam on Gmail's web, and the counts are right; in
       Spam, Move to Inbox brings it back; with Spam's "Show in IMAP" off in
       Gmail's settings, no Junk item.
+- [ ] **B-111, the letters kept on the iPad.** On the test iPad (16.5.1)
+      and the iOS 18.6 simulator, the test account only, built from the
+      `feat-kept` worktree before it is merged (it changes one call in a
+      forward's carried parts, `fetchCarried`). A stands for the account's
+      address; letters only to A with `+b111` before the @, subjects
+      beginning "B-111". Three panes. First mail A: P (plain), H (HTML with
+      an inline photo), F (with a PDF), T (a conversation of three with J),
+      L (two full photos, over 5 MB) and N, never opened.
+      1. *Kept.* Open P, H, F, T's letters and L: one body FETCH each
+      for P, H, F and T's letters in the log, each with a `KEPT-LETTER
+      kept` note; L in parts, as B-054 opens it (a FETCH for its structure
+      and header, then one for its text and one for its HTML, those it
+      has), with
+      `not-kept reason=size`. Open P, H and F again: no FETCH, each at
+      once in a screen recording, H's photo shows, and F's PDF opens in
+      Quick Look with nothing fetched.
+      2. *Offline.* End the app in the app switcher, Airplane Mode on,
+      launch: the kept Inbox. P, H with its photo, F with its PDF, and T
+      open at once, with no alert. N and L: "This message could not be
+      downloaded." and "Can't connect to mail server.", as today.
+      3. *Nothing kept sent.* Still offline, Reply to P and Forward F: both
+      go to the Outbox. Airplane Mode off: both go, the PDF's SHA-256 is
+      unchanged, and the log shows its part's FETCHes naming X-GM-MSGID.
+      4. *Gone.* Online, Delete P and move H to Spam; offline, relaunch:
+      neither is in the Inbox or opens from it.
+      5. *A password saved.* Save the password again in Settings, relaunch
+      offline: no kept pages and no letters.
+      6. *Not the server's word.* Mark F unread in Gmail's web, relaunch
+      online, tap F before the page lands: shown at once, and the STORE
+      follows a vouching `(UID X-GM-MSGID)` FETCH.
+      7. *Complete Threads.* Open his line in an Inbox conversation; then
+      offline, relaunch, open the conversation: his line says it could not
+      be downloaded.
+      8. *Time.* A kept 3 MB letter against the same letter fetched (after
+      a password save): from the tap to the letter drawn, and the shown
+      note's ms. The kept note's ms for writing a 3 MB letter, with a list
+      scrolled at the same moment, for the hitch, and its `free-ms`, the
+      free-space reading's part of it. If `free-ms` is large, the floor
+      is to be read once a launch, or every few minutes, instead.
+      9. *The simulator.* The notes say `kept`, never `reason=space`.
+      10. *The container*, where it can be read: `letters/` holds one
+      `.eml` per letter kept, beside `letters.json`, and nothing else;
+      `Kept/`, the account's directory and `letters/` carry the backup
+      exclusion (xattr com.apple.metadata:com_apple_backup_excludeItem).
+      The bounds, a full disk, a failed check, leftover files and the
+      races are the host tests'.
+- [ ] **B-107, a reply's files and the Forward question.** On the test
+      iPad, the test account only, built from the `feat-replyfiles`
+      worktree before it is merged (it touches Send). A stands for the
+      account's address; letters only to A with `+b107` before the @,
+      subjects beginning "B-107"; each arrival's raw MIME read over IMAP
+      from a host. A's second address is A with `+b107b`, added under the
+      account in Settings for step 5 and taken out after. First mail A: P,
+      a PDF and a photo shown in its body; L, a signature's logo alone.
+      1. *Someone new.* Reply to P, a Cc of A with `+b107c` made a bubble
+      with a comma: the photo's row and the PDF's appear under Subject
+      with their weights. Send: at the Cc, and at the To, the PDF arrives
+      as a file and the photo inline in the quote, under a `bmquote` id.
+      2. *No one new.* Reply to P and Send: no rows, and nothing of P's in
+      the raw MIME, as before.
+      3. *Taken off.* Reply to P, the Cc added: the rows; the Cc taken
+      off: they go. The Cc again, the PDF's row Removed, the Cc taken
+      off: the photo's row stays, and goes in the quote.
+      4. *Reply All* to a letter to A and A with `+b107c`: no rows.
+      5. *His second address.* Reply to P with only the second address in
+      Cc: the rows.
+      6. *At Send.* Reply to P, a Cc typed WITHOUT a comma and Send tapped
+      at once: nothing is sent, the rows appear, and VoiceOver, if on,
+      goes to the first; Send again: it goes with the files. Reply again,
+      a Cc typed and a tap into the body, which leaves the field: the
+      rows appear at once. In landscape with the keyboard up, Reply All to
+      a letter with P's files whose Cc runs to several lines (A with
+      `+b107d` to `+b107k`), a Cc typed WITHOUT a comma and Send: the
+      sheet scrolls to the first row. With VoiceOver on, Reply to P and a
+      Cc made a bubble with a comma: the rows' names and weights are read
+      out, and VoiceOver stays in the Cc.
+      7. *Drafts.* Reply to P with the Cc and its rows, Save Draft,
+      reopened from Drafts: the rows and the Cc are back. Send: one copy
+      arrives, the photo inline and the PDF a file, and Drafts holds none.
+      Again with the Cc typed WITHOUT a comma, then Cancel, Save Draft:
+      reopened from Drafts, the Cc and the rows are there.
+      8. *The Outbox.* Airplane Mode on, Reply to P with the Cc, Send: it
+      goes to the Outbox. Off, Refresh: it leaves once, with its parts.
+      Again, P deleted meanwhile in Gmail's web page and the app ended in
+      the app switcher; Airplane Mode off, the app opened, Refresh: it
+      leaves once with P's files, the log saying `CARRIED-PART found
+      folder=[Gmail]/Trash`.
+      9. *Forward.* Forward P: "Include attachments from original
+      message?" at the Reply button, with Include, Don't Include and
+      Cancel. Include: both rows. Don't Include: the photo's row alone,
+      which goes in the quote. Cancel, and a tap outside: no letter.
+      Forward L: no question, and its logo's row as before. Reply to L
+      with the Cc: the logo's row, which goes in the quote.
+      10. *Reference, not blocking.* On a real iOS 18 device with Mail (the
+      owner's): when the files appear after a Cc is added, and whether
+      they go when it is taken off; and what Mail's Don't Include does
+      with a picture the body shows.
+      11. *Put back.* The "B-107" letters to Trash, the second address out
+      of Settings.
+- [ ] **B-108, files and videos in the composer.** On the test iPad, the
+      test account only, built from the `feat-composer` worktree before it
+      is merged (it touches what Send carries). A stands for the account's
+      address; letters only to A with `+b108` before the @, subjects
+      beginning "B-108"; each arrival fetched over IMAP and its CRC
+      compared with its LETTER-FILE line. Put on the iPad first, from a
+      host: a PDF and a 30 MB file in On My iPad, a 19 MB video and a
+      photo with a location in Photos, and a file named with a double
+      quote.
+      1. *The picker at all.* The test iPad has no Files app (B-028): does
+      Attach File open the document picker? If it does, a PDF from On My
+      iPad arrives byte for byte, under its own name, and the log's
+      `COMPOSE-PICK` line says `moves=true`, the copy in the app's Inbox.
+      2. *A reply.* Reply to a letter from A with a PDF attached: the
+      reply stays in the conversation.
+      3. *Several.* Three files at once: three rows; Remove one; the two
+      arrive.
+      4. *Too large.* The 30 MB file: "The file could not be attached.",
+      no row, and nothing is sent.
+      5. *A video.* The 19 MB video through Photo Library: one
+      `WIRE-OUT`, `LETTER-LATCH ok`, and the CRC matches the expected
+      copy, Photos' compatible one.
+      6. *While it comes.* Send tapped while the video loads: the spinner,
+      then it goes with it. Airplane Mode on while an iCloud original
+      loads, Send: at three minutes "The photo could not be attached.",
+      the sheet stays with Send, and nothing goes. Then several: five
+      photos kept only in iCloud picked at once with Airplane Mode on,
+      and Send tapped a minute after the pick: "Sending…" for three
+      minutes from the tap at most, never fifteen, then one alert, "The
+      photos could not be attached.", the sheet with Send, nothing gone,
+      and the log's `COMPOSE-WAIT` line counting them out together.
+      7. *A photo.* A composer photo arrives as its own bytes, with no
+      GPS, as "IMG_####.jpg": the picker's suggestion, which has no
+      extension, and the one the intake gives a JPEG that goes as itself
+      (B-108, Not covered).
+      8. *Drafts.* Save Draft with the video, reopened from Drafts, Send:
+      one copy arrives, and Drafts holds none.
+      9. *Locked.* The iPad locked while the video uploads: it goes. And
+      the iPad locked, or another app opened, for more than three minutes
+      while a large video is still coming into the composer: back in the
+      app, the video comes in, or has three minutes more, and is not
+      counted out at once.
+      10. *Ended.* Pick a file and end the app in the app switcher at
+      once: at the next launch `tmp/<bundle id>-Inbox` and
+      `tmp/Attachments` are empty, where the container can be read.
+      11. *A double quote.* The file named with one: the arrival's headers
+      parse, and the name reads right on Gmail's web page, without the
+      quote.
+      12. *The share sheet again.* Its checks for a photo, a video and a
+      Safari link, as before.
+      13. *VoiceOver* reads "Photo Library" and "Attach File", and a row
+      still coming by its name, or, with none, "Photo" or "Video".
+      14. *Put back.* The "B-108" letters to Trash, the files and the
+      video off the iPad.
+- [ ] **B-109, photos in the letter under his words.** On the test iPad,
+      the test account only, built from the `feat-photos` worktree before
+      it is merged (it changes what Send carries and how). A stands for the
+      account's address; letters only to A with `+b109` before the @,
+      subjects beginning "B-109"; each arrival's raw MIME read over IMAP.
+      1. *Two photos* from Photo Library, with the signature on. The raw
+      message has one related set with two inline parts whose Content-IDs
+      match the `<img>` ids, and no attachment copies. In Gmail's web page
+      and in Mail on another device, both pictures sit under the words,
+      above the signature.
+      2. *Drafts.* Save Draft, reopened from Drafts, Send: each picture
+      arrives once, in the letter, and Drafts holds none.
+      3. *The Outbox.* The same with Airplane Mode on: it goes to the
+      Outbox; off, Refresh: it leaves once, each picture in the letter.
+      Again, the app ended in the app switcher before Airplane Mode goes
+      off, and opened again.
+      4. *The share sheet.* A letter with one photo from Photos: the photo
+      in the letter, above the signature.
+      5. *A forward* of a letter from A with a PDF, a photo added from
+      Photo Library: the PDF arrives as a file, the photo in the body.
+      6. *The log.* The `LETTER-PLAN` line ends `in-body=2` for step 1, and
+      each photo's `LETTER-FILE` line ends `in-body`, its CRC the
+      arrival's.
+      7. *Memory.* Five full-size photos through the share sheet: the
+      `SHARE-SEND` lines' least memory stays where B-070 measured it.
+      8. *Put back.* The "B-109" letters to Trash, the drafts deleted.
 
 ## Blocked on the owner
 

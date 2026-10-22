@@ -976,10 +976,12 @@ final class ReplyAddressingWiringTests: XCTestCase {
         let pane = try source("MessageDetailViewController.swift")
         for wiring in [
             "@objc private func replyTapped() { guard let m = message else { return }",
-            "self?.openCompose(replyTo: m, all: false, forward: false)",
-            "self?.openCompose(replyTo: m, all: true, forward: false)",
-            "self?.openCompose(replyTo: m, all: false, forward: true)",
-            ": .replying(to: m, all: all, mine: OwnAddresses(account: account), signature: signature)",
+            // Mail's question first, for a Forward of a letter with files,
+            // and for Reply and Reply All only under Ask (B-107).
+            "return self.openCompose(replyTo: m, all: false, forward: false)",
+            "return self.openCompose(replyTo: m, all: true, forward: false)",
+            "return self.openCompose(replyTo: m, all: false, forward: true)",
+            "draft = .replying(to: m, all: all, mine: OwnAddresses(account: account), signature: signature)",
             "private func focusLetter(_ m: Message) { focused = m.id message = m",
         ] {
             XCTAssertTrue(pane.contains(wiring), wiring)

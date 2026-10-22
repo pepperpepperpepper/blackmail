@@ -4,15 +4,17 @@ import Foundation
 /// with its last counts, and the newest page of each folder as the last
 /// listing from the top gave it, previews and all. What a launch draws in
 /// its first frame, before anything has been sent, and what stays on screen
-/// when there is no connection.
+/// when there is no connection. And, in the same directory, the last 300
+/// letters he opened, whole (`letters`, D-016's phase 2, B-111), which the
+/// reading pane shows from here with a connection or without.
 ///
 /// Only ever what the server last said. A page is replaced whole by each
 /// listing of its folder from the top (`took(page:of:validity:)`), and
 /// changed in between only by his own reads, flags, moves and deletes once
-/// the server has taken them. Pages further down, a day jumped to, a
-/// search's hits and the letters themselves are not kept, and nor are the
-/// letters kept on the iPad by `LocalDrafts`, which have a store of their
-/// own beside this one that nothing here touches.
+/// the server has taken them. Pages further down, a day jumped to and a
+/// search's hits are not kept, nor are letters he never opened, and nor are
+/// the letters kept on the iPad by `LocalDrafts`, which have a store of
+/// their own beside this one that nothing here touches.
 ///
 /// Never the wrong mailbox. The files are under a directory named for the
 /// account's address and server, and every other account's is removed as
@@ -63,6 +65,10 @@ final class MailShelf: @unchecked Sendable {
     let root: URL
     /// This account's, under `root`.
     let directory: URL
+
+    /// The letters he opened, kept in `directory` beside the pages, and
+    /// thrown away with them (`KeptLetters`).
+    let letters: KeptLetters
 
     private let now: @Sendable () -> Date
     private let lock = NSLock()
@@ -122,15 +128,26 @@ final class MailShelf: @unchecked Sendable {
     /// `address` and `host` are the account's, as it signs in: the copy is
     /// its own, under a directory named for both, and any other account's
     /// is removed now.
+    ///
+    /// `letters` is how the letters are kept: the app's are D-016's bounds
+    /// on this shelf's disk queue; a test hands in its own.
     init(root: URL, address: String, host: String,
-         now: @escaping @Sendable () -> Date = { Date() }) {
+         now: @escaping @Sendable () -> Date = { Date() },
+         letters options: KeptLetters.Options = KeptLetters.Options()) {
         self.root = root
         self.now = now
         let account = [address, host]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .joined(separator: "\u{0}")
         directory = root.appendingPathComponent(Self.hash(account), isDirectory: true)
-        generation = Self.generation(of: root)
+        let generation = Self.generation(of: root)
+        self.generation = generation
+        // The shelf's life, from its root and generation alone: no
+        // reference to the shelf, so a shelf retired at a password save is
+        // freed with its letters.
+        letters = KeptLetters(root: root, directory: directory, disk: Self.disk,
+                              alive: { [root] in Self.generation(of: root) == generation },
+                              options: options)
         let mine = directory.lastPathComponent
         let root = self.root
         Self.disk.sync {
@@ -171,7 +188,7 @@ final class MailShelf: @unchecked Sendable {
 
     /// The folder name a list's id stands for, from the kept folder list
     /// when it has one, as the repository resolves it from LIST.
-    private func folderName(for mailboxID: String) -> String {
+    func folderName(for mailboxID: String) -> String {
         if let kept = folders, let i = kept.firstIndex(matchingMailboxID: mailboxID) {
             return kept[i].id
         }
@@ -347,11 +364,22 @@ final class MailShelf: @unchecked Sendable {
     /// All Mailboxes hit with All Mail never opened, so with no kept page
     /// to find it on, the letter stayed on the Inbox's kept page, and a
     /// launch drew it there until the first page came (B-089).
+    ///
+    /// The letter kept whole under `id` in `folder` goes too, and, binned
+    /// or marked as spam, every letter kept with its Gmail id in any folder
+    /// but `destination` (`KeptLetters.gone`), whether or not a page holds
+    /// its row.
     func gone(_ id: String, letter named: UInt64? = nil, from folder: String,
               andEveryFolderBut destination: String? = nil) {
         guard isAlive else { return }
         let row = record(of: folder)?.rows.first { $0.id == id }
         let message = destination == nil ? nil : row == nil ? named : row?.message
+        if let at = Self.parse(id) {
+            letters.gone(uid: at.uid, validity: at.validity, in: folder)
+        }
+        if let destination, let letter = named ?? row?.message {
+            letters.gone(message: letter, everyFolderBut: destination)
+        }
         guard row != nil || message != nil else { return }
         if message != nil { loadEverything() }
         locked {
@@ -430,8 +458,13 @@ final class MailShelf: @unchecked Sendable {
     /// (`took(page:of:validity:)`) and keep the server's page in its place,
     /// and the row under that id is then the server's own letter, which
     /// stays.
+    ///
+    /// The letter kept whole under that UID as that letter goes too.
     func refuse(_ id: String, in folder: String, keptAs message: UInt64) {
         locked { refused[Self.key(id, folder)] = message }
+        if let at = Self.parse(id) {
+            letters.refused(uid: at.uid, validity: at.validity, in: folder, message: message)
+        }
         change(folder) { page in
             let before = page.rows.count
             page.rows.removeAll { $0.id == id && $0.message == message }
@@ -441,10 +474,12 @@ final class MailShelf: @unchecked Sendable {
 
     // MARK: - Writing
 
-    /// Writes whatever has changed, now. As the app goes into the
-    /// background, where it may be ended without being told.
+    /// Writes whatever has changed, now, the letters' index included. As
+    /// the app goes into the background, where it may be ended without
+    /// being told.
     func flush() {
         Self.disk.sync { self.writeChanges() }
+        letters.flush()
     }
 
     /// Throws away the whole of `root`, every account's copy, and ends
@@ -464,13 +499,14 @@ final class MailShelf: @unchecked Sendable {
     /// Every write and every read of a file, for every shelf, one at a
     /// time, in order, so a wipe and a discard land after whatever was
     /// written before them and before whatever comes after.
-    private static let disk = DispatchQueue(label: "wtf.uhoh.blackmail.kept", qos: .utility)
+    /// The letters' too (`KeptLetters`).
+    static let disk = DispatchQueue(label: "wtf.uhoh.blackmail.kept", qos: .utility)
 
     /// How many times each root has been wiped, by path.
     private static var wipes: [String: Int] = [:]
     private static let wipesLock = NSLock()
 
-    private static func generation(of root: URL) -> Int {
+    static func generation(of root: URL) -> Int {
         wipesLock.lock()
         defer { wipesLock.unlock() }
         return wipes[root.standardizedFileURL.path, default: 0]
@@ -519,8 +555,9 @@ final class MailShelf: @unchecked Sendable {
     }
 
     /// Not in his iCloud backup: a restore onto another iPad should not
-    /// bring back a list of letters from whenever the backup was made.
-    private static func excludeFromBackup(_ url: URL) {
+    /// bring back a list of letters from whenever the backup was made. For
+    /// every directory the shelf or its letters make.
+    static func excludeFromBackup(_ url: URL) {
         #if os(iOS)
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
@@ -655,6 +692,9 @@ final class MailShelf: @unchecked Sendable {
     /// finds nothing changed in memory, and one queued from now on comes
     /// after it.
     private func discardEverything() {
+        // The letters first, so a keep or a read of one on its way puts
+        // nothing back; their files go with the directory.
+        letters.forget()
         locked {
             pages = [:]
             absent = []
@@ -687,8 +727,17 @@ final class MailShelf: @unchecked Sendable {
 
     private static func key(_ id: String, _ folder: String) -> String { "\(folder)\u{0}\(id)" }
 
+    /// A row's id, "<uidvalidity>/<uid>", in its two halves.
+    private static func parse(_ id: String) -> (validity: UInt32, uid: UInt32)? {
+        let parts = id.split(separator: "/", maxSplits: 1)
+        guard parts.count == 2, let validity = UInt32(parts[0]), let uid = UInt32(parts[1]) else {
+            return nil
+        }
+        return (validity, uid)
+    }
+
     /// 64-bit FNV-1a, in hex: a name for a directory or a file, not a secret.
-    private static func hash(_ text: String) -> String {
+    static func hash(_ text: String) -> String {
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in text.utf8 {
             hash ^= UInt64(byte)

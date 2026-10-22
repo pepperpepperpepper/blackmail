@@ -1110,6 +1110,8 @@ sender watches Send succeed, is worse than a send he can retry.
 Replies deliberately carry nothing. Quoting somebody's text back is normal;
 posting their files back at them is not, and every reply to a photograph
 would re-upload the photograph.
+*Changed by B-107: a reply to someone new carries them, as rows he sees
+before it goes.*
 
 ### The bug this turned up, which I put there
 

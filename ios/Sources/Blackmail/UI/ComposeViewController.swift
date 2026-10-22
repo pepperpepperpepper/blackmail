@@ -5,6 +5,7 @@
 
 import UIKit
 import PhotosUI
+import UniformTypeIdentifiers
 import AudioToolbox
 
 /// The classic modal composer. Cancel fixed left, Send fixed right, always.
@@ -12,7 +13,8 @@ final class ComposeViewController: UIViewController,
                                   UITableViewDataSource, UITableViewDelegate,
                                   UITextFieldDelegate, UITextViewDelegate,
                                   UIAdaptivePresentationControllerDelegate,
-                                  PHPickerViewControllerDelegate {
+                                  PHPickerViewControllerDelegate,
+                                  UIDocumentPickerDelegate {
 
     private let repository: MailRepository
     private var draft: Draft
@@ -150,12 +152,15 @@ final class ComposeViewController: UIViewController,
     }()
     private let sendingSpinner = UIActivityIndicatorView(style: .medium)
     private lazy var sendingSpinnerItem = UIBarButtonItem(customView: sendingSpinner)
-    /// Held while a letter goes, with the Remove buttons.
-    private weak var attachButton: UIButton?
+    /// Photo Library and Attach File, held while a letter goes, with the
+    /// Remove buttons.
+    private weak var photoButton: UIButton?
+    private weak var fileButton: UIButton?
 
-    /// Every photo `attach` staged in `tmp/Attachments`, removed when this
-    /// controller goes (B-063). They used to stay until the next launch,
-    /// which iOS can put off for days: five full-size photographs a letter.
+    /// Every file the intake staged in `tmp/Attachments` and put in the
+    /// letter, removed when this controller goes (B-063). They used to stay
+    /// until the next launch, which iOS can put off for days: five
+    /// full-size photographs a letter.
     ///
     /// At `deinit` and no sooner, because that is when nothing can still
     /// read them. Send and Save Draft hand `ComposeActions` a closure that
@@ -167,11 +172,33 @@ final class ComposeViewController: UIViewController,
     /// are never recorded here, nor removed (`AttachmentStore.removeStaged`).
     private let staged = StagedFiles()
 
+    /// What Photo Library and Attach File bring in, one at a time, through
+    /// the share sheet's own intake (`ComposeIntake`, B-108): each counted
+    /// in `actions` until it is in, so Send and Save Draft wait for it; a
+    /// row with a spinner while it comes; what could not be attached said.
+    private lazy var intake = ComposeIntake(
+        actions: actions,
+        rows: { [weak self] in self?.draft.attachments ?? [] },
+        landed: { [weak self] url, row in self?.landed(url, row) },
+        changed: { [weak self] in self?.rebuildAttachments() },
+        tell: { [weak self] words in self?.say(words) })
+
+    /// A reply's files (`ReplyFiles`, B-107): the original's parts, put in
+    /// as rows once the reply goes to someone the original did not go to,
+    /// and taken out again when no one new is left, until he takes one off
+    /// himself. Made by the pane's Reply and Reply All alone; nil for a
+    /// forward, a new letter and a letter reopened from Drafts, the iPad or
+    /// the Outbox, which keep the rows they were saved with.
+    private var replyFiles: ReplyFiles?
+
     /// `key` is the letter's on the iPad when it was reopened from there;
-    /// any other letter is given a new one.
-    init(repository: MailRepository, draft: Draft, key: String? = nil) {
+    /// any other letter is given a new one. `replyFiles` is a Reply's or a
+    /// Reply All's, nil for every other letter.
+    init(repository: MailRepository, draft: Draft, key: String? = nil,
+         replyFiles: ReplyFiles? = nil) {
         self.repository = repository
         self.draft = draft
+        self.replyFiles = replyFiles
         self.key = key ?? UUID().uuidString.lowercased()
         self.kept = .shared
         super.init(nibName: nil, bundle: nil)
@@ -319,6 +346,9 @@ final class ComposeViewController: UIViewController,
 
         subjectField.delegate = self
         subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
+        // The fields as shown: a reply's files as its first recipients have
+        // it, before the letter is taken as it opened.
+        followRecipients()
         opened = currentLetter()
         updateSend()
         // A tap outside the sheet does nothing, and a swipe down asks what
@@ -334,6 +364,8 @@ final class ComposeViewController: UIViewController,
                            name: UITextView.textDidChangeNotification, object: bodyView)
         centre.addObserver(self, selector: #selector(leavingTheApp),
                            name: UIApplication.didEnterBackgroundNotification, object: nil)
+        centre.addObserver(self, selector: #selector(backInTheApp),
+                           name: UIApplication.willEnterForegroundNotification, object: nil)
     }
 
     /// The letter as the fields have it now, for what keeps it.
@@ -347,7 +379,14 @@ final class ComposeViewController: UIViewController,
     }
 
     @objc private func leavingTheApp() {
+        // No bound on what is coming in runs while the app is away
+        // (`ComposeIntake.away`).
+        intake.away()
         actions.putAside { self.currentLetter() }
+    }
+
+    @objc private func backInTheApp() {
+        intake.back()
     }
 
     /// The presented navigation controller is the sheet, and it is its
@@ -438,45 +477,40 @@ final class ComposeViewController: UIViewController,
         actions.sheetGone { currentLetter() }
     }
 
-    /// The permanent "Attach Photo" control.
+    /// The permanent "Photo Library" and "Attach File" controls, side by
+    /// side under the files, with Mail's names for the two it offers
+    /// (B-108).
     ///
-    /// A labelled button rather than the callout menu Mail of this era
-    /// used, because `BRIEF.md`'s promise is that nothing needs a gesture
-    /// beyond tap and ordinary scrolling — and "press and hold in the body
-    /// until a menu appears" is exactly the kind of thing that promise
-    /// exists to rule out. Always visible, so it never moves.
+    /// Labelled buttons rather than Mail's paperclip, which hangs at the
+    /// right of the keyboard's shortcut bar and comes and goes with the
+    /// keyboard, or the callout menu Mail of this era used, because
+    /// `BRIEF.md`'s promise is that nothing needs a gesture beyond tap and
+    /// ordinary scrolling — and "press and hold in the body until a menu
+    /// appears" is exactly the kind of thing that promise exists to rule
+    /// out. Always visible, so they never move.
     private func attachRow() -> UIView {
         let container = UIView()
-        let button = UIButton(type: .system)
-        var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: "paperclip")
-        // The size of the words beside it, fixed (D-007). Left to the
-        // button, the symbol grew with the iPad's text size and the words
-        // did not.
-        config.preferredSymbolConfigurationForImage =
-            UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
-        config.imagePadding = 6
-        config.contentInsets = NSDirectionalEdgeInsets(
-            top: 0, leading: Theme.detailContentInsetLeft, bottom: 0, trailing: 0)
-        var title = AttributedString("Attach Photo")
-        title.font = Theme.fontDetailMeta
-        config.attributedTitle = title
-        button.configuration = config
-        button.contentHorizontalAlignment = .leading
-        button.addTarget(self, action: #selector(attachTapped), for: .touchUpInside)
-        attachButton = button
+        let photos = attachButton("Photo Library", symbol: "photo.on.rectangle",
+                                  action: #selector(photoLibraryTapped))
+        let files = attachButton("Attach File", symbol: "doc",
+                                 action: #selector(attachFileTapped))
+        photoButton = photos
+        fileButton = files
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
-        for v in [button, rule] {
+        for v in [photos, files, rule] {
             v.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(v)
         }
         NSLayoutConstraint.activate([
-            button.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            button.topAnchor.constraint(equalTo: container.topAnchor),
-            button.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            photos.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            photos.topAnchor.constraint(equalTo: container.topAnchor),
+            photos.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            files.leadingAnchor.constraint(equalTo: photos.trailingAnchor),
+            files.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor),
+            files.topAnchor.constraint(equalTo: container.topAnchor),
+            files.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
             rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
                                           constant: Theme.detailContentInsetLeft),
@@ -485,6 +519,28 @@ final class ComposeViewController: UIViewController,
             rule.heightAnchor.constraint(equalToConstant: 0.5),
         ])
         return container
+    }
+
+    /// One of the two: its symbol and its words, as tall as the row.
+    private func attachButton(_ words: String, symbol: String, action: Selector) -> UIButton {
+        let button = UIButton(type: .system)
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: symbol)
+        // The size of the words beside it, fixed (D-007). Left to the
+        // button, the symbol grew with the iPad's text size and the words
+        // did not.
+        config.preferredSymbolConfigurationForImage =
+            UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)
+        config.imagePadding = 6
+        config.contentInsets = NSDirectionalEdgeInsets(
+            top: 0, leading: Theme.detailContentInsetLeft, bottom: 0, trailing: 0)
+        var title = AttributedString(words)
+        title.font = Theme.fontDetailMeta
+        config.attributedTitle = title
+        button.configuration = config
+        button.contentHorizontalAlignment = .leading
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
     }
 
     /// One row per attached file: what it is, what it weighs, and a way to
@@ -502,6 +558,59 @@ final class ComposeViewController: UIViewController,
         for (index, attachment) in draft.attachments.enumerated() {
             attachmentsStack.addArrangedSubview(attachmentRow(attachment, at: index))
         }
+        // What he chose and is still coming in, after them, in the order
+        // he chose it (B-108).
+        for coming in intake.coming {
+            attachmentsStack.addArrangedSubview(comingRow(coming))
+        }
+    }
+
+    /// Something on its way in: its name, and a spinner where its Remove
+    /// will be once it is in (B-108). No Remove meanwhile: it is taken off
+    /// once it has come.
+    private func comingRow(_ coming: ComposeIntake.Coming) -> UIView {
+        let container = UIView()
+        let icon = UIImageView(image: UIImage(systemName: "paperclip"))
+        icon.tintColor = Theme.secondaryText
+        icon.contentMode = .scaleAspectFit
+
+        let label = UILabel()
+        label.font = Theme.fontDetailMeta
+        label.textColor = Theme.secondaryText
+        label.numberOfLines = 1
+        label.text = coming.name
+
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.startAnimating()
+
+        let rule = UIView()
+        rule.backgroundColor = Theme.separator
+
+        for v in [icon, label, spinner, rule] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                          constant: Theme.detailContentInsetLeft),
+            icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 14),
+            icon.heightAnchor.constraint(equalToConstant: 14),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            spinner.leadingAnchor.constraint(greaterThanOrEqualTo: label.trailingAnchor,
+                                             constant: 8),
+            spinner.trailingAnchor.constraint(equalTo: container.trailingAnchor,
+                                              constant: -Theme.detailContentInsetLeft),
+            spinner.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            container.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
+            rule.leadingAnchor.constraint(equalTo: container.leadingAnchor,
+                                          constant: Theme.detailContentInsetLeft),
+            rule.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            rule.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            rule.heightAnchor.constraint(equalToConstant: 0.5),
+        ])
+        return container
     }
 
     private func attachmentRow(_ attachment: DraftAttachment, at index: Int) -> UIView {
@@ -533,8 +642,8 @@ final class ComposeViewController: UIViewController,
         remove.setTitleColor(Theme.secondaryText, for: .disabled)
         remove.tag = index
         remove.addTarget(self, action: #selector(removeAttachment(_:)), for: .touchUpInside)
-        // A photo that lands from the picker while a letter goes rebuilds
-        // the rows; its Remove is held with the rest.
+        // A photo or a file that lands while a letter goes rebuilds the
+        // rows; its Remove is held with the rest.
         remove.isEnabled = !actions.isSending
 
         let rule = UIView()
@@ -570,14 +679,79 @@ final class ComposeViewController: UIViewController,
 
     @objc private func removeAttachment(_ sender: UIButton) {
         guard sender.tag < draft.attachments.count else { return }
-        draft.attachments.remove(at: sender.tag)
+        let removed = draft.attachments.remove(at: sender.tag)
+        // One of a reply's files taken off is his choice: what is left stays.
+        replyFiles?.removed(removed)
         rebuildAttachments()
         letterEdited()
     }
 
-    // MARK: - Choosing a photo
+    /// A reply's files as its recipients now have it (`ReplyFiles`,
+    /// B-107): put in after any of his own when someone is new, taken out
+    /// when no one new is left. By default the bubbles, never what he is
+    /// still typing, so the rows do not come and go as he spells an
+    /// address; Send hands in everyone the letter would go to, what he is
+    /// still typing too. Run as the fields are
+    /// first shown, when the bubbles change under his hand, when he leaves
+    /// a field, which makes a bubble of what he typed, and after a pick.
+    ///
+    /// Only while the sheet is his to change (`ComposeActions.isWriting`):
+    /// nothing changes once a letter is on its way, or once Save Draft or
+    /// Delete Draft has put the sheet away. Returns where the first row
+    /// put in is, nil when none was.
+    ///
+    /// Rows a bubble puts in are told to VoiceOver, their words read after
+    /// what it is saying, and it is left in the field he is in; a Send that
+    /// puts them in takes it to them instead (`showRow`). Told nothing, a
+    /// VoiceOver user's next Send carried files he had not heard of.
+    @discardableResult
+    private func followRecipients(to: [String]? = nil, cc: [String]? = nil,
+                                  bcc: [String]? = nil) -> Int? {
+        guard actions.isWriting, var files = replyFiles,
+              let rows = files.recipientsChanged(to: to ?? toField.bubbles.entries,
+                                                 cc: cc ?? ccField.bubbles.entries,
+                                                 bcc: bcc ?? bccField.bubbles.entries,
+                                                 in: draft.attachments) else { return nil }
+        replyFiles = files
+        let first = rows.count > draft.attachments.count ? draft.attachments.count : nil
+        draft.attachments = rows
+        rebuildAttachments()
+        letterEdited()
+        if let first, to == nil {
+            let words = (first..<rows.count).compactMap { (attachmentWords(at: $0) as? UILabel)?.text }
+            UIAccessibility.post(notification: .announcement, argument: NSAttributedString(
+                string: words.joined(separator: ", "),
+                attributes: [.accessibilitySpeechQueueAnnouncement: true]))
+        }
+        return first
+    }
 
-    @objc private func attachTapped() {
+    /// The row at `index` brought into the part of the sheet showing, and
+    /// VoiceOver taken to it: what a Send that put a reply's files in shows
+    /// in place of sending. The rows are under To, Cc, Bcc and Subject, and
+    /// with a Reply All's Cc of several lines and the keyboard up, the first
+    /// of them could be below what showed: he saw a Send that did nothing,
+    /// and his next tap sent files he had not seen.
+    private func showRow(at index: Int) {
+        view.layoutIfNeeded()
+        let rows = attachmentsStack.arrangedSubviews
+        if rows.indices.contains(index) {
+            let row = rows[index]
+            scroller.scrollRectToVisible(row.convert(row.bounds, to: scroller), animated: true)
+        }
+        UIAccessibility.post(notification: .layoutChanged, argument: attachmentWords(at: index))
+    }
+
+    /// The words of the row at `index`, which VoiceOver is moved to.
+    private func attachmentWords(at index: Int) -> UIView? {
+        let rows = attachmentsStack.arrangedSubviews
+        guard rows.indices.contains(index) else { return nil }
+        return rows[index].subviews.first { $0 is UILabel }
+    }
+
+    // MARK: - Photo Library and Attach File (B-108)
+
+    @objc private func photoLibraryTapped() {
         // PHPicker, not the old image picker, and the difference is a
         // permission prompt. PHPicker runs out of process and hands back
         // only what he chose, so it needs no photo-library access at all —
@@ -585,62 +759,89 @@ final class ComposeViewController: UIViewController,
         // 90-year-old is invisible, permanent, and looks like the button
         // being broken.
         var config = PHPickerConfiguration()
-        config.filter = .images
+        // Photos and videos, as Mail's Photo Library offers both.
+        config.filter = .any(of: [.images, .videos])
         config.selectionLimit = 5
+        // Photos' compatible copy of each: a JPEG for a HEIC photo and an
+        // H.264 video for an HEVC one, which every recipient can open.
+        config.preferredAssetRepresentationMode = .compatible
         let picker = PHPickerViewController(configuration: config)
         picker.delegate = self
         present(picker, animated: true)
     }
 
+    /// What he chose, read in as the share sheet reads what it is shared
+    /// (`ShareItems.read`): a photo as Apple Mail sends it, its own bytes
+    /// under its own name, its metadata replaced and no place in it, made
+    /// a JPEG only when it has to be; a video as the file Photos hands
+    /// over. One at a time, onto the disk, each counted until it is in so
+    /// that a Send or a Save Draft tapped meanwhile waits for it, rather
+    /// than going without it (`ComposeIntake`).
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
-        for result in results {
+        intake.take(results.map { result in
             let provider = result.itemProvider
-            guard provider.canLoadObject(ofClass: UIImage.self) else { continue }
-            let suggested = provider.suggestedName ?? "Photo"
-            // Counted until it is in the letter or has failed, so that a
-            // Send or a Save Draft tapped meanwhile waits for it rather than
-            // going without it. See `ComposeActions.photosLanded`.
-            actions.photoComing()
-            provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
-                // Re-encoded as JPEG rather than passed through. iPads
-                // store photos as HEIC, which a good many recipients
-                // cannot open at all — a letter whose attachment will not
-                // display is worse than one with no attachment, because
-                // neither end knows. Full resolution is kept: the size
-                // ceiling is already refused loudly at send (B-007), so
-                // there is no need to quietly shrink what he chose.
-                let data = (object as? UIImage)?.jpegData(compressionQuality: 0.85)
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    if let data { self.attach(data, named: suggested + ".jpg") }
-                    self.actions.photoLanded()
-                }
+            // What it is, by the types it offers, for the words should it
+            // be counted out before it begins; with no name, the row says
+            // "Photo" or "Video" (`ComposeIntake.Item`).
+            let kind = ComposeIntake.kind(offered: provider.registeredTypeIdentifiers,
+                                          isMovie: { UTType($0)?.conforms(to: .movie) == true })
+            return ComposeIntake.Item(name: provider.suggestedName, kind: kind) { staging, tally, done in
+                ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done)
             }
-        }
+        })
     }
 
-    @MainActor
-    private func attach(_ data: Data, named filename: String) {
-        // Staged on disk rather than held in the draft: a composer left
-        // open for an hour should not also be holding several megabytes of
-        // image in memory. Safe against the launch-time purge because a
-        // SAVED draft embeds its bytes on the server and reopens as a
-        // message part, and a letter kept on the iPad links its photos
-        // into its own directory (`LocalDraftStore.keep`), so nothing in
-        // the staging has to outlive this composer, which removes what it
-        // staged as it goes (`staged`).
-        guard let url = try? AttachmentStore.write(data, named: filename) else {
-            ErrorPresenter.show(.attachmentFailed, on: self)
-            return
-        }
+    @objc private func attachFileTapped() {
+        // Any file, as Mail's Attach File offers, each picked one copied by
+        // the picker into the app's Inbox, which is the app's own to read:
+        // no permission, no security-scoped access, no Info.plist key. A
+        // folder or a package is not a file it offers.
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.data],
+                                                    asCopy: true)
+        picker.allowsMultipleSelection = true
+        picker.delegate = self
+        present(picker, animated: true)
+    }
+
+    /// Each moved out of the Inbox into the letter's staging, measured and
+    /// refused past the letter's room, its type from its extension
+    /// (`ComposeIntake.file`).
+    func documentPicker(_ controller: UIDocumentPickerViewController,
+                        didPickDocumentsAt urls: [URL]) {
+        intake.take(urls.map { url in
+            ComposeIntake.file(at: url, mimeType: { UTType(filenameExtension: $0)?.preferredMIMEType })
+        })
+    }
+
+    /// Something he chose, in the letter. Staged on disk rather than held
+    /// in the draft: a composer left open for an hour should not also be
+    /// holding several megabytes of image in memory. Safe against the
+    /// launch-time purge because a SAVED draft embeds its bytes on the
+    /// server and reopens as a message part, and a letter kept on the iPad
+    /// links its files into its own directory (`LocalDraftStore.keep`), so
+    /// nothing in the staging has to outlive this composer, which removes
+    /// what it staged as it goes (`staged`).
+    private func landed(_ url: URL, _ row: DraftAttachment) {
         staged.record(url)
-        draft.attachments.append(DraftAttachment(source: .localFile(url),
-                                                 filename: filename,
-                                                 mimeType: "image/jpeg",
-                                                 size: Int64(data.count)))
+        draft.attachments.append(row)
         rebuildAttachments()
         letterEdited()
+    }
+
+    /// What could not be attached, said over the sheet in an alert, once
+    /// nothing else is up over it: the picker sliding away, or a notice
+    /// already up, which UIKit would not put another over. Nothing once
+    /// the sheet has gone.
+    private func say(_ words: String) {
+        guard viewIfLoaded?.window != nil else { return }
+        guard presentedViewController == nil else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                self?.say(words)
+            }
+            return
+        }
+        ErrorPresenter.tell(words, on: self)
     }
 
     private func row(label text: String, field: UITextField, text value: String) -> UIView {
@@ -753,9 +954,13 @@ final class ComposeViewController: UIViewController,
         activeAddressField = field
         refreshSuggestions(after: .typed)
         updateSend()
+        followRecipients()
     }
 
+    /// Leaving the field, which has made a bubble of what he typed and
+    /// sends this alone, no change of its own (`RecipientField.ended`).
     @objc private func addressEditingEnded(_ field: RecipientField) {
+        followRecipients()
         // Deferred by one runloop turn: a TAP on a suggestion ends editing
         // before the table sees the touch, so hiding immediately would
         // dismiss the row out from under his finger and nothing would be
@@ -817,12 +1022,13 @@ final class ComposeViewController: UIViewController,
         field.pick(MailFormat.recipient(name: picked.name, address: picked.address).entry)
         t.deselectRow(at: ip, animated: false)
         // Closed, as Mail's closes, until he types again. It used to open
-        // again at once with his most used over Cc, Subject and Attach
-        // Photo.
+        // again at once with his most used over Cc, Subject and the
+        // buttons for files.
         refreshSuggestions(after: .picked)
         updateSend()
         // Set by hand, the field sends no change of its own.
         letterEdited()
+        followRecipients()
     }
 
     @objc private func toggleCc() {
@@ -838,8 +1044,8 @@ final class ComposeViewController: UIViewController,
         // Asked only about a letter he has changed, as Mail asks
         // (`ComposeForm.asksBeforeClosing`). A new letter opens with his
         // signature in it, and asking whenever the body had anything in it
-        // asked every time. A photo still coming in is a change, and so is
-        // a Send the server refused (`ComposeActions.asksAnyway`).
+        // asked every time. A photo or a file still coming in is a change,
+        // and so is a Send the server refused (`ComposeActions.asksAnyway`).
         let letter = currentLetter()
         guard actions.asksAnyway
                 || ComposeForm.asksBeforeClosing(letter, opened: opened) else {
@@ -852,8 +1058,18 @@ final class ComposeViewController: UIViewController,
         sheet.addAction(UIAlertAction(title: "Save Draft", style: .default) { [weak self] _ in
             guard let self else { return }
             self.collect()
+            // A reply to someone he typed and never made a bubble (B-107):
+            // the rows go into the draft he saves, as Send would put them
+            // in, nothing being sent. Reopened from Drafts or the iPad,
+            // where no rule follows it, it would otherwise go to that
+            // person without the files, unseen.
+            let collected = self.draft
+            if self.replyFiles?.wouldAdd(to: collected.to, cc: collected.cc,
+                                         bcc: collected.bcc) == true {
+                self.followRecipients(to: collected.to, cc: collected.cc, bcc: collected.bcc)
+            }
             // The order, the background time around the save, and the wait
-            // for photos still on their way in are
+            // for photos and files still on their way in are
             // `ComposeActions.saveAndClose`, which also refuses once a
             // letter is on its way. The draft is asked for after the sheet
             // has gone, so the save keeps this controller until it has it.
@@ -894,8 +1110,20 @@ final class ComposeViewController: UIViewController,
             shown.dismiss(animated: true)
         }
         // The fields as they are at the tap; the letter itself is taken
-        // once any photo still on its way in has landed in it.
+        // once any photo or file still on its way in has landed in it.
         collect()
+        // A reply to someone new carries the original's files (B-107). An
+        // address he typed and never made a bubble, which reaches the
+        // letter with no change sent, can call for them only now: then
+        // they go in, VoiceOver is taken to the first, and nothing is sent.
+        // His next tap sends. A reply never goes without the files the rule
+        // calls for, nor with files he has not seen.
+        if replyFiles?.wouldAdd(to: draft.to, cc: draft.cc, bcc: draft.bcc) == true {
+            if let first = followRecipients(to: draft.to, cc: draft.cc, bcc: draft.bcc) {
+                showRow(at: first)
+            }
+            return
+        }
         actions.send({ self.draft }, then: onDraftsChanged, draftSent: onDraftSent)
     }
 
@@ -904,7 +1132,7 @@ final class ComposeViewController: UIViewController,
     /// Told to whatever presented the sheet, not to the sheet. A view
     /// controller told to dismiss while it is presenting something
     /// dismisses that instead and stays. With an alert over the sheet when
-    /// the letter went, about a photo that could not be staged, or the
+    /// the letter went, about a file that could not be attached, or the
     /// Share or Look Up the text menu offers, that was all that closed, and
     /// the sheet stayed with Send gone, Cancel held and the swipe refused,
     /// which only quitting the app undid. Told to the presenter, UIKit takes
@@ -925,8 +1153,8 @@ final class ComposeViewController: UIViewController,
     }
 
     /// The sheet as `ComposeActions` says it should be. While a letter goes:
-    /// the spinner and its words where Send was, and Cancel, Attach Photo
-    /// and every Remove held, since the one thing that must not happen then
+    /// the spinner and its words where Send was, and Cancel, Photo Library,
+    /// Attach File and every Remove held, since the one thing that must not happen then
     /// is the letter being lost or sent twice. After a failure everything
     /// is live again. The sheet is never let go by a swipe (`viewDidLoad`),
     /// and a swipe while a letter goes asks nothing (`cancelTapped`).
@@ -947,7 +1175,8 @@ final class ComposeViewController: UIViewController,
             }
         }
         navigationItem.leftBarButtonItem?.isEnabled = !sending
-        attachButton?.isEnabled = !sending
+        photoButton?.isEnabled = !sending
+        fileButton?.isEnabled = !sending
         for row in attachmentsStack.arrangedSubviews {
             for case let remove as UIButton in row.subviews { remove.isEnabled = !sending }
         }

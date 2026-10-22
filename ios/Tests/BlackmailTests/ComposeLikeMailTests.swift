@@ -297,8 +297,9 @@ final class ComposeLikeMailTests: XCTestCase {
     /// 2. A pick closes the list, in both.
     func testAPickClosesTheList() async throws {
         let composer = try source(Self.composer)
+        // Then a reply's files follow the bubbles (B-107).
         XCTAssertTrue(composer.contains("t.deselectRow(at: ip, animated: false) "
-            + "refreshSuggestions(after: .picked) updateSend() letterEdited() }"))
+            + "refreshSuggestions(after: .picked) updateSend() letterEdited() followRecipients() }"))
         // The field's bubbles, a recipient each, since B-076.
         XCTAssertTrue(composer.contains("ComposeForm.suggestions(RecipientBook.shared.snapshot(), "
             + "in: field.bubbles, after: event)"))

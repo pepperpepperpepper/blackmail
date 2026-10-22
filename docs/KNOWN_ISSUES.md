@@ -550,6 +550,10 @@ account itself), beside a `signatureHTML` whose logo `<img>` points at
 `cid:sig-logo`. Whoever does Sam's real setup edits the plist once
 more; the procedure is in INVESTIGATIONS.
 
+*Closed in its minimal form by B-109: his photos go in the letter after
+his words and above the signature, as his Apple Mail letters did; a photo
+between words is left out.*
+
 ## B-026 — One blank body, observed once, not reproduced
 
 Opening a message showed the header filled in — sender, To, subject,
@@ -4027,7 +4031,9 @@ What changed is the HTML twin, which is what most people read.
   another device, or sent after the socket had died, would fail where it
   goes today, with nothing on screen he could take off. Carrying them is an
   owner decision, and would want rows with their weight and a cap, as a
-  forward has.
+  forward has. *Since B-107, a reply carries them as rows when it goes to
+  someone the original did not, as Mail's When Adding Recipients does;
+  otherwise as before.*
 - **A forward's pictures** the original shows by `cid:` go inline, as
   related parts beside the markup, each under a Content-ID of this letter's
   own (`bmquote1.` and a fingerprint), so a sender's own `cid:sig-logo`
@@ -4102,7 +4108,8 @@ markup when he taps Forward, 0.18 s for a megabyte, on the main thread.
 Markup over 4 MB, which is markup with pictures pasted into it as `data:`
 addresses, is not carried: that quote goes as its words with their addresses
 linked, and a forward's pictures as files. A reply adds nothing but the
-markup, as it carries none of the original's parts. Linking the addresses in
+markup, as it carries none of the original's parts. *Since B-107, one to
+someone new carries them as a forward does.* Linking the addresses in
 a plain quote is one pass over each line; it searched the rest of the line
 again after every address, 12 s for a 200 kB line with an address every
 hundred bytes in a release build, on the actor Send and Save Draft wait on.
@@ -5957,6 +5964,8 @@ rows were the kept ones. Before them, for about 130 ms, the system's
 launch screen, white, the app's `UILaunchScreen` being an empty dict and
 its style Light. A flag before the fresh page lands was still not
 caught, and the password saved again was not tried.
+
+*Phase 2, the letters he opened, built 2026-10-22: B-111.*
 
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
 
@@ -19591,6 +19600,255 @@ first round's again, on this code: the item read off the pane's
 `summary.isRead`, 3 in 2; the read item never greyed, 1 in 1.
 
 The full suite, serially: 2,004 tests, 5 skipped, none failing. The
+
+---
+
+## B-107 — BUILT 2026-10-22, not yet seen on the iPad. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
+
+Built in the `feat-replyfiles` worktree, off `feat-kept` (master at
+88ef40d with B-100 to B-105 and B-111). B-102's part 2 is not built, so
+nothing here depends on it. The owner has not yet answered the batch's
+questions; built to their defaults: When Adding Recipients, the Forward
+question on, the Trash looked in.
+
+**What Mail does.** (A) *Reply.* Settings, Apps, Mail, Composing, Include
+Attachments with Replies has four answers, Never, When Adding Recipients,
+Ask and Always (discussions.apple.com/thread/253436241;
+slashgear.com/1707699/iphone-email-app-settings-to-change/), high. When
+Adding Recipients is the factory default per Symprex
+(support.symprex.com/signature-365/frequently-asked-questions/apple-mail-application-replaces-images-with-when-replying),
+medium: a 2019 article said Ask. Under it a reply carries the files only
+when it goes to someone the original did not; otherwise Mail's quote shows
+a picture as a placeholder. His own Sent Mail: 35 of the 41 replies that
+carried files had added someone, 4 of them only his second address, and
+none of 36 sampled carried files without. When the files appear in Mail's
+composer, and whether they go again when the person added is taken out,
+is not known (low). (B) *Forward.* Apple's iPadOS 18 guide: "If there are
+attachments in the original message… you can decide whether to include
+them in the forwarded message. Choose Include or Don't Include."
+(support.apple.com/guide/ipad/reply-to-and-forward-emails-ipad45e27452/18.0/ipados/18.0),
+high. The title, "Include attachments from original message?", is from
+third-party quotes and screenshots, medium-high; the iPad's layout of it
+was not seen.
+
+**What it was.** `Draft.replying` carried nothing, and `AppleMailHTML.letter`
+gave the quote's pictures to a forward alone (`quote.kind == .forward`), so
+a reply's quote left out its `cid:` pictures with their `<img>`. A reply he
+copied to someone new went without the original's files, and nothing said
+so: the person he added never had the file. B-050 and INVESTIGATIONS gave
+the reasons: every reply to a photograph would send it back, with no row
+to show it, and Send and Save Draft would have to fetch first. Forward
+carried every part as a row and asked nothing. A letter waiting in the
+Outbox whose original had gone from its folder was looked for in All Mail
+alone (`carriedPartElsewhere`), which holds neither the Trash nor Spam, so
+one whose original he had deleted stayed there saying its files could not
+be downloaded.
+
+**Changed.**
+
+1. *One mapper* (`DraftAttachment.carried(from:)`): each part of the
+   original a row, named by its id, folder, section and X-GM-MSGID, with
+   its weight and a Remove. `Draft.forwarding` makes its rows with it, as
+   it made them before, and so does the reply's rule, so the two are the
+   same rows byte for byte. `DraftAttachment` and its `Source` are
+   `Equatable`.
+2. *The rule* (`Mail/ReplyFiles.swift`, pure). The original's people are
+   everyone in its From, Reply-To, To, Cc and Bcc, each address bare and
+   in lower case. `recipientsChanged` puts the rows in, after any of his
+   own, when anyone the reply is to is not among them, his own second
+   address included; takes the rule's rows out again, and no others, when
+   no one new is left; and otherwise does nothing. A Remove on one of the
+   rule's rows is his choice (`hisChoice`) and the rule stops for that
+   letter. `wouldAdd` says, changing nothing, whether it would put them in
+   now. Each entry is split as the envelope splits it, and one with no
+   address in it is no one. Each entry of the original is read whole too,
+   as the reply reads it (`ReplyAddressing`, `MailFormat.recipient(in:)`),
+   a name broken over lines made one line: read from its first line
+   alone, a Reply-To `Club<U+2028>News <club@example.org>` was "Club", no
+   one, the reply went to club@example.org, someone new, and a plain
+   Reply opened with every part of hers as a row, to go back to her; so
+   did a Reply All to a Cc broken so, and a reply to a From of several.
+   The mode is one of Mail's four (`ReplyFiles.mode`); built, When
+   Adding Recipients. Never, Ask and
+   Always are in the rule too, one line away: Always opens with the rows
+   and follows nothing, Ask puts the Forward question at Reply and Reply
+   All for a letter with files the header lists, and Never carries
+   nothing.
+3. *The composer* (`ComposeViewController`) holds the rule as
+   `replyFiles`, handed in by the pane's Reply and Reply All alone
+   (`openCompose`). A forward, a new letter, a `mailto:` link and a
+   letter reopened from Drafts, the iPad or the Outbox are made without
+   it, and keep the rows they were saved with. It follows the bubbles,
+   never what he is still typing: from `addressEditingChanged`, from
+   `addressEditingEnded`, since leaving a field makes a bubble of what he
+   typed and sends `.editingDidEnd` alone (`RecipientField.ended`), after
+   a pick, and as the fields are first shown, before the letter is taken
+   as it opened. Never while a letter goes, nor once Save Draft or Delete
+   Draft has put the sheet away (`ComposeActions.isWriting`). A Remove
+   tells it. The rows come and go through `rebuildAttachments` and
+   `letterEdited`, so the letter kept on the iPad has them.
+4. *The check at Send* (`sendTapped`). Tapping Send does not end editing,
+   and `collect()` reads what he typed and never made a bubble too
+   (`RecipientBubbles.recipients`, B-076), so such an address reached the
+   letter with no change sent. After `collect()` and before
+   `actions.send`, the rule is asked about everyone the letter would go
+   to: if the rows would go in, they go in, the sheet is scrolled to the
+   first and VoiceOver taken to it (`showRow`, `.layoutChanged`), and
+   nothing is sent; Send stays live, and his next tap sends. No alert and
+   no new words. Under To, Cc, Bcc and Subject, with a Reply All's Cc of
+   several lines and the keyboard up, the first row could be below what
+   showed, and a Send that did nothing was tapped again. Rows a bubble
+   puts in are read out to VoiceOver, their own words after what it is
+   saying, and it is left in the field. Save Draft asks the rule the same
+   way after `collect()`, so the draft he saves with an address typed and
+   never made a bubble has its rows: reopened from Drafts or the iPad,
+   where no rule follows it, it would have gone to that person without
+   them.
+5. *The quote's pictures.* `AppleMailHTML.letter` no longer asks whether
+   the quote is a forward's: a picture of the original goes in the quote,
+   under a `bmquote` id of the letter's own, when it is one of the
+   letter's rows, and the rest of the rows go as files, fetched at Send as
+   a forward's are. A reply with no rows has no picture to send, and its
+   HTML is what it was.
+6. *The pictures are rows, as a forward's are, which is not what the spec
+   said.* It had a reply's rows be the files alone (`!isShownInBody`) and
+   its pictures go in the quote all the same. The code cannot do both: a
+   picture of the original goes in the quote only as one of the letter's
+   rows (point 5), so with no row a photograph the letter showed cannot go
+   at all, and its `<img>` is left out. And the composer shows the quote
+   as words, so a row is the only thing on screen that says a photograph
+   is going and what it weighs. So the reply's rows are the forward's,
+   pictures included, and the rule puts them in for any original with
+   parts, a photograph in the body with no file listed among them, as
+   Apple Mail on an iPhone sends one. A letter whose only part is a
+   signature's logo has a row for it too, as a forward has.
+7. *The Forward question* (`MessageDetailViewController.replyTapped`,
+   `askAboutFiles`), only for a letter with a file the header lists
+   (`ReplyFiles.forwardAsks`, `Message.listedAttachments`): an action
+   sheet at the Reply button, "Include attachments from original
+   message?", Include, Don't Include and Cancel, which on the iPad is a
+   tap outside it and begins no letter. Include: every part, as before.
+   Don't Include: the pictures the body shows alone
+   (`Draft.forwarding(_:includingFiles:)`), which its quote shows. A logo
+   or a photograph in the body, alone, asks nothing.
+8. *The Trash* (`carriedPartElsewhere`). Once All Mail has not got the
+   original, it is looked for in the Trash (`roleNames[.trash]`) by the
+   same id, and a part taken from it only when the search found it under
+   one UID. Where it is found is kept for the launch, as All Mail's finds
+   were, so the parts after the first are fetched from there with no
+   search more (`foundElsewhere`, which was `foundInAllMail`,
+   `carriedPartFoundBefore`). Spam is not looked in.
+
+**Not changed.** A Reply and a Reply All open with no rows. A reply with no
+rows: its HTML, its parts, and its wire, nothing fetched. Save Draft, the
+pass that takes kept letters to Gmail's Drafts, the Outbox and its large
+letters work on a reply's rows as on a forward's: a draft's APPEND
+fetches them whole (`loadAttachments`), and a reply carrying a megabyte
+or more of them waits for his Refresh in the Outbox
+(`LocalDraft.fetchesLarge`). A forward with no question asked. The share
+sheet. IMAP and SMTP.
+
+**What he sees.** Reply and Reply All open as before. When he adds someone
+the letter did not go to, made a bubble by a comma, Return, a pick or by
+leaving the field, the original's files appear as rows under Subject,
+each with its weight and Remove, the pictures in its body among them; he
+takes the person off again, and they go. He takes one row off, and the
+rest stay whoever the letter goes to. With an address typed and Send
+tapped at once, the rows appear, scrolled to, and nothing goes; Send
+again sends. The person added gets the files, and the photographs in the
+quote where the
+letter showed them. Forward of a letter with a file asks "Include
+attachments from original message?" at the Reply button. New words, held
+from his iPad until he approves them: the question, "Include" and "Don't
+Include".
+
+**Tests.** `ReplyFilesTests`, 17, the rule: Reply and Reply All to the
+sender and the Cc, and a reply to a letter of his own, no one new; the
+Reply-To, the authors of a letter written by several and the Bcc among the
+people; names broken over lines by `\n`, `\r\n`, U+2028 and U+0085, as
+`ReplyAddressingTests` has them, in a From of two, a Reply-To, a To, a Cc
+and an address itself, the reply going to each on one line and neither
+Reply nor Reply All someone new; the same address in another case, with
+another name or quoted, no one new, and an empty group, a bare name and
+nothing no one; a stranger
+in Cc, a Bcc, his second address, each putting the rows in after his
+photo, and nothing more once in; the stranger taken off taking the rule's
+rows out and leaving his photo, and back to the start; a Remove of a
+rule's row stopping it, and of his photo not; a Remove with nothing
+carried changing nothing; `wouldAdd` agreeing with `recipientsChanged`
+in each state for seven sets of people; an address still being typed
+counted at Send and not before; the rows a forward's byte for byte, with
+their sections and Gmail id, and Don't Include's the pictures alone; no
+rule for an original with no parts; a reply carrying 1.2 MB waiting in
+the Outbox as a forward does, and 600 kB not; the four modes; the
+question asked of a PDF, a PDF sent inline and a picture sent as a file,
+and not of a logo, a photograph in the body or nothing, and at Reply
+only under Ask; its words. `ReplyFilesWiringTests`, 6, read from the
+source: the composer following the bubbles from the four places, only
+while writing, a Remove told, and leaving a field sending
+`.editingDidEnd` alone; Send asking `wouldAdd` after `collect()` and
+returning before `actions.send`, the first row laid out and scrolled to
+before VoiceOver is moved to it; rows a bubble puts in read out, queued,
+and those Send or Save Draft put in not; Save Draft asking the rule after
+`collect()` and before the save; the question at the
+Reply button in Mail's words, said once in the sources, asked only when
+the header lists a file; the rule handed in by Reply and Reply All alone,
+not by a forward, a `mailto:` link or Drafts. `RichQuoteTests`, 3: a reply
+to someone new sending her photograph and her logo inline under `bmquote`
+ids and the PDF as a file, his logo once, every id shown, and the plain
+part byte for byte a reply's; a row taken off sending no part and no
+`<img>`, every row taken off a reply that carried nothing; a reply with no
+rows, for three originals, sent and as a draft, its HTML that of the same
+reply with no picture to show, and nothing to fetch.
+`RichQuoteRepositoryTests`, 4, over the shipping repository: a reply to
+someone new sent with the picture inline and the PDF as a file, from the
+letter on screen with nothing asked of the server; fetched at Send once
+it is not; not sent at all when its original cannot be fetched; saved,
+reopened with its rows, its Cc and its quote's picture, and sent so.
+`KeptReferencesTests`, 4: a reply carrying the Plans' file, sent with no
+connection, its original deleted meanwhile, going from the Trash in a
+later launch after All Mail, one search in each, its own file; a forward
+of three files whose original is in the Trash, looked for there once and
+its three parts fetched from there; an original in All Mail never looked
+for in the Trash; an original the Trash holds under two UIDs, Gmail's id
+the same at both (the scripted server files a letter in a folder as often
+as it is told to), taken from neither: nothing fetched there, nothing
+sent, the forward left in the Outbox saying its file could not be
+downloaded, one search in All Mail and one in the Trash. Changed: the
+forward whose original is nowhere now pins one search in All Mail then
+one in the Trash; two pins of the
+composer's and the pane's wiring take the new lines (`ComposeLikeMailTests`,
+`ReplyAddressingWiringTests`).
+
+Each rule undone in the worktree, one at a time, and the ten classes that
+touch it run, 281 tests, 282 once the Trash's three-file test was in. The `.editingDidEnd` call removed: 2 failures in
+1 test. The check at Send removed: 2 in 2. The forward test put back in
+`AppleMailHTML.letter`: 18 in 5. No Trash: 9 in 2. The Trash before All
+Mail: 4 in 4. A find in the Trash not kept for the next part: 1 in 1.
+`wouldAdd` blind to the state: 7 in 2. No one new taking every row out,
+his photo too: 2 in 1. A Remove not stopping the rule: 4 in 2. The Bcc not
+among the people: 3 in 1; the Reply-To not: 2 in 1. Addresses compared in
+their case: 8 in 2. His own addresses taken for people already: 5 in 2.
+The reply's rows the files alone, as the spec had them: 25 in 9. Forward
+always asking: 6 in 1; never: 2 in 1. Don't Include carrying nothing: 1 in
+1. Reply asking under the default: 16 in 1. The rule run while a letter
+goes: 1 in 1; following what he types: 1 in 1; not after a pick: 3 in 2;
+not as the fields are shown: 2 in 1; a Remove not told: 1 in 1. A forward
+handed the rule: 3 in 1. The question's words changed: 2 in 2. A
+forward's rows not from the shared mapper: 92 in 19. The Trash's one-hit
+rule removed: 5 in 1, counted as below.
+
+The later changes each undone the same way, one at a time, and the eight
+classes that touch them run (`ReplyFilesTests`, `ReplyFilesWiringTests`,
+`KeptReferencesTests`, `RichQuoteTests`, `RichQuoteRepositoryTests`,
+`ReplyAddressingTests`, `ReplyAddressingWiringTests`,
+`ComposeLikeMailTests`), 170 tests. The original's people read from each
+entry's first line alone, as before: 84 failures in 1 test. The Trash's
+one-hit rule removed: 5 in 1. No scroll to the first row at Send: 1 in 1.
+No read-out of rows a bubble puts in: 3 in 2. Save Draft not asking the
+rule: 3 in 2.
+
+The full suite, serially: 2,063 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -19629,3 +19887,825 @@ release build for the iPad links.
 - Move to Junk, Move to Inbox inside Spam, and their words ("Move to Junk"
   or "Move to Spam", his sidebar's word): the owner's, on the branch's
   last commit.
+
+---
+
+- Mail's own timing: when its files appear after a Cc is added, and
+  whether they go when it is taken off (low confidence, written in
+  `ReplyFiles`). Step 10 of the check, on a real iOS 18 device with Mail.
+- The modes other than When Adding Recipients, on the iPad: Ask's
+  question at Reply and Reply All, Always and Never are tried only here.
+- The rows can flash: an address half typed, left by a tap on a
+  suggestion, is made a bubble a moment before the pick takes its place
+  (`RecipientBubbles.pick`), and if it was someone new by then the rows
+  come and go again.
+- A reply to a letter whose only part is a signature's logo carries a row
+  for the logo once he adds someone, as a forward does.
+- What Mail's Don't Include does with a picture the body shows; here it
+  stays, as a row and in the quote.
+- A reply kept on the iPad by itself, after the pause or as he leaves the
+  app, with an address typed and never made a bubble: kept with that
+  address and without the rows, which the sheet, still open, puts in at
+  Send. Reopened after the app was ended, from Drafts or the iPad, where
+  no rule follows it, it goes to that person without the files, as every
+  reply did before. Save Draft puts them in; the keeps by themselves do
+  not, since rows he has not seen would then be in the letter.
+- The question's popover at the Reply button, VoiceOver on the first new
+  row and the read-out of rows a bubble puts in, and the scroll to the
+  first row at Send, on the iPad: the check under "Blocked on the iPad
+  coming back", built from the worktree before it is merged, since it
+  touches Send.
+
+## B-108 — BUILT 2026-10-22, not yet seen on the iPad. The composer could attach only photos, made JPEGs; Mail's attaches any file and videos
+
+Built in the `feat-composer` worktree, off `feat-replyfiles` (master at
+88ef40d with B-100 to B-105, B-111 and B-107). The owner has not yet
+answered the batch's questions; built to their defaults: photos and videos
+the share sheet's way, a video as Photos' compatible copy, two buttons and
+no paperclip.
+
+**What Mail does.** Apple's iPadOS 18 guide
+(support.apple.com/guide/ipad/add-email-attachments-ipadcf744d81/18.0/ipados/18.0),
+high: the paperclip at the right of the keyboard's shortcut bar offers
+Attach File (the Files browser), Photo Library (photos and videos), Take
+Photo or Video, Scan Document (as a PDF) and Insert Drawing. Whether Mail's
+picker makes a video another copy, and how many it takes at once, is not
+known (low). Gmail takes 25 MB (support.google.com/mail/answer/6584) and
+blocks some types of file. His Sent Mail, the last year: about 65 files
+that are not pictures on new letters (about 37 PDFs, 10 audio, 4 Word, 3
+videos), about 5 replies with a new file, 7 videos of 0.8 to 19 MB, and no
+scanned document in two years.
+
+**What it was.** One row under the files, "Attach Photo", opened PHPicker
+for photos alone, five at a time. Each was decoded whole as a `UIImage` and
+made a JPEG at 0.85 with `jpegData`, named its suggestion with ".jpg": its
+own bytes, its date and everything else it carried went, where the share
+sheet sends a photo as Apple Mail does. A provider that gave no `UIImage`
+was skipped, and a photo that could not be decoded attached nothing, both
+with nothing said; one that could not be written said "Attachment could not
+be downloaded.", wrong for a file on the iPad. No video, no other file.
+Send and Save Draft waited for photos still coming (`photoComing`), for
+as long as they took.
+
+**Changed.**
+
+1. *Mail's two names* (`ComposeViewController.attachRow`). The row is two
+   labelled buttons side by side, "Photo Library" (`photo.on.rectangle`)
+   and "Attach File" (`doc`), each symbol the size of its words, always
+   there and never moving (BRIEF.md). Both held while a letter goes, with the
+   Removes. Mail's paperclip in the keyboard's shortcut bar is not built:
+   it comes and goes with the keyboard.
+2. *One intake.* `ShareItems.read`, the share sheet's reading of what it is
+   offered, with its `Tally`, reads what Photo Library hands over too. It
+   is not moved: it is already in the library both bundles link, and the
+   share tests pin its body where it is. It is made reachable, `private`
+   taken off, and is otherwise byte for byte as it was. `Staging` gains its
+   starting room: `init(room:unnamed:)`, `limit`, never more than the 25 MB,
+   and `room(after:)`, what the letter's rows leave of it, a row whose size
+   is not known counting as all of it. A share's `Staging()` begins as
+   before.
+3. *Photo Library.* PHPicker, `.any(of: [.images, .videos])`, five at a
+   time, `preferredAssetRepresentationMode = .compatible`, Photos' JPEG of
+   a HEIC photo and H.264 copy of an HEVC video. No permission asked. A
+   photo goes as the share sheet's: its own bytes under its own name, its
+   metadata replaced and no location, made a JPEG of at most 4096 px only
+   when it has to be. No `jpegData` or `loadObject` is left in the
+   composer, and no `UIImage` made of a photo.
+4. *Attach File.* `UIDocumentPickerViewController(forOpeningContentTypes:
+   [UTType.data], asCopy: true)`, several at a time: any file, not a folder
+   or a package. No security-scoped access, no Info.plist key. Each copy
+   the picker puts in the app's Inbox, `tmp/<bundle id>-Inbox`
+   (`AttachmentStore.inbox`), is MOVED into the staging by the new
+   `AttachmentStore.move`, into a directory of its own as `copy` places a
+   file, class C, then measured and refused past the room, as the share
+   sheet copies one (`ComposeIntake.file`). Its name is its own, made safe
+   (`safeFilename`); its type from its extension
+   (`AttachmentStore.mimeType`, `UTType`'s preferred type on the iPad,
+   `application/octet-stream` without one). What does not go in is
+   removed from the Inbox, and nothing outside it ever is
+   (`isInInbox`, `removeFromInbox`); a file that is not in the Inbox is
+   copied and left where it is.
+5. *One at a time, each with the room left* (`Mail/ComposeIntake.swift`,
+   which the suite runs). Every pick goes into one queue, read in order, as
+   the share sheet reads a share; each begins with what the letter's rows
+   leave by then, every row before it already in, so two picks together
+   never make a letter that could not go. Each has its own staging and
+   tally, so one counted out and come after all touches nothing of the
+   next. Pictures with no name are numbered on from pick to pick.
+6. *Never stuck.* While he writes, each is given three minutes
+   (`ComposeIntake.bound`) from when it begins. Not in by then, it is
+   counted out: its row goes, the next begins, and it is said with its
+   pick. Come after all, it is thrown away and its file removed, the
+   composer gone or not. The case is a photo kept only in iCloud with no
+   connection, which the picker can wait for for ever. A Send or a Save
+   Draft waits at most three minutes from the tap for all of it together
+   (`ComposeIntake.hurry`, told at the tap by
+   `ComposeActions.whenWaiting`): what is still coming then, the one being
+   read and every one waiting its turn, is counted out at once, those not
+   begun by what they are (`Item.kind`, from the types the picker offers,
+   read as `ShareItems.read` reads them), and said in one alert. The one
+   being read keeps its own bound when that ends first. With one bound
+   after another, as this was first built, five iCloud photos with no
+   connection held "Sending…", Cancel and the swipe for up to 15 minutes,
+   two picks of five for 30, with nothing said until the last was counted
+   out. The worst case now: three minutes of "Sending…" from the tap.
+   The bounds run only while the app is in front (`away` as it goes into
+   the background, `back` as it returns). Left for longer than three
+   minutes while a video came, the bound and the video would each have
+   waited for the app, in no set order, and a video that had come could
+   have been counted out on his return. Back, each has its bound again
+   from then, a Send's wait too; a bound cancelled as the app went counts
+   nothing out, even one that had just run out.
+7. *Never short* (`ComposeActions`). Everything chosen counts from the pick
+   until it is in, has failed or is counted out (`itemComing`,
+   `itemLanded`, which were `photoComing` and `photoLanded`), so Send, Save
+   Draft and the keep as he leaves the app wait for it, and Cancel asks. A
+   pick that ends with something missing says so as it ends, once, and
+   tells the actions it came short (`itemLanded(cameShort:)`). A Send that
+   was waiting for it does not take the letter nor send: the sheet is put
+   back as it was, Send and all, with the rows that did come and the words
+   over it, and his next Send goes without it because he chose to. The
+   letter is kept on the iPad as it is then, the rows that came during
+   the wait in it, and counts as changed, so leaving the app keeps it
+   again: the autosave stopped at the tap, and a row that lands during a
+   Send is no edit of his. *Beyond
+   the spec:* it had only a count-out stop the Send. A file that failed
+   another way while Send waited, too large, not given, not written, would
+   have gone missing just the same, with the words put over a sheet
+   closing, which UIKit drops; so would one that failed before the tap in
+   a pick that ended after it. Now any pick that ends short during the
+   wait stops it. One said before the tap does not.
+8. *Save Draft* closes the sheet first, as before: one counted out then is
+   not in the draft kept, which reopens without its row. Nothing is sent.
+9. *While it comes,* a row with its name and a spinner where its Remove
+   will be, after the letter's rows (`comingRow`). One the picker gives
+   no name is "Photo" or "Video" (`ComposeIntake.shown`), so the row, and
+   VoiceOver, have a word for it.
+10. *The words.* The share sheet's approved ones for photos and videos
+    (`ShareItems.leftOut`), and for any other file "The file could not be
+    attached." when it was all he picked, "1 file could not be attached."
+    or "N files could not be attached." otherwise; a mix as a list, "1
+    photo, 1 video and 1 file could not be attached."
+    (`ComposeIntake.words`). Said in an alert over the sheet once nothing
+    else is up over it, the picker sliding away or another notice, and not
+    once the sheet has gone (`say`). Nothing says "downloaded" for a file
+    on the iPad any more.
+11. *A file named with a double quote: already well formed, which is not
+    what the spec said.* It read the quoted `name=` and `filename=` of a
+    file (`RFC5322Builder`, the attachments' headers) and of a picture sent
+    inline, and `encodeIfNeeded` and `safeFilename`, which keep `"`, and
+    took the header to be broken. The plan that builds every letter
+    (`RFC5322Builder.plan`) takes `"` and `\` out of every file's and every
+    inline picture's name before any of that, and has since its first
+    version, the share sheet's letters included; the reference builder the
+    corpus is held to does the same. Nothing is changed; it is pinned now:
+    a name with either, for a file and an inline picture, gives one quoted
+    name in each header and nothing after it, the app's parser reads the
+    names back as they went ("re\"port.pdf" as "report.pdf"), and Python's
+    `email` package, its default policy, read the same letter with no
+    defect and the same names.
+12. *The launch purge* (`AttachmentStore.purge`, at launch in the app and
+    as the share sheet opens) clears the Inbox with `tmp/Attachments`.
+13. *Drafts.* The whole-letter APPEND is kept; D-017's revisit, recorded
+    there. Measured on the host: the letter's build alone, the file read
+    whole and the letter made from it, raised the mark by about 2.4 times
+    the file, 60 MB for 25 MB. The APPEND's own copies, in
+    `IMAPClient.append` and the transport, were not measured apart from
+    the scripted server's: the whole Save Draft with the server's copies
+    came to about 197 MB. The app's own peak for such a draft lies between
+    the two.
+
+**Not changed.** Take Photo or Video, Scan Document and Insert Drawing are
+left out: each needs the camera's permission, whose one "Don't Allow" is
+for good and looks like a broken button (B-020), and nothing shows he uses
+them. No paperclip in the shortcut bar. IMAP and SMTP. Send, the Outbox and
+a kept letter work on a picked file as on a photo: streamed from the disk
+(D-017), kept by a hard link (`LocalDraftStore`). The share sheet: every
+Share test passes unchanged.
+
+**What he sees.** Under the files, "Photo Library" and "Attach File" in
+place of "Attach Photo". Photo Library shows his photos and videos, five at
+a time; Attach File the Files browser, several at a time. Each thing chosen
+is a row with its name and a spinner, then a row with its weight and
+Remove; one with no name is "Photo" or "Video" while it comes. One that
+cannot be attached says so, in the share sheet's words or the new ones
+below. With Send tapped while something comes, the spinner until it is
+in, then the letter goes with it; if it does not come, at most three
+minutes after the tap, one alert with the words, and the sheet back with
+Send. New words, held from his iPad until he approves them: "Photo
+Library" and "Attach File"; "The file could not be attached." (one file
+picked alone), "1 file could not be attached." and "N files could not be
+attached."; with photos or videos missing as well, one list, "1 photo and
+1 file could not be attached.", "2 videos and 3 files could not be
+attached.", "1 photo, 1 video and 1 file could not be attached.", each
+number as it comes, "photo", "video" and "file" for one and "photos",
+"videos" and "files" for more; and "Photo" and "Video" as the name of a
+row still coming that the picker named nothing.
+
+**Tests.** `ComposerFilesTests`, 24: the room the rows leave, a row of no
+known size leaving none, a staging that begins below the whole copying
+what fits and not even copying what does not, a share's beginning with
+all of it; `move` into a directory of its own, the name made safe, the
+source gone, a failed move leaving no directory; the Inbox's place, and
+only what is in it moved or removed, however the path is written; the
+launch purge clearing it; the MIME type from the extension and
+octet-stream; picks read one at a time, each with the room left; what
+could not be attached said once as its pick ends; a load that never
+returns counted out at 180 s, the next begun with its own bound, the late
+arrival's file removed; a late arrival after the composer has gone
+removed; Send waiting for a load and going with it; Send not going when a
+load is counted out, or fails, while it waits, the sheet back with the
+row that landed meanwhile and the words, the letter kept with that row
+and counted a change, and the second Send going; Send's wait bounded at
+180 s from the tap for three photos and a file in two picks, with a fake
+clock: the first out at its own bound and nothing said, the rest at the
+tap's, two of them never begun, one alert, "3 photos and 1 file could not
+be attached.", nothing sent; Save Draft's the same; no bound running while
+the app is away, a video coming in then kept, and each bound, a Send's
+too, given again from the return; a bound cancelled just after it ran
+out counting nothing out; what a Photo Library pick is by its types, and
+the name of a row with none;
+Send going without what he was told of before, and not without what a pick
+still open at the tap left out; Save Draft keeping the draft without one
+counted out, nothing sent; a file from Attach File moved, named, typed and
+measured, one past the room left out and removed from the Inbox, one
+outside it copied into the staging and left where it is, one outside it
+past the room left where it is, a folder no file; unnamed pictures numbered on;
+a name with `"` or `\` well formed, for a file and an inline picture; the
+words in every combination. `ComposerFilesWiringTests`, 8, read from the
+source: Photo Library's filter, limit and compatible mode, no library and
+so no permission; the document picker as copies, several at a time, and no
+`startAccessingSecurityScopedResource` in any source; no camera, scanner or
+drawing, and no Info.plist key for them; no `jpegData`, `loadObject` or
+".jpg" left in the composer, and `ShareItems.read` reachable, each pick
+handed over with its kind and its name, or none; the two
+buttons in Mail's words, held while a letter goes; the rows while it comes
+and the words after; the bound stopped as the app goes into the
+background and given again as it returns; the purge and the move's class
+C. `OutboxTests`, 1: a
+PDF moved out of the Inbox, kept by a hard link to the staged file, which
+outlives it, and sent from the Outbox from the link, its bytes as they
+were. `DraftAppendMemoryTests`, 1, behind `BLACKMAIL_LARGE_TESTS`: a 25 MB
+video's draft, its letter built whole, about 60 MB above the mark before
+(59,981,824 and 60,092,416 bytes in two runs); the whole Save Draft with
+the scripted server's own copies, about 197 MB. Changed: `ComposeActionsTests` calls `itemComing` and
+`itemLanded`, and `AttachmentStoreTests` pins the composer's staged files
+through `landed`.
+
+Each rule undone in the worktree, one at a time, and the fifteen classes
+that touch it run (`ComposerFilesTests`, `ComposerFilesWiringTests`,
+`ComposeActionsTests`, `AttachmentStoreTests`, `OutboxTests`,
+`ShareItemsTests`, `SharedPhotoTests`, `SharePictureFallbackTests`,
+`ShareSheetTests`, `OutgoingMailTests`, `LetterPlanTests`,
+`StreamingSendTests`, `ComposeLikeMailTests`, `LocalDraftsTests`,
+`BoundaryTests`), 372 tests. The send going on after a pick came short: 8
+failures in 3 tests. A pick that came short before the tap stopping a
+later Send: 1 in 1. A count-out alone stopping a Send, as the spec had it:
+4 in 2. Send not waiting at all: 16 in 5. Save Draft not waiting: 6 in 3.
+The bound at 60 s: 3 in 1. A late arrival kept: 1 in 1. Two read at once:
+6 in 1. The room blind to the rows: 7 in 2. A row of no known size weighing
+nothing: 6 in 2. A staging's limit ignored before the copy: 2 in 1. The
+builder's strip of `"` and `\` taken out: 32 in 3, two of them the
+corpus's reference tests. The Inbox left by the purge: 3 in 2. Any file
+taken for one in the Inbox: 8 in 2. Attach File copying, not moving: 6 in
+2. `move` copying: 4 in 4. A failed move leaving its directory: 1 in 1. A
+file left out not removed from the Inbox: 2 in 1. A kept letter's file
+copied, not linked: 1 in 1. "The file" for any number: 6 in 2. The words
+said before the pick ends: 6 in 3. Unnamed pictures not numbered on: 1 in
+1. The MIME type's fallback empty: 3 in 1. Photo Library for photos alone:
+2 in 1; without the compatible mode: 1 in 1. The document picker one file
+at a time: 1 in 1. Security-scoped access taken: 1 in 1. A camera key in
+the Info.plist: 1 in 1. `jpegData` back in the composer: 1 in 1. The move
+without class C: 1 in 1. No row while it comes: 1 in 1. Attach File live
+while a letter goes: 1 in 1. Behind `BLACKMAIL_LARGE_TESTS`, the APPEND's
+bound tightened to twice the file: 1 in 1.
+
+The rules that bound Send's wait as a whole, stop the bounds while the
+app is away, keep the letter a stopped Send leaves and name a row with
+none, undone the same way, with the four classes that touch them run
+(`ComposerFilesTests`, `ComposerFilesWiringTests`, `ComposeActionsTests`,
+`AttachmentStoreTests`), 84 tests. Send's wait not bounded from the tap:
+7 failures in 3 tests. Save Draft's not: 3 in 2. Those never begun
+counted as files whatever they are: 1 in 1. One alert a pick at the
+tap's bound: 2 in 1. The bound running on while the app is away: 14 in
+2. Not given again on its return: 5 in 2. A bound cancelled after it ran
+out still counting out: 3 in 1. A Send stopped short keeping nothing: 2
+in 1; not counting as a change: 1 in 1. A late arrival after the
+composer has gone left on the disk: 1 in 1. No name for a row with none:
+3 in 1. Every pick from Photo Library taken for a picture: 3 in 1. The
+composer not stopping the bound as the app goes: 2 in 1. A file outside
+the Inbox moved, not copied: 2 in 1.
+
+The full suite, serially: 2,097 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Save Draft with something counted out: the draft is kept without it, and
+  the words, said after the sheet has gone, are not seen. Nothing is sent.
+- The bounds while the app is away are given again from his return, not
+  paused: a load two minutes in when he leaves has three minutes more
+  after it. A Send waiting as he leaves has no bound while he is away and
+  three minutes from his return; nothing goes meanwhile, and the sheet is
+  as he left it. Steps 6 and 9 of the check.
+- Mail's paperclip in the keyboard's shortcut bar, left to the owner.
+- The test iPad has no Files app: whether the document picker opens there
+  at all, and whether its copies are in `tmp/<bundle id>-Inbox`, where the
+  move and the purge look (the `COMPOSE-PICK` line says `moves=`). Outside
+  it, a file is copied and left, and the system's tmp clearing is all
+  that takes it.
+- The name a picked photo goes by: PHPicker's suggestion is the library
+  name with no extension (B-020's row read "IMG_0772.jpg"), and the
+  intake takes a suggestion first, so it goes as "IMG_0772.jpg", where the
+  share sheet's, named by its file, keeps "IMG_0772.JPG". Step 7 of the
+  check.
+- The room is measured as each begins. Rows a reply puts in afterwards for
+  someone new (B-107) are not in it; Send refuses a letter over the limit,
+  as before (B-007).
+- A type Gmail blocks goes to the server and is refused at DATA, the sheet
+  kept with the reason (B-052). A full disk leaves the file out, said.
+- The alert waits while anything is up over the sheet, Cancel's question
+  included; on the iPad, the check.
+- The picker, the document picker, the rows, VoiceOver on the two buttons,
+  the bound on an iCloud original and the Inbox at the next launch, on the
+  iPad: the check under "Blocked on the iPad coming back", built from the
+  worktree before it is merged, since it touches what Send carries.
+
+## B-109 — BUILT 2026-10-22, not yet seen on the iPad. His photos went as attachments under the letter; Mail's sit in it, under his words
+
+Built in the `feat-photos` worktree, off `feat-composer` (master at
+88ef40d with B-100 to B-105, B-111, B-107 and B-108). The batch waited on
+the owner's yes, and he gave it on 2026-10-22: "All three are still
+wanted" (Print, his photos in the body, and the letters kept on the iPad).
+It asked nothing else.
+
+**What Mail does.** Apple's iPadOS 18 guide
+(support.apple.com/guide/ipad/ipadcf744d81/18.0/ipados/18.0), high: Mail
+inserts a photo at the cursor, and "Depending on the file size, the
+attachment might appear inline with the text in the message or as [an
+icon] at the end". His own Sent Mail, the last year: 16 Apple Mail
+letters with a picture among his words. In every one the picture comes
+after all his typed words and before `<br
+id="lineBreakAtBeginningOfSignature">`, nearly all as `<div><br><br><img
+id="UUID" style="padding:0px 1px 1px 0px;" alt="IMG_0077.jpg"
+src="cid:UUID"></div>`, one `<div>` a picture; each part is inline, its
+Content-ID that same uppercase UUID, with the file's name; none has words
+after a picture. How Mail nests the parts was not read (medium): only the
+markup and the list of parts.
+
+**What it was.** A photo he attached, from Photo Library, Attach File or
+the share sheet, went as a file under the letter, `Content-Disposition:
+attachment`, after the alternatives; a note with a photo and no rich
+signature went as plain text with the photo under it. Only the
+signature's logo and a forward's quoted pictures went inline, each from
+memory (B-025's machinery).
+
+**Changed.**
+
+1. *Which rows* (`DraftAttachment.isBodyPicture`). A JPEG, PNG or GIF he
+   attached himself: a file on the iPad (`.localFile`), whichever of
+   Photo Library, Attach File and the share sheet put it there, or a
+   reopened draft's part marked as in the letter (5). Never a forward's
+   or a reply's rows of the original's parts (B-107), a video, a PDF, a
+   HEIC, a quote's picture or the signature's logo. *Beyond the spec:* it
+   named Photo Library and the share sheet; a picture from Attach File is
+   as much his own file, Mail places one the same way, and it goes the
+   same way.
+2. *Where* (`AppleMailHTML.letter`, `head`, `pictureMarkup`). After his
+   typed paragraphs and before the signature's line break, each
+   `<div><br><br><img id="ID" style="padding:0px 1px 1px 0px;" alt="NAME"
+   src="cid:ID"></div>`, in the order of his rows; with no signature,
+   before the quote, or last. ID a fresh uppercase UUID each time a letter
+   is made (`freshPictureID`), never one of the signature's pictures' or
+   another in the letter. NAME the part's own name
+   (`RFC5322Builder.partName`, B-108's: no `"` or `\`), escaped for the
+   attribute. `isNeeded` is true for a letter with one, so a note with a
+   photo goes as HTML, as Mail sends it.
+3. *One list* (`Letter.bodyPictures`). The markup and the parts are made
+   from it together, so every `cid:` has its part and every part its
+   `cid:`. Each row goes in one of three places only, the quote (a
+   picture of the original's its quote shows), under his words, or under
+   the letter (`files`), so nothing goes twice.
+4. *As parts* (`RFC5322Builder.plan`'s `inlineFiles`). Each photo is a
+   part inside the related set, before the signature's pictures, with
+   `Content-ID: <ID>`, `Content-Disposition: inline; filename="NAME"`, the
+   name in encoded words past ASCII as a file's is, and a place for its
+   file's base64: read from the disk a block at a time as the letter
+   goes, as any file is (D-017), never held whole, in the app or in the
+   share extension. The plan numbers them first and the files after, so
+   `LetterBytes` meets the places in order. With no markup they go as
+   files, never left behind. `Submission.File` has a role
+   (`LetterFileRole`, `.file` or `.inBody(contentID:)`); Send hands the
+   photos over through the attachments closure, the repository from the
+   disk or, for a reopened draft's, from Gmail, the share sheet from its
+   staging. `LETTER-PLAN` ends `in-body=N` and a photo's `LETTER-FILE`
+   line `in-body`. A draft's APPEND loads them whole, as it loads its
+   files (`build`'s `bodyPictures`).
+5. *Reopened drafts* (`Draft.reopening`, `DraftAttachment.inBody`). A part
+   whose `cid:` the saved markup shows before the signature's line break
+   and before any quote, the first `<blockquote` or this app's quote mark
+   (`AppleMailHTML.contentIDsAmongHisWords`), comes back marked: where this
+   app places his photos, and where Mail on another device does. Every
+   other part is a row as before. The mark is kept on the iPad
+   (`LocalDraftStore`'s `StoredFile.inBody`, `Lenient`, written only when
+   true): a letter kept before it reads unmarked, and so does one whose
+   mark cannot be read, its file then under the letter.
+6. *The share sheet* (`ShareLetter.letter`). Made by
+   `AppleMailHTML.letter`, the app's own; with a link in his words, the
+   link is made there before the photos follow, through
+   `AppleMailHTML.document`'s `typed`, not by repeating the markup. The
+   same bytes as before for a share with no photo, but one: words after a
+   typed "Begin forwarded message:" line in a share with no signature,
+   which read as a quote, are no longer made links. With a signature they
+   never were.
+
+**Not changed.** The editor (D-013): a `String`, and his photos his rows,
+with their weight and their Remove; the composer's screen is as it was. A
+photo between words, which needs an `NSTextAttachment` in the text view,
+full images in memory and the U+FFFC bookkeeping, for something none of
+his letters did. No thumbnail on the rows, which the spec left optional.
+The plain-text part. The 25 MB check: a photo's base64 is a file's. The
+reading pane, which shows a picture by `cid:` in the body already.
+
+**What he sees.** Nothing new on the iPad: the composer is as it was, and
+no new words. The people he writes to see his photos in the letter under
+his words and above his signature, as from his Apple Mail; a reader with
+only text lists them as files, as it does Mail's. In Sent Mail in the
+app, the photo in the letter.
+
+**Tests.** `PhotosInTheLetterTests`, 25: the photo's markup after his
+words and above his signature, plain and rich, to the byte; with no
+signature last, with no words first; several, each in its own `<div>` in
+the order of his rows, a PDF and a video among them files; a reply, its
+quote as given and changed, and with no signature; a forward's PDF a file,
+its picture in the quote and his photo under his words; a reply's carried
+photo (B-107) never one, its quote as given or changed; which rows are, by
+type and by where they come from; a note with a photo HTML, with a video
+or a PDF text; fresh uppercase UUIDs, never two alike nor one the letter
+uses; the name escaped in the `alt`; the Content-IDs among his words in
+this app's drafts, Mail's and Gmail's; a draft with two photos, a PDF and
+the logo saved and reopened three times, each photo once each time; a
+reopened forward's quote picture never marked, signed and not; a draft
+begun in Mail on another device; the mark kept on the iPad, written only
+when true, and an old record, a string, a number and null read unmarked;
+each photo a file's place inside the related set with its headers, before
+the logo, numbered first; a name past ASCII in encoded words; with no
+markup, the photos files, never left behind; the plan with its photos the
+reference builder's with them as pictures in memory, made whole, built and
+streamed from the disk, to the byte and with as many boundary draws, at
+every size about a line's, a block's and a piece's edge, with the logo,
+files, Bcc and threading; every `cid:` with exactly one part and every
+inline part shown, in a new letter, a reply and a forward, sent and saved,
+no photo twice; Python's `email` package, its default policy, reading such
+a letter with no defect, its photos and the logo in the related set, the
+file under it, every byte as it went (skipped where there is no Python);
+the rehearsal counting a photo handed over after a file, read and logged
+first, `in-body` in its lines, the letter the in-memory build's; a shared
+photo where the app puts one, with a link and without. `ShareSheetTests`,
+1: a photo and a PDF shared and sent, the photo inline under the
+Content-ID its markup shows, beside the logo, its bytes as they were,
+`in-body` in its line, the PDF a file. `OutboxTests`, 1: a letter with a
+photo put in the Outbox with no connection and sent after a relaunch, the
+photo once, in the letter. Changed: `DraftSignatureImagesTests`, 2, the
+reopened draft's photo inline, once, under his words, its Content-ID
+fresh with each letter; `RepositoryWireTests`, 1, a draft's literal the
+reference builder's with its photo an inline picture; and
+`StreamingSendTests` and `StreamingSendMemoryTests` give each file its
+role.
+
+Each rule undone in the worktree, one at a time, and the 29 classes that
+touch it run (`PhotosInTheLetterTests`, `ShareSheetTests`,
+`ShareLetterTests`, `OutboxTests`, `DraftSignatureImagesTests`,
+`RepositoryWireTests`, `LetterPlanTests`, `StreamingSendTests`,
+`SubmissionTests`, `AppleMailHTMLTests`, `RichQuoteTests`,
+`RichQuoteRepositoryTests`, `LocalDraftsTests`, `ReplyFilesTests`,
+`ComposerFilesTests`, `BoundaryTests`, `OutgoingMailTests`,
+`DraftLifecycleTests`, `AttachmentSourceTests`, `SharedPhotoTests`,
+`SharePictureFallbackTests`, `Base64BlockTests`, `DraftThreadingTests`,
+`ReplyForwardTests`, `PlainLetterTests`, `ShareItemsTests`,
+`ComposeLikeMailTests`, `DraftHeadersRoundTripTests`,
+`ReplyLikeMailTests`), 622 tests. No photo in the markup: 53 failures in
+17 tests. The photos after the signature: 28 in 12. A photo a file as
+well: 59 in 20. Any picture a photo of his: 2 in 1. A carried part one:
+6 in 4. `isNeeded` blind to photos: 24 in 10. Content-IDs not kept apart:
+1 in 1. A reopened draft never marked: 21 in 5. The cut blind to the
+quote: 2 in 2; to the signature's line break: 4 in 3; in one letter case:
+1 in 1. The mark not kept on the iPad: 4 in 2; read strictly: 1 in 1. A
+photo's part an attachment: 129 in 12; its name raw: 3 in 1. Photos
+dropped with no markup: 4 in 1. No related set for photos alone: 156 in
+12. Photos after the logo: 11 in 3. `build`'s bytes in the wrong order: 6
+in 3. `Submission` taking the files as given: 3 in 1; no `in-body` in the
+log: 2 in 2. Send without the photos: 16 in 6; with them as files: 6 in 3.
+A draft's APPEND without them: 20 in 8. The share sheet without them: 4
+in 3; its link case without them: 2 in 1. The `alt` not escaped: 1 in 1;
+the raw name in it: 1 in 1. Lowercase Content-IDs: 11 in 3. The quote's
+path without the photos: 14 in 5.
+
+The full suite, serially: 2,124 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Whether Gmail's web page, Mail on another device and the people he
+  writes to show the photos in place: the check.
+- How Mail nests the parts (medium). This app's are mixed > related >
+  alternative > {plain, html} + the photos + the signature's pictures, as
+  its letters with the logo have been since B-025; Mail's may put the
+  related set inside the alternative.
+- Several photos: the shape his iPad gives two or more in one letter was
+  not read; here each has its own `<div>`, as the spec says.
+- A large photo: Mail's guide says one "might appear ... as [an icon] at
+  the end". Here every JPEG, PNG and GIF of his goes in the letter, within
+  the 25 MB.
+- A draft begun elsewhere whose own signature holds a picture, with no
+  Mail line break before it and no quote: the picture is taken as his and
+  goes under his words, as a row he can take off.
+- Memory in the share extension with five full-size photos: the check,
+  against B-070's low-water mark.
+- The check on the iPad, under "Blocked on the iPad coming back", built
+  from the worktree before it is merged, since it changes what Send
+  carries and how.
+
+## B-111 — BUILT 2026-10-22, not yet seen on the iPad. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
+
+Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d
+with B-100 to B-105). D-016's phase 2. The owner, 2026-10-22: "No, no,
+no, we should have print on there. All three are still wanted." (Print,
+his photos in the body, and this.)
+
+**What Mail does.** Apple: "When you make an iOS or iPadOS backup in
+iCloud or iTunes, it backs up your mail settings, but not your email",
+and "If you delete or change your email account settings, previously
+downloaded email might be removed from your device"
+(support.apple.com/en-us/102556). So Mail keeps the mail it has
+downloaded on the device, out of the backup, and may lose it when the
+account changes. Apple does not say more; its forums and a vendor's
+pages say Mail reads offline the letters it has downloaded, keeps a file
+once it has been opened, has no setting to download everything, and
+opens a letter it has at once from its own copy
+(discussions.apple.com/thread/7156936,
+cleanor.app/reference/mail-storage-ios). A letter written offline waits
+in the Outbox and goes when the connection is back, as the app's Outbox
+already does (B-072). How many letters Mail keeps, and for how long, is
+not known; the 300 and the 64 MB are D-016's. No source says Mail marks
+a letter read from its own copy, and none is marked here.
+
+**What it was.** D-016's phase 1 kept the folders and the first pages.
+A letter's body was fetched every time it was opened, `BODY.PEEK[]` in
+one FETCH, and with no connection a letter he had read a minute before
+said "This message could not be downloaded." and "Can't connect to mail
+server.". Only the last letter fetched was in memory (`lastBody`), for
+its pictures and a forward's files.
+
+**Changed.**
+
+- *The store.* `KeptLetters` (Mail/KeptLetters.swift), made by the shelf
+  over its own directory as `MailShelf.letters`, touching nothing on disk
+  until its first use, at a letter opened, kept or gone, never before a
+  launch's first frame. One file a letter in
+  `Kept/<account>/letters/`, the bytes of `BODY.PEEK[]` exactly as the
+  FETCH returned them, named `<hash of the folder>-<validity>-<uid>-
+  <message>.eml`, and an index, `Kept/<account>/letters.json`: format 1
+  of its own, `next`, and a record a letter, its folder, UIDVALIDITY, UID,
+  Gmail id, bytes, CRC-32, its opening's number and its file. Read whole
+  and written whole, atomically. An index of another format, or one that
+  cannot be read, is nothing kept, and goes with every letter. At the
+  first use, a file no record names goes (a crash between a letter's file
+  and its record, an atomic write's leftover, an eviction cut short), a
+  record whose file is missing is dropped, and a record naming a file not
+  its own, one for a letter twice, or more than the bounds hold, is read
+  within the rules. Every write, read and removal goes on the shelf's disk
+  queue (`MailShelf.disk`, now the letters' too), in order with the wipe
+  and the discard. The shelf's life reaches it through a test of the
+  shelf's root and generation alone, so a shelf retired at a password
+  save is freed with its letters. Every directory it makes, `Kept/`, the
+  account's and `letters/`, is marked out of backup as it is made, by the
+  helper the shelf's own writes use (`MailShelf.excludeFromBackup`), so
+  `letters.json` is never in a backup whichever store wrote first.
+- *The bounds.* 300 letters and 64 MB, the least recently opened going
+  first, by a counter each keep and each showing bumps, never the clock;
+  no letter over 5 MB, `IMAPMailRepository.largeLetterBytes`, the size
+  above which a letter is opened in parts (B-054); keeps waiting for the
+  disk at most 16 MB, one past it dropped; and a floor of 512 MB free on
+  the volume (iOS's `volumeAvailableCapacityForOpportunisticUsage`, read
+  through URLs made afresh at each reading, since a URL held from one
+  reading to the next can keep what it read the first time; nil off iOS
+  or where it cannot be read, which keeps): a letter that would
+  leave less is not kept, every kept letter goes, said once, and nothing
+  more is kept in that launch.
+- *The check.* Every read looks up the four keys and reads the file in
+  one block on the disk queue, and checks its size and CRC-32 against the
+  record. Anything else drops the letter, record and file, and the
+  opening goes to the server, where the letter is kept again.
+- *A keep.* Its file is written, then the index with it and the letters
+  it evicts, each atomically; only then, the shelf still alive and no
+  discard come meanwhile (an epoch looked at again), does memory take the
+  index, and only then do the evicted files go. An index that cannot be
+  written takes the new file back; a file that cannot be written keeps
+  nothing; either way the index on disk names only files written whole.
+- *Keeping.* `MailRepository.openLetter(_:)`, a requirement of the
+  protocol with a default that calls `loadMessage`, is what the reading
+  pane calls in its three places: the letter tapped (`show(summary:)`), a
+  conversation's newest (`show(thread:)`), and a letter of it opened, the
+  unread ones with the newest and arrivals among them (`loadBody`). In
+  `IMAPMailRepository` it fetches as `loadMessage` does, byte for byte on
+  the wire, and keeps the letter after the whole FETCH has come and the
+  letter is made, when the opening has not been called off, the server
+  has named the letter under this UID in this launch and it is the row's,
+  it is not empty and not over 5 MB, and the Drafts folder's name is known
+  and the row is neither in it nor counted there. Otherwise one note says
+  why: `KEPT-LETTER not-kept reason=size|unnamed|draft|cancelled`. A
+  letter opened in parts is never kept. `loadMessage` and `loadDraft`
+  keep nothing.
+- *Kept first.* `openLetter` looks in the copy first, with no connection
+  made and nothing sent, as Mail shows a letter it has: the row's Gmail
+  id, its folder's name found without the wire (from LIST's roles once
+  LIST has been had, otherwise the kept folder list), not a draft, and
+  `seen` naming neither another UIDVALIDITY for the folder nor another
+  letter under the UID. The letter is made by the very code a fetched one
+  is (`Self.letter`), and is not the server's word: `lastBody` is not set,
+  and neither `seen` nor the shelf's vouching is told, so a read mark,
+  flag, move or delete on it is asked about first, as on any row this
+  launch has not had. Where `seen` names another letter the opening goes
+  on to the server's path, which refuses it with nothing sent, as before,
+  and the refusal takes the kept letter (`MailShelf.refuse`).
+- *Pictures and files.* The public `fetchAttachmentData` serves a part of
+  a letter shown from the copy from it, matched by folder and id: from
+  the letter last shown so, held in memory beside `lastBody`, or from the
+  file of one of the 64 shown before it in the launch, read again and
+  checked. Before `lastBody`, which is matched by the id alone, and which
+  a letter shown from the copy never becomes, so the letter fetched last,
+  another folder's under the same "<uidvalidity>/<uid>", would have
+  answered for it. A letter fetched from the server under the same folder
+  and id takes its place, so after a first page that disowns the copy the
+  server's letter under that id shows its own pictures. A move or a
+  delete forgets it, as a move forgets `lastBody`.
+- *What goes, and when.* The least recently opened past the bounds; a
+  letter the server has taken out of a folder, by `MailShelf.gone`
+  (a delete, a move, a letter binned or marked as spam out of every folder
+  but that one, an EXPUNGE from the Trash, a draft removed), whether or
+  not a page holds its row; a move out of All Mail to a label takes
+  nothing; a letter the server says is another (`refuse`); one whose
+  check fails; and all of them with the copy, at a discard (the shelf
+  calls `letters.forget()` before it removes the directory), a password
+  saved or the account taken out and a safe start (the wipe of `Kept/`),
+  another account's directory at launch, an index of another format, and
+  the floor. Never at a relaunch, going offline or a Refresh.
+- *Nothing sent.* The copy is read in two places, `keptLetter` and
+  `keptPart`. A Forward's files and pictures, a draft's APPEND and every
+  part a letter being built carries come from the server by folder, UID
+  and X-GM-MSGID through `fetchCarried`, whose branch for a part naming no
+  letter now calls `fetchAttachmentDataNotKept`, never the public function.
+  `partOnScreen` reads `lastBody` alone. Offline such a letter waits in the
+  Outbox (`cannotConnect`). A Reply or Forward quotes the words on screen,
+  which are the server's own letter, checked, as from a letter fetched in
+  the same launch; built so, the owner's question's default.
+- *The log.* `KEPT-LETTER shown bytes=<n> ms=<n>`, `kept bytes=<n>
+  ms=<n> free-ms=<n>` (the free-space reading's own part of the keep's
+  time), `not-kept reason=…`, `dropped reason=check`, `cleared
+  reason=space`: numbers and a word, never a folder, a UID, a Message-ID, a subject or a name. A
+  showing sends nothing, so nothing of it reaches the wire log.
+
+**Not changed.** `loadMessage`, its signature and its wire, and what calls
+it: his letters from Sent Mail in a conversation's stack (B-104), which
+are never kept. A letter over 5 MB, opened in parts, and B-097, its file
+fetched again each time. Drafts. No queue of offline changes: a read mark
+made offline puts the dot back, as before. The pages kept by phase 1 and
+`Local Drafts/`, which nothing here touches.
+
+**What he sees.** A letter he has opened before opens at once, with or
+without a connection, its pictures that came in the letter and its files
+with it. Pictures the letter loads from the web do not show offline, as
+in Mail. A letter he never opened, and one over 5 MB, say what they say
+today. No new words.
+
+**Tests.** `KeptLettersTests`, 26, the store through the shelf that
+makes it: a letter read back only under its four keys; the bounds, D-016's;
+the 301st taking the least recently opened, a showing making a letter the
+newest, a second keep only touching; the bytes bounded, and a letter over
+5 MB not kept and taking nothing; a file changed by a byte, cut short,
+grown or missing nothing and gone, and a byte changed found by the CRC-32
+alone; an index of another format, cut short or not JSON nothing kept, its
+files gone, a keep after working; an index outside the rules read within
+them; the sweep at the first use, and nothing touched as the shelf is made;
+a relaunch in the order opened, the counter going on; the wipe and the
+discard, each with a keep on its way (a queue held), and a discard between
+a keep's files and its memory (the keep held between the two); another
+account's letters; the floor, said once, nothing more kept in the launch,
+and nil free space keeping; a file where `letters/` goes, and an index that
+cannot be written taking the new file back; keeps past 16 MB waiting
+dropped; gone by UID and a letter binned from every folder but the bin;
+refused; the flush; a shelf freed with its letters; the directories made
+and marked out of backup by the shelf's helper, read from the source;
+nothing of a letter in the log; the kept note timing the free-space
+reading on its own beside the whole keep, and the app's reading making its
+URLs afresh each time, read from the source; and a 5 MB letter kept in
+58 ms and read back checked in a median 46 ms, in the debug build, printed.
+`KeptLetterOpeningTests`, 23, over the shipping repository: opened online,
+the FETCH `loadMessage`'s byte for byte, and again with nothing sent;
+opened on a socket that died while the iPad slept, the FETCH lost in it
+and sent again once on the new connection, as `loadMessage`'s is, and the
+letter kept; the
+next launch from the kept rows, online and offline, through the protocol
+as the pane calls it, with no command at all, not even the LOGIN, each
+showing the newest after; a letter never
+opened failing offline as today; the letter from the copy the fetched one
+field by field, and the pane's page and the stack's body the same, for
+plain, HTML, both, related with a `cid:` picture, a picture and a file,
+ISO-8859-1, encoded words and no Date; not shown where the server has
+named another letter under the UID, refused with nothing sent and the
+kept letter taken, nor where it has given the folder another UIDVALIDITY,
+nor for another Gmail id or none; none shown after a first page that says
+the copy was another mailbox's; a read mark, flag, move and delete on a
+letter shown from the copy each asked about first; never kept: in parts,
+a draft, a row counted in Drafts, a row with no Gmail id, another letter,
+an opening called off, the letter in parts opened with the commands
+`loadMessage` sends for it, its structure first and never the whole
+letter; `loadMessage` and `loadDraft` keeping nothing,
+`loadMessage`'s wire unchanged with a copy present; a Forward of a letter
+shown from a kept file altered with its CRC made to match carrying the
+server's bytes, named by X-GM-MSGID and, a part naming no letter, by folder
+and UID, the same for its draft in Drafts, and waiting offline; its
+pictures and files from the copy with nothing sent, offline, and not under
+the same id in another folder; a picture of a letter shown from the copy
+its own, never that of another folder's letter under the same
+"<uidvalidity>/<uid>" fetched last (`lastBody`); a letter fetched under
+the id of one shown from the copy serving its own picture; Delete, Trash,
+Spam and EXPUNGE taking it and All Mail to a label not; a letter shown
+from the copy and then moved to Spam, and another erased from the Trash,
+giving no file from memory under the folder and id each had; a password
+saved, the old
+repository's keep landing nowhere; nothing of it in the log; and, read
+from the source, the pane's three calls and his Sent Mail by `loadMessage`,
+the requirement in the protocol itself, the copy reached in three places
+alone, `keptLetter` setting no `lastBody` and telling no `seen` or vouching,
+`fetchCarried` never through the public function, `partOnScreen` reading
+`lastBody` alone, and nothing named in the screens, Local Drafts, the
+Outbox, SMTP or the share extension.
+
+Each rule undone in the worktree, one at a time, and the two classes run,
+45 tests. Shown without the Gmail id compared: 6 failures in 3 tests.
+Shown over `seen`: 7 in 2. No CRC: 7 in 2. `lastBody` set by a showing: 13
+in 3. `saw` called by a showing: 2 in 2. A keep in `loadMessage`: 4 in 2.
+A cancelled open kept: 2 in 1. Eviction by count alone: 3 in 1. `gone` not
+reaching the letters: 11 in 2. The floor ignored: 6 in 1. No sweep of the
+files no record names: 2 in 2. `fetchCarried` through the public
+function: 4 in 2. `keptPart` matched by id alone: 5 in 2. The epoch not
+looked at again before memory takes a keep: 1 in 1. A letter fetched under
+the id of one shown from the copy not taking its place: 1 in 1. No cap on
+the keeps waiting: 3 in 1. A failed index write leaving the new file: 1 in
+1. A discard not forgetting the letters: 7 in 3. Drafts kept: 3 in 1. A
+refusal not reaching the letters: 3 in 2. A showing not counted as an
+opening: 2 in 2. The directories not marked out of backup: 1 in 1. The
+pane's conversation opening by `loadMessage`: 3 in 1. `openLetter` only in
+the protocol's extension: 6 in 2. A row whose Gmail id is not the one the
+server named kept: 2 in 1.
+
+Four tests more since, the in-parts case of the never-kept test made to
+compare the wire with `loadMessage`'s, and each rule they hold undone the
+same way, the two classes at 49 tests. `openLetter` fetching whole
+whatever the size, which would bring back B-054's hang above 5 MB: 3
+failures in 1 test. `openLetter` without the read retry, so the first
+letter after Gmail drops an idle connection would not open: 1 in 1.
+`lastBody` asked before the copy, as the spec had it: 2 in 1. A move not
+forgetting the letter shown from the copy: 2 in 1. An EXPUNGE not
+forgetting it: 2 in 1. The free-space reading's URL made once and held:
+2 in 1. The reading not timed on its own: 2 in 1.
+
+The full suite, serially: 2,029 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- The iPad's free-space reading, and a disk really full: the host has
+  neither, so the floor and a failed write are tried through what the
+  store is handed.
+- Years of churn beyond the bounds tests: the eviction, the orphan sweep
+  and the format check are tried on hundreds of letters, not hundreds of
+  thousands.
+- How many letters Mail itself keeps, and for how long.
+- Pictures the letter loads from the web, offline.
+- The same letter opened from two folders, the Inbox and a search of All
+  Mail, is kept twice, under each folder's keys, and counts twice against
+  the bounds.
+- A Forward of a kept letter whose original has gone from the server and
+  from All Mail meanwhile fails with its parts missing, kept in the Outbox
+  saying so, where a letter fetched in the same launch would have carried
+  them from `lastBody` (PERFORMANCE.md). *Since B-107, one whose original
+  he deleted is found in the Trash.*
+- The hitch: a page read from the main thread can wait on the shared disk
+  queue behind a letter's write of up to 5 MB and a free-space reading.
+  Timed on the iPad by the kept note's ms, and the reading's own part by
+  its `free-ms`, step 8 of the check. If the reading is slow, it can be
+  read once a launch or every few minutes instead.
+- The move's and the erasing's forgetting of the letters shown before the
+  last (the 64 of this launch, read again from their files): no test can
+  tell it, since the letter's record goes with it (`gone`) and its file
+  is then read as nothing, except after a move out of All Mail to a
+  label, where the letter is still under that UID and the copy still its
+  own. The letter last shown, held in memory, is tested.
+- A letter deleted in another client stays until it is evicted, reachable
+  only from a kept row: the server's last word.
+- The check on the iPad and the simulator, under "Blocked on the iPad
+  coming back", built from the worktree before it is merged, since it
+  changes one call in a forward's carried parts.

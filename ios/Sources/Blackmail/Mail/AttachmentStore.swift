@@ -72,6 +72,66 @@ enum AttachmentStore {
         return url
     }
 
+    /// A file Attach File handed over, MOVED in where `copy` would copy it,
+    /// in a directory of its own, class C (B-108). The document picker
+    /// copies what he picks into the app's Inbox (`inbox`) for the app to
+    /// keep; moved straight out of it, it is never on the disk twice, and
+    /// nothing is left there to grow over the years.
+    static func move(_ source: URL, named filename: String) throws -> URL {
+        let url = try place(for: filename)
+        do {
+            try FileManager.default.moveItem(at: source, to: url)
+        } catch {
+            try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+            throw error
+        }
+        readableWhileLocked(url)
+        return url
+    }
+
+    /// Where the document picker puts its copies of what he picks: the
+    /// app's temporary directory, in `<bundle id>-Inbox`, as iOS names it
+    /// for a picker opened `asCopy`. Nil with no bundle id.
+    static func inbox(in temporary: URL = URL(fileURLWithPath: NSTemporaryDirectory(),
+                                              isDirectory: true),
+                      bundle: String? = Bundle.main.bundleIdentifier) -> URL? {
+        guard let bundle, !bundle.isEmpty, !bundle.contains("/") else { return nil }
+        return temporary.appendingPathComponent(bundle + "-Inbox", isDirectory: true)
+    }
+
+    /// Whether `url` is a file in `inbox`, or in a directory under it: what
+    /// the composer may move out of there, or remove, and nothing else.
+    static func isInInbox(_ url: URL, inbox: URL? = inbox()) -> Bool {
+        guard let inbox else { return false }
+        let file = url.standardizedFileURL.resolvingSymlinksInPath().path
+        let directory = inbox.standardizedFileURL.resolvingSymlinksInPath().path
+        return file.hasPrefix(directory + "/") && !file.contains("/../")
+    }
+
+    /// Removes what is left in the Inbox of a file Attach File handed over
+    /// that did not go in the letter; nothing at all outside it.
+    static func removeFromInbox(_ url: URL, inbox: URL? = inbox()) {
+        guard isInInbox(url, inbox: inbox) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// A file's MIME type, from its name's extension as `lookup` knows it,
+    /// `UTType`'s preferred type on the iPad; `application/octet-stream`
+    /// for a name with none, or one `lookup` does not know, as the share
+    /// sheet sends any file it cannot name (B-108).
+    static func mimeType(of filename: String, lookup: (String) -> String?) -> String {
+        let name = filename.trimmingCharacters(in: .whitespaces)
+        guard let dot = name.lastIndex(of: "."), dot != name.startIndex else {
+            return octetStream
+        }
+        let ext = String(name[name.index(after: dot)...])
+        guard !ext.isEmpty, let type = lookup(ext)?.trimmingCharacters(in: .whitespaces),
+              !type.isEmpty else { return octetStream }
+        return type
+    }
+
+    static let octetStream = "application/octet-stream"
+
     /// Makes the file at `url` one that can be read while the iPad is
     /// locked, once it has been unlocked since it was started: data
     /// protection's class C, "complete until first user authentication"
@@ -117,8 +177,13 @@ enum AttachmentStore {
     /// reading pane removes the last file he opened as it writes the next,
     /// and the composer its photos when it is done with for good, each
     /// through `removeStaged`.
-    static func purge() {
+    ///
+    /// The document picker's Inbox too (B-108): each file Attach File
+    /// hands over is moved out of it at once, but an app ended between the
+    /// pick and the move leaves it there, and nothing else would clear it.
+    static func purge(inbox: URL? = inbox()) {
         try? FileManager.default.removeItem(at: root)
+        if let inbox { try? FileManager.default.removeItem(at: inbox) }
     }
 
     /// The directory `write` or `copy` made for the file at `url`: its
