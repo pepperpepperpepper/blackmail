@@ -1046,7 +1046,10 @@ enum IMAPParser {
             part.lines = at(next)?.int(line)
             next += 1
         } else if part.type == "message", part.subtype == "rfc822" {
-            next += 1   // The embedded message's ENVELOPE; the tree does not carry it.
+            // The embedded message's ENVELOPE: the header lines of a letter
+            // forwarded inline, drawn above its words (B-114).
+            if let envelope = at(next)?.listItems { part.envelope = parseEnvelope(envelope, line) }
+            next += 1
             if let inner = at(next)?.listItems, depth < Self.maxBodyDepth {
                 // An embedded message's parts hang off this one's number: part
                 // 3 being a message/rfc822 makes its first part 3.1.

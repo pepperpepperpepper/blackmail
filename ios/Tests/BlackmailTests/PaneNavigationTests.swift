@@ -137,6 +137,28 @@ final class PaneNavigationTests: XCTestCase {
         XCTAssertFalse(code.contains("evaluateJavaScript"))
     }
 
+    /// A file's row among a letter's words (`BodyFiles`, B-113) opens the
+    /// file as the header's row opens it: the letter alone in the pane or
+    /// one of its conversation's, the file one that letter lists, by
+    /// `openAttachment`, the header's row shown busy only when the header
+    /// shows that letter. Read from the source, which does not build here.
+    func testAFilesRowAmongTheWordsOpensItAsTheHeadersRowDoes() throws {
+        let code = try source("MessageDetailViewController.swift")
+        XCTAssertNotNil(place(of: "private func openFile(_ section: String, of letter: String) { "
+                                  + "let shown = message?.id == letter ? message : loaded[letter] "
+                                  + "guard let m = shown, let file = m.listedAttachments.first(where: "
+                                  + "{ $0.id == section }) else { return } openAttachment(file, of: m) }",
+                              in: code))
+        XCTAssertNotNil(place(of: "private func openAttachment(_ attachment: Attachment, of letter: "
+                                  + "Message? = nil) { guard let m = letter ?? message else { return } "
+                                  + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }",
+                              in: code))
+        XCTAssertNotNil(place(of: "if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }",
+                              in: code))
+        XCTAssertNotNil(place(of: "try await repository.fetchAttachmentData( attachment.id, of: m.id, "
+                                  + "mailboxID: m.mailboxID)", in: code))
+    }
+
     /// Every navigation is decided by `PaneNavigation`, from what WebKit
     /// says of it, and nothing else in the pane allows one.
     func testEveryNavigationIsDecidedByThePolicy() throws {
@@ -146,7 +168,9 @@ final class PaneNavigationTests: XCTestCase {
                               in: code))
         XCTAssertEqual(code.components(separatedBy: "decisionHandler(.allow)").count - 1, 1)
         XCTAssertNotNil(place(of: "case .allow: decisionHandler(.allow) case .cancel: decisionHandler(.cancel) "
-                                  + "case .follow(let url): decisionHandler(.cancel) follow(url) }", in: code))
+                                  + "case .follow(let url): decisionHandler(.cancel) follow(url) "
+                                  + "case .openFile(let letter, let section): decisionHandler(.cancel) "
+                                  + "openFile(section, of: letter) }", in: code))
         XCTAssertFalse(code.contains("navigationType =="))
         for kind in ["linkActivated", "formSubmitted", "backForward", "reload", "formResubmitted", "other"] {
             XCTAssertNotNil(place(of: "case .\(kind): self = .\(kind)", in: code), kind)

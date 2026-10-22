@@ -58,9 +58,12 @@ enum PanePage {
         // meaning. HTML is left exactly alone, because whitespace there is
         // not reliably whitespace and the document may open with a layout
         // table.
+        //
+        // A file sent among the words has its row where it sat, a link that
+        // opens it (`BodyFiles`, B-113); a letter with none is as it was.
         let content = isHTML
-            ? TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
-                                                         known: contentIDs(of: m)))
+            ? BodyFiles.rows(in: TextLinks.html(InlineImageRewriter.rewrite(
+                DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m))), of: m)
             : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                               escaping: .ampersandAndLessThan)
 
@@ -122,16 +125,17 @@ enum PanePage {
     /// One letter's body for its section of a conversation's stack: the
     /// sender's markup without its wrapper, text escaped with its leading
     /// blank lines dropped as a letter on its own drops them, or the words
-    /// for a letter with nothing in it. Its links are made links as a
-    /// letter on its own has them.
+    /// for a letter with nothing in it. Its links are made links, and a file
+    /// sent among its words has its row there, as a letter on its own has
+    /// them.
     static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
         let content = empty
             ? "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>"
             : (isHTML
-               ? TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: m.htmlBody!),
-                                                            known: contentIDs(of: m)))
+               ? BodyFiles.rows(in: TextLinks.html(InlineImageRewriter.rewrite(
+                   DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m))), of: m)
                : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
                                  escaping: .ampersandAndBrackets))
         return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)

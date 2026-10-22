@@ -22,6 +22,10 @@ import Foundation
 /// "Open this link?" before Safari. That includes a link whose target is a
 /// new window or a frame: none opens here.
 ///
+/// A file's row among a letter's words (`BodyFiles`, B-113) is a link of the
+/// pane's own, `bmfile:`, and a tap on it opens the file, as a tap on its row
+/// in the header does: no "Open this link?", nothing in Safari.
+///
 /// Pictures are not navigations, and this does not touch them: a letter's
 /// remote pictures still load, as they always have. Whether they should is
 /// the owner's to decide.
@@ -38,6 +42,9 @@ enum PaneNavigation {
         case cancel
         /// Cancelled in the pane, and taken where a tapped link goes.
         case follow(URL)
+        /// Cancelled in the pane, and the file at `section` of the letter
+        /// `letter` opened, as its row in the header opens it.
+        case openFile(letter: String, section: String)
     }
 
     /// The URL `loadHTMLString` with no base URL loads under.
@@ -47,7 +54,14 @@ enum PaneNavigation {
     /// target frame's: true for the pane's own frame, false for a frame
     /// inside the letter, and nil for a new window.
     static func decide(_ kind: Kind, mainFrame: Bool?, url: URL?) -> Decision {
-        if kind == .linkActivated { return url.map(Decision.follow) ?? .cancel }
+        if kind == .linkActivated {
+            guard let url else { return .cancel }
+            if url.scheme?.lowercased() == BodyFiles.scheme {
+                return BodyFiles.opening(url).map { .openFile(letter: $0.letter, section: $0.section) }
+                    ?? .cancel
+            }
+            return .follow(url)
+        }
         if kind == .other, mainFrame == true, url?.absoluteString == ownDocument { return .allow }
         return .cancel
     }

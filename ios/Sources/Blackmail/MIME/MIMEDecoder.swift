@@ -1078,27 +1078,29 @@ enum MIMEDecoder {
     /// for. `bodyFor` supplies the raw, still transfer-encoded bytes of a leaf;
     /// returning nil for a part simply means that body stays nil, which is how
     /// the repository can flatten a BODYSTRUCTURE it has not downloaded yet.
+    ///
+    /// Each body is every part that makes it, in order (`bodyPlan(of:)`),
+    /// joined (`joined`): a body of one part, as nearly every letter's is,
+    /// is that part's words exactly as they came. It was one part each,
+    /// the first a mixed held, until B-113 and B-114: the words after a
+    /// file Mail puts among them, and a letter forwarded inline after a
+    /// note, were nowhere.
     static func flatten(_ part: MIMEPart, bodyFor: (MIMEPart) -> Data?) -> DecodedBody {
-        var body = DecodedBody(text: nil, html: nil, attachments: [])
-        let chosen = chooseBodies(part, depth: 0)
-
-        if let textPart = chosen.text, let data = bodyFor(textPart) {
-            body.text = decodeText(data,
-                                   encoding: textPart.encoding,
-                                   charset: parameter("charset", in: textPart.parameters))
+        let plan = bodyPlan(of: part)
+        func words(_ piece: MIMEPart) -> String? {
+            bodyFor(piece).map {
+                decodeText($0, encoding: piece.encoding,
+                           charset: parameter("charset", in: piece.parameters))
+            }
         }
-        if let htmlPart = chosen.html, let data = bodyFor(htmlPart) {
-            body.html = decodeText(data,
-                                   encoding: htmlPart.encoding,
-                                   charset: parameter("charset", in: htmlPart.parameters))
+        func fields(_ letter: MIMEPart) -> ForwardedFields? {
+            forwardedFields(of: letter, header: bodyFor(letter))
         }
-
-        var skip = Set<String>()
-        if let textPart = chosen.text { skip.insert(textPart.section) }
-        if let htmlPart = chosen.html { skip.insert(htmlPart.section) }
-
+        var body = DecodedBody(text: joined(plan.text, asHTML: false, words: words, fields: fields),
+                               html: joined(plan.html, asHTML: true, words: words, fields: fields),
+                               attachments: [])
         var attachments: [Attachment] = []
-        collectAttachments(part, skipping: skip, depth: 0, into: &attachments)
+        collectAttachments(part, skipping: plan.sections, depth: 0, into: &attachments)
         body.attachments = attachments
         return body
     }
@@ -1130,7 +1132,9 @@ enum MIMEDecoder {
         return nil
     }
 
-    /// The single part a list-row preview should be built from.
+    /// The single part a list-row preview should be built from: the first
+    /// of the plain words (`bodyPlan(of:)`), which is where the letter
+    /// begins.
     ///
     /// Plain text wins whenever the sender provided it, and not only because
     /// it needs no stripping: the plain alternative of an HTML mail is a
@@ -1141,51 +1145,337 @@ enum MIMEDecoder {
     /// the caller has the structure already and uses this to decide which
     /// single section is worth fetching.
     static func previewPart(_ structure: MIMEPart) -> MIMEPart? {
-        let chosen = chooseBodies(structure, depth: 0)
-        return chosen.text ?? chosen.html
+        bodyPlan(of: structure).text.lazy.compactMap(\.words).first
     }
 
-    /// The parts `flatten` shows as the text and the HTML of the letter,
-    /// from its structure alone: what a letter too large to fetch whole
-    /// fetches of itself (`IMAPMailRepository.loadMessage`).
-    static func bodyParts(of structure: MIMEPart) -> (text: MIMEPart?, html: MIMEPart?) {
-        chooseBodies(structure, depth: 0)
+    // MARK: - The body, part by part
+
+    /// One thing a letter shows as its body, in the order it is drawn.
+    enum BodyPiece {
+        /// A text part read as words: text/html as markup, any other text
+        /// as text.
+        case words(MIMEPart)
+        /// A file among the words. Drawn in an HTML letter where it sits,
+        /// with words before it and after it, as a row the pane makes of
+        /// its mark (`BodyFiles`); nothing in the plain words.
+        case file(MIMEPart)
+        /// A letter forwarded inline as message/rfc822, the part itself:
+        /// the header lines drawn above its words, in Mail's form, when
+        /// there are words outside it (`ForwardedFields`).
+        case forwarded(MIMEPart)
+
+        /// The part, for words.
+        var words: MIMEPart? {
+            if case .words(let part) = self { return part }
+            return nil
+        }
+    }
+
+    /// What a letter shows as its body, from its structure alone: the parts
+    /// its HTML is made of, and those its plain words are, each in order.
+    /// The pane draws the HTML when there is any (`PanePage`); a reply
+    /// quotes the plain words, or the HTML's text when there are none
+    /// (`Message.quotableText`).
+    struct BodyPlan {
+        var html: [BodyPiece] = []
+        var text: [BodyPiece] = []
+
+        /// Every part either body shows as words: what the header lists no
+        /// row for (`collectAttachments`), and a paperclip leaves out
+        /// (`IMAPMailRepository.hasAttachment`), and what a letter too large
+        /// to fetch whole fetches of itself (`Allowance`).
+        var sections: Set<String> {
+            Set((html + text).compactMap { $0.words?.section })
+        }
+    }
+
+    static func bodyPlan(of structure: MIMEPart) -> BodyPlan {
+        plan(structure, depth: 0)
     }
 
     /// The walk stops one level *deeper* than the parser does, because the
     /// parser's last act at the cap is to salvage the remaining bytes as a text
     /// leaf; refusing to look at that leaf would throw away the one thing it
     /// went to the trouble of rescuing.
-    private static func chooseBodies(_ part: MIMEPart, depth: Int) -> (text: MIMEPart?, html: MIMEPart?) {
-        guard depth <= maxDepth else { return (nil, nil) }
+    private static func plan(_ part: MIMEPart, depth: Int) -> BodyPlan {
+        guard depth <= maxDepth else { return BodyPlan() }
 
         if !part.isMultipart {
-            if part.type == "message", part.subtype == "rfc822", !part.isAttachment,
-               let inner = part.children.first {
-                return chooseBodies(inner, depth: depth + 1)
+            if part.type == "message", part.subtype == "rfc822", !part.isAttachment {
+                // A letter forwarded inline: its own body, by the rules any
+                // letter's goes by, under its header lines.
+                guard let inner = part.children.first else { return BodyPlan() }
+                let held = plan(inner, depth: depth + 1)
+                return BodyPlan(html: [.forwarded(part)] + held.html,
+                                text: [.forwarded(part)] + held.text)
             }
             // A part the sender marked as an attachment is a file, however
             // text-like it is: a 4 MB log.txt must not become the message body.
-            guard part.type == "text", part.disposition != "attachment" else { return (nil, nil) }
-            if part.subtype == "html" { return (nil, part) }
+            guard part.type == "text", part.disposition != "attachment" else {
+                return BodyPlan(html: [.file(part)], text: [.file(part)])
+            }
             // Anything else under text/* (plain, enriched, calendar) reads as
             // the text body. Showing an invite's raw ICS beats showing nothing.
-            return (part, nil)
+            return BodyPlan(html: [.words(part)], text: [.words(part)])
         }
 
-        // RFC 2046: the alternatives are ordered worst to best, so the last one
-        // that we understand wins. Every other multipart (mixed, related,
-        // signed, report) is a sequence, where the first body found is the
-        // message and anything later is an enclosure or a signature.
-        let preferLast = part.subtype == "alternative"
-        var text: MIMEPart?
-        var html: MIMEPart?
-        for child in part.children {
-            let found = chooseBodies(child, depth: depth + 1)
-            if let candidate = found.text, preferLast || text == nil { text = candidate }
-            if let candidate = found.html, preferLast || html == nil { html = candidate }
+        let plans = part.children.map { plan($0, depth: depth + 1) }
+        switch part.subtype {
+        case "alternative":
+            // RFC 2046: the alternatives are ordered worst to best, so the
+            // last one that we understand wins: for the HTML the last with
+            // HTML in it, for the plain words the last with plain words,
+            // each as it always was.
+            let html = (plans.last { $0.html.contains(where: isHTML) }
+                        ?? plans.last { $0.html.contains(where: isWords) })?.html ?? []
+            let text = plans.last { $0.text.contains(where: isPlain) }?.text ?? html
+            return BodyPlan(html: html, text: text)
+        case "related", "signed", "encrypted", "report":
+            // The first part with words is the letter; the rest are the
+            // pictures it shows, its signature, or, in a report, the status
+            // and the letter it is about. As it always was.
+            return plans.first { $0.html.contains(where: isWords) || $0.text.contains(where: isWords) }
+                ?? BodyPlan()
+        default:
+            return sequence(part.children, plans)
         }
-        return (text, html)
+    }
+
+    /// A mixed, and any multipart not named above, which RFC 2046 has read
+    /// as one: every part in its turn, as Mail draws them. The words, a
+    /// file, and the words after it (B-113); a note, and the letter it
+    /// forwards inline (B-114).
+    ///
+    /// But for the text parts that are words only when there are no
+    /// others: one with a name, which the header lists as a file (B-101),
+    /// and one neither plain nor HTML, an invitation's raw ICS, say. With
+    /// other words beside them they are what they always were then, the
+    /// named ones files and the rest nothing; with none, the first of them
+    /// is the letter's words, as it was.
+    private static func sequence(_ children: [MIMEPart], _ plans: [BodyPlan]) -> BodyPlan {
+        let secondary = children.map(isSecondaryText)
+        let hasOthers = plans.indices.contains {
+            !secondary[$0] && (plans[$0].html.contains(where: isWords)
+                               || plans[$0].text.contains(where: isWords))
+        }
+        var out = BodyPlan()
+        var tookOne = false
+        for (i, child) in children.enumerated() {
+            if secondary[i] {
+                if hasOthers || tookOne {
+                    let file: [BodyPiece] = decodedFilename(child) == nil ? [] : [.file(child)]
+                    out.html += file
+                    out.text += file
+                    continue
+                }
+                tookOne = true
+            }
+            out.html += plans[i].html
+            out.text += plans[i].text
+        }
+        return out
+    }
+
+    /// A text part that is the letter's words only when it has no others.
+    private static func isSecondaryText(_ part: MIMEPart) -> Bool {
+        guard !part.isMultipart, part.type == "text", part.disposition != "attachment" else {
+            return false
+        }
+        return decodedFilename(part) != nil || (part.subtype != "plain" && part.subtype != "html")
+    }
+
+    private static func isWords(_ piece: BodyPiece) -> Bool {
+        if case .file = piece { return false }
+        return true
+    }
+
+    private static func isHTML(_ piece: BodyPiece) -> Bool {
+        piece.words?.subtype == "html"
+    }
+
+    private static func isPlain(_ piece: BodyPiece) -> Bool {
+        piece.words.map { $0.subtype != "html" } ?? false
+    }
+
+    /// One body, its pieces joined in order, or nil when it has none of its
+    /// own kind: no HTML part for the HTML, no plain part for the plain
+    /// words, as before. A body of one part is that part's words exactly as
+    /// they came, so a letter of one is as it always was. `words` gives a
+    /// part's words, nil when it has none to hand, and `fields` a forwarded
+    /// letter's header lines.
+    ///
+    /// Joined, an HTML part goes in without its wrapper (`DocumentWrapper`,
+    /// which the pane takes off anyway), plain words as escaped text that
+    /// keeps its lines, a file among the words as a mark the pane draws its
+    /// row at (`BodyFiles`), and a forwarded letter's header lines in Mail's
+    /// form (`ForwardedFields`). In the plain words an HTML part is its text
+    /// (`HTMLText`), as a reply would quote it, a file is nothing, and each
+    /// part begins a line of its own.
+    ///
+    /// The body ends at the first part whose words are not to hand: a
+    /// letter too large to fetch whole is shown up to where its fetch
+    /// stopped, as one of one part always was, and nothing is drawn after
+    /// words cut short, inside whatever tag the cut fell in. So a file's
+    /// mark and a forwarded letter's header lines wait for the words after
+    /// them, and go with them; at the end of a body that came whole, the
+    /// lines of a letter that forwards no words go in all the same.
+    static func joined(_ pieces: [BodyPiece], asHTML: Bool,
+                       words: (MIMEPart) -> String?,
+                       fields: (MIMEPart) -> ForwardedFields?) -> String? {
+        let drawn = drawnPieces(pieces, asHTML: asHTML)
+        guard drawn.contains(where: asHTML ? isHTML : isPlain) else { return nil }
+        if drawn.count == 1, let only = drawn[0].words { return words(only) }
+
+        var out = ""
+        var any = false
+        var waiting: [(section: String, header: ForwardedFields?)] = []
+        func startLine() {
+            if !out.isEmpty, !out.hasSuffix("\n") { out += "\n" }
+        }
+        func putWaiting() {
+            for (section, header) in waiting {
+                guard let header else {
+                    out += BodyFiles.mark(section)
+                    continue
+                }
+                if asHTML {
+                    out += header.html
+                } else {
+                    startLine()
+                    if !out.isEmpty { out += "\n" }
+                    out += header.text
+                }
+            }
+            waiting = []
+        }
+        var whole = true
+        walk: for piece in drawn {
+            switch piece {
+            case .words(let part):
+                guard let text = words(part) else {
+                    whole = false
+                    break walk
+                }
+                any = true
+                putWaiting()
+                let isHTMLPart = part.subtype == "html"
+                if asHTML {
+                    out += isHTMLPart
+                        ? DocumentWrapper.stripped(from: text)
+                        : "<div style=\"white-space: pre-wrap;\">" + QuotedMarkup.escaped(text) + "</div>"
+                } else {
+                    startLine()
+                    out += isHTMLPart ? HTMLText.plainText(from: text) : text
+                }
+            case .file(let part):
+                waiting.append((part.section, nil))
+            case .forwarded(let letter):
+                guard let header = fields(letter), !header.lines.isEmpty else { continue }
+                waiting.append((letter.section, header))
+            }
+        }
+        if whole { putWaiting() }
+        return any ? out : nil
+    }
+
+    /// The pieces a body draws: every part of words; a file only in the
+    /// HTML, and only with words before it and after it, where Mail draws
+    /// it among them, a file before or after all of them having its row in
+    /// the header alone, as every file always has; and a forwarded letter's
+    /// header lines only when there are words outside it, so a letter that
+    /// is nothing but the one it forwards reads as it always did.
+    private static func drawnPieces(_ pieces: [BodyPiece], asHTML: Bool) -> [BodyPiece] {
+        let first = pieces.firstIndex(where: isWords)
+        let last = pieces.lastIndex(where: isWords)
+        let allWords = pieces.reduce(0) { $0 + ($1.words == nil ? 0 : 1) }
+        var out: [BodyPiece] = []
+        for (i, piece) in pieces.enumerated() {
+            switch piece {
+            case .words:
+                out.append(piece)
+            case .file:
+                guard asHTML, let first, let last, first < i, i < last else { continue }
+                out.append(piece)
+            case .forwarded(let letter):
+                // Its own pieces come straight after it, every one a part
+                // inside it: counted by walking them, once each.
+                let inside = letter.section + "."
+                var held = 0
+                var j = i + 1
+                while j < pieces.count, section(of: pieces[j]).hasPrefix(inside) {
+                    if pieces[j].words != nil { held += 1 }
+                    j += 1
+                }
+                if allWords > held { out.append(piece) }
+            }
+        }
+        return out
+    }
+
+    private static func section(of piece: BodyPiece) -> String {
+        switch piece {
+        case .words(let part), .file(let part), .forwarded(let part): return part.section
+        }
+    }
+
+    /// A forwarded letter's header lines: from its own header, in the
+    /// part's bytes, for a letter downloaded; from the envelope its
+    /// BODYSTRUCTURE carries (`MIMEPart.envelope`), for one shown from its
+    /// structure; nil with neither.
+    static func forwardedFields(of letter: MIMEPart, header: Data?) -> ForwardedFields? {
+        if let header {
+            let headers = parseHeaders(header)
+            func addresses(_ name: String) -> [String] {
+                MailFormat.addressList(headerValue(name, in: headers) ?? "")
+                    .map { decodeWord($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+            return ForwardedFields(from: addresses("From"),
+                                   date: headerValue("Date", in: headers).flatMap(IMAPParser.parseHeaderDate),
+                                   to: addresses("To"), cc: addresses("Cc"),
+                                   subject: headerValue("Subject", in: headers).map(decodeWord))
+        }
+        guard let envelope = letter.envelope else { return nil }
+        return ForwardedFields(from: envelope.from.map(\.formatted), date: envelope.date,
+                               to: envelope.to.map(\.formatted), cc: envelope.cc.map(\.formatted),
+                               subject: envelope.subject)
+    }
+
+    /// How much of each part of words a letter too large to fetch whole
+    /// fetches (`IMAPMailRepository.loadMessage`): each body's parts share
+    /// the limit in turn, each given what the ones before it left, so the
+    /// HTML and the plain words are each no more than the limit, as each
+    /// was when each was one part, and a body of one part is fetched as it
+    /// always was.
+    struct Allowance {
+        /// Each part's bytes in the HTML and in the plain words, by section.
+        var html: [String: Int] = [:]
+        var text: [String: Int] = [:]
+        /// What to fetch: each part with the more of its two, the plain
+        /// words' first, and none given nothing.
+        var fetches: [(section: String, bytes: Int)] = []
+
+        init(_ plan: BodyPlan, limit: Int) {
+            let text = Self.shares(plan.text, limit: limit)
+            let html = Self.shares(plan.html, limit: limit)
+            self.text = Dictionary(text, uniquingKeysWith: { first, _ in first })
+            self.html = Dictionary(html, uniquingKeysWith: { first, _ in first })
+            var listed = Set<String>()
+            for (section, _) in text + html where listed.insert(section).inserted {
+                let bytes = max(self.text[section] ?? 0, self.html[section] ?? 0)
+                if bytes > 0 { fetches.append((section, bytes)) }
+            }
+        }
+
+        private static func shares(_ pieces: [BodyPiece], limit: Int) -> [(String, Int)] {
+            var left = limit
+            var out: [(String, Int)] = []
+            for part in pieces.compactMap(\.words) {
+                out.append((part.section, left))
+                left -= min(part.size ?? left, left)
+            }
+            return out
+        }
     }
 
     private static func collectAttachments(_ part: MIMEPart,
@@ -1212,6 +1502,8 @@ enum MIMEDecoder {
         // A text part with no name and no attachment disposition is the
         // alternative we did not pick, not a file. Listing it would put a
         // phantom "part-1.txt" under every message with both plain and HTML.
+        // One among a letter's words is in `skipping` (B-113); one neither
+        // plain nor HTML beside other words, a calendar's ICS, is neither.
         if part.type == "text", named == nil, part.disposition != "attachment" { return }
 
         list.append(Attachment(id: part.section,

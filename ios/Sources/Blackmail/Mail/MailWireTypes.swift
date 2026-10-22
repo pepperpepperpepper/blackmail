@@ -204,6 +204,13 @@ struct MIMEPart {
     /// whole message down to reach one attachment.
     var section: String = "1"
 
+    /// The ENVELOPE of the letter a message/rfc822 part holds, as its
+    /// BODYSTRUCTURE carries it: the header lines of a letter forwarded
+    /// inline, for one shown from its structure (B-114,
+    /// `MIMEDecoder.forwardedFields`). Nil for every other part, and for
+    /// one parsed from a letter's bytes, whose own header has them.
+    var envelope: IMAPEnvelope?
+
     var mimeType: String { "\(type)/\(subtype)" }
     var isMultipart: Bool { type == "multipart" }
 
@@ -223,9 +230,10 @@ struct MIMEPart {
     /// before anything could resolve a `cid:`, when listing was the only
     /// way the picture was reachable at all.)
     ///
-    /// What the body is made of goes by this (`MIMEDecoder.chooseBodies`, and
-    /// what `collectAttachments` walks into): a forwarded letter sent inline
-    /// as message/rfc822 is words in the body, not a file. The paperclip on
+    /// What the body is made of goes by this (`MIMEDecoder.bodyPlan(of:)`,
+    /// and what `collectAttachments` walks into): a forwarded letter sent
+    /// inline as message/rfc822 is words in the body, under its header lines
+    /// when there are words outside it (B-114), not a file. The paperclip on
     /// a list row goes by `isListedFile`.
     var isAttachment: Bool {
         if disposition == "attachment" { return true }

@@ -17377,7 +17377,8 @@ paperclip either. A Forward carried it, as it carries every part.
    multipart, a picture with a `Content-ID`, or a text part with no name
    (named as `collectAttachments` names it); with no disposition,
    `isAttachment`'s answer. And the walk leaves out the parts the pane
-   shows as the letter's words (`MIMEDecoder.bodyParts(of:)`), as the
+   shows as the letter's words (`MIMEDecoder.bodyParts(of:)`, every one
+   of them in `bodyPlan(of:)` since B-113), as the
    header does: a text part sent inline can carry a name and be the
    letter's only words, and a paperclip with no row under it would send
    him looking for a file. That last is beyond the plan, which had the
@@ -17387,7 +17388,9 @@ paperclip either. A Forward carried it, as it carries every part.
 
 **Not changed.** `MIMEPart.isAttachment`, `chooseBodies` and
 `collectAttachments`: what the body is made of, and which parts are kept,
-are as they were. Plain text quoted with ">", which has no bar. Signature
+are as they were. (Changed since by B-113 and B-114: a body is every part
+of its words, in order, `MIMEDecoder.bodyPlan(of:)` in place of
+`chooseBodies`.) Plain text quoted with ">", which has no bar. Signature
 logos: no row and no paperclip. Send, Reply and Forward.
 
 **What he sees.** In an HTML letter quoted text has a thin bar down its
@@ -17476,6 +17479,14 @@ Gmail's class matched whole, 5 in 2.
 The full suite, serially: 1,866 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Seen on the test iPad, 2026-10-22**, in two rounds, three panes and two
+(TODO, B-101's check): steps 1 to 6, 8 and 9 passed, and 7's first part,
+the PDF sent inline listed from the tap, with its paperclip, opening in
+Quick Look. 7's second part failed as the host tests said it would, the
+words after the PDF nowhere: B-113. A shape beyond 9's, a note and the
+letter it forwards inline, showed the note alone: B-114. Not yet tried:
+the iOS 18.6 simulator, and Mail's own bars beside these.
+
 **Not covered.**
 
 - Bars beside plain text quoted with "> ", as Mail draws them: left to
@@ -17508,9 +17519,328 @@ release build for the iPad links.
   HTML part only (`chooseBodies`): the words after the file are not
   shown, though the plain words have them all. The host tests have it so
   (`MIMEDecoderTests`). To be looked for at the check's step 7, and
-  recorded under its own number if seen.
+  recorded under its own number if seen. Seen so on the test iPad
+  2026-10-22, in both of Apple Mail's shapes: B-113, fixed.
 - A text file sent inline in a letter whose HTML comes first, or in
   Apple Mail's shape above, is taken for the letter's plain words
   (`chooseBodies`), as before: the list's preview and the plain words are
   the file's, and it has no row and no paperclip. Found on the host while
-  building this; not changed, as the body is not this change's.
+  building this; not changed, as the body is not this change's. Fixed by
+  B-113: beside other words such a file is a file, with its row and its
+  paperclip, and a reply quotes the letter.
+- A note, then the letter it forwards sent inline as message/rfc822: the
+  note alone, the forwarded letter nowhere. Seen on the test iPad
+  2026-10-22, a shape beyond the check's step 9: B-114, fixed.
+
+## B-113 — FIXED 2026-10-22, not yet seen on the iPad. The words after a file put among them, as Apple Mail sends one, were nowhere
+
+**What he saw.** Seen on the test iPad on 2026-10-22, at B-101's check, step
+7, with letters the host made and APPENDed to the test account's Inbox, and
+again from a fresh start of the app with a letter made a second way. A
+letter of Apple Mail's shape for a PDF put in the middle of the words:
+multipart/alternative of the plain words and a multipart/mixed of an HTML
+part, the PDF sent inline with no `Content-ID`, and an HTML part after it.
+The pane showed the PDF's row in the header and the words before it,
+"Words before the PDF: the programme is below.", and nothing more: "Words
+after the PDF: see you on Thursday at two." and "Sent from my iPad" were
+nowhere, in three panes and two, nor after a scroll. Only the list's
+preview, made from the plain words, had them. The whole letter had come,
+3,010 bytes in one FETCH, so they were lost in the decoding. The plain
+multipart/mixed of the same, an HTML part, a PDF of 1 MB, and an HTML part
+after it, lost its "Sent from my iPad" the same way. Mail shows every part
+in order: the words, the file, the words after it.
+
+**What it was.** `MIMEDecoder.chooseBodies` gave a letter one HTML part and
+one plain part. In an alternative it took the last of each, the mixed for
+the HTML; in a mixed, as in any multipart but an alternative, the first. So
+the HTML was the words before the PDF, and the pane draws the HTML whenever
+there is any, though the plain words had every one. `collectAttachments`
+then dropped the HTML part after the PDF as an unnamed text part, "the
+alternative we did not pick". Older than B-101, which left both as they
+were; its host test held this result
+(`testTheBodyOfALetterWithAFileSentInlineIsAsItWas`), and its Not covered
+said so.
+
+**Changed.**
+
+1. *Every part of the words, in order* (`MIMEDecoder.bodyPlan(of:)`, in
+   place of `chooseBodies`). A letter's body is the list of parts its HTML
+   is made of and the list its plain words are, each in order. A mixed,
+   and any multipart RFC 2046 has read as one, gives every part in its
+   turn: words, a file, the words after it. An alternative gives, as
+   before, the last of its alternatives with HTML for the HTML and the
+   last with plain words for the plain words. A related, a signed, an
+   encrypted and a report give the first part with words, as before: the
+   rest are the pictures it shows, its signature, its key, the status and
+   the letter a report is about. A text part with a name, which the header
+   lists as a file (B-101), and one neither plain nor HTML, a calendar's
+   ICS, are the letter's words only when it has no others, the first of
+   them; beside other words the named ones are files and the others
+   nothing, as they were.
+2. *Joined* (`MIMEDecoder.joined`). A body of one part is that part's words
+   exactly as they came, so a letter of one, nearly every letter, is byte
+   for byte what it was. Of more, the HTML is each HTML part without its
+   wrapper (`DocumentWrapper`, which the pane takes off anyway), with
+   plain words in it as escaped text that keeps its lines; the plain words
+   are each part on a line of its own, an HTML part as its text
+   (`HTMLText`), as a reply quotes one. A body with no HTML part has no
+   HTML, and one with no plain part no plain words, as before: the plain
+   mixed above has no plain words, and a reply quotes its HTML's text,
+   every word.
+3. *The file where it sat.* In the HTML a file with words before it and
+   after it leaves a mark in its place, a comment (`BodyFiles.mark`). The
+   pane makes the mark of a file the header lists into the file's row,
+   once, on a letter's own page and in a conversation's stack
+   (`PanePage`, `BodyFiles.rows`): its name and size as the header's row
+   writes them, in the letter's link colour, 44 pt tall, a link of the
+   pane's own, `bmfile:`, that opens it in Quick Look as the header's row
+   does (`PaneNavigation`'s `openFile`, `MessageDetailViewController`),
+   the letter's own file or, in the stack, that letter's. No "Open this
+   link?", nothing in Safari. The header keeps its row, grey from the tap
+   and blue once the letter has come, as B-101 has it. A mark of anything
+   else stays a comment: a picture the body shows by `cid:`
+   (`isShownInBody`), a part the letter does not have, a second mark of
+   the same file. A reply's quote takes it out with every other comment
+   (`QuotedMarkup`), so it never goes on. A file before or after all of
+   the words has no mark, and its row in the header alone, as every file
+   always had; a plain letter has no row among its words.
+4. *The header, the paperclip and the preview.* Every part shown as words
+   is left out of the header's rows and the paperclip
+   (`collectAttachments`, `IMAPMailRepository.hasAttachment`), where it was
+   the two parts shown. So a text file sent inline after the words is a
+   file, with its row and its paperclip, and no longer the plain words, as
+   B-101's Not covered had it, a reply quoting the file in place of the
+   letter. The preview is made from the first part of the plain words,
+   where the letter begins: as before for every shape but HTML followed by
+   a plain part, a list's footer say, which was previewed from the plain
+   part and is now from the HTML.
+5. *A letter too large to fetch whole* (above 5 MB, B-054). Each body's
+   parts share the 2 MiB in turn (`MIMEDecoder.Allowance`): the first
+   given all of it, as one part always was, each after it what those
+   before it left. A part is fetched once, with the more of its two
+   shares, and each body reads its own (`IMAPClient.fetchLetterInPart`
+   takes the bytes of each section now). The body is shown to where its
+   fetch stopped and no further, nothing drawn after words cut short, not
+   a file's mark nor a forwarded letter's lines, and the pane says it is
+   only the beginning, as before. A letter of one part each is fetched by
+   the same FETCHes as before.
+
+**Not changed.** What a file is: `MIMEPart.isAttachment`, `isListedFile`
+and `Attachment.isShownInBody`. The header's rows and the paperclip for
+every shape B-101's table holds. The quote bars, which are rules over
+whatever the HTML holds. The copy kept on the iPad, rows alone: its format,
+and a row kept from before, until its folder is next listed from the top.
+Search, which Gmail makes of every part. Send.
+
+**What he sees.** A letter from Mail on an iPad or an iPhone with a PDF put
+among its words: the words before it, the PDF's name and size in blue on a
+line of its own where it sat, the words after it, and "Sent from my iPad"
+at the end. A tap on the blue name opens the PDF, as the row in the header
+does. Reply and Forward quote every word. A letter whose HTML has a plain
+footer after it, as a mailing list adds, shows the footer. A text file sent
+after the words has its row and its paperclip. No new words.
+
+**Tests.** `BodyInOrderTests`, nine for this, with the iPad's two shapes as
+the host made them: the HTML both parts with the PDF's mark between, the
+plain words the plain part as it came, the PDF listed from the structure
+and from the letter with its paperclip, the preview the plain words;
+Apple Mail's plain mixed, the same with no plain words, a reply's words
+from the HTML, every one; plain words split by a file, both, a line each,
+no row; a reply and a forward of each, every word in order, the HTML twin
+with no mark, the forward with the PDF; the PDF's row on the letter's page
+and in the stack where it sat, its name and size, and its link opening it;
+only a listed file drawn, not the logo's mark, nor a mark of a part not
+there, each file once, and no mark for a file before or after all the
+words; a text file after the HTML a file with its row and paperclip, the
+quote the HTML's; a row's link never leaving the pane, a bad one opening
+nothing; and the preview where the letter begins. `LargeLetterTests`,
+three, over the shipping repository and the scripted server, a
+BODYSTRUCTURE made of the letter's parts: Apple Mail's shape over the
+limit, the plain words, then each HTML part, the second given what the
+first left, never the PDF, and the letter the whole letter's; the parts
+sharing the limit, a first part longer than it cut, said to be only the
+beginning, nothing after it; a part in both bodies read by each to its own
+share. `PaneNavigationTests`, one new and one changed, read from the source,
+which does not build here: the row opens the file the letter lists by
+`openAttachment`, the header's row busy only for its own letter, and
+`decidePolicyFor` cancels and opens it. Changed, and said so:
+`MIMEDecoderTests`' `testTheBodyOfALetterWithAFileSentInlineIsAsItWas`,
+which held the wrong result, is
+`testTheBodyOfALetterWithAFileSentInlineHasEveryPart`, Apple Mail's HTML
+both parts with the mark; and B-101's table row of an unnamed text part
+sent inline after the words has those words in the body, where they were
+nowhere.
+
+Each rule undone by hand, the touched classes run (`BodyInOrderTests`,
+`LargeLetterTests`, `PaneNavigationTests`, `MIMEDecoderTests`,
+`BoundedLetterTests`, `PanePageTests`, `ConversationDocumentTests`,
+`RichQuoteTests`, `ReplyForwardTests`), counted as failures in tests, then
+put back and passing: a mixed read as its first part with words, as
+before, 38 in 17, nine of B-113's, five of B-114's, the ordinary letters'
+fingerprints and two of `MIMEDecoderTests`; no mark drawn, 8 in 6; a mark
+drawn before or after all of the words too, 11 in 9, letters with a file
+attached at the end and their quotes among them; a named text after the
+words left words, 10 in 2; no rows on a letter's page, 2 in 1, and none in
+the stack, 2 in 1; a row for every part, the logo's too, 2 in 1; a row for
+every mark of a file, 2 in 1; a row's link followed as any link, 7 in 2;
+the header's row made busy for any letter, 2 in 1; the row's link opening
+nothing, 2 in 1; each part of a large letter given the whole limit, 7 in
+4; the body going on past a part not to hand, 1 in 1; marks and header
+lines not waiting for the words after them, 6 in 6; a part read to the
+more of its two shares, 1 in 1; the preview the first plain part as
+before, 1 in 1; the paperclip leaving out the first parts of words only, 1
+in 1, and the header the same, 2 in 1, both in B-114's test of a forwarded
+letter's words in a named part; a body of one part joined as one of many,
+13 in 9, the decoded ordinary letters and eight of `RichQuoteTests`; the
+parts of plain words run together, 4 in 4.
+
+One test not of this change failed now and then: `LargeLetterTests`'
+`testPicturesStillComingWhenHeMovesOnAreCalledOff`, in 5 of some 80 runs
+of its class here, with other builds or a load of busy loops on the host,
+and in none of some 45 runs of the code before this change under the same
+loads. Alone it passed every time, before and after. Each time two picture
+fetches went on the wire where it allows one: a fetch cancelled while it
+waits in `IMAPClient`'s line can be handed the line before its watcher
+takes it out (`leaveLineWhenCancelled`, `endExchange`), and nothing there
+checks the cancel again before the command is written. This change touches
+neither that line nor the pictures' fetch; why it showed more often with
+it is not known. Recorded, not changed.
+
+The full suite, serially: 1,887 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Plain words split by a file, with no HTML: both parts, each on a line of
+  its own, and no row where the file sat, as Mail draws one. Not seen in
+  his mail; Mail on an iPad sends HTML.
+- The row among the words is the file's name and size in blue, with no
+  paperclip and no picture of it: Mail draws an icon or the PDF's first
+  page there (medium confidence, not compared on a screen). A photograph
+  sent inline among the words with no `Content-ID` has a row there, where
+  Mail shows the photograph.
+- A row kept on the iPad from before: its preview and paperclip as an
+  earlier build listed them, until its folder is next listed from the top.
+- A report, a bounce: its first part alone, as before; the letter it
+  returns is not drawn.
+- A text part neither plain nor HTML beside other words, a calendar's ICS
+  with no name: neither words nor a file, as before.
+- The row's tap was read from the source, not tried: the iPad's check.
+
+## B-114 — FIXED 2026-10-22, not yet seen on the iPad. A letter forwarded inline after a note was nowhere: not its words, its From or its Subject, and no row
+
+**What he saw.** Seen on the test iPad on 2026-10-22, at B-101's check, a
+shape beyond step 9's own, with letters the host made and APPENDed to the
+test account's Inbox, and again from a fresh start of the app with a letter
+made a second way. A note, and then the letter it forwards, sent inline as
+message/rfc822 with no name: multipart/mixed of a text/plain note and a
+message/rfc822 part, `Content-Disposition: inline`, holding a plain letter.
+It is what mutt's `mime_forward` sends. The pane showed the note, "My own
+note above the forwarded letter.", and nothing more: the forwarded letter's
+words, its From and its Subject were nowhere, with no row in the header and
+no paperclip on its list row, in three panes and two. The whole letter had
+come. He could not reach the forwarded letter at all. Mail draws it after
+the note.
+
+**What it was.** `chooseBodies` walked into the forwarded letter and found
+its words, but in the mixed it kept the first plain part, the note, and
+dropped them. `collectAttachments` walked into it too, and dropped its
+unnamed text part. And a message/rfc822 part sent inline is words in the
+body, never a file (`isListedFile`, B-101): no row and no paperclip. A
+forwarded letter with nothing before it was shown, its words being the
+first. Older than B-101. Found on the host with it: a note before a
+forwarded letter of HTML showed the forwarded HTML alone, without the note,
+the note being the first plain part and the letter's HTML the first HTML.
+Six of the thirty ordinary letters the suite makes are such forwards.
+
+**Changed.**
+
+1. *After the note.* B-113's body of every part in order: a letter
+   forwarded inline is its own body, by the rules any letter's goes by,
+   after what comes before it. Its pictures show by `cid:`, and its own
+   files are listed with their paperclip, as before; it is no file itself.
+2. *Its header lines above its words, in Mail's form*
+   (`MIMEDecoder.ForwardedFields`): "Begin forwarded message:", a blank
+   line, then From, Date, To, Cc when it has one, and Subject, and a blank
+   line after them; in the HTML each label bold and the subject's value
+   bold, as `AppleMailHTML` writes a Forward. They are the lines this
+   app's own Forward writes of the same letter (`Draft.forwarding`,
+   B-050), its Date in the iPad's zone. A field the letter has nothing in
+   is left out.
+3. *From where.* From the forwarded letter's own header, in the part's
+   bytes, for a letter downloaded; from the ENVELOPE its BODYSTRUCTURE
+   carries for one too large to fetch whole, which the parser now keeps on
+   the part (`MIMEPart.envelope`). Nothing more is fetched for them, and
+   they are the same lines.
+4. *Only with words outside it.* A letter that is nothing but the one it
+   forwards reads as it did, its words alone (B-101's step 9, seen so on
+   the iPad).
+5. *A note of plain words before a letter of HTML:* the pane draws the
+   HTML, the note in it as escaped text that keeps its lines, then the
+   header lines, then the forwarded letter's markup; the plain words are
+   the note, the lines and the letter's plain words.
+
+**Not changed.** A letter forwarded as a file, named, or sent as an
+attachment, or both: a row, `forwarded.eml` or `attachment-2.eml`, and the
+paperclip, as before, nothing of it in the body, its row opening it as any
+file's does. A forwarded letter with nothing before it. A report's
+returned letter, not drawn, as before. The Forward he writes.
+
+**What he sees.** A note with a letter forwarded after it: the note, then
+"Begin forwarded message:", the forwarded letter's From, Date, To and
+Subject, then its words, and its files in the header with the paperclip.
+Reply and Forward quote all of it. No new words: "Begin forwarded message:"
+is what his own forwards say.
+
+**Tests.** `BodyInOrderTests`, seven for this: the note, the header lines
+and the forwarded words, nothing listed, no paperclip, the preview the
+note's, and a reply quoting all three in order; the same sent as base64,
+as the second run on the iPad was; a forwarded letter of HTML, the note as
+text in the HTML, the lines, the letter's markup, and the plain words the
+note, the lines and its plain words; the lines the ones his own Forward
+writes of the same letter, plain and HTML; the forwarded letter's own PDF
+listed with its paperclip, and words of its own in a text part with a
+name, in the body with no row or paperclip; a letter forwarded as a file,
+named and sent as an attachment, unnamed and sent as one, and named with
+no disposition, each a row with the paperclip and the body the note; and a
+letter that is only the one it forwards, its words and no lines.
+`LargeLetterTests`, one, over the shipping repository and the scripted
+server: a note, a forwarded letter and a PDF over the limit, the note and
+the forwarded words fetched, the second given what the first left, the
+lines from the envelope, nothing fetched for them, and the letter's plain
+words the whole letter's. `BoundedLetterTests`' fingerprints of the
+ordinary letters decoded, changed for the six forwards, letters 0, 8, 12,
+19, 20 and 29, whose body is the note and the letter now, and said so
+beside them; every other letter's is as it was. Their forwarded Date is put
+back in GMT before the print is taken (`OrdinaryMail`), so they are the
+same in every zone: in New York's they pass, and without that they fail.
+
+Each rule undone by hand, the same classes as B-113's run, then put back
+and passing: header lines never drawn, 9 in 6; drawn for a letter that is
+only the one it forwards, 3 in 2; taken from the envelope alone, 11 in 7;
+the envelope not read from a BODYSTRUCTURE, 2 in 1; the lines not waiting
+for the words after them, 6 in 6; the subject not bold, 3 in 3; a letter
+forwarded as a file read as one forwarded inline, 4 in 2; the paperclip
+and the header leaving out the first parts of words only, 1 in 1 and 2 in
+1; and B-113's mixed read as its first part, which fails five of these
+eight, all but the lines' form, the file's and the lone forward's.
+
+The full suite, serially: 1,887 tests, 5 skipped, none failing, B-113's
+with these. The release build for the iPad links.
+
+**Not covered.**
+
+- How Mail's reading pane draws a forwarded letter, a box or a line about
+  it, the lines as here or others: not compared on a screen. The lines are
+  the ones Mail's Forward writes (high confidence for those), and "Begin
+  forwarded message:" is Mail's word for a forward, not a word read from
+  its pane drawing one.
+- A letter that is only the one it forwards has no header lines, as
+  before; Mail may draw them.
+- A digest (multipart/digest), whose parts are letters with no
+  `Content-Type` of their own: the parser reads such a part as plain
+  text, so each is drawn as words, its header among them, all of them now
+  where the first was before. Not seen in his mail.
+- A subject folded across lines: the envelope's and the header's can
+  differ by a space, so a large letter's lines may not be the whole
+  letter's to the byte.

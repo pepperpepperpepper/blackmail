@@ -357,13 +357,15 @@ final class MIMEDecoderTests: XCTestCase {
                   ], boundary: "B"),
                   part: "2", listed: ["chart.png"], kept: ["chart.png"], clip: true,
                   words: "Here it is.", isAttachment: true, isListedFile: true),
+            // Its words are the letter's, after the first part's, as Mail
+            // draws them; they were nowhere until B-113.
             Shape(name: "text/plain, inline, with no name",
                   raw: Self.header + Self.mixed([
                     words,
                     "Content-Type: text/plain; charset=utf-8\r\nContent-Disposition: inline\r\n\r\nMore words.",
                   ], boundary: "B"),
                   part: "2", listed: [], kept: [], clip: false,
-                  words: "Here it is.", isAttachment: false, isListedFile: false),
+                  words: "Here it is.\nMore words.", isAttachment: false, isListedFile: false),
             Shape(name: "text/plain, inline, named notes.txt",
                   raw: Self.header + Self.mixed([
                     words,
@@ -483,16 +485,18 @@ final class MIMEDecoderTests: XCTestCase {
                        "a picture sent as an attachment is a file")
     }
 
-    /// The HTML of the shapes that have one is the part it was before: the
-    /// logo's letter's HTML, and the first of the two Apple Mail splits its
-    /// HTML into, as before (the words after the file are not shown; see
-    /// B-101's Not covered).
-    func testTheBodyOfALetterWithAFileSentInlineIsAsItWas() {
+    /// The HTML of the shapes that have one: the logo's letter's HTML is
+    /// the part it was before, and Apple Mail's letter with a PDF among its
+    /// words is both of the parts it splits its HTML into, the PDF marked
+    /// where it sat (B-113). Until B-113 it was the first part alone, and
+    /// this test held that: the words after the file were not shown (B-101's
+    /// Not covered).
+    func testTheBodyOfALetterWithAFileSentInlineHasEveryPart() {
         let byName = Dictionary(uniqueKeysWithValues: shapes.map { ($0.name, $0) })
         let logo = MIMEDecoder.decodeMessage(Data(byName["image/png, inline, with a Content-ID: a signature's logo"]!.raw.utf8))
         XCTAssertEqual(logo.html, "<p>Sam</p><img src=\"cid:logo@example.com\">")
         let apple = MIMEDecoder.decodeMessage(Data(byName["Apple Mail's letter with a PDF among its words"]!.raw.utf8))
-        XCTAssertEqual(apple.html, "<div>Before.</div>")
+        XCTAssertEqual(apple.html, "<div>Before.</div><!--bm-file:2.2--><div>After.</div>")
     }
 
     // MARK: - Hostile input

@@ -1333,17 +1333,20 @@ actor IMAPClient {
     /// check (B-039), `UID FETCH <uid> (UID BODYSTRUCTURE BODY.PEEK[HEADER])`,
     /// with X-GM-MSGID beside them as `question` says, and then, from that
     /// structure, one `UID FETCH <uid> (UID BODY.PEEK[<section>]<0.<bytes>>)`
-    /// for each section `sections` picks: the letter's text and its HTML,
-    /// the first `sectionBytes` of each. Every file stays on the server
-    /// until it is asked for (`fetchPart`). PEEK throughout.
+    /// for each section `sections` picks, with the bytes it gives it: the
+    /// parts of the letter's text and of its HTML, the first part of each
+    /// given the whole limit and each after it what is left
+    /// (`MIMEDecoder.Allowance`). Every file stays on the server until it is
+    /// asked for (`fetchPart`). PEEK throughout.
     ///
     /// For `.expecting`, the id is compared before anything past the first
     /// FETCH is asked for, and another letter's, or none, ends it there
     /// with the id the server named; the caller shows nothing of it, as it
     /// shows nothing of a whole letter whose FETCH named another (B-053).
     func fetchLetterInPart(uid: UInt32, in mailbox: String, validity: UInt32,
-                           question: LetterQuestion, sectionBytes: Int,
-                           sections: @Sendable (MIMEPart) -> [String]) async throws -> LetterInPart {
+                           question: LetterQuestion,
+                           sections: @Sendable (MIMEPart) -> [(section: String, bytes: Int)])
+        async throws -> LetterInPart {
         try await inMailbox(mailbox, validity: validity, .interactive) { _ in
             let asking: Bool
             switch question {
@@ -1367,10 +1370,10 @@ actor IMAPClient {
                 return LetterInPart(letter: letter.letter)
             }
             guard let structure = letter.structure else { return letter }
-            for section in sections(structure) {
+            for (section, bytes) in sections(structure) {
                 let path = Self.sanitizedSection(section)
                 let result = try await self.performCommand(
-                    "UID FETCH \(uid) (UID BODY.PEEK[\(path)]<0.\(sectionBytes)>)")
+                    "UID FETCH \(uid) (UID BODY.PEEK[\(path)]<0.\(bytes)>)")
                 guard result.status == .ok else { throw MailError.cannotConnect }
                 let fetched = IMAPParser.parseFetch(result.untagged)
                 letter.sections[section] = fetched.first(where: { $0.uid == uid })?.body

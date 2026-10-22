@@ -472,14 +472,20 @@ final class BoundedLetterTests: XCTestCase {
         "b1a74e2b45e329b3", "bc91ca5ffa349b33",
     ]
 
+    /// Six of the thirty are a note and a letter forwarded inline after it,
+    /// whose body is both since B-114: letters 0, 8, 12, 19, 20 and 29.
+    /// Before, they were 73994bb71b0dc36c, fa63ea4f4fde0319,
+    /// 8f706c917b23a629, 325f26c02c38ef5f, 43eed83397125d61 and
+    /// 6fed3899fbcb0e99, the note alone, and, for a forwarded letter of
+    /// HTML, its HTML without the note.
     private static let decoded = [
-        "73994bb71b0dc36c", "93a105f48f730967", "865fcbd7abe81223", "884bc9e1e09eeea9",
+        "1eae8a490e9afd4f", "93a105f48f730967", "865fcbd7abe81223", "884bc9e1e09eeea9",
         "281614d264936717", "f757152f8db25213", "a5ffc51eecadfedf", "411e68f1df5124cc",
-        "fa63ea4f4fde0319", "e19b3494ac92ceac", "1957ea5390396471", "dd2608e102948857",
-        "8f706c917b23a629", "a6938c2f3227f89a", "370486990df6e704", "01e8b57895b8c184",
-        "9267637a69b7cb06", "26ca6e77c7ddeacd", "b8c28a2aac29f940", "325f26c02c38ef5f",
-        "43eed83397125d61", "e5e9538085fd22ed", "9b7baeaa1bf3dedd", "7577a19b161e1dcc",
+        "dca636126ce075a8", "e19b3494ac92ceac", "1957ea5390396471", "dd2608e102948857",
+        "d289a7db6d3e315a", "a6938c2f3227f89a", "370486990df6e704", "01e8b57895b8c184",
+        "9267637a69b7cb06", "26ca6e77c7ddeacd", "b8c28a2aac29f940", "428459d1275805c4",
+        "f8f596d3e223c88e", "e5e9538085fd22ed", "9b7baeaa1bf3dedd", "7577a19b161e1dcc",
         "a30f27d04ee880c6", "94a76e2c39fa7cb5", "06f1e3935bd47ba1", "85dd636fbe8f7716",
-        "8e5b81b18adc9874", "6fed3899fbcb0e99",
+        "8e5b81b18adc9874", "d939b1c79002a6bd",
     ]
 }

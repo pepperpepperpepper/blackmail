@@ -561,6 +561,219 @@ final class LargeLetterTests: XCTestCase {
         XCTAssertLessThan(growth, 60 << 20, "\(growth >> 20) MB")
     }
 
+    // MARK: - Every part of its words (B-113, B-114)
+
+    /// `raw` delivered to the Inbox as Gmail would describe it: its
+    /// BODYSTRUCTURE made from its parts, the letter a message/rfc822 part
+    /// holds with `envelope` for its ENVELOPE, and every part's BODY[].
+    private func delivered(_ raw: Data, envelope: String = "NIL",
+                           by repository: IMAPMailRepository) async throws -> MessageSummary {
+        func quoted(_ s: String) -> String { "\"" + s + "\"" }
+        func list(_ d: [String: String]) -> String {
+            d.isEmpty ? "NIL" : "(" + d.sorted { $0.key < $1.key }
+                .map { quoted($0.key.uppercased()) + " " + quoted($0.value) }
+                .joined(separator: " ") + ")"
+        }
+        func disposition(_ p: MIMEPart) -> String {
+            p.disposition.map { "(" + quoted($0.uppercased()) + " " + list(p.dispositionParameters) + ")" }
+                ?? "NIL"
+        }
+        func wire(_ p: MIMEPart) -> String {
+            if p.isMultipart {
+                return "(" + p.children.map(wire).joined() + " " + quoted(p.subtype.uppercased()) + " "
+                    + list(p.parameters) + " " + disposition(p) + " NIL NIL)"
+            }
+            let basic = "(" + quoted(p.type.uppercased()) + " " + quoted(p.subtype.uppercased()) + " "
+                + list(p.parameters) + " " + (p.id.map(quoted) ?? "NIL") + " NIL "
+                + quoted(p.encoding.uppercased()) + " \(p.size ?? 0)"
+            if p.type == "text" {
+                return basic + " \(p.lines ?? 0) NIL " + disposition(p) + " NIL NIL)"
+            }
+            if p.type == "message", p.subtype == "rfc822", let inner = p.children.first {
+                return basic + " " + envelope + " " + wire(inner) + " 0 NIL " + disposition(p) + " NIL NIL)"
+            }
+            return basic + " NIL " + disposition(p) + " NIL NIL)"
+        }
+        var sections = MIMEDecoder.parse(raw).bodies
+        let headerEnd = try XCTUnwrap(raw.range(of: Data("\r\n\r\n".utf8)))
+        sections["HEADER"] = raw[..<headerEnd.upperBound]
+        let letter = Server.Letter(from: Server.Address(name: "Jane", address: "jane@example.com"),
+                                   to: [Server.owner], subject: "The programme",
+                                   date: Server.newestDate, text: "",
+                                   messageID: "<programme-\(raw.count)@example.com>")
+        let placed = try XCTUnwrap(server.deliver(
+            raw: raw, sections: sections, structure: wire(MIMEDecoder.parseStructure(raw)),
+            as: letter, to: [Server.inbox])[Server.inbox])
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        return try XCTUnwrap(rows.first { uid($0.id) == placed })
+    }
+
+    /// A PDF of some 5 KB, base64, sent inline as Apple Mail sends one.
+    private var bigPDF: String {
+        "Content-Type: application/pdf; name=\"Programme.pdf\"\r\n"
+            + "Content-Disposition: inline; filename=\"Programme.pdf\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\n"
+            + report.base64EncodedString(options: [.lineLength76Characters,
+                                                   .endLineWithCarriageReturn, .endLineWithLineFeed])
+    }
+
+    private func mime(_ subtype: String, _ boundary: String, _ parts: [String]) -> String {
+        "Content-Type: multipart/\(subtype); boundary=\"\(boundary)\"\r\n\r\n"
+            + parts.map { "--\(boundary)\r\n" + $0 + "\r\n" }.joined() + "--\(boundary)--\r\n"
+    }
+
+    private let top = "From: Jane <jane@example.com>\r\nTo: owner@example.com\r\n"
+        + "Subject: The programme\r\nDate: Mon, 20 Sep 2026 10:00:00 +0000\r\n"
+        + "Message-ID: <programme@example.com>\r\nMIME-Version: 1.0\r\n"
+
+    /// Apple Mail's letter with a PDF among its words, over the limit: the
+    /// plain words, then each part of the HTML, the second given what the
+    /// first left, and never the PDF; the letter the pane gets is the one
+    /// a whole fetch gives, every word of it, the PDF listed.
+    func testALargeLetterWithAFileAmongItsWordsShowsThemAll() async throws {
+        let first = "<div>Words before the PDF: the programme is below.</div>"
+        let second = "<div>Words after the PDF: see you on Thursday at two.</div>"
+        let raw = Data((top + mime("alternative", "ALT", [
+            "Content-Type: text/plain; charset=utf-8\r\n\r\nWords before the PDF.\r\n\r\n"
+                + "Words after the PDF.",
+            mime("mixed", "MIX", [
+                "Content-Type: text/html; charset=utf-8\r\n\r\n" + first,
+                bigPDF,
+                "Content-Type: text/html; charset=utf-8\r\n\r\n" + second,
+            ]),
+        ])).utf8)
+        XCTAssertGreaterThan(raw.count, Self.limit)
+        let repository = makeRepository()
+        let row = try await delivered(raw, by: repository)
+        let n = uid(row.id)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[2.1]<0.\(Self.section)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[2.3]<0.\(Self.section - first.utf8.count)>)",
+        ])
+        XCTAssertEqual(letter.htmlBody, first + "<!--bm-file:2.2-->" + second)
+        XCTAssertEqual(letter.textBody, "Words before the PDF.\n\nWords after the PDF.")
+        XCTAssertFalse(letter.isShortened)
+        XCTAssertEqual(letter.listedAttachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertTrue(row.hasAttachment)
+
+        let whole = try await makeRepository(appLimits: true).open(row)
+        XCTAssertEqual(letter.htmlBody, whole.htmlBody)
+        XCTAssertEqual(letter.textBody, whole.textBody)
+        XCTAssertEqual(letter.listedAttachments.map(\.id), whole.listedAttachments.map(\.id))
+    }
+
+    /// The parts of the HTML share the limit: a first part longer than it
+    /// takes it all, and the letter is shown to where its fetch stopped,
+    /// said to be only the beginning, with nothing after the cut: not the
+    /// PDF's mark, not the header lines of the letter forwarded after it,
+    /// and not that letter's words, which are not fetched.
+    func testThePartsOfALargeLettersWordsShareTheLimit() async throws {
+        let first = "<p>" + String(repeating: "x", count: Self.section + 500) + "</p>"
+        let raw = Data((top + mime("mixed", "MIX", [
+            "Content-Type: text/html; charset=utf-8\r\n\r\n" + first,
+            bigPDF,
+            "Content-Type: message/rfc822\r\nContent-Disposition: inline\r\n\r\n"
+                + "From: Sam Example <sam@example.com>\r\nSubject: Earlier\r\n"
+                + "Content-Type: text/html; charset=utf-8\r\n\r\n<p>Sent from my iPad</p>",
+        ])).utf8)
+        let envelope = "(NIL \"Earlier\" ((\"Sam Example\" NIL \"sam\" \"example.com\")) NIL NIL NIL "
+            + "NIL NIL NIL NIL)"
+        let repository = makeRepository()
+        let row = try await delivered(raw, envelope: envelope, by: repository)
+        let n = uid(row.id)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)>)",
+        ])
+        XCTAssertEqual(letter.htmlBody, String(first.prefix(Self.section)))
+        XCTAssertNil(letter.textBody)
+        XCTAssertTrue(letter.isShortened)
+    }
+
+    /// A part in both bodies is read by each to its own share of the
+    /// limit, fetched once with the more of the two: a footer after an HTML
+    /// longer than the plain words is whole in the plain words and cut in
+    /// the HTML, which the pane shows, and says is only the beginning.
+    func testAPartInBothBodiesIsReadByEachToItsOwnShare() async throws {
+        let plain = "Short words."
+        let html = "<p>" + String(repeating: "h", count: 693) + "</p>"
+        let footer = String(repeating: "f", count: 500)
+        let raw = Data((top + mime("mixed", "MIX", [
+            mime("alternative", "ALT", [
+                "Content-Type: text/plain; charset=utf-8\r\n\r\n" + plain,
+                "Content-Type: text/html; charset=utf-8\r\n\r\n" + html,
+            ]),
+            "Content-Type: text/plain; charset=utf-8\r\n\r\n" + footer,
+            bigPDF,
+        ])).utf8)
+        let repository = makeRepository()
+        let row = try await delivered(raw, by: repository)
+        let n = uid(row.id)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        let htmlShare = Self.section - html.utf8.count
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID BODY.PEEK[1.1]<0.\(Self.section)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[2]<0.\(Self.section - plain.utf8.count)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[1.2]<0.\(Self.section)>)",
+        ])
+        XCTAssertEqual(letter.textBody, plain + "\n" + footer)
+        XCTAssertEqual(letter.htmlBody, html + "<div style=\"white-space: pre-wrap;\">"
+                       + String(footer.prefix(htmlShare)) + "</div>")
+        XCTAssertTrue(letter.isShortened)
+    }
+
+    /// A note and the letter it forwards inline, over the limit: the
+    /// forwarded letter's header lines come from the envelope its structure
+    /// carries, nothing more is fetched for them, and they are the lines
+    /// the whole letter's own header gives.
+    func testALargeForwardDrawsItsHeaderLinesFromItsStructure() async throws {
+        let inner = "From: Sam Example <sam@example.com>\r\nTo: Jane <jane@example.com>\r\n"
+            + "Subject: The forwarded words\r\nDate: Wed, 21 Oct 2026 14:36:17 +0000\r\n"
+            + "Message-ID: <inner@example.com>\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n"
+            + "The forwarded letter's words."
+        let envelope = "(\"Wed, 21 Oct 2026 14:36:17 +0000\" \"The forwarded words\" "
+            + "((\"Sam Example\" NIL \"sam\" \"example.com\")) ((\"Sam Example\" NIL \"sam\" \"example.com\")) "
+            + "((\"Sam Example\" NIL \"sam\" \"example.com\")) ((\"Jane\" NIL \"jane\" \"example.com\")) "
+            + "NIL NIL NIL \"<inner@example.com>\")"
+        let raw = Data((top + mime("mixed", "FWD", [
+            "Content-Type: text/plain; charset=utf-8\r\n\r\nMy own note.",
+            "Content-Type: message/rfc822\r\nContent-Disposition: inline\r\n\r\n" + inner,
+            bigPDF,
+        ])).utf8)
+        let repository = makeRepository()
+        let row = try await delivered(raw, envelope: envelope, by: repository)
+        let n = uid(row.id)
+        server.clearLog()
+
+        let letter = try await repository.open(row)
+        XCTAssertEqual(uidFetches, [
+            "UID FETCH \(n) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+            "UID FETCH \(n) (UID BODY.PEEK[1]<0.\(Self.section)>)",
+            "UID FETCH \(n) (UID BODY.PEEK[2.1]<0.\(Self.section - 12)>)",
+        ])
+        let when = try XCTUnwrap(IMAPParser.parseHeaderDate("Wed, 21 Oct 2026 14:36:17 +0000"))
+        XCTAssertEqual(letter.textBody, "My own note.\n\nBegin forwarded message:\n\n"
+                       + "From: Sam Example <sam@example.com>\nDate: \(MailFormat.forwardedDate(when))\n"
+                       + "To: Jane <jane@example.com>\nSubject: The forwarded words\n\n"
+                       + "The forwarded letter's words.")
+        XCTAssertNil(letter.htmlBody)
+        XCTAssertEqual(letter.listedAttachments.map(\.filename), ["Programme.pdf"])
+
+        let whole = try await makeRepository(appLimits: true).open(row)
+        XCTAssertEqual(letter.textBody, whole.textBody)
+    }
+
     // MARK: - A SEARCH in the connection log
 
     /// The Inbox's SEARCH, one line with a number for every letter, goes
