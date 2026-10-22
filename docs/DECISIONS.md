@@ -943,7 +943,8 @@ his ticks or a finger, and in a conversation opened from the kept page at
 launch; a write on it is asked about once, at one round trip, and its
 letter opened asks in its own FETCH, at none more, where the proven mailbox
 let both go unasked. That stays: asking is the safer, and it is rare.
-Not built: the letters (phase 2).
+Not built: the letters (phase 2). If it is built, it keeps none of his
+letters from Sent Mail that an Inbox conversation brings in (D-019).
 
 **Alongside it, the letters kept in `Local Drafts/`, 2026-09-30** (B-051).
 They are not this copy and are never wiped with it, but they name letters
@@ -1073,3 +1074,68 @@ TrollStore's helper; which of the two leaves it out was not looked into.
 - iOS 18's Dark icons leave it a light photograph among dark tiles, and
   Tinted makes it one blue tile. Their own versions need an asset catalog.
 - On a dark ground the black sleeve at the top right runs into it.
+
+---
+
+## D-019 — Complete Threads: his own letters in Inbox conversations, read only, never kept
+
+**Decided 2026-10-22, the owner's answer still to come.** Mail's Complete
+Threads, under Settings, Apps, Mail, Threading, is on from the factory, and
+the owner's ruling for conversations is "copy apple mail" (B-074). Whether
+his iPad has it on is the owner's to look up there; until he says, it is
+built on, with a switch of Mail's name under Organize by Thread to turn it
+off (B-104). If his iPad has it off, the switch goes off, or the
+batch comes out before the install.
+
+**What.** In an Inbox conversation of more than one letter, his own letters
+of it that are in Sent Mail and not in the Inbox go into the reading pane's
+stack, closed, where they came, by when Gmail took them, and say "Found in
+Sent Mail" once open. They are looked up as the stack opens, by Gmail's
+thread id, in the folder LIST names `\Sent`, and remembered in memory for
+ten minutes.
+
+**The choices.**
+
+- *Inbox stacks only.* Not a single letter, not a search, not another
+  folder. Whether Mail on iPadOS 18 opens a single answered letter as a
+  conversation is not known, and opening one as a stack here would change
+  the commonest tap in the app on a guess. In Sent Mail, Mail would bring
+  in the Inbox's letters of a conversation; not built.
+- *Read only, and outside every action.* Nothing is written: no STORE, MOVE,
+  COPY or APPEND. His letters are never in the list's model, so Edit
+  mode's Delete, Move and Mark, the counts and the read marks never reach
+  them, and the pane's toolbar acts on the conversation's letters alone.
+  Mac Mail's guide has a conversation deleted leave its related letters
+  where they are; here every action leaves them where they are.
+- *No focus on his letters, under either timing.* Opening his line fetches
+  its body and does nothing else: the header, Reply, Flag, Move and Delete
+  stay on the conversation's letter he opened last, whether the header
+  follows a letter when its body lands, as now, or at the tap, if "Left
+  from batch 4" is ever built. A departure from Mail, where each letter of
+  a conversation has its own buttons. Here the pane has one toolbar, and a
+  Delete that took his letter out of Sent Mail from an Inbox conversation
+  is a letter lost from where he would look for it.
+- *Never kept.* His letters live in the pane while it shows the
+  conversation and in the repository's memory for ten minutes, and nowhere
+  else: not the copy kept on the iPad (D-016), not Local Drafts, and their
+  few words are not put on Sent Mail's kept page. D-016's phase 2, the last
+  300 letters he opened, if it is ever built, must not keep them either.
+- *Sent Mail only, never All Mail in its place.* All Mail holds the
+  conversation's Inbox letters too, and his All Mail is hundreds of
+  thousands of letters. No `\Sent` folder, and nothing is looked up.
+
+**Why it sits inside PRODUCT_SPEC.md's exclusions.** `spec/docs/PRODUCT_SPEC.md:75`
+leaves out of v1 "Thread intelligence beyond basic server/thread
+presentation". This is the server's own thread as the server presents it:
+Gmail's X-GM-THRID, the id the list already groups a folder's letters by
+(`MessageThread.group`), asked of Gmail's own Sent Mail. Nothing is threaded
+on this side, by subject or by References, and nothing is guessed. And it is
+Mail's factory default, which the owner's ruling follows.
+
+**The cost.** A lookup for each Inbox conversation opened that was not
+opened in the last ten minutes: a SELECT of Sent Mail, a SEARCH, a FETCH of
+up to twenty summaries and one of their few words, in the background line.
+A letter he taps meanwhile waits for that hold, and how long Gmail takes to
+open his Sent Mail is not known (PERFORMANCE.md, "What would change most",
+4). New words on screen, held from his iPad until he approves them:
+"Complete Threads", the line under it, and "Found in Sent Mail".

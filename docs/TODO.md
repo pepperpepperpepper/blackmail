@@ -227,8 +227,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       back".* Phase 2, the last 300 letters he opened.
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
-- [ ] His own replies missing from Inbox conversations (Mail's Complete
-      Threads).
+- [x] His own replies missing from Inbox conversations (Mail's Complete
+      Threads). *Done 2026-10-22, not yet seen on the iPad: in an Inbox
+      conversation of more than one letter, his letters of it that are
+      only in Sent Mail come in closed, by date, "Found in Sent Mail" when
+      opened, read only and never acted on; a Complete Threads switch
+      under Organize by Thread. B-104, and its check under "Blocked on the
+      iPad coming back".*
 - [ ] Replied and forwarded arrows on rows.
 - [ ] Search: several words may be searched as one phrase (not yet checked
       against Gmail); no suggestions or recent searches.
@@ -3787,6 +3792,45 @@ this host. Ordered by value, not by size.
       finger landed, the finger ending on the signature's logo, a link,
       and WebKit put up the link's menu at about 1 s: the second did not
       open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
+
+- [ ] **B-104, his own letters in Inbox conversations.** On the test iPad,
+      the test account only, built from the `bm-threads` worktree (branch
+      `feat-threads`). A stands for the account's address; J is a second
+      test address; letters only between them with `+b104`, subjects
+      beginning "B-104". Three panes.
+      1. *Between.* J writes to A; A replies; J writes again. In the
+      Inbox, open the conversation: A's reply is between J's two letters,
+      closed to its line, a moment after the stack opens. Opened, it reads
+      "Found in Sent Mail" in grey over its body. The letter the stack
+      opened at does not move as A's goes in: once without touching the
+      pane, a burst of shots from the tap, and once with the pane scrolled
+      a little before the lookup lands, the line at the top of the pane
+      staying where it is.
+      2. *Before and after.* A conversation A began, J answering twice: A's
+      letter at the top. One A answered last: A's letter below the newest,
+      and the pane still opens at the Inbox letter it opened at before.
+      3. *The header stays.* Open A's line: its body comes, from Sent Mail
+      in the log, and the header, Reply and Delete stay on J's letter.
+      Delete: J's letter goes to Trash, A's stays in Sent Mail, and the
+      Inbox's count is right.
+      4. *To himself.* A letter from A to A inside a conversation shows
+      once.
+      5. *Airplane Mode.* On, then a conversation not opened in the last
+      ten minutes: exactly the stack of the build before, no alert. Off.
+      6. *The log.* One `SELECT "[Gmail]/Sent Mail"`, one `UID SEARCH
+      X-GM-THRID` and two `UID FETCH`es for each conversation opened;
+      none when it is opened again within ten minutes, and A's letters in
+      the first frame; and the lookup called off when another row is
+      tapped while it is out, nothing after the command on the wire.
+      7. *A reply just sent.* Reply from the stack, send, open the
+      conversation again: the new reply is there.
+      8. *VoiceOver and the switch.* VoiceOver reads "Found in Sent Mail"
+      with the letter. Settings, Complete Threads off, then a conversation
+      opened: the stack of the build before, nothing looked up. On again.
+      9. *The iOS 18 simulator*, for the layout of the line, the label and
+      the switch.
+      After the install on his iPad: read the SLOW notes for `SELECT
+      "[Gmail]/Sent Mail"`.
 
 ## Blocked on the owner
 
