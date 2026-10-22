@@ -184,7 +184,8 @@ final class MessageHeaderView: UIView {
 
         // Inline pictures are not files: they are rendered inside the
         // letter by the `cid:` resolver, and a row for each would list the
-        // signature's logo on every message. See Attachment.isInline.
+        // signature's logo on every message. See Attachment.isShownInBody:
+        // any other part sent inline, as Apple Mail sends a PDF, is a file.
         let listed = m.listedAttachments
         for row in attachmentStack.arrangedSubviews { row.removeFromSuperview() }
         attachmentButtons.removeAll()

@@ -368,9 +368,12 @@ enum OrdinaryMail {
     }
 
     /// The reading pane's page, and a conversation's body, for each of
-    /// `documents` as a letter carrying `pictures`.
+    /// `documents` as a letter carrying `pictures`. The page without Mail's
+    /// bars beside quoted text (B-101), rules added to an HTML letter's
+    /// style and nothing else, and checked there by `PanePageTests`.
     static func pageFingerprints() -> [String] {
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
+        let bars = "\n" + QuoteBars.css(in: "#bm")
         let parts = pictures.enumerated().map { i, id in
             Attachment(id: "\(i + 2)", filename: "p\(i).png", mimeType: "image/png", size: 100,
                        contentID: id, isInline: true)
@@ -380,8 +383,8 @@ enum OrdinaryMail {
                             senderAddress: "jane@example.com", to: ["owner@example.com"], cc: [],
                             subject: "The garden", date: Date(timeIntervalSince1970: 1_790_000_000),
                             textBody: nil, htmlBody: html, attachments: parts)
-            return fingerprint((PanePage.letter(m, style: style) ?? "\u{1}") + "\u{0}"
-                               + PanePage.stackBody(m).html)
+            let page = PanePage.letter(m, style: style)?.replacingOccurrences(of: bars, with: "")
+            return fingerprint((page ?? "\u{1}") + "\u{0}" + PanePage.stackBody(m).html)
         }
     }
 

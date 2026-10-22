@@ -78,12 +78,15 @@ enum PanePage {
         // round, then invert images and video AGAIN to cancel it for them. That
         // is exactly the trick that keeps a photograph looking like a
         // photograph while the text around it goes light-on-dark.
+        //
+        // After it, Mail's bars beside quoted text (`QuoteBars`, B-101), for
+        // HTML only: a plain letter's quotes are words, with no blockquote.
         let smartInvert = isHTML
             ? """
               #bm { filter: invert(1) hue-rotate(180deg); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: invert(1) hue-rotate(180deg); }
-              """
+              """ + "\n" + QuoteBars.css(in: "#bm")
             : ""
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">

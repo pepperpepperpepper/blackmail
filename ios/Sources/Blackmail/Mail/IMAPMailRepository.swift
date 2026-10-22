@@ -1316,9 +1316,21 @@ actor IMAPMailRepository: MailRepository {
 
     /// Walks a BODYSTRUCTURE looking for anything the reader would call an
     /// attachment, so the paperclip can be shown without downloading a byte.
-    private static func hasAttachment(_ part: MIMEPart) -> Bool {
-        if part.isAttachment { return true }
-        return part.children.contains(where: hasAttachment)
+    ///
+    /// A file the header lists, inline or not (`MIMEPart.isListedFile`,
+    /// B-101), but for the parts the pane shows as the letter's words
+    /// (`MIMEDecoder.bodyParts(of:)`), which the header does not list
+    /// either: a text part sent inline with a name can be the letter's own
+    /// words, and a paperclip with no file under it would send him looking
+    /// for one.
+    static func hasAttachment(_ structure: MIMEPart) -> Bool {
+        let body = MIMEDecoder.bodyParts(of: structure)
+        let words = Set([body.text, body.html].compactMap { $0?.section })
+        func walk(_ part: MIMEPart) -> Bool {
+            if part.isListedFile, !words.contains(part.section) { return true }
+            return part.children.contains(where: walk)
+        }
+        return walk(structure)
     }
 
     // MARK: - Which folders a message is counted in

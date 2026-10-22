@@ -266,6 +266,8 @@ enum ConversationDocument {
           .bm-html .bm-signature img, .bm-html .bm-signature svg,
           .bm-html .bm-signature picture, .bm-html .bm-signature video {
                      filter: none; }
+          /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
+        \(QuoteBars.css(in: ".bm-html"))
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
           .bm-text a { color: #0A84FF; }
           .bm-html a { color: #007AFF; }

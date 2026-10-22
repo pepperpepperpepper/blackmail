@@ -222,10 +222,43 @@ struct MIMEPart {
     /// images count "because the spec wants them listed"; that was written
     /// before anything could resolve a `cid:`, when listing was the only
     /// way the picture was reachable at all.)
+    ///
+    /// What the body is made of goes by this (`MIMEDecoder.chooseBodies`, and
+    /// what `collectAttachments` walks into): a forwarded letter sent inline
+    /// as message/rfc822 is words in the body, not a file. The paperclip on
+    /// a list row goes by `isListedFile`.
     var isAttachment: Bool {
         if disposition == "attachment" { return true }
         if disposition == "inline" { return false }
         return !isMultipart && type != "text" && filename != nil
+    }
+
+    /// Whether this part is a file the reading pane's header lists, for the
+    /// paperclip on the list's row (`IMAPMailRepository.hasAttachment`),
+    /// from the BODYSTRUCTURE alone (B-101).
+    ///
+    /// `isAttachment` with one change: a part sent inline is a file too,
+    /// unless it is a picture the body shows by `cid:`, or the words of a
+    /// text part with no name. That is the PDF Apple Mail on an iPhone or
+    /// an iPad sends, inline, with no `Content-ID`: it had a row in neither
+    /// the header nor the list, and Mail lists it. The same parts the
+    /// header lists (`MIMEDecoder.listedAttachments(in:)`): a picture with
+    /// a `Content-ID` as `Attachment.isShownInBody` has one, and a text
+    /// part named as `collectAttachments` names it.
+    ///
+    /// A message/rfc822 part answers as `isAttachment` does, whatever its
+    /// disposition: sent inline, it is a forwarded letter whose words are
+    /// the body, never a file; its own parts are looked at in their turn.
+    var isListedFile: Bool {
+        if disposition == "attachment" { return true }
+        if type == "message", subtype == "rfc822" { return isAttachment }
+        if disposition == "inline" {
+            if isMultipart { return false }
+            if type == "image", MIMEDecoder.strippedContentID(id) != nil { return false }
+            if type == "text", MIMEDecoder.decodedFilename(self) == nil { return false }
+            return true
+        }
+        return isAttachment
     }
 }
 

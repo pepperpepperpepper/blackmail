@@ -201,6 +201,67 @@ final class ConversationDocumentTests: XCTestCase {
         XCTAssertTrue(page?.contains("<div id=\"bm\">") == true)
     }
 
+    // MARK: - Mail's bars beside quoted text (B-101)
+
+    /// The stack has Mail's rules for its letters' quotes, as a letter's own
+    /// page has them (`PanePageTests`), each under `.bm-html`, a letter's
+    /// HTML: never a plain letter, whose quotes are words, and never the
+    /// stack's own lines. After the signature's rules, as they were.
+    func testTheStackHasMailsBarsBesideAnHTMLLettersQuotes() throws {
+        let quote = ":is(blockquote[type=cite i], blockquote[class~=gmail_quote])"
+        func rule(_ selector: String, _ colour: String) -> String {
+            "\(selector) { padding-left: 5px !important; margin: 0 !important; "
+                + "border-left: 1px solid \(colour) !important; color: \(colour) !important; }"
+        }
+        let rules = [
+            rule(".bm-html \(quote)", "rgb(88, 86, 214)"),
+            rule(".bm-html \(quote) \(quote)", "rgb(0, 175, 205)"),
+            rule(".bm-html \(quote) \(quote) \(quote)", "rgb(18, 192, 14)"),
+        ].joined(separator: "\n")
+        XCTAssertEqual(QuoteBars.css(in: ".bm-html"), rules)
+
+        let html = document([entry("1/2", expanded: true, body: .init(html: "<p>x</p>", isHTML: true)),
+                             entry("1/1", expanded: true, body: .init(html: "> words", isHTML: false))])
+        let sheet = try XCTUnwrap(html.components(separatedBy: "</style>").first)
+        XCTAssertTrue(sheet.contains("""
+                     filter: none; }
+          /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
+        \(rules)
+          .bm-body img, .bm-body table {
+        """), sheet)
+        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 + 4 + 6)
+        XCTAssertEqual(sheet.components(separatedBy: ".bm-html :is(").count - 1, 3)
+        XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")
+    }
+
+    /// The signature's rules are as they were: its white sheet inverted
+    /// back, and its pictures not inverted a third time. A quote's bar and
+    /// words inside the sheet come out in Mail's light colours, on white.
+    func testTheSignaturesRulesAreAsTheyWere() {
+        let html = document([entry("1/1")])
+        XCTAssertTrue(html.contains("""
+          .bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); }
+        """), html)
+        XCTAssertTrue(html.contains("""
+          .bm-html .bm-signature img, .bm-html .bm-signature svg,
+          .bm-html .bm-signature picture, .bm-html .bm-signature video {
+                     filter: none; }
+        """), html)
+        XCTAssertEqual(html.components(separatedBy: "bm-signature").count - 1, 5)
+    }
+
+    /// Mail's reply and Gmail's go into their sections as they came, at
+    /// first draw and by `bmFill`: the bars are rules in the style.
+    func testARepliesMarkupGoesIntoTheStackAsItCame() throws {
+        for body in [PanePageTests.appleMailReplyBody, PanePageTests.gmailReply] {
+            let rendered = ConversationDocument.Entry.Rendered(html: body, isHTML: true)
+            let html = document([entry("1/1", expanded: true, body: rendered)])
+            XCTAssertTrue(html.contains("<div class=\"bm-body bm-html\">\(body)</div>"), html)
+            let fill = ConversationDocument.Fill(sectionID: "m1_1", body: rendered)
+            XCTAssertEqual(try XCTUnwrap(fill.arguments["html"] as? String), body)
+        }
+    }
+
     // MARK: - The document is well formed
 
     func testEveryLetterIsClosedAndTheCountsBalance() {
