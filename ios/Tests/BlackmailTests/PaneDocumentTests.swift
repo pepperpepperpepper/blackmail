@@ -366,6 +366,51 @@ final class PaneDocumentTests: XCTestCase {
         XCTAssertEqual(files(Message.heading(for: plain)), [])
     }
 
+    /// A PDF sent inline with no Content-ID, as Apple Mail on an iPhone or
+    /// an iPad sends one (B-101), through the server: a paperclip on its
+    /// row, a row in the header from the tap and once the letter has come,
+    /// and its bytes when the row is tapped. Beside it a signature's logo,
+    /// inline with a Content-ID, which has no row, as before; and a letter
+    /// with the logo alone has no paperclip and no row.
+    func testAFileSentInlineHasItsRowAndItsPaperclip() async throws {
+        let bytes = Data(repeating: 0x25, count: 3_000)
+        let pdf = Server.File(name: "Programme.pdf", type: "APPLICATION", subtype: "PDF",
+                              bytes: bytes, disposition: "inline")
+        let logo = Server.File(name: "logo.png", type: "IMAGE", subtype: "PNG",
+                               bytes: Data(repeating: 0x89, count: 200), contentID: "logo@example.org")
+        server.deliver(Server.Letter(from: Server.carlo, to: [Server.owner], subject: "The programme",
+                                     date: Server.newestDate.addingTimeInterval(3_600),
+                                     text: "Here it is.\r\n",
+                                     html: "<p>Here it is.</p><img src=\"cid:logo@example.org\">",
+                                     messageID: "<programme@example.org>", files: [pdf, logo]),
+                       to: [Server.inbox])
+        server.deliver(Server.Letter(from: Server.sam, to: [Server.owner], subject: "Logo alone",
+                                     date: Server.newestDate.addingTimeInterval(1_800),
+                                     text: "Sam\r\n", html: "<p>Sam</p><img src=\"cid:logo@example.org\">",
+                                     messageID: "<logo-alone@example.org>", files: [logo]),
+                       to: [Server.inbox])
+        let repository = makeRepository()
+        let page = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 5)
+
+        let programme = try XCTUnwrap(page.first { $0.subject == "The programme" })
+        XCTAssertTrue(programme.hasAttachment)
+        XCTAssertEqual(files(Message.heading(for: programme)), ["2 Programme.pdf application/pdf"])
+        let landed = try await repository.open(programme)
+        XCTAssertEqual(files(landed), files(Message.heading(for: programme)))
+        XCTAssertEqual(landed.attachments.map(\.isInline), [true, true])
+        let file = try XCTUnwrap(landed.listedAttachments.first)
+        let fetched = try await repository.fetchAttachmentData(file.id, of: landed.id,
+                                                               mailboxID: programme.mailboxID)
+        XCTAssertEqual(fetched, bytes)
+
+        let alone = try XCTUnwrap(page.first { $0.subject == "Logo alone" })
+        XCTAssertFalse(alone.hasAttachment)
+        XCTAssertEqual(files(Message.heading(for: alone)), [])
+        let aloneLanded = try await repository.open(alone)
+        XCTAssertEqual(files(aloneLanded), [])
+        XCTAssertEqual(aloneLanded.attachments.map(\.filename), ["logo.png"], "kept for the body")
+    }
+
     /// The fake server describes a text file as a server does, with the
     /// lines of its base64 after its size: six for a 320-byte file. It
     /// counted by splitting the text on "\n", which never splits a String

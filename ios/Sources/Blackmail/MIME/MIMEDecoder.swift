@@ -1105,13 +1105,15 @@ enum MIMEDecoder {
 
     /// The files a letter carries, as the reading pane's header lists them,
     /// from its structure alone: what `flatten` finds with no bodies to
-    /// hand, less the pictures the body shows by `cid:`. Worked out from the
-    /// BODYSTRUCTURE a list row is fetched with, so the header can list the
-    /// files before the letter is downloaded, the same ones it will list
-    /// once it has been: the downloaded letter goes through `flatten` too,
-    /// and IMAP numbers the parts as `parse` does.
+    /// hand, less the pictures the body shows by `cid:`
+    /// (`Attachment.isShownInBody`, the rule `Message.listedAttachments`
+    /// keeps too). Worked out from the BODYSTRUCTURE a list row is fetched
+    /// with, so the header can list the files before the letter is
+    /// downloaded, the same ones it will list once it has been: the
+    /// downloaded letter goes through `flatten` too, and IMAP numbers the
+    /// parts as `parse` does.
     static func listedAttachments(in structure: MIMEPart) -> [Attachment] {
-        flatten(structure) { _ in nil }.attachments.filter { !$0.isInline }
+        flatten(structure) { _ in nil }.attachments.filter { !$0.isShownInBody }
     }
 
     /// Finds a part by its IMAP section path ("2", "1.3").
@@ -1240,7 +1242,11 @@ enum MIMEDecoder {
     /// words in `filename=` even though the RFC says to use RFC 2231 instead),
     /// stripped of any path, and of control characters that would make a mess
     /// of a share sheet.
-    private static func decodedFilename(_ part: MIMEPart) -> String? {
+    ///
+    /// Also whether a text part sent inline is named, for its paperclip
+    /// (`MIMEPart.isListedFile`), so that the paperclip and the header's row
+    /// ask the same question of it.
+    static func decodedFilename(_ part: MIMEPart) -> String? {
         let raw = parameter("filename", in: part.dispositionParameters)
             ?? parameter("name", in: part.parameters)
         guard let raw, !raw.isEmpty else { return nil }

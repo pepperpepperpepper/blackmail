@@ -429,7 +429,11 @@ final class OutgoingMailTests: XCTestCase {
         XCTAssertFalse(MIMEPart(type: "image", subtype: "png",
                                 disposition: "inline",
                                 dispositionParameters: ["filename": "x.png"]).isAttachment,
-                       "an inline picture must not raise the paperclip")
+                       "an inline picture is not an attachment to the body's walk")
+        XCTAssertFalse(MIMEPart(type: "image", subtype: "png", id: "<sig-logo>",
+                                disposition: "inline",
+                                dispositionParameters: ["filename": "sig-logo.png"]).isListedFile,
+                       "the logo, shown by cid:, must not raise the paperclip")
     }
 
     func testAPlainLetterWithAFileKeepsItsPartHeadersOutOfTheBody() {

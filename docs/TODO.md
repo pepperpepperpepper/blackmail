@@ -253,6 +253,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       after Send, for a letter that went or was put in the Outbox, from
       the composer and the share sheet. B-100, and its check under
       "Blocked on the iPad coming back".*
+      *Blue bars on quoted text done
+      2026-10-22, not yet seen on the iPad: Mail's own rules, a 1 px bar
+      and the words in violet, teal and green by level, in HTML letters;
+      plain-text '>' quotes left to the owner. With it, a file sent
+      inline, as Apple Mail sends a PDF, gets its row and its paperclip.
+      B-101, and its check under "Blocked on the iPad coming back".*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -3832,6 +3838,44 @@ this host. Ordered by value, not by size.
       unlocked. Informative, not blocking.
       *Not tried on the simulator but for step 9: the host tests hold the
       hook; the sound is the iPad's.*
+- [ ] **B-101, Mail's quote bars, and a file sent inline listed.** On the
+      test iPad and the iOS 18.6 simulator, the test account only, built
+      from the `bm-readpane` worktree (branch `feat-readpane`). The test
+      letters are APPENDed to the test account or mailed to it from a host
+      script (the test iPad has no Mail). Three panes unless a step says.
+      1. *A reply from Mail,* its quote a bare `<blockquote type="cite">`:
+      a violet bar down the quote's left, its words 5 pt from it, and the
+      words violet. The attribution line in a quote of its own, as Mail
+      writes it, has the same bar, joined to the quote's.
+      2. *A reply from Gmail's web page:* Gmail's own grey bar gone, the
+      same violet bar and violet words in its place, 5 pt in, not 0.8 ex.
+      3. *Three deep:* a chain of three quotes, violet, then teal one level
+      in, then green; a fourth level green.
+      4. *In a conversation:* the same letters as one conversation's stack,
+      the bars as in 1 to 3. Touch the stack as the bodies come: nothing
+      moves once he has touched it.
+      5. *A quote holding a signature's white sheet:* in the stack the
+      sheet white with its own black words, not coloured, and the quote's
+      bar beside it; on the letter's own page the sheet inverted as
+      before. A quote inside the sheet, in the stack: Mail's light colour
+      on the white.
+      6. *Two panes and three:* 1 to 3 in each.
+      7. *A PDF sent inline,* as Apple Mail sends one (multipart/mixed, the
+      PDF `Content-Disposition: inline`, no `Content-ID`): its row in the
+      header from the tap, grey, then blue as the letter lands; after a
+      Refresh, a paperclip on its list row; the row tapped, the PDF in
+      Quick Look. Then a letter of Apple Mail's other shape, its words
+      going on after the PDF (multipart/alternative: the plain words, then
+      multipart/mixed of HTML, the PDF, HTML): say whether the words after
+      the PDF show. The host tests say they do not (B-101, Not covered);
+      if so, record it under the next free number above B-109.
+      8. *A signature's logo,* inline with a `Content-ID`, shown by `cid:`:
+      the logo in the letter, no row in the header and no paperclip.
+      9. *A forward sent inline as message/rfc822,* unnamed: its words in
+      the pane as before, no row for the forwarded letter itself, and no
+      paperclip unless it carries files of its own, which have their rows.
+      If a real iPad with Mail is at hand, compare the bars with Mail's
+      own: their colour, the 1 pt line and the 5 pt to the words.
 
 ## Blocked on the owner
 

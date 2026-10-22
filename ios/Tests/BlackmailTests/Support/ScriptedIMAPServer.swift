@@ -150,6 +150,9 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         /// A picture the body shows by `cid:`, sent inline under this id.
         /// Nil for a file sent as an attachment.
         var contentID: String?
+        /// Its Content-Disposition, where it is not the one `contentID`
+        /// gives it: "inline" with no Content-ID, as Apple Mail sends a PDF.
+        var disposition: String? = nil
     }
 
     /// One command as the server received it.
@@ -2069,7 +2072,8 @@ private extension ScriptedIMAPServer {
                 let encoded = file.bytes.base64EncodedString(
                     options: [.lineLength76Characters, .endLineWithCarriageReturn,
                               .endLineWithLineFeed])
-                let disposition = file.contentID == nil ? "attachment" : "inline"
+                let disposition = file.disposition
+                    ?? (file.contentID == nil ? "attachment" : "inline")
                 var headers = "Content-Type: \(file.type.lowercased())/\(file.subtype.lowercased());"
                     + " name=\"\(file.name)\"\r\n"
                     + "Content-Disposition: \(disposition); filename=\"\(file.name)\"\r\n"

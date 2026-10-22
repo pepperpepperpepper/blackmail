@@ -229,8 +229,8 @@ struct Message: Identifiable {
 extension Message {
     /// The files the header lists: every attachment but the pictures the
     /// body shows by `cid:`, which are not files to him. See
-    /// `Attachment.isInline`.
-    var listedAttachments: [Attachment] { attachments.filter { !$0.isInline } }
+    /// `Attachment.isShownInBody`.
+    var listedAttachments: [Attachment] { attachments.filter { !$0.isShownInBody } }
 
     /// The body to quote underneath a reply or forward.
     ///
@@ -281,14 +281,30 @@ struct Attachment: Identifiable, Hashable {
     /// writes to him from Apple Mail.
     var contentID: String?
 
-    /// True when the part is marked `Content-Disposition: inline` — a
-    /// picture the BODY references by `cid:` rather than a file stapled
-    /// under the letter. It stays in this array (the reading pane needs it
-    /// to resolve the reference) but the header must not offer it as a row.
+    /// True when the part is marked `Content-Disposition: inline`, and
+    /// nothing more: the sender's word, kept as it came, on the iPad too
+    /// (`MailShelf`). Most such parts are pictures the BODY references by
+    /// `cid:`, but not all: Apple Mail on an iPhone or an iPad sends a PDF
+    /// inline as well, with no `Content-ID` and no mention in its HTML. What
+    /// the header leaves out is `isShownInBody`.
     ///
     /// Declared after `contentID` so the memberwise initializer keeps the
     /// argument order every existing call site uses.
     var isInline: Bool = false
+
+    /// True for a picture the body shows by `cid:`: a part sent inline, a
+    /// picture, with a `Content-ID`. It stays among the letter's parts (the
+    /// reading pane needs it to resolve the reference) but the header does
+    /// not offer it as a row, which would list the signature's logo on
+    /// every letter, as Mail does not.
+    ///
+    /// Every other part is a file, inline or not, and has its row (B-101).
+    /// It was `isInline` alone until 2026-10-22, which left out the PDFs
+    /// Apple Mail sends inline: no row, and nothing that could open them,
+    /// as the body does not show them. Mail lists them.
+    var isShownInBody: Bool {
+        isInline && mimeType.lowercased().hasPrefix("image/") && contentID != nil
+    }
 }
 
 struct Draft {

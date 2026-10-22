@@ -4155,7 +4155,8 @@ it came as flattened text. A reply, with one word typed above the quote,
 to a letter of his own carrying a link: it arrived with the attribution
 line, the original's link blue and tappable, and the original's
 signature, indented under his. This app's reading pane indents a quote
-but draws no blue bar. Not yet tried: a reply with the quote edited.
+but draws no blue bar. *Since B-101 it draws Mail's bars, violet, teal
+and green by level.* Not yet tried: a reply with the quote edited.
 
 **Seen on the test iPad, 2026-10-21**, a build of master with B-092
 (1233252), on the test account, seven letters To A with `+jane` before
@@ -17441,3 +17442,225 @@ the extension's executable, each:
   plays it there is check 12, informative.
 - The two sheets' wiring is read from the source on the host, not run.
   The hook under it runs.
+
+---
+
+## B-101 — BUILT 2026-10-22, not yet seen on the iPad. Quoted text had no bar, and a file sent inline, as Apple Mail sends a PDF, had no row and no paperclip
+
+**What Mail does.** (A) *A bar beside quoted text.* Mail's reading pane
+lays a style sheet of its own over every letter: in iOS 18.6, read from
+the simulator's runtime, MobileMailUI's `MFMessageContentView` loads
+MessageUI's `_MFUserStyleSheetCSS`, and its `_MFUserStyleSheetDictionary`
+styles `BLOCKQUOTE[type=cite]` and `BLOCKQUOTE[CLASS=gmail_quote]` at
+one, two and three levels. Each has `padding-left: 5px`, `margin: 0`,
+`border-left: 1px solid` and `color`, in one colour, all `!important`:
+the quoted words take the colour as well as the bar. The colours are in
+MessageUI's asset catalog: rgb(88, 86, 214), violet, for the first
+level, rgb(0, 175, 205), teal, for the second, and rgb(18, 192, 14),
+green, for the third and deeper; in Dark Mode rgb(191, 90, 242),
+rgb(0, 200, 250) and rgb(87, 217, 119). High confidence: Mail's own
+code, read; not compared on a screen. Apple's guide mentions only
+Increase Quote Level
+(https://support.apple.com/guide/ipad/reply-to-and-forward-emails-ipad45e27452/18.0/ipados/18.0);
+a bar of its own colour at each level:
+https://www.idownloadblog.com/2021/04/02/block-quote-levels-mail/. Mail
+also draws bars beside plain text quoted with "> " (medium confidence);
+not in this change.
+
+(B) *A file sent inline.* Apple Mail on an iPhone or an iPad sends a PDF
+with `Content-Disposition: inline`, no `Content-ID`, and no mention of it
+in the letter's HTML: seen in his own Sent Mail. 5 of the 100 letters with
+files he received this year carried such a part. Mail lists them as files
+(high).
+
+**What it was.** (A) Neither of the pane's pages had a rule for a quote:
+the page of a letter on its own (`PanePage.letter`) or a conversation's
+stack (`ConversationDocument.html`). Mail's bare `<blockquote
+type="cite">` was WebKit's own, 40 px in and no bar. Gmail's quote has
+its own bar written on it, 1 px of `#ccc`, which under the pane's invert
+is `#333` on black, all but gone (B-050: "draws no blue bar").
+
+(B) The header listed every part of a letter but those sent inline
+(`Message.listedAttachments` and `MIMEDecoder.listedAttachments(in:)`,
+both `!isInline`), a rule made for a signature's logo, which the body
+shows by `cid:`. A PDF sent inline went with them: no row, so nothing
+could open it, and the body does not show it. The paperclip on its list
+row went by `MIMEPart.isAttachment`, which says no to anything inline: no
+paperclip either. A Forward carried it, as it carries every part.
+
+**Changed.**
+
+1. *Mail's rules, in both pages* (`QuoteBars`, one place for both): on a
+   letter's own page inside `#bm`, after the invert, and in the stack
+   inside `.bm-html`, a letter's HTML, after the signature's rules. The
+   selectors are `blockquote[type=cite i]` and
+   `blockquote[class~=gmail_quote]`, the class matched as a word so the
+   bar stays if Gmail gives the quote a second class, and their two-deep
+   and three-deep descendants in any mix of the two, by `:is()` (WebKit
+   since iOS 14). Each rule is `padding-left: 5px; margin: 0;
+   border-left: 1px solid C; color: C`, all `!important`, so Gmail's own
+   margin and bar, written on the quote without it, give way. Mail's
+   light colours, as they are: a letter's HTML is drawn on white and
+   inverted with its hue turned back, and in Chromium, the pages as the
+   app builds them, they came out rgb(152, 150, 255), rgb(0, 150, 180)
+   and rgb(0, 163, 0) on the black: the second and third about Mail's
+   dark teal and green, if darker, and the first bluer than Mail's dark
+   violet, rgb(191, 90, 242). Inside a signature's white sheet in the
+   stack, inverted a second time, they come out near Mail's light
+   colours on white (the teal measured rgb(15, 165, 195)). The sheet's
+   own words keep their black: the colour is the quote's, and the sheet
+   sets its own. Rendered: a reply from Mail three deep, a reply from
+   Gmail's web page, and a quote holding a signature's sheet with a
+   quote inside it, on a letter's page and in the stack.
+2. *One rule for a part the body shows* (`Attachment.isShownInBody`):
+   sent inline, a picture, with a `Content-ID`. The header lists every
+   other part (`Message.listedAttachments`,
+   `MIMEDecoder.listedAttachments(in:)`). `Attachment.isInline` stays the
+   sender's word as it came, so the copy kept on the iPad needs no new
+   field: `MailShelf.FileRecord` keeps `inline` as it did, and the format
+   is unchanged.
+3. *The paperclip* (`IMAPMailRepository.hasAttachment`) goes by
+   `MIMEPart.isListedFile`: an attachment is a file; a message/rfc822
+   part answers as `isAttachment` does, so a forwarded letter sent inline
+   is words in the body and never a file, its own parts looked at in
+   their turn, as before; a part sent inline is a file unless it is a
+   multipart, a picture with a `Content-ID`, or a text part with no name
+   (named as `collectAttachments` names it); with no disposition,
+   `isAttachment`'s answer. And the walk leaves out the parts the pane
+   shows as the letter's words (`MIMEDecoder.bodyParts(of:)`), as the
+   header does: a text part sent inline can carry a name and be the
+   letter's only words, and a paperclip with no row under it would send
+   him looking for a file. That last is beyond the plan, which had the
+   paperclip go by `isListedFile` alone.
+4. The new rows open as every row does, by `openAttachment` and Quick
+   Look. Nothing new goes on the wire.
+
+**Not changed.** `MIMEPart.isAttachment`, `chooseBodies` and
+`collectAttachments`: what the body is made of, and which parts are kept,
+are as they were. Plain text quoted with ">", which has no bar. Signature
+logos: no row and no paperclip. Send, Reply and Forward.
+
+**What he sees.** In an HTML letter quoted text has a thin bar down its
+left, its words 5 pt from it and in its colour: violet, teal one level
+in, green deeper. A reply from Gmail the same, its grey bar gone. A quote
+sits 5 pt in where it sat 40, so a long one takes fewer lines. A PDF from
+Apple Mail on an iPhone or an iPad has its row in the header from the
+tap, and opens in Quick Look; its row in the list has the paperclip. A
+picture sent inline with no `Content-ID`, which nothing showed, is listed
+too, and so is a file sent inline with one that is not a picture. A
+signature's logo is not. No new words.
+
+**Tests.** `PanePageTests`, two new and one changed: the rules for `#bm`
+written out in full, both selectors three deep, 5 px, margin 0, a 1 px
+bar, Mail's three colours and every declaration important, after the
+invert in an HTML letter's page and in a plain one's not at all; a reply
+from Mail three deep and a reply from Gmail's web page, their markup
+byte for byte on the page and in the stack's body; and every letter's
+page byte for byte as before with the rules taken out, found once in an
+HTML letter's page and never in a plain one's.
+`ConversationDocumentTests`, three: the rules for `.bm-html` written
+out, once, after the signature's rules, none for `#bm`; the signature's
+rules as they were; and the two replies' markup into their sections as
+it came, at first draw and by `bmFill`. `MIMEDecoderTests`, three: a
+table of thirteen shapes, each its header's rows from the structure and
+from the downloaded letter, the parts kept, the paperclip over the same
+structure, the body's words, and the part's `isAttachment` as before and
+its `isListedFile`: a PDF inline with no `Content-ID`, listed with a
+paperclip, and a PDF inline with one, the same; a logo inline with one,
+neither; a JPEG inline with none, listed with a paperclip; a PNG
+attached with one, listed with a paperclip; an unnamed text part inline,
+neither; `notes.txt` inline, listed with a paperclip, and the same as
+the letter's only words, neither; a message/rfc822 inline and unnamed
+holding words and a PDF, its words the body, no row and no paperclip of
+its own, the PDF listed with a paperclip; one holding words alone, its
+words the body, neither; a message/rfc822 attached as `forwarded.eml`,
+listed with a paperclip, as before; a multipart/related sent inline,
+holding the HTML and a logo with a `Content-ID`, neither, the multipart
+no file of its own; and Apple Mail's own shape, the plain words and an
+HTML split around a PDF, the PDF listed with a paperclip; that the body
+shows a part (`isShownInBody`) only when it is a picture sent inline
+with a `Content-ID`: not a PDF or a text part sent inline with one, nor
+a picture sent inline with none, nor one sent as an attachment with one;
+and that the HTML of the logo's letter and of Apple Mail's shape is the
+part it was.
+`OutgoingMailTests`, one changed: the logo, inline with its
+`Content-ID`, raises no paperclip (`isListedFile`), and a picture sent
+inline is still no attachment to the body's walk. `PaneDocumentTests`,
+one, over the shipping repository and the scripted server: a letter with
+a PDF sent inline and a logo, the paperclip on its row, the PDF's row in
+the header from the row and once the letter has come, and its bytes at
+the tap; and a letter with the logo alone, no paperclip and no row. The
+scripted server can send a file inline with no `Content-ID`.
+`MailShelfTests`, one: a row kept with a PDF whose record says inline
+and a logo, the record in the fields it always had and the format 1, and
+the header drawn from it after a launch listing the PDF and not the
+logo. `BoundedLetterTests`' fingerprints of the pane's pages are taken
+with the rules out, and are as they were. The tests that already had
+signature logos, in `LargeLetterTests` and `PaneDocumentTests`, pass
+unchanged.
+
+Each rule for the files undone in the worktree, one at a time, the full
+suite run: `isShownInBody` without its `Content-ID` test, 3 failures in
+2 tests, and without its picture test, 4 in 2; `isAttachment` made to
+answer an inline part as `isListedFile` does, one rule for the body and
+the paperclip, 21 in 3, the table, the decoding of the ordinary letters,
+whose forwards sent inline lost their words, and a picture sent inline
+taken for an attachment; `isListedFile` in place of `isAttachment` in
+`chooseBodies` and `collectAttachments`, none, by construction, since
+it answers as `isAttachment` for message/rfc822, the one part those two
+ask about; the message/rfc822 case taken out of `isListedFile`, 3 in 1;
+`Message.listedAttachments` by `isInline` as before, 13 in 3;
+`MIMEDecoder.listedAttachments(in:)` by `isInline`, 12 in 2; the
+paperclip by `isAttachment` as before, 6 in 2; the paperclip not leaving
+out the letter's words, 1 in 1; `isListedFile` without its unnamed text
+test, 2 in 1, without its picture with a `Content-ID` test, 5 in 3,
+with that test asking a `Content-ID` of any part, not only a picture, 2
+in 1, and without its multipart test, 2 in 1; and `isShownInBody` and
+`isListedFile` both asking a `Content-ID` of any part, not only a
+picture, 6 in 2. Each rule for the bars undone, the touched classes run:
+the rules left off a letter's page, 18 in 2; left out of the stack, 3 in
+1; the third colour Mail's dark green, 5 in 2; not important, 7 in 2;
+the bar only, the words not coloured, 7 in 2; not scoped, 8 in 2;
+Gmail's class matched whole, 5 in 2.
+
+The full suite, serially: 1,866 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Bars beside plain text quoted with "> ", as Mail draws them: left to
+  the owner.
+- The words in the bar's colour, as Mail has them: the owner may want
+  the bar alone. That is the `color` declaration out of `QuoteBars.css`,
+  one line, and its two tests.
+- A row kept from before. A letter listed by an earlier build has no
+  paperclip for its PDF sent inline, and its kept files leave the PDF
+  out, as that listing did, so its header gains the row only when the
+  letter has come. Both until that folder is next listed from the top.
+  A row listed by this build keeps the PDF with its inline mark, and a
+  launch draws it.
+- A part with no `Content-Disposition` has its row and no paperclip, as
+  before, if it is not text and has no name, a picture say, or is text
+  with a name (`text/calendar; name="invite.ics"`, `text/plain;
+  name="notes.txt"`), unless the pane takes it for the letter's words:
+  with no disposition the paperclip goes by `isAttachment`, which asks a
+  name of a file and takes no text part for one.
+- A picture sent inline with a `Content-ID` that the body does not show,
+  in a plain-text letter or beside HTML that names no such `cid:`: no
+  row, no paperclip and nothing that opens it, as before. The rule goes
+  by the letter's structure alone (`isShownInBody`, `isListedFile`) and
+  does not read the HTML to see whether the picture is in it, so it takes
+  every such picture for one the body shows. Whatever uses the rule
+  later has the same limit.
+- Words after a file in the middle. Apple Mail can split a letter's HTML
+  around a file (multipart/alternative: the plain words, then
+  multipart/mixed of HTML, the PDF, HTML), and the pane shows the first
+  HTML part only (`chooseBodies`): the words after the file are not
+  shown, though the plain words have them all. The host tests have it so
+  (`MIMEDecoderTests`). To be looked for at the check's step 7, and
+  recorded under its own number if seen.
+- A text file sent inline in a letter whose HTML comes first, or in
+  Apple Mail's shape above, is taken for the letter's plain words
+  (`chooseBodies`), as before: the list's preview and the plain words are
+  the file's, and it has no row and no paperclip. Found on the host while
+  building this; not changed, as the body is not this change's.

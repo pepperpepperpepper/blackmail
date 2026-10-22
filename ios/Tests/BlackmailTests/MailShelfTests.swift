@@ -145,6 +145,44 @@ final class MailShelfTests: XCTestCase {
         XCTAssertEqual(older.map(\.cc), Array(repeating: [], count: 10))
     }
 
+    // MARK: - A file sent inline (B-101)
+
+    /// A row kept with a PDF sent inline, as Apple Mail sends one, and a
+    /// signature's logo: the record keeps the sender's inline as it came,
+    /// in the fields it always had, the format unchanged, and the header
+    /// drawn from the kept row after a launch lists the PDF and not the
+    /// logo, by the rule the listing's own row goes by.
+    func testARowKeptWithAFileSentInlineListsItInTheHeader() throws {
+        var kept = rows(3)
+        kept[0].hasAttachment = true
+        kept[0].attachments = [
+            Attachment(id: "2", filename: "Programme.pdf", mimeType: "application/pdf",
+                       size: 90_000, contentID: nil, isInline: true),
+            Attachment(id: "3", filename: "logo.png", mimeType: "image/png",
+                       size: 2_000, contentID: "logo@example.org", isInline: true),
+        ]
+        let writing = shelf()
+        writing.took(page: kept, of: "INBOX", validity: 1)
+        writing.flush()
+
+        let file = try pageFile(of: "INBOX", under: writing.directory)
+        let page = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: file))
+                                    as? [String: Any])
+        XCTAssertEqual(page["format"] as? Int, 1)
+        XCTAssertEqual(MailShelf.format, 1)
+        let records = try XCTUnwrap((page["rows"] as? [[String: Any]])?.first?["files"]
+                                        as? [[String: Any]])
+        XCTAssertEqual(records.map { Set($0.keys) },
+                       [["id", "filename", "mimeType", "size", "inline"],
+                        ["id", "filename", "mimeType", "size", "contentID", "inline"]])
+        XCTAssertEqual(records.map { $0["inline"] as? Bool }, [true, true])
+
+        let row = try XCTUnwrap(shelf().page(of: "inbox")?.rows.first)
+        XCTAssertTrue(row.hasAttachment)
+        XCTAssertEqual(Message.heading(for: row).listedAttachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(row.attachments.map(\.filename), ["Programme.pdf", "logo.png"])
+    }
+
     // MARK: - When the server took a letter
 
     /// When the server took each letter is kept with its row and read
