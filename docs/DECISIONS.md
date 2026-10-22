@@ -1073,3 +1073,35 @@ TrollStore's helper; which of the two leaves it out was not looked into.
 - iOS 18's Dark icons leave it a light photograph among dark tiles, and
   Tinted makes it one blue tile. Their own versions need an asset catalog.
 - On a dark ground the black sleeve at the top right runs into it.
+
+## D-019 — The sent sound: AudioToolbox's id 1001, not ToneLibrary, and for a letter put in the Outbox too, as Mail's 'sent' result covers it
+
+**Decided 2026-10-22** for B-100, by the standing rule "copy Apple Mail".
+The owner has not yet said which Sent Mail tone his iPad has.
+
+**Why 1001.** Mail plays the tone chosen at Settings, Sounds, Sent Mail
+through ToneLibrary's `TLAlert`, which is private: an app that calls it
+can stop working at any iPadOS update, and his app is never updated. The
+public call is AudioToolbox's `AudioServicesPlaySystemSound`, and 1001 is
+mail-sent.caf, Swoosh, in AudioToolbox's built-in table, read from iOS
+18.6 and given in lists of the system sounds since iPhone OS 2; the number
+itself is not documented, and is unverified until the iPad plays it. A
+copy of Apple's .caf in the app would follow nothing either, and the file
+is Apple's, in a repository that is public. `AudioServicesPlayAlertSound`
+would vibrate where the iPad can. So the sound is Swoosh, whatever he has
+chosen there.
+
+**Why the Outbox plays it.** Apple documents Mail's 'sent' result as "The
+email message was queued in the user's outbox. It is ready to send the
+next time the user connects to email." (`MFMailComposeResult.sent`), and
+iOS 18.6's composer plays the sound from its `viewDidDisappear:` on that
+result, with no Send Later date. A Send online and a Send offline are one
+result there, so a letter put in Mail's Outbox swooshes as its sheet goes.
+Here too: the sound says what Mail's says, that the letter has left the
+sheet to go, no longer that Gmail has it. The Outbox's notice still says
+where it is. No sound when the Outbox sends it later, as in Mail.
+
+**The gate.** The owner reads Settings, Sounds, Sent Mail on his iPad.
+Swoosh, another tone, or not yet read: built, Swoosh being the factory
+one. None: the batch is dropped, since the app cannot read that choice
+and would play a sound he has turned off.

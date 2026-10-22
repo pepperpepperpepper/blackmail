@@ -17293,3 +17293,151 @@ any new letter does, an interval and the sleep's lateness at worst, and
 the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
+
+## B-100 — BUILT 2026-10-22, not yet seen on the iPad. Send made no sound; Mail's swoosh plays as the sheet goes, for a letter put in the Outbox too
+
+**What Mail does.** Mail's composer plays its sent sound as its sheet
+goes. Read from iOS 18.6's MessageUI in the simulator's runtime on the
+Mac, with high confidence: `-[MFMailComposeController viewDidDisappear:]`
+calls `+[MFSoundController playSentMailSound]` when the sheet's result is
+1, 'sent', and it has no Send Later date, and that plays ToneLibrary's
+alert type 6, the tone chosen at Settings, Sounds, Sent Mail. So it plays
+as the sheet goes, without waiting for the server, not for Send Later, and
+not when the Outbox sends a letter later. Apple's words for 'sent' are
+"The email message was queued in the user's outbox. It is ready to send
+the next time the user connects to email." (`MFMailComposeResult.sent`,
+and the MessageUI header's comment on `MFMailComposeResultSent`). A Send
+online and a Send offline are one result, so a letter put in Mail's
+Outbox plays it too: medium-high confidence, read from the code and the
+documentation, not tried with Mail on a device offline. The tone is
+Settings, Sounds, Sent Mail, Swoosh by default, and it can be None
+(Apple's iPad guide, "Change or turn off sounds"): high confidence. Mail's
+share sheet is the same composer, so a shared page plays it too: inferred,
+medium.
+
+The call is public: `AudioServicesPlaySystemSound`. The id is not. Apple's
+page says to get a sound from `AudioServicesCreateSystemSoundID`, and
+documents no number. 1001 is mail-sent.caf in iOS 18.6's AudioToolbox,
+whose built-in table runs new-mail.caf, mail-sent.caf at 1000, 1001, and
+the file is in the runtime; lists of the system sounds have given the same
+since iPhone OS 2. Medium-high, and unverified until the iPad's checks 1
+and 9. Apple says such a sound plays "at the current system audio volume,
+with no programmatic volume control available"; nothing of Apple's says
+how it meets Silent mode, the Ringer and Alerts volume, headphones or
+Bluetooth, which checks 2 and 10 are for. That it needs no entitlement and
+plays from an extension is inferred, until check 5.
+
+**What it was.** Nothing in the app made a sound. Send closed the sheet at
+Gmail's 250, or with the Outbox's notice, in silence, from the composer
+and from the share sheet.
+
+**Changed.**
+
+1. *The hook.* `ComposeActions` takes `sent`, beside `queued`, and calls it
+   once per letter, just before it tells the sheet to close, on the two
+   ways Send closes it: after `sendLetter` has returned, Gmail's 250,
+   `sent` then `dismiss`; after `Outbox.Waiting`, `sent`, then `queued`,
+   then `dismiss`. Never on a refusal, which keeps the sheet, nor for
+   Cancel, Save Draft, Delete Draft, an autosave, his leaving the app, a
+   sheet swiped away, or a second tap, which sends nothing. The composer's
+   `ComposeActions(letter:…)` hands it through. `ShareSheet` takes the
+   same and hands it to its `ComposeActions`, so it is called just before
+   `finish`, never before `cancel`, and never for a send refused, an
+   offline one included: the share sheet has no Outbox.
+2. *The call.* `AudioServicesPlaySystemSound(ComposeViewController.
+   sentMailSound)`, from the composer's `ComposeActions` and the share
+   sheet's `ShareSheet`. `sentMailSound` is 1001, named once, in
+   `ComposeViewController`, its comment saying it is mail-sent.caf in
+   AudioToolbox's built-in table and undocumented. `import AudioToolbox`
+   is in those two files alone, `UI/ComposeViewController.swift` and
+   `Share/ShareViewController.swift`, each inside its `canImport(UIKit)`
+   guard; nothing that builds on this host has it.
+3. *The link.* AudioToolbox came in by the module's own autolink, and no
+   linker setting was added. In the release build both executables load
+   `/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox`, the
+   one load command new against master, and each binds
+   `_AudioServicesPlaySystemSound` from it.
+
+**Not changed.** No sound when a later pass sends a letter from the
+Outbox, as in Mail. No setting. A refusal is silent, the sheet staying
+with the alert, as before. The Outbox's notice says what it said. The
+sound starts as the sheet is told to close; Mail's starts from the sheet's
+`viewDidDisappear:`, once it has gone, a few tenths of a second later. In
+the share sheet that later moment comes after the share has completed,
+when the extension may already be ended, so both sheets play it at the
+start of the close.
+
+**What he sees.** One swoosh as the sheet closes after Send, from the
+composer and from the share sheet. With Airplane Mode on, the swoosh and
+the Outbox's notice, and nothing more when the letter goes later. None in
+Silent mode (once seen). Nothing when Gmail refuses a letter: the sheet
+stays with the alert, as before. No new words.
+
+**Tests.** `ComposeActionsTests`, six new, the sound and the send's return
+written into the log. A send held on its way, no sound; let go, the 250,
+the letter taken off the iPad, the sound, then the sheet told to close,
+then Drafts tidied, the sound once and nothing at a tap after.
+`Outbox.Waiting`: the sound, then the notice, then the close, once. A
+refusal for the letter's size and one for any other reason: silent, the
+sheet put back each time; then a Send that goes, one sound. Save Draft,
+Delete Draft, an autosave, leaving the app, Cancel on a letter as it
+opened and a swipe: no sound, each read on its own, nor at a Send after
+them. Two quick taps and a third on the wire: one sound. A Send waiting
+for a photo: no sound while the photo is awaited or while the letter
+goes, then the sound once it has gone. `ShareSheetTests`, two new, over
+the scripted submission server: nothing while the letter's 250 is held,
+then the sound just before the share ends, once, however many taps; a
+letter Gmail refuses as too big and one sent with no connection, no sound
+and the sheet staying, and Cancel after them and before any Send, no
+sound. `OutboxTests`, one new, through the composer's own wiring over the
+scripted servers: a letter put in the Outbox, one sound as the sheet
+closes with the notice, none when a later pass sends it, and one for a
+letter that goes at Send; and `testALettersOwnFailureKeepsTheSheet` now
+says its three refusals, a recipient, a letter too big and a password,
+play nothing. `SentSoundTests`, three, read from the source: AudioToolbox
+imported by the two sheets' files alone, once each and inside the guard,
+nothing under `Mail/` and not `ShareSheet.swift`; one call in each, of the
+sound by its name, 1001 named once, `SystemSoundID` in the composer alone,
+and no alert sound anywhere; and each sheet handing the call to its own
+hook.
+
+Each part undone in the worktree, one at a time, the whole suite run
+serially each time, counted as failures in tests. The sound moved before
+`sendLetter` returns: 19 in 7. Played on a refusal too: 12 in 3. Left off
+the Outbox's close: 6 in 2. Played after the sheet is told to close: 4 in
+4. In the Outbox, after the notice: 1 in 1. Played at a second tap: 11 in
+5. Played at Save Draft: 1 in 1; at Delete Draft: 4 in 2, the share
+sheet's Cancel among them; at an autosave: 3 in 1; as he leaves the app:
+2 in 1; at Cancel on a letter as it opened: 1 in 1; at a swipe: 1 in 1.
+Not handed through by the composer's `ComposeActions(letter:…)`: 3 in 1.
+Not handed on by `ShareSheet`: 2 in 1. And, read from the source: the
+composer not handing the sound to its hook, 2 in 2; the share sheet
+calling 1001 by its number, 3 in 2; `ShareSheet.swift` importing
+AudioToolbox behind a guard of its own, 3 in 1; the alert sound in place
+of the system sound, 3 in 2. Nothing else failed in any run. Played at
+Save Draft first passed: the test read the count after setting it back
+for the next way. It reads it after each way now, and the six ways it
+covers were each undone again with it as it is.
+
+The full suite, serially: 1,868 tests, 5 skipped, none failing. The
+release build for the iPad links. `llvm-objdump --macho --dylibs-used`,
+`otool -L`'s listing (no `llvm-otool` on this host), on the release
+build's BlackmailApp, which is the app's `Blackmail`, and BlackmailShare,
+the extension's executable, each:
+`/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox
+(compatibility version 1.0.0, current version 1000.0.0)`.
+
+**Not covered.**
+
+- A tone other than Swoosh, or None. The app cannot read his choice and
+  plays Swoosh whatever it is. None drops this batch (D-019).
+- 1001 itself, until checks 1 and 9.
+- Silent mode and which volume governs the sound, until check 2;
+  headphones and Bluetooth, until check 10.
+- The extension's sound cut short as the share completes, until check 5.
+- A letter whose 250 comes after he has left the app or locked the iPad,
+  its sheet still up behind: the sound is asked for then, from the
+  background, which Mail's sheet, gone at the tap, never does. Whether iOS
+  plays it there is check 12, informative.
+- The two sheets' wiring is read from the source on the host, not run.
+  The hook under it runs.

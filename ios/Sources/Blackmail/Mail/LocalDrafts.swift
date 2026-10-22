@@ -2349,14 +2349,17 @@ extension ComposeActions {
     /// `repository`, and the letter is kept on the iPad in `kept` from his
     /// first change until it has been sent, deleted, or taken by the server.
     /// A Send that cannot reach the server leaves it in the Outbox, and
-    /// `queued` is told as the sheet closes (`LocalDrafts.send`). `wait`
-    /// stands in for the pause before an autosave, for a test.
+    /// `queued` is told as the sheet closes (`LocalDrafts.send`). `sent`
+    /// is told as the sheet closes on a letter that went or waits in the
+    /// Outbox (`ComposeActions.send`). `wait` stands in for the pause
+    /// before an autosave, for a test.
     convenience init(letter key: String, repository: MailRepository, kept: LocalDrafts,
                      dismiss: @escaping () -> Void,
                      showError: @escaping (MailError) -> Void,
                      draw: @escaping (Look) -> Void,
                      background: BackgroundTime,
                      queued: @escaping () -> Void = {},
+                     sent: @escaping () -> Void = {},
                      wait: (@Sendable (Duration) async throws -> Void)? = nil) {
         var keeping = kept.keeping(key, in: repository)
         if let wait { keeping.wait = wait }
@@ -2369,6 +2372,6 @@ extension ComposeActions {
                 try await repository.deleteDraft(id, gmailMessageID: letter)
             },
             dismiss: dismiss, showError: showError, draw: draw, background: background,
-            keeping: keeping, queued: queued)
+            keeping: keeping, queued: queued, sent: sent)
     }
 }

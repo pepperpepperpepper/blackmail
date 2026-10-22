@@ -27,6 +27,9 @@ final class ShareSheet {
     /// `finish` ends the share once the letter has gone and `cancel` once
     /// Cancel has put it away: the extension's `completeRequest` and
     /// `cancelRequest`. Each is called at most once, and never both.
+    /// `sent` is told once, just before `finish`, as Mail's share sheet
+    /// plays its sent sound as it goes (B-100); never before `cancel`, nor
+    /// for a letter that did not go.
     /// `noteSent` hears who a letter that went was addressed to
     /// (`ShareMirror.noteSent`). `openFile` says where a staged file is
     /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
@@ -39,6 +42,7 @@ final class ShareSheet {
          noteSent: @escaping ([String]) -> Void,
          finish: @escaping () -> Void,
          cancel: @escaping () -> Void,
+         sent: @escaping () -> Void = {},
          showError: @escaping (MailError) -> Void,
          draw: @escaping (ComposeActions.Look) -> Void,
          background: BackgroundTime) {
@@ -92,7 +96,8 @@ final class ShareSheet {
             },
             showError: showError,
             draw: draw,
-            background: background)
+            background: background,
+            sent: sent)
     }
 
     /// The letter a share starts as, signed as the app signs a new one.
@@ -177,13 +182,14 @@ extension ShareSheet {
                      noteSent: @escaping ([String]) -> Void,
                      finish: @escaping () -> Void,
                      cancel: @escaping () -> Void,
+                     sent: @escaping () -> Void = {},
                      showError: @escaping (MailError) -> Void,
                      draw: @escaping (ComposeActions.Look) -> Void,
                      background: BackgroundTime) {
         self.init(shared: shared, transport: transport,
                   openFile: { .bytes(try readFile($0)) },
                   memory: memory, noteSent: noteSent, finish: finish, cancel: cancel,
-                  showError: showError, draw: draw, background: background)
+                  sent: sent, showError: showError, draw: draw, background: background)
     }
 }
 

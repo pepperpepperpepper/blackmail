@@ -40,6 +40,8 @@ final class OutboxTests: XCTestCase {
     private var pauses = Held()
     private var dismissals = 0
     private var queued = 0
+    /// How many times the composer asked for the sent sound (B-100).
+    private var swooshes = 0
     private var errors: [MailError] = []
     private var draws: [ComposeActions.Look] = []
 
@@ -62,6 +64,7 @@ final class OutboxTests: XCTestCase {
         pauses = Held()
         dismissals = 0
         queued = 0
+        swooshes = 0
         errors = []
         draws = []
     }
@@ -165,6 +168,7 @@ final class OutboxTests: XCTestCase {
                               draw: { [unowned self] in draws.append($0) },
                               background: background.time,
                               queued: { [unowned self] in queued += 1 },
+                              sent: { [unowned self] in swooshes += 1 },
                               wait: { [pauses] _ in try await pauses.wait() })
     }
 
@@ -273,6 +277,31 @@ final class OutboxTests: XCTestCase {
         XCTAssertEqual(makeKept().outbox.map(\.draft.subject), ["Sunday"], "and after a relaunch")
         let sent = await submissions.letters()
         XCTAssertEqual(sent.count, 0)
+    }
+
+    /// The sent sound, through the composer's own wiring (B-100): once for
+    /// a letter put in the Outbox, as the sheet closes with the notice, and
+    /// not again when a later pass sends it, as Mail's Outbox sends without
+    /// a sound. Once for a letter that goes at Send.
+    func testTheSentSoundPlaysAtSendForTheOutboxAndNotAtTheLaterPass() async throws {
+        let kept = makeKept()
+        let repository = makeRepository()
+        await sentOffline(letter(), kept: kept, repository: repository)
+        XCTAssertEqual(queued, 1)
+        XCTAssertEqual(swooshes, 1, "as the sheet closes with the notice")
+
+        try await afterAPage(kept, repository)
+        let gone = await submissions.letters()
+        XCTAssertEqual(gone.count, 1)
+        XCTAssertEqual(kept.outbox.count, 0)
+        XCTAssertEqual(swooshes, 1, "nothing when the pass sends it")
+
+        await send(letter("Monday"), as: "letter-2", kept: kept, repository: repository)
+        let both = await submissions.letters()
+        XCTAssertEqual(both.count, 2)
+        XCTAssertEqual(dismissals, 2)
+        XCTAssertEqual(queued, 1)
+        XCTAssertEqual(swooshes, 2, "and once for a letter that went at Send")
     }
 
     /// A later pass sends it once, however many ask at once, under the
@@ -868,6 +897,7 @@ final class OutboxTests: XCTestCase {
             XCTAssertEqual(errors, [expected], name)
             XCTAssertEqual(dismissals, 0, name)
             XCTAssertEqual(queued, 0, name)
+            XCTAssertEqual(swooshes, 0, "\(name): no sent sound (B-100)")
             XCTAssertEqual(kept.outbox.count, 0, name)
             let back = try XCTUnwrap(kept.store.letter("letter-1"), name)
             XCTAssertNil(back.outbox, "\(name): back in the sheet, not in the Outbox")
