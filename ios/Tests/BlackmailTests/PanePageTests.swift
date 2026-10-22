@@ -76,14 +76,7 @@ final class PanePageTests: XCTestCase {
 
     private func letter(text: String? = nil, html: String? = nil,
                         pictures: [String] = []) -> Message {
-        let attachments = pictures.enumerated().map { i, cid in
-            Attachment(id: "\(i + 2)", filename: "image\(i).png", mimeType: "image/png",
-                       size: 2_000, contentID: cid)
-        }
-        return Message(id: "7/3", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
-                       senderAddress: "sam@example.com", to: ["me@example.com"], cc: [],
-                       subject: "The garden", date: Date(timeIntervalSince1970: 1_790_000_000),
-                       textBody: text, htmlBody: html, attachments: attachments)
+        PaneLetters.letter(text: text, html: html, pictures: pictures)
     }
 
     /// A newsletter of about `kilobytes`: a styled wrapper, sections under
@@ -115,51 +108,9 @@ final class PanePageTests: XCTestCase {
         return html + "</body></html>"
     }
 
-    private var letters: [Message] {
-        let pictures = ["logo@example.com"] + (0..<7).map { "photo\($0)@example.com" }
-        return [
-            // Shapes of real mail, as `DocumentWrapperTests` has them.
-            letter(html: """
-            <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "x">
-            <html lang="en"><head><title>Garden club news</title>
-            <style type="text/css">body { margin: 0 }</style></head>
-            <body style="margin:0; padding:0;"><table class="wrap"><tr><td><p>The spring show
-            is on the 12th.</p></td></tr></table></body></html>
-            """),
-            letter(html: "<HTML><HEAD>\r\n<META http-equiv=Content-Type content=\"text/html\">\r\n"
-                   + "<STYLE>P.MsoNormal { MARGIN: 0cm }</STYLE></HEAD>\r\n<BODY lang=EN-GB>\r\n"
-                   + "<DIV class=WordSection1><P class=MsoNormal>Dear Sam,</P></DIV></BODY></HTML>"),
-            letter(text: "See you on Sunday.\n\nCarlo",
-                   html: "<html><head></head><body style=\"overflow-wrap: break-word;\">"
-                   + "<div dir=\"ltr\">See you on Sunday.<br><br><div>Carlo</div></div></body></html>"),
-            letter(html: "<div dir=\"ltr\">Thanks for the photos.<div><br></div><div>Sam</div></div>"),
-            letter(html: "<html><head><title>News</title></head><body><header><h1>Garden club</h1>"
-                   + "</header><p>Look.</p></body></html>"),
-            // Pictures: known, unknown, and a letter that is only a picture.
-            letter(html: "<p>Logo: <img src=\"cid:logo@example.com\"> and <img src='CID:gone'></p>",
-                   pictures: ["logo@example.com"]),
-            letter(html: "<img src=\"cid:photo0@example.com\">", pictures: ["photo0@example.com"]),
-            // Nothing in them, which the pane says in words.
-            letter(html: "<html><body>  <br> </body></html>"),
-            letter(text: " \n\n \t"),
-            letter(),
-            // Plain text: this app's own replies open with blank lines, and
-            // text carries everything markup would take for its own.
-            letter(text: "\n\nDear Sam,\n\nIt's <b>not</b> bold & it's \"quoted\" > here.\n"
-                   + "\u{2028}é \u{1F4EE}\n\n> On Monday, Carlo wrote:\n> The roses?"),
-            // The one with a link written in it (`linked`).
-            letter(text: "\n\nhttps://example.com/a?b=1&c=2 </script>"),
-            // A newsletter big enough to matter, in a debug build.
-            letter(html: Self.newsletter(kilobytes: 48), pictures: pictures),
-            letter(text: String(repeating: "A line of a long plain letter, <with> & more.\n", count: 800)),
-            // A CRLF is one Character to Swift, so the trim never took it;
-            // the decoder has made every line end LF by the time it gets here.
-            letter(text: "\r\n\nDear Sam,"),
-            // Replies, with quotes Mail draws a bar beside (B-101).
-            letter(text: "Yes, Sunday.", html: Self.appleMailReply),
-            letter(text: "Thanks!", html: Self.gmailReply),
-        ]
-    }
+    /// The shapes of real mail the pane is checked against, which a printed
+    /// letter is checked against too (`PrintPageTests`).
+    private var letters: [Message] { PaneLetters.all }
 
     /// A reply from Mail on an iPad, its quote three deep, as Mail writes
     /// one: the attribution in a blockquote of its own, and bare
@@ -266,6 +217,58 @@ final class PanePageTests: XCTestCase {
         XCTAssertTrue(PanePage.stackBody(letters[10]).html
                         .hasPrefix("Dear Sam,\n\nIt's &lt;b&gt;not&lt;/b&gt; bold &amp;"))
         XCTAssertEqual(PanePage.contentIDs(of: letters[12]).count, 8)
+    }
+
+    // MARK: - The pictures' loader (B-110)
+
+    /// `MessageDetailViewController.prepareInlineImages`'s map as it was
+    /// built there, before the pane and a printed letter both read it from
+    /// `PanePage.pictures`.
+    private func previousPictures(_ letters: [Message])
+        -> [String: (letter: Message, section: String, mimeType: String)] {
+        var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
+        for m in letters {
+            for attachment in m.attachments {
+                guard let cid = attachment.contentID else { continue }
+                parts[cid] = (m, attachment.id, attachment.mimeType)
+            }
+        }
+        return parts
+    }
+
+    /// The map the pane built: each `Content-ID` to its part and its
+    /// letter, by id and folder; a file with none left out; and where two
+    /// letters use the same id, the later letter's.
+    func testThePicturesAreTheMapThePaneBuiltTheLaterLetterWinning() {
+        let first = Message(
+            id: "7/3", mailboxID: "INBOX", sender: "Sam <sam@example.com>", senderAddress: "sam@example.com",
+            to: [], cc: [], subject: "One", date: Date(timeIntervalSince1970: 0), textBody: nil,
+            htmlBody: "<img src=\"cid:a\"><img src=\"cid:shared\">",
+            attachments: [Attachment(id: "2", filename: "a.png", mimeType: "image/png", size: 1, contentID: "a"),
+                          Attachment(id: "3", filename: "s.gif", mimeType: "image/gif", size: 1,
+                                     contentID: "shared"),
+                          Attachment(id: "4", filename: "plan.pdf", mimeType: "application/pdf", size: 1)])
+        let second = Message(
+            id: "7/3", mailboxID: "[Gmail]/Sent Mail", sender: "Me <me@example.com>",
+            senderAddress: "me@example.com", to: [], cc: [], subject: "Two", date: Date(timeIntervalSince1970: 0),
+            textBody: nil, htmlBody: "<img src=\"cid:shared\">",
+            attachments: [Attachment(id: "2", filename: "s.jpg", mimeType: "image/jpeg", size: 1,
+                                     contentID: "shared")])
+        for shown in [[first, second], [second, first], [first], [], letters] {
+            let map = PanePage.pictures(of: shown)
+            let previous = previousPictures(shown)
+            XCTAssertEqual(Set(map.keys), Set(previous.keys))
+            for (cid, part) in previous {
+                XCTAssertEqual(map[cid], .init(messageID: part.letter.id, mailboxID: part.letter.mailboxID,
+                                               section: part.section, mimeType: part.mimeType), cid)
+            }
+        }
+        XCTAssertEqual(PanePage.pictures(of: [first, second])["shared"],
+                       .init(messageID: "7/3", mailboxID: "[Gmail]/Sent Mail", section: "2",
+                             mimeType: "image/jpeg"))
+        XCTAssertEqual(PanePage.pictures(of: [second, first])["shared"],
+                       .init(messageID: "7/3", mailboxID: "INBOX", section: "3", mimeType: "image/gif"))
+        XCTAssertEqual(PanePage.pictures(of: [letters[12]]).count, 8)
     }
 
     // MARK: - Mail's bars beside quoted text (B-101)

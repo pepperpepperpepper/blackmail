@@ -870,9 +870,19 @@ enum MailFormat {
         case .today:     return "Today at " + time()
         case .yesterday: return "Yesterday at " + time()
         case .thisWeek, .earlier:
-            return dates.string(from: date, format: "d MMMM yyyy 'at' h:mm a",
-                                locale: locale, timeZone: timeZone)
+            return fullTimestamp(date, locale: locale, timeZone: timeZone)
         }
+    }
+
+    /// "22 October 2026 at 9:14 AM", whatever day it is: the date the
+    /// reading pane gives a letter older than yesterday, written out for
+    /// every letter on paper (B-110), which is read on another day than it
+    /// was printed, when "Today" would be wrong. `locale` and `timeZone` as
+    /// for `listTimestamp`.
+    static func fullTimestamp(_ date: Date, locale: Locale = .current,
+                              timeZone: TimeZone = .current) -> String {
+        DisplayDates.shared.string(from: date, format: "d MMMM yyyy 'at' h:mm a",
+                                   locale: locale, timeZone: timeZone)
     }
 
     /// "Jane Smith <jane@example.com>" -> "Jane Smith". Falls back to the whole

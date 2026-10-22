@@ -70,6 +70,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// closes: Print reads the file after its panel has closed, and a copy
     /// taken from under it then could print blank.
     private var previewURL: URL?
+    /// The one print of a letter (B-110), from Print in the Reply sheet
+    /// until its panel has closed or it has ended without one. Another
+    /// Print replaces it once its panel is up, when it holds nothing of
+    /// WebKit's and no bytes; while it is made ready, Print is greyed.
+    private var printing: LetterPrint?
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -805,13 +810,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// WebKit lost it, when every picture in it is asked for anew. Where two
     /// use the same id, the later letter's is served.
     private func prepareInlineImages(for letters: [Message]) {
-        var parts: [String: (letter: Message, section: String, mimeType: String)] = [:]
-        for m in letters {
-            for attachment in m.attachments {
-                guard let cid = attachment.contentID else { continue }
-                parts[cid] = (m, attachment.id, attachment.mimeType)
-            }
-        }
+        // The map a printed letter's loader reads too (`LetterPrint`).
+        let parts = PanePage.pictures(of: letters)
 
         inlineImages.fetch = { [weak self] contentID in
             // Never surfaced to him: the loader turns a throw into an empty
@@ -820,7 +820,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 throw MailError.attachmentFailed
             }
             let data = try await self.repository.fetchAttachmentData(
-                part.section, of: part.letter.id, mailboxID: part.letter.mailboxID)
+                part.section, of: part.messageID, mailboxID: part.mailboxID)
             return (data, part.mimeType)
         }
     }
@@ -1051,12 +1051,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         }
     }
 
-    /// Reply / Reply All / Forward as a three-item sheet, which is what old
-    /// Mail did. Three labelled choices beats one button that guesses.
+    /// Reply / Reply All / Forward / Print as a sheet, which is what old
+    /// Mail did. Labelled choices beat one button that guesses.
     ///
     /// Forward of a letter with files the header lists asks Mail's question
     /// first (B-107). So do Reply and Reply All, only if his iPad's Mail is
     /// set to Ask (`ReplyFiles.mode`), which it is not taken to be.
+    ///
+    /// Print is the fourth, as Mail's Reply button had it from iOS 4.2 to
+    /// 12 (B-110): the letter the header shows, the one Reply answers,
+    /// printed light, through AirPrint's panel from this button. Greyed
+    /// while a print is being made ready, a second or a few.
     @objc private func replyTapped() {
         guard let m = message else { return }
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
@@ -1089,8 +1094,45 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 self?.openCompose(replyTo: m, all: false, forward: true, included: $0)
             }
         })
+        let printRow = UIAlertAction(title: "Print", style: .default) { [weak self] _ in
+            self?.printLetter(m)
+        }
+        printRow.isEnabled = printing?.isPreparing != true
+        sheet.addAction(printRow)
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(sheet, animated: true)
+    }
+
+    /// Prints `m`, the letter the sheet was opened for (B-110). Nothing
+    /// while a print is being made ready; a print whose panel is up holds
+    /// only its bytes, and is replaced. Named so as not to hide Swift's
+    /// `print`.
+    private func printLetter(_ m: Message) {
+        guard printing?.isPreparing != true else { return }
+        let job = LetterPrint(
+            letter: m, repository: repository, style: printStyle, pane: self,
+            anchor: actionItems[.reply],
+            // The same letter: its id and its folder, since two folders can
+            // hold the same "<uidvalidity>/<uid>".
+            stillShown: { [weak self] in
+                guard let shown = self?.message else { return false }
+                return shown.id == m.id && shown.mailboxID == m.mailboxID
+            },
+            ended: { [weak self] job in
+                guard let self, self.printing === job else { return }
+                self.printing = nil
+            })
+        printing = job
+        job.start()
+    }
+
+    /// The header's and the body's sizes, for a printed letter, which is
+    /// built away from the main thread and cannot read `Theme` there.
+    private var printStyle: PrintPage.Style {
+        .init(senderPointSize: Int(Theme.fontDetailSender.pointSize),
+              metaPointSize: Int(Theme.fontDetailMeta.pointSize),
+              subjectPointSize: Int(Theme.fontDetailSubject.pointSize),
+              bodyPointSize: Int(Theme.scaled(17)), lineHeight: Theme.detailBodyLineHeight)
     }
 
     /// Mail's question about the original's files (B-107), as an action
@@ -1152,7 +1194,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 }
 
-private extension PaneNavigation.Kind {
+/// WebKit's kind of navigation, for `PaneNavigation`: the pane's and a
+/// printed letter's (`LetterPrint`).
+extension PaneNavigation.Kind {
     init(_ type: WKNavigationType) {
         switch type {
         case .linkActivated: self = .linkActivated

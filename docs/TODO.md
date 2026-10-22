@@ -294,6 +294,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Refresh button's own path, not in Edit mode, a search or a day's
       list; the status-bar tap pinned as it was. B-103, and its check
       under "Blocked on the iPad coming back".*
+      *Print done 2026-10-22, not yet seen on the iPad: Print in the Reply
+      sheet under Forward, as Mail's Reply button had it, prints the letter
+      the header shows, on white, with its header and pictures and the
+      date in full, through AirPrint's panel. B-110, and its check under
+      "Blocked on the iPad coming back".*
 
 **Not needed, by his mailbox:** folders and labels, Archive, invitation
 buttons (1 of 53 answered in a year), formatting (D-013). **Decided
@@ -4229,6 +4234,72 @@ this host. Ordered by value, not by size.
       with a picture the body shows.
       11. *Put back.* The "B-107" letters to Trash, the second address out
       of Settings.
+- [ ] **B-110, Print.** On the test iPad and the iOS 18.6 simulator, the
+      test account only, built from the `feat-print` worktree. A stands
+      for the account's address; letters only to A with `+b110` before
+      the @, subjects beginning "B-110": a plain letter, an HTML
+      newsletter with remote pictures, a reply three quotes deep, a letter
+      with an inline photo, a letter with a PDF, a three-letter
+      conversation, an Apple Mail letter with the explicit-dark-mode head,
+      a dark-background newsletter, and a plain letter over 128 KiB.
+      First on the simulator on the Mac, then on the test iPad (16.5.1;
+      it has no Files).
+      1. *The sheet.* Reply, Reply All, Forward, Print, Cancel, under the
+      Reply button. A tap outside closes it and nothing happens. VoiceOver
+      reads "Print".
+      2. *A plain letter.* The panel opens from the Reply button within
+      about 2 s (the `PRINT ready` line's ms written down). Its preview is
+      black on white: sender, To, Cc, subject, the date in full, files,
+      then the words. No Local Network prompt.
+      3. *The HTML newsletter.* Its pictures and its own colours, nothing
+      inverted. The dark-background newsletter is legible (its white text
+      grey). The explicit-dark-mode Apple Mail letter is light. On the
+      test iPad, the time from the tap to the panel, written down.
+      4. *The three-deep reply.* Violet, teal and green bars on white
+      (B-101).
+      5. *The inline photo.* The photo is there. With Airplane Mode on: for
+      a letter neither the last opened nor kept on the iPad, the panel
+      still comes within 10 s, the letter without its picture; for a
+      letter kept on the iPad (B-111), with it.
+      6. *The conversation.* Open the middle letter's line, then Print:
+      only that letter, with its header; no lines from the stack.
+      7. *Cancel and tap outside* each close the panel. Print 20 times in a
+      row on the simulator: no slowdown; on the Mac, `ps` shows at most
+      one WebContent process beyond the pane's own afterwards (WebKit may
+      keep one ready), and the count does not grow over the 20; the app's
+      footprint is steady.
+      8. *A sheet meanwhile.* Print, then at once the Reply button again:
+      the sheet shows Print greyed; close it: the panel comes from the
+      Reply button within about half a second. Print, then at once Reply
+      and Reply: the composer comes, and no panel ever comes over it
+      (`PRINT ended why=covered`). With the panel up, the log says `PRINT
+      panel over=true`; if it says false, record it as a finding (the
+      panel is not a presentation over the pane, and Print must then also
+      be greyed while a panel is up).
+      9. *Leaving.* Home right after Print, before the panel: back in the
+      app, no panel, the pane as it was, and Print works again. With the
+      panel up, Home and back: no crash, and Print works again.
+      10. *Moving on.* Tap another letter right after Print: no panel
+      (`PRINT ended why=moved`).
+      11. *Big.* The plain letter over 128 KiB: the "Only the beginning…"
+      line on top, about 60 pages, the panel within a few seconds (ms
+      written down).
+      12. *Five full-size photos* in one letter: the panel comes and the
+      app is not ended.
+      13. *The preview as a file.* On the simulator, save the panel's
+      preview as a PDF (Share, Save to Files), copy it off the Mac, render
+      its pages to pictures (pdftoppm) on the build machine, not the Mac,
+      look at the header, colours, pictures and page breaks, and keep the
+      pictures with the check's notes. If the Mac has Xcode's Printer
+      Simulator (Additional Tools for Xcode), print to it from the
+      simulator as well: its output is the AirPrint job itself, with no
+      paper.
+      14. *Paper,* only on the owner's yes: one sheet each of 2, 3 and 6 on
+      the Brother the iMac has, if the iPad's Wi-Fi reaches it.
+      15. *B-063's check,* on the same yes: a PDF attachment, QuickLook,
+      Share, Print, and Done as soon as the panel has gone. The printout is
+      whole. If it prints, a line in B-063's seen note: "Print tried
+      2026-10-xx with B-110's check: …".
 
 ## Blocked on the owner
 

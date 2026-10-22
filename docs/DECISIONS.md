@@ -424,6 +424,10 @@ a photograph.
 
 **Smart Invert must now be OFF**, and the app CANNOT defend itself. See B-006.
 
+**2026-10-22:** a printed letter is light, black on white with the sender's
+own colours and its header as the pane shows it, the date written out in
+full, as Mail prints; the dark pane is never printed (B-110).
+
 ---
 
 ## D-011 — The app password is masked only when the iPad has a passcode
