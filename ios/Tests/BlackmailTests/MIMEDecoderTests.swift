@@ -308,7 +308,8 @@ final class MIMEDecoderTests: XCTestCase {
     /// the BODYSTRUCTURE and from the downloaded letter, the paperclip from
     /// the same structure, and the body's words. A file sent inline is
     /// listed unless it is a picture the body shows by `cid:`, or a text
-    /// part with no name, or the letter's own words; a forwarded letter
+    /// part with no name, or the letter's own words; a multipart sent
+    /// inline is not a file, what it holds is; a forwarded letter
     /// sent inline is words in the body, its own files listed, never a
     /// file itself. And `isAttachment` answers as it did, so the body and
     /// the parts kept are as they were.
@@ -319,6 +320,14 @@ final class MIMEDecoderTests: XCTestCase {
                   raw: Self.header + Self.mixed([
                     words,
                     Self.pdf + "Content-Disposition: inline; filename=\"Programme.pdf\"\r\n" + Self.pdfBytes,
+                  ], boundary: "B"),
+                  part: "2", listed: ["Programme.pdf"], kept: ["Programme.pdf"], clip: true,
+                  words: "Here it is.", isAttachment: false, isListedFile: true),
+            Shape(name: "application/pdf, inline, with a Content-ID",
+                  raw: Self.header + Self.mixed([
+                    words,
+                    Self.pdf + "Content-ID: <programme@example.com>\r\n"
+                        + "Content-Disposition: inline; filename=\"Programme.pdf\"\r\n" + Self.pdfBytes,
                   ], boundary: "B"),
                   part: "2", listed: ["Programme.pdf"], kept: ["Programme.pdf"], clip: true,
                   words: "Here it is.", isAttachment: false, isListedFile: true),
@@ -397,6 +406,21 @@ final class MIMEDecoderTests: XCTestCase {
                   ], boundary: "B"),
                   part: "2", listed: ["forwarded.eml"], kept: ["forwarded.eml"], clip: true,
                   words: "Here it is.", isAttachment: true, isListedFile: true),
+            // A multipart sent inline is not a file: what it holds is
+            // looked at in its turn, here the HTML and the logo it shows.
+            Shape(name: "multipart/related, inline, the HTML and a logo with a Content-ID",
+                  raw: Self.header + "Content-Type: multipart/alternative; boundary=\"A\"\r\n\r\n"
+                    + "--A\r\n" + words + "\r\n"
+                    + "--A\r\nContent-Type: multipart/related; boundary=\"R\"\r\n"
+                    + "Content-Disposition: inline\r\n\r\n"
+                    + "--R\r\nContent-Type: text/html; charset=utf-8\r\n\r\n"
+                    + "<p>Here it is.</p><img src=\"cid:logo@example.com\">\r\n"
+                    + "--R\r\nContent-Type: image/png; name=\"logo.png\"\r\nContent-Transfer-Encoding: base64\r\n"
+                    + "Content-ID: <logo@example.com>\r\nContent-Disposition: inline; filename=\"logo.png\"\r\n"
+                    + "\r\niVBORw0K\r\n"
+                    + "--R--\r\n--A--\r\n",
+                  part: "2", listed: [], kept: ["logo.png"], clip: false,
+                  words: "Here it is.", isAttachment: false, isListedFile: false),
             // Apple Mail's own shape for a PDF put among the words: the
             // plain words whole, and the HTML split around the file.
             Shape(name: "Apple Mail's letter with a PDF among its words",
@@ -437,6 +461,26 @@ final class MIMEDecoderTests: XCTestCase {
             XCTAssertEqual(part.isAttachment, shape.isAttachment, "isAttachment: " + shape.name)
             XCTAssertEqual(part.isListedFile, shape.isListedFile, "isListedFile: " + shape.name)
         }
+    }
+
+    /// What the header leaves out is a picture sent inline with a
+    /// `Content-ID`, and only that: a PDF or a text part sent inline with
+    /// one is a file, as is a picture with none, or one sent as an
+    /// attachment.
+    func testOnlyAPictureSentInlineWithAContentIDIsShownInTheBody() {
+        func part(_ mimeType: String, inline: Bool, contentID: String?) -> Attachment {
+            Attachment(id: "2", filename: "Programme", mimeType: mimeType, size: 1_024,
+                       contentID: contentID, isInline: inline)
+        }
+        XCTAssertTrue(part("image/png", inline: true, contentID: "logo@example.com").isShownInBody)
+        XCTAssertFalse(part("application/pdf", inline: true, contentID: "programme@example.com").isShownInBody,
+                       "a PDF sent inline with a Content-ID is a file")
+        XCTAssertFalse(part("text/plain", inline: true, contentID: "notes@example.com").isShownInBody,
+                       "a text part sent inline with a Content-ID is a file")
+        XCTAssertFalse(part("image/jpeg", inline: true, contentID: nil).isShownInBody,
+                       "a picture sent inline with no Content-ID is a file")
+        XCTAssertFalse(part("image/png", inline: false, contentID: "chart@example.com").isShownInBody,
+                       "a picture sent as an attachment is a file")
     }
 
     /// The HTML of the shapes that have one is the part it was before: the

@@ -21,10 +21,12 @@ import Foundation
 /// The colours are Mail's LIGHT ones, as they are, because an HTML letter
 /// is drawn on white and then inverted with its hue turned back
 /// (`invert(1) hue-rotate(180deg)`): on the pane's black they come out
-/// close to Mail's dark set, rgb(191, 90, 242), rgb(0, 200, 250) and
-/// rgb(87, 217, 119). Inside a signature's white sheet, which the stack
-/// inverts a second time, they are Mail's light colours on white, as Mail
-/// draws them on paper.
+/// about rgb(152, 150, 255), rgb(0, 150, 180) and rgb(0, 163, 0). The
+/// second and third are about Mail's dark teal and green, rgb(0, 200,
+/// 250) and rgb(87, 217, 119), if darker; the first is bluer than Mail's
+/// dark violet, rgb(191, 90, 242). Inside a signature's white sheet,
+/// which the stack inverts a second time, they are Mail's light colours
+/// on white, as Mail draws them on paper.
 ///
 /// A sender's own important rule, written on the quote itself, still wins,
 /// as it does in Mail. Plain text quoted with `>` has no bar here; Mail

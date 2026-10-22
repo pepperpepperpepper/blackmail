@@ -17353,14 +17353,15 @@ paperclip either. A Forward carried it, as it carries every part.
    light colours, as they are: a letter's HTML is drawn on white and
    inverted with its hue turned back, and in Chromium, the pages as the
    app builds them, they came out rgb(152, 150, 255), rgb(0, 150, 180)
-   and rgb(0, 163, 0) on the black, near Mail's dark set. Inside a
-   signature's white sheet in the stack, inverted a second time, they
-   come out near Mail's light colours on white (the teal measured
-   rgb(15, 165, 195)). The sheet's own words keep their black: the
-   colour is the quote's, and the sheet sets its own. Rendered: a reply
-   from Mail three deep, a reply from Gmail's web page, and a quote
-   holding a signature's sheet with a quote inside it, on a letter's page
-   and in the stack.
+   and rgb(0, 163, 0) on the black: the second and third about Mail's
+   dark teal and green, if darker, and the first bluer than Mail's dark
+   violet, rgb(191, 90, 242). Inside a signature's white sheet in the
+   stack, inverted a second time, they come out near Mail's light
+   colours on white (the teal measured rgb(15, 165, 195)). The sheet's
+   own words keep their black: the colour is the quote's, and the sheet
+   sets its own. Rendered: a reply from Mail three deep, a reply from
+   Gmail's web page, and a quote holding a signature's sheet with a
+   quote inside it, on a letter's page and in the stack.
 2. *One rule for a part the body shows* (`Attachment.isShownInBody`):
    sent inline, a picture, with a `Content-ID`. The header lists every
    other part (`Message.listedAttachments`,
@@ -17396,67 +17397,83 @@ sits 5 pt in where it sat 40, so a long one takes fewer lines. A PDF from
 Apple Mail on an iPhone or an iPad has its row in the header from the
 tap, and opens in Quick Look; its row in the list has the paperclip. A
 picture sent inline with no `Content-ID`, which nothing showed, is listed
-too. A signature's logo is not. No new words.
+too, and so is a file sent inline with one that is not a picture. A
+signature's logo is not. No new words.
 
 **Tests.** `PanePageTests`, two new and one changed: the rules for `#bm`
 written out in full, both selectors three deep, 5 px, margin 0, a 1 px
 bar, Mail's three colours and every declaration important, after the
 invert in an HTML letter's page and in a plain one's not at all; a reply
-from Mail three deep and a reply from Gmail's web page, their markup byte
-for byte on the page and in the stack's body; and every letter's page
-byte for byte as before with the rules taken out, found once in an HTML
-letter's page and never in a plain one's. `ConversationDocumentTests`,
-three: the rules for `.bm-html` written out, once, after the signature's
-rules, none for `#bm`; the signature's rules as they were; and the two
-replies' markup into their sections as it came, at first draw and by
-`bmFill`. `MIMEDecoderTests`, two: a table of eleven shapes, each its
-header's rows from the structure and from the downloaded letter, the
-parts kept, the paperclip over the same structure, the body's words, and
-the part's `isAttachment` as before and its `isListedFile`: a PDF inline
-with no `Content-ID`, listed with a paperclip; a logo inline with one,
-neither; a JPEG inline with none, listed with a paperclip; a PNG attached
-with one, listed with a paperclip; an unnamed text part inline, neither;
-`notes.txt` inline, listed with a paperclip, and the same as the
-letter's only words, neither; a message/rfc822 inline and unnamed
+from Mail three deep and a reply from Gmail's web page, their markup
+byte for byte on the page and in the stack's body; and every letter's
+page byte for byte as before with the rules taken out, found once in an
+HTML letter's page and never in a plain one's.
+`ConversationDocumentTests`, three: the rules for `.bm-html` written
+out, once, after the signature's rules, none for `#bm`; the signature's
+rules as they were; and the two replies' markup into their sections as
+it came, at first draw and by `bmFill`. `MIMEDecoderTests`, three: a
+table of thirteen shapes, each its header's rows from the structure and
+from the downloaded letter, the parts kept, the paperclip over the same
+structure, the body's words, and the part's `isAttachment` as before and
+its `isListedFile`: a PDF inline with no `Content-ID`, listed with a
+paperclip, and a PDF inline with one, the same; a logo inline with one,
+neither; a JPEG inline with none, listed with a paperclip; a PNG
+attached with one, listed with a paperclip; an unnamed text part inline,
+neither; `notes.txt` inline, listed with a paperclip, and the same as
+the letter's only words, neither; a message/rfc822 inline and unnamed
 holding words and a PDF, its words the body, no row and no paperclip of
 its own, the PDF listed with a paperclip; one holding words alone, its
 words the body, neither; a message/rfc822 attached as `forwarded.eml`,
-listed with a paperclip, as before; and Apple Mail's own shape, the plain
-words and an HTML split around a PDF, the PDF listed with a paperclip;
+listed with a paperclip, as before; a multipart/related sent inline,
+holding the HTML and a logo with a `Content-ID`, neither, the multipart
+no file of its own; and Apple Mail's own shape, the plain words and an
+HTML split around a PDF, the PDF listed with a paperclip; that the body
+shows a part (`isShownInBody`) only when it is a picture sent inline
+with a `Content-ID`: not a PDF or a text part sent inline with one, nor
+a picture sent inline with none, nor one sent as an attachment with one;
 and that the HTML of the logo's letter and of Apple Mail's shape is the
-part it was. `PaneDocumentTests`, one, over the shipping repository and
-the scripted server: a letter with a PDF sent inline and a logo, the
-paperclip on its row, the PDF's row in the header from the row and once
-the letter has come, and its bytes at the tap; and a letter with the logo
-alone, no paperclip and no row. The scripted server can send a file
-inline with no `Content-ID`. `MailShelfTests`, one: a row kept with a PDF
-whose record says inline and a logo, the record in the fields it always
-had and the format 1, and the header drawn from it after a launch listing
-the PDF and not the logo. `BoundedLetterTests`' fingerprints of the
-pane's pages are taken with the rules out, and are as they were. The
-tests that already had signature logos, in `LargeLetterTests` and
-`PaneDocumentTests`, pass unchanged.
+part it was.
+`OutgoingMailTests`, one changed: the logo, inline with its
+`Content-ID`, raises no paperclip (`isListedFile`), and a picture sent
+inline is still no attachment to the body's walk. `PaneDocumentTests`,
+one, over the shipping repository and the scripted server: a letter with
+a PDF sent inline and a logo, the paperclip on its row, the PDF's row in
+the header from the row and once the letter has come, and its bytes at
+the tap; and a letter with the logo alone, no paperclip and no row. The
+scripted server can send a file inline with no `Content-ID`.
+`MailShelfTests`, one: a row kept with a PDF whose record says inline
+and a logo, the record in the fields it always had and the format 1, and
+the header drawn from it after a launch listing the PDF and not the
+logo. `BoundedLetterTests`' fingerprints of the pane's pages are taken
+with the rules out, and are as they were. The tests that already had
+signature logos, in `LargeLetterTests` and `PaneDocumentTests`, pass
+unchanged.
 
-Each rule undone in the worktree, one at a time, the touched classes
-run: `isShownInBody` without its `Content-ID` test, 2 failures in 1
-test; `isAttachment` made to answer an inline part as `isListedFile`
-does, one rule for the body and the paperclip, 19 in 2, the table and
-the decoding of the ordinary letters, whose forwards sent inline lost
-their words; `isListedFile` in place of `isAttachment` in `chooseBodies`
-and `collectAttachments`, none, by construction, since it answers as
-`isAttachment` for message/rfc822, the one part those two ask about; the
-message/rfc822 case taken out of `isListedFile`, 3 in 1;
-`Message.listedAttachments` by `isInline` as before, 11 in 3;
-`MIMEDecoder.listedAttachments(in:)` by `isInline`, 10 in 2; the
-paperclip by `isAttachment` as before, 5 in 2; the paperclip not leaving
+Each rule for the files undone in the worktree, one at a time, the full
+suite run: `isShownInBody` without its `Content-ID` test, 3 failures in
+2 tests, and without its picture test, 4 in 2; `isAttachment` made to
+answer an inline part as `isListedFile` does, one rule for the body and
+the paperclip, 21 in 3, the table, the decoding of the ordinary letters,
+whose forwards sent inline lost their words, and a picture sent inline
+taken for an attachment; `isListedFile` in place of `isAttachment` in
+`chooseBodies` and `collectAttachments`, none, by construction, since
+it answers as `isAttachment` for message/rfc822, the one part those two
+ask about; the message/rfc822 case taken out of `isListedFile`, 3 in 1;
+`Message.listedAttachments` by `isInline` as before, 13 in 3;
+`MIMEDecoder.listedAttachments(in:)` by `isInline`, 12 in 2; the
+paperclip by `isAttachment` as before, 6 in 2; the paperclip not leaving
 out the letter's words, 1 in 1; `isListedFile` without its unnamed text
-test, 2 in 1, and without its picture with a `Content-ID` test, 3 in 2.
-The rules left off a letter's page, 18 in 2; left out of the stack, 3 in
+test, 2 in 1, without its picture with a `Content-ID` test, 5 in 3,
+with that test asking a `Content-ID` of any part, not only a picture, 2
+in 1, and without its multipart test, 2 in 1; and `isShownInBody` and
+`isListedFile` both asking a `Content-ID` of any part, not only a
+picture, 6 in 2. Each rule for the bars undone, the touched classes run:
+the rules left off a letter's page, 18 in 2; left out of the stack, 3 in
 1; the third colour Mail's dark green, 5 in 2; not important, 7 in 2;
 the bar only, the words not coloured, 7 in 2; not scoped, 8 in 2;
 Gmail's class matched whole, 5 in 2.
 
-The full suite, serially: 1,865 tests, 5 skipped, none failing. The
+The full suite, serially: 1,866 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -17472,8 +17489,19 @@ release build for the iPad links.
   letter has come. Both until that folder is next listed from the top.
   A row listed by this build keeps the PDF with its inline mark, and a
   launch draws it.
-- A picture with no name and no disposition is listed with no
-  paperclip, as before (`isAttachment` asks for a name).
+- A part with no `Content-Disposition` has its row and no paperclip, as
+  before, if it is not text and has no name, a picture say, or is text
+  with a name (`text/calendar; name="invite.ics"`, `text/plain;
+  name="notes.txt"`), unless the pane takes it for the letter's words:
+  with no disposition the paperclip goes by `isAttachment`, which asks a
+  name of a file and takes no text part for one.
+- A picture sent inline with a `Content-ID` that the body does not show,
+  in a plain-text letter or beside HTML that names no such `cid:`: no
+  row, no paperclip and nothing that opens it, as before. The rule goes
+  by the letter's structure alone (`isShownInBody`, `isListedFile`) and
+  does not read the HTML to see whether the picture is in it, so it takes
+  every such picture for one the body shows. Whatever uses the rule
+  later has the same limit.
 - Words after a file in the middle. Apple Mail can split a letter's HTML
   around a file (multipart/alternative: the plain words, then
   multipart/mixed of HTML, the PDF, HTML), and the pane shows the first
