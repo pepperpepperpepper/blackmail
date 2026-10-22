@@ -235,7 +235,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Writing the marks after a reply or forward goes waits for the owner.
       B-102, and its check under "Blocked on the iPad coming back".*
 - [x] His own replies missing from Inbox conversations (Mail's Complete
-      Threads). *Done 2026-10-22, not yet seen on the iPad: in an Inbox
+      Threads). *Done 2026-10-22, seen on the iPad the same day; a drop
+      under a finger found there changed, not yet seen fixed: in an Inbox
       conversation of more than one letter, his letters of it that are
       only in Sent Mail come in closed, by date, "Found in Sent Mail" when
       opened, read only and never acted on; a Complete Threads switch
@@ -4074,11 +4075,12 @@ this host. Ordered by value, not by size.
       J's second letter, the one open, does not move as A's line goes
       in: its first line stays where it is on the glass, and A's line takes
       the place of J's first line at the top. Once without touching the
-      pane, a burst of shots from the tap; once with a finger on the pane
-      and the stack scrolled a little before A's line comes, J's second
-      letter's first line again staying where it is. Then open it again
-      within ten minutes: the same picture from the first frame, A's line
-      at the top and J's second letter under it.
+      pane, a burst of shots from the tap; once with a finger dragging the
+      pane slowly as A's line comes: J's second letter's first line moves
+      with the finger alone, with no step of a line, and A's line goes in
+      above it once the stack is still. Then open it again within ten
+      minutes: the same picture from the first frame, A's line at the top
+      and J's second letter under it.
       2. *Before and after.* A conversation A began, J answering twice: A's
       letter at the top. One A answered last: A's letter below the newest,
       and the pane still opens at the Inbox letter it opened at before.
@@ -4179,6 +4181,50 @@ this host. Ordered by value, not by size.
       All four failures made again on a fresh launch. Both faults fixed
       since, as B-103 in KNOWN_ISSUES says; 1, 2, 6, 7 and 8 to run again
       as above, and 11 by hand.*
+      *Seen on the test iPad 2026-10-22, a build of B-104 as first built,
+      with other work: 2 to 7 and 8's switch passed. 1 passed untouched
+      and again within ten minutes, and failed with a finger on the pane:
+      J's second letter dropped one line as A's line went in, and went on
+      with the finger from there. 8's VoiceOver could not be tried, the
+      app being on VoiceOver's Direct Touch list there, and 9 was not run.
+      Changed the same day (B-104 in KNOWN_ISSUES): A's line is held while
+      the stack moves under a finger, coasts or bounces back, as the pane's
+      scroll view says and as the page hears, and goes in once it is
+      still. To run again, from a build with both steps of the change: 1
+      in full; 8's VoiceOver, once the app is off the Direct Touch list;
+      and 9. 1 with a finger, as on 2026-10-22: before each run another row
+      selected, Refresh, so nothing is remembered, and J's second letter
+      made unread from the host; a burst of shots from the tap each time,
+      A's line found when the log has the summary FETCH in Sent Mail
+      (about 0.6 s that day). Each time J's second letter's first line
+      moves with the finger alone, with no step of a line, and A's line
+      goes in above it within about a third of a second of the stack
+      coming to rest. (a) *The finger at the tap*, as that day: within
+      0.05 s of the tap, drag the pane up some 100 to 120 px of the shots
+      over 1.5 to 1.8 s; then the same with the finger held still a second
+      in the middle as A's line is found, then dragged on. That finger
+      lands on the page before the stack's, whose first frame came about
+      0.2 s after the tap, so the stack's page hears none of its touches,
+      and only the pane's word holds A's line. (b) *The finger on the
+      stack*: put it down once the stack is drawn, 0.3 s or more after the
+      tap, and the same drag; then with a pause of half a second, and one
+      of six seconds, longer than the page's own five, in the middle as
+      A's line is found, then dragged on; and a flick, A's line found while
+      the stack coasts. (c) *A pull at the top*: the stack opens with J's
+      first line at the top of the pane; once it is drawn, pull it down
+      some 60 px and let go as A's line is found, so it bounces back. J's
+      second letter does not step, and A's line goes in after the bounce.
+      (d) *A finger on J's first line*, put down once the stack is drawn
+      and lifted at about 1 s, A's line found meanwhile: the lift opens
+      that letter, once, its line where it was, and A's line goes in
+      after. Then the same with the finger put down within 0.05 s of the
+      tap: J's first line stays under the finger while it is down, and A's
+      line goes in after the lift; what the lift opens, if anything, is
+      WebKit's, the touch having begun on the page before, so write down
+      what it does. If J's first line moves from under that still finger,
+      or J's second letter steps in (c), UIKit did not count the finger
+      or the bounce as moving: write it down, it is a case KNOWN_ISSUES
+      names as not covered.*
 
 ## Blocked on the owner
 

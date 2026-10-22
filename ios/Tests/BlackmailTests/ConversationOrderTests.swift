@@ -391,11 +391,15 @@ final class ConversationOrderTests: XCTestCase {
 
     /// Letters put in at the bottom are appended to the body, as the
     /// stack's own are its children, and their lines wired as the first
-    /// ones were.
+    /// ones were; after his letters from Sent Mail when those are held
+    /// while the stack moves under a finger (B-104), so the page keeps the
+    /// pane's order.
     func testTheScriptPutsLettersInAtTheBottom() {
         let script = flat(ConversationDocument.script)
         XCTAssertTrue(script.contains(
-            "function bmAppend(html) { var holder = document.createElement('div'); holder.innerHTML = html; "
+            "function bmAppend(html) { "
+                + "if (bmHeld.length) { bmLater(function () { bmAppend(html); }); return; } "
+                + "var holder = document.createElement('div'); holder.innerHTML = html; "
                 + "while (holder.firstElementChild) { "
                 + "var section = document.body.appendChild(holder.firstElementChild); "
                 + "var head = section.querySelector('.bm-head'); if (head) bmWire(head); } }"), script)

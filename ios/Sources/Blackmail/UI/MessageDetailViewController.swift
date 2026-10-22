@@ -621,10 +621,53 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// Calls the stack's `bmInsert` with his letters' sections as arguments
-    /// (B-104), in the app's content world, as `run(_ fill:)` does.
+    /// (B-104), in the app's content world, as `run(_ fill:)` does, with
+    /// whether the scroll view is moving the stack as they go; and while it
+    /// is, tells the script again every tenth of a second until it is still
+    /// (`ConversationDocument.Motion`), so the script holds them until then.
     private func run(_ insert: ConversationDocument.Insert) {
-        webView.callAsyncJavaScript(ConversationDocument.Insert.script, arguments: insert.arguments,
+        let moving = stackMoving
+        webView.callAsyncJavaScript(ConversationDocument.Insert.script,
+                                    arguments: insert.arguments(moving: moving), in: nil, in: .defaultClient)
+        if moving { watchTheStack() }
+    }
+
+    /// Whether UIKit's scroll view is moving the stack: a finger on it,
+    /// dragging it, or the stack coasting or bouncing back after one
+    /// (B-104). Read here rather than heard by the page, which hears no
+    /// touch of a finger that landed on the page before it.
+    private var stackMoving: Bool {
+        let scroll = webView.scrollView
+        return ConversationDocument.Motion.stack(tracking: scroll.isTracking, dragging: scroll.isDragging,
+                                                 decelerating: scroll.isDecelerating)
+    }
+
+    /// The pane's word to the stack's script, every tenth of a second, from
+    /// his letters sent while the scroll view moved the stack until the
+    /// word it is still (`motionTick`); nil while none goes. On the main run
+    /// loop in its common modes, which a drag does not hold up. To the page
+    /// on screen, whatever it is: on a page holding nothing it holds
+    /// nothing, and a new page starts holding nothing.
+    private var motionTicks: Timer?
+
+    private func watchTheStack() {
+        guard motionTicks == nil else { return }
+        let ticks = Timer(timeInterval: ConversationDocument.Motion.every, target: self,
+                          selector: #selector(motionTick), userInfo: nil, repeats: true)
+        RunLoop.main.add(ticks, forMode: .common)
+        motionTicks = ticks
+    }
+
+    /// Says whether the scroll view still moves the stack, and stops once it
+    /// has said it is still, which UIKit always comes to.
+    @objc private func motionTick() {
+        let moving = stackMoving
+        webView.callAsyncJavaScript(ConversationDocument.Motion.script,
+                                    arguments: ConversationDocument.Motion.arguments(moving),
                                     in: nil, in: .defaultClient)
+        guard !moving else { return }
+        motionTicks?.invalidate()
+        motionTicks = nil
     }
 
     /// A letter in the stack was opened or closed.

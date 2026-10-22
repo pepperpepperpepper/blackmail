@@ -17930,6 +17930,10 @@ serially, with nothing undone: 1,870 tests, 5 skipped, none failing. The
 
 ## B-104 — BUILT 2026-10-22, not yet seen on the iPad. An Inbox conversation left out his own replies; Mail brings them in from Sent
 
+---
+
+## B-104 — BUILT 2026-10-22, seen on the iPad; a drop under a finger found there changed the same day, not yet seen fixed. An Inbox conversation left out his own replies; Mail brings them in from Sent
+
 **What Mail does.** Mail on iPadOS 18 has a Threading switch, Complete
 Threads, on from the factory: "Show all the messages in a thread, even if
 some have been moved to other mailboxes. Moved messages will remain in the
@@ -18092,10 +18096,13 @@ Where an open letter is above the place, that letter stays, and the letter
 below the place moves down a line, as it does when a body comes. A reply
 opened says "Found in Sent Mail" in grey over it, and Delete, Move, Flag
 and Reply still act on the conversation's letter he opened last. Opened
-again within ten minutes, his letters are there from the first frame. In
-Settings, a Complete Threads switch under Organize by Thread. New words,
-held from his iPad until he approves them: "Complete Threads", the line
-under it, and "Found in Sent Mail" (D-021).
+again within ten minutes, his letters are there from the first frame. With
+his finger on the stack as his reply's line comes, or the stack coasting
+or bouncing back after it, the line goes in a moment after the stack is
+still, and until then the letter he is reading moves with his finger alone
+(below, 2026-10-22). In Settings, a Complete Threads switch under Organize
+by Thread. New words, held from his iPad until he approves them: "Complete
+Threads", the line under it, and "Found in Sent Mail" (D-021).
 
 **Tests.** `CompleteThreadsTests`, forty-three. Pure: where his letters go,
 before, between and after the conversation's, by when Gmail took them, ties
@@ -18549,8 +18556,9 @@ release build for the iPad links.
 - Mail's other Threading switches, Collapse Read Messages and Most Recent
   Message on Top, are as B-074 built them.
 - Where the script keeps the letter he is reading as his lines go in is
-  read from its source by the suite, which has no page to run it in. Step
-  1 of the check is where it is seen.
+  read from its source by the suite, and since 2026-10-22 run on a model
+  page as well (`HisLineUnderTheFingerTests`, below), which is a model and
+  not WebKit. Step 1 of the check is where it is seen.
 - His letter the oldest of all, found late, in a conversation that opened
   at its own first letter, unread: it goes in above that letter, out of
   sight, and the letter stays at the top. Remembered, in the first frame,
@@ -18818,3 +18826,243 @@ release build for the iPad links.
   answering during it closes up there, is not known. Step 11 looks.
 - The kept page's first fetch at launch (`fetchOverKept`) and Go to Date
   put their alerts up at once, as before, a finger on the list or not.
+
+---
+
+**Seen on the test iPad, 2026-10-22**, a build of B-104 as first built,
+with other work, three panes, the test account: J1, his reply A1 sent from
+the app and taken out of the Inbox from the host, and J2, unread, in one
+conversation. Steps 2 to 7 of the TODO check and the switch of 8 passed.
+VoiceOver's reading of "Found in Sent Mail" could not be tried, the app
+being on VoiceOver's Direct Touch list there, and 9, the simulator, was not
+run. Step 1 passed untouched and opened again within ten minutes, and
+failed with a finger on the pane.
+
+- *Untouched:* from 0.20 to 1.07 s J1's line at y177-189 of the shots and
+  J2's first line at y215-224; at 1.29 s A1's line where J1's had been,
+  and J2's where it was, to 6.58 s. In the log J2's FETCH, then the SELECT
+  of Sent Mail, its search and the two FETCHes. Scrolled up, J1 7:59, A1
+  8:01, J2 8:01; A1 opened says "Found in Sent Mail" in grey over its
+  body, and the header stayed J2's.
+- *Again within ten minutes:* 66 s after the last lookup, A1's line at the
+  top and J2 under it from the first frame, nothing moving, and nothing
+  asked of Sent Mail.
+- *With a finger on the pane:* a finger landed 0.05 s after the tap and
+  dragged the stack up 100 px of the shots over 1.5 s. J2's first line
+  went with it, 215, 204, 194, 183, 172 at 1.19 s; the lookup answered at
+  about 1.22 s, and at 1.40 s A1's line was at the top and J2's at y198,
+  where the drag had it near y161: down one line, about 37 px, and on
+  with the finger from there. A slower drag did the same, A1 coming at
+  about 0.6 s. Seen again twice from a fresh launch, drags of 100 and
+  120 px over 1.5 and 1.8 s, A1 found at 0.55 to 0.63 s: J2 down about
+  36 px, the line being 38, A1 where J2's first line should have been,
+  and on with the finger. Nothing moved with A1 coming after the lift,
+  the stack at rest, by more than 1 px; nor with a finger still after a
+  small scroll, nor with a drag too slow to scroll, each of which became
+  a text selection.
+
+**What it was.** `bmInsert` keeps the letter he is reading where it is
+with one `window.scrollBy`: its own for J2 on the glass with nothing above
+it there but closed lines (`bmReading`), `bmKeep`'s otherwise. While a
+finger drags the pane, the offset is the web view's scroll view's, in
+WebKit's other process, set from the finger at each move, and the
+script's `scrollBy` made then was replaced at the next move. The scroll
+that followed was taken as his place (`bmTake`), and nothing put it back.
+At rest, after the lift or under a finger held still, the same `scrollBy`
+held. Nothing in the script waited for the finger. A web library for long
+lists records the same on iOS, a scroll position written under a finger
+ignored, and puts its corrections off while a touch has the scroll
+(github.com/TanStack/virtual/pull/1318).
+
+**Changed, 2026-10-22.** What goes into the stack is held while the stack
+moves under a finger, coasts after it or bounces back, and goes in once
+the stack is still, as it goes in at rest (`bmInsert`, `bmMoving`,
+`bmLater`, `bmRelease`). Whether the stack moves is known two ways,
+because the page alone does not hear enough. This was done in two steps
+the same day: the page's own hearing first, then the pane's word, when the
+model, run with a finger the stack's page never hears, showed what the
+first step missed (below).
+
+- *The pane's word* (`ConversationDocument.Motion`, the script's
+  `bmPaneMoving`). UIKit's scroll view knows a finger on it (tracking), a
+  drag, and a coast or the bounce back from an edge (decelerating),
+  whatever page the finger first landed on, and it always ends them. With
+  each of his letters it hands the page, the pane says whether its scroll
+  view is moving the stack, and while it is, again every tenth of a
+  second, on the main run loop in its common modes, which a drag does not
+  hold up, until it has said it is still; then the ticks stop. The script
+  holds for as long as the pane's last word said it moves, and a second at
+  most after a word that nothing followed, as if the ticks were lost.
+- *The page's own hearing.* A finger on the page, from its touch to the
+  touchend or touchcancel that leaves none (`bmFinger`, heard on the
+  window, as the lines' touches are), or five seconds after the last of
+  its touches if WebKit never sends the lift (two seconds in the first
+  step); and a scroll not the script's own in the last quarter of a
+  second, as a coast's are.
+- Why both. A finger put down at the tap, as on the iPad, lands on the
+  page before the stack's, whose first frame came about 0.2 s after the
+  tap that day, and WebKit sends the stack's page none of that finger's
+  touches. A finger held still sends no scroll, and nor does a pull past
+  the top or the bounce back from it, the page staying at its top. On the
+  page's hearing alone, the model held a drag that never stops, by its
+  scrolls, and lost the rest: with the finger held still half a second, or
+  more than the five seconds of a finger that is heard, his line went in
+  during the pause and the next move dropped J2 a line; a finger on J1's
+  line had the line moved from under it; and the bounce at the top took
+  the page back to the top as his line went in, J2 a line lower. The
+  page's own hearing stays for the moment between the pane's look and the
+  page's running of the insert, and for a finger that lands in it.
+- Held, it is looked at again every tenth of a second. It goes in within
+  about a tenth of a second of all of these at once: the pane's last word
+  saying the stack is still, or a second since its last word that it
+  moves; five seconds since the last touch the page heard, if a finger is
+  still counted there; and a quarter of a second since the last scroll
+  that was not the script's own. Each of them ends: UIKit ends the drag
+  and the coast, the second and the five seconds are counted from the
+  last word and the last touch, and a scroll comes only from something
+  moving the stack, a coast after a lift the page never heard, VoiceOver's
+  scroll or the status bar's among them. It goes into the stack as it is
+  then: what is on the glass (`bmReading`), the hold the stack opened
+  with, if it still holds, and the place kept, are all read at that
+  moment.
+- What comes while one is held waits behind it and goes in after it, in
+  the order it came, so the page keeps the order of the pane's document
+  (`PaneDocument`): more of his letters, letters that came into the
+  conversation, for the bottom (`bmAppend`), and a body for a section not
+  on the page yet (`bmFill`), which would otherwise find nothing and be
+  lost, as a body for a letter that came would be. A body for a letter on
+  the page goes in at once, as before. Each held change runs once, and one
+  that throws takes none of the rest with it. Nothing is held in Swift:
+  the pane hands the page `Insert`, `Append` and `Fill` as it did, in the
+  order they come, so there is one queue, the page's.
+- What is held is the page's own: a new page, another letter, another
+  conversation, or the stack drawn again after WebKit lost it, starts with
+  nothing held, and his letters are in the pane's document for the
+  redraw, as before (`PaneDocument.insert`). None can go into another
+  stack, or go in twice. The pane's word goes to whatever page is on
+  screen; a page holding nothing holds nothing for it, and one that is
+  handed his letters while the scroll view still moves holds them, as it
+  should.
+- With nothing moving nothing is held: the stack opened and left alone
+  takes his line at once, as the iPad showed it right, and so does a stack
+  at rest after a drag.
+- A tap on a line as his line comes: the line is still under the finger at
+  the lift, so the tap opens its letter, once, and his line goes in after
+  it. Before, his line went in under the finger, moved the line from under
+  it, and the lift opened nothing (B-095's bound for a line moved). A
+  finger the page never heard keeps the line under it too, by the pane's
+  word; what its lift does is WebKit's, the touch having begun on the page
+  before.
+
+In Swift, only the pane's word (`MessageDetailViewController`'s
+`run(_ insert:)`, `stackMoving`, `watchTheStack`, `motionTick`): the
+remembering, the first frame within ten minutes, the lookup and a tap on
+his line are as they were.
+
+**Tests.** `HisLineUnderTheFingerTests`, thirteen, new: the stack's own
+script run in node on a model page (`ModelPage`, among the suite's
+support), whose scroll view replaces an offset the script set while a
+finger drags the stack or it coasts, as the iPad did, and holds the page
+at its top through a pull past it or a coast into it; and whose pane says
+whether the stack moves, a finger down or a coast, as the pane does. Frame
+by frame, J2's line moves on the glass only as the finger or the coast
+moves the stack: a drag of 30 px and one of 100 px over 1.5 s, A1 found
+at 0.6 s, A1 in after the lift and within a third of a second of it,
+directly above J2, once, and nothing left held; a coast, A1 found during
+it and in after it; a finger still 0.8 s in the middle of a drag; a lift
+never sent, A1 in five seconds after the finger's last move and no later;
+untouched, A1 in at once at the top and J2 a line below it, and at rest
+after a drag at once; his letter for the bottom, a letter that came and
+its body, held in that order behind it, a body for a letter on the page in
+at once, and one for a section that never comes dropped; one held change
+that throws; and a finger on J1's line as A1 comes, the lift opening J1
+once, its line never moving. The five of the second step: a finger the
+page never hears, a drag of 100 px and one held still 0.8 s in its
+middle; a finger it never hears on J1's line, the line staying under it
+while it is down and nothing opened; a finger heard and held still six
+seconds in the middle of a drag; the stack pulled down at its top as A1
+comes, bouncing back after the lift, A1 in after the bounce at the top
+and J2 a line below it; and the pane's word that the stack moves with no
+word after it, A1 in a second later, the finger still down. Each of the
+four that the page alone cannot hold runs the script without the pane's
+word as well and sees it fail as the defect does, J2 down 38 px at the
+next move, or J1's line moved from under the finger, so each is known to
+test the word. Where node is not, the thirteen skip. `CompleteThreadsTests`,
+two new: the hold read from the script, for a host without node; and the
+pane's word, moving for tracking, dragging or decelerating, every tenth of
+a second, and the pane's code for it read from its source, the ticks in
+the run loop's common modes, started by an insert sent while the stack
+moves, and stopped by the first word that it is still. Changed, for the
+line that holds: `CompleteThreadsTests`' pins of `bmInsert`, of `Insert`'s
+script and arguments, and of the pane's `run(_ insert:)`, and
+`ConversationOrderTests`' of `bmAppend`.
+
+The first step's parts undone in the worktree, one at a time, the eight
+tests it had, its pin and the tests that read the script run: the hold in
+`bmInsert` taken out, which is the script as it was for his letters, 21
+failures in 9 tests, J2 jumping 38 px down at the move after A1 went in,
+as on the iPad, and the tap opening nothing, J1's line moved from under
+the finger; a finger not holding it, 10 in 5, the 30 px drag among them,
+A1 going in before the pan had moved the page; the finger's listeners
+taken out, 10 in 5; no two seconds' bound, 2 in 2, A1 never going in; a
+scroll not holding it, 3 in 2, the coast; letters for the bottom not
+waiting behind, 8 in 4; a body for a section not on the page not waiting,
+3 in 2; no guard on a held change that throws, 3 in 2; and what was held
+not emptied as it runs, 8 in 8, each held change holding itself again
+until node ran out of memory. One undoing failed the pin alone, 1 in 1:
+`bmRelease` not looking at the stack again before it runs what is held,
+which changes nothing the model can see, since each held insert looks
+again as it runs and holds itself once more, and what waits behind it with
+it. Put back, they pass.
+
+The second step's parts undone the same way, with the thirteen, the pins
+and the tests that read the script or the pane: the pane's word not
+holding in `bmMoving`, 12 failures in 6 tests, the five new ones and the
+pin, J2 down 38 px at the next move after the pause, after six seconds
+still and in the bounce, J1's line moved to -38 under the finger, A1 in
+at 608 ms instead of after a second; the word left out of `Insert`'s
+script, 6 in 4, the finger never heard, its line, the word never followed
+and the script's pin (the six seconds still and the bounce were then held
+by the heard finger until the pane's next tick); the lift never heard
+given two seconds again, 2 in 2, A1 in at 3.6 s; the word held until the
+next word with no second's bound, 2 in 2, A1 never going in; decelerating
+not counted as moving, the run loop's default mode for the ticks, the
+ticks not started by an insert, or stopped at their first tick, each 1 or
+2 in 1 or 2, the pins. Put back, they pass. The pane's own code is UIKit
+and is read, not run, by the suite: the model's pane runs the same rule,
+and step 1 of the check is where the real one is seen.
+
+The full suite, serially: 1,914 tests, 5 skipped, none failing, in five
+runs. One run before them had one failure, its name not kept; the thirteen
+and `LargeLetterTests`, whose timing flake is known, then passed six runs
+more. The release build for the iPad links.
+
+**Not covered.**
+
+- The model is a model. That an offset the script sets while a finger
+  drags is replaced at the next move is what the iPad showed; that a
+  coast does the same, a finger held still in a drag at its next move,
+  and the bounce at the top, was not seen. All are held.
+- UIKit is taken to count a finger at rest on the pane, before it has
+  moved, as tracking, and the bounce back from the top as decelerating.
+  Not seen. If it does not count the finger, one put down at the tap on
+  J1's line and held still sees A1's line go in under it, the page not
+  having heard it: no pan moves the page, so J2 stays, but the line under
+  the finger at the lift is A1's. If it does not count the bounce, the
+  page's own hearing is all there is for it, and the model has that
+  dropping J2 a line. Step 1's early finger on J1's line and its pull down
+  at the top are where they are seen.
+- The still-finger cases the iPad showed holding, after a small scroll and
+  with a drag too slow to scroll, had each become a text selection, with
+  no pan active. A finger still in the middle of a pan was not seen; it is
+  held by the pane's word for as long as it is down. On the page's own
+  hearing alone, a pause of more than the five seconds would, by the
+  model, drop J2 a line at the next move; the next touch the page hears
+  counts the fingers again.
+- A body or a picture that comes while the finger drags, into a letter
+  above the one at the top, is still kept in place by `bmKeep`'s
+  `scrollBy` at once, not held, and could move him by as much as it grew,
+  as his line did. Not seen. That is B-066's and B-074's keeping, and not
+  changed here.
+- While the stack moves after his letters went to the page, the pane
+  calls the page ten times a second, a few words each; not otherwise.
