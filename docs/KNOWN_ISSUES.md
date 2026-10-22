@@ -17334,12 +17334,23 @@ three a day. B-074 recorded it as not as Mail.
   `IMAPMailRepository.lettersOfHis`): in one hold of the connection in the
   background line, a SELECT of the folder LIST names `\Sent`, `UID SEARCH
   X-GM-THRID n` and a `UID FETCH` of the newest twenty hits' summaries
-  (`IMAPClient.search(_:across:)`), then a FETCH of their few words. After
-  the newest letter's and the unread letters' fetches have started, aside
+  (`IMAPClient.search(_:across:)`), then a FETCH of their few words. Once
+  the conversation's newest letter has come (`PaneRelated.lookUp`), aside
   from the line the letters settle in, and called off when the pane shows
-  anything else (`PaneLoads.aside`). With Sent Mail already open on the
-  connection its news is asked for first, as a listing asks, and not taken
-  from a keystroke's ten seconds, so a reply filed a moment ago is found.
+  anything else (`PaneLoads.aside`): so it never takes the connection
+  ahead of the letter he opened, and it finds the connection that letter's
+  fetch made already up. Started as the stack opened, as it was first built,
+  it read the connection as down after he had been away, while the
+  newest letter's fetch was still making it again, and gave none, so that
+  opening had none of his replies and the next had them. With Sent Mail
+  already open on the connection its news is asked for first, as a
+  listing asks, and not taken from a keystroke's ten seconds, so a reply
+  filed a moment ago is found. The few words go in a hold of their own,
+  and only while Sent Mail is still the folder open
+  (`IMAPClient.fetchPartialBodiesWhileOpen`): a letter he opened in the
+  Inbox in between has opened the Inbox, and they are not worth a SELECT
+  of his Sent Mail and the SELECT of the Inbox after it, both in the way
+  of his taps. His lines go without them then.
 - Kept: hits with Gmail's id for the letter, none also in the Inbox (from
   Sent Mail, X-GM-LABELS lists `\Inbox` for those, as for a letter he sent
   himself), none of the stack's own by Gmail's id, and none whose id is one
@@ -17352,10 +17363,18 @@ three a day. B-074 recorded it as not as Mail.
   (`ConversationDocument.stack(of:related:)`, `places`). Once the page has
   loaded, by the stack's new `bmInsert`: before the section named, or at
   the bottom, and nothing if that section is not one of the stack's; their
-  lines wired as the rest are; and the place kept at once (`bmKeep`), so
-  the letter the stack opened at stays at the top of the pane, or, once he
-  has touched it, the letter at the top stays where it is on the glass.
-  Held while the page loads and handed back as it finishes, before the
+  lines wired as the rest are; and the letter he is reading kept where it
+  is on the glass at once. When the section named begins on the glass
+  with nothing above it there but closed lines (`bmReading`), it is that
+  letter: the lines above give way upwards, by as much as his lines took,
+  and if the stack is still holding the line it opened at, the hold
+  passes to the last of his, now directly above the letter. That is the
+  usual stack: opened at the line of a letter he has read, the newest
+  under it, and his reply between them. Otherwise, an open letter above
+  the place on the glass, or the place off it, the line held, or the
+  letter at the top once he has touched the pane, stays where it is
+  (`bmKeep`), and what is below the place moves down a line. Held while
+  the page loads and handed back as it finishes, before the
   bodies; kept for a redraw after WebKit loses the page (`PaneDocument
   .insert`, `didFinish`). His letters after the newest go in at the bottom
   the same way, and not by the arrivals' `bmAppend`: `PaneDocument.append`
@@ -17364,9 +17383,22 @@ three a day. B-074 recorded it as not as Mail.
   last letter is still the one that fills the pane, whatever it is.
 - Each of his entries has the id "r" and its Sent Mail id, so its section,
   "mr…", is never one of the conversation's, "m" and a digit. The stack
-  opens where it would without them: `opensAt` counts the conversation's
-  letters alone, so the place is the same whether his letters are in the
-  first frame or go in after it.
+  opens at the letter it would open at without them, with the line
+  directly above that letter held at the top, his or theirs (`opensAt`):
+  the picture his letters going in later leave, so the first frame and a
+  late lookup look the same, the letter one line below the top. First
+  built, as designed, `opensAt` counted the conversation's letters alone,
+  so the stack opened at the line of the letter above, his reply went in
+  under that line, and the letter he was reading dropped by a line a
+  second or two after it had come.
+- What the pane holds of them is `PaneRelated`'s, out of the controller,
+  which the suite cannot build: which they are, by their entries' ids;
+  which of them a tap on a line names; what opening one fetches, the
+  letter from Sent Mail by its id and Gmail's id; the section its body
+  goes into, his own; and whether the lookup is still to start. In the
+  controller, which held it first, a pane where none of his letters could
+  be opened, or where his body went into an Inbox letter's section, passed
+  every test.
 - His line is like any line: his name as the letter gives it, its first
   words and its time. Opened, a grey line over its body, "Found in Sent
   Mail": the folder's name as the Mailboxes pane shows it, the leaf of the
@@ -17386,8 +17418,14 @@ three a day. B-074 recorded it as not as Mail.
   "Left from batch 4" is built: his load has no way to `focusLetter`.
 - The answer is remembered in memory for ten minutes (`RelatedMemo`), so a
   conversation opened again draws his letters in its first frame and sends
-  nothing. Forgotten when a letter he sends has gone, at his Refresh, and
-  when a new password is saved, as the repository is retired.
+  nothing. Forgotten when a letter he sends has gone, when the Outbox
+  finds in Sent Mail a letter whose sending it could not be sure of
+  (`sentMail(holds:)`), at his Refresh, and when a new password is saved,
+  as the repository is retired. A lookup still out when it is forgotten
+  has its answer shown and not kept (`RelatedMemo.generation`): first
+  built, an answer asked before his reply was filed, and forgotten while
+  its last FETCH was out, was kept after the forgetting and served without
+  the reply for ten minutes, in which he might have written it again.
 - Sent Mail refused, NO to its SELECT or BAD to the search: "RELATED
   refused" once in the connection log, and no conversation looks there
   again until the next launch. A lost connection is not tried again, and
@@ -17415,87 +17453,131 @@ switch is off.
 
 **What he sees.** In an Inbox conversation, his own replies among the
 letters they answer, closed to a line with his name, its first words and
-its time, a moment after the stack opens, and nothing in view above where
-he is reading moves as they go in. A reply opened says "Found in Sent Mail"
-in grey over it, and Delete, Move, Flag and Reply still act on the
-conversation's letter he opened last. Opened again within ten minutes, his
-letters are there from the first frame. In Settings, a Complete Threads
-switch under Organize by Thread. New words, held from his iPad until he
-approves them: "Complete Threads", the line under it, and "Found in Sent
-Mail" (D-019).
+its time, a moment after the newest letter has come. The letter he is
+reading stays where it is as they go in: in the usual stack his reply takes
+the place of the line at the top, and the letter under it does not move.
+Where an open letter is above the place, that letter stays, and the letter
+below the place moves down a line, as it does when a body comes. A reply
+opened says "Found in Sent Mail" in grey over it, and Delete, Move, Flag
+and Reply still act on the conversation's letter he opened last. Opened
+again within ten minutes, his letters are there from the first frame. In
+Settings, a Complete Threads switch under Organize by Thread. New words,
+held from his iPad until he approves them: "Complete Threads", the line
+under it, and "Found in Sent Mail" (D-019).
 
-**Tests.** `CompleteThreadsTests`, thirty-six. Pure: where his
-letters go, before, between and after the conversation's, by when Gmail
-took them, ties by Date, in runs that name the letter they go before;
-closed, read or not, and never among what the tap marks or the stack opens
-with; the stack opening at the same section with them as without, every way
-four letters can be read, his letters in six placings, in the document's
-head too; his sections never the conversation's; Sent Mail's hits in the
-Inbox too, or with no Gmail id, left out; the stack's own by Gmail id and by
-id left out, and the newest twenty kept; the thread id a number or nothing
-asked; the lookup only for an Inbox conversation of more than one letter,
-grouped, the switch on; the line and its "Found in" label, from the
-folder's name and escaped; what `Insert` hands `bmInsert`, and the script's
-`insertBefore`, wiring and `bmKeep`, read from it; the document holding his
-letters while the stack loads, handing them back before the bodies, keeping
-them for a redraw, and none twice; the lookup aside, holding up no letter
-opened and drawing nothing once the pane has moved on; and the memo's ten
-minutes. Over the scripted server, through the shipping repository and
-client: the lookup's commands, `SELECT "[Gmail]/Sent Mail"`, `UID SEARCH
-X-GM-THRID n` and the two FETCHes, nothing else, and his letter opened from
-Sent Mail with no STORE; a letter to himself once; no `\Sent`, nothing sent
-and never All Mail; a folder named "Sent" giving "Found in Sent"; a refused
-SELECT and a refused SEARCH, nothing found, one line in the log, no further
-lookups; a lost connection, no retry and no reconnect; a lookup called off
-after its SELECT, nothing more sent; nothing without Gmail's extension or a
-connection; the memo, nothing sent within ten minutes, the stack's own left
-out of what is remembered, and asked again after; a reply filed while Sent
-Mail is open found, its news asked for first; a send, a Refresh and a
-password saved forgetting; and the kept copy as it was, Sent Mail's kept
-page without his line's few words. The switch, on until turned off; and,
-read from the source, Settings' row and Apple's line under it, the list
-asking and never holding his letters, the pane's lookup after the loads and
-only with nothing remembered, his letters forgotten when the pane moves on,
-put in through the document, a tap on his line neither marking nor
-focusing and his body never reaching the header, nothing kept, and what
-forgets the memo. `ScriptedIMAPServer` answers `UID SEARCH X-GM-THRID`, and
-can add a folder. Changed, for the new wiring: `ConversationOrderTests`'
-pins of the pane's `show(thread:completing:)` and of the list's tap,
-`PaneDocumentTests`' reading of `didFinish`, now his letters and the
-bodies, `SafeStartTests`' view settings, `LinePressTests`' count of
-`bmWire`, now four, and `QuietSaveTests`' and `RefreshTapTests`' pins of
-Refresh's page.
+**Tests.** `CompleteThreadsTests`, forty-three. Pure: where his letters go,
+before, between and after the conversation's, by when Gmail took them, ties
+by Date, in runs that name the letter they go before; closed, read or not,
+and never among what the tap marks or the stack opens with; the stack
+opening at the same letter with them as without, the line directly above it
+held, his or theirs, every way four letters can be read, his letters in six
+placings, in the document's head too, and a letter of his opened before a
+redraw passed over; his sections never the conversation's; Sent Mail's hits
+in the Inbox too, or with no Gmail id, left out; the stack's own by Gmail
+id and by id left out, and the newest twenty kept; the thread id a number
+or nothing asked; the lookup only for an Inbox conversation of more than
+one letter, grouped, the switch on; the line and its "Found in" label, from
+the folder's name and escaped; what `Insert` hands `bmInsert`, and, read
+from the script, its `insertBefore` and wiring, `bmReading`, the letter he
+is reading kept still and the hold passed to the last of his lines; the
+document holding his letters while the stack loads, handing them back
+before the bodies, keeping them for a redraw, and none twice; the lookup
+aside, holding up no letter opened and drawing nothing once the pane has
+moved on; the memo's ten minutes, and an answer from before a forgetting
+not kept; and what the pane holds of them (`PaneRelated`), found late and
+remembered: his section tapped named his, his letter fetched from Sent Mail
+by its id and Gmail's id, its body into his own section, once, a letter of
+his under one of the stack's ids or Gmail ids left out, and the lookup due
+once, after the newest letter has come. Over the scripted server, through
+the shipping repository and client: the lookup's commands, `SELECT
+"[Gmail]/Sent Mail"`, `UID SEARCH X-GM-THRID n` and the two FETCHes,
+nothing else, and his letter opened from Sent Mail with no STORE; a letter
+to himself once; no `\Sent`, nothing sent and never All Mail; a folder
+named "Sent" giving "Found in Sent"; a refused SELECT and a refused SEARCH,
+nothing found, one line in the log, no further lookups; a lost connection,
+no retry and no reconnect; a lookup called off after its SELECT, nothing
+more sent; nothing without Gmail's extension or a connection; the memo,
+nothing sent within ten minutes, the stack's own left out of what is
+remembered, and asked again after; a reply filed while Sent Mail is open
+found, its news asked for first; a send, a Refresh and a password saved
+forgetting; the kept copy as it was, Sent Mail's kept page without his
+line's few words; a lookup out when the memo is forgotten, its answer shown
+and not kept, and the next opening finding the reply filed meanwhile; the
+Outbox finding his letter in Sent Mail forgetting, and finding none not;
+and the few words not fetched once a letter of the Inbox was opened between
+the search and them, nothing more sent. The switch, on until turned off;
+and, read from the source, Settings' row and Apple's line under it, the
+list asking and never holding his letters, the pane's lookup from the
+newest letter's settling alone, his letters forgotten when the pane moves
+on, put in through the document, a tap on his line, its fetch and its body
+through `PaneRelated`, neither marking nor focusing and his body never
+reaching the header, nothing kept, and what forgets the memo, the
+generation taken before the search. `ScriptedIMAPServer` answers `UID
+SEARCH X-GM-THRID`, and can add a folder. Changed, for the new wiring:
+`ConversationOrderTests`' pins of the pane's `show(thread:completing:)` and
+of the list's tap, `PaneDocumentTests`' reading of `didFinish`, now his
+letters and the bodies, `SafeStartTests`' view settings, `LinePressTests`'
+count of `bmWire`, now four, and `QuietSaveTests`' and `RefreshTapTests`'
+pins of Refresh's page.
 
-Each part undone in the worktree, one at a time, the new tests run: the
-lookup for any folder, 7 failures in 1 test; for single letters, with the
-switch off and for a search, 1 in 1 each; a thread id not only of digits,
-1 in 1; Sent Mail's hits in the Inbox too kept, 3 in 2; hits with no Gmail
-id kept, 1 in 1; the stack's own kept by Gmail id, 2 in 2, by id, 1 in 1;
-no cap, 2 in 1; every letter of his at the bottom, 8 in 3; no tie by Date,
-1 in 1; his letters open when unread, 1 in 1; `opensAt` counting his
-letters, 61 in 1; his ids without the "r", 23 in 6; no "Found in" line, 5
-in 2; the label written in, not the folder's name, 2 in 1; `Insert` naming
-the letter for its section, 2 in 1; `bmInsert` keeping no place, 1 in 1,
-and appending for a section not found, 1 in 1; his letters not held while
-the stack loads, 2 in 1, not handed back, 1 in 1, not kept while WebKit has
-lost the page, 1 in 1; the lookup settling in the letters' line, 3 in 1,
-and after the pane has moved on, 1 in 1; the memo never out of date, 3 in
-2, not kept, 8 in 3, not less the stack's own, 1 in 1; a send not
-forgetting, 2 in 2, a password saved, 3 in 2, his Refresh, 1 in 1; All
-Mail in place of Sent Mail, 2 in 1; a refusal not stopping the lookups, 4
-in 1; a connection made where there is none, 3 in 1; the lookup not called
-off, 1 in 1; no look for Gmail's extension, 1 in 1; the few words put on
-the kept page, 4 in 2; no few words, 4 in 4; Sent Mail's news taken from a
-keystroke's ten seconds, 2 in 1; the switch off by default, 2 in 1; a safe
-start leaving it, 2 in 2 with `SafeStartTests`; Settings without Apple's
-line, 1 in 1; the list never asking, 2 in 2 with `ConversationOrderTests`,
-and holding his letters, 1 in 1; the pane looking up with an answer
-remembered, 1 in 1, keeping his letters past an empty pane, 1 in 1, and
-never running the held ones, 1 in 1; his tap going on to the
-conversation's letters, his body taking the header, and his tap marking
+At the first build, each part undone in the worktree, one at a time, the
+thirty-six new tests run: the lookup for any folder, 7 failures in 1 test;
+for single letters, with the switch off and for a search, 1 in 1 each; a
+thread id not only of digits, 1 in 1; Sent Mail's hits in the Inbox too
+kept, 3 in 2; hits with no Gmail id kept, 1 in 1; the stack's own kept by
+Gmail id, 2 in 2, by id, 1 in 1; no cap, 2 in 1; every letter of his at the
+bottom, 8 in 3; no tie by Date, 1 in 1; his letters open when unread, 1 in
+1; `opensAt` counting his letters, 61 in 1; his ids without the "r", 23 in
+6; no "Found in" line, 5 in 2; the label written in, not the folder's name,
+2 in 1; `Insert` naming the letter for its section, 2 in 1; `bmInsert`
+keeping no place, 1 in 1, and appending for a section not found, 1 in 1;
+his letters not held while the stack loads, 2 in 1, not handed back, 1 in
+1, not kept while WebKit has lost the page, 1 in 1; the lookup settling in
+the letters' line, 3 in 1, and after the pane has moved on, 1 in 1; the
+memo never out of date, 3 in 2, not kept, 8 in 3, not less the stack's own,
+1 in 1; a send not forgetting, 2 in 2, a password saved, 3 in 2, his
+Refresh, 1 in 1; All Mail in place of Sent Mail, 2 in 1; a refusal not
+stopping the lookups, 4 in 1; a connection made where there is none, 3 in
+1; the lookup not called off, 1 in 1; no look for Gmail's extension, 1 in
+1; the few words put on the kept page, 4 in 2; no few words, 4 in 4; Sent
+Mail's news taken from a keystroke's ten seconds, 2 in 1; the switch off by
+default, 2 in 1; a safe start leaving it, 2 in 2 with `SafeStartTests`;
+Settings without Apple's line, 1 in 1; the list never asking, 2 in 2 with
+`ConversationOrderTests`, and holding his letters, 1 in 1; the pane looking
+up with an answer remembered, 1 in 1, keeping his letters past an empty
+pane, 1 in 1, and never running the held ones, 1 in 1; his tap going on to
+the conversation's letters, his body taking the header, and his tap marking
 read, 1 in 1 each. Put back, the thirty-six pass.
 
-The full suite, serially: 1,892 tests, 5 skipped, none failing. The
+Since the first build, each new part undone one at a time, the forty-three
+run with `ConversationOrderTests`: `opensAt` by the conversation's letters
+alone, as first built, 33 in 1; in `bmInsert`, the hold not passed to his
+line, the letter not kept still once touched, an open letter above the
+place not looked for, and a place off the glass taken, 1 in 1 each, read
+from the script; an answer from before a forgetting kept, 4 in 2; the
+generation taken after the search, 5 in 3; the Outbox's letter found
+forgetting nothing, 2 in 2; the few words sent whether Sent Mail is open or
+not, 3 in 2, and the client not looking at the folder open, 1 in 1; in
+`PaneRelated`, remembered letters not taken in, 2 in 1, letters found late
+not taken in, 4 in 2, the stack's ids not left out, 7 in 1, his body filled
+by the letter's id, 3 in 2, and fetched again once in its section, 1 in 1,
+the lookup due whether the newest came or not, 1 in 1, more than once, 2 in
+1, and the conversation before kept at a new one, 2 in 1; in the pane, read
+from the source, his body filled by the letter's id, 2 in 1, and the lookup
+started as the stack opens, letters found late not put in, a tap on his
+line not found and his letter fetched by the tap's section, 1 in 1 each.
+And the first build's undoings again where the code they undid has moved:
+`bmInsert` keeping no place, 1 in 1; a lookup with an answer remembered, 2
+in 1; his letters kept past an empty pane, 1 in 1; his tap going on to the
+conversation's letters, 1 in 1; his body taking the header, 2 in 1. In the
+first build, four undoings in the pane passed every test: the letters
+remembered not taken into its map, nor those found late, so that a line of
+his opened to "Loading…" for good; his body filled by the letter's id, into
+nothing, or into an Inbox letter's section under the same id; and the
+stack's ids not left out. Each fails now, as above. Put back, the
+forty-three pass.
+
+The full suite, serially: 1,899 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -17523,3 +17605,18 @@ release build for the iPad links.
   the conversation's letters alone.
 - Mail's other Threading switches, Collapse Read Messages and Most Recent
   Message on Top, are as B-074 built them.
+- Where the script keeps the letter he is reading as his lines go in is
+  read from its source by the suite, which has no page to run it in. Step
+  1 of the check is where it is seen.
+- His letter the oldest of all, found late, in a conversation that opened
+  at its own first letter, unread: it goes in above that letter, out of
+  sight, and the letter stays at the top. Remembered, in the first frame,
+  his line is at the top over it. Nothing moves either way; the two
+  pictures differ by that line.
+- An open letter above the place his line goes in, on the glass, as with
+  two unread letters opened together and the first of them short: that
+  letter stays, and the one below the place drops by a line. Which of the
+  two he is reading is not known; the one above is the one the stack
+  opened at.
+- His lines' few words, when he opened a letter of the Inbox while the
+  search was out: left off for the ten minutes the answer is remembered.

@@ -118,13 +118,18 @@ struct RelatedLetters: Equatable {
 /// the repository's actor, so a conversation opened again draws his letters
 /// in its first frame; locked, since the actor writes it.
 ///
-/// Forgotten whole when a letter he sends has gone, at a Refresh and when
-/// a new password is saved, so a reply just sent is looked for again.
+/// Forgotten whole when a letter he sends has gone, when the Outbox finds
+/// in Sent Mail a letter whose sending it could not be sure of, at a
+/// Refresh and when a new password is saved, so a reply just sent is looked
+/// for again. A lookup still out when it is forgotten has its answer shown,
+/// and not kept (`generation`): asked before the reply was there, it would
+/// otherwise be served without it for ten minutes.
 final class RelatedMemo: @unchecked Sendable {
 
     private let lock = NSLock()
     private let now: @Sendable () -> Date
     private var threads: [UInt64: (found: RelatedLetters, at: Date)] = [:]
+    private var forgotten = 0
 
     init(now: @escaping @Sendable () -> Date = { Date() }) {
         self.now = now
@@ -142,11 +147,22 @@ final class RelatedMemo: @unchecked Sendable {
         return kept.found
     }
 
-    /// What was found for `thread`, now. Answers past their time go as
-    /// another comes in, so the memo never holds more than ten minutes'.
-    func keep(_ found: RelatedLetters, inThread thread: UInt64) {
+    /// How many times the memo has been forgotten. A lookup takes it before
+    /// it asks Sent Mail, and hands it to `keep` with what it found.
+    var generation: Int {
         lock.lock()
         defer { lock.unlock() }
+        return forgotten
+    }
+
+    /// What was found for `thread`, now, by a lookup that took `generation`
+    /// before it asked; nothing kept if the memo has been forgotten since.
+    /// Answers past their time go as another comes in, so the memo never
+    /// holds more than ten minutes'.
+    func keep(_ found: RelatedLetters, inThread thread: UInt64, asOf generation: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard generation == forgotten else { return }
         let at = now()
         var kept = threads.filter { _, entry in
             let age = at.timeIntervalSince(entry.at)
@@ -159,6 +175,7 @@ final class RelatedMemo: @unchecked Sendable {
     func forget() {
         lock.lock()
         defer { lock.unlock() }
+        forgotten &+= 1
         threads = [:]
     }
 }

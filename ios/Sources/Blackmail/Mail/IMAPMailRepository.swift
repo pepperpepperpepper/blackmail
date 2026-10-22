@@ -1533,8 +1533,12 @@ actor IMAPMailRepository: MailRepository {
     /// kept nowhere. `previews` keeps them on the folder's page kept on the
     /// iPad; his letters of a conversation found in Sent Mail are kept
     /// nowhere (`lettersOfHis`).
-    private func previewTexts(for ids: [String], in name: String,
-                              client: IMAPClient) async throws -> [String: String] {
+    ///
+    /// `whileOpen`: only while `name` is the folder the connection has open,
+    /// and none, with nothing sent, from the moment it is not
+    /// (`IMAPClient.fetchPartialBodiesWhileOpen`).
+    private func previewTexts(for ids: [String], in name: String, client: IMAPClient,
+                              whileOpen: Bool = false) async throws -> [String: String] {
         let known = await client.lastReport(for: name)?.uidValidity
 
         struct Request: Hashable {
@@ -1564,9 +1568,17 @@ actor IMAPMailRepository: MailRepository {
 
         var out: [String: String] = [:]
         for (request, uids) in grouped {
-            let bodies = try await client.fetchPartialBodies(
-                uids: uids, section: request.section, byteCount: request.byteCount,
-                in: name, validity: request.validity)
+            let bodies: [UInt32: Data]
+            if whileOpen {
+                guard let open = try await client.fetchPartialBodiesWhileOpen(
+                    uids: uids, section: request.section, byteCount: request.byteCount,
+                    in: name, validity: request.validity) else { break }
+                bodies = open
+            } else {
+                bodies = try await client.fetchPartialBodies(
+                    uids: uids, section: request.section, byteCount: request.byteCount,
+                    in: name, validity: request.validity)
+            }
             for (uid, raw) in bodies {
                 let id = Self.makeID(validity: request.validity, uid: uid)
                 guard let part = parts[id] else { continue }
@@ -2147,6 +2159,11 @@ actor IMAPMailRepository: MailRepository {
                     found.insert(id)
                 }
             }
+            // A letter the Outbox could not be sure had gone, found there,
+            // may be his reply in a conversation looked up already: his
+            // letters of every conversation are looked for afresh, as after
+            // a send (B-104).
+            if !found.isEmpty { self.hisLetters.forget() }
             return found
         }
     }
@@ -2187,9 +2204,19 @@ actor IMAPMailRepository: MailRepository {
     /// been, with nothing said to him.
     ///
     /// The answer is remembered for `CompleteThreads.remembered`
-    /// (`hisLetters`), so a conversation opened again sends nothing.
+    /// (`hisLetters`), so a conversation opened again sends nothing; but not
+    /// if the memo was forgotten while the lookup was out, as a letter he
+    /// sent landing forgets it: that answer may be from before his reply was
+    /// in Sent Mail.
+    ///
+    /// The few words of his lines are fetched in a hold of their own after
+    /// the search, and only while Sent Mail is still the folder open on the
+    /// connection: a letter he opened in the Inbox meanwhile has opened the
+    /// Inbox, and they are not worth opening his Sent Mail again for, and
+    /// then the Inbox after them. His lines go without them then.
     func lettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) async -> RelatedLetters {
         if let known = rememberedLettersOfHis(inThread: thread, besides: besides) { return known }
+        let asOf = hisLetters.generation
         guard !retired, !lettersOfHisRefused, let listed,
               let sent = roleNames[.sent],
               let folder = Self.mailboxes(from: listed, unread: [:]).first(where: { $0.id == sent }),
@@ -2213,7 +2240,8 @@ actor IMAPMailRepository: MailRepository {
             if !letters.isEmpty {
                 let previews: [String: String]
                 do {
-                    previews = try await previewTexts(for: letters.map(\.id), in: sent, client: client)
+                    previews = try await previewTexts(for: letters.map(\.id), in: sent, client: client,
+                                                      whileOpen: true)
                 } catch {
                     // Refused on a connection still up: the lines go without
                     // their few words. Lost or called off: none.
@@ -2228,7 +2256,7 @@ actor IMAPMailRepository: MailRepository {
             }
             guard !Task.isCancelled else { return .none }
             let found = RelatedLetters(folderName: folder.displayName, letters: letters)
-            hisLetters.keep(found, inThread: thread)
+            hisLetters.keep(found, inThread: thread, asOf: asOf)
             return Self.shown(found, besides: besides)
         } catch {
             return .none

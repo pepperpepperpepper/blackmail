@@ -411,7 +411,7 @@ final class ConversationOrderTests: XCTestCase {
     func testThePaneDrawsTheStackInMailsOrder() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         let show = try section(of: code, from: "func show(thread: MessageThread, completing: UInt64?) {",
-                               to: "private func apartFromTheStack(")
+                               to: "private func lookForHis(")
         for wiring in [
             "stackLetters = thread.messages.reversed()",
             "let entries = ConversationDocument.stack(of: thread, related: remembered)",
@@ -419,7 +419,7 @@ final class ConversationOrderTests: XCTestCase {
             "self?.settleBody(result, for: newest.id, focus: true)",
             "}) for letter in ConversationDocument.openedWithTheNewest(thread) { "
                 + "loadBody(for: letter.id, focus: false) var read = letter read.isRead = true "
-                + "threadSummaries[letter.id] = read } if let completing, remembered == nil {",
+                + "threadSummaries[letter.id] = read } }",
         ] {
             XCTAssertTrue(show.contains(wiring), wiring)
         }

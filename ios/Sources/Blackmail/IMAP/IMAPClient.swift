@@ -1241,6 +1241,35 @@ actor IMAPClient {
         return out
     }
 
+    /// `fetchPartialBodies`, sent only while `mailbox` is the one the
+    /// connection has open, under `validity`: nil, with nothing sent, when
+    /// it has another open in its place, as a letter opened meanwhile leaves
+    /// it, or none, as a connection made again does. For the few words of his lines from Sent Mail in
+    /// a conversation (B-104), which come in a hold of their own after the
+    /// search that found them, and are worth a FETCH but not a SELECT of his
+    /// Sent Mail and the SELECT back that the Inbox's next command would
+    /// then need. Checked in the same hold as the FETCH, so nothing can open
+    /// another folder between the two.
+    func fetchPartialBodiesWhileOpen(uids: [UInt32], section: String, byteCount: Int,
+                                     in mailbox: String, validity: UInt32) async throws -> [UInt32: Data]? {
+        guard !uids.isEmpty, byteCount > 0 else { return [:] }
+        let path = Self.sanitizedSection(section)
+        try await beginExchange(.background)
+        defer { endExchange() }
+        guard selectedMailbox == mailbox, mailboxState?.uidValidity == validity else { return nil }
+        var out: [UInt32: Data] = [:]
+        for chunk in Self.uidSetChunks(uids) {
+            let result = try await performCommand(
+                "UID FETCH \(chunk) (UID BODY.PEEK[\(path)]<0.\(byteCount)>)")
+            guard result.status == .ok else { continue }
+            for fetched in IMAPParser.parseFetch(result.untagged) {
+                guard let uid = fetched.uid, let body = fetched.body else { continue }
+                out[uid] = body
+            }
+        }
+        return out
+    }
+
     /// In the interactive line: its caller is the letter he opened.
     func fetchBody(uid: UInt32, section: String?, in mailbox: String,
                    validity: UInt32) async throws -> Data {

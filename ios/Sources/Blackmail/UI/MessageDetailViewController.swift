@@ -53,15 +53,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// conversation is matched against for letters to put at the bottom
     /// (`takeArrivals`). Empty when the pane shows no conversation.
     private var stackLetters: [MessageSummary] = []
-    /// His own letters from Sent Mail in the conversation on screen, by
-    /// their entries' ids, "r" and the letter's id (B-104). Apart from
-    /// everything above on purpose: none of them is ever in
-    /// `threadSummaries`, `stackLetters` or `loaded`, or the letter the
-    /// header, the toolbar or the list's read marks act on. Read only; the
-    /// pane holds them while it shows the conversation, and no longer.
-    private var related: [String: MessageSummary] = [:]
-    /// Those of them whose bodies have come and are in their sections.
-    private var relatedCame: Set<String> = []
+    /// His own letters from Sent Mail in the conversation on screen
+    /// (B-104). Apart from everything above on purpose: none of them is
+    /// ever in `threadSummaries`, `stackLetters` or `loaded`, or the letter
+    /// the header, the toolbar or the list's read marks act on. Read only;
+    /// the pane holds them while it shows the conversation, and no longer.
+    private var related = PaneRelated()
     /// The file QuickLook is currently showing. Held because
     /// `QLPreviewController.dataSource` is a WEAK reference and asks for its
     /// item after presentation, by which point a local would be gone.
@@ -239,8 +236,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loaded = [:]
         threadSummaries = [:]
         stackLetters = []
-        related = [:]
-        relatedCame = []
+        related.clear()
         focused = nil
         title = ""
         header.isHidden = true
@@ -287,8 +283,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loaded = [:]
         threadSummaries = [:]
         stackLetters = []
-        related = [:]
-        relatedCame = []
+        related.clear()
         focused = nil
         placeholder.isHidden = true
         header.isHidden = false
@@ -371,7 +366,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// letters of it are to be brought in from Sent Mail, as Mail's
     /// Complete Threads brings them (B-104), nil otherwise: the list's to
     /// say (`CompleteThreads.thread(toComplete:)`). They go in closed, by
-    /// date, and the stack opens where it would have without them.
+    /// date, and the letter the stack opens at is the one it would have
+    /// opened at without them, one line below the top of the pane.
     func show(thread: MessageThread, completing: UInt64?) {
         summary = thread.newest
         message = nil
@@ -380,8 +376,6 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         threadSummaries = Dictionary(uniqueKeysWithValues:
             thread.messages.map { ($0.id, $0) })
         stackLetters = thread.messages.reversed()
-        related = [:]
-        relatedCame = []
 
         placeholder.isHidden = true
         header.isHidden = false
@@ -389,17 +383,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         setActionsEnabled(true)
 
         // His letters of it, in the first frame when the repository found
-        // them in the last ten minutes; otherwise looked for below, once
-        // the letters' own loads have started.
+        // them in the last ten minutes; otherwise looked for once the
+        // newest letter has come, below.
         let besides = Set(thread.messages.compactMap(\.gmailMessageID))
-        var remembered: RelatedLetters?
-        if let completing,
-           let found = repository.rememberedLettersOfHis(inThread: completing, besides: besides) {
-            remembered = apartFromTheStack(found)
-        }
-        for letter in remembered?.letters ?? [] {
-            related[ConversationDocument.relatedID(of: letter)] = letter
-        }
+        let remembered = related.show(stackLetters, completing: completing, remembered: completing.flatMap {
+            self.repository.rememberedLettersOfHis(inThread: $0, besides: besides)
+        })
 
         // The oldest at the top, the newest at the bottom, open, with the
         // ones he has not read; the rest closed. His letters among them,
@@ -437,6 +426,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             prepare: { m in (m, PanePage.stackBody(m)) },
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
+                self?.lookForHis(afterTheNewestCame: (try? result.get()) != nil, besides: besides)
             })
 
         // The unread letters open with it, as Mail opens them: each fetched
@@ -451,74 +441,60 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             read.isRead = true
             threadSummaries[letter.id] = read
         }
-
-        // His letters looked for in Sent Mail after those, in the
-        // background, and put in as they come; called off if the pane
-        // moves on first (`PaneLoads.aside`).
-        if let completing, remembered == nil {
-            loads.aside({ await repository.lettersOfHis(inThread: completing, besides: besides) },
-                        settle: { [weak self] found in self?.takeRelated(found) })
-        }
     }
 
-    /// His letters found in Sent Mail, less any that are letters of the
-    /// stack, by Gmail's id or by id (`CompleteThreads.shown`).
-    private func apartFromTheStack(_ found: RelatedLetters) -> RelatedLetters {
-        RelatedLetters(folderName: found.folderName,
-                       letters: CompleteThreads.shown(
-                           found.letters, besides: Set(stackLetters.compactMap(\.gmailMessageID)),
-                           apartFrom: Set(stackLetters.map(\.id))))
+    /// His letters looked for in Sent Mail once the newest letter of the
+    /// conversation has come, if they are to be and nothing was remembered
+    /// (`PaneRelated.lookUp`), in the background, and put in as they come;
+    /// called off if the pane moves on first (`PaneLoads.aside`).
+    private func lookForHis(afterTheNewestCame came: Bool, besides: Set<UInt64>) {
+        guard let thread = related.lookUp(afterTheNewestCame: came) else { return }
+        let repository = self.repository
+        loads.aside({ await repository.lettersOfHis(inThread: thread, besides: besides) },
+                    settle: { [weak self] found in self?.takeRelated(found) })
     }
 
     /// His letters of the conversation on screen have come from Sent Mail
     /// (B-104): each goes into the stack closed, before the first letter
-    /// of it that came after it, or at the bottom, and nothing above him
-    /// moves (`ConversationDocument.Insert`). Nothing else changes: the
-    /// header, the toolbar and the list stay on the conversation's letters.
+    /// of it that came after it, or at the bottom, and the letter he is
+    /// reading stays where it is (`ConversationDocument.Insert`). Nothing
+    /// else changes: the header, the toolbar and the list stay on the
+    /// conversation's letters.
     private func takeRelated(_ found: RelatedLetters) {
-        guard !stackLetters.isEmpty else { return }
-        let his = apartFromTheStack(found)
-        for place in ConversationDocument.places(of: his.letters, among: stackLetters) {
-            for letter in place.letters {
-                related[ConversationDocument.relatedID(of: letter)] = letter
-            }
-            let entries = place.letters.map {
-                ConversationDocument.entry(forHis: $0, foundIn: his.folderName)
-            }
-            guard let insert = document.insert(entries, before: place.before) else { continue }
+        for place in related.take(found, stack: stackLetters) {
+            guard let insert = document.insert(place.entries, before: place.before) else { continue }
             run(insert)
         }
     }
 
     /// Fetches his letter from Sent Mail, opened by its line, and puts it in
     /// its section (B-104), from that folder, by its id and Gmail's id for
-    /// it, which the fetch checks (D-016). Only that: the header and the
-    /// toolbar stay on the conversation's letter he opened last, whenever
-    /// the header follows a letter he opens, and nothing is marked read.
-    /// Called off with the rest if the pane moves on first.
+    /// it, which the fetch checks (D-016) (`PaneRelated.load`). Only that:
+    /// the header and the toolbar stay on the conversation's letter he
+    /// opened last, whenever the header follows a letter he opens, and
+    /// nothing is marked read. Called off with the rest if the pane moves
+    /// on first.
     private func loadRelated(_ entryID: String) {
-        guard let letter = related[entryID], !relatedCame.contains(entryID) else { return }
+        guard let load = related.load(for: entryID) else { return }
         let repository = self.repository
-        loads.start({ try await repository.loadMessage(id: letter.id,
-                                                       gmailMessageID: letter.gmailMessageID,
-                                                       mailboxID: letter.mailboxID) },
+        loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID,
+                                                       mailboxID: load.mailboxID) },
                     prepare: { m in (m, PanePage.stackBody(m)) },
-                    settle: { [weak self] result in self?.settleRelated(result, for: entryID) })
+                    settle: { [weak self] result in self?.settleRelated(result, for: load) })
     }
 
-    /// His letter's body in its section, with the loader pointed at its
+    /// His letter's body in its own section, with the loader pointed at its
     /// pictures; or the words a letter of the conversation says when it
     /// could not be downloaded. Nothing kept of the letter but its body in
     /// the stack.
     private func settleRelated(_ result: Result<(Message, ConversationDocument.Entry.Rendered), Error>,
-                               for entryID: String) {
+                               for load: PaneRelated.Load) {
         switch result {
         case .success(let (m, body)):
-            relatedCame.insert(entryID)
             prepareInlineImages(for: [m])
-            fill(entryID, body)
+            fill(related.bodyCame(for: load), body)
         case .failure:
-            fill(entryID, Self.couldNotDownload)
+            fill(load.entryID, Self.couldNotDownload)
         }
     }
 
@@ -664,7 +640,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // so, and its body fetched, and nothing else. Not marked read, and
         // not focused: the header and the toolbar stay on the conversation's
         // letter, so Delete, Move, Flag and Reply never act on it.
-        if let his = related.keys.first(where: { ConversationDocument.sectionID(for: $0) == sectionID }) {
+        if let his = related.entryID(forSection: sectionID) {
             document.setOpen(opened, his)
             if opened { loadRelated(his) }
             return

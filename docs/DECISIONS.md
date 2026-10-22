@@ -1115,6 +1115,14 @@ ten minutes.
   a conversation has its own buttons. Here the pane has one toolbar, and a
   Delete that took his letter out of Sent Mail from an Inbox conversation
   is a letter lost from where he would look for it.
+- *The letter he is reading does not move.* The stack opens at the
+  letter it would open at without his letters, with the line directly
+  above it at the top, his or theirs, and his letters going in later
+  leave that same picture: between the line held at the top and the open
+  letter under it, his line takes the held line's place, and the letter
+  stays where it is on the glass. Counting the conversation's letters
+  alone for where it opens, as first designed, his reply went in under
+  the line held and the letter he was reading dropped by a line.
 - *Never kept.* His letters live in the pane while it shows the
   conversation and in the repository's memory for ten minutes, and nowhere
   else: not the copy kept on the iPad (D-016), not Local Drafts, and their
@@ -1134,7 +1142,9 @@ Mail's factory default, which the owner's ruling follows.
 
 **The cost.** A lookup for each Inbox conversation opened that was not
 opened in the last ten minutes: a SELECT of Sent Mail, a SEARCH, a FETCH of
-up to twenty summaries and one of their few words, in the background line.
+up to twenty summaries and one of their few words, in the background line,
+once the newest letter has come; the few words only while Sent Mail is
+still open, never for a SELECT of it again.
 A letter he taps meanwhile waits for that hold, and how long Gmail takes to
 open his Sent Mail is not known (PERFORMANCE.md, "What would change most",
 4). New words on screen, held from his iPad until he approves them:

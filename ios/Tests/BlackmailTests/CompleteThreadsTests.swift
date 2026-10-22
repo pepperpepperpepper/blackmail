@@ -101,7 +101,7 @@ final class CompleteThreadsTests: XCTestCase {
 
         // None found, or none asked: the stack as before.
         XCTAssertEqual(ConversationDocument.stack(of: t, related: nil), ConversationDocument.stack(of: t))
-        XCTAssertEqual(ConversationDocument.stack(of: t, related: .none), ConversationDocument.stack(of: t))
+        XCTAssertEqual(ConversationDocument.stack(of: t, related: RelatedLetters.none), ConversationDocument.stack(of: t))
     }
 
     /// By when Gmail took it, not by its Date; where Gmail took two in the
@@ -149,27 +149,65 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertFalse(ConversationDocument.readAtTheTap(t).contains { $0.mailboxID == Server.sent })
     }
 
-    /// The stack opens at the same section with his letters as without,
-    /// wherever they go and whatever he has read: every way four letters
-    /// can be read or not, with his letters before, between and after.
-    func testTheStackOpensAtTheSamePlaceWithAndWithoutHisLetters() throws {
+    /// The stack opens at the same letter with his letters as without, one
+    /// line below the top whenever there is a line above it: the line held
+    /// at the top is the one directly above it, his or theirs. Every way
+    /// four letters can be read or not, with his letters before, between
+    /// and after; in the document's head too. That is the picture his
+    /// letters going in later leave (`bmInsert`), so the first frame and a
+    /// late lookup look the same.
+    func testTheStackOpensOneLineAboveTheSameLetterWithAndWithoutHisLetters() throws {
         let placements: [[MessageSummary]] = [
             [his(1)], [his(4)], [his(6)], [his(8)], [his(1), his(4), his(6), his(8)],
             [his(2), his(4), his(4, gmail: 1, id: "6/40")],
         ]
+        func at(_ entries: [ConversationDocument.Entry]) throws -> Int {
+            try XCTUnwrap(entries.firstIndex { $0.isExpanded })
+        }
         for mask in 0..<16 {
             let letters = [7, 5, 3, 2].enumerated().map { i, n in inbox(n, read: mask & (1 << i) == 0) }
             let t = MessageThread(messages: letters)
-            let without = try XCTUnwrap(ConversationDocument.opensAt(ConversationDocument.stack(of: t)))
+            let without = ConversationDocument.stack(of: t)
+            let first = try at(without)
             for mine in placements {
                 let with = ConversationDocument.stack(of: t, related: RelatedLetters(folderName: "Sent Mail",
                                                                                      letters: mine))
-                XCTAssertEqual(ConversationDocument.opensAt(with), without, "mask \(mask), \(mine.map(\.id))")
+                let open = try at(with)
+                let name = "mask \(mask), \(mine.map(\.id))"
+                XCTAssertEqual(with[open].id, without[first].id, "the same letter: \(name)")
+                XCTAssertNil(with[open].foundIn, name)
+                let line = open > 0 ? with[open - 1].id : with[open].id
+                let opens = try XCTUnwrap(ConversationDocument.opensAt(with))
+                XCTAssertEqual(opens, ConversationDocument.sectionID(for: line), name)
+                // A line above it without his letters, a line above it with them.
+                if first > 0 { XCTAssertGreaterThan(open, 0, name) }
                 let html = ConversationDocument.html(entries: with, inset: 20, bodyPointSize: 17,
                                                      lineHeight: 1.4)
-                XCTAssertTrue(html.contains("<meta name=\"bm-opens\" content=\"\(without)\">"))
+                XCTAssertTrue(html.contains("<meta name=\"bm-opens\" content=\"\(opens)\">"), name)
             }
         }
+
+        // The commonest: his reply between a letter read and the newest.
+        let common = ConversationDocument.stack(of: thread(inbox(5), inbox(3)), related: found(his(4)))
+        XCTAssertEqual(ConversationDocument.opensAt(common), "mr6_4")
+        XCTAssertEqual(ConversationDocument.opensAt(ConversationDocument.stack(of: thread(inbox(5), inbox(3)))),
+                       "m1_3")
+        // His letter the oldest, above the oldest letter he has not read.
+        let first = ConversationDocument.stack(of: thread(inbox(5, read: false), inbox(3, read: false)),
+                                               related: found(his(1)))
+        XCTAssertEqual(ConversationDocument.opensAt(first), "mr6_1")
+
+        // Drawn again after WebKit lost the page with a letter of his open:
+        // at the conversation's first open letter still, his passed over,
+        // and at that letter itself when what is directly above it is his,
+        // open, and no line.
+        var above = ConversationDocument.stack(of: thread(inbox(5), inbox(3)), related: found(his(1)))
+        above[0].isExpanded = true
+        XCTAssertEqual(ConversationDocument.opensAt(above), "m1_3")
+        var opened = common
+        opened[1].isExpanded = true
+        XCTAssertEqual(ConversationDocument.opensAt(opened), "m1_5")
+
         // And a stack of his letters alone opens nowhere.
         XCTAssertNil(ConversationDocument.opensAt([ConversationDocument.entry(forHis: his(1),
                                                                               foundIn: "Sent Mail")]))
@@ -317,20 +355,35 @@ final class CompleteThreadsTests: XCTestCase {
     /// The script puts them in before the section named, one of the
     /// stack's own, or at the bottom for none, and nothing if the section
     /// named is not one of the stack's; wires their lines as the rest are;
-    /// and keeps the place at once, so the letter the stack opened at, or
-    /// the one at the top of the pane once he has touched it, does not move.
-    func testTheScriptPutsThemInBeforeTheSectionAndKeepsThePlaceAtOnce() {
+    /// and keeps the letter he is reading where it is. That is the section
+    /// named when it begins on the glass with nothing above it there but
+    /// closed lines: read before they go in, the page scrolled by as much as
+    /// it moved, or, while the stack holds the line it opened at, the hold
+    /// passed to the last of his, now directly above it. Otherwise the place
+    /// is kept as it always is, the line held or the letter at the top.
+    func testTheScriptKeepsTheLetterHeIsReadingWhereItIs() {
         let script = flat(ConversationDocument.script)
         XCTAssertTrue(script.contains(
             "function bmInsert(html, beforeID) { var at = null; if (beforeID) { "
                 + "var letters = document.querySelectorAll('body > .bm-letter'); "
                 + "for (var i = 0; i < letters.length; i++) { "
                 + "if (letters[i].id === beforeID) { at = letters[i]; break; } } if (!at) return; } "
+                + "var still = bmReading(at) ? at.getBoundingClientRect().top : null; "
                 + "var holder = document.createElement('div'); holder.innerHTML = html; "
-                + "while (holder.firstElementChild) { "
-                + "var section = document.body.insertBefore(holder.firstElementChild, at); "
-                + "var head = section.querySelector('.bm-head'); if (head) bmWire(head); } "
+                + "var last = null; while (holder.firstElementChild) { "
+                + "last = document.body.insertBefore(holder.firstElementChild, at); "
+                + "var head = last.querySelector('.bm-head'); if (head) bmWire(head); } "
+                + "if (still !== null && last) { if (bmOpening) { bmOpening = last; } else { "
+                + "var moved = at.getBoundingClientRect().top - still; "
+                + "if (moved !== 0) window.scrollBy(0, moved); bmTake(); } } "
                 + "bmKeep(); }"), script)
+        XCTAssertTrue(script.contains(
+            "function bmReading(at) { if (!at) return false; "
+                + "var top = at.getBoundingClientRect().top; "
+                + "if (!(top > 0 && top < window.innerHeight)) return false; "
+                + "for (var s = at.previousElementSibling; s; s = s.previousElementSibling) { "
+                + "if (s.getBoundingClientRect().bottom <= 0) break; "
+                + "if (s.classList.contains('bm-open')) return false; } return true; }"), script)
     }
 
     /// Kept in the stack, so a redraw has them and their bodies a section to
@@ -413,13 +466,142 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertEqual(loads.inFlight, 0)
     }
 
+    // MARK: - His letters in the pane
+
+    /// Found once the stack has drawn: his letters less the stack's own go
+    /// in, in runs, through the document. A tap on his line is his
+    /// letter's, and no letter of the conversation's; opening it fetches
+    /// that letter from Sent Mail by its id and Gmail's id for it; and its
+    /// body goes into his own section, "mr…", once, not to be fetched again.
+    func testHisLetterFoundLateOpensFromSentMailIntoItsOwnSection() throws {
+        final class Navigation {}
+        let navigation = Navigation()
+        let t = thread(inbox(5), inbox(3))
+        let stack = Array(t.messages.reversed())
+        var related = PaneRelated()
+        XCTAssertNil(related.show(stack, completing: 42, remembered: nil), "nothing in the first frame")
+        XCTAssertNil(related.entryID(forSection: "mr6_4"))
+        var document = PaneDocument()
+        document.loaded(.conversation(ConversationDocument.stack(of: t)), navigation: ObjectIdentifier(navigation))
+        _ = document.didFinish(ObjectIdentifier(navigation))
+
+        let runs = related.take(found(his(4), his(6)), stack: stack)
+        XCTAssertEqual(runs.map { $0.entries.map(\.id) }, [["r6/4"], ["r6/6"]])
+        XCTAssertEqual(runs.map(\.before), ["1/5", nil])
+        XCTAssertEqual(runs.flatMap { $0.entries.map(\.foundIn) }, ["Sent Mail", "Sent Mail"])
+        for run in runs { XCTAssertNotNil(document.insert(run.entries, before: run.before)) }
+
+        XCTAssertEqual(related.entryID(forSection: "mr6_4"), "r6/4")
+        XCTAssertEqual(related.entryID(forSection: "mr6_6"), "r6/6")
+        XCTAssertNil(related.entryID(forSection: "m1_5"), "a letter of the conversation's")
+        XCTAssertNil(related.entryID(forSection: "m6_4"))
+
+        let load = try XCTUnwrap(related.load(for: "r6/4"))
+        XCTAssertEqual(load, PaneRelated.Load(entryID: "r6/4", id: "6/4", gmailMessageID: 8_004,
+                                              mailboxID: Server.sent))
+        XCTAssertNil(related.load(for: "1/5"), "a letter of the conversation's")
+        XCTAssertNil(related.load(for: "6/4"), "by its entry, not its id")
+
+        let into = related.bodyCame(for: load)
+        XCTAssertEqual(into, "r6/4")
+        let body = ConversationDocument.Entry.Rendered(html: "Yes, Tuesday.", isHTML: false)
+        XCTAssertEqual(document.fill(into, with: body)?.sectionID, "mr6_4")
+        XCTAssertNil(related.load(for: "r6/4"), "in its section, not fetched again")
+        XCTAssertNotNil(related.load(for: "r6/6"))
+
+        related.clear()
+        XCTAssertNil(related.entryID(forSection: "mr6_6"), "the pane moved on")
+        XCTAssertNil(related.load(for: "r6/6"))
+    }
+
+    /// Remembered from the last ten minutes: in the first frame, less the
+    /// stack's own, nothing looked up, and opened the same way. Remembered as
+    /// none: the stack as before and nothing looked up. Not to be completed:
+    /// nothing, whatever is remembered.
+    func testHisLettersRememberedAreInTheFirstFrameAndOpenTheSameWay() throws {
+        let t = thread(inbox(5), inbox(3))
+        let stack = Array(t.messages.reversed())
+        var related = PaneRelated()
+        let first = try XCTUnwrap(related.show(stack, completing: 42,
+                                               remembered: found(his(4), his(5, gmail: 9_005))))
+        XCTAssertEqual(first, found(his(4)))
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true), "nothing to look up")
+        let entries = ConversationDocument.stack(of: t, related: first)
+        XCTAssertEqual(ids(entries), ["1/3", "r6/4", "1/5"])
+        XCTAssertEqual(related.entryID(forSection: "mr6_4"), "r6/4")
+        let load = try XCTUnwrap(related.load(for: "r6/4"))
+        XCTAssertEqual(load, PaneRelated.Load(entryID: "r6/4", id: "6/4", gmailMessageID: 8_004,
+                                              mailboxID: Server.sent))
+        var document = PaneDocument()
+        document.loaded(.conversation(entries), navigation: nil)
+        let body = ConversationDocument.Entry.Rendered(html: "Yes, Tuesday.", isHTML: false)
+        XCTAssertEqual(document.fill(related.bodyCame(for: load), with: body)?.sectionID, "mr6_4")
+
+        XCTAssertEqual(related.show(stack, completing: 42, remembered: RelatedLetters.none), RelatedLetters.none)
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true))
+        XCTAssertNil(related.entryID(forSection: "mr6_4"), "the conversation before forgotten")
+        XCTAssertNil(related.show(stack, completing: nil, remembered: found(his(4))))
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true))
+        XCTAssertNil(related.entryID(forSection: "mr6_4"))
+    }
+
+    /// A letter of his under the id of one of the stack's, the two folders
+    /// numbered alike, or with the Gmail id of one of them, is left out,
+    /// remembered or found late: none of it is shown or can be opened. And
+    /// with no stack, nothing goes in.
+    func testALetterOfHisUnderAnIDOfTheStacksIsLeftOut() {
+        let twin = MessageSummary(id: "6/4", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
+                                  subject: "Re: the roof", preview: "the twin",
+                                  date: Self.base.addingTimeInterval(4 * 60 + 30), isRead: true,
+                                  isFlagged: false, threadID: "1700000000000000042",
+                                  gmailMessageID: 9_104, arrived: Self.base.addingTimeInterval(4 * 60 + 30))
+        let t = thread(inbox(5), twin, inbox(3))
+        let stack = Array(t.messages.reversed())
+        let mine = found(his(4), his(2), his(6, gmail: 9_005))
+
+        var remembered = PaneRelated()
+        XCTAssertEqual(remembered.show(stack, completing: 42, remembered: mine)?.letters.map(\.id), ["6/2"])
+        XCTAssertNil(remembered.entryID(forSection: "mr6_4"))
+        XCTAssertNil(remembered.load(for: "r6/4"))
+        XCTAssertNil(remembered.load(for: "r6/6"))
+
+        var late = PaneRelated()
+        _ = late.show(stack, completing: 42, remembered: nil)
+        XCTAssertEqual(late.take(mine, stack: stack).flatMap { $0.entries.map(\.id) }, ["r6/2"])
+        XCTAssertNil(late.entryID(forSection: "mr6_4"))
+        XCTAssertNil(late.load(for: "r6/4"))
+        XCTAssertNotNil(late.load(for: "r6/2"))
+        XCTAssertEqual(PaneRelated.apart(mine, from: stack).letters.map(\.id), ["6/2"])
+        XCTAssertEqual(late.take(found(his(1)), stack: []).count, 0, "no stack")
+    }
+
+    /// The lookup is due once the conversation's newest letter has come, and
+    /// once: not if it could not be downloaded, not after the pane has moved
+    /// on, and never for a conversation not to be completed.
+    func testTheLookupStartsOnceTheNewestLetterHasCome() {
+        let stack = [inbox(3), inbox(5)]
+        var related = PaneRelated()
+        _ = related.show(stack, completing: 42, remembered: nil)
+        XCTAssertEqual(related.lookUp(afterTheNewestCame: true), 42)
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true), "once")
+        _ = related.show(stack, completing: 42, remembered: nil)
+        XCTAssertNil(related.lookUp(afterTheNewestCame: false), "the newest not downloaded")
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true))
+        _ = related.show(stack, completing: 42, remembered: nil)
+        related.clear()
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true), "the pane moved on")
+        _ = related.show(stack, completing: nil, remembered: nil)
+        XCTAssertNil(related.lookUp(afterTheNewestCame: true), "not to be completed")
+    }
+
     // MARK: - The memo
 
     /// Remembered for ten minutes, not a moment after, and not for a clock
-    /// set back; forgotten whole.
+    /// set back; forgotten whole; and an answer asked before it was
+    /// forgotten never kept after.
     func testTheMemoLastsTenMinutes() {
         let memo = RelatedMemo(now: { [clock] in clock!.now() })
-        memo.keep(found(his(1)), inThread: 7)
+        memo.keep(found(his(1)), inThread: 7, asOf: memo.generation)
         XCTAssertEqual(memo.letters(inThread: 7), found(his(1)))
         XCTAssertNil(memo.letters(inThread: 8))
         clock.advance(by: 599)
@@ -427,16 +609,24 @@ final class CompleteThreadsTests: XCTestCase {
         clock.advance(by: 1)
         XCTAssertNil(memo.letters(inThread: 7), "ten minutes on")
 
-        memo.keep(found(his(2)), inThread: 7)
-        memo.keep(found(his(3)), inThread: 9)
+        memo.keep(found(his(2)), inThread: 7, asOf: memo.generation)
+        memo.keep(found(his(3)), inThread: 9, asOf: memo.generation)
         memo.forget()
         XCTAssertNil(memo.letters(inThread: 7))
         XCTAssertNil(memo.letters(inThread: 9))
 
+        // Asked before a forgetting, answered after it: not kept.
+        let asked = memo.generation
+        memo.forget()
+        memo.keep(found(his(4)), inThread: 7, asOf: asked)
+        XCTAssertNil(memo.letters(inThread: 7), "an answer from before the forgetting")
+        memo.keep(found(his(4)), inThread: 7, asOf: memo.generation)
+        XCTAssertEqual(memo.letters(inThread: 7), found(his(4)))
+
         final class Hands: @unchecked Sendable { var now = Date(timeIntervalSince1970: 1_000) }
         let hands = Hands()
         let set = RelatedMemo(now: { hands.now })
-        set.keep(found(his(1)), inThread: 7)
+        set.keep(found(his(1)), inThread: 7, asOf: set.generation)
         hands.now = hands.now.addingTimeInterval(-50)
         XCTAssertNil(set.letters(inThread: 7), "the clock set back")
         XCTAssertEqual(CompleteThreads.remembered, 600)
@@ -765,6 +955,88 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertEqual(retired, .none)
     }
 
+    /// Forgotten while a lookup is out, as a letter he sent landing forgets
+    /// it between the lookup's SEARCH and its last FETCH: the lookup's
+    /// answer is shown, and not kept, so the next opening asks again and
+    /// finds the reply filed meanwhile, where it was served without it for
+    /// ten minutes.
+    func testALookupOutWhenTheMemoIsForgottenIsNotKept() async throws {
+        roof()
+        let repository = makeRepository()
+        let (_, number, besides) = try await inboxConversation(repository)
+        server.clearLog()
+        server.holdReplies(to: "UID FETCH")
+        let lookup = Task { await repository.lettersOfHis(inThread: number, besides: besides) }
+        try await until { await self.server.heldReplies(to: "UID FETCH") == 1 }
+        _ = server.arrive(Server.Letter(from: Server.owner, to: [Server.sam], subject: "Re: B-104 roof",
+                                        date: Server.newestDate.addingTimeInterval(86_400 + 9_000),
+                                        text: "And the gutter.\r\n", flags: ["\\Seen"],
+                                        messageID: "<roof-4@example.com>",
+                                        joins: "<roof-1@example.com>"),
+                          in: [Server.sent, Server.allMail])
+        await repository.forgetLettersOfHis()
+        await server.releaseReplies(to: "UID FETCH")
+        let first = await lookup.value
+        XCTAssertEqual(first.letters.count, 1, "the answer it had, shown")
+        XCTAssertNil(repository.rememberedLettersOfHis(inThread: number, besides: besides), "and not kept")
+
+        server.clearLog()
+        let again = await repository.lettersOfHis(inThread: number, besides: besides)
+        XCTAssertTrue(server.log.contains { $0.command == "UID SEARCH X-GM-THRID \(number)" })
+        XCTAssertEqual(again.letters.map(\.preview.first), ["Y", "A"])
+        XCTAssertEqual(repository.rememberedLettersOfHis(inThread: number, besides: besides), again)
+    }
+
+    /// The Outbox finding in Sent Mail a letter whose sending it could not
+    /// be sure of, its 250 lost, forgets what was found, as a send does; a
+    /// look that finds none leaves it.
+    func testTheOutboxFindingHisLetterForgetsWhatWasFound() async throws {
+        roof()
+        let repository = makeRepository()
+        let (_, number, besides) = try await inboxConversation(repository)
+        _ = await repository.lettersOfHis(inThread: number, besides: besides)
+        XCTAssertNotNil(repository.rememberedLettersOfHis(inThread: number, besides: besides))
+
+        let none = try await repository.sentMail(holds: ["<never-sent@example.com>"])
+        XCTAssertEqual(none, [])
+        XCTAssertNotNil(repository.rememberedLettersOfHis(inThread: number, besides: besides),
+                        "nothing found, nothing forgotten")
+
+        let found = try await repository.sentMail(holds: ["<roof-2@example.com>"])
+        XCTAssertEqual(found, ["<roof-2@example.com>"])
+        XCTAssertNil(repository.rememberedLettersOfHis(inThread: number, besides: besides))
+    }
+
+    /// The few words of his lines are fetched only while Sent Mail is still
+    /// the folder open: a letter he opened in the Inbox while the search was
+    /// out goes first and opens the Inbox, and then nothing more is sent
+    /// for the lookup, no second SELECT of his Sent Mail and none of the
+    /// Inbox after it. His line goes without its words.
+    func testHisLinesGoWithoutTheirWordsOnceTheInboxIsOpen() async throws {
+        roof()
+        let repository = makeRepository()
+        let (thread, number, besides) = try await inboxConversation(repository)
+        server.clearLog()
+        server.holdReplies(to: "UID SEARCH")
+        let lookup = Task { await repository.lettersOfHis(inThread: number, besides: besides) }
+        try await until { await self.server.heldReplies(to: "UID SEARCH") == 1 }
+        let newest = thread.newest
+        let opened = Task {
+            try await repository.loadMessage(id: newest.id, gmailMessageID: newest.gmailMessageID,
+                                             mailboxID: newest.mailboxID)
+        }
+        try await until { await repository.waitingForExchange == 1 }
+        await server.releaseReplies(to: "UID SEARCH")
+        let found = await lookup.value
+        _ = try await opened.value
+
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH", "SELECT", "UID FETCH"])
+        XCTAssertEqual(server.log[3].command, "SELECT \"INBOX\"")
+        XCTAssertTrue(server.log[4].command.contains("BODY.PEEK[]"), server.log[4].command)
+        XCTAssertEqual(found.letters.count, 1)
+        XCTAssertEqual(found.letters.first?.preview, "")
+    }
+
     // MARK: - The switch
 
     /// On unless he has turned it off: read with `object(forKey:)`, so an
@@ -828,40 +1100,54 @@ final class CompleteThreadsTests: XCTestCase {
                      "Mail/PaneActions.swift", "Mail/FolderCounts.swift", "Mail/MailShelf.swift",
                      "Mail/LocalDrafts.swift"] {
             let code = try source(file)
-            for never in ["lettersOfHis", "RelatedLetters", "relatedID", "related["] {
+            for never in ["lettersOfHis", "RelatedLetters", "relatedID", "related[", "PaneRelated"] {
                 XCTAssertFalse(code.contains(never), "\(file): \(never)")
             }
         }
     }
 
     /// The pane draws his letters remembered in the first frame, and
-    /// otherwise looks for them aside once the letters' own loads have
-    /// started, only when nothing was remembered; it forgets them whenever
-    /// it shows anything else, and the loads are called off with them.
-    func testThePaneLooksAfterTheLoadsAndForgetsThemWhenItMovesOn() throws {
+    /// otherwise looks for them aside once the conversation's newest letter
+    /// has come, and only then: not as the stack opens. What it holds of
+    /// them is `PaneRelated`'s, given the stack's letters, and forgotten
+    /// whenever the pane shows anything else; the loads are called off with
+    /// them.
+    func testThePaneLooksAfterTheNewestAndForgetsThemWhenItMovesOn() throws {
         let code = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(code.contains("private var related = PaneRelated()"))
         let show = try section(of: code, from: "func show(thread: MessageThread, completing: UInt64?) {",
-                               to: "private func apartFromTheStack(")
+                               to: "private func lookForHis(")
         for wiring in [
-            "related = [:] relatedCame = []",
+            "stackLetters = thread.messages.reversed()",
             "let besides = Set(thread.messages.compactMap(\\.gmailMessageID))",
-            "if let completing, let found = repository.rememberedLettersOfHis(inThread: completing, "
-                + "besides: besides) { remembered = apartFromTheStack(found) }",
+            "let remembered = related.show(stackLetters, completing: completing, remembered: "
+                + "completing.flatMap { self.repository.rememberedLettersOfHis(inThread: $0, besides: besides) })",
             "let entries = ConversationDocument.stack(of: thread, related: remembered)",
-            "threadSummaries[letter.id] = read } if let completing, remembered == nil { "
-                + "loads.aside({ await repository.lettersOfHis(inThread: completing, besides: besides) }, "
-                + "settle: { [weak self] found in self?.takeRelated(found) }) } }",
+            "settle: { [weak self] result in self?.settleBody(result, for: newest.id, focus: true) "
+                + "self?.lookForHis(afterTheNewestCame: (try? result.get()) != nil, besides: besides) })",
         ] {
             XCTAssertTrue(show.contains(wiring), wiring)
         }
-        let order = [show.range(of: "loads.show(")?.lowerBound, show.range(of: "loadBody(for: letter.id")?.lowerBound,
-                     show.range(of: "loads.aside(")?.lowerBound].compactMap { $0 }
+        let order = ["stackLetters = thread.messages.reversed()", "related.show(stackLetters",
+                     "ConversationDocument.stack(of: thread, related: remembered)"]
+            .compactMap { show.range(of: $0)?.lowerBound }
         XCTAssertEqual(order.count, 3)
-        XCTAssertEqual(order, order.sorted(), "the lookup after the newest and the unread ones")
+        XCTAssertEqual(order, order.sorted(), "the stack's letters before his, his before the first frame")
+        XCTAssertFalse(show.contains("loads.aside("), "not as the stack opens")
+        XCTAssertFalse(show.contains("lettersOfHis("), "not as the stack opens")
+
+        let look = try section(of: code, from: "private func lookForHis(", to: "private func takeRelated(")
+        XCTAssertTrue(look.contains("private func lookForHis(afterTheNewestCame came: Bool, besides: Set<UInt64>) { "
+                                    + "guard let thread = related.lookUp(afterTheNewestCame: came) else { return } "
+                                    + "let repository = self.repository "
+                                    + "loads.aside({ await repository.lettersOfHis(inThread: thread, besides: besides) }, "
+                                    + "settle: { [weak self] found in self?.takeRelated(found) }) }"), look)
+        XCTAssertEqual(code.components(separatedBy: "lookForHis(").count, 3, "called from the newest's settling alone")
+        XCTAssertEqual(code.components(separatedBy: "loads.aside(").count, 2)
 
         for start in ["func showEmpty() {", "func show(summary: MessageSummary) {"] {
             let whole = try section(of: code, from: start, to: "placeholder.")
-            XCTAssertTrue(whole.contains("related = [:] relatedCame = []"), start)
+            XCTAssertTrue(whole.contains("stackLetters = [] related.clear()"), start)
         }
         let empty = try section(of: code, from: "func showEmpty() {", to: "func clearIfShowingDeletedMessage")
         XCTAssertTrue(empty.contains("loads.supersede()"))
@@ -874,14 +1160,10 @@ final class CompleteThreadsTests: XCTestCase {
         let code = try source("UI/MessageDetailViewController.swift")
         let take = try section(of: code, from: "private func takeRelated(_ found: RelatedLetters) {",
                                to: "private func loadRelated(")
-        for wiring in [
-            "guard !stackLetters.isEmpty else { return }",
-            "for place in ConversationDocument.places(of: his.letters, among: stackLetters) {",
-            "ConversationDocument.entry(forHis: $0, foundIn: his.folderName)",
-            "guard let insert = document.insert(entries, before: place.before) else { continue } run(insert)",
-        ] {
-            XCTAssertTrue(take.contains(wiring), wiring)
-        }
+        XCTAssertTrue(take.contains("private func takeRelated(_ found: RelatedLetters) { "
+                                    + "for place in related.take(found, stack: stackLetters) { "
+                                    + "guard let insert = document.insert(place.entries, before: place.before) "
+                                    + "else { continue } run(insert) } }"), take)
         XCTAssertTrue(code.contains("private func run(_ insert: ConversationDocument.Insert) { "
                                     + "webView.callAsyncJavaScript(ConversationDocument.Insert.script, "
                                     + "arguments: insert.arguments, in: nil, in: .defaultClient) }"))
@@ -901,8 +1183,7 @@ final class CompleteThreadsTests: XCTestCase {
         let code = try source("UI/MessageDetailViewController.swift")
         let tapped = try section(of: code, from: "func userContentController(",
                                  to: "private func markOpened(")
-        let his = try XCTUnwrap(tapped.range(of: "if let his = related.keys.first(where: { "
-                                             + "ConversationDocument.sectionID(for: $0) == sectionID }) { "
+        let his = try XCTUnwrap(tapped.range(of: "if let his = related.entryID(forSection: sectionID) { "
                                              + "document.setOpen(opened, his) if opened { loadRelated(his) } "
                                              + "return }"), tapped)
         let theirs = try XCTUnwrap(tapped.range(of: "loadBody(for: id, focus: true)"))
@@ -916,11 +1197,20 @@ final class CompleteThreadsTests: XCTestCase {
                       "threadSummaries", "stackLetters", "header.", "setActionsEnabled"] {
             XCTAssertFalse(related.contains(never), never)
         }
-        XCTAssertTrue(related.contains("guard let letter = related[entryID], "
-                                       + "!relatedCame.contains(entryID) else { return }"))
-        XCTAssertTrue(related.contains("try await repository.loadMessage(id: letter.id, "
-                                       + "gmailMessageID: letter.gmailMessageID, mailboxID: letter.mailboxID)"))
-        XCTAssertTrue(related.contains("case .failure: fill(entryID, Self.couldNotDownload)"))
+        // What it fetches, and where the body goes, are `PaneRelated`'s
+        // (`testHisLetterFoundLateOpensFromSentMailIntoItsOwnSection`): his
+        // own section, never one by the letter's id.
+        for wiring in [
+            "guard let load = related.load(for: entryID) else { return }",
+            "loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID, "
+                + "mailboxID: load.mailboxID) }, prepare: { m in (m, PanePage.stackBody(m)) }, "
+                + "settle: { [weak self] result in self?.settleRelated(result, for: load) })",
+            "case .success(let (m, body)): prepareInlineImages(for: [m]) fill(related.bodyCame(for: load), body) "
+                + "case .failure: fill(load.entryID, Self.couldNotDownload)",
+        ] {
+            XCTAssertTrue(related.contains(wiring), wiring)
+        }
+        XCTAssertFalse(related.contains("fill(m.id"))
         let take = try section(of: code, from: "private func takeRelated(", to: "private func loadRelated(")
         for never in ["focusLetter", "markOpened", "focused", "summary =", "message ="] {
             XCTAssertFalse(take.contains(never), never)
@@ -937,9 +1227,10 @@ final class CompleteThreadsTests: XCTestCase {
         let previews = try section(of: repository, from: "private func previewTexts(",
                                    to: "private static func preview(from")
         let pane = try source("UI/MessageDetailViewController.swift")
-        let handling = try section(of: pane, from: "private func apartFromTheStack(",
+        let handling = try section(of: pane, from: "private func lookForHis(",
                                    to: "private var pageStyle")
-        for (name, code) in [("lookup", lookup), ("previews", previews), ("pane", handling)] {
+        let held = try source("Mail/PaneRelated.swift")
+        for (name, code) in [("lookup", lookup), ("previews", previews), ("pane", handling), ("held", held)] {
             for never in ["shelf", "MailShelf", "LocalDrafts", "kept.", "Outbox"] {
                 XCTAssertFalse(code.contains(never), "\(name): \(never)")
             }
@@ -948,8 +1239,9 @@ final class CompleteThreadsTests: XCTestCase {
         let rows = try section(of: repository, from: "private func rows(from fetched:",
                                to: "func messages(around date: Date")
         XCTAssertFalse(rows.contains("shelf"))
-        XCTAssertTrue(lookup.contains("hisLetters.keep(found, inThread: thread)"))
-        XCTAssertTrue(lookup.contains("try await previewTexts(for: letters.map(\\.id), in: sent, client: client)"))
+        XCTAssertTrue(lookup.contains("hisLetters.keep(found, inThread: thread, asOf: asOf)"))
+        XCTAssertTrue(lookup.contains("try await previewTexts(for: letters.map(\\.id), in: sent, client: client, "
+                                      + "whileOpen: true)"))
         XCTAssertFalse(lookup.contains("previews(for:"), "not the previews the kept page takes")
         XCTAssertTrue(repository.contains("nonisolated let hisLetters: RelatedMemo"))
     }
@@ -987,6 +1279,13 @@ final class CompleteThreadsTests: XCTestCase {
                                           + "hisLetters.forget()"))
         XCTAssertTrue(repository.contains("func retire() async { retired = true hisLetters.forget() "
                                           + "await imap.retire() }"))
+        XCTAssertTrue(repository.contains("if !found.isEmpty { self.hisLetters.forget() } return found"))
+        let lookup = try section(of: repository, from: "func lettersOfHis(inThread thread: UInt64",
+                                 to: "nonisolated func rememberedLettersOfHis(")
+        let asOf = try XCTUnwrap(lookup.range(of: "let asOf = hisLetters.generation"))
+        let search = try XCTUnwrap(lookup.range(of: "try await client.search("))
+        XCTAssertLessThan(asOf.lowerBound, search.lowerBound, "taken before Sent Mail is asked")
+        XCTAssertTrue(lookup.contains("hisLetters.keep(found, inThread: thread, asOf: asOf)"))
         let list = try source("UI/MessageListViewController.swift")
         let refresh = try section(of: list, from: "@objc private func refreshTapped() {",
                                   to: "@objc private func editTapped()")
