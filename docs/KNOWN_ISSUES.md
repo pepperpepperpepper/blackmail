@@ -17299,7 +17299,7 @@ It is left as it is.
 **What he saw.** Seen on the test iPad on 2026-10-22, in B-102's check,
 and made again three times in three the same morning. Organize by Thread
 on, a conversation of two letters in the Inbox, the second a reply to the
-first, on one row. From another IMAP session on the test account,
+first, on one row. From another IMAP connection on the test account,
 `UID STORE +FLAGS (\Answered)` on the newer letter, then Refresh: the
 conversation was two rows. The top one read "(unknown sender)", "(no
 subject)" and 31/12/69, with the newer letter's words and the reply
@@ -17314,7 +17314,7 @@ Not by design. A row is its letter's sender, subject and date, in its
 conversation, whatever else the server says.
 
 **What it was.** Gmail's news, and the client's reading of it. RFC 3501
-§7.4.2 lets a server send a FETCH at any time, and Gmail tells a session
+§7.4.2 lets a server send a FETCH at any time, and Gmail tells a connection
 of a mark set elsewhere with one, `* 68 FETCH (UID 422 FLAGS (\Seen))`.
 In three Refreshes of the first check's four it came on the NOOP a
 Refresh sends before its SEARCH (B-045), and nothing went wrong. In the
@@ -17378,7 +17378,8 @@ passed over a result with no bytes.
   no list of the app's is that long today, but the rule holds there too.
 - A summary with no ENVELOPE once merged is never made a row. It is news of
   a letter whose own line never came, its FETCH refused or the letter gone,
-  and it is left out as a letter the FETCH did not answer for is:
+  or a line that came without the ENVELOPE asked for, and it is left out as
+  a letter the FETCH did not answer for is:
   `FETCH-NO-ENVELOPE uid=422 left-out` in the connection log. So no row
   with no sender, subject or date reaches the list or the kept page. A
   page below the top fills itself from the UIDs after it, as for a letter
@@ -17406,17 +17407,18 @@ the listing, and with the mark it had until the next Refresh if Gmail held
 the news back longer. The connection log's SESSION-IDENT names the
 letter's Gmail id.
 
-**Tests.** `FetchNewsTests`, thirteen, over the shipping repository and
+**Tests.** `FetchNewsTests`, fourteen, over the shipping repository and
 client, the kept copy and the scripted server, whose `storeElsewhere` is a
 STORE from another device and whose `flagNews` says where a connection
 with the letter's mailbox open is told of it: on the next NOOP, as Gmail
 did most times; ahead of the next UID FETCH's own lines; straight after
 the letter's own line, which carries its old flags, as on the iPad, or
 after the answer's first line for a letter the FETCH did not ask for; or
-at the end of the answer, before its OK. All but the two over more than
-one FETCH read off the connection log the app keeps that the news came
-where they say, so none passes with no news on the wire. And one in `IMAPParserTests` on the
-iPad's lines, the names and ids made up.
+at the end of the answer, before its OK; and whose `envelopeless` leaves
+the ENVELOPE out of a letter's line. All but the two over more than one
+FETCH read off the connection log the app keeps that the news came where
+they say, so none passes with no news on the wire. And one in
+`IMAPParserTests` on the iPad's lines, the names and ids made up.
 
 - *Inside*, the iPad's: a conversation of two, the newer marked read
   elsewhere, then Refresh: NOOP, SEARCH, FETCH, the news straight after
@@ -17450,26 +17452,31 @@ iPad's lines, the names and ids made up.
   second: its summary whole and flagged. A letter of the second flagged,
   the news inside the first, and the second refused: no summary for it,
   every other whole, and the log line.
+- *No ENVELOPE:* a letter of the first page and one of the page below
+  whose lines come without it: neither a row. The first page one short,
+  the kept page the same, in memory and on disk, and the log line; the
+  page below fifty, filled from the letter after it, and its log line.
 
-Each part undone in the worktree, one at a time, and the fourteen run,
-counted as failures in tests. The code as it was, 113 in 12, the rows on
+Each part undone in the worktree, one at a time, and the fifteen run,
+counted as failures in tests. The code as it was, 125 in 13, the rows on
 the host as on the iPad, "(unknown sender)", "" and 1970-01-01 with no
 ids, and the kept rows refused as another letter's; in the whole suite
-those 12 alone, the two that passed being the news ahead of a listing,
+those 13 alone, the two that passed being the news ahead of a listing,
 whose last line was the letter's, and the letter not asked for: nothing
 else held it. The parser not merging, `IMAPClient.ordered` still merging,
 23 in 5: every FETCH of one letter, the kept rows and the labels, and the
 parser's own; the listings held, merged there. `ordered` not merging
 across answers, 4 in 1, the two FETCHes. A summary with no ENVELOPE made a
-row, 3 in 1. The later FLAGS taken only when not empty, 2 in 2; the later
-X-GM-LABELS taken whether sent or not, 4 in 2; the parser not saying FLAGS
-came, 12 in 7. The first line kept, 38 in 12. The smaller fix, lines
-with no ENVELOPE dropped from a listing and nothing merged, 33 in 12: rows
-whole and their marks stale, and every FETCH of one letter as before. A
-line with nothing but flags laid over the line before it, whatever its
-UID, 8 in 5.
+row, 15 in 2, the blank row on the list and on the kept page. The later
+FLAGS taken only when not empty, 2 in 2; the later X-GM-LABELS taken
+whether sent or not, 4 in 2; the parser not saying FLAGS came, 12 in 7.
+The first line kept, 38 in 12. The smaller fix, lines with no ENVELOPE
+dropped from a listing and nothing merged, 35 in 13: rows whole and their
+marks stale, every FETCH of one letter as before, and nothing in the log
+of what was left out. A line with nothing but flags laid over the line
+before it, whatever its UID, 8 in 5.
 
-The full suite, serially: 1,870 tests, 5 skipped, none failing. The
+The full suite, serially: 1,871 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -17480,5 +17487,9 @@ release build for the iPad links.
   one short, which the list takes for the end of the folder until the next
   Refresh, as for a letter gone between the SEARCH and the FETCH. It needs
   a news line for a letter whose own line never came; not seen.
+- A letter whose own line always came without its ENVELOPE would be left
+  out of every listing, where it was a row with no sender. Gmail sends one
+  whenever it is asked, and the parser reads any list there as one; the
+  log line names the letter if it ever happens.
 - News with no UID, which RFC 3501 allows outside a UID command, is left
   aside; Gmail's carries the UID.

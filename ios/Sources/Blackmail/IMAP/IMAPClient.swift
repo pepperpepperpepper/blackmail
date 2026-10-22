@@ -2144,11 +2144,13 @@ private extension IMAPClient {
     /// A summary is asked for with its ENVELOPE, and one that has none once
     /// merged is news of a letter whose own line never came: a UID in a
     /// chunk the server refused, or a letter gone from the mailbox between
-    /// the news and the answer. It is left out, as a letter the FETCH did
-    /// not answer for is, and never made a row, so no row with no sender,
-    /// subject or date reaches the list or the page kept on the iPad. The
-    /// letter is missing from that listing as a letter gone is: a page
-    /// below the top fills itself from the UIDs after it
+    /// the news and the answer. Or it is a line that came without the
+    /// ENVELOPE asked for, which Gmail has not been seen to send: the
+    /// parser reads any list there as one. It is left out, as a letter the
+    /// FETCH did not answer for is, and never made a row, so no row with no
+    /// sender, subject or date reaches the list or the page kept on the
+    /// iPad. The letter is missing from that listing as a letter gone is: a
+    /// page below the top fills itself from the UIDs after it
     /// (`IMAPMailRepository.page(olderThan:)`), the page from the top comes
     /// back one short, and the next listing that brings the letter's line
     /// lists it. `FETCH-NO-ENVELOPE uid=422 left-out` in the connection log.

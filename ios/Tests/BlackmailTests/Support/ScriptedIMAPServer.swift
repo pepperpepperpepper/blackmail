@@ -529,6 +529,14 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         }
     }
 
+    /// UIDs, in whichever mailbox, whose FETCH lines leave out the ENVELOPE
+    /// even when it is asked for, as no server of his has been seen to: how
+    /// a summary comes to have none, which is never made a row (B-112).
+    var envelopeless: Set<UInt32> {
+        get { locked { $0.envelopeless } }
+        set { locked { $0.envelopeless = newValue } }
+    }
+
     /// How many of the next UID COPYs are answered `OK [COPYUID <validity>
     /// <uid> 0] (Success)` with nothing copied, as a MOVE was (B-092).
     var hollowCopies: Int {
@@ -1184,6 +1192,7 @@ private extension ScriptedIMAPServer {
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
         var flagNews: Server.FlagNews = .onNOOP
+        var envelopeless: Set<UInt32> = []
         var hollowCopies = 0
         var passwordRevoked = false
         var loginRefusal = "[AUTHENTICATIONFAILED] Invalid credentials (Failure)"
@@ -1708,7 +1717,8 @@ private extension ScriptedIMAPServer.State {
             let seq = position + 1
             var wire = Server.Wire()
             wire.text("* \(seq) FETCH (")
-            for (index, item) in items.enumerated() {
+            let answered = envelopeless.contains(uid) ? items.filter { $0 != .envelope } : items
+            for (index, item) in answered.enumerated() {
                 if index > 0 { wire.text(" ") }
                 switch item {
                 case .uid:

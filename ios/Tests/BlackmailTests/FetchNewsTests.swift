@@ -4,11 +4,12 @@ import XCTest
 /// The server's news of a mark set or taken off on another device, told
 /// inside the answer to a UID FETCH of the app's own (B-112). RFC 3501
 /// §7.4.2 lets a server send a FETCH at any time, and Gmail told the test
-/// iPad of a mark set from another IMAP session inside a Refresh's listing:
-/// the letter's whole line, with its old flags, and after it `* 68 FETCH
-/// (UID 422 FLAGS (\Answered \Seen))`. Taken as a summary of its own, the
-/// news line took the letter's place, and its row said "(unknown sender)",
-/// "(no subject)" and 31/12/69, with no Gmail ids, out of its conversation.
+/// iPad of a mark set from another IMAP connection inside a Refresh's
+/// listing: the letter's whole line, with its old flags, and after it
+/// `* 68 FETCH (UID 422 FLAGS (\Answered \Seen))`. Taken as a summary of
+/// its own, the news line took the letter's place, and its row said
+/// "(unknown sender)", "(no subject)" and 31/12/69, with no Gmail ids, out
+/// of its conversation.
 ///
 /// Over the shipping repository and client and `ScriptedIMAPServer`, whose
 /// `storeElsewhere` is another device's STORE and whose `flagNews` says
@@ -673,5 +674,49 @@ final class FetchNewsTests: XCTestCase {
         XCTAssertTrue(summaries.allSatisfy { $0.envelope != nil })
         XCTAssertEqual(Set(summaries.compactMap(\.uid)).count, summaries.count)
         XCTAssertTrue(notes.contains("FETCH-NO-ENVELOPE uid=\(marked) left-out"), "\(notes.suffix(5))")
+    }
+
+    // MARK: - A summary with no ENVELOPE
+
+    /// A letter whose line comes with no ENVELOPE, which every summary is
+    /// asked for with: never a row, on the list or on the page kept on the
+    /// iPad. The page from the top comes back one short, the kept page the
+    /// same, and the log names the letter; a page below fills itself from
+    /// the letters after it, as for a letter gone.
+    func testASummaryWithNoEnvelopeIsNeverMadeARowOrKept() async throws {
+        let shelf = keptShelf(for: server.account)
+        let repository = makeRepository(shelf: shelf)
+        let (top, _) = try seeded(110)
+        let (lower, _) = try seeded(40)
+        server.envelopeless = [top, lower]
+
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+
+        let answer = try XCTUnwrap(fetchAnswers().first)
+        XCTAssertEqual(answer.count, 50)
+        let bare = try XCTUnwrap(answer.first { $0.contains("FETCH (UID \(top) ") })
+        XCTAssertFalse(bare.contains("ENVELOPE"), bare)
+        XCTAssertEqual(rows.map { uid($0.id) }, (71...120).reversed().filter { $0 != 110 }
+                        .map { server.uids(in: Server.inbox)[$0 - 1] })
+        assertNoBlankRow(rows)
+        XCTAssertTrue(notes.contains("FETCH-NO-ENVELOPE uid=\(top) left-out"), "\(notes)")
+        for label in ["now", "on disk"] {
+            var kept = shelf
+            if label == "on disk" {
+                shelf.flush()
+                kept = keptShelf(for: server.account)
+            }
+            let page = try XCTUnwrap(kept.page(of: "inbox")?.rows, label)
+            XCTAssertEqual(page.map(\.id), rows.map(\.id), label)
+            assertNoBlankRow(page)
+        }
+
+        Diagnostics.clear()
+        let next = try await repository.listMessages(in: "inbox", beforeUID: rows.last?.id, limit: 50)
+
+        XCTAssertEqual(next.map { uid($0.id) }, (20...70).reversed().filter { $0 != 40 }
+                        .map { server.uids(in: Server.inbox)[$0 - 1] })
+        assertNoBlankRow(next)
+        XCTAssertTrue(notes.contains("FETCH-NO-ENVELOPE uid=\(lower) left-out"), "\(notes)")
     }
 }
