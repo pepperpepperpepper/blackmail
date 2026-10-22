@@ -933,15 +933,16 @@ actor IMAPClient {
 
         // A search string with non-ASCII in it needs a CHARSET, or the server
         // is entitled to answer BAD and the user's search for "Müller" simply
-        // never works.
+        // never works. And its words go as literals, which is the one way
+        // RFC 3501 has to send 8-bit text: Gmail answered BAD to "Müller"
+        // in a quoted string, CHARSET or not (`performSearchCommand`, B-105).
         let needsCharset = Self.needsCharset(query)
-        var result = try await performCommand(needsCharset ? "UID SEARCH CHARSET UTF-8 \(query)"
-                                                           : "UID SEARCH \(query)",
-                                              wait: .serverWork)
+        var result = try await performSearchCommand(needsCharset ? "UID SEARCH CHARSET UTF-8 \(query)"
+                                                                 : "UID SEARCH \(query)")
         if result.status != .ok, needsCharset {
             // Some servers reject the CHARSET argument itself rather than the
             // term. One retry costs a round trip and rescues the search.
-            result = try await performCommand("UID SEARCH \(query)", wait: .serverWork)
+            result = try await performSearchCommand("UID SEARCH \(query)")
         }
         guard result.status == .ok else { return nil }
         // Sorted, because the parser keeps the server's wire order and RFC
@@ -982,13 +983,35 @@ actor IMAPClient {
         }
         let query = Self.searchQuery(criteria)
         let charset = Self.needsCharset(query) ? "CHARSET UTF-8 " : ""
-        let result = try await performCommand("UID SEARCH RETURN (MIN) \(charset)\(query)",
-                                              wait: .serverWork)
+        let result = try await performSearchCommand("UID SEARCH RETURN (MIN) \(charset)\(query)")
         if result.status == .ok {
             if let found = IMAPParser.parseSearchMinimum(result.untagged) { return found }
             if let every = IMAPParser.plainSearchAnswer(result.untagged) { return lowest(every) }
         }
         return try await performSearch(criteria).map(lowest)
+    }
+
+    /// One UID SEARCH, `command` whole, its 8-bit strings as literals, in
+    /// the form this server takes them (B-105). The caller holds the gate.
+    ///
+    /// Every SEARCH goes this way, so every search that takes his words
+    /// does: both scopes, every mailbox of an "All Mailboxes" search, a
+    /// page's, and Go to Date's lowest, whose own words are a date. One with
+    /// none, ASCII words, a date, a range of UIDs, goes byte for byte as
+    /// before (`IMAPWireCommand`).
+    ///
+    /// LITERAL+ or LITERAL-, Gmail's, and the command goes in one write, a
+    /// word as `{7+}`, a line break, and its 7 bytes; one over LITERAL-'s
+    /// 4,096 bytes, a quoted phrase pasted long, waits for the server's "+",
+    /// as every literal does on a server with neither, or whose capabilities
+    /// could not be read. A server that refuses the command before its "+"
+    /// has answered, and the rest of the command is not sent. The log has
+    /// the command on one line, each literal as `{7+} Müller`, his words
+    /// as they were in it before.
+    private func performSearchCommand(_ command: String) async throws -> IMAPCommandResult {
+        let wire = IMAPWireCommand(command, literals: IMAPLiteralForm(capabilities: capabilities))
+        return try await performCommand(wire.line, continuations: wire.continuations,
+                                        logged: wire.logged, wait: .serverWork)
     }
 
     /// `criteria` as it goes on the wire: no line breaks or other controls,
@@ -1712,7 +1735,7 @@ actor IMAPClient {
         // happening.
         let result = try await sendCommand(
             "APPEND \(Self.mailboxArgument(mailbox))\(flagPart) {\(raw.count)}",
-            continuationPayload: raw, writing: "APPEND")
+            continuations: [raw], afterLiterals: .afterUpload, writing: "APPEND")
         guard result.status == .ok else { throw MailError.notSent }
         return IMAPAppend.uid(in: result.detail)
     }
@@ -1910,14 +1933,14 @@ actor IMAPClient {
     /// the exchange gate for the duration. For commands that need no mailbox
     /// selected; the rest go through `inMailbox`. `writing` as there.
     private func sendCommand(_ command: String, priority: Priority = .background,
-                             continuationPayload: Data? = nil,
+                             continuations: [Data] = [], afterLiterals: ReplyWait? = nil,
                              writing: String? = nil,
                              wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         try await beginExchange(priority)
         defer { endExchange() }
         if let writing { try await throwUnsentIfDisconnected(writing) }
-        return try await performCommand(command, continuationPayload: continuationPayload,
-                                        wait: wait)
+        return try await performCommand(command, continuations: continuations,
+                                        afterLiterals: afterLiterals, wait: wait)
     }
 
     /// For a write that has just been given the gate: `Unsent` if there is
@@ -2009,8 +2032,17 @@ actor IMAPClient {
     /// the gate (`throwUnsentIfDisconnected`); one whose path goes after
     /// that, during its SELECT or between its commands, fails as a write
     /// on a dropped connection does, and is not sent again.
+    ///
+    /// `continuations` are what goes after each "+" the server sends for a
+    /// synchronising literal the command announces, in order, each with a
+    /// line break after it: an APPEND's letter, or a SEARCH's long word and
+    /// the rest of its command (`IMAPWireCommand`). `afterLiterals` is the
+    /// wait for what comes once the last of them has gone, when it is not
+    /// `wait`. `logged` is the command as the connection log has it, when
+    /// it is not `command`.
     private func performCommand(_ command: String,
-                                continuationPayload: Data? = nil,
+                                continuations: [Data] = [], afterLiterals: ReplyWait? = nil,
+                                logged: String? = nil,
                                 wait: ReplyWait = .ordinary) async throws -> IMAPCommandResult {
         guard connected, let conn = connection else { throw connectFailure ?? MailError.cannotConnect }
         if await conn.pathIsGone {
@@ -2023,13 +2055,13 @@ actor IMAPClient {
         do {
             // Redaction happens inside Diagnostics.log, not here, so a future
             // call site cannot forget it. LOGIN's password is stripped there.
-            Diagnostics.log(.sent, "\(tag) \(command)")
+            Diagnostics.log(.sent, "\(tag) \(logged ?? command)")
             let away = Diagnostics.awayOrBack
             await conn.startTimingQuiet(on: now)
             let sent = now()
             try await conn.writeLine("\(tag) \(command)")
-            let result = try await awaitResult(tag: tag, continuationPayload: continuationPayload,
-                                               wait: wait)
+            let result = try await awaitResult(tag: tag, continuations: continuations,
+                                               afterLiterals: afterLiterals, wait: wait)
             let took = now().timeIntervalSince(sent)
             if took > Self.slowReply, Diagnostics.awayOrBack == away {
                 let quiet = await conn.longestQuiet
@@ -2046,10 +2078,10 @@ actor IMAPClient {
         }
     }
 
-    private func awaitResult(tag: String, continuationPayload: Data?,
+    private func awaitResult(tag: String, continuations: [Data], afterLiterals: ReplyWait?,
                              wait first: ReplyWait) async throws -> IMAPCommandResult {
         var untagged: [IMAPResponseLine] = []
-        var pending = continuationPayload
+        var pending = continuations[...]
         var wait = first
 
         while true {
@@ -2062,13 +2094,13 @@ actor IMAPClient {
                 // cannot invent bytes, and writing filler would corrupt the
                 // mailbox; the read timeout turns the resulting stall into a
                 // clean "Can't connect" a few seconds later.
-                if let payload = pending, let conn = connection {
-                    pending = nil
+                if let payload = pending.first, let conn = connection {
+                    pending = pending.dropFirst()
                     try await conn.write(payload)
                     try await conn.write(Data("\r\n".utf8))
                     // APPEND's answer comes only once the whole letter has
                     // crossed his uplink and Gmail has filed it.
-                    wait = .afterUpload
+                    if pending.isEmpty, let afterLiterals { wait = afterLiterals }
                 }
                 continue
             }

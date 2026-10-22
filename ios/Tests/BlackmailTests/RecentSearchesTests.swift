@@ -286,7 +286,8 @@ final class RecentSearchesTests: XCTestCase {
         XCTAssertEqual(count("recent.frame = ", in: band), 1)
         // Asked again at every change of the field: focus, typing, its end,
         // and the clear button.
-        for asked in ["@objc private func editingChanged() { updatePlaceholder() refreshExpansion()",
+        for asked in ["@objc private func editingChanged() { updatePlaceholder() "
+                          + "onQueryChanged?(field.text ?? \"\") refreshExpansion() }",
                       "func textFieldDidBeginEditing(_ t: UITextField) { updatePlaceholder() refreshExpansion() }",
                       "func textFieldDidEndEditing(_ t: UITextField) { updatePlaceholder() refreshExpansion() }",
                       "self.updatePlaceholder() self.refreshExpansion()"] {
@@ -370,6 +371,140 @@ final class RecentSearchesTests: XCTestCase {
         let typed = try XCTUnwrap(place(of: "private func queryChanged(_ text: String) {", in: list))
         let rest = String(list[typed...].prefix(700))
         XCTAssertFalse(rest.contains("keepSearch"), rest)
+    }
+
+    // MARK: - Emptied again, the folder below the block (B-105, seen on the iPad)
+
+    /// The list is told before the band grows, at the delete key, a cut, a
+    /// paste, an undo, and at the clear button, so the folder comes back
+    /// under the band its place was taken under, and the block then pushes
+    /// it down. Those two tell the list of the text, and nothing else in
+    /// the band does. A recent search tapped takes the block away before
+    /// the list searches, and its results take the folder's place under
+    /// the band as it is then; Cancel puts the band back to the field
+    /// before the folder comes back, where it was on the pane.
+    func testTheListIsToldBeforeTheBandGrows() throws {
+        let band = try source("UI/SearchHeaderView.swift")
+        XCTAssertNotNil(place(of: "@objc private func editingChanged() { updatePlaceholder() "
+                                  + "onQueryChanged?(field.text ?? \"\") refreshExpansion() }", in: band))
+        XCTAssertNotNil(place(of: "func textFieldShouldClear(_ t: UITextField) -> Bool { "
+                                  + "onQueryChanged?(\"\") DispatchQueue.main.async { "
+                                  + "self.updatePlaceholder() self.refreshExpansion() } return true }",
+                              in: band))
+        XCTAssertEqual(count("onQueryChanged?(", in: band), 2)
+        XCTAssertNotNil(place(of: "refreshExpansion() onRecentChosen?(text)", in: band))
+        XCTAssertNotNil(place(of: "@objc private func cancelTapped() { field.text = nil "
+                                  + "field.resignFirstResponder() updatePlaceholder() refreshExpansion() "
+                                  + "onCancel?() }", in: band))
+    }
+
+    /// The iPad's repro on the list's own place-keeping (`ListPlace`), each
+    /// step in the order the band's code takes it: the Inbox at its top,
+    /// Search, q, its results, the keyboard's delete, Cancel. And the same
+    /// with a recent search tapped in place of q, with the clear button in
+    /// place of the delete key, and from far down the Inbox. The folder
+    /// comes back with the rows he saw below the block, and Cancel leaves
+    /// it where it was before Search.
+    ///
+    /// In the order the iPad ran, the band grown first, the first row went
+    /// back to where it had been on the pane, under the block, 164 points
+    /// of it, and Cancel left the Inbox scrolled down by as much.
+    func testEmptiedAgainTheFolderComesBackBelowTheBlock() throws {
+        let code = try source("UI/SearchHeaderView.swift")
+        /// Whether the body after `opener` tells the list before it grows
+        /// the band.
+        func toldFirst(_ opener: String) throws -> Bool {
+            let start = try XCTUnwrap(code.range(of: opener)?.upperBound, opener)
+            let told = try XCTUnwrap(code[start...].range(of: "onQueryChanged?(")?.lowerBound)
+            let grown = try XCTUnwrap(code[start...].range(of: "refreshExpansion()")?.lowerBound)
+            return told < grown
+        }
+        let deleteTellsFirst = try toldFirst("@objc private func editingChanged() {")
+        let clearTellsFirst = try toldFirst("func textFieldShouldClear(_ t: UITextField) -> Bool {")
+
+        // Theme's, at the default text size: the field, the scope bar, and
+        // "Recent Searches" with three rows. The pane as ListPlaceTests has it.
+        let field = 44.5, scope = 40.0, block = 32.0 + 3 * 44.0
+        let barTop = 74.0, barBottom = 50.0, height = 810.0, rowHeight = 96.0
+        let letters = (181...200).reversed().map { uid in
+            MessageSummary(id: "7/\(uid)", mailboxID: "INBOX", sender: "Sam Example <sam@example.com>",
+                           subject: "About \(uid)", preview: "",
+                           date: Date(timeIntervalSince1970: 1_790_000_000 + Double(uid) * 3_600),
+                           isRead: true, isFlagged: false, threadID: "t\(uid)")
+        }
+        let rows = MessageThread.rows(for: letters, grouped: true)
+        XCTAssertEqual(rows.count, 20)
+
+        /// The Inbox's table: its band, the list's section header, on top of
+        /// the rows, and how far it is scrolled.
+        struct Table { var band: Double; var offset: Double }
+        func rowTop(_ index: Int, _ table: Table) -> Double { table.band + Double(index) * rowHeight }
+        func place(_ table: Table) -> ListPlace {
+            let onScreen = rows.indices
+                .map { (row: $0, top: rowTop($0, table), bottom: rowTop($0, table) + rowHeight) }
+                .filter { $0.bottom > table.offset && $0.top < table.offset + height }
+            let sight = TableSight(offset: table.offset, height: height, barTop: barTop,
+                                   barBottom: barBottom, band: table.band,
+                                   content: table.band + Double(rows.count) * rowHeight)
+            return ListPlace(rows: rows, onScreen: onScreen, sight: sight, selected: [])
+        }
+        /// `MessageListViewController.scroll(to:in:)`.
+        func scroll(_ table: inout Table, to place: ListPlace) throws {
+            let landing = try XCTUnwrap(place.landing(in: rows))
+            let content = table.band + Double(rows.count) * rowHeight
+            let range = -barTop...max(-barTop, content + barBottom - height)
+            if let y = ListPlace.contentOffset(rowTop: rowTop(landing.row, table), offset: landing.offset,
+                                               range: range, current: table.offset) {
+                table.offset = y
+            }
+        }
+
+        for start in [-barTop, 310.0] {
+            for (path, tellsFirst) in [("delete", deleteTellsFirst), ("recent", deleteTellsFirst),
+                                       ("clear", clearTellsFirst)] {
+                let label = "\(path) from \(start)"
+                var places = ListPlaces()
+                var table = Table(band: field, offset: start)
+                // Search: the band grows for the scope bar and the block.
+                table.band = field + scope + block
+                // q, or a recent search tapped: the block goes.
+                table.band = field + scope
+                // Its results take the folder's place, at the top.
+                let folder = place(table)
+                XCTAssertEqual(places.resultsShown(overFolder: true, here: folder), .top, label)
+                table.offset = -barTop
+                if path == "recent" {
+                    // A tap in the field, its words in it, and the delete
+                    // key until it is empty: the band as it was.
+                    table.band = field + scope
+                }
+                // Emptied: the list told, and the band grown, in the
+                // band's order.
+                func tell() throws {
+                    guard case .back(let kept) = places.searchEnded(showingResults: true) else {
+                        return XCTFail("no place kept: \(label)")
+                    }
+                    try scroll(&table, to: kept)
+                }
+                if tellsFirst {
+                    try tell()
+                    table.band = field + scope + block
+                } else {
+                    table.band = field + scope + block
+                    try tell()
+                }
+                let seen = try XCTUnwrap(folder.seen.first)
+                let index = try XCTUnwrap(rows.firstIndex { $0.id == seen.id })
+                let onPane = rowTop(index, table) - table.offset
+                XCTAssertGreaterThanOrEqual(onPane, barTop + table.band - 0.5,
+                                            "\(label): the first row he saw "
+                                            + "\(barTop + table.band - onPane) points under the block")
+                // Cancel: the band back to the field, and nothing moves.
+                table.band = field
+                XCTAssertEqual(places.searchEnded(showingResults: false), .stay, label)
+                XCTAssertEqual(table.offset, start, "\(label): where he was before Search")
+            }
+        }
     }
 
     // MARK: - Reading the source

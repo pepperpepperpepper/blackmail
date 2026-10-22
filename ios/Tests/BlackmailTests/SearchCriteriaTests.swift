@@ -108,7 +108,9 @@ final class SearchCriteriaTests: XCTestCase {
 
     func testANonASCIIQuerySurvivesUnmangled() {
         // The client adds CHARSET UTF-8 when it sees non-ASCII, with a
-        // no-CHARSET retry. That only works if the term reached it intact.
+        // no-CHARSET retry, and sends such a word as a literal (B-105,
+        // `SearchLiteralTests`). That only works if the term reached it
+        // intact.
         let key = SearchCriteria.imap(for: "Müller")!
         XCTAssertTrue(key.contains("FROM \"Müller\""), key)
         // And among several words, each one whole.

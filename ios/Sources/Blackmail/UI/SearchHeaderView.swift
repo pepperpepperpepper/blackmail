@@ -283,10 +283,28 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         onHeightChanged?()
     }
 
+    /// Every change he makes to the text: a key, the keyboard's delete, a
+    /// cut, a paste, an undo, dictation. The list is told first, and the
+    /// band changes after (B-105).
+    ///
+    /// The other way round, the text deleted back to empty with results
+    /// on show put the Recent Searches block over the folder's first rows,
+    /// seen on the iPad: the band grew first, and the list then put the
+    /// folder back where it had been on the pane, under the band it had
+    /// when the results replaced it, the field and the scope bar alone, so
+    /// the block, 164 points of it, covered the rows, and Cancel left the
+    /// folder scrolled down by as much. Told first, the folder is back where
+    /// it was under that band, and the block then pushes it down, as at
+    /// the first focus, and as the clear button always did
+    /// (`textFieldShouldClear`). Only an emptied field grows the band. With
+    /// text in it the band stays as it is or loses the block, and the order
+    /// changes nothing: the list waits before it searches, and spaces alone,
+    /// which put the folder back, leave the band as its place was taken
+    /// under.
     @objc private func editingChanged() {
         updatePlaceholder()
-        refreshExpansion()
         onQueryChanged?(field.text ?? "")
+        refreshExpansion()
     }
 
     @objc private func scopeTapped() {
@@ -348,6 +366,8 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         return true
     }
 
+    /// The clear button: the list told first, the band grown after, once
+    /// the field is empty, as for the delete key (`editingChanged`).
     func textFieldShouldClear(_ t: UITextField) -> Bool {
         onQueryChanged?("")
         DispatchQueue.main.async {

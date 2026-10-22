@@ -34,6 +34,15 @@ import Foundation
 /// default, and the field leaves it on, as Mail's is not known to turn it
 /// off. So “ and ” are quote marks beside ", a dash typed as -- comes as —,
 /// and a word typed in single quotes comes as ‘word’. Each is read below.
+///
+/// ## A word with an accent (B-105)
+///
+/// Every word is written here as a quoted string, and a quoted string is
+/// 7-bit: Gmail answered BAD to "Müller" in one, and to the curly ’ of
+/// "don’t", with CHARSET UTF-8 or without, so one such word sank the whole
+/// search, "Could not search. Check the connection." The client sends each
+/// quoted string with 8-bit text in it as a literal instead, its bytes as
+/// they are, and leaves the rest as written here (`IMAPWireCommand`).
 enum SearchCriteria {
 
     /// The fields a search looks at.

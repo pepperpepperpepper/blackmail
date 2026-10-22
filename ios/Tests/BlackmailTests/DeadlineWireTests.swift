@@ -252,6 +252,8 @@ final class DeadlineWireTests: XCTestCase {
         let quiet = Duration.milliseconds(90)
         server.delays = ["UID SEARCH": quiet]
         let words = "FROM \"Müller\""
+        // The word as a literal (B-105), both times.
+        let sent = "FROM {7+}\r\nMüller"
 
         let started = ContinuousClock.now
         _ = try await finishing { try await client.search(words, in: Server.inbox) }
@@ -261,7 +263,7 @@ final class DeadlineWireTests: XCTestCase {
         XCTAssertTrue(connected)
         XCTAssertEqual(server.connectionsOpened, 1)
         XCTAssertEqual(server.log.map { "\($0.command) \($0.status ?? "")" },
-                       ["UID SEARCH CHARSET UTF-8 \(words) BAD", "UID SEARCH \(words) OK"])
+                       ["UID SEARCH CHARSET UTF-8 \(sent) BAD", "UID SEARCH \(sent) OK"])
     }
 
     /// The longer bound is on every silence in the answer, not only the
