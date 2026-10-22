@@ -1641,8 +1641,9 @@ actor IMAPMailRepository: MailRepository {
         }
         lastBody = (id, named, raw)
 
+        let decoded = MIMEDecoder.decodeMessage(raw)
         return Self.letter(id, in: mailboxID, headers: MIMEDecoder.parseHeaders(raw),
-                           decoded: MIMEDecoder.decodeMessage(raw), named: named)
+                           decoded: decoded, named: named, shortened: decoded.isShortened)
     }
 
     /// A letter above `largeAbove`, as the reading pane shows it: its
@@ -1700,10 +1701,10 @@ actor IMAPMailRepository: MailRepository {
             // (B-114).
             let plan = MIMEDecoder.bodyPlan(of: structure)
             let allowance = MIMEDecoder.Allowance(plan, limit: limit)
-            let text = Self.body(plan.text, asHTML: false, allowance: allowance.text,
-                                 fetched: fetched.sections)
-            let html = Self.body(plan.html, asHTML: true, allowance: allowance.html,
-                                 fetched: fetched.sections)
+            let text = Self.body(plan.text, asHTML: false, goesOn: plan.textGoesOn,
+                                 allowance: allowance.text, fetched: fetched.sections)
+            let html = Self.body(plan.html, asHTML: true, goesOn: plan.htmlGoesOn,
+                                 allowance: allowance.html, fetched: fetched.sections)
             decoded.text = text.text
             decoded.html = html.text
             // By the body the pane shows, which is the HTML whenever there
@@ -1717,15 +1718,16 @@ actor IMAPMailRepository: MailRepository {
     }
 
     /// One body of a letter fetched in part, its parts joined as `flatten`
-    /// joins them, and whether any of them is cut short.
-    private static func body(_ pieces: [MIMEDecoder.BodyPiece], asHTML: Bool,
+    /// joins them, and whether it is only the beginning: a part cut short,
+    /// or more parts of words than a body holds (`goesOn`).
+    private static func body(_ pieces: [MIMEDecoder.BodyPiece], asHTML: Bool, goesOn: Bool,
                              allowance: [String: Int],
                              fetched: [String: Data]) -> (text: String?, cut: Bool) {
-        var cut = false
-        let text = MIMEDecoder.joined(pieces, asHTML: asHTML, words: { part in
+        var cut = goesOn
+        let text = MIMEDecoder.joined(pieces, asHTML: asHTML, goesOn: goesOn, words: { part in
             let words = Self.text(of: part, fetched: fetched, limit: allowance[part.section] ?? 0)
             if words.cut { cut = true }
-            return words.text
+            return words.text.map { ($0, words.cut) }
         }, fields: { MIMEDecoder.forwardedFields(of: $0, header: nil) })
         return (text, text == nil ? false : cut)
     }

@@ -836,9 +836,17 @@ enum IMAPParser {
                 default:
                     if key.hasPrefix("BODY[") || key.hasPrefix("BODY.PEEK[") || key.hasPrefix("BINARY[")
                         || key == "RFC822" || key == "RFC822.TEXT" || key == "RFC822.HEADER" {
-                        // One slot for the bytes: a fetch asking for two
-                        // sections at once keeps the last. Ask for one.
-                        if let data = value?.data(line) { result.body = data }
+                        // One slot for the bytes, which keeps the last of
+                        // several, and each by its section beside it, for a
+                        // FETCH asking for several at once: `BODY[2.1]<0>`
+                        // under "2.1".
+                        if let data = value?.data(line) {
+                            result.body = data
+                            if let open = key.firstIndex(of: "["),
+                               let close = key[open...].firstIndex(of: "]") {
+                                result.sections[String(key[key.index(after: open)..<close])] = data
+                            }
+                        }
                     }
                 }
                 i += 2
@@ -1048,7 +1056,9 @@ enum IMAPParser {
         } else if part.type == "message", part.subtype == "rfc822" {
             // The embedded message's ENVELOPE: the header lines of a letter
             // forwarded inline, drawn above its words (B-114).
-            if let envelope = at(next)?.listItems { part.envelope = parseEnvelope(envelope, line) }
+            if let envelope = at(next)?.listItems {
+                part.envelope = MIMEPart.Envelope(parseEnvelope(envelope, line))
+            }
             next += 1
             if let inner = at(next)?.listItems, depth < Self.maxBodyDepth {
                 // An embedded message's parts hang off this one's number: part

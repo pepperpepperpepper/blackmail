@@ -1332,12 +1332,23 @@ actor IMAPClient {
     /// one hold of the interactive line, with its SELECT and UIDVALIDITY
     /// check (B-039), `UID FETCH <uid> (UID BODYSTRUCTURE BODY.PEEK[HEADER])`,
     /// with X-GM-MSGID beside them as `question` says, and then, from that
-    /// structure, one `UID FETCH <uid> (UID BODY.PEEK[<section>]<0.<bytes>>)`
-    /// for each section `sections` picks, with the bytes it gives it: the
+    /// structure, the sections `sections` picks, each with the bytes it
+    /// gives it, `sectionsPerFetch` to a
+    /// `UID FETCH <uid> (UID BODY.PEEK[<section>]<0.<bytes>> ...)`: the
     /// parts of the letter's text and of its HTML, the first part of each
     /// given the whole limit and each after it what is left
     /// (`MIMEDecoder.Allowance`). Every file stays on the server until it is
     /// asked for (`fetchPart`). PEEK throughout.
+    ///
+    /// It was a FETCH for each section, one after another: a letter of 300
+    /// parts of words made 300 round trips on the one line, which moving to
+    /// another letter did not stop, and the next letter waited behind them
+    /// (B-113). A letter of its plain words and its HTML, nearly every one,
+    /// is one FETCH for both now, where it was two, and no body has more
+    /// than `MIMEDecoder.maxBodyWords` parts of words to ask for. A fetch
+    /// cancelled, as `PaneLoads` cancels one he has moved on from, stops
+    /// before its next command with `CancellationError`, the stream in step
+    /// and the connection up.
     ///
     /// For `.expecting`, the id is compared before anything past the first
     /// FETCH is asked for, and another letter's, or none, ends it there
@@ -1370,18 +1381,31 @@ actor IMAPClient {
                 return LetterInPart(letter: letter.letter)
             }
             guard let structure = letter.structure else { return letter }
-            for (section, bytes) in sections(structure) {
-                let path = Self.sanitizedSection(section)
+            let wanted = sections(structure)
+            var next = 0
+            while next < wanted.count {
+                try Task.checkCancellation()
+                let batch = wanted[next..<min(next + Self.sectionsPerFetch, wanted.count)]
+                next = batch.endIndex
+                let items = batch.map { "BODY.PEEK[\(Self.sanitizedSection($0.section))]<0.\($0.bytes)>" }
                 let result = try await self.performCommand(
-                    "UID FETCH \(uid) (UID BODY.PEEK[\(path)]<0.\(bytes)>)")
+                    "UID FETCH \(uid) (UID \(items.joined(separator: " ")))")
                 guard result.status == .ok else { throw MailError.cannotConnect }
                 let fetched = IMAPParser.parseFetch(result.untagged)
-                letter.sections[section] = fetched.first(where: { $0.uid == uid })?.body
-                    ?? fetched.compactMap(\.body).first
+                let its = fetched.filter { $0.uid == uid }
+                for (section, _) in batch {
+                    let path = Self.sanitizedSection(section)
+                    letter.sections[section] = its.lazy.compactMap { $0.sections[path] }.first
+                        ?? fetched.lazy.compactMap { $0.sections[path] }.first
+                }
             }
             return letter
         }
     }
+
+    /// The sections `fetchLetterInPart` asks for in one FETCH: a command of
+    /// a few hundred bytes, and for nearly every letter one FETCH for all.
+    static let sectionsPerFetch = 16
 
     /// Whether the server can be asked for Gmail's id for a letter. Asked
     /// holding the gate, after the SELECT has shown the connection to be

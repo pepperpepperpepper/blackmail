@@ -17295,7 +17295,7 @@ the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
 
-## B-101 — BUILT 2026-10-22, not yet seen on the iPad. Quoted text had no bar, and a file sent inline, as Apple Mail sends a PDF, had no row and no paperclip
+## B-101 — BUILT 2026-10-22, seen on the iPad 2026-10-22 but for its check's step 7 second part, which is B-113. Quoted text had no bar, and a file sent inline, as Apple Mail sends a PDF, had no row and no paperclip
 
 **What Mail does.** (A) *A bar beside quoted text.* Mail's reading pane
 lays a style sheet of its own over every letter: in iOS 18.6, read from
@@ -17435,7 +17435,9 @@ shows a part (`isShownInBody`) only when it is a picture sent inline
 with a `Content-ID`: not a PDF or a text part sent inline with one, nor
 a picture sent inline with none, nor one sent as an attachment with one;
 and that the HTML of the logo's letter and of Apple Mail's shape is the
-part it was.
+part it was. (No longer so for Apple Mail's shape since B-113: its HTML
+is both parts, the PDF's mark between them, and the test is
+`testTheBodyOfALetterWithAFileSentInlineHasEveryPart`.)
 `OutgoingMailTests`, one changed: the logo, inline with its
 `Content-ID`, raises no paperclip (`isListedFile`), and a picture sent
 inline is still no attachment to the body's walk. `PaneDocumentTests`,
@@ -17619,11 +17621,39 @@ said so.
    given all of it, as one part always was, each after it what those
    before it left. A part is fetched once, with the more of its two
    shares, and each body reads its own (`IMAPClient.fetchLetterInPart`
-   takes the bytes of each section now). The body is shown to where its
-   fetch stopped and no further, nothing drawn after words cut short, not
-   a file's mark nor a forwarded letter's lines, and the pane says it is
-   only the beginning, as before. A letter of one part each is fetched by
-   the same FETCHes as before.
+   takes the bytes of each section now). The sections go sixteen to a
+   FETCH (`IMAPClient.sectionsPerFetch`), so a letter of its plain words
+   and its HTML, nearly every one, is one FETCH after the first, where it
+   was two, one for each; the FETCH's answer is read by section
+   (`IMAPFetchResult.sections`). A fetch he has moved on from, which
+   `PaneLoads` cancels, stops before its next FETCH with the connection
+   up. The body is shown to where its fetch stopped and no further,
+   nothing drawn after words cut short, not a file's mark nor a
+   forwarded letter's lines, and the pane says it is only the beginning,
+   as before.
+6. *No more than a body holds,* found on the host since. A stranger can
+   send a quarter of a million tiny parts of words, and every part drawn
+   in its turn had a cost for each: a large letter made a FETCH for each,
+   one after another on the one line, which moving to another letter did
+   not stop; and every letter's walk made a list of copies of its parts
+   for each multipart, copied again into the one above, for both bodies,
+   and again for each row's preview and paperclip. A letter of 250,000 parts,
+   3.2 MB, took 2.6 s and 300 MB more than the letter itself to decode in
+   a release build, against 0.19 s and nothing before. Now a body holds
+   at most 64 parts of words (`MIMEDecoder.maxBodyWords`), and 256
+   pieces of every kind (`maxBodyPieces`), the files among the words and
+   the forwarded letters' lines with them; a body with more is drawn to
+   the last it holds, nothing after it, and the pane says it is only the
+   beginning (`DecodedBody.isShortened`, for a letter fetched whole too,
+   and so a reply's quote says so as well). Both bodies are walked in one
+   pass, each into one list (`MIMEDecoder.Walk`), and a choice that needs
+   to know what a part holds, an alternative's, a related's, a mixed's
+   with a named text part in it, asks it (`Holds`), which makes nothing.
+   The forwarded letter's ENVELOPE is held by reference
+   (`MIMEPart.Envelope`), as inline it made every part of every tree 280
+   bytes where it was 168. Mail on an iPad splits a letter's HTML into
+   one part more than the files put among its words, so 64 parts is a
+   letter with 63 files among them.
 
 **Not changed.** What a file is: `MIMEPart.isAttachment`, `isListedFile`
 and `Attachment.isShownInBody`. The header's rows and the paperclip for
@@ -17638,7 +17668,9 @@ line of its own where it sat, the words after it, and "Sent from my iPad"
 at the end. A tap on the blue name opens the PDF, as the row in the header
 does. Reply and Forward quote every word. A letter whose HTML has a plain
 footer after it, as a mailing list adds, shows the footer. A text file sent
-after the words has its row and its paperclip. No new words.
+after the words has its row and its paperclip. A stranger's letter of more
+than 64 parts of words shows the first 64 and "Only the beginning of this
+message is shown." No new words.
 
 **Tests.** `BodyInOrderTests`, nine for this, with the iPad's two shapes as
 the host made them: the HTML both parts with the PDF's mark between, the
@@ -17709,8 +17741,71 @@ it is not known. Recorded, not changed.
 The full suite, serially: 1,887 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
+**Since.** Ten tests more, three of them B-114's (below), and five
+changed. `BodyInOrderTests`, three: a bounce, multipart/report of an
+alternative of the explanation, the delivery status and the letter
+returned, its explanation alone in both bodies and in the preview, not the
+returned letter under "Begin forwarded message:"; an invitation's ICS with
+no name beside the words, neither words nor a file nor a paperclip, and
+with no words beside it the words, as before; and a body of a hundred
+parts of HTML with a PDF after the 64th, the first 64, no mark for the
+PDF, said to be only the beginning, the PDF listed, and one of 64 whole.
+`LargeLetterTests`, three, over the shipping repository and the scripted
+server: a large letter of 300 tiny parts of words and a PDF, the 64 a body
+holds asked for sixteen to a FETCH, five FETCHes in all, the plain words
+to the 64th, said to be only the beginning, and the same fetched whole; a
+large letter of 40 parts he moves on from while its structure is coming,
+nothing more asked for, `CancellationError`, and the letter he moved to
+fetched next; and words cut short with a letter forwarded after them that
+holds only a PDF, the HTML exactly the part fetched, nothing after it, not
+the forwarded letter's lines, which went in at the end before.
+`BoundedLetterTests`, one: the 250,000 parts, 500 to a mixed in a mixed,
+the same inside an alternative, and nineteen mixed one inside the next of
+499 parts each, decoded, previewed, the paperclip and the header's files,
+each timed and its memory measured: 0.7 s, 1.5 s and 0.03 s here in the
+debug build, held to 7 s, 16 s and 0.3 s, and nothing to speak of held to
+32 MB. B-113 as it was first built took 11.2 to 11.9 s, 11.6 s and 0.45 s,
+and 301 MB, 300 MB and nothing, and fails it; the code before B-113, 1.5
+s, 1.5 s and 0.06 s. Changed, and said so beside them: the five
+`LargeLetterTests` that named a FETCH for each section, which name one for
+all of them now, two FETCHes in all where there were three or four.
+
+Each undone by hand, `BodyInOrderTests`, `LargeLetterTests`,
+`BoundedLetterTests` and `MIMEDecoderTests` run, then put back and
+passing: sixteen sections to a FETCH made one, 7 failures in 6 tests; a
+body holding 1,000 parts, 11 in 3, the bounded letter's among them; a
+letter fetched whole not said to be only the beginning, 1 in 1; no
+cancellation check between FETCHes, 2 in 1; words cut short not ending the
+body, 1 in 1; a report read as a mixed, 3 in 1; a text part neither plain
+nor HTML beside other words taken for words, as one with a name is not, 1
+in 1; `DecodedBody.isShortened` not set, 5 in 3; a FETCH's answer not read
+by section, 29 in 11. The bounds held against B-113 as first built
+(e21303a, its tree outside the worktree): 4 failures, two of its times and
+both of its memories.
+
+The full suite, serially: 1,897 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
 **Not covered.**
 
+- Two rows for one file. A file before a letter's last part of HTML has
+  its row among the words and its row in the header (B-101). Apple Mail's
+  own letter with a PDF at the end puts "Sent from my iPad" in an HTML
+  part after the PDF (`05-pdf-one.eml`), so nearly every letter with a
+  file from his Mail correspondents shows the file twice, once above the
+  signature. Mail on an iPad draws the file among the words and lists no
+  files above them (medium confidence, not compared on a screen). One
+  row or two is the owner's to decide.
+- A last part of HTML with nothing in it to see, a `<div><br></div>`, is
+  words all the same, and a file before it is drawn among the words, with
+  nothing under it.
+- An invitation sent as an alternative of plain words, HTML and its ICS,
+  as calendars send one: its plain words are the ICS, the last of its
+  alternatives that is not HTML, and a reply quotes them. As before B-113
+  (`chooseBodies` took the same part); found on the host, not changed.
+- Sixteen sections to a FETCH, and one FETCH asking for several, were
+  tried against the scripted server only, not Gmail; RFC 3501 has them,
+  and other mail programs ask so.
 - Plain words split by a file, with no HTML: both parts, each on a line of
   its own, and no row where the file sat, as Mail draws one. Not seen in
   his mail; Mail on an iPad sends HTML.
@@ -17721,10 +17816,14 @@ release build for the iPad links.
   Mail shows the photograph.
 - A row kept on the iPad from before: its preview and paperclip as an
   earlier build listed them, until its folder is next listed from the top.
-- A report, a bounce: its first part alone, as before; the letter it
-  returns is not drawn.
+- A report, a bounce: its first part alone, as before, held by a test
+  now; the letter it returns is not drawn.
 - A text part neither plain nor HTML beside other words, a calendar's ICS
-  with no name: neither words nor a file, as before.
+  with no name: neither words nor a file, as before, held by a test now.
+- A letter of more than 64 parts of words, or 256 pieces: the first of
+  them, and the pane says it is only the beginning; no way to see the
+  rest. Past the 64th, a part of words with a name is listed as a file,
+  with its paperclip.
 - The row's tap was read from the source, not tried: the iPad's check.
 
 ## B-114 — FIXED 2026-10-22, not yet seen on the iPad. A letter forwarded inline after a note was nowhere: not its words, its From or its Subject, and no row
@@ -17779,12 +17878,37 @@ Six of the thirty ordinary letters the suite makes are such forwards.
    HTML, the note in it as escaped text that keeps its lines, then the
    header lines, then the forwarded letter's markup; the plain words are
    the note, the lines and the letter's plain words.
+6. *Sent under an encoding,* found on the host since. A forwarded letter
+   sent base64 or quoted-printable, which RFC 2046 does not allow but
+   mail programs send, was read as it came, and its encoded lines were
+   drawn as its words under the note. It is read with its encoding undone
+   now (`MIMEDecoder.parseNode`), and its header lines from its header
+   undone too; once on the way down, so the copy made is the letter's
+   size at most. Its bytes are kept as they came, for a tap on its row
+   when it is a file, which undoes the encoding as for any file.
+7. *A broken multipart inside,* found on the host since. A forwarded
+   letter whose multipart has no boundary that appears, or is past the
+   nesting cap, is read as one part of words, as before; but it was
+   numbered with the letter's own number, and its words took the place of
+   the letter's bytes: its header lines were read from its words, found
+   none, and the forwarded words ran on from the note as if they were
+   part of it. It is numbered as one part is, 2.1 under the letter's 2,
+   and the letter's bytes are the letter's, for its lines and for a tap on
+   its row when it is a file (which before opened its words alone).
+8. *Named and sent inline,* decided since. A message/rfc822 with a name
+   and `Content-Disposition: inline` is drawn under the note as any
+   forwarded letter sent inline is, with no row and no paperclip, by the
+   rule every file goes by (`MIMEPart.isAttachment`: inline is the
+   sender's word that it be shown). It was not a row before either: alone
+   its words were the body, and after a note it was lost. With a name and
+   no disposition, or sent as an attachment, it is a file, as before.
 
-**Not changed.** A letter forwarded as a file, named, or sent as an
-attachment, or both: a row, `forwarded.eml` or `attachment-2.eml`, and the
-paperclip, as before, nothing of it in the body, its row opening it as any
-file's does. A forwarded letter with nothing before it. A report's
-returned letter, not drawn, as before. The Forward he writes.
+**Not changed.** A letter forwarded as a file, named with no disposition,
+or sent as an attachment, named or not: a row, `forwarded.eml` or
+`attachment-2.eml`, and the paperclip, as before, nothing of it in the
+body, its row opening it as any file's does. A forwarded letter with
+nothing before it. A report's returned letter, not drawn, as before. The
+Forward he writes.
 
 **What he sees.** A note with a letter forwarded after it: the note, then
 "Begin forwarded message:", the forwarded letter's From, Date, To and
@@ -17828,6 +17952,20 @@ eight, all but the lines' form, the file's and the lone forward's.
 The full suite, serially: 1,887 tests, 5 skipped, none failing, B-113's
 with these. The release build for the iPad links.
 
+**Since.** `BodyInOrderTests`, three: a forwarded letter named and sent
+inline, drawn under the note with its lines, no row and no paperclip; one
+whose multipart is broken, its lines above its words, its words numbered
+2.1, and sent as an attachment its row and its bytes the whole letter's;
+and one sent base64 and one quoted-printable, a soft line break in its
+words, each the note, the lines and the words, no row and no paperclip.
+Each undone by hand, `BodyInOrderTests`, `LargeLetterTests`,
+`BoundedLetterTests` and `MIMEDecoderTests` run, then put back and
+passing: a named letter taken for a file, 4 failures in 1 test; a broken
+multipart keeping the letter's number, 4 in 1; the encoding not undone, 2
+in 1, and the header read without undoing it, 1 in 1, the base64 one. The
+full suite with B-113's, 1,897 tests, 5 skipped, none failing. The release
+build for the iPad links.
+
 **Not covered.**
 
 - How Mail's reading pane draws a forwarded letter, a box or a line about
@@ -17844,3 +17982,14 @@ with these. The release build for the iPad links.
 - A subject folded across lines: the envelope's and the header's can
   differ by a space, so a large letter's lines may not be the whole
   letter's to the byte.
+- A forwarded letter sent under an encoding inside one whose encoding was
+  undone: read as it came, its encoded lines drawn as its words, so that
+  no letter costs more than one copy of itself to read.
+- A letter too large to fetch whole that forwards one under an encoding:
+  drawn from the server's structure of it, as the server reads it. Not
+  tried against Gmail.
+- A letter forwarded with a name and sent inline is drawn, not a row,
+  decided here by the rule every file goes by; how Mail draws one is not
+  compared on a screen. A row, if the owner wants one for a named
+  letter whatever its disposition, is `isAttachment` asking for a name
+  of a message/rfc822 part, and its test.

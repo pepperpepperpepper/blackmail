@@ -3878,8 +3878,24 @@ this host. Ordered by value, not by size.
       5. *A letter too large to fetch whole:* 1's shape with a PDF of 6 MB
       or more: the words before and after it shown, the row among them,
       and no "Only the beginning of this message is shown."
-      6. *Nothing else moved:* a letter with a PDF attached at the end,
-      and one with a signature's logo: as before, no row among the words.
+      6. *Nothing else moved:* a letter with a PDF attached after its
+      words in Gmail's shape (multipart/mixed of a multipart/alternative
+      and the PDF), and one with a signature's logo: as before, no row
+      among the words. Apple Mail's own letter with a PDF at the end puts
+      "Sent from my iPad" in an HTML part after it (as `05-pdf-one.eml`),
+      so its PDF has a row among the words above the signature and its
+      row in the header: say whether the two rows read as two files to
+      him, for the owner, who decides whether one goes.
+      7. *A bounce,* multipart/report of the explanation, the delivery
+      status and the letter returned: the explanation alone, no "Begin
+      forwarded message:".
+      8. *More parts than a body holds:* a letter of a hundred parts of
+      HTML: the first 64 and "Only the beginning of this message is
+      shown." above them; a Reply's quote ends with the same line.
+      9. *Moving on from a large one:* a letter over 5 MB of 300 parts of
+      words and a PDF, tapped, and at once the letter below it: that
+      letter shows in the time any letter takes, not after the first has
+      come.
 
 - [ ] **B-114, a letter forwarded after a note.** On the test iPad, the
       test account only, built from the `bm-readpane` worktree. The host
@@ -3905,6 +3921,12 @@ this host. Ordered by value, not by size.
       more: the header lines as in 1, drawn from the letter's structure.
       7. *Reply* of 1, opened and Cancelled with Delete Draft, never sent:
       the quote holds the note, the header lines and the forwarded words.
+      8. *Forwarded under an encoding:* 1 with the message/rfc822 part sent
+      `Content-Transfer-Encoding: base64`: as 1, its words and not the
+      encoded lines.
+      9. *Named and sent inline:* 1 with the message/rfc822 named
+      `Earlier letter.eml` and `Content-Disposition: inline`: as 1, drawn
+      under the note, no row and no paperclip.
 
 ## Blocked on the owner
 

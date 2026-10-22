@@ -563,4 +563,216 @@ final class BodyInOrderTests: XCTestCase {
         XCTAssertEqual(MIMEDecoder.decodeMessage(raw).text,
                        "The forwarded letter's words, after the forwarder's own note.\n")
     }
+
+    /// A forwarded letter sent inline with a name: drawn under the note, as
+    /// any forwarded letter sent inline is, with no row and no paperclip.
+    /// Inline is the sender's word that it be shown, and `isAttachment`
+    /// takes nothing sent inline for a file; with a name and no
+    /// disposition, or sent as an attachment, it is a file
+    /// (`testALetterForwardedAsAFileIsStillAFile`).
+    func testANamedLetterForwardedInlineIsDrawnUnderTheNote() {
+        let raw = Self.raw(Self.header + """
+            Content-Type: multipart/mixed; boundary="FWD"
+
+            --FWD
+            Content-Type: text/plain; charset="utf-8"
+
+            My own note.
+            --FWD
+            Content-Type: message/rfc822; name="Earlier letter.eml"
+            Content-Disposition: inline; filename="Earlier letter.eml"
+
+            \(Self.forwardedWords)
+            --FWD--
+            """)
+        let decoded = MIMEDecoder.decodeMessage(raw)
+        XCTAssertEqual(decoded.text, "My own note.\n\n" + Self.forwardedLines
+                       + "The forwarded letter's words, after the forwarder's own note.\n")
+        XCTAssertEqual(decoded.attachments.map(\.filename), [])
+        XCTAssertEqual(listed(raw), [])
+        XCTAssertFalse(clip(raw))
+    }
+
+    /// A forwarded letter whose multipart is broken, its boundary never
+    /// there, is read as one part of words, numbered as one part is (2.1),
+    /// and its header lines are drawn above them: under the letter's own
+    /// number its words took the place of the letter's bytes, and the
+    /// lines were read from its words, which have none, so the forwarded
+    /// words ran on from the note as if they were part of it. The bytes of
+    /// the letter are the letter's, for a tap on its row when it is a file.
+    func testAForwardedLetterWithABrokenMultipartKeepsItsHeaderLines() {
+        let inner = """
+            From: Sam <sam@example.com>
+            Subject: Broken inner
+            Content-Type: multipart/mixed; boundary="NEVER"
+
+            The inner words with no boundary.
+            """
+        func forward(_ headers: String) -> Data {
+            Self.raw(Self.header + """
+                Content-Type: multipart/mixed; boundary="FWD"
+
+                --FWD
+                Content-Type: text/plain; charset="utf-8"
+
+                My own note.
+                --FWD
+                \(headers)
+                \(inner)
+                --FWD--
+                """)
+        }
+        let raw = forward("Content-Type: message/rfc822\nContent-Disposition: inline\n")
+        XCTAssertEqual(MIMEDecoder.decodeMessage(raw).text,
+                       "My own note.\n\nBegin forwarded message:\n\nFrom: Sam <sam@example.com>\n"
+                       + "Subject: Broken inner\n\nThe inner words with no boundary.")
+        let parsed = MIMEDecoder.parse(raw)
+        XCTAssertEqual(parsed.structure.children.last?.children.first?.section, "2.1")
+        XCTAssertEqual(parsed.bodies["2.1"], Data("The inner words with no boundary.".utf8))
+
+        let attached = forward("Content-Type: message/rfc822; name=\"forwarded.eml\"\n"
+                               + "Content-Disposition: attachment; filename=\"forwarded.eml\"\n")
+        XCTAssertEqual(MIMEDecoder.decodeMessage(attached).attachments.map(\.filename), ["forwarded.eml"])
+        XCTAssertEqual(MIMEDecoder.parse(attached).bodies["2"],
+                       Data(inner.replacingOccurrences(of: "\n", with: "\r\n").utf8))
+    }
+
+    /// A forwarded letter sent base64 or quoted-printable, against RFC
+    /// 2046 but sent all the same, is read with its encoding undone: its
+    /// header lines, then its words. Before, its encoded lines were drawn
+    /// as the forwarded letter's words.
+    func testALetterForwardedUnderAnEncodingIsReadUnderIt() {
+        let words = "The forwarded letter's words, after the forwarder's own note."
+        let inner = Self.forwardedWords.replacingOccurrences(of: "\n", with: "\r\n")
+        let base64 = Data(inner.utf8).base64EncodedString(options: [.lineLength76Characters,
+                                                                   .endLineWithLineFeed])
+        let printable = Self.forwardedWords.replacingOccurrences(of: "=", with: "=3D")
+            .replacingOccurrences(of: "words, after", with: "words, =\nafter")
+        for (encoding, body) in [("base64", base64), ("quoted-printable", printable)] {
+            let raw = Self.raw(Self.header + """
+                Content-Type: multipart/mixed; boundary="FWD"
+
+                --FWD
+                Content-Type: text/plain; charset="utf-8"
+
+                My own note.
+                --FWD
+                Content-Type: message/rfc822
+                Content-Disposition: inline
+                Content-Transfer-Encoding: \(encoding)
+
+                \(body)
+                --FWD--
+                """)
+            let decoded = MIMEDecoder.decodeMessage(raw)
+            XCTAssertEqual(decoded.text?.trimmingCharacters(in: .newlines),
+                           "My own note.\n\n" + Self.forwardedLines + words, encoding)
+            XCTAssertEqual(decoded.attachments.map(\.filename), [], encoding)
+            XCTAssertFalse(clip(raw), encoding)
+        }
+    }
+
+    /// A bounce, as one comes back for a mistyped address
+    /// (multipart/report of the explanation, the delivery status and the
+    /// letter returned): the explanation alone, in both bodies, as before,
+    /// and not the returned letter under "Begin forwarded message:", which
+    /// would read as a letter forwarded to him.
+    func testABounceShowsItsExplanationAlone() {
+        let raw = Self.raw(Self.header + """
+            Content-Type: multipart/report; report-type=delivery-status; boundary="R"
+
+            --R
+            Content-Type: multipart/alternative; boundary="ALT"
+
+            --ALT
+            Content-Type: text/plain; charset="utf-8"
+
+            Address not found.
+            --ALT
+            Content-Type: text/html; charset="utf-8"
+
+            <p>Address not found.</p>
+            --ALT--
+            --R
+            Content-Type: message/delivery-status
+
+            Reporting-MTA: dns; mail.example.com
+
+            Final-Recipient: rfc822; sam@exmaple.com
+            Action: failed
+            --R
+            Content-Type: message/rfc822
+
+            \(Self.forwardedWords)
+            --R--
+            """)
+        let decoded = MIMEDecoder.decodeMessage(raw)
+        XCTAssertEqual(decoded.text, "Address not found.")
+        XCTAssertEqual(decoded.html, "<p>Address not found.</p>")
+        XCTAssertEqual(MIMEDecoder.bodyPlan(of: MIMEDecoder.parseStructure(raw)).sections, ["1.1", "1.2"])
+        XCTAssertEqual(MIMEDecoder.previewPart(MIMEDecoder.parseStructure(raw))?.section, "1.1")
+    }
+
+    /// An invitation's ICS with no name beside the words, as a calendar
+    /// can send one: neither words nor a file, as before. With no words
+    /// beside it, it is the letter's words, as it was: showing its raw ICS
+    /// beats showing nothing.
+    func testAnUnnamedCalendarBesideTheWordsIsNeitherWordsNorAFile() {
+        let invitation = """
+            Content-Type: text/calendar; charset="utf-8"; method=REQUEST
+
+            BEGIN:VCALENDAR
+            METHOD:REQUEST
+            END:VCALENDAR
+            """
+        let raw = Self.raw(Self.header + """
+            Content-Type: multipart/mixed; boundary="MIX"
+
+            --MIX
+            Content-Type: text/plain; charset="utf-8"
+
+            Lunch on Thursday at one.
+            --MIX
+            \(invitation)
+            --MIX--
+            """)
+        let decoded = MIMEDecoder.decodeMessage(raw)
+        XCTAssertEqual(decoded.text, "Lunch on Thursday at one.")
+        XCTAssertNil(decoded.html)
+        XCTAssertEqual(decoded.attachments.map(\.filename), [])
+        XCTAssertEqual(listed(raw), [])
+        XCTAssertFalse(clip(raw))
+
+        let alone = Self.raw(Self.header + """
+            Content-Type: multipart/mixed; boundary="MIX"
+
+            --MIX
+            \(invitation)
+            --MIX--
+            """)
+        XCTAssertEqual(MIMEDecoder.decodeMessage(alone).text, "BEGIN:VCALENDAR\nMETHOD:REQUEST\nEND:VCALENDAR")
+    }
+
+    /// A letter of more parts of words than a body holds, a hundred parts
+    /// of HTML with a PDF among them: the first 64
+    /// (`MIMEDecoder.maxBodyWords`), nothing after the last, not the PDF's
+    /// mark, and said to be only the beginning. One of 64 is whole.
+    func testABodyHoldsSixtyFourPartsOfWords() {
+        func letter(_ count: Int) -> Data {
+            var parts = (0..<count).map { "Content-Type: text/html; charset=\"utf-8\"\n\n<p>h\($0)</p>" }
+            parts.insert(Self.pdf, at: 64)
+            return Self.raw(Self.header + "Content-Type: multipart/mixed; boundary=\"MIX\"\n\n"
+                            + parts.map { "--MIX\n" + $0 + "\n" }.joined() + "--MIX--\n")
+        }
+        let first = (0..<64).map { "<p>h\($0)</p>" }.joined()
+        let many = MIMEDecoder.decodeMessage(letter(100))
+        XCTAssertEqual(many.html, first)
+        XCTAssertTrue(many.isShortened)
+        XCTAssertEqual(many.attachments.map(\.filename), ["Programme.pdf"])
+        XCTAssertEqual(MIMEDecoder.bodyPlan(of: MIMEDecoder.parseStructure(letter(100))).sections.count, 64)
+
+        let all = MIMEDecoder.decodeMessage(letter(64))
+        XCTAssertEqual(all.html, first)
+        XCTAssertFalse(all.isShortened)
+    }
 }

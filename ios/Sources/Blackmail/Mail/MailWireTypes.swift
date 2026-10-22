@@ -119,6 +119,10 @@ struct IMAPFetchResult {
     var bodyStructure: MIMEPart?
     /// Raw bytes of whatever BODY[...] section was requested.
     var body: Data?
+    /// The same, by the section each came under, for a FETCH asking for
+    /// several at once (`IMAPClient.fetchLetterInPart`): `BODY[2.1]<0>`
+    /// under "2.1". `body` keeps the last of them, as it always did.
+    var sections: [String: Data] = [:]
     /// Gmail's own thread id, when the server advertised X-GM-EXT-1.
     ///
     /// A 64-bit number, kept as a STRING because it does not fit a UInt32
@@ -209,7 +213,17 @@ struct MIMEPart {
     /// inline, for one shown from its structure (B-114,
     /// `MIMEDecoder.forwardedFields`). Nil for every other part, and for
     /// one parsed from a letter's bytes, whose own header has them.
-    var envelope: IMAPEnvelope?
+    ///
+    /// Boxed: inline, an ENVELOPE made every part of every tree 112 bytes
+    /// larger, 280 where it was 168, for the one part in thousands that
+    /// has one.
+    var envelope: Envelope?
+
+    /// An ENVELOPE, held by reference (`envelope`).
+    final class Envelope {
+        let value: IMAPEnvelope
+        init(_ value: IMAPEnvelope) { self.value = value }
+    }
 
     var mimeType: String { "\(type)/\(subtype)" }
     var isMultipart: Bool { type == "multipart" }
@@ -276,6 +290,11 @@ struct DecodedBody {
     var text: String?
     var html: String?
     var attachments: [Attachment] = []
+    /// True when the body the pane shows, `html` when there is one and
+    /// `text` otherwise, has more parts of words than a body holds
+    /// (`MIMEDecoder.maxBodyWords`): shown up to there, and said to be only
+    /// the beginning (`Message.isShortened`).
+    var isShortened = false
 }
 
 /// The `[APPENDUID <uidvalidity> <uid>]` a server volunteers on a

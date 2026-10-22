@@ -392,6 +392,67 @@ final class BoundedLetterTests: XCTestCase {
         XCTAssertLessThan(growth, 16 << 20, "\(growth >> 20) MB")
     }
 
+    /// A letter of a quarter of a million tiny parts of words, 500 to a
+    /// multipart and 500 of those, 3.2 MB: every part drawn in its turn
+    /// (B-113) made a list of copies of its parts for every multipart, and
+    /// copied it into its parent's, both bodies, and the walks of a letter
+    /// opened took 11.2 s here, where they took 1.5 s before every part was
+    /// drawn, and 300 MB more than the letter itself in a release build
+    /// (B-113). Now both bodies are walked in one pass into one
+    /// list each, which stops at the 64 parts a body holds
+    /// (`MIMEDecoder.maxBodyWords`): 0.7 s, and nothing to speak of. The
+    /// same inside an alternative, whose choice asks every part what it
+    /// holds, 11.6 s and 1.5 s before, 1.5 s now; and nineteen mixed one
+    /// inside the next, each of 499 parts, 0.45 s and 0.06 s before, 0.03 s
+    /// now. The walks of a letter opened: its decoding, its preview, its
+    /// paperclip and its header's files.
+    func testALetterOfAQuarterOfAMillionPartsIsDrawnInOnePass() throws {
+        let inner = "Content-Type: multipart/mixed; boundary=\"I\"\r\n\r\n"
+            + (0..<500).map { "--I\r\n\r\nw\($0)\r\n" }.joined() + "--I--\r\n"
+        let mixed = "Content-Type: multipart/mixed; boundary=\"O\"\r\n\r\n"
+            + String(repeating: "--O\r\n" + inner, count: 500) + "--O--\r\n"
+        let alternative = "Content-Type: multipart/alternative; boundary=\"A\"\r\n\r\n"
+            + "--A\r\nContent-Type: text/plain\r\n\r\nThe plain words.\r\n--A\r\n" + mixed + "--A--\r\n"
+        func level(_ d: Int) -> String {
+            "Content-Type: multipart/mixed; boundary=\"L\(d)\"\r\n\r\n"
+                + (0..<499).map { "--L\(d)\r\n\r\nx\($0)\r\n" }.joined()
+                + (d < 18 ? "--L\(d)\r\n" + level(d + 1) : "") + "--L\(d)--\r\n"
+        }
+        let first = { (word: String) in
+            (0..<MIMEDecoder.maxBodyWords).map { word + String($0) }.joined(separator: "\n")
+        }
+        let shapes: [(label: String, body: String, words: String, preview: String, within: TimeInterval)] = [
+            ("mixed", mixed, first("w"), "1.1", 7), ("alternative", alternative, first("w"), "2.1.1", 16),
+            ("nested", level(0), first("x"), "1", 0.3),
+        ]
+        for shape in shapes {
+            let raw = Data(("From: a@example.com\r\nSubject: Parts\r\nMIME-Version: 1.0\r\n" + shape.body)
+                .utf8)
+            let parsed = MIMEDecoder.parse(raw)
+            var decoded = DecodedBody()
+            var preview: MIMEPart?
+            var clip = true
+            var files: [Attachment]?
+            var growth: Int?
+            assertQuick(shape.label, within: shape.within) {
+                growth = PeakMemory.growth {
+                    decoded = MIMEDecoder.flatten(parsed.structure) { parsed.bodies[$0.section] }
+                    preview = MIMEDecoder.previewPart(parsed.structure)
+                    clip = IMAPMailRepository.hasAttachment(parsed.structure)
+                    files = MIMEDecoder.listedAttachments(in: parsed.structure)
+                }
+            }
+            XCTAssertEqual(decoded.text, shape.words, shape.label)
+            XCTAssertNil(decoded.html, shape.label)
+            XCTAssertTrue(decoded.isShortened, shape.label)
+            XCTAssertEqual(preview?.section, shape.preview, shape.label)
+            XCTAssertFalse(clip, shape.label)
+            XCTAssertEqual(files?.count, 0, shape.label)
+            guard let growth else { throw XCTSkip(Self.unmeasured) }
+            XCTAssertLessThan(growth, 32 << 20, "\(shape.label): \(growth >> 20) MB")
+        }
+    }
+
     static let unmeasured = "no high-water mark to measure memory by on this host"
 
     // MARK: - Bounds
