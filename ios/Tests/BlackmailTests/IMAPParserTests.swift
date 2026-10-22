@@ -72,36 +72,58 @@ final class IMAPParserTests: XCTestCase {
     /// unasked inside the answer to a UID FETCH, `* 68 FETCH (UID 422 FLAGS
     /// (\Seen))`, after the letter's whole line, is laid over it: one result,
     /// the letter's, with the news's flags. Ahead of it, the whole line's.
-    /// An empty FLAGS that was sent takes every mark off, and a line that
-    /// carries no X-GM-LABELS leaves the labels. Another letter's line, and
-    /// a line with no UID, are left as they are.
+    /// Either way every item only the whole line carried is the whole
+    /// line's: its labels, arrival, size, envelope, structure, bytes and
+    /// Gmail ids. An empty FLAGS that was sent takes every mark off, and a
+    /// line that carries no X-GM-LABELS leaves the labels. Another letter's
+    /// line, and a line with no UID, are left as they are.
     func testASecondLineForOneUIDIsLaidOverTheFirst() {
+        let marker = "\(IMAPResponseLine.literalMarker)0\(IMAPResponseLine.literalMarker)"
+        let bytes = Data("Subject: Re: the plan\r\n\r\nMay it is.\r\n".utf8)
         let whole = line("""
         * 68 FETCH (X-GM-THRID 1278455344230334865 X-GM-MSGID 1278455344230334999 \
         X-GM-LABELS ("\\\\Important") UID 422 FLAGS (\\Answered \\Seen) \
         INTERNALDATE "22-Oct-2026 11:45:02 +0000" RFC822.SIZE 3120 \
-        ENVELOPE ("Wed, 22 Oct 2026 07:45:00 -0400" "Re: the plan" \
-        (("Jane" NIL "jane" "example.com")) NIL NIL NIL NIL NIL "<a@example.com>" "<b@example.com>"))
-        """)
+        ENVELOPE ("Thu, 22 Oct 2026 07:45:00 -0400" "Re: the plan" \
+        (("Jane" NIL "jane" "example.com")) NIL NIL NIL NIL NIL "<a@example.com>" "<b@example.com>") \
+        BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 12 1 NIL NIL NIL NIL)\
+        ("APPLICATION" "PDF" ("NAME" "plan.pdf") NIL NIL "BASE64" 820 NIL \
+        ("ATTACHMENT" ("FILENAME" "plan.pdf")) NIL NIL) "MIXED" ("BOUNDARY" "b1") NIL NIL NIL) \
+        BODY[] \(marker))
+        """, literals: [bytes])
         let news = line("* 68 FETCH (UID 422 FLAGS (\\Seen))")
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        let arrived = utc.date(from: DateComponents(year: 2026, month: 10, day: 22,
+                                                    hour: 11, minute: 45, second: 2))
+        let dated = utc.date(from: DateComponents(year: 2026, month: 10, day: 22,
+                                                  hour: 11, minute: 45, second: 0))
 
-        let after = IMAPParser.parseFetch([whole, news])
-        XCTAssertEqual(after.count, 1)
-        XCTAssertEqual(after.first?.uid, 422)
-        XCTAssertEqual(after.first?.flags, ["\\Seen"])
-        XCTAssertEqual(after.first?.envelope?.subject, "Re: the plan")
-        XCTAssertEqual(after.first?.envelope?.from.first?.address, "jane@example.com")
-        XCTAssertEqual(after.first?.threadID, "1278455344230334865")
-        XCTAssertEqual(after.first?.gmailMessageID, 1_278_455_344_230_334_999)
-        XCTAssertEqual(after.first?.labels, ["\\Important"])
-        XCTAssertEqual(after.first?.size, 3120)
-        XCTAssertNotNil(after.first?.internalDate)
+        func assertTheLetter(_ results: [IMAPFetchResult], flags: [String], _ order: String,
+                             line: UInt = #line) {
+            XCTAssertEqual(results.count, 1, order, line: line)
+            guard let r = results.first else { return XCTFail("\(order): none", line: line) }
+            XCTAssertEqual(r.uid, 422, order, line: line)
+            XCTAssertEqual(r.flags, flags, order, line: line)
+            XCTAssertEqual(r.labels, ["\\Important"], order, line: line)
+            XCTAssertEqual(r.internalDate, arrived, order, line: line)
+            XCTAssertEqual(r.size, 3120, order, line: line)
+            XCTAssertEqual(r.envelope?.date, dated, order, line: line)
+            XCTAssertEqual(r.envelope?.subject, "Re: the plan", order, line: line)
+            XCTAssertEqual(r.envelope?.from.map(\.address), ["jane@example.com"], order, line: line)
+            XCTAssertEqual(r.envelope?.inReplyTo, "<a@example.com>", order, line: line)
+            XCTAssertEqual(r.envelope?.messageID, "<b@example.com>", order, line: line)
+            XCTAssertEqual(r.bodyStructure?.mimeType, "multipart/mixed", order, line: line)
+            XCTAssertEqual(r.bodyStructure?.children.map(\.mimeType), ["text/plain", "application/pdf"],
+                           order, line: line)
+            XCTAssertEqual(r.bodyStructure?.children.last?.filename, "plan.pdf", order, line: line)
+            XCTAssertEqual(r.body, bytes, order, line: line)
+            XCTAssertEqual(r.threadID, "1278455344230334865", order, line: line)
+            XCTAssertEqual(r.gmailMessageID, 1_278_455_344_230_334_999, order, line: line)
+        }
 
-        let ahead = IMAPParser.parseFetch([news, whole])
-        XCTAssertEqual(ahead.count, 1)
-        XCTAssertEqual(ahead.first?.flags, ["\\Answered", "\\Seen"])
-        XCTAssertEqual(ahead.first?.envelope?.subject, "Re: the plan")
-        XCTAssertEqual(ahead.first?.gmailMessageID, 1_278_455_344_230_334_999)
+        assertTheLetter(IMAPParser.parseFetch([whole, news]), flags: ["\\Seen"], "news after")
+        assertTheLetter(IMAPParser.parseFetch([news, whole]), flags: ["\\Answered", "\\Seen"], "news ahead")
 
         let cleared = IMAPParser.parseFetch([whole, line("* 68 FETCH (UID 422 FLAGS ())")])
         XCTAssertEqual(cleared.count, 1)

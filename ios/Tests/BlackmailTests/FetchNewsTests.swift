@@ -46,12 +46,18 @@ final class FetchNewsTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeRepository(shelf: MailShelf? = nil) -> IMAPMailRepository {
+    /// `largeAbove` the size above which a letter is opened without its
+    /// files, the app's unless a test makes a letter of a few kilobytes
+    /// stand for one of megabytes.
+    private func makeRepository(shelf: MailShelf? = nil,
+                                largeAbove: Int = IMAPMailRepository.largeLetterBytes)
+        -> IMAPMailRepository {
         let clock = self.clock!
         return IMAPMailRepository(account: server.account, password: server.password,
                                   transport: server.transportFactory, recipients: book,
                                   now: { clock.now() },
-                                  shelf: shelf ?? keptShelf(for: server.account))
+                                  shelf: shelf ?? keptShelf(for: server.account),
+                                  largeLetterBytes: largeAbove)
     }
 
     /// Logged in, the Inbox selected, the log cleared.
@@ -78,9 +84,15 @@ final class FetchNewsTests: XCTestCase {
         return (uid, try XCTUnwrap(server.letter(uid: uid, in: Server.inbox)))
     }
 
+    /// A file of 600 bytes, a PDF.
+    private static let planFile = Server.File(name: "plan.pdf", type: "APPLICATION", subtype: "PDF",
+                                              bytes: Data((0..<600).map { UInt8($0 % 251) }),
+                                              contentID: nil)
+
     /// A conversation of two letters, newer than the rest of the Inbox and
-    /// both unread, the second a reply Gmail threads with the first. Their
-    /// UIDs, the first's first.
+    /// both unread, the second a reply Gmail threads with the first, with a
+    /// file in it, which came a minute after its Date. Their UIDs, the
+    /// first's first.
     private func conversation() throws -> (older: UInt32, newer: UInt32) {
         let first = Server.Letter(from: Server.jane, to: [Server.owner], subject: "The garden plan",
                                   date: Server.newestDate.addingTimeInterval(3_600),
@@ -90,7 +102,8 @@ final class FetchNewsTests: XCTestCase {
                                   date: Server.newestDate.addingTimeInterval(7_200),
                                   text: "May it is.\r\n", messageID: "<plan-re@example.org>",
                                   inReplyTo: "<plan@example.com>", references: "<plan@example.com>",
-                                  joins: "<plan@example.com>")
+                                  files: [Self.planFile], joins: "<plan@example.com>",
+                                  arrived: Server.newestDate.addingTimeInterval(7_260))
         let older = try XCTUnwrap(server.deliver(first, to: [Server.inbox, Server.allMail])[Server.inbox])
         let newer = try XCTUnwrap(server.deliver(reply, to: [Server.inbox, Server.allMail])[Server.inbox])
         return (older, newer)
@@ -142,8 +155,9 @@ final class FetchNewsTests: XCTestCase {
 
     // MARK: - Rows
 
-    /// The row is the letter's, whole: its sender, subject and date, its
-    /// conversation and Gmail's id for it.
+    /// The row is the letter's, whole: its sender, subject and date, when
+    /// it came, its files and the paperclip, its conversation and Gmail's
+    /// id for it.
     private func assertWhole(_ row: MessageSummary?, is letter: Server.Letter, uid: UInt32,
                              in mailbox: String = Server.inbox,
                              file: StaticString = #filePath, line: UInt = #line) {
@@ -152,6 +166,10 @@ final class FetchNewsTests: XCTestCase {
         XCTAssertTrue(row.sender.contains(letter.from.address), row.sender, file: file, line: line)
         XCTAssertEqual(row.subject, letter.subject, file: file, line: line)
         XCTAssertEqual(row.date, letter.date, file: file, line: line)
+        XCTAssertEqual(row.arrived, letter.arrival, "when it came", file: file, line: line)
+        let files = letter.files.filter { $0.contentID == nil }.map(\.name)
+        XCTAssertEqual(row.hasAttachment, !files.isEmpty, "the paperclip", file: file, line: line)
+        XCTAssertEqual(row.attachments.map(\.filename), files, file: file, line: line)
         XCTAssertNotNil(row.threadID, file: file, line: line)
         XCTAssertEqual(row.gmailMessageID, server.gmailMessageID(uid: uid, in: mailbox),
                        file: file, line: line)
@@ -177,10 +195,12 @@ final class FetchNewsTests: XCTestCase {
     /// conversation marked elsewhere, then Refresh. The NOOP is answered
     /// with no news, and Gmail tells of the mark inside the listing's FETCH,
     /// straight after the letter's whole line, which carries its old flags.
-    /// The row is the letter's, whole and marked read, still in its
-    /// conversation, its neighbour as it was, and the page kept on the iPad
-    /// has it so, on disk too. The connection log's SESSION-IDENT names
-    /// Gmail's id for the letter at the top, where the iPad's said `msgid=-`.
+    /// The row is the letter's, whole and marked read, its file and the
+    /// paperclip and when it came all from the line the news came after,
+    /// still in its conversation, its neighbour as it was, and the page
+    /// kept on the iPad has it so, on disk too. The connection log's
+    /// SESSION-IDENT names Gmail's id for the letter at the top, where the
+    /// iPad's said `msgid=-`.
     func testAMarkMadeElsewhereToldInsideTheListingLeavesItsRowWholeAndMarked() async throws {
         let (older, newer) = try conversation()
         let reply = try XCTUnwrap(server.letter(uid: newer, in: Server.inbox))
@@ -207,6 +227,10 @@ final class FetchNewsTests: XCTestCase {
         XCTAssertEqual(rows.map(\.id), before.map(\.id))
         assertWhole(rows.first, is: reply, uid: newer)
         XCTAssertEqual(rows.first?.isRead, true)
+        XCTAssertEqual(rows.first?.hasAttachment, true)
+        XCTAssertEqual(rows.first?.attachments.map(\.filename), ["plan.pdf"])
+        XCTAssertEqual(rows.first?.arrived, reply.arrival)
+        XCTAssertNotEqual(reply.arrival, reply.date, "when it came is not its Date")
         XCTAssertEqual(rows.first?.threadID, before[0].threadID)
         XCTAssertEqual(rows[1].threadID, rows[0].threadID, "still one conversation")
         XCTAssertFalse(rows[1].isRead)
@@ -362,6 +386,81 @@ final class FetchNewsTests: XCTestCase {
         assertNoBlankRow(next)
     }
 
+    // MARK: - A launch's first listing
+
+    /// The first listing of a launch, the letter with a file in it marked
+    /// read elsewhere between the listing's SEARCH and its FETCH, and the
+    /// news told where `news` says. What only the letter's own line says of
+    /// it is kept, whichever came first, where a Refresh would still have
+    /// it from the listing before: its size, so a letter above the size the
+    /// app opens whole is kept with the row as large and opened in parts,
+    /// its file left on the server; when it came; its file and the
+    /// paperclip; and the part its preview is read from.
+    private func assertTheFirstListingKeepsWhatTheLettersLineSays(
+        news: Server.FlagNews, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let (older, newer) = try conversation()
+        let reply = try XCTUnwrap(server.letter(uid: newer, in: Server.inbox))
+        let raw = try XCTUnwrap(server.raw(uid: newer, in: Server.inbox))
+        let shelf = keptShelf(for: server.account)
+        let repository = makeRepository(shelf: shelf, largeAbove: raw.count - 1)
+        server.flagNews = news
+        let scripted = self.server!
+        scripted.change(after: { $0.verb == "UID SEARCH" && $0.selected == Server.inbox }) {
+            scripted.storeElsewhere(uid: newer, in: Server.inbox, adding: ["\\Seen"])
+        }
+        Diagnostics.clear()
+
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+
+        let answer = try XCTUnwrap(fetchAnswers().first { $0.contains { isSummary($0, of: newer) } },
+                                   file: file, line: line)
+        let own = try XCTUnwrap(answer.firstIndex { isSummary($0, of: newer) }, file: file, line: line)
+        let told = answer.firstIndex { isNews($0, of: newer) }
+        XCTAssertEqual(told, news == .beforeFetch ? 0 : own + 1, "\(answer.prefix(3))", file: file, line: line)
+        XCTAssertEqual(answer[own].contains("FLAGS (\\Seen)"), news == .beforeFetch, answer[own],
+                       file: file, line: line)
+
+        XCTAssertEqual(rows.prefix(2).map { uid($0.id) }, [newer, older], file: file, line: line)
+        let row = try XCTUnwrap(rows.first, file: file, line: line)
+        assertWhole(row, is: reply, uid: newer, file: file, line: line)
+        XCTAssertTrue(row.isRead, file: file, line: line)
+        XCTAssertTrue(row.hasAttachment, file: file, line: line)
+        XCTAssertEqual(row.arrived, reply.arrival, file: file, line: line)
+        assertNoBlankRow(rows, file: file, line: line)
+        XCTAssertEqual(shelf.size(of: row.id, in: Server.inbox), raw.count, "kept as large",
+                       file: file, line: line)
+        shelf.flush()
+        XCTAssertEqual(keptShelf(for: server.account).size(of: row.id, in: Server.inbox), raw.count,
+                       "kept as large, on disk", file: file, line: line)
+
+        let previews = try await repository.previews(for: [row.id], in: "inbox")
+        XCTAssertEqual(previews[row.id], "May it is.", file: file, line: line)
+
+        server.clearLog()
+        let message = try await repository.open(row)
+        let fetches = server.log.filter { $0.verb == "UID FETCH" }.map(\.command)
+        XCTAssertEqual(fetches.first, "UID FETCH \(newer) (UID BODYSTRUCTURE BODY.PEEK[HEADER])",
+                       "opened in parts", file: file, line: line)
+        XCTAssertFalse(fetches.contains { $0.contains("BODY.PEEK[2]") }, "the file left on the server",
+                       file: file, line: line)
+        XCTAssertEqual(message.subject, reply.subject, file: file, line: line)
+        XCTAssertEqual(message.attachments.filter { !$0.isInline }.map(\.filename), ["plan.pdf"],
+                       file: file, line: line)
+    }
+
+    /// The news ahead of the listing's own lines: the size and the arrival
+    /// are the letter's line's, which came second.
+    func testTheFirstListingWithTheNewsAheadKeepsTheLettersSizeArrivalFileAndPreview() async throws {
+        try await assertTheFirstListingKeepsWhatTheLettersLineSays(news: .beforeFetch)
+    }
+
+    /// The news straight after the letter's own line, as on the iPad: the
+    /// structure, the file and the preview's part are the letter's line's,
+    /// which came first.
+    func testTheFirstListingWithTheNewsInsideKeepsTheLettersSizeArrivalFileAndPreview() async throws {
+        try await assertTheFirstListingKeepsWhatTheLettersLineSays(news: .insideFetch)
+    }
+
     // MARK: - The watch and a search
 
     /// The watch's check finds a letter that has come, and it is marked
@@ -498,88 +597,146 @@ final class FetchNewsTests: XCTestCase {
     // MARK: - Every FETCH of one letter
 
     /// Each FETCH the client makes of one letter, with the news of a mark
-    /// set or taken off it elsewhere told ahead of the letter's own line:
-    /// each answers for the letter, its Gmail id, its bytes, its structure,
-    /// its part and its summary, never for the bare news line before it.
-    func testEveryFetchOfOneLetterAnswersForItWithTheNewsToldAheadOfItsLine() async throws {
-        let file = Server.File(name: "plan.pdf", type: "APPLICATION", subtype: "PDF",
-                               bytes: Data((0..<600).map { UInt8($0 % 251) }), contentID: nil)
+    /// set or taken off it elsewhere told inside each FETCH's answer, where
+    /// `news` says: each answers for the letter, its Gmail id, its bytes,
+    /// its structure, its part, its preview and its summary, its size and
+    /// when it came among them, never for the bare news line. A call that
+    /// makes two FETCHes, a letter in parts and a file, has the news told
+    /// inside both.
+    private func assertEveryFetchOfOneLetterAnswersForIt(news: Server.FlagNews) async throws {
+        let file = Self.planFile
         let sent = Server.Letter(from: Server.sam, to: [Server.owner], subject: "The plan",
                                  date: Server.newestDate.addingTimeInterval(600),
                                  text: "The plan is attached.\r\n", messageID: "<plan-file@example.com>",
-                                 files: [file])
+                                 files: [file], arrived: Server.newestDate.addingTimeInterval(660))
         let n = try XCTUnwrap(server.deliver(sent, to: [Server.inbox, Server.allMail])[Server.inbox])
         let letter = try XCTUnwrap(server.gmailMessageID(uid: n, in: Server.inbox))
         let raw = try XCTUnwrap(server.raw(uid: n, in: Server.inbox))
         let client = try await connectedClient()
-        server.flagNews = .beforeFetch
+        server.flagNews = news
         var flagged = false
-        func markElsewhere() {
+        /// The letter flagged or unflagged elsewhere, told inside the next
+        /// FETCH; and with `again`, marked answered or not elsewhere once
+        /// that FETCH is answered, told inside the one after.
+        func markElsewhere(again: Bool = false) {
             flagged.toggle()
             server.storeElsewhere(uid: n, in: Server.inbox, adding: flagged ? ["\\Flagged"] : [],
                                   removing: flagged ? [] : ["\\Flagged"])
+            if again {
+                let scripted = self.server!
+                scripted.change(after: { $0.verb == "UID FETCH" }) {
+                    let answered = scripted.flags(uid: n, in: Server.inbox).contains("\\Answered")
+                    scripted.storeElsewhere(uid: n, in: Server.inbox,
+                                            adding: answered ? [] : ["\\Answered"],
+                                            removing: answered ? ["\\Answered"] : [])
+                }
+            }
             Diagnostics.clear()
         }
-        func toldAhead(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
-            let first = fetchAnswers().first?.first ?? "nothing"
-            XCTAssertTrue(isNews(first, of: n), "\(what): \(first)", file: file, line: line)
+        /// Each FETCH since the mark had the news where `news` says: first
+        /// in the answer, or straight after the letter's own line.
+        func told(_ what: String, fetches: Int = 1, file: StaticString = #filePath, line: UInt = #line) {
+            let answers = fetchAnswers()
+            XCTAssertEqual(answers.count, fetches, what, file: file, line: line)
+            for answer in answers {
+                let at = news == .beforeFetch ? 0 : 1
+                XCTAssertTrue(answer.count > at && isNews(answer[at], of: n), "\(what): \(answer)",
+                              file: file, line: line)
+                if news != .beforeFetch {
+                    XCTAssertTrue(answer[0].contains("FETCH (UID \(n) ") && !isNews(answer[0], of: n),
+                                  "\(what): \(answer)", file: file, line: line)
+                }
+            }
         }
 
         markElsewhere()
         let named = try await client.gmailMessageID(uid: n, in: Server.inbox, validity: inboxValidity)
-        toldAhead("X-GM-MSGID")
+        told("X-GM-MSGID")
         XCTAssertEqual(named, letter)
 
         markElsewhere()
         let vouched = try await client.fetchBodyNamingLetter(uid: n, in: Server.inbox, validity: inboxValidity)
-        toldAhead("the whole letter, named")
+        told("the whole letter, named")
         XCTAssertEqual(vouched.letter, letter)
         XCTAssertEqual(vouched.raw, raw)
 
         markElsewhere()
         let asked = try await client.fetchBodyAskingLetter(uid: n, in: Server.inbox, validity: inboxValidity)
-        toldAhead("the whole letter, asked")
+        told("the whole letter, asked")
         XCTAssertEqual(asked.letter, letter)
         XCTAssertEqual(asked.raw, raw)
 
         markElsewhere()
         let whole = try await client.fetchBody(uid: n, section: nil, in: Server.inbox, validity: inboxValidity)
-        toldAhead("the whole letter")
+        told("the whole letter")
         XCTAssertEqual(whole, raw)
 
-        markElsewhere()
+        markElsewhere(again: true)
         let inPart = try await client.fetchLetterInPart(uid: n, in: Server.inbox, validity: inboxValidity,
                                                         question: .expecting(letter), sectionBytes: 64,
                                                         sections: { _ in ["1"] })
-        toldAhead("the letter in parts")
+        told("the letter in parts", fetches: 2)
         XCTAssertEqual(inPart.letter, letter)
-        XCTAssertNotNil(inPart.structure)
+        XCTAssertEqual(inPart.structure.map(MIMEDecoder.listedAttachments(in:))?.map(\.filename),
+                       ["plan.pdf"])
         XCTAssertTrue(String(decoding: inPart.header, as: UTF8.self).contains("Subject: The plan"))
         XCTAssertEqual(inPart.sections["1"].map { String(decoding: $0, as: UTF8.self) },
                        "The plan is attached.\r\n")
 
-        markElsewhere()
-        let part = try await client.fetchPart(uid: n, section: "2", in: Server.inbox,
+        markElsewhere(again: true)
+        // A file not found is an error, and the rest goes on to be seen.
+        let part: (part: MIMEPart, bytes: Data)?
+        do {
+            part = try await client.fetchPart(uid: n, section: "2", in: Server.inbox,
                                               validity: inboxValidity, naming: letter,
                                               describedBy: { MIMEDecoder.part(at: "2", in: $0) })
-        toldAhead("a file")
-        let fetched = try XCTUnwrap(part)
-        XCTAssertEqual(MIMEDecoder.decodeTransfer(fetched.bytes, encoding: fetched.part.encoding), file.bytes)
+        } catch {
+            part = nil
+            XCTFail("a file: \(error)")
+        }
+        told("a file", fetches: 2)
+        XCTAssertEqual(part?.part.filename, "plan.pdf")
+        XCTAssertEqual(part.map { MIMEDecoder.decodeTransfer($0.bytes, encoding: $0.part.encoding) },
+                       file.bytes)
 
         markElsewhere()
         let previews = try await client.fetchPartialBodies(uids: [n], section: "1", byteCount: 8,
                                                            in: Server.inbox, validity: inboxValidity)
-        toldAhead("a preview")
+        told("a preview")
         XCTAssertEqual(previews[n].map { String(decoding: $0, as: UTF8.self) }, "The plan")
 
         markElsewhere()
         let summaries = try await client.fetchSummaries(uids: [n], in: Server.inbox, validity: inboxValidity)
-        toldAhead("a summary")
+        told("a summary")
+        let own = try XCTUnwrap(fetchAnswers().first?.first { isSummary($0, of: n) })
+        XCTAssertEqual(own.contains("\\Flagged"), news == .beforeFetch ? flagged : !flagged, own)
         XCTAssertEqual(summaries.count, 1)
-        XCTAssertEqual(summaries.first?.envelope?.subject, "The plan")
-        XCTAssertEqual(summaries.first?.gmailMessageID, letter)
-        XCTAssertEqual(summaries.first?.isFlagged, flagged)
+        let summary = try XCTUnwrap(summaries.first)
+        XCTAssertEqual(summary.uid, n)
+        XCTAssertEqual(summary.isFlagged, flagged)
+        XCTAssertEqual(summary.envelope?.subject, "The plan")
+        XCTAssertEqual(summary.envelope?.from.map(\.address), [Server.sam.address])
+        XCTAssertEqual(summary.envelope?.date, sent.date)
+        XCTAssertEqual(summary.gmailMessageID, letter)
+        XCTAssertNotNil(summary.threadID)
+        XCTAssertEqual(summary.size, raw.count, "its size")
+        XCTAssertEqual(summary.internalDate, sent.arrival, "when it came")
+        XCTAssertEqual(summary.bodyStructure.map(MIMEDecoder.listedAttachments(in:))?.map(\.filename),
+                       ["plan.pdf"], "its file")
+        XCTAssertEqual(summary.bodyStructure.flatMap(MIMEDecoder.previewPart)?.section, "1",
+                       "its preview's part")
         XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+    }
+
+    /// The news told ahead of the letter's own line, its line coming second.
+    func testEveryFetchOfOneLetterAnswersForItWithTheNewsToldAheadOfItsLine() async throws {
+        try await assertEveryFetchOfOneLetterAnswersForIt(news: .beforeFetch)
+    }
+
+    /// The news told straight after the letter's own line, as on the iPad,
+    /// its line coming first.
+    func testEveryFetchOfOneLetterAnswersForItWithTheNewsToldStraightAfterItsLine() async throws {
+        try await assertEveryFetchOfOneLetterAnswersForIt(news: .insideFetch)
     }
 
     /// A hollow MOVE filing a letter from All Mail in the Inbox, and the

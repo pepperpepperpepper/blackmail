@@ -17407,7 +17407,7 @@ the listing, and with the mark it had until the next Refresh if Gmail held
 the news back longer. The connection log's SESSION-IDENT names the
 letter's Gmail id.
 
-**Tests.** `FetchNewsTests`, fourteen, over the shipping repository and
+**Tests.** `FetchNewsTests`, seventeen, over the shipping repository and
 client, the kept copy and the scripted server, whose `storeElsewhere` is a
 STORE from another device and whose `flagNews` says where a connection
 with the letter's mailbox open is told of it: on the next NOOP, as Gmail
@@ -17416,17 +17416,29 @@ the letter's own line, which carries its old flags, as on the iPad, or
 after the answer's first line for a letter the FETCH did not ask for; or
 at the end of the answer, before its OK; and whose `envelopeless` leaves
 the ENVELOPE out of a letter's line. All but the two over more than one
-FETCH read off the connection log the app keeps that the news came where
-they say, so none passes with no news on the wire. And one in
-`IMAPParserTests` on the iPad's lines, the names and ids made up.
+FETCH, and the one with no ENVELOPE, read off the connection log the app
+keeps that the news came where they say, so none of them passes with no
+news on the wire; the one with no ENVELOPE reads off it that the letter's
+line came without one. And one in `IMAPParserTests` on the iPad's lines,
+the names and ids made up, the letter's whole line with a structure and
+bytes as well: with the news after it and with the news ahead of it, each
+of its items is checked, the flags, labels, arrival, size, envelope,
+structure, bytes and both Gmail ids.
 
-- *Inside*, the iPad's: a conversation of two, the newer marked read
-  elsewhere, then Refresh: NOOP, SEARCH, FETCH, the news straight after
-  the letter's line, which carried no flags; the row whole, read and in
-  its conversation, the older as it was, SESSION-IDENT naming the letter's
+- *Inside*, the iPad's: a conversation of two, the newer with a file in
+  it, marked read elsewhere, then Refresh: NOOP, SEARCH, FETCH, the news
+  straight after the letter's line, which carried no flags; the row whole,
+  read, with its file and the paperclip and when it came, and in its
+  conversation, the older as it was, SESSION-IDENT naming the letter's
   Gmail id, and the kept page the same, in memory and on disk.
 - *Ahead:* the news first and the letter's line with the new flags: the
-  row the letter's.
+  row the letter's, when it came among it.
+- *A launch's first listing:* the letter with a file marked read between
+  the listing's SEARCH and its FETCH, the news ahead of its line, and
+  again straight after it, where a Refresh would still have from the
+  listing before what the line says: the row whole and read, the letter
+  kept with it as large, in memory and on disk, and opened in parts, its
+  file left on the server; the preview its text's.
 - *At the end:* a letter in the middle of the page flagged elsewhere, the
   news after the fifty lines: the row whole and flagged, no other changed.
 - *Marks taken off:* a letter with only `\Seen` marked unread elsewhere,
@@ -17443,8 +17455,11 @@ they say, so none passes with no news on the wire. And one in
   vouching FETCH: the mark goes and the row stays kept. A kept row's
   letter opened with the news ahead: the letter.
 - *One letter:* the news ahead of each FETCH the client makes of one
-  letter: its Gmail id, its bytes named, asked and plain, the letter in
-  parts, a file, a preview and its summary, each the letter's.
+  letter, and again straight after the letter's line in each, both
+  FETCHes of the letter in parts and of a file told so: its Gmail id, its
+  bytes named, asked and plain, the letter in parts, its structure,
+  header and text, a file, a preview and its summary, with its size, when
+  it came, its file and its preview's part, each the letter's.
 - *Labels:* a hollow MOVE from All Mail into the Inbox, the news ahead of
   the FETCH of its labels: labelled, one MOVE.
 - *Two FETCHes:* an Inbox of 1,500, every summary asked for, two FETCHes.
@@ -17457,26 +17472,42 @@ they say, so none passes with no news on the wire. And one in
   the kept page the same, in memory and on disk, and the log line; the
   page below fifty, filled from the letter after it, and its log line.
 
-Each part undone in the worktree, one at a time, and the fifteen run,
-counted as failures in tests. The code as it was, 125 in 13, the rows on
+Each part undone in the worktree, one at a time, and the eighteen run,
+counted as failures in tests. The code as it was, 186 in 15, the rows on
 the host as on the iPad, "(unknown sender)", "" and 1970-01-01 with no
 ids, and the kept rows refused as another letter's; in the whole suite
-those 13 alone, the two that passed being the news ahead of a listing,
-whose last line was the letter's, and the letter not asked for: nothing
-else held it. The parser not merging, `IMAPClient.ordered` still merging,
-23 in 5: every FETCH of one letter, the kept rows and the labels, and the
-parser's own; the listings held, merged there. `ordered` not merging
-across answers, 4 in 1, the two FETCHes. A summary with no ENVELOPE made a
-row, 15 in 2, the blank row on the list and on the kept page. The later
-FLAGS taken only when not empty, 2 in 2; the later X-GM-LABELS taken
-whether sent or not, 4 in 2; the parser not saying FLAGS came, 12 in 7.
-The first line kept, 38 in 12. The smaller fix, lines with no ENVELOPE
-dropped from a listing and nothing merged, 35 in 13: rows whole and their
+those 15 alone, the three that passed being the two listings with the
+news ahead, whose last line was the letter's, and the letter not asked
+for: nothing else held it. The parser not merging, `IMAPClient.ordered`
+still merging, 39 in 5: every FETCH of one letter with the news ahead,
+the kept rows and the labels, and the parser's own; the listings held,
+merged there, and so did every FETCH of one letter with the news after
+its line, the first line being the letter's. `ordered` not merging across
+answers, 4 in 1, the two FETCHes. A summary with no ENVELOPE made a row,
+15 in 2, the blank row on the list and on the kept page. The later FLAGS
+taken only when not empty, 3 in 3; the later X-GM-LABELS taken whether
+sent or not, 4 in 2; the parser not saying FLAGS came, 14 in 9. The
+first line kept, 80 in 15. The smaller fix, lines with no ENVELOPE
+dropped from a listing and nothing merged, 53 in 15: rows whole and their
 marks stale, every FETCH of one letter as before, and nothing in the log
 of what was left out. A line with nothing but flags laid over the line
 before it, whatever its UID, 8 in 5.
 
-The full suite, serially: 1,871 tests, 5 skipped, none failing. The
+And each item the earlier line keeps when the later one did not carry
+it, undone one at a time. The arrival and the size taken from the later
+line alone, 10 in 4: with the news ahead, the row has no arrival, the
+letter is not kept as large and is opened whole, and its summary has no
+size or arrival, in the parser's test too. The structure taken from the
+later line alone, 23 in 4: with the news after the letter's line, the
+row has no paperclip and no file, on the list and on the kept page, and
+no preview; the letter in parts has no structure and nothing of its
+text, a file is not found, and the summary has no structure, in the
+parser's test too. The bytes taken from the later line alone, 10 in 2:
+with the news after the line, the letter's bytes, named, asked and
+plain, are empty, the letter in parts has no header and no text, a file
+is not found and a preview is empty, in the parser's test too.
+
+The full suite, serially: 1,874 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
