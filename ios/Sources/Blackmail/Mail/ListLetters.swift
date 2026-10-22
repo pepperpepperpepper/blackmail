@@ -474,6 +474,45 @@ final class ListLetters: PaneActionList {
         }
     }
 
+    /// The reading pane's Mark as Unread or Mark as Read, at the tap
+    /// (B-106): the dot as a tap on a row changes it, on the letter and its
+    /// copies, held over a listing until the server has answered
+    /// (`reading`), and the rows redrawn, as for a Flag.
+    func setRead(_ read: Bool, on letter: MessageSummary) {
+        reading(letter, read: read)
+        changed(.marked)
+    }
+
+    /// The server has taken a read mark made on `letter`, the list's copy
+    /// of it as it was before the mark: from Edit mode's Mark, which makes
+    /// the mark once the STORE has landed, or from the reading pane's,
+    /// which made it at the tap. Held over a listing asked before now
+    /// (`readAnswered`), and billed: one off every folder the letter is
+    /// counted in, once per letter however often it is asked (`read`), or
+    /// one back on, and its billing forgotten (`unread`), so reading it
+    /// again takes the one off again, once.
+    ///
+    /// Nothing comes off or goes on when the list had the letter so
+    /// already: the count was right before the STORE. Edit mode marks only
+    /// the letters whose dot says otherwise, so for it this is the
+    /// bookkeeping it always did. The pane has its letter as read once
+    /// opened (`FlagMenu.items`), and the tap that opened it can have been
+    /// refused and put the dot back: a Mark as Unread then put one on for a
+    /// letter that was counted already, one too many until the next sweep.
+    func readTaken(_ letter: MessageSummary, read: Bool) {
+        readAnswered(letter.id, landed: true)
+        guard letter.isRead != read else { return }
+        if read { self.read(letter) } else { unread(letter) }
+    }
+
+    /// The server refused the reading pane's read mark on `letter`, or it
+    /// was never sent: the dot back as it was, on every copy it was made
+    /// on that is still that letter (`readAnswered`), and the rows redrawn.
+    func readRefused(_ letter: MessageSummary) {
+        readAnswered(letter.id, landed: false)
+        changed(.marked)
+    }
+
     // MARK: - His own marks over a listing
 
     /// His read marks and flags on the list's letters, by id, from the

@@ -18593,3 +18593,179 @@ release build for the iPad links.
 - A recent search read at a date past its week is not shown, and is not
   taken out of the file until the next search is kept: put the date back
   and it shows again.
+
+---
+
+## B-106 — BUILT 2026-10-22, not yet seen on the iPad. The Flag button flagged at once and nothing in the pane could mark a letter unread; Mail's Flag button opened Flag and Mark as Unread
+
+Built in the `feat-flagmenu` worktree, off `featAB-int` at 1b5d096, which
+is master at 88ef40d with B-100 to B-105.
+
+**What Mail does.** In iOS 6 the Flag button in a letter's toolbar opened
+a sheet with Mark as Unread beside the flag: "tap the flag icon and select
+'Mark as Unread'" (MacStories' iOS 6 tips, which say nothing of Junk). iOS
+7 kept "Flag/Unflag and Mark As Read/Unread" there and added "a Move To
+Junk button that moves the current message to the Junk mailbox"
+(Macworld's guide to iOS 7 Mail; AppleInsider, 2013-06-27). iPadOS 18 has
+no Flag button unless one is added to the toolbar, and its More Actions
+sheet holds the same items: a flag in colours or Unflag, Mark as Unread or
+Read, then Move Message, Archive and, lower down, Move to Junk (Apple's
+iPad guide for 18.0, "Flag or block emails" and "Organize your email in
+mailboxes"; sure of the items, less of their order below Archive). Inside
+Junk, Mail offers Move to Inbox, or Not Junk, less surely.
+
+**What it was.** The Flag button flagged or unflagged the letter at the
+first tap, and Mark as Unread was in Edit mode's Mark sheet alone: to keep
+a letter he had opened for later, he had to leave it, tap Edit, tick its
+row and mark it.
+
+**Changed.**
+
+1. *The sheet* (`FlagMenu`, new, and `flagTapped`): an action sheet, on the
+   iPad a popover under the Flag button, the kind Reply's is, not iPadOS
+   18's menu: Flag or Unflag, then Mark as Unread or Mark as Read, and
+   Cancel, which UIKit leaves out of a popover, a tap outside it being its
+   Cancel. For the
+   letter the toolbar acts on, in a conversation the one he opened last,
+   as Flag was. An item chosen after the pane has moved on to another
+   letter does nothing; an item whose write on the letter is on its way as
+   the sheet opens is greyed. A draft kept on the iPad or a letter in the
+   Outbox gets Flag alone, though the pane shows neither: their rows open
+   the composer and the Outbox's sheet.
+2. *Flag and Unflag* are the Flag button's write as it was (`setFlag`): at
+   once in the pane and on the list, one at a time per letter, put back
+   and said if refused. They set or clear the flag as the item says, where
+   the button turned it over.
+3. *Which item.* A letter shown in the pane counts as read, since opening
+   it marked it read, unless the pane marked it unread itself
+   (`markedUnreadHere`, the letter's id). That is forgotten when the pane
+   shows another letter or empties, and when his tap on the letter's line
+   in a stack marks it read again. Not read off the pane's own
+   `summary.isRead`, which it was handed before the tap that opened the
+   letter marked it read.
+4. *Mark as Unread and Mark as Read* are a new `PaneAction.read(Bool)`
+   through `PaneActions.run`, as Flag is. Its effect keeps the row, leaves
+   no folder and sweeps nothing. At the tap the list's dot changes on the
+   letter and on its copies under other mailboxes' ids, held over a
+   listing until the server has answered (`ListLetters.setRead`, over
+   B-089's `reading`), and the rows are redrawn. The write is one vouched
+   `UID STORE n -FLAGS.SILENT (\Seen)`, or `+FLAGS.SILENT` for Mark as
+   Read, onto the letter its Gmail id names (D-016), and the copy kept on
+   the iPad follows once it lands. Taken, `ListLetters.readTaken`: the
+   bookkeeping Edit mode's Mark did, now the one function both call, the
+   mark held over a listing asked before now and one back on every folder
+   the letter is counted in, or one off, once. Refused, the dot goes back
+   on the list and in the pane, and he is told with Flag's alert. A row
+   kept on the iPad that the server says is another letter comes off the
+   list, and nothing is sent.
+5. *Billed from the list's copy as it was at the tap.* Nothing goes on or
+   comes off when the list had the letter so already. Edit mode marks only
+   rows whose dot says otherwise, so for it this is what it did. The pane
+   has a letter it opened as read, and the read mark of the tap that
+   opened it can have been refused and the dot put back: a Mark as Unread
+   then put one on for a letter that was counted already. A letter the
+   list has no row for, a hit after its search ended, is billed from the
+   pane's copy, which says read unless the pane marked it unread.
+6. *The pane.* The letter stays in it. In a stack, the pane's row for the
+   letter is marked unread too, so a tap that opens its line marks it read
+   again, as in Mail. Nothing else marks it read: no redraw, reload, new
+   mail, or WebKit drawing the page again.
+7. *One at a time* (`PaneWrites.startRead`): a read mark on a letter whose
+   last one is still on its way goes nowhere, and the sheet greys it, as a
+   second Flag goes nowhere. Two STOREs in flight that both fail, as they
+   do into a dead socket, would leave the mark the first one only asked
+   for.
+
+**Not changed.**
+
+- Edit mode's Mark sheet: its words, its two items, what it marks and
+  when. Its bookkeeping moved, as it was, into `readTaken`.
+- Offline, nothing is queued (D-016): each item fails with Flag's alert.
+- A tap on a row and a line opened in a stack mark a letter read as
+  before, and nothing else does.
+- Move to Junk is not in the sheet. It is built on the `feat-flagmenu`
+  branch's last commit, which the merge leaves out until the owner says
+  yes (D-022). iOS 7's sheet had it beside Mark as Unread, and Apple
+  Community users wrote of junking letters while reaching for Mark as
+  Unread just beside it (https://discussions.apple.com/thread/5362045,
+  2013); Mail's shake to undo brought them back there, and Blackmail has
+  no Undo.
+
+**What he sees.** A tap on Flag opens a small sheet under it: Flag, or
+Unflag, then Mark as Unread. Flag flags the letter as the button did, and
+is two taps now. Mark as Unread puts the blue dot back on its row at once
+and one back on the Inbox's count, and the letter stays where it is; next
+time the sheet offers Mark as Read. A tap on its row marks it read again.
+
+**Tests.** `FlagMenuTests`, twenty-one, new. The sheet's
+items for a letter flagged or not and read or not, in their order, and
+for a letter kept on the iPad; Mail's words; a read mark's effect from
+every folder; one read mark per letter at a time, apart from the Flags,
+and the greying. Over the shipping repository and client against the
+scripted server: Mark as Unread sends one `UID STORE n -FLAGS.SILENT
+(\Seen)` and nothing else, with the dot back at the tap and one back on
+the letter's folders once taken, nothing swept; read again by a tap on
+its row, one off, once, and Mark as Read from the pane one `+FLAGS.SILENT`
+and one off; refused, the dot back, `\Seen` kept and the counts as they
+were; a letter the list has unread already counts nothing; a hit after its
+search ended reaches the Inbox's copy and its folders; a kept row that is
+another letter now sends nothing, the flags under its UID as they were,
+and the row comes off; after a Mark as Unread, a listing asked before the
+STORE, the list fetched afresh and new mail found by a NOOP answered with
+EXISTS send no `+FLAGS` and leave the dot. On the list alone: billed only
+where the list had the letter otherwise, a refusal counting nothing, and
+the rows redrawn at the tap and at a refusal. Read from the source: the
+sheet anchored on the Flag button's own item, its items, Cancel, the
+guard and the greying, and nothing written at the first tap; Flag and
+Unflag written as the button wrote; the read mark handed as the pane has
+the letter, and put back if refused; the pane's own mark forgotten at each
+show and at the line's tap; no read STORE without a tap, the calls counted
+across the app and none in the pane's redraws; Edit mode's Mark sheet as
+it was, its bookkeeping `readTaken`; and no Move to Junk anywhere in the
+app. `ReadOnEveryCopyTests` reads Edit mode's bookkeeping as `readTaken`
+now.
+
+Each rule undone in the worktree, one at a time, and ten classes run, 231
+tests, counted as failures in tests. The sheet with no read item: 4 in 1;
+the read item the wrong way round: 4 in 1; the flag item the wrong way
+round: 8 in 2; the read item for a letter kept on the iPad: 4 in 1; the
+read item first: 4 in 1; iOS 7's "Mark As Unread": 1 in 1. A read mark
+that sweeps: 15 in 2. No dot at the tap: 7 in 5. The STORE never sent: 20
+in 7; sent the other way: 10 in 4. Nothing billed once taken: 5 in 3; the
+one back on never billed: 7 in 4; billed where the list had the letter so
+already: 2 in 2; the mark not held over a listing asked before it was
+taken: 8 in 5. Refused and the dot not put back: 1 in 1. No redraw at the
+tap: 3 in 1; at a refusal: 2 in 1. A second read mark on the letter
+going: 1 in 1; never greyed: 1 in 1. In the pane, read from the source:
+Flag at the first tap again, 1 in 1; the sheet hung from Reply, 1 in 1;
+no Cancel, 1 in 1; the item read off the pane's `summary.isRead`, 1 in 1;
+an item acting after the pane has moved on, 1 in 1; the read item not
+greyed, 1 in 1; the letter handed with the pane's old read mark, 1 in 1;
+refused and not put back in the pane, 1 in 1; the stack's row not marked
+unread, 1 in 1; the pane's mark kept over another letter, 2 in 1; the
+line's tap not clearing it, 2 in 1; a redraw marking the letter read, 2 in
+1. Edit mode billing by itself again: 3 in 2, one of them
+`ReadOnEveryCopyTests`. Thirty-two in all, with nothing else failing.
+In the first round, Flag at the first tap again passed every test; the
+test now reads that nothing in the button's own tap writes.
+
+The full suite, serially: 2,001 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad or the simulator: the popover, whether a
+  Cancel shows in it, the greyed item, VoiceOver.
+- Two read marks on one letter on their way at once, one from the list
+  and one from the pane, and the first refused: the list answers a mark
+  by the letter's id (`readAnswered`), so the answer to the first acts on
+  the second, and the dot can be wrong until the folder is next listed
+  from the top, and a count one high until the next sweep. It needs a
+  connection that dies inside the few seconds a read STORE can wait
+  behind a letter's body on the wire, between the tap that opened the
+  letter and Mark as Unread, or between that and a tap on its row. Both
+  taken, as on a working connection, it ends right.
+- One flag, as before: no colours, which iPadOS 18's sheet offers.
+- Move to Junk, Move to Inbox inside Spam, and their words ("Move to Junk"
+  or "Move to Spam", his sidebar's word): the owner's, on the branch's
+  last commit.

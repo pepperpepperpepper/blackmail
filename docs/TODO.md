@@ -260,7 +260,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       iPad: it did end the app, from "Save to Photos" on a picture in a
       letter; both keys are in, iOS asks, and "Save Image" is offered.
       B-067.*
-- [ ] Mark as Unread and Move to Junk from the Flag menu.
+- [ ] Mark as Unread and Move to Junk from the Flag menu. *Mark as
+      Unread done 2026-10-22, not yet seen on the iPad: the Flag button
+      opens Flag or Unflag and Mark as Unread or Read, as Mail's did. Move
+      to Junk is built on the `feat-flagmenu` branch and not merged, for
+      the owner. B-106, and its check under "Blocked on the iPad coming
+      back".*
 - [ ] Reply with the original's attachments.
 - [ ] Attach documents from Files, and video. *The app's picker is
       unchanged by B-070: photos only, made a JPEG at 0.85. The share
@@ -4120,6 +4125,39 @@ this host. Ordered by value, not by size.
       tap in the field: none. The date put back: they show again, as a
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
+- [ ] **B-106, the Flag button's sheet.** On the test iPad, the test
+      account only, built from the `feat-flagmenu` worktree at the merged
+      commit. A stands for the account's address; letters only to A with
+      `+b106` before the @, subjects beginning "B-106". Three letters to A,
+      two of them answered from Gmail's web so they make a conversation.
+      1. *The sheet.* A letter opened, then Flag: the sheet opens under the
+      Flag button, Flag and Mark as Unread. UIKit draws no Cancel in a
+      popover, as for Reply's sheet; whether one shows, written down. A
+      tap outside closes it and changes nothing.
+      2. *Flag.* Flag, then Unflag from the sheet again: the flag on the
+      row and in the header comes and goes as before, and the star on
+      Gmail's web follows.
+      3. *Mark as Unread.* The dot comes back at once, the Inbox's count
+      goes up by one, the letter stays in the pane, and the sheet then
+      offers Mark as Read. Mark as Read: the dot goes, the count down by
+      one. Mark as Unread again.
+      4. *Nothing reads it again.* Refresh, a letter sent to A arriving,
+      and the view button switched both ways: the letter keeps its dot
+      and the count stays. A tap on its row: read, the count down by one.
+      5. *In a stack.* The conversation opened, an older letter's line
+      opened, then Mark as Unread: the conversation's row has its dot, and
+      on Gmail's web the older letter is unread and the newest is not. A
+      tap on that line closes it, another opens it and marks it read.
+      6. *No connection.* Wi-Fi off, then Mark as Unread: the dot comes
+      and goes again, and the alert says so. Wi-Fi on.
+      7. *VoiceOver* reads "Flag" or "Unflag", "Mark as Unread" or "Mark
+      as Read", and the button for each, one swipe at a time.
+      8. *Put back.* The "B-106" letters to Trash.
+      Only if the owner says yes to Move to Junk, from the branch's last
+      commit: Move to Junk from the sheet: the row goes, "Moving…" shows,
+      the letter is in Spam on Gmail's web, and the counts are right; in
+      Spam, Move to Inbox brings it back; with Spam's "Show in IMAP" off in
+      Gmail's settings, no Junk item.
 
 ## Blocked on the owner
 
@@ -4259,6 +4297,8 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       missing arrow mean nothing. Either way, VoiceOver's "Replied" and
       "Forwarded" await his approval, and are held from his iPad until he
       gives it (B-102).
+- [ ] **Move to Junk in the Flag sheet** (B-106): built on
+      `feat-flagmenu`'s last commit, not merged.
 
 ## Open, recorded, not scheduled
 
