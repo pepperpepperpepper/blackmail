@@ -310,8 +310,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 renderNotice(PaneNotice.loading)
             },
             fetch: {
-                try await repository.loadMessage(id: summary.id, gmailMessageID: summary.gmailMessageID,
-                                                 mailboxID: summary.mailboxID)
+                try await repository.openLetter(summary)
             },
             // The page is built away from the main thread, and drawn only
             // if he is still on this letter when it is ready; see
@@ -420,8 +419,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 renderConversation(entries)
             },
             fetch: {
-                try await repository.loadMessage(id: newest.id, gmailMessageID: newest.gmailMessageID,
-                                                 mailboxID: newest.mailboxID)
+                try await repository.openLetter(newest)
             },
             prepare: { m in (m, PanePage.stackBody(m)) },
             settle: { [weak self] result in
@@ -541,8 +539,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         let repository = self.repository
-        loads.start({ try await repository.loadMessage(id: id, gmailMessageID: row.gmailMessageID,
-                                                       mailboxID: row.mailboxID) },
+        loads.start({ try await repository.openLetter(row) },
                     prepare: { m in (m, PanePage.stackBody(m)) },
                     settle: { [weak self] result in
                         self?.settleBody(result, for: id, focus: focus)

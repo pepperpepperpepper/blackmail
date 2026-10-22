@@ -946,8 +946,8 @@ his ticks or a finger, and in a conversation opened from the kept page at
 launch; a write on it is asked about once, at one round trip, and its
 letter opened asks in its own FETCH, at none more, where the proven mailbox
 let both go unasked. That stays: asking is the safer, and it is rare.
-Not built: the letters (phase 2). If it is built, it keeps none of his
-letters from Sent Mail that an Inbox conversation brings in (D-021).
+The letters: phase 2, below. It keeps none of his letters from Sent Mail
+that an Inbox conversation brings in (D-021).
 
 **Alongside it, the letters kept in `Local Drafts/`, 2026-09-30** (B-051).
 They are not this copy and are never wiped with it, but they name letters
@@ -968,6 +968,60 @@ same mailbox, and goes by the same count: an attempt cut off after its DATA
 before a save is not looked for by a pass, which would find nothing in
 another mailbox and send the letter again. It waits in the Outbox, "May
 already have been sent.", for him to send it or not.
+
+**Phase 2, built 2026-10-22, not yet seen on the iPad** (B-111). The
+owner, 2026-10-22: "All three are still wanted" (Print, his photos in the
+body, and this). The letters, in `KeptLetters`, which the shelf makes over
+its own directory: one file a letter in `letters/`, the bytes of
+`BODY.PEEK[]` as the FETCH returned them, named by the four keys and by
+nothing the letter says, and an index beside them, `letters.json`, with a
+format of its own (1), read whole and written whole, atomically; out of
+backup, on the shelf's disk queue in order with its wipe and discard, and
+gone with them. The choices made:
+
+- **Kept first, online too.** A letter he opens again is shown from the
+  iPad, with nothing sent, with a connection or without, as Mail shows a
+  letter it has downloaded. For a kept letter this replaces "Opening is
+  vouched for by the FETCH that brings the letter": nothing is fetched, so
+  nothing but the kept letter can be shown under the row. It is shown only
+  under all four of its folder, UIDVALIDITY, UID and Gmail id, and never
+  where this launch's server has named another letter under the UID or
+  given the folder another UIDVALIDITY; RFC 3501 2.3.1.1 has the bytes
+  under the first three never change, and the size and CRC-32 are checked
+  at every read. It is not the server's word: a read mark, flag, move or
+  delete on it is asked about as on any row this launch has not had.
+- **Only a letter fetched whole, none over 5 MB**, the size above which a
+  letter is opened in parts (B-054), inside the 8 MB above.
+- **"Opened" means a body that came whole while the reading pane still
+  wanted it**, from a row of the folder listed (`openLetter`): never a
+  letter tapped past before its body came, a letter Complete Threads
+  brings from Sent Mail (D-021, which goes by `loadMessage` and keeps
+  nothing), a draft, or a row counted in Drafts. The Drafts folder's name
+  must be known, from LIST or the kept folder list, for anything to be
+  kept or shown.
+- **The last 300 by a counter, and 64 MB.** Each keep and each showing
+  takes the next number, never the clock, so a clock set back reorders
+  nothing; the least recently opened goes first.
+- **Gone with the letter.** A delete or a move takes the kept letter out
+  of its folder, a letter binned or marked as spam out of every folder but
+  that one, an EXPUNGE from the Trash too; a server that says the UID is
+  another letter takes it; a move out of All Mail to a label takes nothing.
+  A letter taken away in another client stays until it is evicted,
+  reachable only from a kept row.
+- **A floor of 512 MB free.** A letter that would leave less is not kept,
+  every kept letter goes, and nothing more is kept in that launch.
+- **Its pictures and files are matched by folder as well as id**, from
+  the copy when it is the letter shown from it, before the letter last
+  fetched, which is matched by its id alone; a letter fetched under the
+  same folder and id takes its place.
+- **Nothing kept is sent or written back.** The copy is read for the
+  reading pane and for the parts it asks for, and never becomes the
+  letter a Forward, a reply's files or a draft carries from: those are
+  fetched from the server, naming X-GM-MSGID, when the letter goes or is
+  saved, and with no connection the letter waits in the Outbox. A Reply or
+  Forward quotes the words on screen, which are the server's own letter,
+  checked; offline it waits in the Outbox, as from a letter fetched in the
+  same launch (built so until the owner answers otherwise).
 
 **The cost:** under 66 MB, none of it in iCloud backup, and a list that can
 be old. It always says how old, and offline it is exactly as current as the

@@ -224,7 +224,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       their age with no connection, the copy thrown away when it is not
       this mailbox's, an early write and an early letter opened vouched for.
       See B-053, and what is left to try under "Blocked on the iPad coming
-      back".* Phase 2, the last 300 letters he opened.
+      back".* Phase 2, the last 300 letters he opened. *Done 2026-10-22,
+      not yet seen on the iPad: the last 300 letters he opened, at most
+      64 MB and none over 5 MB, kept whole, shown from the iPad at once
+      with a connection or without; never a draft or a letter Complete
+      Threads brings from Sent Mail; nothing of them sent. B-111, and its
+      check under "Blocked on the iPad coming back".*
 - [ ] Text size: fixed today; Dynamic Type and Bold Text are ignored.
       *Owner decision* (D-007).
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
@@ -4120,6 +4125,47 @@ this host. Ordered by value, not by size.
       tap in the field: none. The date put back: they show again, as a
       read takes nothing out of the file.
       12. *Put back.* The "B-105" letters to Trash.
+- [ ] **B-111, the letters kept on the iPad.** On the test iPad (16.5.1)
+      and the iOS 18.6 simulator, the test account only, built from the
+      `feat-kept` worktree before it is merged (it changes one call in a
+      forward's carried parts, `fetchCarried`). A stands for the account's
+      address; letters only to A with `+b111` before the @, subjects
+      beginning "B-111". Three panes. First mail A: P (plain), H (HTML with
+      an inline photo), F (with a PDF), T (a conversation of three with J),
+      L (two full photos, over 5 MB) and N, never opened.
+      1. *Kept.* Open P, H, F, T's letters and L: one body FETCH each in
+      the log, and a `KEPT-LETTER kept` note for each but L, which says
+      `not-kept reason=size`. Open P, H and F again: no FETCH, each at
+      once in a screen recording, H's photo shows, and F's PDF opens in
+      Quick Look with nothing fetched.
+      2. *Offline.* End the app in the app switcher, Airplane Mode on,
+      launch: the kept Inbox. P, H with its photo, F with its PDF, and T
+      open at once, with no alert. N and L: "This message could not be
+      downloaded." and "Can't connect to mail server.", as today.
+      3. *Nothing kept sent.* Still offline, Reply to P and Forward F: both
+      go to the Outbox. Airplane Mode off: both go, the PDF's SHA-256 is
+      unchanged, and the log shows its part's FETCHes naming X-GM-MSGID.
+      4. *Gone.* Online, Delete P and move H to Spam; offline, relaunch:
+      neither is in the Inbox or opens from it.
+      5. *A password saved.* Save the password again in Settings, relaunch
+      offline: no kept pages and no letters.
+      6. *Not the server's word.* Mark F unread in Gmail's web, relaunch
+      online, tap F before the page lands: shown at once, and the STORE
+      follows a vouching `(UID X-GM-MSGID)` FETCH.
+      7. *Complete Threads.* Open his line in an Inbox conversation; then
+      offline, relaunch, open the conversation: his line says it could not
+      be downloaded.
+      8. *Time.* A kept 3 MB letter against the same letter fetched (after
+      a password save): from the tap to the letter drawn, and the shown
+      note's ms. The kept note's ms for writing a 3 MB letter, with a list
+      scrolled at the same moment, for the hitch.
+      9. *The simulator.* The notes say `kept`, never `reason=space`.
+      10. *The container*, where it can be read: `letters/` holds one
+      `.eml` per letter kept, beside `letters.json`, and nothing else;
+      `Kept/`, the account's directory and `letters/` carry the backup
+      exclusion (xattr com.apple.metadata:com_apple_backup_excludeItem).
+      The bounds, a full disk, a failed check, leftover files and the
+      races are the host tests'.
 
 ## Blocked on the owner
 

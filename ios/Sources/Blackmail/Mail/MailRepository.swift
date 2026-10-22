@@ -72,7 +72,20 @@ protocol MailRepository {
     /// (`MessageSummary.gmailMessageID`), nil when it has none: nothing of
     /// the letter is shown unless the server has it under the row's UID
     /// (D-016), and `MailShelf.NotTheKeptLetter` is thrown otherwise.
+    ///
+    /// From the server, and kept nowhere: for a letter wanted for anything
+    /// but the reading pane's opening of a row, his letters from Sent Mail
+    /// in a conversation's stack (B-104) among them. The pane opens a row
+    /// with `openLetter`.
     func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message
+
+    /// The letter the reading pane opens from `row`: from the copy kept on
+    /// the iPad when the repository has it there under the row's folder,
+    /// UIDVALIDITY, UID and Gmail message id, with nothing sent and with no
+    /// connection; otherwise as `loadMessage`, and kept once its body has
+    /// come whole (D-016's phase 2, B-111). A requirement, so a repository
+    /// that keeps letters is the one called through the protocol.
+    func openLetter(_ row: MessageSummary) async throws -> Message
 
     /// Every write on a row names the row's Gmail message id as
     /// `loadMessage` does, and goes onto that letter or not at all.
@@ -505,6 +518,11 @@ extension MailRepository {
 
     /// Nothing kept, unless the repository keeps it.
     var shelf: MailShelf? { nil }
+
+    /// `loadMessage` for the row, unless the repository keeps letters.
+    func openLetter(_ row: MessageSummary) async throws -> Message {
+        try await loadMessage(id: row.id, gmailMessageID: row.gmailMessageID, mailboxID: row.mailboxID)
+    }
 
     /// Nothing to close, unless the repository holds a connection.
     func retire() async {}
