@@ -18,10 +18,17 @@ import Foundation
 /// for each, side by side, which IMAP reads as AND (iOS 18.6's
 /// Message.framework). A quoted part is one word, and one-letter words are
 /// left out. So "margaret birthday" finds her letter whose subject says
-/// birthday, which one string never did: Gmail matches several words in
-/// From, To, Cc and Subject only next to each other, in order. It found
-/// them anywhere through BODY alone, which on Gmail covers the headers too,
-/// measured on the test account and written down nowhere.
+/// birthday by its From and its Subject, each word where it is. One string
+/// found it through BODY alone: Gmail matches several words in From, To,
+/// Cc and Subject only next to each other, in order, and in BODY, which on
+/// Gmail covers the headers too, anywhere and in any order, measured on
+/// the test account and written down nowhere.
+///
+/// A quoted part is asked for as one string, as Mail asks it, which is
+/// IMAP's way to ask for a phrase: RFC 3501 matches a string as a
+/// substring of the field. Gmail's BODY reads it as all its words,
+/// anywhere, so on Gmail “Plan B” finds the letters with the phrase among
+/// those with both words, apart or together.
 ///
 /// His iPad types curly quotes and dashes: Smart Punctuation is on by
 /// default, and the field leaves it on, as Mail's is not known to turn it

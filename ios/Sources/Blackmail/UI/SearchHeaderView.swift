@@ -298,6 +298,12 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
 
     /// A recent search tapped: its words in the field, the keyboard down so
     /// the results can be seen, and the list told, which searches at once.
+    ///
+    /// The row goes as its words go into the field, and with VoiceOver on
+    /// its cursor was on that row: it is put on the field, which now holds
+    /// the words, and not left on a row that is hidden for VoiceOver to
+    /// choose where to go (B-079). The field does not move, and the list's
+    /// rows under it do not take VoiceOver from it as the results come.
     @objc private func recentTapped(_ row: RecentSearchRow) {
         let text = row.text
         guard !text.isEmpty else { return }
@@ -306,6 +312,7 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         updatePlaceholder()
         refreshExpansion()
         onRecentChosen?(text)
+        UIAccessibility.post(notification: .layoutChanged, argument: field)
     }
 
     @objc private func cancelTapped() {

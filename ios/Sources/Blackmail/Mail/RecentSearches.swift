@@ -65,9 +65,17 @@ enum RecentSearches {
         text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }
 
+    /// Whether a search for `text`, cleaned, is kept: it asks for
+    /// something, as `SearchCriteria.words` reads it, and is not over
+    /// `longest`. Blank text asks for nothing, and so do quote marks with
+    /// nothing in them, “” as his keyboard types "": the search finds
+    /// nothing, and kept it would push one he made off the three.
+    static func keeps(_ text: String) -> Bool {
+        text.count <= longest && !SearchCriteria.words(of: text).isEmpty
+    }
+
     /// `entries` as they stand at `now`: newest first, at most `most`, each
-    /// once ignoring case, none older than `keptFor`, none empty or over
-    /// `longest`.
+    /// once ignoring case, none older than `keptFor`, each one `keeps`.
     ///
     /// Newest is first in the list, as each use puts it there, and not by
     /// the date kept beside it: a clock moved back would otherwise put the
@@ -80,8 +88,7 @@ enum RecentSearches {
         var out: [Entry] = []
         for entry in entries where out.count < most {
             let text = cleaned(entry.text)
-            guard !text.isEmpty, text.count <= longest,
-                  now.timeIntervalSince(entry.lastUsed) <= keptFor,
+            guard keeps(text), now.timeIntervalSince(entry.lastUsed) <= keptFor,
                   seen.insert(text.lowercased()).inserted else { continue }
             out.append(Entry(text: text, lastUsed: entry.lastUsed))
         }
@@ -90,7 +97,7 @@ enum RecentSearches {
 
     /// `entries` once `text` has been searched at `now`: it first, and the
     /// same words in any case further down gone, as `current` keeps the
-    /// first of them. Blank, or over `longest`, it is not kept.
+    /// first of them. One that `keeps` refuses is not kept.
     static func noting(_ text: String, at now: Date, in entries: [Entry]) -> [Entry] {
         current([Entry(text: text, lastUsed: now)] + entries, at: now)
     }
@@ -108,12 +115,13 @@ enum RecentSearches {
         return current(read(file), at: now)
     }
 
-    /// Keeps `text` in `file` as the newest search, at `now`. Blank text,
-    /// or text over `longest`, changes nothing. A write that fails, a full
-    /// disk, loses the note and nothing else.
+    /// Keeps `text` in `file` as the newest search, at `now`. Text that
+    /// `keeps` refuses, blank, quote marks alone or over `longest`, changes
+    /// nothing. A write that fails, a full disk, loses the note and nothing
+    /// else.
     static func note(_ text: String, at now: Date, in file: URL) {
         let text = cleaned(text)
-        guard !text.isEmpty, text.count <= longest else { return }
+        guard keeps(text) else { return }
         lock.lock()
         defer { lock.unlock() }
         let after = noting(text, at: now, in: read(file))

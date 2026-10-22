@@ -3808,9 +3808,14 @@ this host. Ordered by value, not by size.
       found. The same two the other way round: found. Quillwort and a word
       in no letter: "No results".
       2. *Typed on the iPad's keyboard.* "Plan B" in the keyboard's double
-      quotes, which it makes “Plan B”: the letters with the phrase. Plan B
-      with no quotes, and in single quotes, which it makes ‘Plan B’: every
-      letter with "plan", as Mail. garden--party, which it makes
+      quotes, which it makes “Plan B”: the letters with the phrase come
+      among the hits, and letters with plan and b apart may come too, as
+      Gmail's BODY matches all the words of a quoted part anywhere; which
+      came, written down. Plan B with no quotes, and in single quotes,
+      which it makes ‘Plan B’: every letter with "plan", as Mail. The
+      keyboard's double quotes with nothing between them, “”, then Search:
+      "No results", and a tap in the emptied field does not show “”
+      among the recent searches. garden--party, which it makes
       garden—party: the letters with both words. A word with an accent,
       as Müller. A paragraph pasted from a letter: hits or "No results",
       never "Could not search. Check the connection."
@@ -3837,8 +3842,13 @@ this host. Ordered by value, not by size.
       field and the scope bar again; deleted back to empty: the block is
       back. Nothing drawn over the first row with the keyboard up, in two
       panes and in three, after turning the iPad, and with VoiceOver on,
-      which reads each row as "Recent search", its words, and "button".
-      VoiceOver off after.
+      which reads each row as "Recent search", its words, and "button";
+      whether "heading" is said after it too, written down. With
+      VoiceOver on and the recent searches showing, the first letter typed
+      on the keys: the band shrinks and the cursor stays on the keys. A
+      recent search double-tapped: the cursor goes to the field, which
+      reads its words, and stays there as the results come; anywhere
+      else, where, written down. VoiceOver off after.
       10. *Relaunch.* The app ended in the app switcher and opened: the
       searches are still there.
       11. *A week.* The iPad's date put 8 days forward, the app opened, a

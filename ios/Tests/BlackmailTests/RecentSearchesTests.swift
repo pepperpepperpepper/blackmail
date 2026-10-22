@@ -110,6 +110,38 @@ final class RecentSearchesTests: XCTestCase {
         XCTAssertEqual(texts(at: start), [])
     }
 
+    /// A search that asks for nothing is not kept: quote marks with nothing
+    /// in them, “” as his keyboard types "", search for nothing and find
+    /// nothing, and kept they would push a search he made off the three.
+    /// Kept just when the search asks the server something, one letter or
+    /// a dash alone too, which are searched as the whole text; and one in
+    /// the file that asks for nothing is not shown.
+    func testASearchThatAsksForNothingIsNotKept() throws {
+        let nothing = ["\u{201C}\u{201D}", "\"\"", "\u{201C} \u{201D}", "\u{201D}",
+                       "\u{201D}\u{201C}\u{201D}", "\"\u{201D}  \u{201C}\""]
+        for text in nothing {
+            XCTAssertNil(SearchCriteria.imap(for: text), text)
+            XCTAssertFalse(RecentSearches.keeps(text), text)
+            RecentSearches.note(text, at: start, in: file)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        for (minute, text) in ["margaret", "garden", "invoice"].enumerated() {
+            RecentSearches.note(text, at: start + Double(minute) * 60, in: file)
+        }
+        RecentSearches.note("\u{201C}\u{201D}", at: start + 600, in: file)
+        XCTAssertEqual(texts(at: start + 660), ["invoice", "garden", "margaret"])
+
+        for text in ["a", "--", "x \u{201C}", "\u{201C}Plan B\u{201D}", "margaret"] {
+            XCTAssertNotNil(SearchCriteria.imap(for: text), text)
+            XCTAssertTrue(RecentSearches.keeps(text), text)
+        }
+
+        let written = [RecentSearches.Entry(text: "\u{201C}\u{201D}", lastUsed: start),
+                       RecentSearches.Entry(text: "garden", lastUsed: start)]
+        try JSONEncoder().encode(written).write(to: file)
+        XCTAssertEqual(texts(at: start), ["garden"])
+    }
+
     /// A file that cannot be read is no recent searches: empty, cut short,
     /// another shape, or not JSON. The next search writes it afresh.
     func testACorruptOrEmptyFileIsNoRecentSearches() throws {
@@ -238,6 +270,20 @@ final class RecentSearchesTests: XCTestCase {
                                   + "return Theme.scaled(Theme.searchRecentHeadingHeight) "
                                   + "+ CGFloat(shownRecents.count) * Theme.scaled(Theme.searchRecentRowHeight)",
                               in: band))
+        // Laid out from the same numbers: under the field and the scope bar,
+        // the heading, and each row under the one before it.
+        XCTAssertNotNil(place(of: "let heading = Theme.scaled(Theme.searchRecentHeadingHeight) "
+                                  + "let row = Theme.scaled(Theme.searchRecentRowHeight) "
+                                  + "var y = Theme.searchBarHeight + Theme.searchScopeBarHeight "
+                                  + "recentHeading.frame = CGRect(x: 2 * inset, y: y, "
+                                  + "width: bounds.width - 4 * inset, height: heading) "
+                                  + "y += heading "
+                                  + "for recent in recentRows { "
+                                  + "recent.frame = CGRect(x: 0, y: y, width: bounds.width, height: row) "
+                                  + "y += row }", in: band))
+        XCTAssertEqual(count("var y = ", in: band), 1)
+        XCTAssertEqual(count("recentHeading.frame = ", in: band), 1)
+        XCTAssertEqual(count("recent.frame = ", in: band), 1)
         // Asked again at every change of the field: focus, typing, its end,
         // and the clear button.
         for asked in ["@objc private func editingChanged() { updatePlaceholder() refreshExpansion()",
@@ -275,7 +321,12 @@ final class RecentSearchesTests: XCTestCase {
         XCTAssertNotNil(place(of: "@objc private func recentTapped(_ row: RecentSearchRow) { "
                                   + "let text = row.text guard !text.isEmpty else { return } "
                                   + "field.text = text field.resignFirstResponder() updatePlaceholder() "
-                                  + "refreshExpansion() onRecentChosen?(text) }", in: band))
+                                  + "refreshExpansion() onRecentChosen?(text) "
+                                  + "UIAccessibility.post(notification: .layoutChanged, argument: field) }",
+                              in: band))
+        // VoiceOver on the field, the one post in the band: the row it was
+        // on is hidden.
+        XCTAssertEqual(count("UIAccessibility.post(", in: band), 1)
         XCTAssertNotNil(place(of: "row.addTarget(self, action: #selector(recentTapped(_:)), for: .touchUpInside)",
                               in: band))
         let list = try source("UI/MessageListViewController.swift")

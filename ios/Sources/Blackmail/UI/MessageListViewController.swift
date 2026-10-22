@@ -2252,7 +2252,8 @@ final class MessageListViewController: UITableViewController {
 
     /// Keeps `text` as his newest recent search (B-105), at Search on the
     /// keyboard, a recent search tapped, and a letter opened from the
-    /// results. Blank text is not kept.
+    /// results. Text that asks for nothing, blank or quote marks alone, is
+    /// not kept (`RecentSearches.keeps`).
     private func keepSearch(_ text: String) {
         RecentSearches.note(text, at: Date(), in: RecentSearches.appFile)
     }

@@ -17386,6 +17386,11 @@ longer, and the search made after it is still first.
   are, not words typed since and still waiting for their search. Never at
   a keystroke. Both, until the owner says otherwise, as Mail's own could
   not be read.
+- Not kept, and not shown from the file, when the search asks for
+  nothing (`RecentSearches.keeps`, over `SearchCriteria.words`): blank,
+  or quote marks with nothing in them, “” as the keyboard types "". That
+  search finds nothing, and kept it would push one he made off the three.
+  One letter or a dash alone is kept, being searched as the whole text.
 - Shown under the scope bar while the field is focused AND empty AND
   there are some: "Recent Searches", and a row for each, 44 pt, a clock
   and the words on one line, in the band's type, through `Theme.scaled`
@@ -17397,7 +17402,12 @@ longer, and the search made after it is still first.
   at once, in the scope the band shows, with no wait for more typing,
   through the same task a keystroke or Cancel calls off; it is newest
   again.
-- VoiceOver: each row a button, "Recent search, Plan B".
+- VoiceOver: each row a button, "Recent search, Plan B". A row tapped is
+  hidden as its words go into the field, with VoiceOver's cursor on it,
+  so the band names the field with a layout change, and the cursor is
+  not left on a hidden row for VoiceOver to choose where to go (B-079).
+  The field does not move, and the results drawn under it do not take
+  VoiceOver from it: the list holds only its rows.
 - Gone with the copy of his mail when a password is saved or the account
   taken out (`CredentialStore.save` and `clear`, beside `MailShelf.wipe`),
   and at a safe start's second stage (`SafeStart`, which is handed the
@@ -17418,14 +17428,18 @@ the words of the last three, and so does this.
 
 **What he sees.** Several words find the letters that have every one of
 them, each in any of From, To, Cc, Subject or the body: a name only in
-From and a word only in the body find the letter, in either order. A
-phrase in quotes, typed with the keyboard's curly quotes, is found as a
-phrase. "Plan B" finds every "plan", as Mail does. A tap in the empty
-field shows his last three searches under Current Mailbox and All
-Mailboxes; a tap on one searches it. New words: "Recent Searches", and
-VoiceOver's "Recent search," before the words, which are held from his
-iPad until the owner approves them; a word he changes is one line in
-`RecentSearches`, pinned by its test.
+From and a word only in the body find the letter, in either order. A part
+in quotes, typed with the keyboard's curly quotes or not, is asked for as
+one string, as Mail asks it. On Gmail that finds the letters with all its
+words, the phrase among them, because BODY matches them anywhere: “Plan B”
+finds the letters that say Plan B, and those with plan and b apart. Plan B
+with no quotes finds every "plan", as Mail does. A tap in the empty field
+shows his last three searches under Current Mailbox and All Mailboxes; a
+tap on one searches it, and VoiceOver goes to the field, which holds its
+words. New words: "Recent Searches", and VoiceOver's "Recent search,"
+before the words, which are held from his iPad until the owner approves
+them; a word he changes is one line in `RecentSearches`, pinned by its
+test.
 
 **Tests.** `SearchCriteriaTests`, thirteen new: two words two groups side
 by side, the line whole; one word byte for byte as before, and one left
@@ -17443,23 +17457,28 @@ word escaped on its own, and no quote mark reaching a word; a quote or a
 backslash with an accent after it escaped. Two changed: a typed quote is
 now a quote mark, so the test of one ending the string early takes the
 quote with an accent, the one way a quote reaches a word; and non-ASCII
-words come through whole among several. `RecentSearchesTests`, sixteen:
-three at most, newest first; the week, to the second, and a search used
-again starting its week again; the same words in any case replacing the
-older, its white space one space; the 200-character cap; blank text not
-kept; a file empty, cut short, of another shape or not JSON, no recent
-searches; a file outside the rules read within them; the clock moved
-back; the wipe; the words; and, read from the source, the file written
-whole and out of backup, the wipes at a password saved, the account taken
-out and the safe start, the block shown only while the field is focused
-and empty, each row a button called "Recent search", a tap searching at
-once with no wait, and Search on the keyboard and a letter opened from
-the results keeping the search, a keystroke not. `SafeStartTests`: one
-unfinished launch keeps the recent searches, two take them away.
-`SafeStartTests` and `OutboxTests` hand `SafeStart` a file of their own.
+words come through whole among several. `RecentSearchesTests`,
+seventeen: three at most, newest first; the week, to the second, and a
+search used again starting its week again; the same words in any case
+replacing the older, its white space one space; the 200-character cap;
+blank text not kept; a search that asks for nothing, “”, "" and the
+like, not kept and not shown from the file, while one letter, a dash and
+a phrase are kept, each as it is searched; a file empty, cut short, of
+another shape or not JSON, no recent searches; a file outside the rules
+read within them; the clock moved back; the wipe; the words; and, read
+from the source, the file written whole and out of backup, the wipes at a
+password saved, the account taken out and the safe start, the block shown
+only while the field is focused and empty, and laid out under the scope
+bar, the heading first and each row under the one before, each row a
+button called "Recent search", a tap searching at once with no wait and
+putting VoiceOver on the field, the band's one post, and Search on the
+keyboard and a letter opened from the results keeping the search, a
+keystroke not. `SafeStartTests`: one unfinished launch keeps the recent
+searches, two take them away. `SafeStartTests` and `OutboxTests` hand
+`SafeStart` a file of their own.
 
 Each rule undone in the worktree, one at a time, and the three classes
-run, 64 tests. Curly quotes not taken for quote marks: 19 failures in 6
+run, 65 tests. Curly quotes not taken for quote marks: 19 failures in 6
 tests. One word sent in parentheses: 5 in 3, one of them the old balance
 test. The block shown with text typed: 2 in 1. A mark left over kept in
 its word: 5 in 2. One-letter words kept: 12 in 5. Nothing searched when
@@ -17473,13 +17492,23 @@ character, as before: 8 in 2. Recent searches with no cap of three: 6 in
 4 in 2; ordered by their dates: 3 in 1; not out of backup: 2 in 1. Left
 at a safe start: 3 in 2; at a password saved: 3 in 1. A tap through the
 debounce: 2 in 1. Not kept at Search on the keyboard: 3 in 1; nor at a
-letter opened from the results: 3 in 1.
+letter opened from the results: 3 in 1. Quote marks alone kept: 9 in 1.
+The rows laid out from the top of the scope bar: 2 in 1; with no room
+for the heading: 2 in 1. VoiceOver left on the hidden row: 3 in 1.
 
-The full suite, serially: 1,885 tests, 5 skipped, none failing. The
+The full suite, serially: 1,886 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
 
+- A phrase found as a phrase alone, on Gmail. A quoted part is asked for
+  as one string, as Mail asks it, which is IMAP's way to ask for a
+  phrase: RFC 3501 matches a string as a substring of the field. Gmail
+  reads that string in BODY as all its words, anywhere, in any order, and
+  takes no notice of quote marks inside it (measured on the test account,
+  2026-10-22: BODY with "Tuesday garden" in quotes inside it matched), so
+  the letters with the phrase come among those with all its words. What
+  Mail shows for one on Gmail was not seen.
 - Mail's own reading of curly quotes, of dashes and of single quotes
   around a word, which could not be read; and of addresses and links,
   which here are whole words already, as nothing splits them but white
@@ -17490,7 +17519,12 @@ release build for the iPad links.
 - The band's height with the keyboard up, in two panes and three, after
   turning the iPad and with VoiceOver on, and the clock symbol and the
   heading as drawn: the device check, under "Blocked on the iPad coming
-  back".
+  back". So is VoiceOver with the rows on show: the band shrinks at the
+  first letter typed, as it changed only at focus before, which is
+  B-079's typing with VoiceOver on, and the cursor must stay on the keys;
+  where the cursor lands after a row is chosen; and whether the rows,
+  in the list's section header, are read as a heading too, as the field
+  is (B-071).
 - A recent search read at a date past its week is not shown, and is not
   taken out of the file until the next search is kept: put the date back
   and it shows again.
