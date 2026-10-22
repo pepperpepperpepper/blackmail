@@ -330,7 +330,7 @@ struct UpdatedLine: Equatable {
             case .noConnection: return "No Connection"
             }
         }
-        let lines = [age ?? (failure == nil ? "Checking for Mail…" : nil),
+        let lines = [age ?? (failure == nil ? StatusLine.checking : nil),
                      Outbox.unsent(unsent), said]
         return lines.compactMap { $0 }.joined(separator: "\n")
     }

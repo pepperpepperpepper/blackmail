@@ -17293,3 +17293,183 @@ any new letter does, an interval and the sleep's lateness at worst, and
 the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
+
+## B-103 — BUILT 2026-10-22, not yet seen on the iPad. Pulling the list down only bounced; Mail checks for mail
+
+**What Mail does.** Pulled down past the top of the message list and let
+go, Mail's list checks for mail: a spinner turns above the first row, and
+the bar under the list says "Checking for Mail…", then "Updated Just Now".
+It has done so since iOS 6, which took Mail's Refresh button away for it
+(Macworld's and OSXDaily's hands-on of iOS 6 Mail), and Apple Community
+answers for iOS 17 still say to pull down to refresh; Apple's iPadOS 18
+Mail chapter does not describe it. Less sure: the spinner stays until the
+check has answered, and there is no pull in Edit mode or in a search. A
+tap on the status bar takes Mail's list to its top, UIKit's scroll to top.
+
+**What it was.** The list had no pull: pulled down past its top it bounced
+back, and nothing was fetched. Refresh was the labelled button at the
+bottom left, as it is (D-009), and each tap started a run of its own, with
+nothing to stop a second page going beside the first (`RefreshTap`,
+B-072). "Checking for Mail…" was said only over the page kept from an
+earlier launch (D-016). The status bar's tap took the list to its top
+already, seen for the reading pane on the iPad on 2026-10-07; nothing in
+the app set it, and nothing pinned it.
+
+**Changed.**
+
+- A `UIRefreshControl` on the list, grey as the line under it, with no
+  words. Let go past the top, it calls the function the Refresh button
+  calls, `refresh(fromPull:)`, and so the same `RefreshTap`: the newest
+  page, the counts, and once they have come the Outbox's pass (B-072).
+  Nothing else starts the spinner.
+- One page of a Refresh out at a time, the button's or the pull's
+  (`RefreshTap.Gate`, `RefreshTap.start`). The gate is taken as a run
+  starts, let go as its page answers, and let go again as the run ends,
+  however it ends. While it is held a tap or a pull starts nothing, and
+  the pull's spinner turns until the page that is out answers. Once that
+  page has come, a tap or a pull starts a new run even while the first
+  run's counts or Outbox letter are on their way, as a second tap did
+  before; the pass keeps itself to one at a time
+  (`LocalDrafts.uploadWaiting`). A run lets go of its own hold only, so a
+  run that ends after the next one has taken the gate leaves that hold
+  alone. The page has the connection's own deadline, so it always
+  answers, and the gate cannot stay held.
+- `RefreshTap.run` tells `answered` once, as soon as the page has come,
+  failed, thrown or been put aside, before the counts and the pass. The
+  pull's spinner ends there, and does not wait for the counts or a large
+  letter going from the Outbox. It is put away too as the list goes out of
+  sight (`viewWillDisappear`), as the app goes to the background, as
+  another folder's list takes this one's place (`endPull`), and before the
+  pull is taken off the list.
+- The pull is offered only where the newest page can neither move him nor
+  wipe anything (`PullRefresh.allowed`), and taken off the list and put
+  back wherever that may change (`placePull`). Not in Edit mode, where the
+  page would drop his ticks. Not while words are typed, results show, or
+  the search field has the keyboard, all of which the page clears. Not on
+  a list opened at a day, whose top is not the folder's and where
+  scrolling up fetches the newer pages. Not while the panes move
+  (`PaneMotion.onMoving`, told once the pictures are cut and set going,
+  and as the cover goes). The Outbox has it, where Refresh sends. The
+  Mailboxes and the reading pane have none. A pull that comes where none
+  is offered starts nothing.
+- "Checking for Mail…" is on the line under the list from the start of the
+  page to its end, at a tap and at a pull, through `working`, by a `defer`
+  so it cannot outstay the page; then the age the page has set, "Updated
+  Just Now", or what failed. Not in the Outbox, which is on the iPad and
+  has no mail to check for: its line goes on saying what waits there. The
+  words are one string, `StatusLine.checking`, said over the kept page as
+  well.
+- The newest page sent to the top while a finger holds the list at its
+  top, or pulled down past it, leaves the list where the finger has it
+  (`scrollToTop`): let go, it springs back to the top, with the spinner's
+  room above the first row while it turns. Set to the top under the
+  finger, the rows would jump as the page lands during a pull still held.
+
+**Not changed.**
+
+- The Refresh button, where it was, with its alert when there is no
+  connection (D-009).
+- No new IMAP: the same page FETCH, the same counts and the same Outbox
+  pass, whose re-sends keep the stored Message-ID and look in Sent Mail
+  first (B-052, B-072).
+- The status bar's tap: UIKit's, with no code of the app's. At the top the
+  list lands a fresh page waiting over the kept one and puts held mail on
+  (`scrollViewDidScrollToTop`), as before. Pinned now.
+
+**What he sees.** In the Inbox at its top, he pulls the list down and lets
+go: a grey spinner turns above the first row, and the line under the list
+says "Checking for Mail…". The newest letters are at the top as the
+spinner goes, and the line says "Updated Just Now". With no connection,
+the Refresh button's alert, and the spinner goes. In Edit mode, while he
+searches, and on a day's list, a pull only bounces, as before. Refresh
+works as it did, but a second tap while the page is still coming does
+nothing more.
+
+**Tests.** `PullRefreshTests`, eight. Where the pull is offered, all
+sixteen of Edit mode, a search, a list from the newest and the motion.
+The words, one string, said over the kept page through it. The rest read
+from the source, as `RefreshTapTests` reads it: one pull, grey and with
+no words, its let-go and the button's tap both `refresh(fromPull:)`,
+through the gate, one `RefreshTap.start` and one page, the Refresh button
+in the bottom bar as it was, no `beginRefreshing` anywhere and no pull on
+any other screen; "Checking for Mail…" through `working` around the page
+by a `defer`, not in the Outbox; the spinner put away at the answer, at
+`viewWillDisappear`, at the background notification, at the folder change
+before the new list is made, and in `placePull` before the pull is taken
+off, the one place `refreshControl` is set; the pull taken off and put
+back at Edit and Done, as words are typed, as the band grows and shrinks,
+as results come or fail, as the search ends, as a day lands, as the
+newest page is reached or fetched, and as the motion starts and ends,
+from `PullRefresh.allowed` over Edit mode, the search and its field, the
+list's top and the motion; the top not set under a finger at or past it;
+and the status bar: nothing sets `scrollsToTop` false, no
+`scrollViewShouldScrollToTop` says false, and `scrollViewDidScrollToTop`
+still lands a fresh page and puts held mail on. `RefreshTapTests`, seven
+new: the answer told once, before the counts and the pass, when the page
+came, did not come or threw; the answer while the previews and the counts
+are still out; a page that never answers and a second and third tap
+meanwhile, no second page, and Refresh free once it answers; after the
+answer, a new run's page while the first run's previews and counts wait;
+a run whose page throws, and one cancelled while its page is out, each
+letting go of the gate; a run ending while the next one's page is out,
+the gate still the next one's; and thirty in a row, each tapped twice
+while its page is out and its previews and counts left waiting: thirty
+pages, never two out at once, and Refresh free after them. Three older
+tests there have `answered` now, and the pin of the Refresh's wiring reads
+`RefreshTap.start`; `QuietSaveTests`' pin of the page's closure changed
+with it.
+
+Each part undone in a scratch copy, one at a time, the 21 tests of the two
+files run, counted as failures in tests. The gate let go only at the end
+of the run: 4 in 3. The answer after the counts: 7 in 4; at the end of the
+run: 12 in 7. No gate: 44 in 3. Any run letting go of any hold: 2 in 1. A
+throw not answered: 3 in 2; with no `defer` as well, 4 in 2, the gate
+then left held. The `defer` alone taken away: none, the answer letting go
+on every way out of the page; it stays as the second hold. The pull left
+on in Edit mode: 1 in 1. `PullRefresh.allowed` deaf to Edit mode, to a
+search, to a day's list, to the motion: 1 in 1 each. The search field
+with the keyboard not counted as a search: 1 in 1. The pull not placed
+again as words are typed: 1 in 1; as a day lands: 1 in 1; the motion not
+told: 2 in 1. A pull taken where none is offered: 1 in 1. The spinner not
+put away at `viewWillDisappear`, at the background, at the folder change,
+before the pull is taken off: 1 in 1 each; at the answer: 2 in 2. The top
+set under the finger: 1 in 1. No "Checking for Mail…": 2 in 2; the words
+a literal again in the kept page's line: 2 in 1. `scrollsToTop` set
+false: 1 in 1; the status bar's tap without the held mail: 1 in 1.
+
+The full suite, serially: 1,871 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad or the simulator: the spinner beside the list's
+  own top logic (`ListPlaces.isAtTop`, `scrollToTop`, the kept page's swap,
+  held mail, `PaneMotion.isBouncing`), whether UIKit counts the spinner's
+  room in `adjustedContentInset` as the list reads it, the pull taken off
+  and put back, and VoiceOver's three-finger scroll. If the check shows
+  rows jumping or a gap left above the first row, the way back is to take
+  the `UIRefreshControl` off and let a drag released at least 80 pt past
+  the top call the same `refresh`, with the line under the list the only
+  sign. Not built.
+- Whether the search band, pinned at the top of the list, keeps to the
+  bar when he scrolls down while the spinner turns is not known; the
+  check's first step looks.
+- A spinner turning as the panes start to move is put away under the
+  cover. The pictures show it, so the list may move up by the spinner's
+  room as the cover goes.
+- B-096's shortened bounce is unchanged. A switch made at once while the
+  spinner turns leaves it turning until the page answers.
+- While a jump's day is still being fetched the list is still the
+  folder's newest, and the pull is offered: a pull then fetches the
+  newest page, and the day is dropped, as at a tap on Refresh. A search
+  begun while a pull's page is out is cleared as the page lands, as at a
+  tap on Refresh.
+- The list's other fetches of its newest page, the watch's quiet one, a
+  return to the Inbox, the kept page's at launch, a draft saved, are not
+  behind the gate, as before: a pull while one is out fetches beside it,
+  as a tap did.
+- "Checking for Mail…" during every Refresh and pull is in the owner's
+  words question, built shown, his default until he answers, and held
+  from his iPad until then. The words are on screen already over a kept
+  page. Taking them away is the one `working(StatusLine.checking)` line,
+  pinned by its test.
