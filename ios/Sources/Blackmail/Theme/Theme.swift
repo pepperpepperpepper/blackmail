@@ -197,6 +197,14 @@ extension Theme {
     /// which is the same trade `minHitTarget` records everywhere else.
     static let searchScopeBarHeight: CGFloat = 40
 
+    /// Mail's recent searches under the scope bar (B-105), shown while the
+    /// field is focused and empty: the "Recent Searches" line, and a row
+    /// for each, up to three, every one a full tap target. Both go through
+    /// `scaled`, as the type does, so they follow if the text size is ever
+    /// built (D-007).
+    static let searchRecentHeadingHeight: CGFloat = 32
+    static let searchRecentRowHeight: CGFloat = 44
+
     /// Every tappable control gets at least this, whatever the glyph measures.
     /// From the accessibility requirement, not from the reference — you cannot
     /// recover a hit area from pixels.

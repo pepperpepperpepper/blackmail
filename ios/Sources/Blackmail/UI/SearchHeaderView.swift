@@ -44,6 +44,15 @@ import UIKit
 /// nothing above or beside it does either. What appears, appears below.
 ///
 /// Recorded as D-012 rather than slipped in.
+///
+/// ## Mail's recent searches (B-105)
+///
+/// Under the scope bar, while the field is focused and still empty, Mail's
+/// "Recent Searches": the last three, newest first (`RecentSearches`). The
+/// first letter typed takes them away, and the band shrinks back to the
+/// field and the scope bar. A tap on one puts its words in the field, the
+/// keyboard goes, and the list searches at once. They appear below, as the
+/// scope bar does, and nothing above or beside the field moves.
 final class SearchHeaderView: UIView, UITextFieldDelegate {
 
     var onQueryChanged: ((String) -> Void)?
@@ -57,12 +66,22 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
     /// when it is ASSIGNED and never again, so the host has to re-assign it
     /// — the classic silent no-op in this file's neighbourhood.
     var onHeightChanged: (() -> Void)?
+    /// His recent searches, newest first, asked for as the field is focused
+    /// empty, and again whenever it is emptied (B-105).
+    var recentSearches: (() -> [String])?
+    /// One of them tapped: its words are in the field and the keyboard has
+    /// gone. The list searches for them at once.
+    var onRecentChosen: ((String) -> Void)?
+    /// Search on the keyboard, with what is in the field.
+    var onSearchKey: ((String) -> Void)?
 
     private let field = SearchField()
     private let placeholderStack = UIStackView()
     private let cancelButton = UIButton(type: .system)
     private let scopeControl = UISegmentedControl(
         items: MailSearchScope.allCases.map(\.title))
+    private let recentHeading = UILabel()
+    private let recentRows = (0..<RecentSearches.most).map { _ in RecentSearchRow() }
 
     /// Where search is looking. Mail's default is everywhere, and so is
     /// ours: the commonest search is "find that letter", and the folder he
@@ -79,10 +98,21 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
     /// scope bar ends up drawn over the first message.
     private(set) var isExpanded = false
 
+    /// The recent searches on show, newest first: none unless the field is
+    /// focused and empty and there are some.
+    private(set) var shownRecents: [String] = []
+
     /// How tall the band wants to be, from `Theme` rather than from its
     /// current frame.
     var wantedHeight: CGFloat {
-        Theme.searchBarHeight + (isExpanded ? Theme.searchScopeBarHeight : 0)
+        Theme.searchBarHeight + (isExpanded ? Theme.searchScopeBarHeight : 0) + recentsHeight
+    }
+
+    /// The "Recent Searches" line and a row for each on show, or nothing.
+    private var recentsHeight: CGFloat {
+        guard !shownRecents.isEmpty else { return 0 }
+        return Theme.scaled(Theme.searchRecentHeadingHeight)
+            + CGFloat(shownRecents.count) * Theme.scaled(Theme.searchRecentRowHeight)
     }
 
     var currentQuery: String { field.text ?? "" }
@@ -159,6 +189,18 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         scopeControl.addTarget(self, action: #selector(scopeTapped), for: .valueChanged)
         scopeControl.isHidden = true
         addSubview(scopeControl)
+
+        recentHeading.text = RecentSearches.heading
+        recentHeading.font = Theme.fontListSender
+        recentHeading.textColor = Theme.primaryText
+        recentHeading.accessibilityTraits = .header
+        recentHeading.isHidden = true
+        addSubview(recentHeading)
+        for row in recentRows {
+            row.addTarget(self, action: #selector(recentTapped(_:)), for: .touchUpInside)
+            row.isHidden = true
+            addSubview(row)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -191,6 +233,19 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         scopeControl.frame = CGRect(x: inset, y: Theme.searchBarHeight,
                                     width: bounds.width - 2 * inset,
                                     height: Theme.searchScopeBarHeight - 6)
+
+        // The recent searches under the scope bar, from the same numbers
+        // as `recentsHeight`.
+        let heading = Theme.scaled(Theme.searchRecentHeadingHeight)
+        let row = Theme.scaled(Theme.searchRecentRowHeight)
+        var y = Theme.searchBarHeight + Theme.searchScopeBarHeight
+        recentHeading.frame = CGRect(x: 2 * inset, y: y,
+                                     width: bounds.width - 4 * inset, height: heading)
+        y += heading
+        for recent in recentRows {
+            recent.frame = CGRect(x: 0, y: y, width: bounds.width, height: row)
+            y += row
+        }
     }
 
     /// Hidden the moment there is anything to read instead, so the field never
@@ -199,24 +254,33 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         placeholderStack.isHidden = field.isEditing || !(field.text ?? "").isEmpty
     }
 
-    /// Grows the band to hold Cancel and the scope buttons, or shrinks it
-    /// back.
+    /// Grows the band to hold Cancel and the scope buttons, and the recent
+    /// searches under them, or shrinks it back.
     ///
     /// Stays expanded while there is a query even after the keyboard goes,
     /// because results are still on screen and taking the scope buttons away
     /// while he is looking at what they chose would strand him.
-    private func setExpanded(_ expanded: Bool) {
-        guard expanded != isExpanded else { return }
+    ///
+    /// The recent searches show only while the field is focused AND empty,
+    /// and there are some: before he types, as Mail's do (B-105).
+    private func refreshExpansion() {
+        let empty = (field.text ?? "").isEmpty
+        let expanded = field.isEditing || !empty
+        let recents = field.isEditing && empty
+            ? Array((recentSearches?() ?? []).prefix(recentRows.count)) : []
+        guard expanded != isExpanded || recents != shownRecents else { return }
         isExpanded = expanded
+        shownRecents = recents
         cancelButton.isHidden = !expanded
         scopeControl.isHidden = !expanded
+        recentHeading.isHidden = recents.isEmpty
+        for (index, row) in recentRows.enumerated() {
+            row.isHidden = index >= recents.count
+            row.text = index < recents.count ? recents[index] : ""
+        }
         frame.size.height = wantedHeight
         setNeedsLayout()
         onHeightChanged?()
-    }
-
-    private func refreshExpansion() {
-        setExpanded(field.isEditing || !(field.text ?? "").isEmpty)
     }
 
     @objc private func editingChanged() {
@@ -230,6 +294,18 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         guard chosen != scope else { return }
         scope = chosen
         onScopeChanged?(chosen)
+    }
+
+    /// A recent search tapped: its words in the field, the keyboard down so
+    /// the results can be seen, and the list told, which searches at once.
+    @objc private func recentTapped(_ row: RecentSearchRow) {
+        let text = row.text
+        guard !text.isEmpty else { return }
+        field.text = text
+        field.resignFirstResponder()
+        updatePlaceholder()
+        refreshExpansion()
+        onRecentChosen?(text)
     }
 
     @objc private func cancelTapped() {
@@ -257,7 +333,13 @@ final class SearchHeaderView: UIView, UITextFieldDelegate {
         refreshExpansion()
     }
 
-    func textFieldShouldReturn(_ t: UITextField) -> Bool { t.resignFirstResponder(); return true }
+    /// Search on the keyboard: the keyboard goes, and the list keeps what
+    /// is in the field among his recent searches (B-105).
+    func textFieldShouldReturn(_ t: UITextField) -> Bool {
+        t.resignFirstResponder()
+        onSearchKey?(t.text ?? "")
+        return true
+    }
 
     func textFieldShouldClear(_ t: UITextField) -> Bool {
         onQueryChanged?("")
@@ -280,6 +362,55 @@ private final class SearchField: UITextField {
     override var accessibilityTraits: UIAccessibilityTraits {
         get { super.accessibilityTraits.union(.searchField) }
         set { super.accessibilityTraits = newValue }
+    }
+}
+
+/// One recent search under the field (B-105): a clock and its words, on
+/// one line, lit while a finger is on it, as a row is. To VoiceOver, a
+/// button: "Recent search, margaret".
+private final class RecentSearchRow: UIControl {
+
+    private let icon = UIImageView(
+        image: UIImage(systemName: "clock",
+                       withConfiguration: UIImage.SymbolConfiguration(font: Theme.fontListSubject)))
+    private let label = UILabel()
+
+    var text = "" {
+        didSet {
+            label.text = text
+            accessibilityLabel = RecentSearches.spoken(text)
+        }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        icon.tintColor = Theme.secondaryText
+        icon.contentMode = .center
+        icon.isUserInteractionEnabled = false
+        label.font = Theme.fontListSubject
+        label.textColor = Theme.primaryText
+        label.lineBreakMode = .byTruncatingTail
+        label.isUserInteractionEnabled = false
+        addSubview(icon)
+        addSubview(label)
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override var isHighlighted: Bool {
+        didSet { backgroundColor = isHighlighted ? Theme.selection : .clear }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let inset = 2 * Theme.searchFieldSideInset
+        let iconWidth = Theme.scaled(Theme.searchRecentRowHeight / 2)
+        icon.frame = CGRect(x: inset, y: 0, width: iconWidth, height: bounds.height)
+        let textX = icon.frame.maxX + Theme.searchFieldSideInset
+        label.frame = CGRect(x: textX, y: 0, width: max(0, bounds.width - textX - inset),
+                             height: bounds.height)
     }
 }
 

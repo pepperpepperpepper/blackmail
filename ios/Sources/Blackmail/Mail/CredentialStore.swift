@@ -127,6 +127,9 @@ enum CredentialStore {
         // what one kept before it names by folder and UID alone is not
         // taken for this mailbox's (B-051, `LocalDrafts.passwordSaved`).
         MailShelf.wipe(root: MailShelf.appRoot)
+        // And his recent searches with it (B-105): words searched in
+        // another mailbox are not offered over this one.
+        RecentSearches.wipe(RecentSearches.appFile)
         LocalDraftStore.notePasswordSaved(in: LocalDraftStore.appRoot)
 
         // The normalised account is what gets stored, so that the address this
@@ -212,8 +215,10 @@ enum CredentialStore {
         // leave the password orphaned and undeletable.
         _ = SecItemDelete([kSecClass as String: kSecClassInternetPassword] as CFDictionary)
         defaults.removeObject(forKey: accountDefaultsKey)
-        // And the copy of his mail kept on the iPad (D-016).
+        // And the copy of his mail kept on the iPad (D-016), and his recent
+        // searches (B-105).
         MailShelf.wipe(root: MailShelf.appRoot)
+        RecentSearches.wipe(RecentSearches.appFile)
         // And the extension's copy, or a share would go on sending as an
         // account that has been taken out of the app.
         ShareMirror.app?.clear()

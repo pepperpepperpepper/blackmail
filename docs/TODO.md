@@ -230,8 +230,16 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] His own replies missing from Inbox conversations (Mail's Complete
       Threads).
 - [ ] Replied and forwarded arrows on rows.
-- [ ] Search: several words may be searched as one phrase (not yet checked
-      against Gmail); no suggestions or recent searches.
+- [x] Search: several words may be searched as one phrase (not yet checked
+      against Gmail); no suggestions or recent searches. *Done 2026-10-22,
+      not yet seen on the iPad: checked against Gmail first (several words
+      were already found anywhere, through BODY alone); now each word is
+      asked for in From, To, Cc, Subject or the body, as Mail asks, a
+      quoted phrase as one, curly quotes too; Mail's three recent searches
+      under the field before he types, for 7 days. Suggestions as he types
+      are left out: they need an index of the whole mailbox on the iPad,
+      which D-016 does not keep. B-105, and its check under "Blocked on
+      the iPad coming back".*
 
 **Probably used, smaller:**
 
@@ -3787,6 +3795,56 @@ this host. Ordered by value, not by size.
       finger landed, the finger ending on the signature's logo, a link,
       and WebKit put up the link's menu at about 1 s: the second did not
       open. In 7 the handles were gone by 0.20 s, the menu by 0.57 s.*
+
+- [ ] **B-105, several words and recent searches.** On the test iPad, the
+      test account only, built from the `feat-search` worktree. A stands
+      for the account's address; letters only to A with `+b105` before
+      the @, subjects beginning "B-105". Smart Punctuation on (Settings >
+      General > Keyboard), as on his. Three panes unless a step says two.
+      (A) Several words:
+      1. *Two fields.* A letter to A, "B-105 one", its body holding a word
+      found nowhere else in the mailbox, say "quillwort". All Mailboxes,
+      the account's name as From shows it and quillwort: the letter is
+      found. The same two the other way round: found. Quillwort and a word
+      in no letter: "No results".
+      2. *Typed on the iPad's keyboard.* "Plan B" in the keyboard's double
+      quotes, which it makes “Plan B”: the letters with the phrase. Plan B
+      with no quotes, and in single quotes, which it makes ‘Plan B’: every
+      letter with "plan", as Mail. garden--party, which it makes
+      garden—party: the letters with both words. A word with an accent,
+      as Müller. A paragraph pasted from a letter: hits or "No results",
+      never "Could not search. Check the connection."
+      3. *Both scopes.* Each of 1 in Current Mailbox in the Inbox too. A
+      "B-105" letter deleted to Trash, then found by two of its words in
+      All Mailboxes: it comes among the hits in date order.
+      4. *The log.* The connection log shows a two-word search as one UID
+      SEARCH of two groups in parentheses side by side; a one-word
+      search's line is as on the build before.
+      5. *Time.* In All Mail, a three-word All Mailboxes search timed
+      against a one-word one, from the last letter typed to the list.
+      (B) Recent searches:
+      6. *None yet.* After a password Save in Settings, which takes them
+      away: a tap in the field shows Cancel and the scope bar, and nothing
+      under them.
+      7. *Four.* Four searches, each ended with Search on the keyboard,
+      then Cancel, and a tap in the empty field: "Recent Searches" and the
+      last three under the scope bar, newest first. A letter opened from a
+      fifth search's results: that search is first.
+      8. *A tap.* In Current Mailbox, a tap on the second: its words in
+      the field, the keyboard down, and the results at once, the folder's;
+      it is first next time.
+      9. *The band.* A letter typed: the block goes and the band is the
+      field and the scope bar again; deleted back to empty: the block is
+      back. Nothing drawn over the first row with the keyboard up, in two
+      panes and in three, after turning the iPad, and with VoiceOver on,
+      which reads each row as "Recent search", its words, and "button".
+      VoiceOver off after.
+      10. *Relaunch.* The app ended in the app switcher and opened: the
+      searches are still there.
+      11. *A week.* The iPad's date put 8 days forward, the app opened, a
+      tap in the field: none. The date put back: they show again, as a
+      read takes nothing out of the file.
+      12. *Put back.* The "B-105" letters to Trash.
 
 ## Blocked on the owner
 

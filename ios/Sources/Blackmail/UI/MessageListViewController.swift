@@ -144,6 +144,10 @@ final class MessageListViewController: UITableViewController {
     private var searchScope: MailSearchScope = .allMailboxes
     /// Cancels the previous keystroke's pending search. See `runSearch`.
     private var searchDebounce: Task<Void, Never>?
+    /// The words whose results the list shows, which a letter opened from
+    /// them keeps among his recent searches (B-105). Not `searchQuery`,
+    /// which is ahead of them while more typing waits for its search.
+    private var searchShown = ""
 
     /// Where the folder's letters were while a search shows in their place,
     /// and where a replaced list goes. See `ListPlaces`.
@@ -429,6 +433,14 @@ final class MessageListViewController: UITableViewController {
             self.queryChanged(self.searchQuery)
         }
         searchBar.onCancel = { [weak self] in self?.cancelSearch() }
+        // Mail's recent searches (B-105): read as the field is focused
+        // empty, kept at Search on the keyboard and when a letter is opened
+        // from the results, and a tap on one searches at once.
+        searchBar.recentSearches = {
+            RecentSearches.load(from: RecentSearches.appFile, at: Date()).map(\.text)
+        }
+        searchBar.onSearchKey = { [weak self] text in self?.keepSearch(text) }
+        searchBar.onRecentChosen = { [weak self] text in self?.recentChosen(text) }
         // The band grows when the scope buttons appear, and the table has to
         // be told to re-ask how tall its header is. `begin`/`endUpdates`
         // with no changes between them does exactly that and nothing else.
@@ -2223,6 +2235,28 @@ final class MessageListViewController: UITableViewController {
         showUnfilteredList()
     }
 
+    /// A recent search tapped (B-105): searched at once, in the scope the
+    /// band shows, with no wait for more typing, as nothing more is coming;
+    /// and it is the newest of his recent searches again. Through
+    /// `searchDebounce`, so a keystroke or Cancel after it calls it off as
+    /// it would a typed search.
+    private func recentChosen(_ text: String) {
+        searchQuery = text
+        searchDebounce?.cancel()
+        keepSearch(text)
+        searchDebounce = Task { @MainActor [weak self] in
+            guard !Task.isCancelled else { return }
+            await self?.runSearch(text)
+        }
+    }
+
+    /// Keeps `text` as his newest recent search (B-105), at Search on the
+    /// keyboard, a recent search tapped, and a letter opened from the
+    /// results. Blank text is not kept.
+    private func keepSearch(_ text: String) {
+        RecentSearches.note(text, at: Date(), in: RecentSearches.appFile)
+    }
+
     @MainActor
     private func runSearch(_ text: String) async {
         listGeneration += 1
@@ -2262,6 +2296,7 @@ final class MessageListViewController: UITableViewController {
         }
 
         searchFailed = false
+        searchShown = text
         let move = showingResults()
         letters.showResults(hits)
         reachedOldestMessage = hits.count < Self.pageSize
@@ -2407,6 +2442,9 @@ final class MessageListViewController: UITableViewController {
         // In Edit mode a tap ticks a row rather than opening it, and the
         // Select All button has to keep up with what that leaves selected.
         guard !t.isEditing else { updateSelectAllTitle(); return }
+        // A letter opened from the results: the search found what he was
+        // after, and is kept among his recent ones (B-105).
+        if letters.isSearching { keepSearch(searchShown) }
         switch rows[ip.row] {
         case let .thread(thread) where thread.count > 1:
             // The conversation opens in the READING PANE, as a stack of its

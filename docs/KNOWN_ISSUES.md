@@ -17293,3 +17293,204 @@ any new letter does, an interval and the sleep's lateness at worst, and
 the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
+
+## B-105 — BUILT 2026-10-22, not yet seen on the iPad. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
+
+Built in the `feat-search` worktree, off master at 88ef40d.
+
+**What Mail does.** (A) Apple's guide names only the fields searched:
+From, To, Cc, Subject and the body. iOS 18.6's Message.framework, read
+from the binary and not run, splits what he typed into words
+(`-[MFMessageCriterion tokenizeUsingTokenizationHandler:]`, called from
+`_fetchArgumentsForCriterion`): the text trimmed; a whole address one
+word, each quoted part one word, each link one word; the rest by the
+locale's word rules, with a shortest word of two letters, so one-letter
+words are left out. Each word is asked for as `(OR FROM w (OR SUBJECT w
+(OR TO w (OR CC w BODY w))))`, and the words side by side, which IMAP
+reads as AND. No X-GM-RAW. That this is 18.6's code is sure; that his 18.7
+takes the same path is likely; whether it takes curly quotes for quote
+marks is not known.
+
+(B) "Before you begin typing, you may see suggested recent searches", the
+same guide says. MailUI's `MUISearchRecentSuggester` (18.6, read from the
+binary): `recentSearches.plist`, out of backup; at most three, newest
+first by the time of last use; each kept 7 days, 604,800 s, from its last
+use; shown only before he types; one used again is newest again; deleted
+by a swipe, probably. What keeps a search is in Mail's own binary, which
+could not be read; most likely a search he ran.
+
+**What it was.** `SearchCriteria.imap(for:)` sent the whole text, trimmed,
+as one string in each of the five fields. Measured read-only on the test
+account on 2026-10-22: Gmail matches several words in From, To, Cc and
+Subject only next to each other and in order; BODY, which on Gmail covers
+the headers too, matches them anywhere, in any order; only whole words
+match. So several words already found the letters with all of them, but
+through BODY alone, which is written down nowhere. A quoted phrase went
+with its quote marks inside the string. And the iPad types curly quotes:
+the field sets autocorrection and capitals off and leaves Smart
+Punctuation on, the iPad's default, so "Plan B" typed comes as “Plan B”,
+and a paste can bring them whatever the field says. Nothing of a search
+was kept.
+
+**Changed.**
+
+(A) `SearchCriteria.words(of:)` reads the text as Mail does, and
+`imap(for:)` asks for each word.
+
+- The text trimmed. A quote mark is ", “ or ”, and the marks pair in
+  order whatever their shape, so “Plan B" is a phrase too. What is
+  between a pair, trimmed, each run of white space one space, is one word
+  without its marks. A mark left over is read as a space. Apostrophes,
+  ' and ’, are not quote marks.
+- The rest is split at white space, and at the dashes Smart Punctuation
+  makes of a typed -- (—), with the en dash, the figure dash and the
+  horizontal bar a paste can bring, as Mail's word rules part words
+  there. The hyphen of "e-mail" stays in its word. Single quotes, ' ‘ ’,
+  come off the ends of a word: the iPad types 'Plan B' as ‘Plan B’. Inside
+  a word, "O’Brien", they are its apostrophe and stay, unescaped. Gmail
+  splits words further itself.
+- A word of one character is left out, as Mail leaves out one-letter
+  words: "Plan B" asks for every "plan". So is a word with no letter or
+  digit in it, "--", "&&" or "...", of which Mail's word rules make no
+  word. With nothing left, the whole text is the one word, its quote marks
+  read as spaces, so "a b" is searched as it always was; quote marks and
+  nothing else ask for nothing, and find nothing.
+- A word given twice, in any case, is asked for once, and the first
+  twenty are asked for.
+- One word goes byte for byte as before, with no parentheses:
+  `OR OR OR OR FROM "w" TO "w" CC "w" SUBJECT "w" BODY "w"`, the fold and
+  the escaping unchanged. Several are each that in parentheses, side by
+  side. Twenty words of a pasted letter make a line of about 1.6 KB;
+  Gmail took a SEARCH of 200 groups, 17.6 KB, in 112 ms.
+- The escaping goes by Unicode scalar. A quote or a backslash with an
+  accent after it is one character, and a replace of the character "
+  passes it by, as it did on the Linux host, so the quote went into the
+  command as it was and ended the string early: a BAD, and "Could not
+  search. Check the connection." Older than B-105, and found writing its
+  tests; with quote marks read as marks, that is the one way a quote
+  reaches a word.
+
+(B) `RecentSearches`: his last three searches, newest first, each kept a
+week from its last use, in `Application Support/Recent Searches.json`,
+written whole, out of backup after every write, read leniently: a file
+that cannot be read is no recent searches. The same words in any case are
+one search, the newer in its place; each is kept with its runs of white
+space one space, so a row is one line, and the words searched are the
+same. A search over 200 characters is not kept: a paste he would not
+search again, and cut short it would be a search he never made. Newest is
+the order of use, not the dates kept: a clock moved back only keeps them
+longer, and the search made after it is still first.
+
+- Kept when he taps Search on the keyboard with words in the field, and
+  when he opens a letter from the results, the words whose results they
+  are, not words typed since and still waiting for their search. Never at
+  a keystroke. Both, until the owner says otherwise, as Mail's own could
+  not be read.
+- Shown under the scope bar while the field is focused AND empty AND
+  there are some: "Recent Searches", and a row for each, 44 pt, a clock
+  and the words on one line, in the band's type, through `Theme.scaled`
+  with it. The band grows for them as it does for the scope bar
+  (`wantedHeight`, `onHeightChanged`), and is asked again at focus, at
+  each change of the text, at its end and at the clear button. The first
+  letter typed takes them away; emptied again, they are back.
+- A tap puts the words in the field, takes the keyboard down and searches
+  at once, in the scope the band shows, with no wait for more typing,
+  through the same task a keystroke or Cancel calls off; it is newest
+  again.
+- VoiceOver: each row a button, "Recent search, Plan B".
+- Gone with the copy of his mail when a password is saved or the account
+  taken out (`CredentialStore.save` and `clear`, beside `MailShelf.wipe`),
+  and at a safe start's second stage (`SafeStart`, which is handed the
+  file as it is handed `Kept/`).
+
+**Not changed.** The two scopes, the Trash and Spam merge, CHARSET, the
+search's key in `SearchSession`, the 350 ms wait after typing. The field's
+Smart Punctuation stays on: Mail's own field is not known to turn it off,
+and a paste brings curly quotes whatever the field says. X-GM-RAW is not
+used: Gmail would read his words as its operators. No suggestions as he
+types: they need an index of the whole mailbox on the iPad, which D-016
+does not keep. No swipe to delete a recent search: the app has no swipe,
+and the week clears them. The folder's rows under the band, `ListPlace`,
+`ListLetters` and B-079's VoiceOver code are as they were. The connection
+log carries the longer SEARCH line; the words of a search were in it
+already (D-016). D-016's "Not kept: searches" is the results; Mail keeps
+the words of the last three, and so does this.
+
+**What he sees.** Several words find the letters that have every one of
+them, each in any of From, To, Cc, Subject or the body: a name only in
+From and a word only in the body find the letter, in either order. A
+phrase in quotes, typed with the keyboard's curly quotes, is found as a
+phrase. "Plan B" finds every "plan", as Mail does. A tap in the empty
+field shows his last three searches under Current Mailbox and All
+Mailboxes; a tap on one searches it. New words: "Recent Searches", and
+VoiceOver's "Recent search," before the words, which are held from his
+iPad until the owner approves them; a word he changes is one line in
+`RecentSearches`, pinned by its test.
+
+**Tests.** `SearchCriteriaTests`, thirteen new: two words two groups side
+by side, the line whole; one word byte for byte as before, and one left
+of several; a quoted phrase one word without its marks, for "Plan B",
+“Plan B”, “Plan B", "Plan B” and ”Plan B“, alone and among words, two of
+them, its white space one space; a mark left over a space; an apostrophe
+kept in its word, straight and curly, and not escaped, and single quotes
+around a word gone; the smart dashes parting words, the hyphen kept, a
+dash inside a phrase kept; one-letter words and words with no letter or
+digit left out, the whole text when nothing is left, nothing at all for
+quote marks alone; a repeat once, in any case; the first twenty; every
+group and the whole key read back by a parser of RFC 3501's grammar, four
+ORs and the five fields in each group, every parenthesis closed; each
+word escaped on its own, and no quote mark reaching a word; a quote or a
+backslash with an accent after it escaped. Two changed: a typed quote is
+now a quote mark, so the test of one ending the string early takes the
+quote with an accent, the one way a quote reaches a word; and non-ASCII
+words come through whole among several. `RecentSearchesTests`, sixteen:
+three at most, newest first; the week, to the second, and a search used
+again starting its week again; the same words in any case replacing the
+older, its white space one space; the 200-character cap; blank text not
+kept; a file empty, cut short, of another shape or not JSON, no recent
+searches; a file outside the rules read within them; the clock moved
+back; the wipe; the words; and, read from the source, the file written
+whole and out of backup, the wipes at a password saved, the account taken
+out and the safe start, the block shown only while the field is focused
+and empty, each row a button called "Recent search", a tap searching at
+once with no wait, and Search on the keyboard and a letter opened from
+the results keeping the search, a keystroke not. `SafeStartTests`: one
+unfinished launch keeps the recent searches, two take them away.
+`SafeStartTests` and `OutboxTests` hand `SafeStart` a file of their own.
+
+Each rule undone in the worktree, one at a time, and the three classes
+run, 64 tests. Curly quotes not taken for quote marks: 19 failures in 6
+tests. One word sent in parentheses: 5 in 3, one of them the old balance
+test. The block shown with text typed: 2 in 1. A mark left over kept in
+its word: 5 in 2. One-letter words kept: 12 in 5. Nothing searched when
+nothing is left: the run ends in a crash, at the old tests' `imap(for:
+"x")!`; with those two skipped, 7 failures in 1. A repeat in another case
+asked for again: 3 in 1. No cap of twenty: 4 in 2. The dashes not parting
+words: 2 in 1. Single quotes left on a word: 3 in 1. Words with no letter
+or digit kept: 1 in 1. A phrase's white space kept: 1 in 1. The escape by
+character, as before: 8 in 2. Recent searches with no cap of three: 6 in
+3; with no week: 7 in 2; told apart by case: 4 in 2; with no cap of 200:
+4 in 2; ordered by their dates: 3 in 1; not out of backup: 2 in 1. Left
+at a safe start: 3 in 2; at a password saved: 3 in 1. A tap through the
+debounce: 2 in 1. Not kept at Search on the keyboard: 3 in 1; nor at a
+letter opened from the results: 3 in 1.
+
+The full suite, serially: 1,885 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Mail's own reading of curly quotes, of dashes and of single quotes
+  around a word, which could not be read; and of addresses and links,
+  which here are whole words already, as nothing splits them but white
+  space and those dashes.
+- Words not parted by spaces, as Japanese is written: one word here,
+  which Gmail splits itself, where Mail's locale word rules split them.
+- Deleting a recent search.
+- The band's height with the keyboard up, in two panes and three, after
+  turning the iPad and with VoiceOver on, and the clock symbol and the
+  heading as drawn: the device check, under "Blocked on the iPad coming
+  back".
+- A recent search read at a date past its week is not shown, and is not
+  taken out of the file until the next search is kept: put the date back
+  and it shows again.

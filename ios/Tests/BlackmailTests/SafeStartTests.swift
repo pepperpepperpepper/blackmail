@@ -64,6 +64,7 @@ final class SafeStartTests: XCTestCase {
     private var launches: URL { support.appendingPathComponent("Launches", isDirectory: true) }
     private var keptRoot: URL { support.appendingPathComponent("Kept", isDirectory: true) }
     private var letters: URL { support.appendingPathComponent("Local Drafts", isDirectory: true) }
+    private var recentSearches: URL { support.appendingPathComponent("Recent Searches.json") }
     private var countFile: URL { launches.appendingPathComponent(SafeStart.countFile) }
 
     private let account = "owner@example.com"
@@ -73,7 +74,8 @@ final class SafeStartTests: XCTestCase {
     /// `SafeStart.app` is in the app, its half minute on the test's clock.
     private func makeStart() -> SafeStart {
         let clock = self.clock!
-        return SafeStart(directory: launches, kept: keptRoot, letters: letters, defaults: defaults,
+        return SafeStart(directory: launches, kept: keptRoot, searches: recentSearches,
+                         letters: letters, defaults: defaults,
                          now: { clock.now() }, timeZone: TimeZone(identifier: "UTC")!,
                          log: { [unowned self] in
                              notes.append($0)
@@ -305,6 +307,7 @@ final class SafeStartTests: XCTestCase {
     func testOneUnfinishedLaunchChangesNothing() async throws {
         keepAnInboxPage()
         setEverything()
+        RecentSearches.note("margaret", at: clock.now(), in: recentSearches)
         let store = LocalDraftStore(root: letters)
         try store.keep(draft("Sunday"), as: "letter-1", unfinished: false, account: account)
         try writeCount("1")
@@ -313,6 +316,8 @@ final class SafeStartTests: XCTestCase {
         XCTAssertEqual(steps, SafeStart.Steps(after: 1))
         XCTAssertFalse(steps.forgetsKeptState || steps.holdsPasses || steps.setsLettersAside)
         XCTAssertEqual(keptInbox?.rows.map(\.subject), ["Sunday"])
+        XCTAssertEqual(RecentSearches.load(from: recentSearches, at: clock.now()).map(\.text),
+                       ["margaret"])
         XCTAssertEqual(defaults.string(forKey: PaneArrangement.key), "two")
         XCTAssertEqual(defaults.object(forKey: ConversationSettings.key) as? Bool, false)
         XCTAssertEqual(LocalDraftStore(root: letters).letters().map(\.key), ["letter-1"])
@@ -321,13 +326,16 @@ final class SafeStartTests: XCTestCase {
     }
 
     /// Two in a row: the copy of his mail goes, so no kept page is drawn
-    /// and no kept folder list, and the view settings are back to their
-    /// defaults, three panes, grouped, Go to Date in the folder at today,
-    /// the layout sweep off. His account, his book and the signature's
-    /// pictures stay, and so does every letter kept on the iPad.
+    /// and no kept folder list, his recent searches with it (B-105), and
+    /// the view settings are back to their defaults, three panes, grouped,
+    /// Go to Date in the folder at today, the layout sweep off. His
+    /// account, his book and the signature's pictures stay, and so does
+    /// every letter kept on the iPad.
     func testTwoUnfinishedLaunchesStartWithoutTheKeptCopyOrTheViewSettings() async throws {
         keepAnInboxPage()
         setEverything()
+        RecentSearches.note("margaret", at: clock.now(), in: recentSearches)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: recentSearches.path))
         let before = hisOwn
         let store = LocalDraftStore(root: letters)
         try store.keep(draft("Sunday"), as: "letter-1", unfinished: false, account: account)
@@ -343,6 +351,8 @@ final class SafeStartTests: XCTestCase {
         let shelf = MailShelf(root: keptRoot, address: account, host: host)
         XCTAssertNil(shelf.page(of: "inbox"), "no kept page drawn")
         XCTAssertNil(shelf.folders, "nor the kept folder list")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: recentSearches.path),
+                       "the recent searches gone")
         for key in SafeStart.viewSettings {
             XCTAssertNil(defaults.object(forKey: key), key)
         }
@@ -1091,8 +1101,8 @@ final class SafeStartTests: XCTestCase {
         // And over the defaults the screens read.
         let app = try source("Blackmail/Mail/SafeStart.swift")
         XCTAssertTrue(app.contains("static let app = SafeStart(directory: appDirectory, "
-                                   + "kept: MailShelf.appRoot, letters: LocalDraftStore.appRoot, "
-                                   + "defaults: .standard)"))
+                                   + "kept: MailShelf.appRoot, searches: RecentSearches.appFile, "
+                                   + "letters: LocalDraftStore.appRoot, defaults: .standard)"))
     }
 
     /// The launch is counted before anything kept is read, first thing in
