@@ -52,6 +52,7 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     private let plainOnlyButton = UIButton(type: .system)
     private let restoreButton = UIButton(type: .system)
     private let organizeSwitch = UISwitch()
+    private let completeSwitch = UISwitch()
     private let bringBackButton = UIButton(type: .system)
     private let statusLabel = UILabel()
     /// His addresses, as Mail's account lists them under Email (B-076): a
@@ -245,6 +246,21 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         organizeSwitch.isOn = ConversationSettings.organizeByThread
         organizeSwitch.accessibilityLabel = Self.organizeTitle
         organizeSwitch.addTarget(self, action: #selector(organizeToggled),
+                                 for: .valueChanged)
+
+        // Mail's Complete Threads, under Organize by Thread as in Mail's
+        // Threading settings, with Apple's words under it (B-104). On, as
+        // Mail's is from the factory; the next conversation opened goes by
+        // it, so it is also the off switch for his letters from Sent Mail.
+        let completeRow = UIStackView(arrangedSubviews: [completeLabel(), completeSwitch])
+        completeRow.axis = .horizontal
+        completeRow.alignment = .center
+        completeRow.spacing = 12
+        stack.addArrangedSubview(completeRow)
+        stack.addArrangedSubview(caption(Self.completeCaption))
+        completeSwitch.isOn = ConversationSettings.completeThreads
+        completeSwitch.accessibilityLabel = Self.completeTitle
+        completeSwitch.addTarget(self, action: #selector(completeToggled),
                                  for: .valueChanged)
 
         // The way back for the letters a safe start set aside when the app
@@ -455,6 +471,29 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
     @objc private func organizeToggled() {
         ConversationSettings.organizeByThread = organizeSwitch.isOn
         onOrganizeByThreadChanged?()
+    }
+
+    /// Mail's own words for its switch and the line under it (B-104).
+    private static let completeTitle = "Complete Threads"
+    private static let completeCaption =
+        "Show all the messages in a thread, even if some have been moved to other mailboxes."
+
+    /// The Complete Threads row's label, drawn and not read, as
+    /// `organizeLabel`'s is.
+    private func completeLabel() -> UILabel {
+        let label = UILabel()
+        label.text = Self.completeTitle
+        label.isAccessibilityElement = false
+        label.font = .systemFont(ofSize: 17)
+        label.textColor = Theme.primaryText
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        return label
+    }
+
+    /// Acts from the next conversation opened; the one on screen stays as
+    /// it was drawn.
+    @objc private func completeToggled() {
+        ConversationSettings.completeThreads = completeSwitch.isOn
     }
 
     override func viewDidAppear(_ animated: Bool) {

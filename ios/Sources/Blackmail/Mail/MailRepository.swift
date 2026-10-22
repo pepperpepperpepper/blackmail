@@ -179,6 +179,27 @@ protocol MailRepository {
 
     func fetchAttachmentData(_ attachmentID: String, of messageID: String, mailboxID: String) async throws -> Data
 
+    /// His own letters of the Gmail conversation `thread` that are in Sent
+    /// Mail and not in the Inbox, for an Inbox conversation's stack (Mail's
+    /// Complete Threads, B-104): the newest `CompleteThreads.mostLetters`,
+    /// the oldest first, as rows, with the folder's name as the Mailboxes
+    /// pane shows it. None whose Gmail id is in `besides`, the stack's own.
+    ///
+    /// Read only, and never fails: `RelatedLetters.none` for anything that
+    /// goes wrong, so the stack stays as it would have been. Nothing is
+    /// sent without a connection up, Gmail's extension and a folder LIST
+    /// names `\Sent`; never All Mail in its place.
+    func lettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) async -> RelatedLetters
+
+    /// What `lettersOfHis` found for `thread` within the last
+    /// `CompleteThreads.remembered`, nil if nothing: at once, with no wait
+    /// and nothing sent, for the stack's first frame.
+    func rememberedLettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) -> RelatedLetters?
+
+    /// Forgets everything `lettersOfHis` found: his Refresh, where the
+    /// letter he has just sent from elsewhere is to be found.
+    func forgetLettersOfHis() async
+
     /// Called as the app comes back to the foreground. Finds out whether a
     /// connection quiet for long enough to have died still works, and
     /// replaces it if not, before he taps anything. Never fails: nobody is
@@ -490,6 +511,18 @@ extension MailRepository {
 
     /// Nothing known, unless the repository makes letters itself.
     var sendingAs: AtSend { AtSend() }
+
+    /// None of his letters from Sent Mail, unless the repository looks for
+    /// them (B-104).
+    func lettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) async -> RelatedLetters {
+        .none
+    }
+
+    func rememberedLettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) -> RelatedLetters? {
+        nil
+    }
+
+    func forgetLettersOfHis() async {}
 
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {

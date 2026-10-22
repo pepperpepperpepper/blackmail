@@ -363,6 +363,17 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         for transport in live { await transport.releaseParked() }
     }
 
+    /// Adds a mailbox after the others, as LIST then names it: a folder of
+    /// another server's, "Sent" with `\Sent`, say, beside Gmail's own.
+    /// `label` is the X-GM-LABELS token that means it.
+    func addFolder(_ name: String, attributes: [String], label: String?,
+                   validity: UInt32, firstUID: UInt32) {
+        locked { s in
+            s.addFolder(name, attributes: attributes, label: label, validity: validity,
+                        firstUID: firstUID)
+        }
+    }
+
     /// Renumbers a mailbox the way a server rebuilding it does: a new
     /// UIDVALIDITY, and every letter in it filed again from `firstUID` up,
     /// oldest first. A `firstUID` below the old numbers means an old UID
@@ -1565,7 +1576,8 @@ private extension ScriptedIMAPServer.State {
         let refused = keys.contains {
             let word = $0.text?.uppercased() ?? ""
             return refusedSearchKeys.contains(word)
-                || (word == "X-GM-MSGID" && withheldCapabilities.contains("X-GM-EXT-1"))
+                || ((word == "X-GM-MSGID" || word == "X-GM-THRID")
+                    && withheldCapabilities.contains("X-GM-EXT-1"))
         }
         guard !refused, let folder = folders[name],
               let key = Server.SearchKey.parse(Array(keys)) else {
@@ -1576,7 +1588,8 @@ private extension ScriptedIMAPServer.State {
         let hits = seen.filter { uid in
             guard let found = letter(uid, in: name, on: id) else { return false }
             return key.matches(found.stored, key: found.key, uid: uid,
-                               deleted: folder.deleted.contains(uid), highest: seen.last ?? 0)
+                               deleted: folder.deleted.contains(uid), highest: seen.last ?? 0,
+                               thread: thread(of: found.key))
         }
         if let returning, !ignoresSearchReturn {
             var answer = "ESEARCH (TAG \(Server.quoted(r.tag))) UID"
@@ -2352,6 +2365,9 @@ private extension ScriptedIMAPServer {
         case uids(UIDSet)
         /// Gmail's `X-GM-MSGID n`: the letter Gmail knows by that id.
         case gmailMessage(UInt64)
+        /// Gmail's `X-GM-THRID n`: the letters of the conversation Gmail
+        /// knows by that id (`thread(of:)`).
+        case gmailThread(UInt64)
 
         enum Comparison { case since, before, on }
 
@@ -2409,26 +2425,30 @@ private extension ScriptedIMAPServer {
             case "DELETED", "UNDELETED":   return .deleted(word == "DELETED")
             case "UID":        return argument().flatMap(UIDSet.init).map { .uids($0) }
             case "X-GM-MSGID": return argument().flatMap { UInt64($0) }.map { .gmailMessage($0) }
+            case "X-GM-THRID": return argument().flatMap { UInt64($0) }.map { .gmailThread($0) }
             default:           return nil
             }
         }
 
         func matches(_ stored: Stored, key: Int, uid: UInt32, deleted: Bool,
-                     highest: UInt32) -> Bool {
+                     highest: UInt32, thread: UInt64) -> Bool {
             let letter = stored.letter
             switch self {
             case .all:
                 return true
             case .and(let keys):
                 return keys.allSatisfy {
-                    $0.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
+                    $0.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
+                               thread: thread)
                 }
             case let .or(a, b):
-                return a.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
-                    || b.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest)
+                return a.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
+                                 thread: thread)
+                    || b.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
+                                 thread: thread)
             case .not(let inner):
                 return !inner.matches(stored, key: key, uid: uid, deleted: deleted,
-                                      highest: highest)
+                                      highest: highest, thread: thread)
             case let .field(name, needle):
                 let haystack: String
                 switch name {
@@ -2477,6 +2497,8 @@ private extension ScriptedIMAPServer {
                 return set.contains(uid, highest: highest)
             case .gmailMessage(let id):
                 return ScriptedIMAPServer.gmailMessageID(key: key) == id
+            case .gmailThread(let id):
+                return thread == id
             }
         }
 

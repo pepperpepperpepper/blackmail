@@ -115,6 +115,27 @@ final class PaneLoads {
         start(fetch, prepare: { $0 }, settle: settle)
     }
 
+    /// Work for what is on screen that nothing waits for and that waits for
+    /// nothing: his letters from Sent Mail for the conversation shown
+    /// (B-104). Called off with the rest when the pane moves on, and
+    /// `settle` gets its answer only if the pane has not. Not in the line
+    /// the letters settle in: a letter he opens while it runs settles as
+    /// soon as it has come, and not after this, which can be a SELECT of a
+    /// Sent Mail of a hundred thousand letters. At background priority.
+    func aside<Value>(_ work: @escaping () async -> Value,
+                      settle: @escaping @MainActor (Value) -> Void) {
+        let asked = generation
+        lastID += 1
+        let id = lastID
+        running[id] = Task(priority: .background) { @MainActor [weak self] in
+            let value = await work()
+            guard let self else { return }
+            self.running.removeValue(forKey: id)
+            guard !Task.isCancelled, asked == self.generation else { return }
+            settle(value)
+        }
+    }
+
     /// Runs `prepare` on the cooperative pool rather than the main actor:
     /// an async function isolated to no actor runs away from the caller's
     /// (SE-0338), and returns to it, the main actor here, when it is done.

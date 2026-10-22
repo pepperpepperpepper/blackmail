@@ -87,6 +87,9 @@ struct PaneDocument {
     private var finished = true
     /// Bodies that came while the document was still loading.
     private var waiting: [ConversationDocument.Fill] = []
+    /// His letters from Sent Mail that came while it was still loading
+    /// (B-104), to go in as it finishes, before the bodies.
+    private var waitingInserts: [ConversationDocument.Insert] = []
     /// The document went with WebKit's process and has not been drawn
     /// again. `content` is still what it held, and bodies that come
     /// meanwhile are kept in it for the redraw.
@@ -127,6 +130,7 @@ struct PaneDocument {
         self.navigation = navigation
         finished = navigation == nil
         waiting = []
+        waitingInserts = []
         lost = false
         drawn = redrawing ? .again(finished: finished ? now() : nil) : .byPane
         redrawing = false
@@ -178,6 +182,38 @@ struct PaneDocument {
         return ConversationDocument.Append(new)
     }
 
+    /// His letters from Sent Mail for the conversation on screen, to go in
+    /// before its letter `entryID`, or after its last for nil (B-104). Kept
+    /// in the stack, so a redraw has them and their bodies have a section to
+    /// go into, and returned as what puts them in when that can run now.
+    /// Held while the document is still loading and handed back as it
+    /// finishes (`didFinish`), as a body is; nil while WebKit has lost it,
+    /// when the redraw has them. Nil, with nothing kept, when the pane shows
+    /// no conversation or `entryID` is not one of its letters. Letters
+    /// already in the stack are left out.
+    mutating func insert(_ more: [ConversationDocument.Entry],
+                         before entryID: String?) -> ConversationDocument.Insert? {
+        guard case .conversation(var entries) = content else { return nil }
+        let at: Int
+        if let entryID {
+            guard let i = entries.firstIndex(where: { $0.id == entryID }) else { return nil }
+            at = i
+        } else {
+            at = entries.count
+        }
+        let new = more.filter { entry in !entries.contains(where: { $0.id == entry.id }) }
+        guard !new.isEmpty else { return nil }
+        entries.insert(contentsOf: new, at: at)
+        content = .conversation(entries)
+        guard !lost else { return nil }
+        let insert = ConversationDocument.Insert(new, before: entryID)
+        guard finished else {
+            waitingInserts.append(insert)
+            return nil
+        }
+        return insert
+    }
+
     /// A letter of the stack opened or closed by hand, so a redraw opens the
     /// same ones.
     mutating func setOpen(_ open: Bool, _ id: String) {
@@ -187,14 +223,24 @@ struct PaneDocument {
         content = .conversation(entries)
     }
 
-    /// A document has finished loading. When it is the one on screen, the
-    /// fills that were waiting for it, in the order they came.
-    mutating func didFinish(_ navigation: ObjectIdentifier) -> [ConversationDocument.Fill] {
-        guard navigation == self.navigation, !finished else { return [] }
+    /// A document has finished loading. When it is the one on screen, what
+    /// was waiting for it, each in the order it came: his letters from Sent
+    /// Mail to go in, then the bodies.
+    mutating func didFinish(_ navigation: ObjectIdentifier) -> Finished {
+        guard navigation == self.navigation, !finished else { return Finished() }
         finished = true
         if case .again(nil) = drawn { drawn = .again(finished: now()) }
-        defer { waiting = [] }
-        return waiting
+        defer {
+            waiting = []
+            waitingInserts = []
+        }
+        return Finished(inserts: waitingInserts, fills: waiting)
+    }
+
+    /// What `didFinish` hands back.
+    struct Finished: Equatable {
+        var inserts: [ConversationDocument.Insert] = []
+        var fills: [ConversationDocument.Fill] = []
     }
 
     /// WebKit's content process has ended and taken the document with it.
@@ -216,6 +262,7 @@ struct PaneDocument {
         navigation = nil
         finished = false
         waiting = []
+        waitingInserts = []
         drawn = .byPane
         switch content {
         case .nothing, .blank:

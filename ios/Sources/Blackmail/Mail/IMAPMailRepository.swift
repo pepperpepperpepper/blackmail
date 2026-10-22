@@ -128,6 +128,16 @@ actor IMAPMailRepository: MailRepository {
     /// whatever letter this mailbox has under that UID.
     private var seen: [String: SeenLetters] = [:]
 
+    /// What Sent Mail answered for each conversation whose stack looked
+    /// for his letters there, for ten minutes (`lettersOfHis`, B-104). In
+    /// memory alone: nothing of it is kept on the iPad.
+    nonisolated let hisLetters: RelatedMemo
+
+    /// Set when Sent Mail would not open or would not be searched for a
+    /// conversation's letters: no stack looks there again until the next
+    /// launch, or a new password's repository.
+    private var lettersOfHisRefused = false
+
     /// One folder's part of `seen`.
     private struct SeenLetters {
         let validity: UInt32
@@ -176,6 +186,7 @@ actor IMAPMailRepository: MailRepository {
         self.calendar = calendar
         self.signatureImages = signatureImages
         self.shelf = shelf
+        self.hisLetters = RelatedMemo(now: now)
         // His own address, always offered, from the very first launch.
         // He writes to himself constantly and it is the one address the
         // book cannot learn by watching his mail go past — a letter to
@@ -529,6 +540,7 @@ actor IMAPMailRepository: MailRepository {
     /// sent. Returns at once.
     func retire() async {
         retired = true
+        hisLetters.forget()
         await imap.retire()
     }
 
@@ -1526,6 +1538,23 @@ actor IMAPMailRepository: MailRepository {
         guard !ids.isEmpty else { return [:] }
         let client = try await connected()
         let name = try await resolve(mailboxID)
+        let out = try await previewTexts(for: ids, in: name, client: client)
+        // On the kept page too, for the rows that are on it, so the next
+        // launch draws them as he saw them (D-016).
+        shelf?.previews(out, in: name)
+        return out
+    }
+
+    /// The previews of `ids` in the folder `name`, fetched and nothing more:
+    /// kept nowhere. `previews` keeps them on the folder's page kept on the
+    /// iPad; his letters of a conversation found in Sent Mail are kept
+    /// nowhere (`lettersOfHis`).
+    ///
+    /// `whileOpen`: only while `name` is the folder the connection has open,
+    /// and none, with nothing sent, from the moment it is not
+    /// (`IMAPClient.fetchPartialBodiesWhileOpen`).
+    private func previewTexts(for ids: [String], in name: String, client: IMAPClient,
+                              whileOpen: Bool = false) async throws -> [String: String] {
         let known = await client.lastReport(for: name)?.uidValidity
 
         struct Request: Hashable {
@@ -1555,9 +1584,17 @@ actor IMAPMailRepository: MailRepository {
 
         var out: [String: String] = [:]
         for (request, uids) in grouped {
-            let bodies = try await client.fetchPartialBodies(
-                uids: uids, section: request.section, byteCount: request.byteCount,
-                in: name, validity: request.validity)
+            let bodies: [UInt32: Data]
+            if whileOpen {
+                guard let open = try await client.fetchPartialBodiesWhileOpen(
+                    uids: uids, section: request.section, byteCount: request.byteCount,
+                    in: name, validity: request.validity) else { break }
+                bodies = open
+            } else {
+                bodies = try await client.fetchPartialBodies(
+                    uids: uids, section: request.section, byteCount: request.byteCount,
+                    in: name, validity: request.validity)
+            }
             for (uid, raw) in bodies {
                 let id = Self.makeID(validity: request.validity, uid: uid)
                 guard let part = parts[id] else { continue }
@@ -1565,9 +1602,6 @@ actor IMAPMailRepository: MailRepository {
                 if !text.isEmpty { out[id] = text }
             }
         }
-        // On the kept page too, for the rows that are on it, so the next
-        // launch draws them as he saw them (D-016).
-        shelf?.previews(out, in: name)
         return out
     }
 
@@ -2111,6 +2145,9 @@ actor IMAPMailRepository: MailRepository {
         for address in Submission.recipients(of: draft) {
             self.recipients.used(address: MailFormat.bareAddress(address))
         }
+        // A reply he has just sent is in Sent Mail now, or will be: his
+        // letters of every conversation are looked for afresh (B-104).
+        hisLetters.forget()
 
         // No APPEND to Sent. Gmail files SMTP-sent mail into Sent itself, and
         // appending as well produces two copies of every letter he sends —
@@ -2138,6 +2175,11 @@ actor IMAPMailRepository: MailRepository {
                     found.insert(id)
                 }
             }
+            // A letter the Outbox could not be sure had gone, found there,
+            // may be his reply in a conversation looked up already: his
+            // letters of every conversation are looked for afresh, as after
+            // a send (B-104).
+            if !found.isEmpty { self.hisLetters.forget() }
             return found
         }
     }
@@ -2153,6 +2195,108 @@ actor IMAPMailRepository: MailRepository {
         _ = try await knownListing()
         if let sent = roleNames[.sent] ?? folderForAttribute["\\all"] { return sent }
         throw Outbox.NoSentMail()
+    }
+
+    // MARK: - His letters in a conversation
+
+    /// His own letters of an Inbox conversation, from Sent Mail, for its
+    /// stack (Mail's Complete Threads, B-104). Read only: SELECT, UID
+    /// SEARCH X-GM-THRID, a UID FETCH of the newest hits' summaries, in one
+    /// hold of the connection in the background line
+    /// (`IMAPClient.search(_:across:)`), then a FETCH of their previews.
+    /// No STORE, MOVE, COPY or APPEND, and nothing kept on the iPad.
+    ///
+    /// Sent Mail by the role LIST gives it, `\Sent`, and never All Mail in
+    /// its place, which `sentMailFolder` falls back to: All Mail holds the
+    /// conversation's Inbox letters too. No such folder, and nothing is
+    /// sent. Nor without a connection up, which this never makes, it being
+    /// work he did not ask for, or without Gmail's extension.
+    ///
+    /// Never fails. A Sent Mail that will not open or will not be searched
+    /// says so once in the connection log, and no conversation looks there
+    /// again this launch; a lost connection is not tried again; a lookup
+    /// called off, as the pane moving on calls it off, stops between
+    /// commands. Each gives none, and the stack stays as it would have
+    /// been, with nothing said to him.
+    ///
+    /// The answer is remembered for `CompleteThreads.remembered`
+    /// (`hisLetters`), so a conversation opened again sends nothing; but not
+    /// if the memo was forgotten while the lookup was out, as a letter he
+    /// sent landing forgets it: that answer may be from before his reply was
+    /// in Sent Mail.
+    ///
+    /// The few words of his lines are fetched in a hold of their own after
+    /// the search, and only while Sent Mail is still the folder open on the
+    /// connection: a letter he opened in the Inbox meanwhile has opened the
+    /// Inbox, and they are not worth opening his Sent Mail again for, and
+    /// then the Inbox after them. His lines go without them then.
+    func lettersOfHis(inThread thread: UInt64, besides: Set<UInt64>) async -> RelatedLetters {
+        if let known = rememberedLettersOfHis(inThread: thread, besides: besides) { return known }
+        let asOf = hisLetters.generation
+        guard !retired, !lettersOfHisRefused, let listed,
+              let sent = roleNames[.sent],
+              let folder = Self.mailboxes(from: listed, unread: [:]).first(where: { $0.id == sent }),
+              await imap.isConnected, await imap.offersGmailExtension else { return .none }
+        let client = imap
+        do {
+            // Sent Mail's news asked for first when it is open already, as
+            // a listing asks: a reply sent a moment ago is looked for.
+            let searched = try await client.search(
+                "X-GM-THRID \(thread)",
+                across: [IMAPSearchTarget(mailbox: sent, summariesOfNewest: CompleteThreads.mostLetters)],
+                catchingUp: .asked)
+            guard let answer = searched.first, let hits = answer.hits else {
+                lettersOfHisRefused = true
+                Diagnostics.log(.note, "RELATED refused")
+                return .none
+            }
+            lastContact = now()
+            var letters = rows(from: CompleteThreads.onlyInSentMail(answer.summaries),
+                               in: sent, name: sent, validity: hits.validity)
+            if !letters.isEmpty {
+                let previews: [String: String]
+                do {
+                    previews = try await previewTexts(for: letters.map(\.id), in: sent, client: client,
+                                                      whileOpen: true)
+                } catch {
+                    // Refused on a connection still up: the lines go without
+                    // their few words. Lost or called off: none.
+                    guard !Task.isCancelled, await client.isConnected else { return .none }
+                    previews = [:]
+                }
+                letters = letters.map { row in
+                    var row = row
+                    row.preview = previews[row.id] ?? ""
+                    return row
+                }
+            }
+            guard !Task.isCancelled else { return .none }
+            let found = RelatedLetters(folderName: folder.displayName, letters: letters)
+            hisLetters.keep(found, inThread: thread, asOf: asOf)
+            return Self.shown(found, besides: besides)
+        } catch {
+            return .none
+        }
+    }
+
+    /// `lettersOfHis`'s answer for `thread` from the last ten minutes, nil
+    /// if there is none: read at once, without the actor, for the stack's
+    /// first frame.
+    nonisolated func rememberedLettersOfHis(inThread thread: UInt64,
+                                            besides: Set<UInt64>) -> RelatedLetters? {
+        hisLetters.letters(inThread: thread).map { Self.shown($0, besides: besides) }
+    }
+
+    /// His Refresh: every conversation looks again.
+    func forgetLettersOfHis() async {
+        hisLetters.forget()
+    }
+
+    /// What was found, less the stack's own letters, the newest
+    /// `CompleteThreads.mostLetters`.
+    private static func shown(_ found: RelatedLetters, besides: Set<UInt64>) -> RelatedLetters {
+        RelatedLetters(folderName: found.folderName,
+                       letters: CompleteThreads.shown(found.letters, besides: besides))
     }
 
     /// Where Send finds each file the letter carries (B-070): a photo on

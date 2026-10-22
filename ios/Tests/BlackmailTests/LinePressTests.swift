@@ -166,8 +166,9 @@ final class LinePressTests: XCTestCase {
     }
 
     /// Lines put in at the bottom later are lit and tapped as the first
-    /// ones are: a line is one `bmWire` wired, and `bmAppend` wires them.
-    /// A line drawn by a letter's own markup is never wired, and is not.
+    /// ones are: a line is one `bmWire` wired, and `bmAppend` wires them,
+    /// as `bmInsert` wires his letters' from Sent Mail (B-104). A line
+    /// drawn by a letter's own markup is never wired, and is not.
     func testLinesPutInLaterAreLitAndTappedAsTheFirstAndALettersOwnAreNot() {
         for wiring in [
             "function bmWire(head) { bmLines.push(head);",
@@ -180,8 +181,8 @@ final class LinePressTests: XCTestCase {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
         XCTAssertEqual(script.components(separatedBy: "bmLines.push(").count - 1, 1, script)
-        XCTAssertEqual(script.components(separatedBy: "bmWire(").count - 1, 3,
-                       "defined, the first lines, those put in later")
+        XCTAssertEqual(script.components(separatedBy: "bmWire(").count - 1, 4,
+                       "defined, the first lines, those put in later, his put in among them")
     }
 
     private func flat(_ text: String) -> String {

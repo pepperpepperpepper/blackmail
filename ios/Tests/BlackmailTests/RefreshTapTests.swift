@@ -375,7 +375,8 @@ final class RefreshTapTests: XCTestCase {
         XCTAssertTrue(list.contains(
             "RefreshTap.start( gate: refreshes, "
             + "page: { let checking = self.isOutbox ? nil : self.working(StatusLine.checking) "
-            + "defer { checking?() } return await self.reload(passing: false) }, "
+            + "defer { checking?() } await self.repository.forgetLettersOfHis() "
+            + "return await self.reload(passing: false) }, "
             + "answered: { self.pull.endRefreshing() }, "
             + "counts: { self.onRefreshRequested?() }, "
             + "shown: { await self.pagePreviews?.value await self.countsCame() }, "

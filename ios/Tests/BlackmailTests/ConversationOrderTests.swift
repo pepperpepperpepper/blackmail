@@ -410,11 +410,11 @@ final class ConversationOrderTests: XCTestCase {
     /// letter, and only it, as before.
     func testThePaneDrawsTheStackInMailsOrder() throws {
         let code = try source("UI/MessageDetailViewController.swift")
-        let show = try section(of: code, from: "func show(thread: MessageThread) {",
-                               to: "private var pageStyle")
+        let show = try section(of: code, from: "func show(thread: MessageThread, completing: UInt64?) {",
+                               to: "private func lookForHis(")
         for wiring in [
             "stackLetters = thread.messages.reversed()",
-            "let entries = ConversationDocument.stack(of: thread)",
+            "let entries = ConversationDocument.stack(of: thread, related: remembered)",
             "renderConversation(entries)",
             "self?.settleBody(result, for: newest.id, focus: true)",
             "}) for letter in ConversationDocument.openedWithTheNewest(thread) { "
@@ -446,7 +446,10 @@ final class ConversationOrderTests: XCTestCase {
         let list = try source("UI/MessageListViewController.swift")
         let open = try section(of: list, from: "private func open(_ thread: MessageThread, at ip: IndexPath) {",
                                to: "private func open(_ summary: MessageSummary")
-        XCTAssertTrue(open.contains("onSelectThread?(thread) "
+        XCTAssertTrue(open.contains("onSelectThread?(thread, CompleteThreads.thread( "
+                                    + "toComplete: thread, listedIn: mailbox.role, "
+                                    + "searching: letters.isSearching, "
+                                    + "switchedOn: ConversationSettings.completeThreads)) "
                                     + "markReadIfNeeded(ConversationDocument.readAtTheTap(thread)) }"), open)
         let one = try section(of: list, from: "private func markReadIfNeeded(_ summary: MessageSummary) {",
                               to: "private func markReadIfNeeded(_ summaries: [MessageSummary]) {")

@@ -53,6 +53,11 @@ enum ConversationDocument {
         var body: Rendered?
         var isExpanded: Bool
         var preview: String
+        /// For a letter of his from another folder, Sent Mail, brought into
+        /// an Inbox conversation (B-104): that folder's name, as the
+        /// Mailboxes pane shows it, said over the letter once it is open.
+        /// Nil for the conversation's own letters.
+        var foundIn: String? = nil
 
         struct Rendered: Equatable {
             let html: String
@@ -93,6 +98,70 @@ enum ConversationDocument {
               isExpanded: open, preview: m.preview)
     }
 
+    // MARK: - His letters from Sent Mail
+
+    /// An Inbox conversation's stack with his own letters of it from Sent
+    /// Mail among its letters, as Mail's Complete Threads has them (B-104):
+    /// each where it came, by when Gmail took it and by its Date where it
+    /// took two at once, the oldest at the top; closed to its line. The
+    /// conversation's own letters are as `stack(of:)` draws them, in its
+    /// order, open and closed as there. For the stack's first frame, when
+    /// they are known by then; otherwise they go in as they come
+    /// (`places`, `Insert`).
+    static func stack(of thread: MessageThread, related: RelatedLetters?) -> [Entry] {
+        let own = stack(of: thread)
+        guard let related, !related.letters.isEmpty else { return own }
+        let placed = places(of: related.letters, among: Array(thread.messages.reversed()))
+        func his(before id: String?) -> [Entry] {
+            placed.filter { $0.before == id }.flatMap { place in
+                place.letters.map { entry(forHis: $0, foundIn: related.folderName) }
+            }
+        }
+        return own.flatMap { his(before: $0.id) + [$0] } + his(before: nil)
+    }
+
+    /// Where his letters go among the stack's, `stack` in its order, the
+    /// oldest first: each before the first of the stack's letters that came
+    /// after it, or after the last, `before` nil. In runs, oldest first, a
+    /// run for each letter they go before.
+    static func places(of letters: [MessageSummary],
+                       among stack: [MessageSummary]) -> [Place] {
+        let oldestFirst = letters.sorted { CompleteThreads.isLater($1, than: $0) }
+        var out: [Place] = []
+        for letter in oldestFirst {
+            let before = stack.first(where: { CompleteThreads.isLater($0, than: letter) })?.id
+            if let last = out.last, last.before == before {
+                out.removeLast()
+                out.append(Place(before: before, letters: last.letters + [letter]))
+            } else {
+                out.append(Place(before: before, letters: [letter]))
+            }
+        }
+        return out
+    }
+
+    /// A run of his letters, and the id of the stack's letter they go
+    /// before; nil for after the last.
+    struct Place: Equatable {
+        let before: String?
+        let letters: [MessageSummary]
+    }
+
+    /// The id of his letter's entry in the stack: the letter's own,
+    /// `"<uidvalidity>/<uid>"` in Sent Mail, after an "r". So its section
+    /// is "mr…", which no letter of the conversation's, "m" and a digit,
+    /// can be, whatever the two folders' numbers.
+    static func relatedID(of letter: MessageSummary) -> String {
+        "r" + letter.id
+    }
+
+    /// His letter's place in the stack, drawn from its row: closed, with
+    /// the folder it was found in.
+    static func entry(forHis letter: MessageSummary, foundIn folder: String) -> Entry {
+        Entry(id: relatedID(of: letter), sender: letter.sender, date: letter.date, body: nil,
+              isExpanded: false, preview: letter.preview, foundIn: folder)
+    }
+
     /// The letters of `thread` the stack opens besides the newest: the
     /// unread ones, newest first. The pane fetches each after the newest.
     /// They are in front of him in full, the pane opening at the oldest of
@@ -123,9 +192,22 @@ enum ConversationDocument {
     /// were marked read where he could not see them. Mail opens a
     /// conversation at its newest letter, as far as is known; what it does
     /// with several unread letters is not known. Nil for no letters.
+    ///
+    /// With his letters from Sent Mail in the stack (B-104), the letter it
+    /// opens at is still one of the conversation's own: the first of them
+    /// open, his being closed as the stack opens, and passed over if he had
+    /// opened one before WebKit lost the page. The line held above it is the
+    /// line directly above it, his or theirs. So the letter it opens at is
+    /// one line below the top of the pane whether his letters are in the
+    /// first frame or go in after it: put in later between that line and
+    /// the letter, they take the line's place at the top, and the letter
+    /// stays where it is (`script`, `bmInsert`). Counted by the
+    /// conversation's letters alone, as first built, the stack opened at its
+    /// own line above the letter, his line went in under it, and the letter
+    /// he was reading dropped by a line a second or two after it had come.
     static func opensAt(_ entries: [Entry]) -> String? {
-        guard !entries.isEmpty else { return nil }
-        let at = entries.firstIndex(where: \.isExpanded) ?? entries.count - 1
+        guard let at = entries.firstIndex(where: { $0.isExpanded && $0.foundIn == nil })
+                ?? entries.lastIndex(where: { $0.foundIn == nil }) else { return nil }
         if at > 0, !entries[at - 1].isExpanded { return sectionID(for: entries[at - 1].id) }
         return sectionID(for: entries[at].id)
     }
@@ -272,6 +354,11 @@ enum ConversationDocument {
           .bm-text a { color: #0A84FF; }
           .bm-html a { color: #007AFF; }
           .bm-waiting { color: #8e8e93; padding: 0 \(inset)px \(inset)px \(inset)px; }
+          /* Where his letter from another folder was found, over it once
+             it is open (B-104): grey, as the time on the line. */
+          .bm-found { color: #8e8e93; font-size: \(bodyPointSize - 3)px;
+                      padding: 0 \(inset)px 8px \(inset)px; }
+          .bm-letter:not(.bm-open) > .bm-found { display: none; }
         </style></head><body>
         \(sections)
         </body></html>
@@ -317,6 +404,24 @@ enum ConversationDocument {
     /// where `ConversationDocument.Fill` and `ConversationDocument.Append`
     /// call them. `bmAppend` puts letters that came while the stack was
     /// open at its bottom, and wires their lines.
+    ///
+    /// `bmInsert`, which `ConversationDocument.Insert` calls, puts his
+    /// letters from Sent Mail in among the stack's (B-104): before the
+    /// section named, a letter of the stack's own, or at the bottom for
+    /// none; nothing at all if the section named is not one of the stack's.
+    /// Their lines are wired as the rest are, and the letter he is reading
+    /// is kept where it is on the glass at once. When the section named
+    /// begins on the glass with nothing above it there but closed lines
+    /// (`bmReading`), that is the section named: the lines above it give
+    /// way upwards, and if the stack is still holding the line it opened
+    /// at, the hold passes to the last of his lines, now directly above the
+    /// letter, as the first frame has it when they are known by then
+    /// (`opensAt`). That is the usual stack, opened at the line of a letter
+    /// he has read with the newest under it, and his reply between the two.
+    /// Otherwise, with an open letter above the place on the glass, or the
+    /// place off the glass, the line held, or the letter at the top once he
+    /// has touched the pane, stays where it is (`bmKeep`), and what is below
+    /// the place moves down.
     ///
     /// **A finger on a line** (B-095). The line is lit from the touch until
     /// the finger lifts, and the lift opens or closes it, the script's own
@@ -460,6 +565,45 @@ enum ConversationDocument {
         if (head) bmWire(head);
       }
     }
+    function bmInsert(html, beforeID) {
+      var at = null;
+      if (beforeID) {
+        var letters = document.querySelectorAll('body > .bm-letter');
+        for (var i = 0; i < letters.length; i++) {
+          if (letters[i].id === beforeID) { at = letters[i]; break; }
+        }
+        if (!at) return;
+      }
+      var still = bmReading(at) ? at.getBoundingClientRect().top : null;
+      var holder = document.createElement('div');
+      holder.innerHTML = html;
+      var last = null;
+      while (holder.firstElementChild) {
+        last = document.body.insertBefore(holder.firstElementChild, at);
+        var head = last.querySelector('.bm-head');
+        if (head) bmWire(head);
+      }
+      if (still !== null && last) {
+        if (bmOpening) {
+          bmOpening = last;
+        } else {
+          var moved = at.getBoundingClientRect().top - still;
+          if (moved !== 0) window.scrollBy(0, moved);
+          bmTake();
+        }
+      }
+      bmKeep();
+    }
+    function bmReading(at) {
+      if (!at) return false;
+      var top = at.getBoundingClientRect().top;
+      if (!(top > 0 && top < window.innerHeight)) return false;
+      for (var s = at.previousElementSibling; s; s = s.previousElementSibling) {
+        if (s.getBoundingClientRect().bottom <= 0) break;
+        if (s.classList.contains('bm-open')) return false;
+      }
+      return true;
+    }
     (function () {
       if (document.getElementById('bm')) return;
       if (window.ResizeObserver) bmWatch = new ResizeObserver(bmKeep);
@@ -500,6 +644,14 @@ enum ConversationDocument {
                 + "Loading…</span></div>"
         }
 
+        // His letter from another folder says where it was found, between
+        // its line and its body, shown with the body: words of the page's
+        // own, read by VoiceOver before the letter, and left alone by
+        // `bmFill`, which fills the body.
+        let found = e.foundIn.map {
+            "<div class=\"bm-found\">\(escape(CompleteThreads.foundIn($0)))</div>"
+        } ?? ""
+
         return """
         <div class="bm-letter\(open)" id="\(id)">
           <div class="bm-head">
@@ -507,7 +659,7 @@ enum ConversationDocument {
             <span class="bm-peek">\(escape(e.preview))</span>
             <span class="bm-when">\(escape(MailFormat.listTimestamp(e.date)))</span>
           </div>
-          \(body)
+          \(found)\(body)
         </div>
         """
     }
@@ -554,6 +706,28 @@ enum ConversationDocument {
         static let script = "bmAppend(html)"
 
         var arguments: [String: Any] { ["html": html] }
+    }
+
+    /// His letters from Sent Mail going into the stack once it has loaded
+    /// (B-104): `script`'s `bmInsert`, called through `callAsyncJavaScript`
+    /// with their sections and the section they go before, "" for after the
+    /// last letter. Each is drawn as the stack draws its letters at the
+    /// start, closed, its body to come by `Fill` once he opens it.
+    struct Insert: Equatable {
+        let html: String
+        /// The section they go before, "" for none.
+        let before: String
+
+        init(_ entries: [Entry], before entryID: String?) {
+            html = entries.map(ConversationDocument.section).joined()
+            before = entryID.map(ConversationDocument.sectionID) ?? ""
+        }
+
+        /// What `callAsyncJavaScript` runs, in the app's content world,
+        /// where `script` defined `bmInsert`.
+        static let script = "bmInsert(html, before)"
+
+        var arguments: [String: Any] { ["html": html, "before": before] }
     }
 
     static func escape(_ text: String) -> String {

@@ -53,6 +53,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// conversation is matched against for letters to put at the bottom
     /// (`takeArrivals`). Empty when the pane shows no conversation.
     private var stackLetters: [MessageSummary] = []
+    /// His own letters from Sent Mail in the conversation on screen
+    /// (B-104). Apart from everything above on purpose: none of them is
+    /// ever in `threadSummaries`, `stackLetters` or `loaded`, or the letter
+    /// the header, the toolbar or the list's read marks act on. Read only;
+    /// the pane holds them while it shows the conversation, and no longer.
+    private var related = PaneRelated()
     /// The file QuickLook is currently showing. Held because
     /// `QLPreviewController.dataSource` is a WEAK reference and asks for its
     /// item after presentation, by which point a local would be gone.
@@ -230,6 +236,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loaded = [:]
         threadSummaries = [:]
         stackLetters = []
+        related.clear()
         focused = nil
         title = ""
         header.isHidden = true
@@ -276,6 +283,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         loaded = [:]
         threadSummaries = [:]
         stackLetters = []
+        related.clear()
         focused = nil
         placeholder.isHidden = true
         header.isHidden = false
@@ -353,7 +361,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// alternative — wait for every letter, then draw — leaves the pane
     /// blank for as many round trips as the thread is long, and a blank
     /// pane is indistinguishable from an empty letter.
-    func show(thread: MessageThread) {
+    ///
+    /// `completing` is the conversation's Gmail thread number when his own
+    /// letters of it are to be brought in from Sent Mail, as Mail's
+    /// Complete Threads brings them (B-104), nil otherwise: the list's to
+    /// say (`CompleteThreads.thread(toComplete:)`). They go in closed, by
+    /// date, and the letter the stack opens at is the one it would have
+    /// opened at without them, one line below the top of the pane.
+    func show(thread: MessageThread, completing: UInt64?) {
         summary = thread.newest
         message = nil
         loaded = [:]
@@ -367,9 +382,18 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         webView.isHidden = false
         setActionsEnabled(true)
 
+        // His letters of it, in the first frame when the repository found
+        // them in the last ten minutes; otherwise looked for once the
+        // newest letter has come, below.
+        let besides = Set(thread.messages.compactMap(\.gmailMessageID))
+        let remembered = related.show(stackLetters, completing: completing, remembered: completing.flatMap {
+            self.repository.rememberedLettersOfHis(inThread: $0, besides: besides)
+        })
+
         // The oldest at the top, the newest at the bottom, open, with the
-        // ones he has not read; the rest closed.
-        let entries = ConversationDocument.stack(of: thread)
+        // ones he has not read; the rest closed. His letters among them,
+        // closed.
+        let entries = ConversationDocument.stack(of: thread, related: remembered)
 
         // Only the letters that are open are fetched, the newest first.
         // Fetching all of them would be a round trip each for text he
@@ -402,6 +426,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             prepare: { m in (m, PanePage.stackBody(m)) },
             settle: { [weak self] result in
                 self?.settleBody(result, for: newest.id, focus: true)
+                self?.lookForHis(afterTheNewestCame: (try? result.get()) != nil, besides: besides)
             })
 
         // The unread letters open with it, as Mail opens them: each fetched
@@ -417,6 +442,68 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             threadSummaries[letter.id] = read
         }
     }
+
+    /// His letters looked for in Sent Mail once the newest letter of the
+    /// conversation has come, if they are to be and nothing was remembered
+    /// (`PaneRelated.lookUp`), in the background, and put in as they come;
+    /// called off if the pane moves on first (`PaneLoads.aside`).
+    private func lookForHis(afterTheNewestCame came: Bool, besides: Set<UInt64>) {
+        guard let thread = related.lookUp(afterTheNewestCame: came) else { return }
+        let repository = self.repository
+        loads.aside({ await repository.lettersOfHis(inThread: thread, besides: besides) },
+                    settle: { [weak self] found in self?.takeRelated(found) })
+    }
+
+    /// His letters of the conversation on screen have come from Sent Mail
+    /// (B-104): each goes into the stack closed, before the first letter
+    /// of it that came after it, or at the bottom, and the letter he is
+    /// reading stays where it is (`ConversationDocument.Insert`). Nothing
+    /// else changes: the header, the toolbar and the list stay on the
+    /// conversation's letters.
+    private func takeRelated(_ found: RelatedLetters) {
+        for place in related.take(found, stack: stackLetters) {
+            guard let insert = document.insert(place.entries, before: place.before) else { continue }
+            run(insert)
+        }
+    }
+
+    /// Fetches his letter from Sent Mail, opened by its line, and puts it in
+    /// its section (B-104), from that folder, by its id and Gmail's id for
+    /// it, which the fetch checks (D-016) (`PaneRelated.load`). Only that:
+    /// the header and the toolbar stay on the conversation's letter he
+    /// opened last, whenever the header follows a letter he opens, and
+    /// nothing is marked read. Called off with the rest if the pane moves
+    /// on first.
+    private func loadRelated(_ entryID: String) {
+        guard let load = related.load(for: entryID) else { return }
+        let repository = self.repository
+        loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID,
+                                                       mailboxID: load.mailboxID) },
+                    prepare: { m in (m, PanePage.stackBody(m)) },
+                    settle: { [weak self] result in self?.settleRelated(result, for: load) })
+    }
+
+    /// His letter's body in its own section, with the loader pointed at its
+    /// pictures; or the words a letter of the conversation says when it
+    /// could not be downloaded. Nothing kept of the letter but its body in
+    /// the stack.
+    private func settleRelated(_ result: Result<(Message, ConversationDocument.Entry.Rendered), Error>,
+                               for load: PaneRelated.Load) {
+        switch result {
+        case .success(let (m, body)):
+            prepareInlineImages(for: [m])
+            fill(related.bodyCame(for: load), body)
+        case .failure:
+            fill(load.entryID, Self.couldNotDownload)
+        }
+    }
+
+    /// What a letter of the stack says in its section when its body could
+    /// not be downloaded (B-026).
+    private static let couldNotDownload = ConversationDocument.Entry.Rendered(
+        html: "<span class=\"bm-waiting\">This message could not "
+            + "be downloaded. Tap the line above twice to try again.</span>",
+        isHTML: false)
 
     /// The pane's measurements, for the pages built away from the main
     /// thread, which cannot read `Theme` there.
@@ -475,9 +562,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // same reason as the single-message path: a letter that
             // silently stays empty looks like a letter with nothing in
             // it. See B-026.
-            fill(id, .init(html: "<span class=\"bm-waiting\">This message could not "
-                           + "be downloaded. Tap the line above twice to try again.</span>",
-                           isHTML: false))
+            fill(id, Self.couldNotDownload)
         }
     }
 
@@ -535,17 +620,36 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                     in: nil, in: .defaultClient)
     }
 
+    /// Calls the stack's `bmInsert` with his letters' sections as arguments
+    /// (B-104), in the app's content world, as `run(_ fill:)` does.
+    private func run(_ insert: ConversationDocument.Insert) {
+        webView.callAsyncJavaScript(ConversationDocument.Insert.script, arguments: insert.arguments,
+                                    in: nil, in: .defaultClient)
+    }
+
     /// A letter in the stack was opened or closed.
     func userContentController(_ controller: WKUserContentController,
                                didReceive scriptMessage: WKScriptMessage) {
         guard scriptMessage.name == "bmLetter",
               let payload = scriptMessage.body as? [String: Any],
               let sectionID = payload["id"] as? String,
-              let opened = payload["open"] as? Bool,
-              // Back from the section id to the message id. Matched rather
-              // than unescaped, because the mapping loses which underscores
-              // were slashes.
-              let id = threadSummaries.keys.first(where: {
+              let opened = payload["open"] as? Bool
+        else { return }
+
+        // His letter from Sent Mail (B-104), first: opened or closed, kept
+        // so, and its body fetched, and nothing else. Not marked read, and
+        // not focused: the header and the toolbar stay on the conversation's
+        // letter, so Delete, Move, Flag and Reply never act on it.
+        if let his = related.entryID(forSection: sectionID) {
+            document.setOpen(opened, his)
+            if opened { loadRelated(his) }
+            return
+        }
+
+        // Back from the section id to the message id. Matched rather
+        // than unescaped, because the mapping loses which underscores
+        // were slashes.
+        guard let id = threadSummaries.keys.first(where: {
                   ConversationDocument.sectionID(for: $0) == sectionID
               })
         else { return }
@@ -738,11 +842,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         load(page, as: .letter(m, page: page))
     }
 
-    /// A document has finished loading: the conversation's bodies that came
-    /// before it had, go in now. See `PaneDocument`.
+    /// A document has finished loading: his letters from Sent Mail and the
+    /// conversation's bodies that came before it had, go in now. See
+    /// `PaneDocument`.
     func webView(_ w: WKWebView, didFinish navigation: WKNavigation!) {
         guard let navigation else { return }
-        for fill in document.didFinish(ObjectIdentifier(navigation)) { run(fill) }
+        let finished = document.didFinish(ObjectIdentifier(navigation))
+        for insert in finished.inserts { run(insert) }
+        for fill in finished.fills { run(fill) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while

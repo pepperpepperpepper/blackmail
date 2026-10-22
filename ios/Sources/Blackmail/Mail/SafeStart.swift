@@ -117,9 +117,9 @@ final class SafeStart {
     nonisolated static let lettersBroughtBack = "letters-brought-back"
 
     /// The view settings read before the first frame, by their keys in
-    /// `UserDefaults`: two panes or three (D-015), Organize by Thread, Go to
-    /// Date's last scope and day, and the layout sweep, which runs at
-    /// launch when on. The last three are written by screens that do not
+    /// `UserDefaults`: two panes or three (D-015), Organize by Thread and
+    /// Complete Threads (B-104), Go to Date's last scope and day, and the
+    /// layout sweep, which runs at launch when on. The last three are written by screens that do not
     /// exist on the host; the suite holds these to the keys in their source.
     ///
     /// Not the account, the address book or the signature's pictures, which
@@ -128,6 +128,7 @@ final class SafeStart {
     nonisolated static let viewSettings = [
         PaneArrangement.key,
         ConversationSettings.key,
+        ConversationSettings.completeThreadsKey,
         "blackmail.lastJumpScope",
         "blackmail.lastJumpDate",
         "blackmail.layoutAudit",
