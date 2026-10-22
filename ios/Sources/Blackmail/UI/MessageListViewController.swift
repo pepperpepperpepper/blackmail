@@ -361,16 +361,18 @@ final class MessageListViewController: UITableViewController {
     /// offset, with the first hits scrolled out of sight above the search
     /// field.
     ///
-    /// Not under a finger that holds the list at its top or pulled down past
-    /// it, as a pull does while the newest page comes (B-103): let go, it
-    /// springs back to the top by itself, and set there under the finger
-    /// the rows would jump.
+    /// A list at its top, or pulled down past it, is left where it is, with
+    /// a finger on it or not (B-103): under the finger, the rows would jump
+    /// as the newest page lands during a pull still held; let go, it springs
+    /// back to the top by itself. Set to the top as it sprang back, the
+    /// offset stopped the spring-back at the spinner's rest, and the spinner
+    /// put away there left the list 60 pt below its top, seen on the iPad on
+    /// 2026-10-22. At the top already, there is nothing to set.
     @MainActor
     private func scrollToTop() {
         tableView.layoutIfNeeded()
-        guard !(tableView.isTracking
-                && ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
-                                      topInset: Double(tableView.adjustedContentInset.top))) else {
+        guard !ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
+                                  topInset: Double(tableView.adjustedContentInset.top)) else {
             return
         }
         tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top),
@@ -693,7 +695,9 @@ final class MessageListViewController: UITableViewController {
             // what is on screen until something brings it up to date.
             updated.failed((error as? MailError) ?? .cannotConnect)
             if showingAge { sayAge() }
-            if !quietly { ErrorPresenter.show(reaching: error, on: self) }
+            // Once his finger is off the list: a pull's page fails while the
+            // finger is still down (B-103).
+            if !quietly { showWhenLetGo(error) }
             return false
         }
     }
@@ -1264,18 +1268,34 @@ final class MessageListViewController: UITableViewController {
         letters.isSearching || !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// At rest: the pull's spinner held for it goes (`PullEnd`, B-103).
     override func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        pullSettled()
+        showHeldAlert()
         landFreshPage()
         showNewsIfAtTop()
     }
 
+    /// The finger has let go: a page's alert held for it goes up now, as
+    /// the list springs back (B-103). The spinner waits for the list to be
+    /// at rest, which it is here only with no deceleration to come.
     override func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        showHeldAlert()
         guard !decelerate else { return }
+        pullSettled()
         landFreshPage()
         showNewsIfAtTop()
+    }
+
+    /// A finger has taken the list: a spinner held for its rest goes under
+    /// the finger, which UIKit ends as it lets go (B-103).
+    override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        pullSettled()
     }
 
     override func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
+        pullSettled()
+        showHeldAlert()
         landFreshPage()
         showNewsIfAtTop()
     }
@@ -1810,7 +1830,8 @@ final class MessageListViewController: UITableViewController {
     ///
     /// The pull down past the top of the list is the same Refresh (B-103):
     /// both come here. One page out at a time: a tap or a pull while one is
-    /// out starts nothing, and that page's answer ends the pull's spinner.
+    /// out starts nothing, and that page's answer ends the pull's spinner,
+    /// once the list is at rest (`endPullAtRest`).
     /// "Checking for Mail…" is on the line under the list while the page
     /// is out, and once it has come the age the page has set, "Updated Just
     /// Now". Not in the Outbox, which is on the iPad and has no mail to
@@ -1829,7 +1850,7 @@ final class MessageListViewController: UITableViewController {
         // A pull where none is offered now: its spinner put away, and
         // nothing fetched.
         if fromPull, !pullAllowed {
-            pull.endRefreshing()
+            putPullAway()
             return
         }
         RefreshTap.start(
@@ -1839,7 +1860,7 @@ final class MessageListViewController: UITableViewController {
                 defer { checking?() }
                 return await self.reload(passing: false)
             },
-            answered: { self.pull.endRefreshing() },
+            answered: { self.endPullAtRest() },
             counts: { self.onRefreshRequested?() },
             shown: {
                 await self.pagePreviews?.value
@@ -1879,36 +1900,144 @@ final class MessageListViewController: UITableViewController {
 
     /// The pull put on the list, or taken off it, as `pullAllowed` says:
     /// called whenever one of the things it asks may have changed. Its
-    /// spinner is put away before it is taken off, so a spinner can never
-    /// be left on a list that no longer has the pull. A page it set off goes
-    /// on, as a tap's does.
+    /// spinner is put away before it is taken off, an end held for the list
+    /// to come to rest with it, so a spinner can never be left on a list
+    /// that no longer has the pull: Edit mode, a search, a day's list and
+    /// the panes' motion. A page it set off goes on, as a tap's does.
     @MainActor
     private func placePull() {
         // Asked first: `tableView` loads the view.
         guard isViewLoaded else { return }
         let offered: UIRefreshControl? = pullAllowed ? pull : nil
         guard tableView.refreshControl !== offered else { return }
-        if offered == nil { pull.endRefreshing() }
+        if offered == nil { putPullAway() }
         tableView.refreshControl = offered
+    }
+
+    /// When the spinner goes once its page has answered (`PullEnd`).
+    private var pullEnd = PullEnd()
+
+    /// The page has answered, come, failed or put aside (`RefreshTap`): the
+    /// spinner put away now under a finger on the list, which UIKit ends as
+    /// the finger lets go, or with the list still; held while the list
+    /// springs back or coasts with no finger on it, until it comes to rest
+    /// (`pullSettled`), and put away after `PullEnd.bound` if UIKit never
+    /// says so. Put away as it sprang back, the spinner left the list 60 pt
+    /// below its top, seen on the iPad on 2026-10-22 (B-103).
+    @MainActor
+    private func endPullAtRest() {
+        let moving = PullEnd.moving(decelerating: tableView.isDecelerating,
+                                    offset: Double(tableView.contentOffset.y),
+                                    topInset: Double(tableView.adjustedContentInset.top))
+        switch pullEnd.answered(spinning: pull.isRefreshing, fingerDown: tableView.isTracking,
+                                moving: moving) {
+        case .now:
+            pull.endRefreshing()
+        case .held(let hold):
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(PullEnd.bound))
+                guard let self, self.pullEnd.due(hold) else { return }
+                self.pull.endRefreshing()
+            }
+        }
+    }
+
+    /// The list has come to rest, or a finger has taken it: a spinner held
+    /// for that put away now.
+    @MainActor
+    private func pullSettled() {
+        guard pullEnd.settled() else { return }
+        pull.endRefreshing()
+    }
+
+    /// The spinner put away at once, and nothing left held for the list's
+    /// rest: wherever the pull goes off the list or the list leaves the
+    /// screen.
+    @MainActor
+    private func putPullAway() {
+        pullEnd.putAway()
+        pull.endRefreshing()
     }
 
     /// The pull's spinner put away, the page it set off going on: this list
     /// is leaving the screen for another folder's (`RootViewController`).
     @MainActor
     func endPull() {
-        pull.endRefreshing()
+        putPullAway()
     }
 
+    /// Out of sight: the spinner put away, and a page's alert waiting for
+    /// the finger dropped, with nothing left to put it over.
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        pull.endRefreshing()
+        putPullAway()
+        dropHeldAlert()
     }
 
     /// Home, or another app: the spinner is not left turning for him to
     /// come back to. The line under the list says the page is out until it
     /// has come.
     @objc private func wentToBackground() {
-        pull.endRefreshing()
+        putPullAway()
+    }
+
+    // MARK: - A page's alert, once the finger has let go (B-103)
+
+    /// A page's alert waiting for his finger to let go of the list
+    /// (`LetGoHold`), and what looks for a finger that never dragged to
+    /// have lifted.
+    private var afterLetGo = LetGoHold<Error>()
+    private var letGoWatch: Task<Void, Never>?
+
+    /// A page he asked for has failed: its alert put up now, or, while his
+    /// finger is on the list, as it lets go. Put up under a pull still held,
+    /// it took the end of the drag, and the list stayed pulled down with the
+    /// spinner turning after OK, seen on the iPad on 2026-10-22.
+    @MainActor
+    private func showWhenLetGo(_ error: Error) {
+        guard let now = afterLetGo.show(error, fingerDown: tableView.isTracking) else {
+            watchForLetGo()
+            return
+        }
+        ErrorPresenter.show(reaching: now, on: self)
+    }
+
+    /// The finger has let go: the alert held for it, if one is, put up.
+    @MainActor
+    private func showHeldAlert() {
+        stopWatchingForLetGo()
+        guard let held = afterLetGo.letGo() else { return }
+        ErrorPresenter.show(reaching: held, on: self)
+    }
+
+    /// The list has left the screen: the alert held is not put up.
+    @MainActor
+    private func dropHeldAlert() {
+        stopWatchingForLetGo()
+        afterLetGo.drop()
+    }
+
+    /// A finger that only rested on the list tells it nothing as it lifts:
+    /// looked for every `liftCheck`, as for the kept page.
+    @MainActor
+    private func watchForLetGo() {
+        guard letGoWatch == nil else { return }
+        letGoWatch = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.liftCheck)
+                guard let self, !Task.isCancelled else { return }
+                if !self.tableView.isTracking {
+                    self.showHeldAlert()
+                    return
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func stopWatchingForLetGo() {
+        letGoWatch?.cancel()
+        letGoWatch = nil
     }
 
     /// Multi-select, which is what Edit is for. Deliberately the ONLY route to

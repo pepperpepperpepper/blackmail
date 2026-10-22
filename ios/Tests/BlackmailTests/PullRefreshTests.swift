@@ -134,7 +134,7 @@ final class PullRefreshTests: XCTestCase {
                        "{ refresh(fromPull: false) }")
 
         let refresh = body(after: "private func refresh(fromPull: Bool)", in: list)
-        XCTAssertTrue(refresh.contains("if fromPull, !pullAllowed { pull.endRefreshing() return }"),
+        XCTAssertTrue(refresh.contains("if fromPull, !pullAllowed { putPullAway() return }"),
                       "a pull where none is offered starts nothing")
         XCTAssertTrue(refresh.contains("RefreshTap.start( gate: refreshes, "), refresh)
         XCTAssertTrue(list.contains("private let refreshes = RefreshTap.Gate()"))
@@ -168,24 +168,28 @@ final class PullRefreshTests: XCTestCase {
             + "defer { checking?() } return await self.reload(passing: false) },"), refresh)
     }
 
-    /// The spinner is put away as the page answers, as the list goes out of
-    /// sight, as the app goes to the background, as another folder's list
-    /// takes this one's place, and before the pull is taken off the list.
+    /// The spinner is put away from the page's answer (`endPullAtRest`), and
+    /// at once, with nothing left held for the list's rest, as the list goes
+    /// out of sight, as the app goes to the background, as another folder's
+    /// list takes this one's place, and before the pull is taken off the
+    /// list: Edit mode, a search, a day's list and the panes' motion.
     func testTheSpinnerIsPutAwayWhereverItCouldBeLeftTurning() throws {
         let list = try list()
         let refresh = body(after: "private func refresh(fromPull: Bool)", in: list)
-        XCTAssertTrue(refresh.contains("answered: { self.pull.endRefreshing() },"), refresh)
+        XCTAssertTrue(refresh.contains("answered: { self.endPullAtRest() },"), refresh)
 
-        XCTAssertTrue(body(after: "override func viewWillDisappear(_ animated: Bool)", in: list)
-            .contains("super.viewWillDisappear(animated) pull.endRefreshing()"))
+        XCTAssertEqual(body(after: "private func putPullAway()", in: list),
+                       "{ pullEnd.putAway() pull.endRefreshing() }")
+        XCTAssertEqual(body(after: "override func viewWillDisappear(_ animated: Bool)", in: list),
+                       "{ super.viewWillDisappear(animated) putPullAway() dropHeldAlert() }")
 
         XCTAssertTrue(list.contains(
             "NotificationCenter.default.addObserver(self, selector: #selector(wentToBackground), "
             + "name: UIApplication.didEnterBackgroundNotification, object: nil)"))
         XCTAssertEqual(body(after: "@objc private func wentToBackground()", in: list),
-                       "{ pull.endRefreshing() }")
+                       "{ putPullAway() }")
 
-        XCTAssertEqual(body(after: "func endPull()", in: list), "{ pull.endRefreshing() }")
+        XCTAssertEqual(body(after: "func endPull()", in: list), "{ putPullAway() }")
         let root = try source("UI/RootViewController.swift")
         let opening = body(after: "private func openMailbox(_ mailbox: Mailbox)", in: root)
         inOrder("list.endPull()", "list = MessageListViewController(", in: opening)
@@ -196,12 +200,107 @@ final class PullRefreshTests: XCTestCase {
             "guard isViewLoaded else { return } "
             + "let offered: UIRefreshControl? = pullAllowed ? pull : nil "
             + "guard tableView.refreshControl !== offered else { return } "
-            + "if offered == nil { pull.endRefreshing() } "
+            + "if offered == nil { putPullAway() } "
             + "tableView.refreshControl = offered"), placing)
         for (path, code) in try everySource() {
             XCTAssertEqual(count("refreshControl =", in: code),
                            path == "UI/MessageListViewController.swift" ? 1 : 0, path)
         }
+
+        // The spinner put away in three places only: the answer's, the
+        // rest's and at once. Every other way to it is `putPullAway`, which
+        // leaves nothing held: the refusal, the pull taken off, the folder,
+        // out of sight and the background.
+        XCTAssertEqual(count("pull.endRefreshing()", in: list), 4)
+        XCTAssertEqual(count("pull.endRefreshing()",
+                             in: body(after: "private func endPullAtRest()", in: list)), 2)
+        XCTAssertEqual(count("pull.endRefreshing()",
+                             in: body(after: "private func pullSettled()", in: list)), 1)
+        XCTAssertEqual(count("putPullAway()", in: list), 6, "five ways, and itself")
+    }
+
+    /// The page's answer puts the spinner away at once under a finger on
+    /// the list or with the list still, and otherwise holds it for the
+    /// list's rest, put away after `PullEnd.bound` if UIKit never says so.
+    /// What it asks is the list as it is then: the spinner, the finger,
+    /// coasting or springing back, and the offset against the room above
+    /// the first row, the spinner's included.
+    func testThePagesAnswerPutsTheSpinnerAwayOnlyWithTheListAtRest() throws {
+        XCTAssertEqual(body(after: "private func endPullAtRest()", in: try list()),
+                       "{ let moving = PullEnd.moving(decelerating: tableView.isDecelerating, "
+                       + "offset: Double(tableView.contentOffset.y), "
+                       + "topInset: Double(tableView.adjustedContentInset.top)) "
+                       + "switch pullEnd.answered(spinning: pull.isRefreshing, "
+                       + "fingerDown: tableView.isTracking, moving: moving) { "
+                       + "case .now: pull.endRefreshing() "
+                       + "case .held(let hold): "
+                       + "Task { @MainActor [weak self] in "
+                       + "try? await Task.sleep(for: .seconds(PullEnd.bound)) "
+                       + "guard let self, self.pullEnd.due(hold) else { return } "
+                       + "self.pull.endRefreshing() } } }")
+        XCTAssertTrue(try list().contains("private var pullEnd = PullEnd()"))
+    }
+
+    /// A spinner held for the list's rest goes as UIKit says it is at rest:
+    /// at the end of its coasting or spring-back, at the end of a drag with
+    /// none to come, at the status bar's tap to the top; and as a finger
+    /// takes the list, under the finger. Never at the end of a drag that
+    /// springs back or coasts on, where it was seen to leave the gap.
+    func testAHeldSpinnerGoesAtRestOrUnderAFinger() throws {
+        let list = try list()
+        XCTAssertEqual(body(after: "private func pullSettled()", in: list),
+                       "{ guard pullEnd.settled() else { return } pull.endRefreshing() }")
+        XCTAssertEqual(body(after: "override func scrollViewDidEndDecelerating(_ scrollView: UIScrollView)",
+                            in: list),
+                       "{ pullSettled() showHeldAlert() landFreshPage() showNewsIfAtTop() }")
+        XCTAssertEqual(body(after: "override func scrollViewDidEndDragging(_ scrollView: UIScrollView, "
+                                   + "willDecelerate decelerate: Bool)", in: list),
+                       "{ showHeldAlert() guard !decelerate else { return } "
+                       + "pullSettled() landFreshPage() showNewsIfAtTop() }")
+        XCTAssertEqual(body(after: "override func scrollViewWillBeginDragging(_ scrollView: UIScrollView)",
+                            in: list),
+                       "{ pullSettled() }")
+        XCTAssertEqual(count("pullSettled()", in: list), 5, "four ways, and itself")
+    }
+
+    /// A page he asked for that fails puts its alert up at once with no
+    /// finger on the list, and otherwise as the finger lets go: at the end
+    /// of the drag, before the list springs back, or, for a finger that
+    /// never dragged, once it is seen to have lifted. Dropped as the list
+    /// goes out of sight. A quiet page still puts up none.
+    func testAPagesAlertWaitsForTheFingerToLetGo() throws {
+        let list = try list()
+        let reload = body(after: "func reload(keepingPlace: Bool = false, quietly: Bool = false, "
+                                 + "passing: Bool = true) async -> Bool", in: list)
+        XCTAssertTrue(reload.contains("if !quietly { showWhenLetGo(error) } return false"), reload)
+        XCTAssertFalse(reload.contains("ErrorPresenter"), reload)
+
+        XCTAssertTrue(list.contains("private var afterLetGo = LetGoHold<Error>()"))
+        XCTAssertEqual(body(after: "private func showWhenLetGo(_ error: Error)", in: list),
+                       "{ guard let now = afterLetGo.show(error, fingerDown: tableView.isTracking) else { "
+                       + "watchForLetGo() return } "
+                       + "ErrorPresenter.show(reaching: now, on: self) }")
+        XCTAssertEqual(body(after: "private func showHeldAlert()", in: list),
+                       "{ stopWatchingForLetGo() guard let held = afterLetGo.letGo() else { return } "
+                       + "ErrorPresenter.show(reaching: held, on: self) }")
+        XCTAssertEqual(body(after: "private func dropHeldAlert()", in: list),
+                       "{ stopWatchingForLetGo() afterLetGo.drop() }")
+        XCTAssertEqual(body(after: "private func watchForLetGo()", in: list),
+                       "{ guard letGoWatch == nil else { return } "
+                       + "letGoWatch = Task { @MainActor [weak self] in while !Task.isCancelled { "
+                       + "try? await Task.sleep(for: Self.liftCheck) "
+                       + "guard let self, !Task.isCancelled else { return } "
+                       + "if !self.tableView.isTracking { self.showHeldAlert() return } } } }")
+        XCTAssertEqual(body(after: "private func stopWatchingForLetGo()", in: list),
+                       "{ letGoWatch?.cancel() letGoWatch = nil }")
+
+        // As the finger lets go, and wherever it is surely off the list.
+        let dragged = body(after: "override func scrollViewDidEndDragging(_ scrollView: UIScrollView, "
+                                  + "willDecelerate decelerate: Bool)", in: list)
+        inOrder("showHeldAlert()", "guard !decelerate else { return }", in: dragged)
+        XCTAssertEqual(count("showHeldAlert()", in: list), 5,
+                       "the drag's end, the rest, the status bar, the watch, and itself")
+        XCTAssertEqual(count("dropHeldAlert()", in: list), 2, "out of sight, and itself")
     }
 
     /// The pull is taken off, and put back, wherever one of the four things
@@ -259,18 +358,23 @@ final class PullRefreshTests: XCTestCase {
             "pull.addTarget(self, action: #selector(pulled), for: .valueChanged) placePull()"))
     }
 
-    /// The newest page sent to the top under a finger that holds the list at
-    /// its top, or pulled down past it, leaves it where the finger has it: it
-    /// springs back to the top as he lets go. Set there under the finger,
-    /// the rows would jump.
-    func testTheTopIsNotSetUnderAFingerThatHoldsTheListThere() throws {
+    /// The newest page sent to the top leaves a list at its top, or pulled
+    /// down past it, where it is, whether a finger is on it or not: held,
+    /// it springs back to the top as he lets go, and springing back, it gets
+    /// there itself. Set to the top as it sprang back, it stopped at the
+    /// spinner's rest, and the spinner put away there left the list 60 pt
+    /// below its top on the iPad. A list further down goes to the top.
+    func testAListAtOrPastItsTopIsLeftWhereItIs() throws {
         let top = body(after: "private func scrollToTop()", in: try list())
         XCTAssertEqual(top,
-                       "{ tableView.layoutIfNeeded() guard !(tableView.isTracking "
-                       + "&& ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y), "
-                       + "topInset: Double(tableView.adjustedContentInset.top))) else { return } "
+                       "{ tableView.layoutIfNeeded() "
+                       + "guard !ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y), "
+                       + "topInset: Double(tableView.adjustedContentInset.top)) else { return } "
                        + "tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), "
                        + "animated: false) }")
+        XCTAssertTrue(ListPlaces.isAtTop(offset: -74, topInset: 74))
+        XCTAssertTrue(ListPlaces.isAtTop(offset: -134, topInset: 74), "past it")
+        XCTAssertFalse(ListPlaces.isAtTop(offset: -73, topInset: 74))
     }
 
     // MARK: - The status bar
@@ -294,6 +398,6 @@ final class PullRefreshTests: XCTestCase {
         }
         let didScroll = body(after: "override func scrollViewDidScrollToTop(_ scrollView: UIScrollView)",
                              in: try list())
-        XCTAssertEqual(didScroll, "{ landFreshPage() showNewsIfAtTop() }")
+        XCTAssertEqual(didScroll, "{ pullSettled() showHeldAlert() landFreshPage() showNewsIfAtTop() }")
     }
 }

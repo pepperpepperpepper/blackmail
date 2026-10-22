@@ -376,7 +376,7 @@ final class RefreshTapTests: XCTestCase {
             "RefreshTap.start( gate: refreshes, "
             + "page: { let checking = self.isOutbox ? nil : self.working(StatusLine.checking) "
             + "defer { checking?() } return await self.reload(passing: false) }, "
-            + "answered: { self.pull.endRefreshing() }, "
+            + "answered: { self.endPullAtRest() }, "
             + "counts: { self.onRefreshRequested?() }, "
             + "shown: { await self.pagePreviews?.value await self.countsCame() }, "
             + "pass: { _ = self.kept.uploadWaiting(to: self.repository, for: .refresh) }) }"))

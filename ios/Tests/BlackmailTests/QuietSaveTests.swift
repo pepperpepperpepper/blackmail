@@ -84,7 +84,13 @@ final class QuietSaveTests: XCTestCase {
         let end = try XCTUnwrap(list.range(of: "func placeVoiceOver()",
                                            range: start.upperBound..<list.endIndex))
         XCTAssertTrue(list[start.upperBound..<end.lowerBound].contains(
-            "if !quietly { ErrorPresenter.show(reaching: error, on: self) } return false"))
+            "if !quietly { showWhenLetGo(error) } return false"))
+        // Put up as it always was with no finger on the list, and as the
+        // finger lets go with one (B-103).
+        XCTAssertTrue(list.contains(
+            "private func showWhenLetGo(_ error: Error) { "
+            + "guard let now = afterLetGo.show(error, fingerDown: tableView.isTracking) else { "
+            + "watchForLetGo() return } ErrorPresenter.show(reaching: now, on: self) }"))
 
         let root = try source("UI/RootViewController.swift")
         XCTAssertTrue(root.contains(

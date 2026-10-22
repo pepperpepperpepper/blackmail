@@ -27,8 +27,9 @@ enum RefreshTap {
     /// `page` fetches the folder's newest page, with no pass of its own, and
     /// says whether it came; one that throws has not. `answered` is called
     /// once, as soon as the page has come, failed or been put aside for
-    /// another list, before anything else: the pull's spinner ends there,
-    /// and does not wait for the counts or a large letter in the Outbox.
+    /// another list, before anything else: the pull's spinner is put away
+    /// from there, at once or as the list comes to rest (`PullEnd`), and
+    /// does not wait for the counts or a large letter in the Outbox.
     /// `counts` asks for the folder counts; `shown` returns once the page's
     /// previews and the counts have come; `pass` sets the Refresh's pass
     /// off.

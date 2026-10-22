@@ -17294,7 +17294,7 @@ the Inbox's count is up meanwhile. A check started at Cancel would be a
 second way into the watch, beside its timer, in an app nobody can update.
 It is left as it is.
 
-## B-103 — BUILT 2026-10-22, not yet seen on the iPad. Pulling the list down only bounced; Mail checks for mail
+## B-103 — BUILT 2026-10-22, seen on the iPad the same day; two faults found there fixed, not yet seen there fixed. Pulling the list down only bounced; Mail checks for mail
 
 **What Mail does.** Pulled down past the top of the message list and let
 go, Mail's list checks for mail: a spinner turns above the first row, and
@@ -17473,3 +17473,159 @@ release build for the iPad links.
   from his iPad until then. The words are on screen already over a kept
   page. Taking them away is the one `working(StatusLine.checking)` line,
   pinned by its test.
+
+**Seen on the test iPad, 2026-10-22**, iPadOS 16.5.1, a build of the
+`feat-pullrefresh` worktree (4093de3), three panes and two, on the test
+account, and the four failures made again on a fresh launch. Steps 3, 4,
+5, 9, 10, 12 and 13 of the TODO check passed. 11 could not be made, one
+finger being all that can be put on the screen from outside. 1, 2, 7 and
+8 failed, on two faults, and 6's pass rests on no pull made at the top of
+a day's list.
+
+- *A gap left above the list* (1, 7, 8). A pull whose page answered once
+  the finger had lifted, as the list sprang back, left it resting 60 pt
+  below its top, an empty band above the search field and no spinner,
+  until it was touched: 11 of 13 such pulls, one for 25 s and through the
+  log screen. In the frames the spring-back went 210, 175, 147, and the
+  first frame after the answer was exactly the spinner's rest. A pull held
+  down until the page had come, and one whose page answered with the list
+  already at rest, were clean. The view button tapped while the page was
+  out, or as the list sprang back, made the switch at once (B-096), and
+  the gap was left in two panes too, and stayed in three again. While it
+  stood, `PaneMotion.isBouncing` read true at rest, so every later switch
+  was made at once, with no motion.
+- *A pull left pulled down* (2). With Airplane Mode on, a quick pull's page
+  failed at once, and "Can't connect to mail server." came on as the finger
+  lifted, within one frame. After OK the list stayed about 168 pt down with
+  the spinner turning, 12 s later, 2.5 min later, and after Airplane Mode
+  was off, until a touch: 2 of 2 quick pulls. A slow one, let go 0.3 s
+  after the alert had started to come on, sprang back clean under it.
+
+Not by design. A pull ends with the list at its top, as Mail's does.
+
+**What it was.**
+
+- The gap. The newest page goes to the top as it lands (`regroup(to:
+  .top)`, `scrollToTop`), and `scrollToTop` left the list alone only under
+  a finger. Let go, it set the offset to the top as the list sprang back,
+  the spinner's 60 pt still counted in the top, and so stopped the
+  spring-back at the spinner's rest; at once the page's answer put the
+  spinner away, which takes its room away. UIKit's refresh control told to
+  end while the list springs back leaves it where the spring-back was
+  going: the gap formed too with the answer at the very tail of the
+  spring-back, where the offset set moved almost nothing. Told to end under
+  the finger it waits for the finger to lift, and told to end at rest it
+  takes the list back to its top: both were seen clean.
+- The pull left down. `reload` put its alert up at once, with the finger
+  still on the list, and UIKit takes in no touches while an alert comes
+  on. The end of the drag was lost: the list stayed where the finger had
+  left it, and the spinner's end, which UIKit holds for the end of the
+  drag, never came.
+
+**Changed.**
+
+- `scrollToTop` leaves a list at its top or past it alone, a finger on it
+  or not. Held, it springs back to the top as he lets go; springing back,
+  it gets there itself; at the top there was nothing to set. Its callers
+  all want the newest letters in sight: his Refresh and his pull, the
+  watch's quiet page and the mail it puts on at the top, a search's
+  results, the folder's top after a search, coming back to the newest
+  after a while away, and a place to go back to that is no longer there.
+  A list further down still goes to the top.
+- The spinner goes from the page's answer only with the list at rest
+  (`PullEnd`, `endPullAtRest`): at once under a finger on the list, which
+  UIKit ends as the finger lets go, and with the list still; held while it
+  coasts or springs back, or is past its top, with no finger on it. A held
+  end goes as UIKit says the list is at rest, at the end of its coasting
+  or spring-back, at the end of a drag with none to come, and at the
+  status bar's tap; as a finger takes the list, under the finger; and, if
+  UIKit never says so, after 2 s (`PullEnd.bound`), a few times the
+  spring-back. Put away at once, with nothing left held, as the list goes
+  out of sight, as the app goes to the background, at another folder, and
+  wherever the pull goes off the list, Edit mode, a search, a day's list
+  and the panes' motion (`putPullAway`); a pull where none is offered, under
+  its finger, the same. `endRefreshing` is called from three functions
+  only: the answer's, the rest's and `putPullAway`.
+- The alert of every page he asked for that `reload` fetches, his Refresh
+  and his pull, a folder's first page, coming back to the newest, goes up
+  at once with no finger on the list, as before, and otherwise once the
+  finger has let go (`LetGoHold`, `showWhenLetGo`): at the end of the drag,
+  as the list starts to spring back, which it was seen to do clean under
+  an alert; and for a finger that only rested on the list and never
+  dragged, which tells the list nothing as it lifts, when it is next seen
+  lifted, looked for every quarter second as for the kept page
+  (`liftCheck`). Dropped as the list goes out of sight, with nothing to put
+  it over; the line under the list says what failed. The Refresh button's
+  alert comes as it did: his finger is on the bar, not the list.
+- With no gap left, `PaneMotion.isBouncing` is false at rest after a pull,
+  and the next switch moves the panes. B-096 as it was: a switch while the
+  list springs back is made at once, and a spinner held for the rest goes
+  at the end of the spring-back, in the new arrangement.
+
+**Not changed.** The `UIRefreshControl`: the way back the first entry
+named, the control taken off for a pull of the app's own, is not taken.
+The fault was the list's offset and the moment the spinner was told to
+end, not the control. Nothing new on the wire.
+
+**What he sees.** Pulled and let go, the spinner turns at its rest above
+the first row until the page has come and the list is still, then goes,
+and the list closes up to its top with the newest letters there. With no
+connection, the list springs back to its top as "Can't connect to mail
+server." comes on, and after OK nothing is left pulled down.
+
+**Tests.** `PullEndTests`, ten, new. When the spinner goes, all eight of a
+spinner, a finger and a list moving; a held end going once at rest, once
+at the bound, not at all after it is put away at once, and the bound of an
+old hold, or one put away, finding nothing; what counts as moving, at and
+past the top by the iPad's numbers, the spinner's room counted; the bound,
+2 s. The alert held for a finger and put up once as it lets go; at once
+with no finger, a held one not put up after it; dropped as the list goes.
+`PullRefreshTests`, three new: the answer's end read whole, the bound in
+it; a held end at the end of a coasting, at the end of a drag only with no
+deceleration to come, at a finger taking the list and at the status bar;
+the alert through `showWhenLetGo` in `reload`, read whole, the drag's end
+putting it up before its deceleration guard, the watch for a finger that
+never dragged, and the drop out of sight. Changed there: the top left
+alone at or past it, finger or not, read whole; the spinner put away
+through `putPullAway` at the refusal, out of sight, the background, the
+folder and the pull taken off, `endRefreshing` in three functions and no
+more; the status bar's tap ending a held spinner and putting up a held
+alert. `QuietSaveTests` pins the alert through `showWhenLetGo`, and
+`RefreshTapTests` the answer through `endPullAtRest`.
+
+Each part undone in the worktree, one at a time, the 40 tests of the four
+files run, counted as failures in tests. The top set under a list
+springing back, as before: 1 in 1. The spinner put away at the answer, as
+before: 3 in 2. Held under a finger: 5 in 2; never held: 12 in 5; held
+with no spinner turning: 2 in 1. Moving deaf to the deceleration: 2 in 1;
+to the offset past the top: 3 in 1. Put away at once and still held: 2 in
+1. Any hold due at any bound: 3 in 1. A rest that puts it away twice: 3 in
+1. No bound: 3 in 2; a bound of half a second: 1 in 1. Put away at the end
+of every drag, before its deceleration guard, as the list starts to
+spring back: 1 in 1. Not at a finger taking the list: 2 in 1; not at the
+end of a coasting: 2 in 1; not at the status bar's tap: 2 in 2. The bare
+end, leaving a hold, out of sight, at the background, as the pull goes
+off, at another folder: 3 in 1 each; at the refusal: 3 in 2. The alert at
+once, as before: 3 in 2; the finger not asked: 2 in 2; put up only after
+the deceleration guard: 2 in 2; no watch for a finger that never dragged:
+2 in 2; not dropped out of sight: 2 in 2. The hold deaf to the finger: 5
+in 1; a held alert put up twice: 2 in 1; never dropped: 2 in 1; a held one
+left to follow a later one: 1 in 1.
+
+The full suite, serially: 1,884 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad fixed: steps 1, 2, 7 and 8 again, and 6 with a
+  pull made at the top of a day's list (the TODO says how).
+- That UIKit says a spring-back after a pull has ended as the end of a
+  deceleration is its scroll view's own account, read here and not yet
+  seen. If it did not, the bound puts the spinner away 2 s after the
+  answer, the list long at rest.
+- Edit, the search field or Home tapped in the half second a list springs
+  back after its page has answered puts the spinner away at once, the
+  spring-back still going, so that nothing is left held: that may still
+  leave the gap, until a touch. Step 7 looks.
+- The kept page's first fetch at launch (`fetchOverKept`) and Go to Date
+  put their alerts up at once, as before, a finger on the list or not.
