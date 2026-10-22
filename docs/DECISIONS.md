@@ -1108,3 +1108,50 @@ where it is. No sound when the Outbox sends it later, as in Mail.
 Swoosh, another tone, or not yet read: built, Swoosh being the factory
 one. None: the batch is dropped, since the app cannot read that choice
 and would play a sound he has turned off.
+
+---
+
+## D-020 — The row's gutter holds one thing: the spinner, the dot, the arrow, the paperclip
+
+**Decided 2026-10-22, with B-102**, where Mail's grey reply and forward
+arrows came to the rows. The leading gutter on the sender's line is the
+unread dot's column, and the paperclip has sat in it on a read row since
+the first measured layout. The arrow is Mail's third tenant there, and
+Mail's own rule for two at once is not known: Apple's pictures show one
+row with an arrow, read, its paperclip at the end of the subject's line,
+and none with an arrow and a dot.
+
+**One thing at a time, in this order:**
+
+1. The spinner, while a draft on the row is on its way to the composer.
+   It fades what is under it rather than hiding it, as before, so nothing
+   the layout decides moves while it turns.
+2. The unread dot. An unread letter shows the dot and no arrow, whatever
+   its marks; read, its arrow shows. "Is this new?" matters more than "did
+   I answer it?", and a letter answered and still unread is nearly always
+   one marked unread again, to come back to.
+3. The arrow, for a read letter answered or forwarded.
+4. The paperclip, only when none of the others is there. Otherwise it is
+   at the end of the subject's line, as on an unread row since the first
+   build and as on Mail's row with its arrow.
+
+**A letter both answered and forwarded shows the reply arrow.** Only one
+fits, and "did I answer this?" is the question the arrow is for.
+VoiceOver reads "Replied" for it, as the row shows.
+
+**A conversation's row shows its newest letter's mark**, the letter whose
+time and preview it shows (B-084's newest, the last to come). An older
+letter answered alone marks nothing: the arrow says the last thing said
+has had its answer, and a conversation whose newest letter waits shows
+none.
+
+**The arrow is Mail's size, not the paperclip's box.** 12 points wide, the
+dot's width, about 10 high, measured on Apple's picture; the paperclip's
+16-point box would have drawn it a quarter larger.
+
+**The arrow is the preview's grey, not Mail's.** Mail's arrow is its
+tertiary grey, about 196 on white on Apple's picture, lighter than the
+preview's words, its secondary grey. It is drawn here in the preview's
+grey (`Theme.secondaryText`, 142 on black) so he can see it: the
+inversion of Mail's, about 59 on black, would be too dim. B-102's device
+step 6 sets the two side by side, on the iPadOS 18.6 simulator.

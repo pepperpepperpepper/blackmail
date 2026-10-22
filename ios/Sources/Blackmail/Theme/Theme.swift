@@ -374,6 +374,22 @@ extension Theme {
         UIImage.SymbolConfiguration(font: fontListTimestamp, scale: .medium)
     }
 
+    /// The row's grey reply or forward arrow (B-102): the square it is
+    /// drawn in, centred where the unread dot is, the arrow scaled to fit
+    /// its width. 12 points, the dot's own width. Mail's arrow, measured
+    /// on Apple's iPadOS 16 picture of a row (the guide's "Flag emails"
+    /// page) at its 3 pixels a point, the name's capitals being 35 pixels
+    /// for 17 pt semibold's 12, is 12 to 12.7 points wide and 10 high,
+    /// centred on the name's capitals as the dot is. Not the paperclip's
+    /// 16, which would draw it a quarter larger than Mail's.
+    static var rowArrowBox: CGFloat { scaled(12) }
+
+    /// The arrow's symbol at a size of its own, which no text size in
+    /// Settings changes (B-071); its box decides how large it is drawn.
+    static var rowArrowSymbol: UIImage.SymbolConfiguration {
+        UIImage.SymbolConfiguration(pointSize: rowArrowBox, weight: .regular)
+    }
+
     /// An SF Symbol at `symbolSize`.
     static func symbol(_ name: String) -> UIImage? {
         UIImage(systemName: name, withConfiguration: symbolSize)

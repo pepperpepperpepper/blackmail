@@ -1216,6 +1216,10 @@ actor IMAPMailRepository: MailRepository {
                 date: env?.date ?? r.internalDate ?? Date(timeIntervalSince1970: 0),
                 isRead: r.isSeen,
                 isFlagged: r.isFlagged,
+                // For the row's grey arrow, from the same FLAGS: nothing
+                // more is asked (B-102).
+                isAnswered: r.isAnswered,
+                isForwarded: r.isForwarded,
                 hasAttachment: r.bodyStructure.map(Self.hasAttachment) ?? false,
                 threadID: r.threadID,
                 gmailMessageID: r.gmailMessageID,

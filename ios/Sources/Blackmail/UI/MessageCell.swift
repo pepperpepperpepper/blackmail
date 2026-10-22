@@ -28,6 +28,16 @@ final class MessageCell: UITableViewCell {
     private let previewLabel = UILabel()
     private let attachmentIcon = UIImageView()
     private let flagIcon = UIImageView()
+    /// Mail's grey arrow in the gutter, for a letter answered or forwarded
+    /// (`RowArrow`, B-102). Hidden on a row with no arrow, an unread one
+    /// among them.
+    private let statusIcon = UIImageView()
+    /// Its two images, made once: the reply arrow and the forward arrow,
+    /// each at a size of its own (B-071).
+    private let repliedArrow = UIImage(systemName: RowArrow.replied.symbolName,
+                                       withConfiguration: Theme.rowArrowSymbol)
+    private let forwardedArrow = UIImage(systemName: RowArrow.forwarded.symbolName,
+                                         withConfiguration: Theme.rowArrowSymbol)
     /// Mail's mark of a conversation, a blue chevron in a circle after the
     /// date, on a row of more than one letter, in every folder: the names
     /// have no count after them (B-075, B-080). A mark alone: tapping the
@@ -66,6 +76,11 @@ final class MessageCell: UITableViewCell {
         flagIcon.image = UIImage(systemName: "flag.fill")
         flagIcon.tintColor = Theme.flagTint
         flagIcon.contentMode = .scaleAspectFit
+        // The preview's grey. Mail's arrow is its lighter tertiary grey,
+        // whose inversion, about 59 on black, would be too dim (D-020).
+        statusIcon.tintColor = Theme.secondaryText
+        statusIcon.contentMode = .scaleAspectFit
+        statusIcon.isHidden = true
         conversationMark.image = UIImage(systemName: "chevron.forward.circle",
                                          withConfiguration: Theme.conversationMarkSymbol)
         conversationMark.tintColor = Theme.tintBlue
@@ -75,17 +90,17 @@ final class MessageCell: UITableViewCell {
         spinner.color = Theme.secondaryText
         spinner.hidesWhenStopped = true
 
-        for v in [unreadDot, senderLabel, timestampLabel, subjectLabel,
+        for v in [unreadDot, statusIcon, senderLabel, timestampLabel, subjectLabel,
                   previewLabel, attachmentIcon, flagIcon, conversationMark, spinner] {
             contentView.addSubview(v)
         }
     }
 
-    /// A spinner in the leading gutter, over the unread dot and the
-    /// paperclip, which it hides while it turns: this row's letter is on its
-    /// way, as a draft is to the composer. The gutter because it is the one
-    /// place in a measured row that nothing else needs while it turns, so
-    /// the text does not move.
+    /// A spinner in the leading gutter, over the unread dot, the arrow and
+    /// the paperclip, which it hides while it turns: this row's letter is
+    /// on its way, as a draft is to the composer. The gutter because it is
+    /// the one place in a measured row that nothing else needs while it
+    /// turns, so the text does not move.
     var isBusy = false {
         didSet {
             guard isBusy != oldValue else { return }
@@ -121,6 +136,11 @@ final class MessageCell: UITableViewCell {
             .paragraphStyle: ps,
         ])
         unreadDot.isHidden = m.isRead
+        // The arrow, where the row has one: never on an unread row, whose
+        // dot has the gutter (`RowArrow`).
+        let arrow = m.arrow
+        statusIcon.image = arrow == .forwarded ? forwardedArrow : repliedArrow
+        statusIcon.isHidden = arrow == nil
         attachmentIcon.isHidden = !m.hasAttachment
         flagIcon.isHidden = !m.isFlagged
         conversationMark.isHidden = !marked
@@ -200,11 +220,27 @@ final class MessageCell: UITableViewCell {
         // nothing trailing. UNMEASURED and decided here: the reference has no
         // row that is both unread AND has an attachment, so the dot wins the
         // gutter and the clip falls back to trailing when they collide.
+        //
+        // The gutter holds one thing, in this order: the spinner over all,
+        // then the dot, then the arrow, then the clip (D-020, B-102). So the
+        // clip goes to the end of the subject's line whenever the dot or the
+        // arrow has the gutter, as Mail's sits there beside its arrow.
         let clipInGutter = attachmentIcon.isHidden == false && unreadDot.isHidden
+            && statusIcon.isHidden
         // Faded rather than hidden under the spinner, so that nothing the
         // layout decides from what is hidden changes while it turns.
         unreadDot.alpha = isBusy ? 0 : 1
+        statusIcon.alpha = isBusy ? 0 : 1
         attachmentIcon.alpha = isBusy && clipInGutter ? 0 : 1
+        if !statusIcon.isHidden {
+            // Centred where the dot is, as wide as the dot, the arrow
+            // scaled to fit (`Theme.rowArrowBox`).
+            let size = Theme.rowArrowBox
+            statusIcon.frame = CGRect(
+                x: gutterX - size / 2,
+                y: (Theme.unreadDotCenterY * Theme.textScale) - size / 2,
+                width: size, height: size)
+        }
         var subjectWidth = textWidth
         if clipInGutter {
             let size: CGFloat = 16
