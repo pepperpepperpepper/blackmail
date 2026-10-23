@@ -199,8 +199,10 @@ final class PrintPageTests: XCTestCase {
     // MARK: - The body
 
     /// For every letter, the body is the pane's, byte for byte
-    /// (`PanePage.content`), or the pane's words for a letter with nothing
-    /// in it; plain text keeps its lines, and HTML does not.
+    /// (`PanePage.content`), its pictures but for their decoding
+    /// (`decodedAtOnce`), or the pane's words for a letter with nothing in
+    /// it; plain text keeps its lines, and HTML does not. The pane's own
+    /// page is as it was, with no `decoding` of ours.
     func testTheBodyIsThePanesByteForByte() throws {
         for (i, m) in PaneLetters.all.enumerated() {
             let page = self.page(m)
@@ -211,11 +213,15 @@ final class PrintPageTests: XCTestCase {
             }
             let content = PanePage.content(text: m.textBody, html: m.htmlBody,
                                            known: PanePage.contentIDs(of: m))
-            XCTAssertEqual(Array(printed.utf8), Array(content.utf8), "letter \(i)")
+            XCTAssertEqual(Array(printed.utf8), Array(PrintPage.decodedAtOnce(content).utf8), "letter \(i)")
+            if !content.lowercased().contains("<img") {
+                XCTAssertEqual(Array(printed.utf8), Array(content.utf8), "letter \(i)")
+            }
             // And the same as the pane's page has in its #bm.
             let pane = try XCTUnwrap(PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17,
                                                                       lineHeight: 1.41)))
             XCTAssertEqual(try body(pane), content, "letter \(i)")
+            XCTAssertFalse(pane.contains("decoding"), "letter \(i)")
             XCTAssertEqual(try sheet(page).contains("white-space: pre-wrap;"), m.htmlBody == nil, "letter \(i)")
         }
     }
@@ -225,10 +231,53 @@ final class PrintPageTests: XCTestCase {
     func testThePicturesAndTheTextAreThePanes() throws {
         let letters = PaneLetters.all
         let pictured = try body(page(letters[5]))
-        XCTAssertTrue(pictured.contains("<img src=\"bmcid://logo%40example.com\">"), pictured)
-        XCTAssertTrue(pictured.contains("<img src='cid:gone'>"), pictured)
+        XCTAssertTrue(pictured.contains("<img decoding=sync src=\"bmcid://logo%40example.com\">"), pictured)
+        XCTAssertTrue(pictured.contains("<img decoding=sync src='cid:gone'>"), pictured)
         let text = try body(page(letters[10]))
         XCTAssertTrue(text.hasPrefix("Dear Sam,\n\nIt's &lt;b>not&lt;/b> bold &amp;"), text)
+    }
+
+    /// Every picture of the printed page decoded as it is drawn: each
+    /// `<img>` of every letter's page has `decoding=sync` first, so the page
+    /// is never drawn into the PDF with a picture half decoded, as a kept
+    /// letter's photo was printed blank on the test iPad, 2026-10-23. Seen
+    /// whole: a picture by `cid:`, one in capitals, one whose sender asked
+    /// for `decoding="async"` (the first of two attributes is the one HTML
+    /// keeps), `<img/`, a line break after the name, `<img>`, `<image`,
+    /// which HTML reads as `<img`, and an `<img` inside an alt text, which
+    /// gains words and no quote; `<imgx`, `</img>` and an `<img` with no end
+    /// left alone; and the letters around it, of two and four bytes, whole.
+    func testEveryPictureOfThePrintedPageIsDecodedAsItIsDrawn() throws {
+        let html = "é<p><img src=\"cid:logo@example.com\"> <IMG SRC=x.png><img decoding=\"async\" src=y>"
+            + "<img/src=z><img\nsrc=w><img><Image src=v><img alt=\"an <img in it\" src=u>"
+            + "<imgx src=t></img><p>img \u{1F4EE}<img"
+        let decoded = PrintPage.decodedAtOnce(html)
+        XCTAssertEqual(decoded,
+                       "é<p><img decoding=sync src=\"cid:logo@example.com\"> <IMG decoding=sync SRC=x.png>"
+                       + "<img decoding=sync decoding=\"async\" src=y>"
+                       + "<img decoding=sync /src=z><img decoding=sync\nsrc=w><img decoding=sync >"
+                       + "<Image decoding=sync src=v><img decoding=sync alt=\"an <img decoding=sync in it\" src=u>"
+                       + "<imgx src=t></img><p>img \u{1F4EE}<img")
+        XCTAssertEqual(decoded.filter { $0 == "\"" }.count, html.filter { $0 == "\"" }.count)
+        for none in ["", "<p>No pictures. <imgx> </img> img</p>", "<IMG"] {
+            XCTAssertEqual(PrintPage.decodedAtOnce(none), none)
+        }
+
+        // In every letter's page: each picture's tag, and only in the body.
+        let tag = try NSRegularExpression(pattern: "<(img|image)(?=[\\s/>])", options: [.caseInsensitive])
+        let decodedTag = try NSRegularExpression(pattern: "<(img|image) decoding=sync[\\s/>]",
+                                                 options: [.caseInsensitive])
+        func count(_ pattern: NSRegularExpression, _ text: String) -> Int {
+            pattern.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))
+        }
+        var pictures = 0
+        for (i, m) in (PaneLetters.all + [letter(text: nil, html: html)]).enumerated() {
+            let page = self.page(m)
+            XCTAssertEqual(count(decodedTag, page), count(tag, page), "letter \(i)")
+            XCTAssertEqual(count(decodedTag, try body(page)), count(decodedTag, page), "letter \(i)")
+            pictures += count(tag, page)
+        }
+        XCTAssertGreaterThan(pictures, 20)
     }
 
     /// A letter the pane shows only the beginning of has the pane's grey

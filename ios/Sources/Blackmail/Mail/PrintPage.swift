@@ -121,7 +121,9 @@ enum PrintPage {
     /// What goes in `#bm`: the body as the pane draws it (`PanePage.content`),
     /// cut to the limit, with the pane's grey line above a letter cut here
     /// or shortened by the pane; or the pane's words for a letter with
-    /// nothing in it. Whether it is the letter's HTML.
+    /// nothing in it. Whether it is the letter's HTML. An HTML letter's
+    /// pictures decoded as they are drawn (`decodedAtOnce`); a plain
+    /// letter's body has none, every `<` in it written `&lt;`.
     static func body(_ m: Message) -> (html: String, isHTML: Bool) {
         guard !MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody) else {
             return (empty, false)
@@ -130,7 +132,7 @@ enum PrintPage {
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
             return (notice(cut != nil || m.isShortened)
-                        + PanePage.content(text: nil, html: cut ?? html, known: known), true)
+                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
@@ -144,6 +146,73 @@ enum PrintPage {
 
     private static func notice(_ shown: Bool) -> String {
         shown ? PanePage.shortenedLine : ""
+    }
+
+    /// `html` with `decoding=sync` the first attribute of every `<img>`,
+    /// so each picture of the printed page is decoded as it is drawn, and
+    /// never left half done when the page is drawn into the PDF. The pane's
+    /// page is not touched.
+    ///
+    /// Seen on the test iPad, 2026-10-23: a kept letter's photo at times
+    /// printed as a blank of its shape. WebKit decodes a large picture away
+    /// from the drawing, unless its `<img>` says otherwise, when it first
+    /// paints the print's page, and `LetterPrint` draws that page as soon
+    /// as it has loaded; a picture still being decoded then is drawn as
+    /// nothing (`BitmapImage::draw`, iOS 16.5). Synchronous, there is never
+    /// one in flight.
+    ///
+    /// First, so it is the one: of two attributes of one name in a tag,
+    /// HTML's parser keeps the first, so a sender's own `decoding="async"`,
+    /// later in the tag, is dropped. Unquoted, so an `<img` written inside
+    /// a sender's quoted attribute, an alt text, gains two words there and
+    /// no quote that would end the value early; and a space after it before
+    /// a `/` or `>`, which an unquoted value would otherwise take in. A tag
+    /// is `<img` or `<image`, which the parser reads as `<img`, in any
+    /// case, ending at a space, `/` or `>`; `<imgx` and `</img>` are not
+    /// one. One pass over the bytes, as `InlineImageRewriter.rewrite`.
+    static func decodedAtOnce(_ html: String) -> String {
+        let bytes = Array(html.utf8)
+        var out: [UInt8] = []
+        var copied = 0
+        var i = 0
+        while i < bytes.count {
+            guard bytes[i] == 0x3C, let end = endOfImageName(bytes, at: i + 1) else {   // <
+                i += 1
+                continue
+            }
+            if out.isEmpty { out.reserveCapacity(bytes.count + bytes.count / 16) }
+            out.append(contentsOf: bytes[copied..<end])
+            out.append(contentsOf: (isSpace(bytes[end]) ? " decoding=sync" : " decoding=sync ").utf8)
+            copied = end
+            i = end
+        }
+        guard copied > 0 else { return html }
+        out.append(contentsOf: bytes[copied...])
+        return String(decoding: out, as: UTF8.self)
+    }
+
+    /// Where the name of an `img` or `image` tag starting at `start` ends,
+    /// the byte after it being one that ends a tag's name; nil when there is
+    /// no such tag there.
+    private static func endOfImageName(_ bytes: [UInt8], at start: Int) -> Int? {
+        for name in ["img", "image"] {
+            let end = start + name.utf8.count
+            guard end < bytes.count, endsName(bytes[end]) else { continue }
+            // `| 0x20` lowers an ASCII letter, and no other byte lowers to
+            // one of these.
+            if zip(bytes[start..<end], name.utf8).allSatisfy({ ($0 | 0x20) == $1 }) { return end }
+        }
+        return nil
+    }
+
+    /// The bytes that end a tag's name: HTML's white space, `/` and `>`.
+    private static func endsName(_ c: UInt8) -> Bool {
+        isSpace(c) || c == 0x2F || c == 0x3E
+    }
+
+    /// HTML's white space: tab, line feed, form feed, carriage return, space.
+    private static func isSpace(_ c: UInt8) -> Bool {
+        c == 0x09 || c == 0x0A || c == 0x0C || c == 0x0D || c == 0x20
     }
 
     /// The letter in words, for when its page could not be drawn: the

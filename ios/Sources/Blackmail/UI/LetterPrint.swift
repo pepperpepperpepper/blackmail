@@ -124,6 +124,20 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         // and its pictures come from the loader, as in the pane.
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         config.websiteDataStore = .nonPersistent()
+        // No backgrounds printed, as Mail and Safari print a letter: a dark
+        // newsletter's white words then print a dark grey on white paper,
+        // WebKit darkening text too light for it, never white on a slab of
+        // black. WebKit's own default is that only for an app built
+        // against iOS 16.4 or later, and this one is stamped below it, so
+        // left alone it prints them (seen on the test iPad, 2026-10-23).
+        // The setting is public from 16.4 and reached by its name, since
+        // an OS version check does not link with this toolchain (see
+        // `IMAPClient.beginExchange`); before 16.4 there is no setter, and
+        // nothing is set.
+        let preferences = config.preferences
+        if preferences.responds(to: NSSelectorFromString("setShouldPrintBackgrounds:")) {
+            preferences.setValue(false, forKey: "shouldPrintBackgrounds")
+        }
         let loader = InlineImageLoader()
         config.setURLSchemeHandler(loader, forURLScheme: InlineImageRewriter.scheme)
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: PrintPage.paperWidth - 2 * PrintPage.margin,
@@ -387,15 +401,26 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
                                                   object: nil)
     }
 
-    /// The web view gone, and its loader: loading stopped while the view is
-    /// alive, so WebKit stops each picture still coming and its fetch is
-    /// called off (`PictureRequests`), and nothing is answered after. On
-    /// every end, and as soon as the drawing is done.
+    /// The web view gone, and its loader, with every picture still coming
+    /// stopped by the job itself (`InlineImageLoader.stopAll`): none is
+    /// answered after, and each fetch is called off, so none still waiting
+    /// its turn on the connection goes out after the print has ended; the
+    /// one already on the wire finishes. On every end, and as soon as the
+    /// drawing is done.
+    ///
+    /// Not left to WebKit. The view is let go of in the same turn as its
+    /// loading is stopped, and WebKit, closing a page whose view is going,
+    /// drops its pictures' tasks without telling the loader
+    /// (`WebURLSchemeHandlerCocoa::platformStopTask` finds no view). Seen
+    /// on the test iPad, 2026-10-23: four of a print's pictures, 3.3 MB
+    /// each, fetched after `PRINT ended why=moved`, and the letter he had
+    /// tapped waiting four seconds behind them.
     private func teardown() {
         guard let web = webView else { return }
         web.stopLoading()
         web.navigationDelegate = nil
         web.removeFromSuperview()
+        loader?.stopAll()
         loader?.fetch = nil
         webView = nil
         loader = nil

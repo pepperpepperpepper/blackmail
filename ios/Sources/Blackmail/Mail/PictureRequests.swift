@@ -52,6 +52,20 @@ struct PictureRequests<Key: Hashable> {
         fetches.removeValue(forKey: key)?.cancel()
     }
 
+    /// Every request stopped at once, as `stop` stops one: none is ever
+    /// answered, and every fetch is called off. For a page whose owner lets
+    /// it go before WebKit has stopped its pictures, a print's (B-110):
+    /// WebKit stops them for a view still alive, and a view released in
+    /// the same turn as its loading was stopped never has them stopped, so
+    /// their fetches would go on waiting their turn on the connection and
+    /// go, ahead of the letter he has tapped. A request WebKit stops later
+    /// finds nothing, and a fetch that ends later answers nothing.
+    mutating func stopAll() {
+        live.removeAll()
+        for fetch in fetches.values { fetch.cancel() }
+        fetches.removeAll()
+    }
+
     /// Whether `key` may be answered now: true once for a request WebKit
     /// has made and not stopped, and false ever after.
     mutating func answer(_ key: Key) -> Bool {
