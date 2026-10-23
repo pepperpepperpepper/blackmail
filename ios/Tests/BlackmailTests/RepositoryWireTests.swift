@@ -1079,6 +1079,26 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status), ["NO"])
     }
 
+    /// The same for his Sent Mail's lines in a conversation (B-104), whose
+    /// few words go only while the folder is the one open: a row Gmail will
+    /// not give costs that row alone, and the other's words come.
+    func testAPreviewWhileTheFolderIsOpenCostsOnlyItsOwnRow() async throws {
+        let refused = try described("Refused open", wordsAndAFile("Words it will not give."),
+                                    minutes: 1, refusing: ["1.1"])
+        let given = try described("Given open", wordsAndAFile("Words it gives."), minutes: 2)
+        let client = IMAPClient(account: server.account, transport: server.transportFactory)
+        try await client.connect(password: server.password)
+        let validity = server.uidValidity(of: Server.inbox)
+        _ = try await client.fetchBody(uid: given, section: "1.1", in: Server.inbox, validity: validity)
+        server.clearLog()
+
+        let bodies = try await client.fetchPartialBodiesWhileOpen(
+            uids: [refused, given], section: "1.1", byteCount: 64, in: Server.inbox, validity: validity)
+        XCTAssertEqual(bodies?.keys.sorted(), [given])
+        XCTAssertEqual(bodies?[given].map { String(decoding: $0, as: UTF8.self) }, "Words it gives.")
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status), ["NO"])
+    }
+
     /// Every FETCH of previews the client has keeps what came under a NO,
     /// as `fetchPartialBodies` does since B-114: none looks at the answer's
     /// status. Read from the source, so that one written beside it on

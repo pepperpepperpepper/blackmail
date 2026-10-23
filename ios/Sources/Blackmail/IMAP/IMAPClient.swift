@@ -1281,7 +1281,8 @@ actor IMAPClient {
     /// search that found them, and are worth a FETCH but not a SELECT of his
     /// Sent Mail and the SELECT back that the Inbox's next command would
     /// then need. Checked in the same hold as the FETCH, so nothing can open
-    /// another folder between the two.
+    /// another folder between the two. What came under a NO is kept, as
+    /// `fetchPartialBodies` keeps it (B-114).
     func fetchPartialBodiesWhileOpen(uids: [UInt32], section: String, byteCount: Int,
                                      in mailbox: String, validity: UInt32) async throws -> [UInt32: Data]? {
         guard !uids.isEmpty, byteCount > 0 else { return [:] }
@@ -1293,7 +1294,6 @@ actor IMAPClient {
         for chunk in Self.uidSetChunks(uids) {
             let result = try await performCommand(
                 "UID FETCH \(chunk) (UID BODY.PEEK[\(path)]<0.\(byteCount)>)")
-            guard result.status == .ok else { continue }
             for fetched in IMAPParser.parseFetch(result.untagged) {
                 guard let uid = fetched.uid, let body = fetched.body else { continue }
                 out[uid] = body
