@@ -75,6 +75,90 @@ final class LowestMatchTests: XCTestCase {
                       "\(received)")
     }
 
+    // MARK: - The first of several to match (B-115)
+
+    /// Every Inbox letter sent on the 101st's day alone, which is one.
+    private let theDay = "SENTSINCE \"02-Sep-2026\" SENTBEFORE \"03-Sep-2026\""
+
+    /// The jump's page asked with a ladder: the lowest match of its first
+    /// SEARCH to match anything, and the whole listing.
+    private func jump(_ client: IMAPClient, ladder: [String]) async throws -> [[UInt32]] {
+        let opened = try await client.page(in: Server.inbox,
+                                           searching: [.lowestOfFirst(ladder), "ALL"]) { _ in [] }
+        return opened.found.map(\.uids)
+    }
+
+    /// Asked in turn: one that matches nothing, then one that does, whose
+    /// lowest is the answer, and the one after it never asked; all in the
+    /// hold of the one SELECT, on one connection.
+    func testALadderStopsAtItsFirstSearchToMatch() async throws {
+        let plain = try await lowestByPlainSearch(theDay)
+        let expected = try XCTUnwrap(plain)
+        server.clearLog()
+        let client = try await connectedClient()
+        let found = try await jump(client, ladder: [none, theDay, recent])
+
+        XCTAssertEqual(found[0], [expected])
+        XCTAssertEqual(found[1].count, 120)
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH ALL"])
+        XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "SELECT", "UID SEARCH", "UID SEARCH",
+                                                "UID SEARCH"])
+        XCTAssertEqual(Set(server.log.map(\.connection)).count, 1)
+    }
+
+    /// None matching is none, every one asked once; and none at all asked
+    /// is none, the listing still whole.
+    func testALadderNoneOfWhichMatchesIsNone() async throws {
+        let client = try await connectedClient()
+        server.clearLog()
+        let found = try await jump(client, ladder: [none, none])
+        XCTAssertEqual(found[0], [])
+        XCTAssertEqual(found[1].count, 120)
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(none)", "UID SEARCH ALL"])
+
+        let empty = try await jump(client, ladder: [])
+        XCTAssertEqual(empty[0], [])
+        XCTAssertEqual(empty[1].count, 120)
+    }
+
+    /// Each SEARCH of a ladder is asked as one alone is: without ESEARCH
+    /// plainly; with RETURN refused, again plainly in the same hold; and a
+    /// SEARCH refused whole fails the page, nothing after it asked.
+    func testEachSearchOfALadderIsAskedAsOneAloneIs() async throws {
+        let plain = try await lowestByPlainSearch(theDay)
+        let expected = try XCTUnwrap(plain)
+
+        server.withheldCapabilities = ["ESEARCH"]
+        server.clearLog()
+        let without = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+        XCTAssertEqual(without[0], [expected])
+        XCTAssertEqual(searches, ["UID SEARCH \(none)", "UID SEARCH \(theDay)", "UID SEARCH ALL"])
+
+        server.withheldCapabilities = []
+        server.refusesSearchReturn = true
+        server.clearLog()
+        let refused = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+        XCTAssertEqual(refused[0], [expected])
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)", "UID SEARCH \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH \(theDay)",
+                                  "UID SEARCH ALL"])
+        XCTAssertEqual(Set(server.log.map(\.connection)).count, 1)
+
+        server.refusesSearchReturn = false
+        server.refusedSearchKeys = ["SENTBEFORE"]
+        server.clearLog()
+        do {
+            _ = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+            XCTFail("a SEARCH refused whole fails the page")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH \(theDay)"])
+    }
+
     /// An ESEARCH answer with no MIN is the server saying nothing matched:
     /// none, with nothing asked again.
     func testAnAnswerWithNoMINIsNothingMatchedAndIsNotAskedAgain() async throws {

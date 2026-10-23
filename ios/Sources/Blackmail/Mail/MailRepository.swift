@@ -45,12 +45,17 @@ protocol MailRepository {
     /// Lands on the FIRST letter sent on or after `date`, by his calendar,
     /// and returns the mail either side of it, so he can read forwards into
     /// the days after or backwards into the days before without starting
-    /// from today and scrolling. A `nil` result means the folder holds
-    /// nothing that recent and the caller should stay where the newest mail
-    /// is. A letter dated on or after `date` that arrived more than a week
-    /// before it, or says it arrived more than a week after today, is
-    /// dated wrong, and is not where the SEARCH lands (B-058,
-    /// `IMAPDate.sentOnOrAfter`, `PageWindow.landing`).
+    /// from today and scrolling. Which is first goes by the folder's own
+    /// order, the lowest UID, among that day's letters, or on a day with
+    /// none among the first days after it that have any (B-115,
+    /// `IMAPDate.jumpSearches`): in a folder whose letters did not come in
+    /// the order they were written it is still a letter of that day, or of
+    /// those days. A `nil` result means the folder holds nothing that
+    /// recent and the caller should stay where the newest mail is. A letter
+    /// dated on or after `date` that arrived more than a week before it, or
+    /// says it arrived more than a week after today, is dated wrong, and is
+    /// not where the SEARCH lands (B-058, `IMAPDate.sentOnOrAfter`,
+    /// `PageWindow.landing`).
     func messages(around date: Date, in mailboxID: String, limit: Int) async throws -> MessageWindow?
 
     /// The two grey lines under the subject, for messages already listed.

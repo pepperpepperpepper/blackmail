@@ -22485,3 +22485,179 @@ and the forward of a forward was tried.
   and beside `[1]`, and serving them as `BODY[2.1]`. The note and both
   header blocks are drawn, the second with nothing under it. The letter
   opens, as a refused part is meant to leave it; not changed.
+
+## B-115 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. Go to Date landed at the foot of a folder whose first letters are dated later, whatever day was asked
+
+**What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
+round (TODO, gap review), a build of int12 (140df65), three panes and two,
+and made again from a fresh start of the app the same morning. The test
+account had been filled with made-up letters APPENDed already read, each
+arriving, as Gmail says, when its Date says, after the account's own
+letters: an Inbox of 57,209 and a Sent Mail of 24,026. Every Go to Date
+jump, Current Mailbox, landed at the very foot of the folder, on the
+account's own first letter, UID 1, dated 25 August 2026, and the status
+line said "Showing August 25": 10 March 2014, a day of five letters;
+1 June 2012; 1 January 2011, before the oldest letter, 4 January 2012; and
+14 August 2026, the newest day of the letters copied in, at the top of
+the Inbox. In Sent Mail, 15 May 2019 landed on the account's own first
+sent letter, "Showing September 19". The app's log had each SEARCH
+answered `* ESEARCH (TAG …) UID MIN 1`, and the same SEARCHes asked read
+only from the host gave the same. A jump to 20 October said "No mail on or
+after October 20", as it should.
+
+Not by design: a jump opens at the first letter of the day asked for. In
+his own mailbox, sampled read only back to 2009, every letter arrived on
+the day it is dated, so his Inbox, as sampled, would not have shown it; a
+folder whose letters came in another order shows it on every jump.
+
+**What it was.** A jump asked one SEARCH, every letter dated on or after
+the day (`IMAPDate.sentOnOrAfter`, with B-058's bounds on when it
+arrived): `UID SEARCH RETURN (MIN) SENTSINCE "10-Mar-2014" SINCE
+"03-Mar-2014" BEFORE "31-Oct-2026"`. `PageWindow.anchor` took the lowest
+UID it matched, the letter that came into the folder first, and the docs
+said that is "the oldest … the first to have arrived". It is the first of
+the day only while the folder's letters came in the order they were
+written. On the test account the account's own letters came first, UIDs 1
+to 394, dated August to October 2026: they matched every day before then,
+and the first of them won every jump. `PageWindow.landing` kept it, being
+on or after the day and not more than a week ahead, and with newer letters
+above it in the window "No mail on or after" was never said either. Older
+than B-058, which bounded the same SEARCH by arrival and left which UID
+it took alone; B-063 asked for the lowest alone.
+
+The same shape is ordinary outside the test: a Gmail label's UIDs go by
+when the label was put on, mail imported or copied into Gmail comes in the
+order it was copied, and a letter moved back into the Inbox takes a new
+UID.
+
+**Changed.**
+
+1. *The day first* (`IMAPDate.jumpSearches`). A jump asks first for the
+   letters dated within the day itself (`IMAPDate.sentWithin`):
+   `UID SEARCH RETURN (MIN) SENTSINCE "10-Mar-2014" SENTBEFORE
+   "11-Mar-2014" SINCE "03-Mar-2014" BEFORE "31-Oct-2026"`, with B-058's
+   bounds on when it arrived as before, and the dates his calendar's,
+   which Gmail counts from midnight UTC as before (`PageWindow.landing`).
+   Its lowest UID is a letter of that day however the folder is ordered,
+   and the day's first while its letters came in order.
+2. *Wider only while nothing is found.* With none, the two days from the
+   day, then four, eight, and so on, doubling, each from the day. The
+   first SEARCH to match anything gives the anchor, and none after it is
+   asked.
+3. *Bounded.* At most fifteen spans (`IMAPDate.spanSearches`), the widest
+   16,384 days, some 44 years, and none reaching the day before which
+   every letter matched has arrived, a week after today (the `BEFORE`).
+   Then, last, the one SEARCH a jump asked before, every letter on or
+   after the day. So a day with mail is one dated SEARCH, as before; the
+   day after the newest letter is the spans that fit before a week from
+   today and then that SEARCH, and says "No mail on or after" as before;
+   and no jump asks more than sixteen, for a day more than 44 years before
+   the oldest letter.
+4. *In one hold.* All of them in the one hold of the connection that has
+   the listing's `UID SEARCH ALL` and the window's FETCH, after the one
+   SELECT (`IMAPClient.PageSearch.lowestOfFirst`), so the anchor and the
+   listing stay in one numbering. Each is asked as one alone was (B-063):
+   `RETURN (MIN)` where the server advertises ESEARCH, plainly where it
+   does not or refuses RETURN; a SEARCH refused whole fails the jump, as
+   before, with nothing after it asked.
+5. The docs that said the lowest UID is the day's first letter
+   (`IMAPDate`, `PageWindow.anchor`, `MailRepository.messages(around:)`,
+   `IMAPClient.performLowest`) say what it is.
+
+**Not changed.** `PageWindow`: the window around the anchor, ten rows
+above it at most and the rest older, and the landing by his calendar
+(B-058): the evening before passed over west of Greenwich, his first hours
+landed on east of it, a letter dated more than a week ahead never landed
+on. "Showing" the day of the letter landed on; "No mail on or after" that
+day; the day and the scope remembered; Sent Mail and every other folder
+alike, and All Mailboxes jumping in All Mail; a jump called off by another
+tap; the kept copy, which keeps no jump (D-016); Go to Date offline, its
+alert as before, nothing sent. The listing's `UID SEARCH ALL`. No new
+words.
+
+**What he sees.** A jump opens at the first letter of the day he picked,
+"Showing" that day, in any folder, whatever order its letters came into
+it. On a day with no mail, at the first letter after it, as before. Before
+the oldest letter, at the oldest, where it landed at the foot.
+
+**Tests.** `GoToDateOrderTests`, twelve, over the shipping repository and
+client against the scripted server, an Inbox like the test account's made
+small: the account's own four letters first, dated August and September
+2026, then letters copied in after them, from 4 January 2012 to 14 August
+2026 in the order written, none on the weekend of 15 and 16 March 2014;
+the same in All Mail, above the seed's own sent letters and drafts of
+2026; and two in Sent Mail copied in after the seed's. A day with mail:
+its first letter, one dated SEARCH, its words on the wire; the same in
+New York. The weekend: the Monday's first, after three SEARCHes. A day
+before the oldest letter: the oldest, at the tenth span, 512 days, as on
+the test account. One in 1990, 21 years before it: the oldest, at the
+fourteenth.
+The newest day of the letters copied in, the top of the Inbox. The newest
+day by date, the account's own, at the foot. A day after the newest:
+nothing that recent, after four spans and the SEARCH with no end, nothing
+fetched. 1 January 1900: sixteen dated SEARCHes, the last with no end, and
+no more. Sent Mail, on 15 May 2019 and 10 March 2014. All Mail, landing
+and searching as the Inbox. Without ESEARCH, the same landings after as
+many plain SEARCHes. Each reads off the connection log every command from
+the SELECT on: the dated SEARCHes, the listing and the FETCH in one hold,
+nothing between them. `IMAPDateTests`, six: a span's words across a month,
+a year and his evening in New York; a span counted in his days across a
+clock change, not in 48 hours; a jump's SEARCHes for a day, each span
+doubling from the day and the last with no end; near today, the spans
+stopping short of a week ahead, and past it the SEARCH with no end alone;
+sixteen at most, for 1900 and for the year 1; his calendar's date.
+`LowestMatchTests`, three, through the real `IMAPClient.page`: the first
+SEARCH to match stops them, the next not asked, one SELECT, one
+connection; none matching is none, each asked once, and no SEARCH at all
+is none; without ESEARCH each plainly, with RETURN refused each again
+plainly in the same hold, and a SEARCH refused whole failing the page with
+nothing after it asked. `GoToDateBoundTests`' two wire tests now expect
+the day's `SENTBEFORE`, and its runs with and without ESEARCH as many
+dated SEARCHes as each other.
+
+With the tip's one SEARCH with no end, those classes (76 tests) give 40
+failures in 12 tests: ten of the twelve new, every jump at the foot on the
+account's first letter as on the iPad, and the two wire tests. The two
+that pass are the newest day by date, whose letter is also the lowest UID
+dated on or after it, and the run without ESEARCH, equally wrong both
+ways. Each part undone by hand, those classes run, then put back and
+passing, counted as failures in tests: the day alone and then the SEARCH
+with no end, 35 in 9; no bound on the spans, 7 in 2; no SEARCH with no
+end at the last, 18 in 5; the spans starting at two days, 22 in 12; a
+span's end in UTC, 4 in 4; a span 24 hours a day, 1 in 1; every SEARCH
+asked and the lowest of all taken, 42 in 12; a SEARCH refused whole taken
+for nothing found, 2 in 1; without ESEARCH the SEARCH with no end alone,
+11 in 3; the highest UID matched taken, asked plainly, 21 in 15; the
+first SEARCH's answer taken though it found nothing, 33 in 11; and a hold
+of the connection for each SEARCH, 4 in 4.
+
+The full suite, serially: 2,344 tests, 21 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-115's check).
+- In a folder whose letters did not come in order, a day with no mail of
+  its own lands on the lowest UID of the first span that has any, which
+  can be a later day of that span than the first with mail: up to half
+  the span later, two days for a weekend, months for a day long before
+  the oldest letter. In order, as his Inbox is, it is the first.
+  Narrowing back inside the span would find the day, for as many
+  SEARCHes again; not done.
+- In such a folder, a day more than 44 years before any mail: after the
+  fifteen spans the SEARCH with no end decides, as before B-115.
+- Within a day, in such a folder, the lowest UID of the day, which need
+  not be its earliest letter; and the window is the folder's own order
+  around it, as the list is everywhere in the app, so the rows next to it
+  are the letters that came in next to it.
+- How long the spans take from the iPad: from the host Gmail answered
+  each in 0.05 to 0.08 s, and the test account's 1 January 2011 asks
+  eleven SEARCHes, the listing with them. Not timed on the iPad.
+- Gmail's `SENTBEFORE`: on the test account, read only from the host,
+  `SENTSINCE "10-Mar-2014" SENTBEFORE "11-Mar-2014"` with the arrival
+  bounds matched the day's five letters, as `SENTON` did; 14 August 2026
+  its eleven, the lowest UID 57,710; Sent Mail's 15 May 2019 its four;
+  and 1 January 2011 to 27 May 2012 179, the lowest the oldest letter,
+  where to 2 January 2011 and to 1 January 2012 matched none. Whether
+  Gmail reads the Date or the arrival is still not known (B-058): the
+  letters copied in arrived when their Date says.

@@ -956,10 +956,11 @@ actor IMAPClient {
     /// or `[]` when they match none; nil if the server refused the SEARCH.
     /// The caller holds the gate.
     ///
-    /// For a date jump, which uses nothing of its SEARCH but the oldest
-    /// letter matched (`PageWindow.anchor`). Asked as a plain SEARCH, a jump
+    /// For a date jump, which uses nothing of its SEARCHes but the lowest
+    /// UID matched (`PageWindow.anchor`). Asked as a plain SEARCH, a jump
     /// to a day years back in his All Mail matched most of its 250,000 to
-    /// 400,000 letters, and the answer was one line of megabytes, brought
+    /// 400,000 letters, as its last SEARCH still can (`IMAPDate.
+    /// jumpSearches`), and the answer was one line of megabytes, brought
     /// over his line, parsed and sorted, for one number. With ESEARCH (RFC
     /// 4731), which Gmail advertises, the server is asked for that number
     /// alone: `UID SEARCH RETURN (MIN) <criteria>`, answered `* ESEARCH (TAG
@@ -989,6 +990,20 @@ actor IMAPClient {
             if let every = IMAPParser.plainSearchAnswer(result.untagged) { return lowest(every) }
         }
         return try await performSearch(criteria).map(lowest)
+    }
+
+    /// The lowest UID the first of `ladder` to match anything matches, as
+    /// `[uid]`, or `[]` when none of them does; nil if the server refused
+    /// one. Asked in order, each as `performLowest` asks one, and none
+    /// after the first that matched: a date jump's day, then its wider
+    /// spans (`IMAPDate.jumpSearches`, B-115). All in the hold the caller
+    /// has, so every answer is in the numbering of the one SELECT.
+    private func performLowestOfFirst(_ ladder: [String]) async throws -> [UInt32]? {
+        for criteria in ladder {
+            guard let found = try await performLowest(criteria) else { return nil }
+            if !found.isEmpty { return found }
+        }
+        return []
     }
 
     /// One UID SEARCH, `command` whole, its 8-bit strings as literals, in
@@ -1070,7 +1085,9 @@ actor IMAPClient {
     ///
     /// `pick` chooses the UIDs to fetch from what the SEARCHes found, one
     /// list per criterion, in order: every UID matched, or for a
-    /// `PageSearch.lowest` the lowest alone (`performLowest`). Every list
+    /// `PageSearch.lowest` the lowest alone (`performLowest`), and for a
+    /// `PageSearch.lowestOfFirst` the lowest of the first of its SEARCHes
+    /// to match anything (`performLowestOfFirst`). Every list
     /// comes out of the same SELECT, so they share its UIDVALIDITY, which is
     /// returned with each.
     /// The date jump finds its anchor from one list in the other, and in
@@ -1106,6 +1123,8 @@ actor IMAPClient {
                     switch criterion {
                     case .every(let words):  answer = try await self.performSearch(words)
                     case .lowest(let words): answer = try await self.performLowest(words)
+                    case .lowestOfFirst(let ladder):
+                        answer = try await self.performLowestOfFirst(ladder)
                     }
                     guard let uids = answer else { throw MailError.cannotConnect }
                     found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
@@ -1136,9 +1155,14 @@ actor IMAPClient {
     enum PageSearch: Equatable, Sendable, ExpressibleByStringLiteral {
         /// Every UID the criteria match: the listing the pages walk.
         case every(String)
-        /// The lowest UID they match alone, or none: a date jump's, which
-        /// wants only the first letter on or after its day.
+        /// The lowest UID they match alone, or none.
         case lowest(String)
+        /// The lowest UID of the first of these to match anything, each
+        /// asked in turn as `lowest` is and none after it, or none when
+        /// none does: a date jump's, which asks for its day first and wider
+        /// spans only while it finds nothing (`IMAPDate.jumpSearches`,
+        /// B-115).
+        case lowestOfFirst([String])
 
         init(stringLiteral criteria: String) { self = .every(criteria) }
     }

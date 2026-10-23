@@ -1280,7 +1280,7 @@ actor IMAPMailRepository: MailRepository {
         let client = try await connected()
         let name = try await resolve(mailboxID)
 
-        // Both SEARCHes and the window's FETCH go in one hold of the
+        // The SEARCHes and the window's FETCH go in one hold of the
         // connection, ahead of work he did not ask for (see
         // `IMAPClient.page`), and the snapshot is refreshed rather than
         // reused: a jump is him asking to be moved, so this is exactly the
@@ -1290,12 +1290,16 @@ actor IMAPMailRepository: MailRepository {
         // reconnect could fall between them onto a renumbered folder, and
         // the anchor would be some other letter.
         //
-        // Of the dated SEARCH only the oldest letter matched is ever used
-        // (`PageWindow.anchor`), so only that is asked for, where the
-        // server can say it alone (`IMAPClient.PageSearch.lowest`). The
-        // whole listing is still asked for: it is what the pages walk.
-        let dated = IMAPDate.sentOnOrAfter(date, now: now(), timeZone: calendar.timeZone)
-        let opened = try await client.page(in: name, searching: [.lowest(dated), "ALL"]) {
+        // The letters of the day are asked for first, and wider spans from
+        // it only while none is found (`IMAPDate.jumpSearches`, B-115):
+        // the lowest UID of all on or after the day was the first letter
+        // of it only while the folder's UIDs followed its dates. Of each
+        // only the lowest UID matched is ever used (`PageWindow.anchor`),
+        // so only that is asked for, where the server can say it alone
+        // (`IMAPClient.PageSearch.lowestOfFirst`). The whole listing is
+        // still asked for: it is what the pages walk.
+        let dated = IMAPDate.jumpSearches(from: date, now: now(), timeZone: calendar.timeZone)
+        let opened = try await client.page(in: name, searching: [.lowestOfFirst(dated), "ALL"]) {
             found in
             guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
             return PageWindow.window(around: anchor, in: found[1], limit: limit).uids

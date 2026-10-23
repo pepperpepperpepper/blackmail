@@ -127,11 +127,17 @@ enum PageWindow {
     /// server's date SEARCH matched; where in it the jump lands is
     /// `landing`, by his calendar.
     ///
-    /// `matches` is the UID set for "sent on or after that day", arrived no
-    /// more than `IMAPDate.arrivalSlack` days before it and no later than a
-    /// week after today (B-058). The one
-    /// he wants is the OLDEST of them — the first letter of that day — not
-    /// the newest, which would be today's mail.
+    /// `matches` is what the first of the jump's SEARCHes to match anything
+    /// matched (`IMAPDate.jumpSearches`, B-115): the letters dated within
+    /// that day, or if it has none within the first span from it that has
+    /// any, or if none has, on or after it; each arrived no more than
+    /// `IMAPDate.arrivalSlack` days before the day and no later than a week
+    /// after today (B-058). Of them it is the LOWEST UID, the first to have
+    /// arrived, not the newest, which would be the last of the span, or
+    /// today's mail. Within a day that is a letter of the day whatever
+    /// order the folder's UIDs are in; it is the day's first while they
+    /// follow its dates, as they do in a folder whose letters came in the
+    /// order they were written.
     ///
     /// Returns nil only when the mailbox has nothing so matched, which the
     /// caller reads as "everything here is older than the day you asked

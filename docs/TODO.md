@@ -28,7 +28,19 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] A trial install on an ordinary, non-jailbroken iPad: every install so
       far was an SSH copy onto the jailbroken one. *Owner.*
 - [ ] Try it against a mailbox his size: Go to Date back to before 2016, an
-      All Mailboxes search, ~1,900 Drafts. The test account has 24 letters.
+      All Mailboxes search, ~1,900 Drafts. The test account had 24 letters.
+      *Tried 2026-10-23: the test account filled with made-up letters
+      APPENDed already read (Inbox 57,209, Sent Mail 24,026, Drafts 1,900,
+      All Mail 83,503, 14 labels), and a round on the test iPad, a build of
+      int12 (140df65). Launch, scrolling 17 Inbox pages, search in both
+      scopes, Drafts, Sent Mail, Complete Threads, Refresh and the watch,
+      and the kept copy passed, and Gmail answered every command in under
+      5 s. Go to Date failed: every jump landed at the folder's foot, on
+      the account's own first letter (B-115, fixed, not yet seen on the
+      iPad). Seen there too, open: Gmail's Important and Starred drawn
+      indented among the labels, each as if inside the label above it.
+      Memory could not be read from the app's log. Left: B-115's check
+      under "Blocked on the iPad coming back".*
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
       - [x] "Password needs updating" on a read, not "Can't connect to mail
@@ -4975,6 +4987,37 @@ this host. Ordered by value, not by size.
       `testNoPreviewFetchThrowsAwayWhatCameUnderANo` passes. *With
       B-110's print:* not done. It is an open item under "Doable now",
       the print's "This message has no text." only where the pane's.
+
+- [ ] **B-115, Go to Date in a folder whose letters came out of order.** On
+      the test iPad, the test account as filled for the size test (gap
+      review, above), from a build with the fix; read only, nothing
+      written to the mailbox. Current Mailbox unless said, three panes,
+      the app's log read after each jump.
+      1. *A day with mail:* Inbox, 10 March 2014: the list opens on the
+      first of that day's five letters, 3:43 am, "Showing March 10,
+      2014"; one dated `UID SEARCH RETURN (MIN) SENTSINCE "10-Mar-2014"
+      SENTBEFORE "11-Mar-2014" …`, answered MIN 3238, then `UID SEARCH
+      ALL` and the FETCH, nothing between them.
+      2. *Before the oldest:* 1 January 2011: the oldest letter, 4 January
+      2012, "Showing January 4, 2012"; ten dated SEARCHes, the last
+      `SENTBEFORE "27-May-2012"` answered MIN 578. The time from Go to the
+      list, written down.
+      3. *1 June 2012:* that day's first letter, at 9:26 am, one dated
+      SEARCH.
+      4. *The top of the Inbox:* 14 August 2026: its first letter, UID
+      57710, one dated SEARCH.
+      5. *A day with no mail:* Sunday 25 May 2014: the first letter of the
+      26th, two dated SEARCHes.
+      6. *Sent Mail:* 15 May 2019: its first letter, UID 8324, "Showing
+      May 15, 2019".
+      7. *All Mailboxes* from the Inbox, 10 March 2014: All Mail opens on
+      that day's first letter.
+      8. *After the newest:* 20 October: "No mail on or after October 20";
+      the spans that end before a week from today, then one dated SEARCH
+      with no `SENTBEFORE`: five in all if run by 28 October.
+      9. *Two panes,* 1 again, then three panes back.
+      10. *Put back:* the jump to 20 October last, so the day and scope
+      remembered are as found.
 
 ## Blocked on the owner
 
