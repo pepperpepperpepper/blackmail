@@ -19,9 +19,11 @@ import Foundation
 ///    further in, each level by name. A label inside folders that are not
 ///    drawn, a `\Noselect` one or one LIST does not name, is named by its
 ///    path from the nearest folder that is: "Unopened 4/17/17" at the left
-///    edge, not "17" two steps in under nothing. They used to be sorted by
-///    the last part of the name alone, so a label inside another was drawn
-///    under whichever label came before it by name.
+///    edge, not "17" two steps in under nothing. A folder inside the Inbox,
+///    on a server that keeps folders there, is one of these tops too, by
+///    its own name, with its own folders under it. They used to be sorted
+///    by the last part of the name alone, so a label inside another was
+///    drawn under whichever label came before it by name.
 ///
 /// A role comes only from LIST's flags, or from INBOX's name
 /// (`IMAPMailboxListing.specialUse`): a label called "Drafts", "Junk
@@ -98,6 +100,14 @@ enum FolderTree {
             case .container(let parts):
                 names[name] = folder.name(under: parts)
                 depths[name] = parts
+            case .folder(let above, let parts) where drawn[above]?.role == .inbox:
+                // Inside the Inbox: at the left edge, by its own name, as
+                // the label it reads as. The Inbox's block is the Inbox
+                // alone (`FolderCounts`), so the folder cannot be drawn
+                // under it, and one step in among the labels it read as a
+                // folder inside the label above it.
+                names[name] = folder.name(under: parts)
+                depths[name] = 0
             case .folder(let above, let parts):
                 names[name] = folder.name(under: parts)
                 depths[name] = (depths[above] ?? 0) + 1
@@ -106,8 +116,8 @@ enum FolderTree {
 
         // Where each goes: the roles, the container's others, the labels'
         // tops, and every other folder under the one it is drawn under.
-        // The Inbox's own folders are drawn among the labels, at the depth
-        // they had: the Inbox's block is the Inbox alone (`FolderCounts`).
+        // The Inbox's own folders are drawn among the labels' tops, at the
+        // left edge, each with its own folders under it.
         var roles: [String] = []
         var others: [String] = []
         var tops: [String] = []

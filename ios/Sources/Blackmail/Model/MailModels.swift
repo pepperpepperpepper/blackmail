@@ -15,7 +15,8 @@ struct Mailbox: Identifiable, Hashable {
     /// children sit at 1, inside "[Gmail]", which is not drawn. A label
     /// inside another sits one step further in than the label it is drawn
     /// under. Everything else sits at 0, a label inside folders none of
-    /// which is drawn included (`FolderTree`, B-116). Drives the indent and
+    /// which is drawn included, and a folder inside the Inbox, which is
+    /// drawn among the labels (`FolderTree`, B-116). Drives the indent and
     /// the separator inset.
     var depth: Int = 0
 

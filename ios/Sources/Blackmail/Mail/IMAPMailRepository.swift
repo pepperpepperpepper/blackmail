@@ -102,9 +102,10 @@ actor IMAPMailRepository: MailRepository {
     /// just handed.
     private var previewParts: [String: MIMEPart] = [:]
     /// LIST attribute (lowercased) → real folder name, learned alongside
-    /// `roleNames`. Needed because Gmail's Important and Starred carry
-    /// attributes RFC 6154 never defined, so they have no `Mailbox.Role` and
-    /// cannot be found through `roleNames` at all.
+    /// `roleNames`. Needed because Gmail's Starred and Important carry
+    /// attributes with no `Mailbox.Role`, Starred's `\Flagged` (RFC 6154)
+    /// and Important's `\Important` (RFC 8457), so they cannot be found
+    /// through `roleNames` at all.
     private var folderForAttribute: [String: String] = [:]
     /// What LIST said last, nil until it has been asked. The two tables
     /// above are learned from it, `folders()` answers from it, and every

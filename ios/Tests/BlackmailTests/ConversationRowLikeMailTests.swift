@@ -14,7 +14,8 @@ final class ConversationRowLikeMailTests: XCTestCase {
     private static let allMail = Mailbox(id: "[Gmail]/All Mail", name: "All Mail",
                                          unreadCount: 0, role: .archive, depth: 1)
     /// Gmail's Important and Starred have no role: LIST gives them
-    /// attributes RFC 6154 does not define.
+    /// `\Important` (RFC 8457) and `\Flagged` (RFC 6154), neither of which
+    /// is a role here.
     private static let important = Mailbox(id: "[Gmail]/Important", name: "Important",
                                            unreadCount: 0, depth: 1)
     private static let starred = Mailbox(id: "[Gmail]/Starred", name: "Starred",

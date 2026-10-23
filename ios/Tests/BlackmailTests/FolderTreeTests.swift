@@ -243,6 +243,125 @@ final class FolderTreeTests: XCTestCase {
         XCTAssertFalse(pane.contains { ["[Gmail]", "Unopened 4", "Unopened 4/17"].contains($0.id) })
     }
 
+    // MARK: - The folder that holds Gmail's own, by what is in it
+
+    /// The special-use flags Gmail gives its own folders.
+    private static let serversFlags = [#"\All"#, #"\Drafts"#, #"\Important"#, #"\Sent"#,
+                                       #"\Junk"#, #"\Flagged"#, #"\Trash"#]
+
+    /// The test account's LIST with every one of `serversFlags` taken off
+    /// its row, the rest of the row as it was.
+    private static func withoutServersFlags(_ lines: [String]) -> [String] {
+        lines.map { line in
+            serversFlags.reduce(line) {
+                $0.replacingOccurrences(of: "(\($1) ", with: "(")
+                  .replacingOccurrences(of: " \($1))", with: ")")
+            }
+        }
+    }
+
+    /// With "Show in IMAP" off in Gmail for every folder of its own, LIST
+    /// gives "[Gmail]" holding only the label made inside it. Nothing in it
+    /// is flagged as the server's, so "[Gmail]" is not taken, by its name,
+    /// for the folder that holds the server's own: the label is drawn among
+    /// the other labels, at the left edge, by its path.
+    func testWithGmailsOwnHiddenFromIMAPTheLabelInsideGmailIsALabel() {
+        let lines = Self.testAccountsList.filter { line in
+            !Self.serversFlags.contains { line.contains("(\($0) ") || line.contains(" \($0))") }
+        }
+        XCTAssertEqual(lines.count, 30, "the seven flagged rows gone")
+        let listed = Self.listings(lines)
+        let expected = [Row("INBOX", "INBOX", 0, .inbox),
+                        Row("[Gmail]/Sent Messages", "[Gmail]/Sent Messages", 0)]
+            + Array(Self.testAccountsPane[9...])
+        XCTAssertEqual(FolderTree.mailboxes(from: listed, unread: [:], locale: english)
+                        .map(Row.init), expected)
+        XCTAssertEqual(FolderTree.mailboxes(from: Array(listed.reversed()), unread: [:],
+                                            locale: english).map(Row.init), expected)
+    }
+
+    /// The same with Gmail's folders listed but none of them flagged, as a
+    /// server that sends no special-use flags lists them: each is a label
+    /// named by its path, at the left edge, by name, and the Inbox the one
+    /// role.
+    func testWithNoFolderFlaggedNoneIsDrawnInsideGmailByItsName() {
+        let lines = Self.withoutServersFlags(Self.testAccountsList)
+        XCTAssertFalse(lines.contains { line in
+            Self.serversFlags.contains { line.contains("\($0) ") || line.contains("\($0))") }
+        })
+        let listed = Self.listings(lines)
+        XCTAssertEqual(listed.count, 37)
+        let gmails = ["All Mail", "Drafts", "Important", "Sent Mail", "Sent Messages", "Spam",
+                      "Starred", "Trash"].map { Row("[Gmail]/\($0)", "[Gmail]/\($0)", 0) }
+        let expected = [Row("INBOX", "INBOX", 0, .inbox)] + gmails
+            + Array(Self.testAccountsPane[9...])
+        XCTAssertEqual(FolderTree.mailboxes(from: listed, unread: [:], locale: english)
+                        .map(Row.init), expected)
+        XCTAssertEqual(FolderTree.mailboxes(from: Array(listed.reversed()), unread: [:],
+                                            locale: english).map(Row.init), expected)
+    }
+
+    /// Under another name, as Gmail names "[Gmail]" in some countries, the
+    /// folder that holds one of the server's own is that folder all the
+    /// same: were "Junk E-mail" one that cannot be opened, its "Drafts"
+    /// flagged as Starred is, that "Drafts" would be drawn with Gmail's
+    /// others, one step in, by name; and "Junk E-mail" not at all.
+    func testAFolderOfTheServersOwnMakesWhatHoldsItTheContainerWhateverItsName() {
+        let lines = Self.testAccountsList.map {
+            $0.replacingOccurrences(of: #"(\HasChildren) "/" "Junk E-mail""#,
+                                    with: #"(\HasChildren \Noselect) "/" "Junk E-mail""#)
+              .replacingOccurrences(of: #"(\HasNoChildren) "/" "Junk E-mail/Drafts""#,
+                                    with: #"(\Flagged \HasNoChildren) "/" "Junk E-mail/Drafts""#)
+        }
+        let listed = Self.listings(lines)
+        XCTAssertFalse(listed.first { $0.name == "Junk E-mail" }!.isSelectable)
+        let labels = Self.testAccountsPane[9...].filter { !$0.id.hasPrefix("Junk E-mail") }
+        let expected = Array(Self.testAccountsPane[..<6]) + [Row("Junk E-mail/Drafts", "Drafts", 1)]
+            + Array(Self.testAccountsPane[6...8]) + labels
+        XCTAssertEqual(FolderTree.mailboxes(from: listed, unread: [:], locale: english)
+                        .map(Row.init), expected)
+        XCTAssertEqual(FolderTree.mailboxes(from: Array(listed.reversed()), unread: [:],
+                                            locale: english).map(Row.init), expected)
+    }
+
+    // MARK: - Inside the Inbox
+
+    /// On a server that keeps every folder inside the Inbox, the test
+    /// account's labels so kept are drawn as they are at the top: each at
+    /// the left edge by its own name, the labels inside it one step in
+    /// under it. The Inbox's block is the Inbox alone, so they cannot be
+    /// drawn under it; one step in among the labels, as they were, each
+    /// read as a folder inside the label above it.
+    func testFoldersInsideTheInboxAreDrawnAsLabelsAtTheTopAre() {
+        let isLabel = { (name: String) in name != "INBOX" && name != "[Gmail]"
+                                          && !name.hasPrefix("[Gmail]/") }
+        let lines = Self.listings(Self.testAccountsList).map { l -> String in
+            let name = isLabel(l.name) ? "INBOX/\(l.name)" : l.name
+            return "* LIST (\(l.attributes.joined(separator: " "))) \"/\" \"\(name)\""
+        }
+        let listed = Self.listings(lines)
+        XCTAssertEqual(listed.filter { $0.name.hasPrefix("INBOX/") }.count, 27)
+        let expected = Self.testAccountsPane.map {
+            isLabel($0.id) ? Row("INBOX/\($0.id)", $0.name, $0.depth, $0.role) : $0
+        }
+        XCTAssertEqual(FolderTree.mailboxes(from: listed, unread: [:], locale: english)
+                        .map(Row.init), expected)
+        XCTAssertEqual(FolderTree.mailboxes(from: Array(listed.reversed()), unread: [:],
+                                            locale: english).map(Row.init), expected)
+        // Beside a label at the top, by name among them, not under it.
+        let mixed = Self.listings([#"* LIST (\HasNoChildren) "/" "INBOX""#,
+                                   #"* LIST (\HasNoChildren) "/" "House""#,
+                                   #"* LIST (\HasChildren) "/" "INBOX/Junk E-mail""#,
+                                   #"* LIST (\HasNoChildren) "/" "INBOX/Junk E-mail/Drafts""#,
+                                   #"* LIST (\HasNoChildren) "/" "Travel 2017""#])
+        XCTAssertEqual(FolderTree.mailboxes(from: mixed, unread: [:], locale: english)
+                        .map(Row.init),
+                       [Row("INBOX", "INBOX", 0, .inbox), Row("House", "House", 0),
+                        Row("INBOX/Junk E-mail", "Junk E-mail", 0),
+                        Row("INBOX/Junk E-mail/Drafts", "Drafts", 1),
+                        Row("Travel 2017", "Travel 2017", 0)])
+    }
+
     // MARK: - With no labels, as before
 
     /// The order and depth as they were before B-116, kept here to compare

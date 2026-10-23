@@ -22524,7 +22524,9 @@ and the roles. Important and Starred have no role (`specialUse` maps
 neither `\Important` nor `\Flagged`), so they were sorted among the labels
 by name, one step in as "[Gmail]/" put them. A label inside another went
 wherever the last part of its name fell, at its depth, and a label inside
-folders that are not drawn was a step in for each of them. And `resolve`, which
+folders that are not drawn was a step in for each of them. A folder inside
+the Inbox, on a server that keeps folders there, went among the labels
+one step in, reading as a folder inside the label above it. And `resolve`, which
 turns a folder's id into the name SELECTed and moved to, took any id that
 spells a role word in any case for that role: the label "Drafts" for the
 app's "drafts", Gmail's Drafts. The folder of a letter kept on the iPad
@@ -22591,10 +22593,15 @@ app had met had labels in these shapes.
    the nearest folder that is, or the whole of it: "Unopened 4/17/17" at
    the left edge, among the labels by that name, not "17" two steps in.
    Mail would draw the two folders above it as rows; this app draws no
-   row that cannot be opened, as before. A folder inside the Inbox, on a
-   server that keeps folders there, is drawn among the labels one step in
-   by its own name, as before: the Inbox's block is the Inbox alone.
-4. *A role from the flags alone.* As before, a role comes from LIST's
+   row that cannot be opened, as before.
+4. *Inside the Inbox.* A folder inside the Inbox, on a server that keeps
+   folders there, is drawn among the labels at the left edge, by its own
+   name, with the folders inside it one step in under it, as a label at
+   the top is. The Inbox's block is the Inbox alone (`FolderCounts`), so
+   it cannot be drawn under the Inbox as Mail draws it, and one step in
+   among the labels, as it was, it read as a folder inside the label
+   above it.
+5. *A role from the flags alone.* As before, a role comes from LIST's
    flags or INBOX's name (`specialUse`): "Drafts", "[Gmail]Drafts",
    "Sent Messages", "Junk E-mail" and "Deleted Messages" are labels. New:
    an id is taken for a role word only as the app spells its own, in
@@ -22616,15 +22623,15 @@ the name being the one drawn, written in the new order at the next sweep;
 the first frame of the first launch of the new build draws the order kept
 before until that sweep lands, as any change of the folders does. The
 Inbox's block and the folders' block (`FolderCounts.blocks`). The Move
-sheet: the pane's order, as before without the indent. With no labels the
-pane is as it was, row for row.
+sheet: the pane's order, as before without the indent. With no labels,
+and no folder inside the Inbox, the pane is as it was, row for row.
 
 **What he sees.** The Inbox; then, one step in, Drafts, Sent Mail, Spam,
 Trash, All Mail, Important and Starred, and any other folder of Gmail's
 own; then his labels at the left edge, by name, each with the labels
 inside it one step in under it. No new words.
 
-**Tests.** `FolderTreeTests`, thirteen, on the test account's LIST as Gmail
+**Tests.** `FolderTreeTests`, seventeen, on the test account's LIST as Gmail
 gives it, thirty-seven rows read by the client's own parser: the pane, row
 by row, with each row's id, name, depth and role, and Important and
 Starred above the first label; the same with LIST's rows reversed, and
@@ -22646,11 +22653,23 @@ role's name, or inside one, SELECTing that folder and no other, the app's
 "drafts" SELECTing Gmail's Drafts, and a letter moved to the label
 "Drafts" landing there and not in Gmail's Drafts; and the kept list naming
 a label by its own name, and one it does not hold not as Gmail's Drafts.
+And the folder that holds Gmail's own, known by what is in it: with
+"Show in IMAP" off for all of Gmail's own, the seven flagged rows gone,
+"[Gmail]/Sent Messages" a label at the left edge by its path, the Inbox
+the one role; with Gmail's folders listed but no flag on any, each a
+label at the left edge by its path, by name; and with "Junk E-mail" one
+that cannot be opened and its "Drafts" flagged as Starred is, as "[Gmail]"
+under another name, that "Drafts" drawn with Gmail's others, one step
+in, by name, and no row for "Junk E-mail"; each in either order. Inside
+the Inbox: the test account's labels kept inside the Inbox drawn as they
+are at the top, row for row, in either order, and one inside the Inbox
+with one inside it, beside two labels at the top, at the left edge
+between them by its own name.
 `KeptLetterOpeningTests`, one: a letter in the label "Drafts", opened, is
 shown from the copy the second time with nothing sent. The scripted
 server adds a `\Noselect` folder (`addFolder(selectable:)`).
 
-With the order as it was put back whole, five of these fail, 12
+With the order as it was put back whole, nine of these fail, 21
 failures; the two with no labels pass. Each change undone by hand, those classes run
 (`FolderTreeTests`, `KeptLetterOpeningTests`, `RepositoryWireTests`,
 `MailboxNameTests`, `EraseQuestionTests`, `FolderCountsTests`,
@@ -22665,8 +22684,14 @@ drawn, 17 in 8; a role word in any case, 5 in 4; `serverName` without
 LIST's names first, 1 in 1; the matching as before, the name in any case
 first, 1 in 1; `role(of:)` taking a name in any case, 1 in 1; `resolve` as
 before, 9 in 2; and the kept copy's folder found as before, 2 in 1.
+Those counts were taken before the four tests on the container and the
+Inbox were added; for those four, the same way: "[Gmail]" taken for the
+container by its name alone, 6 in the three on the container; by its name
+and only when it holds a folder flagged as the server's, 2 in 1, the one
+under another name; a folder inside the Inbox one step in, as before, 3
+in 1. Nothing else failed in those classes.
 
-The full suite, serially: 2,337 tests, 6 skipped, none failing. The
+The full suite, serially: 2,341 tests, 6 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered.**
@@ -22682,11 +22707,16 @@ release build for the iPad links.
 - Names in a language other than English take the iPad's order, as
   Mail's do; the tests are in English. Numbers as numbers is Mail's rule
   and is not met by the test account's names.
-- If Gmail's own folders were all hidden from IMAP ("Show in IMAP" off),
-  "[Gmail]" could not be told by what is in it, and a label made inside
-  it would be drawn among the labels by its path.
-- A folder inside the Inbox, on another server: among the labels, not
-  under the Inbox. Not his.
+- With Gmail's own folders all hidden from IMAP ("Show in IMAP" off),
+  nothing in "[Gmail]" says what it is, and a label made inside it is
+  drawn among the labels at the left edge by its path, "[Gmail]/Sent
+  Messages": on the host only. Mail's drawing of it not seen.
+- "[Gmail]" under the name Gmail gives it in some countries: tested only
+  as a folder of the test account's that cannot be opened, holding one
+  flagged as the server's, not under that name.
+- A folder inside the Inbox, on another server: at the left edge among
+  the labels, by its own name, not under the Inbox as Mail draws it;
+  beside a label at the top of the same name it reads the same. Not his.
 - The Move sheet has no indent, so Junk E-mail's "Drafts" reads there as
   "Drafts" alone, after "Junk E-mail", as before.
 - His own account's pane, not seen: the shapes are the test account's.
