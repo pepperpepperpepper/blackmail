@@ -4992,6 +4992,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 
 - [ ] **His iPad's iOS version** — decides TrollStore (never expires) against
       a certificate (dies 2027-09-18, on his device, where nobody can fix it)
+      *Known 2026-10-05, from the pictures he sends: his iPad's iOS is past
+      every version TrollStore installs on, so the install is by a
+      certificate, and the app stops opening on his iPad the day it runs
+      out. Left to the owner: which certificate, and what he and his helper
+      are told before that day (the in-app warning, buildable now, above).*
 - [ ] **The real signature logo** — what ships today is a solid black silhouette
       with no legible mark in either channel
 - [ ] **Signature in the source?** (B-035)
@@ -5126,6 +5131,25 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       sender's backgrounds printed.
 - [ ] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
+- [ ] **Paper** (B-110): may a check print up to four sheets on a real
+      AirPrint printer? It would run B-063's print check from Quick Look
+      too. Until then no paper: every print was judged on the panel's
+      preview and the PDF it saves. And whether the printer at his house is
+      an AirPrint printer on his Wi-Fi.
+- [ ] **His iPad's own settings**, read before the install-day build so
+      its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
+      takes the sound out), Mail > Threading > Complete Threads (B-104: off
+      takes it out), Mail > Composing > Include Attachments with Replies
+      (B-107's mode), and Display & Text Size, Larger Text and Bold Text
+      (D-007).
+- [ ] **The new words on his screen**, each held from his iPad until the
+      owner approves it, the entry listing them: VoiceOver's "Replied" and
+      "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's
+      page is out (B-103); "Complete Threads", the line under it and
+      "Found in Sent Mail" (B-104); "Recent Searches" and VoiceOver's
+      "Recent search," (B-105); the Forward question with "Include" and
+      "Don't Include" (B-107); "Photo Library", "Attach File" and the
+      sentences for files that could not be attached (B-108).
 
 ## Open, recorded, not scheduled
 
