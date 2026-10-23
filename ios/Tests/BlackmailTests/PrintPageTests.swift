@@ -6,9 +6,11 @@ import XCTest
 /// in full, then its body as the pane shows it, cut to a limit.
 ///
 /// The pane's own page is dark, plain text white on black and HTML under an
-/// invert, and printed with no backgrounds, as WebKit prints, that is white
-/// words on white paper. So the page printed is a page of its own, and the
-/// body in it is checked here against the pane's, byte for byte.
+/// invert, which prints as it is drawn, white on black, since a build
+/// stamped before iOS 16.4 prints backgrounds (the test iPad, 2026-10-23),
+/// or white on white with them off. So the page printed is a page of its
+/// own, and the body in it is checked here against the pane's, byte for
+/// byte.
 final class PrintPageTests: XCTestCase {
 
     private let style = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
@@ -103,6 +105,46 @@ final class PrintPageTests: XCTestCase {
         XCTAssertTrue(sheet.contains("#bm-head { break-inside: avoid;"), "the header is never split")
         XCTAssertTrue(sheet.contains("border-top: 0.5px solid #c8c8c8;"), "the rule, light")
         XCTAssertTrue(sheet.contains("color: #8e8e8e;"), "the lines, grey")
+    }
+
+    /// The header's lines and the page's notices print grey, as drawn: the
+    /// header's rule and each notice's block print in their own colours
+    /// (`exact`), and nothing else on the page does, so the sender's words
+    /// are still WebKit's to make legible on white. With no backgrounds
+    /// printed (`LetterPrint`), WebKit changes any text under 4.5:1 on
+    /// white, and on iPadOS 16.5 and 18 lightens one of luminance 0.5 or
+    /// less: the lines' `#8e8e8e` would print `#e2e2e2`, all but white.
+    /// Mail's printed header, drawn by UIKit, keeps its greys. The pane's
+    /// own line and page are as they were, with none of it.
+    func testTheHeaderAndTheNoticesPrintInTheirOwnGreys() throws {
+        let exact = "-webkit-print-color-adjust: exact;"
+        let block = "<div style=\"\(exact)\">"
+        func count(_ text: String) -> Int { text.components(separatedBy: "print-color-adjust").count - 1 }
+        for (i, m) in (PaneLetters.all + [letter(text: nil)]).enumerated() {
+            let page = self.page(m)
+            let sheet = try self.sheet(page)
+            let head = try XCTUnwrap(sheet.range(of: "#bm-head {"), "letter \(i)")
+            let rule = sheet[head.lowerBound...].prefix(while: { $0 != "}" })
+            XCTAssertTrue(rule.contains(exact), "letter \(i): \(rule)")
+            XCTAssertEqual(count(sheet), 1, "letter \(i): the header's rule only")
+            let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
+            XCTAssertEqual(count(try body(page)), empty ? 1 : 0, "letter \(i): a notice of ours alone")
+            if let pane = PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41)) {
+                XCTAssertEqual(count(pane), 0, "letter \(i)")
+            }
+        }
+        for notice in [PrintPage.empty, PrintPage.shortened] {
+            XCTAssertTrue(notice.hasPrefix(block + "<p style=\"color: #8e8e"), notice)
+            XCTAssertTrue(notice.hasSuffix("</p></div>"), notice)
+            XCTAssertEqual(count(notice), 1, notice)
+        }
+        XCTAssertEqual(PrintPage.shortened, block + PanePage.shortenedLine + "</div>")
+        XCTAssertEqual(count(PanePage.shortenedLine), 0)
+        var cut = letter(text: "The beginning.")
+        cut.isShortened = true
+        let printed = try body(page(cut))
+        XCTAssertTrue(printed.hasPrefix(block + PanePage.shortenedLine + "</div>The beginning."), printed)
+        XCTAssertEqual(count(printed), 1)
     }
 
     // MARK: - The header
@@ -286,10 +328,11 @@ final class PrintPageTests: XCTestCase {
         var m = letter(text: "The beginning.")
         XCTAssertFalse(try body(page(m)).contains(MailText.shortenedNotice))
         m.isShortened = true
-        XCTAssertEqual(try body(page(m)), PanePage.shortenedLine + "The beginning.")
+        XCTAssertEqual(try body(page(m)), PrintPage.shortened + "The beginning.")
         var html = letter(text: nil, html: "<p>The beginning.</p>")
         html.isShortened = true
-        XCTAssertEqual(try body(page(html)), PanePage.shortenedLine + "<p>The beginning.</p>")
+        XCTAssertEqual(try body(page(html)), PrintPage.shortened + "<p>The beginning.</p>")
+        XCTAssertTrue(PrintPage.shortened.contains(PanePage.shortenedLine), "the pane's own line")
     }
 
     /// A plain letter over 128 KiB, and an HTML one over 512 KiB, are cut,
@@ -301,8 +344,8 @@ final class PrintPageTests: XCTestCase {
         let plain = "a" + String(repeating: "é", count: PrintPage.textLimit / 2)
         XCTAssertEqual(plain.utf8.count, PrintPage.textLimit + 1)
         let printed = try body(page(letter(text: plain)))
-        XCTAssertTrue(printed.hasPrefix(PanePage.shortenedLine), "the line above it")
-        let kept = String(printed.dropFirst(PanePage.shortenedLine.count))
+        XCTAssertTrue(printed.hasPrefix(PrintPage.shortened), "the line above it")
+        let kept = String(printed.dropFirst(PrintPage.shortened.count))
         XCTAssertTrue(kept.hasSuffix("é"))
         XCTAssertLessThanOrEqual(kept.utf8.count, PrintPage.textLimit)
         XCTAssertEqual(kept.utf8.count, PrintPage.textLimit - 1)
@@ -310,8 +353,8 @@ final class PrintPageTests: XCTestCase {
 
         let markup = "<p>" + String(repeating: "é", count: PrintPage.htmlLimit / 2)
         let html = try body(page(letter(text: "Hello", html: markup)))
-        XCTAssertTrue(html.hasPrefix(PanePage.shortenedLine))
-        let cut = String(html.dropFirst(PanePage.shortenedLine.count))
+        XCTAssertTrue(html.hasPrefix(PrintPage.shortened))
+        let cut = String(html.dropFirst(PrintPage.shortened.count))
         XCTAssertTrue(cut.hasSuffix("é"))
         XCTAssertLessThanOrEqual(cut.utf8.count, PrintPage.htmlLimit)
         XCTAssertEqual(cut, String(markup.dropLast(2)))

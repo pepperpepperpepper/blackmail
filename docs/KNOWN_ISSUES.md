@@ -19209,9 +19209,12 @@ the header is a one-line change pinned by its test.
 - *Light* (high for WebKit today, medium for the 16.5 and 18 builds).
   While printing, WebKit turns dark appearance off
   (`Page::useDarkAppearance`), prints no backgrounds unless asked, and
-  darkens text too light for white paper
+  changes text too faint for white paper, under 4.5:1
   (`adjustColorForVisibilityOnBackground`): white text prints a mid grey,
-  readable but faint.
+  readable but faint. At the tags for iOS 16.5 and 18 it darkens only a
+  colour of luminance over 0.5 and lightens any other, so a mid grey
+  prints all but white; today's darkens whichever reads better (read
+  2026-10-23, below).
 - *Its wait* (high for today's WebKit, medium for 16.5 and 18). WebKit's
   page count for printing lays the page out and answers at once, without
   waiting for pictures still loading (`WebPage::computePagesForPrintingiOS`),
@@ -19227,10 +19230,11 @@ the header is a one-line change pinned by its test.
 **What it was.** Nothing printed a letter: no print controller, print
 formatter or page renderer anywhere in the app; only a file, from
 QuickLook. Nor could the pane simply have been printed. Its page is dark
-(D-010): plain text white on black and HTML under an invert, which, with
-no backgrounds printed, is white words on white paper. Its header is
-UIKit, outside the page. And a conversation's stack would print every
-letter open in it, the last at least a screen tall.
+(D-010): plain text white on black and HTML under an invert, which prints
+as it is drawn, white on black, since a build stamped before 16.4 prints
+backgrounds (seen 2026-10-23, below), or white on white with them off.
+Its header is UIKit, outside the page. And a conversation's stack would
+print every letter open in it, the last at least a screen tall.
 
 **Changed.**
 
@@ -19254,8 +19258,9 @@ letter open in it, the last at least a screen tall.
    one; a 0.5 px rule, `#c8c8c8`; the subject or "(no subject)", bold and
    black; the date; a line per file the header lists, "name (size)", or
    the name alone when the size is not known; a rule. The lines grey,
-   `#8e8e8e`, every size the pane's (`Theme`). Each value from the same
-   expressions the pane's header uses, escaped
+   `#8e8e8e`, on paper too (since 2026-10-23, below), every size the
+   pane's (`Theme`). Each value from the same expressions the pane's
+   header uses, escaped
    (`ConversationDocument.escape`), as text, never in an attribute. The
    date is written out in full by `MailFormat.fullTimestamp`, new, "d
    MMMM yyyy 'at' h:mm a", never "Today" or "Yesterday", since the paper
@@ -19633,9 +19638,9 @@ yes. Three failed:
 1. *No backgrounds printed* (`LetterPrint.load`). The print's
    configuration sets WebKit's `shouldPrintBackgrounds` false before the
    view is built, so the page prints as Mail's does: a dark newsletter's
-   white words dark grey on white, coloured boxes and banners white.
-   Public from iOS 16.4, it is set by its name where its setter is there,
-   since an OS version check does not link with this toolchain
+   white words a mid grey on white, `#ababab`, coloured boxes and banners
+   white. Public from iOS 16.4, it is set by its name where its setter is
+   there, since an OS version check does not link with this toolchain
    (`IMAPClient.beginExchange`'s note); before 16.4 nothing is set. The
    app's stamp is not changed, which would change everything WebKit and
    UIKit decide by it.
@@ -19658,6 +19663,31 @@ yes. Three failed:
    WebKit sends later finds nothing, and a fetch that ends later answers
    nothing. The pane's loader is as it was: its view stays, and WebKit
    stops its pictures.
+4. *The page's own greys printed as drawn* (`PrintPage.letter`,
+   `PrintPage.empty`, `PrintPage.shortened`). With no backgrounds
+   printed, WebKit changes every text colour under 4.5:1 on white, the
+   page's own as well as the sender's, and at its tags for iOS 16.5
+   (7615.2.9.11.4) and 18 (7621.2.5.14.9) it darkens one of luminance over
+   0.5 and lightens any other (`adjustColorForVisibilityOnBackground`,
+   `Color::lightened`). So the header's lines, `#8e8e8e`, would have
+   printed `#e2e2e2`, all but white, and the page's two notices with
+   them: "This message has no text." and the pane's "Only the
+   beginning…" line, `#8e8e93`. Mail's printed header is drawn by UIKit
+   (`drawRect:forViewPrintFormatter:`) and keeps its greys. Now
+   `#bm-head`'s rule has `-webkit-print-color-adjust: exact`, which its
+   lines inherit, and which only stops the change, the header having no
+   background to print; and each notice is in a block with the same, an
+   inline style no sender's markup can match, its margins its paragraph's.
+   The pane's line itself is not changed, nor its page, and nothing of
+   the sender's is: its words are still WebKit's to make legible. The
+   sender's name and the links, `#007AFF`, come out the same either way
+   (lightening a colour whose brightest part is full gives it back). Of
+   the quotes' words (B-101), the violet, 5.65:1, is kept; the teal and the
+   green are lightened, to about rgb(0, 218, 255) and rgb(24, 255, 19),
+   fainter than drawn, as Mail's body would print them on those systems,
+   its web view printing no backgrounds (medium: Mail's setting not read);
+   the bars, borders, are not changed. Steps 2 and 4, both passed on the
+   first run, are to be run again (TODO).
 
 **Tests.** `PrintWiringTests`, two more, 20: the backgrounds set, in
 those words, before the view is built, once and false, never by
@@ -19680,7 +19710,16 @@ attribute on its two pictures. `PictureRequestsTests`, one more, 4:
 `stopAll` with three fetches running, one asked for with no fetch yet and
 one answered: the three called off and the answered one not, none
 answerable, a fetch given after it called off at once, a stop after it
-nothing, and a request after it one like any other.
+nothing, and a request after it one like any other. And one more in
+`PrintPageTests`, 20 now, for the page's own greys: for every one of the
+pane's letters and an empty one, `#bm-head`'s rule `exact` and the only
+`print-color-adjust` in the sheet, the body with none but a notice's;
+each notice one block of `exact` around its grey paragraph, the shortened
+one the pane's own string inside it, and a shortened letter's body
+beginning with it; the pane's page and line with none. Changed with it:
+`testALetterThePaneShortenedSaysSo` and
+`testALetterOverItsLimitIsCutAtAWholeCharacter`, the line above the
+letter now `PrintPage.shortened`, with the pane's own string in it.
 
 Each undone in the worktree, one at a time, with `PrintWiringTests`,
 `PrintPageTests`, `PictureRequestsTests` and `PanePageTests` run, 51
@@ -19689,15 +19728,28 @@ not passed through the pass, 9 in 3; the pass giving its input back, 7 in
 2; the attribute written quoted, 8 in 2; `<image` left out, 2 in 1;
 `stopAll` not calling the fetches off, 1 in 1; `stopAll` leaving the
 requests answerable, 5 in 1; the teardown not calling `stopAll`, 5 in 2;
-the loader's `stopAll` empty, 3 in 1. Put back, all 51 pass.
+the loader's `stopAll` empty, 3 in 1. Put back, all 51 pass. Then the
+greys, the same four classes, 52 tests: the header's rule without
+`exact`, 36 failures in 1 test; the notices not put in their block
+(`asDrawn` giving its input back), 13 in 1; `exact` added to `#bm`'s
+rule, the sender's words too, 18 in 1. Put back, all 52 pass.
 
-The full suite, serially: 2,122 tests, 5 skipped, none failing. The
+The full suite, serially: 2,123 tests, 5 skipped, none failing. The
 release build for the iPad links.
 
 **Not covered, since 2026-10-23.**
 
 - Not yet seen on the iPad: steps 3b, 5c and 10a are to be run again
-  (TODO), with 3a and 12.
+  (TODO), with 2, 3a, 4 and 12.
+- A sender's own grey or colour too faint for white, but not bright,
+  prints lighter on iPadOS 16.5 and 18, not darker: a newsletter's small
+  print in `#999` about `#ededed`, all but gone, where with backgrounds
+  printed it was as drawn; and the quotes' teal and green words (item 4).
+  It is WebKit's own way there, for any page printed with no
+  backgrounds. Kept as drawn, it would need `exact` on the sender's
+  markup, which prints its backgrounds as well, 3b's black block again,
+  or colours of the app's own for paper, away from Mail's: the owner's to
+  choose, if the iPad's step 3 or 4 shows it unreadable.
 - With no backgrounds, a picture a newsletter draws as a background
   rather than an `<img>` is not printed, as in Mail. If he wants the
   sender's backgrounds on paper, it is the one setting and its test.

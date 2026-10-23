@@ -155,7 +155,7 @@ final class PrintWiringTests: XCTestCase {
     }
 
     /// No backgrounds printed, as Mail prints a letter, so WebKit prints a
-    /// dark newsletter's white words dark on white paper: set false in the
+    /// dark newsletter's white words grey on white paper: set false in the
     /// configuration before the view is built, by its name, as the app is
     /// stamped below the iOS 16.4 that made it public and where WebKit's
     /// own default became false, and only where the setter is there. Never

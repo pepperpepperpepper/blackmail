@@ -125,11 +125,14 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
         config.defaultWebpagePreferences.allowsContentJavaScript = false
         config.websiteDataStore = .nonPersistent()
         // No backgrounds printed, as Mail and Safari print a letter: a dark
-        // newsletter's white words then print a dark grey on white paper,
+        // newsletter's white words then print a mid grey on white paper,
         // WebKit darkening text too light for it, never white on a slab of
-        // black. WebKit's own default is that only for an app built
-        // against iOS 16.4 or later, and this one is stamped below it, so
-        // left alone it prints them (seen on the test iPad, 2026-10-23).
+        // black. A sender's mid grey, also too faint for white, it lightens
+        // instead, on iPadOS 16.5 and 18; the page's own greys print as
+        // drawn (`PrintPage.letter`). WebKit's own default is that only
+        // for an app built against iOS 16.4 or later, and this one is
+        // stamped below it, so left alone it prints them (seen on the test
+        // iPad, 2026-10-23).
         // The setting is public from 16.4 and reached by its name, since
         // an OS version check does not link with this toolchain (see
         // `IMAPClient.beginExchange`); before 16.4 there is no setter, and

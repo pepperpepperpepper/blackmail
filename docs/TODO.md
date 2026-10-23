@@ -4317,16 +4317,23 @@ this host. Ordered by value, not by size.
       four more of the print's 3.3 MB pictures fetched after `PRINT ended
       why=moved`, the letter tapped waiting about 4.5 s. Changed the same
       day (B-110 in KNOWN_ISSUES): no backgrounds printed, the print's
-      pictures decoded as drawn, and its teardown stopping its own
-      pictures. To run again, from a build with the change: 3b, with 3a's
-      newsletter, whose navy banner and boxes now print white and their
-      words darkened; 5c as on the second run, Airplane Mode on, the kept
-      letter opened from its copy, about 8 s, three prints on that pane and
-      one after opening it again, each with the photo; 10a with the five
-      photos, a letter not kept tapped about 1 s after Print: after `PRINT
-      ended why=moved` at most the one picture FETCH already on the wire,
-      then the tapped letter's, its body within about a second and a half;
-      and 12, its time to the panel written down again. Seen there too: on
+      pictures decoded as drawn, its teardown stopping its own pictures,
+      and the header's lines and the page's notices kept grey on paper,
+      which with no backgrounds WebKit would have printed all but white.
+      To run again, from a build with the change: 2, the header's To, Cc,
+      date and file lines grey as on the first run, not near white; 3b,
+      with 3a's newsletter, whose navy banner and boxes now print white
+      and their words darkened, any grey small print written down as it
+      prints; 4, the bars violet, teal and green and the violet words as
+      on the first run, the teal and green words now lighter, WebKit's own
+      on 16.5, written down with whether they can be read; 5c as on the
+      second run, Airplane Mode on, the kept letter opened from its copy,
+      about 8 s, three prints on that pane and one after opening it again,
+      each with the photo; 10a with the five photos, a letter not kept
+      tapped about 1 s after Print: after `PRINT ended why=moved` at most
+      the one picture FETCH already on the wire, then the tapped letter's,
+      its body within about a second and a half; and 12, its time to the
+      panel written down again. Seen there too: on
       16.5.1 the panel is the centred Print Options sheet, not a popover
       from the Reply button; the iPad's sheet has no Cancel row, a tap
       outside being its cancel; each print of a letter opened in parts

@@ -7,10 +7,11 @@ import Foundation
 /// Mail prints one message this way: its header view, then its body's web
 /// view (iOS 18.6's MobileMailUI). The pane itself cannot be printed. Its
 /// page is dark (D-010): plain text white on black, HTML under an invert,
-/// and printed with no backgrounds, as WebKit prints, that is white text on
-/// white paper. Its header is UIKit, outside the page, and a conversation's
-/// stack would print every letter open in it. So the letter is drawn again,
-/// here, on a page of its own.
+/// which prints as it is drawn, white on black, since a build stamped
+/// before iOS 16.4 prints backgrounds (seen on the test iPad, 2026-10-23),
+/// or white on white with them off. Its header is UIKit, outside the page,
+/// and a conversation's stack would print every letter open in it. So the
+/// letter is drawn again, here, on a page of its own.
 ///
 /// Pure string work, Foundation only, built away from the main thread as
 /// the pane's page is (`PanePage`), so the suite can test it; `LetterPrint`
@@ -92,6 +93,15 @@ enum PrintPage {
         // Mail's bars beside quoted text (B-101), the pane's own string:
         // Mail's light colours, which on white are as Mail draws them.
         let bars = isHTML ? "\n" + QuoteBars.css(in: "#bm") : ""
+        // The header prints in its own colours (`exact`), its lines grey as
+        // in the pane and as Mail's header, which UIKit draws, prints them.
+        // With no backgrounds printed (`LetterPrint.load`), WebKit changes
+        // any text under 4.5:1 on white, and on iPadOS 16.5 and 18 it
+        // lightens one of luminance 0.5 or less: `#8e8e8e` would print
+        // `#e2e2e2`, all but gone (`adjustColorForVisibilityOnBackground`,
+        // read at WebKit's tags for both). `exact` is inherited, and the
+        // header has no background to print. Only the header and the
+        // notices (`asDrawn`): the sender's words are left to WebKit.
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="color-scheme" content="light only">
@@ -100,7 +110,7 @@ enum PrintPage {
           html { -webkit-text-size-adjust: 100%; }
           html, body { margin: 0; padding: 0; background: #fff; color: #000; }
           #bm-head { break-inside: avoid; page-break-inside: avoid; margin: 0 0 17px 0;
-                     font-family: -apple-system, sans-serif; }
+                     font-family: -apple-system, sans-serif; -webkit-print-color-adjust: exact; }
           #bm-head div { margin: 0; padding: 0; text-align: left; }
           #bm-head .bm-sender { font: 600 \(style.senderPointSize)px -apple-system, sans-serif;
                                 color: #007AFF; }
@@ -140,12 +150,25 @@ enum PrintPage {
                     + PanePage.content(text: cut ?? text, html: nil, known: known), false)
     }
 
-    /// The pane's words for a letter with nothing in it, grey.
-    static let empty = "<p style=\"color: #8e8e8e; margin: 0; white-space: normal;\">"
-        + MailText.emptyBodyNotice + "</p>"
+    /// The pane's words for a letter with nothing in it, grey on paper too.
+    static let empty = asDrawn("<p style=\"color: #8e8e8e; margin: 0; white-space: normal;\">"
+        + MailText.emptyBodyNotice + "</p>")
+
+    /// The pane's grey line, "Only the beginning…", its own string, grey on
+    /// paper too.
+    static let shortened = asDrawn(PanePage.shortenedLine)
 
     private static func notice(_ shown: Bool) -> String {
-        shown ? PanePage.shortenedLine : ""
+        shown ? shortened : ""
+    }
+
+    /// `html` in a block printed in its own colours, as the header is (see
+    /// `letter`), so a notice of ours in `#bm` prints grey rather than all
+    /// but white. An inline style, which no sender's markup can match; the
+    /// block's margins are its paragraph's, as no border or padding comes
+    /// between them.
+    private static func asDrawn(_ html: String) -> String {
+        "<div style=\"-webkit-print-color-adjust: exact;\">" + html + "</div>"
     }
 
     /// `html` with `decoding=sync` the first attribute of every `<img>`,
