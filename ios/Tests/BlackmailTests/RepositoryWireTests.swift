@@ -1003,6 +1003,108 @@ final class RepositoryWireTests: XCTestCase {
         XCTAssertEqual(server.connectionsOpened, 1)
     }
 
+    // MARK: - Previews Gmail will not give (B-114)
+
+    /// A letter `words` are the first words of, delivered to the Inbox as
+    /// Gmail describes and serves it (`deliver(described:)`), newer than
+    /// every seeded letter: its UID there. `body` is its Content-Type
+    /// header and what follows it.
+    private func described(_ subject: String, _ body: String, minutes: Double,
+                           refusing: Set<String> = []) throws -> UInt32 {
+        let raw = "From: Carlo <carlo@example.org>\r\nTo: owner@example.com\r\n"
+            + "Subject: \(subject)\r\nDate: Mon, 20 Sep 2026 10:00:00 +0000\r\n"
+            + "Message-ID: <\(subject.filter(\.isLetter))@example.org>\r\nMIME-Version: 1.0\r\n" + body
+        let letter = Server.Letter(from: Server.carlo, to: [Server.owner], subject: subject,
+                                   date: Server.newestDate.addingTimeInterval(minutes * 60),
+                                   text: "", messageID: "<\(subject.filter(\.isLetter))@example.org>")
+        return try XCTUnwrap(server.deliver(described: Data(raw.utf8), as: letter, refusing: refusing,
+                                            to: [Server.inbox])[Server.inbox])
+    }
+
+    /// Words and a PDF after them, the words a plain and HTML pair: its
+    /// preview is 1.1.
+    private func wordsAndAFile(_ words: String) -> String {
+        "Content-Type: multipart/mixed; boundary=\"MIX\"\r\n\r\n"
+            + "--MIX\r\nContent-Type: multipart/alternative; boundary=\"ALT\"\r\n\r\n"
+            + "--ALT\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n\(words)\r\n"
+            + "--ALT\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>\(words)</p>\r\n--ALT--\r\n"
+            + "--MIX\r\nContent-Type: application/pdf; name=\"a.pdf\"\r\n"
+            + "Content-Disposition: attachment; filename=\"a.pdf\"\r\n"
+            + "Content-Transfer-Encoding: base64\r\n\r\nJVBERi0xLjQK\r\n--MIX--\r\n"
+    }
+
+    /// A letter that is nothing but the one it forwards, inline, beside a
+    /// letter of words and a file: the forwarded words are asked for as
+    /// 1.TEXT, the name Gmail serves them by, apart from the other's 1.1,
+    /// and both rows have their previews. Asked for as 1.1 in one FETCH
+    /// with the other's, Gmail refused it, and on the iPad neither row had
+    /// a preview (B-114).
+    func testALoneForwardsPreviewIsAskedForByTheNameGmailServes() async throws {
+        let alone = try described("Alone", "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n"
+            + "--B\r\nContent-Type: message/rfc822\r\nContent-Disposition: inline\r\n\r\n"
+            + "From: Sam Example <sam@example.com>\r\nSubject: Earlier\r\n"
+            + "Content-Type: text/plain; charset=utf-8\r\n\r\n"
+            + "The words of a letter forwarded alone.\r\n--B--\r\n", minutes: 1)
+        let file = try described("With a file", wordsAndAFile("The words before a file."), minutes: 2)
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+
+        let ids = [id(alone, in: Server.inbox), id(file, in: Server.inbox)]
+        let previews = try await repository.previews(for: ids, in: "inbox")
+        XCTAssertEqual(previews, [ids[0]: "The words of a letter forwarded alone.",
+                                  ids[1]: "The words before a file."])
+        XCTAssertEqual(Set(server.log.filter { $0.verb == "UID FETCH" }.map(\.command)), [
+            "UID FETCH \(alone) (UID BODY.PEEK[1.TEXT]<0.2048>)",
+            "UID FETCH \(file) (UID BODY.PEEK[1.1]<0.2048>)",
+        ])
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+    }
+
+    /// A FETCH of previews Gmail answers NO, having sent every letter's
+    /// but the one it will not give: the rows it sent keep their previews,
+    /// and that one alone has none. They were all thrown away with the NO
+    /// (B-114).
+    func testAPreviewTheServerWillNotGiveCostsOnlyItsOwnRow() async throws {
+        let refused = try described("Refused", wordsAndAFile("Words it will not give."), minutes: 1,
+                                    refusing: ["1.1"])
+        let given = try described("Given", wordsAndAFile("Words it gives."), minutes: 2)
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+
+        let ids = [id(refused, in: Server.inbox), id(given, in: Server.inbox)]
+        let previews = try await repository.previews(for: ids, in: "inbox")
+        XCTAssertEqual(previews, [ids[1]: "Words it gives."])
+        XCTAssertEqual(server.log.filter { $0.verb == "UID FETCH" }.map(\.status), ["NO"])
+    }
+
+    /// Every FETCH of previews the client has keeps what came under a NO,
+    /// as `fetchPartialBodies` does since B-114: none looks at the answer's
+    /// status. Read from the source, so that one written beside it on
+    /// another branch, as his Sent Mail's lines in a conversation have
+    /// theirs (B-104), fails here once the two are merged, until it keeps
+    /// them too and has a test like the one above of its own.
+    func testNoPreviewFetchThrowsAwayWhatCameUnderANo() throws {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()     // BlackmailTests
+            .deletingLastPathComponent()     // Tests
+            .deletingLastPathComponent()     // ios
+            .appendingPathComponent("Sources/Blackmail/IMAP/IMAPClient.swift")
+        let code = try String(contentsOf: url, encoding: .utf8)
+        let functions = code.components(separatedBy: "\n    func fetchPartialBodies").dropFirst()
+        XCTAssertFalse(functions.isEmpty)
+        for function in functions {
+            let name = "fetchPartialBodies" + function.prefix { $0 != "(" }
+            let body = try XCTUnwrap(function.range(of: "\n    }\n").map { function[..<$0.lowerBound] },
+                                     name)
+            XCTAssertFalse(body.contains(".status"),
+                           "\(name) looks at the FETCH's status and can throw away every row's "
+                           + "preview for one the server will not give: keep what came, as "
+                           + "fetchPartialBodies does (B-114)")
+        }
+    }
+
     // MARK: - Writes are never sent twice
 
     func testAWriteIntoADeadSocketGoesOutOnceAndIsNotRepeatedOnANewConnection() async throws {

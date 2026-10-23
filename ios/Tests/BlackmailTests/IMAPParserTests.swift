@@ -228,6 +228,41 @@ final class IMAPParserTests: XCTestCase {
         XCTAssertEqual(env?.messageID, "<abc@example.com>")
     }
 
+    /// A letter forwarded inline whose body is one part, as Gmail described
+    /// step 6's on the test iPad: the body is numbered 2.1, as `MIMEDecoder`
+    /// numbers it for a letter fetched whole, and asked for as 2.TEXT, the
+    /// one name of the two Gmail serves (B-114). Every other part is asked
+    /// for by its number: a forwarded letter's multipart and its parts, the
+    /// letter itself, and a file.
+    func testAForwardedLettersOnePartBodyIsAskedForAsItsText() throws {
+        let l = line("""
+        * 1 FETCH (UID 441 BODYSTRUCTURE (("TEXT" "PLAIN" ("CHARSET" "utf-8") NIL NIL         "QUOTED-PRINTABLE" 82 2 NIL NIL NIL)("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 470         (NIL "Earlier" (("Sam Example" NIL "sam" "example.com")) NIL NIL NIL NIL NIL NIL NIL)         ("TEXT" "PLAIN" ("CHARSET" "utf-8") NIL NIL "QUOTED-PRINTABLE" 60 1 NIL NIL NIL) 12         NIL ("INLINE" NIL) NIL NIL)("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 900 NIL         (("TEXT" "PLAIN" NIL NIL NIL "7BIT" 10 1)("TEXT" "HTML" NIL NIL NIL "7BIT" 20 1)         "ALTERNATIVE" NIL NIL NIL) 30 NIL ("ATTACHMENT" NIL) NIL NIL)("APPLICATION" "PDF"         ("NAME" "x.pdf") NIL NIL "BASE64" 100 NIL ("ATTACHMENT" ("FILENAME" "x.pdf")) NIL NIL)         "MIXED" ("BOUNDARY" "b") NIL NIL NIL))
+        """)
+        let root = try XCTUnwrap(IMAPParser.parseFetch([l]).first?.bodyStructure)
+        XCTAssertEqual(root.children.count, 4)
+        let forward = root.children[1]
+        let body = try XCTUnwrap(forward.children.first)
+        XCTAssertEqual(body.section, "2.1")
+        XCTAssertTrue(body.isMessageText)
+        XCTAssertEqual(body.fetchSection, "2.TEXT")
+        XCTAssertEqual(forward.fetchSection, "2")
+        let inner = try XCTUnwrap(root.children[2].children.first)
+        XCTAssertEqual(inner.children.map(\.section), ["3.1", "3.2"])
+        XCTAssertEqual(inner.children.map(\.fetchSection), ["3.1", "3.2"])
+        XCTAssertFalse(inner.isMessageText)
+        XCTAssertEqual(inner.fetchSection, "3")
+        XCTAssertEqual(root.children[0].fetchSection, "1")
+        XCTAssertEqual(root.children[3].fetchSection, "4")
+
+        // A letter that is itself a message/rfc822: its body, 1.1, is 1.TEXT.
+        let alone = line("""
+        * 2 FETCH (UID 442 BODYSTRUCTURE ("MESSAGE" "RFC822" NIL NIL NIL "7BIT" 100 NIL         ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 10 1) 5))
+        """)
+        let letter = try XCTUnwrap(IMAPParser.parseFetch([alone]).first?.bodyStructure)
+        XCTAssertEqual(letter.children.first?.section, "1.1")
+        XCTAssertEqual(letter.children.first?.fetchSection, "1.TEXT")
+    }
+
     func testLiteralIsSplicedBackByIndex() {
         // TLSConnection has already consumed the bytes and left a marker; the
         // parser must look them up rather than re-read the socket.

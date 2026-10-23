@@ -4697,6 +4697,32 @@ this host. Ordered by value, not by size.
       9. *Named and sent inline:* 1 with the message/rfc822 named
       `Earlier letter.eml` and `Content-Disposition: inline`: as 1, drawn
       under the note, no row and no paperclip.
+      *Run 2026-10-22, three panes and two: 1 to 5 and 7 to 9 passed. 6
+      failed, twice: the large one could not be opened at all, "This
+      message could not be downloaded." and "Can't connect to mail
+      server.", Gmail refusing BODY[2.1] of the forwarded letter's words,
+      which it serves as BODY[2.TEXT]; and a row beside 5's lone forward
+      lost its preview to the same refusal. Fixed since (KNOWN_ISSUES,
+      B-114). To run again: 6, its note, header lines and forwarded words
+      shown, the PDF's row there and Quick Look opening it, and no "Only
+      the beginning of this message is shown."; 6 again with the
+      forwarded letter itself forwarding a plain one (a message/rfc822
+      whose body is a message/rfc822), over 5 MB with the PDF: say whether
+      the inner letter's words show or the notice does, Gmail's answer to
+      BODY[2.1.TEXT] in the app's log; and 5's list, the lone forward's
+      row with its preview, and the rows beside it with theirs, in a
+      folder where they share a page.*
+      *Where this is merged with B-104 (his Sent Mail's lines in a
+      conversation):* B-104's `IMAPClient.fetchPartialBodiesWhileOpen`
+      keeps what came under a NO, as `fetchPartialBodies` does since
+      B-114 (its `guard result.status == .ok else { continue }` gone),
+      and `RepositoryWireTests.testAPreviewTheServerWillNotGiveCostsOnlyItsOwnRow`
+      has a twin for that path, `lettersOfHis`, one Sent Mail letter
+      refused beside one given. `testNoPreviewFetchThrowsAwayWhatCameUnderANo`
+      fails on the merge until the first is done. *And with B-110's
+      print:* `PrintPage.body` and `PrintPage.words` say "This message has
+      no text." only where the pane would (`PanePage.isEmpty`), a letter
+      shown only in part printed with the notice, as B-114 has the pane.
 
 ## Blocked on the owner
 

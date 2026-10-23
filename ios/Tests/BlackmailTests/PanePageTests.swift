@@ -321,4 +321,30 @@ final class PanePageTests: XCTestCase {
             XCTAssertEqual(PanePage.stackBody(m), .init(html: body, isHTML: true))
         }
     }
+
+    /// A letter shown only in part is never said to have no text: what was
+    /// not fetched of it, or what the server would not give, can be all its
+    /// words. Its page and its stack body say it is only the beginning, over
+    /// whatever came; the same letter whole, with nothing in it, is still
+    /// "This message has no text." (B-114).
+    func testALetterShownOnlyInPartIsNeverSaidToHaveNoText() throws {
+        let notice = "<p style=\"color: #8e8e93; margin: 0 0 1em 0; white-space: normal;\">"
+            + MailText.shortenedNotice + "</p>"
+        for (text, html) in [("", nil), ("\n\n", nil), (nil, ""), (nil, "<div> </div>"),
+                             (nil, nil)] as [(String?, String?)] {
+            var m = letter(text: text, html: html)
+            XCTAssertNil(PanePage.letter(m, style: style), "\(String(reflecting: text)) \(String(reflecting: html))")
+            XCTAssertEqual(PanePage.stackBody(m).html,
+                           "<span class=\"bm-waiting\">\(MailText.emptyBodyNotice)</span>")
+            m.isShortened = true
+            let page = try XCTUnwrap(PanePage.letter(m, style: style),
+                                     "\(String(reflecting: text)) \(String(reflecting: html))")
+            XCTAssertTrue(page.contains("<div id=\"bm\">" + notice), page)
+            XCTAssertFalse(page.contains(MailText.emptyBodyNotice), page)
+            let stack = PanePage.stackBody(m)
+            XCTAssertTrue(stack.html.hasPrefix(notice), stack.html)
+            XCTAssertFalse(stack.html.contains(MailText.emptyBodyNotice), stack.html)
+            XCTAssertEqual(stack.isHTML, html != nil)
+        }
+    }
 }

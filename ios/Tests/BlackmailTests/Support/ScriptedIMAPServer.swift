@@ -463,6 +463,24 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.refusedVerbs = newValue } }
     }
 
+    /// Sections a FETCH asking for any of them is answered with a BYE and
+    /// the connection closed, nothing of the FETCH sent: `["2.TEXT"]`. A
+    /// connection that drops while a letter's parts are coming, for every
+    /// letter.
+    var hangsUpOnSections: Set<String> {
+        get { locked { $0.hangsUpOnSections } }
+        set { locked { $0.hangsUpOnSections = newValue } }
+    }
+
+    /// The same, only for a FETCH that asks for one of them and no other
+    /// section: `["2.TEXT"]` with the letter's 2.TEXT refused, a FETCH of
+    /// its parts answered NO, and the connection gone when the part is
+    /// asked for again alone.
+    var hangsUpOnSectionsAlone: Set<String> {
+        get { locked { $0.hangsUpOnSectionsAlone } }
+        set { locked { $0.hangsUpOnSectionsAlone = newValue } }
+    }
+
     /// Gmail's IMAP setting "When I mark a message in IMAP as deleted":
     /// off by default here, "Wait for the client to update the server", as
     /// the test account has it. On, "Auto-Expunge on", Gmail's own default,
@@ -896,20 +914,89 @@ final class ScriptedIMAPServer: @unchecked Sendable {
     ///
     /// For a shape `render` does not make, or a letter too large to render
     /// quickly: `render` reads every character of the words.
+    ///
+    /// `refusing`, sections of it the server will not give (`Stored.refused`).
     @discardableResult
     func deliver(raw: Data, sections: [String: Data], structure: String, as letter: Letter,
-                 to mailboxes: [String]) -> [String: UInt32] {
+                 refusing: Set<String> = [], to mailboxes: [String]) -> [String: UInt32] {
         locked { s in
             var bodies = sections
             bodies[""] = raw
             let key = s.store(Stored(letter: letter, flags: letter.flags, raw: raw,
-                                     sections: bodies, structure: structure))
+                                     sections: bodies, structure: structure, refused: refusing))
             var out: [String: UInt32] = [:]
             for name in mailboxes.map(Self.canonical) {
                 if let uid = s.file(key, in: name) { out[name] = uid }
             }
             return out
         }
+    }
+
+    /// Adds `raw` to each of `mailboxes` as Gmail describes and serves it,
+    /// and returns its UID in each: its BODYSTRUCTURE made from its parts
+    /// as `MIMEDecoder` reads them (`described(_:envelope:)`), the letter
+    /// a message/rfc822 part holds with `envelope` for its ENVELOPE, its
+    /// HEADER, and every part's BODY[] by its number.
+    ///
+    /// And as Gmail answered on the test iPad on 2026-10-22 (B-114): the
+    /// body of a message/rfc822 part that is one part, numbered 2.1 under
+    /// the letter's 2, is served as BODY[2.TEXT], and BODY[2.1] is refused,
+    /// as every section in `refusing` is. The envelope, the flags and what
+    /// a SEARCH matches are `letter`'s.
+    @discardableResult
+    func deliver(described raw: Data, envelope: String = "NIL", as letter: Letter,
+                 refusing: Set<String> = [], to mailboxes: [String]) -> [String: UInt32] {
+        let parsed = MIMEDecoder.parse(raw)
+        var sections = parsed.bodies
+        var refused = refusing
+        func serve(_ part: MIMEPart) {
+            if part.type == "message", part.subtype == "rfc822",
+               let inner = part.children.first, !inner.isMultipart {
+                sections[part.section + ".TEXT"] = parsed.bodies[inner.section]
+                refused.insert(inner.section)
+            }
+            part.children.forEach(serve)
+        }
+        serve(parsed.structure)
+        if let end = raw.range(of: Data("\r\n\r\n".utf8)) {
+            sections["HEADER"] = raw[..<end.upperBound]
+            sections["TEXT"] = raw[end.upperBound...]
+        }
+        return deliver(raw: raw, sections: sections,
+                       structure: Self.described(parsed.structure, envelope: envelope),
+                       as: letter, refusing: refused, to: mailboxes)
+    }
+
+    /// `part` as a BODYSTRUCTURE describes it, wire text, with `envelope`
+    /// for the ENVELOPE of any letter a message/rfc822 part holds.
+    static func described(_ part: MIMEPart, envelope: String) -> String {
+        func quoted(_ s: String) -> String { "\"" + s + "\"" }
+        func list(_ d: [String: String]) -> String {
+            d.isEmpty ? "NIL" : "(" + d.sorted { $0.key < $1.key }
+                .map { quoted($0.key.uppercased()) + " " + quoted($0.value) }
+                .joined(separator: " ") + ")"
+        }
+        func disposition(_ p: MIMEPart) -> String {
+            p.disposition.map { "(" + quoted($0.uppercased()) + " " + list(p.dispositionParameters) + ")" }
+                ?? "NIL"
+        }
+        func wire(_ p: MIMEPart) -> String {
+            if p.isMultipart {
+                return "(" + p.children.map(wire).joined() + " " + quoted(p.subtype.uppercased()) + " "
+                    + list(p.parameters) + " " + disposition(p) + " NIL NIL)"
+            }
+            let basic = "(" + quoted(p.type.uppercased()) + " " + quoted(p.subtype.uppercased()) + " "
+                + list(p.parameters) + " " + (p.id.map(quoted) ?? "NIL") + " NIL "
+                + quoted(p.encoding.uppercased()) + " \(p.size ?? 0)"
+            if p.type == "text" {
+                return basic + " \(p.lines ?? 0) NIL " + disposition(p) + " NIL NIL)"
+            }
+            if p.type == "message", p.subtype == "rfc822", let inner = p.children.first {
+                return basic + " " + envelope + " " + wire(inner) + " 0 NIL " + disposition(p) + " NIL NIL)"
+            }
+            return basic + " NIL " + disposition(p) + " NIL NIL)"
+        }
+        return wire(part)
     }
 
     /// Adds a letter to each of `mailboxes`, as mail reaches Gmail from
@@ -1173,6 +1260,11 @@ private extension ScriptedIMAPServer {
         /// The BODYSTRUCTURE value, wire text.
         let structure: String
         var mailboxes: Set<String> = []
+        /// Sections of this letter the server will not give, as Gmail will
+        /// not give BODY[2.1] of a message/rfc822 whose body is one part
+        /// (`deliver(described:)`). A FETCH asking for one sends nothing of
+        /// this letter and is answered NO, after every other letter's.
+        var refused: Set<String> = []
     }
 
     struct Session {
@@ -1227,6 +1319,8 @@ private extension ScriptedIMAPServer {
         var refusesLiterals = false
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
+        var hangsUpOnSections: Set<String> = []
+        var hangsUpOnSectionsAlone: Set<String> = []
         var autoExpunge = false
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
@@ -1788,6 +1882,16 @@ private extension ScriptedIMAPServer.State {
         }
         // UID FETCH always answers with the UID, asked for or not.
         if !items.contains(.uid) { items.insert(.uid, at: 0) }
+        let asked = Set(items.compactMap { item -> String? in
+            if case let .section(section, _, _) = item { return section }
+            return nil
+        })
+        if !asked.isDisjoint(with: hangsUpOnSections)
+            || (asked.count == 1 && !asked.isDisjoint(with: hangsUpOnSectionsAlone)) {
+            r.untagged("BYE System Error")
+            r.hangsUp = true
+            return
+        }
 
         // Marks set elsewhere that this connection has not been told of,
         // told in this answer where `flagNews` says. Told ahead of it, the
@@ -1807,8 +1911,15 @@ private extension ScriptedIMAPServer.State {
         var lines: [(key: Int, line: Data)] = []
 
         let seen = view(of: name, on: id)
+        var refused = false
         for (position, uid) in seen.enumerated() where set.contains(uid, highest: seen.last ?? 0) {
             guard let (key, found) = letter(uid, in: name, on: id) else { continue }
+            // As Gmail: nothing of a letter one of whose sections it will
+            // not give, every other letter's as asked, and NO at the end.
+            guard asked.isDisjoint(with: found.refused) else {
+                refused = true
+                continue
+            }
             var stored = found
             let seq = position + 1
             var wire = Server.Wire()
@@ -1879,7 +1990,11 @@ private extension ScriptedIMAPServer.State {
             for line in lines { r.wire.data.append(line.line) }
         }
         announce(on: id, expunging: false, into: &r)
-        r.ok("Success")
+        if refused {
+            r.no("Some messages could not be FETCHed (Failure)")
+        } else {
+            r.ok("Success")
+        }
     }
 
     /// The news of every mark `storeElsewhere` has changed that connection

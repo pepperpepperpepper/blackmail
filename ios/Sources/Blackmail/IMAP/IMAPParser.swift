@@ -1078,8 +1078,13 @@ enum IMAPParser {
                 // 3 being a message/rfc822 makes its first part 3.1.
                 let innerIsMultipart = inner.first?.isList == true
                 let innerPath = innerIsMultipart ? path : (path.isEmpty ? "1" : "\(path).1")
-                part.children.append(parseBodyStructure(inner, line, path: innerPath,
-                                                        depth: depth + 1))
+                var body = parseBodyStructure(inner, line, path: innerPath, depth: depth + 1)
+                // A body of one part is 3.1 here, as `MIMEDecoder` numbers
+                // it for a letter fetched whole, and asked for as 3.TEXT,
+                // the name Gmail serves it by (`MIMEPart.fetchSection`,
+                // B-114).
+                body.isMessageText = !innerIsMultipart
+                part.children.append(body)
             }
             next += 1
             part.lines = at(next)?.int(line)

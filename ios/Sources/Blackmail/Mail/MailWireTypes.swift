@@ -284,6 +284,13 @@ struct MIMEPart {
     var encoding: String = "7bit"        // lowercased
     var size: Int?
     var lines: Int?
+    /// Whether this part is the body of a message/rfc822 part, a letter
+    /// forwarded inline or as a file, when that body is one part and not
+    /// a multipart: its `section` is "2.1" under the letter's 2, and on
+    /// the wire it is asked for as "2.TEXT" (`fetchSection`). Set by
+    /// `IMAPParser` from a BODYSTRUCTURE. A part read from a letter's own
+    /// bytes is never fetched by its section, and leaves it false (B-114).
+    var isMessageText = false
     var disposition: String?             // "inline" / "attachment", lowercased
     var dispositionParameters: [String: String] = [:]
     var children: [MIMEPart] = []
@@ -292,6 +299,27 @@ struct MIMEPart {
     /// part can be fetched on its own with `BODY[1.2]` rather than pulling the
     /// whole message down to reach one attachment.
     var section: String = "1"
+
+    /// The name this part's bytes are asked for by, `BODY.PEEK[<name>]`:
+    /// its `section`, but for the one-part body of a message/rfc822
+    /// (`isMessageText`) the letter's TEXT, "2.TEXT" for the body numbered
+    /// 2.1.
+    ///
+    /// RFC 3501 gives that body both names, and Gmail serves only the
+    /// second: a FETCH asking BODY[2.1] there is answered "NO Some
+    /// messages could not be FETCHed", with nothing of the other parts it
+    /// asks for, and BODY[2.TEXT] with the same bytes. Seen on the test
+    /// iPad on 2026-10-22: a letter too large to fetch whole that forwards
+    /// a plain letter inline could not be opened at all, and the rows whose
+    /// previews were asked for with a lone forward's had none. Everything
+    /// else goes by `section`, the app's own numbering, which a letter
+    /// fetched whole and decoded on the iPad numbers the same: reply,
+    /// forward, a file's row and a part a kept copy names (B-114).
+    var fetchSection: String {
+        guard isMessageText else { return section }
+        guard let dot = section.lastIndex(of: ".") else { return "TEXT" }
+        return String(section[..<dot]) + ".TEXT"
+    }
 
     /// The ENVELOPE of the letter a message/rfc822 part holds, as its
     /// BODYSTRUCTURE carries it: the header lines of a letter forwarded
