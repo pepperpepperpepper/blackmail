@@ -348,7 +348,8 @@ final class MessageListViewController: UITableViewController {
     /// flicking through.
     ///
     /// With `letter`, the row that carries it is the one put back where it
-    /// was, if he could see it (`ListPlace.landing(in:holding:)`, B-117).
+    /// was, if he could see it, or joined by newer mail, the day's next row
+    /// in its place (`ListPlace.landing(in:holding:)`, B-117, B-118).
     @MainActor
     @discardableResult
     private func scroll(to place: ListPlace, in threads: [MessageThread],
@@ -1491,11 +1492,11 @@ final class MessageListViewController: UITableViewController {
                                   at: .top, animated: false)
         }
         // And kept there as the pages above come, the first asked for as
-        // it lands (B-094): a reply on one of them takes its row up the
-        // list, and the day's first letter went out of sight 0.14 s after
-        // it was drawn (`LandedLetter`, B-117). Held by the letter that
-        // heads it now. The window brings the page above it, so a reply
-        // among the next fifty is in its row from the first frame
+        // it lands (B-094), by the letter that heads it (`LandedLetter`,
+        // B-117). A reply on one of them takes the row up the list, dated
+        // as the reply, and the day's next row comes into its place
+        // (B-118). The window brings the page above it, so a reply among
+        // the next fifty is in its row from the first frame
         // (`PageWindow.jumpWindow`).
         landed.landed(on: landedRow.map { threads[$0].id })
 
@@ -1653,8 +1654,9 @@ final class MessageListViewController: UITableViewController {
             // offset fix would land a frame late and visibly jump.
             //
             // The row a jump opened on, while he has not moved the list, is
-            // the row held, by its letter: a reply on this page joins it and
-            // would take it up out of sight (`LandedLetter`, B-117, B-118).
+            // the row held, by its letter; a reply on this page joins it and
+            // takes it up the list, and the day's next row comes into its
+            // place (`LandedLetter`, B-117, B-118).
             let move = self.landed.move(forPageAboveFrom: self.place())
             UIView.performWithoutAnimation { self.regroup(to: move) }
             self.loadPreviews(for: fresh)

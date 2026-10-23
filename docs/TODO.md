@@ -5139,47 +5139,71 @@ this host. Ordered by value, not by size.
       "Library during" (14735). "Showing March 21, 2018". The page above,
       14793 to 14842, joins Blair Notreal's conversation (14805, 28 March),
       which is out of sight up the list: nothing in sight moves.
-      4. *23 April 2019, a reply on the page asked as the day lands:* Ellis
-      Ersatz, 23/04/19, "Weather friend send great" (18944, 4.59 am), its
-      own row, no mark, over Hayden Pseudo, 22/04/19, "Student write"
-      (18943). "Showing April 23, 2019". When the page above, 19005 to
-      19054, is answered, its reply 19024 joins the row, and the row stays
-      on top as "Re: Weather friend send great", Ellis Ersatz, 28/04/19,
-      with the mark, the rows of 28 April under it (Museum Members, "During
-      short", 19023): B-118's Not covered, the hold kept. The frames either
-      side written down.
-      5. *10 March 2014:* Kai Placeholder, 10/03/14, "Cousin library into
+      4. *23 April 2019, a reply on the page asked as the day lands:* in the
+      first frame Ellis Ersatz, 23/04/19, "Weather friend send great"
+      (18944, 4.59 am), its own row, no mark, over Hayden Pseudo, 22/04/19,
+      "Student write" (18943). "Showing April 23, 2019". When the page
+      above, 19005 to 19054, is answered, its reply 19024 joins the row,
+      which goes up the list among the rows of 28 April as "Re: Weather
+      friend send great", Ellis Ersatz, 28/04/19, with the mark, and Quinn
+      Doe, 23/04/19, "Young listen long video" (18945, 6.39 am) comes into
+      the top place, over 18943; "Showing April 23, 2019" still. Not the
+      rows of 28 April on top (B-117's hold, which B-118's first build
+      kept). The frames either side written down, and how long 18944 was
+      on top.
+      5. *27 March 2014, the day's first three letters each answered later
+      in a conversation of its own:* Sam Testa, 27/03/14, "Know never trip"
+      (3316, 9.46 am), no mark, on top; under it Photo Prints, 26/03/14,
+      "Notes from the hall" (3312); above it Quinn Madeup, 27/03/14,
+      "Forget dinner neighbor weekend terrible small" (3318). "Showing
+      March 27, 2014". Reese Example's, Remy Testa's and Noel Notreal's
+      conversations, 02/04/14, 31/03/14 and 29/03/14, with the mark, up the
+      list; not Remy Testa's on top. The page above, 3374 to 3423, joins
+      nothing in sight.
+      6. *10 March 2014:* Kai Placeholder, 10/03/14, "Cousin library into
       drive" (3238, 3.43 am), over Jordan Imaginary, 09/03/14 (3237), as
       before: his reply of 13 March is in Sent Mail, not in the list.
-      6. *Sunday 25 May 2014, no mail:* Harper Mock, 26/05/14, "Sister
+      7. *Sunday 25 May 2014, no mail:* Harper Mock, 26/05/14, "Sister
       forget library perhaps" (3613, 6.07 am), over Alex Imaginary,
       24/05/14, "Picture think" (3612). "Showing May 26, 2014", as before.
-      7. *Friday 8 June 2012, every letter of the day answered later:* its
+      8. *Friday 8 June 2012, every letter of the day answered later:* its
       one letter, Peyton Standin's "From train read story" (777, 6.20 pm),
       was answered on the 10th (782). Blair Ipsum, 09/06/12, "By before
       fine around again" (778, 5.22 am) on top, under it Remy Lorem,
       07/06/12 (776). "Showing June 9, 2012", as for a day with no mail.
       Peyton Standin's conversation, 10/06/12, with the mark, up the list.
-      8. *Sent Mail, 2 June 2012:* his one letter that day, to Harper Mock
+      9. *Sent Mail, 2 June 2012:* his one letter that day, to Harper Mock
       (533), was followed by his of 6 June (536): on top "Haydn — Aria",
       05/06/12 (534), to himself, over "Purcell — Concerto", 31/05/12
       (532). "Showing June 5, 2012". Then *15 May 2019:* the letter to
       Emery Pseudo, 15/05/19 (8324), on top as before.
-      9. *All Mailboxes* from the Inbox, 10 March 2014: All Mail opens on
+      10. *All Mailboxes* from the Inbox, 10 March 2014: All Mail opens on
       his own "Opera house - Wikipedia", 10/03/14 (4416, 3.36 am), as
       before; Kai Placeholder's letter of 3.43 am is up the list in a
       conversation of 13/03/14 with his reply, which in All Mail is a
       letter of the list.
-      10. *The ends:* 1 January 2011 opens on Garden Club News, 04/01/12
+      11. *All Mailboxes, 8 April 2021, the row on top and the one under
+      it both answered on the page asked as the day lands:* in the first
+      frame Tatum Pseudo, 08/04/21, "Re: Book call to and lunch early"
+      (40083, 1.30 am), its own row, over his reply to Parker Notreal,
+      07/04/21, "Re: Evening very a picture list appointment" (40082),
+      with the mark. "Showing April 8, 2021". When the page above, 40144 to
+      40193, is answered, both rows go up the list, joined by 40158 and
+      40153, and Library Events, 08/04/21, "On weather" (40084, 3.15 am)
+      comes on top, over his "Re: City sister son send call yesterday" to
+      Hayden Ipsum, 07/04/21 (40081), with the mark; Reese Standin,
+      08/04/21 (40085), above it, not on top. The frames either side
+      written down.
+      12. *The ends:* 1 January 2011 opens on Garden Club News, 04/01/12
       (578), "Showing January 4, 2012"; 14 August 2026 on Wren Standin,
       14/08/26 (57710); as before.
-      11. *Organize by Thread off,* 1 June 2012: Harper Mock, 01/06/12
+      13. *Organize by Thread off,* 1 June 2012: Harper Mock, 01/06/12
       (762), on top, as before; then the switch on again.
-      12. *Two panes,* 1 and 7 again, then three panes back.
-      13. *VoiceOver,* if it is to be run: 1 June 2012 once more, where
+      14. *Two panes,* 1, 4 and 8 again, then three panes back.
+      15. *VoiceOver,* if it is to be run: 1 June 2012 once more, where
       VoiceOver is after Go written down; if on a row of the list, the row
       on top (763). Then VoiceOver off.
-      14. *Put back:* the jump to 20 October last, "No mail on or after
+      16. *Put back:* the jump to 20 October last, "No mail on or after
       October 20", so the day and scope remembered are as found.
 ## Blocked on the owner
 
@@ -5348,9 +5372,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       oldest row dated on or after the day, the days after above and the
       days before below, a conversation begun on the day and answered
       later up where its reply puts it; with every letter of the day
-      answered later, the oldest row after it, "Showing" that day. With
-      Organize by Thread off as before. Not yet seen on the iPad (B-118's
-      check, above).*
+      answered later, the oldest row after it, "Showing" that day; a
+      reply that comes only with a page after the first frame takes the
+      row on top up the list, and the day's next row comes into its place.
+      With Organize by Thread off as before. Not yet seen on the iPad
+      (B-118's check, above).*
 - [ ] **Paper** (B-110): may a check print up to four sheets on a real
       AirPrint printer? It would run B-063's print check from Quick Look
       too. Until then no paper: every print was judged on the panel's

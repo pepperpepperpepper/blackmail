@@ -71,6 +71,21 @@ final class GoToDateRowTests: XCTestCase {
             (3237, "2014-03-09T06:11", "Jordan Imaginary", "During photo", nil),
             (3238, "2014-03-10T03:43", "Kai Placeholder", "Cousin library into drive", 3238),
             (3239, "2014-03-10T04:28", "Pharmacy", "Coming up the garden", nil),
+            (3312, "2014-03-26T17:58", "Photo Prints", "Notes from the hall", nil),
+            (3313, "2014-03-27T04:40", "Reese Example", "Lovely large yesterday on great dinner", 3313),
+            (3314, "2014-03-27T04:42", "Remy Testa", "Hope never cousin letter", 3314),
+            (3315, "2014-03-27T09:14", "Noel Notreal", "Large train spring idea", 3315),
+            (3316, "2014-03-27T09:46", "Sam Testa", "Know never trip", nil),
+            (3317, "2014-03-27T10:37", "Peyton Fictive", "Visit to hope brother in without", 3317),
+            (3318, "2014-03-27T11:45", "Quinn Madeup", "Forget dinner neighbor weekend terrible small", nil),
+            (3322, "2014-03-28T03:27", "Reese Mock", "Read note out", 3322),
+            (3327, "2014-03-29T01:25", "Noel Notreal", "Re: Large train spring idea", 3315),
+            (3331, "2014-03-30T04:48", "Peyton Fictive", "Re: Visit to hope brother in without", 3317),
+            (3336, "2014-03-30T23:23", "Reese Mock", "Re: Read note out", 3322),
+            (3337, "2014-03-31T07:24", "Remy Testa", "Re: Hope never cousin letter", 3314),
+            (3339, "2014-03-31T16:50", "Reese Example", "Re: Lovely large yesterday on great dinner", 3313),
+            (3341, "2014-04-01T00:13", "Peyton Fictive", "Re: Visit to hope brother in without", 3317),
+            (3354, "2014-04-02T16:57", "Reese Example", "Re: Lovely large yesterday on great dinner", 3313),
             (3612, "2014-05-24T18:25", "Alex Imaginary", "Picture think", 3612),
             (3613, "2014-05-26T06:07", "Harper Mock", "Sister forget library perhaps", nil),
             (3614, "2014-05-26T07:23", "Museum Members", "Again nice pharmacy news time", nil),
@@ -146,7 +161,10 @@ final class GoToDateRowTests: XCTestCase {
     /// All Mail: every letter copied in, from 656 to 84,085, the Inbox's and
     /// his, in the order written. Kai Placeholder's letter of 10 March 2014,
     /// 3238 in the Inbox, is 4417 here, and his reply of 13 March, which is
-    /// in Sent Mail and not in the Inbox, is 4441, in its conversation.
+    /// in Sent Mail and not in the Inbox, is 4441, in its conversation. On 7
+    /// and 8 April 2021 his replies to Hayden Ipsum and Parker Notreal, 40081
+    /// and 40082, and Tatum Pseudo's 40083, each in a conversation answered
+    /// on the 10th.
     private static let allMail: Folder = {
         let own = Array(UInt32(1)...73)
         let known: [Planned] = [
@@ -155,6 +173,21 @@ final class GoToDateRowTests: XCTestCase {
             (4417, "2014-03-10T03:43", "Kai Placeholder", "Cousin library into drive", 4417),
             (4418, "2014-03-10T04:28", "Pharmacy", "Coming up the garden", nil),
             (4441, "2014-03-13T03:59", "Kai Placeholder", "Re: Cousin library into drive", 4417),
+            (40066, "2021-04-07T01:23", "Hayden Ipsum", "Re: City sister son send call yesterday", 40028),
+            (40072, "2021-04-07T09:11", "Parker Notreal", "Evening very a picture list appointment", 40072),
+            (40076, "2021-04-07T12:37", "Hayden Ipsum", "Re: City sister son send call yesterday", 40028),
+            (40078, "2021-04-07T14:54", "Kai Surrogate", "Re: News daughter tomorrow", 39981),
+            (40079, "2021-04-07T18:01", "Oakley Sample", "Yesterday dinner", nil),
+            (40080, "2021-04-07T18:12", "Shay Placeholder", "Always the", nil),
+            (40081, "2021-04-07T18:54", "Hayden Ipsum", "Re: City sister son send call yesterday", 40028),
+            (40082, "2021-04-07T20:01", "Parker Notreal", "Re: Evening very a picture list appointment", 40072),
+            (40083, "2021-04-08T01:30", "Tatum Pseudo", "Re: Book call to and lunch early", 39999),
+            (40084, "2021-04-08T03:15", "Library Events", "On weather", nil),
+            (40085, "2021-04-08T03:53", "Reese Standin", "During grandchildren into old", nil),
+            (40089, "2021-04-08T05:40", "Kai Surrogate", "Re: News daughter tomorrow", 39981),
+            (40149, "2021-04-10T10:32", "Kai Surrogate", "Re: News daughter tomorrow", 39981),
+            (40153, "2021-04-10T15:58", "Parker Notreal", "Re: Evening very a picture list appointment", 40072),
+            (40158, "2021-04-10T23:53", "Tatum Pseudo", "Re: Book call to and lunch early", 39999),
         ]
         return Folder(mailboxID: "[Gmail]/All Mail", listing: own + Array(656...84_085),
                       own: Set(own), known: Dictionary(uniqueKeysWithValues: known.map { ($0.uid, $0) }))
@@ -340,6 +373,36 @@ final class GoToDateRowTests: XCTestCase {
         XCTAssertEqual(top.uid, 18944)
         XCTAssertEqual(top.shows, "2019-04-23")
         XCTAssertEqual(top.under, 18943)
+    }
+
+    /// 27 March 2014, the day's first three letters each answered later in
+    /// a conversation of its own: Reese Example's 3313 by 3339 and 3354,
+    /// Remy Testa's 3314 by 3337 on the 31st, Noel Notreal's 3315 by 3327;
+    /// and 3317, after 3316, by 3331 and 3341. The list opens on Sam Testa's
+    /// 3316, 9.46 am, the oldest row dated the 27th, over Photo Prints of
+    /// the 26th, 3312, with Quinn Madeup's 3318 above it; not on the row of
+    /// the first letter not in the landed letter's conversation, 3314's,
+    /// dated the 31st, up the list. Every row above it is dated on or after
+    /// the 27th, and every row below it before.
+    func testADayWhoseFirstLettersAreEachAnsweredInTheirOwnConversationsOpensOnItsOldestRow() throws {
+        let opened = jump(to: "2014-03-27", in: Self.inbox, landingOn: 3313)
+        XCTAssertEqual(uid(opened.window.messages[opened.window.anchorIndex].id), 3313)
+        let top = try opening(opened)
+        XCTAssertEqual(top.uid, 3316, "not 3337, the conversation of 3314")
+        XCTAssertEqual(top.shows, "2014-03-27")
+        XCTAssertEqual(top.under, 3312)
+        let opens = try XCTUnwrap(opened.opened).row
+        XCTAssertEqual(opened.rows[opens - 1].id, "7/3318")
+        let answered: [(UInt32, [UInt32])] = [(3313, [3354, 3339, 3313]), (3314, [3337, 3314]),
+                                              (3315, [3327, 3315]), (3317, [3341, 3331, 3317])]
+        for (first, conversation) in answered {
+            let carrying = try XCTUnwrap(row(holding: first, in: opened.rows))
+            XCTAssertEqual(carrying.messages.map { uid($0.id) }, conversation)
+            let at = try XCTUnwrap(opened.rows.firstIndex { $0.id == carrying.id })
+            XCTAssertLessThan(at, opens, "\(first) up where its reply puts it")
+        }
+        XCTAssertTrue(opened.rows[..<opens].allSatisfy { day($0.date) >= "2014-03-27" })
+        XCTAssertTrue(opened.rows[(opens + 1)...].allSatisfy { day($0.date) < "2014-03-27" })
     }
 
     /// 10 March 2014, whose first letter was not answered in the Inbox, and
@@ -554,12 +617,17 @@ final class GoToDateRowTests: XCTestCase {
     // MARK: - Held until he moves the list
 
     /// The row opened on is the row held as the pages above come (B-117),
-    /// by the letter heading it. On 23 April 2019 the page asked as the day
-    /// lands, 19005 to 19054, brings 19024, the reply to 18944: held, the
-    /// row, now its conversation's, dated 28 April, stays at the top where
-    /// it was until he moves the list (B-118, Not covered), and the rows
-    /// under it are those under 19024's place.
-    func testAPageAboveThatAnswersTheRowOpenedOnKeepsItWhereItIs() throws {
+    /// by the letter heading it, and a reply on one of them to a letter in
+    /// it takes it up the list, dated as the reply, as Mail's list has it:
+    /// the day's next row comes into its place (B-118). On 23 April 2019 the
+    /// page asked as the day lands, 19005 to 19054, brings 19024, the reply
+    /// to 18944, on 28 April: Quinn Doe's 18945 of the 23rd, 6.39 am, comes
+    /// into the top place, over 18943 of the 22nd, and the conversation is
+    /// up among the rows of the 28th. Held where it was, as B-117 had it,
+    /// the row stayed on top, dated 28 April, over 19023 and the rest of the
+    /// 28th. A page after that holds nothing: 18944 is out of his sight,
+    /// and were its row in sight, the letter no longer heads it.
+    func testAPageAboveThatAnswersTheRowOpenedOnSendsItUpAndTheDaysNextRowTakesItsPlace() throws {
         let opened = jump(to: "2019-04-23", in: Self.inbox, landingOn: 18944)
         let at = try XCTUnwrap(opened.opened)
         var landed = LandedLetter()
@@ -574,28 +642,85 @@ final class GoToDateRowTests: XCTestCase {
         let after = MessageThread.rows(for: page.map { letter($0, in: Self.inbox) } + opened.window.messages,
                                        grouped: true)
         let held = try XCTUnwrap(place.landing(in: after, holding: "7/18944"))
-        XCTAssertEqual(after[held.row].messages.map { uid($0.id) }, [19024, 18944])
-        XCTAssertEqual(held.offset, 120)
-        XCTAssertEqual(day(after[held.row].date), "2019-04-28")
-        XCTAssertEqual(after[held.row + 1].id, "7/19023")
+        let top = row(at: 120, by: held)
+        XCTAssertEqual(after[top].id, "7/18945", "the day's next row, not the conversation")
+        XCTAssertEqual(day(after[top].date), "2019-04-23")
+        XCTAssertEqual(after[row(at: 216, by: held)].id, "7/18943")
+        let conversation = try XCTUnwrap(after.firstIndex { $0.messages.contains { $0.id == "7/18944" } })
+        XCTAssertEqual(after[conversation].messages.map { uid($0.id) }, [19024, 18944])
+        XCTAssertEqual(day(after[conversation].date), "2019-04-28")
+        XCTAssertLessThan(conversation, top, "up the list")
+        // Here the rows he could see alone put the same rows on the pane (B-042).
+        XCTAssertEqual(row(at: 120, by: try XCTUnwrap(place.landing(in: after))), top)
+
+        XCTAssertEqual(landed.move(forPageAboveFrom: landedPlace(at: top, in: after)), .stay)
+        XCTAssertNil(landed.letter)
+        landed.landed(on: "7/18944")
+        XCTAssertEqual(landed.move(forPageAboveFrom: landedPlace(at: conversation, in: after)), .stay,
+                       "in sight, headed by its reply")
+    }
+
+    /// All Mail, 8 April 2021: the list opens on the day's first letter,
+    /// Tatum Pseudo's 40083, 1.30 am, its own row, over his reply of the 7th
+    /// to Parker Notreal, 40082. The page asked as the day lands, 40144 to
+    /// 40193, answers both, 40158 and 40153, and both rows go up the list.
+    /// The day's next row, Library Events' 40084, 3.15 am, comes into the top
+    /// place, and his letter to Hayden Ipsum of the 7th, 40081, closes up
+    /// under it: the oldest row dated the 8th over the newest before it,
+    /// where Mail's list shows the day. By the rows he could see alone
+    /// (B-042), 40081 would stay where it was, a row lower, and 40085 come
+    /// down on top.
+    func testAPageAboveThatAnswersTheRowOpenedOnAndTheOneUnderItStillOpensOnTheDaysOldestRow() throws {
+        let opened = jump(to: "2021-04-08", in: Self.allMail, landingOn: 40083)
+        XCTAssertEqual(opened.window.messages.first.map { uid($0.id) }, 40143)
+        XCTAssertEqual(opened.window.messages.last.map { uid($0.id) }, 40044)
+        let top = try opening(opened)
+        XCTAssertEqual(top.uid, 40083)
+        XCTAssertEqual(top.shows, "2021-04-08")
+        XCTAssertEqual(top.under, 40082)
+        let at = try XCTUnwrap(opened.opened).row
+        let place = landedPlace(at: at, in: opened.rows)
+        var landed = LandedLetter()
+        landed.landed(on: opened.rows[at].id)
+        XCTAssertEqual(landed.move(forPageAboveFrom: place), .holding("7/40083"))
+
+        let page = PageWindow.newer(than: 40143, in: Self.allMail.listing, limit: 50)
+        XCTAssertEqual(page.first, 40193)
+        XCTAssertEqual(page.last, 40144)
+        let after = MessageThread.rows(for: page.map { letter($0, in: Self.allMail) } + opened.window.messages,
+                                       grouped: true)
+        let held = try XCTUnwrap(place.landing(in: after, holding: "7/40083"))
+        XCTAssertEqual(after[row(at: 120, by: held)].id, "7/40084")
+        XCTAssertEqual(day(after[row(at: 120, by: held)].date), "2021-04-08")
+        XCTAssertEqual(after[row(at: 216, by: held)].id, "7/40081", "closed up under it")
+        XCTAssertEqual(after[row(at: 24, by: held)].id, "7/40085", "under the band")
+        XCTAssertEqual(row(holding: 40083, in: after)?.messages.map { uid($0.id) }, [40158, 40083])
+        XCTAssertEqual(row(holding: 40082, in: after)?.messages.map { uid($0.id) }, [40153, 40082, 40072])
+
+        let rows = try XCTUnwrap(place.landing(in: after))
+        XCTAssertEqual(after[row(at: 312, by: rows)].id, "7/40081", "by the rows alone, where it was")
+        XCTAssertEqual(after[row(at: 120, by: rows)].id, "7/40085", "and a newer row of the day on top")
     }
 
     /// The letter held is the one heading the row opened on, not the one
-    /// landed on. Were 763 answered on the page above 1 June's window: held
-    /// by 763, its row stays at the top where it was; held by 762, the
-    /// letter landed on, which is up the list out of his sight, nothing is
-    /// held, the row joined is passed over and 764, the row above it, comes
-    /// down into the top place.
+    /// landed on. 1 June 2012 opened on 763, the list left with two rows in
+    /// sight above it, 765 and 764, as VoiceOver's own scrolling can leave
+    /// it, which does not let it go; were 764 answered on the page above:
+    /// held by 763, its row stays where it was on the pane, 312 points down,
+    /// and 765 comes down into 764's place; held by 762, the letter landed
+    /// on, which is up the list out of his sight, nothing is held, 765 stays
+    /// where it is and 763 goes up a row.
     func testTheRowOpenedOnIsHeldByItsOwnLetterNotTheLetterLandedOn() throws {
         let opened = jump(to: "2012-06-01", in: Self.inbox, landingOn: 762)
         let at = try XCTUnwrap(opened.opened)
-        let place = landedPlace(at: at.row, in: opened.rows)
+        let place = landedPlace(at: at.row, in: opened.rows, under: 2)
+        XCTAssertEqual(place.seen.prefix(4).map { uid($0.id) }, [765, 764, 763, 761])
         let page = PageWindow.newer(than: uid(opened.window.messages[0].id),
                                     in: Self.inbox.listing, limit: 50)
         XCTAssertEqual(page.last, 823)
         let answered = page.map { uid -> MessageSummary in
             var summary = letter(uid, in: Self.inbox)
-            if uid == 840 { summary.threadID = "763" }
+            if uid == 840 { summary.threadID = "764" }
             return summary
         }
         let after = MessageThread.rows(for: answered + opened.window.messages, grouped: true)
@@ -607,24 +732,34 @@ final class GoToDateRowTests: XCTestCase {
         }
         XCTAssertEqual(heading, "7/763")
         let held = try XCTUnwrap(place.landing(in: after, holding: heading))
-        XCTAssertEqual(after[held.row].messages.map { uid($0.id) }, [840, 763])
-        XCTAssertEqual(held.offset, 120)
+        XCTAssertEqual(after[row(at: 312, by: held)].id, "7/763", "where it was")
+        XCTAssertEqual(after[row(at: 216, by: held)].id, "7/765", "765 down into 764's place")
 
         var byAnchor = LandedLetter()
         byAnchor.landed(on: "7/762")
         XCTAssertEqual(byAnchor.move(forPageAboveFrom: place), .stay, "762 is out of his sight")
         let rows = try XCTUnwrap(place.landing(in: after))
-        XCTAssertEqual(after[rows.row].id, "7/761")
-        XCTAssertEqual(after[rows.row - 1].id, "7/764", "764 comes down into the top place")
+        XCTAssertEqual(after[row(at: 120, by: rows)].id, "7/765")
+        XCTAssertEqual(after[row(at: 216, by: rows)].id, "7/763", "763 up a row")
     }
 
     /// Where the list is as a jump opens on `row`: it the first row he can
     /// see, 120 points down the pane, and five below it, a row apart; the
-    /// row above it just out of sight under the band.
-    private func landedPlace(at row: Int, in rows: [MessageThread]) -> ListPlace {
-        ListPlace(rows: rows, visible: (0..<6).map { (row + $0, 120 + Double($0) * 96) }
-                    .filter { rows.indices.contains($0.0) },
-                  above: row > 0 ? (row - 1, 24) : nil, selected: [])
+    /// row above it just out of sight under the band. With `under` rows he
+    /// can see above it, as VoiceOver's own scrolling can leave the list,
+    /// the first of those 120 points down and the row that many rows lower.
+    private func landedPlace(at row: Int, in rows: [MessageThread], under: Int = 0) -> ListPlace {
+        let first = row - under
+        return ListPlace(rows: rows, visible: (0..<6).map { (first + $0, 120 + Double($0) * 96) }
+                            .filter { rows.indices.contains($0.0) },
+                         above: first > 0 ? (first - 1, 24) : nil, selected: [])
+    }
+
+    /// The row `offset` points down the pane, the list put where `landing`
+    /// says, its rows a row apart, 96 points, as `landedPlace` has them:
+    /// what he sees there, whichever row the landing names.
+    private func row(at offset: Double, by landing: (row: Int, offset: Double)) -> Int {
+        landing.row + Int(((offset - landing.offset) / 96).rounded())
     }
 
     // MARK: - Over the wire

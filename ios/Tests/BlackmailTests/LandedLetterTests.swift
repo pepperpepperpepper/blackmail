@@ -13,10 +13,13 @@ import XCTest
 ///
 /// Now the window's FETCH brings the page above too (`PageWindow.jumpWindow`),
 /// so the row that carries the letter is its conversation's from the first
-/// frame; and while he has not moved the list, a page above holds that row
-/// where it is, by the letter (`LandedLetter`, `ListPlace.landing(in:holding:)`).
-/// The arithmetic and the grouping are the real ones; the controller's half
-/// is read from its source.
+/// frame, up the list, and the jump opens on the day's next row (B-118);
+/// and while he has not moved the list, a page above holds the row opened
+/// on where it is, by the letter heading it (`LandedLetter`,
+/// `ListPlace.landing(in:holding:)`). A reply on such a page to a letter in
+/// it takes it up the list, and the day's next row comes into its place, as
+/// Mail's list shows the day (B-118). The arithmetic and the grouping are
+/// the real ones; the controller's half is read from its source.
 final class LandedLetterTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -65,6 +68,13 @@ final class LandedLetterTests: XCTestCase {
                          above: first > 0 ? (first - 1, 24) : nil, selected: [])
     }
 
+    /// The row `offset` points down the pane, the list put where `landing`
+    /// says, its rows a row apart, 96 points, as `landedPlace` has them:
+    /// what he sees there, whichever row the landing names.
+    private func row(at offset: Double, by landing: (row: Int, offset: Double)) -> Int {
+        landing.row + Int(((offset - landing.offset) / 96).rounded())
+    }
+
     /// The size test's Inbox, by UID, 1 to 57,209.
     private let inbox: [UInt32] = Array(1...57_209)
 
@@ -73,7 +83,10 @@ final class LandedLetterTests: XCTestCase {
     /// The window alone was 723 to 772, as on the iPad, its row for 762 a
     /// row of its own. The jump's window is that and the page above it,
     /// 723 to 822, in one: 762 is the 61st row from the top, and its row is
-    /// its conversation's, headed by 773, dated 5 June, from the first frame.
+    /// its conversation's, headed by 773, dated 5 June, from the first frame,
+    /// and the list opens on 763, the day's next letter (B-118). The page
+    /// above coming after the window alone, the row held, 762's, goes up
+    /// with its reply, and 763 comes into its place: the same row.
     func testTheJumpsWindowHasThePageAboveSoTheLettersRowIsItsConversationsFromTheStart() throws {
         let alone = PageWindow.window(around: 762, in: inbox, limit: 50)
         XCTAssertEqual(alone.uids.first, 772)
@@ -94,13 +107,19 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(first[now].id, "7/773")
         XCTAssertEqual(first[now].messages.map(\.id), ["7/773", "7/762"])
         XCTAssertEqual(first[now].newest.subject, "Re: Watch and winter evening weather lunch")
-        // The row a window holding the conversation whole lands on, and the
+        // The row a window holding the conversation whole opens on, and the
         // one the hold puts there when the page above comes after a window
         // without it: the same row, with the same rows below it.
+        let window = MessageWindow(messages: jump.uids.map { letter($0) }, anchorIndex: jump.anchorIndex,
+                                   reachedNewest: false, reachedOldest: false,
+                                   landedOn: letter(762).date,
+                                   dayStart: Date(timeIntervalSince1970: 1_338_508_800))
+        let opens = try XCTUnwrap(ListOpening.dayRow(in: first, for: window)).row
+        XCTAssertEqual(first[opens].id, "7/763")
         let held = try XCTUnwrap(try landedPlace(on: "7/762", in: before)
             .landing(in: first, holding: "7/762"))
-        XCTAssertEqual(held.row, now)
-        XCTAssertEqual(held.offset, 120)
+        XCTAssertEqual(row(at: 120, by: held), opens)
+        XCTAssertLessThan(now, opens, "the conversation up the list")
     }
 
     /// The page above follows on from the jump's window, and the page below
@@ -160,11 +179,13 @@ final class LandedLetterTests: XCTestCase {
     // MARK: - A page above, landing
 
     /// The case on the iPad, the page above coming after a window without it.
-    /// By the rows he could see, the letter's row, joined by its reply, is
-    /// passed over, and the row above it comes down into its place: 763 on
-    /// top, the day's first letter out of sight. Held by the letter, the row
-    /// that carries it goes where it was, the conversation's.
-    func testAReplyOnThePageAboveTakesTheLandedRowWithItWhileItIsHeld() throws {
+    /// The reply joins the letter's row and takes it up the list, dated 5
+    /// June. By the rows he could see the row is passed over, and the row
+    /// above it comes down into its place: 763 on top, over 761. Held, the
+    /// same since B-118: the day's next letter in its place, where Mail's
+    /// list shows the day. On B-117 the row held stayed on top, the
+    /// conversation's, over the rows of 4 to 1 June.
+    func testAReplyOnThePageAboveTakesTheHeldRowUpAndTheDaysNextLetterComesIntoItsPlace() throws {
         let before = grouped(letters(723...772))
         let place = try landedPlace(on: "7/762", in: before)
         let after = grouped(letters(773...822) + letters(723...772))
@@ -175,35 +196,44 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(after[stayed.row - 1].id, "7/763", "and 763 come down onto the top place")
 
         let held = try XCTUnwrap(place.landing(in: after, holding: "7/762"))
-        XCTAssertEqual(after[held.row].messages.map(\.id), ["7/773", "7/762"])
-        XCTAssertEqual(held.offset, 120, "where the letter's row was")
-        XCTAssertEqual(after[held.row + 1].id, "7/772", "the rows of 4 to 1 June below it")
+        XCTAssertEqual(after[row(at: 120, by: held)].id, "7/763", "the day's next letter in its place")
+        XCTAssertEqual(after[row(at: 216, by: held)].id, "7/761")
+        let conversation = try XCTUnwrap(row(holding: "7/762", in: after))
+        XCTAssertEqual(after[conversation].messages.map(\.id), ["7/773", "7/762"])
+        XCTAssertLessThan(conversation, row(at: 120, by: held), "up the list")
     }
 
     /// A reply further up than the jump's window reaches, on the page above
-    /// it asked for as the day lands: the row is its conversation's already,
-    /// and the reply heads it now; held, it stays where it is.
-    func testAReplyOnTheNextPageUpKeepsTheRowWhereItIs() throws {
+    /// it asked for as the day lands, to the conversation of 762 and 773, up
+    /// the list out of his sight: the row the jump opened on, 763, is not
+    /// joined, and held, it stays where it is, 761 under it.
+    func testAReplyOnTheNextPageUpToAConversationUpTheListLeavesTheRowHeldWhereItIs() throws {
         func withReply(_ uid: UInt32) -> MessageSummary { letter(uid, in: uid == 840 ? "H" : nil) }
         let window = (723...822).reversed().map(withReply)
         let before = grouped(window)
-        let place = try landedPlace(on: "7/762", in: before)
+        let place = try landedPlace(on: "7/763", in: before)
         let after = grouped((823...872).reversed().map(withReply) + window)
 
-        let held = try XCTUnwrap(place.landing(in: after, holding: "7/762"))
-        XCTAssertEqual(after[held.row].messages.map(\.id), ["7/840", "7/773", "7/762"])
+        let held = try XCTUnwrap(place.landing(in: after, holding: "7/763"))
+        XCTAssertEqual(after[held.row].id, "7/763")
         XCTAssertEqual(held.offset, 120)
-        let stayed = try XCTUnwrap(place.landing(in: after))
-        XCTAssertNotEqual(after[stayed.row].id, "7/840", "passed over, by the rows alone")
+        XCTAssertEqual(after[held.row + 1].id, "7/761")
+        let conversation = try XCTUnwrap(row(holding: "7/762", in: after))
+        XCTAssertEqual(after[conversation].messages.map(\.id), ["7/840", "7/773", "7/762"])
     }
 
     /// The letter's row held at its own place on the pane, not at the first
     /// row he can see: two rows in sight above it, as VoiceOver's own
     /// scrolling can leave the list, which is not a drag and does not let
-    /// the letter go. Held, the row that carries it stays 312 points down,
-    /// its conversation's now, where it was; by the rows he could see, 764
-    /// stays at the top and 761 comes up into the letter's place. The same
-    /// with the window as a jump has it now, a reply on the page after it.
+    /// the letter go. A reply on the page above joins it and takes it up the
+    /// list, and the day's next letter, 763, comes into its place, 312 points
+    /// down, 761 under it, and the rows above down a row; by the rows he
+    /// could see, 764 stays at the top and 761 comes up into the letter's
+    /// place. And with the jump's window, the row it opens on, 763, two rows
+    /// under the top: a reply on the page after it to 764, a row above it in
+    /// sight, takes 764 up the list; held, 763 stays where it is, 312 points
+    /// down, and 765 comes down into 764's place; by the rows he could see,
+    /// 765 stays at the top and 763 goes up a row.
     func testTheLettersRowIsHeldWhereItIsNotWhereTheFirstRowInSightIs() throws {
         let before = grouped(letters(723...772))
         let place = try landedPlace(on: "7/762", in: before, under: 2)
@@ -212,25 +242,26 @@ final class LandedLetterTests: XCTestCase {
         let after = grouped(letters(773...822) + letters(723...772))
 
         let held = try XCTUnwrap(place.landing(in: after, holding: "7/762"))
-        XCTAssertEqual(after[held.row].messages.map(\.id), ["7/773", "7/762"])
-        XCTAssertEqual(held.offset, 312, "where the letter's row was, not the top row's 120")
+        XCTAssertEqual(after[row(at: 312, by: held)].id, "7/763",
+                       "the day's next letter in the letter's place, not the top row's")
+        XCTAssertEqual(after[row(at: 408, by: held)].id, "7/761")
+        XCTAssertEqual(after[row(at: 216, by: held)].id, "7/764", "the rows above down a row")
         let stayed = try XCTUnwrap(place.landing(in: after))
         XCTAssertEqual(after[stayed.row].id, "7/764", "by the rows, 764 held")
         XCTAssertEqual(stayed.offset, 120)
-        XCTAssertEqual(after[stayed.row + 2].id, "7/761", "and 761 come up into the letter's place")
-        XCTAssertNotEqual(stayed.row, held.row)
+        XCTAssertEqual(after[row(at: 312, by: stayed)].id, "7/761", "and 761 come up into the letter's place")
 
-        func withReply(_ uid: UInt32) -> MessageSummary { letter(uid, in: uid == 840 ? "H" : nil) }
+        func withReply(_ uid: UInt32) -> MessageSummary { letter(uid, in: uid == 840 ? "T764" : nil) }
         let window = (723...822).reversed().map(withReply)
-        let jumped = try landedPlace(on: "7/762", in: grouped(window), under: 2)
-        XCTAssertEqual(jumped.seen[2].letters, ["7/773", "7/762"])
+        let jumped = try landedPlace(on: "7/763", in: grouped(window), under: 2)
+        XCTAssertEqual(jumped.seen.prefix(3).map(\.id), ["7/765", "7/764", "7/763"])
         let next = grouped((823...872).reversed().map(withReply) + window)
-        let kept = try XCTUnwrap(jumped.landing(in: next, holding: "7/762"))
-        XCTAssertEqual(next[kept.row].messages.map(\.id), ["7/840", "7/773", "7/762"])
-        XCTAssertEqual(kept.offset, 312)
+        let kept = try XCTUnwrap(jumped.landing(in: next, holding: "7/763"))
+        XCTAssertEqual(next[row(at: 312, by: kept)].id, "7/763")
+        XCTAssertEqual(next[row(at: 216, by: kept)].id, "7/765", "765 down into 764's place")
         let rows = try XCTUnwrap(jumped.landing(in: next))
-        XCTAssertEqual(next[rows.row].id, jumped.seen[0].id)
-        XCTAssertEqual(rows.offset, 120)
+        XCTAssertEqual(next[row(at: 120, by: rows)].id, "7/765")
+        XCTAssertEqual(next[row(at: 216, by: rows)].id, "7/763", "763 up a row")
     }
 
     /// Organize by Thread off: a reply joins nothing, the letter keeps its
@@ -272,8 +303,8 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(below[kept.row].id, "7/773")
         XCTAssertEqual(kept.offset, 120)
 
-        XCTAssertTrue(place.sees("7/762"))
-        XCTAssertFalse(place.sees("7/730"))
+        XCTAssertTrue(place.heads("7/773"))
+        XCTAssertFalse(place.heads("7/730"))
         let after = grouped(letters(823...872) + letters(723...822))
         let away = try XCTUnwrap(place.landing(in: after, holding: "7/730"))
         let rows = try XCTUnwrap(place.landing(in: after))
@@ -283,35 +314,43 @@ final class LandedLetterTests: XCTestCase {
 
     // MARK: - Held until he moves the list
 
-    /// Landed, a page above holds the letter's row while he can see it; a
-    /// page that comes with the letter out of his sight lets it go for good;
+    /// Landed, a page above holds the letter's row while he can see it
+    /// headed by the letter; a page that comes with the letter out of his
+    /// sight lets it go for good, and so does one that comes with it in a
+    /// row he can see that newer mail has joined, answered on a page before;
     /// he lets it go by moving the list; a tap on the letter's own row keeps
     /// it, a tap on another lets it go; a jump that found no row holds none.
     func testTheLetterIsHeldUntilHeMovesTheListOrItGoesOutOfSight() throws {
         let rows = grouped(letters(723...822))
-        let inSight = try landedPlace(on: "7/762", in: rows)
+        let inSight = try landedPlace(on: "7/763", in: rows)
         let elsewhere = try landedPlace(on: "7/730", in: rows)
 
         var landed = LandedLetter()
         XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .stay, "no jump, nothing held")
 
-        landed.landed(on: "7/762")
-        XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .holding("7/762"))
-        XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .holding("7/762"), "page after page")
+        landed.landed(on: "7/763")
+        XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .holding("7/763"))
+        XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .holding("7/763"), "page after page")
 
-        landed.tapped(rows[try XCTUnwrap(row(holding: "7/762", in: rows))])
-        XCTAssertEqual(landed.letter, "7/762", "a tap on its own row opens it where it is")
+        landed.tapped(rows[try XCTUnwrap(row(holding: "7/763", in: rows))])
+        XCTAssertEqual(landed.letter, "7/763", "a tap on its own row opens it where it is")
         landed.tapped(rows[try XCTUnwrap(row(holding: "7/761", in: rows))])
         XCTAssertNil(landed.letter, "a tap on another row is his")
         XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .stay)
 
-        landed.landed(on: "7/762")
+        landed.landed(on: "7/763")
         landed.letGo()
         XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .stay, "moved by him")
 
-        landed.landed(on: "7/762")
+        landed.landed(on: "7/763")
         XCTAssertEqual(landed.move(forPageAboveFrom: elsewhere), .stay, "out of his sight")
         XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .stay, "and not taken up again")
+
+        let joined = try landedPlace(on: "7/762", in: rows)
+        XCTAssertEqual(joined.seen[0].letters, ["7/773", "7/762"])
+        landed.landed(on: "7/762")
+        XCTAssertEqual(landed.move(forPageAboveFrom: joined), .stay, "in sight, its row headed by its reply")
+        XCTAssertNil(landed.letter)
 
         landed.landed(on: nil)
         XCTAssertEqual(landed.move(forPageAboveFrom: inSight), .stay)

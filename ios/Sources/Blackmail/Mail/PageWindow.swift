@@ -141,8 +141,9 @@ enum PageWindow {
     /// frame, dated as its reply, up the list where Mail's list has it, and
     /// the jump opens on the oldest row dated on or after the day
     /// (`ListOpening.dayRow`, B-118): 763, the day's next letter. A reply
-    /// further up still joins the row opened on later, and the list holds
-    /// that row where it is (`ListPlace.landing(in:holding:)`).
+    /// further up still joins the row opened on later and takes it up the
+    /// list, and the day's next row comes into its place
+    /// (`ListPlace.landing(in:holding:)`).
     ///
     /// No round trip more: the same FETCH, fifty rows longer. With none
     /// newer than the window, the window alone.

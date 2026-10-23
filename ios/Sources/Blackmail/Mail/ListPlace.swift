@@ -175,32 +175,47 @@ struct ListPlace: Equatable {
     /// row a date jump opened on, while the pages above it come
     /// (`LandedLetter`, B-117). Otherwise, and with no letter, `landing(in:)`.
     ///
-    /// Held by its letter, not by the row's id. With Organize by Thread on,
-    /// a reply to it on a page above joins its row, and the row is then
-    /// headed by the reply and goes up the list to where the reply is,
-    /// dated the day of the reply. By `landing(in:)` that row is passed
-    /// over, as one newer mail took up the list, and the next row he could
-    /// see stays: the day's next letter came down into the top place, and
-    /// the letter he had asked for was gone out of sight above, 0.14 s
-    /// after it was drawn, seen on the iPad on 2026-10-23. Held, the row
-    /// goes where the letter's row was, and the list with it, the row now
-    /// its conversation's and dated as the reply. Since B-118 the jump
-    /// opens on the oldest row dated on or after the day, and a reply in
-    /// the window has already put a conversation where Mail's list has it
-    /// (`ListOpening.dayRow`, `PageWindow.jumpWindow`); a reply further up
-    /// still joins the row held, which stays where it is, dated later,
-    /// until he moves the list.
+    /// Held while it is headed by the letter that headed it when he saw it,
+    /// as every row is that newer mail has not joined: the row stays where
+    /// it is on the pane, and the list with it, wherever the rows he could
+    /// see above it go.
+    ///
+    /// Joined by newer mail on the page, the row goes up the list to where
+    /// that mail is, dated by it, as Mail's list has it (B-118): the row
+    /// now just above the first of the rows he could see under it that
+    /// newer mail has not joined takes its place, and those rows close up
+    /// under it. In a folder in date order that is the oldest row still
+    /// dated on or after the day, the row the jump would open on now
+    /// (`ListOpening.dayRow`). On the size test's 23 April 2019 the page
+    /// asked for as the day lands answers 18944, the row opened on, on the
+    /// 28th; Quinn Doe's 18945 of the 23rd comes into its place, over 18943
+    /// of the 22nd. Held where it was, as B-117 had it, the row stayed on
+    /// top, dated 28 April, over the rows of the 28th, "Showing April 23"
+    /// under them. And where the row under it is answered on the page too,
+    /// as on All Mail's 8 April 2021, the day's next row still comes into
+    /// the top place, and the rows under it close up; by the rows he could
+    /// see alone (`landing(in:)`), the first of them not joined would stay
+    /// where it was, a row lower, and a newer row of the day come down on
+    /// top. With none of them left, `landing(in:)`.
     func landing(in rows: [MessageThread], holding letter: String?) -> (row: Int, offset: Double)? {
-        guard let letter, let seen = seen.first(where: { $0.letters.contains(letter) }),
+        guard let letter, let at = seen.firstIndex(where: { $0.letters.contains(letter) }),
               let row = rows.firstIndex(where: { $0.messages.contains { $0.id == letter } }) else {
             return landing(in: rows)
         }
-        return (row, seen.offset)
+        let held = seen[at]
+        if rows[row].id == held.id { return (row, held.offset) }
+        var headed: [String: Int] = [:]
+        for (i, row) in rows.enumerated() { headed[row.id] = i }
+        for under in seen[(at + 1)...] {
+            if let i = headed[under.id], i > 0 { return (i - 1, held.offset) }
+        }
+        return landing(in: rows)
     }
 
-    /// Whether `letter` is in a row he could see.
-    func sees(_ letter: String) -> Bool {
-        seen.contains { $0.letters.contains(letter) }
+    /// Whether `letter` heads a row he could see: is the letter the list
+    /// has first in it (`MessageThread.id`).
+    func heads(_ letter: String) -> Bool {
+        seen.contains { $0.id == letter }
     }
 
     /// Where a row he could see is in `rows`: headed by the same letter, or
@@ -300,9 +315,11 @@ struct ListPlaces {
         case putBack(ListPlace)
         /// Where he is: the rows he can see stay where they are.
         case stay
-        /// Where he is, with the row that carries this letter, the one a
-        /// date jump landed on, held where it is on screen; as for `stay`
-        /// if he cannot see it (`ListPlace.landing(in:holding:)`, B-117).
+        /// Where he is, with the row that carries this letter, the one
+        /// heading the row a date jump opened on, held where it is on
+        /// screen; as for `stay` if he cannot see it, and its place to the
+        /// day's next row if newer mail joins it
+        /// (`ListPlace.landing(in:holding:)`, B-117, B-118).
         case holding(String)
     }
 
@@ -410,17 +427,20 @@ struct ListPlaces {
 /// on or after it, a conversation dated by its newest letter
 /// (`ListOpening.dayRow`, B-118); before B-118, on the row that carried the
 /// day's first letter, its conversation's if it was in one. The page above
-/// is asked for as the day lands (B-094), and so can the one above that,
-/// and a reply on such a page to a letter in the row joins it and takes it
-/// up the list (`ListPlace.landing(in:holding:)`). Held, the row stays
-/// where it is, and the list with it, the row now its conversation's and
-/// dated as the reply, until he moves the list.
+/// is asked for as the day lands (B-094), and so can the one above that.
+/// Held, the row stays where it is on the pane, and the list with it. A
+/// reply on such a page to a letter in the row joins it and takes it up
+/// the list, dated as the reply, as Mail's list has it, and the day's next
+/// row comes into its place (`ListPlace.landing(in:holding:)`, B-118): on
+/// B-117 it stayed where it was, dated days after the day, over the rows of
+/// the reply's day.
 ///
 /// Held for the pages above only, and only while he has not moved the list:
 /// a drag, a tap on another row or the status bar, Edit, a search, Refresh
 /// or anything else that fetches the list afresh, another day, the panes
 /// moving or changing size, each lets it go (`letGo`), and so does a page
-/// that comes with the letter out of his sight. From then on a page above
+/// that comes with the letter out of his sight or no longer heading a row
+/// he can see, answered on a page before. From then on a page above
 /// keeps the rows he can see where they are, a row newer mail joins passed
 /// over, as before (B-042). Nothing else holds it: a letter taken out or
 /// put back (B-093), the grouping switch, the watch's letters at the top,
@@ -450,10 +470,11 @@ struct LandedLetter: Equatable {
     }
 
     /// Where the list goes as a page above is drawn, from `here`: the
-    /// letter's row held, while he can see it; with none held, or the
-    /// letter out of his sight, where he is, and nothing held from then on.
+    /// letter's row held, while he can see it headed by the letter; with
+    /// none held, or the letter out of his sight or in a row newer mail has
+    /// joined, where he is, and nothing held from then on.
     mutating func move(forPageAboveFrom here: ListPlace) -> ListPlaces.Move {
-        guard let letter, here.sees(letter) else {
+        guard let letter, here.heads(letter) else {
             letGo()
             return .stay
         }

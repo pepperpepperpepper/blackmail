@@ -568,8 +568,9 @@ after it above and those before it below, a conversation begun on the day
 and answered later up where its newest letter puts it. With every letter of
 the day answered later it opens on the oldest row after it, and "Showing"
 names that day, as for a day with no mail. With Organize by Thread off,
-unchanged. The hold of B-117 stays: a reply that comes on a later page
-keeps the row where it is until he moves the list.
+unchanged. The hold of B-117 stays while no newer mail joins the row: a
+reply that comes on a later page to a letter in it takes it up the list,
+as Mail's list has it, and the day's next row comes into its place.
 
 ## D-013 — "Whatever Apple Mail composes" is HTML, not a format bar
 
