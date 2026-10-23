@@ -17444,9 +17444,12 @@ the extension's executable, each:
 - A tone other than Swoosh, or None. The app cannot read his choice and
   plays Swoosh whatever it is. None drops this batch (D-019).
 - 1001 itself: seen on the iPad (below); on the simulator, check 9, not.
-- Which volume governs the sound, and headphones and Bluetooth (checks 2
-  and 10): not the media volume, seen on the iPad; the rest needs a
-  person's ear. Silent Mode silences it, seen there.
+- Which volume governs the sound, the media volume included, and
+  headphones and Bluetooth (checks 2 and 10): a person's ear. On the iPad
+  the log gave each swoosh the system sounds' volume, 1.0, with the media
+  volume at nought, but the level after the iPad's processing read
+  silence for every swoosh, as it did for the music. Silent Mode silences
+  it, seen there.
 - The extension's sound cut short as the share completes: not, seen on
   the iPad, played its whole length.
 - A letter whose 250 comes after he has left the app or locked the iPad,
@@ -17464,14 +17467,17 @@ what iOS's audio server did with it; the app logs nothing of its own.
 Steps 1, 2's Silent Mode, 4, 5, 6, 8, 11 and 12 of the TODO check passed.
 
 - *1001 is mail-sent.caf on the iPad.* Each Send that went or was put in
-  the Outbox asked for 1001 once, 8 to 43 ms after Gmail's 250 or the
+  the Outbox asked for 1001 once, 2 to 43 ms after Gmail's 250 or the
   Outbox's word, never before it, and iOS played mail-sent.caf, category
   MailSent, to the speaker, for 1.5 to 1.65 s. Eight such Sends, eight
   requests; none at the second of two quick taps, at the Outbox's later
   send, at a refusal, at Delete Draft or at the share sheet's Cancel.
 - *Silent Mode on:* the app asked for it, and iOS played nothing.
-- *The media volume*, at nought all through, does not govern it: every
-  swoosh went at the system sounds' full volume.
+- *The volume:* the log gave each swoosh the system sounds' volume, 1.0,
+  while the media volume was at nought. The level after the iPad's own
+  processing read silence for every swoosh, as it did for the music, so
+  which volume governs it, the media volume included, is left for a
+  person's ear.
 - *The share sheet:* its whole 1.65 s, as the composer's, though the
   extension was ended 36 ms after asking; the sheet gone by 1.4 s and
   Safari live by 2.4 s, the sound still playing. Offline, "Can't connect
@@ -17484,11 +17490,16 @@ Not done there. Whether any of it is heard needs a person's ear: the
 log's level meter read silence after the iPad's own processing for every
 swoosh, as for the music with the media volume at nought. So do 2's Ringer
 and Alerts slider and the volume buttons, 6's two heard together and 7,
-VoiceOver's speech beside it. 3 could not be made: the composer and the
-share sheet leave out whatever is past their 25 MB, so no letter from the
-iPad reaches Gmail's limit, and the refusal's silence is the host tests';
-11's offline refusal was silent. 9, the simulator, and 10, no headphones
-being connected, were not done.
+VoiceOver's speech beside it. 3 was not made on that build: its composer
+took photos alone, five at a time, and those came in at 0.8 MB or less,
+and the share sheet left out a 114 MB video as past its 25 MB room, so no
+letter reached Gmail's limit; 11's offline refusal was silent. On this
+tree it can be made: a reply's rows for someone new are not counted in
+the composer's room (B-108, Not covered), so a reply to a letter with
+large files, files picked to fill the room before someone new is added,
+goes over the limit and Send refuses it. Still to try on the test iPad;
+until then the refusal's silence is the host tests'. 9, the simulator,
+and 10, no headphones being connected, were not done.
 
 ## B-101 — BUILT 2026-10-22, seen on the iPad 2026-10-22. Quoted text had no bar, and a file sent inline, as Apple Mail sends a PDF, had no row and no paperclip
 
@@ -17929,11 +17940,11 @@ on an older fault, B-112, and passed on a build with its fix (int9,
 8607083) the same day, its mark right at every Refresh and the row never
 split.
 
-- The arrow 10 to 11 pt wide, centred on the dot's column within half a
-  point and on the name's capitals; its grey the preview
-  words' (peaks 149 to 152 against 146 to 156). Nothing outside the
-  gutter changed as the marks came, and nothing new went on the wire: the
-  marks came in the listing's FETCH, with no STORE.
+- The arrow 10 to 11 pt wide, centred on the dot's column and on the
+  name's capitals within half a pixel of the shots, about 0.6 pt; its
+  grey the preview words' (peaks 149 to 152 against 146 to 156). Nothing
+  outside the gutter changed as the marks came, and nothing new went on
+  the wire: the marks came in the listing's FETCH, with no STORE.
 - Beside a file, the paperclip at the end of the subject's line; unread,
   the dot and no arrow; read again, the arrow back. In Edit mode the arrow
   moves with the dot beside the circles, in three panes and two.
@@ -18094,15 +18105,17 @@ release build for the iPad links.
 
 **Not covered.**
 
-- Not yet seen on the iPad or the simulator: the spinner beside the list's
-  own top logic (`ListPlaces.isAtTop`, `scrollToTop`, the kept page's swap,
-  held mail, `PaneMotion.isBouncing`), whether UIKit counts the spinner's
-  room in `adjustedContentInset` as the list reads it, the pull taken off
-  and put back, and VoiceOver's three-finger scroll. If the check shows
-  rows jumping or a gap left above the first row, the way back is to take
-  the `UIRefreshControl` off and let a drag released at least 80 pt past
-  the top call the same `refresh`, with the line under the list the only
-  sign. Not built.
+- Not yet seen on the iPad or the simulator, as first built: the spinner
+  beside the list's own top logic (`ListPlaces.isAtTop`, `scrollToTop`,
+  the kept page's swap, held mail, `PaneMotion.isBouncing`), whether
+  UIKit counts the spinner's room in `adjustedContentInset` as the list
+  reads it, the pull taken off and put back, and VoiceOver's three-finger
+  scroll. If the check shows rows jumping or a gap left above the first
+  row, the way back is to take the `UIRefreshControl` off and let a drag
+  released at least 80 pt past the top call the same `refresh`, with the
+  line under the list the only sign. Not built. Seen on the iPad
+  2026-10-22, below: the gap was there, and was fixed another way and
+  seen fixed; VoiceOver's scroll and the simulator not yet.
 - Whether the search band, pinned at the top of the list, keeps to the
   bar when he scrolls down while the spinner turns is not known; the
   check's first step looks.
@@ -18960,8 +18973,8 @@ more. The release build for the iPad links.
 
 **Seen on the test iPad again, 2026-10-22**, a build of int9 (8607083),
 with both steps of the change, three panes, the test account, the
-conversation made afresh as before: step 1 passed in every case run, and 2
-and 7 again. The drop under a finger is gone.
+conversation made afresh as before: step 1 passed in every case run but
+one at-the-tap hold, and 2 and 7 again. The drop under a finger is gone.
 
 - *Untouched:* A1's line took J1's place at 0.63 s, and J2 did not move.
 - *A finger at the tap*, dragging 100 px over 1.5 s, A1 found mid-drag at
@@ -18969,7 +18982,8 @@ and 7 again. The drop under a finger is gone.
   and came to rest with no step of a line. A slow short drag: A1's line
   went in 0.25 to 0.49 s after the stack came to rest. A pause of 1.2 s
   in the middle of a drag: J2 held still with nothing going in, then moved
-  on with the finger, no step. A flick, A1 found as the stack coasted: in
+  on with the finger, no step.
+- *A flick* once the stack was drawn, A1 found as the stack coasted: in
   after it, no step.
 - *A finger held still on J1's line*, put down once the stack was drawn:
   the line stayed lit under it, the lift opened J1 once, and A1's line went
@@ -18985,9 +18999,12 @@ and 7 again. The drop under a finger is gone.
 - *Again within ten minutes:* A1's line from the first frame, nothing
   moving and nothing asked of Sent Mail.
 
-Not run there: 1's pull at the top as A1 comes, (c) in the TODO, and its
-pause of six seconds in (b). Not done: 8's VoiceOver, the app being on
-VoiceOver's Direct Touch list there, and 9, the simulator.
+Not run there: 1's pull at the top as A1 comes, (c) in the TODO; and (b)'s
+drag from a finger put down once the stack is drawn, with its pause of
+half a second and its pause of six seconds, the drags and the pause run
+having all begun with the finger at the tap, J2 already moving by 0.40 s.
+Not done: 8's VoiceOver, the app being on VoiceOver's Direct Touch list
+there, and 9, the simulator.
 
 ## B-105 — BUILT 2026-10-22, seen on the iPad; two faults found there fixed and seen fixed 2026-10-22. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
 
@@ -20291,8 +20308,9 @@ release build for the iPad links.
 **Seen on the test iPad, 2026-10-22**, a build of int11 (e739d2c), three
 panes, the test account; letters To A with `+b108`, each arrival's CRC
 compared with its `LETTER-FILE` line, the files put in On My iPad from the
-host. Steps 1 to 5, 6's Send while a video comes, 7, 8, 9, 10, 11's
-headers, 12 and 14 of the TODO check passed.
+host. Steps 1 to 5, 6's Send while a video comes, 7, 8, 9's first half,
+10, 11's headers, 12 and 14 of the TODO check passed; 9's second half
+was not reached.
 
 - Attach File opened the document picker; its copy landed in the app's
   Inbox and was moved out (`COMPOSE-PICK offered=1 moves=true`), and a PDF
@@ -20320,7 +20338,10 @@ headers, 12 and 14 of the TODO check passed.
 Not done there: 6's iCloud original and five iCloud-only photos with no
 connection, there being no photo on the test iPad kept only in iCloud;
 11's name on Gmail's web page; 13, VoiceOver, the app being on VoiceOver's
-Direct Touch list there.
+Direct Touch list there. Still to run on the test iPad: 9's second half,
+a video still coming into the composer through more than three minutes
+away, which a longer HEVC video, or another app opened at once in place
+of the lock, could make.
 
 ## B-109 — BUILT 2026-10-22, seen on the iPad 2026-10-22. His photos went as attachments under the letter; Mail's sit in it, under his words
 
@@ -20536,7 +20557,7 @@ page and in Mail on another device was not done.
   was; a reopened draft's rows read 61 KB and 6 KB where the picked photos
   read 60 and 5, the server's estimate.
 
-## B-110 — BUILT 2026-10-22, seen on the iPad; three faults found there fixed and seen fixed 2026-10-23. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
+## B-110 — BUILT 2026-10-22, seen on the iPad; three faults found there fixed and seen fixed 2026-10-23 but for the time of a letter tapped after Print, met in one run of two. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
 
 Built in the `feat-print` worktree, off `feat-replyfiles` (master at
 88ef40d with B-100 to B-105, B-111 and B-107). It shares no hunk with
@@ -20954,8 +20975,11 @@ release build for the iPad links.
 **Seen on the test iPad, 2026-10-23**, a build holding this branch,
 iPadOS 16.5.1, three panes, the test account; each failure made again on a
 second run, from a fresh start with fresh letters. Passed: steps 1a, 2, 3a,
-3c, 4, 5a, 5b, 6, 7a, 8a to 8c, 9a to 9c, 10b, 11, 12 and the log's
-counts. 1b, VoiceOver reading "Print", could not be tried: injected touches
+3c, 4, 5a, 5b, 6, 7a, 8a's Print greyed, 8b, 8c, 9a to 9c, 10b, 11, 12
+and the log's counts. 8a's timing was not met as measured then: the panel
+came 0.41 to 0.75 s after the sheet had gone by the log, 0.70 to 1.04 s
+on screen, about 1.0 to 1.3 s after the tap outside; met on 2026-10-23
+(below). 1b, VoiceOver reading "Print", could not be tried: injected touches
 did not move VoiceOver's focus inside the sheet. 7b and 13, the
 simulator's and the Mac's, were not run; eight prints in a row on the iPad
 stood in for 7b (none slower, no WebContent process more) and the panel's
@@ -21064,7 +21088,7 @@ yes. Three failed:
    fainter than drawn, as Mail's body would print them on those systems,
    its web view printing no backgrounds (medium: Mail's setting not read);
    the bars, borders, are not changed. Steps 2 and 4, both passed on the
-   first run, are to be run again (TODO).
+   first run, are to be run again (TODO): run again 2026-10-23, below.
 
 **Tests.** `PrintWiringTests`, two more, 20: the backgrounds set, in
 those words, before the view is built, once and false, never by
@@ -21148,9 +21172,10 @@ release build for the iPad links.
 **Seen on the test iPad again, 2026-10-23**, a build of int12 (140df65),
 with the change, iPadOS 16.5.1, three panes, the test account, the letters
 made on the host and put in its Inbox. Steps 2, 3a, 3b, 4, 5c, 8a's
-timing, 10a, 12 and the log's counts passed; 3b, 5c and 10a did not fail
-again. The colours were read from the panel's own PDFs, saved from its
-Share.
+timing, 12 and the log's counts passed; 3b and 5c did not fail again.
+10a's wire order was right in both its runs, and its mark, the body
+within about a second and a half, was met in one run of two. The colours
+were read from the panel's own PDFs, saved from its Share.
 
 - *2.* The header's To, Cc, date and file lines `#8e8e8e`, as on the first
   run, not near white; the sender `#007aff`, the rules `#c8c8c8`.
@@ -21167,15 +21192,20 @@ Share.
 - *5c.* The kept letter opened offline from its copy four times, ten
   prints, every one with its photo.
 - *8a.* From frames 0.05 s apart, the panel began 0.33 to 0.41 s after
-  the sheet had gone, 0.87 s after the tap outside; on the first run,
-  about 1.0 s after it.
+  the sheet had gone, 0.87 s after the tap outside, and was whole 1.17 s
+  after the sheet had gone, its own slide; on the first run, 0.41 to
+  0.75 s after the sheet had gone by the log, about 1.0 to 1.3 s after
+  the tap.
 - *10a.* Twice, a letter not kept tapped 1.1 s after Print: `PRINT ended
   why=moved` 0.26 s after the tap, only the picture already on the wire
   finished, about 0.7 s, and the tapped letter's STORE and FETCH went
-  next. After a print ended by a tap the tapped letter came at 0.70 s once
-  and 3.16 s once, the server slow that time to answer: its STORE in
-  1.31 s, and its FETCH of 689 bytes in 1.03 s, which with no print took
-  0.06 s.
+  next: the wire order right both times. After a print ended by a tap the
+  tapped letter came at 0.70 s once and 3.16 s once, so the step's mark
+  was met in one run of two. In the slow run the log has its STORE
+  answered 1.31 s after it went and its FETCH of 689 bytes 1.03 s after,
+  which with no print took 0.06 s; the log has only when the app saw each
+  answer, so it cannot tell the server's delay from the app's. A letter
+  of the same kind with no print came at 1.38 s, its STORE taking 1.18 s.
 - *12.* 9.57 s and 7.95 s to the PDF, against 5.2 s on the first run,
   nearly all of it the network: a letter opened in parts fetches its
   pictures again for each print, 16.6 MB for the five photos, so the
@@ -21188,7 +21218,8 @@ button's sheet has no Cancel row, a tap outside being its Cancel. Not done
 there: 1b, VoiceOver reading "Print", injected touches not moving its
 focus inside the sheet; 1a, 6, 7a, 8b, 9, 10b and 11, passed on the first
 run, were not run again; 7b and 13, the simulator's and the Mac's; 14 and
-15, paper, for the owner's yes.
+15, paper, for the owner's yes. Still to run on the test iPad: 10a a third
+time, the tapped letter's body timed against a letter with no print.
 
 ## B-111 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
@@ -21482,7 +21513,7 @@ design has it, 8 and 10 of the TODO check passed.
 - *Kept.* First openings fetched once and kept, 505 bytes to 1.4 MB in 50
   to 63 ms. L, 7.5 MB, opened in parts, its text and HTML in one FETCH,
   and was not kept (`reason=size`). Opened again, P, H with its photo and
-  F were drawn by 0.27 s from the copy, 1 to 6 ms, nothing on the wire,
+  F were drawn by 0.27 s from the copy, 0 to 6 ms, nothing on the wire,
   and F's PDF opened in Quick Look.
 - *Offline.* Ended and launched with Airplane Mode on: the kept Inbox by
   0.6 s, with the launch's own alert as before; P, H, F and T at once with
@@ -21514,7 +21545,7 @@ Not done there: 5, a password saved, which needs the password typed, not
 done on the test iPad; in 8 each 3 MB letter's first opening stood in for
 one fetched after a password save. 9, the simulator.
 
-## B-112 — FIXED 2026-10-22, found on the iPad and seen there fixed. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
+## B-112 — FIXED 2026-10-22, found on the iPad and seen there fixed but for the flag. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
 
 **What he saw.** Seen on the test iPad on 2026-10-22, in B-102's check,
 and made again three times in three the same morning. Organize by Thread
@@ -21733,7 +21764,7 @@ release build for the iPad links.
 **Not covered.**
 
 - Seen on the iPad fixed, below, but for `\Flagged`, whose news is the
-  same line.
+  same line: still to run on the test iPad (TODO).
 - A listing from the top with a letter left out for no ENVELOPE comes back
   one short, which the list takes for the end of the folder until the next
   Refresh, as for a letter gone between the SEARCH and the FETCH. It needs
@@ -21748,19 +21779,20 @@ release build for the iPad links.
 **Seen on the test iPad, 2026-10-22**, a build of int9 (8607083), three
 panes, Organize by Thread on, the test account; the letters made on the
 host and put in its Inbox, their marks set from the host over IMAP and
-Refresh tapped at once after each. Steps 1 to 3 of the TODO check passed,
-and B-102's step 3 with them. Of 34 Refreshes so made, 13 had the news
-inside the listing's FETCH, after the letter's own line and before the
-OK: on the conversation, on a single row and on B-102's pair; three times
-the old flags in the letter's line and the new in the news after it, and
-once `FLAGS ()`. Every Refresh drew whole rows, the conversation never
-split, with the new mark where the news came inside the listing, the
-arrow, the forward arrow and the dot on and off and the Inbox's count
-with them; `SESSION-IDENT` named a Gmail id each time, and no
-`FETCH-NO-ENVELOPE` line came. The very Refresh that split the row in
-B-102's check, the news inside the listing, kept it whole. `\Flagged` was
-not set from the host there; `$Forwarded` stood in, its news the same
-line.
+Refresh tapped at once after each. Steps 1 to 3 of the TODO check passed
+but for `\Flagged`, and B-102's step 3 with them. Of 34 Refreshes so
+made, 13 had the news inside the listing's FETCH, after the letter's own
+line and before the OK: on the conversation, on a single row and on
+B-102's pair; three times the old flags in the letter's line and the new
+in the news after it, and twice `FLAGS ()`. Every Refresh drew whole
+rows, the conversation never split, with the new mark where the news
+came inside the listing, the arrow, the forward arrow and the dot on and
+off and the Inbox's count with them; `SESSION-IDENT` named a Gmail id
+each time, and no `FETCH-NO-ENVELOPE` line came. The same STORE that
+split the row in B-102's check, its news inside the listing this time,
+kept it whole. `\Flagged` was not set from the host there; `$Forwarded`
+stood in, its news the same line. `\Flagged`'s news inside the listing,
+the flag on the row at that Refresh, is still to run on the test iPad.
 
 ## B-113 — FIXED 2026-10-22, found on the iPad and seen there fixed. The words after a file put among them, as Apple Mail sends one, were nowhere
 
@@ -22296,7 +22328,8 @@ The scripted server answered BODY[2.1], so no test met Gmail's refusal.
    of his Sent Mail's lines in a conversation (B-104,
    `fetchPartialBodiesWhileOpen`) was written apart from this change, and
    throws them away still: where the two are merged it must keep them too
-   (TODO, B-114), and a test here fails until it does.
+   (TODO, B-114), and a test here fails until it does. Kept where merged,
+   2026-10-23.
 4. *Never "no text" for a letter shown in part.* A letter shown only in
    part is never said to have no text (`PanePage.isEmpty`): its page, and
    its body in a conversation, are the notice over whatever came.
@@ -22335,7 +22368,8 @@ its structure, 1 in 1.
 
 The full suite, serially: 1,904 tests, 5 skipped, none failing. The
 release build for the iPad links. Step 6, and step 5's list with its
-preview beside other rows', are to be run again on the iPad.
+preview beside other rows', are to be run again on the iPad (run again
+2026-10-23, below).
 
 *Changed again, 2026-10-22, the same day, before the iPad saw it.* As
 first changed, a large letter whose only words were refused, its one part
@@ -22380,7 +22414,8 @@ at its status, 2 in 2.
 
 The full suite, serially: 1,910 tests, 5 skipped, none failing. The
 release build for the iPad links. Step 6 and step 5's list are still to
-be run again on the iPad, and a forward of a forward with them (TODO).
+be run again on the iPad, and a forward of a forward with them (TODO):
+run again 2026-10-23, below.
 
 **Not covered.**
 

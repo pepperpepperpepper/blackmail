@@ -1187,8 +1187,8 @@ can stop working at any iPadOS update, and his app is never updated. The
 public call is AudioToolbox's `AudioServicesPlaySystemSound`, and 1001 is
 mail-sent.caf, Swoosh, in AudioToolbox's built-in table, read from iOS
 18.6 and given in lists of the system sounds since iPhone OS 2; the number
-itself is not documented. On the test iPad, 2026-10-22, it played
-mail-sent.caf at every Send (B-100). A copy of Apple's .caf in the app
+itself is not documented. On the test iPad, 2026-10-22, iOS took 1001
+for mail-sent.caf at every Send (B-100). A copy of Apple's .caf in the app
 would follow nothing either, and the file is Apple's, in a repository that
 is public. `AudioServicesPlayAlertSound` would vibrate where the iPad can.
 So the sound is Swoosh, whatever he has chosen there.
