@@ -982,7 +982,7 @@ before a save is not looked for by a pass, which would find nothing in
 another mailbox and send the letter again. It waits in the Outbox, "May
 already have been sent.", for him to send it or not.
 
-**Phase 2, built 2026-10-22, not yet seen on the iPad** (B-111). The
+**Phase 2, built 2026-10-22, seen on the iPad the same day** (B-111). The
 owner, 2026-10-22: "All three are still wanted" (Print, his photos in the
 body, and this). The letters, in `KeptLetters`, which the shelf makes over
 its own directory: one file a letter in `letters/`, the bytes of
@@ -1187,11 +1187,11 @@ can stop working at any iPadOS update, and his app is never updated. The
 public call is AudioToolbox's `AudioServicesPlaySystemSound`, and 1001 is
 mail-sent.caf, Swoosh, in AudioToolbox's built-in table, read from iOS
 18.6 and given in lists of the system sounds since iPhone OS 2; the number
-itself is not documented, and is unverified until the iPad plays it. A
-copy of Apple's .caf in the app would follow nothing either, and the file
-is Apple's, in a repository that is public. `AudioServicesPlayAlertSound`
-would vibrate where the iPad can. So the sound is Swoosh, whatever he has
-chosen there.
+itself is not documented. On the test iPad, 2026-10-22, it played
+mail-sent.caf at every Send (B-100). A copy of Apple's .caf in the app
+would follow nothing either, and the file is Apple's, in a repository that
+is public. `AudioServicesPlayAlertSound` would vibrate where the iPad can.
+So the sound is Swoosh, whatever he has chosen there.
 
 **Why the Outbox plays it.** Apple documents Mail's 'sent' result as "The
 email message was queued in the user's outbox. It is ready to send the
@@ -1307,7 +1307,9 @@ ten minutes.
   conversation and in the repository's memory for ten minutes, and nowhere
   else: not the copy kept on the iPad (D-016), not Local Drafts, and their
   few words are not put on Sent Mail's kept page. D-016's phase 2, the last
-  300 letters he opened, if it is ever built, must not keep them either.
+  300 letters he opened, built since (B-111), keeps none of them either:
+  seen on the test iPad 2026-10-22, his line is there offline within a
+  launch and ten minutes, and after an offline relaunch it is not.
 - *Sent Mail only, never All Mail in its place.* All Mail holds the
   conversation's Inbox letters too, and his All Mail is hundreds of
   thousands of letters. No `\Sent` folder, and nothing is looked up.
@@ -1342,10 +1344,11 @@ a Flag button, and that button opened a sheet: in iOS 6 it held Mark as
 Unread beside the flag, and iOS 7 kept "Flag/Unflag and Mark As
 Read/Unread" there (Macworld). iPadOS 18 has no Flag button by default,
 and its More Actions sheet holds the same two items, Unflag in Apple's
-word. So the Flag button opens Flag or Unflag, then Mark as Unread or
-Mark as Read, and Cancel, a popover under the button on the iPad. Flag
-takes two taps where it took one, as in both eras of Mail; he flags six
-to eight letters a month. Edit mode's Mark sheet is left as it is.
+word. So the Flag button opens Flag or Unflag, then Mark as Unread or Mark
+as Read, and Cancel, a popover under the button on the iPad, where UIKit
+leaves the Cancel out and a tap outside is its Cancel (seen 2026-10-22).
+Flag takes two taps where it took one, as in both eras of Mail; he flags
+six to eight letters a month. Edit mode's Mark sheet is left as it is.
 
 **What it acts on.** The letter the toolbar acts on, in a conversation the
 one he opened last, one letter at a time. Whether it offers Mark as Unread
@@ -1433,7 +1436,8 @@ and the pictures in the quote regardless; the code could not do both.
 
 **The Forward question.** Mail's: "Include attachments from original
 message?", Include, Don't Include, and Cancel, an action sheet at the
-Reply button, asked only when the letter has a file the header lists. A
+Reply button, on the iPad a popover whose Cancel is a tap outside (seen
+2026-10-22), asked only when the letter has a file the header lists. A
 logo or a photograph in the body alone asks nothing. Include carries
 every part, as a forward always has; Don't Include only the pictures the
 body shows, which the quote shows. About 186 forwards a year with files
