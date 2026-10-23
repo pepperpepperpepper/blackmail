@@ -1311,9 +1311,13 @@ actor IMAPMailRepository: MailRepository {
         let rows = self.rows(from: opened.summaries, in: mailboxID, name: name, validity: validity)
 
         // The anchor can be dropped by `summaries` if the server declines to
-        // FETCH it, which would silently scroll him to the wrong letter.
-        let anchorID = Self.makeID(validity: validity, uid: anchor)
+        // FETCH it, which would silently scroll him to the wrong letter: then
+        // the nearest row below it, and `landing` moves up from there to his
+        // day (`PageWindow.anchorRow`). One UID a row, in the rows' order:
+        // `rows(from:)` leaves out only an answer with none.
         guard !rows.isEmpty else { return nil }
+        let anchorRow = min(PageWindow.anchorRow(anchor, fetched: opened.summaries.compactMap(\.uid))
+                                ?? 0, rows.count - 1)
         // Gmail's day runs from midnight UTC, his from his own midnight:
         // landed on the first letter of his day (`PageWindow.landing`). The
         // anchor is one of his day's letters by their dates, or one after
@@ -1330,7 +1334,7 @@ actor IMAPMailRepository: MailRepository {
         let searchedFrom = utc.date(from: calendar.dateComponents([.year, .month, .day],
                                                                   from: date)) ?? dayStart
         let landedIndex = PageWindow.landing(
-            dates: rows.map(\.date), anchor: rows.firstIndex { $0.id == anchorID } ?? 0,
+            dates: rows.map(\.date), anchor: anchorRow,
             dayStart: dayStart, searchedFrom: searchedFrom, notAfter: notAfter)
         // Landed before his day, or on a letter dated wrong, with every newer
         // letter in the window: none is on or after his day, only the evening

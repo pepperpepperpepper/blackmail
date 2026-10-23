@@ -23063,7 +23063,13 @@ and many answered, a reply among the next fifty letters is common.
 3. *The previews from the row landed on* (`PreviewPass.groups(for:from:)`):
    from that row down first, then the page above, so the rows he sees
    fill as soon as they did when the window was all there was.
-4. The docs that said a jump keeps ten above the day, and that the page
+4. *An anchor the server leaves out of the FETCH* (`PageWindow.anchorRow`).
+   The jump landed on the window's first row then, ten letters newer than
+   the day at most, and with the page above in the window sixty, near
+   enough a whole day at his volume. Now on the nearest row older than
+   the anchor, and from there `PageWindow.landing` moves up to the nearest
+   dated on or after his day, as it does from a landing dated before it.
+5. The docs that said a jump keeps ten above the day, and that the page
    above moves nothing on screen (`PageWindow`, `MailRepository`, the
    list's `willDisplay`; B-094 and B-115 here), say what is so now.
 
@@ -23082,38 +23088,46 @@ new words.
 days after it opens with that letter's conversation at the top, dated as
 its newest letter, the days after it above, and under it the letters
 that came between the two, newest first, the rest of the day he picked
-the last of them; and it stays there until he moves the list. With Organize by Thread off, or a first letter
-not answered, the day's first letter on top, as before.
+the last of them; and it stays there until he moves the list. With
+Organize by Thread off, or a first letter not answered, the day's first
+letter on top, as before.
 
-**Tests.** `LandedLetterTests`, twelve. On the size test's Inbox by UID,
+**Tests.** `LandedLetterTests`, fourteen. On the size test's Inbox by UID,
 the window alone 723 to 772 and the jump's window 723 to 822, landing on
 its 61st letter; grouped with the real `MessageThread`, 762's row a row of
 its own in the first and in the second its conversation's, headed by 773,
 the row the hold puts in the same place when the page above comes after a
-window without it. The jump's window joining up with the page above it
-and the page below, short near the newest letter, the window alone with
-nothing newer, with gaps, a page of one, and an anchor not in the
-listing. The case on the iPad: the page above coming after the window
-alone, by the rows he could see 761 held and 763 come into the top place,
-held by the letter the conversation's row where 762 was, the rows of 4 to
-1 June under it; a reply on the page after that, held where it is; with
-Organize by Thread off, held or not, nothing moving; the letter itself
-taken out with its row, the rows below closing up as B-093 has it either
-way; a row below it taken out, its row staying; the letter out of his
-sight, the rows he can see held. `LandedLetter`: nothing held before a
-jump, held page after page, a tap on its own row keeping it and on
-another letting it go, let go for good, a page with the letter out of
-sight letting it go and not taking it up again, a jump with no row
-holding none. The previews from the row landed on, then the page above,
-every row once. Over the wire, the shipping repository and client against
-the scripted server, 130 letters, 1 June's first the 61st, its reply the
-72nd: landed on, one window FETCH from the 22nd to the 121st, nothing
-after it, its row the conversation's, the next page up from the 122nd.
-And the source, read: the repository asking for the jump's window both
-times; `show` holding the letter after its scroll and its previews from
-that row; the page above drawn by the hold's move, the only one, which
-the regroup puts into effect by the letter, and the regroup keeping
-VoiceOver as before; and the ten ways the letter is let go.
+window without it. The jump's window joining up with the page above it and
+the page below, short near the newest letter, the window alone with
+nothing newer, with gaps, a page of one, and an anchor not in the listing.
+An anchor left out of the FETCH: landed beside it, on 761 and moved up to
+763, the day's next letter, not on 822 at the top of the window; its own
+row with it there, the last row with none older. The case on the iPad: the
+page above coming after the window alone, by the rows he could see 761
+held and 763 come into the top place, held by the letter the
+conversation's row where 762 was, the rows of 4 to 1 June under it; a
+reply on the page after that, held where it is; the letter's row two rows
+below the first he can see, as VoiceOver's own scrolling can leave it,
+held 312 points down where it was, not at the first row's 120, by the rows
+alone 764 held and 761 come up, and the same with a reply on the page
+after the jump's window; with Organize by Thread off, held or not, nothing
+moving; the letter itself taken out with its row, the rows below closing
+up as B-093 has it either way; a row below it taken out, its row staying;
+the letter out of his sight, the rows he can see held. `LandedLetter`:
+nothing held before a jump, held page after page, a tap on its own row
+keeping it and on another letting it go, let go for good, a page with the
+letter out of sight letting it go and not taking it up again, a jump with
+no row holding none. The previews from the row landed on, then the page
+above, every row once. Over the wire, the shipping repository and client
+against the scripted server, 130 letters, 1 June's first the 61st, its
+reply the 72nd: landed on, one window FETCH from the 22nd to the 121st,
+nothing after it, its row the conversation's, the next page up from the
+122nd. And the source, read: the repository asking for the jump's window
+both times, and landing from `anchorRow`; `show` holding the letter after
+its scroll and its previews from that row; the page above drawn by the
+hold's move, the only one, which the regroup puts into effect by the
+letter, and the regroup keeping VoiceOver as before; and the ten ways the
+letter is let go.
 `KeptCopyTests.testOrdinaryWritesAndOpensSendWhatTheyAlwaysDidWhicheverWayTheRowCame`
 searches before the day now: the day's list brings the page above, and
 with it every hit there was. `PullRefreshTests` and `ListPlaceTests` read
@@ -23125,9 +23139,13 @@ above, 15 in 3; the repository fetching the window alone, 9 in 2; held by
 the row's id, 7 in 3; held by its conversation, not its letter, 2 in 1;
 held with the letter out of his sight, 1 in 1; kept after a page with it
 out of sight, 2 in 1; the previews from the top, 1 in 1; the page above
-drawn without the hold, 1 in 1; a drag not letting it go, 2 in 1.
+drawn without the hold, 1 in 1; a drag not letting it go, 2 in 1; held at
+the first row in sight's place, not its own, 2 in 1; an anchor left out
+landed on the first row, 3 in 1; the repository landing on the first row
+by the anchor's id, 1 in 1. The first nine were counted with twelve
+tests, before the last two were added, which could add to some of them.
 
-The full suite, serially: 2,384 tests, 12 of them new, 6 skipped, none
+The full suite, serially: 2,386 tests, 14 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -23151,15 +23169,26 @@ failing. The release build for the iPad links.
   envelopes and its previews, after the list is drawn. On the iPad the
   window's fifty were answered in 81 ms and the page above's in 67 ms,
   with a NOOP at 52 ms; the longer FETCH is not timed.
-- A jump within sixty letters of the newest now has the newest in its
-  window, so the watch checks that list (`ListLetters.toWatch`) and its
-  news waits for him at the top, as for any list from the newest
-  (B-049); before, within ten.
+- A jump within sixty letters of the newest has the newest in its
+  window from the first frame, and one within about 110 once the page
+  asked for as the day lands has come back short; from then the watch
+  checks that list (`ListLetters.toWatch`) and its news waits for him at
+  the top, as for any list from the newest (B-049). Before B-117 the
+  same within ten from the first frame, and within sixty when that page
+  came, about 0.1 s later.
+- The other rows in sight under the one landed on. Only the letter's row
+  is held: a row k letters older than the day's first whose letter was
+  answered on the page asked for as the day lands, 61 + k to 110 + k
+  letters newer, still leaves for the top as that page comes, about 0.1 s
+  after the landing, and the rows under it close up a row, B-042's rule.
+  Before B-117 it was a reply 11 + k to 60 + k letters newer, so it comes
+  less often now, but it can. Not seen.
 - The panes switched at once with the list the same width: let go only by
   the motion's `panesMoving`, and a switch made at once does not set it.
   Whether two panes and three ever give the list the same width is not
   checked.
 - VoiceOver's own scrolling is not a drag: a page that comes with the
-  letter's row still in sight keeps it where it is then. Not tried.
+  letter's row still in sight keeps it where it is then, at its own
+  place on the pane, which the host pins. Not tried.
 - The status bar's tap lets it go in `scrollViewShouldScrollToTop`, which
   answers yes, as UIKit assumes with none. Not tried.

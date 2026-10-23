@@ -54,11 +54,15 @@ final class LandedLetterTests: XCTestCase {
     /// Where the list was as the jump landed: the row with `letter` the
     /// first he can see, 120 points down the pane, under the bars and the
     /// band, and five rows below it, a row apart; the row above it just
-    /// out of sight under the band.
-    private func landedPlace(on letter: String, in rows: [MessageThread]) throws -> ListPlace {
-        let landed = try XCTUnwrap(row(holding: letter, in: rows))
-        return ListPlace(rows: rows, visible: (0..<6).map { (landed + $0, 120 + Double($0) * 96) },
-                         above: landed > 0 ? (landed - 1, 24) : nil, selected: [])
+    /// out of sight under the band. With `under` rows he can see above the
+    /// letter's, as VoiceOver's own scrolling can leave the list, the
+    /// first of those 120 points down and the letter's row that many rows
+    /// lower.
+    private func landedPlace(on letter: String, in rows: [MessageThread],
+                             under: Int = 0) throws -> ListPlace {
+        let first = try XCTUnwrap(row(holding: letter, in: rows)) - under
+        return ListPlace(rows: rows, visible: (0..<6).map { (first + $0, 120 + Double($0) * 96) },
+                         above: first > 0 ? (first - 1, 24) : nil, selected: [])
     }
 
     /// The size test's Inbox, by UID, 1 to 57,209.
@@ -129,6 +133,30 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(PageWindow.jumpWindow(around: 13, in: gappy, limit: 5).uids, [])
     }
 
+    /// The jump's FETCH answered without its anchor: it lands beside it, on
+    /// the day, not at the top of the window, sixty letters newer, as it
+    /// would have with the first row. The nearest row older than the
+    /// anchor, 761, of 31 May, and from there `landing` moves up to the
+    /// nearest dated on or after his day, 763. With the anchor there, its
+    /// own row; with no row older, the last, the nearest newer.
+    func testAnAnchorTheServerLeftOutLandsBesideItNotAtTheTopOfTheWindow() {
+        let jump = PageWindow.jumpWindow(around: 762, in: inbox, limit: 50)
+        XCTAssertEqual(PageWindow.anchorRow(762, fetched: jump.uids), jump.anchorIndex)
+
+        let without = jump.uids.filter { $0 != 762 }
+        let row = PageWindow.anchorRow(762, fetched: without)
+        XCTAssertEqual(row.map { without[$0] }, 761)
+        let dayStart = Date(timeIntervalSince1970: 1_338_508_800) // 1 June 2012, midnight UTC
+        let landed = PageWindow.landing(dates: without.map { letter($0).date }, anchor: row ?? 0,
+                                        dayStart: dayStart, searchedFrom: dayStart,
+                                        notAfter: Date(timeIntervalSince1970: 1_791_028_800))
+        XCTAssertEqual(without[landed], 763, "the day's next letter, not 822")
+
+        let newer = jump.uids.filter { $0 > 762 }
+        XCTAssertEqual(PageWindow.anchorRow(762, fetched: newer).map { newer[$0] }, 763)
+        XCTAssertNil(PageWindow.anchorRow(762, fetched: []))
+    }
+
     // MARK: - A page above, landing
 
     /// The case on the iPad, the page above coming after a window without it.
@@ -167,6 +195,42 @@ final class LandedLetterTests: XCTestCase {
         XCTAssertEqual(held.offset, 120)
         let stayed = try XCTUnwrap(place.landing(in: after))
         XCTAssertNotEqual(after[stayed.row].id, "7/840", "passed over, by the rows alone")
+    }
+
+    /// The letter's row held at its own place on the pane, not at the first
+    /// row he can see: two rows in sight above it, as VoiceOver's own
+    /// scrolling can leave the list, which is not a drag and does not let
+    /// the letter go. Held, the row that carries it stays 312 points down,
+    /// its conversation's now, where it was; by the rows he could see, 764
+    /// stays at the top and 761 comes up into the letter's place. The same
+    /// with the window as a jump has it now, a reply on the page after it.
+    func testTheLettersRowIsHeldWhereItIsNotWhereTheFirstRowInSightIs() throws {
+        let before = grouped(letters(723...772))
+        let place = try landedPlace(on: "7/762", in: before, under: 2)
+        XCTAssertEqual(place.seen.prefix(3).map(\.id), ["7/764", "7/763", "7/762"])
+        XCTAssertEqual(place.seen[2].offset, 312)
+        let after = grouped(letters(773...822) + letters(723...772))
+
+        let held = try XCTUnwrap(place.landing(in: after, holding: "7/762"))
+        XCTAssertEqual(after[held.row].messages.map(\.id), ["7/773", "7/762"])
+        XCTAssertEqual(held.offset, 312, "where the letter's row was, not the top row's 120")
+        let stayed = try XCTUnwrap(place.landing(in: after))
+        XCTAssertEqual(after[stayed.row].id, "7/764", "by the rows, 764 held")
+        XCTAssertEqual(stayed.offset, 120)
+        XCTAssertEqual(after[stayed.row + 2].id, "7/761", "and 761 come up into the letter's place")
+        XCTAssertNotEqual(stayed.row, held.row)
+
+        func withReply(_ uid: UInt32) -> MessageSummary { letter(uid, in: uid == 840 ? "H" : nil) }
+        let window = (723...822).reversed().map(withReply)
+        let jumped = try landedPlace(on: "7/762", in: grouped(window), under: 2)
+        XCTAssertEqual(jumped.seen[2].letters, ["7/773", "7/762"])
+        let next = grouped((823...872).reversed().map(withReply) + window)
+        let kept = try XCTUnwrap(jumped.landing(in: next, holding: "7/762"))
+        XCTAssertEqual(next[kept.row].messages.map(\.id), ["7/840", "7/773", "7/762"])
+        XCTAssertEqual(kept.offset, 312)
+        let rows = try XCTUnwrap(jumped.landing(in: next))
+        XCTAssertEqual(next[rows.row].id, jumped.seen[0].id)
+        XCTAssertEqual(rows.offset, 120)
     }
 
     /// Organize by Thread off: a reply joins nothing, the letter keeps its
@@ -357,6 +421,12 @@ final class LandedLetterTests: XCTestCase {
             "let window = PageWindow.jumpWindow(around: anchor, in: listing.uids, limit: limit)"))
         XCTAssertTrue(flat(repository).contains(
             "return PageWindow.jumpWindow(around: anchor, in: found[1], limit: limit).uids"))
+        // An anchor left out of the FETCH: beside it, not the first row.
+        XCTAssertTrue(flat(repository).contains(
+            "let anchorRow = min(PageWindow.anchorRow(anchor, fetched: "
+                + "opened.summaries.compactMap(\\.uid)) ?? 0, rows.count - 1)"))
+        XCTAssertTrue(flat(repository).contains(
+            "let landedIndex = PageWindow.landing( dates: rows.map(\\.date), anchor: anchorRow,"))
     }
 
     /// `show` lands on the row that carries the letter and holds that

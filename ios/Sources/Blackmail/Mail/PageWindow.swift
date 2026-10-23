@@ -187,6 +187,21 @@ enum PageWindow {
         return ascending.first { $0 >= oldestMatch }
     }
 
+    /// Where the anchor is among the rows the jump's FETCH brought, `fetched`
+    /// their UIDs, newest first as the window has them: the anchor's own
+    /// row, or with the server having left it out of the FETCH, the nearest
+    /// row older than it, from which `landing` moves up to the nearest
+    /// dated on or after his day. With no older row, the last, the nearest
+    /// newer. Nil with no rows.
+    ///
+    /// It was the first row, the top of the window. That was ten letters
+    /// newer than the anchor at most, and with the page above in the window
+    /// (`jumpWindow`, B-117) sixty, near enough a whole day at his volume.
+    static func anchorRow(_ anchor: UInt32, fetched: [UInt32]) -> Int? {
+        guard !fetched.isEmpty else { return nil }
+        return fetched.firstIndex { $0 <= anchor } ?? fetched.count - 1
+    }
+
     /// The row a jump lands on in its window, by his calendar: `dates` the
     /// window's rows' dates, newest first, `anchor` the row the SEARCH
     /// landed on (`anchor(forMatches:in:)`), `dayStart` midnight of the

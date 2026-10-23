@@ -5072,7 +5072,10 @@ this host. Ordered by value, not by size.
       Watch and winter evening weather lunch", Harper Mock, 05/06/12, with
       the conversation mark, and under it the rows of 4 June to 1 June,
       then Hayden Lorem, 30/05/12 (761); "Showing June 1, 2012". No frame
-      has 762 in a row of its own or 763 on top. The log: the dated
+      has 762 in a row of its own or 763 on top. A row under it whose
+      letter was answered on the page asked as the day lands can leave
+      for the top as it comes (B-117, Not covered): if one does, which,
+      and the frames either side. The log: the dated
       SEARCH, the FETCH of its five letters' dates, `UID SEARCH ALL`, one
       window FETCH, `UID FETCH 723:822`, nothing between them; then the
       page above asked as the day lands, `UID FETCH 823:872` (B-094), and
