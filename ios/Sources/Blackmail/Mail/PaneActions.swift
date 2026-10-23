@@ -381,9 +381,12 @@ extension Array where Element == Mailbox {
 
     /// The role of the folder a letter was listed from, by its id in either
     /// spelling (see `firstIndex(matchingMailboxID:)`), or from the id itself
-    /// when it is a role word no folder here carries.
+    /// when it is a role word of the app's own (`Mailbox.Role(word:)`) no
+    /// folder here carries. A folder's name is never one: a letter listed
+    /// from a label "Drafts" these folders do not hold is in no role
+    /// (B-116).
     func role(of mailboxID: String) -> Mailbox.Role? {
         if let i = firstIndex(matchingMailboxID: mailboxID) { return self[i].role }
-        return Mailbox.Role(rawValue: mailboxID.lowercased())
+        return Mailbox.Role(word: mailboxID)
     }
 }

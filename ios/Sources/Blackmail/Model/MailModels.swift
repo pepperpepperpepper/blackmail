@@ -11,8 +11,12 @@ struct Mailbox: Identifiable, Hashable {
     var name: String
     var unreadCount: Int
     var role: Role?
-    /// Nesting depth. Gmail's `[Gmail]/…` children and any user folders sit at
-    /// 1; everything else at 0. Drives the indent and the separator inset.
+    /// Nesting depth: how many steps in the row is drawn. Gmail's `[Gmail]/…`
+    /// children sit at 1, inside "[Gmail]", which is not drawn. A label
+    /// inside another sits one step further in than the label it is drawn
+    /// under. Everything else sits at 0, a label inside folders none of
+    /// which is drawn included (`FolderTree`, B-116). Drives the indent and
+    /// the separator inset.
     var depth: Int = 0
 
     enum Role: String, Codable {
@@ -385,15 +389,42 @@ extension Array where Element == Mailbox {
     /// unanswered on the app's primary folder for the whole session, every
     /// session. It is invisible under `MockMailRepository`, whose ids are
     /// role words on both sides.
+    ///
+    /// In this order (B-116): the folder of exactly that name; then, for one
+    /// of the app's own role words (`Mailbox.Role(word:)`), the folder
+    /// playing the role; then a folder of that name in another case. The
+    /// app's word "drafts" is Gmail's Drafts even beside a label "Drafts",
+    /// as the repository resolves it; and a label "Drafts" not in this list
+    /// is in no folder of it, never in Gmail's Drafts by its name.
     func firstIndex(matchingMailboxID id: String) -> Int? {
-        if let exact = firstIndex(where: { $0.id.caseInsensitiveCompare(id) == .orderedSame }) {
-            return exact
-        }
+        if let exact = firstIndex(where: { $0.id == id }) { return exact }
         // A role word against a LIST name. Matching on the ROLE rather than
         // on spelling is what makes this work for "[Gmail]/Sent Mail" and
         // for an account whose folders are not in English.
-        guard let role = Mailbox.Role(rawValue: id.lowercased()) else { return nil }
-        return firstIndex { $0.role == role }
+        if let role = Mailbox.Role(word: id), let playing = firstIndex(where: { $0.role == role }) {
+            return playing
+        }
+        return firstIndex { $0.id.caseInsensitiveCompare(id) == .orderedSame }
+    }
+}
+
+extension Mailbox.Role {
+
+    /// The role an id names by itself: one of this app's own role words,
+    /// spelt as it spells them, in lowercase ("inbox", "drafts"), or INBOX
+    /// in any spelling, the one name IMAP gives a role (RFC 3501). Never a
+    /// folder's name from LIST: a label called "Drafts" is a label, and so
+    /// is one spelt as the app's word wherever LIST names it
+    /// (`IMAPMailRepository.serverName`). Roles come from LIST's flags
+    /// (`IMAPMailboxListing.specialUse`, B-116).
+    init?(word id: String) {
+        if id.caseInsensitiveCompare("inbox") == .orderedSame {
+            self = .inbox
+        } else if let role = Mailbox.Role(rawValue: id) {
+            self = role
+        } else {
+            return nil
+        }
     }
 }
 

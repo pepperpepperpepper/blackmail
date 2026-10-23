@@ -769,6 +769,36 @@ final class KeptLetterOpeningTests: XCTestCase {
         XCTAssertEqual(server.log, [])
     }
 
+    /// A letter in a label called "Drafts", which his account has, is kept
+    /// and shown from the copy as a letter in any label is: the label is
+    /// itself, found without the wire by its own name, not taken for
+    /// Gmail's Drafts, from which nothing is shown (B-116).
+    func testALetterInALabelCalledDraftsIsShownFromTheCopy() async throws {
+        server.addFolder("Drafts", attributes: ["\\HasNoChildren"], label: "Drafts",
+                         validity: 600_100, firstUID: 10)
+        server.deliver(Server.Letter(
+            from: Server.sam, to: [Server.owner], subject: "In the label",
+            date: Server.newestDate.addingTimeInterval(30), text: "Filed under Drafts.\r\n",
+            messageID: "<in-the-label@example.com>"),
+            to: ["Drafts", Server.allMail])
+
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "Drafts", beforeUID: nil, limit: 5)
+        let row = try XCTUnwrap(rows.first)
+        XCTAssertEqual(row.subject, "In the label")
+        _ = try await repository.openLetter(row)
+        XCTAssertEqual(shelf.letters.records.map(\.folder), ["Drafts"])
+        XCTAssertEqual(shown, 0, "fetched")
+
+        server.clearLog()
+        let again = try await repository.openLetter(row)
+        XCTAssertEqual(shown, 1, "from the copy")
+        XCTAssertEqual(again.subject, "In the label")
+        XCTAssertEqual(server.log, [], "nothing sent")
+    }
+
     /// Two folders under the same UIDVALIDITY, each with a letter under
     /// the same UID, so both letters' ids are the same
     /// "<uidvalidity>/<uid>", each with one picture at the same part. The
