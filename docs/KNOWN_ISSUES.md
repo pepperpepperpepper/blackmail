@@ -22499,7 +22499,7 @@ and the forward of a forward was tried.
   header blocks are drawn, the second with nothing under it. The letter
   opens, as a refused part is meant to leave it; not changed.
 
-## B-115 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. Go to Date landed at the foot of a folder whose first letters are dated later, whatever day was asked
+## B-115 — FIXED 2026-10-23, found on the iPad and seen there fixed. Go to Date landed at the foot of a folder whose first letters are dated later, whatever day was asked
 
 **What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
 round (TODO, gap review), a build of int12 (140df65), three panes and two,
@@ -22752,7 +22752,18 @@ failing. The release build for the iPad links.
   still not known (B-058): the letters copied in arrived when their Date
   says.
 
-## B-116 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. With labels in the account, Gmail's Important and Starred were drawn as folders inside the labels above them, and a label inside another under whichever label came before it
+**Seen on the test iPad, 2026-10-23**, on a build of int14 (4448544) at
+the size test's mailbox. Inbox, Current Mailbox: 10 March 2014 landed on
+the day's first letter with one dated SEARCH, 'Showing March 10, 2014' in
+0.67 s; 1 June 2012 on the day's first letter; 1 January 2011, before the
+oldest letter, on the oldest, 'Showing January 4, 2012', after ten
+SEARCHes in 1.02 s; 14 August 2026, the newest day, in 0.68 s; Sunday 25
+May 2014, with no letters, on Monday's first; the evening before a day
+never taken; Sent Mail 15 May 2019 and All Mailboxes 10 March 2014 right;
+two panes the same; a day after the newest says 'No mail on or after'.
+Every jump 0.7 to 1.5 s. Seen again the same day on 2542bf8 with B-117.
+
+## B-116 — FIXED 2026-10-23, found on the iPad and seen there fixed. With labels in the account, Gmail's Important and Starred were drawn as folders inside the labels above them, and a label inside another under whichever label came before it
 
 **What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
 round (TODO, gap review), a build of int12 (140df65), three panes, and
@@ -22987,7 +22998,17 @@ release build for the iPad links.
   "Drafts" alone, after "Junk E-mail", as before.
 - His own account's pane, not seen: the shapes are the test account's.
 
-## B-117 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. Go to Date landed on the day's first letter, and with Organize by Thread on a reply to it in the page above took it out of sight 0.14 s later
+**Seen on the test iPad, 2026-10-23**, on a build of int14 (4448544),
+with labels in the shapes of his own: Inbox, the role folders, then
+Important, Sent Messages and Starred in the same block; the labels as a
+tree, '[Gmail]All Mail' with 'Trip 2017' under it, 'Junk E-mail' with its
+'Drafts', 'Unopened 4/17/17' at the left edge under its own name; each row
+opened its own folder, the label 'Drafts' its own and not the real
+Drafts; the Move sheet the same; two panes the same. The first launch of
+the build drew the kept list in the old order for about 3.5 s, then the
+new one as the sweep wrote it.
+
+## B-117 — FIXED 2026-10-23, found on the iPad and seen there fixed. Go to Date landed on the day's first letter, and with Organize by Thread on a reply to it in the page above took it out of sight 0.14 s later
 
 **What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
 second round (TODO, gap review), a build of int14 (4448544), three panes,
@@ -23192,3 +23213,18 @@ failing. The release build for the iPad links.
   place on the pane, which the host pins. Not tried.
 - The status bar's tap lets it go in `scrollViewShouldScrollToTop`, which
   answers yes, as UIKit assumes with none. Not tried.
+
+**Seen on the test iPad, 2026-10-23**, on a build of int14 (2542bf8) at
+the size test's mailbox. 1 June 2012, Organize by Thread on: the
+conversation's row on top from the first frame (0.66 to 0.80 s) to 5.6 s
+after, nothing moving, in three panes and two; 12 January 2014 and 21
+March 2018, whose first letters were answered 35 and 51 letters above,
+the same; a reply 80 letters above (23 April 2019) joins the held row as
+the page above comes, the row staying where it is; drags after a landing
+page as before; Refresh goes to the top; with Organize by Thread off the
+day's own letter is on top. Seen too: once the page above has come, the
+rows in sight can all be dated days after the day asked (23 April 2019:
+rows of 28 April, the 23rd's own about 80 rows down), as conversations
+are placed by their newest letter; and on 21 March 2018 a row under the
+held one, answered on that page, left for the top (an owner question, in
+TODO).

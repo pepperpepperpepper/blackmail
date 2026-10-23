@@ -27,7 +27,7 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *Owner.*
 - [ ] A trial install on an ordinary, non-jailbroken iPad: every install so
       far was an SSH copy onto the jailbroken one. *Owner.*
-- [ ] Try it against a mailbox his size: Go to Date back to before 2016, an
+- [x] Try it against a mailbox his size: Go to Date back to before 2016, an
       All Mailboxes search, ~1,900 Drafts. The test account had 24 letters.
       *Tried 2026-10-23: the test account filled with made-up letters
       APPENDed already read (Inbox 57,209, Sent Mail 24,026, Drafts 1,900,
@@ -40,8 +40,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       iPad). Seen there too: Gmail's Important and Starred drawn indented
       among the labels, each as if inside the label above it (B-116,
       fixed, not yet seen on the iPad). Memory could not be read from the
-      app's log. Left: B-115's and B-116's checks under "Blocked on the
-      iPad coming back".*
+      app's log. B-115, B-116 and B-117, found there, fixed and seen fixed
+      the same day.*
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
       - [x] "Password needs updating" on a read, not "Can't connect to mail
@@ -4989,7 +4989,7 @@ this host. Ordered by value, not by size.
       B-110's print:* not done. It is an open item under "Doable now",
       the print's "This message has no text." only where the pane's.
 
-- [ ] **B-115, Go to Date in a folder whose letters came out of order.** On
+- [x] **B-115, Go to Date in a folder whose letters came out of order.** On
       the test iPad, the test account as filled for the size test (gap
       review, above), from a build with the fix; read only, nothing
       written to the mailbox. Current Mailbox unless said, three panes,
@@ -5034,7 +5034,9 @@ this host. Ordered by value, not by size.
       10. *Two panes,* 1 again, then three panes back.
       11. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
-- [ ] **B-116, the Mailboxes pane with labels.** On the test iPad, the
+      *Seen on the test iPad 2026-10-23 at the size test's mailbox: every
+      jump on its day, 0.7 to 1.5 s (B-115).*
+- [x] **B-116, the Mailboxes pane with labels.** On the test iPad, the
       test account only, whose labels are in the shapes of his (its LIST is
       `FolderTreeTests.testAccountsList`), built from the `bm-folders`
       worktree (branch `fix-folders`). Nothing is written to the mailbox:
@@ -5061,7 +5063,9 @@ this host. Ordered by value, not by size.
       4. *The Move sheet,* opened on a letter and Cancelled, no Move: the
       pane's order, without the indent.
       5. *Two panes:* the pane once more, as 1.
-- [ ] **B-117, Go to Date onto a letter that was answered.** On the test
+      *Seen on the test iPad 2026-10-23 with his labels' shapes: the order,
+      the names and every tap as written (B-116).*
+- [x] **B-117, Go to Date onto a letter that was answered.** On the test
       iPad, the test account as filled for the size test (gap review,
       above), from a build with the fix; read only, nothing written to the
       mailbox. Three panes, Organize by Thread on, Current Mailbox, the
@@ -5097,7 +5101,10 @@ this host. Ordered by value, not by size.
       6. *Two panes,* 1 again, then three panes back.
       7. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
-
+      *Seen on the test iPad 2026-10-23: the conversation's row on top from
+      the first frame and held; drags, Refresh and Organize by Thread off as
+      written. Left for the owner: the rows in sight dated after the day
+      (B-117).*
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -5253,6 +5260,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       sender's backgrounds printed.
 - [ ] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
+- [ ] **Go to Date with Organize by Thread on** (B-117): a jump lands on
+      the row that holds the day's first letter; when that letter was
+      answered, the row is its conversation's, placed by its newest letter,
+      so the rows in sight can be dated days after the day asked. As built
+      (the default, Mail's order of conversations), or land on the first
+      row dated on or before the day.
 - [ ] **Paper** (B-110): may a check print up to four sheets on a real
       AirPrint printer? It would run B-063's print check from Quick Look
       too. Until then no paper: every print was judged on the panel's
