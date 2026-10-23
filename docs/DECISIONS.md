@@ -553,6 +553,24 @@ keeping it:
   "probably not worth it" to a live question, because its own stated
   trigger has now half fired.
 
+### Where a jump opens with Organize by Thread on, ruled 2026-10-23
+
+**Ruled 2026-10-23 by the owner:** "Copy how Apple Mail works in terms of
+the date." Asked after B-117's check on the test iPad: a jump landed on the
+row holding the day's first letter, and when that letter had been answered
+the row was its conversation's, placed by its newest letter, so the rows in
+sight could be dated days after the day picked. Mail has no jump to copy,
+but its list has a place for every day: with Organize by Thread on a
+conversation's row is dated by its newest letter and the rows go by that
+date, so the day is where its rows are dated that day. A jump opens there
+now (B-118): on the oldest row dated on or after the day, the rows dated
+after it above and those before it below, a conversation begun on the day
+and answered later up where its newest letter puts it. With every letter of
+the day answered later it opens on the oldest row after it, and "Showing"
+names that day, as for a day with no mail. With Organize by Thread off,
+unchanged. The hold of B-117 stays: a reply that comes on a later page
+keeps the row where it is until he moves the list.
+
 ## D-013 — "Whatever Apple Mail composes" is HTML, not a format bar
 
 The requirement is to compose whatever Apple Mail composes, and the

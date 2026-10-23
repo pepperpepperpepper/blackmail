@@ -5105,6 +5105,82 @@ this host. Ordered by value, not by size.
       the first frame and held; drags, Refresh and Organize by Thread off as
       written. Left for the owner: the rows in sight dated after the day
       (B-117).*
+- [ ] **B-118, Go to Date opens where Mail's list shows the day.** On the
+      test iPad, the test account as filled for the size test (above),
+      from a build with the change; read only, nothing written to the
+      mailbox. Three panes, Organize by Thread on, Current Mailbox, the
+      Inbox opened at its top before each jump, frames from Go as in
+      B-117's check, and the app's log read after each. The rows expected
+      are worked out from the size test's plan (`plan.jsonl`, its `thread`
+      and `parent`), checked against the conversations the host read for
+      four of the days; a row is dated by its newest letter. For each: the
+      top row from the first frame with rows to 5 s after Go, nothing
+      touched, the row under it, and "Showing".
+      1. *1 June 2012:* Museum Members, 01/06/12, "Terrible great trip
+      doctor listen train" (763, 11.02 am), no conversation mark; under it
+      Hayden Lorem, 30/05/12 (761); above it Casey Dummy, 01/06/12 (764),
+      then Reese Proxy and The Daily Brief, 02/06/12. "Showing June 1,
+      2012". The conversation "Re: Watch and winter evening weather lunch",
+      Harper Mock, 05/06/12, with the mark, is up the list among the rows of
+      5 June, reached by scrolling up: 762 is in it. No frame has the
+      conversation on top. The log as B-117's check 1: the dated SEARCH,
+      the FETCH of its letters' dates, `UID SEARCH ALL`, one window FETCH,
+      `UID FETCH 723:822`, then the page above, `UID FETCH 823:872`, which
+      answers nothing in the row on top, and nothing moves as it comes.
+      2. *12 January 2014:* Alex Surrogate, 12/01/14, "Large against"
+      (2949, 5.06 am); under it Library Events, 11/01/14, "Coming up the
+      garden" (2947); above it Concert Hall, 12/01/14 (2950). "Showing
+      January 12, 2014". Morgan Lorem's conversation, 17/01/14, up the
+      list.
+      3. *21 March 2018:* Museum Members, 21/03/18, "Coming up the garden"
+      (14733, 4.22 am); under it Noel Ipsum, 20/03/18, "Re: Autumn listen"
+      (14730), Casey Dolor's letter of the 20th (14731) being up the list
+      with its reply of the 24th; above it Garden Club News, 21/03/18,
+      "Library during" (14735). "Showing March 21, 2018". The page above,
+      14793 to 14842, joins Blair Notreal's conversation (14805, 28 March),
+      which is out of sight up the list: nothing in sight moves.
+      4. *23 April 2019, a reply on the page asked as the day lands:* Ellis
+      Ersatz, 23/04/19, "Weather friend send great" (18944, 4.59 am), its
+      own row, no mark, over Hayden Pseudo, 22/04/19, "Student write"
+      (18943). "Showing April 23, 2019". When the page above, 19005 to
+      19054, is answered, its reply 19024 joins the row, and the row stays
+      on top as "Re: Weather friend send great", Ellis Ersatz, 28/04/19,
+      with the mark, the rows of 28 April under it (Museum Members, "During
+      short", 19023): B-118's Not covered, the hold kept. The frames either
+      side written down.
+      5. *10 March 2014:* Kai Placeholder, 10/03/14, "Cousin library into
+      drive" (3238, 3.43 am), over Jordan Imaginary, 09/03/14 (3237), as
+      before: his reply of 13 March is in Sent Mail, not in the list.
+      6. *Sunday 25 May 2014, no mail:* Harper Mock, 26/05/14, "Sister
+      forget library perhaps" (3613, 6.07 am), over Alex Imaginary,
+      24/05/14, "Picture think" (3612). "Showing May 26, 2014", as before.
+      7. *Friday 8 June 2012, every letter of the day answered later:* its
+      one letter, Peyton Standin's "From train read story" (777, 6.20 pm),
+      was answered on the 10th (782). Blair Ipsum, 09/06/12, "By before
+      fine around again" (778, 5.22 am) on top, under it Remy Lorem,
+      07/06/12 (776). "Showing June 9, 2012", as for a day with no mail.
+      Peyton Standin's conversation, 10/06/12, with the mark, up the list.
+      8. *Sent Mail, 2 June 2012:* his one letter that day, to Harper Mock
+      (533), was followed by his of 6 June (536): on top "Haydn — Aria",
+      05/06/12 (534), to himself, over "Purcell — Concerto", 31/05/12
+      (532). "Showing June 5, 2012". Then *15 May 2019:* the letter to
+      Emery Pseudo, 15/05/19 (8324), on top as before.
+      9. *All Mailboxes* from the Inbox, 10 March 2014: All Mail opens on
+      his own "Opera house - Wikipedia", 10/03/14 (4416, 3.36 am), as
+      before; Kai Placeholder's letter of 3.43 am is up the list in a
+      conversation of 13/03/14 with his reply, which in All Mail is a
+      letter of the list.
+      10. *The ends:* 1 January 2011 opens on Garden Club News, 04/01/12
+      (578), "Showing January 4, 2012"; 14 August 2026 on Wren Standin,
+      14/08/26 (57710); as before.
+      11. *Organize by Thread off,* 1 June 2012: Harper Mock, 01/06/12
+      (762), on top, as before; then the switch on again.
+      12. *Two panes,* 1 and 7 again, then three panes back.
+      13. *VoiceOver,* if it is to be run: 1 June 2012 once more, where
+      VoiceOver is after Go written down; if on a row of the list, the row
+      on top (763). Then VoiceOver off.
+      14. *Put back:* the jump to 20 October last, "No mail on or after
+      October 20", so the day and scope remembered are as found.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -5260,12 +5336,21 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       sender's backgrounds printed.
 - [ ] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
-- [ ] **Go to Date with Organize by Thread on** (B-117): a jump lands on
+- [x] **Go to Date with Organize by Thread on** (B-117): a jump lands on
       the row that holds the day's first letter; when that letter was
       answered, the row is its conversation's, placed by its newest letter,
       so the rows in sight can be dated days after the day asked. As built
       (the default, Mail's order of conversations), or land on the first
       row dated on or before the day.
+      *Ruled 2026-10-23: "Copy how Apple Mail works in terms of the date."
+      Built as B-118: in Mail's list a conversation's row is dated by its
+      newest letter and the rows go by that date, so a jump opens on the
+      oldest row dated on or after the day, the days after above and the
+      days before below, a conversation begun on the day and answered
+      later up where its reply puts it; with every letter of the day
+      answered later, the oldest row after it, "Showing" that day. With
+      Organize by Thread off as before. Not yet seen on the iPad (B-118's
+      check, above).*
 - [ ] **Paper** (B-110): may a check print up to four sheets on a real
       AirPrint printer? It would run B-063's print check from Quick Look
       too. Until then no paper: every print was judged on the panel's

@@ -300,9 +300,9 @@ final class MessageListViewController: UITableViewController {
     /// row put back. See `TakenRows`.
     private var taken = TakenRows()
 
-    /// The letter the last date jump landed on, its row held where he sees
-    /// it as the pages above come, until he moves the list. See
-    /// `LandedLetter` (B-117).
+    /// The letter heading the row the last date jump opened on, that row
+    /// held where he sees it as the pages above come, until he moves the
+    /// list. See `LandedLetter` (B-117, B-118).
     private var landed = LandedLetter()
 
     /// Regroups for a letter the reading pane or Edit mode changed, took
@@ -1477,30 +1477,36 @@ final class MessageListViewController: UITableViewController {
         // last row, which is correct: there is nowhere further to go.
         tableView.layoutIfNeeded()
         // The anchor is an index into the flat window; the list shows
-        // conversations. Scroll to the ROW that carries that letter,
-        // which for a message inside a collapsed thread is the
-        // thread's own row.
+        // conversations. Scroll to the ROW Mail's list shows the day at:
+        // the oldest dated on or after it, a conversation dated by its
+        // newest letter (`ListOpening.dayRow`, B-118). With Organize by
+        // Thread off, the letter's own row. It was the row that carries
+        // the letter, which for one answered in the days after is its
+        // conversation's, dated as the reply, up the list.
         let anchorIndex = min(window.anchorIndex, window.messages.count - 1)
-        let anchorID = window.messages[anchorIndex].id
-        let landedRow = rowIndex(showing: anchorID)
+        let day = ListOpening.dayRow(in: threads, for: window)
+        let landedRow = day?.row
         if let row = landedRow {
             tableView.scrollToRow(at: IndexPath(row: row, section: 0),
                                   at: .top, animated: false)
         }
         // And kept there as the pages above come, the first asked for as
-        // it lands (B-094): a reply to the letter on one of them takes its
-        // row up the list, and the day's first letter went out of sight
-        // 0.14 s after it was drawn (`LandedLetter`, B-117). The window
-        // brings the page above it, so a reply among the next fifty is in
-        // the row from the first frame (`PageWindow.jumpWindow`).
-        landed.landed(on: landedRow == nil ? nil : anchorID)
+        // it lands (B-094): a reply on one of them takes its row up the
+        // list, and the day's first letter went out of sight 0.14 s after
+        // it was drawn (`LandedLetter`, B-117). Held by the letter that
+        // heads it now. The window brings the page above it, so a reply
+        // among the next fifty is in its row from the first frame
+        // (`PageWindow.jumpWindow`).
+        landed.landed(on: landedRow.map { threads[$0].id })
 
         // The bottom bar stops reporting freshness and starts reporting
         // WHERE HE IS, which for a list that no longer starts at today
         // is the more urgent of the two. It goes back to "Updated Just
-        // Now" on the next refresh.
+        // Now" on the next refresh. The day of the row on top: the day
+        // asked for, or with every letter of it answered later, the day of
+        // the row opened on, as for a day with no mail (B-118).
         showingAge = false
-        say("Showing \(IMAPDate.spokenDay(window.landedOn))")
+        say("Showing \(IMAPDate.spokenDay(day?.shown ?? window.landedOn))")
         // No pull on a day's list, whose top is not the folder's (B-103).
         placePull()
 
@@ -1646,9 +1652,9 @@ final class MessageListViewController: UITableViewController {
             // animates the content out from under the reader, and the
             // offset fix would land a frame late and visibly jump.
             //
-            // The row a jump landed on, while he has not moved the list, is
+            // The row a jump opened on, while he has not moved the list, is
             // the row held, by its letter: a reply on this page joins it and
-            // would take it up out of sight (`LandedLetter`, B-117).
+            // would take it up out of sight (`LandedLetter`, B-117, B-118).
             let move = self.landed.move(forPageAboveFrom: self.place())
             UIView.performWithoutAnimation { self.regroup(to: move) }
             self.loadPreviews(for: fresh)

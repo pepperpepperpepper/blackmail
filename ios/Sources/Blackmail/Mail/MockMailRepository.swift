@@ -68,7 +68,8 @@ final class MockMailRepository: MailRepository {
                              anchorIndex: takeNewer,
                              reachedNewest: start == 0,
                              reachedOldest: end == all.count,
-                             landedOn: all[idx].date)
+                             landedOn: all[idx].date,
+                             dayStart: date)
     }
 
     /// The fixtures carry their preview text already, so this just hands it

@@ -87,4 +87,76 @@ enum ListOpening {
             return outcome
         }
     }
+
+    /// Where a jump opens: the row put at the top of the pane, and the day
+    /// "Showing" names (B-118).
+    struct DayRow: Equatable {
+        /// In the list's rows.
+        let row: Int
+        /// The row's date, or the letter landed on's when no row is dated
+        /// within the day's bounds.
+        let shown: Date
+    }
+
+    /// The row of `rows`, the list's rows as it draws them from `window`'s
+    /// letters, that a jump opens on, as Mail's list shows the day (B-118):
+    /// the oldest row dated on or after it, a row dated by its newest letter
+    /// (`MessageThread.date`), the rows dated after it above and those dated
+    /// before it below.
+    ///
+    /// Asked for by the owner on 2026-10-23: "Copy how Apple Mail works in
+    /// terms of the date." With Organize by Thread on, Mail dates a
+    /// conversation's row by its newest letter and orders the rows by that
+    /// date. The jump used to open on the row that carries the letter landed
+    /// on, the day's first, and when that letter was answered in the days
+    /// after it that row is its conversation's, up the list where its reply
+    /// puts it: on the iPad 1 June 2012 opened on "Re: Watch and winter
+    /// evening weather lunch", dated 5 June, with the rows of 4 to 1 June
+    /// under it and the day's next letter, 763, the eleventh row; it opens on
+    /// 763 now, with 30 May under it.
+    ///
+    /// Found from the letter landed on (`window.anchorIndex`), upward: the
+    /// first of its letters, from that one up, that heads a row, the row's
+    /// id, whose row is dated from `window.dayStart`, his midnight, to
+    /// `window.notAfter`, a week after today. A row takes the place of the
+    /// letter it is headed by (`MessageThread.group`), so that is the lowest
+    /// row at or above the letter's place dated on or after the day: in a
+    /// folder in date order the oldest row so dated, and nothing below it is
+    /// of the day. A letter of the day answered later is in its
+    /// conversation's row, up where the reply puts it; if every letter of the
+    /// day is, the row opened on is the oldest dated after it, and "Showing"
+    /// names its day, as for a day with no mail of its own. With Organize by
+    /// Thread off every letter is a row of its own and this is the letter
+    /// landed on's row, as before. Only the rows' letters date them: his
+    /// letters from Sent Mail in an Inbox conversation's stack (Complete
+    /// Threads, B-104) are not in the list.
+    ///
+    /// Not by date alone over every row: in a folder whose letters did not
+    /// come in the order they were written, a row dated on or after the day
+    /// can be anywhere, as the account's own letters at the foot of the size
+    /// test's Inbox are, and the landing does not go there either (B-115).
+    ///
+    /// With no row so dated at or above the letter, the row that carries
+    /// the letter, and the day it was landed on (`window.landedOn`), as
+    /// before. Nil when no row carries it, as when it has been taken off by
+    /// hand, and with no letters.
+    static func dayRow(in rows: [MessageThread], for window: MessageWindow) -> DayRow? {
+        let letters = window.messages
+        guard !letters.isEmpty else { return nil }
+        let landed = min(max(window.anchorIndex, 0), letters.count - 1)
+        let landedID = letters[landed].id
+        guard let carrying = rows.firstIndex(where: { row in
+            row.messages.contains { $0.id == landedID }
+        }) else { return nil }
+        var heading: [String: Int] = [:]
+        for (i, row) in rows.enumerated() where heading[row.id] == nil { heading[row.id] = i }
+        for i in stride(from: landed, through: 0, by: -1) {
+            guard let row = heading[letters[i].id] else { continue }
+            let date = rows[row].date
+            if date >= window.dayStart && date <= window.notAfter {
+                return DayRow(row: row, shown: date)
+            }
+        }
+        return DayRow(row: carrying, shown: window.landedOn)
+    }
 }

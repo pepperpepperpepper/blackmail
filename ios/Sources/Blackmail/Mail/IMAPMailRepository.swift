@@ -1344,11 +1344,16 @@ actor IMAPMailRepository: MailRepository {
             return nil
         }
 
+        // The bounds the landing went by go with it: the list opens on the
+        // oldest row dated within them at or above the letter, by its
+        // newest letter's date (`ListOpening.dayRow`, B-118).
         return MessageWindow(messages: rows,
                              anchorIndex: landedIndex,
                              reachedNewest: window.reachedNewest,
                              reachedOldest: window.reachedOldest,
-                             landedOn: rows[landedIndex].date)
+                             landedOn: rows[landedIndex].date,
+                             dayStart: dayStart,
+                             notAfter: notAfter)
     }
 
     /// Walks a BODYSTRUCTURE looking for anything the reader would call an

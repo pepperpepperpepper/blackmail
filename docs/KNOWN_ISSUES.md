@@ -22625,9 +22625,12 @@ folder first. On a day with no mail, at a letter of the first days after
 it that have any, the first of them where the letters came in order, as
 before. Before the oldest letter of the test account, at the oldest,
 where it landed at the foot. *With Organize by Thread on, a letter that
-begins a conversation is landed on in its conversation's row, dated as the
-conversation's newest letter, and stays there (B-117): 1 June 2012's
-first letter in the test account's Inbox is answered on 5 June.*
+begins a conversation is in its conversation's row, dated as the
+conversation's newest letter, up the list where that letter puts it, and
+since B-118 the list opens on the oldest row dated on or after the day, as
+Mail's list shows it: 1 June 2012's first letter in the test account's
+Inbox is answered on 5 June, and the day's next letter, 763, is on top.
+B-117 opened on the conversation's row.*
 
 **Tests.** `GoToDateOrderTests`, seventeen, over the shipping repository
 and client against the scripted server. Twelve on an Inbox like the test
@@ -23031,7 +23034,9 @@ only, 762 and 773 are one conversation (X-GM-THRID), 773 dated 5 June.
 Not by design: a jump lands on the row that carries the day's first
 letter, its conversation's if it is in one, which is what `show(_
 window:)` does when the window holds the conversation whole, and stays
-there until he moves the list. With his volume, about 71 letters a day
+there until he moves the list. *Since B-118, on the owner's ruling, it
+opens on the oldest row dated on or after the day, a conversation dated by
+its newest letter, as Mail's list shows the day: on 1 June 2012, 763.* With his volume, about 71 letters a day
 and many answered, a reply among the next fifty letters is common.
 
 **What it was.** Two things, each recorded and neither wrong alone.
@@ -23062,14 +23067,18 @@ and many answered, a reply among the next fifty letters is common.
    are worked out on the whole (`IMAPMailRepository.messages(around:)`,
    and the Mock repository's the same). A reply among the next sixty
    letters is in the letter's conversation's row as the list is first
-   drawn, and the jump lands on that row, from the first frame. The page
+   drawn, and the jump lands on that row, from the first frame (*since
+   B-118 that row is up the list where the reply puts it, and the jump
+   opens on the oldest row dated on or after the day,
+   `ListOpening.dayRow`*). The page
    asked for as the day lands is the one above it now.
 2. *The landed row held, by its letter* (`LandedLetter`,
    `ListPlace.landing(in:holding:)`, `ListPlaces.Move.holding`). A reply
    on the page asked for as the day lands, or on one after it, joins the
    row as before. A page above is drawn holding the row that carries the
    letter where it is on screen, found by the letter, not by the row's
-   id, which the reply has taken; the row then is the conversation's, as
+   id, which the reply has taken (*since B-118 the letter heading the row
+   the jump opens on*); the row then is the conversation's, as
    in 1. Held while he has not moved the list. Let go by a drag, a tap on
    another row (a tap on the row itself keeps it) or on the status bar,
    Edit, a search typed or run, the list fetched afresh (Refresh, the
@@ -23111,7 +23120,11 @@ its newest letter, the days after it above, and under it the letters
 that came between the two, newest first, the rest of the day he picked
 the last of them; and it stays there until he moves the list. With
 Organize by Thread off, or a first letter not answered, the day's first
-letter on top, as before.
+letter on top, as before. *Since B-118, on the owner's ruling: such a jump
+opens on the oldest row dated on or after the day, the day's next letter
+on 1 June 2012, with that letter's conversation up the list where its
+reply puts it, as Mail's list shows the day; held there until he moves the
+list.*
 
 **Tests.** `LandedLetterTests`, fourteen. On the size test's Inbox by UID,
 the window alone 723 to 772 and the jump's window 723 to 822, landing on
@@ -23178,12 +23191,15 @@ failing. The release build for the iPad links.
   by the reply, and the rows under it are those of the days between. The
   row stays; what is under it does not. At his volume, a day or a day and
   a half of letters. Further up than that, joined as he scrolls up to it,
-  as before (B-042). Not seen.
+  as before (B-042). Not seen. *Seen on the iPad on 23 April 2019 (below);
+  since B-118 the same for the row the jump opens on.*
 - The day's other letters are further down than before when the first is
   answered: on the iPad's 1 June, 763 the eleventh row, under the rows of
   4 to 1 June. That is where a window holding the conversation whole put
   it before B-117 too; whether he reads it as the day he asked for, under
-  "Showing June 1, 2012", is for the iPad.
+  "Showing June 1, 2012", is for the iPad. *Put to the owner and ruled on
+  2026-10-23, "Copy how Apple Mail works in terms of the date": since B-118
+  763 is on top.*
 - What it costs: the window's FETCH fifty rows longer, some 1 KB a row on
   the test account with its BODYSTRUCTURE, about 50 KB; and the page
   asked for as the day lands is one more page per jump than before, its
@@ -23228,3 +23244,196 @@ rows of 28 April, the 23rd's own about 80 rows down), as conversations
 are placed by their newest letter; and on 21 March 2018 a row under the
 held one, answered on that page, left for the top (an owner question, in
 TODO).
+
+## B-118 — CHANGED 2026-10-23 on the owner's ruling, not yet seen on the iPad. With Organize by Thread on, Go to Date opened on a conversation answered days after the day picked; it opens where Mail's list shows the day
+
+**Asked** on 2026-10-23. B-117's check on the test iPad left a question for
+the owner (TODO, "Go to Date with Organize by Thread on"): a jump landed on
+the row that holds the day's first letter, and when that letter had been
+answered the row was its conversation's, placed by its newest letter, so
+the rows in sight could be dated days after the day asked. As built, or
+land on the first row dated on or before the day. His ruling: "Copy how
+Apple Mail works in terms of the date."
+
+**What Mail does.** Mail has no Go to Date (D-012); what there is to copy
+is where its list shows a day. With Organize by Thread on, a
+conversation's row shows the date of its newest letter, and the rows go by
+that date, newest first; a letter on its own is a row of its own, dated by
+itself. So the list's place for a day is where its rows are dated that
+day: the rows dated after it above, the rows dated before it below, and a
+conversation that began on the day but was answered later up where its
+newest letter puts it. This app's rows were already built so
+(`MessageThread`, B-022, B-084): a row is dated by its newest letter and
+takes the place of the letter the list has first in it, which in a folder
+in date order is that same letter. As the ruling and Mail's long-standing
+list have it; not seen on a screen for this, and Mail does not run in the
+simulator (B-074).
+
+**What it was.** `show(_ window:)` put the row that carries the letter
+landed on at the top (`rowIndex(showing:)`), and held that letter as the
+pages above came (B-117). The letter landed on is the day's first where
+the folder's letters came in order (B-115). Answered among the sixty letters above it in the jump's window, it is in
+its conversation's row, headed by the reply and placed by it. On the
+iPad, 1 June 2012: "Re: Watch and winter evening weather lunch", Harper
+Mock, 05/06/12, on top, the rows of 4 to 2 June under it, then Casey Dummy
+(764) and Museum Members (763) of 1 June, then 30 May; 12 January 2014 the
+same with the conversation of the 17th, 21 March 2018 with that of the
+25th, then the 28th (B-117, seen). With Organize by Thread off, the day's
+first letter, which was already Mail's place. In the size test's Inbox, by
+its plan's conversations counted on the host, 405 of the 5,263 days with
+mail had the first letter answered within the window and another letter
+of the day heading a row of its own, and 14 had every letter answered so.
+
+**Changed.**
+
+1. *The row a jump opens on* (`ListOpening.dayRow`, new). Of the list's
+   rows as it draws them from the jump's window, the oldest dated on or
+   after the day, a row dated by its newest letter. Found from the letter
+   landed on, upward: the first letter, from that one up, that heads a row
+   whose date is from his midnight to a week after today, the bounds the
+   landing goes by (B-058). A row takes the place of the letter heading
+   it, so that is the lowest row at or above the letter's place so dated:
+   in a folder in date order the oldest row of the day, and every row
+   below it dated before the day. A conversation begun on the day and
+   answered later is up the list where its reply puts it. On the size
+   test's 1 June 2012 it opens on 763, Museum Members, 11.02 am, with 30
+   May under it.
+2. *A day whose every letter was answered later.* No row is dated the
+   day, and the list opens on the oldest row dated after it. "Showing"
+   names that row's day, as it names the day landed on for a day with no
+   mail of its own, "Showing May 26, 2014" for Sunday the 25th: on the
+   size test's 8 June 2012, whose one letter was answered on the 10th,
+   778 of the 9th, "Showing June 9, 2012" (`DayRow.shown`).
+3. *Rows dated outside the day's bounds* are passed over, as the landing
+   passes over letters so dated: a letter moved into the folder after the
+   day's first, dated years before, and one dated wrong, more than a week
+   ahead. With no row so dated at or above the letter, the row that
+   carries it, and "Showing" the day landed on, as before; with no row
+   carrying it, as when it has been taken off by hand, no scroll and
+   nothing held, as before.
+4. *The window carries the bounds* (`MessageWindow.dayStart`, `notAfter`):
+   the repository's, from his calendar and its clock, which its landing
+   went by; the Mock's from the day picked.
+5. *The hold* (`LandedLetter`, B-117) is the letter heading the row opened
+   on, from the first frame, by the same rules: held as the pages above
+   come while he has not moved the list, and let go as before.
+6. The docs that said a jump lands on the row that carries the day's
+   first letter (`PageWindow.jumpWindow`, `ListPlace.landing(in:holding:)`,
+   `LandedLetter`, `MessageWindow`, `MailRepository.messages(around:)`, the
+   list's `show`; B-115 and B-117 here) say what it is now.
+
+**Not changed.** The SEARCHes, the FETCH of the day's letters' dates and
+the landing by his calendar (B-058, B-115); the window's one FETCH with the
+page above (B-117); the page above asked for as the day lands (B-094);
+"No mail on or after" a day after the newest. The rows themselves: their
+order, their dates, their marks. With Organize by Thread off every letter
+is a row and the list opens on the letter landed on with its day, byte for
+byte as before. Complete Threads: his letters from Sent Mail go into the
+reading pane's stack closed and are never the list's (B-104), so they date
+no row and move no jump; 1 June's conversation is dated 5 June by 773
+though its stack has his letter of the 6th. All Mailboxes jumps in All
+Mail, where his replies are letters of the folder and date its rows as its
+list does: Kai Placeholder's letter of 10 March 2014 is in a conversation
+of the 13th there and a row of its own in the Inbox. Sent Mail alike, its
+conversations his replies. Two panes and three alike. The kept page: a
+jump replaces it, and nothing of a jump is kept (D-016). VoiceOver: after
+the redraw it is put back only if it was on a row of the list or on its
+way to one, on the cell now showing that row's letter or in its place if
+any of it is in sight, else on the first row wholly in sight (B-079),
+which is now the row opened on; on the calendar button, as the sheet
+leaves it, it stays there. The previews
+from the row opened on down, then the page above (B-117). No new words.
+
+**What he sees.** With Organize by Thread on, a jump opens with the oldest
+row dated the day he picked at the top, the days after it above and the
+days before it below. A letter of that day answered later is in its
+conversation's row, up among the rows of the day of the reply, as Mail's
+list has it; on 1 June 2012 the day's next letter is on top. Where every
+letter of the day was answered later, the oldest row after it, and
+"Showing" says its day. With Organize by Thread off, or a first letter not
+answered, as before.
+
+**Tests.** `GoToDateRowTests`, sixteen, on the size test's own shapes,
+from its plan: each folder's letters by their UIDs there, in the order
+written, the account's own at the foot of the Inbox, dated 2026; the days'
+letters with their times in New York and their conversations, the Inbox's
+as the host read them by X-GM-THRID for four of the days; every other
+letter of a window one of its own. The real `PageWindow.jumpWindow`,
+`PageWindow.landing` and grouping. Organize by Thread on: 1 June 2012 opens
+on 763, 30 May under it, every row above dated on or after the day and
+every row below before it, the conversation of 762 and 773 above; 12
+January 2014 on 2949 over 2947; 21 March 2018 on 14733 over 14730, 14731
+up with 14763 and 14805 not in the window; 23 April 2019 on 18944 itself,
+its reply past the window; 10 March 2014 on 3238 and Sunday 25 May 2014 on
+3613, "Showing" the 26th, as before; 1 January 2011 on 578, the account's
+own 39 under it, dated 2026, never opened on; 14 August 2026 on 57710.
+Friday 8 June 2012, every letter answered later, on 778, "Showing" the 9th,
+and with Organize by Thread off on 777. Sent Mail: 2 June 2012 on 534,
+"Showing" 5 June, 15 May 2019 on 8324. All Mail's 10 March 2014 on 4416,
+Kai's letter in a conversation of the 13th there and a row of its own in
+the Inbox, and 1 June's conversation dated by 773 while Complete Threads'
+stack has his 536. Organize by Thread off, all twelve: the letter landed
+on, its day. A folder out of order: the lowest UID of the day landed on,
+not the day's earliest; a letter dated 2010 and one of 2036 above it
+passed over; with none in the bounds the row that carries the letter; and
+none when no row does. The hold: on 23 April 2019 the page above, 19005 to
+19054, joins 19024 to the row opened on, held at the top 120 points down,
+dated 28 April, over 19023; were 763 answered on 1 June's page above, held
+by 763 it stays, held by 762, out of sight, nothing is held and 764 comes
+down into the top place. Over the wire, the shipping repository and client
+against the scripted server in New York, 30 May to 10 June 2012 as the
+plan has them: the window's bounds his midnight and a week after today,
+and with the list's rows 1 June opening on 763 and 8 June on 778, "Showing"
+the 9th; off, 762 and 777. And the source read: `show` drawing the rows
+from the window, then opening on `ListOpening.dayRow`'s row, holding the
+letter heading it, saying its day and fetching the previews from it; the
+rows from `letters.shown` alone; the repository's and the Mock's bounds.
+`LandedLetterTests.testTheListHoldsTheLetterOnlyForThePagesAbove` reads
+`show`'s new lines.
+
+Each part undone by hand, `GoToDateRowTests` and `LandedLetterTests` run,
+then put back and passing, counted as failures in tests: the row that
+carries the letter landed on, as B-117 had it, 27 in 9; the bounds not
+asked, 4 in 1; the oldest row by date over the whole window, 1 in 1; from
+the foot of the window up, 11 in 3; "Showing" the day landed on, 4 in 3; a
+row dated after the day, not on or after it, 84 in 13; from the letter
+above the one landed on, 75 in 11; the list scrolling to the row that
+carries the letter, 3 in 2; holding the letter landed on, 2 in 2; saying
+the day landed on, 1 in 1; the repository's window without the bounds, 5
+in 2; with midnight UTC for his, 3 in 2; the Mock's without the day, 1 in
+1; the hold by the rows alone, 6 in 2 and 12 in 4 of `LandedLetterTests`;
+nothing held, 2 in 2 and 3 in 1 of `LandedLetterTests`.
+
+The full suite, serially: 2,402 tests, 16 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-118's check).
+- Mail's list with Organize by Thread on was not looked at on a screen for
+  this: the rule is the ruling's account of it, and this app's rows.
+- The hold kept: a reply on a page that comes after the first frame, the
+  page asked for as the day lands or one further up, to a letter in the
+  row opened on joins it, and the row stays where it is, now its
+  conversation's and dated as the reply, until he moves the list. The row
+  on top is then not where Mail's list has it, and the rows under it are
+  those of the reply's day. On the size test's 23 April 2019: 18944 on top
+  in its own row, then, as the page above comes, "Re: Weather friend send
+  great", 28/04/19, over the rows of 28 April, as B-117 saw. Kept so, as
+  the ruling keeps the hold; let go, the row would leave for the top and
+  the next row he can see stay, B-042's rule.
+- The rows under the row opened on: one whose letter is answered on a
+  later page leaves for the top as that page comes, and the rows below
+  close up (B-042), as before. None does on the size test's days.
+- A folder out of order: the row is found from the letter landed on, the
+  lowest UID of the day (B-115), upward, not by date over every row, so
+  within the day it is the lowest UID's place, not the earliest letter's,
+  and a row of the day below the letter is not opened on. As the list is
+  the folder's order everywhere in the app.
+- The grouping switch turned while the list sits on a landing regroups by
+  the rows he can see, not by this rule (B-117).
+- A row's date is its newest letter by arrival (B-084): a conversation put
+  in the folder out of turn is dated by the letter that came last, and
+  placed by the letter listed first, as everywhere in the list.
+- What it costs: nothing sent; a pass over the window's rows, some 110,
+  as the jump is drawn.

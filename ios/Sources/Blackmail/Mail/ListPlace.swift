@@ -171,9 +171,9 @@ struct ListPlace: Equatable {
     }
 
     /// Where he was, in `rows`, with the row that carries `letter` held
-    /// where it is on screen, if he could see it: the letter a date jump
-    /// landed on, while the pages above it come (`LandedLetter`, B-117).
-    /// Otherwise, and with no letter, `landing(in:)`.
+    /// where it is on screen, if he could see it: the letter heading the
+    /// row a date jump opened on, while the pages above it come
+    /// (`LandedLetter`, B-117). Otherwise, and with no letter, `landing(in:)`.
     ///
     /// Held by its letter, not by the row's id. With Organize by Thread on,
     /// a reply to it on a page above joins its row, and the row is then
@@ -183,9 +183,13 @@ struct ListPlace: Equatable {
     /// see stays: the day's next letter came down into the top place, and
     /// the letter he had asked for was gone out of sight above, 0.14 s
     /// after it was drawn, seen on the iPad on 2026-10-23. Held, the row
-    /// goes where the letter's row was, and the list with it: the row it
-    /// is in, its conversation's, is the row the jump lands on when the
-    /// window holds the conversation whole (`PageWindow.jumpWindow`).
+    /// goes where the letter's row was, and the list with it, the row now
+    /// its conversation's and dated as the reply. Since B-118 the jump
+    /// opens on the oldest row dated on or after the day, and a reply in
+    /// the window has already put a conversation where Mail's list has it
+    /// (`ListOpening.dayRow`, `PageWindow.jumpWindow`); a reply further up
+    /// still joins the row held, which stays where it is, dated later,
+    /// until he moves the list.
     func landing(in rows: [MessageThread], holding letter: String?) -> (row: Int, offset: Double)? {
         guard let letter, let seen = seen.first(where: { $0.letters.contains(letter) }),
               let row = rows.firstIndex(where: { $0.messages.contains { $0.id == letter } }) else {
@@ -399,17 +403,18 @@ struct ListPlaces {
     }
 }
 
-/// The letter a date jump landed on, held where he sees it as the pages
-/// above it come, until he moves the list himself (B-117).
+/// The letter heading the row a date jump opened on, held where he sees it
+/// as the pages above it come, until he moves the list himself (B-117).
 ///
-/// A jump lands on the row that carries the day's first letter, its
-/// conversation's row if it is in one (`MessageListViewController.show`).
-/// The page above is asked for as the day lands (B-094), and so can the one
-/// above that, and a reply to the letter on such a page joins its row and
-/// takes it up the list (`ListPlace.landing(in:holding:)`). Held, the row
-/// with the letter in it stays where it is, and the list with it, the row
-/// now its conversation's, which is where the jump lands when the window
-/// holds the conversation whole.
+/// A jump opens on the row Mail's list shows the day at, the oldest dated
+/// on or after it, a conversation dated by its newest letter
+/// (`ListOpening.dayRow`, B-118); before B-118, on the row that carried the
+/// day's first letter, its conversation's if it was in one. The page above
+/// is asked for as the day lands (B-094), and so can the one above that,
+/// and a reply on such a page to a letter in the row joins it and takes it
+/// up the list (`ListPlace.landing(in:holding:)`). Held, the row stays
+/// where it is, and the list with it, the row now its conversation's and
+/// dated as the reply, until he moves the list.
 ///
 /// Held for the pages above only, and only while he has not moved the list:
 /// a drag, a tap on another row or the status bar, Edit, a search, Refresh
@@ -425,7 +430,7 @@ struct LandedLetter: Equatable {
     /// The letter, while it is held.
     private(set) var letter: String?
 
-    /// A jump has landed on `id`'s row; nil when it found no row for it.
+    /// A jump has opened on the row `id` heads; nil when it found no row.
     mutating func landed(on id: String?) {
         letter = id
     }

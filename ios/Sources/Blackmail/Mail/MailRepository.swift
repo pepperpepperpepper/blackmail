@@ -61,7 +61,9 @@ protocol MailRepository {
     /// The mail either side is the window around the letter, `limit` long,
     /// and the page of `limit` above it (`PageWindow.jumpWindow`, B-117): a
     /// reply to the letter landed on among them is in its conversation's
-    /// row from the start.
+    /// row from the start. Which row the list opens on is the list's, by
+    /// its rows' dates (`ListOpening.dayRow`, B-118); the window says from
+    /// when, and until when, a row may be dated to be one.
     func messages(around date: Date, in mailboxID: String, limit: Int) async throws -> MessageWindow?
 
     /// The two grey lines under the subject, for messages already listed.
@@ -370,7 +372,11 @@ struct DraftSaved: Equatable, Sendable {
 struct MessageWindow {
     /// Newest first.
     var messages: [MessageSummary]
-    /// Which row is the day he asked for, so the list can scroll to it.
+    /// Which letter the jump landed on, in `messages`: the day's first,
+    /// where the folder's letters came in order. With Organize by Thread
+    /// off its row is the one the list opens on; with it on, the list
+    /// opens on the row its rule finds from it (`ListOpening.dayRow`,
+    /// B-118): the letter's own row while no later letter has joined it.
     var anchorIndex: Int
     /// There is no more mail newer than `messages.first` — the list is
     /// against the top of the folder and must stop trying to load upward.
@@ -382,6 +388,13 @@ struct MessageWindow {
     /// Reporting the real one is the difference between a jump that looks
     /// broken and one that looks careful.
     var landedOn: Date
+    /// Midnight of the day he asked for, where he is: a row the list opens
+    /// on is dated from then (`ListOpening.dayRow`, B-118), as the letter
+    /// landed on is (`PageWindow.landing`).
+    var dayStart: Date = .distantPast
+    /// A week after today: a row dated later is dated wrong, and is not
+    /// opened on, as no letter so dated is landed on (B-058).
+    var notAfter: Date = .distantFuture
 }
 
 /// What the user is allowed to see when something breaks.

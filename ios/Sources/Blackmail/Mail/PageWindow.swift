@@ -138,9 +138,11 @@ enum PageWindow {
     /// letter, one past the ten the window keeps above it. Fetched with the
     /// window, the page above is in the list as it is first drawn, so the
     /// row that carries the letter is its conversation's from the first
-    /// frame, where the jump lands; a reply further up still joins it
-    /// later, and the list holds that row where it is
-    /// (`ListPlace.landing(in:holding:)`).
+    /// frame, dated as its reply, up the list where Mail's list has it, and
+    /// the jump opens on the oldest row dated on or after the day
+    /// (`ListOpening.dayRow`, B-118): 763, the day's next letter. A reply
+    /// further up still joins the row opened on later, and the list holds
+    /// that row where it is (`ListPlace.landing(in:holding:)`).
     ///
     /// No round trip more: the same FETCH, fifty rows longer. With none
     /// newer than the window, the window alone.

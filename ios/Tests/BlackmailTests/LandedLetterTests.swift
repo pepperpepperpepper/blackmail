@@ -429,8 +429,9 @@ final class LandedLetterTests: XCTestCase {
             "let landedIndex = PageWindow.landing( dates: rows.map(\\.date), anchor: anchorRow,"))
     }
 
-    /// `show` lands on the row that carries the letter and holds that
-    /// letter, after the scroll; its previews begin at that row. The page
+    /// `show` lands on the row it opens on, the oldest dated on or after the
+    /// day since B-118, and holds the letter heading it, after the scroll;
+    /// its previews begin at that row. The page
     /// above is drawn by the hold's move, which a regroup puts into effect
     /// by the letter; and nothing else draws by it: a letter taken out or
     /// put back, the grouping switch, the watch's letters, a page below and
@@ -438,10 +439,10 @@ final class LandedLetterTests: XCTestCase {
     func testTheListHoldsTheLetterOnlyForThePagesAbove() throws {
         let list = try source("UI/MessageListViewController.swift")
         let show = flat(body(after: "private func show(_ window: MessageWindow)", in: list))
-        inOrder(["let landedRow = rowIndex(showing: anchorID)",
+        inOrder(["let landedRow = day?.row",
                  "if let row = landedRow { tableView.scrollToRow(at: IndexPath(row: row, section: 0), "
                     + "at: .top, animated: false) }",
-                 "landed.landed(on: landedRow == nil ? nil : anchorID)",
+                 "landed.landed(on: landedRow.map { threads[$0].id })",
                  "let seenFrom = landedRow.flatMap { row in "
                     + "window.messages.firstIndex { $0.id == threads[row].id } } ?? anchorIndex",
                  "loadPreviews(for: window.messages, from: seenFrom) }"], in: show)
