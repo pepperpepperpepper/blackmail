@@ -5105,7 +5105,7 @@ this host. Ordered by value, not by size.
       the first frame and held; drags, Refresh and Organize by Thread off as
       written. Left for the owner: the rows in sight dated after the day
       (B-117).*
-- [ ] **B-118, Go to Date opens where Mail's list shows the day.** On the
+- [x] **B-118, Go to Date opens where Mail's list shows the day.** On the
       test iPad, the test account as filled for the size test (above),
       from a build with the change; read only, nothing written to the
       mailbox. Three panes, Organize by Thread on, Current Mailbox, the
@@ -5205,6 +5205,10 @@ this host. Ordered by value, not by size.
       on top (763). Then VoiceOver off.
       16. *Put back:* the jump to 20 October last, "No mail on or after
       October 20", so the day and scope remembered are as found.
+      *Seen on the test iPad 2026-10-23: every day as expected, three
+      panes and two, Organize by Thread on and off; a row answered on the
+      page above gave way to the day's next row in about 0.2 s. Left:
+      step 15, VoiceOver (B-118).*
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

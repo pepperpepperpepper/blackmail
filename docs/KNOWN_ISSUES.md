@@ -23256,7 +23256,7 @@ TODO). *Ruled 2026-10-23 (B-118): the list opens where Mail's list shows
 the day, and on 23 April 2019 the row answered on the page above goes up
 the list with its reply, 18945 of the 23rd coming into the top place.*
 
-## B-118 — CHANGED 2026-10-23 on the owner's ruling, not yet seen on the iPad. With Organize by Thread on, Go to Date opened on a conversation answered days after the day picked; it opens where Mail's list shows the day
+## B-118 — CHANGED 2026-10-23 on the owner's ruling, seen on the iPad the same day. With Organize by Thread on, Go to Date opened on a conversation answered days after the day picked; it opens where Mail's list shows the day
 
 **Asked** on 2026-10-23. B-117's check on the test iPad left a question for
 the owner (TODO, "Go to Date with Organize by Thread on"): a jump landed on
@@ -23518,3 +23518,16 @@ none failing. The release build for the iPad links.
 - What it costs: nothing sent; a pass over the window's rows, up to 100,
   as the jump is drawn, and one over the rows as a page above that joins
   the row on top is drawn.
+
+**Seen on the test iPad, 2026-10-23**, on a build of fix-maildate
+(617cf33) at the size test's mailbox, Organize by Thread on, three panes
+and two: every day of the TODO check opened as it expects. 1 June 2012 on
+the day's 11:02 letter over 30 May, the conversation begun that day up the
+list at 5 June; 12 January 2014, 21 March 2018, 27 March 2014 and 8 June
+2012 (every letter of the day answered later, so 'Showing June 9, 2012')
+the same way; 10 March 2014 and Sunday 25 May 2014 as before; Sent Mail
+and All Mailboxes as written. Where the page above brought a reply to the
+row on top (23 April 2019; All Mail 8 April 2021), that row was on top for
+about 0.2 s, then the day's next row took its place under the same
+'Showing', never a later day's rows. With Organize by Thread off, 1 June
+2012 opened on the day's first letter, as before. VoiceOver was not tried.
