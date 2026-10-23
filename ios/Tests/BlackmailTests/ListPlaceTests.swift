@@ -1306,6 +1306,7 @@ final class ListPlaceTests: XCTestCase {
                         "private func place() -> ListPlace {",
                         "regroup(to: keepingPlace ? places.refetched(here: place()) : places.replaced())",
                         "let here = place()", "let here = place()",
+                        "let move = self.landed.move(forPageAboveFrom: self.place())",
                         "return places.resultsShown(overFolder: overFolder, here: overFolder ? place() : nil)"])
         // A row put back goes back by the place from before its take while
         // the list is as the take left it (`TakenRows`), told by the letters.

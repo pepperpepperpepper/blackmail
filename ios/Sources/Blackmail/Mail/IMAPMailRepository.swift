@@ -1287,11 +1287,16 @@ actor IMAPMailRepository: MailRepository {
         // used (`PageWindow.anchor`), so only that is asked for, where the
         // server can say it alone (`IMAPClient.PageSearch.lowestDated`).
         // The whole listing is still asked for: it is what the pages walk.
+        //
+        // The window's FETCH brings the page above it too (B-117,
+        // `PageWindow.jumpWindow`), so that a reply to the letter landed on
+        // among the next fifty is in its conversation's row as the list is
+        // first drawn, not joined to it, out of sight, a moment after.
         let jump = IMAPDate.jump(from: date, now: now(), timeZone: calendar.timeZone)
         let opened = try await client.page(in: name, searching: [jump.pageSearch, "ALL"]) {
             found in
             guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
-            return PageWindow.window(around: anchor, in: found[1], limit: limit).uids
+            return PageWindow.jumpWindow(around: anchor, in: found[1], limit: limit).uids
         }
         let listing = opened.found[1]
         uidListing[name] = listing
@@ -1302,7 +1307,7 @@ actor IMAPMailRepository: MailRepository {
         guard let anchor = PageWindow.anchor(forMatches: opened.found[0].uids, in: listing.uids) else {
             return nil
         }
-        let window = PageWindow.window(around: anchor, in: listing.uids, limit: limit)
+        let window = PageWindow.jumpWindow(around: anchor, in: listing.uids, limit: limit)
         let rows = self.rows(from: opened.summaries, in: mailboxID, name: name, validity: validity)
 
         // The anchor can be dropped by `summaries` if the server declines to

@@ -5007,7 +5007,9 @@ this host. Ordered by value, not by size.
       "02-Jan-2011" SENTBEFORE "27-May-2012"` answered MIN 578. The time
       from Go to the list, written down.
       3. *1 June 2012:* that day's first letter, at 9:26 am, one dated
-      SEARCH and the FETCH of its letters' dates.
+      SEARCH and the FETCH of its letters' dates. *With Organize by Thread
+      on it is in its conversation's row, answered on 5 June, and the row
+      on top is that conversation's (B-117, its check below).*
       4. *The top of the Inbox:* 14 August 2026: its first letter, UID
       57710, one dated SEARCH and the FETCH; unless one of the account's
       own letters is dated that day after 8 pm, which the host did not
@@ -5059,6 +5061,39 @@ this host. Ordered by value, not by size.
       4. *The Move sheet,* opened on a letter and Cancelled, no Move: the
       pane's order, without the indent.
       5. *Two panes:* the pane once more, as 1.
+- [ ] **B-117, Go to Date onto a letter that was answered.** On the test
+      iPad, the test account as filled for the size test (gap review,
+      above), from a build with the fix; read only, nothing written to the
+      mailbox. Three panes, Organize by Thread on, Current Mailbox, the
+      Inbox opened at its top before each jump, frames from Go as in the
+      round that found it, and the app's log read after each.
+      1. *The case found:* 1 June 2012. From the first frame with rows to
+      5 s after Go, nothing touched, the top row is the conversation "Re:
+      Watch and winter evening weather lunch", Harper Mock, 05/06/12, with
+      the conversation mark, and under it the rows of 4 June to 1 June,
+      then Hayden Lorem, 30/05/12 (761); "Showing June 1, 2012". No frame
+      has 762 in a row of its own or 763 on top. The log: the dated
+      SEARCH, the FETCH of its five letters' dates, `UID SEARCH ALL`, one
+      window FETCH, `UID FETCH 723:822`, nothing between them; then the
+      page above asked as the day lands, `UID FETCH 823:872` (B-094), and
+      the top row the same after it is answered. A tap on the top row: the
+      stack holds 762 and 773.
+      2. *Moving the list after:* the same jump, then a slow drag up to the
+      top of what is listed: the rows move with the finger only, and the
+      page above, if one is asked, goes on with the rows in view where
+      they were (B-042).
+      3. *Organize by Thread off,* the same jump: the top row is 762,
+      Harper Mock, 01/06/12, and stays; then the switch on again.
+      4. *A reply further up,* if the host finds one, read only, by
+      X-GM-THRID: a day whose first letter's reply is 61 to 110 letters
+      above it. The top row is that letter's at first, and when the page
+      above is answered it stays the top row as its conversation's; the
+      frames either side written down.
+      5. *A day whose first letter was not answered:* 10 March 2014, its
+      first letter on top, as B-115's check 1, and nothing moving.
+      6. *Two panes,* 1 again, then three panes back.
+      7. *Put back:* the jump to 20 October last, so the day and scope
+      remembered are as found.
 
 ## Blocked on the owner
 

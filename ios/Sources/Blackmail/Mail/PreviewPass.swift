@@ -43,6 +43,18 @@ enum PreviewPass {
         return order.map { Group(mailboxID: $0, ids: ids[$0] ?? []) }
     }
 
+    /// The same, beginning at row `start`: the rows from it down first, by
+    /// mailbox, then those above it, from the top. A date jump's list, whose
+    /// first rows are the page above the window (`PageWindow.jumpWindow`,
+    /// B-117), and fifty letters he does not see as it lands: from the row
+    /// it lands on, his rows fill as soon as they did before, when the
+    /// window was all there was. Every row once; with `start` 0, or out of
+    /// the rows, as `groups(for:)`.
+    static func groups(for rows: [MessageSummary], from start: Int) -> [Group] {
+        guard start > 0, start < rows.count else { return groups(for: rows) }
+        return groups(for: Array(rows[start...])) + groups(for: Array(rows[..<start]))
+    }
+
     /// Asks for each group's previews in turn, each finished before the next
     /// is asked for, and hands each answer to `apply` as it lands.
     ///

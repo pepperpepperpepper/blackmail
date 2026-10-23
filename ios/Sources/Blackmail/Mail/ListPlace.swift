@@ -170,6 +170,35 @@ struct ListPlace: Equatable {
         return nil
     }
 
+    /// Where he was, in `rows`, with the row that carries `letter` held
+    /// where it is on screen, if he could see it: the letter a date jump
+    /// landed on, while the pages above it come (`LandedLetter`, B-117).
+    /// Otherwise, and with no letter, `landing(in:)`.
+    ///
+    /// Held by its letter, not by the row's id. With Organize by Thread on,
+    /// a reply to it on a page above joins its row, and the row is then
+    /// headed by the reply and goes up the list to where the reply is,
+    /// dated the day of the reply. By `landing(in:)` that row is passed
+    /// over, as one newer mail took up the list, and the next row he could
+    /// see stays: the day's next letter came down into the top place, and
+    /// the letter he had asked for was gone out of sight above, 0.14 s
+    /// after it was drawn, seen on the iPad on 2026-10-23. Held, the row
+    /// goes where the letter's row was, and the list with it: the row it
+    /// is in, its conversation's, is the row the jump lands on when the
+    /// window holds the conversation whole (`PageWindow.jumpWindow`).
+    func landing(in rows: [MessageThread], holding letter: String?) -> (row: Int, offset: Double)? {
+        guard let letter, let seen = seen.first(where: { $0.letters.contains(letter) }),
+              let row = rows.firstIndex(where: { $0.messages.contains { $0.id == letter } }) else {
+            return landing(in: rows)
+        }
+        return (row, seen.offset)
+    }
+
+    /// Whether `letter` is in a row he could see.
+    func sees(_ letter: String) -> Bool {
+        seen.contains { $0.letters.contains(letter) }
+    }
+
     /// Where a row he could see is in `rows`: headed by the same letter, or
     /// with that letter gone, as what is left of it, the row its other
     /// letters are in and one of them heads. Nil when it is gone, and when
@@ -267,6 +296,10 @@ struct ListPlaces {
         case putBack(ListPlace)
         /// Where he is: the rows he can see stay where they are.
         case stay
+        /// Where he is, with the row that carries this letter, the one a
+        /// date jump landed on, held where it is on screen; as for `stay`
+        /// if he cannot see it (`ListPlace.landing(in:holding:)`, B-117).
+        case holding(String)
     }
 
     /// Where he was in the folder's letters when a search's results took
@@ -363,6 +396,63 @@ struct ListPlaces {
     mutating func refetched(here: ListPlace) -> Move {
         defer { folder = nil }
         return .back(folder ?? here)
+    }
+}
+
+/// The letter a date jump landed on, held where he sees it as the pages
+/// above it come, until he moves the list himself (B-117).
+///
+/// A jump lands on the row that carries the day's first letter, its
+/// conversation's row if it is in one (`MessageListViewController.show`).
+/// The page above is asked for as the day lands (B-094), and so can the one
+/// above that, and a reply to the letter on such a page joins its row and
+/// takes it up the list (`ListPlace.landing(in:holding:)`). Held, the row
+/// with the letter in it stays where it is, and the list with it, the row
+/// now its conversation's, which is where the jump lands when the window
+/// holds the conversation whole.
+///
+/// Held for the pages above only, and only while he has not moved the list:
+/// a drag, a tap on another row or the status bar, Edit, a search, Refresh
+/// or anything else that fetches the list afresh, another day, the panes
+/// moving or changing size, each lets it go (`letGo`), and so does a page
+/// that comes with the letter out of his sight. From then on a page above
+/// keeps the rows he can see where they are, a row newer mail joins passed
+/// over, as before (B-042). Nothing else holds it: a letter taken out or
+/// put back (B-093), the grouping switch, the watch's letters at the top,
+/// a page below, each draws the list as it did.
+struct LandedLetter: Equatable {
+
+    /// The letter, while it is held.
+    private(set) var letter: String?
+
+    /// A jump has landed on `id`'s row; nil when it found no row for it.
+    mutating func landed(on id: String?) {
+        letter = id
+    }
+
+    /// He has moved the list, or it has been replaced: nothing is held.
+    mutating func letGo() {
+        letter = nil
+    }
+
+    /// He has tapped `row`: the letter is let go unless the row carries it.
+    /// A tap on the row he landed on opens it where it is, and it stays
+    /// held there, open in the reading pane; a tap on another row is his
+    /// to keep where it is.
+    mutating func tapped(_ row: MessageThread) {
+        guard let letter, !row.messages.contains(where: { $0.id == letter }) else { return }
+        letGo()
+    }
+
+    /// Where the list goes as a page above is drawn, from `here`: the
+    /// letter's row held, while he can see it; with none held, or the
+    /// letter out of his sight, where he is, and nothing held from then on.
+    mutating func move(forPageAboveFrom here: ListPlace) -> ListPlaces.Move {
+        guard let letter, here.sees(letter) else {
+            letGo()
+            return .stay
+        }
+        return .holding(letter)
     }
 }
 

@@ -21,7 +21,8 @@ enum PageWindow {
     /// reading he must not take away from a jump, since the whole point is
     /// that he can carry on upward into the days after it. Ten rows is more
     /// than a screenful, so scrolling up moves immediately and the next
-    /// page is fetched before he reaches the top.
+    /// page is fetched before he reaches the top. A jump fetches the page
+    /// above these with them (`jumpWindow`, B-117).
     static let newerRowsAboveAnchor = 10
 
     /// A two-ended window: what to show, where the anchor landed in it, and
@@ -121,6 +122,38 @@ enum PageWindow {
                       anchorIndex: takeNewer,
                       reachedNewest: takeNewer == newerAvailable,
                       reachedOldest: takeOlder == olderAvailable)
+    }
+
+    /// What a date jump fetches and shows: the window around the anchor
+    /// (`window(around:in:limit:)`), and over it the page above it, the
+    /// `limit` letters next newer, all in the window's one FETCH (B-117).
+    ///
+    /// The page above used to be asked for on its own as the day landed
+    /// (B-094), and with Organize by Thread on it took the letter the jump
+    /// had landed on out of sight: a reply to that letter among the next
+    /// fifty newer joins its row, and the row goes up the list to where the
+    /// reply is, dated the day of the reply (`MessageThread`). Seen on the
+    /// iPad on 2026-10-23: 1 June 2012's first letter, UID 762, landed on
+    /// and drawn, and 0.14 s later gone, its reply 773 the eleventh newer
+    /// letter, one past the ten the window keeps above it. Fetched with the
+    /// window, the page above is in the list as it is first drawn, so the
+    /// row that carries the letter is its conversation's from the first
+    /// frame, where the jump lands; a reply further up still joins it
+    /// later, and the list holds that row where it is
+    /// (`ListPlace.landing(in:holding:)`).
+    ///
+    /// No round trip more: the same FETCH, fifty rows longer. With none
+    /// newer than the window, the window alone.
+    static func jumpWindow(around anchor: UInt32, in ascending: [UInt32],
+                           limit: Int) -> Window {
+        let around = window(around: anchor, in: ascending, limit: limit)
+        guard !around.reachedNewest, let newest = around.uids.first else { return around }
+        let above = newer(than: newest, in: ascending, limit: limit)
+        let newerAvailable = ascending.filter { $0 > newest }.count
+        return Window(uids: above + around.uids,
+                      anchorIndex: around.anchorIndex + above.count,
+                      reachedNewest: above.count == newerAvailable,
+                      reachedOldest: around.reachedOldest)
     }
 
     /// Which message a date's window is fetched around, given what the

@@ -57,6 +57,11 @@ protocol MailRepository {
     /// `date` that arrived more than a week before it, or says it arrived
     /// more than a week after today, is dated wrong, and is not where the
     /// SEARCH lands (B-058, `IMAPDate.sentOnOrAfter`, `PageWindow.landing`).
+    ///
+    /// The mail either side is the window around the letter, `limit` long,
+    /// and the page of `limit` above it (`PageWindow.jumpWindow`, B-117): a
+    /// reply to the letter landed on among them is in its conversation's
+    /// row from the start.
     func messages(around date: Date, in mailboxID: String, limit: Int) async throws -> MessageWindow?
 
     /// The two grey lines under the subject, for messages already listed.

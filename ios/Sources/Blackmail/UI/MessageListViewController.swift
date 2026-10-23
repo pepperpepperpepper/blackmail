@@ -288,6 +288,8 @@ final class MessageListViewController: UITableViewController {
             if !scroll(to: folder, in: threads) { scrollToTop() }
         case .putBack(let taken):
             if !scroll(to: taken, in: threads) { scroll(to: before, in: threads) }
+        case .holding(let letter):
+            scroll(to: before, in: threads, holding: letter)
         case .stay:
             scroll(to: before, in: threads)
         }
@@ -297,6 +299,11 @@ final class MessageListViewController: UITableViewController {
     /// Where the list was before the rows still out were taken out, for a
     /// row put back. See `TakenRows`.
     private var taken = TakenRows()
+
+    /// The letter the last date jump landed on, its row held where he sees
+    /// it as the pages above come, until he moves the list. See
+    /// `LandedLetter` (B-117).
+    private var landed = LandedLetter()
 
     /// Regroups for a letter the reading pane or Edit mode changed, took
     /// out or put back (B-093): a row put back with the list as its take
@@ -339,10 +346,14 @@ final class MessageListViewController: UITableViewController {
     /// offset alone when it is already there, so a regroup that moved
     /// nothing, as a page appended below does, never touches a list he is
     /// flicking through.
+    ///
+    /// With `letter`, the row that carries it is the one put back where it
+    /// was, if he could see it (`ListPlace.landing(in:holding:)`, B-117).
     @MainActor
     @discardableResult
-    private func scroll(to place: ListPlace, in threads: [MessageThread]) -> Bool {
-        guard let landing = place.landing(in: threads) else { return false }
+    private func scroll(to place: ListPlace, in threads: [MessageThread],
+                        holding letter: String? = nil) -> Bool {
+        guard let landing = place.landing(in: threads, holding: letter) else { return false }
         // Laid out first: `reloadData` has only scheduled it, and the row
         // positions and content height are those of the old rows until it
         // runs. See `show(_ window:)`.
@@ -661,6 +672,9 @@ final class MessageListViewController: UITableViewController {
         }
         listGeneration += 1
         let generation = listGeneration
+        // Fetched afresh, at the top or where he was after an edit of his
+        // own: no day is held now (B-117).
+        landed.letGo()
         stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
@@ -1320,7 +1334,18 @@ final class MessageListViewController: UITableViewController {
     /// A finger has taken the list: a spinner held for its rest goes under
     /// the finger, which UIKit ends as it lets go (B-103).
     override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        // He has moved the list: from here a page above keeps the rows he
+        // can see where they are (B-042), the day's row no longer held
+        // (`LandedLetter`, B-117).
+        landed.letGo()
         pullSettled()
+    }
+
+    /// The status bar tapped: the list goes to its top, and the day landed
+    /// on is let go as it starts (B-117).
+    override func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+        landed.letGo()
+        return true
     }
 
     override func scrollViewDidScrollToTop(_ scrollView: UIScrollView) {
@@ -1376,6 +1401,8 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     private func startReplacingList() -> Int {
         listGeneration += 1
+        // Another day: the one held was the last jump's (B-117).
+        landed.letGo()
         stopSearching()
         isLoadingPage = false
         isLoadingPrevious = false
@@ -1455,10 +1482,18 @@ final class MessageListViewController: UITableViewController {
         // thread's own row.
         let anchorIndex = min(window.anchorIndex, window.messages.count - 1)
         let anchorID = window.messages[anchorIndex].id
-        if let row = rowIndex(showing: anchorID) {
+        let landedRow = rowIndex(showing: anchorID)
+        if let row = landedRow {
             tableView.scrollToRow(at: IndexPath(row: row, section: 0),
                                   at: .top, animated: false)
         }
+        // And kept there as the pages above come, the first asked for as
+        // it lands (B-094): a reply to the letter on one of them takes its
+        // row up the list, and the day's first letter went out of sight
+        // 0.14 s after it was drawn (`LandedLetter`, B-117). The window
+        // brings the page above it, so a reply among the next fifty is in
+        // the row from the first frame (`PageWindow.jumpWindow`).
+        landed.landed(on: landedRow == nil ? nil : anchorID)
 
         // The bottom bar stops reporting freshness and starts reporting
         // WHERE HE IS, which for a list that no longer starts at today
@@ -1469,7 +1504,12 @@ final class MessageListViewController: UITableViewController {
         // No pull on a day's list, whose top is not the folder's (B-103).
         placePull()
 
-        loadPreviews(for: window.messages)
+        // The rows he sees first, from the row landed on down, then the
+        // page above them (`PreviewPass.groups(for:from:)`, B-117).
+        let seenFrom = landedRow.flatMap { row in
+            window.messages.firstIndex { $0.id == threads[row].id }
+        } ?? anchorIndex
+        loadPreviews(for: window.messages, from: seenFrom)
     }
 
     // MARK: - Paging
@@ -1605,7 +1645,12 @@ final class MessageListViewController: UITableViewController {
             // `regroup`. No animation: an animated change ABOVE the viewport
             // animates the content out from under the reader, and the
             // offset fix would land a frame late and visibly jump.
-            UIView.performWithoutAnimation { self.regroup() }
+            //
+            // The row a jump landed on, while he has not moved the list, is
+            // the row held, by its letter: a reply on this page joins it and
+            // would take it up out of sight (`LandedLetter`, B-117).
+            let move = self.landed.move(forPageAboveFrom: self.place())
+            UIView.performWithoutAnimation { self.regroup(to: move) }
             self.loadPreviews(for: fresh)
         }
     }
@@ -1673,12 +1718,15 @@ final class MessageListViewController: UITableViewController {
     /// been replaced: `PreviewPass`, which is where the order and the reasons
     /// for it live, and where they are tested. Returns that task, nil when
     /// there is nothing to fetch.
+    ///
+    /// `from`: the row of `rows` to begin at, the rest after, from the top
+    /// (`PreviewPass.groups(for:from:)`).
     @MainActor
     @discardableResult
-    private func loadPreviews(for rows: [MessageSummary]) -> Task<Void, Never>? {
+    private func loadPreviews(for rows: [MessageSummary], from start: Int = 0) -> Task<Void, Never>? {
         guard !rows.isEmpty else { return nil }
         let generation = listGeneration
-        let groups = PreviewPass.groups(for: rows)
+        let groups = PreviewPass.groups(for: rows, from: start)
         let repository = self.repository
         return Task { @MainActor [weak self] in
             await PreviewPass.run(
@@ -1916,6 +1964,8 @@ final class MessageListViewController: UITableViewController {
     var panesMoving = false {
         didSet {
             guard panesMoving != oldValue else { return }
+            // The panes moving let the day landed on go (B-117).
+            if panesMoving { landed.letGo() }
             placePull()
         }
     }
@@ -2054,6 +2104,19 @@ final class MessageListViewController: UITableViewController {
         dropHeldAlert()
     }
 
+    /// The list's size as it was last laid out.
+    private var laidOutSize = CGSize.zero
+
+    /// Laid out at another size: the panes have moved, two to three or
+    /// back, at once or with the motion, or the iPad has turned. The day a
+    /// jump landed on is let go (B-117).
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard view.bounds.size != laidOutSize else { return }
+        laidOutSize = view.bounds.size
+        landed.letGo()
+    }
+
     /// Home, or another app: the spinner is not left turning for him to
     /// come back to. The line under the list says the page is out until it
     /// has come.
@@ -2124,6 +2187,8 @@ final class MessageListViewController: UITableViewController {
     /// deleting more than one message - there is no swipe-to-delete anywhere,
     /// so nothing is ever binned by a stray thumb on a moving list.
     @objc private func editTapped() {
+        // His ticks are his to keep where they are (B-117).
+        landed.letGo()
         let editing = !tableView.isEditing
         tableView.setEditing(editing, animated: true)
         // No pull in Edit mode, where the page would drop his ticks (B-103).
@@ -2499,6 +2564,8 @@ final class MessageListViewController: UITableViewController {
     private static let searchDelay = Duration.milliseconds(350)
 
     private func queryChanged(_ text: String) {
+        // A search: what it puts back when it ends is where he was (B-117).
+        landed.letGo()
         searchQuery = text
         searchDebounce?.cancel()
         // No pull while words are typed (B-103).
@@ -2587,6 +2654,9 @@ final class MessageListViewController: UITableViewController {
         listGeneration += 1
         let generation = listGeneration
         let scope = searchScope
+        // A search, typed or a recent one tapped, lets the day landed on go:
+        // the folder comes back where he was when it ends (B-117).
+        landed.letGo()
 
         let outcome: Result<[MessageSummary], Error>
         do {
@@ -2681,7 +2751,9 @@ final class MessageListViewController: UITableViewController {
         // The threshold is the same share of the page the jump reserved
         // above the anchor, so landing on a date does not immediately
         // trigger the load of the page above it — he is inside the buffer,
-        // not at the edge of it.
+        // not at the edge of it. It does all the same, as the day lands
+        // (B-094); and a jump's window has the page above it in it now,
+        // fifty rows more of buffer (`PageWindow.jumpWindow`, B-117).
         if ip.row < max(1, Self.pageSize / 5) { loadPreviousPage() }
         guard ip.row >= rows.count - 10 else { return }
         loadNextPage()
@@ -2773,6 +2845,10 @@ final class MessageListViewController: UITableViewController {
         // A letter opened from the results: the search found what he was
         // after, and is kept among his recent ones (B-105).
         if letters.isSearching { keepSearch(searchShown) }
+        // A tap on another row than the one a jump landed on: that row is
+        // let go, and the one he tapped stays where it is (B-117). In Edit
+        // mode none is held (`editTapped`).
+        landed.tapped(threads[ip.row])
         switch rows[ip.row] {
         case let .thread(thread) where thread.count > 1:
             // The conversation opens in the READING PANE, as a stack of its

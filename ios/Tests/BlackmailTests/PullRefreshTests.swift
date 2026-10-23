@@ -276,9 +276,10 @@ final class PullRefreshTests: XCTestCase {
                                    + "willDecelerate decelerate: Bool)", in: list),
                        "{ showHeldAlert() guard !decelerate else { return } "
                        + "pullSettled() landFreshPage() showNewsIfAtTop() }")
+        // The drag lets the day a jump landed on go too (B-117).
         XCTAssertEqual(body(after: "override func scrollViewWillBeginDragging(_ scrollView: UIScrollView)",
                             in: list),
-                       "{ pullSettled() }")
+                       "{ landed.letGo() pullSettled() }")
         XCTAssertEqual(count("pullSettled()", in: list), 6, "five ways, and itself")
     }
 
@@ -361,7 +362,7 @@ final class PullRefreshTests: XCTestCase {
         // The motion.
         XCTAssertTrue(list.contains(
             "var panesMoving = false { didSet { guard panesMoving != oldValue else { return } "
-            + "placePull() } }"))
+            + "if panesMoving { landed.letGo() } placePull() } }"))
         let root = try source("UI/RootViewController.swift")
         XCTAssertTrue(root.contains(
             "motion.onMoving = { [weak self] moving in self?.list.panesMoving = moving }"))

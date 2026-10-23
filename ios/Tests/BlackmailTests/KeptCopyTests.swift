@@ -1240,7 +1240,7 @@ final class KeptCopyTests: XCTestCase {
     /// row's letter and sends exactly what it always sent, and so does a
     /// letter opened, whichever way the row came: the Inbox's first page
     /// (a Mark, a Flag, a Move and a Delete), a conversation on it, a page
-    /// below, a day jumped to, a search hit, a letter the watch found, an
+    /// below, a search hit, a day jumped to, a letter the watch found, an
     /// All Mailboxes hit from All Mail whose Inbox row is on the list, the
     /// Trash (deleted there for good) and Drafts (reopened and removed).
     /// Each row is one that way brought first, after a launch with a copy
@@ -1291,13 +1291,15 @@ final class KeptCopyTests: XCTestCase {
         let below = try await repository.listMessages(in: "inbox", beforeUID: first.last?.id, limit: 50)
         try await opensAndFlagsAsEver(try firstBroughtBy(below), "a page below")
 
-        let day = try XCTUnwrap(below.last?.date).addingTimeInterval(-15 * 86_400)
-        let window = try await repository.messages(around: day, in: "inbox", limit: 10)
-        try await opensAndFlagsAsEver(try firstBroughtBy(try XCTUnwrap(window).messages), "a day")
-
+        // The search before the day: a day's list brings the page above its
+        // window too (B-117), and with it every hit there is.
         let hits = try await repository.search(in: "inbox", query: "garden", scope: .currentMailbox,
                                                beforeUID: nil, limit: 50)
         try await opensAndFlagsAsEver(try firstBroughtBy(hits), "a search hit")
+
+        let day = try XCTUnwrap(below.last?.date).addingTimeInterval(-15 * 86_400)
+        let window = try await repository.messages(around: day, in: "inbox", limit: 10)
+        try await opensAndFlagsAsEver(try firstBroughtBy(try XCTUnwrap(window).messages), "a day")
 
         server.arrive(Server.Letter(from: Server.sam, to: [Server.owner], subject: "Just come",
                                     date: Server.newestDate.addingTimeInterval(1_200),
