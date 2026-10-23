@@ -956,11 +956,11 @@ actor IMAPClient {
     /// or `[]` when they match none; nil if the server refused the SEARCH.
     /// The caller holds the gate.
     ///
-    /// For a date jump, which uses nothing of its SEARCHes but the lowest
-    /// UID matched (`PageWindow.anchor`). Asked as a plain SEARCH, a jump
-    /// to a day years back in his All Mail matched most of its 250,000 to
-    /// 400,000 letters, as its last SEARCH still can (`IMAPDate.
-    /// jumpSearches`), and the answer was one line of megabytes, brought
+    /// For a date jump, which uses nothing of its wider SEARCHes but the
+    /// lowest UID matched (`PageWindow.anchor`). Asked as a plain SEARCH, a
+    /// jump to a day years back in his All Mail matched most of its 250,000
+    /// to 400,000 letters, as its last SEARCH still can (`IMAPDate.jump`),
+    /// and the answer was one line of megabytes, brought
     /// over his line, parsed and sorted, for one number. With ESEARCH (RFC
     /// 4731), which Gmail advertises, the server is asked for that number
     /// alone: `UID SEARCH RETURN (MIN) <criteria>`, answered `* ESEARCH (TAG
@@ -995,15 +995,66 @@ actor IMAPClient {
     /// The lowest UID the first of `ladder` to match anything matches, as
     /// `[uid]`, or `[]` when none of them does; nil if the server refused
     /// one. Asked in order, each as `performLowest` asks one, and none
-    /// after the first that matched: a date jump's day, then its wider
-    /// spans (`IMAPDate.jumpSearches`, B-115). All in the hold the caller
-    /// has, so every answer is in the numbering of the one SELECT.
+    /// after the first that matched: a date jump's spans after its day
+    /// (`IMAPDate.jump`, B-115). All in the hold the caller has, so every
+    /// answer is in the numbering of the one SELECT.
     private func performLowestOfFirst(_ ladder: [String]) async throws -> [UInt32]? {
         for criteria in ladder {
             guard let found = try await performLowest(criteria) else { return nil }
             if !found.isEmpty { return found }
         }
         return []
+    }
+
+    /// The lowest UID of the letters `day` matches whose date, as the list
+    /// shows it, is within `dated`, as `[uid]`; with none, what
+    /// `performLowestOfFirst(wider)` finds; nil if the server refused a
+    /// SEARCH, or matched letters and gave none of their dates. The
+    /// caller holds the gate.
+    ///
+    /// A date jump's (B-115): `day` every letter of Gmail's days that hold
+    /// any of his day, `dated` his day (`IMAPDate.jump`). Gmail counts a
+    /// SEARCH's days from midnight UTC (B-058), so those letters include
+    /// his evening before west of Greenwich and his next morning east of
+    /// it, and in a folder whose UIDs do not follow its dates either can
+    /// have the lowest UID. So `day` is asked whole, a plain SEARCH, some
+    /// two days' letters, and their dates are fetched in the same hold
+    /// (`performDateFetch`); the lowest UID of those dated within his day
+    /// is the answer. With none, his evening before alone or nothing,
+    /// `wider` is asked, as an empty day would be.
+    private func performLowestDated(_ day: String, within dated: Range<Date>,
+                                    wider: [String]) async throws -> [UInt32]? {
+        guard let matched = try await performSearch(day) else { return nil }
+        if !matched.isEmpty {
+            guard let dates = try await performDateFetch(matched) else { return nil }
+            if let lowest = dates.filter({ dated.contains($0.date) }).map(\.uid).min() {
+                return [lowest]
+            }
+        }
+        return try await performLowestOfFirst(wider)
+    }
+
+    /// The date each of `uids` shows in the list, the Date it was sent or,
+    /// with none, when it arrived, as a row has it (`IMAPMailRepository`'s
+    /// `rows`): `UID FETCH … (UID INTERNALDATE ENVELOPE)`, chunked as a
+    /// page's FETCH is. A letter the server leaves out is left out, and so
+    /// is one it gives with no ENVELOPE, which is never made a row
+    /// (`ordered`), or with neither date; nil if it gave none of them and
+    /// refused a chunk. The caller holds the gate.
+    private func performDateFetch(_ uids: [UInt32]) async throws -> [(uid: UInt32, date: Date)]? {
+        let asked = Set(uids)
+        var dates: [(uid: UInt32, date: Date)] = []
+        var refused = false
+        for chunk in Self.uidSetChunks(uids) {
+            let result = try await performCommand("UID FETCH \(chunk) (UID INTERNALDATE ENVELOPE)")
+            if result.status != .ok { refused = true }
+            for fetched in IMAPParser.parseFetch(result.untagged) {
+                guard let uid = fetched.uid, asked.contains(uid), let envelope = fetched.envelope,
+                      let date = envelope.date ?? fetched.internalDate else { continue }
+                dates.append((uid, date))
+            }
+        }
+        return dates.isEmpty && refused ? nil : dates
     }
 
     /// One UID SEARCH, `command` whole, its 8-bit strings as literals, in
@@ -1085,9 +1136,12 @@ actor IMAPClient {
     ///
     /// `pick` chooses the UIDs to fetch from what the SEARCHes found, one
     /// list per criterion, in order: every UID matched, or for a
-    /// `PageSearch.lowest` the lowest alone (`performLowest`), and for a
+    /// `PageSearch.lowest` the lowest alone (`performLowest`), for a
     /// `PageSearch.lowestOfFirst` the lowest of the first of its SEARCHes
-    /// to match anything (`performLowestOfFirst`). Every list
+    /// to match anything (`performLowestOfFirst`), and for a
+    /// `PageSearch.lowestDated` the lowest of its day's letters dated
+    /// within it, or of the first wider SEARCH to match anything
+    /// (`performLowestDated`). Every list
     /// comes out of the same SELECT, so they share its UIDVALIDITY, which is
     /// returned with each.
     /// The date jump finds its anchor from one list in the other, and in
@@ -1125,6 +1179,8 @@ actor IMAPClient {
                     case .lowest(let words): answer = try await self.performLowest(words)
                     case .lowestOfFirst(let ladder):
                         answer = try await self.performLowestOfFirst(ladder)
+                    case let .lowestDated(day, dated, wider):
+                        answer = try await self.performLowestDated(day, within: dated, wider: wider)
                     }
                     guard let uids = answer else { throw MailError.cannotConnect }
                     found.append(IMAPMailboxUIDs(validity: state.uidValidity, uids: uids))
@@ -1159,10 +1215,16 @@ actor IMAPClient {
         case lowest(String)
         /// The lowest UID of the first of these to match anything, each
         /// asked in turn as `lowest` is and none after it, or none when
-        /// none does: a date jump's, which asks for its day first and wider
-        /// spans only while it finds nothing (`IMAPDate.jumpSearches`,
-        /// B-115).
+        /// none does: a date jump's spans after its day, asked only while
+        /// they find nothing (`IMAPDate.jump`, B-115), or for a day a week
+        /// or more ahead its one SEARCH.
         case lowestOfFirst([String])
+        /// The lowest UID of the letters the first matches whose date, as
+        /// the list shows it, is within the range, their dates fetched to
+        /// see; with none, as `lowestOfFirst` the rest: a date jump's,
+        /// its day's letters, his day, and the spans after it
+        /// (`IMAPDate.Jump`, B-115).
+        case lowestDated(String, within: Range<Date>, wider: [String])
 
         init(stringLiteral criteria: String) { self = .every(criteria) }
     }

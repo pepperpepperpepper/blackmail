@@ -20,10 +20,13 @@ final class DateJumpTests: XCTestCase {
     // MARK: - Finding the day
 
     func testTheAnchorIsTheFIRSTLetterOfTheDayNotTheLast() {
-        // SENTSINCE matches the chosen day AND everything after it, which
-        // for a jump to June is most of the year. Taking the newest match
-        // would land him on today's mail every single time — the feature
-        // silently doing nothing.
+        // The matches are what the first of the jump's SEARCHes to find
+        // any found (`IMAPDate.jump`, B-115): his day's letters, or a span
+        // of the days after it, or the SEARCH with no end, every letter
+        // after the day, which for a jump to June is most of the year.
+        // Taking the newest match would land him on the day's last letter,
+        // or the span's, and when the SEARCH with no end decides on
+        // today's mail — the feature silently doing nothing.
         let matches: [UInt32] = [30, 33, 60, 600]
         XCTAssertEqual(PageWindow.anchor(forMatches: matches, in: ascending), 30)
     }

@@ -127,17 +127,18 @@ enum PageWindow {
     /// server's date SEARCH matched; where in it the jump lands is
     /// `landing`, by his calendar.
     ///
-    /// `matches` is what the first of the jump's SEARCHes to match anything
-    /// matched (`IMAPDate.jumpSearches`, B-115): the letters dated within
-    /// that day, or if it has none within the first span from it that has
-    /// any, or if none has, on or after it; each arrived no more than
+    /// `matches` is what the jump's SEARCHes found (`IMAPDate.jump`,
+    /// B-115): the letters of that day, by their dates in his calendar; or
+    /// if it has none, those of the first span after it that has any; or
+    /// if none has, every letter after it; each arrived no more than
     /// `IMAPDate.arrivalSlack` days before the day and no later than a week
     /// after today (B-058). Of them it is the LOWEST UID, the first to have
-    /// arrived, not the newest, which would be the last of the span, or
-    /// today's mail. Within a day that is a letter of the day whatever
-    /// order the folder's UIDs are in; it is the day's first while they
-    /// follow its dates, as they do in a folder whose letters came in the
-    /// order they were written.
+    /// arrived, not the newest, which would be the day's last letter, or
+    /// the span's, or today's mail. On a day with mail that is a letter of
+    /// his day whatever order the folder's UIDs are in, never one of his
+    /// evening before that Gmail, counting from midnight UTC, takes for
+    /// the day; it is the day's first while they follow its dates, as they
+    /// do in a folder whose letters came in the order they were written.
     ///
     /// Returns nil only when the mailbox has nothing so matched, which the
     /// caller reads as "everything here is older than the day you asked
@@ -176,6 +177,17 @@ enum PageWindow {
     /// and is never landed on by this; a landing that is one moves up as
     /// one dated before his day does. With no such row above it, the
     /// landing stays where the SEARCH put it.
+    ///
+    /// Since B-115 a jump fetches the dates of the letters of Gmail's days
+    /// that hold his day, and anchors on one dated within it
+    /// (`IMAPDate.jump`); with none, on one after it, from a SEARCH that
+    /// begins after his midnight. So its anchor is no longer of the
+    /// evening before, nor of his next morning with his first hours left
+    /// out, and this seldom moves it: up from a letter dated more than a
+    /// week ahead, which the SEARCH with no end can find; for a day a week
+    /// or more ahead, which the picker does not offer, asked as before; and
+    /// down onto a row of his first hours, east of Greenwich, that the
+    /// SEARCH left out, having arrived more than a week before the day.
     static func landing(dates: [Date], anchor: Int, dayStart: Date, searchedFrom: Date,
                         notAfter: Date) -> Int {
         guard dates.indices.contains(anchor) else { return anchor }

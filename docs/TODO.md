@@ -4994,29 +4994,42 @@ this host. Ordered by value, not by size.
       written to the mailbox. Current Mailbox unless said, three panes,
       the app's log read after each jump.
       1. *A day with mail:* Inbox, 10 March 2014: the list opens on the
-      first of that day's five letters, 3:43 am, "Showing March 10,
-      2014"; one dated `UID SEARCH RETURN (MIN) SENTSINCE "10-Mar-2014"
-      SENTBEFORE "11-Mar-2014" …`, answered MIN 3238, then `UID SEARCH
-      ALL` and the FETCH, nothing between them.
+      first of that day's five letters, 3:43 am, UID 3238, "Showing March
+      10, 2014"; one dated `UID SEARCH SENTSINCE "10-Mar-2014" SENTBEFORE
+      "12-Mar-2014" …`, answered `* SEARCH` with the UIDs of the 10th's
+      letters and the 11th's to 8 pm, then `UID FETCH … (UID INTERNALDATE
+      ENVELOPE)` of those, then `UID SEARCH ALL` and the window's FETCH,
+      nothing between them.
       2. *Before the oldest:* 1 January 2011: the oldest letter, 4 January
-      2012, "Showing January 4, 2012"; ten dated SEARCHes, the last
-      `SENTBEFORE "27-May-2012"` answered MIN 578. The time from Go to the
-      list, written down.
+      2012, "Showing January 4, 2012"; ten dated SEARCHes, the first for
+      the 1st and 2nd with no FETCH after it, the last `SENTSINCE
+      "02-Jan-2011" SENTBEFORE "27-May-2012"` answered MIN 578. The time
+      from Go to the list, written down.
       3. *1 June 2012:* that day's first letter, at 9:26 am, one dated
-      SEARCH.
+      SEARCH and the FETCH of its letters' dates.
       4. *The top of the Inbox:* 14 August 2026: its first letter, UID
-      57710, one dated SEARCH.
+      57710, one dated SEARCH and the FETCH; unless one of the account's
+      own letters is dated that day after 8 pm, which the host did not
+      look for: then that one, the day's lowest UID.
       5. *A day with no mail:* Sunday 25 May 2014: the first letter of the
-      26th, two dated SEARCHes.
+      26th; two dated SEARCHes, the first for the 25th and 26th and the
+      FETCH of its letters' dates after it, all the 26th's.
       6. *Sent Mail:* 15 May 2019: its first letter, UID 8324, "Showing
       May 15, 2019".
       7. *All Mailboxes* from the Inbox, 10 March 2014: All Mail opens on
       that day's first letter.
       8. *After the newest:* 20 October: "No mail on or after October 20";
-      the spans that end before a week from today, then one dated SEARCH
-      with no `SENTBEFORE`: five in all if run by 28 October.
-      9. *Two panes,* 1 again, then three panes back.
-      10. *Put back:* the jump to 20 October last, so the day and scope
+      the day's SEARCH, with no FETCH after it, the spans that end before
+      a week from today, then one dated SEARCH with no `SENTBEFORE`,
+      `SENTSINCE "21-Oct-2026"`: five in all if run by 28 October.
+      9. *The evening before:* if one of the account's own letters is
+      dated after 8 pm (read only from the host, its UID and Date), the
+      day after it: the list opens on that day's own letter if it has
+      one, otherwise on the first letter after it, never on the evening's
+      letter nor on one far above it; the evening's letter in the log's
+      FETCH of the dates.
+      10. *Two panes,* 1 again, then three panes back.
+      11. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
 
 ## Blocked on the owner

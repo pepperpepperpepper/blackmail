@@ -20,7 +20,9 @@ import XCTest
 ///
 /// Before B-115 every jump below but the newest day's landed on the
 /// account's first letter at the foot of the folder, "Showing August 25"
-/// in the Inbox, as on the test iPad.
+/// in the Inbox, as on the test iPad. The last five tests have folders of
+/// their own, with a letter of the evening before his day, as Gmail counts
+/// it from midnight UTC, or of his next morning, at a lower UID.
 final class GoToDateOrderTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -93,11 +95,13 @@ final class GoToDateOrderTests: XCTestCase {
 
     /// What a jump came to: the subject it landed on and the day it says,
     /// or nil for nothing that recent; the dated SEARCHes it asked, in
-    /// order; and every command from its SELECT on.
+    /// order; the FETCHes of his day's letters' dates; every command from
+    /// its SELECT on; and how many connections it used.
     private struct Jump {
         var landed: String?
         var day: String?
         var dated: [String]
+        var dateFetches: [String]
         var steps: [String]
         var connections: Int
     }
@@ -126,53 +130,81 @@ final class GoToDateOrderTests: XCTestCase {
         return Jump(landed: window.map { $0.messages[$0.anchorIndex].subject },
                     day: window.map { said.string(from: $0.landedOn) },
                     dated: log.filter { $0.command.contains("SENTSINCE") }.map(\.command),
+                    dateFetches: log.filter { $0.command.hasSuffix(Self.dates) }.map(\.command),
                     steps: log[opened...].map(\.verb),
                     connections: Set(log.map(\.connection)).count)
     }
 
-    /// The SEARCHes after the SELECT, `dated` of them and the listing, then
-    /// the window's FETCH: one hold, nothing between them.
-    private func inOneHold(_ dated: Int) -> [String] {
-        ["SELECT"] + Array(repeating: "UID SEARCH", count: dated + 1) + ["UID FETCH"]
+    /// What the FETCH of his day's letters asks for (B-115).
+    private static let dates = "(UID INTERNALDATE ENVELOPE)"
+
+    /// Every command after the SELECT: his day's SEARCH, the FETCH of its
+    /// letters' dates if it matched any, the rest of the `dated` SEARCHes
+    /// and the listing, then the window's FETCH if it landed: one hold,
+    /// nothing between them.
+    private func inOneHold(_ dated: Int, datesFetched: Bool, landed: Bool = true) -> [String] {
+        ["SELECT", "UID SEARCH"] + (datesFetched ? ["UID FETCH"] : [])
+            + Array(repeating: "UID SEARCH", count: dated) + (landed ? ["UID FETCH"] : [])
+    }
+
+    /// A jump's commands, as `inOneHold`, on one connection.
+    private func assertOneHold(_ jumped: Jump, datesFetched: Bool, landed: Bool = true,
+                               file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(jumped.steps, inOneHold(jumped.dated.count, datesFetched: datesFetched,
+                                               landed: landed), file: file, line: line)
+        XCTAssertEqual(jumped.dateFetches.count, datesFetched ? 1 : 0, file: file, line: line)
+        XCTAssertEqual(jumped.connections, 1, file: file, line: line)
     }
 
     /// A day with mail: its first letter, though four letters of the
     /// account's own, the lowest UIDs, are dated after it; one SEARCH, the
-    /// day itself, with the arrival bounds of B-058. Before, the jump
-    /// landed on "Own 25 Aug".
+    /// day itself, with the arrival bounds of B-058, asked whole, and one
+    /// FETCH of its three letters' dates. Before, the jump landed on "Own
+    /// 25 Aug".
     func testADayWithMailLandsOnItsFirstLetterWithOneSearch() async throws {
         let jumped = try await jump("2014-03-10")
         XCTAssertEqual(jumped.landed, "10 Mar 2014 first")
         XCTAssertEqual(jumped.day, "10 Mar 2014")
-        XCTAssertEqual(jumped.dated, ["UID SEARCH RETURN (MIN) SENTSINCE \"10-Mar-2014\" "
+        XCTAssertEqual(jumped.dated, ["UID SEARCH SENTSINCE \"10-Mar-2014\" "
                                         + "SENTBEFORE \"11-Mar-2014\" SINCE \"03-Mar-2014\" "
                                         + "BEFORE \"11-Oct-2026\""])
-        XCTAssertEqual(jumped.steps, inOneHold(1))
-        XCTAssertEqual(jumped.connections, 1)
+        XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1007:1009 \(Self.dates)"])
+        assertOneHold(jumped, datesFetched: true)
     }
 
-    /// The same in New York, where the iPad is: the first letter of his
-    /// 10th, at 3.43 am there, and the day said is his.
+    /// The same in New York, where the iPad is: Gmail's 10th and 11th, which
+    /// hold his 10th, and of their letters the first of his 10th, at 3.43
+    /// am there, not the 11th's at 5 am; the day said is his.
     func testADayWithMailLandsTheSameInNewYork() async throws {
         let jumped = try await jump("2014-03-10", zone: "America/New_York")
         XCTAssertEqual(jumped.landed, "10 Mar 2014 first")
         XCTAssertEqual(jumped.day, "10 Mar 2014")
         XCTAssertEqual(jumped.dated.count, 1)
+        XCTAssertTrue(jumped.dated.first?.hasPrefix(
+            "UID SEARCH SENTSINCE \"10-Mar-2014\" SENTBEFORE \"12-Mar-2014\" ") == true,
+                      "\(jumped.dated)")
+        XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1007:1010 \(Self.dates)"])
+        assertOneHold(jumped, datesFetched: true)
     }
 
-    /// A weekend with no mail: the first letter of the Monday after it, two
-    /// spans wider than the Saturday, three SEARCHes, the day, two days and
-    /// four days from it.
+    /// A weekend with no mail: the first letter of the Monday after it,
+    /// three SEARCHes, the Saturday, then the two days and the four days
+    /// from it, each from the Sunday; no dates fetched, the Saturday having
+    /// no letters.
     func testAWeekendWithNoMailLandsOnTheMondayAfterIt() async throws {
         let jumped = try await jump("2014-03-15")
         XCTAssertEqual(jumped.landed, "17 Mar 2014 first")
         XCTAssertEqual(jumped.day, "17 Mar 2014")
         XCTAssertEqual(jumped.dated.map(sentBefore), ["16-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
-        XCTAssertTrue(jumped.dated.allSatisfy {
-            $0.hasPrefix("UID SEARCH RETURN (MIN) SENTSINCE \"15-Mar-2014\" SENTBEFORE ")
-                && $0.hasSuffix(" SINCE \"08-Mar-2014\" BEFORE \"11-Oct-2026\"")
+        XCTAssertTrue(jumped.dated.first?.hasPrefix("UID SEARCH SENTSINCE \"15-Mar-2014\" ") == true,
+                      "\(jumped.dated)")
+        XCTAssertTrue(jumped.dated.dropFirst().allSatisfy {
+            $0.hasPrefix("UID SEARCH RETURN (MIN) SENTSINCE \"16-Mar-2014\" SENTBEFORE ")
         }, "\(jumped.dated)")
-        XCTAssertEqual(jumped.steps, inOneHold(3))
+        XCTAssertTrue(jumped.dated.allSatisfy {
+            $0.hasSuffix(" SINCE \"08-Mar-2014\" BEFORE \"11-Oct-2026\"")
+        }, "\(jumped.dated)")
+        assertOneHold(jumped, datesFetched: false)
     }
 
     /// A day before the oldest letter: the oldest letter, "4 January 2012",
@@ -184,7 +216,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.day, "4 Jan 2012")
         XCTAssertEqual(jumped.dated.count, 10)
         XCTAssertEqual(jumped.dated.last.flatMap(sentBefore), "27-May-2012")
-        XCTAssertEqual(jumped.steps, inOneHold(10))
+        assertOneHold(jumped, datesFetched: false)
     }
 
     /// Long before it, within the widest span: still the oldest, at the
@@ -194,6 +226,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.landed, "4 Jan 2012")
         XCTAssertEqual(jumped.dated.count, 14)
         XCTAssertEqual(jumped.dated.last.flatMap(sentBefore), "04-Nov-2012")
+        assertOneHold(jumped, datesFetched: false)
     }
 
     /// The top of the folder by UID, the newest of the mail copied in: its
@@ -204,6 +237,7 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.landed, "14 Aug 2026 first")
         XCTAssertEqual(jumped.day, "14 Aug 2026")
         XCTAssertEqual(jumped.dated.count, 1)
+        assertOneHold(jumped, datesFetched: true)
     }
 
     /// The folder's newest day by date, the account's own two letters of
@@ -214,34 +248,35 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.landed, "Own 28 Sep")
         XCTAssertEqual(jumped.day, "28 Sep 2026")
         XCTAssertEqual(jumped.dated.count, 1)
+        assertOneHold(jumped, datesFetched: true)
     }
 
     /// A day after the newest letter: nothing that recent, as before, after
-    /// the spans of one, two, four and eight days, which reach no further
-    /// than the 11th, and then the one SEARCH a jump always asked, every
-    /// letter dated on or after the day.
+    /// the day and the spans of two, four and eight days, which reach no
+    /// further than the 11th, and then the SEARCH with no end, every letter
+    /// dated after the day.
     func testADayAfterTheNewestIsNothingThatRecentAsBefore() async throws {
         let jumped = try await jump("2026-10-01")
         XCTAssertNil(jumped.landed)
         XCTAssertEqual(jumped.dated.map(sentBefore), ["02-Oct-2026", "03-Oct-2026",
                                                       "05-Oct-2026", "09-Oct-2026", nil])
-        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"01-Oct-2026\" "
+        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"02-Oct-2026\" "
                                             + "SINCE \"24-Sep-2026\" BEFORE \"11-Oct-2026\"")
         // Nothing found, nothing fetched.
-        XCTAssertEqual(jumped.steps, inOneHold(5).dropLast())
+        assertOneHold(jumped, datesFetched: false, landed: false)
     }
 
-    /// Bounded: a day more than 44 years before any mail asks fifteen spans,
-    /// one day to 16,384, and then the SEARCH with no end, sixteen in all,
-    /// and no more.
+    /// Bounded: a day more than 44 years before any mail asks the day and
+    /// fourteen spans, two days to 16,384, and then the SEARCH with no end,
+    /// sixteen in all, and no more.
     func testNoJumpAsksMoreThanSixteenDatedSearches() async throws {
         let jumped = try await jump("1900-01-01")
         XCTAssertEqual(jumped.dated.count, IMAPDate.spanSearches + 1)
         XCTAssertEqual(jumped.dated.count, 16)
         XCTAssertEqual(jumped.dated.dropLast().last.flatMap(sentBefore), "10-Nov-1944")
-        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"01-Jan-1900\" "
+        XCTAssertEqual(jumped.dated.last, "UID SEARCH RETURN (MIN) SENTSINCE \"02-Jan-1900\" "
                                             + "SINCE \"25-Dec-1899\" BEFORE \"11-Oct-2026\"")
-        XCTAssertEqual(jumped.steps, inOneHold(16))
+        assertOneHold(jumped, datesFetched: false)
     }
 
     /// Sent Mail, his own letters copied in after the account's: the day's
@@ -253,8 +288,10 @@ final class GoToDateOrderTests: XCTestCase {
         XCTAssertEqual(jumped.landed, "Sent 15 May 2019")
         XCTAssertEqual(jumped.day, "15 May 2019")
         XCTAssertEqual(jumped.dated.count, 1)
+        assertOneHold(jumped, datesFetched: true)
         let before = try await jump("2014-03-10", in: Server.sent)
         XCTAssertEqual(before.landed, "Sent 10 Mar 2014")
+        assertOneHold(before, datesFetched: true)
     }
 
     /// All Mailboxes jumps in All Mail, where the same letters are in the
@@ -267,11 +304,13 @@ final class GoToDateOrderTests: XCTestCase {
             XCTAssertEqual(allMail.landed, inbox.landed, day)
             XCTAssertEqual(allMail.day, inbox.day, day)
             XCTAssertEqual(allMail.dated, inbox.dated, day)
+            XCTAssertEqual(allMail.steps, inbox.steps, day)
+            XCTAssertEqual(allMail.connections, 1, day)
         }
     }
 
     /// Without ESEARCH each SEARCH is a plain one, and the jumps land as
-    /// with it, after as many.
+    /// with it, after as many, in the same hold.
     func testWithoutESEARCHTheJumpsLandTheSame() async throws {
         let days = ["2014-03-10", "2014-03-15", "2011-01-01", "2026-08-14", "2026-10-01"]
         var withIt: [Jump] = []
@@ -283,7 +322,104 @@ final class GoToDateOrderTests: XCTestCase {
             XCTAssertEqual(without.dated, with.dated.map {
                 $0.replacingOccurrences(of: "RETURN (MIN) ", with: "")
             }, day)
+            XCTAssertEqual(without.steps, with.steps, day)
+            XCTAssertEqual(without.connections, 1, day)
         }
+    }
+
+    // MARK: - His evening before and his next morning (B-115)
+
+    /// A folder of its own, these letters in it in this order, each sent,
+    /// and arrived, at its time.
+    private func folder(_ letters: [(String, String)]) {
+        server = ScriptedIMAPServer(inboxCount: 0)
+        for (subject, iso) in letters {
+            server.deliver(letter(subject, at: iso), to: [Server.inbox])
+        }
+    }
+
+    /// In New York a day with mail, a letter of 9.30 pm the evening before
+    /// at the lowest UID, Gmail's day by UTC, and one of 2020 after it: his
+    /// day's letter, its date fetched with the evening's, one SEARCH.
+    /// Taken as the lowest of Gmail's day, the landing went up from the
+    /// evening to the letter of 2020, "Showing January 1, 2020".
+    func testADayWithMailLandsOnItWhateverTheEveningBefore() async throws {
+        folder([("9 Mar evening", "2014-03-10T01:30:00Z"),
+                ("1 Jan 2020", "2020-01-01T15:00:00Z"),
+                ("10 Mar letter", "2014-03-10T15:00:00Z")])
+        let jumped = try await jump("2014-03-10", zone: "America/New_York")
+        XCTAssertEqual(jumped.landed, "10 Mar letter")
+        XCTAssertEqual(jumped.day, "10 Mar 2014")
+        XCTAssertEqual(jumped.dated.count, 1)
+        XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1000,1002 \(Self.dates)"])
+        assertOneHold(jumped, datesFetched: true)
+    }
+
+    /// In New York a Saturday with no mail, the Friday's 9.30 pm letter,
+    /// Gmail's Saturday, at the lowest UID, one of 2020 after it, and the
+    /// Monday's: the Monday's, as the Saturday's only letter is his Friday
+    /// and the spans begin at Gmail's Sunday, three SEARCHes. Taken as the
+    /// lowest of a span from Gmail's Saturday, the landing went up to the
+    /// letter of 2020.
+    func testAWeekendLandsOnTheMondayWhateverTheFridayEvening() async throws {
+        folder([("Fri evening", "2014-03-15T01:30:00Z"),
+                ("1 Jan 2020", "2020-01-01T15:00:00Z"),
+                ("Mon 17 Mar", "2014-03-17T14:00:00Z")])
+        let jumped = try await jump("2014-03-15", zone: "America/New_York")
+        XCTAssertEqual(jumped.landed, "Mon 17 Mar")
+        XCTAssertEqual(jumped.day, "17 Mar 2014")
+        XCTAssertEqual(jumped.dated.map(sentBefore), ["17-Mar-2014", "17-Mar-2014", "19-Mar-2014"])
+        XCTAssertTrue(jumped.dated.dropFirst().allSatisfy {
+            $0.hasPrefix("UID SEARCH RETURN (MIN) SENTSINCE \"16-Mar-2014\" ")
+        }, "\(jumped.dated)")
+        XCTAssertEqual(jumped.dateFetches, ["UID FETCH 1000 \(Self.dates)"])
+        assertOneHold(jumped, datesFetched: true)
+    }
+
+    /// In New York a day whose one letter is of 9 pm, Gmail's next day, a
+    /// letter of that next day at a lower UID: his day's letter, Gmail's
+    /// next day being asked with his, one SEARCH.
+    func testADayWhoseOnlyLetterIsOfItsEveningLandsOnIt() async throws {
+        folder([("11 Mar morning", "2014-03-11T14:00:00Z"),
+                ("10 Mar evening", "2014-03-11T01:00:00Z")])
+        let jumped = try await jump("2014-03-10", zone: "America/New_York")
+        XCTAssertEqual(jumped.landed, "10 Mar evening")
+        XCTAssertEqual(jumped.day, "10 Mar 2014")
+        XCTAssertEqual(jumped.dated.count, 1)
+        assertOneHold(jumped, datesFetched: true)
+    }
+
+    /// East of Greenwich, in Tokyo, his next morning's letter of 1 am, in
+    /// Gmail's day, at the lowest UID, one of 2020 after it, and his day's
+    /// at 2 pm: his day's, one SEARCH. Taken as the lowest of Gmail's day,
+    /// the jump landed on the next morning and said the 11th.
+    func testEastOfGreenwichADayLandsOnItWhateverTheNextMorning() async throws {
+        folder([("11 Mar 1 am", "2014-03-10T16:00:00Z"),
+                ("1 Jan 2020", "2020-01-01T15:00:00Z"),
+                ("10 Mar 2 pm", "2014-03-10T05:00:00Z")])
+        let jumped = try await jump("2014-03-10", zone: "Asia/Tokyo")
+        XCTAssertEqual(jumped.landed, "10 Mar 2 pm")
+        XCTAssertEqual(jumped.day, "10 Mar 2014")
+        XCTAssertEqual(jumped.dated.count, 1)
+        XCTAssertTrue(jumped.dated.first?.hasPrefix(
+            "UID SEARCH SENTSINCE \"09-Mar-2014\" SENTBEFORE \"11-Mar-2014\" ") == true,
+                      "\(jumped.dated)")
+        assertOneHold(jumped, datesFetched: true)
+    }
+
+    /// In Tokyo a day whose one letter is of 3 am, Gmail's day before, at
+    /// the lowest UID, one of 2020 after it and the next day's: his day's
+    /// letter, one SEARCH. Gmail's day alone missed it, and the next day's
+    /// letter, with the one of 2020 below it, was landed on.
+    func testEastOfGreenwichADayWhoseOnlyLetterIsOfItsFirstHoursLandsOnIt() async throws {
+        folder([("10 Mar 3 am", "2014-03-09T18:00:00Z"),
+                ("1 Jan 2020", "2020-01-01T15:00:00Z"),
+                ("11 Mar noon", "2014-03-11T03:00:00Z")])
+        let jumped = try await jump("2014-03-10", zone: "Asia/Tokyo")
+        XCTAssertEqual(jumped.landed, "10 Mar 3 am")
+        XCTAssertEqual(jumped.day, "10 Mar 2014")
+        XCTAssertEqual(jumped.dated.count, 1)
+        assertOneHold(jumped, datesFetched: true)
     }
 
     /// The `SENTBEFORE` date of a dated SEARCH, nil for one with none.

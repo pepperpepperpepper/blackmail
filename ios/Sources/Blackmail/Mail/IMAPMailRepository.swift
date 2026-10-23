@@ -1290,16 +1290,17 @@ actor IMAPMailRepository: MailRepository {
         // reconnect could fall between them onto a renumbered folder, and
         // the anchor would be some other letter.
         //
-        // The letters of the day are asked for first, and wider spans from
-        // it only while none is found (`IMAPDate.jumpSearches`, B-115):
+        // The letters of his day are asked for first, with their dates, and
+        // spans after it only while none is found (`IMAPDate.jump`, B-115):
         // the lowest UID of all on or after the day was the first letter
-        // of it only while the folder's UIDs followed its dates. Of each
-        // only the lowest UID matched is ever used (`PageWindow.anchor`),
-        // so only that is asked for, where the server can say it alone
-        // (`IMAPClient.PageSearch.lowestOfFirst`). The whole listing is
-        // still asked for: it is what the pages walk.
-        let dated = IMAPDate.jumpSearches(from: date, now: now(), timeZone: calendar.timeZone)
-        let opened = try await client.page(in: name, searching: [.lowestOfFirst(dated), "ALL"]) {
+        // of it only while the folder's UIDs followed its dates, and the
+        // lowest of Gmail's day, counted from midnight UTC, can be his
+        // evening before. Of the spans only the lowest UID matched is ever
+        // used (`PageWindow.anchor`), so only that is asked for, where the
+        // server can say it alone (`IMAPClient.PageSearch.lowestDated`).
+        // The whole listing is still asked for: it is what the pages walk.
+        let jump = IMAPDate.jump(from: date, now: now(), timeZone: calendar.timeZone)
+        let opened = try await client.page(in: name, searching: [jump.pageSearch, "ALL"]) {
             found in
             guard let anchor = PageWindow.anchor(forMatches: found[0], in: found[1]) else { return [] }
             return PageWindow.window(around: anchor, in: found[1], limit: limit).uids
@@ -1321,7 +1322,13 @@ actor IMAPMailRepository: MailRepository {
         let anchorID = Self.makeID(validity: validity, uid: anchor)
         guard !rows.isEmpty else { return nil }
         // Gmail's day runs from midnight UTC, his from his own midnight:
-        // landed on the first letter of his day (`PageWindow.landing`).
+        // landed on the first letter of his day (`PageWindow.landing`). The
+        // anchor is one of his day's letters by their dates, or one after
+        // it (B-115), so this seldom moves it now: up from a letter dated
+        // more than a week ahead, which the SEARCH with no end can find;
+        // for a day a week or more ahead, asked as before; and down, east
+        // of Greenwich, onto a letter of his first hours that the SEARCH
+        // left out (`PageWindow.landing`).
         let dayStart = calendar.startOfDay(for: date)
         let notAfter = calendar.date(byAdding: .day, value: IMAPDate.arrivalSlack + 1,
                                      to: now()) ?? now()

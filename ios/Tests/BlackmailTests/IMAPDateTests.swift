@@ -113,7 +113,7 @@ final class IMAPDateTests: XCTestCase {
                        "SENTSINCE \"10-Mar-2026\" SINCE \"03-Mar-2026\" BEFORE \"11-Oct-2026\"")
     }
 
-    // MARK: - A jump's spans (B-115)
+    // MARK: - A jump's SEARCHes (B-115)
 
     /// The `i`th of `searches`, or "" if there are not so many, so a short
     /// list fails the test rather than ending the run.
@@ -121,94 +121,157 @@ final class IMAPDateTests: XCTestCase {
         searches.indices.contains(i) ? searches[i] : ""
     }
 
-    /// A span is the letters dated from the day, before the day `days`
-    /// after it, with the same arrival bounds as the search with no end:
-    /// across the turn of a month and of a year, and on his evening in New
-    /// York that is the next day in UTC.
-    func testASpanIsTheDaysFromTheDayWithTheArrivalBounds() {
-        let utc = TimeZone(identifier: "UTC")!
-        XCTAssertEqual(IMAPDate.sentWithin(date("2014-03-10T12:00:00Z"), days: 1, now: now,
-                                           timeZone: utc),
+    private func zone(_ identifier: String) -> TimeZone { TimeZone(identifier: identifier)! }
+
+    /// His day's SEARCH is every letter of Gmail's days, from midnight UTC,
+    /// that hold any of it, with the arrival bounds of the SEARCH with no
+    /// end: one day in UTC and in London in winter; in New York the day
+    /// and the next; in London in summer and in Tokyo the day before and
+    /// the day; across the turn of a year.
+    func testHisDaysSearchIsGmailsDaysThatHoldAnyOfIt() {
+        XCTAssertEqual(IMAPDate.sentOnHisDay(date("2014-03-10T12:00:00Z"), now: now,
+                                             timeZone: zone("UTC")),
                        "SENTSINCE \"10-Mar-2014\" SENTBEFORE \"11-Mar-2014\" "
                         + "SINCE \"03-Mar-2014\" BEFORE \"11-Oct-2026\"")
-        XCTAssertEqual(IMAPDate.sentWithin(date("2026-02-27T12:00:00Z"), days: 4, now: now,
-                                           timeZone: utc),
-                       "SENTSINCE \"27-Feb-2026\" SENTBEFORE \"03-Mar-2026\" "
-                        + "SINCE \"20-Feb-2026\" BEFORE \"11-Oct-2026\"")
-        XCTAssertEqual(IMAPDate.sentWithin(date("2025-12-30T12:00:00Z"), days: 2, now: now,
-                                           timeZone: utc),
-                       "SENTSINCE \"30-Dec-2025\" SENTBEFORE \"01-Jan-2026\" "
-                        + "SINCE \"23-Dec-2025\" BEFORE \"11-Oct-2026\"")
-        XCTAssertEqual(IMAPDate.sentWithin(date("2026-03-01T03:00:00Z"), days: 1, now: now,
-                                           timeZone: TimeZone(identifier: "America/New_York")!),
-                       "SENTSINCE \"28-Feb-2026\" SENTBEFORE \"01-Mar-2026\" "
-                        + "SINCE \"21-Feb-2026\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnHisDay(date("2026-01-15T12:00:00Z"), now: now,
+                                             timeZone: zone("Europe/London")),
+                       "SENTSINCE \"15-Jan-2026\" SENTBEFORE \"16-Jan-2026\" "
+                        + "SINCE \"08-Jan-2026\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnHisDay(date("2014-03-10T16:00:00Z"), now: now,
+                                             timeZone: zone("America/New_York")),
+                       "SENTSINCE \"10-Mar-2014\" SENTBEFORE \"12-Mar-2014\" "
+                        + "SINCE \"03-Mar-2014\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnHisDay(date("2026-07-15T12:00:00Z"), now: now,
+                                             timeZone: zone("Europe/London")),
+                       "SENTSINCE \"14-Jul-2026\" SENTBEFORE \"16-Jul-2026\" "
+                        + "SINCE \"08-Jul-2026\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentOnHisDay(date("2019-06-19T23:00:00Z"), now: now,
+                                             timeZone: zone("Asia/Tokyo")),
+                       "SENTSINCE \"19-Jun-2019\" SENTBEFORE \"21-Jun-2019\" "
+                        + "SINCE \"13-Jun-2019\" BEFORE \"11-Oct-2026\"")
+        XCTAssertTrue(IMAPDate.sentOnHisDay(date("2025-12-31T17:00:00Z"), now: now,
+                                            timeZone: zone("America/New_York"))
+            .hasPrefix("SENTSINCE \"31-Dec-2025\" SENTBEFORE \"02-Jan-2026\" "))
+    }
+
+    /// A span after his day starts at Gmail's day his next midnight falls
+    /// in and ends before the day `days` after his: in UTC and New York the
+    /// next day, in Tokyo the day itself, as Gmail's day there begins at 9
+    /// am; across the turn of a year; and with no end, the same start.
+    func testTheSpansAfterHisDayStartAtGmailsDayOfHisNextMidnight() {
+        XCTAssertEqual(IMAPDate.sentAfterHisDay(date("2014-03-15T12:00:00Z"), days: 2, now: now,
+                                                timeZone: zone("UTC")),
+                       "SENTSINCE \"16-Mar-2014\" SENTBEFORE \"17-Mar-2014\" "
+                        + "SINCE \"08-Mar-2014\" BEFORE \"11-Oct-2026\"")
+        XCTAssertEqual(IMAPDate.sentAfterHisDay(date("2014-03-15T16:00:00Z"), days: 4, now: now,
+                                                timeZone: zone("America/New_York")),
+                       "SENTSINCE \"16-Mar-2014\" SENTBEFORE \"19-Mar-2014\" "
+                        + "SINCE \"08-Mar-2014\" BEFORE \"11-Oct-2026\"")
+        XCTAssertTrue(IMAPDate.sentAfterHisDay(date("2019-06-20T03:00:00Z"), days: 2, now: now,
+                                               timeZone: zone("Asia/Tokyo"))
+            .hasPrefix("SENTSINCE \"20-Jun-2019\" SENTBEFORE \"22-Jun-2019\" "))
+        XCTAssertTrue(IMAPDate.sentAfterHisDay(date("2025-12-30T12:00:00Z"), days: 4, now: now,
+                                               timeZone: zone("UTC"))
+            .hasPrefix("SENTSINCE \"31-Dec-2025\" SENTBEFORE \"03-Jan-2026\" "))
+        XCTAssertEqual(IMAPDate.sentAfterHisDay(date("2026-10-01T16:00:00Z"), days: nil, now: now,
+                                                timeZone: zone("America/New_York")),
+                       "SENTSINCE \"02-Oct-2026\" SINCE \"24-Sep-2026\" BEFORE \"11-Oct-2026\"")
     }
 
     /// Counted in his days across a clock change: two days from half past
     /// eleven on the Saturday night before the clocks go forward in New
-    /// York is the Monday, where 48 hours is the Tuesday.
-    func testASpanIsCountedInDaysAcrossAClockChange() {
-        let newYork = TimeZone(identifier: "America/New_York")!
-        XCTAssertTrue(IMAPDate.sentWithin(date("2026-03-08T04:30:00Z"), days: 2, now: now,
-                                          timeZone: newYork)
-            .hasPrefix("SENTSINCE \"07-Mar-2026\" SENTBEFORE \"09-Mar-2026\" "))
+    /// York is the Monday, where 48 hours is the Tuesday; and his day is
+    /// 23 hours that Sunday and 25 the Sunday they go back.
+    func testHisDaysAreCountedAcrossAClockChange() {
+        let newYork = zone("America/New_York")
+        XCTAssertTrue(IMAPDate.sentAfterHisDay(date("2026-03-08T04:30:00Z"), days: 2, now: now,
+                                               timeZone: newYork)
+            .hasPrefix("SENTSINCE \"08-Mar-2026\" SENTBEFORE \"09-Mar-2026\" "))
+        let forward = IMAPDate.jump(from: date("2026-03-08T16:00:00Z"), now: now, timeZone: newYork)
+        XCTAssertEqual(forward.hisDay, date("2026-03-08T05:00:00Z")..<date("2026-03-09T04:00:00Z"))
+        let back = IMAPDate.jump(from: date("2026-11-01T16:00:00Z"), now: now, timeZone: newYork)
+        XCTAssertEqual(back.hisDay, date("2026-11-01T04:00:00Z")..<date("2026-11-02T05:00:00Z"))
     }
 
-    /// The day first, then spans doubling from it, each from the day, and
-    /// last the search with no end; none past the 11th, a week after
-    /// today, by which every letter matched arrived.
-    func testAJumpAsksForTheDayThenDoublesThenTheSearchWithNoEnd() {
-        let utc = TimeZone(identifier: "UTC")!
+    /// His day first, its letters' dates to be fetched; then spans after
+    /// it, two days, four and so on, doubling; and last the SEARCH with no
+    /// end; none past the 11th, a week after today, by which every letter
+    /// matched arrived.
+    func testAJumpAsksHisDayThenSpansAfterItThenNoEnd() {
+        let utc = zone("UTC")
         let day = date("2014-03-15T12:00:00Z")
-        let searches = IMAPDate.jumpSearches(from: day, now: now, timeZone: utc)
-        // 4,593 days to the 11th: spans of 1 to 4,096 days, then no end.
-        XCTAssertEqual(searches.count, 14)
-        XCTAssertEqual(Array(searches.dropLast()),
-                       (0..<13).map { IMAPDate.sentWithin(day, days: 1 << $0, now: now, timeZone: utc) })
-        XCTAssertEqual(searches.last, IMAPDate.sentOnOrAfter(day, now: now, timeZone: utc))
-        XCTAssertTrue(at(searches, 2).hasPrefix("SENTSINCE \"15-Mar-2014\" SENTBEFORE \"19-Mar-2014\" "))
-        XCTAssertTrue(at(searches, 12).contains("SENTBEFORE \"01-Jun-2025\""), at(searches, 12))
+        let jump = IMAPDate.jump(from: day, now: now, timeZone: utc)
+        XCTAssertEqual(jump.day, IMAPDate.sentOnHisDay(day, now: now, timeZone: utc))
+        XCTAssertEqual(jump.hisDay, date("2014-03-15T00:00:00Z")..<date("2014-03-16T00:00:00Z"))
+        // 4,593 days to the 11th: his day, spans of 2 to 4,096 days, then
+        // no end, fourteen in all.
+        XCTAssertEqual(jump.wider.count, 13)
+        XCTAssertEqual(Array(jump.wider.dropLast()), (1..<13).map {
+            IMAPDate.sentAfterHisDay(day, days: 1 << $0, now: now, timeZone: utc)
+        })
+        XCTAssertEqual(jump.wider.last, IMAPDate.sentAfterHisDay(day, days: nil, now: now,
+                                                                 timeZone: utc))
+        XCTAssertTrue(at(jump.wider, 1).hasPrefix("SENTSINCE \"16-Mar-2014\" SENTBEFORE \"19-Mar-2014\" "))
+        XCTAssertTrue(at(jump.wider, 11).contains("SENTBEFORE \"01-Jun-2025\""), at(jump.wider, 11))
+        XCTAssertEqual(jump.pageSearch, .lowestDated(IMAPDate.sentOnHisDay(day, now: now, timeZone: utc),
+                                                     within: jump.hisDay, wider: jump.wider))
     }
 
-    /// Today: one, two and four days, then no end, as eight would reach
-    /// the 11th. Two days before today: one to eight days. A day after a
-    /// week from today, which the picker does not offer: no end alone.
+    /// Today: his day, two and four days, then no end, as eight would reach
+    /// the 11th. Two days before today: his day, two to eight days. Two
+    /// days before the 11th: his day and no end. A day after a week from
+    /// today, which the picker does not offer, and the day before it: the
+    /// SEARCH a jump asked before alone, every letter on or after the day.
     func testNearTodayTheSpansStopShortOfAWeekAhead() {
-        let utc = TimeZone(identifier: "UTC")!
-        let today = IMAPDate.jumpSearches(from: now, now: now, timeZone: utc)
-        XCTAssertEqual(today.count, 4)
-        XCTAssertTrue(at(today, 2).contains("SENTBEFORE \"07-Oct-2026\""), at(today, 2))
-        XCTAssertEqual(today.last, IMAPDate.sentOnOrAfter(now, now: now, timeZone: utc))
-        let before = IMAPDate.jumpSearches(from: date("2026-10-01T12:00:00Z"), now: now, timeZone: utc)
-        XCTAssertEqual(before.count, 5)
-        XCTAssertTrue(at(before, 3).contains("SENTBEFORE \"09-Oct-2026\""), at(before, 3))
-        let ahead = date("2026-10-11T12:00:00Z")
-        XCTAssertEqual(IMAPDate.jumpSearches(from: ahead, now: now, timeZone: utc),
-                       [IMAPDate.sentOnOrAfter(ahead, now: now, timeZone: utc)])
+        let utc = zone("UTC")
+        let today = IMAPDate.jump(from: now, now: now, timeZone: utc)
+        XCTAssertNotNil(today.day)
+        XCTAssertEqual(today.wider.count, 3)
+        XCTAssertTrue(at(today.wider, 1).contains("SENTBEFORE \"07-Oct-2026\""), at(today.wider, 1))
+        XCTAssertEqual(today.wider.last, IMAPDate.sentAfterHisDay(now, days: nil, now: now, timeZone: utc))
+        let before = IMAPDate.jump(from: date("2026-10-01T12:00:00Z"), now: now, timeZone: utc)
+        XCTAssertNotNil(before.day)
+        XCTAssertEqual(before.wider.count, 4)
+        XCTAssertTrue(at(before.wider, 2).contains("SENTBEFORE \"09-Oct-2026\""), at(before.wider, 2))
+        let late = IMAPDate.jump(from: date("2026-10-09T12:00:00Z"), now: now, timeZone: utc)
+        XCTAssertNotNil(late.day)
+        XCTAssertEqual(late.wider.count, 1)
+        for ymd in ["2026-10-10", "2026-10-11"] {
+            let ahead = date("\(ymd)T12:00:00Z")
+            let jump = IMAPDate.jump(from: ahead, now: now, timeZone: utc)
+            XCTAssertNil(jump.day, ymd)
+            XCTAssertEqual(jump.wider, [IMAPDate.sentOnOrAfter(ahead, now: now, timeZone: utc)], ymd)
+            XCTAssertEqual(jump.pageSearch, .lowestOfFirst(jump.wider), ymd)
+        }
     }
 
-    /// Never more than fifteen spans, the widest 16,384 days, and then no
-    /// end: sixteen for a day in 1900, and for one in the year 1.
+    /// Never more than fifteen before the one with no end, his day and
+    /// spans to 16,384 days: sixteen for a day in 1900, and for one in the
+    /// year 1.
     func testAJumpAsksSixteenAtMost() {
-        let utc = TimeZone(identifier: "UTC")!
+        let utc = zone("UTC")
         XCTAssertEqual(IMAPDate.spanSearches, 15)
         let day = date("1900-01-01T12:00:00Z")
-        let early = IMAPDate.jumpSearches(from: day, now: now, timeZone: utc)
-        XCTAssertEqual(early.count, 16)
-        XCTAssertTrue(at(early, 14).contains("SENTBEFORE \"10-Nov-1944\""), at(early, 14))
-        XCTAssertEqual(at(early, 15), IMAPDate.sentOnOrAfter(day, now: now, timeZone: utc))
-        let first = IMAPDate.jumpSearches(from: date("0001-06-01T12:00:00Z"), now: now, timeZone: utc)
-        XCTAssertEqual(first.count, 16)
+        let early = IMAPDate.jump(from: day, now: now, timeZone: utc)
+        XCTAssertNotNil(early.day)
+        XCTAssertEqual(early.wider.count, 15)
+        XCTAssertTrue(at(early.wider, 13).contains("SENTBEFORE \"10-Nov-1944\""), at(early.wider, 13))
+        XCTAssertEqual(at(early.wider, 14), IMAPDate.sentAfterHisDay(day, days: nil, now: now,
+                                                                     timeZone: utc))
+        let first = IMAPDate.jump(from: date("0001-06-01T12:00:00Z"), now: now, timeZone: utc)
+        XCTAssertEqual(first.wider.count, 15)
     }
 
     /// In his calendar: his evening in New York that is the next day in
-    /// UTC asks for his day.
-    func testAJumpsSpansAreInHisCalendar() {
-        let searches = IMAPDate.jumpSearches(from: date("2026-06-21T00:30:00Z"), now: now,
-                                             timeZone: TimeZone(identifier: "America/New_York")!)
-        XCTAssertTrue(at(searches, 0).hasPrefix("SENTSINCE \"20-Jun-2026\" SENTBEFORE \"21-Jun-2026\" "),
-                      at(searches, 0))
+    /// UTC asks for his day, and his day is his midnight to his next.
+    func testAJumpIsInHisCalendar() {
+        let jump = IMAPDate.jump(from: date("2026-06-21T00:30:00Z"), now: now,
+                                 timeZone: zone("America/New_York"))
+        XCTAssertTrue(jump.day?.hasPrefix("SENTSINCE \"20-Jun-2026\" SENTBEFORE \"22-Jun-2026\" ") == true,
+                      jump.day ?? "nil")
+        XCTAssertEqual(jump.hisDay, date("2026-06-20T04:00:00Z")..<date("2026-06-21T04:00:00Z"))
+        XCTAssertTrue(at(jump.wider, 0).hasPrefix("SENTSINCE \"21-Jun-2026\" SENTBEFORE \"22-Jun-2026\" "),
+                      at(jump.wider, 0))
     }
 
     func testTheCriteriaCarriesNothingThatCouldBreakTheCommandLine() {
