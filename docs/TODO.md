@@ -37,15 +37,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       and the kept copy passed, and Gmail answered every command in under
       5 s. Go to Date failed: every jump landed at the folder's foot, on
       the account's own first letter (B-115, fixed, not yet seen on the
-      iPad). Seen there too, open: Gmail's Important and Starred drawn
-      indented among the labels, each as if inside the label above it.
-      Memory could not be read from the app's log. Left: B-115's check
-      under "Blocked on the iPad coming back".*
-      the account's own first letter (B-115, on its own branch). Seen
-      there too: Gmail's Important and Starred drawn indented among the
-      labels, each as if inside the label above it (B-116, fixed, not yet
-      seen on the iPad). Memory could not be read from the app's log.
-      Left: B-116's check under "Blocked on the iPad coming back".*
+      iPad). Seen there too: Gmail's Important and Starred drawn indented
+      among the labels, each as if inside the label above it (B-116,
+      fixed, not yet seen on the iPad). Memory could not be read from the
+      app's log. Left: B-115's and B-116's checks under "Blocked on the
+      iPad coming back".*
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
       - [x] "Password needs updating" on a read, not "Can't connect to mail

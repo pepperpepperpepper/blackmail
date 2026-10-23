@@ -22735,8 +22735,6 @@ failing. The release build for the iPad links.
   still not known (B-058): the letters copied in arrived when their Date
   says.
 
----
-
 ## B-116 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. With labels in the account, Gmail's Important and Starred were drawn as folders inside the labels above them, and a label inside another under whichever label came before it
 
 **What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
