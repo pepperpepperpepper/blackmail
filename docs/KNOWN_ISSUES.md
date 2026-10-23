@@ -20250,7 +20250,7 @@ release build for the iPad links.
   from the worktree before it is merged, since it changes what Send
   carries and how.
 
-## B-110 — BUILT 2026-10-22, not yet seen on the iPad. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
+## B-110 — BUILT 2026-10-22, seen on the iPad 2026-10-23; three faults found there changed the same day, not yet seen fixed. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
 
 Built in the `feat-print` worktree, off `feat-replyfiles` (master at
 88ef40d with B-100 to B-105, B-111 and B-107). It shares no hunk with
@@ -20300,9 +20300,12 @@ the header is a one-line change pinned by its test.
 - *Light* (high for WebKit today, medium for the 16.5 and 18 builds).
   While printing, WebKit turns dark appearance off
   (`Page::useDarkAppearance`), prints no backgrounds unless asked, and
-  darkens text too light for white paper
+  changes text too faint for white paper, under 4.5:1
   (`adjustColorForVisibilityOnBackground`): white text prints a mid grey,
-  readable but faint.
+  readable but faint. At the tags for iOS 16.5 and 18 it darkens only a
+  colour of luminance over 0.5 and lightens any other, so a mid grey
+  prints all but white; today's darkens whichever reads better (read
+  2026-10-23, below).
 - *Its wait* (high for today's WebKit, medium for 16.5 and 18). WebKit's
   page count for printing lays the page out and answers at once, without
   waiting for pictures still loading (`WebPage::computePagesForPrintingiOS`),
@@ -20318,10 +20321,11 @@ the header is a one-line change pinned by its test.
 **What it was.** Nothing printed a letter: no print controller, print
 formatter or page renderer anywhere in the app; only a file, from
 QuickLook. Nor could the pane simply have been printed. Its page is dark
-(D-010): plain text white on black and HTML under an invert, which, with
-no backgrounds printed, is white words on white paper. Its header is
-UIKit, outside the page. And a conversation's stack would print every
-letter open in it, the last at least a screen tall.
+(D-010): plain text white on black and HTML under an invert, which prints
+as it is drawn, white on black, since a build stamped before 16.4 prints
+backgrounds (seen 2026-10-23, below), or white on white with them off.
+Its header is UIKit, outside the page. And a conversation's stack would
+print every letter open in it, the last at least a screen tall.
 
 **Changed.**
 
@@ -20345,8 +20349,9 @@ letter open in it, the last at least a screen tall.
    one; a 0.5 px rule, `#c8c8c8`; the subject or "(no subject)", bold and
    black; the date; a line per file the header lists, "name (size)", or
    the name alone when the size is not known; a rule. The lines grey,
-   `#8e8e8e`, every size the pane's (`Theme`). Each value from the same
-   expressions the pane's header uses, escaped
+   `#8e8e8e`, on paper too (since 2026-10-23, below), every size the
+   pane's (`Theme`). Each value from the same expressions the pane's
+   header uses, escaped
    (`ConversationDocument.escape`), as text, never in an attribute. The
    date is written out in full by `MailFormat.fullTimestamp`, new, "d
    MMMM yyyy 'at' h:mm a", never "Today" or "Yesterday", since the paper
@@ -20389,8 +20394,9 @@ letter open in it, the last at least a screen tall.
 4. *The job* (`UI/LetterPrint.swift`). The page and the words are made
    away from the main thread, as the pane's page is. Then a web view of
    its own, its configuration set before it is built: the letter's script
-   off, WebKit's data in memory only, a picture loader of its own, and no
-   script of any kind, the app's or the letter's. Light
+   off, WebKit's data in memory only, a picture loader of its own, no
+   backgrounds printed (since 2026-10-23, below), and no script of any
+   kind, the app's or the letter's. Light
    (`overrideUserInterfaceStyle`), so a sender's rules for a dark
    appearance, Apple Mail's own, never apply. 540 × 720, the printable
    width, in the pane's view behind everything, alpha 0, untouchable and
@@ -20414,10 +20420,11 @@ letter open in it, the last at least a screen tall.
    Its completion clears the controller only while it still holds this
    job's print info, so QuickLook's print, or another, is never changed
    under it. Every end is one, however it is reached: the web view's
-   loading stopped while it is alive, so each picture still coming is
-   stopped and its fetch called off (`PictureRequests`), the view taken
-   out, and the limit, the looks and the observer of the app's going
-   stopped.
+   loading stopped while it is alive, each picture still coming stopped
+   by the job itself and its fetch called off (`PictureRequests`; at
+   first left to WebKit, which on the iPad never did it, below,
+   2026-10-23), the view taken out, and the limit, the looks and the
+   observer of the app's going stopped.
 5. *The pane* (`MessageDetailViewController`) holds one job, `printing`,
    replaced only once its panel is up, when it holds nothing of WebKit's
    and no bytes, and let go by its own end alone.
@@ -20630,8 +20637,10 @@ release build for the iPad links.
 
 - Names, not addresses, in the printed header, and the date in full: the
   defaults of the owner's question.
-- Backgrounds are not printed, WebKit's default as Safari's: a dark
-  newsletter's white text prints grey.
+- Backgrounds are not printed, as Mail and Safari print: a dark
+  newsletter's white text prints grey. Not WebKit's default for this
+  build, as first written here, but set for the print since 2026-10-23
+  (below).
 - A hang inside WebKit's own layout for print, which the main thread
   waits on; Mail has the same exposure.
 - Remote pictures are fetched again for the print, so a tracking pixel
@@ -21801,3 +21810,198 @@ be run again on the iPad, and a forward of a forward with them (TODO).
   compared on a screen. A row, if the owner wants one for a named
   letter whatever its disposition, is `isAttachment` asking for a name
   of a message/rfc822 part, and its test.
+
+---
+
+**Seen on the test iPad, 2026-10-23**, a build holding this branch,
+iPadOS 16.5.1, three panes, the test account; each failure made again on a
+second run, from a fresh start with fresh letters. Passed: steps 1a, 2, 3a,
+3c, 4, 5a, 5b, 6, 7a, 8a to 8c, 9a to 9c, 10b, 11, 12 and the log's
+counts. 1b, VoiceOver reading "Print", could not be tried: injected touches
+did not move VoiceOver's focus inside the sheet. 7b and 13, the
+simulator's and the Mac's, were not run; eight prints in a row on the iPad
+stood in for 7b (none slower, no WebContent process more) and the panel's
+own PDFs, saved and read, for 13. 14 and 15, paper, wait for the owner's
+yes. Three failed:
+
+- *3b, the dark newsletter.* White words on a black block the width of the
+  page, not grey words on white paper; the HTML newsletter's navy banner
+  and black box printed too. The PDF fills a black rectangle and draws the
+  words in white.
+- *5c, a kept letter's photo with no connection.* Opened from its copy, the
+  photo in the pane, and printed: blank where the photo goes, in its
+  shape, once in three on the first run and three times of three on one
+  opening on the second; printed after the letter was opened again, and
+  online, with the photo. No fetch and no NO-PATH line came with any of
+  them, so the bytes were the iPad's each time. The blank PDF has no
+  picture in it.
+- *10a, a letter tapped after Print.* `PRINT ended why=moved` 0.25 to 0.4 s
+  after the tap and no panel, as the step asks; but four more of the
+  print's pictures, 3.3 MB each, were fetched after it, and the letter
+  tapped said "Loading…" for about 4.2 to 4.5 s behind them, against well
+  under a second with no print.
+
+**What it was.**
+
+- *3b.* The app is stamped with an SDK before iOS 16.4, and WebKit keeps
+  an app linked before 16.4 to its old default, backgrounds printed
+  (`defaultShouldPrintBackgrounds`, read in WebKit's source at the iOS
+  16.5 tag). With backgrounds printed, WebKit's economy mode for print
+  never runs: the page is not made white and text too light for it is not
+  darkened. The job set nothing about backgrounds. So "prints no
+  backgrounds unless asked", under What Mail does, is Mail's, built
+  against a current SDK, and never was this build's; his iPadOS 18 iPad
+  would print the same black block, the stamp being the cause.
+- *5c.* A race in WebKit that the job walked into. The print's web view is
+  in the window, so WebKit paints the page as it loads, and for a large
+  picture (the photo is 1600 × 1200, about 7.7 MB decoded) it decodes away
+  from the paint unless the `<img>` says otherwise. The job draws the page
+  into the PDF as soon as it has loaded, and a picture still being decoded
+  then is drawn as nothing (`BitmapImage::draw`: "we need to wait for this
+  frame to finish decoding"). Not Airplane Mode's or B-111's: a picture
+  answered at once from memory or the copy only makes the window narrow.
+- *10a.* The teardown stopped the page's loading and let go of the web
+  view in the same turn. WebKit, closing a page whose view is going,
+  finds no view to tell and drops the pictures' tasks without calling the
+  loader's `stop` (`WebURLSchemeHandlerCocoa::platformStopTask`, the same
+  at the 16.5 tag and today), and the page's own stop messages cannot
+  come, its process shut down within 15 ms. So `PictureRequests.stop`
+  never ran, no fetch was called off, and the loader's `fetch` set to nil
+  changed nothing for fetches already running. Each kept its place in the
+  connection's interactive line (`IMAPClient.beginExchange`), ahead of
+  the letter tapped. A print ended by the 10 s limit with pictures still
+  coming ended the same way.
+
+**Changed, 2026-10-23.**
+
+1. *No backgrounds printed* (`LetterPrint.load`). The print's
+   configuration sets WebKit's `shouldPrintBackgrounds` false before the
+   view is built, so the page prints as Mail's does: a dark newsletter's
+   white words a mid grey on white, `#ababab`, coloured boxes and banners
+   white. Public from iOS 16.4, it is set by its name where its setter is
+   there, since an OS version check does not link with this toolchain
+   (`IMAPClient.beginExchange`'s note); before 16.4 nothing is set. The
+   app's stamp is not changed, which would change everything WebKit and
+   UIKit decide by it.
+2. *Pictures decoded as they are drawn* (`PrintPage.decodedAtOnce`). Every
+   `<img>` of the printed page's body has `decoding=sync` as its first
+   attribute, so WebKit never decodes one away from the paint, and none is
+   half done when the page is drawn. HTML's parser keeps the first of two
+   attributes of one name, so a sender's own `decoding="async"` is
+   dropped. Unquoted, so an `<img` inside a sender's quoted attribute
+   gains words and no quote, with a space after it before a `/` or `>`.
+   `<image`, which the parser reads as `<img`, too, in any case; `<imgx`
+   and `</img>` are not touched. The print's page only: the pane's is byte
+   for byte as it was.
+3. *The teardown stops the pictures itself* (`LetterPrint.teardown`,
+   `InlineImageLoader.stopAll`, `PictureRequests.stopAll`). Before it lets
+   go of the loader, the job stops every request the loader holds: none is
+   answered after, and every fetch is called off, so one still waiting its
+   turn on the connection leaves the line with nothing sent, and the one
+   already on the wire finishes, so the stream stays in step. A stop
+   WebKit sends later finds nothing, and a fetch that ends later answers
+   nothing. The pane's loader is as it was: its view stays, and WebKit
+   stops its pictures.
+4. *The page's own greys printed as drawn* (`PrintPage.letter`,
+   `PrintPage.empty`, `PrintPage.shortened`). With no backgrounds
+   printed, WebKit changes every text colour under 4.5:1 on white, the
+   page's own as well as the sender's, and at its tags for iOS 16.5
+   (7615.2.9.11.4) and 18 (7621.2.5.14.9) it darkens one of luminance over
+   0.5 and lightens any other (`adjustColorForVisibilityOnBackground`,
+   `Color::lightened`). So the header's lines, `#8e8e8e`, would have
+   printed `#e2e2e2`, all but white, and the page's two notices with
+   them: "This message has no text." and the pane's "Only the
+   beginning…" line, `#8e8e93`. Mail's printed header is drawn by UIKit
+   (`drawRect:forViewPrintFormatter:`) and keeps its greys. Now
+   `#bm-head`'s rule has `-webkit-print-color-adjust: exact`, which its
+   lines inherit, and which only stops the change, the header having no
+   background to print; and each notice is in a block with the same, an
+   inline style no sender's markup can match, its margins its paragraph's.
+   The pane's line itself is not changed, nor its page, and nothing of
+   the sender's is: its words are still WebKit's to make legible. The
+   sender's name and the links, `#007AFF`, come out the same either way
+   (lightening a colour whose brightest part is full gives it back). Of
+   the quotes' words (B-101), the violet, 5.65:1, is kept; the teal and the
+   green are lightened, to about rgb(0, 218, 255) and rgb(24, 255, 19),
+   fainter than drawn, as Mail's body would print them on those systems,
+   its web view printing no backgrounds (medium: Mail's setting not read);
+   the bars, borders, are not changed. Steps 2 and 4, both passed on the
+   first run, are to be run again (TODO).
+
+**Tests.** `PrintWiringTests`, two more, 20: the backgrounds set, in
+those words, before the view is built, once and false, never by
+`#available` or the property itself; and the teardown calling the
+loader's `stopAll` before it lets go of its `fetch`, once, the loader's
+`stopAll` the requests', and the pane calling none. Changed with them:
+`testEveryEndTearsTheWebViewDown`'s pin of the teardown, and
+`testTheLetterIsDrawnIntoAPDFFirst`, which allows the one value set by
+key, the backgrounds, and none of the renderer's. `PrintPageTests`, one
+more, 19: the pass over a body with a picture by `cid:`, one in capitals,
+one with the sender's `decoding="async"`, `<img/`, a line break after the
+name, `<img>`, `<image`, an `<img` in an alt text, `<imgx`, `</img>` and
+one with no end, with letters of two and four bytes around them, exactly,
+no quote added; and in every one of the pane's letters' pages each
+picture's tag with it, in the body. Changed with it:
+`testTheBodyIsThePanesByteForByte`, the body the pane's but for that,
+byte for byte the same where there is no picture, and the pane's page
+with no `decoding` in it; `testThePicturesAndTheTextAreThePanes`, the
+attribute on its two pictures. `PictureRequestsTests`, one more, 4:
+`stopAll` with three fetches running, one asked for with no fetch yet and
+one answered: the three called off and the answered one not, none
+answerable, a fetch given after it called off at once, a stop after it
+nothing, and a request after it one like any other. And one more in
+`PrintPageTests`, 20 now, for the page's own greys: for every one of the
+pane's letters and an empty one, `#bm-head`'s rule `exact` and the only
+`print-color-adjust` in the sheet, the body with none but a notice's;
+each notice one block of `exact` around its grey paragraph, the shortened
+one the pane's own string inside it, and a shortened letter's body
+beginning with it; the pane's page and line with none. Changed with it:
+`testALetterThePaneShortenedSaysSo` and
+`testALetterOverItsLimitIsCutAtAWholeCharacter`, the line above the
+letter now `PrintPage.shortened`, with the pane's own string in it.
+
+Each undone in the worktree, one at a time, with `PrintWiringTests`,
+`PrintPageTests`, `PictureRequestsTests` and `PanePageTests` run, 51
+tests: the backgrounds setting taken out, 3 failures in 2 tests; the body
+not passed through the pass, 9 in 3; the pass giving its input back, 7 in
+2; the attribute written quoted, 8 in 2; `<image` left out, 2 in 1;
+`stopAll` not calling the fetches off, 1 in 1; `stopAll` leaving the
+requests answerable, 5 in 1; the teardown not calling `stopAll`, 5 in 2;
+the loader's `stopAll` empty, 3 in 1. Put back, all 51 pass. Then the
+greys, the same four classes, 52 tests: the header's rule without
+`exact`, 36 failures in 1 test; the notices not put in their block
+(`asDrawn` giving its input back), 13 in 1; `exact` added to `#bm`'s
+rule, the sender's words too, 18 in 1. Put back, all 52 pass.
+
+The full suite, serially: 2,123 tests, 5 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered, since 2026-10-23.**
+
+- Not yet seen on the iPad: steps 3b, 5c and 10a are to be run again
+  (TODO), with 2, 3a, 4 and 12.
+- A sender's own grey or colour too faint for white, but not bright,
+  prints lighter on iPadOS 16.5 and 18, not darker: a newsletter's small
+  print in `#999` about `#ededed`, all but gone, where with backgrounds
+  printed it was as drawn; and the quotes' teal and green words (item 4).
+  It is WebKit's own way there, for any page printed with no
+  backgrounds. Kept as drawn, it would need `exact` on the sender's
+  markup, which prints its backgrounds as well, 3b's black block again,
+  or colours of the app's own for paper, away from Mail's: the owner's to
+  choose, if the iPad's step 3 or 4 shows it unreadable.
+- With no backgrounds, a picture a newsletter draws as a background
+  rather than an `<img>` is not printed, as in Mail. If he wants the
+  sender's backgrounds on paper, it is the one setting and its test.
+- Only an `<img>` is decoded as drawn: a sender's `<input type=image>`, a
+  video's poster or a picture put in by a style could still print blank.
+- An `<img` written where HTML reads no tags, in a `<textarea>` or a
+  `<title>`, or in an alt text shown for a picture that did not come,
+  prints with "decoding=sync" after it.
+- The picture already on the wire when a print ends still finishes ahead
+  of the letter tapped: about a second for one of the five photos on that
+  iPad. A cancel that lands as the connection's gate is handed over lets
+  one more go (`beginExchange`'s one overlap).
+- Decoding as drawn is WebKit's own process's work as it paints, where the
+  print's drawing did it before for a picture not decoded yet; a letter of
+  many large photos may take a little longer to its PDF. Step 12's time is
+  written down again.

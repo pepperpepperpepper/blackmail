@@ -154,6 +154,28 @@ final class PrintWiringTests: XCTestCase {
         }
     }
 
+    /// No backgrounds printed, as Mail prints a letter, so WebKit prints a
+    /// dark newsletter's white words grey on white paper: set false in the
+    /// configuration before the view is built, by its name, as the app is
+    /// stamped below the iOS 16.4 that made it public and where WebKit's
+    /// own default became false, and only where the setter is there. Never
+    /// an OS version check, which does not link with this toolchain, nor
+    /// the property set directly, which would need one (seen on the test
+    /// iPad 2026-10-23: white words on a black block).
+    func testNoBackgroundIsPrinted() throws {
+        let job = try self.job
+        let built = try XCTUnwrap(place(of: "let web = WKWebView(frame:", in: job))
+        let set = "let preferences = config.preferences if preferences.responds(to: "
+            + "NSSelectorFromString(\"setShouldPrintBackgrounds:\")) { "
+            + "preferences.setValue(false, forKey: \"shouldPrintBackgrounds\") }"
+        let at = try XCTUnwrap(place(of: set, in: job))
+        XCTAssertLessThan(at, built)
+        XCTAssertEqual(count("shouldPrintBackgrounds", in: job), 1, "set once, and false")
+        XCTAssertEqual(count("ShouldPrintBackgrounds", in: job), 1, "the setter looked for once")
+        XCTAssertFalse(job.contains("#available"))
+        XCTAssertFalse(job.contains(".shouldPrintBackgrounds"))
+    }
+
     /// Light, unseen, untouchable and silent to VoiceOver, behind the pane's
     /// own views, in its window; its page loaded as the pane loads its own.
     func testTheJobsWebViewIsLightAndUnseen() throws {
@@ -240,7 +262,10 @@ final class PrintWiringTests: XCTestCase {
         ] {
             XCTAssertNotNil(place(of: wiring, in: job), wiring)
         }
-        XCTAssertFalse(job.contains("setValue("), "nothing set by key")
+        // Nothing of the renderer set by key: the one value set by key is
+        // the web view's backgrounds (`testNoBackgroundIsPrinted`).
+        XCTAssertEqual(count("setValue(", in: job), 1)
+        XCTAssertFalse(job.contains("renderer.setValue("), "nothing set by key")
         XCTAssertFalse(job.contains("perform(NSSelectorFromString"))
         // The drawing ends only for the background; the panel waits for the
         // app to be active.
@@ -367,7 +392,8 @@ final class PrintWiringTests: XCTestCase {
         let job = try self.job
         XCTAssertNotNil(place(of: "private func teardown() { guard let web = webView else { return } "
                                   + "web.stopLoading() web.navigationDelegate = nil web.removeFromSuperview() "
-                                  + "loader?.fetch = nil webView = nil loader = nil navigation = nil }", in: job))
+                                  + "loader?.stopAll() loader?.fetch = nil webView = nil loader = nil "
+                                  + "navigation = nil }", in: job))
         XCTAssertEqual(count("stopLoading()", in: job), 1)
         XCTAssertEqual(count("removeFromSuperview()", in: job), 1)
         XCTAssertEqual(count("teardown()", in: job), 3, "after the drawing, at the end, and itself")
@@ -379,6 +405,27 @@ final class PrintWiringTests: XCTestCase {
         XCTAssertNotNil(place(of: "case .end(let why): end(why)", in: job))
         XCTAssertNotNil(place(of: "self?.end(nil)", in: job), "the panel closed")
         XCTAssertEqual(count("steps.end()", in: job), 1)
+    }
+
+    /// The teardown stops every picture still coming itself, before it lets
+    /// go of the loader, and never leaves that to WebKit, which drops the
+    /// tasks of a view let go of at once without telling the loader: the
+    /// loader stops every request it holds, none answered and every fetch
+    /// called off (`PictureRequests.stopAll`), so none still waiting its
+    /// turn on the connection goes out after the print has ended (seen on
+    /// the test iPad 2026-10-23: four 3.3 MB pictures ahead of the letter
+    /// he had tapped). Nothing else stops them all.
+    func testTheTeardownStopsThePicturesStillComingItself() throws {
+        let job = try self.job
+        let teardown = try part(of: job, from: "private func teardown() {", to: "webView = nil")
+        XCTAssertNotNil(place(of: "web.removeFromSuperview() loader?.stopAll() loader?.fetch = nil", in: teardown))
+        XCTAssertEqual(count("stopAll()", in: job), 1)
+        let loader = try source("UI/InlineImageLoader.swift")
+        XCTAssertNotNil(place(of: "func stopAll() { requests.stopAll() }", in: loader))
+        XCTAssertEqual(count("stopAll()", in: loader), 2, "itself, and the requests'")
+        XCTAssertNotNil(place(of: "func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) { "
+                                  + "requests.stop(ObjectIdentifier(task)) }", in: loader))
+        XCTAssertFalse(try pane.contains("stopAll()"), "the pane's loader is stopped by WebKit, as before")
     }
 
     /// The app's going is heard, and no longer once the panel is up or the

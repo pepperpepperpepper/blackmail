@@ -311,6 +311,12 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       the iPad coming back", steps 1, 2, 6, 7 and 8 to run again, and 11
       by hand.*
       *Print done 2026-10-22, not yet seen on the iPad: Print in the Reply
+      2026-10-22, not yet seen on the iPad: on the message list, by the
+      Refresh button's own path, not in Edit mode, a search or a day's
+      list; the status-bar tap pinned as it was. B-103, and its check
+      under "Blocked on the iPad coming back".*
+      *Print done 2026-10-22, seen on the iPad 2026-10-23; three faults
+      found there changed the same day, not yet seen fixed: Print in the Reply
       sheet under Forward, as Mail's Reply button had it, prints the letter
       the header shows, on white, with its header and pictures and the
       date in full, through AirPrint's panel. B-110, and its check under
@@ -4621,6 +4627,38 @@ this host. Ordered by value, not by size.
       Share, Print, and Done as soon as the panel has gone. The printout is
       whole. If it prints, a line in B-063's seen note: "Print tried
       2026-10-xx with B-110's check: …".
+      *Seen on the test iPad 2026-10-23, a build holding this branch, each
+      failure made again on a second run. Passed: 1a, 2, 3a, 3c, 4, 5a, 5b,
+      6, 7a, 8a to 8c, 9a to 9c, 10b, 11, 12 and the log's counts. NOT
+      POSSIBLE: 1b, injected touches not moving VoiceOver's focus in the
+      sheet. NOT RUN: 7b and 13, the simulator's and the Mac's (eight
+      prints in a row and the panel's own PDFs on the iPad stood in), and
+      14 and 15, paper, for the owner's yes. Failed: 3b, white words on a
+      black block; 5c, the kept letter's photo printed blank at times; 10a,
+      four more of the print's 3.3 MB pictures fetched after `PRINT ended
+      why=moved`, the letter tapped waiting about 4.5 s. Changed the same
+      day (B-110 in KNOWN_ISSUES): no backgrounds printed, the print's
+      pictures decoded as drawn, its teardown stopping its own pictures,
+      and the header's lines and the page's notices kept grey on paper,
+      which with no backgrounds WebKit would have printed all but white.
+      To run again, from a build with the change: 2, the header's To, Cc,
+      date and file lines grey as on the first run, not near white; 3b,
+      with 3a's newsletter, whose navy banner and boxes now print white
+      and their words darkened, any grey small print written down as it
+      prints; 4, the bars violet, teal and green and the violet words as
+      on the first run, the teal and green words now lighter, WebKit's own
+      on 16.5, written down with whether they can be read; 5c as on the
+      second run, Airplane Mode on, the kept letter opened from its copy,
+      about 8 s, three prints on that pane and one after opening it again,
+      each with the photo; 10a with the five photos, a letter not kept
+      tapped about 1 s after Print: after `PRINT ended why=moved` at most
+      the one picture FETCH already on the wire, then the tapped letter's,
+      its body within about a second and a half; and 12, its time to the
+      panel written down again. Seen there too: on
+      16.5.1 the panel is the centred Print Options sheet, not a popover
+      from the Reply button; the iPad's sheet has no Cancel row, a tap
+      outside being its cancel; each print of a letter opened in parts
+      fetches its pictures again, 16.6 MB for the five photos.*
 
 - [ ] **B-113, the words after a file among them.** On the test iPad, the
       test account only, built from the `bm-readpane` worktree (branch

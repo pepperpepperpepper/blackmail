@@ -47,6 +47,51 @@ final class PictureRequestsTests: XCTestCase {
         fetches[1].cancel()
     }
 
+    /// Every request stopped by the loader's owner at once, as a print's
+    /// teardown stops them (B-110), without waiting for WebKit: none is
+    /// answered, every fetch still running is called off, one already
+    /// answered is left alone, and a fetch given afterwards for one asked
+    /// for before is called off as it comes. WebKit stopping one later
+    /// changes nothing, and a request made afterwards is one like any other.
+    func testStopAllStopsEveryRequestAndCallsEveryFetchOff() {
+        var requests = PictureRequests<Int>()
+        let fetches = (0..<3).map { k -> Task<Void, Never> in
+            requests.begin(k)
+            let fetch = waiting()
+            requests.answering(k, with: fetch)
+            return fetch
+        }
+        // Asked for, its fetch not given yet.
+        requests.begin(3)
+        // Answered before the end.
+        let answered = waiting()
+        requests.begin(4)
+        requests.answering(4, with: answered)
+        XCTAssertTrue(requests.answer(4))
+        XCTAssertEqual(requests.count, 4)
+
+        requests.stopAll()
+        XCTAssertEqual(fetches.map(\.isCancelled), [true, true, true])
+        XCTAssertFalse(answered.isCancelled, "one answered is done with")
+        XCTAssertEqual(requests.count, 0)
+        for k in 0...4 {
+            XCTAssertFalse(requests.answer(k), "\(k) answered after the end")
+        }
+        let late = waiting()
+        requests.answering(3, with: late)
+        XCTAssertTrue(late.isCancelled, "a fetch given after the end")
+        requests.stop(1)
+        XCTAssertEqual(requests.count, 0)
+
+        requests.begin(5)
+        let next = waiting()
+        requests.answering(5, with: next)
+        XCTAssertFalse(next.isCancelled)
+        XCTAssertTrue(requests.answer(5))
+        answered.cancel()
+        next.cancel()
+    }
+
     /// A fetch given for a request no longer wanted is called off at once.
     func testAFetchForARequestAlreadyStoppedIsCalledOffAtOnce() {
         var requests = PictureRequests<Int>()

@@ -6,9 +6,11 @@ import XCTest
 /// in full, then its body as the pane shows it, cut to a limit.
 ///
 /// The pane's own page is dark, plain text white on black and HTML under an
-/// invert, and printed with no backgrounds, as WebKit prints, that is white
-/// words on white paper. So the page printed is a page of its own, and the
-/// body in it is checked here against the pane's, byte for byte.
+/// invert, which prints as it is drawn, white on black, since a build
+/// stamped before iOS 16.4 prints backgrounds (the test iPad, 2026-10-23),
+/// or white on white with them off. So the page printed is a page of its
+/// own, and the body in it is checked here against the pane's, byte for
+/// byte.
 final class PrintPageTests: XCTestCase {
 
     private let style = PrintPage.Style(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 17,
@@ -105,6 +107,46 @@ final class PrintPageTests: XCTestCase {
         XCTAssertTrue(sheet.contains("color: #8e8e8e;"), "the lines, grey")
     }
 
+    /// The header's lines and the page's notices print grey, as drawn: the
+    /// header's rule and each notice's block print in their own colours
+    /// (`exact`), and nothing else on the page does, so the sender's words
+    /// are still WebKit's to make legible on white. With no backgrounds
+    /// printed (`LetterPrint`), WebKit changes any text under 4.5:1 on
+    /// white, and on iPadOS 16.5 and 18 lightens one of luminance 0.5 or
+    /// less: the lines' `#8e8e8e` would print `#e2e2e2`, all but white.
+    /// Mail's printed header, drawn by UIKit, keeps its greys. The pane's
+    /// own line and page are as they were, with none of it.
+    func testTheHeaderAndTheNoticesPrintInTheirOwnGreys() throws {
+        let exact = "-webkit-print-color-adjust: exact;"
+        let block = "<div style=\"\(exact)\">"
+        func count(_ text: String) -> Int { text.components(separatedBy: "print-color-adjust").count - 1 }
+        for (i, m) in (PaneLetters.all + [letter(text: nil)]).enumerated() {
+            let page = self.page(m)
+            let sheet = try self.sheet(page)
+            let head = try XCTUnwrap(sheet.range(of: "#bm-head {"), "letter \(i)")
+            let rule = sheet[head.lowerBound...].prefix(while: { $0 != "}" })
+            XCTAssertTrue(rule.contains(exact), "letter \(i): \(rule)")
+            XCTAssertEqual(count(sheet), 1, "letter \(i): the header's rule only")
+            let empty = MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody)
+            XCTAssertEqual(count(try body(page)), empty ? 1 : 0, "letter \(i): a notice of ours alone")
+            if let pane = PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41)) {
+                XCTAssertEqual(count(pane), 0, "letter \(i)")
+            }
+        }
+        for notice in [PrintPage.empty, PrintPage.shortened] {
+            XCTAssertTrue(notice.hasPrefix(block + "<p style=\"color: #8e8e"), notice)
+            XCTAssertTrue(notice.hasSuffix("</p></div>"), notice)
+            XCTAssertEqual(count(notice), 1, notice)
+        }
+        XCTAssertEqual(PrintPage.shortened, block + PanePage.shortenedLine + "</div>")
+        XCTAssertEqual(count(PanePage.shortenedLine), 0)
+        var cut = letter(text: "The beginning.")
+        cut.isShortened = true
+        let printed = try body(page(cut))
+        XCTAssertTrue(printed.hasPrefix(block + PanePage.shortenedLine + "</div>The beginning."), printed)
+        XCTAssertEqual(count(printed), 1)
+    }
+
     // MARK: - The header
 
     /// The pane's lines in the pane's order: the sender, To, Cc, a rule,
@@ -199,8 +241,10 @@ final class PrintPageTests: XCTestCase {
     // MARK: - The body
 
     /// For every letter, the body is the pane's, byte for byte
-    /// (`PanePage.content`), or the pane's words for a letter with nothing
-    /// in it; plain text keeps its lines, and HTML does not.
+    /// (`PanePage.content`), its pictures but for their decoding
+    /// (`decodedAtOnce`), or the pane's words for a letter with nothing in
+    /// it; plain text keeps its lines, and HTML does not. The pane's own
+    /// page is as it was, with no `decoding` of ours.
     func testTheBodyIsThePanesByteForByte() throws {
         for (i, m) in PaneLetters.all.enumerated() {
             let page = self.page(m)
@@ -211,11 +255,15 @@ final class PrintPageTests: XCTestCase {
             }
             let content = PanePage.content(text: m.textBody, html: m.htmlBody,
                                            known: PanePage.contentIDs(of: m))
-            XCTAssertEqual(Array(printed.utf8), Array(content.utf8), "letter \(i)")
+            XCTAssertEqual(Array(printed.utf8), Array(PrintPage.decodedAtOnce(content).utf8), "letter \(i)")
+            if !content.lowercased().contains("<img") {
+                XCTAssertEqual(Array(printed.utf8), Array(content.utf8), "letter \(i)")
+            }
             // And the same as the pane's page has in its #bm.
             let pane = try XCTUnwrap(PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17,
                                                                       lineHeight: 1.41)))
             XCTAssertEqual(try body(pane), content, "letter \(i)")
+            XCTAssertFalse(pane.contains("decoding"), "letter \(i)")
             XCTAssertEqual(try sheet(page).contains("white-space: pre-wrap;"), m.htmlBody == nil, "letter \(i)")
         }
     }
@@ -225,10 +273,53 @@ final class PrintPageTests: XCTestCase {
     func testThePicturesAndTheTextAreThePanes() throws {
         let letters = PaneLetters.all
         let pictured = try body(page(letters[5]))
-        XCTAssertTrue(pictured.contains("<img src=\"bmcid://logo%40example.com\">"), pictured)
-        XCTAssertTrue(pictured.contains("<img src='cid:gone'>"), pictured)
+        XCTAssertTrue(pictured.contains("<img decoding=sync src=\"bmcid://logo%40example.com\">"), pictured)
+        XCTAssertTrue(pictured.contains("<img decoding=sync src='cid:gone'>"), pictured)
         let text = try body(page(letters[10]))
         XCTAssertTrue(text.hasPrefix("Dear Sam,\n\nIt's &lt;b>not&lt;/b> bold &amp;"), text)
+    }
+
+    /// Every picture of the printed page decoded as it is drawn: each
+    /// `<img>` of every letter's page has `decoding=sync` first, so the page
+    /// is never drawn into the PDF with a picture half decoded, as a kept
+    /// letter's photo was printed blank on the test iPad, 2026-10-23. Seen
+    /// whole: a picture by `cid:`, one in capitals, one whose sender asked
+    /// for `decoding="async"` (the first of two attributes is the one HTML
+    /// keeps), `<img/`, a line break after the name, `<img>`, `<image`,
+    /// which HTML reads as `<img`, and an `<img` inside an alt text, which
+    /// gains words and no quote; `<imgx`, `</img>` and an `<img` with no end
+    /// left alone; and the letters around it, of two and four bytes, whole.
+    func testEveryPictureOfThePrintedPageIsDecodedAsItIsDrawn() throws {
+        let html = "é<p><img src=\"cid:logo@example.com\"> <IMG SRC=x.png><img decoding=\"async\" src=y>"
+            + "<img/src=z><img\nsrc=w><img><Image src=v><img alt=\"an <img in it\" src=u>"
+            + "<imgx src=t></img><p>img \u{1F4EE}<img"
+        let decoded = PrintPage.decodedAtOnce(html)
+        XCTAssertEqual(decoded,
+                       "é<p><img decoding=sync src=\"cid:logo@example.com\"> <IMG decoding=sync SRC=x.png>"
+                       + "<img decoding=sync decoding=\"async\" src=y>"
+                       + "<img decoding=sync /src=z><img decoding=sync\nsrc=w><img decoding=sync >"
+                       + "<Image decoding=sync src=v><img decoding=sync alt=\"an <img decoding=sync in it\" src=u>"
+                       + "<imgx src=t></img><p>img \u{1F4EE}<img")
+        XCTAssertEqual(decoded.filter { $0 == "\"" }.count, html.filter { $0 == "\"" }.count)
+        for none in ["", "<p>No pictures. <imgx> </img> img</p>", "<IMG"] {
+            XCTAssertEqual(PrintPage.decodedAtOnce(none), none)
+        }
+
+        // In every letter's page: each picture's tag, and only in the body.
+        let tag = try NSRegularExpression(pattern: "<(img|image)(?=[\\s/>])", options: [.caseInsensitive])
+        let decodedTag = try NSRegularExpression(pattern: "<(img|image) decoding=sync[\\s/>]",
+                                                 options: [.caseInsensitive])
+        func count(_ pattern: NSRegularExpression, _ text: String) -> Int {
+            pattern.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))
+        }
+        var pictures = 0
+        for (i, m) in (PaneLetters.all + [letter(text: nil, html: html)]).enumerated() {
+            let page = self.page(m)
+            XCTAssertEqual(count(decodedTag, page), count(tag, page), "letter \(i)")
+            XCTAssertEqual(count(decodedTag, try body(page)), count(decodedTag, page), "letter \(i)")
+            pictures += count(tag, page)
+        }
+        XCTAssertGreaterThan(pictures, 20)
     }
 
     /// A letter the pane shows only the beginning of has the pane's grey
@@ -237,10 +328,11 @@ final class PrintPageTests: XCTestCase {
         var m = letter(text: "The beginning.")
         XCTAssertFalse(try body(page(m)).contains(MailText.shortenedNotice))
         m.isShortened = true
-        XCTAssertEqual(try body(page(m)), PanePage.shortenedLine + "The beginning.")
+        XCTAssertEqual(try body(page(m)), PrintPage.shortened + "The beginning.")
         var html = letter(text: nil, html: "<p>The beginning.</p>")
         html.isShortened = true
-        XCTAssertEqual(try body(page(html)), PanePage.shortenedLine + "<p>The beginning.</p>")
+        XCTAssertEqual(try body(page(html)), PrintPage.shortened + "<p>The beginning.</p>")
+        XCTAssertTrue(PrintPage.shortened.contains(PanePage.shortenedLine), "the pane's own line")
     }
 
     /// A plain letter over 128 KiB, and an HTML one over 512 KiB, are cut,
@@ -252,8 +344,8 @@ final class PrintPageTests: XCTestCase {
         let plain = "a" + String(repeating: "é", count: PrintPage.textLimit / 2)
         XCTAssertEqual(plain.utf8.count, PrintPage.textLimit + 1)
         let printed = try body(page(letter(text: plain)))
-        XCTAssertTrue(printed.hasPrefix(PanePage.shortenedLine), "the line above it")
-        let kept = String(printed.dropFirst(PanePage.shortenedLine.count))
+        XCTAssertTrue(printed.hasPrefix(PrintPage.shortened), "the line above it")
+        let kept = String(printed.dropFirst(PrintPage.shortened.count))
         XCTAssertTrue(kept.hasSuffix("é"))
         XCTAssertLessThanOrEqual(kept.utf8.count, PrintPage.textLimit)
         XCTAssertEqual(kept.utf8.count, PrintPage.textLimit - 1)
@@ -261,8 +353,8 @@ final class PrintPageTests: XCTestCase {
 
         let markup = "<p>" + String(repeating: "é", count: PrintPage.htmlLimit / 2)
         let html = try body(page(letter(text: "Hello", html: markup)))
-        XCTAssertTrue(html.hasPrefix(PanePage.shortenedLine))
-        let cut = String(html.dropFirst(PanePage.shortenedLine.count))
+        XCTAssertTrue(html.hasPrefix(PrintPage.shortened))
+        let cut = String(html.dropFirst(PrintPage.shortened.count))
         XCTAssertTrue(cut.hasSuffix("é"))
         XCTAssertLessThanOrEqual(cut.utf8.count, PrintPage.htmlLimit)
         XCTAssertEqual(cut, String(markup.dropLast(2)))

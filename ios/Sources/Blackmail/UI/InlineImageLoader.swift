@@ -67,6 +67,16 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
         requests.stop(ObjectIdentifier(task))
     }
 
+    /// Every picture still coming stopped by its owner, without waiting for
+    /// WebKit: none is answered, and each fetch is called off, so one still
+    /// waiting its turn on the connection leaves the line with nothing sent
+    /// and one already on the wire finishes (`PictureRequests.stopAll`).
+    /// For a page let go of at once, a print's (`LetterPrint.teardown`).
+    /// On the main thread, where WebKit calls the loader.
+    func stopAll() {
+        requests.stopAll()
+    }
+
     /// One place where a task is answered, so the liveness check cannot be
     /// forgotten on one path.
     ///
