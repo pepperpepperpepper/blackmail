@@ -5,7 +5,9 @@ import XCTest
 /// (B-063): `UID SEARCH RETURN (MIN) …` where the server advertises ESEARCH
 /// (RFC 4731), as Gmail does, and a plain SEARCH where it does not or will
 /// not answer it. Through the real `IMAPClient.page` against the scripted
-/// server, whose ESEARCH answers as RFC 4731 has them.
+/// server, whose ESEARCH answers as RFC 4731 has them. Since B-115 the
+/// SEARCH for his day itself is asked whole and its letters' dates fetched,
+/// and the spans after it each for its lowest UID alone.
 final class LowestMatchTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -73,6 +75,224 @@ final class LowestMatchTests: XCTestCase {
         XCTAssertTrue(received.contains { $0.hasPrefix("* ESEARCH (TAG \"a")
                                           && $0.hasSuffix("\") UID MIN \(expected)") },
                       "\(received)")
+    }
+
+    // MARK: - The first of several to match (B-115)
+
+    /// Every Inbox letter sent on the 101st's day alone, which is one.
+    private let theDay = "SENTSINCE \"02-Sep-2026\" SENTBEFORE \"03-Sep-2026\""
+
+    /// The jump's page asked with a ladder: the lowest match of its first
+    /// SEARCH to match anything, and the whole listing.
+    private func jump(_ client: IMAPClient, ladder: [String]) async throws -> [[UInt32]] {
+        let opened = try await client.page(in: Server.inbox,
+                                           searching: [.lowestOfFirst(ladder), "ALL"]) { _ in [] }
+        return opened.found.map(\.uids)
+    }
+
+    /// Asked in turn: one that matches nothing, then one that does, whose
+    /// lowest is the answer, and the one after it never asked; all in the
+    /// hold of the one SELECT, on one connection.
+    func testALadderStopsAtItsFirstSearchToMatch() async throws {
+        let plain = try await lowestByPlainSearch(theDay)
+        let expected = try XCTUnwrap(plain)
+        server.clearLog()
+        let client = try await connectedClient()
+        let found = try await jump(client, ladder: [none, theDay, recent])
+
+        XCTAssertEqual(found[0], [expected])
+        XCTAssertEqual(found[1].count, 120)
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH ALL"])
+        XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "SELECT", "UID SEARCH", "UID SEARCH",
+                                                "UID SEARCH"])
+        XCTAssertEqual(Set(server.log.map(\.connection)).count, 1)
+    }
+
+    /// None matching is none, every one asked once; and none at all asked
+    /// is none, the listing still whole.
+    func testALadderNoneOfWhichMatchesIsNone() async throws {
+        let client = try await connectedClient()
+        server.clearLog()
+        let found = try await jump(client, ladder: [none, none])
+        XCTAssertEqual(found[0], [])
+        XCTAssertEqual(found[1].count, 120)
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(none)", "UID SEARCH ALL"])
+
+        let empty = try await jump(client, ladder: [])
+        XCTAssertEqual(empty[0], [])
+        XCTAssertEqual(empty[1].count, 120)
+    }
+
+    /// Each SEARCH of a ladder is asked as one alone is: without ESEARCH
+    /// plainly; with RETURN refused, again plainly in the same hold; and a
+    /// SEARCH refused whole fails the page, nothing after it asked.
+    func testEachSearchOfALadderIsAskedAsOneAloneIs() async throws {
+        let plain = try await lowestByPlainSearch(theDay)
+        let expected = try XCTUnwrap(plain)
+
+        server.withheldCapabilities = ["ESEARCH"]
+        server.clearLog()
+        let without = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+        XCTAssertEqual(without[0], [expected])
+        XCTAssertEqual(searches, ["UID SEARCH \(none)", "UID SEARCH \(theDay)", "UID SEARCH ALL"])
+
+        server.withheldCapabilities = []
+        server.refusesSearchReturn = true
+        server.clearLog()
+        let refused = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+        XCTAssertEqual(refused[0], [expected])
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)", "UID SEARCH \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH \(theDay)",
+                                  "UID SEARCH ALL"])
+        XCTAssertEqual(Set(server.log.map(\.connection)).count, 1)
+
+        server.refusesSearchReturn = false
+        server.refusedSearchKeys = ["SENTBEFORE"]
+        server.clearLog()
+        do {
+            _ = try await jump(try await connectedClient(), ladder: [none, theDay, recent])
+            XCTFail("a SEARCH refused whole fails the page")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(theDay)", "UID SEARCH \(theDay)"])
+    }
+
+    // MARK: - His day's letters, by their dates (B-115)
+
+    /// The 2nd and 3rd of September as Gmail counts them, from midnight
+    /// UTC: two letters, a day apart, each at 14:13 UTC.
+    private let twoDays = "SENTSINCE \"02-Sep-2026\" SENTBEFORE \"04-Sep-2026\""
+
+    private func instant(_ iso: String) -> Date {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: iso)!
+    }
+
+    /// The 3rd of September, midnight to midnight UTC.
+    private var theThird: Range<Date> {
+        instant("2026-09-03T00:00:00Z")..<instant("2026-09-04T00:00:00Z")
+    }
+
+    /// The jump's page asked with its day: the lowest UID of the day's
+    /// letters dated `within`, or of the first of `wider` to match, and
+    /// the whole listing.
+    private func jump(_ client: IMAPClient, day: String, within: Range<Date>,
+                      wider: [String]) async throws -> [[UInt32]] {
+        let opened = try await client.page(in: Server.inbox,
+                                           searching: [.lowestDated(day, within: within, wider: wider),
+                                                       "ALL"]) { _ in [] }
+        return opened.found.map(\.uids)
+    }
+
+    private var dateFetches: [String] {
+        server.log.filter { $0.command.hasSuffix("(UID INTERNALDATE ENVELOPE)") }.map(\.command)
+    }
+
+    /// The two letters' UIDs, lower first.
+    private func theTwoLetters() async throws -> [UInt32] {
+        let client = try await connectedClient()
+        let both = try await client.search(twoDays, in: Server.inbox).uids.sorted()
+        XCTAssertEqual(both.count, 2)
+        return both
+    }
+
+    /// The day's letters asked for whole, their dates fetched in the same
+    /// hold, and of them the lowest UID dated within the range: the 3rd's,
+    /// not the 2nd's below it, which is the lowest of all; nothing wider
+    /// asked; one SELECT, one connection.
+    func testTheDaysAnswerIsTheLowestUIDDatedWithinIt() async throws {
+        let both = try await theTwoLetters()
+        server.clearLog()
+        let found = try await jump(try await connectedClient(), day: twoDays, within: theThird,
+                                   wider: [recent])
+
+        XCTAssertEqual(found[0], [both[1]])
+        XCTAssertEqual(found[1].count, 120)
+        XCTAssertEqual(searches, ["UID SEARCH \(twoDays)", "UID SEARCH ALL"])
+        let set = both[1] == both[0] + 1 ? "\(both[0]):\(both[1])" : "\(both[0]),\(both[1])"
+        XCTAssertEqual(dateFetches, ["UID FETCH \(set) (UID INTERNALDATE ENVELOPE)"])
+        XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "SELECT", "UID SEARCH", "UID FETCH",
+                                                "UID SEARCH"])
+        XCTAssertEqual(Set(server.log.map(\.connection)).count, 1)
+    }
+
+    /// None of the day's letters dated within the range, as when they are
+    /// all his evening before: the wider SEARCHes are asked as a ladder's,
+    /// in the same hold, and the first to match decides. The same with a
+    /// day that matches nothing, whose dates are not fetched.
+    func testWithNoneDatedWithinTheDayTheWiderAreAsked() async throws {
+        let both = try await theTwoLetters()
+        server.clearLog()
+        let client = try await connectedClient()
+        let evening = instant("2026-09-02T00:00:00Z")..<instant("2026-09-02T12:00:00Z")
+        let found = try await jump(client, day: twoDays, within: evening, wider: [none, recent])
+        XCTAssertEqual(found[0], [both[0]])
+        XCTAssertEqual(searches, ["UID SEARCH \(twoDays)", "UID SEARCH RETURN (MIN) \(none)",
+                                  "UID SEARCH RETURN (MIN) \(recent)", "UID SEARCH ALL"])
+        XCTAssertEqual(dateFetches.count, 1)
+        XCTAssertEqual(server.log.map(\.verb), ["LOGIN", "SELECT", "UID SEARCH", "UID FETCH",
+                                                "UID SEARCH", "UID SEARCH", "UID SEARCH"])
+
+        server.clearLog()
+        let empty = try await jump(client, day: none, within: theThird, wider: [recent])
+        XCTAssertEqual(empty[0], [both[0]])
+        XCTAssertEqual(searches, ["UID SEARCH \(none)", "UID SEARCH RETURN (MIN) \(recent)",
+                                  "UID SEARCH ALL"])
+        XCTAssertEqual(dateFetches, [])
+
+        server.clearLog()
+        let nothing = try await jump(client, day: none, within: theThird, wider: [none])
+        XCTAssertEqual(nothing[0], [])
+        XCTAssertEqual(nothing[1].count, 120)
+    }
+
+    /// A letter given with no ENVELOPE is never made a row, so it is not
+    /// landed on either: the 3rd's, so given, leaves the day with none.
+    func testALetterGivenWithNoEnvelopeIsNotTheDaysAnswer() async throws {
+        let both = try await theTwoLetters()
+        server.envelopeless = [both[1]]
+        server.clearLog()
+        let found = try await jump(try await connectedClient(), day: twoDays, within: theThird,
+                                   wider: [recent])
+        XCTAssertEqual(found[0], [both[0]])
+        XCTAssertEqual(searches, ["UID SEARCH \(twoDays)", "UID SEARCH RETURN (MIN) \(recent)",
+                                  "UID SEARCH ALL"])
+    }
+
+    /// Without ESEARCH the day is asked as ever, and the wider plainly,
+    /// with the same answer; and the day's SEARCH refused fails the page,
+    /// nothing fetched and nothing after it asked.
+    func testTheDayIsAskedTheSameWithoutESEARCHAndRefusedFailsThePage() async throws {
+        let both = try await theTwoLetters()
+        server.withheldCapabilities = ["ESEARCH"]
+        server.clearLog()
+        let evening = instant("2026-09-02T00:00:00Z")..<instant("2026-09-02T12:00:00Z")
+        let plain = try await jump(try await connectedClient(), day: twoDays, within: evening,
+                                   wider: [none, recent])
+        XCTAssertEqual(plain[0], [both[0]])
+        XCTAssertEqual(searches, ["UID SEARCH \(twoDays)", "UID SEARCH \(none)",
+                                  "UID SEARCH \(recent)", "UID SEARCH ALL"])
+        let within = try await jump(try await connectedClient(), day: twoDays, within: theThird,
+                                    wider: [recent])
+        XCTAssertEqual(within[0], [both[1]])
+
+        server.withheldCapabilities = []
+        server.refusedSearchKeys = ["SENTBEFORE"]
+        server.clearLog()
+        do {
+            _ = try await jump(try await connectedClient(), day: twoDays, within: theThird,
+                               wider: [recent])
+            XCTFail("the day's SEARCH refused fails the page")
+        } catch {
+            XCTAssertEqual(error as? MailError, .cannotConnect)
+        }
+        XCTAssertEqual(searches, ["UID SEARCH \(twoDays)"])
+        XCTAssertEqual(dateFetches, [])
     }
 
     /// An ESEARCH answer with no MIN is the server saying nothing matched:

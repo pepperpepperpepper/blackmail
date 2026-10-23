@@ -265,7 +265,10 @@ final class ArrivingMailTests: XCTestCase {
         XCTAssertEqual(rejumped.messages.map(\.id), jumped.messages.map(\.id))
         XCTAssertEqual(rejumped.anchorIndex, jumped.anchorIndex)
         XCTAssertEqual(server.lostWrites.map(\.verb), ["NOOP"])
-        XCTAssertEqual(verbs, ["LOGIN", "SELECT", "UID SEARCH", "UID SEARCH", "UID FETCH"])
+        // His day's SEARCH, its letters' dates (B-115), the listing and the
+        // window.
+        XCTAssertEqual(verbs, ["LOGIN", "SELECT", "UID SEARCH", "UID FETCH", "UID SEARCH",
+                               "UID FETCH"])
         XCTAssertEqual(Set(server.log.map(\.connection)), [3])
 
         await deadSocket()
@@ -335,7 +338,9 @@ final class ArrivingMailTests: XCTestCase {
         let window = try await repository.messages(around: day, in: "inbox", limit: 20)
         let landed = try XCTUnwrap(window)
         XCTAssertEqual(uid(landed.messages[landed.anchorIndex].id), arrived[Server.inbox])
-        XCTAssertEqual(verbs, ["NOOP", "UID SEARCH", "UID SEARCH", "UID FETCH"])
+        // His day's SEARCH and its letter's date (B-115), then the listing
+        // and the window.
+        XCTAssertEqual(verbs, ["NOOP", "UID SEARCH", "UID FETCH", "UID SEARCH", "UID FETCH"])
     }
 
     // MARK: - Search

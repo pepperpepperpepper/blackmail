@@ -186,9 +186,9 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertEqual(below(window), "20th 01:30 UTC")
     }
 
-    /// In Tokyo, the 20th asked for: the SEARCH misses his first hours of
-    /// it, before 9 am, which were the 19th in UTC, and the jump lands on
-    /// the first letter of them.
+    /// In Tokyo, the 20th asked for: his first hours of it, before 9 am,
+    /// were the 19th in UTC, which his day's SEARCH asks for with the 20th
+    /// (B-115), and the jump lands on the first letter of them.
     func testEastOfGreenwichTheJumpLandsOnTheFirstHoursOfHisDay() async throws {
         let tokyo = calendar("Asia/Tokyo")
         let repository = makeRepository(calendar: tokyo)
@@ -200,10 +200,12 @@ final class GoToDateBoundTests: XCTestCase {
         XCTAssertEqual(below(window), "Clock fast")
     }
 
-    /// On the wire, one SEARCH carries all three: the Date on or after the
-    /// day, the arrival on or after a week before it, and no later than a
-    /// week after today, in his calendar, here New York's.
-    func testOneSearchCarriesAllThreeDates() async throws {
+    /// On the wire, one SEARCH carries them all: the Date within Gmail's
+    /// days that hold his day, here New York's 19th, Gmail's 19th and 20th
+    /// (B-115), the arrival on or after a week before it, and no later
+    /// than a week after today, in his calendar; a day with mail, so no
+    /// other is asked.
+    func testOneSearchCarriesAllTheDates() async throws {
         let newYork = calendar("America/New_York")
         let repository = makeRepository(calendar: newYork)
         let picked = newYork.date(from: DateComponents(year: 2019, month: 6, day: 19, hour: 12))!
@@ -213,12 +215,16 @@ final class GoToDateBoundTests: XCTestCase {
         let only = try XCTUnwrap(dated.first)
         XCTAssertEqual(dated.count, 1)
         XCTAssertTrue(only.hasSuffix(
-            "SENTSINCE \"19-Jun-2019\" SINCE \"12-Jun-2019\" BEFORE \"11-Oct-2026\""), only)
-        // Asking for the lowest letter it matches alone, as Gmail can say it
-        // (B-063); and the listing the pages walk, whole, after it.
-        XCTAssertEqual(searches, ["UID SEARCH RETURN (MIN) SENTSINCE \"19-Jun-2019\" "
+            "SENTSINCE \"19-Jun-2019\" SENTBEFORE \"21-Jun-2019\" SINCE \"12-Jun-2019\" "
+                + "BEFORE \"11-Oct-2026\""), only)
+        // Asked whole, a day's few letters, whose dates are fetched to see
+        // which are his day's (B-115); and the listing the pages walk,
+        // whole, after it.
+        XCTAssertEqual(searches, ["UID SEARCH SENTSINCE \"19-Jun-2019\" "
+                                    + "SENTBEFORE \"21-Jun-2019\" "
                                     + "SINCE \"12-Jun-2019\" BEFORE \"11-Oct-2026\"",
                                   "UID SEARCH ALL"])
+        XCTAssertEqual(server.log.filter { $0.command.hasSuffix("(UID INTERNALDATE ENVELOPE)") }.count, 1)
     }
 
     /// Every jump lands where it did when the server was asked for every
@@ -238,7 +244,7 @@ final class GoToDateBoundTests: XCTestCase {
             ("Asia/Tokyo", DateComponents(year: 2019, month: 9, day: 20, hour: 12)),
             ("Asia/Tokyo", DateComponents(year: 2019, month: 6, day: 20, hour: 8)),
         ]
-        func landings(esearch: Bool) async throws -> [String] {
+        func landings(esearch: Bool) async throws -> (landed: [String], dated: Int) {
             server.withheldCapabilities = esearch ? [] : ["ESEARCH"]
             server.clearLog()
             var out: [String] = []
@@ -252,18 +258,26 @@ final class GoToDateBoundTests: XCTestCase {
                         + "of \(w.messages.map(\.subject)) newest \(w.reachedNewest)"
                 } ?? "nothing that recent")
             }
-            let returning = server.log.filter { $0.command.contains("RETURN (MIN)") }.count
-            XCTAssertEqual(returning, esearch ? cases.count : 0)
-            return out
+            let dated = server.log.filter { $0.command.contains("SENTSINCE") }
+            let returning = dated.filter { $0.command.contains("RETURN (MIN)") }.count
+            // His day's asked whole each time, its letters' dates wanted;
+            // the spans after it for their lowest alone (B-115).
+            XCTAssertEqual(returning, esearch ? dated.count - cases.count : 0)
+            return (out, dated.count)
         }
         let lowestAlone = try await landings(esearch: true)
         let everyMatch = try await landings(esearch: false)
-        XCTAssertEqual(lowestAlone, everyMatch)
-        XCTAssertEqual(lowestAlone.filter { $0 == "nothing that recent" }.count, 1)
+        XCTAssertEqual(lowestAlone.landed, everyMatch.landed)
+        XCTAssertEqual(lowestAlone.landed.filter { $0 == "nothing that recent" }.count, 1)
+        // As many SEARCHes either way, at least one a jump (B-115).
+        XCTAssertEqual(lowestAlone.dated, everyMatch.dated)
+        XCTAssertGreaterThanOrEqual(lowestAlone.dated, cases.count)
     }
 
     /// The SEARCH asks for his date, in his calendar, whatever day it is in
-    /// UTC: 8 am on the 20th in Tokyo is the 19th in UTC.
+    /// UTC: 8 am on the 20th in Tokyo is the 19th in UTC, and his 20th is
+    /// Gmail's 19th and 20th (B-115), where the 19th would be its 18th and
+    /// 19th, a week back from the 12th.
     func testTheSearchAsksForHisDateInHisCalendar() async throws {
         let tokyo = calendar("Asia/Tokyo")
         let repository = makeRepository(calendar: tokyo)
@@ -273,7 +287,8 @@ final class GoToDateBoundTests: XCTestCase {
             .filter { $0.contains("SENTSINCE") }
         let only = try XCTUnwrap(dated.first)
         XCTAssertTrue(only.hasSuffix(
-            "SENTSINCE \"20-Jun-2019\" SINCE \"13-Jun-2019\" BEFORE \"11-Oct-2026\""), only)
+            "SENTSINCE \"19-Jun-2019\" SENTBEFORE \"21-Jun-2019\" SINCE \"13-Jun-2019\" "
+                + "BEFORE \"11-Oct-2026\""), only)
     }
 
     /// The 21st asked for in New York, a day with no mail of its own: the

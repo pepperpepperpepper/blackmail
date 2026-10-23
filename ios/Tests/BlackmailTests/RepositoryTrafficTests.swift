@@ -401,7 +401,10 @@ final class RepositoryTrafficTests: XCTestCase {
 
         XCTAssertNil(fellBack)
         XCTAssertEqual(newestPages, 0)
-        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID SEARCH", "UID FETCH"])
+        // His day's SEARCH, its letters' dates (B-115), the listing, the
+        // window.
+        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID SEARCH", "UID FETCH", "UID SEARCH",
+                                                "UID FETCH"])
         XCTAssertEqual(server.log.first?.command, "SELECT \"[Gmail]/All Mail\"")
         let window = try XCTUnwrap(landed)
         XCTAssertGreaterThanOrEqual(window.landedOn, day)

@@ -599,7 +599,10 @@ final class MailboxAtomicityTests: XCTestCase {
               "UID FETCH in [Gmail]/Sent Mail"],
              { try await $0.listMessages(in: Server.sent, beforeUID: nil, limit: 5).map(\.id) }),
             ("day",
-             ["SELECT \"INBOX\"", "UID SEARCH in INBOX", "UID SEARCH in INBOX", "UID FETCH in INBOX"],
+             // His day's SEARCH, its letters' dates (B-115), the listing,
+             // the window.
+             ["SELECT \"INBOX\"", "UID SEARCH in INBOX", "UID FETCH in INBOX", "UID SEARCH in INBOX",
+              "UID FETCH in INBOX"],
              { try await $0.messages(around: day, in: "inbox", limit: 10)?.messages.map(\.id) ?? [] }),
         ]
         func steps(_ entries: ArraySlice<Server.LogEntry>) -> [String] {
