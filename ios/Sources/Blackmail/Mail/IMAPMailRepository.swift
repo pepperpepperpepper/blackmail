@@ -102,9 +102,10 @@ actor IMAPMailRepository: MailRepository {
     /// just handed.
     private var previewParts: [String: MIMEPart] = [:]
     /// LIST attribute (lowercased) → real folder name, learned alongside
-    /// `roleNames`. Needed because Gmail's Important and Starred carry
-    /// attributes RFC 6154 never defined, so they have no `Mailbox.Role` and
-    /// cannot be found through `roleNames` at all.
+    /// `roleNames`. Needed because Gmail's Starred and Important carry
+    /// attributes with no `Mailbox.Role`, Starred's `\Flagged` (RFC 6154)
+    /// and Important's `\Important` (RFC 8457), so they cannot be found
+    /// through `roleNames` at all.
     private var folderForAttribute: [String: String] = [:]
     /// What LIST said last, nil until it has been asked. The two tables
     /// above are learned from it, `folders()` answers from it, and every
@@ -782,8 +783,9 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// The rest of the app speaks in role words — `RootViewController` opens
     /// `Mailbox(id: "inbox")` on launch — while IMAP wants "INBOX" or
-    /// "[Gmail]/Sent Mail". Anything that is not a known role is passed
-    /// through untouched, so a real folder name works too.
+    /// "[Gmail]/Sent Mail". Anything that is not one of the app's role words
+    /// is passed through untouched, so a real folder name works too, a
+    /// label called "Drafts" among them (`serverName`, B-116).
     ///
     /// The roles come from LIST alone, asked once. This used to run the
     /// whole sweep, a STATUS for every folder, and throw the counts away
@@ -795,13 +797,25 @@ actor IMAPMailRepository: MailRepository {
     /// among the folders they count in (`countedFolders`), and reading one
     /// would leave All Mail's count high.
     private func resolve(_ id: String) async throws -> String {
-        if let role = Mailbox.Role(rawValue: id.lowercased()) {
-            _ = try await knownListing()
-            if let name = roleNames[role] { return name }
-            if role == .inbox { return "INBOX" }
-        }
-        if id.caseInsensitiveCompare("inbox") == .orderedSame { return "INBOX" }
-        return id
+        guard Mailbox.Role(word: id) != nil else { return id }
+        return Self.serverName(for: id, listed: try await knownListing(), roles: roleNames)
+    }
+
+    /// `resolve`'s rule, with LIST had: a folder LIST names so is that
+    /// folder; then a role word of the app's own (`Mailbox.Role(word:)`) is
+    /// the folder playing that role, and the Inbox "INBOX" when none is
+    /// named; anything else is passed through as it is.
+    ///
+    /// By the role word as the app spells it, and after LIST's own names:
+    /// a label called "Drafts", which his account has, used to be taken
+    /// for the role word "drafts" and opened Gmail's Drafts in its place,
+    /// and a letter moved to it went there (B-116).
+    static func serverName(for id: String, listed: [IMAPMailboxListing],
+                           roles: [Mailbox.Role: String]) -> String {
+        if listed.contains(where: { $0.name == id }) { return id }
+        guard let role = Mailbox.Role(word: id) else { return id }
+        if let name = roles[role] { return name }
+        return role == .inbox ? "INBOX" : id
     }
 
     // MARK: - Mailboxes
@@ -874,7 +888,7 @@ actor IMAPMailRepository: MailRepository {
         // count is not decoration: it is what tells him there is something
         // new without opening anything.
         var unread: [String: Int] = [:]
-        for l in listings where Self.isSelectable(l) {
+        for l in listings where l.isSelectable {
             if let counts = try? await client.status(l.name, items: ["UNSEEN"]),
                let n = counts["UNSEEN"] {
                 unread[l.name] = Int(n)
@@ -914,39 +928,13 @@ actor IMAPMailRepository: MailRepository {
         listed = listings
     }
 
-    /// \Noselect marks a container that holds folders but no mail —
-    /// "[Gmail]" itself is one. Tapping it would be an error, so it is not
-    /// offered, and it has no count to ask for.
-    private static func isSelectable(_ listing: IMAPMailboxListing) -> Bool {
-        !listing.attributes.contains { $0.caseInsensitiveCompare("\\Noselect") == .orderedSame }
-    }
-
     /// The folder list the app shows, from LIST and whatever counts there
-    /// are. A folder with no count reads 0.
+    /// are, in the pane's order (`FolderTree`, B-116). A folder with no
+    /// count reads 0. `[Gmail]` and any other `\Noselect` folder is not
+    /// offered (`IMAPMailboxListing.isSelectable`).
     private static func mailboxes(from listings: [IMAPMailboxListing],
                                   unread: [String: Int]) -> [Mailbox] {
-        var out: [Mailbox] = []
-        for l in listings where isSelectable(l) {
-            let delimiter = l.delimiter ?? "/"
-            let components = delimiter.isEmpty ? [l.name] : l.name.components(separatedBy: delimiter)
-            let depth = max(0, components.count - 1)
-            let display = components.last ?? l.name
-            out.append(Mailbox(id: l.name, name: display,
-                               unreadCount: unread[l.name] ?? 0, role: l.specialUse, depth: depth))
-        }
-
-        // Inbox first, then the other well-known roles in a fixed order, then
-        // everything else alphabetically. A folder list whose order changes
-        // between launches is exactly what this product exists to prevent.
-        let rank: [Mailbox.Role: Int] = [.inbox: 0, .drafts: 1, .sent: 2,
-                                         .junk: 3, .trash: 4, .archive: 5]
-        out.sort { a, b in
-            let ra = a.role.flatMap { rank[$0] } ?? 100
-            let rb = b.role.flatMap { rank[$0] } ?? 100
-            if ra != rb { return ra < rb }
-            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-        }
-        return out
+        FolderTree.mailboxes(from: listings, unread: unread)
     }
 
     // MARK: - Listing messages
@@ -1705,13 +1693,8 @@ actor IMAPMailRepository: MailRepository {
     /// `resolve`'s rule once LIST has been had, otherwise from the folder
     /// list kept on the iPad (`MailShelf.folderName`).
     private func keptFolderName(_ mailboxID: String) -> String? {
-        guard listed != nil else { return shelf?.folderName(for: mailboxID) }
-        if let role = Mailbox.Role(rawValue: mailboxID.lowercased()) {
-            if let name = roleNames[role] { return name }
-            if role == .inbox { return "INBOX" }
-        }
-        if mailboxID.caseInsensitiveCompare("inbox") == .orderedSame { return "INBOX" }
-        return mailboxID
+        guard let listed else { return shelf?.folderName(for: mailboxID) }
+        return Self.serverName(for: mailboxID, listed: listed, roles: roleNames)
     }
 
     /// The Drafts folder's name, from LIST or from the folder list kept on

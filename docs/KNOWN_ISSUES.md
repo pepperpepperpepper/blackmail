@@ -22734,3 +22734,240 @@ failing. The release build for the iPad links.
   asked from the host. Whether Gmail reads the Date or the arrival is
   still not known (B-058): the letters copied in arrived when their Date
   says.
+
+---
+
+## B-116 — FIXED 2026-10-23, found on the iPad, not yet seen there fixed. With labels in the account, Gmail's Important and Starred were drawn as folders inside the labels above them, and a label inside another under whichever label came before it
+
+**What he saw.** Seen on the test iPad on 2026-10-23, in the size test's
+round (TODO, gap review), a build of int12 (140df65), three panes, and
+again from a fresh start of the app the same morning, against the test
+account with fourteen labels at the top level. The Mailboxes pane drew the
+Inbox; then, one step in, Drafts, Sent Mail, Spam, Trash and All Mail;
+then the labels at the left edge, Bank to House; then "Important", one
+step in with a plain folder's icon, directly under House; Notes to
+Recipes; then "Starred", one step in, directly under Recipes; then Taxes
+and Travel 2017. Each read as a folder inside the label above it. LIST
+has neither inside a label: `(\HasNoChildren \Important) "/"
+"[Gmail]/Important"`, `(\Flagged \HasNoChildren) "/" "[Gmail]/Starred"`,
+and every label `(\HasNoChildren)` at the top. The folder list kept on the
+iPad had the same order. With no labels in the account the two fell after
+All Mail, among Gmail's own folders, which is why it was not seen before.
+
+His own account, read only on 2026-10-23, has sixteen labels of his with
+more shapes than these: a label inside another, one whose name holds
+slashes, which Gmail splits into folders that hold no mail, a label inside
+"[Gmail]", and labels named as folders of Gmail's or of other mail
+programs. The test account carries the same shapes now, under made-up
+names (its LIST is `FolderTreeTests.testAccountsList`). The app's order of
+that LIST, on the host: "17", two steps in, directly under "[Gmail]Trash",
+for the label "Unopened 4/17/17"; Junk E-mail's "Drafts" one step in under
+the label "Drafts"; Important under House; Sent Messages and Starred under
+Recipes; and [Gmail]All Mail's "Trip 2017" under Travel 2017. Found on the
+host with it: a tap on the label "Drafts" opened Gmail's Drafts, a letter
+moved to it went into Gmail's Drafts, and a letter in it was never shown
+from the copy kept on the iPad.
+
+**What it was.** `IMAPMailRepository.mailboxes(from:unread:)` gave every
+folder the depth of its name's path and the last part of its name, and
+sorted every folder with no role by that last part alone, after the Inbox
+and the roles. Important and Starred have no role (`specialUse` maps
+neither `\Important` nor `\Flagged`), so they were sorted among the labels
+by name, one step in as "[Gmail]/" put them. A label inside another went
+wherever the last part of its name fell, at its depth, and a label inside
+folders that are not drawn was a step in for each of them. A folder inside
+the Inbox, on a server that keeps folders there, went among the labels
+one step in, reading as a folder inside the label above it. And `resolve`, which
+turns a folder's id into the name SELECTed and moved to, took any id that
+spells a role word in any case for that role: the label "Drafts" for the
+app's "drafts", Gmail's Drafts. The folder of a letter kept on the iPad
+was found by the same rule (`keptFolderName`), and the pane's matching of
+an id (`firstIndex(matchingMailboxID:)`, `role(of:)`) fell back on it for
+an id its list did not hold. All older than the size test; no account the
+app had met had labels in these shapes.
+
+**What Mail does.**
+
+- *Gmail's own folders* (high for iOS 10, low to medium for iPadOS 18).
+  The reference this app copies, iOS 10's three panes on a 12.9-inch iPad
+  (`spec/references/REFERENCE_SCREENSHOTS.md`, primary), is a Gmail
+  account's Mailboxes pane: the Inbox and VIP; then Drafts, Sent, Junk,
+  Trash and All Mail at the left edge; then a row for "[Gmail]", with
+  Important and Starred one step in under it, plain folder icons; then a
+  label "[Gmail]Trash" at the left edge; then the labels by name, one with
+  three labels inside it drawn one step in under it. For iOS 18 a user's
+  written description of the Mailboxes on an iPhone, not a picture (a
+  question on justanswer.com, as quoted elsewhere; the page itself could
+  not be read from here): under the Gmail account,
+  Inbox, Drafts, Sent, Junk, Trash, All Mail, then the Gmail container,
+  Important and Starred. Apple's guide for iPadOS 18 ("Organize email in
+  mailboxes on iPad",
+  support.apple.com/guide/ipad/organize-your-email-in-mailboxes-ipadc7ea6d10/18.0/ipados/18.0)
+  says only that mailboxes can be shown or hidden, reordered, made,
+  renamed and deleted, and nothing of their order or of one inside
+  another.
+- *The order within a level* (high, iOS 18.6's Message framework, read
+  statically from the simulator runtime on the Mac, its arm64 code).
+  `-[MFMailboxUid sortChildren]` sorts each mailbox's children with
+  `MFCompareMailboxUids`: by the mailbox's type first, then by name with
+  `compare:options:range:locale:`, case-insensitive and numbers as
+  numbers, in `+[NSLocale currentLocale]`, and with case counted for a
+  tie. So a tree, each level by name, in the iPad's language. EmailCore
+  holds the string "[Gmail]", and the name Gmail gives that folder in
+  some countries; what Mail does with them was not traced.
+- *A folder that holds folders but no mail* (`\Noselect`; medium, from
+  the reference's "[Gmail]" row). Mail draws it as a row. Mail with a
+  label whose name holds slashes was not seen.
+
+**Changed.**
+
+1. *Gmail's own, together* (`FolderTree`, new; the repository's
+   `mailboxes(from:unread:)` asks it). The Inbox, then the roles in their
+   fixed order, each named and indented as before. Then the other folders
+   inside the folder that holds the server's own: "[Gmail]", known by what
+   is in it, a folder LIST flags as one of the server's
+   (`IMAPMailboxListing.isServersOwn`), and not by its name, so the name
+   Gmail gives it in some countries is one too. Important, "Sent
+   Messages" (a label made inside "[Gmail]") and Starred, by name, one
+   step in, as Gmail's other folders are; never among the labels.
+   "[Gmail]" itself is not drawn, as before.
+2. *The labels, a tree.* A label, then the labels inside it one step
+   further in, each level by name, Mail's way: case-insensitive with
+   numbers as numbers, in the iPad's language, then with case counted,
+   then by the server's name, so the order is the same at every launch
+   and whatever order LIST gives the folders in. "[" comes before the
+   letters, as in the reference's pane, so the labels whose names begin
+   with "[Gmail]" are the first labels, at the left edge, "[Gmail]All
+   Mail" with "Trip 2017" under it; "Junk E-mail" has "Drafts" under it.
+3. *Inside folders that are not drawn.* A label inside folders none of
+   which is drawn, `\Noselect` or not listed, is named by its path from
+   the nearest folder that is, or the whole of it: "Unopened 4/17/17" at
+   the left edge, among the labels by that name, not "17" two steps in.
+   Mail would draw the two folders above it as rows; this app draws no
+   row that cannot be opened, as before.
+4. *Inside the Inbox.* A folder inside the Inbox, on a server that keeps
+   folders there, is drawn among the labels at the left edge, by its own
+   name, with the folders inside it one step in under it, as a label at
+   the top is. The Inbox's block is the Inbox alone (`FolderCounts`), so
+   it cannot be drawn under the Inbox as Mail draws it, and one step in
+   among the labels, as it was, it read as a folder inside the label
+   above it.
+5. *A role from the flags alone.* As before, a role comes from LIST's
+   flags or INBOX's name (`specialUse`): "Drafts", "[Gmail]Drafts",
+   "Sent Messages", "Junk E-mail" and "Deleted Messages" are labels. New:
+   an id is taken for a role word only as the app spells its own, in
+   lowercase ("inbox", "drafts"), or INBOX in any spelling
+   (`Mailbox.Role(word:)`), and a folder LIST names exactly so is that
+   folder before any role (`IMAPMailRepository.serverName`, for `resolve`
+   and the kept copy alike). The pane's matching takes the exact name,
+   then the app's role word, then the name in another case. So a tap on
+   the label "Drafts" opens it, a letter moved there goes there, a letter
+   in it opened before is shown from the copy, and an id of a label the
+   list does not hold matches nothing, never Gmail's Drafts. The app's
+   "drafts" is Gmail's Drafts, beside a label "Drafts" too.
+
+**Not changed.** Every row's tap: its id is the LIST name, as before. Each
+role, each icon, and the indent of a step (31 pt). The counts: a STATUS
+for each folder that can be opened, none for one that cannot. The folder
+list kept on the iPad (`folders.json`): the same fields meaning the same,
+the name being the one drawn, written in the new order at the next sweep;
+the first frame of the first launch of the new build draws the order kept
+before until that sweep lands, as any change of the folders does. The
+Inbox's block and the folders' block (`FolderCounts.blocks`). The Move
+sheet: the pane's order, as before without the indent. With no labels,
+and no folder inside the Inbox, the pane is as it was, row for row.
+
+**What he sees.** The Inbox; then, one step in, Drafts, Sent Mail, Spam,
+Trash, All Mail, Important and Starred, and any other folder of Gmail's
+own; then his labels at the left edge, by name, each with the labels
+inside it one step in under it. No new words.
+
+**Tests.** `FolderTreeTests`, seventeen, on the test account's LIST as Gmail
+gives it, thirty-seven rows read by the client's own parser: the pane, row
+by row, with each row's id, name, depth and role, and Important and
+Starred above the first label; the same with LIST's rows reversed, and
+with every child before its parent; one row for each folder that can be
+opened, none for the three that cannot, each with its own count; with
+"Unopened 4" and "Unopened 4/17" labels that can be opened, "17" one step
+and two steps in under them, in either order; with "[Gmail]" one that can
+be opened, it drawn among the labels with Important, Sent Messages and
+Starred under it by name; the account before its labels, as the round
+logged it at its start, with its counts, row for row as the order before
+B-116 gives it (kept in the test to compare with) and as listed literally,
+in either order, and the scripted server's account the same over the wire;
+no label a role, and the role words; the pane's matching and `role(of:)`
+for a label it does not hold; `serverName`; over the wire, the
+repository's names alone and its sweep in that order, 34 STATUS and none
+for a folder that cannot be opened, the kept list read back as the next
+launch reads it, equal, and its two blocks; a tap on each folder with a
+role's name, or inside one, SELECTing that folder and no other, the app's
+"drafts" SELECTing Gmail's Drafts, and a letter moved to the label
+"Drafts" landing there and not in Gmail's Drafts; and the kept list naming
+a label by its own name, and one it does not hold not as Gmail's Drafts.
+And the folder that holds Gmail's own, known by what is in it: with
+"Show in IMAP" off for all of Gmail's own, the seven flagged rows gone,
+"[Gmail]/Sent Messages" a label at the left edge by its path, the Inbox
+the one role; with Gmail's folders listed but no flag on any, each a
+label at the left edge by its path, by name; and with "Junk E-mail" one
+that cannot be opened and its "Drafts" flagged as Starred is, as "[Gmail]"
+under another name, that "Drafts" drawn with Gmail's others, one step
+in, by name, and no row for "Junk E-mail"; each in either order. Inside
+the Inbox: the test account's labels kept inside the Inbox drawn as they
+are at the top, row for row, in either order, and one inside the Inbox
+with one inside it, beside two labels at the top, at the left edge
+between them by its own name.
+`KeptLetterOpeningTests`, one: a letter in the label "Drafts", opened, is
+shown from the copy the second time with nothing sent. The scripted
+server adds a `\Noselect` folder (`addFolder(selectable:)`).
+
+With the order as it was put back whole, nine of these fail, 21
+failures; the two with no labels pass. Each change undone by hand, those classes run
+(`FolderTreeTests`, `KeptLetterOpeningTests`, `RepositoryWireTests`,
+`MailboxNameTests`, `EraseQuestionTests`, `FolderCountsTests`,
+`PaneActionsTests`), then put back and passing, counted as failures in
+tests: Gmail's others among the labels, 8 in 3; no tree, every label at
+the top, 6 in 3; a label inside folders not drawn named by the last part
+of its name at the depth of its path, 4 in 2; Gmail's others in LIST's
+order, 7 in 4; a label's children in LIST's order, 1 in 1; the depths
+taken in LIST's order, 1 in 1; a count looked up by the name drawn, 12 in
+2; Gmail's others before the roles, 21 in 8; folders that cannot be opened
+drawn, 17 in 8; a role word in any case, 5 in 4; `serverName` without
+LIST's names first, 1 in 1; the matching as before, the name in any case
+first, 1 in 1; `role(of:)` taking a name in any case, 1 in 1; `resolve` as
+before, 9 in 2; and the kept copy's folder found as before, 2 in 1.
+Those counts were taken before the four tests on the container and the
+Inbox were added; for those four, the same way: "[Gmail]" taken for the
+container by its name alone, 6 in the three on the container; by its name
+and only when it holds a folder flagged as the server's, 2 in 1, the one
+under another name; a folder inside the Inbox one step in, as before, 3
+in 1. Nothing else failed in those classes.
+
+The full suite, serially: 2,341 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Mail's pane on iPadOS 18 with a Gmail account, not seen on a screen:
+  its "[Gmail]" row and what is under it are the iOS 10 reference's and a
+  user's description; the order within a level is read from the
+  framework.
+- Mail draws a row for "[Gmail]", and its roles at the left edge; this
+  app draws no row for "[Gmail]", and its roles one step in, as before.
+- A label whose name holds slashes: Mail's drawing of it not seen; here
+  its path, at the left edge.
+- Names in a language other than English take the iPad's order, as
+  Mail's do; the tests are in English. Numbers as numbers is Mail's rule
+  and is not met by the test account's names.
+- With Gmail's own folders all hidden from IMAP ("Show in IMAP" off),
+  nothing in "[Gmail]" says what it is, and a label made inside it is
+  drawn among the labels at the left edge by its path, "[Gmail]/Sent
+  Messages": on the host only. Mail's drawing of it not seen.
+- "[Gmail]" under the name Gmail gives it in some countries: tested only
+  as a folder of the test account's that cannot be opened, holding one
+  flagged as the server's, not under that name.
+- A folder inside the Inbox, on another server: at the left edge among
+  the labels, by its own name, not under the Inbox as Mail draws it;
+  beside a label at the top of the same name it reads the same. Not his.
+- The Move sheet has no indent, so Junk E-mail's "Drafts" reads there as
+  "Drafts" alone, after "Junk E-mail", as before.
+- His own account's pane, not seen: the shapes are the test account's.

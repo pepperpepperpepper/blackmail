@@ -41,6 +41,11 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       indented among the labels, each as if inside the label above it.
       Memory could not be read from the app's log. Left: B-115's check
       under "Blocked on the iPad coming back".*
+      the account's own first letter (B-115, on its own branch). Seen
+      there too: Gmail's Important and Starred drawn indented among the
+      labels, each as if inside the label above it (B-116, fixed, not yet
+      seen on the iPad). Memory could not be read from the app's log.
+      Left: B-116's check under "Blocked on the iPad coming back".*
 - [ ] Buildable now, for the install-day build:
       - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
       - [x] "Password needs updating" on a read, not "Can't connect to mail
@@ -5031,6 +5036,33 @@ this host. Ordered by value, not by size.
       10. *Two panes,* 1 again, then three panes back.
       11. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
+- [ ] **B-116, the Mailboxes pane with labels.** On the test iPad, the
+      test account only, whose labels are in the shapes of his (its LIST is
+      `FolderTreeTests.testAccountsList`), built from the `bm-folders`
+      worktree (branch `fix-folders`). Nothing is written to the mailbox:
+      folders are opened only to look. Three panes, then two.
+      1. *The order:* every row from top to bottom with its indent, shots
+      from the top and the bottom of the pane: the Inbox; then one step
+      in Drafts, Sent Mail, Spam, Trash, All Mail, Important, Sent
+      Messages and Starred; then at the left edge "[Gmail]All Mail" with
+      "Trip 2017" one step in under it, "[Gmail]Drafts", "[Gmail]Spam",
+      "[Gmail]Trash", Bank to House, "Junk E-mail" with "Drafts" one step
+      in under it, "Note to Self: Letters to Himself" to Travel 2017, and
+      "Unopened 4/17/17" so named, at the left edge. No row for "[Gmail]",
+      "Unopened 4" or "Unopened 4/17". Each count as the host's STATUS
+      gives it.
+      2. *Each tap opens its own folder:* "[Gmail]/Sent Messages", the
+      label "Drafts", Junk E-mail's "Drafts", "[Gmail]Drafts", Starred and
+      "Unopened 4/17/17": the list's title the row's name, the list as
+      the host's count says (empty or not), and the app's log SELECTs that
+      name and no other. Gmail's Drafts and Sent Mail open as before.
+      3. *The first launch of the new build:* its first frame draws the
+      pane kept by the build before, in the old order, and the new order
+      comes with the sweep; the next launch's first frame is in the new
+      order.
+      4. *The Move sheet,* opened on a letter and Cancelled, no Move: the
+      pane's order, without the indent.
+      5. *Two panes:* the pane once more, as 1.
 
 ## Blocked on the owner
 

@@ -106,6 +106,26 @@ struct IMAPMailboxListing {
         }
         return name.uppercased() == "INBOX" ? .inbox : nil
     }
+
+    /// \Noselect marks a container that holds folders but no mail —
+    /// "[Gmail]" itself is one. Tapping it would be an error, so it is not
+    /// offered, and it has no count to ask for.
+    var isSelectable: Bool {
+        !attributes.contains { $0.caseInsensitiveCompare("\\Noselect") == .orderedSame }
+    }
+
+    /// Whether LIST flags this folder as one of the server's own: RFC 6154's
+    /// special-use attributes, and `\Important` (RFC 8457), which Gmail
+    /// gives its Important. Important and Starred (`\Flagged`) carry one
+    /// and have no role in this app; a label never carries one, whatever it
+    /// is called. What tells the folder that holds the server's own
+    /// folders, `[Gmail]`, from a label (`FolderTree`, B-116).
+    var isServersOwn: Bool {
+        attributes.contains { Self.serversOwn.contains($0.lowercased()) }
+    }
+
+    private static let serversOwn: Set<String> = ["\\all", "\\archive", "\\drafts", "\\flagged",
+                                                  "\\junk", "\\sent", "\\trash", "\\important"]
 }
 
 /// A parsed FETCH result for one message. Everything is optional because a

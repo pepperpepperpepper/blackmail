@@ -374,12 +374,14 @@ final class ScriptedIMAPServer: @unchecked Sendable {
 
     /// Adds a mailbox after the others, as LIST then names it: a folder of
     /// another server's, "Sent" with `\Sent`, say, beside Gmail's own.
-    /// `label` is the X-GM-LABELS token that means it.
+    /// `label` is the X-GM-LABELS token that means it. Not `selectable`, a
+    /// container LIST names `\Noselect`, as Gmail names "Unopened 4" for a
+    /// label "Unopened 4/17/17": SELECT and STATUS refuse it.
     func addFolder(_ name: String, attributes: [String], label: String?,
-                   validity: UInt32, firstUID: UInt32) {
+                   validity: UInt32, firstUID: UInt32, selectable: Bool = true) {
         locked { s in
             s.addFolder(name, attributes: attributes, label: label, validity: validity,
-                        firstUID: firstUID)
+                        firstUID: firstUID, selectable: selectable)
         }
     }
 
