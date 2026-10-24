@@ -196,6 +196,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// How much of the sheet showed at the last layout, to tell when the
     /// keyboard has just come up over it.
     private var shownHeight: CGFloat = 0
+    /// Whether the sheet's one chance to be made ready to type has come
+    /// and gone (`readyToType`).
+    private var readied = false
     private let attachmentsStack = UIStackView()
     private var ccRow = UIView()
     private var bccRow = UIView()
@@ -427,7 +430,30 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// offered under it until he types, as in Mail (B-073).
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if draft.to.isEmpty { toField.becomeFirstResponder() }
+        readyToType()
+    }
+
+    /// Ready to type by the rule of the app's composer, which is Mail's
+    /// composer's, its share sheet's too (`ComposeForm.firstField`, B-120):
+    /// a share has nobody in To, so To. Once, the first time the sheet
+    /// appears, never over Cancel's question and never once he is in a
+    /// field himself (`ComposeForm.readiesOnAppearing`).
+    private func readyToType() {
+        let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
+        let inAField = fields.contains { $0.isFirstResponder }
+        defer { readied = true }
+        guard ComposeForm.readiesOnAppearing(done: readied, covered: presentedViewController != nil,
+                                             inAField: inAField) else { return }
+        switch ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "") {
+        case .to:
+            toField.becomeFirstResponder()
+        case .subject:
+            subjectField.becomeFirstResponder()
+        case .body:
+            bodyView.becomeFirstResponder()
+            bodyView.selectedRange = NSRange(location: 0, length: 0)
+            keepCaretInView()
+        }
     }
 
     private func row(_ text: String, _ field: UITextField, _ value: String) -> UIView {

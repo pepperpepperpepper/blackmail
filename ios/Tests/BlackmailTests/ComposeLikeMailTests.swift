@@ -339,8 +339,11 @@ final class ComposeLikeMailTests: XCTestCase {
                      // A field of bubbles since B-076, not a text field.
                      "@objc private func addressEntered(_ field: RecipientField) { "
                         + "offer(field, after: .entered) }",
+                     // Straight into To as it appears, by the composer's
+                     // rule since B-120 (`ReadyToTypeTests`).
                      "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
-                        + "if draft.to.isEmpty { toField.becomeFirstResponder() } }"] {
+                        + "readyToType() }",
+                     "case .to: toField.becomeFirstResponder()"] {
             XCTAssertTrue(share.contains(line), line)
         }
         XCTAssertEqual(count("offer(field, after: .", in: share), 3)

@@ -5213,6 +5213,39 @@ checks below is left as not needed, not open, and none is worth a round.*
       panes and two, Organize by Thread on and off; a row answered on the
       page above gave way to the day's next row in about 0.2 s. Left:
       step 15, VoiceOver (B-118).*
+- [ ] **B-120, a letter opens ready to type.** On the test iPad, the test
+      account only, from a build with the change, the on-screen keyboard
+      (no hardware keyboard attached). Nothing is sent: no Send anywhere,
+      every letter closed with Cancel, a draft saved once and deleted
+      again. A stands for the account's address. For each: where the caret
+      is and whether the keyboard is up, from the sheet's first frame to
+      2 s after it has arrived, nothing touched.
+      1. *A new letter:* Compose: the keyboard up, the caret in To, no list
+      under it. Cancel: the sheet closes without asking.
+      2. *A reply:* a letter in the Inbox, Reply: the keyboard up, the
+      caret on the empty first line, above the signature and the quote,
+      the quote as it was. Cancel: it closes without asking. Reply All on
+      a letter with a Cc, the same.
+      3. *A forward:* a letter with no files (so no question), Forward:
+      the caret in To. Cancel.
+      4. *His caret kept:* Reply, then tap inside the quote and type one
+      letter there. Photo Library, then Cancel in the picker: the caret
+      still after that letter in the quote, not moved to the top. Cancel:
+      the question; a tap outside it closes it, the caret still there.
+      Cancel again, Delete Draft: the sheet closes, nothing saved.
+      5. *A draft reopened:* Compose, A with `+b120` before the @ in To,
+      Subject "B-120 draft", one word in the body; Cancel, Save Draft.
+      Drafts, the draft tapped: the keyboard up, the caret at the top of
+      the body, above the signature. One letter typed there, then Cancel,
+      Delete Draft: Drafts is empty again.
+      6. *Subject:* if a letter at hand has a `mailto:` link with an
+      address and no subject, tap it: the composer opens with the caret in
+      Subject. Cancel. Otherwise noted as not at hand.
+      7. *The share sheet:* a Wikipedia page in Safari, Share, Blackmail:
+      the keyboard up, the caret in To, no list. Cancel: it closes without
+      asking. Nothing sent.
+      8. *Two panes,* 1 and 2 again, then three panes back.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

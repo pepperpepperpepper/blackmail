@@ -23531,3 +23531,119 @@ row on top (23 April 2019; All Mail 8 April 2021), that row was on top for
 about 0.2 s, then the day's next row took its place under the same
 'Showing', never a later day's rows. With Organize by Thread off, 1 June
 2012 opened on the day's first letter, as before. VoiceOver was not tried.
+
+## B-120 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A letter opened with no caret and no keyboard; Mail's opens ready to type
+
+**What Mail does.** Apple's iPadOS 18 guide goes from Reply straight to
+"Type your response, then tap Send", and from Forward to "Enter the email
+addresses of the new recipients", with no tap between
+(support.apple.com/guide/ipad/reply-to-and-forward-emails-ipad45e27452/18.0/ipados/18.0);
+for a new letter it says "tap the To field" and is silent on where the
+caret starts. Mail's composer is MessageUI's: its share sheet entry opens
+it, and its kinds of letter (`_MFMailCompositionContext`) are the Mail
+app's own, a reply, a forward, a draft, the Outbox's and Send Again's;
+the Mail app's own code is not in the simulator, so that it opens this
+composer is taken from them. Its choice was read from iOS 18.6's
+simulator runtime on the Mac,
+`-[MFMailComposeController pickInitialFirstResponder]`: To while it holds
+no address; then Subject while its text is empty; then the body, the
+caret at its start (`-[MFComposeWebView placeCaretAtStartOfBodyField]`).
+It has no case of its own for a reply, a forward, a share or a draft
+reopened from Drafts, the Outbox or Send Again: each is those three
+questions, so a reply opens in the body above the signature and the quote,
+and a new letter, a forward and a share in To. It is asked as the sheet is
+about to appear and again once the letter's content has loaded; before
+the sheet has appeared, and unless whatever opened it asked for the
+keyboard at once, it takes no field, and a field it had before a sheet
+went over it (the camera, a scan, markup, a person's card) is given back
+instead of a new choice. Its Subject step goes past the one the gap list
+asked for (To, otherwise the body): a letter to someone with no subject
+yet opens in Subject. Not seen on a screen: Mail does not run in the
+simulator (B-074), and the iPad's iPadOS 18.7 was not read.
+
+**What he does.** In 30 days of his Sent Mail, about 421 replies, 136
+forwards and 479 letters of his own: some 35 letters a day through this
+composer (gap list, 2026-10-24).
+
+**What it was.** The composer had no `viewDidAppear` and gave focus to
+nothing as it opened; its one `becomeFirstResponder` was Return in
+Subject. Its body's caret was set at 0 (B-069) on a body that was not
+first responder, so his first tap put the caret wherever his finger
+landed, in a reply often in the quote. The share sheet went into To as it
+appeared whenever the share had nobody in To, every time it appeared.
+
+**Changed.**
+
+1. *The rule* (`ComposeForm.firstField`, new): To while it holds no one
+   (an entry of spaces is no one); then Subject while it is empty (a
+   subject of spaces is a subject, as Mail asks the length); then the
+   body.
+2. *When* (`ComposeForm.readiesOnAppearing`, new): the first time the
+   sheet appears, and only then; not with an alert or another sheet put up
+   over it; not once he is in a field himself. The one chance is taken
+   whatever it decides, so a caret he has put somewhere is never moved.
+3. *The composer* (`readyToType`, from a new `viewDidAppear`): To or
+   Subject made first responder, or the body with the caret at 0 and its
+   line brought into view, the keyboard coming up with it. The letter is
+   whole as the sheet opens here, so the rule is asked once, where Mail's
+   asks again when its content has loaded.
+4. *The share sheet*: the same rule and the same once, in place of To
+   whenever it appeared. A share has nobody in To, so it opens in To, as
+   it did.
+
+**Not changed.** Return in Subject and the body's caret at 0 for Tab
+(B-069); To offering nothing as he goes in (B-073), so the list stays
+closed; the sheet ending above the keyboard (B-069); Cancel's question,
+since a caret changes nothing in the letter and an untouched letter still
+closes without a word; the address rows' email keyboard. No new words.
+
+**What he sees.** A new letter and a forward open with the keyboard up and
+the caret in To, no list under it. A reply, a Reply All and a draft
+reopened from Drafts open with the keyboard up and the caret on the empty
+line at the top, above his signature and the quote. A `mailto:` link with
+an address and no subject opens in Subject. A share opens in To, as
+before. A caret he puts elsewhere stays there when a picker or Cancel's
+question has come and gone. With a hardware keyboard, the caret in the
+same places and no keyboard on the screen.
+
+**Tests.** `ReadyToTypeTests`, seven: a new letter and a forward in To; a
+reply and a Reply All in the body, its first line the empty one above the
+signature and the quote, with and without a signature; a draft by the
+same rule, Subject when it has To and no subject, To when only Cc holds
+someone or To holds spaces; a subject of spaces is a subject; a share
+from a page, a link alone or words in To; once, never over something,
+never with him in a field; and the source read in both sheets, the rule
+asked from `viewDidAppear` alone, the chance marked taken whatever it
+decides, To, Subject, or the body at 0 with its line in view.
+`ComposeLikeMailTests.testOnlyTypingShowsTheListInEither` reads the share
+sheet's new `viewDidAppear`.
+
+Each part undone by hand, the two classes run, then put back and passing,
+counted as failures in tests: no Subject step, 2 in 2; a subject of
+spaces no subject, 1 in 1; To read raw, so spaces are someone, 1 in 1; To
+never asked, 8 in 4; not once, 1 in 1; over an alert, 1 in 1; with him in
+a field, 1 in 1; the composer with no `viewDidAppear`, as it was, 3 in 1;
+the chance marked taken only when the caret was put, 1 in 1; the body
+made first responder with its caret left where it was, 1 in 1; the share
+sheet into To only, as it was, 4 in 2.
+
+The full suite, serially: 2,411 tests, 7 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-120's check).
+- Mail's composer was read, not watched: when its keyboard comes up on
+  the iPad (as the sheet arrives, or after) was not seen, and neither was
+  whether a share from another app opens Mail's keyboard at once (the
+  sharing app's `showKeyboardAutomatically` is off unless set, and Mail's
+  composer then picks the field once its content has loaded).
+- Here the keyboard comes up once the sheet has arrived (`viewDidAppear`),
+  a moment after the sheet, where Mail picks the field as it is about to
+  appear.
+- The field Mail gives back after its own camera, scan, markup or a
+  person's card: this composer has none of those; after its photo or file
+  picker the field he was in is UIKit's to give back, and nothing here
+  moves it.
+- Split View, Slide Over and Stage Manager: the app runs full screen only
+  (`UIRequiresFullScreen`).
