@@ -5395,7 +5395,17 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       takes the sound out), Mail > Threading > Complete Threads (B-104: off
       takes it out), Mail > Composing > Include Attachments with Replies
       (B-107's mode), and Display & Text Size, Larger Text and Bold Text
-      (D-007).
+      (D-007). *Added 2026-10-24 from the gap review with Mail (nothing is
+      built after the install, so each must be read before the last build):
+      Accessibility > Per-App Settings (a text size or Smart Invert set for
+      Mail alone does not show under Display & Text Size); whether Smart
+      Invert is on; Mail > Ask Before Deleting (if on, Mail's question is
+      to be built); Mail > Delete or Move Message Action (decides what
+      follows a Delete in the pane); Mail > Blocked and its option (if Move
+      to Trash, each blocked sender made a Gmail filter); Notifications for
+      Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
+      has a Mail widget; and one link shared from Safari, watched (Mail's
+      icon, or his own circle at the top of the sheet).*
 - [ ] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's
