@@ -23647,3 +23647,89 @@ failing. The release build for the iPad links.
   moves it.
 - Split View, Slide Over and Stage Manager: the app runs full screen only
   (`UIRequiresFullScreen`).
+
+## B-121 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
+
+**What Mail does.** Apple's guide is silent. Mail's composer, read from
+iOS 18.6's MessageUI in the simulator runtime, sets capitals,
+corrections and the keyboard type only on its address fields
+(`MFComposeRecipientTextView`, `MFComposeRecipientView`: no corrections,
+no capitals, the email keyboard), and Smart Punctuation on nothing at all:
+its Subject (`MFComposeSubjectView`) and its body (a web view) keep the
+system's own, a capital to begin, corrections, and Smart Punctuation, each
+as Settings > General > Keyboard has it, all on from the factory. His own
+letters show it: of the 479 letters he began in 30 days, 467 subjects
+start with a capital and 1 with a small letter; in 90 sampled letters, 16
+have a curly apostrophe he typed and none a straight one; in his subjects
+9 curly against 2 straight (gap list, 2026-10-24).
+
+**What he would have seen.** About 16 subjects a day typed: each in lower
+case unless he reached for Shift, no word corrected, and every apostrophe
+and quote in Subject and the body straight, where his letters from Mail
+have them curly.
+
+**What it was.** Subject, in the composer and the share sheet: capitals
+none, corrections off, Smart Dashes and Smart Quotes off, left from when
+the same row served To, Cc and Bcc (before B-076). The body, in both:
+Smart Dashes and Smart Quotes off, from a code comment calling them no
+help, with no decision behind it.
+
+**Changed.** Subject, in both sheets: capitals by sentence, corrections,
+Smart Dashes and Smart Quotes at the system's default, written out so the
+choice is seen. The body, in both: Smart Dashes and Smart Quotes at the
+default; its capitals and corrections were already the system's. So
+"don't" typed has a curly ’ when Settings' Smart Punctuation is on, quotes
+come out “ ” and ‘ ’, and "--" a dash, as in Mail; with any of the three
+switched off in Settings, off here as in Mail.
+
+**Not changed.** To, Cc and Bcc keep `RecipientField`'s email keyboard,
+no capitals, no corrections and straight quotes: an address corrected or
+curled bounces. The search field keeps its own (B-105). On the wire
+nothing changed, and nothing had to: Subject goes as UTF-8 encoded words,
+the text and the HTML twin as quoted-printable UTF-8, and the app's own
+reader gives back what he typed; B-105's search keeps ’ inside its word,
+reads “ ” as a phrase's marks and — as a space, and asks for a word with
+’ in it as a UTF-8 literal (`SearchLiteralTests`). No new words.
+
+**What he sees.** In Subject, the first letter a capital as he begins and
+a misspelt word corrected as he goes on, in both sheets. In Subject and
+the body, his apostrophes and quotes curly and "--" a dash, as Settings
+has them. In To, Cc and Bcc, nothing different.
+
+**Tests.** `TypingAsInMailTests`, six: Subject in both sheets with
+capitals, corrections and Smart Punctuation at the system's own and none
+of the four off; the body in both with Smart Punctuation and nothing
+off; the address rows' email keyboard and their four settings kept, and
+Subject's row the only one in either sheet setting capitals; a letter
+with “ ” ‘ ’ ’ — and – in Subject and body, built by the app and read
+back by it: every byte seven-bit, Subject in UTF-8 encoded words reading
+back as typed, the plain part's and the HTML twin's words as typed under
+`charset=utf-8`, no straight apostrophe anywhere; the share sheet's
+letter the same, its link still a link; and the subject's words as
+B-105's search takes them, "Don’t", "miss", "Tosca", "Sunday’s", "at".
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the composer's Subject in lower case, 2 in
+1; uncorrected, 2 in 1; with straight quotes, 2 in 1; the share sheet's
+Subject as it was, 5 in 1; the composer's body as it was, 3 in 1; the
+share sheet's body as it was, 3 in 1; the address rows curling quotes, 1
+in 1; Subject's header not encoded past ASCII, 4 in 2; the bodies' bytes
+past ASCII left eight-bit, 2 in 2; the twin labelled Latin-1, 2 in 2
+(before its label was asserted, 0: the app's own reader takes UTF-8
+whatever the label says); the twin straightening apostrophes, 8 in 2; the
+share's linked twin doing so, 4 in 1; the search splitting a word at its
+’, 1 in 1; and keeping “ ” in a word, 1 in 1.
+
+The full suite, serially: 2,417 tests, 6 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-121's check).
+- His iPad's Settings > General > Keyboard were not read: Mail and this
+  app both follow them, so whatever he has set there holds for both.
+- What a correction does to a word he meant, a name or a word of another
+  language, is the keyboard's, as in Mail.
+- A subject pasted in, or one the share brings, is left as it came.
+- The keyboard's shortcut bar and predictive row are the system's in both
+  Mail and here; not compared.

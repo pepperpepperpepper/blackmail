@@ -324,8 +324,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
-        bodyView.smartDashesType = .no
-        bodyView.smartQuotesType = .no
+        // Smart Punctuation as Settings has it, as in the app's composer
+        // and Mail's (B-121).
+        bodyView.smartDashesType = .default
+        bodyView.smartQuotesType = .default
         bodyView.translatesAutoresizingMaskIntoConstraints = false
         // As tall as its words, scrolled with the fields, as in the app's
         // composer.
@@ -467,10 +469,13 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.textColor = Theme.primaryText
         // "To", not "To:": the caption is a label of its own.
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
-        field.autocapitalizationType = .none
-        field.autocorrectionType = .no
-        field.smartDashesType = .no
-        field.smartQuotesType = .no
+        // Subject alone: it types as Mail's and the app's composer's do, a
+        // capital to begin, corrections and Smart Punctuation, the system's
+        // own (B-121). To, Cc and Bcc keep `RecipientField`'s.
+        field.autocapitalizationType = .sentences
+        field.autocorrectionType = .default
+        field.smartDashesType = .default
+        field.smartQuotesType = .default
         let rule = UIView()
         rule.backgroundColor = Theme.separator
         for v in [label, field, rule] {

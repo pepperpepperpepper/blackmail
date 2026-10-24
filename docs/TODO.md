@@ -5245,6 +5245,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       the keyboard up, the caret in To, no list. Cancel: it closes without
       asking. Nothing sent.
       8. *Two panes,* 1 and 2 again, then three panes back.
+- [ ] **B-121, typing as in Mail.** On the test iPad, the test account
+      only, from a build with the change, the on-screen keyboard. Nothing
+      is sent: no Send anywhere, a draft saved once and deleted again.
+      First, Settings > General > Keyboard: Auto-Capitalization,
+      Auto-Correction and Smart Punctuation written down as found (on is
+      the factory's); the steps expect them on.
+      1. *Subject:* Compose, then in Subject type `sunday lunch` and a
+      space: it reads "Sunday lunch". Then ` teh` and a space: corrected to
+      "the", as the keyboard corrects in Mail. Then ` don't` with the
+      apostrophe key: the apostrophe curly, ’.
+      2. *The body:* on its first line type `"yes" -- don't`: the quotes
+      curly “ ”, the two hyphens one dash, the apostrophe curly.
+      3. *To:* type `carlo` in To: no capital, nothing corrected; then
+      take it out again.
+      4. *Kept as typed:* A with `+b121` before the @ in To, Cancel, Save
+      Draft. Drafts: the row's subject with its curly ’; the draft tapped,
+      Subject and body as typed, quotes and dash as they were. One letter
+      typed, then Cancel, Delete Draft: Drafts is empty again.
+      5. *The share sheet:* a Wikipedia page in Safari, Share, Blackmail:
+      at the end of Subject type ` don't`, and on the body's first line
+      `"great"`: curly, as in the composer; in To, `carlo`, no capital.
+      Cancel, Delete Draft. Nothing sent.
 
 ## Blocked on the owner
 

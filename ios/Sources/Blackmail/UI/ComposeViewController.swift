@@ -308,10 +308,13 @@ final class ComposeViewController: UIViewController,
         bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
-        // Smart punctuation off. It turns "--" into an em dash and straight
-        // quotes into curly ones behind his back, which is not help.
-        bodyView.smartDashesType = .no
-        bodyView.smartQuotesType = .no
+        // The keyboard's Smart Punctuation, as Mail's body has it (B-121):
+        // "--" a dash and his apostrophes and quotes curly, as Settings
+        // says, which his own letters show. It was off, by a comment
+        // calling it no help, and every apostrophe he typed went straight.
+        // Capitals and corrections are the text view's own, as before.
+        bodyView.smartDashesType = .default
+        bodyView.smartQuotesType = .default
         bodyView.translatesAutoresizingMaskIntoConstraints = false
         // As tall as its words, and scrolled with the fields over it, as
         // Mail's letter is. With a scroller of its own under fields that
@@ -895,11 +898,18 @@ final class ComposeViewController: UIViewController,
         // The caption is a label of its own, which VoiceOver does not read
         // with the field: "To", not "To:".
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
-        field.autocapitalizationType = .none
-        field.autocorrectionType = .no
-        field.smartDashesType = .no
-        field.smartQuotesType = .no
-        // Subject alone since B-076: To, Cc and Bcc are `addressRow`'s.
+        // Subject alone since B-076: To, Cc and Bcc are `addressRow`'s, and
+        // keep `RecipientField`'s email keyboard, no capitals, no
+        // corrections and straight quotes. Subject types as Mail's does
+        // (B-121): a capital to begin, corrections, and Smart Punctuation
+        // as Settings has it. Mail's composer sets none of these on its
+        // Subject, so the system's own are its. They were off, left from
+        // when this row served the address fields too, and his subjects
+        // began in lower case.
+        field.autocapitalizationType = .sentences
+        field.autocorrectionType = .default
+        field.smartDashesType = .default
+        field.smartQuotesType = .default
         field.addTarget(self, action: #selector(letterEdited), for: .editingChanged)
 
         let rule = UIView()
