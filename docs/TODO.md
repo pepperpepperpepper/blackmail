@@ -585,6 +585,10 @@ this host. Ordered by value, not by size.
 
 ## Blocked on the iPad coming back
 
+*Owner, 2026-10-24: he does not use VoiceOver or anything read aloud;
+his hearing is bad and he does not like it. Every VoiceOver step in the
+checks below is left as not needed, not open, and none is worth a round.*
+
 - [x] See B-037 rendered at all: now B-048, below. *Seen on the iPad
       2026-09-29: three panes and two, the view button, "< Mailboxes" and
       the choice kept across a relaunch (B-048).*
