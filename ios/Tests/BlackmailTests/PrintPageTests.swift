@@ -155,7 +155,7 @@ final class PrintPageTests: XCTestCase {
     /// body shows.
     func testTheHeaderIsThePanesInItsOrder() throws {
         let m = letter(cc: ["\"Carlo Rossi\" <carlo@example.com>"], attachments: files)
-        let date = "21 September 2026 at 2:13 PM"
+        let date = "September 21, 2026 at 2:13\u{202F}PM"
         XCTAssertEqual(try head(page(m)),
                        "<div class=\"bm-sender\">Sam Example</div>"
                        + "<div class=\"bm-meta\">To: Jane Example, sam@example.com</div>"
@@ -202,15 +202,15 @@ final class PrintPageTests: XCTestCase {
         }
         XCTAssertEqual(MailFormat.fullTimestamp(Date(timeIntervalSince1970: 1_790_000_000),
                                                 locale: posix, timeZone: utc),
-                       "21 September 2026 at 2:13 PM")
+                       "September 21, 2026 at 2:13\u{202F}PM")
         // On screen, as it was: today's and yesterday's relative, and the
         // rest the same words as on paper.
         let at = Date(timeIntervalSince1970: 1_790_000_000)
         func onScreen(_ date: Date) -> String {
             MailFormat.detailTimestamp(date, now: at, locale: posix, timeZone: utc)
         }
-        XCTAssertEqual(onScreen(at), "Today at 2:13 PM")
-        XCTAssertEqual(onScreen(at.addingTimeInterval(-day)), "Yesterday at 2:13 PM")
+        XCTAssertEqual(onScreen(at), "Today at 2:13\u{202F}PM")
+        XCTAssertEqual(onScreen(at.addingTimeInterval(-day)), "Yesterday at 2:13\u{202F}PM")
         for back in [3.0, 8.0, 400.0] {
             let date = at.addingTimeInterval(-back * day)
             XCTAssertEqual(onScreen(date), MailFormat.fullTimestamp(date, locale: posix, timeZone: utc))
@@ -413,11 +413,11 @@ final class PrintPageTests: XCTestCase {
         let m = letter(cc: ["Carlo <carlo@example.com>"], text: "\n\nHello.\nSam", attachments: files)
         XCTAssertEqual(PrintPage.words(m, size: size, locale: posix, timeZone: utc),
                        "Sam Example\nTo: Jane Example, sam@example.com\nCc: Carlo\nThe garden\n"
-                       + "21 September 2026 at 2:13 PM\nplan.pdf (2048 bytes)\nnotes.txt\n"
+                       + "September 21, 2026 at 2:13\u{202F}PM\nplan.pdf (2048 bytes)\nnotes.txt\n"
                        + "scan.pdf (10 bytes)\n\nHello.\nSam")
         let none = letter(to: [], subject: "", text: nil)
         XCTAssertEqual(PrintPage.words(none, size: size, locale: posix, timeZone: utc),
-                       "Sam Example\nTo: me\n(no subject)\n21 September 2026 at 2:13 PM\n\n"
+                       "Sam Example\nTo: me\n(no subject)\nSeptember 21, 2026 at 2:13\u{202F}PM\n\n"
                        + MailText.emptyBodyNotice)
     }
 

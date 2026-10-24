@@ -3365,6 +3365,10 @@ time zone, the language or region, or the 24-hour clock is changed in
 Settings. Which day is today is worked out every time, so after midnight
 a letter from late the evening before says "Yesterday" once the list is
 drawn again, as it did.
+*Corrected 2026-10-24:* only the time zone and the language of the
+words followed the iPad. The patterns were fixed, "dd/MM/yy" and "d MMMM
+yyyy 'at' h:mm a", so the order of day and month and the 12-hour clock
+were the same in every region; they follow the region since B-119.
 
 **Confirmed on the iPad, 2026-09-28**, on carlo's mailbox, driving the real
 UI. The app launched with `callAsyncJavaScript` bound from `libswiftWebKit`.
@@ -23531,3 +23535,160 @@ row on top (23 April 2019; All Mail 8 April 2021), that row was on top for
 about 0.2 s, then the day's next row took its place under the same
 'Showing', never a later day's rows. With Organize by Thread off, 1 June
 2012 opened on the day's first letter, as before. VoiceOver was not tried.
+
+## B-119 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Every date was written day first, 03/10/26 for 3 October, where his iPad writes month first; every date is now written the iPad's way
+
+**Found** in the read-only look at the gaps between this app and iPadOS 18
+Mail, 2026-10-24, the first of those to close before the install: the
+owner's standing rule, "copy Apple Mail".
+
+**What Mail does.** Mail writes a date the way the iPad's region does: a
+time for today, "Yesterday", the weekday within the week, then the short
+date, which on a US-region iPad is 10/3/26; the header's long date,
+"October 3, 2026 at 9:14 AM". The region sets "the date format" (Apple's
+iPadOS 18 guide, Change the language and region,
+support.apple.com/guide/ipad/change-the-language-and-region-ipad0cc6a80b/18.0/ipados/18.0,
+high). That Mail's list uses the short style is not in Apple's iPad Mail
+chapters; Mail on the Mac uses the system's short date format
+(support.apple.com/en-in/guide/mac-help/mh27073/12.0), and people with a
+UK region report day first in Mail (discussions.apple.com/thread/251057286):
+medium-high. Mail's reply line is its own words around the region's
+medium date and short time, "On Oct 3, 2026, at 9:14 AM, Jane
+<jane@example.com> wrote:", and its forward's Date line the long date and
+long time with the zone. His region: of his sent replies of the last 90
+days, the 16 to 19 (two counts) whose snippet shows Apple Mail's line all
+have the US month-first form, "On <Mon> <d>, <yyyy>, at <h:mm> AM/PM", and
+none is day first. The British form of the reply line, "On 20 Oct 2026, at
+09:12, …", is the one the suite's iPad Mail reply has
+(`PanePageTests.appleMailReply`); not seen on a British iPad here
+(medium).
+
+**What he saw.** He has not had the app; this is what it drew. A row
+older than a week, every row after a Go to Date jump, and a closed letter
+in a conversation's stack: "03/10/26" for 3 October 2026, which with his
+region he reads as March 10 (`MailFormat.listTimestamp`, "dd/MM/yy", from
+the first commit). The reading pane's header for a letter older than
+yesterday, and every printed letter (B-110): "3 October 2026 at 9:14 AM"
+("d MMMM yyyy 'at' h:mm a"). `DisplayDates` set those patterns
+literally, so the region changed the month's name and nothing else, and
+the 24-hour switch in Settings was ignored ("h:mm a"). The reply line and
+a forward's Date line were month first in `en_US_POSIX` for every region,
+so a reply opened from a row reading 03/10/26 said "On Oct 3, 2026". Go
+to Date's "Showing", "Going to" and "No mail on or after", and the
+"Updated" line, already followed the region (`IMAPDate.spokenDay`,
+`UpdatedLine.age`), as did Go to Date's calendar, a `UIDatePicker` given
+no locale.
+
+**Changed.**
+
+1. *Every date shown is a form of the locale's* (`DisplayDates.Form`,
+   new): the short time, the weekday, the short date, the medium date,
+   the long date with the short time, and the long date with the long
+   time, each the locale's `dateStyle`/`timeStyle` or, for the weekday, a
+   template; no fixed pattern. Kept and made again as before.
+2. *The rows* (`listTimestamp`), and so the conversation's closed lines
+   (`ConversationDocument`), the kept page's rows and a search's: today's
+   time, "Yesterday", the weekday, then the short date. With his US
+   region "9:14 AM", "Yesterday", "Thursday", "10/3/26"; with a British
+   one "09:14", "Yesterday", "Thursday", "03/10/2026"; with a Canadian
+   one "9:14 AM" and "2026-10-03".
+3. *The header and the paper* (`detailTimestamp`, `fullTimestamp`):
+   "Today at" and "Yesterday at" with the locale's time, as before, and
+   otherwise the long date and the time joined as the locale joins them:
+   "October 3, 2026 at 9:14 AM"; "3 October 2026 at 09:14". The print
+   (`PrintPage.head`) is the same words, the date in full whatever the
+   day, as B-110 has it.
+4. *The composer's lines* (`quoteAttribution`, `forwardedDate`): Mail's
+   words, "On …, at …, … wrote:" and "Date:", around the locale's medium
+   date and short time, and its long date and long time: with his region
+   "On Oct 3, 2026, at 9:14 AM" and "October 3, 2026 at 9:14:03 AM EDT",
+   as before on his iPad; with a British one "On 3 Oct 2026, at 09:14" and
+   "3 October 2026 at 09:14:03 BST". The space before AM and PM is the
+   iPad's formatter's: U+202F on iPadOS 17 and later, as in his own sent
+   mail, an ordinary space on the test iPad's 16.5.1, as its Mail writes
+   it. The literal U+202F and `MailFormat.narrowNoBreakSpace` are gone. A
+   forwarded letter shown in the pane (`ForwardedFields`, B-114) has the
+   same Date line.
+5. *Go to Date's day* (`IMAPDate.spokenDay`) takes a locale, the iPad's
+   unless a test hands in another, so the three regions are pinned; the
+   words are as they were.
+6. The comments that said otherwise (`RFC5322Builder`'s reason for
+   quoted-printable HTML, the tests' fingerprints of forwarded letters,
+   B-043 here, B-112's check in TODO) say what it is now.
+
+**Not changed.** The day: today, yesterday and the week are worked out
+from `now` in his zone as before. The words around the dates, all Mail's
+and all English: "Today at", "Yesterday", "Updated", "Showing", "On …
+wrote:", "Begin forwarded message:", "Date:". What goes on the wire: the
+Date header, IMAP's SEARCH days and the parsers keep their `en_US_POSIX`
+patterns. The connection log's times ("HH:mm:ss.SSS") and a set-aside
+folder's name (`LocalDrafts`), which are not read as dates by him.
+Settings shows no date. A draft already saved keeps the line it was
+written with. No new words.
+
+**What he sees.** With his US region every date month first, as in
+Mail: a row older than a week "10/3/26", the rows of a day he jumps to
+the same under "Showing October 3, 2025", the header "October 3, 2026 at
+9:14 AM", the paper the same, and the reply line as before. Today's times
+and "Yesterday" as before. Were his iPad's 24-Hour Time switch on, the
+times would follow it, as Mail's do; the "AM" and "PM" in his replies'
+lines say it is off.
+
+**Tests.** `DatesTheIPadsWayTests`, ten, new. In three regions, each in
+its own zone (the United States in New York, Britain in London, Canada
+in Toronto), exactly this host's ICU's words: the rows for a letter of
+today, yesterday, this week and 3 October; the header for the same four;
+the printed head; "Showing" for this year and last; the "Updated" line
+today and on 3 October; the reply line; the forward's Date line. Then
+the source, read: the only fixed patterns in the app are the six on the
+wire, in the log and in a folder's name, each in `en_US_POSIX`, the one
+locale any line names; every `DateFormatter` in the app, file by file,
+with no other kind of formatter; the three templates, letters alone; Go
+to Date's calendar given no locale; and every place a date reaches him
+calling these with the iPad's locale, none with one of its own.
+`DisplayDatesTests` now pins his region's words, "9/27/26" and "September
+27, 2026 at 11:50 PM", and checks the kept formatters against ones built
+afresh from the same styles in five languages and four zones;
+`ReplyForwardTests` and `PrintPageTests` give the locale, en_US and
+en_US_POSIX, whose strings they pin; the forwarded letters' fingerprints
+(`OrdinaryMail.decodedFingerprints`) are put back in `en_US_POSIX` as well
+as GMT, and are the recorded ones unchanged.
+
+Each part undone by hand, the date tests run (`DatesTheIPadsWayTests`,
+`DisplayDatesTests`, `ReplyForwardTests`, `PrintPageTests`,
+`FeedbackTests`, `IMAPDateTests`, `RichQuoteTests`, `AppleMailHTMLTests`,
+`GoToDateRowTests`), then put back and passing, counted as failures in
+tests: the short date back to "dd/MM/yy", 93 in 6; the long date and time
+back to "d MMMM yyyy 'at' h:mm a", 163 in 8; the time back to "h:mm a",
+866 in 14; the reply line back to `en_US_POSIX` and a fixed pattern, 4 in
+3; the forward's Date line so, 4 in 3; "Showing" without the locale, 2
+in 1; the "Updated" line's date as "dd/MM/yy", 6 in 4; a formatter of its
+own in `MessageCell`, 2 in 2; the row's date asked for in en_GB there, 4
+in 2; Go to Date's calendar given en_GB, 3 in 2.
+
+The full suite, serially: 2,414 tests, 10 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-119's check).
+- The strings pinned are this host's ICU's. The iPad's are its own, which
+  is what its Mail writes, and can differ in a detail: the space before
+  AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
+  order is the region's on both.
+- The 24-Hour Time switch: followed now, through the locale, as it is
+  changed in Settings (B-043's notification); not tried.
+- Another language: the app has English words only, so on an iPad in
+  another language the region's dates would sit inside them. What the
+  iPad's locale is for an app with English alone was not looked at. Not
+  his.
+- The row's date column: his short dates are no wider than the old ones,
+  "12/28/25" the same eight characters as "28/12/25", which B-080
+  measured at about 63 points, and "10/3/26" narrower. A British
+  region's "28/12/2025" is ten, about as wide as "Wednesday", 80 points,
+  which B-080 fitted in Edit mode in three panes; not measured on a
+  screen.
+- Go to Date's calendar (`UIDatePicker`) is the system's, the region's
+  already; not looked at for this.
+- What it costs: nothing more; one formatter kept for each form, as one
+  was for each pattern.

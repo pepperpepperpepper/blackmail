@@ -4446,7 +4446,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       time whether it came there or on the NOOP before it. Every time,
       whichever: one row for the conversation, its sender, subject and
       date the newer letter's, never "(unknown sender)", "(no subject)" or
-      31/12/69, the older letter not on a row of its own, and
+      31 December 1969 (12/31/69 with a US region since B-119, 31/12/69
+      before), the older letter not on a row of its own, and
       `SESSION-IDENT … msgid=` a number, never `-`. Where the news came
       inside the listing, the row shows the new mark at that Refresh: the
       dot with `\Seen` off, the flag with `\Flagged` on, and, on a build
@@ -5213,6 +5214,48 @@ checks below is left as not needed, not open, and none is worth a round.*
       panes and two, Organize by Thread on and off; a row answered on the
       page above gave way to the day's next row in about 0.2 s. Left:
       step 15, VoiceOver (B-118).*
+- [ ] **B-119, every date the iPad's way.** On the test iPad, the test
+      account as filled for the size test (B-118's check), from a build
+      with the change; read only: nothing written to the mailbox, no
+      letter sent and none saved. Three panes, Organize by Thread on.
+      1. *The region:* Settings > General > Language & Region, the Region
+      and the "Region Format Example" at the foot, its short date written
+      down; Settings > General > Date & Time, 24-Hour Time on or off. The
+      dates below are for a US region with 24-Hour Time off; with another,
+      each in the form the example shows.
+      2. *The rows:* the Inbox at its top: today's rows a time, such as
+      "9:14 AM", yesterday's "Yesterday", this week's the weekday; down to a
+      row older than a week, the short date month first, "10/3/26" for 3
+      October, never "03/10/26". Shots of each.
+      3. *Go to Date,* 1 June 2012: "Showing June 1, 2012"; Museum Members,
+      "6/1/12" (763), on top, Hayden Lorem, "5/30/12" (761), under it;
+      Harper Mock's conversation, "6/5/12", up the list.
+      4. *The header:* 763 opened: "June 1, 2012 at 11:02 AM". A letter of
+      today: "Today at" and its time; one of yesterday: "Yesterday at" and
+      its time.
+      5. *A conversation's stack:* Harper Mock's conversation opened: each
+      closed letter's line dated month first, "6/1/12" and "6/5/12", and
+      his own from Sent Mail "6/6/12" (B-104).
+      6. *The composer, never sent:* on 763, Reply: the line above the
+      quote reads "On Jun 1, 2012, at 11:02 AM, Museum Members <…>
+      wrote:"; Cancel, then Delete Draft. Forward: its "Date: June 1, 2012
+      at 11:02:… AM EDT"; Cancel, then Delete Draft. No Send, no Save
+      Draft.
+      7. *Paper, never printed:* on 763, Reply, then Print: the panel's
+      preview has "June 1, 2012 at 11:02 AM" under the subject; Cancel.
+      8. *The kept page:* Blackmail ended in the app switcher, Airplane
+      Mode on, launched: the kept Inbox rows have the same dates from the
+      first frame. Airplane Mode off.
+      9. *Edit mode,* three panes, then two: rows older than a week, the
+      widest dates, "12/28/25" and the like, whole beside the mark, never
+      cut to "…".
+      10. *Another region,* only with the owner's yes, as B-043's time zone
+      and clock: Region United Kingdom, then back to the region of step 1:
+      rows "01/06/2012", the header "1 June 2012 at 11:02", the reply line
+      "On 1 Jun 2012, at 11:02" (Cancel, Delete Draft); in Edit mode in
+      three panes a ten-character date whole.
+      11. *Put back:* the jump to 20 October last, so the day and scope
+      remembered are as found.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

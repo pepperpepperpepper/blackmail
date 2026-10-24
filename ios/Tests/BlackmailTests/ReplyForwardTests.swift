@@ -214,9 +214,10 @@ final class ReplyForwardTests: XCTestCase {
 
     // MARK: - Apple's quote furniture
 
-    /// The reference date, fixed to a zone, so these can pin exact strings.
-    /// 1_700_000_000 is 2023-11-14 22:13:20 UTC.
+    /// The reference date, fixed to a zone and his US region, so these can
+    /// pin exact strings. 1_700_000_000 is 2023-11-14 22:13:20 UTC.
     private let eastern = TimeZone(identifier: "America/New_York")!
+    private let us = Locale(identifier: "en_US")
 
     func testTheAttributionIsApplesToTheCharacter() {
         // This app used to write "Today at 5:13 PM, Jane Smith wrote:" —
@@ -225,17 +226,18 @@ final class ReplyForwardTests: XCTestCase {
         XCTAssertEqual(
             MailFormat.quoteAttribution(Date(timeIntervalSince1970: 1_700_000_000),
                                         sender: "Jane Smith <jane@example.com>",
-                                        timeZone: eastern),
+                                        locale: us, timeZone: eastern),
             "On Nov 14, 2023, at 5:13\u{202F}PM, Jane Smith <jane@example.com> wrote:")
     }
 
     func testTheSpaceBeforeAMPMIsTheNarrowNoBreakOne() {
-        // U+202F, which is what Apple's formatters emit and what turns up in
-        // Sam's own sent mail. Pinned separately because the Linux test host
-        // and the iPad ship different ICU versions: anything that took this
-        // character from a live formatter would pass here and differ there.
+        // U+202F, which is what Apple's formatters emit from iPadOS 17 on
+        // and what turns up in Sam's own sent mail. It is the formatter's
+        // since B-119, as every date in the line is: this host's ICU writes
+        // U+202F, as his iPad's does; an iPad on 16 writes an ordinary space
+        // there, as its Mail does.
         let line = MailFormat.quoteAttribution(Date(timeIntervalSince1970: 1_700_000_000),
-                                               sender: "a@b.com", timeZone: eastern)
+                                               sender: "a@b.com", locale: us, timeZone: eastern)
         XCTAssertTrue(line.contains("5:13\u{202F}PM"), line)
         XCTAssertFalse(line.contains("5:13 PM"), "an ordinary space is not what Mail sends")
     }
@@ -283,7 +285,7 @@ final class ReplyForwardTests: XCTestCase {
     func testTheForwardedDateIsTheLongFormWithAZone() {
         XCTAssertEqual(
             MailFormat.forwardedDate(Date(timeIntervalSince1970: 1_700_000_000),
-                                     timeZone: eastern),
+                                     locale: us, timeZone: eastern),
             "November 14, 2023 at 5:13:20\u{202F}PM EST")
     }
 

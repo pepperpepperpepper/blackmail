@@ -831,9 +831,17 @@ enum MailFormat {
         return parts.joined(separator: ",").trimmingCharacters(in: .whitespaces) + ", "
     }
 
-    /// The list timestamp. iPad Mail shows a time for today, a weekday inside
-    /// the last week, and a date beyond that — never a relative string like
-    /// "2 hours ago", which forces a reader to do arithmetic.
+    /// The list timestamp. iPad Mail shows a time for today, "Yesterday",
+    /// a weekday inside the last week, and the short date beyond that,
+    /// never a relative string like "2 hours ago", which forces a reader to
+    /// do arithmetic.
+    ///
+    /// The time and the date are written the iPad's way, as Mail writes
+    /// them (B-119): the locale's short styles, so its region decides the
+    /// order of day and month, the clock and the year. With his US region a
+    /// letter of 3 October 2026 older than a week reads "10/3/26"; with a
+    /// British one "03/10/2026". It read "03/10/26" for every region, which
+    /// he reads as March 10.
     ///
     /// Today and yesterday are `now`'s, which is the clock unless a test
     /// hands in another; the formatters are kept (`DisplayDates`), the day
@@ -842,14 +850,14 @@ enum MailFormat {
     static func listTimestamp(_ date: Date, now: Date = Date(),
                               locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let dates = DisplayDates.shared
-        let format: String
+        let form: DisplayDates.Form
         switch dates.day(of: date, now: now, locale: locale, timeZone: timeZone) {
-        case .today:     format = "h:mm a"
+        case .today:     form = .time
         case .yesterday: return "Yesterday"
-        case .thisWeek:  format = "EEEE"
-        case .earlier:   format = "dd/MM/yy"
+        case .thisWeek:  form = .weekday
+        case .earlier:   form = .shortDate
         }
-        return dates.string(from: date, format: format, locale: locale, timeZone: timeZone)
+        return dates.string(from: date, form, locale: locale, timeZone: timeZone)
     }
 
     /// `"Jane Smith" <jane@example.com>` → `jane@example.com`: what two
@@ -870,17 +878,6 @@ enum MailFormat {
         return header.trimmingCharacters(in: .whitespaces)
     }
 
-    /// The space Apple puts between the time and AM/PM.
-    ///
-    /// U+202F NARROW NO-BREAK SPACE, not an ordinary space. Modern Apple
-    /// platforms emit it from every date formatter, and it is what turns up
-    /// in Sam's own sent mail: `at 5:40 PM` is really `5:40\u{202F}PM`.
-    /// Written as a literal rather than taken from a formatter deliberately —
-    /// the Linux test host and the iPad ship different ICU versions and
-    /// disagree about this character, so a formatter here would mean a test
-    /// that passes on one and fails on the other.
-    static let narrowNoBreakSpace = "\u{202F}"
-
     /// `Jane Smith <jane@example.com>`, or the bare address when there is no
     /// display name — which is how Apple writes a correspondent in both the
     /// reply attribution and the forwarded-message header.
@@ -893,55 +890,57 @@ enum MailFormat {
 
     /// `On Sep 20, 2026, at 8:12 PM, Jane Smith <jane@example.com> wrote:`
     ///
-    /// Apple Mail's attribution, to the character. This app used to write
-    /// `Today at 8:12 PM, Jane Smith wrote:` — relative, no leading "On", no
-    /// address — which is nobody's format: the relative day is meaningless by
-    /// the time the recipient reads it, and a thread quoting itself down four
-    /// replies ends up with a column of "Today"s that were four different
-    /// days.
+    /// Apple Mail's attribution. This app used to write `Today at 8:12 PM,
+    /// Jane Smith wrote:`, relative, no leading "On", no address, which is
+    /// nobody's format: the relative day is meaningless by the time the
+    /// recipient reads it, and a thread quoting itself down four replies
+    /// ends up with a column of "Today"s that were four different days.
     ///
-    /// `en_US_POSIX` for the same reason `rfc5322Date` uses it, plus one more
-    /// here: the suite runs on Linux and the product runs on iOS, and a
-    /// locale-dependent format would make this untestable.
-    static func quoteAttribution(_ date: Date, sender: String,
+    /// The date and the time are the iPad's, as Mail writes them (B-119):
+    /// the locale's medium date and short time, each from the system's
+    /// formatter. With his US region that is `Sep 20, 2026` and `8:12 PM`,
+    /// as every Apple Mail attribution in his replies reads; with a British
+    /// one `On 3 Oct 2026, at 09:14, …`, as a British Mail writes it. The
+    /// space before AM or PM is whatever the iPad's formatter puts there:
+    /// U+202F NARROW NO-BREAK SPACE on iPadOS 17 and later, as in his own
+    /// sent mail, an ordinary one before. It was written in `en_US_POSIX`
+    /// for every region, so the date was month-first where the rows were
+    /// day-first. The words around them stay Mail's English ones;
+    /// `AppleMailHTML` finds a reply's quote by its "On " and "wrote:".
+    ///
+    /// `locale` and `timeZone` are the iPad's unless a test hands in others.
+    static func quoteAttribution(_ date: Date, sender: String, locale: Locale = .current,
                                  timeZone: TimeZone = .current) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = timeZone
-        // The comma after the year is Apple's, and is not there in the
-        // longer forwarded-message form below.
-        f.dateFormat = "MMM d, yyyy, 'at' h:mm"
-        let a = DateFormatter()
-        a.locale = f.locale
-        a.timeZone = timeZone
-        a.dateFormat = "a"
-        return "On \(f.string(from: date))\(narrowNoBreakSpace)\(a.string(from: date)), "
+        let day = DisplayDates.formatter(.mediumDate, locale: locale, timeZone: timeZone)
+        let time = DisplayDates.formatter(.time, locale: locale, timeZone: timeZone)
+        // The commas after the date and the time are Apple's, and are not
+        // there in the longer forwarded-message form below.
+        return "On \(day.string(from: date)), at \(time.string(from: date)), "
             + "\(addressForQuoting(sender)) wrote:"
     }
 
-    /// `September 20, 2026 at 8:12:03 PM EDT` — the longer form Apple uses in
+    /// `September 20, 2026 at 8:12:03 PM EDT`: the longer form Apple uses in
     /// the header block of a forwarded message, where there is no surrounding
-    /// sentence to keep it short.
-    static func forwardedDate(_ date: Date, timeZone: TimeZone = .current) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = timeZone
-        f.dateFormat = "MMMM d, yyyy 'at' h:mm:ss"
-        let a = DateFormatter()
-        a.locale = f.locale
-        a.timeZone = timeZone
-        a.dateFormat = "a zzz"
-        return "\(f.string(from: date))\(narrowNoBreakSpace)\(a.string(from: date))"
+    /// sentence to keep it short. The locale's long date and long time, the
+    /// iPad's way as for `quoteAttribution` (B-119); with a British region
+    /// `20 September 2026 at 20:12:03 BST`.
+    static func forwardedDate(_ date: Date, locale: Locale = .current,
+                              timeZone: TimeZone = .current) -> String {
+        DisplayDates.formatter(.longDateAndLongTime, locale: locale, timeZone: timeZone)
+            .string(from: date)
     }
 
-    /// "Today at 9:14 AM" / "Yesterday at 6:43 PM" / "18 September 2026 at 6:43 PM".
-    /// The reference uses the relative day for recent mail, which is both
-    /// shorter and easier than parsing a date to work out whether it is new.
-    /// `now`, `locale` and `timeZone` as for `listTimestamp`.
+    /// "Today at 9:14 AM" / "Yesterday at 6:43 PM" / "September 18, 2026 at
+    /// 6:43 PM". The reference uses the relative day for recent mail, which
+    /// is both shorter and easier than parsing a date to work out whether it
+    /// is new. The time and the date the iPad's way (B-119), as for
+    /// `listTimestamp`: with a British region "Today at 09:14" and "18
+    /// September 2026 at 18:43". `now`, `locale` and `timeZone` as for
+    /// `listTimestamp`.
     static func detailTimestamp(_ date: Date, now: Date = Date(),
                                 locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let dates = DisplayDates.shared
-        let time = { dates.string(from: date, format: "h:mm a", locale: locale, timeZone: timeZone) }
+        let time = { dates.string(from: date, .time, locale: locale, timeZone: timeZone) }
         switch dates.day(of: date, now: now, locale: locale, timeZone: timeZone) {
         case .today:     return "Today at " + time()
         case .yesterday: return "Yesterday at " + time()
@@ -950,15 +949,17 @@ enum MailFormat {
         }
     }
 
-    /// "22 October 2026 at 9:14 AM", whatever day it is: the date the
+    /// "October 22, 2026 at 9:14 AM", whatever day it is: the date the
     /// reading pane gives a letter older than yesterday, written out for
     /// every letter on paper (B-110), which is read on another day than it
-    /// was printed, when "Today" would be wrong. `locale` and `timeZone` as
-    /// for `listTimestamp`.
+    /// was printed, when "Today" would be wrong. The locale's long date and
+    /// short time, joined as the iPad's formatter joins them (B-119): with
+    /// his US region month first, as Mail's header; with a British one "22
+    /// October 2026 at 09:14". It was "22 October 2026 at 9:14 AM" for every
+    /// region. `locale` and `timeZone` as for `listTimestamp`.
     static func fullTimestamp(_ date: Date, locale: Locale = .current,
                               timeZone: TimeZone = .current) -> String {
-        DisplayDates.shared.string(from: date, format: "d MMMM yyyy 'at' h:mm a",
-                                   locale: locale, timeZone: timeZone)
+        DisplayDates.shared.string(from: date, .longDateAndTime, locale: locale, timeZone: timeZone)
     }
 
     /// "Jane Smith <jane@example.com>" -> "Jane Smith". Falls back to the whole
@@ -1085,6 +1086,13 @@ enum MailFormat {
 
 /// The list's and the reading pane's date formatters, built once and kept.
 ///
+/// Every date and time shown to him is one of the forms below, each the
+/// locale's own style or template (B-119), never a fixed pattern: the
+/// iPad's region decides the order of day and month, the clock and the
+/// words, as it does for Mail. A fixed "dd/MM/yy" wrote 3 October as
+/// "03/10/26" for every region, which with his US region he reads as
+/// March 10.
+///
 /// A `DateFormatter` costs over a hundred microseconds to build, and these
 /// were built on every call: twice for each row the list draws and once for
 /// each letter in a conversation's stack. `IMAPParserDates` keeps its
@@ -1116,6 +1124,54 @@ final class DisplayDates: @unchecked Sendable {
         case earlier
     }
 
+    /// What a formatter writes, each in the locale's own way. Shown here
+    /// with a US region, and a British one after.
+    enum Form: Hashable {
+        /// The short time: "9:14 AM"; "09:14". The 24-hour switch in
+        /// Settings changes it, as it changes Mail's.
+        case time
+        /// The weekday's name: "Saturday".
+        case weekday
+        /// The short date: "10/3/26"; "03/10/2026".
+        case shortDate
+        /// The medium date: "Oct 3, 2026"; "3 Oct 2026".
+        case mediumDate
+        /// The long date and the short time, joined as the locale joins
+        /// them: "October 3, 2026 at 9:14 AM"; "3 October 2026 at 09:14".
+        case longDateAndTime
+        /// The long date and the long time, with its zone: "October 3, 2026
+        /// at 9:14:03 AM EDT"; "3 October 2026 at 09:14:03 BST".
+        case longDateAndLongTime
+    }
+
+    /// A formatter for `form` in `locale` and `timeZone`, built afresh: from
+    /// the locale's styles and templates alone, never a pattern of its own.
+    static func formatter(_ form: Form, locale: Locale, timeZone: TimeZone) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        switch form {
+        case .time:
+            formatter.dateStyle = .none
+            formatter.timeStyle = .short
+        case .weekday:
+            formatter.setLocalizedDateFormatFromTemplate("EEEE")
+        case .shortDate:
+            formatter.dateStyle = .short
+            formatter.timeStyle = .none
+        case .mediumDate:
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+        case .longDateAndTime:
+            formatter.dateStyle = .long
+            formatter.timeStyle = .short
+        case .longDateAndLongTime:
+            formatter.dateStyle = .long
+            formatter.timeStyle = .long
+        }
+        return formatter
+    }
+
     static let shared = DisplayDates()
 
     private let lock = NSLock()
@@ -1125,7 +1181,7 @@ final class DisplayDates: @unchecked Sendable {
     /// nil when there are none, or iOS has said either has changed.
     private var madeFor: (locale: String, zone: String)?
     private var calendar = Calendar.current
-    private var formatters: [String: DateFormatter] = [:]
+    private var formatters: [Form: DateFormatter] = [:]
     private var builds = 0
 
     /// `notifications` is where iOS says the locale or the time zone has
@@ -1164,16 +1220,14 @@ final class DisplayDates: @unchecked Sendable {
         return .earlier
     }
 
-    func string(from date: Date, format: String, locale: Locale, timeZone: TimeZone) -> String {
+    /// `date` written in `form`, by the formatter kept for it.
+    func string(from date: Date, _ form: Form, locale: Locale, timeZone: TimeZone) -> String {
         lock.lock()
         defer { lock.unlock() }
         make(locale, timeZone)
-        if let kept = formatters[format] { return kept.string(from: date) }
-        let formatter = DateFormatter()
-        formatter.locale = locale
-        formatter.timeZone = timeZone
-        formatter.dateFormat = format
-        formatters[format] = formatter
+        if let kept = formatters[form] { return kept.string(from: date) }
+        let formatter = Self.formatter(form, locale: locale, timeZone: timeZone)
+        formatters[form] = formatter
         builds += 1
         return formatter.string(from: date)
     }

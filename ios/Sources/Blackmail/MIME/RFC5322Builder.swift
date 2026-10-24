@@ -134,9 +134,10 @@ enum RFC5322Builder {
         // not against the raw input: quoted-printable and base64 both invent
         // characters that were not in the source.
         let encodedBody = quotedPrintable(draft.body)
-        // Quoted-printable for the markup too, not 8bit: it carries U+202F in
-        // every attribution line, and a single `<div>` holding a long
-        // paragraph runs well past RFC 5322's 998-octet ceiling, which a
+        // Quoted-printable for the markup too, not 8bit: its attribution
+        // line carries U+202F before AM or PM, as the iPad's formatter
+        // writes it from iPadOS 17 on (B-119), and a single `<div>` holding
+        // a long paragraph runs well past RFC 5322's 998-octet ceiling, which a
         // strict relay is entitled to wrap wherever it likes — through the
         // middle of a tag.
         let encodedHTML = htmlBody.map(quotedPrintable)
