@@ -1732,7 +1732,11 @@ to happen.
   Send then, as in the app; since B-070 it is made from the staged files
   as it goes, and never held whole.
 - What Safari and YouTube put in the extension item: the title is taken
-  from `attributedTitle`, then `attributedContentText`.
+  from `attributedTitle`, then `attributedContentText`. *Seen since
+  (B-125): Safari's page title comes as `attributedContentText`, with no
+  `attributedTitle`, in the iPadOS 18.6 simulator, and was the subject on
+  the test iPad from 2026-09-30; the YouTube app hands over the link
+  alone (2026-10-04, 2026-10-21).*
 - The sheet's look beside the app's composer, and sending over TLS from the
   extension.
 - Whether iOS hands another app's `mailto:` link here.
@@ -2439,7 +2443,13 @@ B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
   two-tap Send, the 'View recent photos.png' name, and the subjectless
   YouTube share as they are, since each matches what Mail or iOS would
   do." The subject stays empty, as the YouTube app hands over the link
-  alone.*
+  alone.* *Reopened 2026-10-24 (B-125): the ruling's ground, that Mail
+  does the same, does not hold. Of about 950 YouTube shares he sent
+  through Mail in 30 days none had an empty subject, Mail giving the
+  video's title. On the owner's word to copy Mail, the subject is what the
+  share hands over that names it; the YouTube app's share still has none,
+  since nothing it hands an extension names it, and naming it would take
+  a fetch, which Mail does not do (an owner question).*
 - *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
   alone. A tap on the sheet's body closed it with the word still there;
   Delete Draft ended the share, and nothing went.
@@ -3634,7 +3644,9 @@ since each matches what Mail or iOS would do."* Left as it is, as Mail
 has it: its popover takes the tap outside it the same way. The TODO
 check now asks for the two taps, and the comment in `sendTapped` says
 what the iPad showed; the part that puts the sheet away stays, for
-anything up that a tap on Send does get past.
+anything up that a tap on Send does get past. The ruling's part on the
+subjectless YouTube share was reopened on 2026-10-24, its ground found
+untrue (B-125); the two-tap Send stands.
 
 ---
 
@@ -15878,7 +15890,8 @@ two go under one name.
 recent photos.png' name, and the subjectless YouTube share as they are,
 since each matches what Mail or iOS would do." The suggestion stands, as
 iOS gives it; image0.png is for a picture that comes with no name at
-all.*
+all.* *The ruling's part on the YouTube share was reopened 2026-10-24
+(B-125); the name stands.*
 
 **Not covered.**
 
@@ -23733,3 +23746,120 @@ failing. The release build for the iPad links.
 - A subject pasted in, or one the share brings, is left as it came.
 - The keyboard's shortcut bar and predictive row are the system's in both
   Mail and here; not compared.
+
+## B-125 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A YouTube share was left with no subject as Mail's would be; Mail's has the video's title, and the subject is what the share hands over that names it, Safari's page title, the YouTube app's none
+
+**The ruling reopened.** On 2026-10-21 the owner ruled: "Leave the
+two-tap Send, the 'View recent photos.png' name, and the subjectless
+YouTube share as they are, since each matches what Mail or iOS would do."
+The gap list of 2026-10-24 found the ground untrue for the share: of about
+950 YouTube shares he sent through Mail in 30 days, none had an empty
+subject. Mail gives the video's title: 920 of them carry youtu.be links,
+the YouTube app's own, and none a title ending in Safari's " - YouTube".
+They come back into his Inbox through his second address (B-061), about
+31 a day, and in this app each would be a row "(no subject)" that a
+search by its title cannot find. The owner said to go on copying Mail.
+The rest of the ruling stands.
+
+**What Mail does.** Read from iOS 18.6's ShareSheet framework in the
+simulator runtime on the Mac. Mail's entry in the share sheet
+(`UIMailActivity`) takes its subject from the sharing app's answer to
+`activityViewController(_:subjectForActivityType:)` asked for Mail, else
+the share sheet's own subject, and from nothing else; the words and
+addresses shared are its body. Safari answers with its page's title, for
+every kind of share but AirDrop (`_SFActivityItemProvider`,
+SafariServices). The YouTube app answers with the video's title, by his
+letters. Mail fetches nothing for it: neither its share entry nor MessageUI's
+composer asks LinkPresentation for anything, and the composer's
+`contentURLs` serve its donation to Siri's suggestions
+(`hasDuetDonationContext`), not a fetch.
+
+**What a share extension is handed.** The share sheet asks the subject
+question for Mail, Messages, Reading List and AirDrop only. A share
+extension (`UISocialActivity`, `com.apple.share-services`) is handed the
+items as attachments and, as the item's words (`attributedContentText`),
+any words the app shares. Seen in the iPadOS 18.6 simulator on the Mac,
+an iPad (A16), with a share extension made only to write down what it was
+handed, and a small app to share from:
+
+- *An app offering a subject and a LinkPresentation title* (the title the
+  share sheet's header showed): one item, the link alone, with no
+  `attributedTitle`, no `attributedContentText` and no suggested name.
+  The app was asked for the link for the extension and never for a
+  subject.
+- *The same app sharing words and the link:* the words as
+  `attributedContentText` and as a text, then the link.
+- *Safari on a Wikipedia page:* `attributedContentText` "Opera house -
+  Wikipedia", no `attributedTitle`, and the link: the subject Mail gives
+  the same share.
+- *The YouTube app,* which the simulator does not have: the link alone,
+  seen on the test iPad on 2026-10-04 and 2026-10-21 (B-036).
+
+So an extension has Safari's title as Mail has it, and never the YouTube
+app's.
+
+**What it was.** The subject was the item's `attributedTitle`, else its
+`attributedContentText`, worked out in the extension's own line under a
+comment saying that was how Mail takes it; a YouTube share had none.
+
+**Changed.**
+
+1. *The naming, in one place the host runs* (`ShareItems.name`, new): the
+   item's title, else its words, trimmed; nothing when neither has any.
+   The same rule as before, now held by tests in the shapes seen: Safari's
+   page title is the subject, an app's own title comes before its words,
+   and a link handed over alone has no subject. The subject is the
+   share sheet's ordinary Subject, his to change.
+2. *What the comments say*: that Mail's subject is the app's answer,
+   which no extension is given; that Safari hands over its title and the
+   YouTube app none (`ShareItems.name`, `SharedItem.link`, the share
+   sheet's own).
+3. *No fetch.* Nothing in the share sheet asks for the page, by
+   LinkPresentation, a URL session or YouTube's oEmbed, since Mail does
+   not; a test holds it so.
+
+**Not changed.** What any share's subject is: Safari's as before, the
+YouTube app's still empty, now for want of anything naming it rather than
+by the ruling. Words an app shares beside a link are its subject and its
+body's first line, as before (Mail's subject would be the app's answer,
+which the extension is never given). The body, the HTML twin, the sheet.
+No new words.
+
+**What he sees.** As before: a Safari page's title in Subject, which he
+can change like any subject; a YouTube share with Subject empty and "New
+Message" over the sheet.
+
+**Left for the owner.** Naming a YouTube share as Mail does needs the
+page's title fetched while the sheet is up, which Mail does not do (TODO,
+"Blocked on the owner", a YouTube share's subject).
+
+**Tests.** `ShareNameTests`, five: Safari's shape, the words "Opera house
+- Wikipedia" and no title, the subject, the link alone in the body; an
+app's own title before the words, a blank title giving way to them, a
+blank one alone nothing; the YouTube app's shape, nothing, the subject
+empty and the link alone; the extension reading its items through
+`ShareItems.name` and its words in no other place; and no LinkPresentation,
+URL session, `dataTask`, page read or oEmbed in the share sheet's four
+files.
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the words before the title, 1 in 1; the
+title alone, Safari's words not read, 3 in 2; names not trimmed, 3 in 2;
+the extension reading its own way, as it did, 1 in 1; LinkPresentation
+brought into the share sheet, 1 in 1.
+
+The full suite, serially: 2,422 tests, 5 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-125's check). The simulator was
+  iPadOS 18.6; his iPad's 18.7 was not read. The test iPad, on 16.5.1,
+  has shown Safari's title as the subject since 2026-09-30.
+- The YouTube app on iPadOS 18 was not seen: on 16.5.1 it handed over the
+  link alone, twice.
+- Words an app shares beside a link: here they are the subject too, where
+  Mail's subject would be the app's answer, or nothing. How often he
+  shares that way is not known; not changed.
+- Other apps that share links (News, Maps, a podcast app) were not tried;
+  each is named by what it hands over, by the rule above.

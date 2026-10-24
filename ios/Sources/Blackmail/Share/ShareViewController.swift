@@ -10,7 +10,8 @@ import AudioToolbox
 /// Blackmail is chosen in the share sheet.
 ///
 /// Mail's share sheet is the model. A small composer comes up over the app
-/// he is in, with the page's title as the subject and the link in the body
+/// he is in, with the page's title as the subject where the sharing app
+/// hands one over (`ShareItems.name`, B-125) and the link in the body
 /// above his signature; he picks who it goes to and taps Send, and the
 /// letter goes from here, by the app's own `Submission`, without the app
 /// being opened. It is not a second copy of the app's composer: To, Cc/Bcc,
@@ -787,11 +788,11 @@ extension ShareItems {
         var loads: [(@escaping (SharedItem?) -> Void) -> Void] = []
 
         for item in inputs {
-            // The subject a sharing app offers, as Mail takes it: the
-            // item's title, or failing that the words it came with.
-            let title = [item.attributedTitle?.string, item.attributedContentText?.string]
-                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first { !$0.isEmpty }
+            // What names the share, its subject: the item's title, or
+            // failing that its words, where Safari puts the page's title
+            // (`ShareItems.name`, B-125). Nothing is fetched for it.
+            let title = ShareItems.name(title: item.attributedTitle?.string,
+                                        words: item.attributedContentText?.string)
             for provider in item.attachments ?? [] {
                 tally.offered += 1
                 loads.append { done in

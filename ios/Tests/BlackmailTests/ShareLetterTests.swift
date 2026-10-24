@@ -27,9 +27,10 @@ final class ShareLetterTests: XCTestCase {
         XCTAssertTrue(draft.to.isEmpty, "he chooses who it goes to")
     }
 
-    /// Safari and YouTube both give the page's title, which Mail makes the
-    /// subject. A title over several lines is one line, and a "title" that
-    /// is only the address again is no title.
+    /// A link's name is the subject, as Mail makes the page's title the
+    /// subject (Safari hands it over; the YouTube app hands over none, so
+    /// its share has no subject, B-125). A title over several lines is one
+    /// line, and a "title" that is only the address again is no title.
     func testALinksTitleIsTheSubject() {
         XCTAssertEqual(letter([.link(video, title: "  A Concert,\n Live \n")]).subject,
                        "A Concert, Live")
