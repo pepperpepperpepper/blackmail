@@ -5966,7 +5966,8 @@ at 217 ms, and the screen was settled at 300 ms, where the design asks
 under 500 ms. The connection's greeting came some 0.8 s later, so the
 rows were the kept ones. Before them, for about 130 ms, the system's
 launch screen, white, the app's `UILaunchScreen` being an empty dict and
-its style Light. A flag before the fresh page lands was still not
+its style Light (Dark since B-124, 2026-10-24). A flag before the fresh
+page lands was still not
 caught, and the password saved again was not tried.
 
 *Phase 2, the letters he opened, built 2026-10-22: B-111.*
@@ -23692,3 +23693,101 @@ failing. The release build for the iPad links.
   already; not looked at for this.
 - What it costs: nothing more; one formatter kept for each form, as one
   was for each pattern.
+
+## B-124 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
+
+**Found** in the same look at the gaps between this app and iPadOS 18
+Mail as B-119, the last of those to close before the install, from what
+the test iPad showed on 2026-10-21 (B-053).
+
+**What Mail does.** Apple's iPad Mail chapters say nothing of its launch;
+Mail opens in the iPad's appearance, its launch screen and its first
+screen alike (low). Apple's Human Interface Guidelines, Launching: design
+a launch screen that is nearly identical to the first screen of the app
+(developer.apple.com/design/human-interface-guidelines/launching, high).
+This app's first screen is dark (D-010).
+
+**What he saw.** He has not had the app; on the test iPad, from a screen
+recording at 60 frames a second (B-053, 2026-10-21): Blackmail ended, its
+icon tapped, the system's launch screen, white, for about 130 ms, then
+the kept rows, black, at every cold launch. `UILaunchScreen` is an empty
+dict, the system's plain screen in the app's style, and Info.plist's
+`UIUserInterfaceStyle` said Light, from the first commit, before D-010
+made the app dark. The window is pinned dark in code, but only once the
+app's code runs, after the launch screen. Recorded then and left.
+
+**Changed.** Info.plist's `UIUserInterfaceStyle` is Dark, with a comment
+saying why; `AppDelegate`'s note on the window's style says so too. What
+else the key reaches, read from the code, each with whether it is right
+for D-010:
+
+1. *The launch screen:* black, where it was white; the status bar's words
+   over it light, by `UIStatusBarStyleDefault`. Right: the app's canvas is
+   black. Where iOS puts the launch screen in the app's place, as it may
+   in the app switcher before it has a picture of the app, the same.
+2. *Everything in the app's window:* nothing. The app makes one window,
+   pinned dark before anything is put in it, and everything he is shown
+   is presented in it, so was dark whatever the plist said and stays so:
+   the composer; every alert and sheet ("Open this link?", the Reply
+   sheet, Cancel's question, Settings' alerts); Quick Look, full screen
+   over the pane; the connection log's share sheet; the photo picker and
+   Files, from the composer; Go to Date's calendar; the Print panel, a
+   presentation over the pane (B-110's check logged `PRINT panel
+   over=true`, the centred Print Options sheet on 16.5.1). Right: all
+   dark, as D-010 has it.
+3. *The paper:* nothing. The print's web view is pinned light and its
+   page says "light only" (`LetterPrint`, `PrintPage`), and a letter that
+   prints as words is drawn black. Right: paper is light (D-010,
+   2026-10-22).
+4. *A letter he sends:* nothing. Its HTML names its own light colours
+   (`AppleMailHTML`), and the plist reaches no other mail client.
+5. *The share sheet* (the extension): nothing. It has a plist of its own,
+   with no style, comes up over another app with no launch screen of its
+   own, and pins its sheet and its window dark in code (B-069). Not
+   given the key: it is for a launch screen, and the extension has none.
+6. *The keyboard, the edit menu and the loupe:* the system's, drawn for
+   the field he types in, which is in the dark window; the window's
+   comment has always said its style keeps the keyboard dark. Nothing
+   records the keyboard seen either way. If one of them went by the plist
+   rather than the window, it was light and is dark now, which is right
+   for D-010; one look in the check.
+7. *The system's own prompts,* such as Photos' question: SpringBoard's,
+   in the iPad's appearance. Nothing.
+8. *Smart Invert,* which the app cannot live with (B-006): the launch
+   screen and the app are inverted alike, both white, so no flash there
+   either.
+
+**Not changed.** The window's pin, `Theme`, the rows, the pane, the
+print, the share extension's plist and code. Nothing reads the app's
+style from outside a window. No new words.
+
+**What he sees.** At a cold launch, black from the icon's zoom to the
+rows, no white.
+
+**Tests.** `InfoPlistTests`, two new: the plist's style is Dark, its
+`UILaunchScreen` an empty dict and its status bar style the default; and
+from the source, the app's one `UIWindow`, pinned dark after it is made
+and before its root is put in it, the one pin to light the print's web
+view, the print's page "light only", no pin to the system's style, the
+share extension's controller and window pinned dark with no style in its
+plist, and nothing reading `UITraitCollection.current` or the screen's.
+Each undone by hand, `InfoPlistTests` and `ShareInfoPlistTests` run, then
+put back and passing, counted as failures in tests: the plist Light
+again, 1 in 1; the window's pin gone, 1 in 1; the print's web view not
+pinned light, 2 in 1; the share extension's plist Light, 1 in 1; its
+window not pinned, 1 in 1.
+
+The full suite, serially: 2,416 tests, 2 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-124's check). The launch screen
+  is the system's, drawn before any code; the host can read the key, not
+  the screen.
+- The keyboard, the edit menu and the loupe: which style they go by was
+  not looked at.
+- The Print panel on iPadOS 18: presented over the pane by the same code
+  as on 16.5.1, so in the window; not seen there.
+- The share sheet's first frame over a light app, before its controller
+  pins it dark: not looked at, and not this key's.

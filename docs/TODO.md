@@ -5256,6 +5256,30 @@ checks below is left as not needed, not open, and none is worth a round.*
       three panes a ten-character date whole.
       11. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
+- [ ] **B-124, no white at launch.** On the test iPad, the test account,
+      from a build with the change; nothing written to the mailbox, no
+      letter sent and none saved. Screen recordings at 60 frames a second,
+      as B-053's of 2026-10-21.
+      1. *A cold launch:* Blackmail ended in the app switcher, its icon
+      tapped: no white frame from the icon's zoom to the rows; the launch
+      screen black and the status bar's words light on it; the time from
+      the zoom's first frame to the rows written down, beside B-053's
+      167 ms. Three times in three panes, then once in two.
+      2. *The app switcher:* Blackmail's card dark.
+      3. *Dark as before* (D-010), each opened and closed, nothing sent:
+      Reply on a letter, the keyboard up in its body: the keyboard dark; a
+      word selected, the edit menu (Copy, Paste) and the loupe dark;
+      the photo picker and Files opened from the composer and cancelled;
+      then Cancel, then Delete Draft. Quick Look on a letter's PDF, then
+      Done. Go to Date's calendar, then Cancel. A link in a letter tapped:
+      "Open this link?" dark, then Cancel. Reply, then Print: the panel
+      dark, its preview white paper, then Cancel. The connection log's
+      share sheet opened and closed with nothing chosen.
+      4. *The share sheet:* from Safari, a page shared to Blackmail: the
+      sheet dark and filled; Cancel, then Delete Draft.
+      5. *Smart Invert,* only if it is to be run: on, a cold launch: the
+      launch screen and the rows inverted alike, no flash between; then
+      off again.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
