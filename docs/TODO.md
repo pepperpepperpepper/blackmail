@@ -5213,6 +5213,50 @@ checks below is left as not needed, not open, and none is worth a round.*
       panes and two, Organize by Thread on and off; a row answered on the
       page above gave way to the day's next row in about 0.2 s. Left:
       step 15, VoiceOver (B-118).*
+- [ ] **B-122, a photo in a letter, tapped.** On the test iPad, the test
+      account only, built from the `bm-photo` worktree (branch
+      `fix-photo-tap`) before it is merged. Nothing is sent, saved as a
+      draft or APPENDed: one of the test accounts is signed in on the
+      owner's phone and new mail rings it. The letters are ones already in
+      the test account, found by the host read only (BODYSTRUCTURE and
+      HTML, no flag set): a letter with a photo shown among its words by
+      `cid:` (B-109's, in Trash since its check, or B-110's letter with an
+      inline photo), a letter carrying the account's signature logo, an
+      HTML newsletter with pictures from the web and one in a link (B-110's),
+      and a conversation with a photo in one of its letters if there is
+      one. A step whose letter is not there waits for the owner; none is
+      made for it. Three panes, then two.
+      1. *The photo:* tap it. Quick Look full screen, the photo whole, its
+      name at the top, within a second or two for the letter just opened;
+      the time written down. Done: the letter as it was, at the same place.
+      Again, then the share button: Save Image and Save to Files are on the
+      sheet. Save Image tapped: the photo in Photos (the test iPad's
+      library may be used, B-067). Save to Files tapped: the Files sheet,
+      then Cancel, nothing saved. Done.
+      2. *The finger:* a tap held about half a second opens it as a tap
+      does. A touch and hold of a second or more: WebKit's menu, as before
+      (Save to Photos), and no Quick Look under it or after it; a tap
+      outside closes the menu. A drag that starts on the photo scrolls the
+      letter and opens nothing; a pinch on it zooms the letter and opens
+      nothing. Two quick taps: one Quick Look.
+      3. *The signature's logo,* tapped: nothing opens. A picture from the
+      web, tapped: nothing opens. A picture in a link, tapped: "Open this
+      link?" and nothing else, Cancel; no Quick Look under it or after it.
+      4. *In a conversation:* its line opened, the photo in that letter
+      tapped: Quick Look, that letter's photo. Then another letter of the
+      stack opened and the first photo tapped again: the time from the tap
+      to Quick Look written down, and whether the app's log has a FETCH
+      of the part (the server) or none (the copy kept on the iPad, B-111);
+      nothing shows meanwhile (B-122, Not covered). His own letter from
+      Sent Mail with a photo in the stack (B-104), if there is one, opened
+      and its photo tapped: his photo.
+      5. *With no connection:* Airplane Mode on, the photo of 4 tapped
+      again: from the copy kept on the iPad it opens; where 4's log had a
+      FETCH, "Attachment could not be downloaded.", OK, and the letter as
+      it was. Airplane Mode off.
+      6. *Two panes,* 1 and 3 again, then three panes back.
+      7. *Put back:* any letter where it was found (B-109's in Trash), the
+      photo saved in 1 left in Photos or deleted, as the owner prefers.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

@@ -37,7 +37,8 @@ import Foundation
 /// body in its section is `script`, which the pane injects as a user script
 /// into a content world of the app's own: the letters' markup cannot see it
 /// or call it, nor post to the `bmLetter` handler, which is registered in
-/// that world alone. The lines are wired with `addEventListener`, since an
+/// that world alone, or to `bmPicture`, by which it says a picture was
+/// tapped (B-122). The lines are wired with `addEventListener`, since an
 /// inline `onclick` is the page's own script and would not run.
 enum ConversationDocument {
 
@@ -375,7 +376,8 @@ enum ConversationDocument {
     /// `bmFill`, so a letter that draws a line of its own never gets a tap
     /// wired to it. A single letter's page, whose markup is in `#bm` from
     /// the start and can close it early and draw such a line beside it,
-    /// gets nothing at all from this script. The line toggles its letter
+    /// gets none of this from the script, only its pictures wired (below).
+    /// The line toggles its letter
     /// open or closed, as its `onclick` did, and tells the pane either way:
     /// opening one needs its body fetched if it has not been, and the
     /// letter marked read.
@@ -478,6 +480,22 @@ enum ConversationDocument {
     /// is the click it was, as is a click from a pointer. Only lines
     /// `bmWire` wired are lit or toggled, those `bmAppend` puts in among
     /// them.
+    ///
+    /// **A picture tapped** (B-122). On every page the pane loads, a
+    /// letter's own or a stack, each `<img>` whose `src` is the loader's
+    /// address (`InlineImageRewriter`), a picture of the letter's own parts,
+    /// is given a click listener: as the document ends, and as `bmFill`
+    /// puts a body in, the only way a body goes into a stack (`bmAppend`
+    /// and `bmInsert` put in lines over "Loading…"). Not one inside a link,
+    /// an image map or a button, whose tap is theirs; nor a picture from
+    /// the web. The click, which WebKit makes of a tap as it makes a
+    /// link's, and not of a drag or a touch and hold, tells the pane
+    /// through `bmPicture` the picture's address, the section it is in, ""
+    /// on a letter's own page, and its sizes, its own and as drawn; the
+    /// pane decides what opens (`PanePictures`). The section is the one
+    /// that is the body's own child, so a letter's markup cannot name
+    /// another letter's. The wiring never throws, so nothing a letter holds
+    /// stops a body going in or the stack's lines being wired.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -496,6 +514,7 @@ enum ConversationDocument {
       if (!body) return;
       body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
       body.innerHTML = html;
+      bmWirePictures(body);
     }
     var bmOpening = null;
     var bmSet = null;
@@ -672,6 +691,45 @@ enum ConversationDocument {
       }
       return true;
     }
+    function bmPictureIn(node) {
+      for (; node && node.parentNode; node = node.parentNode) {
+        if (node.parentNode === document.body) {
+          return node.classList && node.classList.contains('bm-letter') ? node.id : '';
+        }
+      }
+      return '';
+    }
+    function bmOwnPicture(img) {
+      var src = img.getAttribute('src');
+      if (!src || src.slice(0, 8).toLowerCase() !== 'bmcid://') return false;
+      if (img.getAttribute('usemap') !== null) return false;
+      for (var node = img.parentNode; node && node !== document.body; node = node.parentNode) {
+        var tag = String(node.tagName || '').toLowerCase();
+        if (tag === 'a' || tag === 'button') return false;
+      }
+      return true;
+    }
+    function bmPictureTapped(event) {
+      var img = event.currentTarget;
+      if (!bmOwnPicture(img)) return;
+      if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
+      var drawn = img.getBoundingClientRect();
+      window.webkit.messageHandlers.bmPicture.postMessage({
+        src: img.getAttribute('src'), section: bmPictureIn(img),
+        width: img.naturalWidth, height: img.naturalHeight,
+        drawnWidth: drawn.width, drawnHeight: drawn.height });
+    }
+    function bmWirePictures(root) {
+      try {
+        var pictures = root.querySelectorAll('img');
+        for (var i = 0; i < pictures.length; i++) {
+          if (bmOwnPicture(pictures[i])) pictures[i].addEventListener('click', bmPictureTapped);
+        }
+      } catch (e) {}
+    }
+    (function () {
+      if (document.body) bmWirePictures(document.body);
+    })();
     (function () {
       if (document.getElementById('bm')) return;
       if (window.ResizeObserver) bmWatch = new ResizeObserver(bmKeep);

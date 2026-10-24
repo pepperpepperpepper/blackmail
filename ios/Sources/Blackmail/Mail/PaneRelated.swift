@@ -3,8 +3,9 @@ import Foundation
 /// His own letters from Sent Mail in the conversation the reading pane
 /// shows (B-104), as the pane holds them: which they are, by the ids of
 /// their entries in the stack, which of their bodies have come, what is
-/// fetched when he opens one and which section its body goes into, and
-/// whether the lookup for them is still to start.
+/// fetched when he opens one and which section its body goes into, which
+/// letter a picture tapped in one is of (B-122), and whether the lookup for
+/// them is still to start.
 ///
 /// Out of `MessageDetailViewController` for the reason `PaneLoads` is: the
 /// controller is UIKit and does not exist on the machine the suite runs on,
@@ -33,6 +34,9 @@ struct PaneRelated {
     private var letters: [String: MessageSummary] = [:]
     /// Those whose bodies have come and are in their sections.
     private var came: Set<String> = []
+    /// Those letters as they came, by their entries' ids, for a picture
+    /// tapped in one (B-122), which opens from that letter's own parts.
+    private var opened: [String: Message] = [:]
     /// The conversation to look his letters up for once its newest letter
     /// has come, nil when no lookup is to start.
     private var due: UInt64?
@@ -41,6 +45,7 @@ struct PaneRelated {
     mutating func clear() {
         letters = [:]
         came = []
+        opened = [:]
         due = nil
     }
 
@@ -111,6 +116,20 @@ struct PaneRelated {
     mutating func bodyCame(for load: Load) -> String {
         came.insert(load.entryID)
         return load.entryID
+    }
+
+    /// The letter `load` fetched has come, `m`: kept while the pane shows
+    /// the conversation, for a picture tapped in it (B-122). Only the letter
+    /// asked for, by its id, and only an entry of the conversation shown.
+    mutating func keep(_ m: Message, for load: Load) {
+        guard m.id == load.id, letters[load.entryID] != nil else { return }
+        opened[load.entryID] = m
+    }
+
+    /// His letter whose section is `sectionID` and has come, nil for any
+    /// other: a letter of the conversation's, or his not opened yet.
+    func letter(inSection sectionID: String) -> Message? {
+        entryID(forSection: sectionID).flatMap { opened[$0] }
     }
 
     /// Of `found`, the letters that are not the stack's own: by Gmail's id,

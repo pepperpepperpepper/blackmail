@@ -23531,3 +23531,176 @@ row on top (23 April 2019; All Mail 8 April 2021), that row was on top for
 about 0.2 s, then the day's next row took its place under the same
 'Showing', never a later day's rows. With Organize by Thread off, 1 June
 2012 opened on the day's first letter, as before. VoiceOver was not tried.
+
+## B-122 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A tap on a photo in a letter did nothing; Mail opens it full screen, with Save Image and Save to Files
+
+**Found** in the gap review of 2026-10-24, the fifth of the gaps to close
+before the install: a photo shown among a letter's words could not be
+opened. A tap on it did nothing, and a touch and hold gave WebKit's menu,
+with Save to Photos and no Save to Files (B-067). Pinch-zoom, never checked
+on the iPad, was the only way to see it larger. In his mailbox, by counts
+only, 31 letters from others in 30 days had a photo-sized picture, over
+150 KB, shown in the body by `cid:`, about one a day, and 2 had one with no
+`Content-ID`; 75 carried pictures, and he opens about 2 picture letters a
+day.
+
+**What Mail does.** Apple's iPadOS 18 guide, "Download email attachments
+in Mail on iPad"
+(support.apple.com/guide/ipad/download-email-attachments-ipad09ffdc70/18.0/ipados/18.0):
+"In the message, tap the attachment to open the document"; "Open a message
+with an attachment, then touch and hold the attachment", then "Choose Save
+Image", "Choose Save to Files", or Share; and "Touch and hold the photo,
+then choose Look Up". That a picture shown inside the letter opens the same
+way is in developers' reports rather than Apple's guide: for pictures
+embedded by `cid:`, "the iPhone mail app shows a quicklook of those images
+when the users taps on them", not for a picture from the web ("I tried
+changing from cid to a remote URL for the image - then the iPhone mailer
+does not display the Quicklook"), and for one inside a link it opens the
+link and the picture both, which the reporters take for a fault; an answer
+tested on iOS 15 Mail in 2025 finds that a `<picture>` with a `cid:` source
+does not open (stackoverflow.com/questions/76543486, 2023). Confidence:
+high that a tap on a picture the letter carries opens Mail's viewer, with
+Save Image and Save to Files from its share button and from the touch and
+hold; medium that the iPad and iPadOS 18 do it as the iPhone does, which
+the reports do not name. No size rule of Mail's is known: by the reports
+it opens every picture the letter carries.
+
+**What it was.** The pane acted on taps on links only (`PaneNavigation`):
+a picture is no navigation. A picture the body shows by `cid:` has no row
+in the header (`Attachment.isShownInBody`, B-101), so nothing on the
+screen opened it. The pane's script, in the app's content world, wired the
+stack's lines and nothing else, and on a letter's own page nothing at all.
+
+**Changed.**
+
+1. *A tap on a picture of the letter's own opens it* (`PanePictures`,
+   new; the pane's `openPicture`). The pane's script
+   (`ConversationDocument.script`) gives each `<img>` whose `src` is the
+   loader's address, `bmcid://`, a click listener: on a letter's own page
+   as the document ends, and in a stack as `bmFill` puts each body in, the
+   only way a body goes into one. The click, which WebKit makes of a tap as
+   it makes a link's, tells the pane, through a handler of its own,
+   `bmPicture`, registered in the app's content world alone as `bmLetter`
+   is, the picture's address, the section it is in and its sizes. The pane
+   reads the `Content-ID` from the address as the loader reads it
+   (`InlineImageRewriter.contentID(of:)`, which the loader now calls), takes
+   the letter's part with it, the last of two under one id as the loader
+   serves, and opens it by `openAttachment`, the path a file's row in the
+   header takes: from the copy kept on the iPad (B-111) or the letter last
+   fetched, or downloaded, written as the one staged file (B-063), and shown
+   in Quick Look full screen, whose share button has Save Image and Save to
+   Files. A picture the header lists as well, sent as a file and shown by
+   `cid:`, opens the same, its row busy while it comes if the header shows
+   its letter.
+2. *Which letter.* On a letter's own page, the letter. In a stack, the
+   letter whose section the picture is in, the section that is the page's
+   own child, so a section a letter's markup draws inside itself names
+   nothing: one of the conversation's whose body has come, or his own from
+   Sent Mail (B-104), which the pane now keeps once its body has come
+   (`PaneRelated.keep`) and lets go with the conversation.
+3. *Which pictures.* Not one inside a link, however deep, an image map or
+   a button: the tap is theirs, a link going where a tapped link goes ("Open
+   this link?", or the composer for `mailto:`), and the picture does not
+   open with it, where Mail's reportedly does. Not a picture from the web,
+   as Mail does not. Not a picture under 100 each way, in points as drawn or
+   in pixels in itself (`PanePictures.least`), a bound of the app's own, as
+   no rule of Mail's is known. It leaves out a spacer or a tracking pixel
+   drawn large, a picture that has not come, an icon, and a logo drawn
+   small whatever its own size: his own signature's is 210 by 156 drawn at
+   35 by 25 (INVESTIGATIONS, 2026-09-21), an Outlook banner of 1,200 by 300
+   drawn at 300 by 75. A photo from an iPad or an iPhone is thousands of
+   pixels each way and drawn as wide as the pane allows; one of 320 by 240
+   drawn at 160 by 120 still opens.
+4. *Nothing a letter writes can open anything.* Its script does not run
+   (B-055), its markup has no handler to post to, and what the pane's
+   script posts says only where to look: a part, by a `Content-ID` the
+   letter has, of the letter the picture is in. `PaneNavigation` and its
+   guard are as they were.
+5. The comments that said a letter's page gets nothing from the script,
+   and that the pane keeps nothing of his letters from Sent Mail but their
+   bodies, say what is so now (`ConversationDocument`, `PaneRelated`,
+   `PaneNavigation`, the pane).
+
+**Not changed.** The touch and hold: WebKit's menu with Save to Photos, as
+before (B-067); WebKit's public hook for the menu names a link only
+(`WKContextMenuElementInfo.linkURL`). Pictures from the web load as before
+(B-055, the owner's question). A tap on a link, a picture in one included,
+on a file's row among the words (B-113) or on a stack's line (B-095) does
+what it did, and pinch-zoom. Nothing is fetched that was not before but
+the picture's part at the tap, as a file's row fetches it; nothing is sent.
+No new words: Quick Look's are iOS's.
+
+**What he sees.** A tap on a photo in a letter opens it full screen over
+the app, as a PDF's row does: Done closes it, the share button offers Save
+Image and Save to Files among the rest. It comes at once when the letter is
+kept on the iPad or was the last downloaded, and otherwise after its
+download, with no sign meanwhile. A tap on a logo, an icon, a picture from
+the web or a picture that is a link does what it did.
+
+**Tests.** `PictureTapTests`, ten. A tap read as the script posts it,
+numbers as WebKit hands them over or as Swift holds them, the scheme in
+any case, and nothing for an address of another scheme or naming no id, or
+a field missing or of another kind. The `Content-ID` a tap reads is the
+one the loader serves, through `InlineImageRewriter.rewrite`, for ids as
+Apple Mail, Outlook, Gmail and the app's own signature write them. The
+bound: a photo, 100 by 100 and a photo of 320 by 240 drawn at 160 by 120
+open; his logo, spacers, a picture not come, an icon, a banner logo, 99
+any way, NaN and infinity do not. The part: the letter's own, a picture
+the header lists too, the last of two under one id, as `PanePage.pictures`
+has it, and none for an id the letter lacks or a picture too small. The
+letter: on its own page the letter, whatever section; in a stack, the
+section's, his from Sent Mail by his section, none for "", another section
+or a letter not come. His letter kept once come, not another than the one
+asked for, let go with the conversation, and not back when the
+conversation is shown again until it comes again. In node, on the model of
+the pane's page (`ModelPage`, which now has clicks and pictures' sizes): on
+a letter's own page the photo and the logo are posted, with no section,
+and a picture in a link, in a `<div>` in a link, with `usemap`, in a
+button, from the web, or by a `cid:` the letter lacks is not, nor a tap on
+the words; the pane opens the photo from what was posted and leaves the
+logo. In a stack the section is the letter's, for a picture inside a
+section a letter's markup drew too; a body put in again is wired again,
+once; no letter opens or closes. The script, the pane's wiring and the
+loader's reading read from the source; `CompleteThreadsTests`' pin of his
+letter's settling has the keep.
+
+Each part undone by hand, `PictureTapTests` and `CompleteThreadsTests` run,
+then put back and passing, counted as failures in tests: the scheme not
+checked, 3 in 1; the address's host read in lower case, as a parser that
+lowered it would, 8 in 3; the size as drawn not checked, 6 in 3; no size
+checked, 2 in 2; the first of two parts under one id, 2 in 1; the stack
+not looked at, the letter alone taken, 11 in 1; his letters not let go
+with the conversation, 1 in 1; the link and button rule dropped, 4 in 3; a
+body put in not wired, 3 in 2; a letter's own page not wired, 3 in 2; the
+nearest section, not the page's own child, 2 in 2; the handler not
+registered, 1 in 1; his letter not kept, 2 in 2; the loader reading the
+address its own way, 1 in 1. Not the percent-decoding after the host is
+read, 0: Foundation on this host gives the host decoded already, so here it
+is a belt, as it was in the loader.
+
+The full suite, serially: 2,414 tests, 10 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-122's check). That WebKit makes a
+  click on a picture given a listener in the app's content world is as the
+  stack's lines had it from B-074, not seen for a picture; nor what WebKit
+  does with its tap highlight on one.
+- Mail on the iPad was not looked at: the reports are of the iPhone. Mail
+  opens a logo or a picture drawn small, by the reports; here neither does.
+- No sign while a picture downloads, where a file's row in the header shows
+  a spinner; a second tap meanwhile fetches it again, and only the first is
+  shown (`openAttachment`).
+- The touch and hold stays WebKit's, not Mail's Save Image and Save to
+  Files. With a click listener on the picture, WebKit's menu is expected
+  as before, and no Quick Look after it; a hold WebKit does not take for
+  its menu could end as a click, as it can on a link. Not seen; the check's
+  step 2 looks.
+- A picture shown by `<picture>`, `srcset` alone or a CSS background does
+  not open, as a `<picture>` does not in Mail by the report.
+- A part named with no extension may show its name and no picture in Quick
+  Look, as a file's row so named does.
+- His letters from Sent Mail in a stack are held whole while the
+  conversation is on screen, a letter's size each, as the conversation's
+  own are.
