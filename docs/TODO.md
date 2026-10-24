@@ -5390,6 +5390,36 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       too. Until then no paper: every print was judged on the panel's
       preview and the PDF it saves. And whether the printer at his house is
       an AirPrint printer on his Wi-Fi.
+- [ ] **Apple Mail after the install** (gap review, 2026-10-24): his Gmail
+      account kept on in Apple Mail (the default: mailto: links and other
+      apps' Email buttons keep working, Blackmail cannot take them, and it is
+      the fallback on 2027-09-18; Mail hidden in the share sheet with
+      Blackmail first, Blackmail in Mail's Dock place, Mail's badge off), or
+      Mail turned off for it.
+- [ ] **The letter after a Delete or Move in the pane**: Mail opens the next
+      one; Blackmail empties the pane on purpose (B-041), so a second tap
+      cannot bin another. Copy Mail (the default, unless his iPad's Delete
+      or Move Message Action says "Don't Select a Message", with Delete grey
+      for a second after the next letter shows), or keep it empty.
+- [ ] **A share with no connection**: Mail's sheet closes and the letter
+      waits in its Outbox; Blackmail's stays up with "Can't connect to mail
+      server." Close it and let the letter wait in Blackmail's Outbox, to go
+      when Blackmail is next opened (the default, for shares with no
+      files), or as today.
+- [ ] **Smart Invert for Blackmail alone**: if he uses it, off for Blackmail
+      in Per-App Settings so his other apps keep it (the default), rather
+      than off for the whole iPad.
+- [ ] **His own circle at the top of the share sheet**: if he shares by
+      tapping it, Blackmail would need to donate its sends to get one (not
+      built, the default; with Apple Mail kept on, Mail's circle works).
+- [ ] **Mail's words in three places**: the Edit bar's "Trash" outside
+      Trash (Blackmail says "Delete"), and Gmail's "Sent Mail" and "Spam" as
+      Mail names them, "Sent" and "Junk" (the default: Mail's words).
+- [ ] **Swipe to Trash on a row** (decided against by the spec): about 5
+      letters a day go to the bin unopened, each Edit, tick, Delete here.
+      As decided (the default), or Mail's swipe.
+- [ ] **"Open this link?"** (set by the spec, never asked of him): Mail opens
+      a tapped link at once. As built (the default), or Mail's way.
 - [ ] **His iPad's own settings**, read before the install-day build so
       its defaults follow them: Settings > Sounds > Sent Mail (B-100: None
       takes the sound out), Mail > Threading > Complete Threads (B-104: off
