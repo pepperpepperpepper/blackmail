@@ -313,7 +313,7 @@ and never clear it. Leaving a letter unread is how a great many people say
 "come back to this", and for someone whose mail is his main correspondence
 that is a real way of keeping track.
 
-It lives in the edit-mode toolbar, which is now **Mark / Move / Trash** —
+It lives in the edit-mode toolbar, which is now **Mark / Move / Trash** (*the code's word is "Delete", since; Mail's "Trash" is an open owner question, 2026-10-24*) —
 Mail's own bar, in Mail's order. Deliberately not a swipe or a long press:
 BRIEF.md's promise is that nothing needs a gesture beyond tap and
 ordinary scrolling.
@@ -1522,7 +1522,7 @@ portal chore.
 
 **`mailto:` is probably not available and should not be counted on.** iOS
 routes `mailto:` to the *default mail app*, and becoming the default needs the
-managed `com.apple.developer.mail-app` entitlement, which Apple grants by
+managed `com.apple.developer.mail-client` entitlement, which Apple grants by
 application and which an ad-hoc sideload will not have. Registering the scheme
 may simply do nothing. Worth five minutes to confirm on the dev iPad before
 anyone budgets for it; not worth planning around.
