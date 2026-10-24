@@ -43,6 +43,20 @@ import Foundation
 /// search, "Could not search. Check the connection." The client sends each
 /// quoted string with 8-bit text in it as a literal instead, its bytes as
 /// they are, and leaves the rest as written here (`IMAPWireCommand`).
+///
+/// ## A name half typed (B-123)
+///
+/// Mail's search on the iPad matches the start of words, ignoring case and
+/// accents, as he types: "Marg" finds Margaret's letters (iOS 18.6's
+/// Message.framework, `= '%@*'cdwt`). Gmail matches whole words only, so
+/// "Marg" found nothing here until the last letter of her name was in.
+/// The word he is still typing (`halfWord(of:)`) is asked for as before,
+/// and beside it, in the same group, From, To or Cc of up to `mostPeople`
+/// addresses from the people the app already knows whose name or address
+/// starts with it (`RecipientBook.addresses(startingWith:besides:)`). A
+/// word with a space after it is a whole word, searched as before; the
+/// subject and the body are never searched by the start of a word, which
+/// needs an index of the whole mailbox the app does not keep (D-016).
 enum SearchCriteria {
 
     /// The fields a search looks at.
@@ -181,14 +195,25 @@ enum SearchCriteria {
     /// byte: `OR OR OR OR FROM "x" TO "x" CC "x" SUBJECT "x" BODY "x"`.
     /// Several are each that, in parentheses, side by side, which IMAP
     /// reads as AND.
-    static func imap(for query: String) -> String? {
+    ///
+    /// `people`, addresses whose name or address starts with the word he
+    /// is still typing, best first, are asked for in From, To or Cc in
+    /// that word's group, beside the word, the first `mostPeople` that
+    /// `askable` keeps (B-123). Only when there is such a word
+    /// (`halfWord(of:)`); otherwise, and with none, the key is byte for
+    /// byte what it was.
+    static func imap(for query: String, people: [String] = []) -> String? {
         let asked = words(of: query)
-        guard let only = asked.first else { return nil }
-        guard asked.count > 1 else { return anyField(only) }
-        return asked.map { "(\(anyField($0)))" }.joined(separator: " ")
+        guard let last = asked.last else { return nil }
+        let also = halfWord(of: query) == nil ? [] : askable(people, besides: last)
+        let groups = asked.dropLast().map { anyField($0) } + [anyField(last, people: also)]
+        guard groups.count > 1 else { return groups[0] }
+        return groups.map { "(\($0))" }.joined(separator: " ")
     }
 
-    /// `OR OR OR OR FROM "x" TO "x" CC "x" SUBJECT "x" BODY "x"`.
+    /// `OR OR OR OR FROM "x" TO "x" CC "x" SUBJECT "x" BODY "x"`, and after
+    /// it, for each of `people`, `FROM "a" TO "a" CC "a"`, each with one
+    /// more OR before the lot (B-123).
     ///
     /// RFC 3501's OR is strictly binary and written in prefix form, so N
     /// fields need N-1 leading ORs. Built by folding rather than by hand:
@@ -196,13 +221,83 @@ enum SearchCriteria {
     /// fields and would have been silently wrong the moment a fourth was
     /// added — an unbalanced key is a BAD, which this app renders as
     /// "Can't connect to mail server."
-    static func anyField(_ word: String) -> String {
+    static func anyField(_ word: String, people: [String] = []) -> String {
         let escaped = escape(word)
-        let terms = fields.map { "\($0) \"\(escaped)\"" }
+        var terms = fields.map { "\($0) \"\(escaped)\"" }
+        for person in people {
+            let address = escape(person)
+            terms += peopleFields.map { "\($0) \"\(address)\"" }
+        }
         var key = terms[0]
         for term in terms.dropFirst() {
             key = "OR \(key) \(term)"
         }
         return key
+    }
+
+    // MARK: - A name half typed (B-123)
+
+    /// The fields a person's address is asked for in: his letters from
+    /// them, and to them, and those they were copied on. Not the subject
+    /// or the body, where an address is not how a person is written.
+    static let peopleFields = ["FROM", "TO", "CC"]
+
+    /// The fewest letters and digits a word he is still typing has before
+    /// the people it may be the start of are asked for. Mail's own words
+    /// start at two, but two say too little: "Al", "Ed" and "Jo" are names
+    /// on their own, which the word finds whole, and "to", "my" and "in"
+    /// are words, while the people of a book of 300 whose name starts with
+    /// two letters are many more than `mostPeople`, so the four asked for
+    /// would be picked by the book's order and not by what he typed. At
+    /// three the word has narrowed, and a three-letter name, "Ann" or
+    /// "Sam", is found whole as before, its letters among the hits.
+    static let shortestHalfWord = 3
+
+    /// How many people a half-typed word asks for at most, the composer's
+    /// suggestions' number (`RecipientBook.suggestionLimit`). Four
+    /// addresses of 100 bytes are about 1.3 KB more on the SEARCH line,
+    /// where Gmail took 17.6 KB in 112 ms (B-105).
+    static let mostPeople = 4
+
+    /// The longest address asked for, in UTF-8 bytes. A person's address
+    /// is far shorter; a longer one in the book is passed over, so the
+    /// line stays bounded whatever the book holds.
+    static let longestAddress = 100
+
+    /// The word he is still typing: the last of `words(of:)`, when nothing
+    /// was typed after it, not a space, a closing quote mark or a dash,
+    /// and it has `shortestHalfWord` letters or digits. Nil otherwise.
+    ///
+    /// A word with a space after it is finished, as the keyboard's
+    /// suggestions finish a word with one, and is searched whole, as
+    /// before. A phrase in quote marks is closed by its last mark. A word
+    /// cut off by the twenty-word limit, or asked for already, is not the
+    /// last asked unless it is that same word, typed again.
+    static func halfWord(of query: String) -> String? {
+        guard let typed = query.last, !typed.isWhitespace,
+              let last = words(of: query).last,
+              !last.contains(where: { $0.isWhitespace }),
+              query.lowercased().hasSuffix(last.lowercased()),
+              last.filter({ $0.isLetter || $0.isNumber }).count >= shortestHalfWord
+        else { return nil }
+        return last
+    }
+
+    /// The addresses of `people` to ask for: in their order, the first
+    /// `mostPeople` that look like an address, none over `longestAddress`
+    /// bytes, none with a control character in it, none twice in any
+    /// case, and not the word itself, which its group asks for already.
+    static func askable(_ people: [String], besides word: String) -> [String] {
+        var seen: Set<String> = [word.lowercased()]
+        var out: [String] = []
+        for person in people where out.count < mostPeople {
+            let address = person.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard address.contains("@"), address.utf8.count <= longestAddress,
+                  !address.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }),
+                  seen.insert(address.lowercased()).inserted
+            else { continue }
+            out.append(address)
+        }
+        return out
     }
 }
