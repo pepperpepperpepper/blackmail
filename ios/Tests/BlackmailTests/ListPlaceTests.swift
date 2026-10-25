@@ -279,7 +279,7 @@ final class ListPlaceTests: XCTestCase {
                                      date: b.date, isRead: true, isFlagged: false,
                                      threadID: b.threadID)
         list.showResults([allMail, letter(148, thread: "C"), letter(147, thread: "D")])
-        list.apply(previews: ["7/148": "Fetched for the hit under the Inbox's id"])
+        list.apply(previews: ["7/148": "Fetched for the hit under the Inbox's id"], in: "INBOX")
         // D binned from the pane while the search showed.
         list.take(letter(147, thread: "D"), fromEveryFolder: false)
         list.removalLanded(letter(147, thread: "D"), fromEveryFolder: false)
@@ -321,7 +321,7 @@ final class ListPlaceTests: XCTestCase {
                                   return try await repository.previews(for: ids, in: mailbox)
                               },
                               isCurrent: { current },
-                              apply: { list.apply(previews: $0) })
+                              apply: { list.apply(previews: $0, in: $1.mailboxID) })
         XCTAssertTrue(list.folder.allSatisfy { $0.preview.isEmpty })
         list.showResults(try await repository.search(in: "inbox", query: "garden",
                                                      scope: .currentMailbox, beforeUID: nil,
@@ -332,7 +332,7 @@ final class ListPlaceTests: XCTestCase {
         await PreviewPass.run(PreviewPass.groups(for: asked),
                               fetch: { try await repository.previews(for: $0, in: $1) },
                               isCurrent: { true },
-                              apply: { list.apply(previews: $0) })
+                              apply: { list.apply(previews: $0, in: $1.mailboxID) })
         XCTAssertEqual(list.folder.filter { $0.preview.isEmpty }.map(\.id), [])
         XCTAssertEqual(server.violations, [])
     }

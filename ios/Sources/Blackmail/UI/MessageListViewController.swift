@@ -1611,7 +1611,8 @@ final class MessageListViewController: UITableViewController {
             // are the last N" stopped being true the moment the list
             // grouped. `regroup` puts the selection back by id.
             self.regroup()
-            self.loadPreviews(for: fresh)
+            // A page of hits comes with the previews already drawn (B-135).
+            self.loadPreviews(for: fresh.filter { $0.preview.isEmpty })
         }
     }
 
@@ -1762,8 +1763,11 @@ final class MessageListViewController: UITableViewController {
                 isCurrent: { @MainActor in
                     generation == self?.listGeneration
                 },
-                apply: { @MainActor previews in
-                    self?.apply(previews)
+                apply: { @MainActor previews, group in
+                    self?.apply(previews, in: group.mailboxID)
+                },
+                aside: { @MainActor previews, group in
+                    self?.letters.previewsCameLate(previews, in: group.mailboxID, for: rows)
                 })
         }
     }
@@ -1775,9 +1779,12 @@ final class MessageListViewController: UITableViewController {
     /// preview would visibly unhighlight the letter being read. Off-screen
     /// rows need no help: they pick the new text up from the model when they
     /// are next dequeued.
+    ///
+    /// Into the rows of the folder the previews were asked of alone
+    /// (`ListLetters.apply(previews:in:)`).
     @MainActor
-    private func apply(_ previews: [String: String]) {
-        letters.apply(previews: previews)
+    private func apply(_ previews: [String: String], in mailboxID: String) {
+        letters.apply(previews: previews, in: mailboxID)
 
         // Regrouped first so the rows hold the new text; the row COUNT
         // cannot change, since a preview does not decide what threads
@@ -2738,14 +2745,15 @@ final class MessageListViewController: UITableViewController {
         searchFailed = false
         searchShown = text
         let move = showingResults()
-        letters.showResults(hits)
+        // With the previews already drawn for the same letters (B-135).
+        let unpreviewed = letters.showResults(hits)
         reachedOldestMessage = hits.count < Self.pageSize
         regroup(to: move)
         updateEmptyState()
         updatePageFooter()
         // Results showing: no pull (B-103).
         placePull()
-        loadPreviews(for: hits.filter { $0.preview.isEmpty })
+        loadPreviews(for: unpreviewed)
     }
 
     /// Whether the last search could not be run, as opposed to finding

@@ -30,6 +30,7 @@ final class PreviewPassTests: XCTestCase {
         var inFlight = 0
         var mostAtOnce = 0
         var applied: [String: String] = [:]
+        var appliedIn: [String] = []
 
         await PreviewPass.run(PreviewPass.groups(for: searchResults),
                               fetch: { ids, mailboxID in
@@ -41,9 +42,13 @@ final class PreviewPassTests: XCTestCase {
                                   return Dictionary(uniqueKeysWithValues: ids.map { ($0, mailboxID) })
                               },
                               isCurrent: { true },
-                              apply: { applied.merge($0) { a, _ in a } })
+                              apply: { answer, group in
+                                  applied.merge(answer) { a, _ in a }
+                                  appliedIn.append(group.mailboxID)
+                              })
 
         XCTAssertEqual(asked, ["All Mail", "Trash", "Spam"])
+        XCTAssertEqual(appliedIn, ["All Mail", "Trash", "Spam"], "each answer with its group")
         XCTAssertEqual(mostAtOnce, 1)
         XCTAssertEqual(applied, ["1": "All Mail", "2": "Trash", "3": "All Mail",
                                  "4": "Spam", "5": "Trash"])
@@ -63,7 +68,7 @@ final class PreviewPassTests: XCTestCase {
                                   return [ids[0]: "text"]
                               },
                               isCurrent: { current },
-                              apply: { applied += $0.keys })
+                              apply: { answer, _ in applied += answer.keys })
 
         XCTAssertEqual(asked, ["All Mail", "Trash"], "Spam belongs to rows no longer on screen")
         XCTAssertEqual(applied, ["1"], "Trash's answer arrived after the list it was for had gone")
@@ -78,7 +83,7 @@ final class PreviewPassTests: XCTestCase {
                                   return Dictionary(uniqueKeysWithValues: ids.map { ($0, "text") })
                               },
                               isCurrent: { true },
-                              apply: { applied += $0.keys.sorted() })
+                              apply: { answer, _ in applied += answer.keys.sorted() })
 
         XCTAssertEqual(applied, ["1", "3", "4"])
     }

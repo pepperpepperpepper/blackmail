@@ -21359,7 +21359,10 @@ its pictures and a forward's files.
   reading to the next can keep what it read the first time; nil off iOS
   or where it cannot be read, which keeps): a letter that would
   leave less is not kept, every kept letter goes, said once, and nothing
-  more is kept in that launch.
+  more is kept in that launch. *Since B-136 the free space is read at a
+  launch's first keep and held for five minutes, and read again first
+  wherever a gigabyte above the floor is not to spare, and after a write
+  that failed.*
 - *The check.* Every read looks up the four keys and reads the file in
   one block on the disk queue, and checks its size and CRC-32 against the
   record. Anything else drops the letter, record and file, and the
@@ -21429,7 +21432,8 @@ its pictures and a forward's files.
   the same launch; built so, the owner's question's default.
 - *The log.* `KEPT-LETTER shown bytes=<n> ms=<n>`, `kept bytes=<n>
   ms=<n> free-ms=<n>` (the free-space reading's own part of the keep's
-  time), `not-kept reason=…`, `dropped reason=check`, `cleared
+  time; *since B-136 only on a keep that read it*), `not-kept reason=…`,
+  `dropped reason=check`, `cleared
   reason=space`: numbers and a word, never a folder, a UID, a Message-ID, a subject or a name. A
   showing sends nothing, so nothing of it reaches the wire log.
 
@@ -21565,7 +21569,8 @@ release build for the iPad links.
   Timed on the iPad by the kept note's ms, and the reading's own part by
   its `free-ms`, step 8 of the check: 44 to 58 ms of each keep was the
   reading, 70 to 90% of it (below). If that is slow, it can be read once a
-  launch or every few minutes instead.
+  launch or every few minutes instead. *Done in B-136: read at a launch's
+  first keep and held for five minutes, read again near the floor.*
 - The move's and the erasing's forgetting of the letters shown before the
   last (the 64 of this launch, read again from their files): no test can
   tell it, since the letter's record goes with it (`gone`) and its file
@@ -26284,6 +26289,156 @@ what the line read, 7 in 1; the list offered with a bubble picked out,
 2 in 1; the share sheet's guard the wrong way round, 1 in 1; the
 composer not keeping its open state, 1 in 1. 23 in all, over nine
 parts. The full suite, serially: 2,487 tests, 3 of them new, 6 skipped,
+
+---
+
+## B-135 — FIXED 2026-10-25, not yet seen on the iPad. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
+
+Built in the `bm-searchprev` worktree (branch `fix-searchprev`), off master
+at 7056602.
+
+**Found where.** TODO's "Left from batch 4", its search part, written at
+batch 4 of the lag fixes: "a new result set as he types asks for every
+hit's preview again, where the previews already drawn for the same letters
+could be carried over by id, as Refresh does."
+
+**What Mail does.** Apple says nothing of how Mail fills the rows of a
+search. Its search as he types reads the letters it has on the iPad (iOS
+18.6's Message.framework, read from the binary for B-123), and a letter it
+has is drawn from what it holds, so a row he saw a moment before is not
+fetched again for the next letter he types: likely, not seen. Nothing
+here is a word or a look of Mail's; it is the app's own traffic, and the
+grey lines between two answers.
+
+**What it was.** Each pause of 350 ms in his typing sends a search (B-105),
+and each answer replaced the hits with rows whose previews were empty
+(`ListLetters.showResults`). The list's pass (`PreviewPass`) then asked for
+every one of them, a mailbox at a time, though "Marga" finds mostly the
+letters "Marg" found a moment before and drew; until they came, each row
+showed two grey lines where its words had been. A group's answer still on
+its way when the next search began was thrown away. A Refresh has carried
+the previews over since batch 3 (`ListEdit.carryingPreviews`); a search
+never did.
+
+**Changed.**
+
+1. *The carry* (`SearchPreviews`, new, and `ListLetters.showResults`): a
+   hit takes the preview already drawn for its letter, from the folder's
+   rows, the hits it replaces, or the last 300 drawn under hits in the
+   list's life, and `showResults` returns the hits still to be asked for,
+   which are all the list's pass asks for (`runSearch`). Only the preview
+   goes across: the read mark, the flag and the rest are the new answer's,
+   which can have changed since. A hit that comes with a preview of its
+   own keeps it.
+2. *The same letter*, as a Refresh tells it: the same folder, the same id,
+   which carries the folder's UIDVALIDITY and the UID, and Gmail's id
+   (X-GM-MSGID) the same on both rows. Stricter than a Refresh in one way:
+   a row with Gmail's id takes nothing from one without, nor the other way
+   round, so a row kept on the iPad from an earlier launch under the same
+   folder and UID, which can be another mailbox's (D-016), and the row a
+   draft kept here drew from its own words (`LocalDrafts`), give a hit
+   nothing. A letter saved again, as a draft is, has a new UID and so a new
+   id. Not across folders by Gmail's id: an All Mailboxes hit, under All
+   Mail's id, does not take the preview the Inbox's row of its letter drew,
+   so nothing here rests on Gmail never giving a changed letter its old id.
+3. *Bounded*: 300 previews, the one drawn longest ago going first and one
+   drawn again the newest; a preview is at most 240 characters
+   (`PreviewText.maximumCharacters`), so a few dozen kilobytes as a rule.
+   Held by the list, so another folder, another account or a password
+   saved starts with none.
+4. *The answer that came late* (`PreviewPass.run`'s `aside`,
+   `ListLetters.previewsCameLate`): a group's previews that land after the
+   list was replaced are not drawn, as before, but kept for the next
+   answer, for the rows of that group's folder alone. The groups after it
+   are not asked for, as before.
+5. *The answer in time* (`ListLetters.apply(previews:in:)`, `PreviewPass.run`
+   handing each answer its group): drawn into the rows of its group's
+   folder alone, the folder's and the hits, and kept for those hits alone,
+   as the late answer is. Drawn by id alone, as it was before this change,
+   an answer could fill a row of another folder under the same id; kept as
+   well, those words would have been carried into every answer after,
+   where before they were asked for again at the next. Only folders that
+   share a UIDVALIDITY give two letters one id, which Gmail's folders, as
+   a rule, and the scripted server's do not.
+6. *A page of hits* (`ListLetters.appendPage`): the same, the previews it
+   carries made the newest as an answer's are, and the list asks for the
+   page's rows that have none.
+7. *Comments and docs:* `PreviewPass.run`; the controller's `apply` and the
+   comment in `MailboxListViewController` naming it; the TODO item, its
+   search part ticked; the source pin in `RecentSearchesTests`, which read
+   the line `showResults` is called on.
+
+**Not changed.** What a search asks the server, its pause, its paging and
+its merge. A Refresh's carry and a cancelled search's (`endSearch`). The
+folder's own pages. The pass's order, a mailbox at a time, and its stop as
+the list is replaced. No new words.
+
+**What it saves.** Over the scripted server, at a mailbox of 29 letters in
+the Inbox with sixteen from four people whose names start "Mar" (plain,
+HTML alone, both, and with a file), one of them binned, and a letter of
+Carlo's naming Margaret, from the Inbox's page drawn, "Margaret" typed a
+letter at a time from "Ma", seven answers, each pass to its end
+(`SearchPreviewsTests`, printed): in All Mailboxes, the default, 47
+previews asked in 18 FETCHes and 11 SELECTs became 18 in 4 FETCHes and 2
+SELECTs, only "Mar" asking (17) and "Margaret" (Carlo's letter, the first
+answer to find it); in the Inbox alone, 41 previews in 12 FETCHes became
+none, its rows having drawn every hit. On Gmail an answer's pass is one
+FETCH per kind of letter among its hits, the first 2 KB of a plain letter's
+words or 8 KB of an HTML one's, with a SELECT of the Trash or Spam and back
+for a binned hit: two to four commands for a page of 50, and up to 400 KB
+asked for 50 HTML letters. So on a typical search, a name typed slowly, the
+first answer in All Mailboxes pays its pass, and every answer after it
+asks only for letters no answer before it found: as the name narrows, none.
+
+**What he sees.** As he types on, the rows of letters an earlier answer
+showed come with their two lines; only a letter new to the search has grey
+lines until its words come. Less goes on the connection while he types, so
+the next answer, and a letter opened from the results, wait behind fewer
+FETCHes. No new words.
+
+**Tests.** `SearchPreviewsTests`, twelve, new. A hit takes the preview its
+letter drew in the answer before, and a hit with its own keeps it; a search
+in the folder takes its rows' previews, and an All Mailboxes hit of the
+same letter under All Mail's id takes none; nothing from a row of another
+Gmail id under the same folder and id, from one without Gmail's id into one
+with it or the other way, or from another folder under the same id; with
+no Gmail id on either, the same folder and id carry; the read mark, the
+flag and the subject the new answer's; a preview drawn in an answer no
+longer on screen, after one with nothing found and after a cancelled
+search; the last 300, one drawn again the newest, a row with none not
+kept; an answer that came after its list was replaced kept for the next,
+nothing after it asked, its folder's rows alone; an answer in time, one
+id in All Mail, the Trash and the Inbox, each hit taking its own folder's
+words, the Inbox's row none, and an answer after one with nothing found
+carrying each hit its own; a page of hits, and the folder's page as
+before; a page making what it carried the newest, so a letter drawn first
+and found again on it outlasting the next drawn after 299 others; read
+from the source, the list asking for what `showResults` returns, a page's
+rows with none, the late answer set aside, and an answer in time drawn
+into its group's folder; and over the scripted server, the name typed
+above, as the list asked before and as it asks now, in both scopes, each
+hit's preview the one fetched for it, the counts pinned.
+
+Each part undone by hand, the class run (ten tests; with `PreviewPassTests`,
+fourteen, for the late answer), then put back and passing, counted as
+failures in tests: no carry, 19 in 7; Gmail's id left out of what tells a
+letter, 2 in 1; the folder left out, 4 in 2; a preview not kept as it
+lands, 5 in 2; no bound, 4 in 1; one drawn again not the newest, 4 in 1;
+the late answer dropped, 2 in 1; kept for every folder's rows under its
+ids, 2 in 1; a page of hits not carried, 1 in 1; the list asking for every
+hit as before, 2 in 1; a hit's own preview overwritten, 1 in 1; the old row
+carried whole, its marks with it, 2 in 2; by Gmail's id alone across
+folders, the design left out, 5 in 2. `PreviewPassTests` checks too that
+each answer is handed its own group. Then with the twelve (sixteen with
+`PreviewPassTests`): an answer in time drawn into another folder's hits
+under its ids, 2 in 1; into the folder's rows of another folder, 1 in 1;
+each answer handed the first group, 38 in 3; a page's carry not made the
+newest, 3 in 1; an answer in time not kept, counted again, 10 in 4; the
+controller drawing into the folder on screen rather than the group's,
+1 in 1.
+
+The full suite, serially: 2,485 tests, 6 skipped, none failing; with the
+answer in time and the page's carry made the newest, after B-136, 2,492,
 none failing. The release build for the iPad links.
 
 **Not covered.**
@@ -26328,3 +26483,135 @@ none failing. The release build for the iPad links.
   by a backspace on an empty line, where the caret has nowhere to go.
 - Mail's From row and the image size row it folds with Cc and Bcc: not
   built here (one account).
+
+---
+
+- Not seen on the test iPad. Its check is in TODO.
+- In All Mailboxes, letters the Inbox's rows have drawn are asked for
+  again under All Mail's ids: in the measure above, 2 of the first
+  answer's 3 FETCHes and the last answer's 1, so 3 of the 4; the Trash
+  letter's would remain. Carrying by Gmail's id across folders would save
+  them; left out so that nothing rests on Gmail never giving a changed
+  letter its old id.
+- An answer cut short: only the group on the wire as the list was
+  replaced is kept; the groups not yet asked are asked by the next answer.
+- More than 300 previews drawn in a list's life: the oldest go, and are
+  asked for again if found again.
+- The counts on his own mailbox, and the grey lines, are the check's to
+  see; the scripted mailbox is not his, and the numbers above are its own.
+
+## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
+
+Built in the `bm-searchprev` worktree (branch `fix-searchprev`), after
+B-135.
+
+**Found where.** B-111's check, step 8, on the test iPad 2026-10-22: "a
+keep 62 to 85 ms, the free-space reading 44 to 58 ms of it, 70 to 90% of
+every keep". The step said what to do then: "If `free-ms` is large, the
+floor is to be read once a launch, or every few minutes, instead."
+
+**What Mail does.** Nothing to copy: how often Mail reads the iPad's free
+space is not known, and he sees nothing of it. The floor and the store are
+D-016's.
+
+**What it was.** `KeptLetters.store`, on the shelf's disk queue, read the
+volume's `volumeAvailableCapacityForOpportunisticUsage` (through URLs made
+afresh at each reading, B-111) before every letter it kept, and met the
+floor of 512 MB against it. A page read from the main thread waits on the
+same queue, behind the reading as well as the write.
+
+**Changed.**
+
+1. *Held* (`KeptLetters.spaceFree(before:)`): the free space is read at the
+   first keep of a launch and the reading held. It answers for a keep,
+   less every letter written since it, while it is under five minutes old
+   (`Bounds.freeAge`), the clock has not gone back past it, and it shows a
+   gigabyte or more above the floor after the letter now
+   (`Bounds.freeRoom`). Otherwise the free space is read again first, and
+   that reading held. So it is read at a launch's first keep, at the first
+   keep five minutes after a reading, and before a write large beside the
+   room the last reading left.
+2. *The bound kept.* The floor is 512 MB as before, and meeting it does what
+   it did. With a gigabyte or less to spare above it every keep reads, as
+   every keep did, so a keep that would leave less than the floor is found
+   by a fresh reading and clears the letters as before. A held reading is
+   trusted only with a gigabyte to spare and for five minutes at most: for
+   a keep to land under the floor, the iPad's other apps would have to take
+   that gigabyte within those minutes, and the letters could then go under
+   it by no more than the store can still grow: a letter here is at most
+   5 MB, all of them 64 MB.
+3. *A write that fails* lets the reading held go (`store`, both its
+   `reason=disk` paths, the letter's file and the index). A disk another
+   app has filled since a reading that showed gigabytes free makes the
+   write fail, keeping nothing, as before; the next keep then reads the
+   free space and, under the floor, clears the letters and keeps nothing
+   more in the launch. When every keep read, the keep that met the full
+   disk found it by its own reading and cleared the letters at once; now
+   the keep after it does, so one keep more says `not-kept reason=disk`
+   first, and the letters' up to 64 MB go back to the iPad one letter
+   opened later.
+4. *Unreadable* free space, nil as off iOS, keeps as before, and is held
+   for five minutes as a reading is, rather than asked again at every keep.
+5. *The note:* `KEPT-LETTER kept bytes=<n> ms=<n>`, with ` free-ms=<n>`
+   only on a keep that read the free space.
+6. *Comments and docs:* `KeptLetters`'s bounds, `keep` and `store`; B-111
+   here, its bounds, its log and its "Not covered"; its check's step 8 in
+   TODO; PERFORMANCE.md's note on the hitch; the kept note's test's
+   comment.
+
+**Not changed.** The floor and what meeting it does: every kept letter goes,
+said once, and nothing more is kept in the launch. The reading itself
+(`freeSpace(near:)`), its URLs made afresh. The bounds of 300 letters,
+64 MB, 5 MB a letter and 16 MB waiting. Where a keep runs, the shelf's disk
+queue, and the order of its writes. D-016 as written: its floor says
+nothing of when the space is read.
+
+**What he sees.** Nothing new. On an iPad with gigabytes free, every keep
+but the first in five minutes is the reading's 44 to 58 ms shorter, so a
+page read from the main thread at that moment waits that much less. The
+time on the iPad is its check's.
+
+**Tests.** `KeptLettersTests`, five new, 31 in all. With room to spare,
+read at a launch's first keep and held, not read again until a keep five
+minutes after the reading, then held again, the next launch reading at
+its first keep, only a keep that read it giving `free-ms`, and a 5 MB
+letter not large beside gigabytes free; a clock set back reading again;
+near the floor, 2,000 bytes more than a gigabyte above it holding for three
+letters of 600 and not a fourth, a letter of 3,000 reading first, every
+keep reading with no more than a gigabyte to spare, and one that would
+leave less than the floor clearing the letters; free space that cannot be
+read held for five minutes too; a write that fails, of the letter's file
+or of the index, letting go a reading that showed gigabytes to spare, the
+next keep reading again, finding the disk under the floor and clearing
+the letters, each on a shelf of its own. The floor's own test passes
+unchanged: its second keep, near the floor, reads again and clears.
+
+Each part undone by hand, the class run (30 tests, and 31 for the failed
+write), then put back and passing, counted as failures in tests: read at
+every keep, as before, 13 in 4; no age, a reading held for the launch, 5
+in 2; a clock set back not reading again, 2 in 1; held down to the floor
+with no gigabyte to spare, 7 in 1; the letters kept since the reading not
+counted against it, 7 in 1; `free-ms` on every note, 2 in 2; free space
+that cannot be read asked again at every keep, 2 in 1; the reading held
+kept after a failed write, at the letter's file 3 in 1, at the index 4
+in 1.
+
+The full suite, serially: 2,490 tests, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad. Its check is in TODO.
+- Another app taking more than a gigabyte in the five minutes a reading is
+  held, and leaving the disk short of full: the keeps could then land
+  under the floor, by as much as the store can still grow, up to its
+  64 MB, before the reading is five minutes old, and by about one letter
+  once the store is full, each keep then evicting about what it writes.
+  One that fills the disk is found by the write that fails, at the keep
+  after it (3 above). Not tried on an iPad; the host has no iPad's disk,
+  and a disk really full is tried, as for B-111, through what the store is
+  handed.
+- The five minutes are by the clock, so a clock set forward reads early and
+  one set back reads again; neither keeps a letter the floor would refuse.
+- His iPad's free space is not known. With a gigabyte or less above the
+  floor, every keep reads, as before this change.

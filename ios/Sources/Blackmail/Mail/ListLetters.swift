@@ -27,6 +27,9 @@ final class ListLetters: PaneActionList {
 
     private var removed = RemovedLetters()
     private var billing = ReadBilling()
+    /// The previews the hits have drawn, for the next answer's hits as he
+    /// types (`SearchPreviews`, B-135).
+    private var drawn = SearchPreviews()
 
     /// Drafts only: the letters kept on the iPad that the server does not
     /// have yet, as rows, and the ids of the server's copies they replace,
@@ -146,11 +149,18 @@ final class ListLetters: PaneActionList {
     /// A page from further down, after the folder's letters or the hits'.
     /// Returns the letters it added: not the ones already here, which a
     /// letter moved in by another client can be, twice across two pages.
+    /// A page of hits comes with the previews already drawn for its letters,
+    /// as a search's first page does (`showResults`).
     func appendPage(_ page: [MessageSummary], toResults: Bool) -> [MessageSummary] {
         let known = Set(visible.map(\.id))
-        let fresh = page.filter { !known.contains($0.id) }
-        if toResults { results?.append(contentsOf: fresh) }
-        else { folder.append(contentsOf: fresh) }
+        var fresh = page.filter { !known.contains($0.id) }
+        if toResults {
+            fresh = drawn.carrying(into: fresh, from: everything)
+            drawn.note(fresh)
+            results?.append(contentsOf: fresh)
+        } else {
+            folder.append(contentsOf: fresh)
+        }
         return fresh
     }
 
@@ -163,8 +173,21 @@ final class ListLetters: PaneActionList {
         return fresh
     }
 
-    func showResults(_ hits: [MessageSummary]) {
-        results = hits
+    /// A search's answer, in place of the hits or over the folder's
+    /// letters. Returns the hits whose previews still have to be fetched.
+    ///
+    /// A hit takes the preview already drawn for its letter, among the
+    /// folder's letters, the hits it replaces, or those the hits before them
+    /// drew (`SearchPreviews`, B-135), and only the rest are asked for. Each
+    /// pause in his typing brings an answer, and every hit of each was
+    /// asked for again, though most are the letters the last answer found
+    /// and drew a moment before.
+    @discardableResult
+    func showResults(_ hits: [MessageSummary]) -> [MessageSummary] {
+        let carried = drawn.carrying(into: hits, from: everything)
+        drawn.note(carried)
+        results = carried
+        return carried.filter { $0.preview.isEmpty }
     }
 
     /// Drafts' letters kept on the iPad and not yet on the server
@@ -222,7 +245,8 @@ final class ListLetters: PaneActionList {
     /// search put the folder back with those rows blank until the next
     /// Refresh. They are asked for again now, less any the search has
     /// already brought: a hit is the same letter, and its preview is the
-    /// folder row's too, under the same id (`apply(previews:)` fills both)
+    /// folder row's too, under the same folder and id
+    /// (`apply(previews:in:)` fills both)
     /// or, for an All Mailboxes hit, under All Mail's
     /// (`ListEdit.carryingPreviews(fromTwins:into:)`). Letters taken off by
     /// hand are not asked for.
@@ -234,15 +258,42 @@ final class ListLetters: PaneActionList {
         return shown.filter { $0.preview.isEmpty }
     }
 
-    func apply(previews: [String: String]) {
-        for i in folder.indices {
+    /// A group's previews, come for its rows of `mailboxID` (`PreviewPass`):
+    /// drawn into the rows of that folder under those ids, the folder's own
+    /// and the hits, and the hits' kept for the next answer (B-135). Not
+    /// into a row of another folder under the same id: an id is a folder's
+    /// UIDVALIDITY and UID, and another folder can give another letter the
+    /// same, as `previewsCameLate` holds too. Drawn by id alone, an All
+    /// Mail answer could fill a Trash hit, and the words kept under it
+    /// would then be carried into every answer after.
+    func apply(previews: [String: String], in mailboxID: String) {
+        for i in folder.indices where folder[i].mailboxID == mailboxID {
             if let text = previews[folder[i].id] { folder[i].preview = text }
         }
         guard var hits = results else { return }
-        for i in hits.indices {
-            if let text = previews[hits[i].id] { hits[i].preview = text }
+        var drew: [MessageSummary] = []
+        for i in hits.indices where hits[i].mailboxID == mailboxID {
+            guard let text = previews[hits[i].id] else { continue }
+            hits[i].preview = text
+            drew.append(hits[i])
         }
         results = hits
+        drawn.note(drew)
+    }
+
+    /// Previews that came for `rows` of `mailboxID` after the list had been
+    /// replaced, by the next answer as he typed or a Refresh: drawn by no
+    /// row, and kept for the hits of the next answer, which can be the same
+    /// letters (B-135). They are the server's for those rows' letters as
+    /// much as if they had come in time.
+    func previewsCameLate(_ previews: [String: String], in mailboxID: String,
+                          for rows: [MessageSummary]) {
+        drawn.note(rows.compactMap { row -> MessageSummary? in
+            guard row.mailboxID == mailboxID, let text = previews[row.id] else { return nil }
+            var drew = row
+            drew.preview = text
+            return drew
+        })
     }
 
     // MARK: - News from the watch

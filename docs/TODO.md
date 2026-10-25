@@ -535,6 +535,13 @@ this host. Ordered by value, not by size.
       toolbar at the tap, from its row, Reply held until its body has
       come, and the last letter opened owns the header whatever lands
       after it (`StackFocus`). The search previews' part is left.*
+      *The search part done 2026-10-25 (B-135): a hit takes the preview
+      already drawn for its letter, by its folder, id and Gmail id, from
+      the folder's rows, the hits it replaces or the last 300 drawn, and
+      only the rest are asked for; on the scripted mailbox "Margaret"
+      typed a letter at a time asked 4 preview FETCHes where it asked 18.
+      Checked in `SearchPreviewsTests`; the device check is below. The
+      header's part, and the letter reopened, are left.*
 - [x] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -4649,7 +4656,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       from the copy; a keep 62 to 85 ms, the free-space reading 44 to 58 ms
       of it, 70 to 90% of every keep; each 3 MB letter's first opening
       stood in for one fetched after a password save. Left: 5, which needs
-      the password typed; 9, the simulator.*
+      the password typed; 9, the simulator.* *8's last sentence done in
+      B-136 (2026-10-25): the free space is read at a launch's first keep
+      and held for five minutes, read again near the floor, and only a
+      keep that read it gives `free-ms`; its own check is below.*
 - [x] **B-107, a reply's files and the Forward question.** On the test
       iPad, the test account only, built from the `feat-replyfiles`
       worktree before it is merged (it touches Send). A stands for the
@@ -6056,6 +6066,81 @@ checks below is left as not needed, not open, and none is worth a round.*
       "Bo" both still there. Delete twice: "c" goes, then "Bo" bright.
       Type "d" with no tap: "Bo" goes and "d" is on the line, as in Mail.
       Cancel, Delete Draft.
+- [ ] **B-135, search previews carried over.** On the test iPad, the test
+      account as filled for the size test (above), from a build of the
+      `bm-searchprev` worktree (branch `fix-searchprev`). Read only, as
+      B-123's check: nothing is composed, sent, moved, deleted or written
+      to the mailbox, so no new mail reaches the phone the account is
+      signed in on. Three panes; the app's connection log read after each
+      step, a preview's FETCH being `UID FETCH … (UID BODY.PEEK[…]<0.n>)`
+      after the UID SEARCHes; a screen recording through steps 1 to 4.
+      1. *A name typed slowly.* The Inbox at its top with its previews
+      drawn. All Mailboxes, the field tapped, "Pey" and a pause: the rows,
+      and their previews let come in full; the log has the UID SEARCHes,
+      then the preview FETCHes. Then "t", so "Peyt", and a pause: every
+      row of a letter "Pey" showed has its two lines in the first frame it
+      is drawn, no grey lines on it, and the log has the UID SEARCHes and
+      no preview FETCH after them but for UIDs "Pey" did not find, if any,
+      written down. The same for "o" and "n", one at a time.
+      2. *The right words.* Three rows of 1's "Peyton" that have no
+      unread dot, tapped one by one: each letter begins with its row's
+      words. Only rows already read, so that opening one marks nothing
+      read on the server; if fewer than three are, as many as there are.
+      3. *Back.* The delete key, a pause after each, back to "Pey": the
+      rows with their lines at once, no preview FETCH.
+      4. *Nothing, then the same again.* "x", so "Peyx", a pause: "No
+      results". The delete key and a pause: "Pey"'s rows with their lines
+      at once, no preview FETCH.
+      5. *Typing on before the lines come.* Cancel, the field tapped,
+      "Mus" (Museum Members, or another sender with more than 50 letters),
+      and as soon as its rows appear, before their lines fill, "e" and a
+      pause: "Muse"'s rows. In the log, no UID is asked for a preview
+      after "Muse"'s UID SEARCHes whose preview FETCH was answered before
+      them; write down whether one was on the wire as "Muse" was asked.
+      6. *A page.* "Mus" again, a pause, its lines let come, then scrolled
+      to the foot of the results: the next page's preview FETCH names only
+      that page's UIDs. Then "e" and a pause: no preview FETCH for UIDs
+      of either page that "Muse" finds.
+      7. *The Inbox alone.* Cancel, the Inbox scrolled down two pages and
+      back to its top, Current Mailbox, "Pey" and a pause: its rows with
+      their lines at once, no preview FETCH for letters on those pages.
+      8. *Two panes:* 1 again, then three panes back.
+      9. *Put back:* Cancel, All Mailboxes, the Inbox at its top. Nothing
+      else: nothing was written to the mailbox.
+- [ ] **B-136, the kept copy's free-space reading.** On the test iPad
+      (16.5.1), the test account only, from a build of the `bm-searchprev`
+      worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a
+      photo in each, made on the host and APPENDed by it, read (\Seen),
+      into a label of their own, "B-136", none in the Inbox, dated three
+      days back, subjects "B-136 1" to "B-136 8"; nothing is composed or
+      sent. Three panes; the app's log read after each step, its
+      `KEPT-LETTER` notes written down.
+      1. *The free space.* Settings > General > iPad Storage: the space
+      free written down. Steps 3, 4 and 6 need more than 2 GB: with less,
+      every keep reads the free space by design (the 512 MB floor, a
+      gigabyte to spare above it, and the letters), so every kept note
+      has `free-ms`, as it should, and those steps' "none" is not to be
+      looked for.
+      2. *A launch's first keep.* The app ended in the app switcher and
+      launched, the label opened, letter 1 opened: one `KEPT-LETTER kept
+      bytes=… ms=… free-ms=…` note. Its ms and free-ms written down.
+      3. *Held.* Within a minute, letters 2, 3 and 4, one after another:
+      their kept notes have no `free-ms`, and their ms is about 1's less
+      its free-ms. Letter 4 opened while the list beside it is dragged up
+      and down in a screen recording: no stop in it longer than B-111's.
+      4. *Five minutes on.* Six minutes with the app in front, the list
+      dragged a little every minute or so, so the iPad does not lock and
+      the app stays in front, then letter 5: its note has `free-ms` again;
+      letter 6 at once after it: none. The log still has letters 1 to 4's
+      notes above letter 5's: the log is the launch's own, so a relaunch
+      between would have emptied it, and 5's `free-ms` would say nothing
+      of the five minutes.
+      5. *Opened again.* Letters 1 and 2: `KEPT-LETTER shown`, no kept
+      note, as B-111.
+      6. *A relaunch.* The app ended and launched, letter 7: `free-ms`
+      again; letter 8 at once after it: none.
+      7. *Put back:* the host takes the label and its eight letters away;
+      nothing was sent.
 
 ## Blocked on the owner
 

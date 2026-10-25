@@ -361,7 +361,7 @@ final class RecentSearchesTests: XCTestCase {
         XCTAssertNotNil(place(of: "guard !t.isEditing else { updateSelectAllTitle(); return } "
                                   + "if letters.isSearching { keepSearch(searchShown) }", in: list))
         XCTAssertNotNil(place(of: "searchFailed = false searchShown = text let move = showingResults() "
-                                  + "letters.showResults(hits)", in: list))
+                                  + "let unpreviewed = letters.showResults(hits)", in: list))
         XCTAssertNotNil(place(of: "private func keepSearch(_ text: String) { "
                                   + "RecentSearches.note(text, at: Date(), in: RecentSearches.appFile) }",
                               in: list))
