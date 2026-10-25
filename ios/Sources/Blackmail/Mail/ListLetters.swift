@@ -245,7 +245,8 @@ final class ListLetters: PaneActionList {
     /// search put the folder back with those rows blank until the next
     /// Refresh. They are asked for again now, less any the search has
     /// already brought: a hit is the same letter, and its preview is the
-    /// folder row's too, under the same id (`apply(previews:)` fills both)
+    /// folder row's too, under the same folder and id
+    /// (`apply(previews:in:)` fills both)
     /// or, for an All Mailboxes hit, under All Mail's
     /// (`ListEdit.carryingPreviews(fromTwins:into:)`). Letters taken off by
     /// hand are not asked for.
@@ -257,16 +258,27 @@ final class ListLetters: PaneActionList {
         return shown.filter { $0.preview.isEmpty }
     }
 
-    func apply(previews: [String: String]) {
-        for i in folder.indices {
+    /// A group's previews, come for its rows of `mailboxID` (`PreviewPass`):
+    /// drawn into the rows of that folder under those ids, the folder's own
+    /// and the hits, and the hits' kept for the next answer (B-135). Not
+    /// into a row of another folder under the same id: an id is a folder's
+    /// UIDVALIDITY and UID, and another folder can give another letter the
+    /// same, as `previewsCameLate` holds too. Drawn by id alone, an All
+    /// Mail answer could fill a Trash hit, and the words kept under it
+    /// would then be carried into every answer after.
+    func apply(previews: [String: String], in mailboxID: String) {
+        for i in folder.indices where folder[i].mailboxID == mailboxID {
             if let text = previews[folder[i].id] { folder[i].preview = text }
         }
         guard var hits = results else { return }
-        for i in hits.indices {
-            if let text = previews[hits[i].id] { hits[i].preview = text }
+        var drew: [MessageSummary] = []
+        for i in hits.indices where hits[i].mailboxID == mailboxID {
+            guard let text = previews[hits[i].id] else { continue }
+            hits[i].preview = text
+            drew.append(hits[i])
         }
         results = hits
-        drawn.note(hits.filter { previews[$0.id] != nil })
+        drawn.note(drew)
     }
 
     /// Previews that came for `rows` of `mailboxID` after the list had been

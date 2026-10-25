@@ -182,7 +182,7 @@ final class MailboxListViewController: UITableViewController {
     /// currently open, so the persistent highlight this pane exists to
     /// provide would vanish the instant the first message in a folder was
     /// read. The visible cell is patched directly instead, exactly as
-    /// `MessageListViewController.apply(_:)` does for the same reason.
+    /// `MessageListViewController.apply(_:in:)` does for the same reason.
     ///
     /// A sweep still on its way may have counted these folders before the
     /// change reached the server, and would put the old count back when it

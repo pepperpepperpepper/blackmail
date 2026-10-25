@@ -805,7 +805,7 @@ final class RepositoryWireTests: XCTestCase {
         await PreviewPass.run(groups,
                               fetch: { try await repository.previews(for: $0, in: $1) },
                               isCurrent: { true },
-                              apply: { previews.merge($0) { a, _ in a } })
+                              apply: { answer, _ in previews.merge(answer) { a, _ in a } })
 
         // One mailbox's FETCHes after another's, in the order the groups
         // are drawn, each run with its own mailbox selected.

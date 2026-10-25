@@ -1746,8 +1746,8 @@ final class MessageListViewController: UITableViewController {
                 isCurrent: { @MainActor in
                     generation == self?.listGeneration
                 },
-                apply: { @MainActor previews in
-                    self?.apply(previews)
+                apply: { @MainActor previews, group in
+                    self?.apply(previews, in: group.mailboxID)
                 },
                 aside: { @MainActor previews, group in
                     self?.letters.previewsCameLate(previews, in: group.mailboxID, for: rows)
@@ -1762,9 +1762,12 @@ final class MessageListViewController: UITableViewController {
     /// preview would visibly unhighlight the letter being read. Off-screen
     /// rows need no help: they pick the new text up from the model when they
     /// are next dequeued.
+    ///
+    /// Into the rows of the folder the previews were asked of alone
+    /// (`ListLetters.apply(previews:in:)`).
     @MainActor
-    private func apply(_ previews: [String: String]) {
-        letters.apply(previews: previews)
+    private func apply(_ previews: [String: String], in mailboxID: String) {
+        letters.apply(previews: previews, in: mailboxID)
 
         // Regrouped first so the rows hold the new text; the row COUNT
         // cannot change, since a preview does not decide what threads

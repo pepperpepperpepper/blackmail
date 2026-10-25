@@ -4,10 +4,11 @@ import XCTest
 /// The previews a search's hits have drawn, carried to the same letters in
 /// the next answer as he types (`SearchPreviews`, `ListLetters.showResults`,
 /// B-135): which letters take one and which do not, the preview alone going
-/// across, the bound, an answer that came after its list was replaced, a
-/// page of hits, the controller's wiring read from the source, and over the
-/// scripted server the preview FETCHes a name typed a letter at a time asks
-/// for, as the list asked them before and as it asks them now.
+/// across, the bound, an answer that came after its list was replaced, one
+/// in time drawn and kept for its folder alone, a page of hits, the
+/// controller's wiring read from the source, and over the scripted server
+/// the preview FETCHes a name typed a letter at a time asks for, as the
+/// list asked them before and as it asks them now.
 final class SearchPreviewsTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -36,7 +37,8 @@ final class SearchPreviewsTests: XCTestCase {
         let list = ListLetters()
         var asked = list.showResults([row("9/10", letter: 10), row("9/11", letter: 11)])
         XCTAssertEqual(asked.map(\.id), ["9/10", "9/11"])
-        list.apply(previews: ["9/10": "Shall we meet at noon?", "9/11": "The roses are out."])
+        list.apply(previews: ["9/10": "Shall we meet at noon?", "9/11": "The roses are out."],
+                   in: Self.allMail)
 
         asked = list.showResults([row("9/11", letter: 11), row("9/12", letter: 12),
                                   row("9/10", letter: 10, preview: "Its own words.")])
@@ -52,7 +54,7 @@ final class SearchPreviewsTests: XCTestCase {
     func testAHitTakesThePreviewTheFoldersRowDrewUnderTheSameFolderAndID() {
         let list = ListLetters()
         list.fetchedAfresh([row("1/500", in: "INBOX", letter: 10), row("1/501", in: "INBOX", letter: 11)])
-        list.apply(previews: ["1/500": "Shall we meet at noon?"])
+        list.apply(previews: ["1/500": "Shall we meet at noon?"], in: "INBOX")
 
         let inFolder = list.showResults([row("1/500", in: "INBOX", letter: 10),
                                          row("1/501", in: "INBOX", letter: 11)])
@@ -92,7 +94,7 @@ final class SearchPreviewsTests: XCTestCase {
     func testOnlyThePreviewGoesAcrossTheMarksAreTheNewAnswers() {
         let list = ListLetters()
         list.showResults([row("9/10", letter: 10, read: false, flagged: false)])
-        list.apply(previews: ["9/10": "Shall we meet at noon?"])
+        list.apply(previews: ["9/10": "Shall we meet at noon?"], in: Self.allMail)
 
         let changed = row("9/10", letter: 10, read: true, flagged: true, subject: "Re: The garden")
         XCTAssertEqual(list.showResults([changed]), [])
@@ -108,7 +110,7 @@ final class SearchPreviewsTests: XCTestCase {
     func testAPreviewDrawnBeforeTheAnswerOnScreenStillCarries() {
         let list = ListLetters()
         list.showResults([row("9/10", letter: 10), row("9/11", letter: 11)])
-        list.apply(previews: ["9/10": "Noon.", "9/11": "Roses."])
+        list.apply(previews: ["9/10": "Noon.", "9/11": "Roses."], in: Self.allMail)
         XCTAssertEqual(list.showResults([]), [])
         XCTAssertEqual(list.showResults([row("9/11", letter: 11), row("9/10", letter: 10)]), [])
         XCTAssertEqual(list.results?.map(\.preview), ["Roses.", "Noon."])
@@ -172,7 +174,7 @@ final class SearchPreviewsTests: XCTestCase {
                                   return Dictionary(uniqueKeysWithValues: ids.map { ($0, "Words of \($0).") })
                               },
                               isCurrent: { current },
-                              apply: { applied.merge($0) { a, _ in a } },
+                              apply: { answer, _ in applied.merge(answer) { a, _ in a } },
                               aside: { previews, group in
                                   list.previewsCameLate(previews, in: group.mailboxID, for: rows)
                               })
@@ -185,13 +187,41 @@ final class SearchPreviewsTests: XCTestCase {
         XCTAssertEqual(list.results?.map(\.preview), ["Words of 9/11.", "", "Words of 9/10."])
     }
 
+    /// An answer that comes in time is drawn into its group's folder alone,
+    /// and kept for that folder's hits alone. One id in All Mail, the Trash
+    /// and the Inbox, as folders under one UIDVALIDITY would give, is three
+    /// letters: each hit takes its own folder's words, the Inbox's row under
+    /// the same id none, and an answer after one with nothing found carries
+    /// each hit its own.
+    @MainActor
+    func testAnAnswerOnTimeIsDrawnAndKeptForItsGroupsFolderAlone() async {
+        let list = ListLetters()
+        list.fetchedAfresh([row("9/10", in: "INBOX")])
+        let rows = [row("9/10"), row("9/10", in: "[Gmail]/Trash")]
+        XCTAssertEqual(list.showResults(rows).count, 2)
+        await PreviewPass.run(PreviewPass.groups(for: rows),
+                              fetch: { ids, mailbox in
+                                  Dictionary(uniqueKeysWithValues: ids.map { ($0, "Words in \(mailbox).") })
+                              },
+                              isCurrent: { true },
+                              apply: { list.apply(previews: $0, in: $1.mailboxID) })
+        XCTAssertEqual(list.results?.map(\.preview),
+                       ["Words in [Gmail]/All Mail.", "Words in [Gmail]/Trash."])
+        XCTAssertEqual(list.folder.map(\.preview), [""], "the Inbox's letter under the same id")
+
+        XCTAssertEqual(list.showResults([]), [])
+        XCTAssertEqual(list.showResults([row("9/10", in: "[Gmail]/Trash"), row("9/10")]), [])
+        XCTAssertEqual(list.results?.map(\.preview),
+                       ["Words in [Gmail]/Trash.", "Words in [Gmail]/All Mail."])
+    }
+
     /// The next page of hits comes with the previews already drawn for its
     /// letters, and the folder's next page as before.
     @MainActor
     func testAPageOfHitsTakesThePreviewsAlreadyDrawn() {
         let list = ListLetters()
         list.showResults([row("9/10", letter: 10), row("9/11", letter: 11)])
-        list.apply(previews: ["9/10": "Noon.", "9/11": "Roses."])
+        list.apply(previews: ["9/10": "Noon.", "9/11": "Roses."], in: Self.allMail)
         list.showResults([row("9/30", letter: 30)])
 
         let fresh = list.appendPage([row("9/30", letter: 30), row("9/11", letter: 11),
@@ -204,12 +234,38 @@ final class SearchPreviewsTests: XCTestCase {
         XCTAssertEqual(folderPage.map(\.preview), [""], "a folder's page as before")
     }
 
+    /// A page of hits makes the previews it carried the newest, as an
+    /// answer does: a letter drawn first, and found again on a page after
+    /// 299 others were drawn, outlasts the next one drawn, where the oldest
+    /// of the 299 goes.
+    @MainActor
+    func testAPageOfHitsMakesThePreviewsItCarriedTheNewest() {
+        let list = ListLetters()
+        list.showResults([row("9/0", letter: 0)])
+        list.apply(previews: ["9/0": "The first."], in: Self.allMail)
+        let others = (1..<300).map { row("9/\($0)", letter: UInt64($0)) }
+        list.showResults(others)
+        list.apply(previews: Dictionary(uniqueKeysWithValues: others.map { ($0.id, "Words of \($0.id).") }),
+                   in: Self.allMail)
+
+        list.showResults([row("9/400", letter: 400)])
+        let page = list.appendPage([row("9/0", letter: 0)], toResults: true)
+        XCTAssertEqual(page.map(\.preview), ["The first."])
+        list.apply(previews: ["9/400": "The newest."], in: Self.allMail)
+
+        XCTAssertEqual(list.showResults([]), [])
+        XCTAssertEqual(list.showResults([row("9/0", letter: 0)]), [], "found on the page, the newest")
+        XCTAssertEqual(list.results?.map(\.preview), ["The first."])
+        XCTAssertEqual(list.showResults([row("9/1", letter: 1)]).map(\.id), ["9/1"],
+                       "the oldest of the others, gone")
+    }
+
     // MARK: - The wiring
 
     /// The list asks for the previews `showResults` says are still to come,
     /// and for a page's only where it has none; an answer that came late is
-    /// set aside for the list's letters. Read from the source: the
-    /// controller is UIKit.
+    /// set aside for the list's letters, and one in time is drawn into its
+    /// group's folder alone. Read from the source: the controller is UIKit.
     func testTheListAsksOnlyForTheHitsWithNoPreviewAndSetsALateAnswerAside() throws {
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains("searchFailed = false searchShown = text let move = showingResults() "
@@ -223,6 +279,10 @@ final class SearchPreviewsTests: XCTestCase {
         XCTAssertTrue(list.contains("aside: { @MainActor previews, group in "
                                     + "self?.letters.previewsCameLate(previews, in: group.mailboxID, "
                                     + "for: rows) })"))
+        XCTAssertTrue(list.contains("apply: { @MainActor previews, group in "
+                                    + "self?.apply(previews, in: group.mailboxID) },"))
+        XCTAssertTrue(list.contains("private func apply(_ previews: [String: String], in mailboxID: String) { "
+                                    + "letters.apply(previews: previews, in: mailboxID)"))
     }
 
     // MARK: - Over the wire
@@ -296,12 +356,13 @@ final class SearchPreviewsTests: XCTestCase {
         let typed = ["Ma", "Mar", "Marg", "Marga", "Margar", "Margare", "Margaret"]
 
         /// The previews of `rows`, asked for as the list asks, counted.
-        func pass(_ rows: [MessageSummary], apply: ([String: String]) -> Void) async -> Pass {
+        func pass(_ rows: [MessageSummary],
+                  apply: ([String: String], String) -> Void) async -> Pass {
             server.clearLog()
             await PreviewPass.run(PreviewPass.groups(for: rows),
                                   fetch: { try await repository.previews(for: $0, in: $1) },
                                   isCurrent: { true },
-                                  apply: { apply($0) })
+                                  apply: { apply($0, $1.mailboxID) })
             let log = server.log
             return Pass(hits: 0, asked: rows.count,
                         fetches: log.filter { $0.verb == "UID FETCH" && $0.command.contains("BODY.PEEK[")
@@ -328,13 +389,13 @@ final class SearchPreviewsTests: XCTestCase {
         /// the list's carrying or, as before, every hit asked for.
         func typing(in scope: MailSearchScope, carrying: Bool) async throws -> [Pass] {
             let list = ListLetters()
-            _ = await pass(list.fetchedAfresh(inbox)) { list.apply(previews: $0) }
+            _ = await pass(list.fetchedAfresh(inbox)) { list.apply(previews: $0, in: $1) }
             var steps: [Pass] = []
             for text in typed {
                 let hits = try await repository.search(in: "inbox", query: text, scope: scope,
                                                        beforeUID: nil, limit: 50)
                 let shown = list.showResults(hits)
-                var step = await pass(carrying ? shown : hits) { list.apply(previews: $0) }
+                var step = await pass(carrying ? shown : hits) { list.apply(previews: $0, in: $1) }
                 step.hits = hits.count
                 steps.append(step)
                 if !carrying { continue }

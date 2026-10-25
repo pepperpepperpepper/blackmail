@@ -329,7 +329,7 @@ final class ComingBackTests: XCTestCase {
         // page, and every preview drawn.
         let list = await ListLetters()
         _ = await list.fetchedAfresh(before)
-        await list.apply(previews: previews)
+        await list.apply(previews: previews, in: "inbox")
         let shown = await list.folder
         XCTAssertTrue(shown.allSatisfy { !$0.preview.isEmpty })
         let arrived = server.deliver(Server.Letter(from: Server.sam, to: [Server.owner],

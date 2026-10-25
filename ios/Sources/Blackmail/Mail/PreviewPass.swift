@@ -56,7 +56,10 @@ enum PreviewPass {
     }
 
     /// Asks for each group's previews in turn, each finished before the next
-    /// is asked for, and hands each answer to `apply` as it lands.
+    /// is asked for, and hands each answer to `apply` as it lands, with its
+    /// group: the answer is for the rows of that group's folder alone, since
+    /// an id is a folder's UIDVALIDITY and UID, and another folder can give
+    /// another letter the same (`ListLetters.apply(previews:in:)`, B-135).
     ///
     /// `isCurrent` is asked before every request and before every `apply`.
     /// Once it says no, the list has been replaced while this was waiting:
@@ -75,7 +78,7 @@ enum PreviewPass {
     static func run(_ groups: [Group],
                     fetch: (_ ids: [String], _ mailboxID: String) async throws -> [String: String],
                     isCurrent: () async -> Bool,
-                    apply: ([String: String]) async -> Void,
+                    apply: ([String: String], Group) async -> Void,
                     aside: ([String: String], Group) async -> Void = { _, _ in }) async {
         for group in groups {
             guard await isCurrent() else { return }
@@ -85,7 +88,7 @@ enum PreviewPass {
                 await aside(previews, group)
                 return
             }
-            await apply(previews)
+            await apply(previews, group)
         }
     }
 }

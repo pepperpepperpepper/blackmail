@@ -5623,8 +5623,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       is drawn, no grey lines on it, and the log has the UID SEARCHes and
       no preview FETCH after them but for UIDs "Pey" did not find, if any,
       written down. The same for "o" and "n", one at a time.
-      2. *The right words.* Three rows of 1's "Peyton", tapped one by
-      one: each letter begins with its row's words.
+      2. *The right words.* Three rows of 1's "Peyton" that have no
+      unread dot, tapped one by one: each letter begins with its row's
+      words. Only rows already read, so that opening one marks nothing
+      read on the server; if fewer than three are, as many as there are.
       3. *Back.* The delete key, a pause after each, back to "Pey": the
       rows with their lines at once, no preview FETCH.
       4. *Nothing, then the same again.* "x", so "Peyx", a pause: "No

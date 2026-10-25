@@ -25011,11 +25011,22 @@ never did.
    list was replaced are not drawn, as before, but kept for the next
    answer, for the rows of that group's folder alone. The groups after it
    are not asked for, as before.
-5. *A page of hits* (`ListLetters.appendPage`): the same, and the list
-   asks for the page's rows that have none.
-6. *Comments and docs:* `PreviewPass.run`; the TODO item, its search part
-   ticked; the source pin in `RecentSearchesTests`, which read the line
-   `showResults` is called on.
+5. *The answer in time* (`ListLetters.apply(previews:in:)`, `PreviewPass.run`
+   handing each answer its group): drawn into the rows of its group's
+   folder alone, the folder's and the hits, and kept for those hits alone,
+   as the late answer is. Drawn by id alone, as it was before this change,
+   an answer could fill a row of another folder under the same id; kept as
+   well, those words would have been carried into every answer after,
+   where before they were asked for again at the next. Only folders that
+   share a UIDVALIDITY give two letters one id, which Gmail's folders, as
+   a rule, and the scripted server's do not.
+6. *A page of hits* (`ListLetters.appendPage`): the same, the previews it
+   carries made the newest as an answer's are, and the list asks for the
+   page's rows that have none.
+7. *Comments and docs:* `PreviewPass.run`; the controller's `apply` and the
+   comment in `MailboxListViewController` naming it; the TODO item, its
+   search part ticked; the source pin in `RecentSearchesTests`, which read
+   the line `showResults` is called on.
 
 **Not changed.** What a search asks the server, its pause, its paging and
 its merge. A Refresh's carry and a cancelled search's (`endSearch`). The
@@ -25045,7 +25056,7 @@ lines until its words come. Less goes on the connection while he types, so
 the next answer, and a letter opened from the results, wait behind fewer
 FETCHes. No new words.
 
-**Tests.** `SearchPreviewsTests`, ten, new. A hit takes the preview its
+**Tests.** `SearchPreviewsTests`, twelve, new. A hit takes the preview its
 letter drew in the answer before, and a hit with its own keeps it; a search
 in the folder takes its rows' previews, and an All Mailboxes hit of the
 same letter under All Mail's id takes none; nothing from a row of another
@@ -25056,12 +25067,17 @@ flag and the subject the new answer's; a preview drawn in an answer no
 longer on screen, after one with nothing found and after a cancelled
 search; the last 300, one drawn again the newest, a row with none not
 kept; an answer that came after its list was replaced kept for the next,
-nothing after it asked, its folder's rows alone; a page of hits, and the
-folder's page as before; read from the source, the list asking for what
-`showResults` returns, a page's rows with none, and the late answer set
-aside; and over the scripted server, the name typed above, as the list
-asked before and as it asks now, in both scopes, each hit's preview the one
-fetched for it, the counts pinned.
+nothing after it asked, its folder's rows alone; an answer in time, one
+id in All Mail, the Trash and the Inbox, each hit taking its own folder's
+words, the Inbox's row none, and an answer after one with nothing found
+carrying each hit its own; a page of hits, and the folder's page as
+before; a page making what it carried the newest, so a letter drawn first
+and found again on it outlasting the next drawn after 299 others; read
+from the source, the list asking for what `showResults` returns, a page's
+rows with none, the late answer set aside, and an answer in time drawn
+into its group's folder; and over the scripted server, the name typed
+above, as the list asked before and as it asks now, in both scopes, each
+hit's preview the one fetched for it, the counts pinned.
 
 Each part undone by hand, the class run (ten tests; with `PreviewPassTests`,
 fourteen, for the late answer), then put back and passing, counted as
@@ -25072,18 +25088,28 @@ the late answer dropped, 2 in 1; kept for every folder's rows under its
 ids, 2 in 1; a page of hits not carried, 1 in 1; the list asking for every
 hit as before, 2 in 1; a hit's own preview overwritten, 1 in 1; the old row
 carried whole, its marks with it, 2 in 2; by Gmail's id alone across
-folders, the design left out, 5 in 2.
+folders, the design left out, 5 in 2. `PreviewPassTests` checks too that
+each answer is handed its own group. Then with the twelve (sixteen with
+`PreviewPassTests`): an answer in time drawn into another folder's hits
+under its ids, 2 in 1; into the folder's rows of another folder, 1 in 1;
+each answer handed the first group, 38 in 3; a page's carry not made the
+newest, 3 in 1; an answer in time not kept, counted again, 10 in 4; the
+controller drawing into the folder on screen rather than the group's,
+1 in 1.
 
-The full suite, serially: 2,485 tests, 6 skipped, none failing. The release
-build for the iPad links.
+The full suite, serially: 2,485 tests, 6 skipped, none failing; with the
+answer in time and the page's carry made the newest, after B-136, 2,492,
+none failing. The release build for the iPad links.
 
 **Not covered.**
 
 - Not seen on the test iPad. Its check is in TODO.
-- The first answer in All Mailboxes asks again for letters the Inbox's
-  rows have drawn, under All Mail's ids: 3 of the 4 FETCHes in the measure
-  above. Carrying by Gmail's id across folders would save them; left out
-  so that nothing rests on Gmail never giving a changed letter its old id.
+- In All Mailboxes, letters the Inbox's rows have drawn are asked for
+  again under All Mail's ids: in the measure above, 2 of the first
+  answer's 3 FETCHes and the last answer's 1, so 3 of the 4; the Trash
+  letter's would remain. Carrying by Gmail's id across folders would save
+  them; left out so that nothing rests on Gmail never giving a changed
+  letter its old id.
 - An answer cut short: only the group on the wire as the list was
   replaced is kept; the groups not yet asked are asked by the next answer.
 - More than 300 previews drawn in a list's life: the oldest go, and are
