@@ -25121,3 +25121,87 @@ build for the iPad links.
   there only for the first minutes after a launch.
 - What iOS itself shows when the app is tapped after the day: not looked
   at.
+
+## B-138 — FIXED 2026-10-25, not yet seen on the iPad. provision-ipad.sh called every 16.7.x, 17.0.1 to 17.0.3 and iOS 10 to 13 within TrollStore's range; it reads the build too, and says in, below or past as TrollStore's own list has it
+
+**Found** in the gap review of 2026-09-30, among what is buildable for the
+install-day build (TODO, "`provision-ipad.sh`: the TrollStore iOS range is
+wrong"). The line it named, :132, had moved to :154.
+
+**What TrollStore says.** Its README (github.com/opa334/TrollStore, read
+2026-10-25): "Supported versions: 14.0 beta 2 - 16.6.1, 16.7 RC (20H18),
+17.0", and "16.7.x (excluding 16.7 RC) and 17.0.1+ will NEVER be supported
+(unless a third CoreTrust bug is discovered, which is unlikely)." High.
+The 16.7 RC and the 16.7 that shipped are both "16.7"; only the build,
+20H18 for the RC, tells them apart.
+
+**What it was.** At the visit, with the iPad on the cable, the script read
+its ProductVersion alone and matched it against `1[0-6].*|17.0|17.0.*`:
+"in TrollStore range: a permanent install with NO expiry is possible",
+else "past TrollStore". So every 16.7 and 16.7.x was called in range, and
+17.0.1 to 17.0.3 by the `17.0.*` glob, and iOS 10 to 13 too, older than
+TrollStore reaches; iOS 9 and before were called past it. 14.0 to 16.6.1,
+17.0 itself and 17.1 on were right.
+
+**What it means for him.** Nothing: his iPad is on iPadOS 18, past
+TrollStore by either rule (TODO, "His iPad's iOS version"). Another iPad
+on 16.7.x would have been sent towards a TrollStore install that cannot be
+made.
+
+**Changed.**
+
+1. *The rule, in one place* (`tools/trollstore-range.sh`, new): a shell
+   function, `trollstore_range VERSION BUILD`, that prints one word. "in"
+   for 14.0 to 16.6.1, for 16.7 with the build 20H18, and for 17.0;
+   "below" for anything before 14.0; "past" for the rest, a 16.7 whose
+   build was not read among them; "unknown" for no version, or one that is
+   not one to three parts of digits. The parts are read in base 10. Exit
+   status 0 for "in" alone.
+2. *The script* (`tools/provision-ipad.sh`) reads the iPad's BuildVersion
+   with its ProductVersion, shows both ("iOS 16.7 (20H18)"), sources the
+   rule and says one of four things: in range, or, for 14.x and 15.x,
+   in TrollStore's range but below the app's MinimumOSVersion, 16.0, so
+   it will not install; older than TrollStore and the app; past
+   TrollStore, which now ends by saying the app warns him for its last
+   thirty days (B-137) where it said "Diarise it"; or not read. A comment
+   says what the old pattern called in range.
+3. *The pre-flight* wants `trollstore-range.sh` beside the script, as it
+   wants `sign-ipa.sh`: a laptop with a partial copy fails at home, not at
+   his table.
+
+**Not changed.** Registration, signing and the install. 14.0's first beta,
+outside TrollStore's range, is not told apart from 14.0. No words on his
+screen.
+
+**Tests.** `ProvisionRangeTests`, five, new: the function run in bash on
+each version, its word and exit status. In: 14.0, 14.8.1, 15.0, 15.7.9,
+16.0, 16.5.1, 16.6, 16.6.1, 16.7 with 20H18, 17.0, 17.0.0, and "15.08"
+and "16.06.01" for base 10. Past: 16.6.2, 16.7 with 20H19 and with no
+build, 16.7.1, 16.7.2, 16.7.10, 16.7.12, 17.0.1 to 17.0.3, 17.1, 17.7.10,
+18.0, 18.7.9 and 26.0.1. Below: 13.7, 13.99, 12.5.7, 10.3.3, 9.3.5, 8.4.1,
+1.0. Unknown: empty, "x", "16.a", four parts, a leading space, "-16",
+"16..1". Nothing on stderr for any of them. And the script, comments
+left out: the build read, the rule sourced and its four answers handled,
+the old pattern gone, the pre-flight asking for the file, the rule
+called in one place, and `bash -n` passing.
+
+Each part undone by hand, the class run, then put back and passing:
+every test failed at least once. Counted as failures in tests: every
+16.7 in range, 7 in 1; the build not looked at, 2 in 1; every 17.0.x in
+range, 10 in 1; iOS 10 to 13 in range, 4 in 1; the parts read as octal,
+2 in 1; anything taken for a version, 7 in 1; the old pattern back in
+the script, 4 in 1; the build not read, 1 in 1; the pre-flight not asking
+for the rule's file, 1 in 1. 38 in all.
+
+The full suite, serially: 2,491 tests, 5 of them new here and B-137's
+eleven, 6 skipped, none failing. No code of the app changed; the release
+build for the iPad links.
+
+**Not covered.**
+
+- Not run with an iPad on the cable: its check is in TODO, read only.
+- The visit's own path through the script was not run here, there being
+  no iPad on this host; the rule and the script's text are what is held.
+- TrollStore's range as its README gives it on 2026-10-25. Were a third
+  CoreTrust bug found, the rule would need changing; the install is set
+  and forget, so it would not reach his iPad.

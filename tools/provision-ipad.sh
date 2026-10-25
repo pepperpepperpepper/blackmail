@@ -61,7 +61,7 @@ fi
 # partial copy on the laptop would otherwise pass here and fail at "Signing",
 # after the iPad has been registered.
 TOOLS="$(cd "$(dirname "$0")" && pwd)"
-for f in "$TOOLS/sign-ipa.sh" "$TOOLS/check-signature.py" \
+for f in "$TOOLS/sign-ipa.sh" "$TOOLS/check-signature.py" "$TOOLS/trollstore-range.sh" \
          "$TOOLS/../ios/Resources/Blackmail.entitlements" \
          "$TOOLS/../ios/Resources/BlackmailWithShare.entitlements" \
          "$TOOLS/../ios/Resources/BlackmailShare.entitlements"; do
@@ -140,21 +140,37 @@ done
 
 NAME=$(ideviceinfo -u "$UDID" -k DeviceName 2>/dev/null)
 VER=$(ideviceinfo  -u "$UDID" -k ProductVersion 2>/dev/null)
+BUILD=$(ideviceinfo -u "$UDID" -k BuildVersion 2>/dev/null)
 MODEL=$(ideviceinfo -u "$UDID" -k ProductType 2>/dev/null)
 mkdir -p "$OUT"
 printf '%s\n' "$UDID" > "$OUT/udid.txt"
 
 echo
 printf '\033[1m  UDID   %s\033[0m\n' "$UDID"
-printf '  name   %s\n  model  %s\n  iOS    %s\n' "$NAME" "$MODEL" "$VER"
+printf '  name   %s\n  model  %s\n  iOS    %s (%s)\n' "$NAME" "$MODEL" "$VER" "$BUILD"
 echo "  (also written to $OUT/udid.txt)"
 
-# The one fact that decides whether this ever has to be done again.
-case "$VER" in
-  1[0-6].*|17.0|17.0.*) echo "  → iOS $VER is in TrollStore range: a permanent install with NO expiry
-    is possible, and would spare him the annual re-signing entirely." ;;
-  *) echo "  → iOS $VER is past TrollStore. Certificate signing it is, which means
-    this app STOPS LAUNCHING when the profile expires. Diarise it." ;;
+# The one fact that decides whether this ever has to be done again. The
+# rule, 14.0 to 16.6.1, the 16.7 RC (build 20H18) and 17.0, is in
+# trollstore-range.sh, where a host test pins it (B-138). The pattern here
+# used to be 1[0-6].*|17.0|17.0.*, which called every 16.7.x, 17.0.1 to
+# 17.0.3 and iOS 10 to 13 in range.
+. "$TOOLS/trollstore-range.sh"
+case "$(trollstore_range "$VER" "$BUILD")" in
+  in) if [ "${VER%%.*}" -lt 16 ]; then
+        echo "  → iOS $VER is in TrollStore range, but this app needs 16.0
+    (its MinimumOSVersion): it will not install here."
+      else
+        echo "  → iOS $VER ($BUILD) is in TrollStore range: a permanent install with NO expiry
+    is possible, and would spare him the annual re-signing entirely."
+      fi ;;
+  below) echo "  → iOS $VER is older than TrollStore reaches (14.0), and than this app
+    (16.0): it will not install here." ;;
+  past) echo "  → iOS $VER ($BUILD) is past TrollStore. Certificate signing it is, which means
+    this app STOPS LAUNCHING when the profile expires; it tells him so once a
+    day for its last thirty days (B-137)." ;;
+  *) echo "  → the iPad's iOS version could not be read: whether TrollStore installs
+    on it is not known." ;;
 esac
 
 # --------------------------------------------------------------- registration

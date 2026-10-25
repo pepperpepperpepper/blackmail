@@ -84,8 +84,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             *Done 2026-10-01, seen on the iPad. B-058.* And on 2026-10-03,
             seen on the iPad: one copied in with a wrong arrival cannot
             either, and a jump lands on his day, not the evening before.
-      - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
+      - [x] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
+            *Done 2026-10-25, not yet run with an iPad on the cable: the
+            build read too, and the rule in `tools/trollstore-range.sh`,
+            pinned by a host test: 14.0 to 16.6.1, the 16.7 RC (20H18) and
+            17.0 in range; 16.7.x, 17.0.1 on and later past; below 14.0
+            older. B-138, and its check under "Blocked on the iPad coming
+            back".*
       - [x] the reading pane runs no letter's script and goes nowhere by
             itself. *Done 2026-09-30, not yet seen on the iPad: script off,
             the pane's own in the app's content world, only its own pages
@@ -5654,6 +5660,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* `_TrollStore.aside` renamed back to `_TrollStore`;
       Set Automatically on; kill and launch: no warning, the log's
       "EXPIRY none, TrollStore"; TrollStore lists Blackmail as before.
+
+- [ ] **B-138, provision-ipad.sh's TrollStore range.** On the laptop or
+      the Mac, with the whole repo and the test iPad on the cable,
+      unlocked and trusting it. Read only: nothing is registered, signed
+      or installed, and nothing is sent. The script is not run without
+      `--check`: past the iOS line it goes on to sign and install.
+      1. `tools/provision-ipad.sh --check`: among the pre-flight's lines,
+      "✓ trollstore-range.sh". Any ✗ line is the visit's own, written
+      down, not mended here.
+      2. `ideviceinfo -k ProductVersion` and `ideviceinfo -k BuildVersion`,
+      both written down; then, from the repo's root, `.
+      tools/trollstore-range.sh; trollstore_range "$(ideviceinfo -k
+      ProductVersion)" "$(ideviceinfo -k BuildVersion)"`: "in" for the
+      test iPad's 16.5.1.
 
 ## Blocked on the owner
 
