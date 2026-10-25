@@ -131,7 +131,9 @@ struct MessageSummary: Identifiable, Hashable {
     /// Outbox, which names whom the letter is to, as Mail's does, and not
     /// him (`RowNames`, B-060). Every letter there is his, so his own name
     /// on every row said nothing; he could tell his letters apart only by
-    /// their subjects.
+    /// their subjects. And for the reading pane's header, which has its To
+    /// line from the tap since B-127, as it has its Cc
+    /// (`Message.heading(for:)`).
     ///
     /// Nil where it is not known: a row kept on the iPad by a build before
     /// rows carried it (`MailShelf`), and a row the server gave no ENVELOPE

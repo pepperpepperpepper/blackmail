@@ -1315,8 +1315,9 @@ ten minutes.
 - *No focus on his letters, under either timing.* Opening his line fetches
   its body and does nothing else: the header, Reply, Flag, Move and Delete
   stay on the conversation's letter he opened last, whether the header
-  follows a letter when its body lands, as now, or at the tap, if "Left
-  from batch 4" is ever built. A departure from Mail, where each letter of
+  follows a letter when its body lands, as then, or at the tap, if "Left
+  from batch 4" is ever built (*built as B-129, 2026-10-25: at the tap*).
+  A departure from Mail, where each letter of
   a conversation has its own buttons. Here the pane has one toolbar, and a
   Delete that took his letter out of Sent Mail from an Inbox conversation
   is a letter lost from where he would look for it.

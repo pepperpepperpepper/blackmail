@@ -294,18 +294,23 @@ final class ConversationOrderTests: XCTestCase {
     // MARK: - His place when the header changes
 
     /// The header grows by a line or a file's row as he opens a letter with
-    /// more recipients or files: the stack is scrolled down by as much, so
-    /// what he sees stays where it was; shrunk, up by as much. Within what
-    /// the stack can scroll to.
-    func testTheStackMovesAgainstTheHeader() {
-        XCTAssertEqual(StackPlace.offset(from: 300, headerGrewBy: 44, range: 0...1000), 344)
-        XCTAssertEqual(StackPlace.offset(from: 300, headerGrewBy: -20, range: 0...1000), 280)
-        XCTAssertEqual(StackPlace.offset(from: 10, headerGrewBy: -20, range: 0...1000), 0)
-        XCTAssertEqual(StackPlace.offset(from: 990, headerGrewBy: 44, range: 0...1000), 1000)
-        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: 0, range: 0...1000))
-        XCTAssertNil(StackPlace.offset(from: 0, headerGrewBy: 44, range: 0...0),
-                     "a stack shorter than the pane cannot scroll")
-        XCTAssertNil(StackPlace.offset(from: 0, headerGrewBy: -44, range: 0...1000))
+    /// more recipients or files, or shrinks: the stack keeps its offset, so
+    /// what was at the top of the pane stays at the top, under the header,
+    /// and is put at its top only where it was pulled down past it. Not at
+    /// its end: the page grows with the pane. Changed by B-128: B-074
+    /// scrolled it by as much the other way, 300 to 344 and to 280, which
+    /// took the top of the pane under the header
+    /// (`StackUnderTheHeaderTests`).
+    func testTheStackKeepsItsOffsetUnderTheHeader() {
+        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: 44, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: -20, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 10, headerGrewBy: -20, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 990, headerGrewBy: 44, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 1000, headerGrewBy: -20, lowest: 0), "not held to an end")
+        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: 0, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 0, headerGrewBy: 44, lowest: 0))
+        XCTAssertNil(StackPlace.offset(from: 0, headerGrewBy: -44, lowest: 0))
+        XCTAssertEqual(StackPlace.offset(from: -30, headerGrewBy: 44, lowest: 0), 0, "pulled down past its top")
     }
 
     // MARK: - The stack's script
@@ -502,9 +507,11 @@ final class ConversationOrderTests: XCTestCase {
         XCTAssertTrue(list.contains("var conversations: [MessageThread] { threads }"))
     }
 
-    /// The header pointed at a letter he opened keeps the stack where it was
-    /// on the glass: its height taken before, and the stack scrolled by the
-    /// difference after it is laid out.
+    /// The header pointed at a letter he opened: its height taken before,
+    /// laid out, and the stack's offset kept where it was, held at its top
+    /// alone (`StackPlace`). B-074 scrolled it by the difference, so the
+    /// line he tapped stayed where it was on the glass; B-128 keeps the
+    /// offset, so the stack hangs from the header.
     func testTheHeaderKeepsHisPlace() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         let focus = try section(of: code, from: "private func focusLetter(_ m: Message) {",
@@ -512,9 +519,10 @@ final class ConversationOrderTests: XCTestCase {
         for wiring in [
             "let before = header.frame.height header.configure(with: m)",
             "keepPlace(headerWas: before) }",
-            "view.layoutIfNeeded() let scroll = webView.scrollView",
-            "guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y), "
-                + "headerGrewBy: Double(header.frame.height - before), range: lowest...highest) "
+            "view.layoutIfNeeded()",
+            "let grown = Double(header.frame.height - before) guard grown != 0 else { return }",
+            "guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y), headerGrewBy: grown, "
+                + "lowest: -Double(scroll.adjustedContentInset.top)) "
                 + "else { return } scroll.contentOffset.y = CGFloat(y)",
         ] {
             XCTAssertTrue(focus.contains(wiring), wiring)

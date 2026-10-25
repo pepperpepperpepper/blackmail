@@ -48,7 +48,8 @@ final class LinePressTests: XCTestCase {
         XCTAssertTrue(css.contains(
             "body > .bm-letter > .bm-head.bm-press { background: rgba(255,255,255,0.08) !important; }"), css)
         for wiring in [
-            "var touch = event.touches[0]; head.classList.add('bm-press');",
+            "var touch = event.touches[0]; var shifted = performance.now() - bmShifted < bmShiftQuiet; "
+                + "if (!shifted) head.classList.add('bm-press');",
             "function bmUnpress() { if (!bmPress) return; clearTimeout(bmPress.timer); "
                 + "bmPress.head.classList.remove('bm-press'); bmPress = null; }",
             "timer: setTimeout(function () { head.classList.remove('bm-press'); }, bmHold) };",
@@ -69,8 +70,10 @@ final class LinePressTests: XCTestCase {
     /// The tap: one finger, still to 10 px, lifted within 1.2 s, the line
     /// where it was under it. The script toggles the letter and stops
     /// WebKit's tap, which waits on a touchend a listener may cancel, so
-    /// the listener is not passive. Past the hold, or the line moved, the
-    /// lift does nothing, and WebKit's tap is stopped too.
+    /// the listener is not passive. Past the hold, or the line moved, in
+    /// the page or with the whole stack under a header that changed height
+    /// (`TapAfterTheStackMovedTests`), the lift does nothing, and WebKit's
+    /// tap is stopped too.
     func testAStillTouchLiftedWithinTheHoldIsTheTap() {
         for wiring in [
             "var bmHold = 1200;",
@@ -78,7 +81,7 @@ final class LinePressTests: XCTestCase {
                 + "&& Math.abs(touch.clientY - press.y) <= 10; }",
             "if (event.touches.length !== 0 || !bmStill(press, event.changedTouches[0])) return; "
                 + "event.preventDefault(); bmQuiet = { head: press.head, until: performance.now() + 1000 }; "
-                + "if (performance.now() - press.at > bmHold) return; "
+                + "if (performance.now() - press.at > bmHold) return; if (press.shifted) return; "
                 + "if (Math.abs(press.head.getBoundingClientRect().top - press.top) > 10) return; "
                 + "var selection = window.getSelection(); "
                 + "if (selection && !selection.isCollapsed) selection.removeAllRanges(); "

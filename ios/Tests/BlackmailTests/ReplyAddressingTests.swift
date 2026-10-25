@@ -982,7 +982,8 @@ final class ReplyAddressingWiringTests: XCTestCase {
             "return self.openCompose(replyTo: m, all: true, forward: false)",
             "return self.openCompose(replyTo: m, all: false, forward: true)",
             "draft = .replying(to: m, all: all, mine: OwnAddresses(account: account), signature: signature)",
-            "private func focusLetter(_ m: Message) { focused = m.id message = m",
+            // The letter he opened last, once its body has come (B-129).
+            "private func focusLetter(_ m: Message) { guard stackFocus.takes(m.id) else { return } message = m",
         ] {
             XCTAssertTrue(pane.contains(wiring), wiring)
         }
