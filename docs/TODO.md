@@ -5597,6 +5597,41 @@ checks below is left as not needed, not open, and none is worth a round.*
       OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
       after the pause (B-123). Not possible: 6b and 11, the size test's
       mailbox having no such sender.*
+- [ ] **B-127, the header's To at the tap.** On the test iPad, the test
+      account only, built from the `bm-paneheader` worktree (branch
+      `fix-paneheader`) before it is merged. Nothing is sent, saved as a
+      draft or composed: one of the test accounts is signed in on the
+      owner's phone and new mail rings it. The host makes the letters and
+      APPENDs them, read (`\Seen`), to a label of their own, "B-127", not
+      the Inbox, each dated three days back: (a) from "Jane Example", To
+      "Example, Pat" (a quoted name with its comma), a name in an encoded
+      word and a bare address, Cc one more, and a PDF of about 4 MB so its
+      body takes a moment; (b) the same To, three lines of words; (c) a
+      letter to Sam with a Cc and (d) Sam's reply to it, To Jane alone, one
+      conversation (Gmail's thread, its References naming (c)). His
+      own letter in Sent Mail to someone else is one already there, found
+      by the host read only (B-060's "B-060 two", to Sam's bare address
+      with Cc Jane, or another), and written down. Three panes, then two;
+      a screen recording through each tap.
+      1. *A letter alone:* the label opened, (a) tapped. In the first
+      frame with "Loading…" the header's To line names the three, "To:
+      Example, Pat, " then the encoded name decoded, then the bare
+      address, as far as the line goes, the Cc under it, the PDF's row
+      grey; when the body lands the To line's words do not change and
+      nothing in the header moves. Never "To: me" in any frame.
+      2. *Sent Mail:* his letter written down above, tapped: the header
+      names whom it went to from the first frame, never "To: me".
+      3. *No connection:* Airplane Mode on, (b) tapped, never opened on
+      this iPad before, so not kept on it (B-111): "This message could
+      not be downloaded." under a header whose To is the letter's, not
+      "To: me". OK on the alert. Airplane Mode off.
+      4. *A conversation:* the conversation of (c) and (d) opened from the
+      label: its header has (d)'s To, "To: Jane Example", from the first
+      frame, and nothing in the header changes as its body lands.
+      5. *Two panes:* 1 and 2 again, then three panes back.
+      6. *Put back:* the label's letters and the label left for B-128's
+      and B-129's checks, or moved to Trash by the host, as the owner
+      prefers. Nothing was written to Sent Mail.
 
 ## Blocked on the owner
 

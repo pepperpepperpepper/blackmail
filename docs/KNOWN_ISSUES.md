@@ -2875,7 +2875,8 @@ held the previous letter, header and body, beside a selection that had
 already moved: a plausible letter that was not the one he tapped. The
 header now changes at the tap to the new letter's sender, subject and date,
 with "Loading…" where the body will be, and "To: me" until the letter's
-own recipients arrive with it. A conversation's stack already worked this
+own recipients arrive with it. *Since B-127 the To is the row's, from the
+tap, as the Cc is.* A conversation's stack already worked this
 way. Loading that page also starts the web view's content process while
 the body is on its way, rather than after it.
 
@@ -3190,7 +3191,8 @@ does not light them up early. The same holds when he opens a
 conversation. It does not hold when he opens another letter inside the
 stack: the header changes to that letter once it has come, files and all,
 as before. The Cc line, added under To by B-055, is known from the row too
-since 2026-10-01, from its ENVELOPE, and is there from the tap.
+since 2026-10-01, from its ENVELOPE, and is there from the tap. *So is the
+To line since B-127.*
 
 **A draft he taps stays highlighted, with a spinner, until it opens.** In
 Drafts the row used to lose its highlight at the tap, with nothing on
@@ -7647,7 +7649,8 @@ it was. The letter's own sender, which matching it with its twin in
 another mailbox goes by (`ListEdit.twins`), and which the reading pane
 shows as From. The pane's header: it still reads "To: me" from the tap
 until the letter lands, though the row now has its To; using it there is
-another change.
+another change. *Made in B-127, 2026-10-25: the header's To is the row's
+from the tap.*
 
 **Tests.** `SentRowNamesTests`: the names, To, Cc and Bcc, each person
 once whichever way he is written, as the pane names them; Sent Mail, Drafts
@@ -10800,7 +10803,8 @@ the tapped line held, three panes to two inside a long letter, the newest
 closed, the status bar then the view button, and a reply read on a second
 simulator arriving as a closed line. Seen in passing: while a letter
 shows "Loading…" its header reads "To: me" for a moment, then the real
-To; not yet looked into.
+To; not yet looked into. *Changed in B-127, 2026-10-25: the To is the
+row's from the tap.*
 
 **Seen on the test iPad, 2026-10-07**, iPadOS 16.5.1, the 11-inch,
 landscape, three panes, the four as merged, on the test account, every
@@ -24946,3 +24950,100 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+## B-127 — CHANGED 2026-10-25 to copy Apple Mail, not yet seen on the iPad. The reading pane's header read "To: me" from the tap until the letter's body landed, and for good when it could not be downloaded, a letter in Sent Mail to someone else too; the header's To is the row's from the tap, as its Cc is
+
+**Found** three times and left each time. B-060 (2026-10-03) gave the list's
+rows their To, from the ENVELOPE, for Sent Mail's top line, and left the
+header "To: me" until the letter lands: "using it there is another
+change". In the iPadOS 18 simulator on 2026-10-07 (B-074 to B-077's
+check), seen in passing: "To: me" for a moment under "Loading…", then the
+real To, "not yet looked into". And on the test iPad on 2026-10-22, in
+B-114's check, a letter that could not be downloaded kept "To: me" under
+"This message could not be downloaded." Put in section 5 of the owner's
+list on 2026-10-25.
+
+**What he saw.** He has not had the app; this is what it drew. At the tap
+on a row, the header's sender, subject, date, Cc line and files were the
+letter's own, from its row (B-041, B-042, B-055), and its To line read
+"To: me" (`Message.heading(for:)` gave it no To) until the body landed,
+some 0.2 to 0.7 s on the test iPad, more for a large letter, when it
+became "To: Jane Example" in its line. A letter of his in Sent Mail read
+"To: me" for that time too, of a letter he sent to someone else, and a
+letter whose body could not be downloaded, offline say, kept "To: me"
+under the pane's words. A conversation's header at its opening did the
+same for its newest letter.
+
+**What Mail does.** Mail has a letter's header fields from the listing,
+before the body: Dovecot's imaptest, which models clients by what they
+send, has its Apple Mail profile fetch `INTERNALDATE UID RFC822.SIZE FLAGS
+BODY.PEEK[HEADER.FIELDS (date subject from to cc message-id in-reply-to
+references …)]` as it syncs a mailbox, and the body later by
+`BODY.PEEK[]` (doc.dovecot.org/main/core/admin/testing.html, "AppleMail";
+a model of Mail on the Mac, not a log of the iPad's: medium). So its
+header has whom the letter is to while the body is still coming. That it
+draws them before the body on an iPad is from that order, not seen here:
+medium.
+
+**Changed.**
+
+1. *The header at the tap* (`Message.heading(for:)`) takes the row's To,
+   from the ENVELOPE the list fetches already, as it has taken the Cc
+   since 2026-10-01: names, and the address where there is no name, as
+   the landed letter's line has them (`MailFormat.recipientsLine`). For a
+   letter tapped in the list, and for a conversation's header as it opens,
+   from its newest letter's row. The letter's own To, from its header,
+   takes its place when it lands, as before; one line either way, so
+   nothing moves.
+2. *A letter whose body fails* keeps the header the tap drew, as it did,
+   which now has its To: "To: Jane Example" over "This message could not
+   be downloaded."
+3. *Kept rows* (D-016) have kept their To since B-060, so a letter opened
+   from the kept list with no connection has its To from the tap too.
+4. The comments that said the header has no To from the row
+   (`Message.heading(for:)`, the stand-in in `show(summary:)`,
+   `MessageSummary.to`) say what it is now, and the entries above that
+   said so (B-041, B-042's files paragraph, B-060, B-074's simulator
+   note) have a line on it.
+
+**Not changed.** "To: me" for a letter whose row does not know its To, a
+row kept on the iPad by a build before B-060 or one the server gave no
+ENVELOPE for, until the letter lands; and for a letter with no To at all,
+before and after. The list's FETCH, which asks for nothing more. The To
+line itself: one line, cut at the end where it is long, in the same grey.
+The printed letter, drawn from the landed letter (B-110). No new words.
+
+**Tests.** `ToAtTheTapTests`, four, new. Over the wire, the shipping
+repository and client against the scripted server: a letter to a quoted
+name holding a comma, a name whose comma is in an encoded word and a bare
+address, listed: the header drawn from its row has "To: Example, Pat,
+Example, Jérôme, lee@example.com", the line the letter lands with word for
+word, and the list's FETCH is what it was, nothing of the letter asked; a
+letter of his in Sent Mail to Jane and Carlo: "To: Jane Example, Carlo"
+from the row, as it lands, never "To: me". A row that does not know its
+To, and one to nobody: no To, so "To: me"; a row kept with its To, read
+back by the next launch's shelf: its To line. And the source, read: the
+single letter's stand-in drawn by `heading(for:)`, its failure leaving
+the header alone, the header writing "To: me" only for a letter with no
+To, and the row's To taken as the Cc is.
+
+Undone by hand, the header's To left out as before, the four run with
+`ReadingPaneCcTests`, `PaneLoadsTests`, `PaneDocumentTests`,
+`MailShelfTests` and `SentRowNamesTests`, then put back and passing: 7
+failures in 4 tests, all four of the new ones, nothing else failing.
+
+The full suite, serially: 2,479 tests, 4 of them new, 6 skipped, none failing. The release build for the iPad
+links.
+
+**Not covered.**
+
+- Not seen on the iPad (TODO, B-127's check).
+- A To written as a group, `undisclosed-recipients:;`: the ENVELOPE names
+  no address for a group (`IMAPParser.parseAddresses` passes over its
+  markers), so the row has no To and the tap's header reads "To: me"; the
+  letter's own line when it lands, as before. One line either way.
+- A letter whose To header and ENVELOPE disagree: Gmail builds the
+  ENVELOPE from the header, so none was looked for. The landed letter's
+  line wins.
+- VoiceOver's label of the header names the sender, subject and date, not
+  the To, as before; not needed (TODO, the owner's 2026-10-24 note).

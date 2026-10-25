@@ -221,13 +221,17 @@ enum PaneNotice {
 extension Message {
 
     /// What the reading pane's header can say about a letter before its
-    /// body has come: sender, subject and date, its Cc, and the files it
-    /// carries, all of which the list row already has.
+    /// body has come: sender, subject and date, its To and Cc, and the
+    /// files it carries, all of which the list row already has.
     ///
-    /// No To, so the header reads "To: me" until the letter lands; one line
-    /// either way, so nothing moves when it does. The row has carried its
-    /// To since B-060, for its top line in Sent Mail and Drafts, but the
-    /// header is left as it was: that change was to the list alone.
+    /// The To is the row's, from the ENVELOPE, as the Cc is (B-127), so the
+    /// whole header is there from the tap, as Mail's is. It used to be left
+    /// out, and the header read "To: me" until the letter landed, for a
+    /// letter in Sent Mail to someone else too, and kept it for a letter
+    /// whose body could not be downloaded. A row that does not know its To,
+    /// kept on the iPad by a build before rows carried it, still reads "To:
+    /// me" until the letter lands. One line either way, so nothing moves
+    /// when the letter's own To takes its place.
     /// The Cc is the row's, from the ENVELOPE, so a letter with one has its
     /// Cc line from the tap, where it used to gain it as the letter landed,
     /// and move a conversation's stack down a line under him (B-055). The
@@ -239,7 +243,7 @@ extension Message {
     static func heading(for row: MessageSummary, subject: String? = nil) -> Message {
         Message(id: row.id, mailboxID: row.mailboxID,
                 sender: row.sender, senderAddress: MailFormat.bareAddress(row.sender),
-                to: [], cc: row.cc, subject: subject ?? row.subject, date: row.date,
+                to: row.to ?? [], cc: row.cc, subject: subject ?? row.subject, date: row.date,
                 textBody: nil, htmlBody: nil, attachments: row.attachments)
     }
 }

@@ -326,10 +326,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // beside a selection that had already moved on: a plausible
                 // letter that was not the one he tapped. The header is sized
                 // before the document goes in, as the conversation's is; see
-                // `show(thread:)`, and carries the letter's files, from its
-                // row, so it does not grow when the letter lands. Loading any
-                // document also starts WebKit's content process while the
-                // body is on its way.
+                // `show(thread:)`, and carries the letter's To, Cc and files,
+                // from its row, so it is whole from the tap (B-127) and does
+                // not grow when the letter lands. Loading any document also
+                // starts WebKit's content process while the body is on its
+                // way.
                 header.configure(with: .heading(for: summary))
                 header.onSelectAttachment = nil
                 view.layoutIfNeeded()
