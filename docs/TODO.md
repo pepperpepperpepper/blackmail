@@ -5467,7 +5467,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       photo saved in 1 left in Photos or deleted, as the owner prefers.
 - [ ] **B-123, a half-typed name in search.** On the test iPad, the test
       account as filled for the size test (above), from a build of the
-      `bm-halfname` worktree (branch `fix-halfname`). Read only: nothing
+      `bm-halfname` worktree (branch `fix-halfname`). *Changed 2026-10-25
+      after the first run of this check: up to 30 people, not four
+      (KNOWN_ISSUES B-123, "Changed again"); steps 1, 4 and 10 are to be
+      run again on a build with it.* Read only: nothing
       is composed, sent, moved, deleted or written to the mailbox, so no
       new mail reaches the phone the account is signed in on. Smart
       Punctuation on (Settings > General > Keyboard), as on his. Three
@@ -5479,19 +5482,25 @@ checks below is left as not needed, not open, and none is worth a round.*
       scrolled down two pages, so its senders are in the address book.
       All Mailboxes, the field tapped, "Pe" typed and a pause: as before,
       whatever "Pe" finds as a whole word, likely "No results". "y", so
-      "Pey", and a pause: Peyton Standin's letters, newest first, those
-      from Peyton, to Peyton and copied to Peyton, with the letters of
-      up to three others in the book whose name or address starts "Pey",
-      and never "No results". The log: one UID SEARCH each for the Trash,
-      Spam and All Mail, the word in its five fields and after it FROM,
-      TO and CC of each address, four at most, answered OK.
+      "Pey", and a pause: the letters, newest first, from, to and copied
+      to each person in the book whose name or address starts "Pey", up
+      to 30, and never "No results". Where more than 30 start so, as in
+      the size test's book, the 30 are the first in the book's order:
+      worked out beforehand from a read-only copy of the book in the
+      prefs plist (a name's word before an address's, then most written
+      to, then seen last, then by address), and written down. The log:
+      one UID SEARCH each for the Trash, Spam and All Mail, the word in
+      its five fields, then OR and FROM, TO and CC of each of those
+      addresses in a tree of ORs in parentheses, answered OK.
       2. *Typing on:* "Peyt", "Peyto", "Peyton", each after a pause: the
       same person's letters each time.
       3. *A space:* "Peyton " with a space: the letters with Peyton as a
       whole word, as before, and the log's line has no address in it.
       Then "Pey " with a space: as before, likely "No results".
-      4. *Two words:* a word from the subject of one of Peyton's letters,
-      a space, then "Pey": only Peyton's letters with that word. Then
+      4. *Two words:* a word from the subject of a letter of one of the
+      people asked for in 1, a space, then "Pey": only letters with that
+      word, that letter among them, each from, to or copied to one of
+      those people or with "Pey" as a whole word. Then
       "Pey Sta": "Pey" asked whole, as before, likely "No results", and
       the log asking people for "Sta" alone.
       5. *Nobody:* "Qzx": "No results", and no address in the log's line.

@@ -24356,14 +24356,17 @@ failing. The release build for the iPad links.
 - Seen on the test iPad: not yet (TODO, B-123's check).
 - Mail's own results as he types were not seen: Top Hits and its list of
   matching letters may differ from these, which are every letter of up to
-  four people, newest first, and whole-word hits of the half word.
+  30 people (four until 2026-10-25), newest first, and whole-word hits of
+  the half word.
 - Only people in the book: the last 300 addresses the list's envelopes
   and his sends taught it, the never-chosen oldest going first. About half
   the people he writes to in a month would not be in it at first (B-017's
   open question, a fill from Sent Mail, would put them there). Their
   whole names find them as before.
-- More than four people starting so: the first four in the book's order;
-  the others' letters come as he types on.
+- More than 30 people starting so: the first 30 in the book's order.
+  Typing on narrows them only while the half word is still a start of
+  fewer names; 31 people sharing a whole first name, as the size test's
+  book has 36 Peytons, leave some out until the name is typed whole.
 - Earlier words are whole words: "Marg Ell" finds nothing, where Mail's
   search on the iPad would find Margaret Ellis. Mail's own as-you-type
   path was not read for this.
@@ -24372,8 +24375,8 @@ failing. The release build for the iPad links.
   found by the whole name as before.
 - A search kept among the recent ones is kept cleaned, so "Marg " is kept
   as "Marg" and, tapped, asks for people.
-- The time Gmail takes for up to twelve more terms on his mailbox was not
-  measured.
+- The time Gmail takes on his own mailbox was not measured; on the size
+  test's, the same size, see "Changed again" below.
 - An address with 8-bit text in it, as a literal: built as any word is,
   not tried on Gmail.
 - His second address is his to search only once it is listed in
@@ -24388,6 +24391,39 @@ failing. The release build for the iPad links.
   as before. A list that writes the poster's name alone over the list's
   address is matched by that name, and asks for every letter of the
   list. None such was seen in the sample.
+
+**Changed again, 2026-10-25, after the test iPad.** The round of
+2026-10-25 on int15 (ac1b816), at the size test's mailbox, found four
+people too few. Its book had 36 people whose names start "Pey", all
+unused, so "Pey" asked for the four seen last; "Picture Pey" missed the
+picture letter of Peyton Mock, a fifth, though Mail's search would find
+it. Asked of Gmail from the host, read only, at that mailbox: "Pey" with
+25 people beside it was answered in under half a second, but a row of
+ORs is parsed only so deep. 101 terms in a row (100 ORs) were answered,
+104 were BAD "Could not parse command", while a tree of ORs, each half in
+parentheses, of 905 terms (300 people, 34 KB) was answered in 0.92 s.
+
+So `SearchCriteria.mostPeople` is 30, and the people go in a tree of ORs
+beside the word's five fields (`SearchCriteria.anyField`, `tree`): the
+ORs nest about eight deep, where a row of 30 people's would be 94, close
+to Gmail's limit. The word's own five fields, and a search with nobody
+beside it, are byte for byte as before. Asked of Gmail from the host at
+that mailbox, read only: "Pey" with 30 Peytons, "Picture Pey", and 30 of
+the longest addresses (100 bytes each, a 10 KB line), in All Mail,
+Trash, Spam and the Inbox, each answered OK in 0.04 to 0.19 s. The test
+server now refuses ORs nested past 100, as Gmail does.
+
+Tests: `HalfNameSearchTests`, three new or rewritten: the key's shape
+for one, two and three people written out by hand; at most 30, in their
+order, the line's growth for 30 of the longest exact, the ORs' nesting
+bounded; and over the wire, 32 people starting "Pey": the first 30 asked
+for and their letters found, every SEARCH answered OK, and "Picture
+Pey" finding the tenth's letter. Each part undone by hand and the class
+run: four people again, 2 failures; a row instead of a tree, 4; the
+halves swapped, 4; the test server refusing past 3 ORs, 10. The full
+suite on the branch: 2,421 tests, 6 skipped, none failing; the release
+build for the iPad links. Not yet seen on the iPad (TODO, B-123's check,
+steps 1, 4 and 10 again).
 
 ## B-124 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
 
