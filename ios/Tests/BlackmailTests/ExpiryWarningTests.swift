@@ -566,7 +566,7 @@ final class ExpiryWarningTests: XCTestCase {
         XCTAssertTrue(pane.contains("var isOpeningFile: Bool { filesOpening > 0 }"))
         let open = try part(of: pane, from: "private func openAttachment(",
                             to: "private func prepareInlineImages(")
-        XCTAssertTrue(open.contains("let shown = loads.shown filesOpening += 1 "
+        XCTAssertTrue(open.contains("let shown = loads.shown let tap = fileTaps.tapped() filesOpening += 1 "
                                     + "Task { @MainActor in defer { filesOpening -= 1 "
                                     + "if message?.id == m.id {"), open)
         XCTAssertEqual(open.components(separatedBy: "filesOpening").count - 1, 2, open)
@@ -578,6 +578,7 @@ final class ExpiryWarningTests: XCTestCase {
         XCTAssertEqual(shown, "let data = try await repository.fetchAttachmentData( "
                        + "attachment.id, of: m.id, mailboxID: m.mailboxID) "
                        + "guard loads.stillShows(shown) else { return } "
+                       + "guard fileTaps.opens(tap) else { return } "
                        + "guard presentedViewController == nil else { return } "
                        + "if let shown = previewURL { AttachmentStore.removeStaged(shown) } "
                        + "previewURL = nil "

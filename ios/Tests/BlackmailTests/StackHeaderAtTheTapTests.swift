@@ -157,6 +157,7 @@ final class StackHeaderAtTheTapTests: XCTestCase {
             "guard let row = threadSummaries[id] else { return } let already = loaded[id] "
                 + "let body = document.body(of: id) "
                 + "if focus, stackFocus.opened(id, kept: already != nil && body != nil) == .row { focusRow(row) } "
+                + "if focus { fileTaps.lineOpened() } "
                 + "if let already, let body { drawBody(already, body, focus: focus) return }",
             "loads.start({ try await repository.openLetter(row) }",
         ] {

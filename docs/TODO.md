@@ -1024,6 +1024,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       and its rows can be tapped, only once the first download is over.
       Seen in passing: each time the first letter's file then opened in
       Quick Look over the second letter.*
+      *Since B-141 (2026-10-25), found again in the round of 2026-10-25:
+      the first letter's file no longer opens over the second, nor takes
+      the place of the second letter's own. The file tapped last opens, and
+      a file tapped before another file, or before another letter's line,
+      is let go as it lands, its spinner cleared; the second letter's file
+      keeps its spinner and opens as it comes. B-141's check; the download
+      of the second letter's own as the first ends still cannot be made.*
 - [x] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
       this iPad only" opens at once, with no spinner. Tap a draft: its row
       stays highlighted with a spinner in the left gutter, the text beside
@@ -6294,6 +6301,47 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Nothing saved:* Drafts opened: no draft from these steps; the
       log shows no APPEND.
       7. *Put back:* the host moves the three UIDs it noted, and only them,
+      from "Notes" to the Trash (`UID MOVE`), deletes in the Trash only the
+      UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
+      made it. Never anything found by subject, Message-ID or label.
+      Nothing else was written.
+
+- [ ] **B-141, the last file tapped opens.** On the test iPad, the
+      test account, from a build with the change. Nothing is sent,
+      composed or saved. The letters are the host's, APPENDed read
+      (`\Seen`) to the label "Notes" (made by the host if the account has
+      none, and then deleted at the end), each with a new Message-ID of its
+      own; the host notes each APPEND's UID from its APPENDUID, and stops if
+      one has none. Organize by Thread on; three panes; the connection log
+      read after each step; Quick Look's Done closes each preview.
+      0. *The letters:* a conversation of two, dated two days back. (A)
+      "B-141 files", with two files: a PDF of about 14.7 MB, many pages,
+      made by the host, and "note.txt" of a few hundred bytes, so the
+      letter is over 5 MiB and opened in parts. (B) "Re: B-141 files", an
+      hour later, its In-Reply-To and References naming A, with a PDF of
+      about 100 KB.
+      1. *The round's race:* "Notes", the conversation's row: B open, the
+      header on B. Tap B's line: it closes, the header stays. Tap A's line:
+      A opens, the header on A, its two rows grey, then blue. Tap the large
+      PDF's row: its spinner. Within two seconds tap B's line: B opens, its
+      body already in the stack, the header on B with its file's row blue
+      (B-129). Tap that row at once: its spinner. Wait for the log's
+      FETCHes for both files to end: A's PDF never opens; B's opens in
+      Quick Look over B's header, its spinner gone. Before 2026-10-25 A's
+      opened and B's was let go. Done.
+      2. *Tapped past, nothing more:* tap B's line: it closes. Tap A's line
+      twice, closed and open again: the header on A. Tap the large PDF:
+      its spinner. Within two seconds tap B's line: B opens, the header on
+      B. Tap nothing else. When the log's FETCH for the PDF has ended:
+      nothing opens and nothing is said, for a minute. Then tap B's line,
+      then A's twice, the header on A, and the large PDF again: fetched
+      again (B-097), it opens. Done.
+      3. *Two files of one letter:* the header on A. Tap the large PDF's
+      row, then at once "note.txt"'s: both spinners. The large PDF's FETCH
+      first, then note.txt's: the large PDF never opens; note.txt opens as
+      its FETCH ends. Before 2026-10-25 the PDF opened and note.txt was let
+      go. Done.
+      4. *Put back:* the host moves the two UIDs it noted, and only them,
       from "Notes" to the Trash (`UID MOVE`), deletes in the Trash only the
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.

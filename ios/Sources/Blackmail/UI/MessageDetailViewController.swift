@@ -85,6 +85,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// each counted from the tap until its preview is put up, its failure
     /// said or it is let go (`openAttachment`).
     private var filesOpening = 0
+    /// Which file or picture tapped opens as it lands: the last one tapped,
+    /// while no letter of the conversation has been opened by its line
+    /// since (`FileTaps`, B-141).
+    private var fileTaps = FileTaps()
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -590,6 +594,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         if focus, stackFocus.opened(id, kept: already != nil && body != nil) == .row {
             focusRow(row)
         }
+        // A file tapped in the letter he has left is let go as it lands
+        // (B-141): it would open over this letter's header.
+        if focus { fileTaps.lineOpened() }
         // Opened before, and its body is in its section: put back as it
         // went in, with nothing to build again.
         if let already, let body {
@@ -904,13 +911,22 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// letter he has tapped past, emptied or moved on from meanwhile is
     /// neither shown over the letter he stopped on nor said to have failed,
     /// as a letter's body is not (`PaneLoads.draws`). Its download is not
-    /// called off; it ends, and is let go (B-122).
+    /// called off; it ends, and is let go (B-122). And only if it is the
+    /// last file he tapped, and no letter of the conversation has been
+    /// opened by its line since (`FileTaps`, B-141): one tapped before
+    /// another opened over the letter he had moved to, and the one he
+    /// tapped last, landing under it, was let go without a word. An
+    /// earlier one is let go as it lands, its spinner cleared by the
+    /// `defer`, and the last one keeps its spinner until it opens.
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
         let shown = loads.shown
+        let tap = fileTaps.tapped()
         // Counted at the tap, not once the task runs, so that no check of
-        // the watch comes between (`isOpeningFile`).
+        // the watch comes between (`isOpeningFile`). A file let go for a
+        // later one is still counted until its download ends: the warning
+        // waits for it as for the one that opens.
         filesOpening += 1
 
         Task { @MainActor in
@@ -928,6 +944,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                     attachment.id, of: m.id, mailboxID: m.mailboxID)
                 // The pane has moved on since the tap: nothing is shown.
                 guard loads.stillShows(shown) else { return }
+                // Another file tapped since, or another letter opened by
+                // its line: that is what he wants now (B-141).
+                guard fileTaps.opens(tap) else { return }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -953,8 +972,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 preview.modalPresentationStyle = .fullScreen
                 present(preview, animated: true)
             } catch {
-                // Nor is a failure said over another letter.
-                guard loads.stillShows(shown) else { return }
+                // Nor is a failure said over another letter, or for a file
+                // he has tapped past.
+                guard loads.stillShows(shown), fileTaps.opens(tap) else { return }
                 ErrorPresenter.show(.attachmentFailed, on: self)
             }
         }
