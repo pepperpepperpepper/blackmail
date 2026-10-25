@@ -205,10 +205,15 @@ final class ComposeViewController: UIViewController,
     /// `key` is the letter's on the iPad when it was reopened from there;
     /// any other letter is given a new one. `replyFiles` is a Reply's or a
     /// Reply All's, nil for every other letter.
+    ///
+    /// The letter's body is bounded here, whoever opened the sheet on it
+    /// (`ComposeForm.bounded`, B-140): the text view it goes into is as
+    /// tall as its words and drawn whole as the sheet comes up, and given
+    /// about 1.7 MB of a letter the sheet never came.
     init(repository: MailRepository, draft: Draft, key: String? = nil,
          replyFiles: ReplyFiles? = nil) {
         self.repository = repository
-        self.draft = draft
+        self.draft = ComposeForm.bounded(draft)
         self.replyFiles = replyFiles
         self.key = key ?? UUID().uuidString.lowercased()
         self.kept = .shared

@@ -1870,6 +1870,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       the photographs shown in the body, the next letter tapped while
       they come, and the HTML over 2 MB with its Reply, Forward and
       draft, which need letters from another account and wait on a yes.*
+      *Since B-140 (2026-10-25): the round of 2026-10-25 made such a letter
+      on the host, HTML over 2 MB and nearly all words, and its Reply froze
+      the app. A quote now holds at most 64 KiB of the original's words,
+      ended with the same line, and the letter received quotes them as
+      words, not the original's markup, the grey line after them, once.
+      B-140's check sees that letter's Reply and Forward in the composer,
+      sending nothing; what is left here is the letter received, in Mail
+      and on Gmail's web page, and the draft saved, reopened and sent,
+      which send.*
 - [ ] **B-057, a safe start, and the Outbox giving up after three tries.**
       Seen 2026-10-01 (B-057): steps 1 and 2's first launches, the fifth
       with Bring Back, the leftover, and three tries after a DATA that may
@@ -6241,6 +6250,54 @@ checks below is left as not needed, not open, and none is worth a round.*
       ProductVersion)" "$(ideviceinfo -k BuildVersion)"`: "in" for the
       test iPad's 16.5.1. Then `ios_below "$(ideviceinfo -k
       ProductVersion)" 16.0; echo $?`: 1, not older than the app needs.
+
+- [ ] **B-140, a Reply to a letter that fills its 2 MB.** On the test
+      iPad, the test account, from a build with the change. Nothing is
+      sent and nothing is saved: each composer has "x" typed in it, then
+      Cancel, then Delete Draft. The letters are the host's, APPENDed read
+      (`\Seen`) to the label "Notes" (made by the host if the account has
+      none, and then deleted at the end), dated two days back, each with a
+      new Message-ID of its own; the host notes each APPEND's UID from its
+      APPENDUID, and stops if one has none. Three panes; the connection log
+      read after each step; frames or a screen recording for the times.
+      0. *The letters:* (a) "B-140 long", HTML alone, 28,000 paragraphs,
+      each `<p>Paragraph 00001 of the long letter, words and more words to
+      fill it.</p>` and a line break, numbered from 00001, about 2.1 MB, so
+      the pane fetches its first 2 MiB; (b) "B-140 long plain", text/plain
+      alone, 9,000 such lines numbered from 00001, about 620 KB, fetched
+      whole; (c) "B-140 short", a small HTML letter of three paragraphs
+      with a link and a bold word.
+      1. *Shown in part:* "Notes", then (a): the grey "Only the beginning of
+      this message is shown." above its paragraphs, and the app answering
+      touches.
+      2. *Reply:* Reply, then Reply in its sheet. The sheet up within two
+      seconds of the tap, the time written down, the caret above the
+      signature, the keyboard up with it; the sheet scrolls under a finger.
+      Before 2026-10-25 the sheet never came and the app took no touch.
+      Flick the sheet to its end: the last three lines "> Paragraph 00885
+      of the long letter, words and more words to fill it.", "> " and "> Only
+      the beginning of this message is shown.", the line nowhere else. If
+      the number is not 00885, write it down. Type "x" at the top; Cancel,
+      Delete Draft.
+      3. *Reply All and Forward:* Reply All the same, the same end; Cancel
+      as in 2. Then Forward: the sheet in To, up within two seconds; at the
+      end "Paragraph 00936 of the long letter, …", a blank line, and "Only
+      the beginning of this message is shown.", no "> ". "x" typed in the
+      body, Cancel, Delete Draft.
+      4. *A plain letter:* (b), Reply: the sheet up within two seconds, the
+      quote ending with the whole line "> Paragraph 00923 of the long
+      letter, words and more words to fill it.", then "> " and "> Only the
+      beginning of this message is shown."; another number written down.
+      Cancel as in 2.
+      5. *Ordinary mail:* (c), Reply: its three paragraphs quoted whole, no
+      "Only the beginning" line. Cancel as in 2.
+      6. *Nothing saved:* Drafts opened: no draft from these steps; the
+      log shows no APPEND.
+      7. *Put back:* the host moves the three UIDs it noted, and only them,
+      from "Notes" to the Trash (`UID MOVE`), deletes in the Trash only the
+      UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
+      made it. Never anything found by subject, Message-ID or label.
+      Nothing else was written.
 
 ## Blocked on the owner
 

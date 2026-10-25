@@ -90,15 +90,103 @@ struct QuotedOriginal {
     /// every line of the original.
     static let shortenedEnding = "\n\n" + MailText.shortenedNotice
 
+    /// The most of an original's words a quote puts into the composer: 64
+    /// KiB of UTF-8, counted as the composer is given them, each line with
+    /// its "> " in a reply (`Message.quoted`, B-140). About 11,000 words
+    /// of English, thirty pages and more.
+    ///
+    /// The composer's body is a text view as tall as its words, laid out
+    /// and drawn whole as the sheet comes up. A Reply to a letter whose 2
+    /// MB HTML part was nearly all words put about 1.7 MB of them there,
+    /// and the sheet never came: the keyboard rose with nothing over the
+    /// pane and the app took no touch until it was ended. The bound is
+    /// ours, for that view; Mail's composer is a web view. As the original's
+    /// markup has its ceiling (`AppleMailHTML.largestQuotedMarkup`), its
+    /// words have this one.
+    static let largestWords = 64 << 10
+
     /// What a Reply, Reply All or Forward of `m` quotes, given the region
-    /// it has just put into the body.
-    init(quoting m: Message, as kind: Kind, region: String) {
+    /// it has just put into the body. `cut` when that region holds only
+    /// the words that fit in `largestWords` (`Message.quoted`, B-140): the
+    /// quote is then shortened, as a letter shown only in part is, and the
+    /// HTML twin quotes the words he was given, not the original's markup.
+    /// The markup has every word of the letter, or of the 2 MB fetched of
+    /// it, and under the grey "Only the beginning of this message is
+    /// shown." it would say what is not so, and send far more than the
+    /// composer showed him.
+    init(quoting m: Message, as kind: Kind, region: String, cut: Bool = false) {
         self.kind = kind
         self.region = region
-        let markup = m.htmlBody.flatMap { $0.isEmpty ? nil : $0 }
+        let markup = cut ? nil : m.htmlBody.flatMap { $0.isEmpty ? nil : $0 }
         html = markup
         pictures = markup == nil ? [] : Self.pictures(of: m)
-        isShortened = m.isShortened
+        isShortened = m.isShortened || cut
+    }
+
+    /// `text` cut to the whole lines of it that fit in `limit` bytes of
+    /// UTF-8, each line counted with `prefix` bytes more, the "> " a reply
+    /// gives every line of its quote, and any white space left at the end
+    /// of what is kept taken off; nil when all of it fits and nothing was
+    /// left out before it (B-140).
+    ///
+    /// Cut at the end of the last line that fits, so no line is broken,
+    /// unless that comes to less than half the limit: a paragraph longer
+    /// than that is cut at its last space that fits, or failing one at its
+    /// last whole character, rather than leaving the quote nearly empty.
+    ///
+    /// `more` when `text` is itself only the beginning of the words, cut
+    /// wherever its maker stopped (`HTMLText.plainText(from:limit:)`): its
+    /// last line is not whole, and is cut as one that does not fit, even
+    /// when all of it fits.
+    ///
+    /// Walks no further into `text` than `limit` bytes, so a text of
+    /// megabytes costs no more than one of the limit.
+    static func cut(_ text: String, within limit: Int, prefix: Int = 0,
+                    more: Bool = false) -> String? {
+        let utf8 = text.utf8
+        var used = prefix
+        var i = utf8.startIndex
+        // The last line end within the limit, and how much was used by it;
+        // the last space after it, on the line it is cutting.
+        var lineEnd: String.Index?
+        var lineEndUsed = 0
+        var space: String.Index?
+        while i < utf8.endIndex {
+            let byte = utf8[i]
+            // A line end brings the next line's prefix with it.
+            let cost = byte == 0x0A ? 1 + prefix : 1
+            guard used + cost <= limit else { break }
+            used += cost
+            if byte == 0x0A {
+                lineEnd = i
+                lineEndUsed = used
+                space = nil
+            } else if byte == 0x20 {
+                space = i
+            }
+            i = utf8.index(after: i)
+        }
+        guard i < utf8.endIndex || more else { return nil }
+        let end: String.Index
+        if let lineEnd, lineEndUsed >= limit / 2 || space == nil {
+            end = lineEnd
+        } else if let space {
+            end = space
+        } else if i == utf8.endIndex {
+            // All of it fits, one line of it, more to come: as it is.
+            end = i
+        } else {
+            // Back to the start of the character the limit fell in, so that
+            // none is broken.
+            var j = i
+            while j > utf8.startIndex, utf8[j] & 0xC0 == 0x80 { j = utf8.index(before: j) }
+            end = j
+        }
+        var kept = Substring(text.utf8[..<end])
+        while let last = kept.unicodeScalars.last, last.properties.isWhitespace {
+            kept.unicodeScalars.removeLast()
+        }
+        return String(kept)
     }
 
     init(kind: Kind, region: String, html: String?, pictures: [Picture],

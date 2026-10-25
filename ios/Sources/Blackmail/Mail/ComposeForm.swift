@@ -230,4 +230,58 @@ enum ComposeForm {
     static func readiesOnAppearing(done: Bool, covered: Bool, inAField: Bool) -> Bool {
         !done && !covered && !inAField
     }
+
+    // MARK: - How much of a letter the composer is given
+
+    /// The most of any letter the app's composer is given: 128 KiB of
+    /// UTF-8, about sixty pages, as much as Print prints of a plain letter
+    /// (`PrintPage.textLimit`). Twice a quote's own ceiling
+    /// (`QuotedOriginal.largestWords`), so a reply or a forward made here,
+    /// his words and signature above its quote, comes under it whole.
+    ///
+    /// The composer's body is a text view as tall as its words, laid out
+    /// and drawn whole as the sheet comes up; given about 1.7 MB of a
+    /// letter's words, the sheet never came and the app took no touch for
+    /// ten minutes (B-140). A reply or a forward bounds its quote as it is
+    /// made. This is for every other letter the composer opens on: a draft
+    /// reopened from Drafts, one written in another client or saved by a
+    /// build before the bound, a letter kept on the iPad or waiting in the
+    /// Outbox, a `mailto:` link's body.
+    static let largestBody = 128 << 10
+
+    /// `draft` as the composer opens on it: its body bounded
+    /// (`bounded(body:)`), all else as it is. A quote it carries no longer
+    /// ends the body once the body is cut, so the letter's HTML is made
+    /// from the words he sees (`QuotedOriginal.isIntact`).
+    static func bounded(_ draft: Draft) -> Draft {
+        var bounded = draft
+        bounded.body = Self.bounded(body: draft.body)
+        return bounded
+    }
+
+    /// `body` whole when it fits in `largestBody`; else the whole lines of
+    /// it that fit (`QuotedOriginal.cut`), and under them a blank line and
+    /// "Only the beginning of this message is shown."
+    /// (`QuotedOriginal.shortenedEnding`), both after "> " when the last
+    /// line kept is a quote's, as a reply's quote of a letter shown in part
+    /// ends. `more` when `body` is itself only the beginning of the
+    /// letter's words (`Message.quotableText(within:)`): it is cut and
+    /// ended so even when it fits.
+    ///
+    /// What is cut off is not kept anywhere for him. Sent, or saved over
+    /// the draft, the letter is what the composer showed, as with any
+    /// change he makes; closed untouched, nothing is saved, and the copy in
+    /// Drafts keeps all of it. A body cut here is nearly always a quote's
+    /// end: his own words would have to run to sixty pages first.
+    static func bounded(body: String, more: Bool = false) -> String {
+        guard more || body.utf8.count > largestBody else { return body }
+        let ending = QuotedOriginal.shortenedEnding
+        // Room for the ending, and for the two "> " it can be given.
+        let room = largestBody - ending.utf8.count - 4
+        let kept = QuotedOriginal.cut(body, within: room, more: more) ?? body
+        let bytes = kept.utf8
+        let lastLine = bytes.lastIndex(of: 0x0A).map { bytes.index(after: $0) } ?? bytes.startIndex
+        let quoted = bytes[lastLine...].first == UInt8(ascii: ">")
+        return kept + (quoted ? ending.replacingOccurrences(of: "\n", with: "\n> ") : ending)
+    }
 }

@@ -3073,7 +3073,11 @@ actor IMAPMailRepository: MailRepository {
     ///
     /// Fetched whole, however large: it is his own letter, only a draft of
     /// his is opened here, and he may change it and save or send it again,
-    /// which a text cut short would send cut short.
+    /// which a text cut short would send cut short. The composer is given
+    /// no more than `ComposeForm.largestBody` of it all the same, ended by
+    /// a line that says so (B-140): more froze the app as the sheet came
+    /// up. What a draft that long loses there is nearly always the end of
+    /// a quote.
     func loadDraft(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Draft {
         let message = try await retryingIfDisconnected {
             try await self.loadMessageOnce(id: id, letter: gmailMessageID, mailboxID: mailboxID,

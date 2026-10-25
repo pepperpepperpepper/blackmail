@@ -259,27 +259,53 @@ extension Message {
     /// empty message while the same mail rendered perfectly in the pane
     /// behind the compose sheet. HTML-only is not an edge case; it is most
     /// transactional mail.
-    var quotableText: String {
+    var quotableText: String { quotableText(within: nil).text }
+
+    /// `quotableText`, an HTML letter's made from no more of its markup
+    /// than it takes to have `limit` characters of words
+    /// (`HTMLText.plainText(from:limit:)`, B-140), and whether more was
+    /// left unread, when the text ends wherever the words passed `limit`.
+    /// A text part is taken as it is, whatever its size. Nil reads it all.
+    func quotableText(within limit: Int?) -> (text: String, isCut: Bool) {
         if let textBody, !textBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return textBody
+            return (textBody, false)
         }
-        if let htmlBody { return HTMLText.plainText(from: htmlBody) }
-        return ""
+        guard let htmlBody else { return ("", false) }
+        guard let limit else { return (HTMLText.plainText(from: htmlBody), false) }
+        let made = HTMLText.plainText(from: htmlBody, limit: limit)
+        return (made.text, made.isCut)
     }
 
-    /// What a reply or a forward quotes: `quotableText`, and under it, for
-    /// a letter shown only in part (`isShortened`), a blank line and the
-    /// line the pane shows above it (`QuotedOriginal.shortenedEnding`).
-    /// Whoever the quote goes to would otherwise take the beginning of the
-    /// letter for the whole of it, and a forward would pass it on as such.
-    /// Nothing more of the letter is fetched for it.
+    /// What a reply or a forward quotes, as the composer is given it: the
+    /// lines of `quotableText` that fit in `QuotedOriginal.largestWords`,
+    /// each after `prefix`, "> " for a reply; and under them, for a letter
+    /// shown only in part (`isShortened`) or one whose words did not all
+    /// fit (`isCut`), a blank line and the line the pane shows above a
+    /// letter shown in part (`QuotedOriginal.shortenedEnding`), each after
+    /// the prefix too. Whoever the quote goes to would otherwise take the
+    /// beginning of the letter for the whole of it, and a forward would
+    /// pass it on as such. Nothing more of the letter is fetched for it.
     ///
     /// At the end of the quote rather than above it, where the pane has it:
     /// these are words, not the sender's markup cut wherever the fetch
     /// stopped, and the line closes the quote as the letter's own last line
     /// would. The HTML twin draws it grey (`AppleMailHTML.letter`).
-    var quotedWords: String {
-        isShortened ? quotableText + QuotedOriginal.shortenedEnding : quotableText
+    ///
+    /// Bounded since B-140. A Reply to a letter whose 2 MB HTML part was
+    /// nearly all words put about 1.7 MB of them into the composer, whose
+    /// body is a text view as tall as its words: the sheet never came, and
+    /// the app took no touch for ten minutes until it was ended. No more
+    /// of the markup is read than the words that fit need.
+    func quoted(eachLineAfter prefix: String = "") -> (text: String, isShortened: Bool, isCut: Bool) {
+        let limit = QuotedOriginal.largestWords
+        let made = quotableText(within: limit)
+        let cut = QuotedOriginal.cut(made.text, within: limit, prefix: prefix.utf8.count,
+                                     more: made.isCut)
+        let shortened = isShortened || cut != nil
+        let words = (cut ?? made.text) + (shortened ? QuotedOriginal.shortenedEnding : "")
+        let text = prefix.isEmpty
+            ? words : prefix + words.replacingOccurrences(of: "\n", with: "\n" + prefix)
+        return (text, shortened, cut != nil)
     }
 }
 
@@ -510,11 +536,10 @@ extension Draft {
         // Signature ABOVE the quoted text, which is where Mail puts it and
         // where a reader looks for it. Below the quote it is buried under
         // however much of the original he kept.
-        let region = MailFormat.quoteAttribution(m.date, sender: m.sender)
-            + "\n> "
-            + m.quotedWords.replacingOccurrences(of: "\n", with: "\n> ")
+        let quoted = m.quoted(eachLineAfter: "> ")
+        let region = MailFormat.quoteAttribution(m.date, sender: m.sender) + "\n" + quoted.text
         draft.body = signatureBlock(signature) + "\n\n" + region
-        draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region)
+        draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region, cut: quoted.isCut)
 
         // No attachments here. Quoting somebody's text back is normal;
         // posting their files back to them is not, and doing it with every
@@ -553,9 +578,10 @@ extension Draft {
         if !m.cc.isEmpty {
             region += "Cc: \(m.cc.map(MailFormat.addressForQuoting).joined(separator: ", "))\n"
         }
-        region += "Subject: \(m.subject)\n\n" + m.quotedWords
+        let quoted = m.quoted()
+        region += "Subject: \(m.subject)\n\n" + quoted.text
         draft.body = signatureBlock(signature) + "\n\n" + region
-        draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region)
+        draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region, cut: quoted.isCut)
         // The files come too. Forwarding a receipt and leaving its two PDFs
         // behind sends a letter about nothing, and does it silently — which
         // is the part that matters, because nothing on the sending screen
@@ -626,8 +652,17 @@ extension Draft {
                           signatureImages: [SignatureImages.InlineImage]) -> Draft {
         // `quotableText` rather than `textBody`, so a draft written in
         // another client as HTML reopens with its words in it instead of
-        // empty.
-        let body = m.textBody ?? m.quotableText
+        // empty. Made from no more of its markup than the composer is
+        // given (`ComposeForm.largestBody`, B-140), and ended with the line
+        // that says so when there was more. A text part comes whole, and
+        // the composer bounds it as it opens (`ComposeForm.bounded`).
+        let body: String
+        if let text = m.textBody {
+            body = text
+        } else {
+            let made = m.quotableText(within: ComposeForm.largestBody)
+            body = made.isCut ? ComposeForm.bounded(body: made.text, more: true) : made.text
+        }
         let amongHisWords = m.htmlBody.map(AppleMailHTML.contentIDsAmongHisWords) ?? []
         // Each recipient as the composer's field keeps it, so that a name
         // whose comma came out of an encoded word, `Example, Jane

@@ -52,23 +52,66 @@ enum HTMLText {
     /// at all, which is honest and no worse than the blank we would otherwise
     /// have shown.
     static func plainText(from html: String) -> String {
-        tidyLines(decodingEntities(scan(html)))
+        tidyLines(decodingEntities(scan(Array(html), limit: nil).out))
+    }
+
+    /// `plainText(from:)` made from no more of `html` than it takes to
+    /// have `limit` characters of words, white space not counted (B-140).
+    ///
+    /// A reply or a forward makes its quote at the tap, on the main thread,
+    /// and keeps no more than `QuotedOriginal.largestWords` of it. Made
+    /// whole, a letter whose HTML part fills its 2 MB was walked to its end
+    /// first, about two million characters, for words that were then
+    /// thrown away. So the markup is read in pieces from its start, four
+    /// times as many characters as `limit` first and four times as many
+    /// again while that was not enough, and the walk stops as the words
+    /// pass `limit`.
+    ///
+    /// `isCut` is true when it stopped there, with more of the markup
+    /// unread: the text then ends wherever the words passed `limit`,
+    /// mid-line as often as not. `read` is how many characters of `html`
+    /// the last walk was given, for a test.
+    static func plainText(from html: String, limit: Int) -> (text: String, isCut: Bool, read: Int) {
+        var take = max(limit, 1) * 4
+        while true {
+            let end = html.index(html.startIndex, offsetBy: take, limitedBy: html.endIndex)
+                ?? html.endIndex
+            let chars = Array(html[..<end])
+            let made = scan(chars, limit: limit)
+            // Enough words, or the whole of it read: either way, done. A
+            // piece that ended inside a tag or a comment stops the walk
+            // there, as the end of a fetch does, which is why a piece that
+            // was not enough is not used and a longer one is read instead.
+            if made.stopped || end == html.endIndex {
+                return (tidyLines(decodingEntities(made.out)), made.stopped, chars.count)
+            }
+            take *= 4
+        }
     }
 
     // MARK: - The scan
 
-    private static func scan(_ html: String) -> String {
-        let chars = Array(html)
+    /// The text of `chars`, its markup taken out. With a `limit`, it stops
+    /// once the characters of words in it, white space not counted, are
+    /// more than `limit`, and says so (`stopped`).
+    private static func scan(_ chars: [Character], limit: Int?) -> (out: String, stopped: Bool) {
         let commentOpen = Array("<!--")
         let commentClose = Array("-->")
 
         var out = ""
         var skipping: String?
         var i = 0
+        var words = 0
 
         while i < chars.count {
             guard chars[i] == "<" else {
-                if skipping == nil { out.append(chars[i]) }
+                if skipping == nil {
+                    out.append(chars[i])
+                    if let limit, !chars[i].isWhitespace {
+                        words += 1
+                        if words > limit { return (out, true) }
+                    }
+                }
                 i += 1
                 continue
             }
@@ -104,7 +147,7 @@ enum HTMLText {
             }
             i = close + 1
         }
-        return out
+        return (out, false)
     }
 
     // MARK: - Entities

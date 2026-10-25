@@ -451,7 +451,8 @@ final class ReplyFilesWiringTests: XCTestCase {
         for line in [
             "private var replyFiles: ReplyFiles?",
             "init(repository: MailRepository, draft: Draft, key: String? = nil, "
-                + "replyFiles: ReplyFiles? = nil) { self.repository = repository self.draft = draft "
+                + "replyFiles: ReplyFiles? = nil) { self.repository = repository "
+                + "self.draft = ComposeForm.bounded(draft) "
                 + "self.replyFiles = replyFiles",
             "field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)",
             "field.addTarget(self, action: #selector(addressEditingChanged(_:)), for: .editingChanged)",
