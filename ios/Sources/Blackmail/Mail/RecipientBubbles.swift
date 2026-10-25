@@ -19,8 +19,8 @@ import CoreGraphics
 /// ";", Return or by leaving the field, becomes a bubble; backspace with
 /// nothing typed picks out the last bubble, and a second takes it off; a
 /// bubble tapped is picked out, and shows its address; and a bubble picked
-/// out is Mail's selection, so what he types goes in its place and a
-/// backspace takes it off (B-134).
+/// out is Mail's selection, so what he types goes in its place, a
+/// backspace takes it off, and a tap on the line puts it back (B-134).
 struct RecipientBubbles: Equatable {
 
     /// One per bubble, each as the field keeps it.
@@ -135,18 +135,31 @@ struct RecipientBubbles: Equatable {
     /// taken off and the letters stand there (iOS 18.6's MessageUI,
     /// `-[MFComposeRecipientTextView selectComposeRecipientAtom:]` and its
     /// `textView:shouldChangeTextInRange:replacementText:`). So a letter, a
-    /// digit, a mark or anything pasted does. A comma or a ";" does not: in
-    /// Mail it ends what he typed and leaves the recipient (here a ";" as a
-    /// comma, B-081). Nor does a space alone, which the line drops at its
-    /// start, nor a letter taken out.
+    /// digit, a mark or anything pasted does, and a space after letters on
+    /// the line. A comma or a ";" does not: in Mail it ends what he typed
+    /// and leaves the recipient (here a ";" as a comma, B-081). Nor does a
+    /// space with nothing but spaces before it, which the line drops, nor a
+    /// letter taken out.
+    ///
+    /// What he put in is told from what the line read before, `typed`, as
+    /// what lies between the part they start with and the part they end
+    /// with (`unchanged`), so a comma typed in the middle of the line is
+    /// a comma, as one typed at its end. Read as everything after `typed`,
+    /// a comma or a space anywhere but at the end counted as the whole
+    /// line, and took the bubble.
     ///
     /// Mail puts the letters where the recipient was; here they go on the
     /// line after the bubbles, where he always types.
     func typingTakesThePicked(_ now: String) -> Bool {
-        guard let i = selected, entries.indices.contains(i),
-              now != typed, now.count >= typed.count else { return false }
-        let added = now.hasPrefix(typed) ? now.dropFirst(typed.count) : Substring(now)
-        return added.contains { !($0 == "," || $0 == ";" || $0.isWhitespace) }
+        guard let i = selected, entries.indices.contains(i), now != typed else { return false }
+        let line = now.map(String.init)
+        let (head, tail) = Self.unchanged(from: typed.map(String.init), to: line)
+        let added = line[head ..< line.count - tail].joined()
+        if added.contains(where: { !($0 == "," || $0 == ";" || $0.isWhitespace) }) { return true }
+        // Only spaces: the bubble's place is theirs where the line keeps
+        // them, after letters. The line drops them at its start.
+        return !added.isEmpty && added.allSatisfy(\.isWhitespace)
+            && line[..<head].joined().contains { !$0.isWhitespace }
     }
 
     /// Whether a backspace is the bubbles' rather than a letter's on the
@@ -212,6 +225,21 @@ struct RecipientBubbles: Equatable {
     /// A bubble tapped is picked out; nil puts it back.
     mutating func select(_ index: Int?) {
         selected = index.flatMap { entries.indices.contains($0) ? $0 : nil }
+    }
+
+    /// He has tapped the line he types on, or beside the bubbles, with no
+    /// bubble's menu up: the bubble a backspace picked out is put back, as
+    /// a tap that puts Mail's caret on its line ends the selection that
+    /// was its recipient (B-134). Then a letter typed goes after the
+    /// bubbles and takes nothing's place. True when a bubble was put back.
+    ///
+    /// Before, the bubble stayed picked out, and since letters over a bubble
+    /// picked out take its place (`typingTakesThePicked`), the next letter
+    /// took it off, with nothing to bring it back.
+    mutating func lineTapped() -> Bool {
+        guard selected != nil else { return false }
+        selected = nil
+        return true
     }
 
     /// The bubble's Remove.

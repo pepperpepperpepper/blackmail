@@ -467,8 +467,8 @@ extension Draft {
 
     /// Whether the composer opens with its Cc and Bcc rows showing: when
     /// the letter arrives with anyone in either. Those rows are otherwise
-    /// behind the Cc/Bcc toggle, and an address in a hidden row still gets
-    /// the letter.
+    /// folded into the "Cc/Bcc" row, and an address in a hidden row still
+    /// gets the letter.
     var showsCcAndBcc: Bool {
         (cc + bcc).contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }

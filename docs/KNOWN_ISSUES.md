@@ -11372,7 +11372,9 @@ had been, and the bubble lost its tint. Now the bubbles before the first
 change and after the last keep their buttons (`RecipientBubbles.
 unchanged`), the bubble a menu is up for stays picked out whatever he
 types or ends under it, and a backspace that takes it off takes its menu
-too. Send, the letter and the suggestions read the field written out as
+too. *Since B-134 a letter typed under the menu, or a space after
+letters, takes the bubble's place and the menu goes; a comma, a ";",
+Return or leaving the field still leave it picked out.* Send, the letter and the suggestions read the field written out as
 text and split it again at its commas: one bubble with a quote never
 closed in it, `"Sam`, split every other bubble at its commas, so two
 bubbles went as three recipients, the first `"Example`. Now they read a
@@ -25006,8 +25008,13 @@ says only "tap the Cc/Bcc field, then … tap the Cc field"
   row's alpha is 0 and Cc, Bcc and From are laid out in its place
   (`_layoutSubviews:changingView:toSize:searchResultsWereDismissed:`). Each
   time a field takes the caret (`viewDidBecomeFirstResponder:`), they stay
-  shown while the caret is in Cc or Bcc or either holds someone, and fold
+  shown while the caret is in Cc or Bcc or Cc holds someone, and fold
   back into the row otherwise (`_updateOptionalHeaderVisibilityForceVisible:`).
+  Someone in Bcc keeps them shown only once the Bcc differs from the one
+  the letter opened with (`-[MFMailComposeController bccAddressesDirtied]`,
+  which compares it with `_originalBccAddresses`, as Always Bcc Myself or
+  a draft opened again fills it): a Bcc unchanged since the letter opened
+  is folded out of sight. The app does not copy that (change 4).
   A guide to Mail on the iPad says the same of the row: "That line expands
   into separate Cc, Bcc, and From" (Take Control of Mail on the iPad,
   iPhone, and iPod touch, 4th edition).
@@ -25041,8 +25048,14 @@ people in them or not.
    the line, where he always types; Mail puts them where the recipient
    was. The menu goes with the bubble (`RecipientField.changed`,
    `closeMenu`), and the list comes up for the letters with nothing over
-   it; the person taken off is offered again. A comma or a ";", a space
-   alone, and a letter taken out leave the bubble.
+   it; the person taken off is offered again. A space after letters on
+   the line takes it too, as Mail lets any text but Return, Tab and a
+   comma take its picked recipient's place. A comma or a ";", at the end
+   of the line or in its middle, a space with nothing but spaces before
+   it, which the line drops, and a letter taken out leave the bubble.
+   What he put in is what lies between the part the line starts with and
+   the part it ends with, before and after (`RecipientBubbles.unchanged`),
+   so a comma in the middle of the line is a comma.
 2. *A backspace over a bubble picked out* (`backspaceIsTheBubbles`, new;
    `TypingLine` asks the field at every backspace). It takes that bubble
    off, letters on the line or not, as Mail deletes its selected
@@ -25060,14 +25073,33 @@ people in them or not.
    `caretWentInto` in both sheets). "Cc/Bcc" opens Cc and Bcc with the
    caret in Cc, and the row is hidden while they show. As the caret goes
    into To, Subject or the body with nobody in Cc or Bcc, they fold back
-   into the row; with someone in either they stay. A letter that opens
-   with a Cc or a Bcc opens with them shown, as before, and without the
-   row. There is no From row: the app sends from the one account.
+   into the row; with someone in either they stay. Mail folds them over a
+   Bcc unchanged since the letter opened; here anyone in Bcc keeps them in
+   sight, on purpose, as the composer always has: a Bcc he cannot see is
+   a copy going somewhere he never agreed to. A letter that opens with a
+   Cc or a Bcc opens with them shown, as before, and without the row.
+   There is no From row: the app sends from the one account.
 5. *The share sheet's colours* (`ShareViewController`). Its navigation
    controller's view and bar keep their tint (`tintAdjustmentMode
    .normal`): Cancel, Send and "Cc/Bcc" stay in their colours while a
    bubble's menu or Cancel's question is up, as in the app's composer.
    Send's grey while nobody is in To, Cc or Bcc is its own, and stays.
+6. *No list while a bubble is picked out* (`ComposeForm.suggestions`).
+   With a bubble picked out, which with letters on the line is a bubble
+   whose menu is up, the list offers nothing, whatever the line holds, as
+   Mail's field has no list while its selection is a recipient. So
+   whatever leaves the bubble under its menu, a comma in the middle of
+   the line or a letter taken back, the list never opens under the menu.
+7. *A tap on the line* (`RecipientBubbles.lineTapped`, new;
+   `RecipientField.lineTapped`, a tap recognizer on the line, and
+   `tappedBeside`). With no menu up, a tap on the line he types on, or
+   beside the bubbles, puts back the bubble a backspace picked out, as a
+   tap that puts Mail's caret on its line ends the selection that was its
+   recipient; the next letter goes after the bubbles. The recognizer is
+   seen beside the line's own taps (`cancelsTouchesInView` false,
+   recognized with them), so the caret still goes where he taps. With a
+   menu up a tap there is a tap outside the menu, whose Cancel puts the
+   bubble back, as before.
 
 **Not changed.** Return makes a bubble of the letters and picks nothing,
 as Mail's on-screen Return. One tap shows the menu, its address and
@@ -25077,11 +25109,13 @@ What the list offers while he types (B-069, B-073). The app's composer's
 colours. No new words.
 
 **What he sees.** A bubble tapped: its menu, and no list under it. A
-letter typed then: the bubble and its menu gone, the letter on the line
-and the list under the field, every row in sight. Delete with the menu up:
-the bubble gone, any letters left. "Cc/Bcc": Cc and Bcc, the caret in Cc,
-no "Cc/Bcc" row under Bcc; back to the one row when he moves on with
-nobody in them. In the share sheet, Cancel and Send blue under a menu.
+letter typed then, or a space after letters: the bubble and its menu
+gone, the letters on the line and the list under the field, every row in
+sight. Delete with the menu up: the bubble gone, any letters left. Delete
+with nothing typed, then a tap on the line: the bubble plain again, and a
+letter goes after it. "Cc/Bcc": Cc and Bcc, the caret in Cc, no
+"Cc/Bcc" row under Bcc; back to the one row when he moves on with nobody
+in them. In the share sheet, Cancel and Send blue under a menu.
 
 **Tests.** `BubbleMenuTypingTests`, nine, new: a letter over a bubble
 picked out by a tap or a backspace takes its place, first or last, with
@@ -25121,6 +25155,60 @@ parts.
 The full suite, serially: 2,484 tests, 9 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
+**Reviewed 2026-10-25, and fixed.** A review of the change above found
+five things and four small ones, each fixed in the text above, which
+says how it is now. A bubble a backspace picked out stayed picked out
+when he tapped back onto the line, and since letters take a picked-out
+bubble's place, the next letter took it off: To with "Al" and "Bo",
+Delete, a tap on the line, "c", and "Bo" was gone with no way back. In
+Mail that tap moves the caret and ends the selection. Now a tap on the
+line, or beside the bubbles, with no menu up puts it back (change 7).
+With "sa" typed and a bubble's menu up, a space left the bubble, its
+menu was kept up, and the list for "sa" opened under it, the fault this
+entry was for. Now a space after letters takes the bubble's place, as
+in Mail (change 1), and with a bubble picked out the list offers nothing
+(change 6). What he put in was read as everything after what the line
+read before, so a comma in the middle of the line, or a space at its
+start, took the bubble; now it is what lies between the part both start
+with and the part both end with. This entry and `ComposeForm.
+showsCcAndBcc` gave Mail's rule as Cc and Bcc staying open while either
+holds someone; Mail's code counts a Bcc only once it differs from the
+one the letter opened with, and the app's keeping any Bcc in sight is
+its own, as the entry, the comment and its test now say. Two wrong
+builds of the sheets' folding passed every test: the share sheet's
+guard the wrong way round, so its "Cc/Bcc" never opened them, and the
+composer's open state not kept, so they never folded back on a new
+letter; the whole of each sheet's `showCcAndBcc` is read now. B-076's
+entry still said the bubble a menu is up for stays picked out whatever
+he types, and `Draft.showsCcAndBcc` still called the row a toggle; both
+say how it is now. Step 5 of the TODO's check says the "s" in To
+becomes a bubble as the caret leaves To, and steps 9 and 10 are new.
+
+`BubbleMenuTypingTests` has three tests more, twelve now: a space after
+letters, or between them, taking the bubble, with the list for the
+letters in sight; nothing offered while a bubble is picked out, with
+"sa" on the line and after a comma in its middle; and a tap on the line
+putting back the bubble a backspace picked out, the next letter going
+after the bubbles, and two backspaces after it as before. Its test of
+what leaves the bubble has the comma in the middle of the line and the
+space at its start, and its source tests the tap's wiring and the whole
+of each sheet's `showCcAndBcc`.
+
+Each fix undone by hand, the classes on the field and the sheets run
+(`BubbleMenuTypingTests`, `ReplyLikeMailTests`, the `Compose` classes,
+`SemicolonLikeMailTests`, `ShareSheetTests`, `RecipientBookTests`,
+`ReplyAddressingTests`, `MailtoLinkTests` and `NameAtOnceTests`, 251
+tests), then put back and passing, counted as failures in tests: the
+tap on the line putting nothing back, 4 in 1; the tap recognizer not on
+the line, 1 in 1; a tap beside the bubbles not putting it back, 1 in 1;
+a space after letters never taking the bubble, 3 in 1; a space at the
+line's start taking it, 3 in 1; what he put in read as everything after
+what the line read, 7 in 1; the list offered with a bubble picked out,
+2 in 1; the share sheet's guard the wrong way round, 1 in 1; the
+composer not keeping its open state, 1 in 1. 23 in all, over nine
+parts. The full suite, serially: 2,487 tests, 3 of them new, 6 skipped,
+none failing. The release build for the iPad links.
+
 **Not covered.**
 
 - Not seen on the iPad or in the simulator: built and tested on the host.
@@ -25137,7 +25225,20 @@ failing. The release build for the iPad links.
   caret to the address field, and the keyboard changes to the email one
   as the menu opens; whether that moves the sheet under the menu on
   16.5.1, as the keyboard rising did in B-078, is for the check.
-- A space typed over a bubble picked out leaves it; in Mail it would take
-  its place with nothing to show.
+- A space typed over a bubble picked out, on an empty line or after
+  nothing but spaces, leaves it, the line dropping the space; in Mail it
+  would take its place with nothing to show. After letters it takes it,
+  as in Mail.
+- With a bubble's menu up, a comma in the middle of the line, or a letter
+  taken back by the keyboard's undo, leaves the bubble and its menu, and
+  the list stays closed until the menu goes (change 6).
+- Mail folds Cc and Bcc over a Bcc unchanged since the letter opened
+  (Always Bcc Myself, a draft opened again); here anyone in Bcc keeps them
+  open (change 4).
+- A tap on the line is told by a tap recognizer beside the line's own;
+  that it sees each tap on his 16.5.1 with the caret still going where he
+  taps is for the check. A caret moved without a tap, by the keyboard's
+  trackpad, is not watched: with no menu up a bubble is picked out only
+  by a backspace on an empty line, where the caret has nowhere to go.
 - Mail's From row and the image size row it folds with Cc and Bcc: not
   built here (one account).

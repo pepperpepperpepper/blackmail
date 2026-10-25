@@ -10,10 +10,12 @@ import XCTest
 /// what he types takes its place, and a backspace takes it off. Here the
 /// letters take the bubble's place, its menu goes with it, and the list
 /// comes up for the letters with nothing over it; a tap on a bubble closes
-/// the list and takes the caret into its field. "Cc/Bcc" opens Cc and Bcc
-/// and goes while they show; they fold back as the caret leaves them with
-/// nobody in them. The share sheet keeps its colours under a menu, as the
-/// app's composer does.
+/// the list and takes the caret into its field; while a bubble is picked
+/// out nothing is offered; and a tap on the line puts back a bubble a
+/// backspace picked out, as a tap moving Mail's caret ends its selection.
+/// "Cc/Bcc" opens Cc and Bcc and goes while they show; they fold back as
+/// the caret leaves them with nobody in them. The share sheet keeps its
+/// colours under a menu, as the app's composer does.
 ///
 /// The rules are `RecipientBubbles` and `ComposeForm`, run here; the field
 /// and the two sheets are UIKit and never build on this host, so their
@@ -88,9 +90,9 @@ final class BubbleMenuTypingTests: XCTestCase {
     }
 
     /// What does not take the bubble's place: a comma or a ";", which end
-    /// what he typed, as in Mail, where they leave the selected recipient;
-    /// a space alone, which the line drops at its start; and a letter
-    /// taken out.
+    /// what he typed, as in Mail, where they leave the selected recipient,
+    /// at the end of the line or in its middle; a space with nothing but
+    /// spaces before it, which the line drops; and a letter taken out.
     func testACommaASpaceOrALetterTakenOutLeavesThePickedOutBubble() {
         for ender in [",", ";", " ", ", ", "  ;"] {
             var field = RecipientBubbles(entries: [jo, sam])
@@ -107,6 +109,23 @@ final class BubbleMenuTypingTests: XCTestCase {
         XCTAssertFalse(ended.typingTakesThePicked("sa,"))
         ended.type("sa,")
         XCTAssertEqual(ended.entries, [jo, sam, "sa"])
+        // A comma typed in the middle of the line, and a space at its
+        // start, which the line drops: the bubble stays, as at the end.
+        var middle = RecipientBubbles(entries: [jo, sam])
+        middle.type("sa")
+        middle.select(0)
+        XCTAssertFalse(middle.typingTakesThePicked("s,a"))
+        middle.type("s,a")
+        XCTAssertEqual(middle.entries, [jo, sam, "s"])
+        XCTAssertEqual(middle.typed, "a")
+        var leading = RecipientBubbles(entries: [jo, sam])
+        leading.type("sa")
+        leading.select(0)
+        XCTAssertFalse(leading.typingTakesThePicked(" sa"))
+        XCTAssertFalse(leading.typingTakesThePicked("  sa"))
+        leading.type(" sa")
+        XCTAssertEqual(leading.entries, [jo, sam])
+        XCTAssertEqual(leading.typed, "sa")
         // A letter taken out.
         var shorter = RecipientBubbles(entries: [jo, sam])
         shorter.type("sa")
@@ -119,6 +138,57 @@ final class BubbleMenuTypingTests: XCTestCase {
         same.type("sa")
         same.select(1)
         XCTAssertFalse(same.typingTakesThePicked("sa"))
+    }
+
+    /// A space typed after letters takes the bubble's place, as Mail's
+    /// field lets any text but Return, Tab and a comma replace its picked
+    /// recipient, and the list for the letters is in sight. It left the
+    /// bubble, its menu was put up again, and the list for "sa" opened
+    /// under it.
+    func testASpaceAfterLettersTakesThePickedOutBubbleAndTheListIsInSight() {
+        let book = [KnownRecipient(address: "sam@example.org", name: "Sam Example", uses: 3,
+                                   lastSeen: Date(timeIntervalSince1970: 0))]
+        var field = RecipientBubbles(entries: [jo])
+        field.type("sa")
+        field.select(0)
+        XCTAssertEqual(ComposeForm.suggestions(book, in: field, after: .bubbleTapped), [])
+        XCTAssertTrue(field.typingTakesThePicked("sa "))
+        field.type("sa ")
+        XCTAssertEqual(field.entries, [])
+        XCTAssertNil(field.selected)
+        XCTAssertEqual(ComposeForm.suggestions(book, in: field, after: .typed).map(\.address),
+                       ["sam@example.org"])
+        // In the middle of the line, between letters, the same.
+        var between = RecipientBubbles(entries: [jo])
+        between.type("sa")
+        between.select(0)
+        XCTAssertTrue(between.typingTakesThePicked("s a"))
+    }
+
+    /// While a bubble is picked out, as it is while its menu is up, the
+    /// list offers nothing, whatever the line holds: it would open under
+    /// the menu. The field keeps the bubble picked out under its menu
+    /// through a comma (`keepMenu`), and the letters after the comma are
+    /// still on the line.
+    func testNothingIsOfferedWhileABubbleIsPickedOut() {
+        let book = [KnownRecipient(address: "sam@example.org", name: "Sam Example", uses: 3,
+                                   lastSeen: Date(timeIntervalSince1970: 0)),
+                    KnownRecipient(address: "al@example.net", name: "Al", uses: 1,
+                                   lastSeen: Date(timeIntervalSince1970: 0))]
+        var field = RecipientBubbles(entries: [jo])
+        field.type("sa")
+        field.select(0)
+        XCTAssertEqual(ComposeForm.suggestions(book, in: field, after: .typed), [])
+        // "s,a" under the menu: "s" a bubble, "a" on the line, the bubble
+        // kept picked out by the field.
+        field.type("s,a")
+        field.select(0)
+        XCTAssertEqual(field.typed, "a")
+        XCTAssertEqual(ComposeForm.suggestions(book, in: field, after: .typed), [])
+        // Put back: the list for "a".
+        field.select(nil)
+        XCTAssertEqual(ComposeForm.suggestions(book, in: field, after: .typed).map(\.address),
+                       ["al@example.net", "sam@example.org"])
     }
 
     /// The person whose bubble the letters took is offered again under
@@ -167,6 +237,34 @@ final class BubbleMenuTypingTests: XCTestCase {
         XCTAssertFalse(empty.backspaceIsTheBubbles(lineEmpty: false))
     }
 
+    /// A tap on the line, or beside the bubbles, with no menu up puts back
+    /// the bubble a backspace picked out, as a tap moving Mail's caret
+    /// ends its selection: the next letter goes after the bubbles, and
+    /// every bubble stays. It stayed picked out, and the next letter took
+    /// it off. The next backspace picks out the last bubble again.
+    func testATapOnTheLinePutsBackTheBubbleABackspacePickedOut() {
+        var field = RecipientBubbles(entries: [jo, sam])
+        field.backspace()
+        XCTAssertEqual(field.selected, 1)
+        XCTAssertTrue(field.lineTapped())
+        XCTAssertNil(field.selected)
+        XCTAssertFalse(field.typingTakesThePicked("c"))
+        field.type("c")
+        XCTAssertEqual(field.entries, [jo, sam])
+        XCTAssertEqual(field.typed, "c")
+        // Nothing picked out: nothing to put back.
+        var plain = RecipientBubbles(entries: [jo])
+        XCTAssertFalse(plain.lineTapped())
+        // Two backspaces after the tap still pick out, then take off.
+        var again = RecipientBubbles(entries: [jo, sam])
+        again.backspace()
+        XCTAssertTrue(again.lineTapped())
+        again.backspace()
+        XCTAssertEqual(again.selected, 1)
+        again.backspace()
+        XCTAssertEqual(again.entries, [jo])
+    }
+
     // MARK: - The list and the menu
 
     /// A tap on a bubble offers nothing, whatever is on the line: the list
@@ -189,8 +287,11 @@ final class BubbleMenuTypingTests: XCTestCase {
     // MARK: - Cc and Bcc
 
     /// Mail's rule as the caret goes into a field: open while it is in Cc
-    /// or Bcc or either holds someone, folded back otherwise. Spaces are
-    /// nobody.
+    /// or Bcc or Cc holds someone, folded back otherwise. Spaces are
+    /// nobody. Anyone in Bcc keeps them open too, on purpose: Mail counts
+    /// a Bcc only once it differs from the one the letter opened with
+    /// (`bccAddressesDirtied`), and folds an unchanged one out of sight;
+    /// here a Bcc he cannot see is never left.
     func testCcAndBccStandOpenByMailsRule() {
         XCTAssertTrue(ComposeForm.showsCcAndBcc(inCcOrBcc: true, cc: [], bcc: []))
         XCTAssertTrue(ComposeForm.showsCcAndBcc(inCcOrBcc: false, cc: [jo], bcc: []))
@@ -227,6 +328,20 @@ final class BubbleMenuTypingTests: XCTestCase {
             XCTAssertTrue(code.contains(line), line)
         }
         XCTAssertFalse(code.contains("backspaceWhenEmpty"), "a backspace with letters on the line asks too")
+        // A tap on the line, or beside the bubbles, with no menu up puts
+        // back the bubble a backspace picked out, seen beside the line's
+        // own taps.
+        for line in ["let tap = UITapGestureRecognizer(target: self, action: #selector(lineTapped)) "
+                        + "tap.cancelsTouchesInView = false tap.delaysTouchesEnded = false "
+                        + "tap.delegate = self input.addGestureRecognizer(tap)",
+                     "@objc private func tappedBeside() { lineTapped() input.becomeFirstResponder() }",
+                     "@objc private func lineTapped() { guard menuFor == nil, bubbles.lineTapped() "
+                        + "else { return } rebuild() }",
+                     "func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, "
+                        + "shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }",
+                     "final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerDelegate {"] {
+            XCTAssertTrue(code.contains(line), line)
+        }
         // The sheet is told before the menu goes up.
         let told = try XCTUnwrap(code.range(of: "sendActions(for: .valueChanged)"))
         let shown = try XCTUnwrap(code.range(of: "owner.present(menu, animated: true)"))
@@ -272,6 +387,14 @@ final class BubbleMenuTypingTests: XCTestCase {
             XCTAssertFalse(code.contains("ccVisible.toggle()"), file)
             XCTAssertEqual(count("caretWentInto(ccOrBcc:", in: code), 4, file)
         }
+        // The whole of each sheet's showCcAndBcc: the share sheet's guard
+        // the right way round, and the composer's open state kept.
+        XCTAssertTrue(try source(Self.composer).contains("private func showCcAndBcc(_ open: Bool) { "
+            + "guard open != ccVisible else { return } ccVisible = open ccRow.isHidden = !open "
+            + "bccRow.isHidden = !open ccToggleRow.isHidden = open }"))
+        XCTAssertTrue(try source(Self.share).contains("private func showCcAndBcc(_ open: Bool) { "
+            + "guard open == ccRow.isHidden else { return } ccRow.isHidden = !open "
+            + "bccRow.isHidden = !open ccToggleRow.isHidden = open }"))
         XCTAssertTrue(try source(Self.composer).contains("stack.addArrangedSubview(toggleRow) "
             + "toggleRow.isHidden = ccVisible"))
         XCTAssertTrue(try source(Self.share).contains("let toggleRow = ccToggleRow "

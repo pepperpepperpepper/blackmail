@@ -5637,7 +5637,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       <jo@example.com>` and a comma. Tap the body and type a word. Tap
       "Al": its menu under "Al", its arrow on it, never beside it, the
       caret now in To on the email keyboard. Type "s": "Al" goes, the list
-      under To in sight. Tap "Jo": its menu under "Jo", the caret in Cc.
+      under To in sight. Tap "Jo": the "s" in To becomes a bubble as the
+      caret leaves To, as in Mail; its menu under "Jo", the caret in Cc.
       Type "s": "Jo" goes, the list under Cc in sight. Cancel, Delete
       Draft.
       6. *The keyboard put away.* A new letter. In To `Al
@@ -5651,6 +5652,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       Draft. Share again: step 4 there. Cancel, Delete Draft if asked.
       8. *The app's composer, colours.* A new letter, "Al" in To, its
       menu up: Cancel and Send stay blue, as before. Cancel, Delete Draft.
+      9. *A space after letters.* A new letter. In To `Al
+      <al@example.com>` and a comma, then "sa". Tap "Al": its menu, no
+      list. Type a space: "Al" and its menu go, "sa" is on the line, and
+      the list for "sa" opens under To, every row in sight. Cancel,
+      Delete Draft.
+      10. *A tap on the line after a Delete.* A new letter. In To `Al
+      <al@example.com>` and a comma, `Bo <bo@example.com>` and a comma.
+      Delete once: "Bo" bright. Tap the line after the bubbles: "Bo"
+      plain, the caret on the line. Type "c": "c" on the line, "Al" and
+      "Bo" both still there. Delete twice: "c" goes, then "Bo" bright.
+      Type "d" with no tap: "Bo" goes and "d" is on the line, as in Mail.
+      Cancel, Delete Draft.
 
 ## Blocked on the owner
 

@@ -31,7 +31,7 @@ import UIKit
 /// Not for `show` or `pick`, which the sheet calls itself. Sends
 /// `.valueChanged` when a bubble is tapped, before its menu goes up, for
 /// the sheet to close the list and take the caret there (B-134).
-final class RecipientField: UIControl, UITextFieldDelegate {
+final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerDelegate {
 
     /// What the field holds.
     private(set) var bubbles = RecipientBubbles()
@@ -98,6 +98,14 @@ final class RecipientField: UIControl, UITextFieldDelegate {
         input.addTarget(self, action: #selector(changed), for: .editingChanged)
         input.addTarget(self, action: #selector(ended), for: .editingDidEnd)
         input.backspaceToBubbles = { [weak self] in self?.backspace() ?? false }
+        // A tap on the line puts back a bubble a backspace picked out
+        // (`lineTapped`). Seen beside the line's own taps, which still put
+        // the caret where he tapped, and taking nothing from them.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(lineTapped))
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesEnded = false
+        tap.delegate = self
+        input.addGestureRecognizer(tap)
         addSubview(input)
         height.isActive = true
         // A tap beside the bubbles is a tap on the line he types on.
@@ -210,7 +218,25 @@ final class RecipientField: UIControl, UITextFieldDelegate {
     }
 
     @objc private func tappedBeside() {
+        lineTapped()
         input.becomeFirstResponder()
+    }
+
+    /// A tap on the line he types on, or beside the bubbles, with no
+    /// bubble's menu up: a bubble a backspace picked out is put back, as a
+    /// tap that puts Mail's caret on its line ends the selection that was
+    /// its recipient, so the next letter goes after it (B-134). It stayed
+    /// picked out, and the next letter took it off. With a menu up a tap
+    /// there is a tap outside the menu, whose Cancel puts the bubble back.
+    @objc private func lineTapped() {
+        guard menuFor == nil, bubbles.lineTapped() else { return }
+        rebuild()
+    }
+
+    /// The tap on the line is seen with the line's own, never instead.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
     }
 
     /// A bubble tapped: picked out, with its address and Remove under it.
