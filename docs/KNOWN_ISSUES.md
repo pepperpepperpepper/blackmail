@@ -25084,3 +25084,91 @@ failing. The release build for the iPad links.
   as alone, as before; whether his signature has one was not looked at.
 - A sheet inside a sheet, which no letter of his makes, is inverted a
   third time, black, in the stack as alone.
+
+## B-131 — FIXED 2026-10-25, not yet seen on the iPad. Print said "This message has no text." of a letter the pane shows only the beginning of, where the pane says "Only the beginning of this message is shown."; it says it only where the pane does
+
+**Found** on the host, with B-114 and B-110 (TODO, under "Doable now",
+the print's "This message has no text." only where the pane's). B-114
+made the pane never say that a letter shown only in part
+(`Message.isShortened`) has no text (`PanePage.isEmpty`): what was not
+fetched of it, or what the server would not give, can be all its words.
+Print, built beside it (B-110), did not ask the same question. Not seen
+on the iPad.
+
+**What it was.** `PrintPage.body` asked `MailText.hasNoVisibleContent`
+alone, so a letter shown only in part whose beginning that came draws
+nothing printed "This message has no text." under its header, where the
+pane says "Only the beginning of this message is shown." over that
+nothing. Such a letter is one over 5 MB (`largeLetterBytes`), its parts
+fetched to 2 MB in all (`largeLetterSectionBytes`), whose HTML's first
+2 MB are a style sheet or a comment; a letter none of whose words came
+fails as one that could not be downloaded (B-114), with no page to print.
+`PrintPage.words`, the print in words when the page cannot be drawn,
+said it of any letter whose text, or its HTML made words, was blank:
+such a letter, and a letter that is only a picture, which the pane shows
+and never says has no text.
+
+**What Mail does.** Mail prints a letter as its pane shows it: its
+header view drawn into the print, then its body's web view's print
+formatter (`-[MFMessageContentView viewPrintFormatter]`, iOS 18.6's
+MobileMailUI, read statically for B-110; high). So what the print says
+of a letter's body is what the pane says. How Mail's pane draws a letter
+it has only the beginning of was not looked at here.
+
+**Changed.**
+
+1. *The page* (`PrintPage.body`) asks `PanePage.isEmpty`: a letter shown
+   only in part with nothing in what came prints the pane's grey line,
+   "Only the beginning of this message is shown.", over whatever came, as
+   the pane's `#bm` has it, and never "This message has no text."; the
+   same letter whole, with nothing in it, prints the pane's words for
+   one, as before.
+2. *The words* (`PrintPage.words`) ask it too: such a letter in words is
+   its header and the line, "Only the beginning…", with nothing after;
+   whole, its header and "This message has no text.", as before. A
+   letter that is only a picture is its header alone in words, where it
+   said "This message has no text.": the pane never says so of it, and
+   words cannot show the picture. A letter with words, cut here or shown
+   in part, is the line over them, as before.
+
+**Not changed.** The pane, as B-114 left it. The page of every letter not
+shown in part, and of every letter with words. The limits, the cut, the
+header, the greys. No new words: both lines are the pane's.
+
+**What he sees.** Rarely anything: a letter too large to fetch whole,
+whose beginning shows nothing, printed has its header and then the grey
+"Only the beginning of this message is shown.", as the pane shows it,
+where it said "This message has no text."
+
+**Tests.** `PrintPageTests`, two new, beside `PanePageTests`' of B-114
+(`testALetterShownOnlyInPartIsNeverSaidToHaveNoText`) and with its five
+shapes of a letter with nothing in it: empty words, blank lines, empty
+HTML, HTML of a space and no body at all. The page: whole, the pane's
+words for one; said to be short, the pane's line over what came, as the
+pane's `#bm` has it after its line, HTML where the letter's is, and never
+"This message has no text.". The words: whole, the header and "This
+message has no text."; said to be short, the header and the line alone;
+a letter that is only a picture, the header alone; a letter said to be
+short with words, the line over them.
+
+Each change undone by hand, `PrintPageTests` and `PanePageTests` run, then
+put back and passing, counted as failures in tests: the page asking
+`MailText.hasNoVisibleContent` again, 13 in 1; the words as they were,
+6 in 1; the words' line followed by a blank line over nothing, 5 in 1;
+a blank line after a header with nothing under it, 1 in 1.
+
+The full suite, serially: 2,480 tests, 2 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: such a letter printed. Its check is under
+  "Blocked on the iPad coming back" (TODO).
+- The words are printed only when the page cannot be drawn
+  (`PrintSteps`), which no check on the iPad has met; what they say of
+  these letters is held by the host's tests alone.
+- A letter that is only a picture is its header alone in words, by the
+  pane's rule; "This message has no text." there would be true of its
+  words and untrue of the letter. Not asked of the owner.
+- Mail's pane, and its print, of a letter it has only the beginning of:
+  not seen.

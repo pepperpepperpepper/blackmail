@@ -580,16 +580,20 @@ this host. Ordered by value, not by size.
       his photos sit in the letter under his words, above the signature,
       as all of his Apple Mail picture letters did. B-109, and its check
       under "Blocked on the iPad coming back".*
-- [ ] **The print's "This message has no text." only where the pane's.**
+- [x] **The print's "This message has no text." only where the pane's.**
       From B-114 with B-110. `PrintPage.body` and `PrintPage.words` say
       "This message has no text." only where the pane would
       (`PanePage.isEmpty`), so a letter shown only in part prints with
       the pane's "Only the beginning…" line over whatever came, as B-114
-      has the pane. Not done yet: `PrintPage.words` says it for any letter
+      has the pane. ~~Not done yet: `PrintPage.words` says it for any letter
       whose text is empty, one shown only in part included, and
       `PrintPage.body` asks `MailText.hasNoVisibleContent` alone; nothing
-      in the print calls `PanePage.isEmpty`. With a test of each for a
+      in the print calls `PanePage.isEmpty`.~~ With a test of each for a
       letter with nothing in it said to be short, beside `PanePageTests`'.
+      *Done 2026-10-25, B-131: both ask `PanePage.isEmpty`; a letter that
+      is only a picture, which the pane shows, is its header alone in
+      words. `PrintPageTests`, two, the pane's five shapes of nothing.
+      Its check is under "Blocked on the iPad coming back".*
 
 ## Blocked on the iPad coming back
 
@@ -5022,6 +5026,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       `testNoPreviewFetchThrowsAwayWhatCameUnderANo` passes. *With
       B-110's print:* not done. It is an open item under "Doable now",
       the print's "This message has no text." only where the pane's.
+      *Done since, 2026-10-25 (B-131).*
 
 - [x] **B-115, Go to Date in a folder whose letters came out of order.** On
       the test iPad, the test account as filled for the size test (gap
@@ -5630,6 +5635,30 @@ checks below is left as not needed, not open, and none is worth a round.*
       white, the signature's words black and the logo as on paper, no
       black box; Cancel. No paper.
       6. *Put back:* the host deletes the label "B-130" and its three
+      letters; nothing else was written.
+- [ ] **B-131, Print's "This message has no text." only where the
+      pane's.** On the test iPad, the test account, from a build of the
+      `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
+      composed, sent, moved or deleted in the app, and nothing is printed
+      on paper: the Print panel's preview only. Two letters the host makes
+      and APPENDs, read (`\Seen`), to a label of their own, "B-131", never
+      the Inbox, dated three days back: (a) "B-131 only the beginning", over
+      5 MB, multipart/mixed of an HTML part whose first 2.2 MB are a
+      `<style>` holding only comments, then a paragraph of words, and a
+      PDF of about 4 MB, so the pane fetches the HTML's first 2 MB alone
+      and they draw nothing; (b) "B-131 nothing", a small HTML letter of
+      `<div><br></div>`. Three panes.
+      1. *Shown in part:* "B-131", then (a): the pane's grey "Only the
+      beginning of this message is shown." and nothing under it, never
+      "This message has no text." (B-114). If words show, the style was
+      not long enough: write it down and stop.
+      2. *Its print:* Reply, then Print: the preview has the header, then
+      the same grey line and nothing under it, never "This message has no
+      text."; Cancel.
+      3. *Nothing in it, whole:* (b): the pane's grey "This message has no
+      text."; Reply, Print: the preview the same words under the header;
+      Cancel.
+      4. *Put back:* the host deletes the label "B-131" and its two
       letters; nothing else was written.
 
 ## Blocked on the owner

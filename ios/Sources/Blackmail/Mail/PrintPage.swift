@@ -70,8 +70,9 @@ enum PrintPage {
              })
     }
 
-    /// The page. Never nil: a letter with nothing in it prints the pane's
-    /// words for one, in grey, under its header.
+    /// The page. Never nil: a letter the pane says has no text
+    /// (`PanePage.isEmpty`) prints the pane's words for one, in grey, under
+    /// its header.
     ///
     /// Light only: `color-scheme` says so, the page is white with black
     /// words, and nothing is inverted, so an HTML letter is in its own
@@ -134,11 +135,14 @@ enum PrintPage {
     /// What goes in `#bm`: the body as the pane draws it (`PanePage.content`),
     /// cut to the limit, with the pane's grey line above a letter cut here
     /// or shortened by the pane; or the pane's words for a letter with
-    /// nothing in it. Whether it is the letter's HTML. An HTML letter's
-    /// pictures decoded as they are drawn (`decodedAtOnce`); a plain
-    /// letter's body has none, every `<` in it written `&lt;`.
+    /// nothing in it, where the pane says them (`PanePage.isEmpty`). A
+    /// letter shown only in part never has them, in the pane or on paper:
+    /// its line is over whatever came, nothing included (B-114, B-131).
+    /// Whether it is the letter's HTML. An HTML letter's pictures decoded
+    /// as they are drawn (`decodedAtOnce`); a plain letter's body has none,
+    /// every `<` in it written `&lt;`.
     static func body(_ m: Message) -> (html: String, isHTML: Bool) {
-        guard !MailText.hasNoVisibleContent(text: m.textBody, html: m.htmlBody) else {
+        guard !PanePage.isEmpty(m) else {
             return (empty, false)
         }
         let known = PanePage.contentIDs(of: m)
@@ -244,7 +248,11 @@ enum PrintPage {
     /// The letter in words, for when its page could not be drawn: the
     /// header's lines, a blank line, then its text (an HTML letter's made
     /// words, `HTMLText`), under the same limit and line as the page, or
-    /// the pane's words for a letter with none.
+    /// the pane's words for a letter with none, only where the pane says
+    /// them (`PanePage.isEmpty`, B-131). A letter shown only in part with no
+    /// words in what came is the header and the line alone; a letter whose
+    /// page shows no words but has something to show, a picture, is the
+    /// header alone.
     static func words(_ m: Message, size: (Int64) -> String,
                       locale: Locale = .current, timeZone: TimeZone = .current) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
@@ -258,13 +266,15 @@ enum PrintPage {
         }
         text = String(text.drop(while: { $0 == "\n" || $0 == "\r" }))
         let said: String
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if PanePage.isEmpty(m) {
             said = MailText.emptyBodyNotice
         } else {
             let cut = Self.cut(text, to: textLimit)
-            said = (cut != nil || m.isShortened ? MailText.shortenedNotice + "\n\n" : "") + (cut ?? text)
+            let words = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : cut ?? text
+            said = [cut != nil || m.isShortened ? MailText.shortenedNotice : "", words]
+                .filter { !$0.isEmpty }.joined(separator: "\n\n")
         }
-        return lines.joined(separator: "\n") + "\n\n" + said
+        return lines.joined(separator: "\n") + (said.isEmpty ? "" : "\n\n" + said)
     }
 
     /// The print job's name, which the printer's queue shows: the subject,
