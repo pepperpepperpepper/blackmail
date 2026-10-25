@@ -5242,6 +5242,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *The signature's logo,* tapped: nothing opens. A picture from the
       web, tapped: nothing opens. A picture in a link, tapped: "Open this
       link?" and nothing else, Cancel; no Quick Look under it or after it.
+      A photo in the signature or the quoted letter of a letter from
+      Outlook, inside a bookmark (`<a name=...>` with no `href`, found by
+      the host read of its HTML), if there is one: Quick Look, as 1.
       4. *In a conversation:* its line opened, the photo in that letter
       tapped: Quick Look, that letter's photo. Then another letter of the
       stack opened and the first photo tapped again: the time from the tap
@@ -5249,7 +5252,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       of the part (the server) or none (the copy kept on the iPad, B-111);
       nothing shows meanwhile (B-122, Not covered). His own letter from
       Sent Mail with a photo in the stack (B-104), if there is one, opened
-      and its photo tapped: his photo.
+      and its photo tapped: his photo. Then a photo of a letter not kept
+      on the iPad, whose log has a FETCH of the part, tapped, and at once,
+      before it comes, another row of the list tapped: that row's letter,
+      and no Quick Look over it and no alert, then or in the half minute
+      after; the app's log has the FETCH ending. The same with a file's
+      row in the header, a PDF's if there is one, tapped and another row
+      at once. Back on
+      the first conversation, its photo tapped: Quick Look.
       5. *With no connection:* Airplane Mode on, the photo of 4 tapped
       again: from the copy kept on the iPad it opens; where 4's log had a
       FETCH, "Attachment could not be downloaded.", OK, and the letter as

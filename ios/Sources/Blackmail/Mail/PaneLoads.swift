@@ -160,6 +160,21 @@ final class PaneLoads {
     /// stopped waiting without sleeping on it.
     var inFlight: Int { running.count }
 
+    /// What the pane shows, as a number that changes each time it is given
+    /// something else or emptied: for what it starts that is no load, a
+    /// file or a picture opened from a letter (`openAttachment`, B-122),
+    /// to ask once that has come whether the pane still shows what it was
+    /// opened from (`stillShows`).
+    var shown: Int { generation }
+
+    /// Whether the pane still shows what it did when `shown` was `asked`:
+    /// not given anything else since, nor emptied. Another letter of the
+    /// conversation opened in it is the same conversation shown. The rule
+    /// `draws` has for a body, for a file: one from a letter he has tapped
+    /// past neither opens over the one he stopped on nor says it could not
+    /// be downloaded.
+    func stillShows(_ asked: Int) -> Bool { asked == generation }
+
     /// Whether a fetch's answer goes on screen. The rule `SearchAnswer`
     /// applies to a search, for the same reasons: a fetch that has been
     /// called off, or whose pane has moved on, draws nothing whichever way

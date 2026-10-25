@@ -835,9 +835,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// picture tapped in one, or in his from Sent Mail (B-122). The
     /// header's row shows it busy only when the header shows its letter;
     /// a picture the body shows by `cid:` has no row there.
+    ///
+    /// Shown only if the pane still shows what it was opened from when the
+    /// file has come (`PaneLoads.stillShows`): a file, or a picture, whose
+    /// letter he has tapped past, emptied or moved on from meanwhile is
+    /// neither shown over the letter he stopped on nor said to have failed,
+    /// as a letter's body is not (`PaneLoads.draws`). Its download is not
+    /// called off; it ends, and is let go (B-122).
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
+        let shown = loads.shown
 
         Task { @MainActor in
             // Only while the header still shows the letter the file came
@@ -851,6 +859,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             do {
                 let data = try await repository.fetchAttachmentData(
                     attachment.id, of: m.id, mailboxID: m.mailboxID)
+                // The pane has moved on since the tap: nothing is shown.
+                guard loads.stillShows(shown) else { return }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -876,6 +886,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 preview.modalPresentationStyle = .fullScreen
                 present(preview, animated: true)
             } catch {
+                // Nor is a failure said over another letter.
+                guard loads.stillShows(shown) else { return }
                 ErrorPresenter.show(.attachmentFailed, on: self)
             }
         }
@@ -1028,7 +1040,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// letter whose section it is in, the one on its own in the pane, one
     /// of the conversation's that has come, or his from Sent Mail; nothing
     /// for a picture too small, or one no letter the pane holds has
-    /// (`PanePictures`). Mail's own: Quick Look, whose share button has
+    /// (`PanePictures`), nor for one that comes once the pane has moved on
+    /// (`openAttachment`). Mail's own: Quick Look, whose share button has
     /// Save Image and Save to Files.
     private func openPicture(_ tap: PanePictures.Tap) {
         guard let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,

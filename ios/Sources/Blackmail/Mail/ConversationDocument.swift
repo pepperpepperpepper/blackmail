@@ -486,16 +486,23 @@ enum ConversationDocument {
     /// address (`InlineImageRewriter`), a picture of the letter's own parts,
     /// is given a click listener: as the document ends, and as `bmFill`
     /// puts a body in, the only way a body goes into a stack (`bmAppend`
-    /// and `bmInsert` put in lines over "Loading…"). Not one inside a link,
-    /// an image map or a button, whose tap is theirs; nor a picture from
-    /// the web. The click, which WebKit makes of a tap as it makes a
-    /// link's, and not of a drag or a touch and hold, tells the pane
-    /// through `bmPicture` the picture's address, the section it is in, ""
-    /// on a letter's own page, and its sizes, its own and as drawn; the
-    /// pane decides what opens (`PanePictures`). The section is the one
-    /// that is the body's own child, so a letter's markup cannot name
-    /// another letter's. The wiring never throws, so nothing a letter holds
-    /// stops a body going in or the stack's lines being wired.
+    /// and `bmInsert` put in lines over "Loading…"). The `src` as WebKit
+    /// reads it (`img.src`), the address the loader is asked for, with the
+    /// spaces a sender left around it trimmed, rather than the attribute as
+    /// written, which with a space before it would not be seen as the
+    /// loader's. Not one inside a link, an image map or a button, whose tap
+    /// is theirs; nor a picture from the web. A link is an `<a>` with an
+    /// `href`: one with none, a bookmark such as Outlook and Word wrap a
+    /// signature or a letter quoted in (`<a name="_MailAutoSig">`), is no
+    /// link, and a tap there goes nowhere in WebKit. The click, which
+    /// WebKit makes of a tap as it makes a link's, and not of a drag or a
+    /// touch and hold, tells the pane through `bmPicture` the picture's
+    /// address, the section it is in, "" on a letter's own page, and its
+    /// sizes, its own and as drawn; the pane decides what opens
+    /// (`PanePictures`). The section is the one that is the body's own
+    /// child, so a letter's markup cannot name another letter's. The
+    /// wiring never throws, so nothing a letter holds stops a body going in
+    /// or the stack's lines being wired.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -699,13 +706,15 @@ enum ConversationDocument {
       }
       return '';
     }
+    function bmPictureSrc(img) {
+      return String(img.src || '');
+    }
     function bmOwnPicture(img) {
-      var src = img.getAttribute('src');
-      if (!src || src.slice(0, 8).toLowerCase() !== 'bmcid://') return false;
+      if (bmPictureSrc(img).slice(0, 8).toLowerCase() !== 'bmcid://') return false;
       if (img.getAttribute('usemap') !== null) return false;
       for (var node = img.parentNode; node && node !== document.body; node = node.parentNode) {
         var tag = String(node.tagName || '').toLowerCase();
-        if (tag === 'a' || tag === 'button') return false;
+        if ((tag === 'a' && node.getAttribute('href') !== null) || tag === 'button') return false;
       }
       return true;
     }
@@ -715,7 +724,7 @@ enum ConversationDocument {
       if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
       var drawn = img.getBoundingClientRect();
       window.webkit.messageHandlers.bmPicture.postMessage({
-        src: img.getAttribute('src'), section: bmPictureIn(img),
+        src: bmPictureSrc(img), section: bmPictureIn(img),
         width: img.naturalWidth, height: img.naturalHeight,
         drawnWidth: drawn.width, drawnHeight: drawn.height });
     }

@@ -102,28 +102,42 @@ final class PictureTapTests: XCTestCase {
 
     // MARK: - Which pictures open
 
-    /// A picture opens when it is at least 100 each way, in itself and as
-    /// drawn (`PanePictures.least`): a photo does; a spacer drawn large, a
-    /// picture not come, an icon, and a logo drawn small, as his own
-    /// signature's, do not.
+    /// A picture opens when it is at least 100 each way in itself, and
+    /// drawn at least 100 along its longer side and 44 along its shorter
+    /// (`PanePictures.least`, `leastAcross`): a photo does, and a panorama
+    /// whatever the panes; a spacer drawn large, a picture not come, an
+    /// icon, and a logo drawn small, as his own signature's, do not.
     func testOnlyAPictureLargeEnoughOpens() {
         XCTAssertEqual(PanePictures.least, 100)
-        XCTAssertTrue(tap("p").opens, "a photo, 3024 by 4032 drawn 640 by 853")
-        XCTAssertTrue(tap("p", width: 100, height: 100, drawn: (100, 100)).opens, "at the bound")
-        XCTAssertTrue(tap("p", width: 320, height: 240, drawn: (160, 120)).opens, "a small photo drawn small")
+        XCTAssertEqual(PanePictures.leastAcross, 44)
+        for (name, t) in [
+            ("a photo, 3024 by 4032 drawn 640 by 853", tap("p")),
+            ("at the bound", tap("p", width: 100, height: 100, drawn: (100, 44))),
+            ("at the bound, upright", tap("p", width: 100, height: 100, drawn: (44, 100))),
+            ("a small photo drawn small", tap("p", width: 320, height: 240, drawn: (160, 120))),
+            ("a panorama in two panes", tap("p", width: 8_064, height: 1_344, drawn: (652, 108.7))),
+            ("a panorama in three panes", tap("p", width: 8_064, height: 1_344, drawn: (501, 83.5))),
+            ("a banner logo", tap("p", width: 1_200, height: 300, drawn: (300, 75))),
+        ] {
+            XCTAssertTrue(t.opens, name)
+        }
         for (name, t) in [
             ("his signature's logo", tap("p", width: 210, height: 156, drawn: (35, 25))),
             ("a spacer drawn wide", tap("p", width: 1, height: 1, drawn: (600, 20))),
             ("a spacer drawn large", tap("p", width: 1, height: 1, drawn: (600, 400))),
             ("not come", tap("p", width: 0, height: 0, drawn: (640, 480))),
             ("an icon", tap("p", width: 64, height: 64, drawn: (32, 32))),
-            ("a banner logo", tap("p", width: 1_200, height: 300, drawn: (300, 75))),
+            ("an icon drawn large", tap("p", width: 64, height: 64, drawn: (128, 128))),
             ("99 wide", tap("p", width: 99, height: 400, drawn: (400, 400))),
             ("99 high", tap("p", width: 400, height: 99, drawn: (400, 400))),
-            ("drawn 99 wide", tap("p", width: 400, height: 400, drawn: (99, 400))),
-            ("drawn 99 high", tap("p", width: 400, height: 400, drawn: (400, 99))),
+            ("drawn 99 each way", tap("p", width: 400, height: 400, drawn: (99, 99))),
+            ("drawn 43 high", tap("p", width: 400, height: 400, drawn: (400, 43))),
+            ("drawn 43 wide", tap("p", width: 400, height: 400, drawn: (43, 400))),
+            ("a rule drawn thin", tap("p", width: 600, height: 120, drawn: (600, 12))),
             ("not a number", tap("p", width: .nan, height: 400, drawn: (400, 400))),
+            ("drawn not a number", tap("p", width: 400, height: 400, drawn: (400, .nan))),
             ("endless", tap("p", width: .infinity, height: 400, drawn: (400, 400))),
+            ("drawn endless", tap("p", width: 400, height: 400, drawn: (.infinity, 400))),
         ] {
             XCTAssertFalse(t.opens, name)
         }
@@ -265,10 +279,14 @@ final class PictureTapTests: XCTestCase {
 
     /// On a letter's own page, a tap on a picture of its own parts tells
     /// the pane its address, no section, and its sizes, once; the pane
-    /// opens the photo from it. A picture inside a link, however deep, in
-    /// an image map or a button, one from the web, and one by a `cid:` the
-    /// letter has no part for tell it nothing, nor does a tap on the words;
-    /// his signature's logo tells it, and the pane leaves it. Nothing is
+    /// opens the photo from it. A picture inside a link, however deep, one
+    /// with an empty `href` too, in an image map or a button, one from the
+    /// web, and one by a `cid:` the letter has no part for tell it nothing,
+    /// nor does a tap on the words; his signature's logo tells it, and the
+    /// pane leaves it. A picture inside a bookmark, an `<a>` with a `name`
+    /// and no `href`, as Outlook and Word wrap a signature and a letter
+    /// quoted, tells it, and opens; so does one whose `src` has spaces
+    /// around it, which WebKit trims, by the address trimmed. Nothing is
     /// posted to `bmLetter`, and nothing throws.
     func testOnALettersOwnPageATapOnItsPictureTellsThePane() throws {
         let html = "<p>Our new garden.</p>"
@@ -283,11 +301,18 @@ final class PictureTapTests: XCTestCase {
             + "<p id=\"words\">Love, Sam</p>"
             + "<div class=\"bm-signature\">" + img("logo", "cid:sig-logo", own: (210, 156), drawn: (35, 25))
             + "</div>"
+            + "<a name=\"_MailAutoSig\"><div><span>" + img("bookmarked", "cid:\(listed.contentID!)",
+                                                         own: (1_200, 900), drawn: (640, 480))
+            + "</span></div></a>"
+            + "<a href=\"\">" + img("emptyLink", "cid:\(listed.contentID!)") + "</a>"
+            + img("spaced", " cid:\(photo.contentID!) ")
         let m = letter("7/3", html: html, attachments: [photo, logo, listed, pdf])
         let page = try XCTUnwrap(PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41)))
         XCTAssertTrue(page.contains("id=\"bm\""))
+        XCTAssertTrue(page.contains("src=\" \(address(photo.contentID!)) \""), "the spaces kept in the page")
 
-        let run = try run(page, ["photo", "linked", "deep", "mapped", "button", "web", "missing", "words", "logo"]
+        let run = try run(page, ["photo", "linked", "deep", "mapped", "button", "web", "missing", "words", "logo",
+                                 "bookmarked", "emptyLink", "spaced"]
                                     .enumerated().map { .click(100 + $0.offset * 100, $0.element) })
         XCTAssertEqual(run.errors, [])
         XCTAssertEqual(run.posts, [])
@@ -295,13 +320,16 @@ final class PictureTapTests: XCTestCase {
             .init(src: address(photo.contentID!), section: "", width: 3_024, height: 4_032,
                   drawnWidth: 640, drawnHeight: 853),
             .init(src: address("sig-logo"), section: "", width: 210, height: 156, drawnWidth: 35, drawnHeight: 25),
+            .init(src: address(listed.contentID!), section: "", width: 1_200, height: 900,
+                  drawnWidth: 640, drawnHeight: 480),
+            .init(src: address(photo.contentID!), section: "", width: 3_024, height: 4_032,
+                  drawnWidth: 640, drawnHeight: 853),
         ])
-        let photoTap = try XCTUnwrap(run.pictures.first.flatMap { Tap($0.body) })
-        let opened = PanePictures.opening(photoTap, inStack: false, alone: m, stack: [:], his: { _ in nil })
-        XCTAssertEqual(opened?.part, photo)
-        let logoTap = try XCTUnwrap(run.pictures.dropFirst().first.flatMap { Tap($0.body) })
-        XCTAssertNil(PanePictures.opening(logoTap, inStack: false, alone: m, stack: [:], his: { _ in nil }),
-                     "the logo stays as it was")
+        let taps = run.pictures.compactMap { Tap($0.body) }
+        XCTAssertEqual(taps.count, 4)
+        let opened = taps.map { PanePictures.opening($0, inStack: false, alone: m, stack: [:], his: { _ in nil }) }
+        XCTAssertEqual(opened.map { $0?.part }, [photo, nil, listed, photo],
+                       "the photo, not the logo, the picture in a bookmark, the photo by its address trimmed")
     }
 
     /// In a stack, a picture in a body `bmFill` put in tells the pane the
@@ -339,21 +367,23 @@ final class PictureTapTests: XCTestCase {
         XCTAssertEqual(run.posts, [], "no letter opened or closed")
     }
 
-    /// The script, read: the address's scheme, the link, image map and
-    /// button rule, the section that is the body's child, the post in the
-    /// app's world, the wiring as the document ends and as a body goes in,
-    /// which never throws; held where node is not.
+    /// The script, read: the address's scheme, as WebKit reads the `src`,
+    /// the link, image map and button rule, a link an `<a>` with an
+    /// `href`, the section that is the body's child, the post in the app's
+    /// world, the wiring as the document ends and as a body goes in, which
+    /// never throws; held where node is not.
     func testTheScriptWiresALettersOwnPicturesOnEveryPage() {
         let script = flat(ConversationDocument.script)
         for wiring in [
-            "if (!src || src.slice(0, 8).toLowerCase() !== 'bmcid://') return false;",
+            "function bmPictureSrc(img) { return String(img.src || ''); }",
+            "if (bmPictureSrc(img).slice(0, 8).toLowerCase() !== 'bmcid://') return false;",
             "if (img.getAttribute('usemap') !== null) return false;",
             "for (var node = img.parentNode; node && node !== document.body; node = node.parentNode) { "
                 + "var tag = String(node.tagName || '').toLowerCase(); "
-                + "if (tag === 'a' || tag === 'button') return false; }",
+                + "if ((tag === 'a' && node.getAttribute('href') !== null) || tag === 'button') return false; }",
             "if (node.parentNode === document.body) { "
                 + "return node.classList && node.classList.contains('bm-letter') ? node.id : ''; }",
-            "window.webkit.messageHandlers.bmPicture.postMessage({ src: img.getAttribute('src'), "
+            "window.webkit.messageHandlers.bmPicture.postMessage({ src: bmPictureSrc(img), "
                 + "section: bmPictureIn(img), width: img.naturalWidth, height: img.naturalHeight, "
                 + "drawnWidth: drawn.width, drawnHeight: drawn.height });",
             "function bmWirePictures(root) { try { var pictures = root.querySelectorAll('img'); "
@@ -365,6 +395,7 @@ final class PictureTapTests: XCTestCase {
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
+        XCTAssertFalse(script.contains("getAttribute('src')"), "the address as written")
         XCTAssertEqual(PanePictures.handler, "bmPicture")
     }
 
@@ -404,6 +435,49 @@ final class PictureTapTests: XCTestCase {
         XCTAssertTrue(loader.contains(
             "let contentID = task.request.url.flatMap(InlineImageRewriter.contentID(of:)) ?? \"\" "
                 + "guard !contentID.isEmpty, let fetch else {"))
+    }
+
+    /// A picture, or a file, that comes after the pane has moved on is not
+    /// shown, and no failure is said for it, over the letter he stopped on
+    /// (`PaneLoads.stillShows`, read in `openAttachment`). The pane still
+    /// shows what it was opened from while another letter of the
+    /// conversation is opened in it or his letters are looked for, and no
+    /// longer once it is given another letter, or the same one again, or
+    /// emptied.
+    @MainActor
+    func testAPictureThatComesAfterThePaneHasMovedOnIsNotShown() throws {
+        let loads = PaneLoads()
+        let tapped = loads.shown
+        XCTAssertTrue(loads.stillShows(tapped))
+        loads.start({ "a letter of the stack" }, settle: { _ in })
+        XCTAssertTrue(loads.stillShows(tapped), "another letter of the conversation opened")
+        loads.aside({ "his letters" }, settle: { _ in })
+        XCTAssertTrue(loads.stillShows(tapped), "his letters looked for")
+        loads.show(standIn: {}, fetch: { "the next letter" }, settle: { _ in })
+        XCTAssertFalse(loads.stillShows(tapped), "another row tapped")
+        let next = loads.shown
+        XCTAssertTrue(loads.stillShows(next))
+        loads.show(standIn: {}, fetch: { "the next letter" }, settle: { _ in })
+        XCTAssertFalse(loads.stillShows(next), "its row tapped again")
+        let again = loads.shown
+        loads.supersede()
+        XCTAssertFalse(loads.stillShows(again), "emptied")
+        XCTAssertFalse(loads.stillShows(tapped))
+
+        let code = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(code.contains(
+            "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) { "
+                + "guard let m = letter ?? message else { return } "
+                + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
+                + "let shown = loads.shown Task { @MainActor in"))
+        XCTAssertTrue(code.contains(
+            "let data = try await repository.fetchAttachmentData( attachment.id, of: m.id, mailboxID: m.mailboxID) "
+                + "guard loads.stillShows(shown) else { return } "
+                + "guard presentedViewController == nil else { return }"))
+        XCTAssertTrue(code.contains(
+            "} catch { guard loads.stillShows(shown) else { return } "
+                + "ErrorPresenter.show(.attachmentFailed, on: self) }"))
+        XCTAssertEqual(code.components(separatedBy: ".attachmentFailed, on: self)").count - 1, 1)
     }
 
     // MARK: - Helpers

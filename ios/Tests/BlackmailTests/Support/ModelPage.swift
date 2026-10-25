@@ -32,9 +32,10 @@ import Foundation
 /// not, as UIKit's `isTracking` is taken to.
 ///
 /// A picture is an `<img>` whose own size is its `data-nw` by `data-nh`,
-/// drawn at its `data-dw` by `data-dh`; a click goes to what it names and
-/// up through its ancestors, and what the script posts of a picture
-/// tapped is kept as it posted it (B-122).
+/// drawn at its `data-dw` by `data-dh`, and whose `src`, as WebKit reads
+/// it, is its attribute with the spaces around it trimmed; a click goes to
+/// what it names and up through its ancestors, and what the script posts
+/// of a picture tapped is kept as it posted it (B-122).
 ///
 /// Run only where node is: elsewhere the tests that use it skip, and the
 /// script's own pins, read from its source, still hold it.
@@ -343,6 +344,13 @@ enum ModelPage {
       // has not come, as WebKit has it.
       get naturalWidth() { return Number(this.getAttribute('data-nw') || 0); }
       get naturalHeight() { return Number(this.getAttribute('data-nh') || 0); }
+      // Its `src` as WebKit reads it: the attribute with the spaces around
+      // it trimmed, '' for none. An address as the pane's are, absolute
+      // and of no other change when parsed, is otherwise as written.
+      get src() {
+        const v = this.getAttribute('src');
+        return v === null ? '' : v.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '');
+      }
     }
     function matchesOne(el, simple) {
       const m = /^([a-z]+)?((?:\.[-\w]+)*)(?:\[([-\w]+)="([^"]*)"\])?$/.exec(simple);

@@ -24,7 +24,8 @@ import Foundation
 /// Not a picture inside a link, an image map or a button: the link goes
 /// where a tapped link goes (`PaneNavigation`), and nothing more. Mail, by
 /// developers' reports of 2023 and 2025, opens the picture as well as the
-/// link's page, which they take for a fault. And not a small one: a
+/// link's page, which they take for a fault. A bookmark, an `<a>` with no
+/// `href`, is no link, and a picture in one opens. And not a small one: a
 /// spacer, an icon, a logo in a signature (`Tap.opens`).
 enum PanePictures {
 
@@ -32,14 +33,25 @@ enum PanePictures {
     /// world.
     static let handler = "bmPicture"
 
-    /// The least a picture is, each way, for a tap to open it: in points as
-    /// the letter draws it, and in pixels in itself. Mail has no such
-    /// bound that is known; it opens every picture the letter carries.
-    /// Here a spacer or a tracking pixel drawn large, an icon, and a logo
-    /// drawn small whatever its own size, such as his own signature's,
-    /// 210 by 156 drawn at 35 by 25, are left as they were. A photo is
-    /// hundreds of pixels each way and drawn as wide as the pane allows.
+    /// The least a picture is for a tap to open it: in pixels in itself,
+    /// each way, and in points as the letter draws it, its longer side.
+    /// Mail has no such bound that is known; it opens every picture the
+    /// letter carries. Here a spacer or a tracking pixel drawn large, an
+    /// icon, and a logo drawn small whatever its own size, such as his own
+    /// signature's, 210 by 156 drawn at 35 by 25, are left as they were. A
+    /// photo is hundreds of pixels each way and drawn as wide as the pane
+    /// allows.
     static let least: Double = 100
+
+    /// The least a picture is drawn across its shorter side for a tap to
+    /// open it, in points: the least a thing to be tapped is, by Apple's
+    /// guidelines, as the app's buttons are (`Theme.minHitTarget`). Not
+    /// `least`, so that whether a photo opens does not hang on the pane's
+    /// width: a panorama from an iPhone, about 6 to 1, drawn the width of
+    /// the letter on his iPad, some 650 points in two panes and some 500 in
+    /// three, is some 108 high in two and some 83 in three, and opens in
+    /// both.
+    static let leastAcross: Double = 44
 
     /// A tap on a picture, as the script posts it.
     struct Tap: Equatable {
@@ -93,11 +105,15 @@ enum PanePictures {
             return nil
         }
 
-        /// Whether the picture is large enough to open (`least`): drawn at
-        /// least that each way, and at least that in itself, which a
-        /// picture that has not come, or never will, is not.
+        /// Whether the picture is large enough to open: at least `least`
+        /// each way in itself, which a picture that has not come, or never
+        /// will, is not; and drawn at least `least` along its longer side
+        /// and `leastAcross` along its shorter.
         var opens: Bool {
-            [width, height, drawnWidth, drawnHeight].allSatisfy { $0.isFinite && $0 >= PanePictures.least }
+            guard [width, height, drawnWidth, drawnHeight].allSatisfy(\.isFinite) else { return false }
+            return min(width, height) >= PanePictures.least
+                && max(drawnWidth, drawnHeight) >= PanePictures.least
+                && min(drawnWidth, drawnHeight) >= PanePictures.leastAcross
         }
     }
 
