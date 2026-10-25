@@ -24240,7 +24240,7 @@ Offline the kept photo opened, the other 'Attachment could not be
 downloaded.' Not possible: the pinch, his own Sent Mail letter with a
 photo, and the PDF row's race. Nothing was sent.
 
-## B-123 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
+## B-123 — CHANGED 2026-10-24 to copy Apple Mail, changed again 2026-10-25 after the test iPad, seen there 2026-10-25. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
 
 Built in the `bm-halfname` worktree (branch `fix-halfname`), off master at
 b9ca9a4.
@@ -24433,7 +24433,10 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-123's check).
+- Not seen on the test iPad (2026-10-25): a name sent on someone's
+  behalf (6b) and an accented sender (11), the size test's mailbox having
+  neither; steps 2, 3, 5 to 9, 12 and 13 were seen on the build before
+  the change to 30 people, not again after it.
 - Mail's own results as he types were not seen: Top Hits and its list of
   matching letters may differ from these, which are every letter of up to
   30 people (four until 2026-10-25), newest first, and whole-word hits of
@@ -24502,8 +24505,27 @@ Pey" finding the tenth's letter. Each part undone by hand and the class
 run: four people again, 2 failures; a row instead of a tree, 4; the
 halves swapped, 4; the test server refusing past 3 ORs, 10. The full
 suite on the branch: 2,421 tests, 6 skipped, none failing; the release
-build for the iPad links. Not yet seen on the iPad (TODO, B-123's check,
-steps 1, 4 and 10 again).
+build for the iPad links.
+
+**Seen on the test iPad, 2026-10-25**, first on a build of int15
+(ac1b816), four people, at the size test's mailbox, nothing written to
+it. "Pe" found nothing, as before; "Peyt" to "Peyton" one person's
+letters each time; "Peyton " and "Pey " whole words with no address
+asked; "Qzx" nothing; the first three letters of the account's own
+name, and of a second address listed as his, asked for none of his;
+"Mus" paged to its foot twice with no row twice and one UID SEARCH per
+mailbox; Current Mailbox one UID SEARCH, the Inbox's; Recent Searches
+kept "Pey" first; two panes the same. Step 1 failed as the check was
+then written, "Pey" asking for the four Peytons seen last of 36, and
+step 4's "Picture Pey" missed Peyton Mock's picture letter: the change
+above. Then on int15 (eaa68f5), steps 1, 4 and 10 again: "Pey" asked
+for exactly the book's first 30 "Pey" people, in its order, worked out
+beforehand from a copy of the book, in the tree, each mailbox answering
+OK, 3,367 bytes; "Picture Pey" had Peyton Mock's letter as its first
+row; the rows came 0.7 to 0.9 s after the 350 ms pause, three times,
+against 1.0 to 1.3 s for four people before. Not possible: a name sent
+on someone's behalf (6b) and an accented sender (11), none in that
+mailbox. Nothing was sent.
 
 ## B-124 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
 

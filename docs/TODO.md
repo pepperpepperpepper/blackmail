@@ -5514,7 +5514,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       possible: the pinch (one finger); his own Sent Mail letter with a
       photo (none, and none to send); the PDF row raced with another row,
       its 309 KB coming in 0.16 s.*
-- [ ] **B-123, a half-typed name in search.** On the test iPad, the test
+- [x] **B-123, a half-typed name in search.** On the test iPad, the test
       account as filled for the size test (above), from a build of the
       `bm-halfname` worktree (branch `fix-halfname`). *Changed 2026-10-25
       after the first run of this check: up to 30 people, not four
@@ -5589,6 +5589,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       13. *Put back:* Cancel, and the Inbox at its top; Settings lists
       the addresses it did before 6a. Nothing else: nothing was written
       to the mailbox.
+      *Seen on the test iPad 2026-10-25: 2, 3, 5 to 9, 12 and 13 passed on
+      int15 (ac1b816), four people; 1 and 4 failed there, four of 36
+      "Pey" people asked and "Picture Pey" missing a fifth's letter, and
+      the change to 30 followed. On int15 (eaa68f5) 1, 4 and 10 passed:
+      the book's first 30 "Pey" people asked in a tree of ORs, answered
+      OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
+      after the pause (B-123). Not possible: 6b and 11, the size test's
+      mailbox having no such sender.*
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
