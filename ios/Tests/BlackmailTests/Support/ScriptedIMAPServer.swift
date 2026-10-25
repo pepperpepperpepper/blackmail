@@ -474,6 +474,16 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.hangsUpOnSections = newValue } }
     }
 
+    /// Verbs answered with Gmail's `* BYE System Error` and the connection
+    /// closed, nothing of the command carried out and no tagged line:
+    /// `["UID MOVE"]`. Gmail so answered the first MOVE of an Edit mode
+    /// Delete on the test iPad on 2026-10-21, and nothing had moved
+    /// (B-132).
+    var hangsUpOnVerbs: Set<String> {
+        get { locked { $0.hangsUpOnVerbs } }
+        set { locked { $0.hangsUpOnVerbs = newValue } }
+    }
+
     /// The same, only for a FETCH that asks for one of them and no other
     /// section: `["2.TEXT"]` with the letter's 2.TEXT refused, a FETCH of
     /// its parts answered NO, and the connection gone when the part is
@@ -1336,6 +1346,7 @@ private extension ScriptedIMAPServer {
         var refusedVerbs: Set<String> = []
         var hangsUpOnSections: Set<String> = []
         var hangsUpOnSectionsAlone: Set<String> = []
+        var hangsUpOnVerbs: Set<String> = []
         var autoExpunge = false
         var hollowMoves: [Server.HollowMove] = []
         var newsRidesOnMoves = false
@@ -1647,6 +1658,11 @@ private extension ScriptedIMAPServer.State {
 
         if refusedVerbs.contains(verb) {
             r.no("[UNAVAILABLE] Temporary System Problem. Try again later. (Failure)")
+            return
+        }
+        if hangsUpOnVerbs.contains(verb) {
+            r.untagged("BYE System Error")
+            r.hangsUp = true
             return
         }
         switch verb {

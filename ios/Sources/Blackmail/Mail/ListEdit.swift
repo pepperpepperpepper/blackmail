@@ -185,6 +185,30 @@ enum ListEdit {
         if !editing, let opened, let row = rows(of: [opened]).first { return [row] }
         return rows(of: Set(kept))
     }
+
+    /// The row to highlight for the letters the reading pane shows,
+    /// `shown`, the letter it opened first and then the rest of its
+    /// conversation (`MessageDetailViewController.lettersShown`): the row
+    /// that holds the first of them the list has, nil when it has none
+    /// (B-133).
+    ///
+    /// For where the table has dropped the highlight with the letter still
+    /// open: Edit mode, which clears the selection and whose Done puts
+    /// nothing back, a day jumped to, whose rows replace the list's, and a
+    /// redraw with no selection to put back, a page that brings the row
+    /// after such a day. Mail keeps the open message's row selected.
+    ///
+    /// By any letter of the conversation, not only the one opened: a day's
+    /// list can hold a conversation without its newest letter, and its row
+    /// is still the conversation the pane shows.
+    static func paneRow(in threads: [MessageThread], showing shown: [String]) -> Int? {
+        for id in shown {
+            if let row = threads.firstIndex(where: { $0.messages.contains { $0.id == id } }) {
+                return row
+            }
+        }
+        return nil
+    }
 }
 
 /// Letters taken off the list by a Delete or Move from the reading pane.

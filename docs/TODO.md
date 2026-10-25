@@ -1237,9 +1237,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       "< Mailboxes", the open folder: its list where he left it, a NOOP
       alone; another: its SELECT, UID SEARCH and UID FETCH. Seen in
       passing: after Done the open letter's row is no longer highlighted,
-      the letter still in the pane. Left: the long folder name, which needs
-      a label made on the account and waits on a yes, and the thumb resting
-      on the list.*
+      the letter still in the pane (B-133 since). Left: the long folder
+      name, which needs a label made on the account and waits on a yes,
+      and the thumb resting on the list.*
 - [ ] **B-050, Reply and Forward as the original looked.** *Partly seen
       2026-09-30: a newsletter forwarded, and a one-word reply to his own
       letter with a link; see B-050.* Read what
@@ -1744,9 +1744,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       as B-128, its check below); and an
       Edit Delete of two rows met Gmail's `* BYE System Error` at its first
       MOVE, nothing moved, and the rows stayed off the list until a
-      Refresh. Left: the Cc from the kept Inbox, which needs it on the
-      letter the header names, and the letter that tries to go somewhere,
-      which needs a letter from another account and waits on a yes.*
+      Refresh (B-132 since: out of sight above it, before B-093). Left:
+      the Cc from the kept Inbox, which needs it on the letter the header
+      names, and the letter that tries to go somewhere, which needs a
+      letter from another account and waits on a yes.*
 - [x] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
@@ -5897,6 +5898,97 @@ checks below is left as not needed, not open, and none is worth a round.*
       the UIDs that move answered (`COPYUID`), then deletes the label,
       empty. Never anything found by subject, Message-ID or label.
       Nothing else was written.
+- [ ] **B-132, a failed Edit mode Delete or Move puts its rows back
+      where they stood.** On the test iPad, the test account, from a
+      build of the `bm-editlist` worktree (branch `fix-editlist`).
+      Nothing is sent and nothing comes to the Inbox: the letters are the
+      host's, APPENDed read into a label "B-132" it makes, dated two days
+      back and more, a Delete moves them to Trash, and a Move to a second
+      label the host makes, "B-132 moved". Three panes; the connection
+      log read after each step; Airplane Mode turned off after each step
+      that turns it on.
+      0. *The letters:* sixteen, read. Two conversations of two letters,
+      "B-132 one" and "B-132 two", the reply's In-Reply-To and References
+      naming the first, dated two days back; and twelve alone, "B-132
+      single 1" to "12", three and four days back, below them. The label
+      "B-132 moved" made empty beside "B-132".
+      1. *Refused at the first letter, at the top:* B-132 opened at its
+      top. Edit, the two conversations' rows ticked, Airplane Mode on,
+      Delete. The two rows go at the tap and are back where they stood,
+      the list at its top, every row as before the tap, not ticked, Edit
+      mode over; "Can't connect to mail server.", OK. The log: one
+      `NO-PATH UID MOVE nothing-sent`. Airplane Mode off, Refresh: the
+      same rows.
+      2. *In the middle of the list:* scrolled until a single's row is
+      the first in view, a little way down; write down which. Edit, that
+      row and the next two ticked, Airplane Mode on, Delete: the three go
+      and come back where they stood, every row in view where it was
+      before the tap, the list not scrolled; the alert as in 1.
+      3. *Some moved, then a failure:* at the top, Edit, Select All,
+      Delete, and Airplane Mode on about a second after the tap. The rows
+      whose letters the log shows answered `OK [COPYUID …]` stay off, the
+      rows below closing up; the rest come back where they stood, a
+      conversation of which one letter went with the other alone; the
+      alert. Airplane Mode off, Refresh: the same rows as before it, row
+      for row. A row that came back but is gone at the Refresh, its MOVE
+      on the wire as the network went, is B-092's lost answer (B-132,
+      Not changed; in a label the watch does not look, so it waits for
+      the Refresh): write it down, with its log lines.
+      4. *A Move:* 1 and 3 again on what 3 left, with Move in place of
+      Delete: Edit, the top two rows for 1's and Select All for 3's, Move,
+      "B-132 moved" chosen, Airplane Mode on before the Move for 1's, and
+      about a second after the label is chosen for 3's. As in 1 and 3:
+      every row back where it stood, nothing in the log but `NO-PATH UID
+      MOVE nothing-sent`; then the rows of the letters answered `OK
+      [COPYUID …]` off, the rest back where they stood, the alert each
+      time. Airplane Mode off, Refresh, then "B-132 moved" opened from
+      Mailboxes: exactly the letters the log shows answered, and back to
+      B-132. If the Move list does not offer the label with Airplane Mode
+      on, write it down, and turn it on after the label is chosen
+      instead, as fast as can be.
+      5. *Two panes:* 1 again, then three panes back.
+      6. *Put back:* the labels B-132 and "B-132 moved", with what is
+      left in them, deleted by the host, and the letters in Trash left
+      there.
+- [ ] **B-133, the open letter's row stays highlighted.** On the test
+      iPad, the test account, the same build, with B-132's sixteen letters
+      in the label "B-132" (its step 0; made again by the host if B-132's
+      check has put them away). Nothing is sent; step 6 moves two of them
+      to Trash. Three panes; the connection log read after each step.
+      1. *Done:* B-132 opened, a single tapped: its letter in the pane,
+      its row highlighted. Edit: no row highlighted or ticked. Done: the
+      row highlighted again, the letter still in the pane, the list where
+      it was, and nothing in the log at Done.
+      2. *Done after ticks:* Edit, two other rows ticked, Done: the ticks
+      gone, the open letter's row highlighted.
+      3. *Mark:* Edit, another row ticked, Mark, Mark as Unread: Edit mode
+      ends, that row's dot on, the open letter's row highlighted. The same
+      with Mark as Read, to put it back.
+      4. *A conversation:* "B-132 one" tapped, its stack in the pane.
+      Edit, Done: its row highlighted.
+      5. *Go to Date:* the calendar, Current Mailbox, the open
+      conversation's day: the list at the day as before, the
+      conversation's row highlighted where it lands, the list not moved
+      to it, and in the log nothing but the jump's own: its SEARCH, and
+      the FETCHes of the day's page, envelopes and previews
+      (`BODY.PEEK[1]<0.2048>`, or another part's first 2,048 bytes),
+      which are expected. A FETCH of the open letter's whole body, or any
+      STORE, at the highlight is a fail. Then,
+      in All Mail, a read letter near its top opened and Go to Date to a
+      day far enough back that the day's list does not reach it, if the
+      account has one (write down which, or that it has none): no row
+      highlighted, the letter in the pane; the list scrolled up until the
+      pages bring its row: the row highlighted as it comes, no tap, and
+      nothing fetched but the pages' own envelopes and previews, by the
+      same rule.
+      6. *A Delete of the open letter:* B-132, a single opened, Edit, its
+      row and another ticked, Delete: the pane empty, both rows gone, no
+      row highlighted.
+      7. *Two panes:* 1 again, then three panes back.
+      8. *Put back:* if the letters were made again for this check, the
+      label B-132, with what is left in it, deleted by the host here, and
+      the letters in Trash left there; otherwise nothing more, the label
+      going with B-132's step 6.
 
 ## Blocked on the owner
 
@@ -6141,6 +6233,18 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       "Recent search," (B-105); the Forward question with "Include" and
       "Don't Include" (B-107); "Photo Library", "Attach File" and the
       sentences for files that could not be attached (B-108).
+- [ ] **A Delete or Move whose answer is lost** (B-132): the connection
+      dropping after Gmail has carried out a MOVE and before its answer
+      comes, the row comes back with "Can't connect to mail server."
+      though the letter has gone. In the Inbox at its top the watch takes
+      the row off within about half a minute; anywhere else it stays
+      until a Refresh, or a second Delete or Move, which finds it gone.
+      As built (the default, B-092's "refused as not moved"), or a look
+      in the folder on the next connection after such a failure, the row
+      taken off if the letter has gone (not built).
+- [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
+      edit mode with Cancel, not seen on an iPad; Blackmail's button says
+      Done. As built (the default), or Mail's word once seen on his iPad.
 - [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a

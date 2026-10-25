@@ -431,6 +431,309 @@ final class ListBatchTests: XCTestCase {
         XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(real.id)))
     }
 
+    // MARK: - Every row that did not move back where it stood (B-132)
+
+    /// A label on the test account, as Edit mode's Move files into one. Out
+    /// of the Inbox the row leaves the list, nothing comes off a count at
+    /// the list, and a letter filed unread is swept for, the label's count
+    /// being the server's to say (`PaneActions.effect`).
+    private static let family = Mailbox(id: "Family", name: "Family", unreadCount: 0)
+
+    /// Where `action` puts a letter on the server: the Trash for a Delete,
+    /// the label for a Move.
+    private func destination(of action: PaneAction) -> String {
+        if case .move(let folder) = action { return folder.id }
+        return Server.trash
+    }
+
+    /// The account as `action` needs it: the label made, for a Move.
+    private func prepare(for action: PaneAction) {
+        guard case .move(let folder) = action else { return }
+        server.addFolder(folder.id, attributes: ["\\HasNoChildren"], label: folder.id,
+                         validity: 600_100, firstUID: 10)
+    }
+
+    /// The UID MOVE that `action` sends for `letter`.
+    private func moveCommand(_ letter: MessageSummary, for action: PaneAction) -> String {
+        "UID MOVE \(uid(letter.id)) \"\(destination(of: action))\""
+    }
+
+    /// Two conversations newer than every other letter in the Inbox, so
+    /// their rows are its first two, as on the test iPad on 2026-10-21:
+    /// "Links", Carlo's letter and Jane's reply, and over it "Roof",
+    /// Carlo's letter and two replies, the last one unread. The oldest
+    /// first. `moreUnread`, Jane's reply in Links and Carlo's letter in
+    /// Roof unread too: two of the three that go before the failure in
+    /// `someMovedThenABye(_:)`, so that what they owe is seen.
+    private func twoConversations(moreUnread: Bool = false) -> [Server.Letter] {
+        func letter(_ subject: String, _ n: Int, from: Server.Address, minutes: Double,
+                    after earlier: Server.Letter?, first: Server.Letter?,
+                    read: Bool = true) -> Server.Letter {
+            Server.Letter(from: from, to: [Server.owner],
+                          subject: earlier == nil ? subject : "Re: " + subject,
+                          date: Server.newestDate.addingTimeInterval(minutes * 60),
+                          text: "\(subject), letter \(n).\r\n", flags: read ? ["\\Seen"] : [],
+                          messageID: "<\(subject.lowercased())-\(n)@example.org>",
+                          inReplyTo: earlier?.messageID, joins: first?.messageID)
+        }
+        let links1 = letter("Links", 1, from: Server.carlo, minutes: 1, after: nil, first: nil)
+        let links2 = letter("Links", 2, from: Server.jane, minutes: 6, after: links1, first: links1,
+                            read: !moreUnread)
+        let roof1 = letter("Roof", 1, from: Server.carlo, minutes: 10, after: nil, first: nil,
+                           read: !moreUnread)
+        let roof2 = letter("Roof", 2, from: Server.sam, minutes: 13, after: roof1, first: roof1)
+        let roof3 = letter("Roof", 3, from: Server.jane, minutes: 14.5, after: roof2, first: roof1,
+                           read: false)
+        let letters = [links1, links2, roof1, roof2, roof3]
+        for letter in letters { server.deliver(letter, to: [Server.inbox, Server.allMail]) }
+        return letters
+    }
+
+    /// The Inbox with the two conversations on top, listed through the
+    /// shipping repository, its letters as the list holds them, and the
+    /// list on the screen at its top: Roof's row first, Links' second. The
+    /// account made ready for `action`.
+    @MainActor
+    private func inboxWithTwoConversations(for action: PaneAction, moreUnread: Bool = false)
+        async throws -> (IMAPMailRepository, [MessageSummary], ListLetters, Billing, ListOnScreen) {
+        prepare(for: action)
+        let sent = twoConversations(moreUnread: moreUnread)
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let listed = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, counts) = makeList(folder: listed)
+        let screen = ListOnScreen(list)
+        XCTAssertEqual(screen.rows[0].messages.map(\.subject), ["Re: Roof", "Re: Roof", "Roof"])
+        XCTAssertEqual(screen.rows[1].messages.map(\.subject), ["Re: Links", "Links"])
+        XCTAssertEqual(screen.rows[0].messages.map(\.date), sent.suffix(3).reversed().map(\.date))
+        return (repository, listed, list, counts, screen)
+    }
+
+    /// Gmail's `* BYE System Error` to the first UID MOVE of Edit mode's
+    /// Delete, or its Move, of two conversations' rows, nothing moved, as
+    /// on the test iPad on 2026-10-21 with a Delete (B-132). The rows go at
+    /// the tap, and both are back where they stood once the BYE has come:
+    /// every letter on the list, the list at its top, every row on the
+    /// screen where it was before the tap. One MOVE was sent, the oldest
+    /// letter's, and nothing after it; the five are still in the Inbox and
+    /// none in the Trash or the label; nothing is billed or swept; the
+    /// alert says "Can't connect to mail server.", as before. Made again,
+    /// the Delete or the Move takes all five, and the rows below close up.
+    @MainActor
+    private func byeAtTheFirstMove(_ action: PaneAction) async throws {
+        let (repository, listed, list, counts, screen) = try await inboxWithTwoConversations(
+            for: action)
+        let into = destination(of: action)
+        let filed = server.uids(in: into).count
+        let before = screen.onPane
+        let seen = screen.inView
+        let chosen = ListBatch.letters(ticked: [0, 1], in: screen.rows)
+        XCTAssertEqual(chosen.map(\.subject), ["Links", "Re: Links", "Roof", "Re: Roof", "Re: Roof"])
+        let sweeps = Counter()
+        server.hangsUpOnVerbs = ["UID MOVE"]
+        server.clearLog()
+
+        let outcome = await run(action, on: chosen, list: list, repository: repository,
+                                sweeps: sweeps)
+
+        XCTAssertEqual(outcome, ListBatch.Outcome(taken: [], notTaken: chosen.map(\.id),
+                                                  refusal: .cannotConnect))
+        XCTAssertEqual(MailAlert.reaching(try XCTUnwrap(outcome.refusal)).message,
+                       "Can't connect to mail server.")
+        XCTAssertEqual(server.log.map(\.command), [moveCommand(chosen[0], for: action)])
+        for letter in chosen { XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(letter.id))) }
+        XCTAssertEqual(server.uids(in: into).count, filed, "nothing filed")
+        XCTAssertEqual(list.shown.map(\.id), listed.map(\.id), "every letter back on the list")
+        XCTAssertEqual(screen.offset, ListOnScreen.top, "the list at its top")
+        XCTAssertEqual(screen.onPane, before, "every row where it stood")
+        XCTAssertEqual(screen.inView, seen)
+        XCTAssertEqual(counts.billed, [])
+        XCTAssertEqual(sweeps.value, 0)
+
+        server.hangsUpOnVerbs = []
+        server.clearLog()
+        let again = await run(action, on: chosen, list: list, repository: repository,
+                              sweeps: sweeps)
+        XCTAssertEqual(again, ListBatch.Outcome(taken: chosen.map(\.id), notTaken: [], refusal: nil))
+        XCTAssertEqual(server.log.filter(\.isUIDCommand).map(\.command),
+                       chosen.map { moveCommand($0, for: action) })
+        for letter in chosen { XCTAssertFalse(server.uids(in: Server.inbox).contains(uid(letter.id))) }
+        XCTAssertEqual(server.uids(in: into).count, filed + chosen.count)
+        XCTAssertEqual(screen.offset, ListOnScreen.top)
+        XCTAssertEqual(screen.inView.first, seen[2], "the rows below closed up")
+    }
+
+    /// `byeAtTheFirstMove(_:)` for a Delete, as on the iPad.
+    @MainActor
+    func testAByeAtTheFirstMovePutsEveryRowBackWhereItStood() async throws {
+        try await byeAtTheFirstMove(.delete)
+    }
+
+    /// `byeAtTheFirstMove(_:)` for a Move to a label.
+    @MainActor
+    func testAByeAtTheFirstMoveToALabelPutsEveryRowBackWhereItStood() async throws {
+        try await byeAtTheFirstMove(.move(to: Self.family))
+    }
+
+    /// The connection dead under the list, as a socket is after the iPad
+    /// has slept, with nothing yet to say so: Edit mode's Delete, or its
+    /// Move, of three rows in the middle of the list, the first he can see
+    /// among them. The first MOVE goes into the dead socket and nowhere,
+    /// and the read after it fails: every row is back where it stood,
+    /// nothing moved, nothing else sent, and the alert says "Can't connect
+    /// to mail server." (B-132; seen on 2026-10-07 in Sent Mail with a
+    /// Delete, after some four minutes in the background, one row of four
+    /// left off the list).
+    @MainActor
+    private func deadConnection(_ action: PaneAction) async throws {
+        prepare(for: action)
+        let repository = makeRepository()
+        _ = try await repository.folders()
+        let into = destination(of: action)
+        let filed = server.uids(in: into).count
+        let listed = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        let (list, counts) = makeList(folder: listed)
+        let screen = ListOnScreen(list, at: 214)
+        let before = screen.onPane
+        let seen = screen.inView
+        XCTAssertEqual(seen.first, listed[3].id, "the fourth row the first he can see")
+        let chosen = ListBatch.letters(ticked: [3, 4, 6], in: screen.rows)
+        let sweeps = Counter()
+        server.clearLog()
+        await server.resetConnections()
+
+        let outcome = await run(action, on: chosen, list: list, repository: repository,
+                                sweeps: sweeps)
+
+        XCTAssertEqual(outcome, ListBatch.Outcome(taken: [], notTaken: chosen.map(\.id),
+                                                  refusal: .cannotConnect))
+        XCTAssertEqual(MailAlert.reaching(try XCTUnwrap(outcome.refusal)).message,
+                       "Can't connect to mail server.")
+        XCTAssertEqual(server.lostWrites.map(\.command), [moveCommand(chosen[0], for: action)])
+        XCTAssertEqual(server.log.map(\.command), [], "nothing else sent")
+        for letter in chosen { XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(letter.id))) }
+        XCTAssertEqual(server.uids(in: into).count, filed, "nothing filed")
+        XCTAssertEqual(list.shown.map(\.id), listed.map(\.id))
+        XCTAssertEqual(screen.offset, 214)
+        XCTAssertEqual(screen.onPane, before)
+        XCTAssertEqual(screen.inView, seen)
+        XCTAssertEqual(counts.billed, [])
+        XCTAssertEqual(sweeps.value, 0)
+    }
+
+    /// `deadConnection(_:)` for a Delete, as on the iPad.
+    @MainActor
+    func testADeadConnectionPutsEveryRowBackWhereItStood() async throws {
+        try await deadConnection(.delete)
+    }
+
+    /// `deadConnection(_:)` for a Move to a label.
+    @MainActor
+    func testADeadConnectionUnderAMoveToALabelPutsEveryRowBackWhereItStood() async throws {
+        try await deadConnection(.move(to: Self.family))
+    }
+
+    /// Some letters moved and then a failure: the Links conversation and
+    /// Roof's first letter taken, two of the three unread, and Gmail's BYE
+    /// to the next MOVE, in Edit mode's Delete or its Move. Exactly the
+    /// letters that did not move come back: Roof's row, where it stood,
+    /// with its other two letters and headed by the newest as before, and
+    /// Links' row gone, the rows below closed up into its place. The ones
+    /// that went are in the Trash or the label and the rest in the Inbox.
+    /// What the ones that went owe is paid though the batch failed: one
+    /// sweep for the two unread, not one each; a Delete bills each of them
+    /// off the Inbox's and All Mail's counts, which a Move to a label
+    /// leaves to the sweep. Roof's unread letter, which stayed, is not
+    /// billed (B-132).
+    @MainActor
+    private func someMovedThenABye(_ action: PaneAction) async throws {
+        let (repository, listed, list, counts, screen) = try await inboxWithTwoConversations(
+            for: action, moreUnread: true)
+        let into = destination(of: action)
+        let filed = server.uids(in: into).count
+        let before = screen.onPane
+        let seen = screen.inView
+        let chosen = ListBatch.letters(ticked: [0, 1], in: screen.rows)
+        let moved = Array(chosen.prefix(3))
+        let stayed = Array(chosen.dropFirst(3))
+        XCTAssertEqual(moved.map(\.subject), ["Links", "Re: Links", "Roof"])
+        XCTAssertEqual(moved.map(\.isRead), [true, false, false])
+        XCTAssertEqual(stayed.map(\.isRead), [true, false])
+        let lastMoved = moveCommand(moved[2], for: action)
+        let server = self.server!
+        server.change(after: { $0.command == lastMoved }) { server.hangsUpOnVerbs = ["UID MOVE"] }
+        let sweeps = Counter()
+        server.clearLog()
+
+        let outcome = await run(action, on: chosen, list: list, repository: repository,
+                                sweeps: sweeps)
+
+        XCTAssertEqual(outcome, ListBatch.Outcome(taken: moved.map(\.id),
+                                                  notTaken: stayed.map(\.id),
+                                                  refusal: .cannotConnect))
+        XCTAssertEqual(MailAlert.reaching(try XCTUnwrap(outcome.refusal)).message,
+                       "Can't connect to mail server.")
+        XCTAssertEqual(server.log.map(\.command),
+                       (moved + [stayed[0]]).map { moveCommand($0, for: action) })
+        for letter in moved { XCTAssertFalse(server.uids(in: Server.inbox).contains(uid(letter.id))) }
+        for letter in stayed { XCTAssertTrue(server.uids(in: Server.inbox).contains(uid(letter.id))) }
+        XCTAssertEqual(server.uids(in: into).count, filed + moved.count)
+        XCTAssertEqual(list.shown.map(\.id),
+                       listed.map(\.id).filter { id in !moved.contains { $0.id == id } })
+        XCTAssertEqual(screen.letterRows[0], stayed.reversed().map(\.id), "Roof's row, less its first")
+        XCTAssertEqual(screen.rows[0].id, seen[0], "headed by its newest, as before")
+        XCTAssertEqual(screen.offset, ListOnScreen.top)
+        XCTAssertEqual(screen.onPane[seen[0]], before[seen[0]], "where it stood")
+        XCTAssertNil(screen.onPane[seen[1]], "Links' row gone")
+        XCTAssertEqual(screen.onPane[seen[2]], before[seen[1]], "the rows below closed up")
+        XCTAssertEqual(counts.billed, action == .delete
+                       ? [[Server.inbox, Server.allMail], [Server.inbox, Server.allMail]] : [])
+        XCTAssertEqual(sweeps.value, 1, "one sweep for the letters that went unread")
+    }
+
+    /// `someMovedThenABye(_:)` for a Delete.
+    @MainActor
+    func testSomeMovedThenAFailureBringsBackExactlyTheRestWhereTheyStood() async throws {
+        try await someMovedThenABye(.delete)
+    }
+
+    /// `someMovedThenABye(_:)` for a Move to a label.
+    @MainActor
+    func testSomeMovedToALabelThenAFailureBringsBackExactlyTheRestWhereTheyStood() async throws {
+        try await someMovedThenABye(.move(to: Self.family))
+    }
+
+    /// An illustration of what was seen on 2026-10-21, not a regression
+    /// test: the same failed Delete, its rows put back by the rows he could
+    /// see then, with no place kept from before the tap. Both rows go in
+    /// above the row first in view, which had closed up into their place,
+    /// and the list ends two rows down with both out of sight under the
+    /// search field.
+    ///
+    /// A model of the placement before B-093 (`ListOnScreen`'s
+    /// `byRowsInView`), not of the build on the iPad, 1233252, whose
+    /// `regroup` held the rows UIKit had visible, those under the bars too,
+    /// where this holds B-093's rows in sight; stepped through by hand, that
+    /// `regroup` ends at the same offset here. `TakenRows`, which B-132's
+    /// tests above hold, is not consulted, so no change to it can fail this.
+    @MainActor
+    func testAModelOfThePlacementBeforeB093PutsBothRowsBackOutOfSight() async throws {
+        let (repository, listed, _, _, screen) = try await inboxWithTwoConversations(for: .delete)
+        let seen = screen.inView
+        let chosen = ListBatch.letters(ticked: [0, 1], in: screen.rows)
+        server.hangsUpOnVerbs = ["UID MOVE"]
+        let (old, _) = makeList(folder: listed)
+        let then = ListOnScreen(old, byRowsInView: true)
+
+        _ = await run(.delete, on: chosen, list: old, repository: repository, sweeps: Counter())
+
+        XCTAssertEqual(old.shown.map(\.id), listed.map(\.id))
+        XCTAssertEqual(then.offset, ListOnScreen.top + 2 * ListOnScreen.row)
+        XCTAssertFalse(then.inView.contains(then.rows[0].id), "out of sight above the list")
+        XCTAssertFalse(then.inView.contains(then.rows[1].id), "out of sight above the list")
+        XCTAssertEqual(then.inView.first, seen[2])
+    }
+
     // MARK: - In the list's order, turned over
 
     /// The rows he ticked go in the list's order turned over, whatever

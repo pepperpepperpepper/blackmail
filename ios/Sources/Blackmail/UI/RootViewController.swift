@@ -913,6 +913,11 @@ final class RootViewController: UIViewController {
         list.onLettersLeaving = { [weak self] letters in
             self?.detail.clearIfShowing(any: letters)
         }
+        // The row of the letter in the reading pane highlighted again at
+        // Edit mode's Done and on a day's list (B-133).
+        list.lettersInPane = { [weak self] in
+            self?.detail.lettersShown ?? []
+        }
         list.requestSweep = { [weak self] in
             self?.refreshMailboxes()
         }

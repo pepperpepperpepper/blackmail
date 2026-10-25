@@ -3307,7 +3307,7 @@ before letting go was not tried.
 
 Seen in passing, not part of the checks: a letter open before a jump
 stays in the pane, its row no longer highlighted until it is tapped
-again; a file tapped on one letter opened in Quick Look over the next
+again (B-133 since); a file tapped on one letter opened in Quick Look over the next
 letter some 0.3 s after that one landed, twice of twice; and the shared
 `.eml` went base64, as every file goes, which RFC 2046 does not allow
 for message/rfc822, Gmail reading its envelope all the same, its row
@@ -4001,7 +4001,7 @@ thumb resting on the list was not tried.
 
 Seen in passing: Edit clears the selection and Done does not put it back,
 so after Done the open letter's row is no longer highlighted, the letter
-still in the pane.
+still in the pane. (B-133 since.)
 
 ---
 
@@ -6507,7 +6507,9 @@ as B-128*). And an
 Edit Delete of two conversations' rows met `* BYE System Error` from Gmail
 at its first MOVE: nothing moved on the server, "Can't connect to mail
 server." came, and both rows stayed off the list until a Refresh brought
-them back; the Delete made again moved all five. Not looked into.
+them back; the Delete made again moved all five. Not looked into. (B-132
+since: the rows were back on the list, out of sight above it, on a build
+without B-093.)
 
 **Open, for the owner.** Whether letters' pictures from the web load
 (the spec asks for them blocked by default if feasible). A bare address is
@@ -11141,7 +11143,8 @@ Deleting them after: the first Delete in Sent Mail, the app back from
 some four minutes in the background, failed with "Can't connect to mail
 server.", and one of the four rows went from the list behind the message.
 Refresh brought it back, and a second Delete took all four. Not B-075's;
-not looked into.
+not looked into. (B-132 since: a row put back out of sight above the
+list, on a build without B-093.)
 
 **Seen on the test iPad, 2026-10-19**, the same iPad, landscape, two
 panes, a build of a0b6062, B-079 to B-083 merged on master 44d953c, on the
@@ -25738,3 +25741,293 @@ skipped, none failing; the release build links.
   markup in place of two, was not timed on the iPad.
 - Mail's pane, and its print, of a letter it has only the beginning of:
   not seen.
+
+---
+
+---
+
+## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
+
+**Found on the iPad, twice, and left in "Seen in passing".** On
+2026-10-07, at the end of B-075's run, Edit mode's Delete of four rows in
+Sent Mail, the app back from some four minutes in the background, failed
+with "Can't connect to mail server." and one of the four rows went from
+the list behind the alert; Refresh brought it back, and a second Delete
+took all four. On 2026-10-21, at the end of B-055's run, Edit mode's
+Delete of the Inbox's first two rows, two conversations of five letters,
+met Gmail's `* BYE System Error` at its first MOVE; nothing moved on the
+server, "Can't connect to mail server." came, and both rows stayed off
+the list until a Refresh. Not looked into then.
+
+**What Mail does.** Not what decides it: a Delete or Move the server does
+not take brings its rows back where they stood and says so, which is
+B-062's rule, with B-093's place. Mail's own answer to a move that fails
+is known only by its alert, "Unable to Move Message" (Apple Community
+thread 4014036, as B-062 has it); how its list shows such a message was
+not found described.
+
+**What it was.** The rows were back on the list, out of sight above it.
+The connection log of 2026-10-21 has `UID MOVE 386 "[Gmail]/Trash"` at
+07:07:21.788, the oldest of the five, and `* BYE System Error` 1.5 s on,
+with no tagged answer and nothing more of the Delete after it: the batch
+stopped at the failure and put every letter back on the list, as B-062
+has it. The watch's check that connected again at 07:07:38 found
+nothing gone, and the Refresh at 07:08:32 listed all five in the Inbox. The rows came back to the list's
+letters, and the list drew them in where they belonged, but it put
+itself back by the rows he could see then. The build, 1233252, master
+with B-092, was cut that morning before B-093's three changes, which
+came later the same day (01ecf20, 29f4127, 20fb3f5). Without them a row
+put back was put back by the first row in view: the two rows were the
+Inbox's first two, at its top; at the tap the rows below closed up into
+their place; each row put back went in above the row now first in view,
+which stayed where it was, so the list ended two rows down with both
+rows above it, out of sight under the search field. The list read as if
+they had gone. Refresh takes the list to its top, where they were.
+2026-10-07 has no connection log kept; the build was older still,
+master 434422b, with the same placement, and it sent the batch newest
+first, before B-084. So only the first row put back, the newest, went in
+above the row first in view, out of sight; the three after it were put
+back by that row, which UIKit counted as visible under the bars, and
+went in below it, in view. The picture of the alert from B-075's run
+(`b075-90-sent-delete-view.png`) shows exactly that: of the four rows
+ticked at the top of Sent Mail, the newest, "IPAD B-075 him two",
+missing, and the next first under the search field. Nothing was lost
+either time.
+
+B-093 keeps the place from before the tap (`TakenRows`) and puts every
+row of a refused batch back by it while the list shows what the tap
+left, one place for all of them until the last is back. It was held by
+the host tests at the place's level, with rows of one letter each, and
+never with a batch run through the repository against a server that
+fails it.
+
+**Changed.** Nothing in the app; its code is B-062's batch and B-093's
+place, as they are on master. What is new is the suite's:
+
+- The scripted server can answer a command as Gmail did on 2026-10-21,
+  `* BYE System Error` and the connection closed, nothing of it carried
+  out (`ScriptedIMAPServer.hangsUpOnVerbs`).
+- The list on the screen, laid out as `ListPlaceTests` lays it out, drawn
+  again at every change the list's letters tell the way
+  `regroup(for:)` draws it (`ListOnScreen`, test support).
+- Six tests that run Edit mode's Delete, and its Move to a label,
+  through `ListBatch`, the shipping repository and the scripted server,
+  and look at the list as he would; and one that models the placement
+  before B-093, an illustration of what was seen, not a test of the app.
+
+**Not changed.**
+
+- A MOVE whose answer is lost after Gmail has carried it out, the
+  connection dropping between the two, is taken as not moved, as B-092
+  has it ("refused as not moved"): its row comes back with the alert
+  though the letter has gone. In the Inbox, while its list starts at its
+  newest letter and shows no search, the watch's next check, within
+  about half a minute (`MailWatch.interval`), connects again and
+  searches the folder, as it does after every SELECT
+  (`IMAPClient.unsearchedNews`), finds the letter gone, and takes the
+  row off once he is at the top of the list with nothing ticked
+  (`ListLetters.hold`, `showNews`), the counts swept with it; scrolled
+  down, the row waits for him to go back to the top. In another folder,
+  a day jumped to, or a search, the row stays until a Refresh, or a
+  Delete or Move again, whose MOVE finds it gone (B-092's look).
+  Telling the two apart at the failure needs a look in the folder on a
+  new connection after it; not built, and put to the owner (TODO,
+  Blocked on the owner, "A Delete or Move whose answer is lost").
+  Neither sighting was this: nothing had moved.
+- A row put back after he has scrolled the list since the tap, or after
+  newer mail has joined a row in view, goes back by the rows he can see
+  then, as B-093 has it: one that stood above them goes in out of sight,
+  where it is in the list. A batch on a half-open connection can take the
+  read deadline, half a minute, before it fails, time enough to scroll.
+- The reading pane, emptied at the tap if it showed a letter going,
+  stays empty; Edit mode is not put back; the rows come back not ticked
+  (B-062).
+- The alert: the app's own sentence for what failed, "Can't connect to
+  mail server." for a BYE or a dead connection, Mail's "Cannot Get Mail"
+  for a refused password. One alert for the batch.
+
+**What he sees.** Edit mode's Delete or Move that fails at its first
+letter: the rows go at the tap and are back where they stood, every row
+in view where it was before the tap, and "Can't connect to mail server."
+Failing after some letters went: the rows of the letters that went stay
+off and the rows below close up into their place; the rest are back
+where they stood, a conversation with the letters of it that did not
+move, headed as before.
+
+**Tests.** In `ListBatchTests`, seven, new: three scenarios, each run
+for Edit mode's Delete and for its Move to a label, which out of the
+Inbox takes the row off, bills nothing at the list and sweeps for an
+unread letter (`PaneActions.effect`); and an illustration.
+
+`testAByeAtTheFirstMovePutsEveryRowBackWhereItStood` and
+`testAByeAtTheFirstMoveToALabelPutsEveryRowBackWhereItStood`: the two
+conversations of the iPad at the top of the Inbox, three letters and
+two, Gmail's BYE to the first MOVE: one MOVE sent, the oldest letter's,
+and nothing after it, the five still in the Inbox and none in the Trash
+or the label, every letter back on the list, the list at its top and
+every row on the screen where it stood, nothing billed or swept, "Can't
+connect to mail server."; and the Delete or the Move made again taking
+all five, the rows below closed up.
+
+`testADeadConnectionPutsEveryRowBackWhereItStood` and
+`testADeadConnectionUnderAMoveToALabelPutsEveryRowBackWhereItStood`:
+the connection reset under the list with nothing yet to say so, three
+rows in the middle of the list ticked, the first in view among them: the
+first MOVE lost on the dead socket, nothing else sent, nothing moved or
+filed, every row where it stood.
+
+`testSomeMovedThenAFailureBringsBackExactlyTheRestWhereTheyStood` and
+`testSomeMovedToALabelThenAFailureBringsBackExactlyTheRestWhereTheyStood`:
+the Links conversation and Roof's first letter moved, two of the three
+unread, and Gmail's BYE to the next MOVE: those three in the Trash or
+the label and off the list, Roof's row back where it stood with its two
+letters left, headed by its newest, Links' row gone and the rows below
+closed up; one sweep for the two unread that went, not one each, though
+the batch failed; the Delete billing each of them off the Inbox's and
+All Mail's counts and the Move billing nothing; Roof's unread letter,
+which stayed, not billed.
+
+`testAModelOfThePlacementBeforeB093PutsBothRowsBackOutOfSight`: the
+first scenario's Delete with its rows put back by the rows in view, no
+place kept from before the tap, ending two rows down with both rows out
+of sight. An illustration of what was seen, a model of the old
+placement and not of the old build: the build of 2026-10-21 held the
+rows UIKit had visible, those under the bars too, where the model holds
+B-093's rows in sight; stepped through by hand, that build's `regroup`
+ends at the same offset here. It runs nothing of `TakenRows`, so it
+pins nothing of this entry.
+
+Each part undone by hand, the class run, then put back and passing, the
+failures counted as failures in tests: a row put back by the rows in
+view, no place from before the tap (`TakenRows.move` always `.stay`), 18
+in 6, the six scenario tests; the letters after a failure not put back,
+26 in 10, the six, the illustration and three of the class's earlier
+ones; the letter that failed not put back, 16 in 10, the same ten; the
+failure not said, 25 in 9, the six and three of the class's earlier
+ones; the letters that moved put back with the rest at the failure, 14
+in 3, the two where some moved and one of the class's earlier ones; a
+Move's rows not put back, a Delete's alone, 11 in 3, the three for the
+Move and no other; the sweep dropped when the batch stops, 3 in 3, the
+two where some moved and one of the class's earlier ones; a sweep for
+each letter that went, 4 in 4, the two where some moved and two of the
+class's earlier ones.
+
+The full suite, serially, run with B-133 beside it: 2,484 tests, 9 of
+them new (7 here), 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Gmail's BYE cannot be had on the iPad at will; its TODO check fails
+  the Delete and the Move with Airplane Mode, which sends nothing
+  (`NO-PATH`), and turns it on part-way through a Delete or a Move of
+  many rows for some moved and then a failure.
+- The host suite cannot lay out a table: the screen is `ListOnScreen`'s
+  layout, taken as `ListPlaceTests` takes UIKit's (B-093).
+- The lost answer to a MOVE carried out, above.
+
+---
+
+## B-133 — FIXED 2026-10-25, not yet seen on the iPad. After Edit then Done, and after Go to Date, the letter open in the pane lost its row's highlight; the row is highlighted again wherever the list has it
+
+**Found on the test iPad, 2026-10-21, in passing, twice.** In B-048's
+run: "Edit clears the selection and Done does not put it back, so after
+Done the open letter's row is no longer highlighted, the letter still in
+the pane." In B-042's run: "a letter open before a jump stays in the
+pane, its row no longer highlighted until it is tapped again."
+
+**What Mail does.** Mail on the iPad keeps the row of the message open
+beside it highlighted in its list, as Apple's guidelines for a split
+view ask: "Persistently highlight the active selection in the primary
+pane. Although the secondary pane's content can change, it should always
+correspond to a clearly highlighted item in the primary pane." (iOS Human
+Interface Guidelines, Split Views; the older edition's words, mirrored at
+codershigh.github.io). Confident of the highlight itself, which is how
+his Mail looks every day, and the app already keeps it through a redraw
+(`ListEdit.selectedRows`). Whether Mail puts the highlight back when its
+edit mode ends was not seen on an iPad: medium, by the guideline. Nor is
+Mail's way out of that mode the app's Done, it seems: guides to Mail
+describe Edit, then Select All, with Cancel to leave, and Apple's current
+page (support.apple.com/102428) has More, then Select, and does not say
+how it ends; low to medium, not seen on an iPad. Mail has no Go to
+Date; the guideline is the rule there.
+
+**What it was.** The highlight is the table's selection and nothing
+else; the list did not know what the pane shows. The table's selection
+goes as Edit mode begins, so that no row is ticked that he did not tick,
+and Done, which takes his ticks away, selected nothing after; nothing
+else selected the open letter's row either. A day jumped to replaces the list's rows with a
+`reloadData` of its own (`show(_ window:)`), which drops the selection,
+and does not put it back: only `regroup` does, and only the rows that
+were selected just before. So the highlight, once gone, stayed gone
+through every redraw after, until he tapped a row.
+
+**Changed.**
+
+- The list asks the reading pane what it shows
+  (`MessageDetailViewController.lettersShown`, handed over by the
+  container as `lettersInPane`): the letter it opened, or its
+  conversation's newest, then the rest of the conversation, the newest
+  first; nothing when the pane is empty. The row to highlight is the one
+  that holds the first of them the list has (`ListEdit.paneRow`): a
+  day's list can hold a conversation without its newest letter, and that
+  row is still the conversation in the pane.
+- At Done, and whenever Edit mode ends by Mark, Delete or Move, that row
+  is highlighted (`highlightLetterInPane`), before what Done lets go on
+  goes on. A Delete or Move of the open letter itself empties the pane
+  and takes the row as before (B-062), and the highlight goes with it.
+- On a day's list, as its rows are drawn, the same.
+- Any other redraw puts back the selection it had, as before, and with
+  none to put back, out of Edit mode, highlights the same row: a page
+  that brings the row after a day jumped to without it, a search's
+  Cancel whose results did not hold it.
+- Never scrolled to, and nothing opened: `selectRow` with no scroll tells
+  the table's delegate nothing, so there is no tap, no read mark, no
+  download and no change to what the pane shows. Never in Edit mode,
+  where a selected row is a tick.
+
+**Not changed.** Entering Edit mode still clears the highlight, as UIKit
+does, so the open letter is never ticked for him. Go to Date across All
+Mailboxes opens All Mail, which empties the pane, as before. The
+highlight's colour and the rows' look. No new words on his screen. The
+app's Done itself, where Mail's word may be Cancel: the owner's to
+decide (TODO, Blocked on the owner, "Edit mode's Done"), not part of
+this change.
+
+**What he sees.** A letter open, Edit, Done: its row highlighted again,
+the list where it was. Go to Date to a day whose list has the letter's
+row: highlighted where it lands, the list at the day as before; a day
+without it: nothing highlighted, until the pages bring it.
+
+**Tests.** `OpenLetterHighlightTests`, two, new. One over the rule: a
+letter alone, a conversation by its newest, a day's list holding the
+conversation without its newest found by another of its letters, a
+letter the list does not have, an empty pane, another mailbox's id, the
+first the list has winning over the rest, grouping off. One reading the
+controller: the highlight by the pane's letters with `selectRow` and no
+scroll, never in Edit mode; at Done, after `setEditing` and before what
+Done lets go on; on a day's list straight after its reload and before
+its scroll; in `regroup` only with nothing to put back and out of Edit
+mode; called nowhere else; the container's wiring; the pane's letters.
+
+Each part undone by hand, the class run, then put back and passing, the
+failures counted as failures in tests: the row found by the pane's first letter alone, 1 in 1, the rule's test,
+by the day's list without the conversation's newest; nothing highlighted
+at Done, 2 in 1; nothing on a day's list, 2 in 1; highlighted in Edit
+mode too, 1 in 1; scrolled to the row, 1 in 1; the container handing the
+list nothing, 1 in 1; the pane naming its first letter alone, 1 in 1; no
+highlight in a redraw with nothing to put back, 2 in 1; that redraw's
+highlight in Edit mode too, 1 in 1. All but the first in the test that
+reads the controller.
+
+The full suite, serially: 2,484 tests, 2 of them new here, 6 skipped,
+none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- The host suite cannot run UIKit: whether the table keeps a row
+  selected straight after `setEditing(false, animated: true)`, and that
+  `selectRow` sends no tap, are UIKit's, and the iPad's to show (TODO,
+  B-133's check).
+- Whether Mail puts the highlight back as its edit mode ends, and with
+  which word it ends, not seen on an iPad here.
