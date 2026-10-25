@@ -64,18 +64,27 @@ enum PreviewPass {
     /// group after this one, so the pass stops rather than spending the
     /// connection on them.
     ///
+    /// The answer that was on its way as the list was replaced is not
+    /// drawn, but handed to `aside` with its group: the next answer as he
+    /// types can hold the same letters, and their previews need not be
+    /// asked for again (`ListLetters.previewsCameLate`, B-135).
+    ///
     /// A group that fails costs its own previews and not the rest. A blank
     /// preview is two grey lines; an alert about one would be the app
     /// interrupting him about work he never asked for.
     static func run(_ groups: [Group],
                     fetch: (_ ids: [String], _ mailboxID: String) async throws -> [String: String],
                     isCurrent: () async -> Bool,
-                    apply: ([String: String]) async -> Void) async {
+                    apply: ([String: String]) async -> Void,
+                    aside: ([String: String], Group) async -> Void = { _, _ in }) async {
         for group in groups {
             guard await isCurrent() else { return }
             guard let previews = try? await fetch(group.ids, group.mailboxID),
                   !previews.isEmpty else { continue }
-            guard await isCurrent() else { return }
+            guard await isCurrent() else {
+                await aside(previews, group)
+                return
+            }
             await apply(previews)
         }
     }

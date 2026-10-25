@@ -24946,3 +24946,142 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+## B-135 — FIXED 2026-10-25, not yet seen on the iPad. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
+
+Built in the `bm-searchprev` worktree (branch `fix-searchprev`), off master
+at 7056602.
+
+**Found where.** TODO's "Left from batch 4", its search part, written at
+batch 4 of the lag fixes: "a new result set as he types asks for every
+hit's preview again, where the previews already drawn for the same letters
+could be carried over by id, as Refresh does."
+
+**What Mail does.** Apple says nothing of how Mail fills the rows of a
+search. Its search as he types reads the letters it has on the iPad (iOS
+18.6's Message.framework, read from the binary for B-123), and a letter it
+has is drawn from what it holds, so a row he saw a moment before is not
+fetched again for the next letter he types: likely, not seen. Nothing
+here is a word or a look of Mail's; it is the app's own traffic, and the
+grey lines between two answers.
+
+**What it was.** Each pause of 350 ms in his typing sends a search (B-105),
+and each answer replaced the hits with rows whose previews were empty
+(`ListLetters.showResults`). The list's pass (`PreviewPass`) then asked for
+every one of them, a mailbox at a time, though "Marga" finds mostly the
+letters "Marg" found a moment before and drew; until they came, each row
+showed two grey lines where its words had been. A group's answer still on
+its way when the next search began was thrown away. A Refresh has carried
+the previews over since batch 3 (`ListEdit.carryingPreviews`); a search
+never did.
+
+**Changed.**
+
+1. *The carry* (`SearchPreviews`, new, and `ListLetters.showResults`): a
+   hit takes the preview already drawn for its letter, from the folder's
+   rows, the hits it replaces, or the last 300 drawn under hits in the
+   list's life, and `showResults` returns the hits still to be asked for,
+   which are all the list's pass asks for (`runSearch`). Only the preview
+   goes across: the read mark, the flag and the rest are the new answer's,
+   which can have changed since. A hit that comes with a preview of its
+   own keeps it.
+2. *The same letter*, as a Refresh tells it: the same folder, the same id,
+   which carries the folder's UIDVALIDITY and the UID, and Gmail's id
+   (X-GM-MSGID) the same on both rows. Stricter than a Refresh in one way:
+   a row with Gmail's id takes nothing from one without, nor the other way
+   round, so a row kept on the iPad from an earlier launch under the same
+   folder and UID, which can be another mailbox's (D-016), and the row a
+   draft kept here drew from its own words (`LocalDrafts`), give a hit
+   nothing. A letter saved again, as a draft is, has a new UID and so a new
+   id. Not across folders by Gmail's id: an All Mailboxes hit, under All
+   Mail's id, does not take the preview the Inbox's row of its letter drew,
+   so nothing here rests on Gmail never giving a changed letter its old id.
+3. *Bounded*: 300 previews, the one drawn longest ago going first and one
+   drawn again the newest; a preview is at most 240 characters
+   (`PreviewText.maximumCharacters`), so a few dozen kilobytes as a rule.
+   Held by the list, so another folder, another account or a password
+   saved starts with none.
+4. *The answer that came late* (`PreviewPass.run`'s `aside`,
+   `ListLetters.previewsCameLate`): a group's previews that land after the
+   list was replaced are not drawn, as before, but kept for the next
+   answer, for the rows of that group's folder alone. The groups after it
+   are not asked for, as before.
+5. *A page of hits* (`ListLetters.appendPage`): the same, and the list
+   asks for the page's rows that have none.
+6. *Comments and docs:* `PreviewPass.run`; the TODO item, its search part
+   ticked; the source pin in `RecentSearchesTests`, which read the line
+   `showResults` is called on.
+
+**Not changed.** What a search asks the server, its pause, its paging and
+its merge. A Refresh's carry and a cancelled search's (`endSearch`). The
+folder's own pages. The pass's order, a mailbox at a time, and its stop as
+the list is replaced. No new words.
+
+**What it saves.** Over the scripted server, at a mailbox of 29 letters in
+the Inbox with sixteen from four people whose names start "Mar" (plain,
+HTML alone, both, and with a file), one of them binned, and a letter of
+Carlo's naming Margaret, from the Inbox's page drawn, "Margaret" typed a
+letter at a time from "Ma", seven answers, each pass to its end
+(`SearchPreviewsTests`, printed): in All Mailboxes, the default, 47
+previews asked in 18 FETCHes and 11 SELECTs became 18 in 4 FETCHes and 2
+SELECTs, only "Mar" asking (17) and "Margaret" (Carlo's letter, the first
+answer to find it); in the Inbox alone, 41 previews in 12 FETCHes became
+none, its rows having drawn every hit. On Gmail an answer's pass is one
+FETCH per kind of letter among its hits, the first 2 KB of a plain letter's
+words or 8 KB of an HTML one's, with a SELECT of the Trash or Spam and back
+for a binned hit: two to four commands for a page of 50, and up to 400 KB
+asked for 50 HTML letters. So on a typical search, a name typed slowly, the
+first answer in All Mailboxes pays its pass, and every answer after it
+asks only for letters no answer before it found: as the name narrows, none.
+
+**What he sees.** As he types on, the rows of letters an earlier answer
+showed come with their two lines; only a letter new to the search has grey
+lines until its words come. Less goes on the connection while he types, so
+the next answer, and a letter opened from the results, wait behind fewer
+FETCHes. No new words.
+
+**Tests.** `SearchPreviewsTests`, ten, new. A hit takes the preview its
+letter drew in the answer before, and a hit with its own keeps it; a search
+in the folder takes its rows' previews, and an All Mailboxes hit of the
+same letter under All Mail's id takes none; nothing from a row of another
+Gmail id under the same folder and id, from one without Gmail's id into one
+with it or the other way, or from another folder under the same id; with
+no Gmail id on either, the same folder and id carry; the read mark, the
+flag and the subject the new answer's; a preview drawn in an answer no
+longer on screen, after one with nothing found and after a cancelled
+search; the last 300, one drawn again the newest, a row with none not
+kept; an answer that came after its list was replaced kept for the next,
+nothing after it asked, its folder's rows alone; a page of hits, and the
+folder's page as before; read from the source, the list asking for what
+`showResults` returns, a page's rows with none, and the late answer set
+aside; and over the scripted server, the name typed above, as the list
+asked before and as it asks now, in both scopes, each hit's preview the one
+fetched for it, the counts pinned.
+
+Each part undone by hand, the class run (ten tests; with `PreviewPassTests`,
+fourteen, for the late answer), then put back and passing, counted as
+failures in tests: no carry, 19 in 7; Gmail's id left out of what tells a
+letter, 2 in 1; the folder left out, 4 in 2; a preview not kept as it
+lands, 5 in 2; no bound, 4 in 1; one drawn again not the newest, 4 in 1;
+the late answer dropped, 2 in 1; kept for every folder's rows under its
+ids, 2 in 1; a page of hits not carried, 1 in 1; the list asking for every
+hit as before, 2 in 1; a hit's own preview overwritten, 1 in 1; the old row
+carried whole, its marks with it, 2 in 2; by Gmail's id alone across
+folders, the design left out, 5 in 2.
+
+The full suite, serially: 2,485 tests, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad. Its check is in TODO.
+- The first answer in All Mailboxes asks again for letters the Inbox's
+  rows have drawn, under All Mail's ids: 3 of the 4 FETCHes in the measure
+  above. Carrying by Gmail's id across folders would save them; left out
+  so that nothing rests on Gmail never giving a changed letter its old id.
+- An answer cut short: only the group on the wire as the list was
+  replaced is kept; the groups not yet asked are asked by the next answer.
+- More than 300 previews drawn in a list's life: the oldest go, and are
+  asked for again if found again.
+- The counts on his own mailbox, and the grey lines, are the check's to
+  see; the scripted mailbox is not his, and the numbers above are its own.

@@ -526,6 +526,13 @@ this host. Ordered by value, not by size.
       id, as Refresh does. Also left as it was: a letter reopened in the
       stack whose body is already kept takes the header at once, so a letter
       opened before it and still coming takes the header back when it lands.
+      *The search part done 2026-10-25 (B-135): a hit takes the preview
+      already drawn for its letter, by its folder, id and Gmail id, from
+      the folder's rows, the hits it replaces or the last 300 drawn, and
+      only the rest are asked for; on the scripted mailbox "Margaret"
+      typed a letter at a time asked 4 preview FETCHes where it asked 18.
+      Checked in `SearchPreviewsTests`; the device check is below. The
+      header's part, and the letter reopened, are left.*
 - [x] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -5597,6 +5604,45 @@ checks below is left as not needed, not open, and none is worth a round.*
       OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
       after the pause (B-123). Not possible: 6b and 11, the size test's
       mailbox having no such sender.*
+- [ ] **B-135, search previews carried over.** On the test iPad, the test
+      account as filled for the size test (above), from a build of the
+      `bm-searchprev` worktree (branch `fix-searchprev`). Read only, as
+      B-123's check: nothing is composed, sent, moved, deleted or written
+      to the mailbox, so no new mail reaches the phone the account is
+      signed in on. Three panes; the app's connection log read after each
+      step, a preview's FETCH being `UID FETCH … (UID BODY.PEEK[…]<0.n>)`
+      after the UID SEARCHes; a screen recording through steps 1 to 4.
+      1. *A name typed slowly.* The Inbox at its top with its previews
+      drawn. All Mailboxes, the field tapped, "Pey" and a pause: the rows,
+      and their previews let come in full; the log has the UID SEARCHes,
+      then the preview FETCHes. Then "t", so "Peyt", and a pause: every
+      row of a letter "Pey" showed has its two lines in the first frame it
+      is drawn, no grey lines on it, and the log has the UID SEARCHes and
+      no preview FETCH after them but for UIDs "Pey" did not find, if any,
+      written down. The same for "o" and "n", one at a time.
+      2. *The right words.* Three rows of 1's "Peyton", tapped one by
+      one: each letter begins with its row's words.
+      3. *Back.* The delete key, a pause after each, back to "Pey": the
+      rows with their lines at once, no preview FETCH.
+      4. *Nothing, then the same again.* "x", so "Peyx", a pause: "No
+      results". The delete key and a pause: "Pey"'s rows with their lines
+      at once, no preview FETCH.
+      5. *Typing on before the lines come.* Cancel, the field tapped,
+      "Mus" (Museum Members, or another sender with more than 50 letters),
+      and as soon as its rows appear, before their lines fill, "e" and a
+      pause: "Muse"'s rows. In the log, no UID is asked for a preview
+      after "Muse"'s UID SEARCHes whose preview FETCH was answered before
+      them; write down whether one was on the wire as "Muse" was asked.
+      6. *A page.* "Mus" again, a pause, its lines let come, then scrolled
+      to the foot of the results: the next page's preview FETCH names only
+      that page's UIDs. Then "e" and a pause: no preview FETCH for UIDs
+      of either page that "Muse" finds.
+      7. *The Inbox alone.* Cancel, the Inbox scrolled down two pages and
+      back to its top, Current Mailbox, "Pey" and a pause: its rows with
+      their lines at once, no preview FETCH for letters on those pages.
+      8. *Two panes:* 1 again, then three panes back.
+      9. *Put back:* Cancel, All Mailboxes, the Inbox at its top. Nothing
+      else: nothing was written to the mailbox.
 
 ## Blocked on the owner
 
