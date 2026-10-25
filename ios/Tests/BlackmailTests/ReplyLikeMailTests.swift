@@ -347,7 +347,9 @@ final class ReplyLikeMailTests: XCTestCase {
 
     /// Backspace with nothing typed picks out the last bubble, and a
     /// second takes it off, as in Mail. A tapped bubble is the one a
-    /// backspace takes off; typing puts a picked-out bubble back.
+    /// backspace takes off. Typing put a picked-out bubble back; since
+    /// B-134 a letter takes its place, as typing over Mail's selected
+    /// recipient does (`BubbleMenuTypingTests`).
     func testBackspacePicksOutThenTakesOff() {
         var field = RecipientBubbles(entries: ["Jane Example <jane@example.com>", "sam@example.org"])
         XCTAssertTrue(field.backspace())
@@ -360,8 +362,9 @@ final class ReplyLikeMailTests: XCTestCase {
 
         field.backspace()
         field.type("c")
-        XCTAssertNil(field.selected, "typing puts it back")
-        XCTAssertEqual(field.entries.count, 1)
+        XCTAssertNil(field.selected)
+        XCTAssertEqual(field.entries, [], "the letter takes its place (B-134)")
+        XCTAssertEqual(field.typed, "c")
 
         var tapped = RecipientBubbles(entries: ["a@example.com", "b@example.com", "c@example.com"])
         tapped.select(0)
@@ -484,14 +487,15 @@ final class ReplyLikeMailTests: XCTestCase {
                      "for b in buttons[head ..< buttons.count - tail] { b.removeFromSuperview() }",
                      "let made: [UIButton] = (head ..< now.count - tail).map",
                      "buttons = Array(buttons[..<head]) + made + Array(buttons[(buttons.count - tail)...])",
-                     // The bubble whose menu is up stays picked out, whatever
-                     // he types, ends or leaves under it, and goes with its
-                     // menu if a backspace takes it off.
-                     "bubbles.type(input.text ?? \"\") keepMenu()",
+                     // The bubble whose menu is up stays picked out through
+                     // a comma, Return or leaving under it, and goes with
+                     // its menu if a backspace takes it off, or since B-134
+                     // letters typed in its place.
+                     "bubbles.type(now) keepMenu()",
                      "bubbles.finish() keepMenu()",
                      "bubbles.finish(leaving: true) keepMenu()",
                      "if bubbles.entries.indices.contains(i), bubbles.entries[i] == menuEntry { bubbles.select(i) } "
-                        + "else { menuFor = nil menuEntry = nil menu?.dismiss(animated: true) }"] {
+                        + "else { closeMenu() }"] {
             XCTAssertTrue(code.contains(line), line)
         }
         XCTAssertFalse(code.contains("for b in buttons { b.removeFromSuperview() }"))
@@ -588,12 +592,14 @@ final class ReplyLikeMailTests: XCTestCase {
     func testTheFieldDoesWhatMailsDoes() throws {
         let code = try source(Self.field)
         for line in ["final class RecipientField: UIControl, UITextFieldDelegate",
-                     "override func deleteBackward() { if (text ?? \"\").isEmpty, markedTextRange == nil, "
-                        + "let backspaceWhenEmpty { backspaceWhenEmpty() return } super.deleteBackward() }",
-                     "input.backspaceWhenEmpty = { [weak self] in self?.backspace() }",
-                     "let before = bubbles.entries guard bubbles.backspace() else { return } keepMenu() "
-                        + "rebuild() if bubbles.entries != before { sendActions(for: .editingChanged) }",
-                     "bubbles.type(input.text ?? \"\")",
+                     // Asked at every backspace since B-134, letters on the
+                     // line or not (`BubbleMenuTypingTests`).
+                     "override func deleteBackward() { if markedTextRange == nil, "
+                        + "let backspaceToBubbles, backspaceToBubbles() { return } super.deleteBackward() }",
+                     "input.backspaceToBubbles = { [weak self] in self?.backspace() ?? false }",
+                     "let before = bubbles.entries guard bubbles.backspace() else { return true } keepMenu() "
+                        + "rebuild() if bubbles.entries != before { sendActions(for: .editingChanged) } return true }",
+                     "bubbles.type(now)",
                      "bubbles.finish(leaving: true)",
                      "func textFieldShouldReturn(_ textField: UITextField) -> Bool { "
                         + "let before = (bubbles.entries, bubbles.typed) bubbles.finish() keepMenu()",

@@ -98,6 +98,12 @@ enum ComposeForm {
         /// He has picked an address from the list under it. Offers
         /// nothing until he types again.
         case picked
+        /// He has tapped a bubble in it, its menu going up. Offers
+        /// nothing: the list closes, so it is never under the menu, as
+        /// Mail never has a person's card and the list up at once
+        /// (B-134). Letters typed after it take the bubble's place and
+        /// offer again (`RecipientBubbles.typingTakesThePicked`).
+        case bubbleTapped
     }
 
     /// The rows the address field offers under it, from `book`, after
@@ -127,9 +133,19 @@ enum ComposeForm {
     /// is typing after the bubbles, and nobody offered who is already in a
     /// bubble or typed (`RecipientBubbles.recipients`), a bubble counted as
     /// one recipient however its words read.
+    ///
+    /// Nothing while a bubble is picked out (B-134), which with letters on
+    /// the line is a bubble whose menu is up: the list would open under the
+    /// menu, only its lowest row in sight. Mail's field has no list while
+    /// its selection is a recipient. Letters typed over the bubble take
+    /// its place (`RecipientBubbles.typingTakesThePicked`), its menu goes,
+    /// and the list is offered for them; whatever else changes the line
+    /// under the menu, a comma in the middle of it or a letter taken back,
+    /// offers nothing until the menu goes.
     static func suggestions(_ book: [KnownRecipient], in field: RecipientBubbles, after event: FieldEvent,
                             limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
-        suggestions(book, present: field.recipients, typing: field.typed, after: event, limit: limit)
+        guard field.selected == nil else { return [] }
+        return suggestions(book, present: field.recipients, typing: field.typed, after: event, limit: limit)
     }
 
     /// The rows for `typing`, its last recipient begun the query, leaving
@@ -145,6 +161,35 @@ enum ComposeForm {
             .filter { !$0.isEmpty })
         return RecipientBook.rank(book.filter { !present.contains($0.address.lowercased()) },
                                   matching: typed, limit: limit)
+    }
+
+    // MARK: - Cc and Bcc
+
+    /// Whether Cc and Bcc stand open as the caret goes into a field, the
+    /// "Cc/Bcc" row gone while they do, or are folded back into that row
+    /// (B-134). `inCcOrBcc` is whether the field is Cc or Bcc; `cc` and
+    /// `bcc` the people in them as the fields hold them.
+    ///
+    /// Mail's rule, read from its composer in iOS 18.6 (MessageUI,
+    /// `-[MFMailComposeView viewDidBecomeFirstResponder:]` and
+    /// `_updateOptionalHeaderVisibilityForceVisible:`), but for one thing:
+    /// each time a field takes the caret, Cc and Bcc show while the caret
+    /// is in one of them or Cc holds someone, and fold back otherwise.
+    /// While they show, its "Cc/Bcc, From:" row is hidden (alpha 0 in its
+    /// layout); its tap shows them and puts the caret in Cc
+    /// (`_multiFieldClicked`). There is no From row here: the app sends
+    /// from the one account.
+    ///
+    /// The one thing: Mail counts someone in Bcc only once its Bcc differs
+    /// from the one the letter opened with
+    /// (`-[MFMailComposeController bccAddressesDirtied]`, against
+    /// `_originalBccAddresses`, as Always Bcc Myself or a draft opened
+    /// again gives it), and folds an unchanged Bcc out of sight. Here
+    /// anyone in Bcc keeps them open, on purpose, as the composer always
+    /// has: a Bcc he cannot see is a copy going somewhere he never agreed
+    /// to.
+    static func showsCcAndBcc(inCcOrBcc: Bool, cc: [String], bcc: [String]) -> Bool {
+        inCcOrBcc || !people(cc).isEmpty || !people(bcc).isEmpty
     }
 
     // MARK: - Ready to type

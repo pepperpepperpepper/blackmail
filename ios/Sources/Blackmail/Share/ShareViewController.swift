@@ -42,6 +42,17 @@ public final class ShareViewController: UIViewController,
         isModalInPresentation = true
         view.backgroundColor = Theme.canvas
         styleBar(nav.navigationBar)
+        // Cancel, Send and the rest keep their colour while a bubble's menu
+        // or Cancel's question is up, as they do in the app's composer
+        // (B-134). UIKit greys what lies under a popover only where the
+        // view controller putting it up is the window's own, as this one
+        // is in the extension; the app's composer is a sheet over the app,
+        // as Mail's is, and UIKit leaves a sheet's colours as they are
+        // (iOS 18.6, `-[UIPresentationController _enableOcclusion:]`). Set
+        // on the bar as well, should UIKit ever take the navigation
+        // controller for the one putting it up.
+        nav.view.tintAdjustmentMode = .normal
+        nav.navigationBar.tintAdjustmentMode = .normal
         addChild(nav)
         nav.view.frame = view.bounds
         nav.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -211,6 +222,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     private var ccRow = UIView()
     private var bccRow = UIView()
     private let ccToggle = UIButton(type: .system)
+    /// The "Cc/Bcc" row, hidden while Cc and Bcc stand open, as in the
+    /// app's composer and Mail (B-134).
+    private let ccToggleRow = UIView()
 
     private let suggestionsView = UITableView(frame: .zero, style: .plain)
     private var suggestions: [KnownRecipient] = []
@@ -293,12 +307,15 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         stack.addArrangedSubview(ccRow)
         stack.addArrangedSubview(bccRow)
 
+        // The app composer's "Cc/Bcc", as Mail's (B-134): it opens Cc and
+        // Bcc with the caret in Cc and goes while they show.
         ccToggle.setTitle("Cc/Bcc", for: .normal)
         ccToggle.titleLabel?.font = Theme.fontDetailMeta
         ccToggle.contentHorizontalAlignment = .left
-        ccToggle.addTarget(self, action: #selector(toggleCc), for: .touchUpInside)
+        ccToggle.addTarget(self, action: #selector(openCcAndBcc), for: .touchUpInside)
         ccToggle.translatesAutoresizingMaskIntoConstraints = false
-        let toggleRow = UIView()
+        let toggleRow = ccToggleRow
+        toggleRow.isHidden = draft.showsCcAndBcc
         toggleRow.addSubview(ccToggle)
         NSLayoutConstraint.activate([
             ccToggle.leadingAnchor.constraint(equalTo: toggleRow.leadingAnchor,
@@ -434,6 +451,17 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         keepCaretInView()
     }
 
+    /// The caret into the body: Cc and Bcc fold back if nobody is in them
+    /// (`caretWentInto`, B-134).
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        caretWentInto(ccOrBcc: false)
+    }
+
+    /// The caret into Subject: the same.
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        caretWentInto(ccOrBcc: false)
+    }
+
     /// The list under an address field goes with the field.
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard scrollView === scroller, !suggestionsView.isHidden,
@@ -553,6 +581,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.addTarget(self, action: #selector(addressEntered(_:)), for: .editingDidBegin)
         field.addTarget(self, action: #selector(addressTyped(_:)), for: .editingChanged)
         field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
+        field.addTarget(self, action: #selector(addressBubbleTapped(_:)), for: .valueChanged)
         let rule = UIView()
         rule.backgroundColor = Theme.separator
         for v in [label, field, rule] {
@@ -670,9 +699,22 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     // MARK: - Addresses
 
     /// Going in offers nothing, as in Mail (B-073), and closes a list left
-    /// open under another field.
+    /// open under another field. Cc and Bcc fold back as the caret goes
+    /// into To with nobody in them (`caretWentInto`, B-134).
     @objc private func addressEntered(_ field: RecipientField) {
         offer(field, after: .entered)
+        caretWentInto(ccOrBcc: field === ccField || field === bccField)
+    }
+
+    /// A bubble tapped, its menu about to go up: the list closes and the
+    /// caret goes into its field while a field has it, as in the app's
+    /// composer, which says why (B-134).
+    @objc private func addressBubbleTapped(_ field: RecipientField) {
+        let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
+        if !field.isFirstResponder, fields.contains(where: { $0.isFirstResponder }) {
+            field.becomeFirstResponder()
+        }
+        offer(field, after: .bubbleTapped)
     }
 
     @objc private func addressTyped(_ field: RecipientField) {
@@ -737,9 +779,27 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         updateSend()
     }
 
-    @objc private func toggleCc() {
-        ccRow.isHidden.toggle()
-        bccRow.isHidden = ccRow.isHidden
+    /// "Cc/Bcc": Cc and Bcc open, the row gone, the caret in Cc, as in the
+    /// app's composer and Mail (B-134). It was a switch.
+    @objc private func openCcAndBcc() {
+        showCcAndBcc(true)
+        ccField.becomeFirstResponder()
+    }
+
+    /// Cc and Bcc stand open while the caret is in one of them or either
+    /// holds someone, and fold back into the "Cc/Bcc" row otherwise, by
+    /// Mail's rule (`ComposeForm.showsCcAndBcc`).
+    private func caretWentInto(ccOrBcc: Bool) {
+        showCcAndBcc(ComposeForm.showsCcAndBcc(inCcOrBcc: ccOrBcc, cc: ccField.recipients,
+                                               bcc: bccField.recipients))
+    }
+
+    /// Cc and Bcc shown, and the "Cc/Bcc" row hidden, or the other way.
+    private func showCcAndBcc(_ open: Bool) {
+        guard open == ccRow.isHidden else { return }
+        ccRow.isHidden = !open
+        bccRow.isHidden = !open
+        ccToggleRow.isHidden = open
     }
 
     // MARK: - Send and Cancel

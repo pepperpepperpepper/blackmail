@@ -27,9 +27,11 @@ import UIKit
 /// does, and `.editingChanged` whenever what it holds changes under his
 /// hand: a
 /// letter typed or taken out, a bubble made with a comma, a ";" or Return,
-/// one taken off by backspace or Remove. Not for `show` or `pick`, which the
-/// sheet calls itself.
-final class RecipientField: UIControl, UITextFieldDelegate {
+/// one taken off by backspace or Remove, or by letters typed in its place.
+/// Not for `show` or `pick`, which the sheet calls itself. Sends
+/// `.valueChanged` when a bubble is tapped, before its menu goes up, for
+/// the sheet to close the list and take the caret there (B-134).
+final class RecipientField: UIControl, UITextFieldDelegate, UIGestureRecognizerDelegate {
 
     /// What the field holds.
     private(set) var bubbles = RecipientBubbles()
@@ -95,7 +97,15 @@ final class RecipientField: UIControl, UITextFieldDelegate {
         input.addTarget(self, action: #selector(began), for: .editingDidBegin)
         input.addTarget(self, action: #selector(changed), for: .editingChanged)
         input.addTarget(self, action: #selector(ended), for: .editingDidEnd)
-        input.backspaceWhenEmpty = { [weak self] in self?.backspace() }
+        input.backspaceToBubbles = { [weak self] in self?.backspace() ?? false }
+        // A tap on the line puts back a bubble a backspace picked out
+        // (`lineTapped`). Seen beside the line's own taps, which still put
+        // the caret where he tapped, and taking nothing from them.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(lineTapped))
+        tap.cancelsTouchesInView = false
+        tap.delaysTouchesEnded = false
+        tap.delegate = self
+        input.addGestureRecognizer(tap)
         addSubview(input)
         height.isActive = true
         // A tap beside the bubbles is a tap on the line he types on.
@@ -127,12 +137,16 @@ final class RecipientField: UIControl, UITextFieldDelegate {
     }
 
     /// A letter typed or taken out. A recipient he has ended with a comma
-    /// or a ";" becomes a bubble, and the line holds what is left.
+    /// or a ";" becomes a bubble, and the line holds what is left. Typed
+    /// over a bubble picked out, the letters take its place, as in Mail,
+    /// and its menu goes with it (B-134).
     @objc private func changed() {
         // Not while a keyboard is still composing a character.
         guard input.markedTextRange == nil else { return }
         let had = bubbles
-        bubbles.type(input.text ?? "")
+        let now = input.text ?? ""
+        if bubbles.typingTakesThePicked(now) { closeMenu() }
+        bubbles.type(now)
         keepMenu()
         if input.text != bubbles.typed { input.text = bubbles.typed }
         if had.entries != bubbles.entries || had.selected != bubbles.selected { rebuild() }
@@ -156,18 +170,25 @@ final class RecipientField: UIControl, UITextFieldDelegate {
     private var menuEntry: String?
     private weak var menu: UIAlertController?
 
-    /// While a bubble's menu is up, that bubble stays picked out, whatever
-    /// he types, ends or leaves under it: the keyboard stays live under the
-    /// menu. Taken off under it, by a backspace, it takes its menu with it.
+    /// While a bubble's menu is up, that bubble stays picked out through a
+    /// comma, a ";", Return or leaving the field under it: the keyboard
+    /// stays live under the menu. Taken off under it, by a backspace, or by
+    /// letters typed in its place (`changed`, B-134), it takes its menu
+    /// with it.
     private func keepMenu() {
         guard let i = menuFor else { return }
         if bubbles.entries.indices.contains(i), bubbles.entries[i] == menuEntry {
             bubbles.select(i)
         } else {
-            menuFor = nil
-            menuEntry = nil
-            menu?.dismiss(animated: true)
+            closeMenu()
         }
+    }
+
+    /// The bubble's menu put away, as its bubble goes.
+    private func closeMenu() {
+        menuFor = nil
+        menuEntry = nil
+        if let menu, menu.presentingViewController != nil { menu.dismiss(animated: true) }
     }
 
     /// Return: what he typed becomes a bubble, and he stays in the field.
@@ -181,27 +202,56 @@ final class RecipientField: UIControl, UITextFieldDelegate {
         return false
     }
 
-    /// Backspace with nothing typed: the last bubble picked out, then taken
-    /// off (`RecipientBubbles.backspace`).
-    private func backspace() {
+    /// A backspace, asked before the line takes a letter off. With nothing
+    /// typed, the last bubble picked out, then taken off
+    /// (`RecipientBubbles.backspace`); with a bubble picked out, that one
+    /// taken off, letters on the line or not, as Mail's field deletes the
+    /// recipient it has selected (B-134). True when it was the bubbles'.
+    private func backspace() -> Bool {
+        guard bubbles.backspaceIsTheBubbles(lineEmpty: (input.text ?? "").isEmpty) else { return false }
         let before = bubbles.entries
-        guard bubbles.backspace() else { return }
+        guard bubbles.backspace() else { return true }
         keepMenu()
         rebuild()
         if bubbles.entries != before { sendActions(for: .editingChanged) }
+        return true
     }
 
     @objc private func tappedBeside() {
+        lineTapped()
         input.becomeFirstResponder()
     }
 
+    /// A tap on the line he types on, or beside the bubbles, with no
+    /// bubble's menu up: a bubble a backspace picked out is put back, as a
+    /// tap that puts Mail's caret on its line ends the selection that was
+    /// its recipient, so the next letter goes after it (B-134). It stayed
+    /// picked out, and the next letter took it off. With a menu up a tap
+    /// there is a tap outside the menu, whose Cancel puts the bubble back.
+    @objc private func lineTapped() {
+        guard menuFor == nil, bubbles.lineTapped() else { return }
+        rebuild()
+    }
+
+    /// The tap on the line is seen with the line's own, never instead.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        true
+    }
+
     /// A bubble tapped: picked out, with its address and Remove under it.
+    /// The sheet is told first (`.valueChanged`): it closes the list, so
+    /// the menu never stands over it, and takes the caret into this field,
+    /// where Mail's tap puts it, so letters typed next take this bubble's
+    /// place (B-134).
     @objc private func bubbleTapped(_ sender: UIButton) {
         guard let index = buttons.firstIndex(of: sender),
               bubbles.entries.indices.contains(index) else { return }
         bubbles.select(index)
         rebuild()
-        guard let owner = presenter, owner.presentedViewController == nil else { return }
+        sendActions(for: .valueChanged)
+        guard bubbles.entries.indices.contains(index), bubbles.selected == index,
+              let owner = presenter, owner.presentedViewController == nil else { return }
         let entry = bubbles.entries[index]
         let words = RecipientBubbles.words(for: entry)
         let address = RecipientBubbles.address(for: entry)
@@ -365,15 +415,17 @@ final class BubbleButton: UIButton {
     }
 }
 
-/// The line he types on in a `RecipientField`, which hands a backspace with
-/// nothing on it to the field: the bubble before it is picked out, then
-/// taken off.
+/// The line he types on in a `RecipientField`, which asks the field first
+/// at each backspace: with nothing on the line the bubble before it is
+/// picked out, then taken off, and a bubble picked out is taken off even
+/// with letters on the line (B-134). Otherwise the backspace takes a
+/// letter off the line.
 final class TypingLine: UITextField {
-    var backspaceWhenEmpty: (() -> Void)?
+    /// True when the field has taken the backspace.
+    var backspaceToBubbles: (() -> Bool)?
 
     override func deleteBackward() {
-        if (text ?? "").isEmpty, markedTextRange == nil, let backspaceWhenEmpty {
-            backspaceWhenEmpty()
+        if markedTextRange == nil, let backspaceToBubbles, backspaceToBubbles() {
             return
         }
         super.deleteBackward()
