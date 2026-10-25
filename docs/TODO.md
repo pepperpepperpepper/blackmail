@@ -1217,9 +1217,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       "< Mailboxes", the open folder: its list where he left it, a NOOP
       alone; another: its SELECT, UID SEARCH and UID FETCH. Seen in
       passing: after Done the open letter's row is no longer highlighted,
-      the letter still in the pane. Left: the long folder name, which needs
-      a label made on the account and waits on a yes, and the thumb resting
-      on the list.*
+      the letter still in the pane (B-133 since). Left: the long folder
+      name, which needs a label made on the account and waits on a yes,
+      and the thumb resting on the list.*
 - [ ] **B-050, Reply and Forward as the original looked.** *Partly seen
       2026-09-30: a newsletter forwarded, and a one-word reply to his own
       letter with a link; see B-050.* Read what
@@ -5634,6 +5634,37 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Two panes:* 1 again, then three panes back.
       5. *Put back:* the label B-132, with what is left in it, deleted
       by the host, and the letters in Trash left there.
+- [ ] **B-133, the open letter's row stays highlighted.** On the test
+      iPad, the test account, the same build, with B-132's sixteen letters
+      in the label "B-132" (its step 0; made again by the host if B-132's
+      check has put them away). Nothing is sent; step 6 moves two of them
+      to Trash. Three panes; the connection log read after each step.
+      1. *Done:* B-132 opened, a single tapped: its letter in the pane,
+      its row highlighted. Edit: no row highlighted or ticked. Done: the
+      row highlighted again, the letter still in the pane, the list where
+      it was, and nothing in the log at Done.
+      2. *Done after ticks:* Edit, two other rows ticked, Done: the ticks
+      gone, the open letter's row highlighted.
+      3. *Mark:* Edit, another row ticked, Mark, Mark as Unread: Edit mode
+      ends, that row's dot on, the open letter's row highlighted. The same
+      with Mark as Read, to put it back.
+      4. *A conversation:* "B-132 one" tapped, its stack in the pane.
+      Edit, Done: its row highlighted.
+      5. *Go to Date:* the calendar, Current Mailbox, the open
+      conversation's day: the list at the day as before, the
+      conversation's row highlighted where it lands, the list not moved
+      to it, and in the log nothing but the jump's own SEARCH and FETCH,
+      no body fetched and no STORE. Then, in All Mail, a read letter near
+      its top opened and Go to Date to a day far enough back that the
+      day's list does not reach it, if the account has one (write down
+      which, or that it has none): no row highlighted, the letter in the
+      pane; the list scrolled up until the pages bring its row: the row
+      highlighted as it comes, no tap, nothing fetched for it.
+      6. *A Delete of the open letter:* B-132, a single opened, Edit, its
+      row and another ticked, Delete: the pane empty, both rows gone, no
+      row highlighted.
+      7. *Two panes:* 1 again, then three panes back.
+      8. *Put back:* nothing more; the label goes with B-132's step 5.
 
 ## Blocked on the owner
 

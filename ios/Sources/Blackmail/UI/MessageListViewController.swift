@@ -54,6 +54,11 @@ final class MessageListViewController: UITableViewController {
     /// Edit mode's Delete or Move has taken these letters off the list, at
     /// the tap: the reading pane empties if it shows one of them.
     var onLettersLeaving: (([MessageSummary]) -> Void)?
+    /// The letters the reading pane shows, the one it opened first
+    /// (`MessageDetailViewController.lettersShown`): the row that holds one
+    /// is highlighted again where the table has dropped the highlight with
+    /// the letter still open (`highlightLetterInPane`, B-133).
+    var lettersInPane: () -> [String] = { [] }
     /// A letter Edit mode moved changed a count the list cannot work out
     /// itself, and the folder counts are to be swept (`ListBatch`), as for
     /// the reading pane's Move.
@@ -259,7 +264,11 @@ final class MessageListViewController: UITableViewController {
     /// the right, or in Edit mode every row he has ticked, so it is
     /// restored by id, all of it (`ListEdit.selectedRows`). `opened` is a
     /// letter just marked read as the one open in the pane, whose row is
-    /// highlighted with it.
+    /// highlighted with it. With nothing to restore, out of Edit mode, the
+    /// row of the letter the pane shows is highlighted if the rows have it
+    /// (`ListEdit.paneRow`, B-133): a page that brings it after a day
+    /// jumped to without it, or a search's Cancel whose results did not
+    /// have it, as Mail keeps the open message's row selected.
     ///
     /// Reload keeps the scroll offset and nothing else, and the rows under
     /// that offset can have moved: a page above, a row taken off by a
@@ -277,7 +286,12 @@ final class MessageListViewController: UITableViewController {
         rebuildRows()
         tableView.reloadData()
         let threads = self.threads
-        for row in before.selection(in: threads, opened: opened, editing: tableView.isEditing) {
+        var selection = before.selection(in: threads, opened: opened, editing: tableView.isEditing)
+        if selection.isEmpty, !tableView.isEditing,
+           let row = ListEdit.paneRow(in: threads, showing: lettersInPane()) {
+            selection = [row]
+        }
+        for row in selection {
             tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false,
                                 scrollPosition: .none)
         }
@@ -1461,6 +1475,9 @@ final class MessageListViewController: UITableViewController {
         _ = places.replaced()
         rebuildRows()
         tableView.reloadData()
+        // The letter he was reading is still open in the pane: its row
+        // highlighted if the day's list has it, where it is (B-133).
+        highlightLetterInPane()
         updateEmptyState()
         updatePageFooter()
 
@@ -2205,11 +2222,30 @@ final class MessageListViewController: UITableViewController {
         setToolbarItems(editing ? editItems : browseItems, animated: true)
         updateSelectAllTitle()
         // His ticks have gone with Edit mode: what the watch held can go on,
-        // and a fresh page that waited over the kept one (D-016).
+        // and a fresh page that waited over the kept one (D-016). The
+        // letter still open in the pane has its row highlighted again,
+        // which Edit mode took away (B-133).
         if !editing {
+            highlightLetterInPane()
             landFreshPage()
             showNewsIfAtTop()
         }
+    }
+
+    /// Highlights the row of the letter the reading pane shows, if the list
+    /// has it (`ListEdit.paneRow`), where the table has dropped the
+    /// highlight with the letter still open: at Done, Edit mode having
+    /// cleared the selection as it began, and on a day's list, whose rows
+    /// replace the list's (B-133). Mail keeps the open message's row
+    /// selected. Not scrolled to, and nothing opened: `selectRow` tells the
+    /// delegate nothing, so there is no tap, no read mark and no download.
+    /// Never in Edit mode, where a selected row is a tick.
+    @MainActor
+    private func highlightLetterInPane() {
+        guard !tableView.isEditing,
+              let row = ListEdit.paneRow(in: threads, showing: lettersInPane()) else { return }
+        tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false,
+                            scrollPosition: .none)
     }
 
     /// Ticks, or unticks, every conversation in the list.

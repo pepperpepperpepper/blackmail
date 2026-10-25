@@ -277,6 +277,16 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     func clearIfShowingDeletedMessage() { showEmpty() }
 
+    /// The letters the pane shows, by id, for the list to highlight the row
+    /// that holds one where the table has dropped the highlight with the
+    /// letter still open (B-133): the letter opened, or its conversation's
+    /// newest, first, and then the rest of the conversation, the newest
+    /// first. None when the pane is empty.
+    var lettersShown: [String] {
+        guard let summary else { return [] }
+        return [summary.id] + stackLetters.reversed().map(\.id).filter { $0 != summary.id }
+    }
+
     /// Edit mode's Delete or Move has taken `letters` off the list: empty
     /// if the pane shows one of them, the letter or any in its
     /// conversation, under its own id or another mailbox's
