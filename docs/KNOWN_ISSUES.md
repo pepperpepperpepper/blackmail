@@ -10845,7 +10845,8 @@ letter to the account itself. All nine steps of its TODO check passed.
 
 Seen in passing: in the stack, a reply's signature and what it quotes
 showed on a white sheet with dark words, where the first letter, opened
-alone, showed its signature white on the dark pane. Not looked into.
+alone, showed its signature white on the dark pane. Not looked into
+(*since B-130, a white sheet alone too*).
 
 **Not covered.**
 
@@ -24987,6 +24988,8 @@ logo dark on it, as this pane drew it alone; in Light, black on white;
 under Smart Invert (D-010), inverted with the rest, the pictures left.
 The white sheet is this app's own, in the stack since its first version;
 this change makes the letter alone agree with the stack, not with Mail.
+Put to the owner (TODO, "Blocked on the owner"): the sheet kept in both
+pages, as built, or taken out of the stack too, to copy Mail.
 
 **Changed.**
 
@@ -24997,7 +25000,14 @@ this change makes the letter alone agree with the stack, not with Mail.
    `svg`, `picture` and `video`, with no filter, so the logo is not
    inverted a third time. Each selector under the scope it is given, as
    Mail's bars are (`QuoteBars.css(in:)`, B-101). Its class is the
-   marker's (`SignatureSheet.className`).
+   marker's (`SignatureSheet.className`). The first rule also gives the
+   sheet the white and black its markup declares
+   (`SignatureSheet.colours`, `background-color: #fff; color: #000`), not
+   important, so the markup's own, the same colours, win where they are
+   written; a sheet that has lost them, its class kept by a client that
+   drops a style, would otherwise have no background, and its words,
+   inverted twice, black on the pane's black, where with no rule they
+   were white on it. With them it is white with black words.
 2. *A letter on its own* (`PanePage.letter`): the rules under `#bm`, in an
    HTML letter's style, after the invert and the rule for pictures, which
    the second rule outranks by its class, and before Mail's bars: the
@@ -25007,7 +25017,12 @@ this change makes the letter alone agree with the stack, not with Mail.
    whose `<` is written `&lt;`, so it can carry no sheet.
 3. *The stack* (`ConversationDocument.html`) takes its rules from the
    same string, under `.bm-html`: the same selectors and declarations, a
-   line each where they were wrapped over four. Its comment says so.
+   line each where they were wrapped over four, and the sheet's colours
+   as above. Its comment says so.
+4. *One invert* (`SignatureSheet.invert`): both pages invert a letter's
+   HTML and its pictures by the string the sheet's rule cancels them by,
+   written into each page's style from it, so the three cannot come to
+   differ. The bytes of both pages as they were.
 
 **Print** (B-110), checked. `PrintPage.letter` is light, with no invert
 and no filter anywhere, so there is nothing for the rules to cancel, and
@@ -25019,14 +25034,18 @@ white, so WebKit leaves them. Its comment says so, and a test holds the
 print to no rule of the sheet's and no filter.
 
 **Not changed.** The letter's markup, the marker and every letter he
-sends. The stack's drawing. A plain letter's page. The print. No new
-words.
+sends. The stack's drawing of a sheet as this app writes it. A plain
+letter's page. The print. No new words.
 
 **What he sees.** A letter with his signature opened on its own: the
 signature on a white sheet across the letter, its words black, its links
 blue, its logo as on paper; before, its words were white on the black and
-the logo all but gone. As in a conversation. A reply quoting his letter,
-alone: the quoted signature on its white sheet inside the quote's bar.
+the logo all but gone. As in a conversation. A reply quoting his letter
+that keeps the sheet's class, alone: the quoted signature on its white
+sheet inside the quote's bar. This app's reply keeps it (`QuotedMarkup`
+keeps a class), and Apple Mail's, which quotes the letter's own markup,
+is believed to (not checked). A reply from Gmail's web page renames it,
+and its quoted signature is drawn as before (Not covered).
 
 **Rendered in Chromium,** the pages as the app builds them, a letter as
 the app sends one with a signature of a table, a dark logo on
@@ -25034,8 +25053,11 @@ transparency and a link: alone, as before, its sheet black, the words
 white and the logo its own dark blue on the black; alone now, the sheet
 white, 46,207 white pixels, the words black and the logo the same dark
 blue on the white; in a stack, the same sheet, 46,453 white pixels, the
-logo the same; a reply from Gmail quoting it, alone, the sheet white
-inside the violet bar; and the print, black on white as before.
+logo the same; a reply quoting it with the class kept, in Gmail's quote
+markup, alone, the sheet white inside the violet bar; and the print,
+black on white as before. Not rendered again for the sheet's colours or
+the one invert, which leave the bytes of a page of his letters as they
+were but for the colours' two declarations.
 
 **Tests.** `PanePageTests`, two new: a letter as `AppleMailHTML.document`
 makes one with his signature, a table, the logo by `cid:` and a link, its
@@ -25044,18 +25066,24 @@ rule for pictures and before the bars, the sheet's invert the page's own,
 the class the marker's, the stack's document with the same rules from the
 same string under `.bm-html`, and the markup as it came, the logo pointed
 at the loader inside the sheet, in the page and in the stack's body; and
-every letter of the pane's set, a Gmail reply quoting the signed letter
-and a plain letter whose words are the marker: the rules once on every
-HTML letter's page, none on a plain one's, the quoted sheet as it came,
-the plain marker written as words. `PrintPageTests`, one new: the signed
+every letter of the pane's set, a reply quoting the signed letter in
+Apple Mail's cite blockquote, the class kept, and a plain letter whose
+words are the marker: the rules once on every HTML letter's page, none
+on a plain one's, the quoted sheet as it came, the plain marker written
+as words. Two more: a sheet that has lost its style, the first rule in
+both scopes with the sheet's white and black, as the marker declares
+them, none of it important, and the rules on its page; and every filter
+on a letter's page the one invert or none. `PrintPageTests`, one new: the signed
 letter printed with no rule of the sheet's and no filter, its body the
 pane's byte for byte with the logo decoded as drawn, the sheet's white
 and black its own, and the pane's page with the rules. Changed:
 `PanePageTests`' page byte for byte as before, the sheet's rules taken
 out as the bars are, found once in an HTML letter's page and never in a
 plain one's, and its bars' test, the bars after the sheet;
-`ConversationDocumentTests`, the stack's rules the string's, once, and
-the bars after them; `BoundedLetterTests`' fingerprints of the ordinary
+`ConversationDocumentTests`, the stack's rules the string's, once, with
+the sheet's colours (`testTheSignaturesRules`, which was
+`testTheSignaturesRulesAreAsTheyWere`), and the bars after them, and one
+new, every filter in the stack's style the one invert or none; `BoundedLetterTests`' fingerprints of the ordinary
 letters' pages, taken with the sheet's rules out as with the bars
 (`OrdinaryMail.pageFingerprints`), every page otherwise as it was.
 
@@ -25066,10 +25094,16 @@ pictures inverted a third time, its second rule gone, 4 in 2; the rules
 put on the print's page, 33 in 2; the rules on a plain letter's page too,
 14 in 3; the stack keeping its own copy as it was written, 3 in 3; a
 letter's rules after Mail's bars, 3 in 2; the sheet's class not the
-marker's, 4 in 2.
+marker's, 4 in 2; the sheet's colours gone from its first rule, 4 in 3;
+and, the invert written out in a page and drifted (`hue-rotate(181deg)`),
+the stack's for the HTML, 2 in 1, the stack's for pictures, 1 in 1, and
+a letter alone's for the HTML, 13 in 4. Each file put back was touched,
+so the build took it again.
 
 The full suite, serially: 2,478 tests, 3 of them new, 6 skipped, none
-failing. The release build for the iPad links.
+failing. The release build for the iPad links. With the sheet's colours
+and the one invert, after B-131: 2,483 tests, 3 more new, 6 skipped,
+none failing; the release build links.
 
 **Not covered.**
 
@@ -25084,6 +25118,14 @@ failing. The release build for the iPad links.
   as alone, as before; whether his signature has one was not looked at.
 - A sheet inside a sheet, which no letter of his makes, is inverted a
   third time, black, in the stack as alone.
+- A reply from Gmail's web page quotes his letter with its classes
+  renamed, an `m_` and a number before each, as the classes of a letter
+  Gmail quotes come back in its replies (medium, not checked against a
+  reply on the account). Its quoted sheet then matches no rule here and
+  is drawn as before, black with white words and the logo dark, in the
+  stack as alone. Only a quote that keeps the class has the sheet.
+- The sheet's colours for a sheet that has lost its style are held by
+  the host's tests alone; no such letter was rendered or seen.
 
 ## B-131 — FIXED 2026-10-25, not yet seen on the iPad. Print said "This message has no text." of a letter the pane shows only the beginning of, where the pane says "Only the beginning of this message is shown."; it says it only where the pane does
 

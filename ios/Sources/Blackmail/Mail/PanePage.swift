@@ -113,6 +113,7 @@ enum PanePage {
         // is exactly the trick that keeps a photograph looking like a
         // photograph while the text around it goes light-on-dark.
         //
+        // The invert is the stack's, the one string (`SignatureSheet.invert`).
         // After it, a signature's white sheet, inverted back, its pictures
         // as drawn (`SignatureSheet`, B-130), the stack's own rules; then
         // Mail's bars beside quoted text (`QuoteBars`, B-101). For HTML
@@ -120,9 +121,9 @@ enum PanePage {
         // it can carry no sheet, its `<` written `&lt;`.
         let smartInvert = isHTML
             ? """
-              #bm { filter: invert(1) hue-rotate(180deg); background: #fff; }
+              #bm { filter: \(SignatureSheet.invert); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
-                  filter: invert(1) hue-rotate(180deg); }
+                  filter: \(SignatureSheet.invert); }
               """ + "\n" + SignatureSheet.css(in: "#bm") + "\n" + QuoteBars.css(in: "#bm")
             : ""
         return """

@@ -233,21 +233,36 @@ final class ConversationDocumentTests: XCTestCase {
         XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")
     }
 
-    /// The signature's rules are as they were: its white sheet inverted
-    /// back, and its pictures not inverted a third time. A quote's bar and
-    /// words inside the sheet come out in Mail's light colours, on white.
-    /// Written once, in the string a letter on its own has them from too
+    /// The signature's rules: its white sheet inverted back, and its
+    /// pictures not inverted a third time. A quote's bar and words inside
+    /// the sheet come out in Mail's light colours, on white. Written once,
+    /// in the string a letter on its own has them from too
     /// (`SignatureSheet`, B-130), the same selectors and declarations as
-    /// before, a line each.
-    func testTheSignaturesRulesAreAsTheyWere() {
+    /// before, a line each, and the sheet's own white and black under its
+    /// markup's, for a sheet that has lost them.
+    func testTheSignaturesRules() {
         let html = document([entry("1/1")])
         XCTAssertEqual(SignatureSheet.css(in: ".bm-html"),
-                       ".bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); }\n"
+                       ".bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); "
+                       + "background-color: #fff; color: #000; }\n"
                        + ".bm-html .bm-signature img, .bm-html .bm-signature svg, "
                        + ".bm-html .bm-signature picture, .bm-html .bm-signature video { filter: none; }")
         XCTAssertEqual(html.components(separatedBy: "\n" + SignatureSheet.css(in: ".bm-html") + "\n")
                         .count - 1, 1, html)
         XCTAssertEqual(html.components(separatedBy: "bm-signature").count - 1, 5)
+    }
+
+    /// Every filter in the stack's style is the one invert, the string the
+    /// sheet's cancels it by and a letter on its own is inverted by
+    /// (`SignatureSheet.invert`), or none: the letter's HTML, its pictures
+    /// and the sheet. So the sheet cannot stop cancelling the stack's.
+    func testEveryFilterInTheStackIsTheOneInvertOrNone() throws {
+        let html = document([entry("1/1")])
+        let sheet = try XCTUnwrap(html.components(separatedBy: "</style>").first)
+        XCTAssertTrue(sheet.contains(".bm-html { filter: \(SignatureSheet.invert); background: #fff;"), sheet)
+        let filters = sheet.components(separatedBy: "filter:").dropFirst()
+            .map { String($0.prefix(while: { $0 != ";" })).trimmingCharacters(in: .whitespaces) }
+        XCTAssertEqual(filters, [SignatureSheet.invert, SignatureSheet.invert, SignatureSheet.invert, "none"])
     }
 
     /// Mail's reply and Gmail's go into their sections as they came, at

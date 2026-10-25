@@ -329,12 +329,13 @@ enum ConversationDocument {
              then invert pictures again to cancel it for them. Scoped to the
              one letter rather than the document, because a conversation
              mixes plain and HTML replies and the plain ones must not be
-             inverted twice. */
-          .bm-html { filter: invert(1) hue-rotate(180deg); background: #fff;
+             inverted twice. The invert a letter on its own has too, the one
+             string (SignatureSheet.invert). */
+          .bm-html { filter: \(SignatureSheet.invert); background: #fff;
                      color: #000; }
           .bm-html img, .bm-html video, .bm-html svg, .bm-html picture,
           .bm-html [style*="background-image"] {
-                     filter: invert(1) hue-rotate(180deg); }
+                     filter: \(SignatureSheet.invert); }
           /* The signature stays a white sheet with black text, whatever the
              rest of the theme is doing. It is a formal block — the organisation name,
              the logo, the confidentiality notice — and it is the one part of

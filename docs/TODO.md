@@ -5610,16 +5610,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       the test iPad, the test account, from a build of the
       `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
       composed, sent, moved or deleted in the app, so no new mail reaches
-      the phone the account is signed in on. Three letters the host makes
+      the phone the account is signed in on. Four letters the host makes
       and APPENDs, read (`\Seen`), to a label of their own, "B-130", never
-      the Inbox, dated three days back: (a) "B-130 alone", an HTML copy of
-      one of the 22 letters on the account that carry the signature, its
-      sheet and logo part as they are; (b) "B-130 stack", a letter from
-      another address, and (a)'s body as a reply to it, "Re: B-130
-      stack", its In-Reply-To and References naming the first, a day
-      later, so the two are one conversation; (c) "B-130 quoted", a reply
-      from Gmail's web page whose `gmail_quote` holds (a)'s body, alone in
-      its thread. Three panes unless a step says two.
+      the Inbox, dated three days back, each with a Message-ID of its own,
+      new, and its own Date, and none naming any of the 22 letters below
+      in a Message-ID, In-Reply-To or References: Gmail can take a letter
+      APPENDed with a Message-ID it holds for the letter it holds, and
+      only label that one. The host notes each APPEND's UID from its
+      APPENDUID, and stops if one has none. (a) "B-130 alone", one of the
+      22 letters on the account that carry the signature, its HTML body
+      and its logo part copied, nothing else of it; (b) "B-130 stack", a
+      letter from another address, and (a)'s body as a reply to it, "Re:
+      B-130 stack", its In-Reply-To and References naming the first by
+      its new Message-ID, a day later, so the two are one conversation;
+      (c) "B-130 quoted", a reply that keeps the sheet's class, its
+      `<blockquote type="cite">` holding (a)'s body as Apple Mail's reply
+      and this app's quote it, alone in its thread. Before step 1, the
+      host lists the label: the four UIDs it noted and nothing else, or
+      stop. Three panes unless a step says two.
       1. *Alone:* "B-130", then "B-130 alone": the signature on a white
       sheet across the letter, its lines black, its links blue, the logo
       as on paper, dark ink on the white; the words above it white on the
@@ -5630,12 +5638,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       it is closed: its signature on the same white sheet as in 1, the
       words and the logo alike.
       4. *Quoted:* "B-130 quoted": the violet bar down the quote, and
-      inside it the sheet white with its black words and the logo.
+      inside it the sheet white with its black words and the logo. (A
+      reply from Gmail's web page renames the class, and its quoted
+      signature looks as before: not a step.)
       5. *Print:* on 1's letter, Reply, then Print: the preview's paper
       white, the signature's words black and the logo as on paper, no
       black box; Cancel. No paper.
-      6. *Put back:* the host deletes the label "B-130" and its three
-      letters; nothing else was written.
+      6. *Put back:* the host moves the four UIDs it noted, and only
+      them, from the label to the Trash (`UID MOVE`), deletes in the Trash
+      only the UIDs that move answered (`COPYUID`), then deletes the
+      label, empty. Never anything found by subject, Message-ID or label:
+      if the label holds a UID not noted, it is left, and written down.
+      Nothing else was written.
 - [ ] **B-131, Print's "This message has no text." only where the
       pane's.** On the test iPad, the test account, from a build of the
       `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
@@ -5884,6 +5898,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
       has a Mail widget; and one link shared from Safari, watched (Mail's
       icon, or his own circle at the top of the sheet).*
+- [ ] **His signature's white sheet** (B-130): Mail draws his signature
+      with the rest of the letter, black with white words and the logo
+      dark on it in Dark Mode or under Smart Invert (read in its code, not
+      seen). The app's white sheet in both panes (built, the default), or
+      none in the stack either, as Mail.
 - [ ] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's
