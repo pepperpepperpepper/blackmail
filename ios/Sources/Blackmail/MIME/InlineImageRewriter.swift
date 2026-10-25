@@ -86,6 +86,20 @@ enum InlineImageRewriter {
         id.addingPercentEncoding(withAllowedCharacters: hostCharacters) ?? id
     }
 
+    /// The `Content-ID` a picture's address names, read back from its host
+    /// and its path and percent-decoded, rather than assuming it survived
+    /// as a tidy host name; nil for an address that names none. How the
+    /// loader reads the address WebKit asks it for (`InlineImageLoader`),
+    /// and how a picture tapped in the pane is read (`PanePictures`,
+    /// B-122), so the part a tap opens is the part the loader drew.
+    static func contentID(of url: URL) -> String? {
+        let raw = [url.host, url.path.replacingOccurrences(of: "/", with: "")]
+            .compactMap { $0 }
+            .joined()
+        let id = raw.removingPercentEncoding ?? raw
+        return id.isEmpty ? nil : id
+    }
+
     private static let hostCharacters = CharacterSet.alphanumerics.union(
         CharacterSet(charactersIn: "-._~"))
 }

@@ -45,12 +45,9 @@ final class InlineImageLoader: NSObject, WKURLSchemeHandler {
 
         // "bmcid://<id>" — the id can be anything a sender chose, so it is
         // read back from the host AND the path and then percent-decoded,
-        // rather than assuming it survived as a tidy hostname.
-        let url = task.request.url
-        let raw = [url?.host, url?.path.replacingOccurrences(of: "/", with: "")]
-            .compactMap { $0 }
-            .joined()
-        let contentID = raw.removingPercentEncoding ?? raw
+        // rather than assuming it survived as a tidy hostname. The same
+        // reading as a picture tapped in the pane has (B-122).
+        let contentID = task.request.url.flatMap(InlineImageRewriter.contentID(of:)) ?? ""
 
         guard !contentID.isEmpty, let fetch else {
             finish(task, key: key, with: nil, mimeType: nil)

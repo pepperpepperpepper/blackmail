@@ -137,7 +137,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // later.
         config.setURLSchemeHandler(inlineImages, forURLScheme: InlineImageRewriter.scheme)
         // Every document the pane loads gets it, once parsed, in the main
-        // frame. On a letter or a notice it finds no stack and wires nothing.
+        // frame. On a letter or a notice it finds no stack and wires no
+        // line; on any page it wires the letter's own pictures (B-122).
         config.userContentController.addUserScript(
             WKUserScript(source: ConversationDocument.script, injectionTime: .atDocumentEnd,
                          forMainFrameOnly: true, in: .defaultClient))
@@ -150,6 +151,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // only, where the stack's script runs: a letter's markup, in the
         // page's world, has no `bmLetter` to post to.
         config.userContentController.add(self, contentWorld: .defaultClient, name: "bmLetter")
+        // And how a tap on a picture of the letter's own reaches it (B-122),
+        // in the same world alone, for the same reason.
+        config.userContentController.add(self, contentWorld: .defaultClient, name: PanePictures.handler)
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -507,12 +511,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// His letter's body in its own section, with the loader pointed at its
     /// pictures; or the words a letter of the conversation says when it
     /// could not be downloaded. Nothing kept of the letter but its body in
-    /// the stack.
+    /// the stack, and the letter for a picture tapped in it (B-122), in
+    /// `related`, which lets it go with the conversation.
     private func settleRelated(_ result: Result<(Message, ConversationDocument.Entry.Rendered), Error>,
                                for load: PaneRelated.Load) {
         switch result {
         case .success(let (m, body)):
             prepareInlineImages(for: [m])
+            related.keep(m, for: load)
             fill(related.bodyCame(for: load), body)
         case .failure:
             fill(load.entryID, Self.couldNotDownload)
@@ -690,9 +696,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         motionTicks = nil
     }
 
-    /// A letter in the stack was opened or closed.
+    /// A letter in the stack was opened or closed; or a picture of a
+    /// letter's own was tapped (B-122).
     func userContentController(_ controller: WKUserContentController,
                                didReceive scriptMessage: WKScriptMessage) {
+        if scriptMessage.name == PanePictures.handler {
+            if let tap = PanePictures.Tap(scriptMessage.body) { openPicture(tap) }
+            return
+        }
         guard scriptMessage.name == "bmLetter",
               let payload = scriptMessage.body as? [String: Any],
               let sectionID = payload["id"] as? String,
@@ -820,11 +831,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// growing a file manager of its own.
     ///
     /// `letter` is the letter the file is of, when it is not `message`: a
-    /// row among the words of another letter of the conversation. The
-    /// header's row shows it busy only when the header shows its letter.
+    /// row among the words of another letter of the conversation, or a
+    /// picture tapped in one, or in his from Sent Mail (B-122). The
+    /// header's row shows it busy only when the header shows its letter;
+    /// a picture the body shows by `cid:` has no row there.
+    ///
+    /// Shown only if the pane still shows what it was opened from when the
+    /// file has come (`PaneLoads.stillShows`): a file, or a picture, whose
+    /// letter he has tapped past, emptied or moved on from meanwhile is
+    /// neither shown over the letter he stopped on nor said to have failed,
+    /// as a letter's body is not (`PaneLoads.draws`). Its download is not
+    /// called off; it ends, and is let go (B-122).
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
+        let shown = loads.shown
 
         Task { @MainActor in
             // Only while the header still shows the letter the file came
@@ -838,6 +859,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             do {
                 let data = try await repository.fetchAttachmentData(
                     attachment.id, of: m.id, mailboxID: m.mailboxID)
+                // The pane has moved on since the tap: nothing is shown.
+                guard loads.stillShows(shown) else { return }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -863,6 +886,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 preview.modalPresentationStyle = .fullScreen
                 present(preview, animated: true)
             } catch {
+                // Nor is a failure said over another letter.
+                guard loads.stillShows(shown) else { return }
                 ErrorPresenter.show(.attachmentFailed, on: self)
             }
         }
@@ -1008,6 +1033,21 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             return
         }
         openAttachment(file, of: m)
+    }
+
+    /// A picture of a letter's own, tapped (B-122): opened full screen as a
+    /// file's row in the header opens a file, by `openAttachment`, from the
+    /// letter whose section it is in, the one on its own in the pane, one
+    /// of the conversation's that has come, or his from Sent Mail; nothing
+    /// for a picture too small, or one no letter the pane holds has
+    /// (`PanePictures`), nor for one that comes once the pane has moved on
+    /// (`openAttachment`). Mail's own: Quick Look, whose share button has
+    /// Save Image and Save to Files.
+    private func openPicture(_ tap: PanePictures.Tap) {
+        guard let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
+                                                 stack: loaded, his: { related.letter(inSection: $0) })
+        else { return }
+        openAttachment(opening.part, of: opening.letter)
     }
 
     /// Links open in Safari after a confirmation, and never navigate the pane

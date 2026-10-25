@@ -31,6 +31,12 @@ import Foundation
 /// it is still. A finger down counts from the moment it lands, still or
 /// not, as UIKit's `isTracking` is taken to.
 ///
+/// A picture is an `<img>` whose own size is its `data-nw` by `data-nh`,
+/// drawn at its `data-dw` by `data-dh`, and whose `src`, as WebKit reads
+/// it, is its attribute with the spaces around it trimmed; a click goes to
+/// what it names and up through its ancestors, and what the script posts
+/// of a picture tapped is kept as it posted it (B-122).
+///
 /// Run only where node is: elsewhere the tests that use it skip, and the
 /// script's own pins, read from its source, still hold it.
 enum ModelPage {
@@ -79,6 +85,10 @@ enum ModelPage {
         }
         /// The page's next `insertBefore` on its body throws, once.
         static func breakNextInsert(_ at: Int) -> Step { Step(at: at, action: "breakOnce") }
+        /// The element whose `id` is `id` clicked, as WebKit clicks what a
+        /// tap lands on: its click listeners and then its ancestors', in
+        /// turn (B-122).
+        static func click(_ at: Int, _ id: String) -> Step { Step(at: at, action: "click", id: id) }
     }
 
     /// What the run saw: every frame, what the script told the pane, what
@@ -86,6 +96,8 @@ enum ModelPage {
     struct Run: Decodable {
         let frames: [Frame]
         let posts: [Post]
+        /// What the script posted to `bmPicture` (B-122), as it posted it.
+        let pictures: [Picture]
         let errors: [String]
         let calls: [Call]
         /// What the script still held at the end, nil for a script that
@@ -119,6 +131,23 @@ enum ModelPage {
         struct Post: Decodable, Equatable {
             let id: String
             let open: Bool
+        }
+
+        /// A picture tapped, as the script posts it to the pane.
+        struct Picture: Decodable, Equatable {
+            let src: String
+            let section: String
+            let width: Double
+            let height: Double
+            let drawnWidth: Double
+            let drawnHeight: Double
+
+            /// As WebKit hands it to the pane.
+            var body: [String: Any] {
+                ["src": src, "section": section, "width": NSNumber(value: width),
+                 "height": NSNumber(value: height), "drawnWidth": NSNumber(value: drawnWidth),
+                 "drawnHeight": NSNumber(value: drawnHeight)]
+            }
         }
 
         struct Call: Decodable {
@@ -303,7 +332,25 @@ enum ModelPage {
         return this.descendants().filter(function (el) { return matchesChain(el, chain); });
       }
       querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
-      getBoundingClientRect() { return box(this); }
+      getBoundingClientRect() {
+        const b = box(this);
+        if (this.getAttribute('data-dw') !== null) {
+          b.width = Number(this.getAttribute('data-dw'));
+          b.height = Number(this.getAttribute('data-dh'));
+        }
+        return b;
+      }
+      // A picture's own size, `data-nw` by `data-nh`; 0 by 0 for one that
+      // has not come, as WebKit has it.
+      get naturalWidth() { return Number(this.getAttribute('data-nw') || 0); }
+      get naturalHeight() { return Number(this.getAttribute('data-nh') || 0); }
+      // Its `src` as WebKit reads it: the attribute with the spaces around
+      // it trimmed, '' for none. An address as the pane's are, absolute
+      // and of no other change when parsed, is otherwise as written.
+      get src() {
+        const v = this.getAttribute('src');
+        return v === null ? '' : v.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '');
+      }
     }
     function matchesOne(el, simple) {
       const m = /^([a-z]+)?((?:\.[-\w]+)*)(?:\[([-\w]+)="([^"]*)"\])?$/.exec(simple);
@@ -410,8 +457,12 @@ enum ModelPage {
       (windowListeners[name] = windowListeners[name] || []).push(fn);
     };
     globalThis.getSelection = function () { return { isCollapsed: true, removeAllRanges: function () {} }; };
+    const pictures = [];
     globalThis.webkit = { messageHandlers: { bmLetter: { postMessage: function (m) {
       posts.push({ id: m.id, open: m.open });
+    } }, bmPicture: { postMessage: function (m) {
+      pictures.push({ src: m.src, section: m.section, width: m.width, height: m.height,
+                      drawnWidth: m.drawnWidth, drawnHeight: m.drawnHeight });
     } } } };
     const observers = [];
     globalThis.ResizeObserver = class {
@@ -481,7 +532,7 @@ enum ModelPage {
       }
     }
 
-    const out = { frames: [], posts: posts, errors: errors, calls: [] };
+    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, calls: [] };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
@@ -533,6 +584,16 @@ enum ModelPage {
           if (step.coast) coast = { v: step.coast, pos: scrollY };
           finger = null;
           if (!step.silent) dispatch('touchend', touchEvent(y, false));
+          return;
+        }
+        case 'click': {
+          const el = doc.getElementById(step.id);
+          if (!el) { errors.push('click: no ' + step.id); return; }
+          for (let n = el; n instanceof Element; n = n.parentNode) {
+            for (const fn of (n.listeners.click || []).slice()) {
+              try { fn({ currentTarget: n, target: el }); } catch (e) { errors.push('click: ' + e.message); }
+            }
+          }
           return;
         }
         case 'breakOnce': {

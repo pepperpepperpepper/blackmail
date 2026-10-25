@@ -28,7 +28,10 @@ import Foundation
 ///
 /// Pictures are not navigations, and this does not touch them: a letter's
 /// remote pictures still load, as they always have. Whether they should is
-/// the owner's to decide.
+/// the owner's to decide. Nor is a tap on a picture of the letter's own,
+/// which opens it as a file's row does: the pane's script, in the app's
+/// content world, tells the pane of it (`PanePictures`, B-122). A picture
+/// inside a link is the link's, and comes here as any tapped link does.
 enum PaneNavigation {
 
     /// `WKNavigationType`, with a case for any kind a later WebKit adds.

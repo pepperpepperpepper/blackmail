@@ -1306,7 +1306,8 @@ final class CompleteThreadsTests: XCTestCase {
             "loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID, "
                 + "mailboxID: load.mailboxID) }, prepare: { m in (m, PanePage.stackBody(m)) }, "
                 + "settle: { [weak self] result in self?.settleRelated(result, for: load) })",
-            "case .success(let (m, body)): prepareInlineImages(for: [m]) fill(related.bodyCame(for: load), body) "
+            "case .success(let (m, body)): prepareInlineImages(for: [m]) related.keep(m, for: load) "
+                + "fill(related.bodyCame(for: load), body) "
                 + "case .failure: fill(load.entryID, Self.couldNotDownload)",
         ] {
             XCTAssertTrue(related.contains(wiring), wiring)
