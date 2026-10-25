@@ -53,9 +53,12 @@ final class ComposeViewController: UIViewController,
     /// How much of the sheet showed at the last layout, to tell when the
     /// keyboard has just come up over it.
     private var shownHeight: CGFloat = 0
+    /// Whether Cc and Bcc stand open (`showCcAndBcc`).
     private var ccVisible = false
-    /// The Cc row itself, hidden until the toggle is pressed, unless the
-    /// letter arrives with a Cc or a Bcc (`Draft.showsCcAndBcc`).
+    /// The Cc row itself, hidden until "Cc/Bcc" is tapped, unless the
+    /// letter arrives with a Cc or a Bcc (`Draft.showsCcAndBcc`), and
+    /// hidden again as the caret leaves Cc and Bcc with nobody in them
+    /// (B-134).
     ///
     /// Assigned rather than constructed here because it must be the view
     /// `row()` returns and go STRAIGHT into the stack. It used to be an
@@ -77,6 +80,10 @@ final class ComposeViewController: UIViewController,
     /// `addSubview`d into a wrapper.
     private var bccRow = UIView()
     private let ccToggle = UIButton(type: .system)
+    /// The "Cc/Bcc" row, hidden while Cc and Bcc stand open, as Mail hides
+    /// its "Cc/Bcc, From:" row while its fields show (B-134). It stayed,
+    /// under Bcc, and a second tap on it hid Cc and Bcc again.
+    private let ccToggleRow = UIView()
 
     /// Addresses offered under the field he is typing in.
     ///
@@ -259,14 +266,17 @@ final class ComposeViewController: UIViewController,
         stack.addArrangedSubview(bccRow)
         bccRow.isHidden = !ccVisible
 
-        // Cc/Bcc hidden behind an explicit labelled toggle rather than always
-        // present: two fewer boxes on screen for someone who will never use
-        // them, and still one tap away with a word on it.
+        // Cc/Bcc folded into one labelled row rather than always present:
+        // two fewer boxes on screen for someone who will never use them,
+        // and still one tap away with a word on it. Mail's way since B-134:
+        // the tap opens Cc and Bcc with the caret in Cc and the row goes
+        // while they show; they fold back as the caret goes elsewhere with
+        // nobody in them (`caretWentInto`).
         ccToggle.setTitle("Cc/Bcc", for: .normal)
         ccToggle.titleLabel?.font = Theme.fontDetailMeta
-        ccToggle.addTarget(self, action: #selector(toggleCc), for: .touchUpInside)
+        ccToggle.addTarget(self, action: #selector(openCcAndBcc), for: .touchUpInside)
         ccToggle.contentHorizontalAlignment = .left
-        let toggleRow = UIView()
+        let toggleRow = ccToggleRow
         ccToggle.translatesAutoresizingMaskIntoConstraints = false
         toggleRow.addSubview(ccToggle)
         NSLayoutConstraint.activate([
@@ -276,6 +286,7 @@ final class ComposeViewController: UIViewController,
             ccToggle.heightAnchor.constraint(equalToConstant: Theme.minHitTarget),
         ])
         stack.addArrangedSubview(toggleRow)
+        toggleRow.isHidden = ccVisible
         stack.addArrangedSubview(row(label: "Subject:", field: subjectField, text: draft.subject))
         attachmentsStack.axis = .vertical
         attachmentsStack.spacing = 0
@@ -476,6 +487,17 @@ final class ComposeViewController: UIViewController,
 
     func textViewDidChangeSelection(_ textView: UITextView) {
         keepCaretInView()
+    }
+
+    /// The caret into the body: Cc and Bcc fold back if nobody is in them
+    /// (`caretWentInto`, B-134).
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        caretWentInto(ccOrBcc: false)
+    }
+
+    /// The caret into Subject: the same.
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        caretWentInto(ccOrBcc: false)
     }
 
     /// The list under an address field goes with the field as the sheet
@@ -954,6 +976,7 @@ final class ComposeViewController: UIViewController,
         field.addTarget(self, action: #selector(addressEditingChanged(_:)), for: .editingChanged)
         field.addTarget(self, action: #selector(addressEditingBegan(_:)), for: .editingDidBegin)
         field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)
+        field.addTarget(self, action: #selector(addressBubbleTapped(_:)), for: .valueChanged)
 
         let rule = UIView()
         rule.backgroundColor = Theme.separator
@@ -993,10 +1016,31 @@ final class ComposeViewController: UIViewController,
     }
 
     /// Going in offers nothing, as in Mail (B-073), and closes a list left
-    /// open under another field.
+    /// open under another field. Cc and Bcc stay open with the caret in
+    /// one of them, and fold back as it goes into To with nobody in them
+    /// (`caretWentInto`, B-134).
     @objc private func addressEditingBegan(_ field: RecipientField) {
         activeAddressField = field
         refreshSuggestions(after: .entered)
+        caretWentInto(ccOrBcc: field === ccField || field === bccField)
+    }
+
+    /// A bubble tapped, its menu about to go up (B-134). The list closes,
+    /// so the menu never stands over it, as Mail never has a person's card
+    /// and its list up at once. The caret goes into the bubble's field, as
+    /// Mail's tap puts it there, so letters typed next take the bubble's
+    /// place (`RecipientBubbles.typingTakesThePicked`) rather than going
+    /// into another field under the menu. Only while a field has it: with
+    /// the keyboard put away it stays away, since the sheet rising under
+    /// the menu as it opens is what put the menu beside its bubble on the
+    /// iPad (B-078).
+    @objc private func addressBubbleTapped(_ field: RecipientField) {
+        let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
+        if !field.isFirstResponder, fields.contains(where: { $0.isFirstResponder }) {
+            field.becomeFirstResponder()
+        }
+        activeAddressField = field
+        refreshSuggestions(after: .bubbleTapped)
     }
 
     @objc private func addressEditingChanged(_ field: RecipientField) {
@@ -1080,10 +1124,29 @@ final class ComposeViewController: UIViewController,
         followRecipients()
     }
 
-    @objc private func toggleCc() {
-        ccVisible.toggle()
-        ccRow.isHidden = !ccVisible
-        bccRow.isHidden = !ccVisible
+    /// "Cc/Bcc": Cc and Bcc open, the row gone, the caret in Cc, as Mail's
+    /// "Cc/Bcc, From:" does (B-134). It was a switch: a second tap hid them
+    /// again, people in them or not.
+    @objc private func openCcAndBcc() {
+        showCcAndBcc(true)
+        ccField.becomeFirstResponder()
+    }
+
+    /// The caret has gone into a field: Cc and Bcc stand open while it is
+    /// in one of them or either holds someone, and fold back into the
+    /// "Cc/Bcc" row otherwise, by Mail's rule (`ComposeForm.showsCcAndBcc`).
+    private func caretWentInto(ccOrBcc: Bool) {
+        showCcAndBcc(ComposeForm.showsCcAndBcc(inCcOrBcc: ccOrBcc, cc: ccField.recipients,
+                                               bcc: bccField.recipients))
+    }
+
+    /// Cc and Bcc shown, and the "Cc/Bcc" row hidden, or the other way.
+    private func showCcAndBcc(_ open: Bool) {
+        guard open != ccVisible else { return }
+        ccVisible = open
+        ccRow.isHidden = !open
+        bccRow.isHidden = !open
+        ccToggleRow.isHidden = open
     }
 
     @objc private func cancelTapped() {

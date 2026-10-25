@@ -11607,7 +11607,8 @@ iPad.
   Return still makes the letters a bubble and picks nothing. In the share
   sheet, Cancel and Send go grey while a bubble's menu is up; in the
   app's composer they stay blue. Once Cc and Bcc are open, the "Cc/Bcc"
-  row stays, under Bcc; it did so earlier the same day too.
+  row stays, under Bcc; it did so earlier the same day too. *Each now
+  B-134, changed to Mail's way.*
 
 **Not covered.**
 
@@ -12197,7 +12198,10 @@ case beside the bubble. Seen in passing: with a bubble's menu up and
 letters typed, the list of suggestions opens under the menu and only
 its lowest row shows; Return still makes the letters a bubble and
 picks nothing. In the share sheet, Cancel and Send go grey while the
-menu is up; in the app's composer they stay blue.
+menu is up; in the app's composer they stay blue. *Now B-134: letters
+typed with the menu up take the bubble's place, as in Mail, and the
+menu goes with it; a tap on a bubble closes the list; the share sheet
+keeps its colours.*
 
 **Tests.** `ReplyLikeMailTests`, two new tests, read from the source as
 the suite reads the other sheets. The bubble's menu: its directions set
@@ -24946,3 +24950,194 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+## B-134 — CHANGED 2026-10-25 to copy Apple Mail, not yet seen on the iPad. With a bubble's menu up, letters typed opened the list under the menu and left the bubble and its menu; now they take the bubble's place, as typing over Mail's picked-out recipient does, the menu goes, and the list is in sight. "Cc/Bcc" stayed under Bcc once they were open; it goes while they show, and they fold back, as Mail's do
+
+**Found** on the test iPad on 2026-10-07, in passing, in B-076's second
+check and B-078's (both above): in To, Cc or Bcc, in the composer and the
+share sheet, with a bubble's menu up (B-078) and letters typed, the list
+of suggestions opened under the menu and only its lowest row showed;
+Return still made the letters a bubble and picked nothing. In the share
+sheet Cancel and Send went grey while a bubble's menu was up, in the
+app's composer they stayed blue. Once Cc and Bcc were open, the "Cc/Bcc"
+row stayed, under Bcc.
+
+**What Mail does.** Read from iOS 18.6's simulator runtime on the Mac,
+statically, its arm64 code (MessageUI, which is Mail's composer and its
+share sheet's, B-120; UIKitCore). Not run: Mail does not run in the
+simulator (B-074), and his iPadOS 18.7 was not read. Apple's iPad guide
+says only "tap the Cc/Bcc field, then … tap the Cc field"
+(support.apple.com/guide/ipad/send-email-ipad99a3f013/18.0/ipados/18.0).
+
+- *A tap on a recipient* (high). It picks the recipient out
+  (`-[MFModernComposeRecipientAtom touchesBegan:withEvent:]`), and the
+  recipient picked out is the field's text selection
+  (`-[MFComposeRecipientTextView selectComposeRecipientAtom:]` sets the
+  text view's selected range to it). The same tap puts the caret in that
+  field (`_tapGestureRecognized:`, `becomeFirstResponder`). A second tap on
+  it shows the person's card (`handleTouchAndHold`,
+  `composeRecipientAtomShowPersonCard:`), on the iPad as a popover on the
+  recipient; the iPhone's way saves the field with the caret and puts it
+  away first, the iPad's does not. The app shows its menu at the first
+  tap (B-076), which stays.
+- *Typing with a recipient picked out* (high that this is 18.6's code,
+  medium that it is what he would see). The field's
+  `textView:shouldChangeTextInRange:replacementText:` keeps for itself
+  only Return, Tab and a comma, which end what he typed and leave the
+  recipient, and a delete, which takes off the recipient picked out or
+  else picks out the one before the caret. Any other text it lets
+  through, so it replaces the selection: the recipient is gone (the
+  field's recipients are read from what is left in the text) and the
+  letters stand in its place, and the suggestions look for them. Nothing
+  in Mail closes the card as he types; the card's recipient is simply no
+  longer there.
+- *Return* (high). On the on-screen keyboard, Return ends what he typed
+  (`-[MFMailComposeController composeRecipientView:didFinishEnteringAddress:]`
+  clears the suggestions and adds the address): it picks nothing, as the
+  app's Return. Only a hardware keyboard's Return chooses the suggestion
+  highlighted (`-[_MFAtomTextView _handleKeyUIEvent:]`).
+- *The list and the card* (medium, inferred). On the iPad Mail's
+  suggestions are a popover too (`_presentsSearchResultsTableAsPopover`),
+  and UIKit has one popover up from a view controller at a time, so the
+  card and the list are not up together.
+- *Cc and Bcc* (high). One row, "Cc/Bcc, From:" (or "Cc/Bcc" when there
+  is no From to choose), `MFComposeMultiView`. A tap on it shows Cc and Bcc
+  and puts the caret in Cc (`_multiFieldClicked`). While they show, the
+  row's alpha is 0 and Cc, Bcc and From are laid out in its place
+  (`_layoutSubviews:changingView:toSize:searchResultsWereDismissed:`). Each
+  time a field takes the caret (`viewDidBecomeFirstResponder:`), they stay
+  shown while the caret is in Cc or Bcc or either holds someone, and fold
+  back into the row otherwise (`_updateOptionalHeaderVisibilityForceVisible:`).
+  A guide to Mail on the iPad says the same of the row: "That line expands
+  into separate Cc, Bcc, and From" (Take Control of Mail on the iPad,
+  iPhone, and iPod touch, 4th edition).
+- *Grey under a popover* (medium). UIKit greys what is under a popover
+  where the view controller beneath it is a window's own, and leaves the
+  colours alone where that view controller was itself put up as a sheet
+  (`-[UIPresentationController _enableOcclusion:]`). MessageUI never asks
+  otherwise (`_setShouldDimPresentingViewTint:` is called only by
+  UITextView's own formatting panel). Mail's composer is a sheet over
+  Mail, so its Cancel and Send keep their colour under the card, as the
+  app's composer's do. Mail's share-sheet composer, in a process of its
+  own, was not looked at.
+
+**What it was.** The list is a view of the sheet's, laid out under the
+field; the menu is a popover over the whole sheet, so it covered the
+list's upper rows. The bubble stayed picked out, and its menu up,
+whatever he typed under it (`RecipientField.keepMenu`, B-076, B-078). A
+bubble tapped in another field left the caret where it was, so letters
+went there, and that field's list opened under the menu. In the share
+sheet the composer is inside the extension's own window, whose view
+controller put the menu up, so UIKit greyed it; the app's composer is a
+sheet. "Cc/Bcc" was a switch: a second tap hid Cc and Bcc again, with
+people in them or not.
+
+**Changed.**
+
+1. *Letters over a bubble picked out* (`RecipientBubbles.type`,
+   `typingTakesThePicked`, new). With a bubble picked out, by a tap, its
+   menu up, or by a backspace, a letter, a digit, a mark or anything
+   pasted takes its place: the bubble is taken off, and the letters are on
+   the line, where he always types; Mail puts them where the recipient
+   was. The menu goes with the bubble (`RecipientField.changed`,
+   `closeMenu`), and the list comes up for the letters with nothing over
+   it; the person taken off is offered again. A comma or a ";", a space
+   alone, and a letter taken out leave the bubble.
+2. *A backspace over a bubble picked out* (`backspaceIsTheBubbles`, new;
+   `TypingLine` asks the field at every backspace). It takes that bubble
+   off, letters on the line or not, as Mail deletes its selected
+   recipient; it used to take a letter off and leave the bubble bright
+   under its menu. With nothing picked out it is as before.
+3. *A tap on a bubble* (`RecipientField.bubbleTapped`, `.valueChanged`;
+   `addressBubbleTapped` in both sheets; `ComposeForm.FieldEvent.bubbleTapped`,
+   new). Before the menu goes up the list closes, so the menu is never
+   over it, and the caret goes into the bubble's field, as Mail's tap
+   puts it, so what he types next takes that bubble's place. Only while a
+   field of the sheet has the caret: with the keyboard put away it stays
+   away, since the sheet rising under a menu as it opens is what put the
+   menu beside its bubble on the iPad (B-078). Mail would bring it up.
+4. *Cc and Bcc* (`ComposeForm.showsCcAndBcc`, new; `openCcAndBcc`,
+   `caretWentInto` in both sheets). "Cc/Bcc" opens Cc and Bcc with the
+   caret in Cc, and the row is hidden while they show. As the caret goes
+   into To, Subject or the body with nobody in Cc or Bcc, they fold back
+   into the row; with someone in either they stay. A letter that opens
+   with a Cc or a Bcc opens with them shown, as before, and without the
+   row. There is no From row: the app sends from the one account.
+5. *The share sheet's colours* (`ShareViewController`). Its navigation
+   controller's view and bar keep their tint (`tintAdjustmentMode
+   .normal`): Cancel, Send and "Cc/Bcc" stay in their colours while a
+   bubble's menu or Cancel's question is up, as in the app's composer.
+   Send's grey while nobody is in To, Cc or Bcc is its own, and stays.
+
+**Not changed.** Return makes a bubble of the letters and picks nothing,
+as Mail's on-screen Return. One tap shows the menu, its address and
+Remove (B-076), and where it stands (B-078). A comma, Return or leaving
+the field under the menu leaves the bubble picked out, its menu on it.
+What the list offers while he types (B-069, B-073). The app's composer's
+colours. No new words.
+
+**What he sees.** A bubble tapped: its menu, and no list under it. A
+letter typed then: the bubble and its menu gone, the letter on the line
+and the list under the field, every row in sight. Delete with the menu up:
+the bubble gone, any letters left. "Cc/Bcc": Cc and Bcc, the caret in Cc,
+no "Cc/Bcc" row under Bcc; back to the one row when he moves on with
+nobody in them. In the share sheet, Cancel and Send blue under a menu.
+
+**Tests.** `BubbleMenuTypingTests`, nine, new: a letter over a bubble
+picked out by a tap or a backspace takes its place, first or last, with
+letters on the line, typed in the middle or pasted, and never with
+nothing picked out; a comma, a ";", a space, ", ", a letter taken out or
+the line as it was leave it, and "sa," under the menu makes "sa" a bubble
+with the picked one kept; the person typed over offered again, a bubble
+left in the field not; a backspace over a bubble picked out with letters
+on the line takes it and keeps the letters, and with nothing picked out is
+the line's; a tapped bubble offers nothing, and the next letter offers
+again; Mail's Cc and Bcc rule, spaces as nobody, and a letter opening
+with a Bcc; and, read from the source, the field closing the menu before
+it takes letters over its bubble, the backspace asked at every press, the
+sheet told before the menu goes up, both sheets' tap, "Cc/Bcc", fold and
+caret wiring with no switch left, and the share sheet's colours kept with
+the composer setting none. Changed, each with its reason:
+`ReplyLikeMailTests` (typing over a bubble picked out by a backspace takes
+its place; the menu kept through a comma and Return, and closed by
+`closeMenu`; the backspace asked at every press) and `ComposeLikeMailTests`
+(a fourth event, the bubble tapped, offering nothing).
+
+Each part undone by hand, the three classes run, then put back and
+passing, counted as failures in tests: letters over a bubble picked out
+not taking its place, 9 in 4; a comma, a ";" or a space taking it, 12 in
+1; a letter taken out taking it, 2 in 1; a backspace with letters on the
+line always the line's, 1 in 1; a tapped bubble offering as typing does,
+1 in 1; Cc and Bcc not held open by the caret in them, 1 in 1, nor by
+someone in Bcc, 2 in 1; the field not closing the menu as letters take
+its bubble, 1 in 1; the backspace asked only on an empty line, 2 in 2;
+the sheet not told of a tap, 2 in 1; "Cc/Bcc" a switch again, 2 in 1;
+its row not hidden, 1 in 1; the composer's To not folding Cc and Bcc, 2
+in 1; the composer not told of a tap, 1 in 1; the share sheet's body not
+folding them, 2 in 1; its tap taking the caret with the keyboard away, 1
+in 1; its colours left to UIKit, 1 in 1. 43 in all, over seventeen
+parts.
+
+The full suite, serially: 2,484 tests, 9 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad or in the simulator: built and tested on the host.
+  The TODO's check is the first look.
+- Mail itself was read, not watched. That letters over a picked-out
+  recipient replace it is its code's plain path; his iPad's 18.7 was not
+  read, and Mail's composer in its share sheet was not run.
+- Mail puts the letters where the recipient was, between the others; here
+  they go on the line after the bubbles, so a bubble made of them is the
+  last.
+- With the keyboard put away, a tap on a bubble leaves it away (change 3);
+  Mail would bring it up and put the caret there.
+- A tap on a bubble with the caret in Subject or the body brings the
+  caret to the address field, and the keyboard changes to the email one
+  as the menu opens; whether that moves the sheet under the menu on
+  16.5.1, as the keyboard rising did in B-078, is for the check.
+- A space typed over a bubble picked out leaves it; in Mail it would take
+  its place with nothing to show.
+- Mail's From row and the image size row it folds with Cc and Bcc: not
+  built here (one account).

@@ -2674,7 +2674,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       1. *The keyboard.* Write a letter until the lines reach the
       keyboard: the line typed on stays above it, and the caret with it.
       In landscape, the same on a Forward of a letter with three or more
-      files, and on a new letter with Cc/Bcc open: the fields go up out
+      files, and on a new letter with Cc/Bcc open (since B-134, with
+      someone in Cc, or they fold back as the caret goes into the body,
+      as Mail's do): the fields go up out
       of the way, the caret's line stays in sight, and the fields scroll
       back down with the keyboard still up. The same in the share
       sheet, shared from Safari and with several photos from Photos.
@@ -3024,7 +3026,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       just below it: the menu again. With the menu up, type "sa" and
       Return: "sa" a bubble after it, "Al" still bright, the menu still on
       "Al", and still on it as the keyboard moves. Delete: "Al" goes, and
-      its menu with it. Cancel, Delete Draft. Nothing is sent.
+      its menu with it. Cancel, Delete Draft. Nothing is sent. *Since
+      B-134, as in Mail, the "s" takes "Al"'s place and the menu goes with
+      it; Return then makes "sa" the only bubble. B-134's check says what
+      to see.*
       4. *Reply All.* Open the letter of step 1 in the Inbox, Reply All: To
       `+jane`, Cc `+sam`, each a bubble (his own letter, answered as B-061
       answered it). Cancel. Type a word, Save Draft, open it from Drafts:
@@ -3057,6 +3062,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       bright, and the menu stays on it.
       3. *Delete.* With the menu still up, Delete: "Al" goes, and its
       menu with it. "sa" is left plain. Cancel, Delete Draft.
+      *Since B-134 steps 2 and 3 no longer hold as written: the "s" takes
+      "Al"'s place, as in Mail, and the menu goes with it. B-134's check
+      has the steps for now; the menu's place, under its bubble, is as
+      here.*
       4. *Cc and Bcc.* A new letter. In To `Al <al@example.com>` and a
       comma, then Cc/Bcc. In Cc `Jo <jo@example.com>` and a comma, and in
       Bcc `Bo <bo@example.com>` and a comma. Tap "Jo": its menu under
@@ -5597,6 +5606,51 @@ checks below is left as not needed, not open, and none is worth a round.*
       OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
       after the pause (B-123). Not possible: 6b and 11, the size test's
       mailbox having no such sender.*
+- [ ] **B-134, letters over a bubble's menu, and Cc/Bcc as Mail's.** On the
+      test iPad, the test account only, landscape, built from the
+      `bm-bubblesugg` worktree (branch `fix-bubblesugg`); merge only after
+      a pass. The on-screen keyboard up throughout but in 6: if a keyboard
+      bar shows instead, its keyboard key, then Show Keyboard. Nothing is
+      sent: every letter ends with Cancel, and Delete Draft if it is asked.
+      1. *Letters over the menu.* A new letter. In To type `Al
+      <al@example.com>` and a comma: a bubble "Al". Tap it: its menu under
+      it, and no list. Type "s": "Al" and its menu go, "s" is on the line,
+      and the list opens under To with every row in sight, nothing over
+      it. Delete: the "s" goes and the list closes. Cancel.
+      2. *Letters typed before the tap.* A new letter. In To `Al
+      <al@example.com>` and a comma, then "s": the list. Tap "Al": the
+      list closes, the menu opens under "Al". Return: "s" a bubble after
+      "Al", "Al" still bright, the menu still on it, no list. Tap outside:
+      the menu goes, "Al" plain. Cancel, Delete Draft.
+      3. *Delete over the menu.* A new letter. In To `Al <al@example.com>`
+      and a comma, then "sa". Tap "Al": its menu. Delete: "Al" and its
+      menu go, "sa" stays on the line, and the list for "sa" opens, in
+      sight. Cancel, Delete Draft.
+      4. *Cc/Bcc.* A new letter. Tap "Cc/Bcc": Cc and Bcc, the caret in
+      Cc, and no "Cc/Bcc" row under Bcc. Tap Subject: Cc and Bcc fold
+      back into the "Cc/Bcc" row. Tap it again; in Bcc type `Bo
+      <bo@example.com>` and a comma; tap the body: Cc and Bcc stay, no
+      "Cc/Bcc" row. Tap "Bo", Remove; tap To: they fold back. Cancel,
+      Delete Draft if asked.
+      5. *Another field's bubble, and from the body.* A new letter. In To
+      `Al <al@example.com>` and a comma; "Cc/Bcc"; in Cc `Jo
+      <jo@example.com>` and a comma. Tap the body and type a word. Tap
+      "Al": its menu under "Al", its arrow on it, never beside it, the
+      caret now in To on the email keyboard. Type "s": "Al" goes, the list
+      under To in sight. Tap "Jo": its menu under "Jo", the caret in Cc.
+      Type "s": "Jo" goes, the list under Cc in sight. Cancel, Delete
+      Draft.
+      6. *The keyboard put away.* A new letter. In To `Al
+      <al@example.com>` and a comma, then hide the keyboard with its key.
+      Tap "Al": its menu under it, its arrow on it, and the keyboard
+      stays down. Tap outside. Cancel.
+      7. *The share sheet,* from Safari on example.com. It opens in To.
+      `Al <al@example.com>` and a comma; tap "Al": its menu under it, and
+      Cancel and Send stay blue, as in the app's composer. Type "s": as
+      in 1. Cancel: its question, Cancel and Send still blue; Delete
+      Draft. Share again: step 4 there. Cancel, Delete Draft if asked.
+      8. *The app's composer, colours.* A new letter, "Al" in To, its
+      menu up: Cancel and Send stay blue, as before. Cancel, Delete Draft.
 
 ## Blocked on the owner
 

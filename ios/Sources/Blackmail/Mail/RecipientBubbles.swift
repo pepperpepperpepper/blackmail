@@ -18,7 +18,9 @@ import CoreGraphics
 /// Mail's ways, each here: a pick, or an address he ends with a comma, a
 /// ";", Return or by leaving the field, becomes a bubble; backspace with
 /// nothing typed picks out the last bubble, and a second takes it off; a
-/// bubble tapped is picked out, and shows its address.
+/// bubble tapped is picked out, and shows its address; and a bubble picked
+/// out is Mail's selection, so what he types goes in its place and a
+/// backspace takes it off (B-134).
 struct RecipientBubbles: Equatable {
 
     /// One per bubble, each as the field keeps it.
@@ -110,12 +112,53 @@ struct RecipientBubbles: Equatable {
     /// nothing (B-081). A comma or ";" inside quotes, `<…>` or a comment
     /// ends nothing: `"Example, Jane" <jane@example.com>` is one recipient
     /// as he types it.
+    ///
+    /// Typed over a bubble picked out, it takes the bubble's place
+    /// (`typingTakesThePicked`, B-134). It used to put the bubble back, and
+    /// with its menu up the bubble stayed, its menu over the list his
+    /// letters opened.
     mutating func type(_ now: String) {
+        if typingTakesThePicked(now), let i = selected {
+            entries.remove(at: i)
+        }
         selected = nil
         leftWith = 0
         let (done, rest) = Self.ended(now)
         entries += done
         typed = rest
+    }
+
+    /// Whether the line, now reading `now`, takes the place of the bubble
+    /// picked out (B-134). In Mail's field a recipient picked out, by a tap
+    /// or a backspace, is the field's selection, and what he types goes in
+    /// its place, as typing over a selected word does: the recipient is
+    /// taken off and the letters stand there (iOS 18.6's MessageUI,
+    /// `-[MFComposeRecipientTextView selectComposeRecipientAtom:]` and its
+    /// `textView:shouldChangeTextInRange:replacementText:`). So a letter, a
+    /// digit, a mark or anything pasted does. A comma or a ";" does not: in
+    /// Mail it ends what he typed and leaves the recipient (here a ";" as a
+    /// comma, B-081). Nor does a space alone, which the line drops at its
+    /// start, nor a letter taken out.
+    ///
+    /// Mail puts the letters where the recipient was; here they go on the
+    /// line after the bubbles, where he always types.
+    func typingTakesThePicked(_ now: String) -> Bool {
+        guard let i = selected, entries.indices.contains(i),
+              now != typed, now.count >= typed.count else { return false }
+        let added = now.hasPrefix(typed) ? now.dropFirst(typed.count) : Substring(now)
+        return added.contains { !($0 == "," || $0 == ";" || $0.isWhitespace) }
+    }
+
+    /// Whether a backspace is the bubbles' rather than a letter's on the
+    /// line (B-134). With a bubble picked out it takes that bubble off,
+    /// even with letters on the line, as Mail's field deletes the recipient
+    /// it has selected; it took a letter off, and the bubble stayed picked
+    /// out under its menu. With nothing picked out and nothing typed it
+    /// picks out the last bubble (`backspace`); with letters typed it is
+    /// the line's.
+    func backspaceIsTheBubbles(lineEmpty: Bool) -> Bool {
+        if let i = selected, entries.indices.contains(i) { return true }
+        return lineEmpty
     }
 
     /// Return, or leaving the field: what he typed becomes a bubble, unless
@@ -150,8 +193,9 @@ struct RecipientBubbles: Equatable {
 
     /// Backspace with nothing typed after the bubbles, as Mail has it: the
     /// first picks out the last bubble, the next takes it off. With a bubble
-    /// already picked out, by a tap or a backspace, that one goes. False
-    /// when there was nothing to pick out or take off.
+    /// already picked out, by a tap or a backspace, that one goes, letters
+    /// on the line or not (`backspaceIsTheBubbles`). False when there was
+    /// nothing to pick out or take off.
     @discardableResult
     mutating func backspace() -> Bool {
         leftWith = 0

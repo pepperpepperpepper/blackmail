@@ -315,8 +315,8 @@ final class ComposeLikeMailTests: XCTestCase {
     /// `.entered`, which offers nothing, so the share sheet putting him
     /// straight into To shows no list, and neither does a tap on To, Cc or
     /// Bcc. The list is shown in one place only, from what the form
-    /// offers after one of the three events, so nothing else, the Cc/Bcc
-    /// reveal among them, can show it.
+    /// offers after one of its events (four since B-134's bubble tapped),
+    /// so nothing else, the Cc/Bcc reveal among them, can show it.
     func testOnlyTypingShowsTheListInEither() async throws {
         func count(_ needle: String, in code: String) -> Int {
             code.components(separatedBy: needle).count - 1
@@ -326,10 +326,13 @@ final class ComposeLikeMailTests: XCTestCase {
                         + "for: .editingDidBegin)",
                      // A field of bubbles since B-076, not a text field.
                      "@objc private func addressEditingBegan(_ field: RecipientField) { "
-                        + "activeAddressField = field refreshSuggestions(after: .entered) }"] {
+                        + "activeAddressField = field refreshSuggestions(after: .entered)"] {
             XCTAssertTrue(composer.contains(line), line)
         }
-        XCTAssertEqual(count("refreshSuggestions(after: .", in: composer), 3)
+        // The fourth since B-134: a bubble tapped, which offers nothing
+        // (`BubbleMenuTypingTests`).
+        XCTAssertEqual(count("refreshSuggestions(after: .", in: composer), 4)
+        XCTAssertTrue(composer.contains("refreshSuggestions(after: .bubbleTapped)"))
         XCTAssertEqual(count("suggestions = ", in: composer), 1)
         XCTAssertTrue(composer.contains("suggestions = ComposeForm.suggestions("))
 
@@ -338,7 +341,7 @@ final class ComposeLikeMailTests: XCTestCase {
                         + "for: .editingDidBegin)",
                      // A field of bubbles since B-076, not a text field.
                      "@objc private func addressEntered(_ field: RecipientField) { "
-                        + "offer(field, after: .entered) }",
+                        + "offer(field, after: .entered)",
                      // Straight into To as it appears, by the composer's
                      // rule since B-120 (`ReadyToTypeTests`).
                      "override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated) "
@@ -346,7 +349,8 @@ final class ComposeLikeMailTests: XCTestCase {
                      "case .to: toField.becomeFirstResponder()"] {
             XCTAssertTrue(share.contains(line), line)
         }
-        XCTAssertEqual(count("offer(field, after: .", in: share), 3)
+        XCTAssertEqual(count("offer(field, after: .", in: share), 4)
+        XCTAssertTrue(share.contains("offer(field, after: .bubbleTapped)"))
         XCTAssertEqual(count("suggestions = ", in: share), 1)
         XCTAssertTrue(share.contains("suggestions = sheet.suggestions("))
         XCTAssertTrue(try source(Self.shareRules).contains(
