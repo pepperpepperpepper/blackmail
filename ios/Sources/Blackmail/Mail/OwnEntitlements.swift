@@ -13,19 +13,23 @@ import Foundation
 ///
 /// Read from the executable rather than asked of the system
 /// (`SecTaskCopyValueForEntitlement`, which the iOS SDK does not declare):
-/// the bytes are the ones iOS checked at launch, the app's sandbox lets it
-/// read its own bundle (measured 2026-10-25, where the file TrollStore
-/// leaves beside the bundle could not even be seen), no symbol outside the
-/// SDK is needed, and every step can be tried on the host. Anything that
-/// cannot be read is `.unread`, which the caller takes as a certificate's
-/// install: the warning stays.
+/// the bytes are the ones iOS checked at launch, no symbol outside the SDK
+/// is needed, and every step can be tried on the host, on made-up bytes
+/// and on executables pulled from the test iPad. The app's sandbox lets it
+/// see its `.app`, `Info.plist` and profile, and read the profile
+/// (measured 2026-10-25, where the file TrollStore leaves beside the
+/// bundle could not even be seen); its own executable is expected to be
+/// readable the same way, not measured. Anything that cannot be read is
+/// `.unread`, which the caller takes as a certificate's install: the
+/// warning stays.
 ///
 /// The executable is a 64-bit Mach-O, or a fat file of them. Its
 /// `LC_CODE_SIGNATURE` points at a SuperBlob (big-endian) indexing blobs
 /// by slot: the entitlements as a DER blob (slot 7, iOS 15 and later go
-/// by it) and as an XML plist (slot 5). The DER one is read where there is
-/// one, the XML one otherwise. Every offset and length is checked against
-/// what holds it; nothing is searched for in the bytes.
+/// by it) and as an XML plist (slot 5). The DER one is read where it can
+/// be, in either shape a signer writes it; the XML one where there is no
+/// DER one or it cannot be read. Every offset and length is checked
+/// against what holds it; nothing is searched for in the bytes.
 enum OwnEntitlements {
 
     /// What the signature says of one entitlement.
@@ -136,7 +140,12 @@ enum OwnEntitlements {
     }
 
     /// The entitlements in a code signature's SuperBlob: the DER blob's if
-    /// there is one, else the XML one's, else none.
+    /// it can be read, else the XML one's; none when it has neither. A DER
+    /// blob that cannot be read, with no XML one, is nil. Both blobs are
+    /// the signer's, written from the same entitlements and hashed in the
+    /// CodeDirectory, so the XML one stands in for a DER one in a shape
+    /// not read here; a certificate's signature holds the entitlement in
+    /// neither.
     static func entitlements(inSuperBlob blob: Bytes) -> [String: Any]? {
         guard blob.u32(0, big: true) == superBlobMagic,
               let length = blob.u32(4, big: true).map({ Int($0) }),
@@ -153,9 +162,9 @@ enum OwnEntitlements {
                   let inner = whole.part(offset, size) else { return nil }
             slots[slot] = inner
         }
-        if let der = slots[derSlot] {
-            guard der.u32(0, big: true) == derMagic else { return nil }
-            return derEntitlements(der.bytes(from: 8))
+        if let der = slots[derSlot], der.u32(0, big: true) == derMagic,
+           let found = derEntitlements(der.bytes(from: 8)) {
+            return found
         }
         if let xml = slots[xmlSlot] {
             guard xml.u32(0, big: true) == xmlMagic else { return nil }
@@ -163,18 +172,20 @@ enum OwnEntitlements {
                                                                 options: [], format: nil))
                 as? [String: Any]
         }
-        return [:]
+        return slots[derSlot] == nil ? [:] : nil
     }
 
-    /// DER entitlements, as Apple writes them: [APPLICATION 16] holding the
-    /// version, an INTEGER, then [CONTEXT 16], the dictionary, a SEQUENCE
-    /// of key, a UTF8String, and value for each. A string value is read as
-    /// a `String`, a BOOLEAN as a `Bool`; any other as `Other`, its tag.
+    /// DER entitlements, in the two shapes signers write. Apple's, as
+    /// `codesign` and `zsign` write it (his iPad's): [APPLICATION 16]
+    /// holding the version, an INTEGER, then [CONTEXT 16], the dictionary.
+    /// `ldid`'s, as TrollStore's helper signs with it (the test iPad's): the
+    /// dictionary alone, a SET. The dictionary holds a SEQUENCE of key, a
+    /// UTF8String, and value for each. A string value is read as a
+    /// `String`, a BOOLEAN as a `Bool`; any other as `Other`, its tag.
     static func derEntitlements(_ bytes: [UInt8]) -> [String: Any]? {
-        guard let top = DERElement.read(bytes, at: 0, before: bytes.count), top.tag == 0x70,
-              let parts = DERElement.children(of: top, in: bytes), parts.count == 2,
-              parts[0].tag == 0x02, parts[1].tag == 0xB0,
-              let pairs = DERElement.children(of: parts[1], in: bytes) else { return nil }
+        guard let top = DERElement.read(bytes, at: 0, before: bytes.count),
+              let dictionary = derDictionary(top, in: bytes),
+              let pairs = DERElement.children(of: dictionary, in: bytes) else { return nil }
         var found: [String: Any] = [:]
         for pair in pairs {
             guard pair.tag == 0x30, let both = DERElement.children(of: pair, in: bytes),
@@ -198,6 +209,21 @@ enum OwnEntitlements {
         return found
     }
 
+    /// The element holding the pairs: [CONTEXT 16] inside Apple's
+    /// [APPLICATION 16] after its version, or `ldid`'s SET itself.
+    private static func derDictionary(_ top: DERElement, in bytes: [UInt8]) -> DERElement? {
+        switch top.tag {
+        case 0x70:
+            guard let parts = DERElement.children(of: top, in: bytes), parts.count == 2,
+                  parts[0].tag == 0x02, parts[1].tag == 0xB0 else { return nil }
+            return parts[1]
+        case 0x31:
+            return top
+        default:
+            return nil
+        }
+    }
+
     /// A DER value neither a string nor a BOOLEAN: never read as either.
     struct Other: Equatable {
         let tag: UInt8
@@ -206,8 +232,24 @@ enum OwnEntitlements {
     /// A value that holds an entitlement: a non-empty string, as
     /// TrollStore's helper writes the bundle id, or true.
     static func holds(_ value: Any?) -> Bool {
+        guard let value else { return false }
         if let text = value as? String { return !text.isEmpty }
-        if let flag = value as? Bool { return flag }
+        if isFlag(value), let flag = value as? Bool { return flag }
+        return false
+    }
+
+    /// Whether `value` is a true or false, not a number. A plist's
+    /// <integer>1</integer> is read as an NSNumber, which `as? Bool` takes
+    /// for true, on the host and on the iPad alike. A flag is Swift's own
+    /// `Bool`, as the DER blob's are and the host's plists give, or a
+    /// CFBoolean, as the iPad's plists give.
+    static func isFlag(_ value: Any) -> Bool {
+        if type(of: value) == Bool.self { return true }
+        #if canImport(ObjectiveC)
+        if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return true
+        }
+        #endif
         return false
     }
 

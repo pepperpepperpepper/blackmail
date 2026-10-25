@@ -216,8 +216,10 @@ Required:
    alert he dismisses with OK, never over a letter he is writing: "This
    app will stop opening on September 18, 2027. After that, use Mail.",
    the day in the iPad's way. Nothing with no profile or under TrollStore,
-   told by the entitlement it adds to the app's own signature. The words
-   await the owner's approval.*
+   told by the entitlement its helper adds to the app's own signature,
+   read in the shape its signer `ldid` writes as well as Apple's, and so
+   read on the host from TrollStore installs pulled from the test iPad.
+   The words await the owner's approval.*
 
 ---
 

@@ -55,7 +55,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             day TrollStore was not recognised, the file it leaves beside
             the app hidden by the app's sandbox; fixed that day, TrollStore
             told by the entitlement it adds to the app's own signature,
-            not yet seen there.*
+            read in the shape its signer `ldid` writes as well as Apple's,
+            and so read on the host from TrollStore installs pulled from
+            the test iPad; not yet seen in the app there.*
       - [x] "Password needs updating" on a read, not "Can't connect to mail
             server." for every failure (`MessageListViewController` :504,
             :580, :1167 and the pane's handlers flatten it)
@@ -5634,26 +5636,33 @@ checks below is left as not needed, not open, and none is worth a round.*
       last), as for the round, and steps 2 and 11 need the gate for a
       write into the app's bundle container.
       The day last said is kept in the app's prefs,
-      `blackmail.expiryWarningShown`. The round of 2026-10-25 left it at
-      1 September 2027, 16:02 UTC, and the check does not depend on it:
-      no step uses 1 September, and step 4's warning writes over it. Only
-      19 August 2027 there would change a step, 4's, and only a run of
-      this check stopped between its steps 4 and 6 leaves that; then,
-      before step 3, the key is taken out, a write into the app's data
-      container behind its own gate: the app swiped away, the prefs plist
-      (`Library/Preferences/wtf.uhoh.blackmail.plist` in the data
-      container) copied to the host, the key taken out there, copied
-      back with its owner and mode, `killall cfprefsd` so its copy of
-      the old one is dropped, and read again, the key gone.
+      `blackmail.expiryWarningShown`, and a day there hides the warning
+      on that day alone. The round of 2026-10-25 left it at 1 September
+      2027, 16:02 UTC, which no step uses: it can stay. Before step 1
+      the prefs plist (`Library/Preferences/wtf.uhoh.blackmail.plist` in
+      the app's data container) is read over SSH. If the key holds a day
+      a step uses, 18 to 24 August, 2 September or 18 September 2027, as
+      a run of this check stopped part way, a step 1 or 3 that failed or
+      a whole run (10's) leaves, it is taken out, a write into the data
+      container behind its own gate: the app swiped away, the plist
+      copied to the host, the key taken out there, copied back with its
+      owner and mode, `killall cfprefsd` so its copy of the old one is
+      dropped, and read again, the key gone. Step 1 is judged by its log
+      line first, which no day in the prefs changes.
       1. *TrollStore:* the clock automatic; kill and launch: no warning,
       and the log's "EXPIRY none, TrollStore", no "EXPIRY entitlements
       unread" above it. The clock to 2 September 2027, 9:00 AM; kill and
       launch: no warning for a minute, the same log line.
       2. *A certificate's signature:* the same commit's build copied over
-      TrollStore's, with `BLACKMAIL_SHARE_EXT=1 tools/deploy-to-ipad.sh
-      --no-launch`, which signs it with `tools/sign-ipa.sh`, the profile
-      and none of TrollStore's entitlements, copies it into the installed
-      bundle and reads its md5 back (gated, a write into the bundle
+      TrollStore's, with `BLACKMAIL_SHARE_EXT=1
+      TMPDIR=/mnt/temporary/<the run's folder> flock <the round's
+      swift.lock> tools/deploy-to-ipad.sh --no-launch` from the repo's
+      root, the folder made first (without `TMPDIR` the script's `mktemp
+      -d` lands in the host's `/tmp`, and without the lock its `swift
+      build` would not wait for the round's other builds), which signs it
+      with `tools/sign-ipa.sh`, the profile and none of TrollStore's
+      entitlements, copies it into the installed bundle and reads its
+      md5 back (gated, a write into the bundle
       container; such a copy over TrollStore's install opened on its own
       mailbox on 2026-09-30, B-036). The clock automatic; kill
       and launch: the Inbox as before, no warning, the log's "EXPIRY
@@ -5703,7 +5712,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       TrollStore's helper as before the check (gated, as 2); kill and
       launch: no warning, the log's "EXPIRY none, TrollStore";
       TrollStore lists Blackmail as before. The prefs keep the day of
-      10's warning, which under TrollStore says nothing.
+      10's warning, 18 September 2027, which under TrollStore says
+      nothing; a later run takes it out before its step 1, as above.
 
 - [ ] **B-138, provision-ipad.sh's TrollStore range.** On the laptop or
       the Mac, with the whole repo and the test iPad on the cable,

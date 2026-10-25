@@ -82,6 +82,37 @@ final class OwnEntitlementsTests: XCTestCase {
         blob(0xFADE_7172, derBody(entitlements))
     }
 
+    /// DER entitlements as `ldid` writes them, TrollStore's helper's signer:
+    /// the dictionary alone, a SET of SEQUENCE { key, value }, in the order
+    /// given, as `ldid` leaves them unsorted.
+    private func ldidBody(_ entitlements: [(String, Any)]) -> [UInt8] {
+        tlv(0x31, entitlements.flatMap { tlv(0x30, utf8($0.0) + derValue($0.1)) })
+    }
+
+    private func ldidDER(_ entitlements: [(String, Any)]) -> [UInt8] {
+        blob(0xFADE_7172, ldidBody(entitlements))
+    }
+
+    /// A signature as TrollStore's helper leaves it: `ldid`'s, then its
+    /// CoreTrust bypass's alternate CodeDirectory, the slots of the
+    /// executables pulled from the test iPad (0, 2, 5, 7, 0x1000, 0x10000).
+    private func ldidSignature(_ entitlements: [(String, Any)]) throws -> [UInt8] {
+        superBlob([(0, codeDirectory), (2, requirements), (5, try xml(entitlements)),
+                   (7, ldidDER(entitlements)), (0x1000, codeDirectory), (0x10000, cms)])
+    }
+
+    /// TrollStore's helper's order: the app's own first, its entitlement
+    /// among them, as on the test iPad.
+    private var ldidTrollStore: [(String, Any)] {
+        [("get-task-allow", false),
+         ("com.apple.developer.team-identifier", "EXAMPLE000"),
+         ("application-identifier", "EXAMPLE000.org.example.mail"),
+         (entitlement, "org.example.mail"),
+         ("keychain-access-groups", ["EXAMPLE000.org.example.mail"])]
+    }
+
+    private var ldidSigned: [(String, Any)] { ldidTrollStore.filter { $0.0 != entitlement } }
+
     /// A CodeDirectory's shape, its hashes filler, naming the made-up app.
     private var codeDirectory: [UInt8] {
         blob(0xFADE_0C02, be32(0x20400) + [UInt8](repeating: 0, count: 36)
@@ -181,9 +212,9 @@ final class OwnEntitlementsTests: XCTestCase {
         XCTAssertEqual(held(machO(superBlob([(0, codeDirectory), (7, der(nested))]))), .notHeld)
     }
 
-    /// The DER blob where there is one, as iOS 15 and later go by it; the
-    /// XML one where there is not; none at all is not held. The index's
-    /// order, and slots other than these, change nothing.
+    /// The DER blob where there is one and it can be read, as iOS 15 and
+    /// later go by it; the XML one where there is not; none at all is not
+    /// held. The index's order, and slots other than these, change nothing.
     func testTheDERBlobIsReadWhereThereIsOneAndTheXMLOtherwise() throws {
         let cd = (UInt32(0), codeDirectory)
         XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(trollStore))]))), .held)
@@ -216,15 +247,112 @@ final class OwnEntitlementsTests: XCTestCase {
         func both(_ value: Any) throws -> [OwnEntitlements.Holding] {
             let entitlements = signed + [(entitlement, value)]
             return [held(machO(superBlob([(0, codeDirectory), (5, try xml(entitlements))]))),
-                    held(machO(superBlob([(0, codeDirectory), (7, der(entitlements))])))]
+                    held(machO(superBlob([(0, codeDirectory), (7, der(entitlements))]))),
+                    held(machO(superBlob([(0, codeDirectory), (7, ldidDER(entitlements))])))]
         }
-        XCTAssertEqual(try both("org.example.mail"), [.held, .held])
-        XCTAssertEqual(try both(true), [.held, .held])
-        XCTAssertEqual(try both(false), [.notHeld, .notHeld])
-        XCTAssertEqual(try both(""), [.notHeld, .notHeld])
-        XCTAssertEqual(try both(["org.example.mail"]), [.notHeld, .notHeld])
+        XCTAssertEqual(try both("org.example.mail"), [.held, .held, .held])
+        XCTAssertEqual(try both(true), [.held, .held, .held])
+        XCTAssertEqual(try both(false), [.notHeld, .notHeld, .notHeld])
+        XCTAssertEqual(try both(""), [.notHeld, .notHeld, .notHeld])
+        XCTAssertEqual(try both(["org.example.mail"]), [.notHeld, .notHeld, .notHeld])
         let one = signed + [(entitlement, tlv(0x02, [0x01]))]
         XCTAssertEqual(held(machO(superBlob([(0, codeDirectory), (7, der(one))]))), .notHeld)
+        XCTAssertEqual(held(machO(superBlob([(0, codeDirectory), (7, ldidDER(one))]))), .notHeld)
+        // A plist's <integer>1</integer>: a number, not true, though
+        // `as? Bool` takes it for one.
+        let integer = signed + [(entitlement, 1)]
+        XCTAssertEqual(held(machO(superBlob([(0, codeDirectory), (5, try xml(integer))]))), .notHeld)
+        XCTAssertFalse(OwnEntitlements.holds(NSNumber(value: 1)))
+        XCTAssertTrue(OwnEntitlements.holds(true))
+        XCTAssertFalse(OwnEntitlements.holds(false))
+        XCTAssertFalse(OwnEntitlements.holds(nil))
+    }
+
+    /// `ldid`'s DER, the bare SET TrollStore's helper writes (B-137 as the
+    /// test iPad found it, where only Apple's shape was read): its
+    /// entitlement held, and not held without it, in the slots of a real
+    /// TrollStore install, in the DER blob alone, and over the XML one
+    /// both ways; values and a nested dictionary as in Apple's shape; a
+    /// SET of anything but pairs, or cut at any length, never held.
+    func testLdidsDERAsTrollStoresHelperWritesItIsRead() throws {
+        XCTAssertEqual(ldidBody(ldidTrollStore).first, 0x31)
+        XCTAssertEqual(held(machO(try ldidSignature(ldidTrollStore))), .held)
+        XCTAssertEqual(held(machO(try ldidSignature(ldidSigned))), .notHeld)
+        let entitlements = try XCTUnwrap(OwnEntitlements.entitlements(
+            inMachO: OwnEntitlements.Bytes(Data(machO(try ldidSignature(ldidTrollStore))))))
+        XCTAssertEqual(entitlements[entitlement] as? String, "org.example.mail")
+        XCTAssertEqual(entitlements["get-task-allow"] as? Bool, false)
+        XCTAssertEqual(entitlements["com.apple.developer.team-identifier"] as? String, "EXAMPLE000")
+        XCTAssertEqual(entitlements["keychain-access-groups"] as? OwnEntitlements.Other,
+                       OwnEntitlements.Other(tag: 0x30))
+
+        // The DER blob alone, and over the XML one either way.
+        let cd = (UInt32(0), codeDirectory)
+        XCTAssertEqual(held(machO(superBlob([cd, (7, ldidDER(ldidTrollStore))]))), .held)
+        XCTAssertEqual(held(machO(superBlob([cd, (7, ldidDER(ldidSigned))]))), .notHeld)
+        XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(ldidTrollStore)),
+                                             (7, ldidDER(ldidSigned))]))), .notHeld)
+        XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(ldidSigned)),
+                                             (7, ldidDER(ldidTrollStore))]))), .held)
+        // Signed with none: an empty SET.
+        XCTAssertEqual(held(machO(superBlob([cd, (7, ldidDER([]))]))), .notHeld)
+        // A dictionary inside, as `ldid` writes one, a SET: never its keys.
+        let nested = ldidSigned + [("com.example.nested",
+                                    tlv(0x31, tlv(0x30, utf8(entitlement) + utf8("org.example.mail"))))]
+        XCTAssertEqual(held(machO(superBlob([cd, (7, ldidDER(nested))]))), .notHeld)
+
+        // A SET of anything but pairs: Apple's version in it, a string, a
+        // pair with a key not a string or with three in it; and a SEQUENCE
+        // of pairs, neither shape.
+        let pair = tlv(0x30, utf8(entitlement) + utf8("org.example.mail"))
+        func alone(_ body: [UInt8]) -> OwnEntitlements.Holding {
+            held(machO(superBlob([cd, (7, blob(0xFADE_7172, body))])))
+        }
+        XCTAssertEqual(alone(tlv(0x31, pair)), .held)
+        XCTAssertEqual(alone(tlv(0x31, tlv(0x02, [0x01]) + pair)), .unread)
+        XCTAssertEqual(alone(tlv(0x31, utf8(entitlement) + utf8("org.example.mail"))), .unread)
+        XCTAssertEqual(alone(tlv(0x31, tlv(0x30, tlv(0x04, Array(entitlement.utf8)) + utf8("x")))),
+                       .unread)
+        XCTAssertEqual(alone(tlv(0x31, tlv(0x30, utf8(entitlement) + utf8("x") + utf8("y")))),
+                       .unread)
+        XCTAssertEqual(alone(tlv(0x30, pair)), .unread)
+        XCTAssertEqual(alone(tlv(0xB0, pair)), .unread)
+        let body = ldidBody(ldidTrollStore)
+        for end in 0..<body.count {
+            XCTAssertNotEqual(alone(Array(body[0..<end])), .held, "\(end)")
+        }
+    }
+
+    /// A DER blob that cannot be read, in a shape not known here or with
+    /// the wrong magic, gives way to the XML one, which the signer wrote
+    /// from the same entitlements: held only if that holds it, and unread
+    /// with no XML one or one that cannot be read either. A DER blob that
+    /// can be read is never passed over.
+    func testTheXMLBlobStandsInWhereTheDERBlobCannotBeRead() throws {
+        let cd = (UInt32(0), codeDirectory)
+        let pair = tlv(0x30, utf8(entitlement) + utf8("org.example.mail"))
+        let unknown = [blob(0xFADE_7172, tlv(0x30, pair)),
+                       blob(0xFADE_7172, tlv(0x70, tlv(0xB0, pair))),
+                       blob(0xFADE_7172, Array(ldidBody(trollStore).dropLast())),
+                       blob(0xFADE_7171, derBody(trollStore))]
+        for (index, bad) in unknown.enumerated() {
+            XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(trollStore)), (7, bad)]))),
+                           .held, "\(index)")
+            XCTAssertEqual(held(machO(superBlob([cd, (7, bad), (5, try xml(signed))]))),
+                           .notHeld, "\(index)")
+            XCTAssertEqual(held(machO(superBlob([cd, (7, bad)]))), .unread, "\(index)")
+            XCTAssertEqual(held(machO(superBlob([cd, (7, bad),
+                                                 (5, blob(0xFADE_7171, Array("not a plist".utf8)))]))),
+                           .unread, "\(index)")
+            XCTAssertEqual(held(machO(superBlob([cd, (7, bad),
+                                                 (5, blob(0xFADE_7172, Array("x".utf8)))]))),
+                           .unread, "\(index)")
+        }
+        // Read, either shape: the XML one is not asked.
+        XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(trollStore)), (7, der(signed))]))),
+                       .notHeld)
+        XCTAssertEqual(held(machO(superBlob([cd, (5, try xml(trollStore)), (7, ldidDER(signed))]))),
+                       .notHeld)
     }
 
     /// Anything that does not hold together is unread, never held and
@@ -260,8 +388,8 @@ final class OwnEntitlementsTests: XCTestCase {
 
         // The SuperBlob: its magic, its length past the signature, its
         // count past its length, an offset past it, a blob's length past
-        // it or under its header, the DER slot with the XML magic, a slot
-        // twice.
+        // it or under its header, the DER slot with the XML magic and no
+        // XML blob, a slot twice.
         let sig = try signature(trollStore)
         let start = whole.count - sig.count
         XCTAssertEqual(held(patched(whole, at: start, be32(0xFADE_0CC1))), .unread)
@@ -273,7 +401,9 @@ final class OwnEntitlementsTests: XCTestCase {
                         | UInt32(whole[derIndex + 6]) << 8 | UInt32(whole[derIndex + 7]))
         XCTAssertEqual(held(patched(whole, at: start + derAt + 4, be32(UInt32(sig.count)))), .unread)
         XCTAssertEqual(held(patched(whole, at: start + derAt + 4, be32(4))), .unread)
-        XCTAssertEqual(held(patched(whole, at: start + derAt, be32(0xFADE_7171))), .unread)
+        XCTAssertEqual(held(machO(superBlob([(0, codeDirectory),
+                                             (7, blob(0xFADE_7171, derBody(trollStore)))]))),
+                       .unread)
         XCTAssertEqual(held(machO(superBlob([(7, der(trollStore)), (7, der(trollStore))]))),
                        .unread)
         XCTAssertEqual(held(machO(superBlob([(5, blob(0xFADE_7171, Array("not a plist".utf8)))]))),
@@ -282,9 +412,9 @@ final class OwnEntitlementsTests: XCTestCase {
                                                        options: 0)
         XCTAssertEqual(held(machO(superBlob([(5, blob(0xFADE_7171, [UInt8](array)))]))), .unread)
 
-        // DER of the wrong shape: a SEQUENCE for the top, no version, a
-        // pair not a SEQUENCE, a key not a string, three in a pair, a
-        // BOOLEAN of two bytes, a key not UTF-8, cut inside.
+        // DER of the wrong shape, with no XML blob: a SEQUENCE for the
+        // top, no version, a pair not a SEQUENCE, a key not a string, three
+        // in a pair, a BOOLEAN of two bytes, a key not UTF-8, cut inside.
         let pair = tlv(0x30, utf8(entitlement) + utf8("org.example.mail"))
         func derBlob(_ body: [UInt8]) -> [UInt8] {
             machO(superBlob([(0, codeDirectory), (7, blob(0xFADE_7172, body))]))
@@ -416,6 +546,15 @@ final class OwnEntitlementsTests: XCTestCase {
         XCTAssertTrue(own.contains("guard let url, let file = try? Data(contentsOf: url, "
                                    + "options: .mappedIfSafe) else { return .unread } "
                                    + "return holding(containerRequired, in: file)"), own)
+        // The iPad's plists give a CFBoolean for true, which the host's
+        // never do: that half of a flag is read from the code.
+        XCTAssertTrue(own.contains("if isFlag(value), let flag = value as? Bool { return flag }"), own)
+        XCTAssertTrue(own.contains("static func isFlag(_ value: Any) -> Bool { "
+                                   + "if type(of: value) == Bool.self { return true } "
+                                   + "#if canImport(ObjectiveC) "
+                                   + "if let number = value as? NSNumber, "
+                                   + "CFGetTypeID(number) == CFBooleanGetTypeID() { return true } "
+                                   + "#endif return false }"), own)
 
         let walk = try XCTUnwrap(FileManager.default.enumerator(at: sources,
                                                                 includingPropertiesForKeys: nil))
