@@ -24946,3 +24946,178 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+## B-137 — FIXED 2026-10-25, not yet seen on the iPad. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
+
+**Found** in D-004 (2026-09-19), item 3, and in the gap review's list of
+what is buildable for the install-day build (TODO, "the in-app warning
+before the 2027-09-18 expiry"). Since 2026-10-05 it is known that his
+iPad's iOS is past every version TrollStore installs on, so the app goes
+on it by a certificate and stops opening the day the certificate or its
+profile runs out (TODO, "His iPad's iOS version"). Built on the owner's
+word of 2026-10-25 to start on the buildable list.
+
+**What Mail does.** Nothing to copy: Mail is Apple's and never stops
+opening. Apple states that an app whose embedded provisioning profile has
+expired will not launch (D-004); what iOS shows when it is tapped after
+that was not looked at. Apple Mail stays on his iPad with his account in
+it unless the owner decides otherwise (TODO, "Apple Mail after the
+install", the default), so Mail is what the words send him to.
+
+**What it was.** Nothing in the app knew the day. With today's signing
+files it is 18 September 2027, 10:22:36 UTC, the profile's
+`ExpirationDate` and the certificate's `notAfter` the same instant
+(D-004, `LAYOUT_CONSTANTS.md`). On that day he would tap the icon and
+nothing would open, with no word from the app before it.
+
+**Changed.**
+
+1. *The day, read from the app's own profile at launch*
+   (`AppExpiry`, new), never written into the code: the
+   `embedded.mobileprovision` in the app's bundle, which the signing puts
+   there (`tools/sign-ipa.sh`). It is a CMS envelope in DER around an XML
+   plist; the plist is taken as the bytes from `<?xml` to `</plist>`, whole
+   in a DER envelope, and read with `PropertyListSerialization`. The day is
+   its `ExpirationDate`, or the `notAfter` of a certificate in its
+   `DeveloperCertificates` if that is earlier, read by a small DER reader
+   (definite lengths only, every length checked against the bytes holding
+   it, UTCTime and GeneralizedTime, a date taken only if it reads back as
+   written). A certificate already out of date is left out, since the app
+   is open and so was not signed with it; with several, the soonest still
+   to come. A certificate that cannot be read is passed over; a profile
+   without an `ExpirationDate` gives nothing. Read once a launch, the
+   first time it is asked for.
+2. *Nothing where there is no profile, or TrollStore installed the app.*
+   The simulator and a build run from the host have no profile. This
+   project's TrollStore installs do carry one (they are the signed IPA),
+   so TrollStore is told by the empty file it writes beside the app in its
+   bundle container, `_TrollStore`, or `_TrollStoreLite` for TrollStore
+   Lite (`TS_MARKER` and `TS_LITE_MARKER` in TrollStore's
+   `Shared/TSUtil.h`, written by its helper's `installApp`, read
+   2026-10-25 from github.com/opa334/TrollStore: high for TrollStore 2's
+   code).
+3. *The day rules* (`ExpiryWarning`, new): due from the first moment of
+   the thirtieth day before the day it stops, in the iPad's calendar and
+   zone, up to the instant itself, and never after it, when the words
+   would be untrue; once a day, midnight to midnight where he is, the day
+   kept in the app's defaults (`blackmail.expiryWarningShown`) and taken
+   as said only once the alert is up.
+4. *The words*, the day written as the iPad writes a long date (B-119;
+   `DisplayDates.Form.longDate`, new, the locale's long date style): with
+   his US region "This app will stop opening on September 18, 2027. After
+   that, use Mail." In the US Eastern zone the instant is 6:22:36 AM on
+   the 18th; only west of UTC-10:22 is it the 17th, and the words say so.
+5. *When it is put up* (`RootViewController.warnOfExpiryIfDue`, and
+   `ErrorPresenter.warn`, which puts it up): an alert with no title, the
+   words and OK, as the app's other notices are (`ErrorPresenter.tell`).
+   Only with nothing over the mail, so never over a letter he is writing,
+   Settings, another alert or any sheet, and not while the app is in the
+   background. Asked once the launch's first page has been tried, after
+   that page's own alert if it could not be fetched, and at every check
+   of the watch (B-049), half a minute apart while the app is in front,
+   whether the check reached the server or not. So it comes at a launch,
+   or about half a minute after he is back in the app on a new day, or
+   within half a minute of a letter's sheet going.
+6. *The connection log*: "EXPIRY stops 2027-09-18 10:22:36 +0000" (or
+   "none, no profile", "none, TrollStore", "none, profile unreadable")
+   once a launch, and "EXPIRY-WARNING shown" when it is up.
+
+Read on the build host against the real ad-hoc profile in the signing
+directory, by this code compiled on its own outside the repo: its
+`ExpirationDate` and its one certificate's `notAfter` both 2027-09-18
+10:22:36 +0000, the envelope DER with the plist whole in it, about 0.6 ms
+to read and parse on the host. Nothing of that profile is in the repo.
+
+**Not changed.** The share sheet, where he is always writing a letter,
+and the setup form say nothing. Nothing is blocked: after OK the mail is
+as it was. No date is in the code; the day is whatever profile the build
+that goes on his iPad is signed with, which is the owner's choice and
+still open. The rows, the pane, the composer and Settings.
+
+**The words are new on his screen** and held from his iPad until the
+owner approves them: "This app will stop opening on September 18, 2027.
+After that, use Mail." OK is Mail's. Added to TODO's "The new words on
+his screen". They name Mail, so they go with the decision on Apple Mail
+after the install: were Mail turned off for his account, they would need
+other words.
+
+**What he sees.** Nothing until 19 August 2027 with today's profile. Then
+once a day until the morning of 18 September, at a launch or within about
+half a minute of opening the app that day: the alert, and OK. Never over
+a letter he is writing: the alert waits until the sheet has gone.
+
+**Tests.** `ExpiryWarningTests`, eleven, new, on a profile made up in the
+test (a CMS envelope in DER around a made-up plist, a made-up
+certificate of X.509's shape, the device and team made-up zeros and
+"EXAMPLE000"): the plist read out of its envelope past the certificates
+and the signer, and nothing from no plist, half a plist or an array; the
+certificate's `notAfter` in UTCTime and GeneralizedTime, with the version
+and without, UTCTime's centuries, notBefore not taken for it; nothing,
+never a fault, from a bad time (no Z, a zone, a letter, 31 February, month
+13, hour 25, minute 60, empty, the wrong tag), a certificate cut short at
+every length, a length past its holder, BER's indefinite length, fields
+out of order; the day the earlier of profile and certificate, a later
+certificate not taken, the soonest of two, one already past left out, an
+unreadable one passed over, none without the profile's date; the bundle
+with a profile, without one, with TrollStore's mark or TrollStore Lite's
+beside it (nothing even with a profile), a mark inside the bundle not
+TrollStore's, a profile that is not one; the last thirty days in New
+York from midnight on 19 August to the second before the instant, across
+the clocks going back; once a day by his midnight, not UTC's; the words in
+en_US and en_GB, and the 17th west of UTC-10:22; the day kept in the
+defaults and known to a warning made afresh; and from the source, the
+guard, the alert's title, words and one OK, the day taken as said in the
+presentation's completion alone, asked once the launch's first page has
+been tried and at every check of the watch and nowhere else, with the
+iPad's locale and zone, and no day written in any Swift file of the app.
+
+The first full run failed two older tests that read the root's source,
+as they should: the container says `animated: true` nowhere, its panes
+moving only in `PaneMotion` (`PaneArrangementTests`), and the launch's
+first-page closure ends with SafeStart's call (`SafeStartTests`). The
+alert moved into `ErrorPresenter.warn`, and the call to the top of the
+closure, after the sweeps it releases; both pass.
+
+Each part undone by hand, `ExpiryWarningTests` and
+`DatesTheIPadsWayTests` run (with `SafeStartTests` and
+`PaneArrangementTests` for the wiring), then put back and passing:
+every test failed at least once. Counted as failures in tests:
+TrollStore's mark not looked for, 2 in 1; the certificate's date not
+taken, 2 in 1; a certificate already past not left out, 1 in 1; still
+said after the instant, 2 in 1; thirty-one days, 2 in 1; not once a day,
+6 in 2; the day in UTC rather than his zone, 1 in 1; the date always in
+en_US, 3 in 2; the date in the host's zone, 1 in 1; the day taken as said
+before the alert is up, 1 in 1; put up over a sheet, 1 in 1; not at the
+watch's checks, 2 in 1; not at the launch's first page, 2 in 1; a day
+written into the code, 2 in 2; a date not read back, 4 in 1; UTCTime's
+years all in the 2000s, 1 in 1; the certificate's version not skipped, 7
+in 2; the plist cut before its end, 11 in 3; the words asked for in
+en_US, 3 in 2; `shown` called before the alert is up, 1 in 1. 55 in all.
+
+The full suite, serially, on the tree with B-138 beside it: 2,491 tests,
+11 of them new here and 5 B-138's, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad: its check is in TODO, with the iPad's clock set
+  forward and TrollStore's mark moved aside, nothing sent.
+- Whether an app's sandbox lets it see TrollStore's mark beside its
+  bundle was not tried. If not, a TrollStore install would show the
+  warning in its last thirty days too; that is the test iPad, not his.
+- A certificate revoked before its day, as a lapsed membership revokes it
+  at once (B-035): the app stops opening with no warning. Nothing on the
+  iPad can know it.
+- An alert about his mail asked for while the warning is up, a page that
+  could not be fetched in the same moment: UIKit shows one alert at a
+  time and `ErrorPresenter` does not wait for this one, so that alert is
+  not shown; the line under the list still says what failed. The warning
+  itself waits for any alert already up.
+- The iPad's clock: the day rules follow it. Set wrong by days, the
+  warning comes early or late by as many.
+- A calendar other than the Gregorian: the days are the iPad's own
+  calendar's, not tried.
+- The connection log keeps its last 500 lines, so the EXPIRY line is
+  there only for the first minutes after a launch.
+- What iOS itself shows when the app is tapped after the day: not looked
+  at.

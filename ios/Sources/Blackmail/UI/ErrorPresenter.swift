@@ -48,6 +48,17 @@ enum ErrorPresenter {
         put(alert.message, title: alert.title, offeringSettings: alert.offersSettings, on: vc)
     }
 
+    /// Puts up `text` alone, with OK, over `vc` at once, and calls `shown`
+    /// once it is up: the warning before the app stops opening (B-137).
+    /// Its caller asks only with nothing over the screens, so there is no
+    /// sheet on its way out to wait for, and it is not held: one UIKit
+    /// would not put up is not taken as said.
+    static func warn(_ text: String, over vc: UIViewController, shown: @escaping () -> Void) {
+        let alert = UIAlertController(title: nil, message: text, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        vc.present(alert, animated: true, completion: shown)
+    }
+
     private static func put(_ text: String, title: String?, offeringSettings: Bool,
                             on vc: UIViewController) {
         let present = { [weak vc] () -> Bool in

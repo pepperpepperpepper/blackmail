@@ -1136,6 +1136,9 @@ final class DisplayDates: @unchecked Sendable {
         case shortDate
         /// The medium date: "Oct 3, 2026"; "3 Oct 2026".
         case mediumDate
+        /// The long date: "October 3, 2026"; "3 October 2026". The day
+        /// the app stops opening (`ExpiryWarning`, B-137).
+        case longDate
         /// The long date and the short time, joined as the locale joins
         /// them: "October 3, 2026 at 9:14 AM"; "3 October 2026 at 09:14".
         case longDateAndTime
@@ -1161,6 +1164,9 @@ final class DisplayDates: @unchecked Sendable {
             formatter.timeStyle = .none
         case .mediumDate:
             formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+        case .longDate:
+            formatter.dateStyle = .long
             formatter.timeStyle = .none
         case .longDateAndTime:
             formatter.dateStyle = .long

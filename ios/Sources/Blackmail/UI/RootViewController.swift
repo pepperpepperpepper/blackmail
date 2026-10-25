@@ -300,6 +300,9 @@ final class RootViewController: UIViewController {
         mailboxList.refreshCounts()
         list.onFirstLoadFinished = { [weak self] came in
             self?.mailboxList.releaseSweeps(firstPageCame: came)
+            // The page's own alert, if it could not be fetched, is up by
+            // now, and the warning waits for it (B-137).
+            self?.warnOfExpiryIfDue()
             // Once the first page has been tried, so a check never goes
             // beside it: the first is half a minute on, after the counts.
             // Started whether or not the page came, so that with no
@@ -323,6 +326,30 @@ final class RootViewController: UIViewController {
         guard let notice else { return }
         self.notice = nil
         ErrorPresenter.say(notice, on: self)
+    }
+
+    // MARK: - Before the app stops opening
+
+    /// The warning that the app will stop opening, in its last thirty days
+    /// and once a day (`ExpiryWarning`, D-004, B-137), put up only when
+    /// nothing is over the mail: not over a letter he is writing, Settings,
+    /// another alert or any sheet, and not while the app is in the
+    /// background, where nobody would see it. Asked once the launch's first
+    /// page has been tried, its alert up first if it failed, and at every
+    /// check of the watch, half a minute apart while the app is in front:
+    /// so it comes about half a minute after he is back on a new day, and
+    /// within half a minute of a letter's sheet going if one was up. The
+    /// day is taken as said only once the alert is up.
+    private func warnOfExpiryIfDue() {
+        guard view.window != nil, presentedViewController == nil,
+              UIApplication.shared.applicationState != .background else { return }
+        let warning = ExpiryWarning.app
+        let now = Date()
+        guard let words = warning.words(at: now) else { return }
+        ErrorPresenter.warn(words, over: self) {
+            warning.shown(at: now)
+            Diagnostics.log(.note, "EXPIRY-WARNING shown")
+        }
     }
 
     // MARK: - Coming back to it
@@ -1020,6 +1047,8 @@ extension RootViewController: MailWatchTarget {
 
     func checked(_ outcome: MailWatch.Outcome) {
         list.checked(outcome)
+        // Reached or not: the warning is about the app, not the mail.
+        warnOfExpiryIfDue()
         if case .failed = outcome {
             lastCheckFailed = true
             return

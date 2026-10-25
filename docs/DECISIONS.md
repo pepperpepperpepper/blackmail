@@ -182,7 +182,8 @@ keep control order identical.
 
 ## D-004 — The app stops working on 2027-09-18, and he will not know why
 
-**Status:** RESOLVED as to fact; the mitigation is unbuilt and needs a human owner
+**Status:** RESOLVED as to fact; item 3 built 2026-10-25 (B-137); items 1
+and 2 overtaken by the set-and-forget install
 
 Verified against the actual certificate and profile on this host: the ad-hoc
 provisioning profile and the Apple Distribution certificate expire at **the same
@@ -195,11 +196,26 @@ on someone who cannot diagnose it and may not be able to describe it.
 Required:
 1. A calendar reminder at **2027-08-01** — renew membership, regenerate the
    profile, re-sign, re-publish. Six weeks of slack, deliberately.
+   *Overtaken: the install is set and forget, the last step, and the app
+   is never updated or re-signed on his iPad after it, so there is nothing
+   to renew. Which certificate the install-day build is signed with, and
+   so the day, is still the owner's (TODO, "His iPad's iOS version").*
 2. A named human who does it if the owner is unavailable. This is the part that
    actually fails.
+   *Overtaken for the same reason: nobody re-signs it. After the day he
+   uses Apple Mail, kept on with his account for that (TODO, "Apple Mail
+   after the install").*
 3. An in-app warning. The app knows its own profile's expiry date; it should say
    so in plain language for the last month rather than dying silently. Cheap to
    build, and it converts a mystery into a phone call.
+   *Built 2026-10-25 as B-137, not yet seen on the iPad: the day read at
+   launch from the app's own `embedded.mobileprovision`, its
+   `ExpirationDate` or its certificate's `notAfter` if earlier, never
+   written into the code; from the thirtieth day before it, once a day, an
+   alert he dismisses with OK, never over a letter he is writing: "This
+   app will stop opening on September 18, 2027. After that, use Mail.",
+   the day in the iPad's way. Nothing with no profile or under TrollStore.
+   The words await the owner's approval.*
 
 ---
 
