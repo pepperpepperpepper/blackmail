@@ -36,7 +36,9 @@ import Foundation
 /// again. For the same reason the folder's own rows drawn with none are
 /// kept here, where a Refresh, a cancelled search and a page look
 /// (`ListLetters.toDraw`): the folder's rows hold their words themselves,
-/// but not that they have none.
+/// but not that they have none. Words kept here are a hit's to take, not a
+/// folder row's, so a folder row with none whose letter is kept with words
+/// is asked for (`hasDrawn`).
 ///
 /// Bounded: the last 300 drawn, the one drawn longest ago going first. A
 /// preview is at most 240 characters (`PreviewText.maximumCharacters`), so
@@ -57,10 +59,19 @@ struct SearchPreviews {
     var count: Int { texts.count }
 
     /// Whether `row`'s preview has been drawn: it has one, or its letter is
-    /// kept here as drawn, with words or with none. What the list's pass is
-    /// not to ask for.
+    /// kept here as drawn with no words. What the list's pass is not to ask
+    /// for.
+    ///
+    /// A row with none whose letter is kept with words is not drawn: only a
+    /// hit takes the words kept here (`carrying(into:from:)`), and a row of
+    /// the folder never does. Its answer came after the list was replaced
+    /// (`ListLetters.previewsCameLate`), as when he starts typing before the
+    /// Inbox's previews land, or its letter was drawn as a hit before the
+    /// folder's page that holds it was loaded. Said drawn, it would be left
+    /// two grey lines and never asked for, after a cancelled search, every
+    /// Refresh and on its page, until 300 others were drawn.
     func hasDrawn(_ row: MessageSummary) -> Bool {
-        !row.preview.isEmpty || texts[Self.key(row)] != nil
+        !row.preview.isEmpty || texts[Self.key(row)]?.isEmpty == true
     }
 
     /// What tells a letter: its folder, its id and Gmail's id for it, or
@@ -73,8 +84,9 @@ struct SearchPreviews {
     /// and a row with none as a letter drawn with no words. Every row
     /// handed in is drawn: one an answer drew, with words or with none
     /// (`ListLetters.apply(previews:in:)`, `previewsCameLate`), or one that
-    /// has its preview or took it (`hasDrawn`). A row not drawn is never
-    /// handed in, or its letter would not be asked for again.
+    /// has its preview, took it, or whose letter is kept as drawn with none
+    /// (`hasDrawn`). A row not drawn is never handed in, or its letter would
+    /// not be asked for again.
     mutating func note(_ rows: [MessageSummary]) {
         for row in rows {
             let key = Self.key(row)

@@ -5,10 +5,12 @@ import XCTest
 /// the next answer as he types (`SearchPreviews`, `ListLetters.showResults`,
 /// B-135): which letters take one and which do not, the preview alone going
 /// across, the bound, an answer that came after its list was replaced, one
-/// in time drawn and kept for its folder alone, a page of hits, the
-/// controller's wiring read from the source, and over the scripted server
-/// the preview FETCHes a name typed a letter at a time asks for, as the
-/// list asked them before and as it asks them now.
+/// in time drawn and kept for its folder alone, a page of hits, letters
+/// drawn with no words, a folder's row whose letter's words are kept asked
+/// for all the same, the controller's wiring read from the source, and over
+/// the scripted server the preview FETCHes a name typed a letter at a time
+/// asks for, as the list asked them before and as it asks them now, an
+/// empty draft among the hits, and the Inbox's rows after Cancel.
 final class SearchPreviewsTests: XCTestCase {
 
     private typealias Server = ScriptedIMAPServer
@@ -344,6 +346,68 @@ final class SearchPreviewsTests: XCTestCase {
         XCTAssertTrue(drawn.hasDrawn(rows[300]))
     }
 
+    // MARK: - Words kept are the hits' to take
+
+    /// The folder's answer came after the list was replaced, as when he
+    /// starts typing before the Inbox's previews land: its words are kept
+    /// for the hits, and its rows, left with none, are asked for again by a
+    /// cancelled search, by every Refresh after, and by a page fetched
+    /// afresh under a search. A letter the same answer drew with no words
+    /// is not. The same when a Refresh replaced the list.
+    @MainActor
+    func testAFolderRowWhoseAnswerCameLateIsAskedForAgain() {
+        let page = [row("1/5", in: "INBOX", letter: 5), row("1/6", in: "INBOX", letter: 6)]
+        let late = ["1/5": "Shall we meet at noon?", "1/6": ""]
+        let list = ListLetters()
+        let asked = list.fetchedAfresh(page)
+        XCTAssertEqual(asked.map(\.id), ["1/5", "1/6"])
+        list.showResults([row("9/70", letter: 70)])
+        list.previewsCameLate(late, in: "INBOX", for: asked)
+
+        XCTAssertEqual(list.endSearch().map(\.id), ["1/5"], "a cancelled search")
+        XCTAssertEqual(list.folder.map(\.preview), ["", ""])
+        XCTAssertEqual(list.fetchedAfresh(page).map(\.id), ["1/5"], "a Refresh")
+        XCTAssertEqual(list.fetchedAfresh(page).map(\.id), ["1/5"], "and the one after")
+        list.showResults([])
+        XCTAssertEqual(list.fetchedUnderSearch(page).map(\.id), ["1/5"],
+                       "a page fetched afresh under a search")
+
+        let refreshed = ListLetters()
+        refreshed.previewsCameLate(late, in: "INBOX", for: refreshed.fetchedAfresh(page))
+        XCTAssertEqual(refreshed.fetchedAfresh(page).map(\.id), ["1/5"], "a Refresh over the folder's pass")
+    }
+
+    /// A letter drawn with words as a hit, below the folder's pages loaded
+    /// or among hits a narrower answer then dropped: after the search is
+    /// cancelled its folder row, which takes nothing kept, is asked for on
+    /// the page scrolled to and by a Refresh. A hit of it still takes them.
+    @MainActor
+    func testAFolderRowOfALetterDrawnAsAHitIsAskedFor() {
+        let list = ListLetters()
+        list.fetchedAfresh([row("1/90", in: "INBOX", letter: 90)])
+        list.apply(previews: ["1/90": "The newest."], in: "INBOX")
+        XCTAssertEqual(list.showResults([row("1/5", in: "INBOX", letter: 5)]).map(\.id), ["1/5"])
+        list.apply(previews: ["1/5": "Deep down."], in: "INBOX")
+        XCTAssertEqual(list.endSearch(), [])
+
+        let page = list.appendPage([row("1/5", in: "INBOX", letter: 5)], toResults: false)
+        XCTAssertEqual(page.map(\.preview), [""])
+        XCTAssertEqual(list.toDraw(page).map(\.id), ["1/5"], "the page scrolled to")
+        XCTAssertEqual(list.showResults([row("1/5", in: "INBOX", letter: 5)]), [], "a hit takes them")
+        XCTAssertEqual(list.results?.map(\.preview), ["Deep down."])
+
+        let narrowed = ListLetters()
+        narrowed.fetchedAfresh([row("1/90", in: "INBOX", letter: 90, preview: "The newest.")])
+        let hits = narrowed.showResults([row("1/8", in: "INBOX", letter: 8),
+                                         row("1/9", in: "INBOX", letter: 9)])
+        narrowed.showResults([row("1/9", in: "INBOX", letter: 9)])
+        narrowed.previewsCameLate(["1/8": "From Peyton.", "1/9": "Also."], in: "INBOX", for: hits)
+        narrowed.endSearch()
+        XCTAssertEqual(narrowed.fetchedAfresh([row("1/8", in: "INBOX", letter: 8),
+                                               row("1/90", in: "INBOX", letter: 90)]).map(\.id),
+                       ["1/8"], "a Refresh after a narrower answer dropped it")
+    }
+
     // MARK: - The wiring
 
     /// The list asks for the previews `showResults` says are still to come,
@@ -630,6 +694,87 @@ final class SearchPreviewsTests: XCTestCase {
               + "the two-byte draft's \(times(everyAsked, allMail, twoBytes[allMail])); Drafts opened "
               + "and refreshed three times: rows \(draftRowsEach), the two-byte draft's "
               + "\(times(draftsAsked, Server.drafts, twoBytes[Server.drafts]))")
+        XCTAssertEqual(server.violations, [])
+    }
+
+    /// Over the scripted server, the Inbox paged by five. Its first page's
+    /// previews come after he has begun a search, and are set aside, as the
+    /// list sets them; "Peyton" in Current Mailbox finds a letter on its
+    /// second page, not loaded, and draws it; Cancel; then the second page,
+    /// scrolled to. Cancel asks for the first page's rows again and draws
+    /// them, and the second page asks for the letter's row once and draws
+    /// its words: no row left two grey lines.
+    @MainActor
+    func testFolderRowsWhoseLettersWereDrawnElsewhereAreAskedForAndDrawn() async throws {
+        let server = ScriptedIMAPServer(inboxCount: 12)
+        let peyton = Server.Address(name: "Peyton Lane", address: "peyton.lane@example.com")
+        func letter(_ stamp: TimeInterval, from: Server.Address, _ subject: String,
+                    text: String) -> Server.Letter {
+            Server.Letter(from: from, to: [Server.owner], subject: subject,
+                          date: Server.newestDate.addingTimeInterval(stamp), text: text, flags: ["\\Seen"],
+                          messageID: "<keptwords-\(Int(stamp))@example.org>")
+        }
+        let lunch = server.deliver(letter(3_600, from: peyton, "Lunch", text: "Noon suits me fine.\r\n"),
+                                   to: [Server.inbox, Server.allMail])
+        for i in 0..<6 {
+            _ = server.deliver(letter(7_200 + Double(i) * 60, from: Self.margaret, "Garden \(i)",
+                                      text: "Roses \(i).\r\n"),
+                               to: [Server.inbox, Server.allMail])
+        }
+        let suite = "SearchPreviewsTests.keptWords"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let repository = IMAPMailRepository(account: server.account, password: server.password,
+                                            transport: server.transportFactory,
+                                            recipients: RecipientBook(defaults: defaults),
+                                            shelf: keptShelf(for: server.account))
+        let list = ListLetters()
+        func pass(_ rows: [MessageSummary]) async -> [(folder: String?, uid: UInt32)] {
+            server.clearLog()
+            await PreviewPass.run(PreviewPass.groups(for: rows),
+                                  fetch: { try await repository.previews(for: $0, in: $1) },
+                                  isCurrent: { true },
+                                  apply: { list.apply(previews: $0, in: $1.mailboxID) })
+            return previewsAsked(in: server.log)
+        }
+
+        let first = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 5)
+        XCTAssertEqual(first.map(\.subject), (1..<6).reversed().map { "Garden \($0)" })
+        let firstAsked = list.fetchedAfresh(first)
+        XCTAssertEqual(firstAsked.count, 5)
+        // The pass's first look finds the list current; its answer comes after
+        // the search has replaced it.
+        var looks = 0
+        server.clearLog()
+        await PreviewPass.run(PreviewPass.groups(for: firstAsked),
+                              fetch: { try await repository.previews(for: $0, in: $1) },
+                              isCurrent: { looks += 1; return looks == 1 },
+                              apply: { list.apply(previews: $0, in: $1.mailboxID) },
+                              aside: { list.previewsCameLate($0, in: $1.mailboxID, for: firstAsked) })
+        XCTAssertEqual(previewsAsked(in: server.log).count, 5, "the first page's answer, set aside")
+        XCTAssertEqual(list.folder.map(\.preview), Array(repeating: "", count: 5))
+
+        let hits = try await repository.search(in: "inbox", query: "Peyton", scope: .currentMailbox,
+                                               beforeUID: nil, limit: 50)
+        XCTAssertEqual(hits.map(\.subject), ["Lunch"])
+        let hitAsked = await pass(list.showResults(hits))
+        XCTAssertEqual(hitAsked.map(\.uid), [lunch[Server.inbox]].compactMap { $0 })
+        XCTAssertEqual(list.results?.map(\.preview), ["Noon suits me fine."])
+
+        let cancelAsked = await pass(list.endSearch())
+        XCTAssertEqual(cancelAsked.count, 5, "Cancel asks for the first page's rows")
+        XCTAssertEqual(list.folder.map(\.preview), (1..<6).reversed().map { "Roses \($0)." })
+
+        let second = try await repository.listMessages(in: "inbox", beforeUID: list.cursor, limit: 5)
+        let row = try XCTUnwrap(second.first { $0.subject == "Lunch" }, "the second page holds it")
+        XCTAssertEqual(SearchPreviews.key(row), SearchPreviews.key(hits[0]), "the same letter")
+        let fresh = list.appendPage(second, toResults: false)
+        let pageAsked = await pass(list.toDraw(fresh))
+        XCTAssertEqual(pageAsked.filter { $0.uid == lunch[Server.inbox] }.count, 1,
+                       "the second page asks for the letter's row")
+        XCTAssertEqual(list.folder.first { $0.id == row.id }?.preview, "Noon suits me fine.")
+        XCTAssertFalse(list.folder.contains { $0.preview.isEmpty }, "no row left two grey lines")
         XCTAssertEqual(server.violations, [])
     }
 

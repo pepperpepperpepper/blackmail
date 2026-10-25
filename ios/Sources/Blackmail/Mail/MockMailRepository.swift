@@ -74,11 +74,13 @@ final class MockMailRepository: MailRepository {
 
     /// The fixtures carry their preview text already, so this just hands it
     /// back — the second pass exists for the cost of a real BODY fetch, and
-    /// there is no such cost here.
+    /// there is no such cost here. One with none is in the answer with an
+    /// empty preview, as the real one answers a letter with no words
+    /// (`MailRepository.previews`, B-135's check).
     func previews(for ids: [String], in mailboxID: String) async throws -> [String: String] {
         let wanted = Set(ids)
         var out: [String: String] = [:]
-        for m in messages[mailboxID] ?? [] where wanted.contains(m.id) && !m.preview.isEmpty {
+        for m in messages[mailboxID] ?? [] where wanted.contains(m.id) {
             out[m.id] = m.preview
         }
         return out

@@ -203,7 +203,10 @@ final class ListLetters: PaneActionList {
     /// `rows` whose previews are still to be asked for: those with none,
     /// less those whose letters were drawn with no words (`SearchPreviews`,
     /// B-135's check). A row shows no preview the same either way, and
-    /// asking again for a letter drawn with none is answered with none.
+    /// asking again for a letter drawn with none is answered with none. A
+    /// row with none whose letter was drawn with words is asked for: the
+    /// words kept are for the hits to take, and the folder's rows never
+    /// take them (`SearchPreviews.hasDrawn`).
     func toDraw(_ rows: [MessageSummary]) -> [MessageSummary] {
         rows.filter { !drawn.hasDrawn($0) }
     }
