@@ -5661,9 +5661,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       read (`\Seen`), to the label "B-127" (or one of their own, "B-128"),
       dated four, three and two days back, one conversation (Gmail's
       thread, each reply's References naming the one before): (a) plain,
-      no Cc, no file; (b) a reply with a Cc and a PDF of about 100 KB;
-      (c) a reply, plain, no Cc, no file. Organize by Thread on, three
-      panes, then two; a screen recording through each tap.
+      no Cc, no file, some forty lines of words, so that open it is
+      taller than the pane; (b) a reply with a Cc and a PDF of about 100
+      KB; (c) a reply, plain, no Cc, no file. Organize by Thread on, three
+      panes, then two; a screen recording through each tap. A line tapped
+      within a second of the stack moving with the header does nothing
+      (B-128, item 5), so each tap below comes a second or more after the
+      one before, but where a step says otherwise.
       1. *Opened:* the conversation's row tapped. (c) open, (b)'s line at
       the top of the pane, whole, (a)'s above it out of sight; the header
       (c)'s, no Cc line, no file.
@@ -5676,15 +5680,43 @@ checks below is left as not needed, not open, and none is worth a round.*
       tapped: (a)'s line at the top, whole. (a)'s line tapped: when its
       body lands the header loses the Cc line and the PDF's row, the stack
       moves up with it, and (a)'s line is still the top line, whole.
-      4. *A header that grows, the stack at its very top:* the status bar
-      tapped again if the stack has moved; (b)'s line tapped twice, closed
-      then opened: its body already in the stack, the header gains the Cc
-      line and the row at once, and (a)'s line, the stack's first, is still
-      the top line, whole, the case seen in B-055's check.
-      5. *Nothing else moved:* in 2 to 4, the letter opened grows below its
-      own line, and no frame shows a line half under the header.
-      6. *Two panes:* 1 to 3 again, then three panes back.
-      7. *Put back:* the label's letters left for B-129's check, or moved
+      4. *A header that grows, the stack at its very top:* (a)'s line
+      tapped to close it, and the status bar tapped again if the stack
+      has moved: (a)'s line at the top, (b)'s under it. (b)'s line tapped
+      twice, closed then opened: its body already in the stack, the
+      header gains the Cc line and the row at once, and (a)'s line, the
+      stack's first, is still the top line, whole, the case seen in
+      B-055's check.
+      5. *A line low in the pane,* the cost of the stack hanging from the
+      header, for the owner to weigh (KNOWN_ISSUES, B-128, Not covered):
+      (a)'s line tapped: it opens, its forty lines, the header (a)'s, with
+      neither a Cc line nor a file, the stack moving up with it. The stack
+      scrolled down to (b)'s line, below (a)'s words, and that line tapped
+      to close it. Then the stack scrolled until (b)'s closed line sits
+      within about 80 pt of the pane's bottom edge, (a)'s words above it,
+      and a second's wait. (b)'s line tapped once: at the tap the header
+      gains the Cc line and the PDF's row, about 64 pt, and the stack moves
+      down by as much. Written down from the recording: where (b)'s line
+      was before the tap and after it, whether it stayed in sight, whole,
+      in part or not at all, and whether the first line of its words did.
+      Its body is in the stack from 2, so there is no "Loading…"; a first
+      opening has it there, where the words are.
+      6. *A double tap on a line that grows the header:* the status bar
+      tapped, (a)'s line tapped to close it, then (b)'s, now under it, and
+      then (c)'s twice, closed and opened: the header (c)'s, no Cc line,
+      no file. The status bar tapped again if the stack has moved: (a)'s
+      line at the top, (b)'s under it. (b)'s line tapped twice quickly, as a
+      double tap, in the middle of the line: at the first tap (b) opens,
+      its words under it, and the header gains the Cc line and the PDF's
+      row, the stack moving down by about 64 pt; the second tap, which by
+      then lands on (a)'s line, does nothing: (a)'s line not lit, (a)
+      still closed, (b) still open, the header (b)'s. Written down from the
+      recording: what was under the second tap. Then, a second or more
+      later, (a)'s line tapped once: it opens, and the header is (a)'s.
+      7. *Nothing else moved:* in 2 to 4 and 6, the letter opened grows
+      below its own line, and no frame shows a line half under the header.
+      8. *Two panes:* 1 to 3 again, then three panes back.
+      9. *Put back:* the label's letters left for B-129's check, or moved
       to Trash by the host, as the owner prefers.
       *On a build with B-129, as this branch is, the header changes at
       the tap, not as the body lands; every step holds the same.*

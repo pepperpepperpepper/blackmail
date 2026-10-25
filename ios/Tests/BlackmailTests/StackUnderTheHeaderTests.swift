@@ -32,9 +32,9 @@ final class StackUnderTheHeaderTests: XCTestCase {
     }
 
     /// The offset `keepPlace` leaves the stack at once the header has
-    /// grown by `grown`.
-    private func after(_ current: Double, grew grown: Double, range: ClosedRange<Double>) -> Double {
-        StackPlace.offset(from: current, headerGrewBy: grown, range: range) ?? current
+    /// grown by `grown`, the stack's top at `lowest`.
+    private func after(_ current: Double, grew grown: Double, lowest: Double = 0) -> Double {
+        StackPlace.offset(from: current, headerGrewBy: grown, lowest: lowest) ?? current
     }
 
     /// The stack at its very top, its first line at the top of the pane: the
@@ -44,7 +44,7 @@ final class StackUnderTheHeaderTests: XCTestCase {
     func testTheStacksFirstLineStaysWhollyUnderAHeaderThatGains() {
         let header = 200.0
         for grown in [cc, cc + 2 * fileRow, fileRow] {
-            let offset = after(0, grew: grown, range: 0...4_000)
+            let offset = after(0, grew: grown)
             XCTAssertEqual(onGlass(0, headerBottom: header + grown, offset: offset), header + grown,
                            "grown by \(grown): the first line's top at the header's new bottom")
         }
@@ -60,7 +60,7 @@ final class StackUnderTheHeaderTests: XCTestCase {
         let header = 200.0
         let tapped = line              // the second line, the first above it out of sight
         for grown in [cc, -cc, fileRow, -fileRow, cc + 3 * fileRow, -(cc + fileRow)] {
-            let offset = after(tapped, grew: grown, range: 0...4_000)
+            let offset = after(tapped, grew: grown)
             let bottom = header + grown
             XCTAssertEqual(onGlass(tapped, headerBottom: bottom, offset: offset), bottom,
                            "grown by \(grown): the tapped line at the top of the pane, whole")
@@ -71,26 +71,54 @@ final class StackUnderTheHeaderTests: XCTestCase {
 
     /// Whatever the change and wherever the stack is scrolled, nothing that
     /// was in sight under the header goes under it: the offset never grows.
-    /// It is the one it had, or, where a header that shrank leaves the
-    /// stack past its end, its end, which moves the stack down; and always
-    /// one the stack can be scrolled to.
+    /// It is the one it had, or, for a stack pulled down past its top as
+    /// the header changes, its top, as before.
     func testNothingInSightGoesUnderTheHeader() {
         for grown in [-132.0, -44, -20, -0.5, 0.5, 20, 44, 132] {
-            for highest in [0.0, 300, 980, 1_000, 4_000] {
-                for current in stride(from: 0.0, through: 1_000, by: 25) {
-                    let offset = after(current, grew: grown, range: 0...highest)
-                    XCTAssertLessThanOrEqual(offset, max(current, 0), "\(grown) \(highest) \(current)")
-                    XCTAssertTrue((0...highest).contains(offset), "\(grown) \(highest) \(current)")
-                    if current <= highest {
-                        XCTAssertEqual(offset, current, "kept: \(grown) \(highest) \(current)")
-                    }
+            for lowest in [0.0, -20] {
+                for current in stride(from: -60.0, through: 1_000, by: 25) {
+                    let offset = after(current, grew: grown, lowest: lowest)
+                    XCTAssertEqual(offset, max(current, lowest), "\(grown) \(lowest) \(current)")
                 }
             }
+        }
+        XCTAssertNil(StackPlace.offset(from: -30, headerGrewBy: 0, lowest: 0), "no change, nothing done")
+    }
+
+    /// A stack opened with its newest letter short, the line above it at
+    /// the top of the pane, which puts the offset 45 pt from the end: the
+    /// last letter is as tall as the pane (`min-height: 100vh`), its line
+    /// and its body inside that. The header shrinks by a Cc line and a
+    /// file's row, 64 pt, or by two rows and a Cc line, 108. The offset is
+    /// the one it had, though the end the scroll view has as `keepPlace`
+    /// runs, the page as it was before WebKit lays it out for the taller
+    /// pane, is that much nearer; laid out again, the last letter grows
+    /// with the pane, the end is where it was, and the line is the top
+    /// line, whole, nothing of the line above it in sight. Held to the old
+    /// end, the stack was pulled down to it, and 19 pt of the line above
+    /// showed at the top and stayed; for 108, all of it and 18 pt of the
+    /// line before.
+    func testAShortNewestLetterAtTheEndKeepsTheLineAtTheTopWhenTheHeaderShrinks() {
+        let header = 264.0, pane = 600.0
+        let above = 4 * line                       // four closed lines over the newest
+        let held = above - line                    // the fourth line at the top of the pane
+        for shrunk in [cc + fileRow, cc + 2 * fileRow] {
+            let stale = above + pane - (pane + shrunk)
+            XCTAssertLessThan(stale, held, "the old page's end is nearer than the offset")
+            let offset = after(held, grew: -shrunk)
+            XCTAssertEqual(offset, held, "shrunk by \(shrunk): kept")
+            let end = above + (pane + shrunk) - (pane + shrunk)
+            XCTAssertLessThanOrEqual(offset, end, "one the page laid out again can scroll to")
+            let bottom = header - shrunk
+            XCTAssertEqual(onGlass(held, headerBottom: bottom, offset: offset), bottom)
+            XCTAssertLessThanOrEqual(onGlass(held - line, headerBottom: bottom, offset: offset) + line, bottom,
+                                     "shrunk by \(shrunk): nothing of the line above in sight")
         }
     }
 
     /// In the pane, the header's change sets the offset by `StackPlace`
-    /// alone, once laid out, and nothing else in it scrolls the stack.
+    /// alone, once laid out, held at the stack's top alone, and nothing
+    /// else in it scrolls the stack.
     func testThePaneScrollsTheStackOnlyByStackPlace() throws {
         let url = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -104,9 +132,10 @@ final class StackUnderTheHeaderTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: "contentOffset").count, 3,
                        "read once and written once, both in `keepPlace`")
         XCTAssertTrue(code.contains(
-            "guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y), "
-            + "headerGrewBy: Double(header.frame.height - before), range: lowest...highest) "
+            "guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y), headerGrewBy: grown, "
+            + "lowest: -Double(scroll.adjustedContentInset.top)) "
             + "else { return } scroll.contentOffset.y = CGFloat(y) }"))
+        XCTAssertFalse(code.contains("contentSize"), "the stack's end is not held to")
         XCTAssertFalse(code.contains("setContentOffset"))
         XCTAssertFalse(code.contains("scrollRectToVisible"))
     }

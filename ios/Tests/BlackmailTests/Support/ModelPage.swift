@@ -37,6 +37,13 @@ import Foundation
 /// what it names and up through its ancestors, and what the script posts
 /// of a picture tapped is kept as it posted it (B-122).
 ///
+/// The pane's word that the header over the stack changed height
+/// (`ConversationDocument.Shift`, B-128) is a step of its own. The move it
+/// stands for is not modelled: the web view moves on the glass, and the
+/// page's coordinates, which are all the model has, do not change with it;
+/// a test gives a touch after it where the glass under the finger is in
+/// the page then.
+///
 /// Run only where node is: elsewhere the tests that use it skip, and the
 /// script's own pins, read from its source, still hold it.
 enum ModelPage {
@@ -89,6 +96,14 @@ enum ModelPage {
         /// tap lands on: its click listeners and then its ancestors', in
         /// turn (B-122).
         static func click(_ at: Int, _ id: String) -> Step { Step(at: at, action: "click", id: id) }
+        /// The line of the letter whose section is `sectionID` clicked, as
+        /// WebKit's own tap clicks it if the script does not stop it.
+        static func clickLine(_ at: Int, _ sectionID: String) -> Step {
+            Step(at: at, action: "clickLine", id: sectionID)
+        }
+        /// What `ConversationDocument.Shift` has the pane run when the
+        /// header over the stack changes height (B-128).
+        static func shift(_ at: Int) -> Step { Step(at: at, action: "shift") }
     }
 
     /// What the run saw: every frame, what the script told the pane, what
@@ -99,6 +114,9 @@ enum ModelPage {
         /// What the script posted to `bmPicture` (B-122), as it posted it.
         let pictures: [Picture]
         let errors: [String]
+        /// How many touch events the script stopped WebKit's own doing of
+        /// (`preventDefault`).
+        let stopped: Int
         let calls: [Call]
         /// What the script still held at the end, nil for a script that
         /// holds nothing.
@@ -210,13 +228,15 @@ enum ModelPage {
             let motion: String?
             let ticks: Bool
             let every: Int
+            let shift: String
         }
         let input = try JSONEncoder().encode(Input(
             script: script, html: page, steps: steps, end: end,
             insert: pane == .silent ? "bmInsert(html, before)" : ConversationDocument.Insert.script,
             motion: pane == .silent ? nil : ConversationDocument.Motion.script,
             ticks: pane == .tells,
-            every: Int((ConversationDocument.Motion.every * 1_000).rounded())))
+            every: Int((ConversationDocument.Motion.every * 1_000).rounded()),
+            shift: ConversationDocument.Shift.script))
 
         let node = Process()
         node.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -491,7 +511,7 @@ enum ModelPage {
     function touchEvent(y, down) {
       const touch = { clientX: 300, clientY: y };
       return { touches: down ? [touch] : [], changedTouches: [touch], target: lineAt(y),
-               preventDefault: function () {} };
+               preventDefault: function () { out.stopped += 1; } };
     }
     function fingerTo(y) {
       if (!finger.panning && Math.abs(y - finger.startY) > 10) {
@@ -532,7 +552,7 @@ enum ModelPage {
       }
     }
 
-    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, calls: [] };
+    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [] };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
@@ -596,6 +616,20 @@ enum ModelPage {
           }
           return;
         }
+        case 'clickLine': {
+          const s = doc.getElementById(step.id);
+          const line = s && s.querySelector('.bm-head');
+          if (!line) { errors.push('clickLine: no ' + step.id); return; }
+          for (let n = line; n instanceof Element; n = n.parentNode) {
+            for (const fn of (n.listeners.click || []).slice()) {
+              try { fn({ currentTarget: n, target: line }); } catch (e) { errors.push('click: ' + e.message); }
+            }
+          }
+          return;
+        }
+        case 'shift':
+          try { callBody(INPUT.shift, {}); } catch (e) { errors.push('shift: ' + e.message); }
+          return;
         case 'breakOnce': {
           const real = body.insertBefore;
           body.insertBefore = function () { body.insertBefore = real; throw new Error('broken once'); };

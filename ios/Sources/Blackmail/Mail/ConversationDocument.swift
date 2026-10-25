@@ -475,7 +475,14 @@ enum ConversationDocument {
     /// touch WebKit cancels, a touch that lands on a page still scrolling,
     /// which only stops it, or a line moved under the finger as letters
     /// above it grew; past `bmHold` the light goes and the lift does
-    /// nothing. The touches are heard on the window, as `bmLetGo`'s are,
+    /// nothing. Nor for a touch on a line that lands within `bmShiftQuiet`,
+    /// a second, of the pane's word that the header over the stack changed
+    /// height, or is down as the word comes (`Shift`, `bmPaneShifted`): the
+    /// whole stack moved on the glass by the header's change then, which
+    /// the page cannot see, its own coordinates not changing, and a second
+    /// tap made at once where the first was is on another line than the
+    /// one it was meant for. Not lit, and its lift stops WebKit's tap and
+    /// toggles nothing; a touch after the second is a tap again. The touches are heard on the window, as `bmLetGo`'s are,
     /// not on the lines: VoiceOver's activation sends a line a touch rather
     /// than its click when the line or a node above it has a touch
     /// listener, and the window is not a node. So VoiceOver's activation
@@ -559,6 +566,8 @@ enum ConversationDocument {
     var bmQuiet = null;
     var bmScrolled = -1e9;
     var bmHold = 1200;
+    var bmShifted = -1e9;
+    var bmShiftQuiet = 1000;
     function bmLineAt(node) {
       for (; node && node !== document.body; node = node.parentNode) {
         if (bmLines.indexOf(node) !== -1) return node;
@@ -581,10 +590,17 @@ enum ConversationDocument {
       var head = bmLineAt(event.target);
       if (!head) return;
       var touch = event.touches[0];
-      head.classList.add('bm-press');
-      bmPress = { head: head, x: touch.clientX, y: touch.clientY,
+      var shifted = performance.now() - bmShifted < bmShiftQuiet;
+      if (!shifted) head.classList.add('bm-press');
+      bmPress = { head: head, x: touch.clientX, y: touch.clientY, shifted: shifted,
                   top: head.getBoundingClientRect().top, at: performance.now(),
                   timer: setTimeout(function () { head.classList.remove('bm-press'); }, bmHold) };
+    }
+    function bmPaneShifted() {
+      bmShifted = performance.now();
+      if (!bmPress) return;
+      bmPress.shifted = true;
+      bmPress.head.classList.remove('bm-press');
     }
     function bmPressMove(event) {
       if (bmPress && (event.touches.length !== 1 || !bmStill(bmPress, event.touches[0]))) bmUnpress();
@@ -597,6 +613,7 @@ enum ConversationDocument {
       event.preventDefault();
       bmQuiet = { head: press.head, until: performance.now() + 1000 };
       if (performance.now() - press.at > bmHold) return;
+      if (press.shifted) return;
       if (Math.abs(press.head.getBoundingClientRect().top - press.top) > 10) return;
       var selection = window.getSelection();
       if (selection && !selection.isCollapsed) selection.removeAllRanges();
@@ -905,6 +922,24 @@ enum ConversationDocument {
         static let script = "bmPaneMoving(moving)"
 
         static func arguments(_ moving: Bool) -> [String: Any] { ["moving": moving] }
+    }
+
+    /// What the pane tells the stack's script when the header over the
+    /// stack has changed height (B-128, `keepPlace`). The stack hangs from
+    /// the header, so the whole of it moves on the glass then, by a Cc line
+    /// about 20 pt, a file's row 44 pt, or both and more, at the tap on a
+    /// line since B-129. A second tap made at once where the first was, a
+    /// double tap or a tap to close a letter opened by mistake, lands that
+    /// far off the line it was meant for, on the line above or below, and
+    /// opened that letter, which took the header and the toolbar, so a
+    /// Delete or a Move after it went to a letter he did not mean to open. The page cannot see that move: the web view moves on the
+    /// glass, and nothing in the page does. So the script is told, and a
+    /// line pressed within a second of it does nothing (`bmPaneShifted`,
+    /// `bmShiftQuiet`), nor one pressed as it comes.
+    enum Shift {
+        /// What `callAsyncJavaScript` runs, in the app's content world,
+        /// where `script` defined `bmPaneShifted`.
+        static let script = "bmPaneShifted()"
     }
 
     static func escape(_ text: String) -> String {

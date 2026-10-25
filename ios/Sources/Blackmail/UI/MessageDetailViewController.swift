@@ -649,21 +649,31 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The header has been given another letter: laid out now, and the
     /// stack left at the offset it had, so what was at the top of the pane
     /// stays at the top, wholly under the header, which pushes it down as
-    /// it grows and draws it up as it shrinks (B-128). Only kept within
-    /// what the stack can scroll to now. It used to be scrolled by as much
-    /// as the header grew or shrank, so the line he tapped stayed where it
-    /// was on the glass, and the top of the pane went under the header:
-    /// half the line at the top, the line he had just tapped as often as
-    /// not, until he scrolled.
+    /// it grows and draws it up as it shrinks (B-128). Held at its top
+    /// alone, not at its end, which the scroll view has from the page as
+    /// it was before WebKit lays it out for the new height (`StackPlace`).
+    /// It used to be scrolled by as much as the header grew or shrank, so
+    /// the line he tapped stayed where it was on the glass, and the top of
+    /// the pane went under the header: half the line at the top, the line
+    /// he had just tapped as often as not, until he scrolled.
+    ///
+    /// The whole stack moves on the glass then, by the header's change, a
+    /// Cc line about 20 pt, a file's row 44 pt, and a second tap made at
+    /// once where the first was lands that far off the line it was meant
+    /// for, on the line above or below. So the stack's script is told,
+    /// and a line pressed in the second after does nothing
+    /// (`ConversationDocument.Shift`). The page cannot see the move itself:
+    /// the web view moves on the glass, and nothing in the page does.
     private func keepPlace(headerWas before: CGFloat) {
         view.layoutIfNeeded()
+        let grown = Double(header.frame.height - before)
+        guard grown != 0 else { return }
+        webView.callAsyncJavaScript(ConversationDocument.Shift.script, arguments: [:],
+                                    in: nil, in: .defaultClient)
         let scroll = webView.scrollView
-        let lowest = -Double(scroll.adjustedContentInset.top)
-        let highest = max(lowest, Double(scroll.contentSize.height + scroll.adjustedContentInset.bottom
-                                         - scroll.bounds.height))
-        guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y),
-                                        headerGrewBy: Double(header.frame.height - before),
-                                        range: lowest...highest) else { return }
+        guard let y = StackPlace.offset(from: Double(scroll.contentOffset.y), headerGrewBy: grown,
+                                        lowest: -Double(scroll.adjustedContentInset.top))
+        else { return }
         scroll.contentOffset.y = CGFloat(y)
     }
 

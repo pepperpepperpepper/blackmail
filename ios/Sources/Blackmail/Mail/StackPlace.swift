@@ -25,21 +25,30 @@ import Foundation
 /// line above at the top. The line he taps now moves with the stack, by the
 /// header's change.
 ///
+/// The stack is held only at its top, never at its end. The pane works the
+/// offset out as soon as the header is laid out, before WebKit has laid the
+/// page out again for the web view's new height, so the end the scroll view
+/// gives then is the old page's. The stack's last letter is at least as
+/// tall as the pane (`min-height: 100vh`), so the page grows as the pane
+/// does, and the offset it had is still one it can scroll to. Held to the
+/// old end, a stack opened with its newest letter short, the line above it
+/// at the top of the pane some 45 pt from the end, was pulled down to that
+/// end by a header that shrank by more than 45 pt, a Cc line and a file's
+/// row, and part of the line above showed at the top and stayed.
+///
 /// Out of the controller, which is UIKit, so the rule is tested on the
 /// host.
 enum StackPlace {
 
     /// The stack's scroll offset once the header above it has grown by
     /// `grown` points (shrunk, when negative): the one it had, `current`,
-    /// kept within `range`, what the stack can be scrolled to now. Nil when
+    /// and not below `lowest`, the offset at the stack's top. Nil when
     /// nothing is to change: the header the same height, and every other
-    /// time but where a header that shrank leaves a stack scrolled to its
-    /// end past what it can scroll to now. It is then put at its end, which
-    /// moves it down, never up under the header.
-    static func offset(from current: Double, headerGrewBy grown: Double,
-                       range: ClosedRange<Double>) -> Double? {
-        guard grown != 0 else { return nil }
-        let kept = min(max(current, range.lowerBound), range.upperBound)
-        return kept == current ? nil : kept
+    /// time but a stack pulled down past its top as the header changes,
+    /// which is put at its top, as before. Never held to the end of the
+    /// stack; see above.
+    static func offset(from current: Double, headerGrewBy grown: Double, lowest: Double) -> Double? {
+        guard grown != 0, current < lowest else { return nil }
+        return lowest
     }
 }

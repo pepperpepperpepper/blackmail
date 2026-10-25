@@ -17034,7 +17034,10 @@ select. His taps are slow.
   clearing too, so the script clears it before it toggles the letter.
 - Past 1.2 s, the light gone, the lift does nothing, and WebKit's tap is
   stopped the same way. A line that moved from under the still finger,
-  a letter above it grown, the same: nothing.
+  a letter above it grown, the same: nothing. (*Since B-128, item 5, a
+  touch on a line within a second of the whole stack moving with the
+  header, or down as it moves, the same, unlit: the page cannot see that
+  move, and the pane tells it.*)
 - A finger that moves, a scroll, does nothing, and nothing is stopped:
   WebKit takes no tap after a scroll. A touch that lands within 0.2 s of a
   scroll, on a stack still moving from a flick, only stops it, as WebKit
@@ -25077,11 +25080,13 @@ changes.
 
 **What Mail does.** Mail has no one header over a conversation: its
 letters are listed one after another in one scroll, each with its own
-sender and date at its top, opened and closed in place (Apple's iPad
-guide, "Show the whole conversation",
-support.apple.com/guide/ipad/check-your-email-ipad99a3ef9e/ipados; a guide
-to the conversation view of iOS 10, idownloadblog.com, 20 October 2016,
-"emails listed one after another"; medium for iPadOS 18). So nothing over
+sender and date at its top, opened and closed in place (a guide to the
+conversation view of iOS 10, idownloadblog.com, 20 October 2016, "emails
+listed one after another"; DECISIONS, Complete Threads). Apple's iPad
+guide, "Show the whole conversation"
+(support.apple.com/guide/ipad/check-your-email-ipad99a3ef9e/ipados),
+names the setting alone, "turn on Organize by Thread", and says nothing
+of the layout. Not seen on iPadOS 18: medium at most. So nothing over
 its stack changes height at a tap, and nothing goes under anything. The
 header here is the pane's own (B-022), which Mail's has no part like;
 there is nothing of Mail's to copy, and the rule is the owner's.
@@ -25108,13 +25113,50 @@ sliver of the line above in at the top the same way.
    glass by as much as the header grew, up by as much as it shrank. The
    offset is changed only where a header that shrank leaves a stack
    scrolled to its end past what it can scroll to now, and then to its
-   end, which moves it down, never up under the header.
+   end, which moves it down, never up under the header. (*Not so since
+   item 4: the end it was held to was the page's before WebKit lays it out
+   again, and it is held at its top alone.*)
 2. *The stack's opening place* is no longer let go by the header changing
    height, which scrolled the pane: nothing scrolls now, and the letter
    the stack opened at stays at the top of the pane.
 3. The comments that said the line he tapped stays under his finger
    (`StackPlace`, `keepPlace`, `focusLetter`, the stack's script), and
    B-074's item 4 here and its check's step 5 in TODO, say what it is now.
+4. *Held at its top alone* (changed again 2026-10-25, before the iPad saw
+   it). `StackPlace` kept the offset within what the scroll view said the
+   stack could be scrolled to, its end as well as its top. But `keepPlace`
+   runs as soon as the header is laid out, before WebKit has laid the page
+   out for the web view's new height, so that end was the old page's. The
+   stack's last letter is at least as tall as the pane (`100vh`), so the
+   page grows as the pane does, and the offset it had stays one it can be
+   scrolled to. Held to the old end, a stack opened with its newest letter
+   short, the line above it at the top of the pane some 45 pt from the end,
+   was pulled down to that end by a header that shrank by more: by a Cc
+   line and a file's row, 64 pt, 19 pt of the line above showed at the top
+   and stayed; by a Cc line and two rows, 108 pt, all of it and 18 pt of
+   the line before it. Now the offset is
+   kept but for a stack pulled down past its top, which is put at its top,
+   as before.
+5. *A line pressed just after the stack moves does nothing* (changed again
+   2026-10-25, before the iPad saw it). The stack hangs from the header,
+   so it moves on the glass by the header's change, at the tap since
+   B-129: a Cc line about 20 pt, a file's row 44 pt, 64 to 108 pt and more
+   for both. A second tap made at once where the first was, a double tap
+   or a tap to close a letter opened by mistake, landed that far off the
+   line it was meant for: on the line above, for a header that grew, and
+   opened that letter, which took the header and the toolbar (B-129), so a
+   Delete or a Move after it went to a letter he did not mean to open. The
+   script's check that a line has moved under the finger (B-095) reads the
+   page's own coordinates, which do not change when the web view moves on
+   the glass, so it could not see this. Now the pane tells the stack's
+   script each time the header changes height (`keepPlace`,
+   `ConversationDocument.Shift`), and a touch on a line that lands within a
+   second of that, or is down as it comes, is not lit, toggles nothing at
+   its lift, and stops WebKit's own tap, as a press held past 1.2 s does
+   (`bmPaneShifted`, `bmShiftQuiet`). A double tap is well inside the
+   second; a tap inside it that he meant does nothing, and he taps again.
+   A second is the script's other bound for a tap (B-095's click let
+   pass).
 
 **Not changed.** When the header changes: still as the letter's body
 lands (*at the tap since B-129*). The header's lines and sizes. The stack's own place-keeping as
@@ -25128,9 +25170,12 @@ or a file the last one had not: the whole stack moves down by that line
 or row as the header grows, and the line at the top of the pane, the one
 he tapped as often as not, is still the top line, whole, under the
 header. One with fewer: the stack moves up with the header, the top line
-still the top line, nothing of the line above it showing. The line he
-tapped moves with the stack, by the header's change; under B-074 it
-stayed still and the top of the pane went under the header.
+still the top line, nothing of the line above it showing, at the end of
+the stack too (item 4). The line he tapped moves with the stack, by the
+header's change; under B-074 it stayed still and the top of the pane went
+under the header. A line tapped within a second of the stack moving, the
+same line again or another, is not lit and nothing opens or closes;
+tapped after the second, it does (item 5).
 
 **Tests.** `StackUnderTheHeaderTests`, four, new. On the glass as the pane
 lays it out, the stack's web view pinned to the header's bottom edge: the
@@ -25159,6 +25204,50 @@ change itself, past `StackPlace`, 3 in 2 (the new source test and B-074's
 The full suite, serially: 2,483 tests, 4 of them new, 6 skipped, none failing. The release build for the iPad
 links.
 
+Items 4 and 5, changed again 2026-10-25. `TapAfterTheStackMovedTests`,
+six, new, on the stack's own script run in node on the model page
+(`ModelPage`, which gains the pane's word as a step, a click on a line,
+and a count of the touches whose default the script stopped): three
+letters read, the stack opening with J1's line at the top, then J1
+opened by a tap and the pane's word 40 ms after. A second tap 300 ms after, where the first was on the
+glass, J2's line in the page by then: nothing opened or closed, WebKit's
+tap stopped, its click let pass; without the word it closed J2. A touch
+landing 950 ms after the word and lifted after the second: nothing; one
+landing 1,050 ms after: a tap. A finger down as the word comes: nothing at
+its lift, its tap stopped; with no word, J1 opened. And the script and
+the pane, read: the second, the press not lit and its lift doing
+nothing, the word marking a press already down; `keepPlace` telling the
+script whenever the header's height changes, in the app's content world,
+from both of its callers. `StackUnderTheHeaderTests` gains one: the
+newest letter short, the line above it at the top 45 pt from the end, a
+header shrinking by 64 or 108 pt, the old page's end nearer than the
+offset: the offset kept, one the page laid out again can be scrolled to,
+the line at the top whole and nothing above it in sight. Its sweep is
+the top bound's now, offsets from -60 pt, and its source test pins the
+call with no end and no `contentSize` in the pane. B-074's
+`testTheStackMovesAgainstTheHeader`, which asserted the opposite of its
+name, is `testTheStackKeepsItsOffsetUnderTheHeader`, and asserts no end
+bound; `testTheHeaderKeepsHisPlace` and `LinePressTests`' pins of the
+press and the lift follow the new code.
+
+Each undone by hand, run with `LinePressTests`,
+`HisLineUnderTheFingerTests`, `PictureTapTests`, `ConversationOrderTests`,
+`StackUnderTheHeaderTests` and `StackHeaderAtTheTapTests` as they bear on
+it, then put back and passing, counted as failures in tests: the
+script's second taken out, the word heard and nothing done, 11 in 6
+(three of the new run in node, the new script pins, and `LinePressTests`'
+two);
+`keepPlace` not telling the script, 2 in 1 (the new source test);
+`keepPlace` holding the stack at the scroll view's end again, 2 in 1
+(`StackUnderTheHeaderTests`' source test); `StackPlace`'s top bound taken
+out, 41 in 2 (the sweep and B-074's renamed test); B-074's rule put back
+in `StackPlace`, 684 in 5, the new end test among them. The end bound
+lived in `keepPlace`, which is UIKit, so it is held by the source tests;
+the new end test holds the offset `StackPlace` gives.
+
+The full suite, serially: 2,496 tests, 7 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
 **Not covered.**
 
 - Not seen on the iPad (TODO, B-128's check).
@@ -25173,7 +25262,33 @@ links.
   (*at the tap since B-129*). A
   second tap made just then, on a line above the one he opened, lands that
   much off where the line was: within a closed line of about 45 pt for a
-  Cc line, off it for two files' rows or more. Not tried.
+  Cc line, off it for two files' rows or more. Not tried. (*Since item 5
+  a line pressed within a second of the move does nothing. A picture or a
+  link in a letter's body pressed then is not held back, and is taken
+  where the finger lands: a picture opens full screen (B-122), a link
+  opens. Not tried either.*)
+- A line tapped low in the pane. The stack hangs from the header, so the
+  line he taps moves down by as much as the header grows, at the tap since
+  B-129: a Cc line about 20 pt and 44 pt a file, so 64 pt for a Cc line
+  and a file and 108 for a Cc line and two are common. A closed line,
+  about 45 pt, tapped with its top less than 45 pt plus that growth above
+  the pane's bottom edge, 109 pt for 64 and 153 for 108, goes partly
+  under the edge, and wholly within the growth itself, 64 or 108 pt; the
+  "Loading…" under it, or the letter's first words, a line of text lower,
+  go out of sight first. He sees the header change and the
+  line he tapped go down, partly or wholly out of sight, and scrolls to
+  it. Under B-074 the line stayed under his finger, and the top of the
+  pane went under the header instead. Which is better is the owner's
+  (TODO, B-128's check, step 5). Not seen.
+- The stack held only at its top (item 4): a stack whose last letter is
+  taller than the pane, scrolled to its very end, under a header that
+  shrinks, does not grow with the pane, and its end is nearer by the
+  shrink, so below its end the dark of the page shows by as much until
+  the scroll view draws it back, as far as is known when he next touches
+  it; what UIKit and WebKit do then is not the host's. No line is in
+  sight at the end of such a letter, so no tap on a line does it: only a
+  letter's body landing with a header of another height than its row's
+  (B-042, B-055, B-127 make them the same). Not tried.
 - A header that changes height for a reason of its own, a subject wrapping
   to two lines at a new width: the stack keeps its offset there too, as
   it always did, `keepPlace` running only when a letter takes the header.
