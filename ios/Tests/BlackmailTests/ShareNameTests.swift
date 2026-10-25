@@ -8,8 +8,9 @@ import XCTest
 /// seen in the iPadOS 18.6 simulator and on the test iPad: Safari's page
 /// title as the item's words, an app's words beside its link the same, the
 /// YouTube app's link alone. Reading the extension's items is UIKit's and
-/// never builds here, so its one line is read from the source; and nothing
-/// in the share sheet fetches a page.
+/// never builds here, so its one line is read from the source. The one
+/// thing the share sheet fetches is a YouTube video's title, for the
+/// YouTube app's link alone, by the owner's ruling of 2026-10-25 (B-126).
 final class ShareNameTests: XCTestCase {
 
     private let signature = "Sam"
@@ -36,7 +37,8 @@ final class ShareNameTests: XCTestCase {
     }
 
     /// The YouTube app hands over the link alone: nothing names it, so the
-    /// subject is left empty, and the link alone is the body.
+    /// subject begins empty, and the link alone is the body. YouTube's
+    /// title, asked as the sheet comes up, is what fills it (B-126).
     func testALinkNamedByNothingHasNoSubject() {
         let name = ShareItems.name(title: nil, words: nil)
         XCTAssertNil(name)
@@ -55,25 +57,61 @@ final class ShareNameTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: "attributedContentText").count - 1, 1)
     }
 
-    /// Mail fetches nothing to name a share, so nothing in the share sheet
-    /// does, in any of its files: no LinkPresentation, no URL session or
-    /// connection, no web view, no page asked for.
-    func testNothingInTheShareSheetFetchesThePage() throws {
+    /// The share sheet fetches one thing, a YouTube video's title from
+    /// YouTube's oEmbed, in one file, `VideoTitle` (B-126). No other file of
+    /// it fetches anything: no LinkPresentation, no URL session or
+    /// connection, no web view, no page asked for. And `VideoTitle` asks
+    /// that one address alone, on a session that keeps nothing.
+    func testTheShareSheetFetchesOnlyAVideosTitle() throws {
         let share = sources.appendingPathComponent("Share")
         let files = try FileManager.default.contentsOfDirectory(atPath: share.path)
             .filter { $0.hasSuffix(".swift") }.sorted()
         for known in ["ShareItems.swift", "ShareLetter.swift", "ShareMirror.swift",
-                      "ShareSheet.swift", "ShareViewController.swift"] {
+                      "ShareSheet.swift", "ShareViewController.swift", "VideoTitle.swift"] {
             XCTAssertTrue(files.contains(known), "every file of the share sheet is read: \(known)")
         }
-        for file in files {
+        let fetches = ["LinkPresentation", "LPMetadataProvider", "startFetchingMetadata",
+                       "URLSession", "dataTask(", "Data(contentsOf: url", "oembed",
+                       "WKWebView", "NSURLConnection"]
+        for file in files where file != "VideoTitle.swift" {
             let code = try source("Share/\(file)")
-            for fetch in ["LinkPresentation", "LPMetadataProvider", "startFetchingMetadata",
-                          "URLSession", "dataTask(", "Data(contentsOf: url", "oembed",
-                          "WKWebView", "NSURLConnection"] {
+            for fetch in fetches {
                 XCTAssertFalse(code.lowercased().contains(fetch.lowercased()), "\(file): \(fetch)")
             }
         }
+        let asking = try source("Share/VideoTitle.swift")
+        for never in ["LinkPresentation", "LPMetadataProvider", "startFetchingMetadata",
+                      "WKWebView", "NSURLConnection", "Data(contentsOf:", "URLSession.shared"] {
+            XCTAssertFalse(asking.contains(never), never)
+        }
+        let addresses = asking.components(separatedBy: "\"").filter { $0.contains("://") }
+        XCTAssertEqual(addresses, ["https://www.youtube.com/oembed?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D"],
+                       "one address, YouTube's oEmbed")
+        XCTAssertEqual(asking.components(separatedBy: "URLSession(configuration:").count - 1, 1)
+        XCTAssertEqual(asking.components(separatedBy: "dataTask(").count - 1, 1)
+        for kept in ["URLSessionConfiguration.ephemeral", "settings.httpShouldSetCookies = false",
+                     "settings.httpCookieAcceptPolicy = .never", "settings.urlCache = nil",
+                     "settings.waitsForConnectivity = false"] {
+            XCTAssertTrue(asking.contains(kept), kept)
+        }
+    }
+
+    /// The sheet asks for the title of the video `ShareSheet.videoToName`
+    /// picks, through `VideoTitle.web`, once the sheet is built; what comes
+    /// goes through `ShareSheet.named` before it touches Subject, and Subject
+    /// typed in is noted as typed.
+    func testTheSheetAsksAndFillsByTheRule() throws {
+        let code = try source("Share/ShareViewController.swift")
+        XCTAssertTrue(code.contains("video = sheet.videoToName(in: items)"))
+        XCTAssertTrue(code.contains("updateSend() askForTheTitle() }"))
+        XCTAssertEqual(code.components(separatedBy: "VideoTitle.ask(").count - 1, 1)
+        XCTAssertTrue(code.contains("VideoTitle.ask(for: video, through: VideoTitle.web)"))
+        XCTAssertTrue(code.contains("let named = self.sheet.named(subject, now: self.subjectField.text ?? \"\", "
+            + "typed: self.subjectTyped) if let named { self.subjectField.text = named "
+            + "self.title = ComposeForm.title(subject: named) }"))
+        XCTAssertEqual(code.components(separatedBy: "subjectField.text =").count - 1, 1,
+                       "Subject is written only with what `named` allows")
+        XCTAssertTrue(code.contains("@objc private func subjectChanged() { subjectTyped = true"))
     }
 
     /// The app's sources, `ios/Sources/Blackmail`.

@@ -23,6 +23,8 @@ final class ShareSheet {
     private var cancelled = false
     /// The letter as the share began it, before he touched it.
     private var started = Draft()
+    /// Send has been tapped, whether or not the letter went.
+    private var sendTapped = false
 
     /// `finish` ends the share once the letter has gone and `cancel` once
     /// Cancel has put it away: the extension's `completeRequest` and
@@ -117,12 +119,38 @@ final class ShareSheet {
         return started
     }
 
+    /// The video whose title is asked of YouTube for the subject
+    /// (`VideoTitle`, B-126): the first link in `items` to a YouTube video,
+    /// and only while nothing has given the letter a subject, so a link
+    /// that came with nothing naming it but its own address. Nil for every
+    /// other share: Safari's page has its title, and nothing is asked.
+    func videoToName(in items: [SharedItem]) -> URL? {
+        guard started.subject.isEmpty else { return nil }
+        for case let .link(url, _) in items where VideoTitle.id(of: url) != nil {
+            return url
+        }
+        return nil
+    }
+
+    /// What YouTube's title makes of Subject once it has come: `subject`,
+    /// when Subject is still as the share began it, empty, he has typed
+    /// nothing in it (`typed`), and neither Send nor Cancel has been
+    /// tapped. Then it is the share's own subject, and Cancel asks nothing
+    /// about it. Nil otherwise, and Subject is left as it is.
+    func named(_ subject: String?, now: String, typed: Bool) -> String? {
+        guard let subject, !subject.isEmpty, !typed, !cancelled, !sendTapped,
+              started.subject.isEmpty, now.isEmpty else { return nil }
+        started.subject = subject
+        return subject
+    }
+
     var isSending: Bool { actions.isSending }
 
     /// Send tapped. Nil when the tap sends nothing.
     @discardableResult
     func send(_ letter: @escaping () -> Draft) -> Task<Void, Never>? {
-        actions.send(letter, then: nil)
+        sendTapped = true
+        return actions.send(letter, then: nil)
     }
 
     /// Cancel tapped: the share is put away, and nothing is sent or kept.

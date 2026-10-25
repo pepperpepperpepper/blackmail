@@ -596,6 +596,79 @@ final class ShareSheetTests: XCTestCase {
         XCTAssertTrue(sheet.asksBeforeCancelling(written))
     }
 
+    // MARK: - A YouTube video's title (B-126)
+
+    /// The video asked about: the first YouTube link that came with
+    /// nothing naming it, while nothing else has given the letter a
+    /// subject. Safari's YouTube page has its title and is asked nothing,
+    /// nor is a link to anything but a video.
+    func testTheVideoAskedAboutIsTheYouTubeLinkAlone() {
+        let video = URL(string: "https://youtu.be/dQw4w9WgXcQ?si=xyz")!
+        let other = URL(string: "https://youtu.be/aaaaaaaaaaa")!
+        let ask = { (items: [SharedItem]) -> URL? in
+            let sheet = self.sheet(ScriptedSubmission())
+            _ = sheet.letter(from: items)
+            return sheet.videoToName(in: items)
+        }
+        XCTAssertEqual(ask([.link(video, title: nil)]), video)
+        XCTAssertEqual(ask([.link(video, title: " \n")]), video)
+        XCTAssertEqual(ask([.link(video, title: video.absoluteString)]), video, "named by its address alone")
+        XCTAssertEqual(ask([.text("Look"), .link(video, title: nil), .link(other, title: nil)]), video)
+        XCTAssertEqual(ask([.link(page, title: nil), .link(video, title: nil)]), video)
+        XCTAssertNil(ask([.link(video, title: "Tosca - YouTube")]), "Safari's page, named")
+        XCTAssertNil(ask([.link(page, title: "Mercury - Wikipedia"), .link(video, title: nil)]))
+        XCTAssertNil(ask([.link(page, title: nil)]))
+        XCTAssertNil(ask([.link(URL(string: "https://www.youtube.com/@SomeChannel")!, title: nil)]))
+        XCTAssertNil(ask([.text("https://youtu.be/dQw4w9WgXcQ is good")]), "words, not a link")
+        XCTAssertNil(ask([]))
+    }
+
+    /// The title goes in only where nothing of his is: Subject still empty
+    /// as the share began it, nothing typed there, neither Send nor Cancel
+    /// tapped. Once in, it is the share's own subject: Cancel asks nothing
+    /// about it, and asks again once he changes it.
+    func testTheTitleGoesInOnlyWhereHeHasWrittenNothing() async throws {
+        let video = URL(string: "https://youtu.be/dQw4w9WgXcQ")!
+
+        let fresh = sheet(ScriptedSubmission())
+        var started = fresh.letter(from: [.link(video, title: nil)])
+        XCTAssertEqual(fresh.named("Tosca, Act 2", now: "", typed: false), "Tosca, Act 2")
+        started.subject = "Tosca, Act 2"
+        XCTAssertFalse(fresh.asksBeforeCancelling(started), "the title is the share's own")
+        var changed = started
+        changed.subject = "Tosca, Act 2, for Sunday"
+        XCTAssertTrue(fresh.asksBeforeCancelling(changed))
+        XCTAssertNil(fresh.named("Again", now: "", typed: false), "once named, never again")
+
+        let typed = sheet(ScriptedSubmission())
+        _ = typed.letter(from: [.link(video, title: nil)])
+        XCTAssertNil(typed.named("Tosca", now: "", typed: true), "typed, then cleared")
+        XCTAssertNil(typed.named("Tosca", now: "For Sunday", typed: true))
+        XCTAssertNil(typed.named("Tosca", now: "For Sunday", typed: false))
+        XCTAssertNil(typed.named(nil, now: "", typed: false), "no answer")
+        XCTAssertNil(typed.named("", now: "", typed: false))
+        XCTAssertEqual(typed.named("Tosca", now: "", typed: false), "Tosca", "still free")
+
+        let named = sheet(ScriptedSubmission())
+        _ = named.letter(from: [.link(page, title: "Mercury - Wikipedia")])
+        XCTAssertNil(named.named("Tosca", now: "Mercury - Wikipedia", typed: false))
+        XCTAssertNil(named.named("Tosca", now: "", typed: false), "the share named it")
+
+        let cancelled = sheet(ScriptedSubmission())
+        _ = cancelled.letter(from: [.link(video, title: nil)])
+        await cancelled.cancel()?.value
+        XCTAssertNil(cancelled.named("Tosca", now: "", typed: false))
+
+        let refused = sheet(ScriptedSubmission(failsToOpen: true))
+        var letter = refused.letter(from: [.link(video, title: nil)])
+        letter.to = ["owner@example.net"]
+        let going = try XCTUnwrap(refused.send { letter })
+        XCTAssertNil(refused.named("Tosca", now: "", typed: false), "while it goes")
+        await going.value
+        XCTAssertFalse(refused.isSending)
+        XCTAssertNil(refused.named("Tosca", now: "", typed: false), "after a Send that did not go")
+    }
+
     // MARK: - Suggestions
 
     /// The app's book as it was mirrored: a match for what he has typed

@@ -1736,7 +1736,8 @@ to happen.
   (B-125): Safari's page title comes as `attributedContentText`, with no
   `attributedTitle`, in the iPadOS 18.6 simulator, and was the subject on
   the test iPad from 2026-09-30; the YouTube app hands over the link
-  alone (2026-10-04, 2026-10-21).*
+  alone (2026-10-04, 2026-10-21).* *Since 2026-10-25 a YouTube video's
+  title is asked of YouTube for a share that has none (B-126).*
 - The sheet's look beside the app's composer, and sending over TLS from the
   extension.
 - Whether iOS hands another app's `mailto:` link here.
@@ -2450,7 +2451,8 @@ B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
   share hands over that names it; the YouTube app's share still has none,
   since nothing it hands an extension names it, and naming it would take
   a fetch, where Mail fetches nothing to fill a share's Subject (an owner
-  question).*
+  question).* *Decided 2026-10-25 by the owner: the title is fetched from
+  YouTube, the subject empty when YouTube does not answer (B-126).*
 - *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
   alone. A tap on the sheet's body closed it with the word still there;
   Delete Draft ended the share, and nothing went.
@@ -24575,7 +24577,8 @@ Message" over the sheet.
 **Left for the owner.** Naming a YouTube share as Mail does needs the
 page's title fetched while the sheet is up. Mail fetches nothing to fill
 a share's Subject, though its composer does fetch a pasted link's preview
-(TODO, "Blocked on the owner", a YouTube share's subject).
+(TODO, "Blocked on the owner", a YouTube share's subject). *Decided
+2026-10-25 by the owner: the title is fetched from YouTube (B-126).*
 
 **Tests.** `ShareNameTests`, five: Safari's shape, the words "Opera house
 - Wikipedia" and no title, the subject, the link alone in the body; an
@@ -24611,3 +24614,138 @@ failing. The release build for the iPad links.
   shares that way is not known; not changed.
 - Other apps that share links (News, Maps, a podcast app) were not tried;
   each is named by what it hands over, by the rule above.
+
+## B-126 — CHANGED 2026-10-25 by the owner's ruling, not yet seen on the iPad. A share from the YouTube app had an empty Subject; the video's title is asked of YouTube as the sheet comes up, as Mail has it from the YouTube app
+
+**The ruling.** B-125 left a YouTube share's Subject empty, since the
+YouTube app hands a share extension the link alone, and put a fetch to the
+owner (TODO, "A YouTube share's subject"). On 2026-10-25 the owner ruled:
+"fetch the title from YouTube for those shares, falling back to empty if
+it doesn't answer."
+
+**What YouTube answers.** YouTube's oEmbed answers a video's watch page
+with its title, as JSON, with no key and no account. It was read on
+2026-10-25 against his own Sent Mail, read only: the 954 letters of the
+30 days before with youtu.be in them, 920 of them with a video's link,
+each shared from the YouTube app. Each video was asked about from the
+host, and its title set against the subject Mail sent:
+
+- 884 the same, character for character, quotes, apostrophes and accents
+  among them. 132 of those were titles longer than 75 characters, and
+  Mail's subject was each title's first 72 characters and "..." (three
+  full stops), 75 in all; titles of exactly 75 went whole. That is the
+  YouTube app's cut, made before Mail has it, and it is copied
+  (`VideoTitle.subject`). Three of the long titles had accents in them,
+  and were cut where characters are counted as they show, not where
+  UTF-16 would cut them; none had an emoji.
+- 14 YouTube would not name: 10 answered 401 and 3 answered 403 (a video
+  its owner keeps from other sites), 1 answered 404 (gone since). Mail had
+  a subject for each; here those stay empty, by the ruling.
+- 22 different: in 7 he had added words after the title; in the other 15
+  the subject is not the title as it is now, a title changed since or a
+  subject of his own.
+
+**Changed.**
+
+1. *Which shares are asked about* (`ShareSheet.videoToName`): the first
+   link to a YouTube video, while nothing has given the letter a subject,
+   so one that came with no name but, at most, its own address. A video
+   is youtu.be/ID, or
+   on youtube.com, www., m. or music., /watch?v=ID, /shorts/ID, /live/ID or
+   /embed/ID, with an id of YouTube's eleven characters (`VideoTitle.id`).
+   Safari's YouTube page comes with its title, "… - YouTube", and is asked
+   nothing, as are a channel, a playlist and every other site.
+2. *The asking* (`VideoTitle`, new): one request, to YouTube's oEmbed for
+   the video's own watch page, on a session of its own that keeps nothing
+   (ephemeral, no cookie sent or taken, no cache) and does not wait for a
+   connection, ten seconds at most. A 200 with a title in it is the
+   subject, on one line and cut as above; anything else, or nothing
+   within ten seconds, leaves Subject empty.
+3. *Nothing waits for it* (`ShareSheet.named`). The sheet comes up as
+   before, To ready to type. The title goes into Subject when it comes,
+   and the sheet's title with it, only while Subject is still empty, he
+   has typed nothing there (not even something since cleared), and
+   neither Send nor Cancel has been tapped. A letter sent before it comes
+   goes with no subject; a title that comes after Send, even a Send that
+   did not go, is not used. Once in, it is the share's own subject, as
+   Safari's is: Cancel asks nothing about it, and asks once he changes it.
+4. *The log*: "SHARE-TITLE asked"; "SHARE-TITLE status=200 error=0",
+   YouTube's status or, with no answer, the error's code; then
+   "SHARE-TITLE answered=1 chars=N ms=M filled=1". Numbers alone, never
+   the title or the video (D-016).
+5. *The test that held the share sheet to no fetch* (B-125) now holds it
+   to this one: no file of the share sheet but `VideoTitle.swift` fetches
+   anything, and that one asks the one address, on an ephemeral session
+   built once.
+
+**Not changed.** Mail fetches nothing for a share's Subject (B-125); this
+fetch is the owner's ruling for the one app that hands an extension
+nothing. Safari's shares, words an app shares beside a link, the body,
+the HTML twin, the sheet's look. No new words on his screen.
+
+**What he sees.** A video shared from the YouTube app: the sheet as
+before, and a moment later its title in Subject and over the sheet, cut
+as the YouTube app cuts a long one. With no connection, or no answer from
+YouTube, Subject stays empty, as before.
+
+**What it costs.** One small request to YouTube for each share from the
+YouTube app, carrying the video's address, which YouTube has already,
+the share having come from its app. Nothing of his goes with it: no
+cookie, no account, no address of his. Should YouTube one day stop
+answering oEmbed, Subject stays empty, as B-125 left it, and nothing else
+changes; the install is never updated, so that is the way it fails.
+
+**Tests.** `VideoTitleTests`, ten, new: fourteen shapes of a video's link
+read to its id (youtu.be with and without `si`, http, a capital host,
+watch with `v` first, later or after another, m., music., shorts, live,
+embed); seventeen that are not (a channel, a playlist, the front page,
+watch with no `v`, ids too short, too long or with other characters,
+Wikipedia, look-alike hosts, a path that merely holds "youtu.be", ftp, a
+search); the question, oEmbed's address for the watch page whole, GET,
+JSON, no cookie, no cache, ten seconds; the title from a 200, quotes,
+apostrophe, accents and dashes untouched, newlines and end spaces gone;
+no title for any other status, no body, HTML, JSON without a title or
+with an empty or non-text one; the cut at 75, 76, 100, with accents and
+an emoji; the subject handed once, on the main thread, and not again at
+the wait's end; a long title handed cut; a refusal handed at once, no
+answer handed at the wait's end, a late answer not used; a link to no
+video not asked about. `ShareSheetTests`, two new: which video is asked
+about (alone, blank-named, named by its own address, after words, after
+an unnamed page; not Safari's named page, not after a named page, not a
+page, a channel, words or nothing); and the title going in only where
+nothing of his is, as the share's own subject, Cancel asking once he
+changes it, never twice, not after typing even if cleared, not over
+words, not without an answer, not after Cancel, not while a letter goes
+or after one that did not. `ShareNameTests`: the no-fetch test now holds
+the share sheet to the one fetch, and a new one holds the sheet's wiring
+(the video picked by `videoToName`, asked through `VideoTitle.web` once,
+Subject written only with what `named` allows, typing noted).
+
+Each part undone by hand, the three classes run, then put back and
+passing: every one failed a test. The cut at 75, or not at all; any host;
+an id of any length; any status; `done` called twice; called off the main
+thread; no deadline; a refusal left to the deadline; cookies kept; the
+shared session; a second address in `VideoTitle`; a URL session in
+`ShareSheet.swift`; typing, Send, Cancel or words in Subject not minded;
+the title not made the share's own; asked though the share named it; any
+link asked; a link named by its own address not asked; Subject written
+without `named`; typing not noted. 23 in all.
+
+The full suite, serially: 2,473 tests, 13 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-126's check).
+- A Send before the title comes: not tried on the iPad, since nothing is
+  sent in the rounds while the test account rings the owner's phone; the
+  host's tests hold it.
+- An emoji in a long title: none of his month's titles had one, so where
+  the YouTube app cuts around one is not known. Here it counts as one
+  character, as it shows.
+- The 14 videos YouTube would not name keep an empty subject where Mail
+  had the title. Reading the video's own page for those would name them,
+  at the cost of fetching a page of about 1.4 MB that YouTube changes
+  often; not done, by the ruling's "falling back to empty".
+- His iPad's iPadOS 18 and its YouTube app: not seen. His letters show its
+  links are youtu.be.

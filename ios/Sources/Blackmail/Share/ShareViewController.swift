@@ -11,7 +11,9 @@ import AudioToolbox
 ///
 /// Mail's share sheet is the model. A small composer comes up over the app
 /// he is in, with the page's title as the subject where the sharing app
-/// hands one over (`ShareItems.name`, B-125) and the link in the body
+/// hands one over (`ShareItems.name`, B-125), or a YouTube video's title
+/// asked of YouTube where it hands over the link alone (`VideoTitle`,
+/// B-126), and the link in the body
 /// above his signature; he picks who it goes to and taps Send, and the
 /// letter goes from here, by the app's own `Submission`, without the app
 /// being opened. It is not a second copy of the app's composer: To, Cc/Bcc,
@@ -200,6 +202,11 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// Whether the sheet's one chance to be made ready to type has come
     /// and gone (`readyToType`).
     private var readied = false
+    /// The YouTube video whose title is asked for the subject, nil when
+    /// nothing is asked (`ShareSheet.videoToName`, B-126).
+    private var video: URL?
+    /// He has typed in Subject, so YouTube's title never goes there.
+    private var subjectTyped = false
     private let attachmentsStack = UIStackView()
     private var ccRow = UIView()
     private var bccRow = UIView()
@@ -249,6 +256,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         draft = sheet.letter(from: items)
         began = draft.body
         title = ComposeForm.title(subject: draft.subject)
+        video = sheet.videoToName(in: items)
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -369,6 +377,31 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         subjectField.delegate = self
         subjectField.addTarget(self, action: #selector(subjectChanged), for: .editingChanged)
         updateSend()
+        askForTheTitle()
+    }
+
+    /// A YouTube video shared with nothing naming it: its title asked of
+    /// YouTube, and put in Subject when it comes, as Mail has it from the
+    /// YouTube app, if he has typed nothing there and Send has not been
+    /// tapped (`ShareSheet.named`, B-126). Nothing waits for it; with no
+    /// answer Subject stays empty. The log says how long it took and
+    /// whether it was used, in numbers alone.
+    private func askForTheTitle() {
+        guard let video else { return }
+        let asked = Date()
+        Diagnostics.log(.note, "SHARE-TITLE asked")
+        VideoTitle.ask(for: video, through: VideoTitle.web) { [weak self] subject in
+            guard let self else { return }
+            let named = self.sheet.named(subject, now: self.subjectField.text ?? "",
+                                         typed: self.subjectTyped)
+            if let named {
+                self.subjectField.text = named
+                self.title = ComposeForm.title(subject: named)
+            }
+            let ms = Int(Date().timeIntervalSince(asked) * 1000)
+            Diagnostics.log(.note, "SHARE-TITLE answered=\(subject == nil ? 0 : 1) "
+                + "chars=\(subject?.count ?? 0) ms=\(ms) filled=\(named == nil ? 0 : 1)")
+        }
     }
 
     /// The keyboard has come up over the sheet: the caret is brought into
@@ -410,6 +443,7 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
 
     /// The title follows the subject as he types it, as Mail's does.
     @objc private func subjectChanged() {
+        subjectTyped = true
         title = ComposeForm.title(subject: subjectField.text ?? "")
     }
 
@@ -790,7 +824,9 @@ extension ShareItems {
         for item in inputs {
             // What names the share, its subject: the item's title, or
             // failing that its words, where Safari puts the page's title
-            // (`ShareItems.name`, B-125). Nothing is fetched for it.
+            // (`ShareItems.name`, B-125). A YouTube link that comes with
+            // neither has its title asked of YouTube as the sheet comes up
+            // (`VideoTitle`, B-126).
             let title = ShareItems.name(title: item.attributedTitle?.string,
                                         words: item.attributedContentText?.string)
             for provider in item.attachments ?? [] {

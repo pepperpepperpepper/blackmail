@@ -647,7 +647,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       video's title, which the YouTube app hands to Mail and to no share
       extension. The subject is what the share hands over that names it,
       Safari's page title; the YouTube share's stays empty for want of
-      one, and a fetch is left to the owner.*
+      one, and a fetch is left to the owner.* *Decided 2026-10-25 by the
+      owner: the title is fetched from YouTube (B-126).*
 - [x] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first. *Done 2026-09-29: B-044's checks were made on the iPad; what
@@ -1135,7 +1136,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       are, since each matches what Mail or iOS would do." Left as it is,
       as Mail has it: the popover takes the tap outside it, Send's bar
       included. That was the last step left.* *The ruling's part on the
-      YouTube share was reopened 2026-10-24 (B-125).*
+      YouTube share was reopened 2026-10-24 (B-125).* *Since 2026-10-25 the
+      title is fetched from YouTube, by the owner's ruling (B-126).*
 - [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
       B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
@@ -2584,7 +2586,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       2026-10-24 (B-125): its ground, that Mail does the same, does not
       hold, Mail giving the video's title. The subject stays empty because
       the YouTube app hands an extension nothing that names it, not by the
-      ruling; a fetch is an owner question.*
+      ruling; a fetch is an owner question.* *Decided 2026-10-25 by the
+      owner: the title is fetched from YouTube; with B-126 the subject is
+      the video's title a moment after the sheet comes up (B-126's
+      check).*
       12. *After these, the app's own password still works* after the
       Keychain groups change: the app signs in and sends.
       13. *Cancel with words in it.* Type a word above the signature and
@@ -5365,7 +5370,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       2. *The YouTube app:* a video, Share, Blackmail (under More if it is
       not in the row): Subject empty, "New Message" over the sheet, the
       link alone on the body's line under the empty first one. Cancel: it
-      closes without asking.
+      closes without asking. *From a build with B-126, Subject fills with
+      the video's title a moment later: B-126's check.*
       3. *The share sheet's header:* in 2, before Blackmail is tapped,
       what the share sheet's header shows over its rows written down (the
       video's title or not): what iOS was given, which the extension is
@@ -5373,6 +5379,37 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Words beside a link,* if an app at hand shares them (Notes with
       a link in a note, or another): what Subject shows, written down.
       Cancel.
+
+- [ ] **B-126, a YouTube share's subject, fetched.** On the test iPad,
+      the test account only, from a build with the change installed
+      through TrollStore's helper as the share extension is (B-036). Nothing
+      is sent: every share ends with Cancel or Delete Draft. Screenshots at
+      the sheet's first frame and a second after.
+      1. *The YouTube app:* a video with a title of 75 characters or
+      fewer, Share, Blackmail: the sheet comes up as before, To ready to
+      type, and within a second or two Subject holds the video's title as
+      the YouTube app shows it, and the sheet's title with it; written
+      down, with how long it took. Cancel: it closes without asking.
+      2. *A long title:* a video whose title is longer than 75 characters
+      (search YouTube for "full concert live" or the like, and count):
+      Subject is its first 72 characters and "...". Cancel.
+      3. *Typed first:* share a video, tap Subject at once and type `x`
+      before the title comes (or, where it comes too fast to beat, note
+      that): Subject stays `x`. Cancel asks; Delete Draft.
+      3b. *In Subject when it comes:* share a video, tap Subject at once
+      and type nothing: the title comes into the field he is in, the caret
+      at its end; type ` x`: it follows the title, and the sheet's title
+      with it. Cancel asks; Delete Draft.
+      4. *No connection:* Airplane Mode on (Wi-Fi off with it), share a
+      video: the sheet as fast as before, Subject empty and staying so
+      for 15 s. Cancel. Airplane Mode off, Wi-Fi back.
+      5. *Safari:* the same video's page in Safari, Share, Blackmail:
+      Subject "… - YouTube", Safari's title, as before; nothing asked.
+      Cancel.
+      6. *Not a video:* a channel's page shared from the YouTube app, if
+      it offers Blackmail: Subject empty. Cancel.
+      Send before the title comes is not tried: nothing is sent in these
+      rounds, and the host's tests hold it (`ShareSheetTests`).
 
 - [ ] **B-122, a photo in a letter, tapped.** On the test iPad, the test
       account only, built from the `bm-photo` worktree (branch
@@ -5725,7 +5762,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       "Recent search," (B-105); the Forward question with "Include" and
       "Don't Include" (B-107); "Photo Library", "Attach File" and the
       sentences for files that could not be attached (B-108).
-- [ ] **A YouTube share's subject** (B-125): Mail's is the video's title,
+- [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a
       search by title cannot find. Naming it needs the page's title fetched
@@ -5735,7 +5772,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       letter, which it makes a rich link. A fetch here would have to never
       hold Send, never write over a subject he has typed, and leave it
       empty when the fetch fails. As built (empty, the default), or the
-      fetch.
+      fetch. *Decided 2026-10-25 by the owner: "fetch the title from
+      YouTube for those shares, falling back to empty if it doesn't
+      answer." Built from YouTube's oEmbed, not yet seen on the iPad: see
+      B-126.*
 
 ## Open, recorded, not scheduled
 
