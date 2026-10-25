@@ -86,8 +86,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// said or it is let go (`openAttachment`).
     private var filesOpening = 0
     /// Which file or picture tapped opens as it lands: the last one tapped,
-    /// while no letter of the conversation has been opened by its line
-    /// since (`FileTaps`, B-141).
+    /// while no other letter of the conversation has been opened by its
+    /// line since, and which are coming (`FileTaps`, B-141).
     private var fileTaps = FileTaps()
 
     private let header = MessageHeaderView()
@@ -591,12 +591,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         // Reply held. They used to stay on the letter before until its body
         // came, and a letter reopened whose body was kept took them at once,
         // to lose them to one opened before it that landed after.
+        let headerWasOn = stackFocus.letter
         if focus, stackFocus.opened(id, kept: already != nil && body != nil) == .row {
             focusRow(row)
         }
         // A file tapped in the letter he has left is let go as it lands
-        // (B-141): it would open over this letter's header.
-        if focus { fileTaps.lineOpened() }
+        // (B-141): it would open over this letter's header. The line of
+        // the letter the header is on already, closed and opened again,
+        // lets nothing go.
+        if focus { fileTaps.lineOpened(id, headerWasOn: headerWasOn) }
         // Opened before, and its body is in its section: put back as it
         // went in, with nothing to build again.
         if let already, let body {
@@ -911,18 +914,24 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// letter he has tapped past, emptied or moved on from meanwhile is
     /// neither shown over the letter he stopped on nor said to have failed,
     /// as a letter's body is not (`PaneLoads.draws`). Its download is not
-    /// called off; it ends, and is let go (B-122). And only if it is the
-    /// last file he tapped, and no letter of the conversation has been
+    /// called off; it ends, and is let go (B-122). And only if the last
+    /// tap was on it, and no other letter of the conversation has been
     /// opened by its line since (`FileTaps`, B-141): one tapped before
     /// another opened over the letter he had moved to, and the one he
     /// tapped last, landing under it, was let go without a word. An
     /// earlier one is let go as it lands, its spinner cleared by the
-    /// `defer`, and the last one keeps its spinner until it opens.
+    /// `defer`, and the last one keeps its spinner until it opens. A file
+    /// tapped again while it is still coming starts no second download:
+    /// the one running opens it as it lands.
     private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
         let shown = loads.shown
-        let tap = fileTaps.tapped()
+        let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown)
+        // Already coming: this tap makes it the last again, and its
+        // download, running, opens it (B-141). A second behind it on the
+        // one connection made him wait for both.
+        guard fileTaps.tapped(file) else { return }
         // Counted at the tap, not once the task runs, so that no check of
         // the watch comes between (`isOpeningFile`). A file let go for a
         // later one is still counted until its download ends: the warning
@@ -937,6 +946,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // come and its rows can be opened.
             defer {
                 filesOpening -= 1
+                fileTaps.ended(file)
                 if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
             }
             do {
@@ -946,7 +956,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 guard loads.stillShows(shown) else { return }
                 // Another file tapped since, or another letter opened by
                 // its line: that is what he wants now (B-141).
-                guard fileTaps.opens(tap) else { return }
+                guard fileTaps.opens(file) else { return }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -974,7 +984,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             } catch {
                 // Nor is a failure said over another letter, or for a file
                 // he has tapped past.
-                guard loads.stillShows(shown), fileTaps.opens(tap) else { return }
+                guard loads.stillShows(shown), fileTaps.opens(file) else { return }
                 ErrorPresenter.show(.attachmentFailed, on: self)
             }
         }

@@ -24127,10 +24127,14 @@ stack's lines and nothing else, and on a letter's own page nothing at all.
    next one, or "Attachment could not be downloaded." after a time out.
    Another letter of the conversation opened meanwhile, or his letters
    from Sent Mail put in, is the same conversation shown, and the picture
-   opens. The download is not called off: it ends, and is let go. In
-   `openAttachment`, so a file's row, in the header or among the words
-   (B-113), is held to it as well; its file used to come up over whatever
-   the pane showed by then.
+   opens. *Since B-141 the last tap wins: a picture or a file tapped
+   before another is, or before another letter of the conversation is
+   opened by its line, is let go as it lands; his letters from Sent Mail
+   put in, and the line of the letter the header is on opened again,
+   still let nothing go.* The download is not called off: it ends, and
+   is let go. In `openAttachment`, so a file's row, in the header or
+   among the words (B-113), is held to it as well; its file used to come
+   up over whatever the pane showed by then.
 6. The comments that said a letter's page gets nothing from the script,
    and that the pane keeps nothing of his letters from Sent Mail but their
    bodies, say what is so now (`ConversationDocument`, `PaneRelated`,
@@ -24228,11 +24232,13 @@ failing. The release build for the iPad links.
   opens a logo or a picture drawn small, by the reports; here neither does.
 - No sign while a picture downloads, where a file's row in the header shows
   a spinner; a second tap meanwhile fetches it again, and only the first is
-  shown (`openAttachment`). A picture, or a file, whose letter he has left
-  before it comes is not called off: it ends on the one connection, the
-  next letter's body waiting behind it, and is let go (Changed, 5). That
-  nothing then comes up over the next letter is from `PaneLoads` and the
-  source, not seen; the check's step 4 looks.
+  shown (`openAttachment`). *Since B-141 a second tap on it while it comes
+  fetches nothing: the download running opens it as it lands.* A
+  picture, or a file, whose letter he has left before it comes is not
+  called off: it ends on the one connection, the next letter's body
+  waiting behind it, and is let go (Changed, 5). That nothing then comes
+  up over the next letter is from `PaneLoads` and the source, not seen;
+  the check's step 4 looks.
 - The touch and hold stays WebKit's, not Mail's Save Image and Save to
   Files. With a click listener on the picture, WebKit's menu is expected
   as before, and no Quick Look after it; a hold WebKit does not take for
@@ -27283,14 +27289,17 @@ failing. The release build for the iPad links.
 
 **Found** on the test iPad on 2026-10-25, in the round of letters the
 host made (r6-s6-host-letters, a build of int16 at 662d63d), and made
-again in a second run. Seen in passing before, on 2026-10-21, in B-042's
-check of the header's files: "each time the first letter's file then
-opened in Quick Look over the second letter" (TODO, B-042, the header's
-files). In a conversation, A's PDF of 14.7 MB was tapped and began
-downloading. Then B's line was tapped, which moves the header to B
-(B-129), and then B's own file. A's PDF opened in Quick Look when it
+again in a second run. In a conversation, A's PDF of 14.7 MB was tapped
+and began downloading. Then B's line was tapped, which moves the header
+to B (B-129), and then B's own file. A's PDF opened in Quick Look when it
 landed, over B's header, and B's file was let go without a word, its
-spinner cleared.
+spinner cleared. Not seen before: B-042's check of 2026-10-21 saw a first
+letter's file open over a second ("each time the first letter's file then
+opened in Quick Look over the second letter", TODO, B-042, the header's
+files), but those were two letters of the list, on a build before B-122,
+whose `stillShows` has let such a file go since 2026-10-24. This is the
+same within a conversation, where another letter's line leaves the pane
+on the same conversation.
 
 **What Mail does.** Not seen. Mail draws each file in its own letter, in
 its place in the conversation, its download shown on the file itself;
@@ -27315,76 +27324,128 @@ in a conversation it was.
 1. *Each tap takes a number* (`FileTaps`, new, out of the controller so
    the suite can run it): a file or a picture tapped takes the next one at
    the tap (`tapped`), and the last tap holds the last number
-   (`lastFileTapped`).
-2. *The last file tapped opens* (`openAttachment`). After the
-   `stillShows` guard, a file whose number is not the last is let go as it
-   lands: not shown, and its row's spinner cleared by the `defer`, as
-   before for a file the pane had moved on from. The same in the failure's
-   path: no failure said for a file he has tapped past. So B keeps its
-   spinner while A's download ends, and opens as it lands. In a single
-   letter too: two files tapped in turn, the second opens whichever lands
-   first, where the first to land opened and the second, landing under
-   it, was let go.
-3. *A letter opened by its line lets go every file tapped before it*
-   (`lineOpened`, in `loadBody` beside the header's move,
-   `StackFocus.opened`), which is what the comment has promised since
-   B-122: a file of the letter he has left does not open over the one he
-   went to, whether or not he taps a file there. A line closed takes no
+   (`lastFileTapped`). The downloads running are kept by their file
+   (`FileTaps.File`: the letter's id, the part, and what the pane showed
+   at the tap, `PaneLoads.shown`), each with the number of the last tap on
+   it, and let go of in the `defer` as each ends (`ended`).
+2. *The file the last tap was on opens* (`openAttachment`, `opens`).
+   After the `stillShows` guard, a file the last tap was not on is let go
+   as it lands: not shown, and its row's spinner cleared by the `defer`,
+   as before for a file the pane had moved on from. The same in the
+   failure's path: no failure said for a file he has tapped past. So B
+   keeps its spinner while A's download ends, and opens as it lands. In a
+   single letter too: two files tapped in turn, the second opens
+   whichever lands first, where the first to land opened and the second,
+   landing under it, was let go.
+3. *A file tapped again while it comes starts no second download*
+   (`tapped` false, the pane returning before it counts or fetches). The
+   tap makes it the last again, and the download running opens it as it
+   lands, its spinner put back on the header's row if the header shows
+   its letter. As first built, every tap took a number and a download of
+   its own, so a second tap on a file already coming let the first copy
+   go as it landed, its spinner cleared, and Quick Look came only after a
+   second full download behind it on the one connection, a third for a
+   third tap. A row among a letter's words (B-113) and a picture (B-122)
+   have no spinner and are never held, and that is where he taps again
+   when nothing seems to happen. Before B-141 the first copy opened and
+   the second, landing under it, was let go. So also a file, another, then
+   the first again: the first's download, still running, is the one that
+   opens; and A's file, B's line, A's line and A's file again: A's
+   download opens it, with nothing fetched twice. Once a download has
+   ended, a tap fetches the file again; the pane given something else
+   since, the same file tapped there is another download, and the first
+   is let go by `stillShows`, as before.
+4. *A letter opened by its line lets go every file tapped before it, when
+   the header moves to it* (`lineOpened`, in `loadBody` beside the
+   header's move, `StackFocus.opened`), which is what the comment has
+   promised since B-122: a file of the letter he has left does not open
+   over the one he went to, whether or not he taps a file there. The line
+   of the letter the header is on already, closed and opened again, takes
+   no number: `loadBody` reads the header's letter before it moves
+   (`headerWasOn`). As first built, any line opened took one, so A's file,
+   then A's own line closed and opened again, the header never leaving A,
+   let A's file go as it landed without a word. A line closed takes no
    number, nor does a line of one of his letters from Sent Mail (B-104),
-   which leaves the header where it was.
-4. *B-137's wait is as it was.* `filesOpening` is still counted at the tap,
+   which leaves the header where it was. This reverses what B-122's entry
+   wrote down on purpose for a conversation ("Another letter of the
+   conversation opened meanwhile ... is the same conversation shown, and
+   the picture opens"), which now says so.
+5. *B-137's wait is as it was.* `filesOpening` is still counted at the tap,
    before the task, and put back in the `defer` only once the download has
    ended, the preview up, the failure said or the file let go; nothing is
    awaited between the landing and the preview. A file let go for a later
    one is counted until its download ends, so the warning waits for it as
    for the one that opens: at most for as long as that download takes,
-   when nothing it covers is coming. The comment at the count says so.
+   when nothing it covers is coming. The comment at the count says so. A
+   tap on a file already coming adds nothing to the count: the download
+   it waits for is counted already.
 
 **Not changed.** A download is not called off: the app's one connection
 fetches in turn, so B's file still waits behind A's 14.7 MB (B-042's
 "Left"). The pane moving on, another row tapped or the pane emptied, lets
 a file go as before (B-122). Nothing new is said to him: a file let go
 goes without a word, as one of a letter he moved on from always has. A
-file tapped again is fetched again (B-097).
+file tapped again once its download has ended is fetched again (B-097).
 
 **What he sees.** In a conversation, a large file tapped, then another
 letter opened, then a file there: the second file opens in Quick Look as
 it comes, over the letter he is on, and the first never opens. A large
 file tapped, then another letter opened, and nothing more: nothing opens
 over it. Two files of one letter tapped one after the other: the second
-opens. Going back to the first letter and tapping its file opens it, after
-its download again.
+opens. Going back to the first letter and tapping its file opens it, as
+its download, still running, lands, or after another once it has ended.
+A file tapped twice while it comes opens once, as soon as it lands.
 
-**Tests.** `LastFileTappedTests`, seven, new. The rule (`FileTaps`): the
+**Tests.** `LastFileTappedTests`, twelve, new. The rule (`FileTaps`): the
 round's race, A's file, B's line, B's file, B alone opening; a file of the
 letter he left let go with nothing tapped after it; of two files, the
-second. Over the real `PaneLoads`, each download held until the test lets
-it go, the pane's steps as its copy: the round's race, A landing first and
-let go, B's spinner kept and the warning's count still 1, then B opening
-and the count 0; A tapped past with nothing more, landing or failing,
-neither shown nor said, the warning waiting for it until it ended; two
-files of one letter, the second opening whichever lands first, the last
-one's failure alone said, and a line closed letting nothing go; another
-row shown letting a file go as before. And the pane, read: the number
-taken at the tap with the pane's place, before the task, the guard after
-`stillShows` and before anything over the pane is looked at, and in the
-failure's guard, the line's number taken after the header's move and
-before anything is fetched, one place each, never reset.
-`PictureTapTests` and `ExpiryWarningTests` pin `openAttachment` with its
-new lines where they pinned it, B-137's "nothing awaited between" still
-holding; `StackHeaderAtTheTapTests` pins `loadBody` with its new line.
+second; the header's own line opened again letting nothing go, another
+letter's letting it go; the same file tapped again while it comes
+starting no download and opening, after another file and after another
+letter's line and back too, fetched again once ended, and another
+download where the pane has been given something else. Over the real
+`PaneLoads`, each download held until the test lets it go, the pane's
+steps as its copy: the round's race, A landing first and let go, B's
+spinner kept and the warning's count still 1, then B opening and the
+count 0; A tapped past with nothing more, landing or failing, neither
+shown nor said, the warning waiting for it until it ended; two files of
+one letter, the second opening whichever lands first, the last one's
+failure alone said; one file tapped twice and three times, one download,
+the spinner kept and the count 1 until it lands, opened as it lands or
+its failure said once, then tapped again and fetched again; a file,
+another, the first again, the first's one download opening; A's file,
+B's line, A's line, A's file, one download, opening; A's file, A's line
+closed and opened again, opening, and a line closed letting nothing go;
+another row shown letting a file go as before, and the file tapped there
+again opening from a download of its own. And the pane, read: the file
+named with the pane's place at the tap, a file already coming returning
+before the count and the task, the download let go in the `defer` with
+the count, the guard after `stillShows` and before anything over the
+pane is looked at, and in the failure's guard; the header's letter read
+before it moves, the line's number taken only for another letter, before
+anything is fetched; a line closed returning before `loadBody`; one place
+each, never reset. `PictureTapTests` and `ExpiryWarningTests` pin
+`openAttachment` with its new lines where they pinned it, B-137's
+"nothing awaited between" still holding; `StackHeaderAtTheTapTests` pins
+`loadBody` with its new lines.
 
-Each part undone by hand, `LastFileTappedTests`, `PictureTapTests`,
-`ExpiryWarningTests` and `StackHeaderAtTheTapTests` run, then put back
-and passing, counted as failures in tests: every file opening as it
-lands, 10 in 5; a line opened letting nothing go, 3 in 2; a tap taking no
-new number, 5 in 2; the pane not asking at the landing, 4 in 3; the pane
-saying an earlier file's failure, 3 in 2; a line opened taking no number
-in the pane, 3 in 2; the number taken in the task, not at the tap, 3 in
-3. 31 in all.
+As first built, each part undone by hand, `LastFileTappedTests`,
+`PictureTapTests`, `ExpiryWarningTests` and `StackHeaderAtTheTapTests`
+run, then put back and passing, counted as failures in tests: every file
+opening as it lands, 10 in 5; a line opened letting nothing go, 3 in 2; a
+tap taking no new number, 5 in 2; the pane not asking at the landing, 4
+in 3; the pane saying an earlier file's failure, 3 in 2; a line opened
+taking no number in the pane, 3 in 2; the number taken in the task, not
+at the tap, 3 in 3. 31 in all. Since the review, the same four run: a tap
+on a file already coming starting a download of its own, 22 in 3; the
+header's own line taking a number, 3 in 2; a download ended never let go
+of, 8 in 2; the pane fetching a file already coming, 3 in 3; the pane not
+saying which letter the header was on, 2 in 2; the pane never ending a
+download, 3 in 2. 41 in all.
 
-The full suite, serially: 2,584 tests, 7 of them new here and B-140's
-twelve, 6 skipped, none failing. The release build for the iPad links.
+The full suite, serially: 2,584 tests as first built, 7 of them new here
+and B-140's twelve; since the review 2,589, five more here; 6 skipped,
+none failing. The release build for the iPad links.
 
 **Not covered.**
 
@@ -27393,11 +27454,16 @@ twelve, 6 skipped, none failing. The release build for the iPad links.
   test's own copy over `PaneLoads`, not through Quick Look.
 - A file let go says nothing. He tapped A's PDF, opened B, and the PDF
   does not open; if he wanted it, he goes back and taps it again, and it
-  is fetched again (B-097). Nothing tells him it was let go; Mail's way,
-  the file's download drawn on the file itself, was not looked at.
+  opens as its download, if still running, lands, or is fetched again
+  (B-097). Nothing tells him it was let go; Mail's way, the file's
+  download drawn on the file itself, was not looked at.
 - The earlier download is not called off, so the file he tapped last
   waits behind it on the one connection, seconds for 14.7 MB, and the
   warning before the app stops opening waits for both.
 - A letter he goes back to has its header drawn afresh: a file of it whose
-  download is still running shows no spinner there, and a second tap
-  fetches it a second time behind the first.
+  download is still running shows no spinner there until he taps it
+  again, which opens that download rather than fetching a second. Nor is
+  the spinner put back when the header is drawn again for the letter it
+  was on, A's own line closed and opened again.
+- A row among another letter's words, or a picture, shows nothing while
+  its file comes, as before (B-113, B-122).

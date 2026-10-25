@@ -469,15 +469,17 @@ final class PictureTapTests: XCTestCase {
             "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) { "
                 + "guard let m = letter ?? message else { return } "
                 + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
-                + "let shown = loads.shown let tap = fileTaps.tapped() filesOpening += 1 "
+                + "let shown = loads.shown "
+                + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
+                + "guard fileTaps.tapped(file) else { return } filesOpening += 1 "
                 + "Task { @MainActor in"))
         XCTAssertTrue(code.contains(
             "let data = try await repository.fetchAttachmentData( attachment.id, of: m.id, mailboxID: m.mailboxID) "
                 + "guard loads.stillShows(shown) else { return } "
-                + "guard fileTaps.opens(tap) else { return } "
+                + "guard fileTaps.opens(file) else { return } "
                 + "guard presentedViewController == nil else { return }"))
         XCTAssertTrue(code.contains(
-            "} catch { guard loads.stillShows(shown), fileTaps.opens(tap) else { return } "
+            "} catch { guard loads.stillShows(shown), fileTaps.opens(file) else { return } "
                 + "ErrorPresenter.show(.attachmentFailed, on: self) }"))
         XCTAssertEqual(code.components(separatedBy: ".attachmentFailed, on: self)").count - 1, 1)
     }

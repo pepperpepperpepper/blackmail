@@ -1024,13 +1024,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       and its rows can be tapped, only once the first download is over.
       Seen in passing: each time the first letter's file then opened in
       Quick Look over the second letter.*
-      *Since B-141 (2026-10-25), found again in the round of 2026-10-25:
-      the first letter's file no longer opens over the second, nor takes
-      the place of the second letter's own. The file tapped last opens, and
-      a file tapped before another file, or before another letter's line,
-      is let go as it lands, its spinner cleared; the second letter's file
-      keeps its spinner and opens as it comes. B-141's check; the download
-      of the second letter's own as the first ends still cannot be made.*
+      *Since B-122 and B-141: the sighting above was of two letters of
+      the list, on a build before B-122, whose `stillShows` (2026-10-24)
+      has let the first letter's file go since, once another row is
+      tapped. B-141 (2026-10-25) closes the same within a conversation,
+      first seen in the round of 2026-10-25, where another letter's line
+      leaves the pane on the same conversation and the first letter's file
+      opened over the second's header, the second's own let go. Now the
+      last tap wins: a file tapped before another file, or before another
+      letter's line, is let go as it lands, its spinner cleared; the
+      second letter's file keeps its spinner and opens as it comes; a file
+      tapped again while it comes is not fetched again. B-141's check; the
+      download of the second letter's own as the first ends still cannot
+      be made.*
 - [x] **B-042, Drafts.** Use drafts that have reached Gmail: a row "On
       this iPad only" opens at once, with no spinner. Tap a draft: its row
       stays highlighted with a spinner in the left gutter, the text beside
@@ -6316,10 +6322,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       read after each step; Quick Look's Done closes each preview.
       0. *The letters:* a conversation of two, dated two days back. (A)
       "B-141 files", with two files: a PDF of about 14.7 MB, many pages,
-      made by the host, and "note.txt" of a few hundred bytes, so the
-      letter is over 5 MiB and opened in parts. (B) "Re: B-141 files", an
-      hour later, its In-Reply-To and References naming A, with a PDF of
-      about 100 KB.
+      made by the host, sent among the letter's words as Mail on an iPad
+      sends one (an HTML part, the PDF, an HTML part), so its row is among
+      A's words (B-113) as well as in the header, and "note.txt" of a few
+      hundred bytes, so the letter is over 5 MiB and opened in parts. (B)
+      "Re: B-141 files", an hour later, its In-Reply-To and References
+      naming A, with a PDF of about 100 KB.
       1. *The round's race:* "Notes", the conversation's row: B open, the
       header on B. Tap B's line: it closes, the header stays. Tap A's line:
       A opens, the header on A, its two rows grey, then blue. Tap the large
@@ -6341,7 +6349,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       first, then note.txt's: the large PDF never opens; note.txt opens as
       its FETCH ends. Before 2026-10-25 the PDF opened and note.txt was let
       go. Done.
-      4. *Put back:* the host moves the two UIDs it noted, and only them,
+      4. *The header's own line:* the header on A. Tap the large PDF: its
+      spinner. Within two seconds tap A's line: it closes, the header stays
+      on A; tap it again: A opens, the header on A. Tap nothing else. When
+      the log's FETCH for the PDF ends, it opens in Quick Look. As first
+      built, it was let go. Done.
+      5. *One file tapped twice:* the header on A. Scroll to the large PDF's
+      row among A's words, which has no spinner, and tap it; two seconds
+      later tap it again, and a third time. The header's row has its
+      spinner throughout. The log has the PDF's part fetched once, and
+      Quick Look comes as that fetch ends, once. As first built, each tap
+      fetched it again and Quick Look came after the last. Done. Tap it again: it opens
+      again. Done.
+      6. *Put back:* the host moves the two UIDs it noted, and only them,
       from "Notes" to the Trash (`UID MOVE`), deletes in the Trash only the
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.
