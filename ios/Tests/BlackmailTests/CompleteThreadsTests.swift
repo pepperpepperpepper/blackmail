@@ -1276,10 +1276,10 @@ final class CompleteThreadsTests: XCTestCase {
     /// A tap on his line opens or closes it and fetches its body, and does
     /// nothing else, before the conversation's own letters are looked at: no
     /// read mark, and no focus, so the header and the toolbar stay on the
-    /// letter he opened last whether they follow a letter when its body
-    /// lands, as now, or at the tap. And his body landing has no way to
-    /// the header: its load and its settling touch none of what the
-    /// toolbar acts on, and never reach `focusLetter`.
+    /// letter he opened last, which takes them at the tap since B-129. And
+    /// his body landing has no way to the header: its load and its settling
+    /// touch none of what the toolbar acts on, and never reach `focusRow`
+    /// or `focusLetter`.
     func testATapOnHisLineNeitherMarksNorFocuses() throws {
         let code = try source("UI/MessageDetailViewController.swift")
         let tapped = try section(of: code, from: "func userContentController(",
@@ -1294,7 +1294,7 @@ final class CompleteThreadsTests: XCTestCase {
         let related = try section(of: code, from: "private func loadRelated(",
                                   to: "private static let couldNotDownload")
         for never in ["focusLetter", "markOpened", "onLetterOpened", "drawBody", "settleBody",
-                      "loadBody", "focused", "message =", "summary =", "self.summary", "loaded[",
+                      "loadBody", "stackFocus", "focusRow", "message =", "summary =", "self.summary", "loaded[",
                       "threadSummaries", "stackLetters", "header.", "setActionsEnabled"] {
             XCTAssertFalse(related.contains(never), never)
         }
@@ -1314,7 +1314,7 @@ final class CompleteThreadsTests: XCTestCase {
         }
         XCTAssertFalse(related.contains("fill(m.id"))
         let take = try section(of: code, from: "private func takeRelated(", to: "private func loadRelated(")
-        for never in ["focusLetter", "markOpened", "focused", "summary =", "message ="] {
+        for never in ["focusLetter", "markOpened", "stackFocus", "focusRow", "summary =", "message ="] {
             XCTAssertFalse(take.contains(never), never)
         }
     }

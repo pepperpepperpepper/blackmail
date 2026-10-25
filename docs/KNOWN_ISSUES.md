@@ -3190,7 +3190,8 @@ and open as before after that; a file download from the letter before
 does not light them up early. The same holds when he opens a
 conversation. It does not hold when he opens another letter inside the
 stack: the header changes to that letter once it has come, files and all,
-as before. The Cc line, added under To by B-055, is known from the row too
+as before. *Since B-129 it holds there too: the header changes at the tap,
+from the letter's row.* The Cc line, added under To by B-055, is known from the row too
 since 2026-10-01, from its ENVELOPE, and is there from the tap. *So is the
 To line since B-127.*
 
@@ -6497,7 +6498,8 @@ needs a letter from another account and waits on a yes.
   with no Cc, so there was none, rightly. Its letter with a Cc, tapped
   offline, could not be downloaded, its words in the pane, and a letter
   whose body fails does not take the header. So the kept row's Cc was not
-  seen.
+  seen. *Since B-129 a letter of the stack takes the header at the tap,
+  from its row, Cc and all, whether or not its body comes.*
 
 Seen in passing: a header that gains a Cc line at a tap in the stack leaves
 the stack's first line half under it until the stack is scrolled (*fixed
@@ -10620,7 +10622,8 @@ at the top.
    at its top too, and the top of the pane went under the header, the
    stack's first line or the line he had tapped half under a Cc line.
    Since B-128 the stack keeps its offset and moves with the header, what
-   was at the top of the pane staying there, whole.*
+   was at the top of the pane staying there, whole; since B-129 the header
+   changes at the tap, from the letter's row.*
 5. *New mail goes at the bottom.* A letter that comes into the
    conversation open in the pane goes in at the bottom of its stack as the
    list takes it (`ConversationDocument.arrivals`,
@@ -25105,7 +25108,7 @@ sliver of the line above in at the top the same way.
    B-074's item 4 here and its check's step 5 in TODO, say what it is now.
 
 **Not changed.** When the header changes: still as the letter's body
-lands. The header's lines and sizes. The stack's own place-keeping as
+lands (*at the tap since B-129*). The header's lines and sizes. The stack's own place-keeping as
 letters above the top grow or shrink (B-074 item 4), and a letter opened
 growing below its own line. The single letter's pane, whose header is
 drawn before its page and is its final height from the tap (B-041, B-055,
@@ -25157,10 +25160,135 @@ links.
   page's own place-keeping finds nothing to move (its last letter's height
   follows the pane's, `100vh`, and nothing above the top changes).
 - What it costs: the line he tapped moves by the header's change, a Cc
-  line about 20 pt or a file's row 44 pt, as its letter's body lands. A
+  line about 20 pt or a file's row 44 pt, as its letter's body lands
+  (*at the tap since B-129*). A
   second tap made just then, on a line above the one he opened, lands that
   much off where the line was: within a closed line of about 45 pt for a
   Cc line, off it for two files' rows or more. Not tried.
 - A header that changes height for a reason of its own, a subject wrapping
   to two lines at a new width: the stack keeps its offset there too, as
   it always did, `keepPlace` running only when a letter takes the header.
+
+## B-129 — FIXED 2026-10-25, not yet seen on the iPad. A letter opened inside a conversation took the header and the toolbar only once its body had come, and one opened before it could take them back as it landed; the letter opened takes them at the tap, from its row, and the last one opened keeps them
+
+**Found** in the lag fixes, batch 4 (B-041, B-042), and left in TODO's
+"Left from batch 4": "Opening another letter inside a conversation still
+changes the header to that letter once its body has come, so a letter with
+a different number of files moves the stack then", and "a letter reopened
+in the stack whose body is already kept takes the header at once, so a
+letter opened before it and still coming takes the header back when it
+lands". Put in section 5 of the owner's list on 2026-10-25, its first and
+last parts; the second, search previews, is another branch's.
+
+**What Mail does.** Each letter of a Mail conversation carries its own
+header and its own buttons, in its place in the scroll (DECISIONS, Complete
+Threads, "a departure from Mail, where each letter of a conversation has
+its own buttons"; B-128's sources: medium), so there is no one header to
+follow a tap, and nothing of Mail's to copy here. The rule is the single
+letter's pane's since P1 (B-041), which the owner's list asks for.
+
+**What he saw.** He has not had the app; this is what it drew. A line
+tapped opened at once, "Loading…" under it, and the header and the toolbar
+stayed on the letter before until the body came, 0.2 to 0.7 s on the test
+iPad (B-055's check), seconds for a letter with a large file. A Flag, Move
+or Delete tapped then acted on that letter, not the one just opened, and
+Reply answered it. When the body came the header changed, and a letter
+with more or fewer files or Cc lines than the last changed its height and
+moved the stack then (since B-128, with the header). A letter whose body
+could not be downloaded never took the header (B-055's check, offline).
+And a letter opened again, its body in the stack already, took the header
+at once; a letter opened just before it and still coming then took it
+back when it landed, so the header named a letter he had left, and Reply,
+Flag, Move and Delete acted on it.
+
+**Changed.**
+
+1. *At the tap* (`StackFocus.opened`, `focusRow`). A letter he opens by its
+   line takes the header and the toolbar before its body is asked for: the
+   header drawn from its row, as the single letter's is
+   (`Message.heading(for:)`): its sender, To (B-127), Cc, its own subject,
+   date and files, the files grey. Flag, Move and Delete act on it from
+   then. Reply does nothing until its body has come, as the single
+   letter's pane has it since P1. The stack hangs from the header if it
+   changes height (B-128), at the tap.
+2. *As the body lands* (`focusLetter`, `StackFocus.takes`). The header is
+   made whole, the letter's own To and Cc, its files live, and Reply
+   answers it, only if it is still the letter he opened last. A letter
+   opened before it and still coming lands in its section and leaves the
+   header and the toolbar alone. A letter opened again whose body is in
+   the stack already takes them whole at once, as before.
+3. *A letter whose body fails* keeps the header from its row, its section
+   saying "This message could not be downloaded. Tap the line above twice
+   to try again.", Reply doing nothing for it, as the single letter's pane
+   has it; Flag, Move and Delete act on it.
+4. The comments and entries that said the header follows a letter when its
+   body lands (`PaneLoads`' order, Reply's, the stack's focus,
+   `CompleteThreadsTests`' comment; B-042's files paragraph, B-055's kept
+   Inbox, B-074's item 4 here; DECISIONS' Complete Threads; TODO's "Left
+   from batch 4", B-055's check and B-074's step 5) say what it is now.
+
+**Not changed.** A line closed: nothing changes. His letters from Sent Mail
+in the stack never take the header (B-104), nor the unread letters opened
+with the newest, nor letters that come while it is open (B-074). The
+newest, as the stack opens: the header from its row at the tap on the
+conversation's row, as before, made whole when it lands unless he has
+opened another meanwhile. The read mark at the tap on a line (B-074). The
+order the loads settle in (`PaneLoads`), kept for the pictures' loader,
+which still goes to the letter that settled last. No new words.
+
+**What he sees.** A line tapped: the header is that letter's at once, its
+sender, To, Cc, subject, date and its files grey, and the stack moves with
+the header then if the letter has more or fewer lines in it than the last
+(B-128); "Loading…" under the line, and the files blue and Reply answering
+it as its body comes. Several lines tapped quickly: the header follows each
+tap and stays on the last.
+
+**Tests.** `StackHeaderAtTheTapTests`, six, new. The rule
+(`StackFocus`): the stack's newest takes the header as it lands before any
+tap, a letter opened takes it at the tap from its row and the newest
+landing after leaves it alone, no conversation takes nothing; a letter
+opened again with its body kept takes it whole; the race, a letter opened
+and still coming, then one with its body kept, and four opened in turn,
+the last alone taking it as it lands. Over the real `PaneLoads`, every
+fetch held until the test lets it go, the pane's steps: a letter still
+coming does not take the header back from one opened after it with its
+body kept, its body put in its section all the same; of two coming, the
+second answered first, the second alone made whole. And the pane, read:
+the tap's focus before the fetch, the row's header when the body is not in
+the stack, Reply held, Flag, Move and Delete on the letter, the stack
+hanging from the header; a landing made whole only for the letter opened
+last; the focus set as the stack opens and forgotten by the other shows.
+`ReplyAddressingWiringTests` pins `focusLetter`'s guard where it pinned
+`focused = m.id`; `CompleteThreadsTests` looks for `stackFocus` and
+`focusRow` in his letters' code where it looked for `focused`, and its
+comment says the header follows a tap now.
+
+Each part undone by hand, the six run with `ReplyAddressing*`,
+`CompleteThreadsTests`, `ConversationOrderTests`, `FlagMenuTests` and
+`StackUnderTheHeaderTests`, then put back and passing, counted as failures
+in tests: every landing taking the header, as before, 10 in 4; a body kept
+taking it from the row, 5 in 3; the tap not moving the focus, 8 in 4; the
+pane drawing nothing at the tap, the header waiting for the body as
+before, 2 in 1; `focusLetter` unguarded, 2 in 2 (the source test and
+`ReplyAddressingWiringTests`).
+
+The full suite, serially: 2,489 tests, 6 of them new, 6 skipped, none failing. The release build for the iPad
+links.
+
+**Not covered.**
+
+- Not seen on the iPad (TODO, B-129's check).
+- The pane itself is UIKit: its steps are read from its source and run as
+  the test's own copy over `PaneLoads`, not through WebKit's message for a
+  tapped line.
+- Reply held shows nothing: the button stays blue and a tap on it does
+  nothing until the body comes, as in the single letter's pane since
+  B-041. With a large letter that can be seconds. Print, under Reply, the
+  same.
+- A Move or Delete tapped before the body comes takes the letter whose
+  header he sees, as in the single letter's pane; the letter's words are
+  not yet on screen then.
+- The pictures' loader is pointed at the letter whose body settled last:
+  the letter opened last, but where an unread letter opened with the
+  newest, or one that came while the stack was open, lands after it. As
+  before; not looked into here.

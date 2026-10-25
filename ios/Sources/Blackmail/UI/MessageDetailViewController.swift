@@ -46,10 +46,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// The loaded letters of that conversation, by id, so the toolbar can
     /// act on whichever one he last opened.
     private var loaded: [String: Message] = [:]
-    /// Which letter the toolbar's Reply and Flag apply to: the one most
-    /// recently expanded. Nil when the pane holds a single message, where
-    /// `message` is the answer.
-    private var focused: String?
+    /// Which letter of the conversation the header and the toolbar are on:
+    /// the newest as it opens, then the one he opened last, from the tap
+    /// (`StackFocus`, B-129). None when the pane holds a single message,
+    /// where `message` is the answer.
+    private var stackFocus = StackFocus()
     /// The list rows of the conversation on screen, by id, so the toolbar
     /// can be pointed at whichever letter he last opened.
     private var threadSummaries: [String: MessageSummary] = [:]
@@ -262,7 +263,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         stackLetters = []
         related.clear()
         markedUnreadHere = nil
-        focused = nil
+        stackFocus = StackFocus()
         title = ""
         header.isHidden = true
         webView.isHidden = true
@@ -310,7 +311,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         stackLetters = []
         related.clear()
         markedUnreadHere = nil
-        focused = nil
+        stackFocus = StackFocus()
         placeholder.isHidden = true
         header.isHidden = false
         webView.isHidden = false
@@ -399,7 +400,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         message = nil
         loaded = [:]
         markedUnreadHere = nil
-        focused = thread.newest.id
+        stackFocus = StackFocus(opening: thread.newest.id)
         threadSummaries = Dictionary(uniqueKeysWithValues:
             thread.messages.map { ($0.id, $0) })
         stackLetters = thread.messages.reversed()
@@ -559,12 +560,25 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// Fetches one letter of the conversation and puts it in its section.
     /// Called off with the rest if the pane moves on first; see `PaneLoads`.
+    /// `focus` when he opened it by its line: the header and the toolbar go
+    /// to it at the tap (B-129).
     @MainActor
     private func loadBody(for id: String, focus: Bool) {
         guard let row = threadSummaries[id] else { return }
+        let already = loaded[id]
+        let body = document.body(of: id)
+        // Opened by its line: the header and the toolbar are its from the
+        // tap, as the single letter's are, whole if its body is in the
+        // stack already, below, and from its row until it lands if not,
+        // Reply held. They used to stay on the letter before until its body
+        // came, and a letter reopened whose body was kept took them at once,
+        // to lose them to one opened before it that landed after.
+        if focus, stackFocus.opened(id, kept: already != nil && body != nil) == .row {
+            focusRow(row)
+        }
         // Opened before, and its body is in its section: put back as it
         // went in, with nothing to build again.
-        if let already = loaded[id], let body = document.body(of: id) {
+        if let already, let body {
             drawBody(already, body, focus: focus)
             return
         }
@@ -601,11 +615,29 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         if focus { focusLetter(m) }
     }
 
-    /// Points the header and the toolbar at one letter of the stack, and
-    /// keeps the stack hanging from the header if it changes height with
-    /// it (`StackPlace`, B-128).
+    /// Points the header and the toolbar at a letter of the stack he has
+    /// just opened by its line, before its body has come (B-129): the
+    /// header drawn from its row, as the single letter's is at the tap
+    /// (`Message.heading(for:)`), its files grey; Flag, Move and Delete on
+    /// it (`summary`); Reply held, `message` nil, until its body lands.
+    /// The stack hangs from the header if it changes height (`keepPlace`,
+    /// B-128).
+    private func focusRow(_ row: MessageSummary) {
+        message = nil
+        summary = row
+        let before = header.frame.height
+        header.configure(with: .heading(for: row))
+        header.onSelectAttachment = nil
+        keepPlace(headerWas: before)
+    }
+
+    /// The header and the toolbar made whole for a letter of the stack
+    /// whose body has come, if he has not opened another since
+    /// (`StackFocus.takes`, B-129): its own To and Cc, its files live, and
+    /// Reply its own. The stack hangs from the header if it changes height
+    /// with it (`StackPlace`, B-128).
     private func focusLetter(_ m: Message) {
-        focused = m.id
+        guard stackFocus.takes(m.id) else { return }
         message = m
         summary = threadSummaries[m.id] ?? summary
         let before = header.frame.height
@@ -989,8 +1021,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // The letter in the header last, so its pictures win a clash of
             // ids; see `prepareInlineImages`.
             let drawn = entries.compactMap { loaded[$0.id] }
-            prepareInlineImages(for: drawn.filter { $0.id != focused }
-                                    + drawn.filter { $0.id == focused })
+            prepareInlineImages(for: drawn.filter { $0.id != stackFocus.letter }
+                                    + drawn.filter { $0.id == stackFocus.letter })
             // The stack as it was first drawn, and the bodies put back into
             // it by script once it has loaded, as they first went in; see
             // `PaneDocument`.
@@ -1388,7 +1420,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// were visible on this screen, so it belongs where a test can reach it.
     ///
     /// `m` is the letter the pane shows, which in a conversation is the one
-    /// opened last (`focusLetter`): a Reply answers that letter, to its
+    /// opened last, once its body has come (`focusLetter`; until then
+    /// Reply does nothing, B-129): a Reply answers that letter, to its
     /// Reply-To, or to whom it went when it is his own (`ReplyAddressing`).
     /// Every address of his the app knows is handed in, the login as well
     /// as the address, so that none of them is sent a copy of his reply.

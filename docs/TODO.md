@@ -526,6 +526,11 @@ this host. Ordered by value, not by size.
       id, as Refresh does. Also left as it was: a letter reopened in the
       stack whose body is already kept takes the header at once, so a letter
       opened before it and still coming takes the header back when it lands.
+      *The first and last parts done 2026-10-25 as B-129, not yet seen on
+      the iPad: a letter opened in the stack takes the header and the
+      toolbar at the tap, from its row, Reply held until its body has
+      come, and the last letter opened owns the header whatever lands
+      after it (`StackFocus`). The search previews' part is left.*
 - [x] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -1717,7 +1722,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       fixed as B-095, seen fixed on B-095's build. The kept Inbox, offline:
       the conversation's row gives the header of its newest letter, which
       had no Cc, so none showed, rightly; its letter with a Cc, tapped
-      offline, could not be downloaded, and so did not take the header.
+      offline, could not be downloaded, and so did not take the header
+      (since B-129 it does, at the tap, from its row, Cc and all).
       Seen in passing: a header that gains a Cc line at a tap leaves the
       stack's first line half under it until the stack is scrolled (fixed
       as B-128, its check below); and an
@@ -2943,7 +2949,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       conversation, and tap the line above the newest: when its body comes
       the header loses its Cc line, and the line tapped stays where it was.
       *Since B-128 the stack moves up with the header instead, the line
-      tapped staying at the top of the pane, whole: B-128's check.*
+      tapped staying at the top of the pane, whole: B-128's check. Since
+      B-129 the header changes at the tap: B-129's check.*
       6. *The view button.* Down a long letter in the stack, switch from
       three panes to two and back: that letter stays the one at the top of
       the pane. Its lines wrap again, and other words of it can be at the
@@ -5667,6 +5674,51 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Two panes:* 1 to 3 again, then three panes back.
       7. *Put back:* the label's letters left for B-129's check, or moved
       to Trash by the host, as the owner prefers.
+      *On a build with B-129, as this branch is, the header changes at
+      the tap, not as the body lands; every step holds the same.*
+- [ ] **B-129, the conversation's header at the tap.** On the test iPad,
+      the test account only, built from the `bm-paneheader` worktree
+      (branch `fix-paneheader`) before it is merged. Nothing is sent: each
+      composer opened is closed by Cancel, then Delete Draft. The host
+      APPENDs five letters, read (`\Seen`), to a label of their own,
+      "B-129", dated six to two days back, one conversation (Gmail's
+      thread, each reply's References naming the one before), none of
+      them opened on this iPad before, so none kept on it (B-111): (a) a
+      PDF of about 4 MB, no Cc; (b) a Cc and a PDF of about 4 MB; (c)
+      three lines, no Cc, no file; (d) a PDF of about 4 MB, no Cc; (e) the
+      newest, three lines, no Cc, no file. Organize by Thread on, three
+      panes; a screen recording through each tap; the app's connection
+      log read after each step.
+      1. *Opened:* the conversation's row tapped: (e) open, (d)'s line at
+      the top of the pane; the header (e)'s.
+      2. *At the tap:* (b)'s line tapped. In the first frame after the
+      tap the header is (b)'s, its sender, To, Cc, subject and date, the
+      PDF's row grey, "Loading…" under (b)'s line, and the stack moved
+      down with the header, the line at the top whole (B-128). Reply
+      tapped before the body has come: nothing opens. Once it has: the
+      PDF's row blue; Reply, then Reply in its sheet: a composer quoting
+      (b), To (b)'s sender. Cancel, Delete Draft.
+      3. *Flag at the tap:* (d)'s line tapped and at once, before its
+      body has come, Flag, then Flag in its sheet: the host, read only,
+      finds `\Flagged` on (d) and on no other of the five. Flag again,
+      Unflag: on none.
+      4. *The race:* (a)'s line tapped and at once, before its body has
+      come, (b)'s line tapped twice, closed and opened again, its body
+      kept from 2: the header (b)'s at once, its PDF's row blue. When
+      (a)'s body comes, in its section, the header stays (b)'s, through
+      the half minute after. Reply, then Reply: a composer quoting (b).
+      Cancel, Delete Draft.
+      5. *No connection:* Airplane Mode on, (c)'s line tapped: the header
+      (c)'s from the tap, and in its section "This message could not be
+      downloaded. Tap the line above twice to try again."; Reply does
+      nothing. Airplane Mode off, (c)'s line tapped twice: its words, the
+      header the same, Reply answering (c); Cancel, Delete Draft.
+      6. *Two panes:* the conversation opened again, (a)'s, (b)'s and
+      (c)'s lines tapped one after another, quickly: the header follows
+      each tap and ends on (c)'s. Three panes back.
+      7. *Put back:* no flag on the five, no draft left in Drafts, and
+      the label's letters left or moved to Trash by the host, as the
+      owner prefers.
 
 ## Blocked on the owner
 

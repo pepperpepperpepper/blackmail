@@ -33,13 +33,17 @@ import Foundation
 /// into a script there as well.
 ///
 /// Loads for the same thing on screen settle in the order they were
-/// started, however long each page takes. A conversation's letter takes the
-/// header when it settles, so the one he opened last has to settle last:
-/// the fetches come in that order down the one connection, but a small
-/// letter's page is made in a millisecond and a large one's in a tenth of a
-/// second or more, and a letter opened after a large one would otherwise
-/// settle first and then lose the header, and Reply, Delete and the
-/// pictures' loader, to the one he opened before it.
+/// started, however long each page takes. A conversation's letter used to
+/// take the header when it settled, so the one he opened last had to
+/// settle last: the fetches come in that order down the one connection,
+/// but a small letter's page is made in a millisecond and a large one's in
+/// a tenth of a second or more, and a letter opened after a large one would
+/// otherwise settle first and then lose the header, and Reply, Delete and
+/// the pictures' loader, to the one he opened before it. Since B-129 the
+/// header and the toolbar go to a letter at the tap and are made whole only
+/// for the letter he opened last, whatever order they settle in
+/// (`StackFocus`); the pictures' loader still goes to the letter settled
+/// last, so the order is kept for it.
 @MainActor
 final class PaneLoads {
 
