@@ -589,16 +589,22 @@ this host. Ordered by value, not by size.
       his photos sit in the letter under his words, above the signature,
       as all of his Apple Mail picture letters did. B-109, and its check
       under "Blocked on the iPad coming back".*
-- [ ] **The print's "This message has no text." only where the pane's.**
+- [x] **The print's "This message has no text." only where the pane's.**
       From B-114 with B-110. `PrintPage.body` and `PrintPage.words` say
       "This message has no text." only where the pane would
       (`PanePage.isEmpty`), so a letter shown only in part prints with
       the pane's "Only the beginning…" line over whatever came, as B-114
-      has the pane. Not done yet: `PrintPage.words` says it for any letter
+      has the pane. ~~Not done yet: `PrintPage.words` says it for any letter
       whose text is empty, one shown only in part included, and
       `PrintPage.body` asks `MailText.hasNoVisibleContent` alone; nothing
-      in the print calls `PanePage.isEmpty`. With a test of each for a
+      in the print calls `PanePage.isEmpty`.~~ With a test of each for a
       letter with nothing in it said to be short, beside `PanePageTests`'.
+      *Done 2026-10-25, B-131: both ask `PanePage.isEmpty`; a letter that
+      is only a picture, which the pane shows, is its header alone in
+      words. `PrintPageTests`, two, the pane's five shapes of nothing.
+      Its check is under "Blocked on the iPad coming back". Also: an HTML
+      letter cut at 512 KiB has the line in words, as on its page, and the
+      question is asked once for both (`PrintPage.made`); two tests more.*
 
 ## Blocked on the iPad coming back
 
@@ -616,9 +622,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       words.* The outgoing half is verified by tests and Chromium renders.
       Every HTML letter the app sends with a signature carries the marker
       (`AppleMailHTML.signatureOpen`), so no send is needed. A letter shown
-      alone is drawn by `PanePage.letter`, which has no such rule, so its
-      signature shows white on the dark pane (seen in passing in B-074,
-      not yet looked into); that is what is left of this item.
+      alone is drawn by `PanePage.letter`, which had no such rule until
+      B-130, so its signature showed white on the dark pane (seen in
+      passing in B-074); that was what was left of this item.
       *Looked for on the test iPad 2026-10-21, a build of master with B-092
       (1233252): not possible. No conversation on the test account holds a
       letter with the signature: each of the 22 letters that carry it is
@@ -629,6 +635,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       black. Left: what the letter alone should show, seen as above and
       not yet looked into; the stack again on purpose needs a conversation
       holding a reply sent from the app, and the check sent none.*
+      *Built 2026-10-25 (B-130): a letter on its own has the stack's rules
+      now, from the one string (`SignatureSheet`), on every HTML letter's
+      page. Left: seeing both, which B-130's check below does with letters
+      the host puts in a label, none sent.*
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
       sends and arrives; see B-036. Still to try is below.* It is installed
@@ -4007,8 +4017,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A quote holding a signature's white sheet:* in the stack the
       sheet white with its own black words, not coloured, and the quote's
       bar beside it; on the letter's own page the sheet inverted as
-      before. A quote inside the sheet, in the stack: Mail's light colour
-      on the white.
+      before (*white since B-130, as in the stack*). A quote inside the
+      sheet, in the stack: Mail's light colour on the white.
       6. *Two panes and three:* 1 to 3 in each.
       7. *A PDF sent inline,* as Apple Mail sends one (multipart/mixed, the
       PDF `Content-Disposition: inline`, no `Content-ID`): its row in the
@@ -5034,6 +5044,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       `testNoPreviewFetchThrowsAwayWhatCameUnderANo` passes. *With
       B-110's print:* not done. It is an open item under "Doable now",
       the print's "This message has no text." only where the pane's.
+      *Done since, 2026-10-25 (B-131).*
 
 - [x] **B-115, Go to Date in a folder whose letters came out of order.** On
       the test iPad, the test account as filled for the size test (gap
@@ -5813,6 +5824,79 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *Put back:* no flag on the five, no draft left in Drafts, and
       the label's letters, with any copies, left or moved to Trash by the
       host, as the owner prefers.
+- [ ] **B-130, the signature's white sheet for a letter shown alone.** On
+      the test iPad, the test account, from a build of the
+      `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
+      composed, sent, moved or deleted in the app, so no new mail reaches
+      the phone the account is signed in on. Four letters the host makes
+      and APPENDs, read (`\Seen`), to a label of their own, "B-130", never
+      the Inbox, dated three days back, each with a Message-ID of its own,
+      new, and its own Date, and none naming any of the 22 letters below
+      in a Message-ID, In-Reply-To or References: Gmail can take a letter
+      APPENDed with a Message-ID it holds for the letter it holds, and
+      only label that one. The host notes each APPEND's UID from its
+      APPENDUID, and stops if one has none. (a) "B-130 alone", one of the
+      22 letters on the account that carry the signature, its HTML body
+      and its logo part copied, nothing else of it; (b) "B-130 stack", a
+      letter from another address, and (a)'s body as a reply to it, "Re:
+      B-130 stack", its In-Reply-To and References naming the first by
+      its new Message-ID, a day later, so the two are one conversation;
+      (c) "B-130 quoted", a reply that keeps the sheet's class, its
+      `<blockquote type="cite">` holding (a)'s body as Apple Mail's reply
+      and this app's quote it, alone in its thread. Before step 1, the
+      host lists the label: the four UIDs it noted and nothing else, or
+      stop. Three panes unless a step says two.
+      1. *Alone:* "B-130", then "B-130 alone": the signature on a white
+      sheet across the letter, its lines black, its links blue, the logo
+      as on paper, dark ink on the white; the words above it white on the
+      black. Then two panes: the same.
+      2. *One of the 22, alone,* one already read, in whichever folder
+      it is, nothing done to it: as 1.
+      3. *In a stack:* "Re: B-130 stack", the reply's line tapped open if
+      it is closed: its signature on the same white sheet as in 1, the
+      words and the logo alike.
+      4. *Quoted:* "B-130 quoted": the violet bar down the quote, and
+      inside it the sheet white with its black words and the logo. (A
+      reply from Gmail's web page renames the class, and its quoted
+      signature looks as before: not a step.)
+      5. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the signature's words black and the logo as on paper, no
+      black box; Cancel. No paper.
+      6. *Put back:* the host moves the four UIDs it noted, and only
+      them, from the label to the Trash (`UID MOVE`), deletes in the Trash
+      only the UIDs that move answered (`COPYUID`), then deletes the
+      label, empty. Never anything found by subject, Message-ID or label:
+      if the label holds a UID not noted, it is left, and written down.
+      Nothing else was written.
+- [ ] **B-131, Print's "This message has no text." only where the
+      pane's.** On the test iPad, the test account, from a build of the
+      `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
+      composed, sent, moved or deleted in the app, and nothing is printed
+      on paper: the Print panel's preview only. Two letters the host makes
+      and APPENDs, read (`\Seen`), to a label of their own, "B-131", never
+      the Inbox, dated three days back: (a) "B-131 only the beginning", over
+      5 MB, multipart/mixed of an HTML part whose first 2.2 MB are a
+      `<style>` holding only comments, then a paragraph of words, and a
+      PDF of about 4 MB, so the pane fetches the HTML's first 2 MiB alone
+      and they draw nothing; (b) "B-131 nothing", a small HTML letter of
+      `<div><br></div>`. Each with a new Message-ID of its own; the host
+      notes each APPEND's UID from its APPENDUID, and stops if one has
+      none. Three panes.
+      1. *Shown in part:* "B-131", then (a): the pane's grey "Only the
+      beginning of this message is shown." and nothing under it, never
+      "This message has no text." (B-114). If words show, the style was
+      not long enough: write it down and stop.
+      2. *Its print:* Reply, then Print: the preview has the header, then
+      the same grey line and nothing under it, never "This message has no
+      text."; Cancel.
+      3. *Nothing in it, whole:* (b): the pane's grey "This message has no
+      text."; Reply, Print: the preview the same words under the header;
+      Cancel.
+      4. *Put back:* the host moves the two UIDs it noted, and only them,
+      from the label to the Trash (`UID MOVE`), deletes in the Trash only
+      the UIDs that move answered (`COPYUID`), then deletes the label,
+      empty. Never anything found by subject, Message-ID or label.
+      Nothing else was written.
 
 ## Blocked on the owner
 
@@ -6040,6 +6124,15 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
       has a Mail widget; and one link shared from Safari, watched (Mail's
       icon, or his own circle at the top of the sheet).*
+- [ ] **His signature's white sheet** (B-130): Mail draws his signature
+      with the rest of the letter, black with white words and the logo
+      dark on it in Dark Mode or under Smart Invert (read in its code, not
+      seen). The app's white sheet in both panes (built, the default), or
+      none in the stack either, as Mail.
+- [ ] **A letter that is only a picture, printed in words** (B-131): when
+      its page cannot be drawn, its header alone (built, the default), as
+      the pane never says it has no text; or "This message has no text."
+      under it, as before, true of its words and not of the letter.
 - [ ] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's

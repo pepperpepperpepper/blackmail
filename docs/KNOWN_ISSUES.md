@@ -10858,7 +10858,8 @@ letter to the account itself. All nine steps of its TODO check passed.
 
 Seen in passing: in the stack, a reply's signature and what it quotes
 showed on a white sheet with dark words, where the first letter, opened
-alone, showed its signature white on the dark pane. Not looked into.
+alone, showed its signature white on the dark pane. Not looked into
+(*since B-130, a white sheet alone too*).
 
 **Not covered.**
 
@@ -20732,9 +20733,12 @@ print every letter open in it, the last at least a screen tall.
    that fits, and the pane's grey line, "Only the beginning of this
    message is shown.", is above it, as above a letter the pane already
    shortened. A letter with nothing in it prints the pane's "This message
-   has no text.", grey. `words` is the same letter in plain words, for
-   when the page cannot be drawn: the header's lines, a blank line, the
-   text, under the same limit and line. `jobName` is the subject. US
+   has no text.", grey (*since B-131, only where the pane says it*).
+   `words` is the same letter in plain words, for when the page cannot be
+   drawn: the header's lines, a blank line, the text, under the same limit
+   and line (*since B-131, a letter that is only a picture is the header
+   alone, and an HTML letter cut at 512 KiB has the line*). `jobName` is
+   the subject. US
    Letter, 612 × 792 pt, a 36 pt margin. The pane's map of pictures by
    Content-ID is now `PanePage.pictures(of:)`, which the pane and the
    print both read; the later letter wins a clash, as before.
@@ -25432,3 +25436,305 @@ links.
   small letter's and the steps that need a body still coming could pass
   on the old build. They carry about 3 MB now, fetched whole, and each
   such step is checked against the log's time for the FETCH.
+
+---
+
+## B-130 — FIXED 2026-10-25, not yet seen on the iPad. A letter with his signature shown alone had its signature white on the black and its logo a dark box hardly seen; it has the white sheet a conversation's stack gives it
+
+**Found** on the test iPad: in passing at B-074's check, 2026-10-07, and
+looked for on 2026-10-21 (TODO, "Confirm the signature's white sheet in
+the reading pane"). In a conversation's stack, a reply's signature and
+what it quotes showed on a white sheet with dark words. A letter with the
+signature shown alone had no sheet: its thirteen lines white on the black
+page, its links blue, and the logo as drawn, dark ink, a dark box hardly
+to be seen on the black. Every HTML letter the app sends with a signature
+carries the marker (`AppleMailHTML.signatureOpen`, a `<div
+class="bm-signature">` declaring a white sheet and black words); 22 such
+letters are on the test account, each alone in its thread.
+
+**What it was.** The stack's style sheet (`ConversationDocument.html`)
+has two rules for the marker under `.bm-html`: the sheet inverted a
+second time, which cancels the invert of the letter's HTML, and its
+pictures not inverted a third time. The page of a letter on its own
+(`PanePage.letter`) had the invert and the rule for pictures, and nothing
+for the marker, so the sheet took the invert with the words around it:
+its white black, its black words white, and the logo, its own invert
+cancelled, dark ink on the black. So since the app's first version.
+
+**What Mail does.** Read from iOS 18.6's MobileMailUI and MessageUI in
+the simulator runtime on the Mac (high for the rules; medium for how they
+draw his signature, inferred, not rendered or seen). Mail draws no sheet.
+In Dark Mode its pane gives a letter that declares no colour scheme, and
+has no picture from the web and no background picture on its body, the
+class `apple-mail-implicit-dark-support` (`_styleForSystemAppearance`),
+and its style sheet sets `-apple-color-filter: apple-invert-lightness()`
+on that root: WebKit turns the lightness of every colour in the letter,
+the sheet's white and its words' black with the rest, and leaves pictures
+as they are. A letter that declares a light scheme only, or has a picture
+from the web, is drawn light (`apple-mail-light-only`). His letters
+declare none: Mail reads the scheme of the root and of a `<meta>`, not
+the sheet's `color-scheme: light`, and his logo is a `cid:` picture. So
+on a dark iPad Mail draws his signature black with white words and the
+logo dark on it, as this pane drew it alone; in Light, black on white;
+under Smart Invert (D-010), inverted with the rest, the pictures left.
+The white sheet is this app's own, in the stack since its first version;
+this change makes the letter alone agree with the stack, not with Mail.
+Put to the owner (TODO, "Blocked on the owner"): the sheet kept in both
+pages, as built, or taken out of the stack too, to copy Mail.
+
+**Changed.**
+
+1. *One string for the rules* (`SignatureSheet.css(in:)`, new,
+   `Mail/SignatureSheet.swift`): the sheet inverted once more by the
+   pane's own invert, `invert(1) hue-rotate(180deg)`, which cancels it,
+   so the sheet is drawn as written; and the sheet's pictures, `img`,
+   `svg`, `picture` and `video`, with no filter, so the logo is not
+   inverted a third time. Each selector under the scope it is given, as
+   Mail's bars are (`QuoteBars.css(in:)`, B-101). Its class is the
+   marker's (`SignatureSheet.className`). The first rule also gives the
+   sheet the white and black its markup declares
+   (`SignatureSheet.colours`, `background-color: #fff; color: #000`), not
+   important, so the markup's own, the same colours, win where they are
+   written; a sheet that has lost them, its class kept by a client that
+   drops a style, would otherwise have no background, and its words,
+   inverted twice, black on the pane's black, where with no rule they
+   were white on it. With them it is white with black words.
+2. *A letter on its own* (`PanePage.letter`): the rules under `#bm`, in an
+   HTML letter's style, after the invert and the rule for pictures, which
+   the second rule outranks by its class, and before Mail's bars: the
+   stack's order. On every HTML letter's page, so the sheet is white in
+   any letter carrying the class: his own, a letter quoting his, and
+   anyone's. Not on a plain letter's page, which is not inverted, and
+   whose `<` is written `&lt;`, so it can carry no sheet.
+3. *The stack* (`ConversationDocument.html`) takes its rules from the
+   same string, under `.bm-html`: the same selectors and declarations, a
+   line each where they were wrapped over four, and the sheet's colours
+   as above. Its comment says so.
+4. *One invert* (`SignatureSheet.invert`): both pages invert a letter's
+   HTML and its pictures by the string the sheet's rule cancels them by,
+   written into each page's style from it, so the three cannot come to
+   differ. The bytes of both pages as they were.
+
+**Print** (B-110), checked. `PrintPage.letter` is light, with no invert
+and no filter anywhere, so there is nothing for the rules to cancel, and
+they are not added: the sheet prints as written, its words black
+(`color: #000000`) on the paper's white, its logo as drawn. With no
+backgrounds printed (`LetterPrint`), the sheet's own white is not
+printed, the paper's is under it; black words are well over 4.5:1 on
+white, so WebKit leaves them. Its comment says so, and a test holds the
+print to no rule of the sheet's and no filter.
+
+**Not changed.** The letter's markup, the marker and every letter he
+sends. The stack's drawing of a sheet as this app writes it. A plain
+letter's page. The print. No new words.
+
+**What he sees.** A letter with his signature opened on its own: the
+signature on a white sheet across the letter, its words black, its links
+blue, its logo as on paper; before, its words were white on the black and
+the logo all but gone. As in a conversation. A reply quoting his letter
+that keeps the sheet's class, alone: the quoted signature on its white
+sheet inside the quote's bar. This app's reply keeps it (`QuotedMarkup`
+keeps a class), and Apple Mail's, which quotes the letter's own markup,
+is believed to (not checked). A reply from Gmail's web page renames it,
+and its quoted signature is drawn as before (Not covered).
+
+**Rendered in Chromium,** the pages as the app builds them, a letter as
+the app sends one with a signature of a table, a dark logo on
+transparency and a link: alone, as before, its sheet black, the words
+white and the logo its own dark blue on the black; alone now, the sheet
+white, 46,207 white pixels, the words black and the logo the same dark
+blue on the white; in a stack, the same sheet, 46,453 white pixels, the
+logo the same; a reply quoting it with the class kept, in Gmail's quote
+markup, alone, the sheet white inside the violet bar; and the print,
+black on white as before. Not rendered again for the sheet's colours or
+the one invert, which leave the bytes of a page of his letters as they
+were but for the colours' two declarations.
+
+**Tests.** `PanePageTests`, two new: a letter as `AppleMailHTML.document`
+makes one with his signature, a table, the logo by `cid:` and a link, its
+page with the rules written out under `#bm`, after the invert and the
+rule for pictures and before the bars, the sheet's invert the page's own,
+the class the marker's, the stack's document with the same rules from the
+same string under `.bm-html`, and the markup as it came, the logo pointed
+at the loader inside the sheet, in the page and in the stack's body; and
+every letter of the pane's set, a reply quoting the signed letter in
+Apple Mail's cite blockquote, the class kept, and a plain letter whose
+words are the marker: the rules once on every HTML letter's page, none
+on a plain one's, the quoted sheet as it came, the plain marker written
+as words. Two more: a sheet that has lost its style, the first rule in
+both scopes with the sheet's white and black, as the marker declares
+them, none of it important, and the rules on its page; and every filter
+on a letter's page the one invert or none. `PrintPageTests`, one new: the signed
+letter printed with no rule of the sheet's and no filter, its body the
+pane's byte for byte with the logo decoded as drawn, the sheet's white
+and black its own, and the pane's page with the rules. Changed:
+`PanePageTests`' page byte for byte as before, the sheet's rules taken
+out as the bars are, found once in an HTML letter's page and never in a
+plain one's, and its bars' test, the bars after the sheet;
+`ConversationDocumentTests`, the stack's rules the string's, once, with
+the sheet's colours (`testTheSignaturesRules`, which was
+`testTheSignaturesRulesAreAsTheyWere`), and the bars after them, and one
+new, every filter in the stack's style the one invert or none; `BoundedLetterTests`' fingerprints of the ordinary
+letters' pages, taken with the sheet's rules out as with the bars
+(`OrdinaryMail.pageFingerprints`), every page otherwise as it was.
+
+Each part undone by hand, `PanePageTests`, `PrintPageTests` and
+`ConversationDocumentTests` run, then put back and passing, counted as
+failures in tests: a letter alone without the rules, 26 in 5; the sheet's
+pictures inverted a third time, its second rule gone, 4 in 2; the rules
+put on the print's page, 33 in 2; the rules on a plain letter's page too,
+14 in 3; the stack keeping its own copy as it was written, 3 in 3; a
+letter's rules after Mail's bars, 3 in 2; the sheet's class not the
+marker's, 4 in 2; the sheet's colours gone from its first rule, 4 in 3;
+and, the invert written out in a page and drifted (`hue-rotate(181deg)`),
+the stack's for the HTML, 2 in 1, the stack's for pictures, 1 in 1, and
+a letter alone's for the HTML, 13 in 4. Each file put back was touched,
+so the build took it again.
+
+The full suite, serially: 2,478 tests, 3 of them new, 6 skipped, none
+failing. The release build for the iPad links. With the sheet's colours
+and the one invert, after B-131: 2,483 tests, 3 more new, 6 skipped,
+none failing; the release build links.
+
+**Not covered.**
+
+- Not seen on the test iPad: the letter alone with the sheet, on WebKit
+  of iPadOS 16.5 or 18; the stack's sheet was seen only in passing
+  (B-074). Its check is under "Blocked on the iPad coming back" (TODO).
+- Mail's own drawing of his signature in Dark Mode is read, not seen on a
+  screen; nor whether his iPad is in Dark Mode, in Light, or under Smart
+  Invert.
+- Anything in the sheet with a background picture in its style takes the
+  pane's rule for those a third time and comes out negative, in the stack
+  as alone, as before; whether his signature has one was not looked at.
+- A sheet inside a sheet, which no letter of his makes, is inverted a
+  third time, black, in the stack as alone.
+- A reply from Gmail's web page quotes his letter with its classes
+  renamed, an `m_` and a number before each, as the classes of a letter
+  Gmail quotes come back in its replies (medium, not checked against a
+  reply on the account). Its quoted sheet then matches no rule here and
+  is drawn as before, black with white words and the logo dark, in the
+  stack as alone. Only a quote that keeps the class has the sheet.
+- The sheet's colours for a sheet that has lost its style are held by
+  the host's tests alone; no such letter was rendered or seen.
+
+## B-131 — FIXED 2026-10-25, not yet seen on the iPad. Print said "This message has no text." of a letter the pane shows only the beginning of, where the pane says "Only the beginning of this message is shown."; it says it only where the pane does
+
+**Found** on the host, with B-114 and B-110 (TODO, under "Doable now",
+the print's "This message has no text." only where the pane's). B-114
+made the pane never say that a letter shown only in part
+(`Message.isShortened`) has no text (`PanePage.isEmpty`): what was not
+fetched of it, or what the server would not give, can be all its words.
+Print, built beside it (B-110), did not ask the same question. Not seen
+on the iPad.
+
+**What it was.** `PrintPage.body` asked `MailText.hasNoVisibleContent`
+alone, so a letter shown only in part whose beginning that came draws
+nothing printed "This message has no text." under its header, where the
+pane says "Only the beginning of this message is shown." over that
+nothing. Such a letter is one over 5 MB (`largeLetterBytes`), the first
+2 MiB of its HTML, and of its plain words, fetched
+(`largeLetterSectionBytes`), whose HTML's first 2 MiB are a style sheet
+or a comment; a letter none of whose words came fails as one that could
+not be downloaded (B-114), with no page to print. `PrintPage.words`, the
+print in words when the page cannot be drawn, said it of any letter
+whose text, or its HTML made words, was blank: such a letter, and a
+letter that is only a picture, which the pane shows and never says has
+no text. And `words` cut an HTML letter's markup at the page's limit,
+512 KiB, before making it words, and then forgot the cut, since B-110:
+an HTML letter over it had no line in words, where its page had it, and
+one whose first 512 KiB make no words, a long style sheet, a picture's
+data written into the markup or a comment, with words after, said "This
+message has no text." (after the first change below, its header alone).
+
+**What Mail does.** Mail prints a letter as its pane shows it: its
+header view drawn into the print, then its body's web view's print
+formatter (`-[MFMessageContentView viewPrintFormatter]`, iOS 18.6's
+MobileMailUI, read statically for B-110; high). So what the print says
+of a letter's body is what the pane says. How Mail's pane draws a letter
+it has only the beginning of was not looked at here.
+
+**Changed.**
+
+1. *The page* (`PrintPage.body`) asks `PanePage.isEmpty`: a letter shown
+   only in part with nothing in what came prints the pane's grey line,
+   "Only the beginning of this message is shown.", over whatever came, as
+   the pane's `#bm` has it, and never "This message has no text."; the
+   same letter whole, with nothing in it, prints the pane's words for
+   one, as before.
+2. *The words* (`PrintPage.words`) ask it too: such a letter in words is
+   its header and the line, "Only the beginning…", with nothing after;
+   whole, its header and "This message has no text.", as before. A
+   letter that is only a picture is its header alone in words, where it
+   said "This message has no text.": the pane never says so of it, and
+   words cannot show the picture. A letter with words, cut here or shown
+   in part, is the line over them, as before. An HTML letter cut here, at
+   512 KiB, before it is made words, has the line, as its page has it:
+   over the words its first 512 KiB make, or alone when they make none.
+   A letter whose own plain words are printed, whole, has none.
+3. *Asked once* (`PrintPage.made`, which `LetterPrint` calls): the page
+   and the words of one print made together, the pane's question asked
+   once for both. Of an HTML letter with no picture and no words of its
+   own, it makes words of all its markup, up to the 5 MB of a letter
+   fetched whole, which the page and the words each did, against the
+   print's 10 s limit. `letter`, `words` and `body` still ask it
+   themselves, for any other caller.
+
+**Not changed.** The pane, as B-114 left it. The page of every letter not
+shown in part, and of every letter with words. The limits, the cut, the
+header, the greys. No new words: both lines are the pane's.
+
+**What he sees.** Rarely anything: a letter too large to fetch whole,
+whose beginning shows nothing, printed has its header and then the grey
+"Only the beginning of this message is shown.", as the pane shows it,
+where it said "This message has no text." In words, which only a page
+that cannot be drawn is printed as, an HTML letter over 512 KiB has the
+same line.
+
+**Tests.** `PrintPageTests`, two new, beside `PanePageTests`' of B-114
+(`testALetterShownOnlyInPartIsNeverSaidToHaveNoText`) and with its five
+shapes of a letter with nothing in it: empty words, blank lines, empty
+HTML, HTML of a space and no body at all. The page: whole, the pane's
+words for one; said to be short, the pane's line over what came, as the
+pane's `#bm` has it after its line, HTML where the letter's is, and never
+"This message has no text.". The words: whole, the header and "This
+message has no text."; said to be short, the header and the line alone;
+a letter that is only a picture, the header alone; a letter said to be
+short with words, the line over them. Two more: an HTML letter over
+512 KiB, its first 512 KiB a style sheet with words after it, in words
+the header and the line alone and on its page the line, with no text
+part and with a blank one; one whose words come before a long comment,
+the line over them; and one whose own plain words are printed, whole,
+no line. And the page and the words made together (`made`) the same as
+each made apart, for the five shapes of nothing, whole and said to be
+short, a picture, words and an HTML letter cut here.
+
+Each change undone by hand, `PrintPageTests` and `PanePageTests` run, then
+put back and passing, counted as failures in tests: the page asking
+`MailText.hasNoVisibleContent` again, 13 in 1; the words as they were,
+6 in 1; the words' line followed by a blank line over nothing, 5 in 1;
+a blank line after a header with nothing under it, 1 in 1; the words
+forgetting the HTML's cut again, 4 in 1; `made` asking
+`MailText.hasNoVisibleContent` for both, 10 in 1. Each file put back
+was touched, so the build took it again.
+
+The full suite, serially: 2,480 tests, 2 of them new, 6 skipped, none
+failing. The release build for the iPad links. With the HTML's cut in
+words and `made`, after B-130's colours: 2,485 tests, 2 more new, 6
+skipped, none failing; the release build links.
+
+**Not covered.**
+
+- Not seen on the test iPad: such a letter printed. Its check is under
+  "Blocked on the iPad coming back" (TODO).
+- The words are printed only when the page cannot be drawn
+  (`PrintSteps`), which no check on the iPad has met; what they say of
+  these letters is held by the host's tests alone.
+- A letter that is only a picture is its header alone in words, by the
+  pane's rule; "This message has no text." there would be true of its
+  words and untrue of the letter. Put to the owner (TODO, "Blocked on
+  the owner").
+- What `made` saves, one making of words from a large letter's whole
+  markup in place of two, was not timed on the iPad.
+- Mail's pane, and its print, of a letter it has only the beginning of:
+  not seen.
