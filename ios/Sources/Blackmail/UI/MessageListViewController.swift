@@ -619,6 +619,12 @@ final class MessageListViewController: UITableViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
                                                name: UIAccessibility.elementFocusedNotification,
                                                object: nil)
+        // The rows' dates written again where they are when the iPad's form
+        // or day changes (B-139).
+        for name in [DisplayDates.didChange, UIApplication.significantTimeChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
+                                                   name: name, object: nil)
+        }
 
         // The folder's page kept on the iPad, before anything is sent
         // (D-016): at launch the Inbox is in the first frame, and so is
@@ -1273,6 +1279,53 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func showAge() {
         if showingAge { sayAge() }
+    }
+
+    /// The iPad's 24-Hour Time switch, its time zone or its region has
+    /// changed, and the kept formatters have been let go
+    /// (`DisplayDates.didChange`), or the day has turned over, at midnight
+    /// or with the clock set (`significantTimeChangeNotification`): the
+    /// dates on the rows in sight are written again where they are, as
+    /// Mail's are taken to be, and a letter of late last evening reads
+    /// "Yesterday" once midnight has passed (B-139). They kept the words
+    /// they were drawn with: after 24-Hour Time was switched on, the status
+    /// bar read 14:41 and the open letter's row "12:39 PM", until a scroll
+    /// drew it anew. The line under the list says its age again, its
+    /// "Updated at" a time too.
+    ///
+    /// Only the rows in sight are named here; a row out of sight has its
+    /// date written as it comes into it (`willDisplay`). Since iOS 15 the
+    /// table prepares the cell for the row just past the edge ahead of
+    /// time (cell prefetching, on by default) and shows it later without
+    /// asking for it again. That row is not among
+    /// `indexPathsForVisibleRows`, so a cell prepared before the change
+    /// would come in with the old words, "9:14 PM" after 24-Hour Time,
+    /// "11:50 PM" after midnight. From the SDK's header, not seen.
+    ///
+    /// The words alone, the cells patched in place as for the previews
+    /// (`apply`): no row is loaded again, so the list does not move, the
+    /// selection, the letter open in the pane, stays highlighted, and Edit
+    /// mode keeps its ticks; nothing is fetched.
+    @objc private func datesChanged() {
+        for indexPath in tableView.indexPathsForVisibleRows ?? [] {
+            guard let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
+            writeDate(of: cell, at: indexPath)
+        }
+        showAge()
+    }
+
+    /// One row's date written again from the cell's own, and what
+    /// VoiceOver reads of the row with it; nothing else on the row is
+    /// touched (B-139). For each row in sight as the form, the zone or the
+    /// day changes (`datesChanged`), and for each row as it comes into
+    /// sight (`willDisplay`).
+    private func writeDate(of cell: MessageCell, at indexPath: IndexPath) {
+        guard indexPath.row < rows.count else { return }
+        cell.drawDate()
+        switch rows[indexPath.row] {
+        case let .thread(thread):
+            cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
+        }
     }
 
     /// Puts what the watch has found on the list, if he is where that moves
@@ -2810,7 +2863,8 @@ final class MessageListViewController: UITableViewController {
         isOutbox ? 0 : searchBar.wantedHeight
     }
 
-    /// Starts the next page while there is still a screenful to read.
+    /// Writes the row's date again as it comes into sight (B-139), and
+    /// starts the next page while there is still a screenful to read.
     ///
     /// Ten rows of lead time rather than waiting for the last one, so the
     /// fetch is usually finished before he scrolls far enough to notice it
@@ -2818,6 +2872,12 @@ final class MessageListViewController: UITableViewController {
     /// dead every fifty messages.
     override func tableView(_ t: UITableView, willDisplay cell: UITableViewCell,
                             forRowAt ip: IndexPath) {
+        // The row's date written again as it comes into sight (B-139): the
+        // table may have prepared this cell ahead, for the row past the
+        // edge, before 24-Hour Time, the zone or the day changed, and shows
+        // it now without drawing it again (`datesChanged`).
+        if let cell = cell as? MessageCell { writeDate(of: cell, at: ip) }
+
         // Upward first. After a date jump the list runs in both directions,
         // and the top of it is no longer the top of the folder.
         //

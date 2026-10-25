@@ -273,10 +273,12 @@ final class DatesTheIPadsWayTests: XCTestCase {
     func testTheScreensUseTheIPadsLocale() throws {
         let files = try code()
         let expected: [(String, String)] = [
-            ("Blackmail/UI/MessageCell.swift", "MailFormat.listTimestamp(m.date)"),
+            ("Blackmail/UI/MessageCell.swift", "MailFormat.listTimestamp(date)"),
             ("Blackmail/Mail/ConversationDocument.swift", "MailFormat.listTimestamp(e.date)"),
+            ("Blackmail/Mail/ConversationDocument.swift",
+             "MailFormat.listTimestamp(e.date, now: now, locale: locale, timeZone: timeZone)"),
             ("Blackmail/Mail/MessageThread.swift", "MailFormat.listTimestamp(date, now: now)"),
-            ("Blackmail/UI/MessageHeaderView.swift", "MailFormat.detailTimestamp(m.date)"),
+            ("Blackmail/UI/MessageHeaderView.swift", "MailFormat.detailTimestamp(date)"),
             ("Blackmail/Mail/PrintPage.swift",
              "MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone)"),
             ("Blackmail/Model/MailModels.swift", "MailFormat.quoteAttribution(m.date, sender: m.sender)"),
@@ -292,9 +294,12 @@ final class DatesTheIPadsWayTests: XCTestCase {
             XCTAssertTrue(lines.contains { $0.contains(call) }, "\(path): \(call)")
         }
         // PrintPage's own locale and zone are the iPad's unless a test hands
-        // in others.
+        // in others, and so are the stack's lines written again (B-139).
         XCTAssertTrue(try XCTUnwrap(files["Blackmail/Mail/PrintPage.swift"]).contains {
             $0.contains("locale: Locale = .current, timeZone: TimeZone = .current) -> Head {")
+        })
+        XCTAssertTrue(try XCTUnwrap(files["Blackmail/Mail/ConversationDocument.swift"]).contains {
+            $0.contains("init(_ entries: [Entry], now: Date = Date(), locale: Locale = .current,")
         })
         // Nothing calls these with a locale of its own.
         for name in ["listTimestamp(", "detailTimestamp(", "fullTimestamp(", "quoteAttribution(",

@@ -1167,6 +1167,13 @@ enum MailFormat {
 /// worked out from `now` on every call, so a list drawn after midnight does
 /// not go on giving yesterday's letters a time of day.
 ///
+/// What is already on the screen is another matter: a label keeps the words
+/// it was given. So once the kept formatters have been let go, this says so
+/// (`didChange`), and the list's rows, the reading pane's header and a
+/// conversation's lines write their dates again (B-139). Until then a switch
+/// to 24-Hour Time left "12:39 PM" on the open letter while the status bar
+/// read 14:41, until a scroll or opening the letter again drew it anew.
+///
 /// One lock around all of it, formatting included: the notifications arrive
 /// on whichever thread posted them, and a kept formatter is shared by every
 /// caller.
@@ -1245,9 +1252,22 @@ final class DisplayDates: @unchecked Sendable {
     private var calendar = Calendar.current
     private var formatters: [Form: DateFormatter] = [:]
     private var builds = 0
+    /// `didChange` is on its way to the main queue and has not gone yet.
+    private var saying = false
+
+    /// Said on the main queue, in the centre iOS said it in, once the kept
+    /// formatters have been let go for a change of locale or time zone: the
+    /// dates on the screen are to be written again (B-139). After, never
+    /// beside: the screen's own observers of iOS's notifications could be
+    /// called before `forget` and write the old form again with a formatter
+    /// still kept, and a switch to 24-Hour Time leaves the locale's name as
+    /// it was, "en_US", so nothing but `forget` makes it build anew. Said
+    /// once for changes that come together, as a new zone and its locale.
+    static let didChange = Notification.Name("BlackmailDisplayDatesDidChange")
 
     /// `notifications` is where iOS says the locale or the time zone has
-    /// changed; a test hands in a centre of its own.
+    /// changed, and where `didChange` is said; a test hands in a centre of
+    /// its own.
     init(notifications: NotificationCenter = .default) {
         self.notifications = notifications
         for name in [NSLocale.currentLocaleDidChangeNotification, .NSSystemTimeZoneDidChange] {
@@ -1307,10 +1327,23 @@ final class DisplayDates: @unchecked Sendable {
         formatters = [:]
     }
 
+    /// Lets the kept formatters go, and then says so on the main queue
+    /// (`didChange`), unless it is already on its way: then that one says
+    /// it, going after this.
     private func forget() {
         lock.lock()
         madeFor = nil
         formatters = [:]
+        let say = !saying
+        saying = true
         lock.unlock()
+        guard say else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            self.saying = false
+            self.lock.unlock()
+            self.notifications.post(name: Self.didChange, object: self)
+        }
     }
 }

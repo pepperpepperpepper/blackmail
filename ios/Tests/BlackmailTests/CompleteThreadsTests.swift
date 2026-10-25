@@ -405,7 +405,8 @@ final class CompleteThreadsTests: XCTestCase {
     /// looked at again every tenth of a second, and
     /// then put in as at rest. What comes while one is held waits behind
     /// it, in the order it came: more of his letters, letters put in at the
-    /// bottom, and a body for a section not on the page yet. Each held
+    /// bottom, and a body for a section not on the page yet; the lines'
+    /// dates written again go behind them too (B-139). Each held
     /// change runs once, the next not lost if one throws. Read from the
     /// script, for a host without node; `HisLineUnderTheFingerTests` runs it.
     func testTheScriptHoldsHisLettersWhileTheStackMovesUnderAFinger() {
@@ -434,8 +435,8 @@ final class CompleteThreadsTests: XCTestCase {
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
-        XCTAssertEqual(script.components(separatedBy: "bmLater(").count - 1, 4,
-                       "defined, his letters, the bottom's, a body")
+        XCTAssertEqual(script.components(separatedBy: "bmLater(").count - 1, 5,
+                       "defined, his letters, the bottom's, a body, the lines' dates (B-139)")
     }
 
     /// Kept in the stack, so a redraw has them and their bodies a section to

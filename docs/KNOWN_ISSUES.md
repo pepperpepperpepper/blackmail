@@ -25273,6 +25273,163 @@ lived in `keepPlace`, which is UIKit, so it is held by the source tests;
 the new end test holds the offset `StackPlace` gives.
 
 The full suite, serially: 2,496 tests, 7 of them new, 6 skipped, none
+
+---
+
+## B-139 — FIXED 2026-10-25, not yet seen on the iPad. After 24-Hour Time was switched on, or the time zone changed, the dates already on the screen kept their old form until they were drawn again; the rows in sight, the open letter's header and a conversation's lines are written again where they are, and again as the day turns over
+
+**Found** on the test iPad on 2026-10-25, in round r6-s6-dates-lists,
+B-043's leftover (TODO, B-043's check: "change the time zone in Settings,
+and switch the 24-hour clock, and come back"); a second run confirmed it.
+With 24-Hour Time switched on, the status bar read 14:41, and the open
+letter's header still read "Today at 12:39 PM" and its row "12:39 PM"
+until they were drawn again, by a scroll or by opening the letter again.
+The same after the time zone was changed to Los Angeles and back, and
+after 24-Hour Time was switched off. Rows drawn afterwards had the new
+form, so the kept formatters were followed (B-119); what was already on
+the screen was not.
+
+**The cause.** `DisplayDates` let its formatters go when iOS said the
+locale or the time zone had changed, and nothing wrote again what was on
+the screen. A row's date was set once, as the row was drawn
+(`MessageCell.configure`); the header's once, as the letter was shown
+(`MessageHeaderView.configure`); a conversation's lines once, in the
+stack's document. The pane's return to the front (`appBecameActive`,
+`drawAgain`) draws again only a page WebKit lost. And a screen that
+listened to iOS itself could not have fixed it alone: the order iOS calls
+its observers in is not given, and one called before `DisplayDates` would
+write the old form with a formatter still kept, since with 24-Hour Time
+the locale's name stays "en_US" and only the notification tells.
+
+**What Mail does.** Not seen here: the test iPad is busy with the
+rounds, and Mail was not looked at in r6-s6. Apple's own guidance is that
+a view showing "Today" or a time redraws on
+`UIApplication.significantTimeChangeNotification` (midnight, a carrier's
+time update, daylight saving) and on the locale's and the time zone's
+notifications, the one for the day queued while an app is suspended and
+delivered as it comes back; Apple's technical support tells developers to
+have the view controller observe it and update its view. Mail's list and
+its message header surely do: confidence about four in five that both
+follow the switch and the zone with no scroll and turn "Today" into
+"Yesterday" at midnight, not seen. How soon, in the same frame as the
+status bar or a moment after, is not known.
+
+**What he saw.** He has not had the app; this is what it drew. His iPad
+has 24-Hour Time off (B-119: the AM and PM in his replies) and stays in
+his zone, so the clock's form and the zone are not likely to change under
+him; daylight saving changes the time, not its form, and rows drawn in it
+were right. But midnight comes every day, and by the code, not seen: with
+the app in front across midnight, or brought back the next morning with
+nothing new to draw its rows again, a letter of 11:50 the night before
+kept "11:50 PM" on its row and "Today at 11:50 PM" in the header, as if
+it had come that morning, until a scroll or a tap drew it again.
+
+**Changed.**
+
+1. *Said after the formatters go* (`DisplayDates.didChange`). Once
+   `DisplayDates` has let its formatters go for a change of locale or
+   time zone, it says so on the main queue, in the centre iOS said it in,
+   never inside iOS's own call: every screen that writes a date then is
+   given a formatter built afresh. Changes that come together, a new zone
+   and its locale, are said once.
+2. *The list* (`MessageListViewController.datesChanged`). On that word,
+   and on `UIApplication.significantTimeChangeNotification`, the date of
+   each row in sight is written again from the row's own date, kept by the
+   cell (`MessageCell.drawDate`), and what VoiceOver reads of the row; the
+   line under the list says its age again, its "Updated at" a time too.
+   The cells are patched in place, as for the previews: no row is loaded
+   again, so the list does not move, the letter open in the pane stays
+   highlighted, Edit mode keeps its ticks, and nothing is fetched. A row
+   out of sight has its date written the same way as it comes into sight
+   (`tableView(_:willDisplay:forRowAt:)`, one writer for both,
+   `writeDate`). Leaving it to the table to draw it then, as before, was
+   not enough: since iOS 15 the table prepares the cell for the row just
+   past the edge ahead of time (cell prefetching, on by default), and
+   shows it later without asking for it again; that row is not among the
+   rows in sight, so after 24-Hour Time it would have come in at the next
+   scroll with "9:14 PM", and at midnight with "11:50 PM" where it should
+   read "Yesterday". The Mailboxes column shows no dates.
+3. *The reading pane* (`MessageDetailViewController.datesChanged`). On
+   both words, the header's date is written again from the letter's own,
+   kept by the header (`MessageHeaderView.drawDate`), with VoiceOver's
+   words for it; the header keeps its letter and its height, the date
+   being one line. A conversation's lines are written again by script
+   (`ConversationDocument.Dates`, `bmWhen`): each line's date as the stack
+   writes it when drawn, by its section, his letters from Sent Mail and
+   those that came in included. Only the stack's own lines, never a
+   `bm-when` in a letter's markup; no letter opens or closes, the stack
+   does not move, no body is touched or asked for. Lines held back while
+   the stack moves (`bmInsert`, `bmAppend`) are written as they go in.
+4. *A stack still loading* (`PaneDocument.dates`). Its document may have
+   been written before the change, so its dates are written once it has
+   loaded (`Finished.dates`), after what else waited for it. A stack WebKit
+   lost is drawn again afresh (`drawAgain`) and needs none; a stack another
+   has replaced owes none.
+5. *Midnight* is the day turning over, and nothing else: the day was never
+   kept (`DisplayDates.day`), so a row written again at midnight reads
+   "Yesterday", and the header "Yesterday at", as B-043 asked.
+6. The pins that read the row's and the header's date
+   (`DatesTheIPadsWayTests`, `PrintWiringTests`) read the kept date; the
+   stack's script pin counts `bmWhen`'s hold (`CompleteThreadsTests`); the
+   script's comment says the lines' dates go behind what is held. TODO:
+   B-043's item says its zone, clock and midnight are B-139's now.
+
+**Not changed.** The words: Mail's, as B-119 left them; no new ones. What
+is written for a letter drawn afresh. The composer's lines, "On … wrote:"
+and the forward's "Date:", written once into the draft, as Mail's are; a
+draft already saved keeps them. The print, written at Print. A forwarded
+letter shown in the pane (B-114): its "Date:" line, inside the letter's
+page, keeps the zone it was drawn in until the letter is opened again,
+since writing it again means drawing the page again, which would move
+him. Go to Date's "Showing …" line, a day with no time, which a change of
+region leaves in the old order until the next jump. Settings shows no
+date.
+
+**What he sees.** After a change in Settings, back in the app: every date
+in sight in the new form at once, the rows, the header and the stack's
+lines, with nothing moved and nothing fetched. At midnight with the app in
+front, or as it comes back the next day: last evening's letters read
+"Yesterday", their header "Yesterday at" and the time, and this week's
+weekdays move on by a day.
+
+**Tests.** `DatesRedrawnTests`, eleven, new. The word: on the main queue,
+after iOS's own call has returned, and an observer writing a date then
+given a formatter built afresh, for a change of zone, of locale, and one
+said on another thread; changes that come together said once, and one
+after said again; the app's instance saying it on the default centre.
+The words written again, the row's, the header's and a stack's line, for
+a letter of 12:39 PM seen at 2:41 PM in New York: with 24-Hour Time on
+(this host's ICU told it as `en_US@hours=h23`, the iPad keeping the name
+`en_US`), in Los Angeles, both, and back; and for a letter of 11:50 PM
+across midnight, a weekday on and a week on. The stack's lines as the
+stack draws them, by section, his letter from Sent Mail among them, and
+`bmWhen` its one argument. `bmWhen` run in node over a model of the
+stack: the lines alone written, not a letter's own `bm-when` nor a section
+its markup makes with a line's id, not a line it has no words for nor one
+already right; and behind what the stack holds, so a letter held has its
+date once in. The pane's document: none for no stack or grey words; a
+stack loading has its dates as it finishes; at once once loaded, every
+letter's, inserted and appended ones too; none owed to a stack replaced or
+lost. And the screens, read: the list and the pane each hear both words;
+the list's redraw, the pane's and the header's and the cell's whole, with
+nothing in them that loads, moves, selects or fetches; a row coming into
+sight has its date written again first, by the redraw's writer; one
+writer of each date; the dates run after a stack finishes loading.
+
+Each part undone by hand, the eleven run, then put back and passing, counted
+as failures in tests: no word said, 11 in 3; the word said at once,
+before the formatters go, 7 in 2; said for each change, 3 in 1; the
+stack's lines written for the clock and the iPad whatever is asked, 9 in
+2; written as the header's, 15 in 3; `bmWhen` writing every `bm-when` in a
+section, 1 in 1; not going behind what is held, 2 in 1; a loading stack's
+dates handed out at once, 3 in 1; not handed back as it finishes, 1 in 1;
+the list not hearing midnight, 1 in 1; the list not writing the row's
+date, 1 in 1; nor the age line, 1 in 1; the header not written again,
+1 in 1; the header's date written once and not kept, 2 in 1; a finished
+stack's dates not run, 1 in 1; a row coming into sight not written
+again, 2 in 1.
+
+The full suite, serially: 2,486 tests, 11 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -27912,3 +28069,26 @@ none failing. The release build for the iPad links.
   was on, A's own line closed and opened again.
 - A row among another letter's words, or a picture, shows nothing while
   its file comes, as before (B-113, B-122).
+
+---
+
+- Not seen on the iPad (TODO, B-139's check).
+- The list, the header and the pane are UIKit and WebKit: their wiring is
+  read from the source, not run; `bmWhen` is run on a model in node, not
+  in WebKit.
+- The cell prepared ahead: from the SDK's header (`cellForRowAtIndexPath:`
+  "Returns any existing visible or prepared cell", `prefetchingEnabled`
+  from iOS 15) and Apple's account of cell prefetching, not seen on the
+  iPad; the check scrolls two or three rows after the change for it
+  (TODO, steps 2 and 6). The previews' patch (`apply`) goes by the rows
+  in sight alike, so a row prepared before its preview came would come
+  in without it until drawn again; not a date, not B-139's, not changed.
+- iOS's order: that `significantTimeChangeNotification` comes at midnight
+  and, queued, as the app comes back, is Apple's documentation, not seen
+  here; nor how soon after the change in Settings the locale's and the
+  zone's notifications reach the app as it comes back.
+- The 24-hour form on the iPad comes from the locale's preferences under
+  the name "en_US"; this host can only name it (`en_US@hours=h23`), so
+  that `DisplayDates` builds afresh after the word, not by the name, is
+  what the tests hold, by its count of formatters built.
+- Mail's own redraw: not seen (above).

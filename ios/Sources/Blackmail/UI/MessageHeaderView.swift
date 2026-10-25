@@ -39,6 +39,10 @@ final class MessageHeaderView: UIView {
     private var ccGap: NSLayoutConstraint!
     private let subjectLabel = UILabel()
     private let dateLabel = UILabel()
+    /// The letter's date, and what VoiceOver reads before it, kept so the
+    /// date can be written again where it is (`drawDate`).
+    private var date: Date?
+    private var spoken = ""
     /// One tappable row per file, not one blue label listing them all.
     ///
     /// The label was styled like a link and was not one — the single worst
@@ -180,7 +184,9 @@ final class MessageHeaderView: UIView {
         ccLabel.isHidden = cc == nil
         ccGap.constant = cc == nil ? 0 : Theme.detailToCcGap
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
-        dateLabel.text = MailFormat.detailTimestamp(m.date)
+        date = m.date
+        spoken = "From \(MailFormat.displayName(m.sender)), \(m.subject)"
+        drawDate()
 
         // Inline pictures are not files: they are rendered inside the
         // letter by the `cid:` resolver, and a row for each would list the
@@ -195,9 +201,20 @@ final class MessageHeaderView: UIView {
             attachmentButtons[attachment.id] = button
             attachmentStack.addArrangedSubview(button)
         }
+    }
 
-        accessibilityLabel = "From \(MailFormat.displayName(m.sender)), "
-            + "\(m.subject), \(MailFormat.detailTimestamp(m.date))"
+    /// The date under the subject written from the letter's own, as the
+    /// iPad writes it now: as the letter is shown, and again where it is
+    /// when the 24-Hour Time switch, the time zone or the region has
+    /// changed, or the day has turned over, so "Today at 11:50 PM" reads
+    /// "Yesterday at 11:50 PM" once midnight has passed (B-139). Nothing
+    /// else in the header is touched, and it keeps its height: the date is
+    /// one line.
+    func drawDate() {
+        guard let date else { return }
+        let when = MailFormat.detailTimestamp(date)
+        dateLabel.text = when
+        accessibilityLabel = "\(spoken), \(when)"
     }
 
     private func makeAttachmentButton(_ attachment: Attachment) -> UIButton {

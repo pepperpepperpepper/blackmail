@@ -44,6 +44,8 @@ final class MessageCell: UITableViewCell {
     /// row opens the conversation, as anywhere else.
     private let conversationMark = UIImageView()
     private let spinner = UIActivityIndicatorView(style: .medium)
+    /// The row's date, kept to be written again where it is (`drawDate`).
+    private var date: Date?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: .default, reuseIdentifier: reuseIdentifier)
@@ -120,7 +122,8 @@ final class MessageCell: UITableViewCell {
         // a name that is itself an address lost the real one after it
         // (`RowNames.fullName`, B-075).
         senderLabel.text = m.sender
-        timestampLabel.text = MailFormat.listTimestamp(m.date)
+        date = m.date
+        drawDate()
         subjectLabel.text = m.subject.isEmpty ? "(no subject)" : m.subject
 
         // Forced line height, so the two preview lines keep the row's own 20 pt
@@ -144,6 +147,18 @@ final class MessageCell: UITableViewCell {
         attachmentIcon.isHidden = !m.hasAttachment
         flagIcon.isHidden = !m.isFlagged
         conversationMark.isHidden = !marked
+        setNeedsLayout()
+    }
+
+    /// The date at the top right written from the row's own, as the iPad
+    /// writes it now: as the row is drawn, and again where it is when the
+    /// 24-Hour Time switch, the time zone or the region has changed, or the
+    /// day has turned over, so a letter of 11:50 PM reads "Yesterday" once
+    /// midnight has passed (B-139). Nothing else on the row is touched; the
+    /// top line is laid out again, as the date's width decides the names'.
+    func drawDate() {
+        guard let date else { return }
+        timestampLabel.text = MailFormat.listTimestamp(date)
         setNeedsLayout()
     }
 

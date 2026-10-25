@@ -1148,6 +1148,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       zone and the 24-hour clock, which wait on a yes, "Yesterday" after
       midnight, the fill timed in the app with a letter of a megabyte, and
       the memory.*
+      *2026-10-25: the time zone and the 24-hour clock were tried in round
+      r6-s6-dates-lists and failed, twice: what was on the screen kept its
+      old form until it was drawn again (B-139). B-139 closes that
+      leftover, and "Yesterday" after midnight with it: both are B-139's
+      check now (below), and nothing of the zone, the clock or midnight is
+      left to this item.*
 - [x] **B-044, sending.** *Seen 2026-09-29: plain, double tap, reopened
       draft, five pictures, lock at once, Wi-Fi off; see B-044. Still to
       see: Save Draft then lock, Send the moment the picker closes, a tap
@@ -6451,6 +6457,84 @@ checks below is left as not needed, not open, and none is worth a round.*
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.
       Nothing else was written.
+- [ ] **B-139, the dates on screen after the clock's form changes.** On
+      the test iPad, the test account only, from a build of the
+      `bm-dateredraw` worktree (branch `fix-dateredraw`) or of the int it
+      is merged into. Nothing is composed, sent, saved, moved or deleted
+      in the app: one of the test accounts is signed in on the owner's
+      phone and new mail rings it. A setting a step changes is put back in
+      the same step, at once. The host makes twenty-three letters, each
+      from another address, with a new Message-ID of its own and naming
+      none on the account, and APPENDs them, read (`\Seen`), to the label
+      "Notes", never the Inbox, each with its Date as its internal date;
+      it notes each UID from its APPENDUID, and stops if one has none.
+      (a) "B-139 one", dated an hour before the run; (b) "B-139 stack",
+      three days back, and (c) "Re: B-139 stack", forty minutes before the
+      run, its In-Reply-To and References naming (b)'s Message-ID, so the
+      two are one conversation; (d) twenty more, "B-139 row 1" to "B-139
+      row 20", each on its own, dated a minute apart from seventy minutes
+      before the run back, so rows of today run on past the bottom of the
+      list (a run started after 2 AM). Organize by Thread on, three panes
+      unless a step says two; the app's connection log read after each
+      step. Settings > General > Date & Time as found written down first:
+      24-Hour Time, Set Automatically, the time zone.
+      1. *Before:* "Notes" opened, (a) tapped: its row's date and the
+      header's "Today at" give its time with AM or PM, as the status bar's
+      clock does. A shot.
+      2. *24-Hour Time:* Settings, 24-Hour Time on; back to Blackmail by
+      the app switcher, nothing in it touched: in the first look, with no
+      scroll and no tap, (a)'s row and the header give its time without
+      AM or PM, "Today at 13:39" and the like, as the status bar does,
+      and so does every row of today in sight, and the line under the
+      list if it gives a time ("Updated at"). (a)'s row still highlighted,
+      the list and the letter where they were; no FETCH and no SELECT in
+      the log from the step. A shot. Then the list scrolled down slowly,
+      by two or three rows: each row of (d) coming in at the bottom gives
+      its time without AM or PM, the first one too (the table may have
+      made it before the switch); a shot; the list back to the top.
+      Settings, 24-Hour Time off at once; back: AM and PM again, nothing
+      touched.
+      3. *The time zone:* Settings, Set Automatically off, the time zone
+      Los Angeles; back, nothing touched: (a)'s row, the header and the
+      status bar give the time three hours earlier for an Eastern zone,
+      the difference written down for another. A shot. Settings, Set
+      Automatically and the zone as found, at once; back: the times of 1,
+      nothing touched.
+      4. *A conversation:* "B-139 stack" opened from the list: (c)'s line
+      and the header give its time, (b)'s line its weekday. Settings,
+      24-Hour Time on; back, nothing touched: (c)'s line and the header
+      without AM or PM, (b)'s weekday as it was; no letter opened or
+      closed, the stack where it was, no FETCH in the log. Settings,
+      24-Hour Time off at once; back: as before, nothing touched.
+      5. *Edit mode:* two panes, Edit, (a)'s row and one other ticked.
+      Settings, 24-Hour Time on; back: the two ticks still there, the
+      list where it was, the rows of today without AM or PM. Settings,
+      24-Hour Time off at once; back, Done, three panes again.
+      6. *Midnight,* if the round runs across it, or with the owner's yes
+      to set the clock. The iPad awake (Auto-Lock Never for the step, put
+      back after it), Blackmail in front. By the clock: Settings, Set
+      Automatically off, the time set to 11:55 PM, back to Blackmail. The
+      clock moved on by more than fifteen minutes is a long time away to
+      the app, so it comes back to the Inbox (B-003: "Notes" is not the
+      Inbox), with the Inbox's FETCH in the log: written down, not a
+      failure. Either way, before 12:00 AM: "Notes" opened, at the top,
+      and "B-139 stack" tapped, (a)'s row in sight; then nothing touched
+      across 12:00 AM. Once midnight has passed, with nothing touched:
+      (a)'s row and the stack's read "Yesterday", the header "Yesterday
+      at" and (c)'s time, (c)'s line "Yesterday", (b)'s line its weekday
+      as before; no letter opened or closed, the list and the stack where
+      they were. A shot. Then the list scrolled down slowly, by two or
+      three rows: each row of (d) coming in at the bottom reads
+      "Yesterday", the first one too. By the clock only: Settings, Set
+      Automatically as found, at once; back, with no return to the Inbox
+      (the clock put back is no time away): "Today" and the times again
+      where the day is today again, nothing touched.
+      7. *Put back:* Date & Time as written down first, Auto-Lock as
+      found. The host moves the twenty-three UIDs it noted, and only
+      them, from "Notes" to the Trash (`UID MOVE`), and deletes in the
+      Trash only the UIDs that move answered (`COPYUID`); "Notes" itself
+      stays. Never anything found by subject or Message-ID: a UID not
+      noted is left, and written down. Nothing else was written.
 
 ## Blocked on the owner
 
