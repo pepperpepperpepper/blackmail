@@ -18569,6 +18569,9 @@ three a day. B-074 recorded it as not as Mail.
   Delete stay on the conversation's letter he opened last, whether the
   header follows a letter when its body lands, as now, or at the tap, if
   "Left from batch 4" is built: his load has no way to `focusLetter`.
+  (*Built as B-129, 2026-10-25: the header and the toolbar go to a letter
+  at the tap, and are made whole only for the letter opened last
+  (`StackFocus`); his letters still never take them.*)
 - The answer is remembered in memory for ten minutes (`RelatedMemo`), so a
   conversation opened again draws his letters in its first frame and sends
   nothing. Forgotten when a letter he sends has gone, when the Outbox
@@ -25307,8 +25310,10 @@ last parts; the second, search previews, is another branch's.
 **What Mail does.** Each letter of a Mail conversation carries its own
 header and its own buttons, in its place in the scroll (DECISIONS, Complete
 Threads, "a departure from Mail, where each letter of a conversation has
-its own buttons"; B-128's sources: medium), so there is no one header to
-follow a tap, and nothing of Mail's to copy here. The rule is the single
+its own buttons"; B-128's sources, a 2016 guide to iOS 10's conversation
+view, Apple's own guide naming only the setting: medium at most, not
+seen on iPadOS 18), so there is no one header to follow a tap, and
+nothing of Mail's to copy here. The rule is the single
 letter's pane's since P1 (B-041), which the owner's list asks for.
 
 **What he saw.** He has not had the app; this is what it drew. A line
@@ -25364,8 +25369,13 @@ which still goes to the letter that settled last. No new words.
 sender, To, Cc, subject, date and its files grey, and the stack moves with
 the header then if the letter has more or fewer lines in it than the last
 (B-128); "Loading…" under the line, and the files blue and Reply answering
-it as its body comes. Several lines tapped quickly: the header follows each
-tap and stays on the last.
+it as its body comes. Several lines tapped one after another: the header
+follows each tap and stays on the last. A line tapped within a second of
+the stack moving with the header does nothing, and he taps again (B-128,
+item 5, changed again 2026-10-25): with the header changing at the tap,
+a double tap, or a quick tap to close a letter opened by mistake, landed
+on the line above or below and opened that letter, and it took the header
+and the toolbar.
 
 **Tests.** `StackHeaderAtTheTapTests`, six, new. The rule
 (`StackFocus`): the stack's newest takes the header as it lands before any
@@ -25416,3 +25426,9 @@ links.
   the letter opened last, but where an unread letter opened with the
   newest, or one that came while the stack was open, lands after it. As
   before; not looked into here.
+- The check's slow letters (TODO, B-129's check) carried a PDF of about
+  4 MB as first written: about 5.5 MB in base64, over the 5 MiB above
+  which a letter is opened in part, so their bodies came as fast as a
+  small letter's and the steps that need a body still coming could pass
+  on the old build. They carry about 3 MB now, fetched whole, and each
+  such step is checked against the log's time for the FETCH.

@@ -5728,41 +5728,85 @@ checks below is left as not needed, not open, and none is worth a round.*
       "B-129", dated six to two days back, one conversation (Gmail's
       thread, each reply's References naming the one before), none of
       them opened on this iPad before, so none kept on it (B-111): (a) a
-      PDF of about 4 MB, no Cc; (b) a Cc and a PDF of about 4 MB; (c)
-      three lines, no Cc, no file; (d) a PDF of about 4 MB, no Cc; (e) the
-      newest, three lines, no Cc, no file. Organize by Thread on, three
-      panes; a screen recording through each tap; the app's connection
-      log read after each step.
+      PDF of about 3 MB, no Cc; (b) a Cc and a PDF of about 3 MB; (c)
+      three lines, no Cc, no file; (d) a PDF of about 3 MB, no Cc; (e) the
+      newest, three lines, no Cc, no file. The PDFs' size matters: in
+      base64 a file comes to about 1.37 times its size, so 3 MB, and no
+      more than 3.5, is a letter under the 5 MiB above which the app opens
+      a letter without its files (`IMAPMailRepository.largeLetterBytes`),
+      and it is fetched whole, `BODY.PEEK[]`: a 3 MB letter took about 1.3
+      s on the test iPad (B-111's check), these a little longer. A 4 MB
+      PDF is a letter of about 5.5 MB, opened in part, its text alone, as
+      fast as a small letter, and the taps below that have to come before
+      a body cannot. The host reads back (a)'s, (b)'s and (d)'s RFC822.SIZE
+      before the run and finds each under 5,242,880. Organize by Thread
+      on, three panes; a screen recording through each tap; the app's
+      connection log read after each step. A line tapped within a second
+      of the stack moving with the header does nothing (B-128, item 5), so
+      the taps below come a second or more apart, but where a step says
+      at once.
+      *A step that needs a body still coming,* Reply in 2, Flag in 3 and
+      (b)'s two taps in 4, was run only if it came first: the log gives how
+      long the letter's FETCH took, from its line to its tagged OK; the
+      recording, how long after the letter's tap the other tap came, and
+      "Loading…" still under the letter's line in that frame. Opening (b)
+      again in 4 sends nothing, its body being in the stack, so its time is
+      the recording's alone. If the tap came after the body, the step was
+      not run: the letter is kept on the iPad by then (B-111) and would come
+      at once, so the host APPENDs a copy of it, a Message-ID of its own,
+      its References naming the letter before it, dated an hour after it,
+      the conversation is opened again from the label, and the step is done
+      again on the copy.
       1. *Opened:* the conversation's row tapped: (e) open, (d)'s line at
-      the top of the pane; the header (e)'s.
-      2. *At the tap:* (b)'s line tapped. In the first frame after the
-      tap the header is (b)'s, its sender, To, Cc, subject and date, the
-      PDF's row grey, "Loading…" under (b)'s line, and the stack moved
-      down with the header, the line at the top whole (B-128). Reply
-      tapped before the body has come: nothing opens. Once it has: the
-      PDF's row blue; Reply, then Reply in its sheet: a composer quoting
-      (b), To (b)'s sender. Cancel, Delete Draft.
-      3. *Flag at the tap:* (d)'s line tapped and at once, before its
-      body has come, Flag, then Flag in its sheet: the host, read only,
-      finds `\Flagged` on (d) and on no other of the five. Flag again,
-      Unflag: on none.
-      4. *The race:* (a)'s line tapped and at once, before its body has
-      come, (b)'s line tapped twice, closed and opened again, its body
-      kept from 2: the header (b)'s at once, its PDF's row blue. When
-      (a)'s body comes, in its section, the header stays (b)'s, through
-      the half minute after. Reply, then Reply: a composer quoting (b).
-      Cancel, Delete Draft.
+      the top of the pane, (a) to (c) above it out of sight; the header
+      (e)'s.
+      2. *At the tap:* the stack scrolled up until (b)'s line is the top
+      line of the pane, then (b)'s line tapped. In the first frame after
+      the tap the header is (b)'s, its sender, To, Cc, subject and date,
+      the PDF's row grey, "Loading…" under (b)'s line, and the stack moved
+      down with the header, which gained the Cc line and the PDF's row,
+      (b)'s line still the top line of the pane, whole (B-128). Reply
+      tapped at once, before the body has come: nothing opens. Once it
+      has: the PDF's row blue; Reply, then Reply in its sheet: a composer
+      quoting (b), To (b)'s sender. Cancel, Delete Draft.
+      3. *Flag at the tap:* the stack scrolled until (d)'s line is in
+      sight, (d)'s line tapped and at once, before its body has come,
+      Flag, then Flag in its sheet: the host, read only, finds `\Flagged`
+      on (d) and on no other of the five. Flag again, Unflag: on none.
+      4. *The race:* the stack scrolled up until (a)'s line is the top line
+      of the pane; (a)'s line tapped and at once, before its body has come,
+      (b)'s line, under (a)'s "Loading…", tapped twice, closed and opened
+      again, its body kept from 2: the header (b)'s at once, its PDF's row
+      blue. (a)'s header is (d)'s height, so nothing moved at (a)'s tap.
+      When (a)'s body comes, in its section, the header stays (b)'s,
+      through the half minute after. Reply, then Reply: a composer quoting
+      (b). Cancel, Delete Draft. The log: (a) asked once, `BODY.PEEK[]`,
+      with no `BODY.PEEK[HEADER]` for it, so fetched whole; and from
+      (a)'s tap to (b)'s second tap shorter than (a)'s FETCH, as above.
       5. *No connection:* Airplane Mode on, (c)'s line tapped: the header
       (c)'s from the tap, and in its section "This message could not be
       downloaded. Tap the line above twice to try again."; Reply does
       nothing. Airplane Mode off, (c)'s line tapped twice: its words, the
       header the same, Reply answering (c); Cancel, Delete Draft.
-      6. *Two panes:* the conversation opened again, (a)'s, (b)'s and
-      (c)'s lines tapped one after another, quickly: the header follows
-      each tap and ends on (c)'s. Three panes back.
-      7. *Put back:* no flag on the five, no draft left in Drafts, and
-      the label's letters left or moved to Trash by the host, as the
-      owner prefers.
+      6. *A double tap on a line that grows the header:* (a)'s and (b)'s
+      lines tapped to close them, the header still (c)'s, no Cc line, no
+      file; the stack scrolled until (a)'s line is the top line of the
+      pane, (b)'s under it. (b)'s line tapped twice quickly, as a double
+      tap, in the middle of the line: at the first tap (b) opens, its words
+      under it, and the header is (b)'s, gaining the Cc line and the PDF's
+      row, the stack moving down by about 64 pt; the second tap, which by
+      then lands on (a)'s line, does nothing: (a)'s line not lit, (a)
+      still closed, the header and the toolbar (b)'s. Written down from the
+      recording: what was under the second tap.
+      7. *Two panes:* the conversation opened again: (e) open, (d)'s line
+      at the top. The stack scrolled up until (a)'s line is the top line
+      of the pane; (a)'s, (b)'s and (c)'s lines tapped one after another,
+      each a little over a second after the last: the header follows each
+      tap and ends on (c)'s, and (a)'s line is the top line, whole, after
+      each. Three panes back.
+      8. *Put back:* no flag on the five, no draft left in Drafts, and
+      the label's letters, with any copies, left or moved to Trash by the
+      host, as the owner prefers.
 
 ## Blocked on the owner
 
