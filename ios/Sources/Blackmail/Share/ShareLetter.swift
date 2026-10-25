@@ -2,8 +2,9 @@ import Foundation
 
 /// One thing handed to the share extension, as it arrived.
 enum SharedItem: Equatable {
-    /// A page or a video: its address, and the title the sharing app gave
-    /// it, which Safari and YouTube both give.
+    /// A page or a video: its address, and what the sharing app named it
+    /// by (`ShareItems.name`): Safari its page's title; the YouTube app
+    /// nothing, as it hands over the link alone (B-125).
     case link(URL, title: String?)
     /// Words, from Notes or a selection.
     case text(String)

@@ -10,7 +10,8 @@ import AudioToolbox
 /// Blackmail is chosen in the share sheet.
 ///
 /// Mail's share sheet is the model. A small composer comes up over the app
-/// he is in, with the page's title as the subject and the link in the body
+/// he is in, with the page's title as the subject where the sharing app
+/// hands one over (`ShareItems.name`, B-125) and the link in the body
 /// above his signature; he picks who it goes to and taps Send, and the
 /// letter goes from here, by the app's own `Submission`, without the app
 /// being opened. It is not a second copy of the app's composer: To, Cc/Bcc,
@@ -196,6 +197,9 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// How much of the sheet showed at the last layout, to tell when the
     /// keyboard has just come up over it.
     private var shownHeight: CGFloat = 0
+    /// Whether the sheet's one chance to be made ready to type has come
+    /// and gone (`readyToType`).
+    private var readied = false
     private let attachmentsStack = UIStackView()
     private var ccRow = UIView()
     private var bccRow = UIView()
@@ -321,8 +325,10 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
-        bodyView.smartDashesType = .no
-        bodyView.smartQuotesType = .no
+        // Smart Punctuation as Settings has it, as in the app's composer
+        // and Mail's (B-121).
+        bodyView.smartDashesType = .default
+        bodyView.smartQuotesType = .default
         bodyView.translatesAutoresizingMaskIntoConstraints = false
         // As tall as its words, scrolled with the fields, as in the app's
         // composer.
@@ -427,7 +433,30 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
     /// offered under it until he types, as in Mail (B-073).
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if draft.to.isEmpty { toField.becomeFirstResponder() }
+        readyToType()
+    }
+
+    /// Ready to type by the rule of the app's composer, which is Mail's
+    /// composer's, its share sheet's too (`ComposeForm.firstField`, B-120):
+    /// a share has nobody in To, so To. Once, the first time the sheet
+    /// appears, never over Cancel's question and never once he is in a
+    /// field himself (`ComposeForm.readiesOnAppearing`).
+    private func readyToType() {
+        let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
+        let inAField = fields.contains { $0.isFirstResponder }
+        defer { readied = true }
+        guard ComposeForm.readiesOnAppearing(done: readied, covered: presentedViewController != nil,
+                                             inAField: inAField) else { return }
+        switch ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "") {
+        case .to:
+            toField.becomeFirstResponder()
+        case .subject:
+            subjectField.becomeFirstResponder()
+        case .body:
+            bodyView.becomeFirstResponder()
+            bodyView.selectedRange = NSRange(location: 0, length: 0)
+            keepCaretInView()
+        }
     }
 
     private func row(_ text: String, _ field: UITextField, _ value: String) -> UIView {
@@ -441,10 +470,13 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
         field.textColor = Theme.primaryText
         // "To", not "To:": the caption is a label of its own.
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
-        field.autocapitalizationType = .none
-        field.autocorrectionType = .no
-        field.smartDashesType = .no
-        field.smartQuotesType = .no
+        // Subject alone: it types as Mail's and the app's composer's do, a
+        // capital to begin, corrections and Smart Punctuation, the system's
+        // own (B-121). To, Cc and Bcc keep `RecipientField`'s.
+        field.autocapitalizationType = .sentences
+        field.autocorrectionType = .default
+        field.smartDashesType = .default
+        field.smartQuotesType = .default
         let rule = UIView()
         rule.backgroundColor = Theme.separator
         for v in [label, field, rule] {
@@ -756,11 +788,11 @@ extension ShareItems {
         var loads: [(@escaping (SharedItem?) -> Void) -> Void] = []
 
         for item in inputs {
-            // The subject a sharing app offers, as Mail takes it: the
-            // item's title, or failing that the words it came with.
-            let title = [item.attributedTitle?.string, item.attributedContentText?.string]
-                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first { !$0.isEmpty }
+            // What names the share, its subject: the item's title, or
+            // failing that its words, where Safari puts the page's title
+            // (`ShareItems.name`, B-125). Nothing is fetched for it.
+            let title = ShareItems.name(title: item.attributedTitle?.string,
+                                        words: item.attributedContentText?.string)
             for provider in item.attachments ?? [] {
                 tally.offered += 1
                 loads.append { done in

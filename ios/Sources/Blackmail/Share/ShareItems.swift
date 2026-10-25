@@ -38,6 +38,38 @@ enum ShareItems {
         next(0)
     }
 
+    /// What names a share, the letter's subject: of what the sharing app
+    /// hands the extension, the item's own title, else the words it came
+    /// with; nil when neither has anything in it (B-125).
+    ///
+    /// Mail's subject for a share is the sharing app's answer to the share
+    /// sheet's question `activityViewController(_:subjectForActivityType:)`,
+    /// which iOS asks for Mail, Messages and AirDrop and never for a share
+    /// extension, read from iOS 18.6's ShareSheet; and Mail fetches nothing
+    /// for it. So this takes what an extension is given:
+    ///
+    /// - Safari's page title, which it hands over as the item's words
+    ///   (`attributedContentText`), "Opera house - Wikipedia", the subject
+    ///   Mail gives the same share; seen in the iPadOS 18.6 simulator, and
+    ///   on the test iPad since 2026-09-30.
+    /// - An app's own title for the item (`attributedTitle`), which an app
+    ///   can give by handing over an extension item of its own.
+    /// - The words an app shares beside a link, which iOS hands over as
+    ///   the item's words as well as a text.
+    ///
+    /// The YouTube app hands over the link alone (seen 2026-10-04 and
+    /// 2026-10-21), so its share has no name here, where Mail's has the
+    /// video's. An app's subject and its LinkPresentation title for the
+    /// share sheet's header both stop at the share sheet: seen in the
+    /// simulator, an app offering both, and the extension had the link
+    /// alone. Naming it would need the page fetched, and Mail fetches
+    /// nothing to fill a share's Subject, so nothing here fetches.
+    static func name(title: String?, words: String?) -> String? {
+        [title, words]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+    }
+
     /// Words shared as words, unless they are only a web address: some
     /// apps share a link that way, and it is still a link, with the title
     /// offered as its subject.

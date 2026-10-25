@@ -120,6 +120,10 @@ final class ComposeViewController: UIViewController,
     /// factory one, whatever is chosen there.
     static let sentMailSound: SystemSoundID = 1001
 
+    /// Whether the sheet's one chance to be made ready to type, the first
+    /// time it appears, has come and gone (`readyToType`).
+    private var readied = false
+
     /// Send could not reach the server and the letter waits in the Outbox:
     /// the sheet closes with one notice over what it came from
     /// (`Outbox.notice`), as Mail says its letter "has been placed in your
@@ -294,7 +298,8 @@ final class ComposeViewController: UIViewController,
         bodyView.text = draft.body
         // The caret starts at the top, above his signature and above a
         // quoted original, where Tab and Return from Subject put it in
-        // Mail. Set nowhere, it was at the end, under all of them.
+        // Mail. Set nowhere, it was at the end, under all of them. A reply
+        // opens with it there and the keyboard up (`readyToType`, B-120).
         bodyView.selectedRange = NSRange(location: 0, length: 0)
         // The app's black and white (D-010), as the share sheet has it.
         // Left to the system, the body was its dark grey on the black sheet.
@@ -303,10 +308,13 @@ final class ComposeViewController: UIViewController,
         bodyView.accessibilityLabel = "Message"
         bodyView.textContainerInset = UIEdgeInsets(top: 12, left: Theme.detailContentInsetLeft - 5,
                                                    bottom: 12, right: Theme.detailContentInsetLeft - 5)
-        // Smart punctuation off. It turns "--" into an em dash and straight
-        // quotes into curly ones behind his back, which is not help.
-        bodyView.smartDashesType = .no
-        bodyView.smartQuotesType = .no
+        // The keyboard's Smart Punctuation, as Mail's body has it (B-121):
+        // "--" a dash and his apostrophes and quotes curly, as Settings
+        // says, which his own letters show. It was off, by a comment
+        // calling it no help, and every apostrophe he typed went straight.
+        // Capitals and corrections are the text view's own, as before.
+        bodyView.smartDashesType = .default
+        bodyView.smartQuotesType = .default
         bodyView.translatesAutoresizingMaskIntoConstraints = false
         // As tall as its words, and scrolled with the fields over it, as
         // Mail's letter is. With a scroller of its own under fields that
@@ -395,6 +403,40 @@ final class ComposeViewController: UIViewController,
         super.viewWillAppear(animated)
         navigationController?.isModalInPresentation = true
         navigationController?.presentationController?.delegate = self
+    }
+
+    /// The letter opens ready to type, as Mail's does (B-120).
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        readyToType()
+    }
+
+    /// The keyboard up and the caret where Mail's composer puts it
+    /// (`ComposeForm.firstField`): in To for a new letter and a forward, at
+    /// the top of the body, above his signature and the quote, for a reply
+    /// and a draft reopened from Drafts, in Subject for a letter to someone
+    /// with none. It gave focus to nothing, and his tap put the caret
+    /// wherever his finger landed, often in the quote.
+    ///
+    /// The first time the sheet appears and never again, so a caret he has
+    /// put somewhere stays there; not with anything put up over the sheet,
+    /// nor once he is in a field himself (`ComposeForm.readiesOnAppearing`).
+    private func readyToType() {
+        let fields: [UIView] = [toField, ccField, bccField, subjectField, bodyView]
+        let inAField = fields.contains { $0.isFirstResponder }
+        defer { readied = true }
+        guard ComposeForm.readiesOnAppearing(done: readied, covered: presentedViewController != nil,
+                                             inAField: inAField) else { return }
+        switch ComposeForm.firstField(to: toField.recipients, subject: subjectField.text ?? "") {
+        case .to:
+            toField.becomeFirstResponder()
+        case .subject:
+            subjectField.becomeFirstResponder()
+        case .body:
+            bodyView.becomeFirstResponder()
+            bodyView.selectedRange = NSRange(location: 0, length: 0)
+            keepCaretInView()
+        }
     }
 
     /// A swipe at the sheet, which is held: Cancel's question, or for a
@@ -856,11 +898,18 @@ final class ComposeViewController: UIViewController,
         // The caption is a label of its own, which VoiceOver does not read
         // with the field: "To", not "To:".
         field.accessibilityLabel = text.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
-        field.autocapitalizationType = .none
-        field.autocorrectionType = .no
-        field.smartDashesType = .no
-        field.smartQuotesType = .no
-        // Subject alone since B-076: To, Cc and Bcc are `addressRow`'s.
+        // Subject alone since B-076: To, Cc and Bcc are `addressRow`'s, and
+        // keep `RecipientField`'s email keyboard, no capitals, no
+        // corrections and straight quotes. Subject types as Mail's does
+        // (B-121): a capital to begin, corrections, and Smart Punctuation
+        // as Settings has it. Mail's composer sets none of these on its
+        // Subject, so the system's own are its. They were off, left from
+        // when this row served the address fields too, and his subjects
+        // began in lower case.
+        field.autocapitalizationType = .sentences
+        field.autocorrectionType = .default
+        field.smartDashesType = .default
+        field.smartQuotesType = .default
         field.addTarget(self, action: #selector(letterEdited), for: .editingChanged)
 
         let rule = UIView()

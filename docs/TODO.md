@@ -634,7 +634,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       link in the letter that arrived (share check 11, B-036). What is left
       is still "The share sheet's checks".* *Decided 2026-10-21 by the
       owner: the share with no subject is left as it is, as the YouTube
-      app hands over the link alone (share check 11).*
+      app hands over the link alone (share check 11).* *Reopened
+      2026-10-24 (B-125): Mail does give a YouTube share a subject, the
+      video's title, which the YouTube app hands to Mail and to no share
+      extension. The subject is what the share hands over that names it,
+      Safari's page title; the YouTube share's stays empty for want of
+      one, and a fetch is left to the owner.*
 - [x] Anything else touching the send path. Batch 6 of the lag fixes
       (B-044) went in before the iPad was back; its checks below come
       first. *Done 2026-09-29: B-044's checks were made on the iPad; what
@@ -1121,7 +1126,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       recent photos.png' name, and the subjectless YouTube share as they
       are, since each matches what Mail or iOS would do." Left as it is,
       as Mail has it: the popover takes the tap outside it, Send's bar
-      included. That was the last step left.*
+      included. That was the last step left.* *The ruling's part on the
+      YouTube share was reopened 2026-10-24 (B-125).*
 - [x] **B-045, new mail in the open folder.** *Seen 2026-09-29; see
       B-045. The archive-elsewhere half is still to try.* With the Inbox open, send
       a letter to himself, give it a few seconds to arrive, and tap Refresh
@@ -2539,7 +2545,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       recent photos.png' name, and the subjectless YouTube share as they
       are, since each matches what Mail or iOS would do." The name iOS
       suggests stands, as iOS gives it; image0.png and image0.jpeg are for
-      a picture that comes with no name at all.*
+      a picture that comes with no name at all.* *The ruling's part on
+      the YouTube share was reopened 2026-10-24 (B-125); the name stands.*
       8. *The memory guard's line.* In every line with `way=JPEG`, `N MB
       available` is a number, not "memory unknown": the extension is told
       what it has left. Note N on the test iPad, and on his when there is
@@ -2565,7 +2572,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       (the YouTube app hands over no title, seen 2026-10-04, so the subject
       is empty), the link tappable in the letter that arrives. *Decided
       2026-10-21 by the owner, with 7's name: the empty subject is left as
-      it is, as the YouTube app hands over the link alone.*
+      it is, as the YouTube app hands over the link alone.* *Reopened
+      2026-10-24 (B-125): its ground, that Mail does the same, does not
+      hold, Mail giving the video's title. The subject stays empty because
+      the YouTube app hands an extension nothing that names it, not by the
+      ruling; a fetch is an owner question.*
       12. *After these, the app's own password still works* after the
       Keychain groups change: the app signs in and sends.
       13. *Cancel with words in it.* Type a word above the signature and
@@ -3655,7 +3666,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       recent photos.png' name, and the subjectless YouTube share as they
       are, since each matches what Mail or iOS would do." The name iOS
       suggests stands, as iOS gives it; image0.png is for a picture that
-      comes with no name at all.*
+      comes with no name at all.* *The ruling's part on the YouTube share
+      was reopened 2026-10-24 (B-125); the name stands.*
 
 - [x] **B-091, Flag with Airplane Mode on.** On the test iPad, the test
       account only, built from the `no-path` worktree. A stands for the
@@ -5280,6 +5292,80 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Smart Invert,* only if it is to be run: on, a cold launch: the
       launch screen and the rows inverted alike, no flash between; then
       off again.
+- [ ] **B-120, a letter opens ready to type.** On the test iPad, the test
+      account only, from a build with the change, the on-screen keyboard
+      (no hardware keyboard attached). Nothing is sent: no Send anywhere,
+      every letter closed with Cancel, a draft saved once and deleted
+      again. A stands for the account's address. For each: where the caret
+      is and whether the keyboard is up, from the sheet's first frame to
+      2 s after it has arrived, nothing touched.
+      1. *A new letter:* Compose: the keyboard up, the caret in To, no list
+      under it. Cancel: the sheet closes without asking.
+      2. *A reply:* a letter in the Inbox, Reply: the keyboard up, the
+      caret on the empty first line, above the signature and the quote,
+      the quote as it was. Cancel: it closes without asking. Reply All on
+      a letter with a Cc, the same.
+      3. *A forward:* a letter with no files (so no question), Forward:
+      the caret in To. Cancel.
+      4. *His caret kept:* Reply, then tap inside the quote and type one
+      letter there. Photo Library, then Cancel in the picker: the caret
+      still after that letter in the quote, not moved to the top. Cancel:
+      the question; a tap outside it closes it, the caret still there.
+      Cancel again, Delete Draft: the sheet closes, nothing saved.
+      5. *A draft reopened:* Compose, A with `+b120` before the @ in To,
+      Subject "B-120 draft", one word in the body; Cancel, Save Draft.
+      Drafts, the draft tapped: the keyboard up, the caret at the top of
+      the body, above the signature. One letter typed there, then Cancel,
+      Delete Draft: Drafts is empty again.
+      6. *Subject:* if a letter at hand has a `mailto:` link with an
+      address and no subject, tap it: the composer opens with the caret in
+      Subject. Cancel. Otherwise noted as not at hand.
+      7. *The share sheet:* a Wikipedia page in Safari, Share, Blackmail:
+      the keyboard up, the caret in To, no list. Cancel: it closes without
+      asking. Nothing sent.
+      8. *Two panes,* 1 and 2 again, then three panes back.
+- [ ] **B-121, typing as in Mail.** On the test iPad, the test account
+      only, from a build with the change, the on-screen keyboard. Nothing
+      is sent: no Send anywhere, a draft saved once and deleted again.
+      First, Settings > General > Keyboard: Auto-Capitalization,
+      Auto-Correction and Smart Punctuation written down as found (on is
+      the factory's); the steps expect them on.
+      1. *Subject:* Compose, then in Subject type `sunday lunch` and a
+      space: it reads "Sunday lunch". Then ` teh` and a space: corrected to
+      "the", as the keyboard corrects in Mail. Then ` don't` with the
+      apostrophe key: the apostrophe curly, ’.
+      2. *The body:* on its first line type `"yes" -- don't`: the quotes
+      curly “ ”, the two hyphens one dash, the apostrophe curly.
+      3. *To:* type `carlo` in To: no capital, nothing corrected; then
+      take it out again.
+      4. *Kept as typed:* A with `+b121` before the @ in To, Cancel, Save
+      Draft. Drafts: the row's subject with its curly ’; the draft tapped,
+      Subject and body as typed, quotes and dash as they were. One letter
+      typed, then Cancel, Delete Draft: Drafts is empty again.
+      5. *The share sheet:* a Wikipedia page in Safari, Share, Blackmail:
+      at the end of Subject type ` don't`, and on the body's first line
+      `"great"`: curly, as in the composer; in To, `carlo`, no capital.
+      Cancel, Delete Draft. Nothing sent.
+- [ ] **B-125, a share's subject from what it hands over.** On the test
+      iPad, the test account only, from a build with the change installed
+      through TrollStore's helper as the share extension is (B-036). Nothing
+      is sent: every share ends with Cancel.
+      1. *Safari:* a Wikipedia page, Share, Blackmail: Subject is the
+      page's title as Safari's tab shows it, "… - Wikipedia", and the
+      sheet's title the same. Tap at the end of Subject and type ` x`:
+      Subject and the title follow. Cancel: the question; Delete Draft.
+      2. *The YouTube app:* a video, Share, Blackmail (under More if it is
+      not in the row): Subject empty, "New Message" over the sheet, the
+      link alone on the body's line under the empty first one. Cancel: it
+      closes without asking.
+      3. *The share sheet's header:* in 2, before Blackmail is tapped,
+      what the share sheet's header shows over its rows written down (the
+      video's title or not): what iOS was given, which the extension is
+      not.
+      4. *Words beside a link,* if an app at hand shares them (Notes with
+      a link in a note, or another): what Subject shows, written down.
+      Cancel.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -5511,6 +5597,17 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       "Recent search," (B-105); the Forward question with "Include" and
       "Don't Include" (B-107); "Photo Library", "Attach File" and the
       sentences for files that could not be attached (B-108).
+- [ ] **A YouTube share's subject** (B-125): Mail's is the video's title,
+      which the YouTube app gives Mail and never a share extension; here
+      it stays empty, some 31 letters a day, rows "(no subject)" that a
+      search by title cannot find. Naming it needs the page's title fetched
+      while the sheet is up (LinkPresentation, or YouTube's oEmbed). Mail
+      fetches nothing to fill a share's Subject, taking the app's answer;
+      its composer does fetch a page's preview for a link pasted into a
+      letter, which it makes a rich link. A fetch here would have to never
+      hold Send, never write over a subject he has typed, and leave it
+      empty when the fetch fails. As built (empty, the default), or the
+      fetch.
 
 ## Open, recorded, not scheduled
 

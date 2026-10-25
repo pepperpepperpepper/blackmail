@@ -1732,7 +1732,11 @@ to happen.
   Send then, as in the app; since B-070 it is made from the staged files
   as it goes, and never held whole.
 - What Safari and YouTube put in the extension item: the title is taken
-  from `attributedTitle`, then `attributedContentText`.
+  from `attributedTitle`, then `attributedContentText`. *Seen since
+  (B-125): Safari's page title comes as `attributedContentText`, with no
+  `attributedTitle`, in the iPadOS 18.6 simulator, and was the subject on
+  the test iPad from 2026-09-30; the YouTube app hands over the link
+  alone (2026-10-04, 2026-10-21).*
 - The sheet's look beside the app's composer, and sending over TLS from the
   extension.
 - Whether iOS hands another app's `mailto:` link here.
@@ -2439,7 +2443,14 @@ B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
   two-tap Send, the 'View recent photos.png' name, and the subjectless
   YouTube share as they are, since each matches what Mail or iOS would
   do." The subject stays empty, as the YouTube app hands over the link
-  alone.*
+  alone.* *Reopened 2026-10-24 (B-125): the ruling's ground, that Mail
+  does the same, does not hold. Of about 950 YouTube shares he sent
+  through Mail in 30 days none had an empty subject, Mail giving the
+  video's title. On the owner's word to copy Mail, the subject is what the
+  share hands over that names it; the YouTube app's share still has none,
+  since nothing it hands an extension names it, and naming it would take
+  a fetch, where Mail fetches nothing to fill a share's Subject (an owner
+  question).*
 - *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
   alone. A tap on the sheet's body closed it with the word still there;
   Delete Draft ended the share, and nothing went.
@@ -3638,7 +3649,9 @@ since each matches what Mail or iOS would do."* Left as it is, as Mail
 has it: its popover takes the tap outside it the same way. The TODO
 check now asks for the two taps, and the comment in `sendTapped` says
 what the iPad showed; the part that puts the sheet away stays, for
-anything up that a tap on Send does get past.
+anything up that a tap on Send does get past. The ruling's part on the
+subjectless YouTube share was reopened on 2026-10-24, its ground found
+untrue (B-125); the two-tap Send stands.
 
 ---
 
@@ -15883,7 +15896,8 @@ two go under one name.
 recent photos.png' name, and the subjectless YouTube share as they are,
 since each matches what Mail or iOS would do." The suggestion stands, as
 iOS gives it; image0.png is for a picture that comes with no name at
-all.*
+all.* *The ruling's part on the YouTube share was reopened 2026-10-24
+(B-125); the name stands.*
 
 **Not covered.**
 
@@ -23668,6 +23682,105 @@ own in `MessageCell`, 2 in 2; the row's date asked for in en_GB there, 4
 in 2; Go to Date's calendar given en_GB, 3 in 2.
 
 The full suite, serially: 2,414 tests, 10 of them new, 6 skipped, none
+
+---
+
+## B-120 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A letter opened with no caret and no keyboard; Mail's opens ready to type
+
+**What Mail does.** Apple's iPadOS 18 guide goes from Reply straight to
+"Type your response, then tap Send", and from Forward to "Enter the email
+addresses of the new recipients", with no tap between
+(support.apple.com/guide/ipad/reply-to-and-forward-emails-ipad45e27452/18.0/ipados/18.0);
+for a new letter it says "tap the To field" and is silent on where the
+caret starts. Mail's composer is MessageUI's: its share sheet entry opens
+it, and its kinds of letter (`_MFMailCompositionContext`) are the Mail
+app's own, a reply, a forward, a draft, the Outbox's and Send Again's;
+the Mail app's own code is not in the simulator, so that it opens this
+composer is taken from them. Its choice was read from iOS 18.6's
+simulator runtime on the Mac,
+`-[MFMailComposeController pickInitialFirstResponder]`: To while it holds
+no address; then Subject while its text is empty; then the body, the
+caret at its start (`-[MFComposeWebView placeCaretAtStartOfBodyField]`).
+It has no case of its own for a reply, a forward, a share or a draft
+reopened from Drafts, the Outbox or Send Again: each is those three
+questions, so a reply opens in the body above the signature and the quote,
+and a new letter, a forward and a share in To. It is asked as the sheet is
+about to appear and again once the letter's content has loaded; before
+the sheet has appeared, and unless whatever opened it asked for the
+keyboard at once, it takes no field, and a field it had before a sheet
+went over it (the camera, a scan, markup, a person's card) is given back
+instead of a new choice. Its Subject step goes past the one the gap list
+asked for (To, otherwise the body): a letter to someone with no subject
+yet opens in Subject. Not seen on a screen: Mail does not run in the
+simulator (B-074), and the iPad's iPadOS 18.7 was not read.
+
+**What he does.** In 30 days of his Sent Mail, about 421 replies, 136
+forwards and 479 letters of his own: some 35 letters a day through this
+composer (gap list, 2026-10-24).
+
+**What it was.** The composer had no `viewDidAppear` and gave focus to
+nothing as it opened; its one `becomeFirstResponder` was Return in
+Subject. Its body's caret was set at 0 (B-069) on a body that was not
+first responder, so his first tap put the caret wherever his finger
+landed, in a reply often in the quote. The share sheet went into To as it
+appeared whenever the share had nobody in To, every time it appeared.
+
+**Changed.**
+
+1. *The rule* (`ComposeForm.firstField`, new): To while it holds no one
+   (an entry of spaces is no one); then Subject while it is empty (a
+   subject of spaces is a subject, as Mail asks the length); then the
+   body.
+2. *When* (`ComposeForm.readiesOnAppearing`, new): the first time the
+   sheet appears, and only then; not with an alert or another sheet put up
+   over it; not once he is in a field himself. The one chance is taken
+   whatever it decides, so a caret he has put somewhere is never moved.
+3. *The composer* (`readyToType`, from a new `viewDidAppear`): To or
+   Subject made first responder, or the body with the caret at 0 and its
+   line brought into view, the keyboard coming up with it. The letter is
+   whole as the sheet opens here, so the rule is asked once, where Mail's
+   asks again when its content has loaded.
+4. *The share sheet*: the same rule and the same once, in place of To
+   whenever it appeared. A share has nobody in To, so it opens in To, as
+   it did.
+
+**Not changed.** Return in Subject and the body's caret at 0 for Tab
+(B-069); To offering nothing as he goes in (B-073), so the list stays
+closed; the sheet ending above the keyboard (B-069); Cancel's question,
+since a caret changes nothing in the letter and an untouched letter still
+closes without a word; the address rows' email keyboard. No new words.
+
+**What he sees.** A new letter and a forward open with the keyboard up and
+the caret in To, no list under it. A reply, a Reply All and a draft
+reopened from Drafts open with the keyboard up and the caret on the empty
+line at the top, above his signature and the quote. A `mailto:` link with
+an address and no subject opens in Subject. A share opens in To, as
+before. A caret he puts elsewhere stays there when a picker or Cancel's
+question has come and gone. With a hardware keyboard, the caret in the
+same places and no keyboard on the screen.
+
+**Tests.** `ReadyToTypeTests`, seven: a new letter and a forward in To; a
+reply and a Reply All in the body, its first line the empty one above the
+signature and the quote, with and without a signature; a draft by the
+same rule, Subject when it has To and no subject, To when only Cc holds
+someone or To holds spaces; a subject of spaces is a subject; a share
+from a page, a link alone or words in To; once, never over something,
+never with him in a field; and the source read in both sheets, the rule
+asked from `viewDidAppear` alone, the chance marked taken whatever it
+decides, To, Subject, or the body at 0 with its line in view.
+`ComposeLikeMailTests.testOnlyTypingShowsTheListInEither` reads the share
+sheet's new `viewDidAppear`.
+
+Each part undone by hand, the two classes run, then put back and passing,
+counted as failures in tests: no Subject step, 2 in 2; a subject of
+spaces no subject, 1 in 1; To read raw, so spaces are someone, 1 in 1; To
+never asked, 8 in 4; not once, 1 in 1; over an alert, 1 in 1; with him in
+a field, 1 in 1; the composer with no `viewDidAppear`, as it was, 3 in 1;
+the chance marked taken only when the caret was put, 1 in 1; the body
+made first responder with its caret left where it was, 1 in 1; the share
+sheet into To only, as it was, 4 in 2.
+
+The full suite, serially: 2,411 tests, 7 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -23778,6 +23891,100 @@ pinned light, 2 in 1; the share extension's plist Light, 1 in 1; its
 window not pinned, 1 in 1.
 
 The full suite, serially: 2,416 tests, 2 of them new, 6 skipped, none
+
+---
+
+- Seen on the test iPad: not yet (TODO, B-120's check).
+- Mail's composer was read, not watched: when its keyboard comes up on
+  the iPad (as the sheet arrives, or after) was not seen, and neither was
+  whether a share from another app opens Mail's keyboard at once (the
+  sharing app's `showKeyboardAutomatically` is off unless set, and Mail's
+  composer then picks the field once its content has loaded).
+- Here the keyboard comes up once the sheet has arrived (`viewDidAppear`),
+  a moment after the sheet. Mail picks the field as the sheet is about to
+  appear only when whatever opened it asked for the keyboard at once;
+  otherwise it picks once the letter's content has loaded, after the
+  sheet appeared.
+- The field Mail gives back after its own camera, scan, markup or a
+  person's card: this composer has none of those; after its photo or file
+  picker the field he was in is UIKit's to give back, and nothing here
+  moves it.
+- Split View, Slide Over and Stage Manager: the app runs full screen only
+  (`UIRequiresFullScreen`).
+
+## B-121 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
+
+**What Mail does.** Apple's guide is silent. Mail's composer, read from
+iOS 18.6's MessageUI in the simulator runtime, sets capitals,
+corrections and the keyboard type only on its address fields
+(`MFComposeRecipientTextView`, `MFComposeRecipientView`: no corrections,
+no capitals, the email keyboard), and Smart Punctuation on nothing at all:
+its Subject (`MFComposeSubjectView`) and its body (a web view) keep the
+system's own, a capital to begin, corrections, and Smart Punctuation, each
+as Settings > General > Keyboard has it, all on from the factory. His own
+letters show it: of the 479 letters he began in 30 days, 467 subjects
+start with a capital and 1 with a small letter; in 90 sampled letters, 16
+have a curly apostrophe he typed and none a straight one; in his subjects
+9 curly against 2 straight (gap list, 2026-10-24).
+
+**What he would have seen.** About 16 subjects a day typed: each in lower
+case unless he reached for Shift, no word corrected, and every apostrophe
+and quote in Subject and the body straight, where his letters from Mail
+have them curly.
+
+**What it was.** Subject, in the composer and the share sheet: capitals
+none, corrections off, Smart Dashes and Smart Quotes off, left from when
+the same row served To, Cc and Bcc (before B-076). The body, in both:
+Smart Dashes and Smart Quotes off, from a code comment calling them no
+help, with no decision behind it.
+
+**Changed.** Subject, in both sheets: capitals by sentence, corrections,
+Smart Dashes and Smart Quotes at the system's default, written out so the
+choice is seen. The body, in both: Smart Dashes and Smart Quotes at the
+default; its capitals and corrections were already the system's. So
+"don't" typed has a curly ’ when Settings' Smart Punctuation is on, quotes
+come out “ ” and ‘ ’, and "--" a dash, as in Mail; with any of the three
+switched off in Settings, off here as in Mail.
+
+**Not changed.** To, Cc and Bcc keep `RecipientField`'s email keyboard,
+no capitals, no corrections and straight quotes: an address corrected or
+curled bounces. The search field keeps its own (B-105). On the wire
+nothing changed, and nothing had to: Subject goes as UTF-8 encoded words,
+the text and the HTML twin as quoted-printable UTF-8, and the app's own
+reader gives back what he typed; B-105's search keeps ’ inside its word,
+reads “ ” as a phrase's marks and — as a space, and asks for a word with
+’ in it as a UTF-8 literal (`SearchLiteralTests`). No new words.
+
+**What he sees.** In Subject, the first letter a capital as he begins and
+a misspelt word corrected as he goes on, in both sheets. In Subject and
+the body, his apostrophes and quotes curly and "--" a dash, as Settings
+has them. In To, Cc and Bcc, nothing different.
+
+**Tests.** `TypingAsInMailTests`, six: Subject in both sheets with
+capitals, corrections and Smart Punctuation at the system's own and none
+of the four off; the body in both with Smart Punctuation and nothing
+off; the address rows' email keyboard and their four settings kept, and
+Subject's row the only one in either sheet setting capitals; a letter
+with “ ” ‘ ’ ’ — and – in Subject and body, built by the app and read
+back by it: every byte seven-bit, Subject in UTF-8 encoded words reading
+back as typed, the plain part's and the HTML twin's words as typed under
+`charset=utf-8`, no straight apostrophe anywhere; the share sheet's
+letter the same, its link still a link; and the subject's words as
+B-105's search takes them, "Don’t", "miss", "Tosca", "Sunday’s", "at".
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the composer's Subject in lower case, 2 in
+1; uncorrected, 2 in 1; with straight quotes, 2 in 1; the share sheet's
+Subject as it was, 5 in 1; the composer's body as it was, 3 in 1; the
+share sheet's body as it was, 3 in 1; the address rows curling quotes, 1
+in 1; Subject's header not encoded past ASCII, 4 in 2; the bodies' bytes
+past ASCII left eight-bit, 2 in 2; the twin labelled Latin-1, 2 in 2
+(before its label was asserted, 0: the app's own reader takes UTF-8
+whatever the label says); the twin straightening apostrophes, 8 in 2; the
+share's linked twin doing so, 4 in 1; the search splitting a word at its
+’, 1 in 1; and keeping “ ” in a word, 1 in 1.
+
+The full suite, serially: 2,417 tests, 6 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -23791,3 +23998,141 @@ failing. The release build for the iPad links.
   as on 16.5.1, so in the window; not seen there.
 - The share sheet's first frame over a light app, before its controller
   pins it dark: not looked at, and not this key's.
+
+---
+
+- Seen on the test iPad: not yet (TODO, B-121's check).
+- His iPad's Settings > General > Keyboard were not read: Mail and this
+  app both follow them, so whatever he has set there holds for both.
+- What a correction does to a word he meant, a name or a word of another
+  language, is the keyboard's, as in Mail.
+- A subject pasted in, or one the share brings, is left as it came.
+- The keyboard's shortcut bar and predictive row are the system's in both
+  Mail and here; not compared.
+
+## B-125 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A YouTube share was left with no subject as Mail's would be; Mail's has the video's title, and the subject is what the share hands over that names it, Safari's page title, the YouTube app's none
+
+**The ruling reopened.** On 2026-10-21 the owner ruled: "Leave the
+two-tap Send, the 'View recent photos.png' name, and the subjectless
+YouTube share as they are, since each matches what Mail or iOS would do."
+The gap list of 2026-10-24 found the ground untrue for the share: of about
+950 YouTube shares he sent through Mail in 30 days, none had an empty
+subject. Mail gives the video's title: 920 of them carry youtu.be links,
+the YouTube app's own, and none a title ending in Safari's " - YouTube".
+They come back into his Inbox through his second address (B-061), about
+31 a day, and in this app each would be a row "(no subject)" that a
+search by its title cannot find. The owner said to go on copying Mail.
+The rest of the ruling stands.
+
+**What Mail does.** Read from iOS 18.6's ShareSheet framework in the
+simulator runtime on the Mac. Mail's entry in the share sheet
+(`UIMailActivity`) takes its subject from the sharing app's answer to
+`activityViewController(_:subjectForActivityType:)` asked for Mail, else
+the share sheet's own subject, and from nothing else; the words and
+addresses shared are its body. Safari answers with its page's title, for
+every kind of share but AirDrop (`_SFActivityItemProvider`,
+SafariServices). The YouTube app answers with the video's title, by his
+letters. Mail fetches nothing to fill a share's Subject: its share entry,
+preparing the letter, asks LinkPresentation for nothing, and the
+composer's `contentURLs` serve its donation to Siri's suggestions
+(`hasDuetDonationContext`), not a fetch. Its composer does fetch a page's
+preview for a link pasted into a letter's body, which it makes a rich
+link (`-[MFComposeWebView pasteRichLink]`,
+`insertRichLinkWithURL:completionHandler:`, `MSRichLinkGenerator`,
+`richLinkDidStartLoading:` and `richLinkDidFinishLoading:`, MessageUI of
+iOS 18.6); that is the body's, not a share's Subject.
+
+**What a share extension is handed.** The share sheet asks the subject
+question for Mail, Messages, Reading List and AirDrop only. A share
+extension (`UISocialActivity`, `com.apple.share-services`) is handed the
+items as attachments and, as the item's words (`attributedContentText`),
+any words the app shares. Seen in the iPadOS 18.6 simulator on the Mac,
+an iPad (A16), with a share extension made only to write down what it was
+handed, and a small app to share from:
+
+- *An app offering a subject and a LinkPresentation title* (the title the
+  share sheet's header showed): one item, the link alone, with no
+  `attributedTitle`, no `attributedContentText` and no suggested name.
+  The app was asked for the link for the extension and never for a
+  subject.
+- *The same app sharing words and the link:* the words as
+  `attributedContentText` and as a text, then the link.
+- *Safari on a Wikipedia page:* `attributedContentText` "Opera house -
+  Wikipedia", no `attributedTitle`, and the link: the subject Mail gives
+  the same share.
+- *The YouTube app,* which the simulator does not have: the link alone,
+  seen on the test iPad on 2026-10-04 and 2026-10-21 (B-036).
+
+So an extension has Safari's title as Mail has it, and never the YouTube
+app's.
+
+**What it was.** The subject was the item's `attributedTitle`, else its
+`attributedContentText`, worked out in the extension's own line under a
+comment saying that was how Mail takes it; a YouTube share had none.
+
+**Changed.**
+
+1. *The naming, in one place the host runs* (`ShareItems.name`, new): the
+   item's title, else its words, trimmed; nothing when neither has any.
+   The same rule as before, now held by tests in the shapes seen: Safari's
+   page title is the subject, an app's own title comes before its words,
+   and a link handed over alone has no subject. The subject is the
+   share sheet's ordinary Subject, his to change.
+2. *What the comments say*: that Mail's subject is the app's answer,
+   which no extension is given; that Safari hands over its title and the
+   YouTube app none (`ShareItems.name`, `SharedItem.link`, the share
+   sheet's own).
+3. *No fetch.* Nothing in the share sheet asks for the page, by
+   LinkPresentation, a URL session or YouTube's oEmbed, since Mail fetches
+   nothing to fill a share's Subject; a test holds it so.
+
+**Not changed.** What any share's subject is: Safari's as before, the
+YouTube app's still empty, now for want of anything naming it rather than
+by the ruling. Words an app shares beside a link are its subject and its
+body's first line, as before (Mail's subject would be the app's answer,
+which the extension is never given). The body, the HTML twin, the sheet.
+No new words.
+
+**What he sees.** As before: a Safari page's title in Subject, which he
+can change like any subject; a YouTube share with Subject empty and "New
+Message" over the sheet.
+
+**Left for the owner.** Naming a YouTube share as Mail does needs the
+page's title fetched while the sheet is up. Mail fetches nothing to fill
+a share's Subject, though its composer does fetch a pasted link's preview
+(TODO, "Blocked on the owner", a YouTube share's subject).
+
+**Tests.** `ShareNameTests`, five: Safari's shape, the words "Opera house
+- Wikipedia" and no title, the subject, the link alone in the body; an
+app's own title before the words, a blank title giving way to them, a
+blank one alone nothing; the YouTube app's shape, nothing, the subject
+empty and the link alone; the extension reading its items through
+`ShareItems.name` and its words in no other place; and no LinkPresentation,
+URL session or connection, `dataTask`, page read, oEmbed or web view in
+any Swift file of the share sheet's folder (`Sources/Blackmail/Share`,
+five named files checked to be among those read).
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the words before the title, 1 in 1; the
+title alone, Safari's words not read, 3 in 2; names not trimmed, 3 in 2;
+the extension reading its own way, as it did, 1 in 1; LinkPresentation
+brought into the share sheet, 1 in 1; a metadata fetch in
+`ShareMirror.swift`, a file of the share sheet the test once did not
+read, 3 in 1; a web view in `ShareViewController.swift`, 1 in 1; a URL
+connection in `ShareSheet.swift`, 1 in 1.
+
+The full suite, serially: 2,422 tests, 5 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-125's check). The simulator was
+  iPadOS 18.6; his iPad's 18.7 was not read. The test iPad, on 16.5.1,
+  has shown Safari's title as the subject since 2026-09-30.
+- The YouTube app on iPadOS 18 was not seen: on 16.5.1 it handed over the
+  link alone, twice.
+- Words an app shares beside a link: here they are the subject too, where
+  Mail's subject would be the app's answer, or nothing. How often he
+  shares that way is not known; not changed.
+- Other apps that share links (News, Maps, a podcast app) were not tried;
+  each is named by what it hands over, by the rule above.

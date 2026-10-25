@@ -2,7 +2,8 @@ import Foundation
 
 /// What the composer's form decides by itself, in the app and in the share
 /// sheet (B-069): the title over the letter, whether Send is live, whether
-/// Cancel asks, and what an address field offers under it.
+/// Cancel asks, what an address field offers under it, and where the
+/// letter opens ready to type (B-120).
 ///
 /// Apple Mail on the iPad is the model for each. Out of the two sheets so
 /// the suite can run it; the sheets are UIKit.
@@ -144,5 +145,44 @@ enum ComposeForm {
             .filter { !$0.isEmpty })
         return RecipientBook.rank(book.filter { !present.contains($0.address.lowercased()) },
                                   matching: typed, limit: limit)
+    }
+
+    // MARK: - Ready to type
+
+    /// Where a letter opens, the caret in it and the keyboard up (B-120).
+    enum FirstField: Equatable {
+        /// To: a new letter, a forward, any letter to nobody yet.
+        case to
+        /// Subject: a letter to someone that has no subject yet.
+        case subject
+        /// The body, the caret at its start, above his signature and a
+        /// reply's quote.
+        case body
+    }
+
+    /// Mail's own choice, read from its composer in iOS 18.6
+    /// (`-[MFMailComposeController pickInitialFirstResponder]`, MessageUI):
+    /// To while it holds no one; then Subject while it is empty; then the
+    /// body, the caret at the body's start (`placeCaretAtStartOfBodyField`).
+    /// Mail has no case of its own for a reply, a forward, its share sheet
+    /// or a draft reopened from Drafts: each is these three questions, so a
+    /// reply opens in the body above the quote and a forward in To.
+    ///
+    /// `to` is To's recipients as the field holds them, `subject` Subject's
+    /// text as it is: Mail asks whether its length is nought, so a subject
+    /// of spaces is a subject.
+    static func firstField(to: [String], subject: String) -> FirstField {
+        if people(to).isEmpty { return .to }
+        if subject.isEmpty { return .subject }
+        return .body
+    }
+
+    /// Whether the sheet is made ready to type as it appears: the first time
+    /// only (`done` is whether that time has come and gone), never with an
+    /// alert or another sheet up over it (`covered`), and never once he is
+    /// in a field himself (`inAField`), so the caret he has put somewhere
+    /// is never moved.
+    static func readiesOnAppearing(done: Bool, covered: Bool, inAField: Bool) -> Bool {
+        !done && !covered && !inAField
     }
 }
