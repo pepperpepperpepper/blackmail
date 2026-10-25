@@ -14,8 +14,11 @@ import Foundation
 /// Nothing at all where there is no profile: the simulator, a build run
 /// from the host, and an install by TrollStore, which never runs out. This
 /// project's TrollStore installs carry the profile all the same (they are
-/// the signed IPA, `tools/sign-ipa.sh`), so TrollStore is told by the mark
-/// it leaves beside the app.
+/// the signed IPA, `tools/sign-ipa.sh`), so TrollStore is told by the
+/// entitlement its helper adds to the app's own signature
+/// (`OwnEntitlements`). Not by the file it leaves beside the app in the
+/// bundle container: the app's sandbox denies even a look at it, which
+/// reads as no file (the test iPad, 2026-10-25).
 enum AppExpiry {
 
     /// What was found.
@@ -24,7 +27,8 @@ enum AppExpiry {
         case stops(Date)
         /// No profile in the bundle.
         case noProfile
-        /// Installed by TrollStore: it never stops opening.
+        /// Installed by TrollStore, its signature holding the entitlement
+        /// TrollStore adds: it never stops opening.
         case trollStore
         /// A profile, but no date could be read from it.
         case unreadable
@@ -33,27 +37,24 @@ enum AppExpiry {
     /// Where the signing puts the profile, in the app's bundle.
     static let profileName = "embedded.mobileprovision"
 
-    /// TrollStore's marks, an empty file in the bundle container beside the
-    /// app (`TS_MARKER` and `TS_LITE_MARKER` in TrollStore's
-    /// `Shared/TSUtil.h`), written when it installs an app.
-    static let trollStoreMarks = ["_TrollStore", "_TrollStoreLite"]
-
     /// This app's, read once a launch, the first time it is asked for, and
-    /// said in the connection log for whoever helps.
+    /// said in the connection log for whoever helps: its own executable's
+    /// entitlements, then its profile.
     static let app: Found = {
-        let found = read(bundle: Bundle.main.bundleURL, now: Date())
+        let entitlement = OwnEntitlements.containerRequired(executable: Bundle.main.executableURL)
+        if entitlement == .unread { Diagnostics.log(.note, "EXPIRY entitlements unread") }
+        let found = read(bundle: Bundle.main.bundleURL, containerRequired: entitlement, now: Date())
         Diagnostics.log(.note, "EXPIRY \(found.logged)")
         return found
     }()
 
-    /// What the bundle at `bundle` says, as of `now`.
-    static func read(bundle: URL, now: Date, files: FileManager = .default) -> Found {
-        let container = bundle.deletingLastPathComponent()
-        if trollStoreMarks.contains(where: {
-            files.fileExists(atPath: container.appendingPathComponent($0).path)
-        }) {
-            return .trollStore
-        }
+    /// What the bundle at `bundle` says, as of `now`, its executable's
+    /// signature holding TrollStore's entitlement or not. Only `.held` is
+    /// TrollStore: a signature that could not be read is taken as a
+    /// certificate's, and the profile read, so the warning stays.
+    static func read(bundle: URL, containerRequired: OwnEntitlements.Holding, now: Date,
+                     files: FileManager = .default) -> Found {
+        if containerRequired == .held { return .trollStore }
         let profile = bundle.appendingPathComponent(profileName)
         guard files.fileExists(atPath: profile.path) else { return .noProfile }
         guard let data = try? Data(contentsOf: profile),
