@@ -25451,8 +25451,6 @@ links.
   on the old build. They carry about 3 MB now, fetched whole, and each
   such step is checked against the log's time for the FETCH.
 
----
-
 ## B-130 — FIXED 2026-10-25, not yet seen on the iPad. A letter with his signature shown alone had its signature white on the black and its logo a dark box hardly seen; it has the white sheet a conversation's stack gives it
 
 **Found** on the test iPad: in passing at B-074's check, 2026-10-07, and
@@ -25753,10 +25751,6 @@ skipped, none failing; the release build links.
 - Mail's pane, and its print, of a letter it has only the beginning of:
   not seen.
 
----
-
----
-
 ## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
 
 **Found on the iPad, twice, and left in "Seen in passing".** On
@@ -25937,8 +25931,6 @@ iPad links.
   layout, taken as `ListPlaceTests` takes UIKit's (B-093).
 - The lost answer to a MOVE carried out, above.
 
----
-
 ## B-133 — FIXED 2026-10-25, not yet seen on the iPad. After Edit then Done, and after Go to Date, the letter open in the pane lost its row's highlight; the row is highlighted again wherever the list has it
 
 **Found on the test iPad, 2026-10-21, in passing, twice.** In B-048's
@@ -26032,8 +26024,16 @@ highlight in Edit mode too, 1 in 1. All but the first in the test that
 reads the controller.
 
 The full suite, serially: 2,484 tests, 2 of them new here, 6 skipped,
+none failing. The release build for the iPad links.
 
----
+**Not covered.**
+
+- The host suite cannot run UIKit: whether the table keeps a row
+  selected straight after `setEditing(false, animated: true)`, and that
+  `selectRow` sends no tap, are UIKit's, and the iPad's to show (TODO,
+  B-133's check).
+- Whether Mail puts the highlight back as its edit mode ends, and with
+  which word it ends, not seen on an iPad here.
 
 ## B-134 — CHANGED 2026-10-25 to copy Apple Mail, not yet seen on the iPad. With a bubble's menu up, letters typed opened the list under the menu and left the bubble and its menu; now they take the bubble's place, as typing over Mail's picked-out recipient does, the menu goes, and the list is in sight. "Cc/Bcc" stayed under Bcc once they were open; it goes while they show, and they fold back, as Mail's do
 
@@ -26289,8 +26289,41 @@ what the line read, 7 in 1; the list offered with a bubble picked out,
 2 in 1; the share sheet's guard the wrong way round, 1 in 1; the
 composer not keeping its open state, 1 in 1. 23 in all, over nine
 parts. The full suite, serially: 2,487 tests, 3 of them new, 6 skipped,
+none failing. The release build for the iPad links.
 
----
+**Not covered.**
+
+- Not seen on the iPad or in the simulator: built and tested on the host.
+  The TODO's check is the first look.
+- Mail itself was read, not watched. That letters over a picked-out
+  recipient replace it is its code's plain path; his iPad's 18.7 was not
+  read, and Mail's composer in its share sheet was not run.
+- Mail puts the letters where the recipient was, between the others; here
+  they go on the line after the bubbles, so a bubble made of them is the
+  last.
+- With the keyboard put away, a tap on a bubble leaves it away (change 3);
+  Mail would bring it up and put the caret there.
+- A tap on a bubble with the caret in Subject or the body brings the
+  caret to the address field, and the keyboard changes to the email one
+  as the menu opens; whether that moves the sheet under the menu on
+  16.5.1, as the keyboard rising did in B-078, is for the check.
+- A space typed over a bubble picked out, on an empty line or after
+  nothing but spaces, leaves it, the line dropping the space; in Mail it
+  would take its place with nothing to show. After letters it takes it,
+  as in Mail.
+- With a bubble's menu up, a comma in the middle of the line, or a letter
+  taken back by the keyboard's undo, leaves the bubble and its menu, and
+  the list stays closed until the menu goes (change 6).
+- Mail folds Cc and Bcc over a Bcc unchanged since the letter opened
+  (Always Bcc Myself, a draft opened again); here anyone in Bcc keeps them
+  open (change 4).
+- A tap on the line is told by a tap recognizer beside the line's own;
+  that it sees each tap on his 16.5.1 with the caret still going where he
+  taps is for the check. A caret moved without a tap, by the keyboard's
+  trackpad, is not watched: with no menu up a bubble is picked out only
+  by a backspace on an empty line, where the caret has nowhere to go.
+- Mail's From row and the image size row it folds with Cc and Bcc: not
+  built here (one account).
 
 ## B-135 — FIXED 2026-10-25, not yet seen on the iPad. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
 
@@ -26443,49 +26476,6 @@ none failing. The release build for the iPad links.
 
 **Not covered.**
 
-- The host suite cannot run UIKit: whether the table keeps a row
-  selected straight after `setEditing(false, animated: true)`, and that
-  `selectRow` sends no tap, are UIKit's, and the iPad's to show (TODO,
-  B-133's check).
-- Whether Mail puts the highlight back as its edit mode ends, and with
-  which word it ends, not seen on an iPad here.
-
----
-
-- Not seen on the iPad or in the simulator: built and tested on the host.
-  The TODO's check is the first look.
-- Mail itself was read, not watched. That letters over a picked-out
-  recipient replace it is its code's plain path; his iPad's 18.7 was not
-  read, and Mail's composer in its share sheet was not run.
-- Mail puts the letters where the recipient was, between the others; here
-  they go on the line after the bubbles, so a bubble made of them is the
-  last.
-- With the keyboard put away, a tap on a bubble leaves it away (change 3);
-  Mail would bring it up and put the caret there.
-- A tap on a bubble with the caret in Subject or the body brings the
-  caret to the address field, and the keyboard changes to the email one
-  as the menu opens; whether that moves the sheet under the menu on
-  16.5.1, as the keyboard rising did in B-078, is for the check.
-- A space typed over a bubble picked out, on an empty line or after
-  nothing but spaces, leaves it, the line dropping the space; in Mail it
-  would take its place with nothing to show. After letters it takes it,
-  as in Mail.
-- With a bubble's menu up, a comma in the middle of the line, or a letter
-  taken back by the keyboard's undo, leaves the bubble and its menu, and
-  the list stays closed until the menu goes (change 6).
-- Mail folds Cc and Bcc over a Bcc unchanged since the letter opened
-  (Always Bcc Myself, a draft opened again); here anyone in Bcc keeps them
-  open (change 4).
-- A tap on the line is told by a tap recognizer beside the line's own;
-  that it sees each tap on his 16.5.1 with the caret still going where he
-  taps is for the check. A caret moved without a tap, by the keyboard's
-  trackpad, is not watched: with no menu up a bubble is picked out only
-  by a backspace on an empty line, where the caret has nowhere to go.
-- Mail's From row and the image size row it folds with Cc and Bcc: not
-  built here (one account).
-
----
-
 - Not seen on the test iPad. Its check is in TODO.
 - In All Mailboxes, letters the Inbox's rows have drawn are asked for
   again under All Mail's ids: in the measure above, 2 of the first
@@ -26615,8 +26605,6 @@ build for the iPad links.
   one set back reads again; neither keeps a letter the floor would refuse.
 - His iPad's free space is not known. With a gigabyte or less above the
   floor, every keep reads, as before this change.
-
----
 
 ## B-137 — FIXED 2026-10-25, not yet seen on the iPad. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
 

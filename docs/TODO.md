@@ -535,7 +535,7 @@ this host. Ordered by value, not by size.
       letter opened after a large one keeps the header. `PanePageTests`,
       `PaneLoadsTests`, `PaneDocumentTests`, `ConversationDocumentTests`,
       `DisplayDatesTests`; PERFORMANCE.md #1 and #5; B-043.*
-- [ ] **Left from batch 4.** Opening another letter inside a conversation
+- [x] **Left from batch 4.** Opening another letter inside a conversation
       still changes the header to that letter once its body has come, so
       a letter with a different number of files moves the stack then. The
       header could change at the tap instead, with Reply held until the
@@ -549,14 +549,14 @@ this host. Ordered by value, not by size.
       the iPad: a letter opened in the stack takes the header and the
       toolbar at the tap, from its row, Reply held until its body has
       come, and the last letter opened owns the header whatever lands
-      after it (`StackFocus`). The search previews' part is left.*
+      after it (`StackFocus`). The search previews' part is B-135's.*
       *The search part done 2026-10-25 (B-135): a hit takes the preview
       already drawn for its letter, by its folder, id and Gmail id, from
       the folder's rows, the hits it replaces or the last 300 drawn, and
       only the rest are asked for; on the scripted mailbox "Margaret"
       typed a letter at a time asked 4 preview FETCHes where it asked 18.
       Checked in `SearchPreviewsTests`; the device check is below. The
-      header's part, and the letter reopened, are left.*
+      header's part and the letter reopened are B-129's.*
 - [x] **B-037. The two/three-panel switch.** Small — `RootViewController`
       already holds both column widths. **Hide the pane, do not zero its
       width**: a view with children and no width is the B-027 shape and
@@ -5718,8 +5718,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       KB; (c) a reply, plain, no Cc, no file. Organize by Thread on, three
       panes, then two; a screen recording through each tap. A line tapped
       within a second of the stack moving with the header does nothing
-      (B-128, item 5), so each tap below comes a second or more after the
-      one before, but where a step says otherwise.
+      (B-128, item 5), and that second starts only once the stack has
+      moved, after the tap; so each tap below comes about two seconds (1.5
+      s at least) after the one before, but where a step says otherwise. A
+      tap inside that second shows no light and does nothing.
       1. *Opened:* the conversation's row tapped. (c) open, (b)'s line at
       the top of the pane, whole, (a)'s above it out of sight; the header
       (c)'s, no Cc line, no file.
@@ -5763,7 +5765,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       row, the stack moving down by about 64 pt; the second tap, which by
       then lands on (a)'s line, does nothing: (a)'s line not lit, (a)
       still closed, (b) still open, the header (b)'s. Written down from the
-      recording: what was under the second tap. Then, a second or more
+      recording: what was under the second tap. Then, about two seconds
       later, (a)'s line tapped once: it opens, and the header is (a)'s.
       7. *Nothing else moved:* in 2 to 4 and 6, the letter opened grows
       below its own line, and no frame shows a line half under the header.
@@ -5795,8 +5797,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       on, three panes; a screen recording through each tap; the app's
       connection log read after each step. A line tapped within a second
       of the stack moving with the header does nothing (B-128, item 5), so
-      the taps below come a second or more apart, but where a step says
-      at once.
+      the taps below come about two seconds apart (1.5 s at least), but
+      where a step says at once.
       *A step that needs a body still coming,* Reply in 2, Flag in 3 and
       (b)'s two taps in 4, was run only if it came first: the log gives how
       long the letter's FETCH took, from its line to its tagged OK; the
@@ -5805,7 +5807,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       again in 4 sends nothing, its body being in the stack, so its time is
       the recording's alone. If the tap came after the body, the step was
       not run: the letter is kept on the iPad by then (B-111) and would come
-      at once, so the host APPENDs a copy of it, a Message-ID of its own,
+      at once, so the host APPENDs a copy of it, read (`\Seen`), to the
+      label "B-129", a Message-ID of its own,
       its References naming the letter before it, dated an hour after it,
       the conversation is opened again from the label, and the step is done
       again on the copy.
@@ -5853,7 +5856,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *Two panes:* the conversation opened again: (e) open, (d)'s line
       at the top. The stack scrolled up until (a)'s line is the top line
       of the pane; (a)'s, (b)'s and (c)'s lines tapped one after another,
-      each a little over a second after the last: the header follows each
+      each about two seconds after the last: the header follows each
       tap and ends on (c)'s, and (a)'s line is the top line, whole, after
       each. Three panes back.
       8. *Put back:* no flag on the five, no draft left in Drafts, and
@@ -6479,7 +6482,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       "Found in Sent Mail" (B-104); "Recent Searches" and VoiceOver's
       "Recent search," (B-105); the Forward question with "Include" and
       "Don't Include" (B-107); "Photo Library", "Attach File" and the
-      sentences for files that could not be attached (B-108).
+      sentences for files that could not be attached (B-108); "This app
+      will stop opening on September 18, 2027. After that, use Mail.",
+      with OK, once a day in the app's last thirty days, the day the one
+      its profile says, written in the iPad's way (B-137). It names Mail,
+      so it goes with "Apple Mail after the install", above.
 - [ ] **A Delete or Move whose answer is lost** (B-132): the connection
       dropping after Gmail has carried out a MOVE and before its answer
       comes, the row comes back with "Can't connect to mail server."
@@ -6492,11 +6499,6 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
       edit mode with Cancel, not seen on an iPad; Blackmail's button says
       Done. As built (the default), or Mail's word once seen on his iPad.
-      sentences for files that could not be attached (B-108); "This app
-      will stop opening on September 18, 2027. After that, use Mail.",
-      with OK, once a day in the app's last thirty days, the day the one
-      its profile says, written in the iPad's way (B-137). It names Mail,
-      so it goes with "Apple Mail after the install", above.
 - [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a
