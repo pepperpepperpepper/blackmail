@@ -213,9 +213,10 @@ enum SearchCriteria {
         return groups.map { "(\($0))" }.joined(separator: " ")
     }
 
-    /// `OR OR OR OR FROM "x" TO "x" CC "x" SUBJECT "x" BODY "x"`, and after
-    /// it, for each of `people`, `FROM "a" TO "a" CC "a"`, each with one
-    /// more OR before the lot (B-123).
+    /// `OR OR OR OR FROM "x" TO "x" CC "x" SUBJECT "x" BODY "x"`; with
+    /// `people`, that or any of them (B-123): `OR`, the word's five, then
+    /// each person's `OR OR FROM "a" TO "a" CC "a"` in a tree of ORs, each
+    /// half in parentheses (`tree`).
     ///
     /// RFC 3501's OR is strictly binary and written in prefix form, so N
     /// fields need N-1 leading ORs. Built by folding rather than by hand:
@@ -225,16 +226,35 @@ enum SearchCriteria {
     /// "Can't connect to mail server."
     static func anyField(_ word: String, people: [String] = []) -> String {
         let escaped = escape(word)
-        var terms = fields.map { "\($0) \"\(escaped)\"" }
-        for person in people {
+        let own = chain(fields.map { "\($0) \"\(escaped)\"" })
+        guard !people.isEmpty else { return own }
+        let each = people.map { person -> String in
             let address = escape(person)
-            terms += peopleFields.map { "\($0) \"\(address)\"" }
+            return chain(peopleFields.map { "\($0) \"\(address)\"" })
         }
+        return "OR \(own) \(tree(each))"
+    }
+
+    /// `terms` joined by ORs in a row: `OR OR a b c`.
+    private static func chain(_ terms: [String]) -> String {
         var key = terms[0]
         for term in terms.dropFirst() {
             key = "OR \(key) \(term)"
         }
         return key
+    }
+
+    /// `keys` joined by ORs as a tree, `OR (OR (a) (b)) (OR (c) (d))`, so
+    /// the ORs nest only as deep as the number of halvings, five for 30
+    /// people. Gmail parses no more than about 100 ORs nested: at his
+    /// mailbox's size a row of 101 terms was answered, one of 104 was BAD
+    /// "Could not parse command", where a tree of 905 terms, 34 KB, was
+    /// answered in 0.92 s (2026-10-25). In a row, `mostPeople` people
+    /// would be 95 terms.
+    private static func tree(_ keys: [String]) -> String {
+        guard keys.count > 1 else { return keys[0] }
+        let half = keys.count / 2
+        return "OR (\(tree(Array(keys[..<half])))) (\(tree(Array(keys[half...]))))"
     }
 
     // MARK: - A name half typed (B-123)
@@ -249,17 +269,25 @@ enum SearchCriteria {
     /// start at two, but two say too little: "Al", "Ed" and "Jo" are names
     /// on their own, which the word finds whole, and "to", "my" and "in"
     /// are words, while the people of a book of 300 whose name starts with
-    /// two letters are many more than `mostPeople`, so the four asked for
-    /// would be picked by the book's order and not by what he typed. At
+    /// two letters can be more than `mostPeople`, so those asked for would
+    /// be picked by the book's order and not by what he typed. At
     /// three the word has narrowed, and a three-letter name, "Ann" or
     /// "Sam", is found whole as before, its letters among the hits.
     static let shortestHalfWord = 3
 
-    /// How many people a half-typed word asks for at most, the composer's
-    /// suggestions' number (`RecipientBook.suggestionLimit`). Four
-    /// addresses of 100 bytes are about 1.3 KB more on the SEARCH line,
-    /// where Gmail took 17.6 KB in 112 ms (B-105).
-    static let mostPeople = 4
+    /// How many people a half-typed word asks for at most: all of them,
+    /// as Mail's search finds, for any start of a name his book of 300
+    /// is likely to hold, and a bound on the line for one it is not.
+    ///
+    /// It was four, the composer's suggestions' number, and on the test
+    /// iPad (2026-10-25) that was too few: in the size test's book, where
+    /// 36 people's names start "Pey", "Pey" found four of them, the four
+    /// seen last, and "Picture Pey" missed the letter about the picture
+    /// from a fifth. Mail would have found both. 30 addresses of 100 bytes
+    /// are about 10 KB more on the SEARCH line, where Gmail took 17.6 KB
+    /// in 112 ms (B-105); at his mailbox's size, "Pey" with 25 people
+    /// beside it was answered in under half a second (2026-10-25).
+    static let mostPeople = 30
 
     /// The longest address asked for, in UTF-8 bytes. A person's address
     /// is far shorter; a longer one in the book is passed over, so the
