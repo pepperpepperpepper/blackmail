@@ -469,7 +469,7 @@ final class PictureTapTests: XCTestCase {
             "private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) { "
                 + "guard let m = letter ?? message else { return } "
                 + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
-                + "let shown = loads.shown Task { @MainActor in"))
+                + "let shown = loads.shown filesOpening += 1 Task { @MainActor in"))
         XCTAssertTrue(code.contains(
             "let data = try await repository.fetchAttachmentData( attachment.id, of: m.id, mailboxID: m.mailboxID) "
                 + "guard loads.stillShows(shown) else { return } "

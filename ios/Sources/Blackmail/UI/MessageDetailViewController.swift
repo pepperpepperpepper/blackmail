@@ -81,6 +81,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// Print replaces it once its panel is up, when it holds nothing of
     /// WebKit's and no bytes; while it is made ready, Print is greyed.
     private var printing: LetterPrint?
+    /// The files and pictures tapped whose downloads have not yet ended,
+    /// each counted from the tap until its preview is put up, its failure
+    /// said or it is let go (`openAttachment`).
+    private var filesOpening = 0
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -905,6 +909,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
         let shown = loads.shown
+        // Counted at the tap, not once the task runs, so that no check of
+        // the watch comes between (`isOpeningFile`).
+        filesOpening += 1
 
         Task { @MainActor in
             // Only while the header still shows the letter the file came
@@ -913,6 +920,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             // busy while its own download runs, or before its letter has
             // come and its rows can be opened.
             defer {
+                filesOpening -= 1
                 if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
             }
             do {
@@ -1387,6 +1395,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// it, since put up while the PDF is made it would cover the pane and
     /// end the print with no panel (`PrintSteps.coverLimit`, B-137).
     var isPrinting: Bool { printing != nil }
+
+    /// A file or a picture tapped is being downloaded for Quick Look, from
+    /// the tap until its preview is up or its download has ended: the
+    /// warning waits for it too (B-137). Put up meanwhile, it was taken by
+    /// `openAttachment` for something already over the pane, and the
+    /// preview was let go without a word; after OK nothing opened.
+    var isOpeningFile: Bool { filesOpening > 0 }
 
     /// Prints `m`, the letter the sheet was opened for (B-110). Nothing
     /// while a print is being made ready; a print whose panel is up holds

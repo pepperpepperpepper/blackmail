@@ -176,6 +176,13 @@ final class MessageListViewController: UITableViewController {
     /// The draft on its way to the composer. See `DraftOpening`.
     private var drafts = DraftOpening()
 
+    /// A draft tapped in Drafts is being downloaded for the composer, from
+    /// the tap until the composer is put up or the failure said
+    /// (`DraftOpening`). The warning before the app stops opening waits for
+    /// it, as for a print (B-137): put up meanwhile, it took the composer's
+    /// place, UIKit refused the composer, and after its OK nothing opened.
+    var isOpeningDraft: Bool { drafts.loading != nil }
+
     /// The letters kept on the iPad (B-051): listed at the top of Drafts,
     /// and taken to the server whenever a page here has come, and at his
     /// Refresh once its counts have come too (B-072). The Outbox's are
@@ -2381,13 +2388,14 @@ final class MessageListViewController: UITableViewController {
     /// one it was in when the batch began: the reading pane, which stays,
     /// or a sheet over it. Put over the list that had gone, the alert was
     /// dropped (`ErrorPresenter`), and nothing told him that the letters
-    /// back on the folder he had left were still there.
+    /// back on the folder he had left were still there. Never the warning
+    /// before the app stops opening (`OverTheMail.front`): the refusal waits
+    /// for its OK, and put over the warning it went with it, unseen.
     private func alertHost(in window: UIWindow?) -> UIViewController {
-        guard viewIfLoaded?.window == nil, var front = window?.rootViewController else {
+        guard viewIfLoaded?.window == nil, let root = window?.rootViewController else {
             return self
         }
-        while let next = front.presentedViewController, !next.isBeingDismissed { front = next }
-        return front
+        return ErrorPresenter.over(root).front(root: root)
     }
 
     /// The role of the folder a letter was listed from: this list's, or for

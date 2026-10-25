@@ -917,7 +917,8 @@ final class ListBatchTests: XCTestCase {
     /// "Moving…" until every letter has been answered for, the reading pane
     /// empties only if it shows one of them, under its own id or another
     /// mailbox's, and a refusal is put up as the pane's is, over what is in
-    /// front if he has opened another folder meanwhile. The letters kept on
+    /// front if he has opened another folder meanwhile, never the warning
+    /// before the app stops opening (B-137). The letters kept on
     /// the iPad go from it, each on its own. The ticked rows are taken in
     /// list order. No write is sent with `try?`, and the list is not
     /// fetched again.
@@ -941,9 +942,8 @@ final class ListBatchTests: XCTestCase {
                 + "refusal = outcome.refusal { ErrorPresenter.show(reaching: refusal, on: "
                 + "self.alertHost(in: window)) } } }",
             "private func alertHost(in window: UIWindow?) -> UIViewController { guard "
-                + "viewIfLoaded?.window == nil, var front = window?.rootViewController else { "
-                + "return self } while let next = front.presentedViewController, "
-                + "!next.isBeingDismissed { front = next } return front }",
+                + "viewIfLoaded?.window == nil, let root = window?.rootViewController else { "
+                + "return self } return ErrorPresenter.over(root).front(root: root) }",
             "if self.tableView.isEditing { self.editTapped() } self.runBatch(.move(to: "
                 + "destination), on: chosen, saying: StatusLine.moving) }",
         ] {

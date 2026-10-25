@@ -402,7 +402,8 @@ final class ExpiryWarningTests: XCTestCase {
                             to: "private var wentAwayAt: Date?")
         XCTAssertTrue(warn.contains("guard view.window != nil, presentedViewController == nil, "
                                     + "UIApplication.shared.applicationState != .background, "
-                                    + "!list.isInHand, !detail.isPrinting "
+                                    + "!list.isInHand, !list.isOpeningDraft, "
+                                    + "!detail.isPrinting, !detail.isOpeningFile "
                                     + "else { return }"), warn)
         XCTAssertTrue(warn.contains("let warning = ExpiryWarning.app"), warn)
         XCTAssertTrue(warn.contains("guard let words = warning.words(at: now) else { return }"), warn)
@@ -506,5 +507,160 @@ final class ExpiryWarningTests: XCTestCase {
         let expiry = try source("Mail/AppExpiry.swift")
         XCTAssertTrue(expiry.contains("read(bundle: Bundle.main.bundleURL, now: Date())"))
         XCTAssertTrue(expiry.contains("plist[\"ExpirationDate\"] as? Date"))
+    }
+
+    // MARK: - Where it meets the other branches
+
+    /// A screen of the suite's own, for `OverTheMail`.
+    private final class Screen {}
+
+    /// The warning waits for a draft tapped in Drafts and for a file or a
+    /// picture tapped in the pane while they download, as for a print: put
+    /// up meanwhile, UIKit refused the composer, or the pane let the
+    /// preview go, and after OK nothing opened. The draft held from the
+    /// tap until the one tapped last has come or failed; the file counted
+    /// at the tap, before its task, and let go only once its preview is up
+    /// or its download has ended, nothing awaited between.
+    func testItWaitsForADraftOrAFileOnItsWay() throws {
+        var drafts = DraftOpening()
+        XCTAssertNil(drafts.loading)
+        XCTAssertTrue(drafts.tap("5/12"))
+        XCTAssertNotNil(drafts.loading, "on its way from the tap")
+        XCTAssertTrue(drafts.tap("5/13"))
+        XCTAssertFalse(drafts.landed("5/12"))
+        XCTAssertNotNil(drafts.loading, "the draft tapped since still on its way")
+        XCTAssertTrue(drafts.landed("5/13"))
+        XCTAssertNil(drafts.loading, "opened, or its failure said")
+
+        let root = try source("UI/RootViewController.swift")
+        let guarded = try part(of: root, from: "private func warnOfExpiryIfDue() {",
+                               to: "let warning = ExpiryWarning.app")
+        XCTAssertTrue(guarded.contains("!list.isOpeningDraft,"), guarded)
+        XCTAssertTrue(guarded.contains("!detail.isOpeningFile else { return }"), guarded)
+
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertTrue(list.contains("var isOpeningDraft: Bool { drafts.loading != nil }"))
+        // Taken off and the composer put up in one turn of the main thread.
+        let landed = try part(of: list, from: "guard self.drafts.landed(summary.id) else { return }",
+                              to: "private func openWaiting(")
+        XCTAssertFalse(landed.contains("await"), landed)
+        XCTAssertTrue(landed.contains("self.presentComposer(draft, key: nil, from: summary)"), landed)
+
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains("private var filesOpening = 0"))
+        XCTAssertTrue(pane.contains("var isOpeningFile: Bool { filesOpening > 0 }"))
+        let open = try part(of: pane, from: "private func openAttachment(",
+                            to: "private func prepareInlineImages(")
+        XCTAssertTrue(open.contains("let shown = loads.shown filesOpening += 1 "
+                                    + "Task { @MainActor in defer { filesOpening -= 1 "
+                                    + "if message?.id == m.id {"), open)
+        XCTAssertEqual(open.components(separatedBy: "filesOpening").count - 1, 2, open)
+        XCTAssertEqual(pane.components(separatedBy: "filesOpening").count - 1, 4)
+        // Nothing awaited between the file come and its preview put up.
+        let shown = try part(of: open, from: "let data = try await", to: "} catch {")
+        XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
+        XCTAssertTrue(shown.contains("present(preview, animated: true)"), shown)
+    }
+
+    /// No alert is put over the warning itself. Asked for while it is up,
+    /// it waits for OK, and the warning has gone by then: an Edit-mode
+    /// batch refused after he had opened another folder found the warning
+    /// in front, and its refusal went with it, unseen. What is in front
+    /// stops below the warning, and an alert asked for over the warning all
+    /// the same goes over what the warning is over. Every walk up the
+    /// presented screens is `ErrorPresenter.over`'s, but a `mailto:` link's
+    /// from another app, which presents its composer at once and waits for
+    /// nothing.
+    func testNoAlertIsPutOverTheWarningItself() throws {
+        let root = Screen(), sheet = Screen(), alert = Screen(), warning = Screen()
+        XCTAssertTrue(OverTheMail<Screen>(screens: [], warning: nil).front(root: root) === root)
+        XCTAssertTrue(OverTheMail(screens: [sheet], warning: nil).front(root: root) === sheet)
+        XCTAssertTrue(OverTheMail(screens: [sheet, alert], warning: nil).front(root: root) === alert)
+        XCTAssertTrue(OverTheMail(screens: [warning], warning: warning).front(root: root) === root,
+                      "the warning alone: the root under it")
+        XCTAssertTrue(OverTheMail(screens: [sheet, warning], warning: warning)
+                        .front(root: root) === sheet, "the sheet under it")
+        XCTAssertTrue(OverTheMail(screens: [sheet], warning: warning).front(root: root) === sheet,
+                      "the warning not among them")
+
+        XCTAssertTrue(OverTheMail.host(for: warning, warning: warning, presenter: root) === root)
+        XCTAssertTrue(OverTheMail.host(for: warning, warning: warning, presenter: sheet) === sheet)
+        XCTAssertTrue(OverTheMail.host(for: sheet, warning: warning, presenter: root) === sheet)
+        XCTAssertTrue(OverTheMail.host(for: sheet, warning: nil, presenter: root) === sheet)
+        XCTAssertTrue(OverTheMail.host(for: warning, warning: warning, presenter: nil) === warning,
+                      "not presented: as asked")
+
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertTrue(list.contains("private func alertHost(in window: UIWindow?) -> UIViewController { "
+                                    + "guard viewIfLoaded?.window == nil, let root = "
+                                    + "window?.rootViewController else { return self } "
+                                    + "return ErrorPresenter.over(root).front(root: root) }"))
+        let presenter = try source("UI/ErrorPresenter.swift")
+        let over = try part(of: presenter, from: "static func over(", to: "private static func put(")
+        XCTAssertEqual(over, "static func over(_ root: UIViewController) -> OverTheMail<UIViewController> { "
+                       + "var screens: [UIViewController] = [] var front = root "
+                       + "while let next = front.presentedViewController, !next.isBeingDismissed { "
+                       + "screens.append(next) front = next } "
+                       + "return OverTheMail(screens: screens, warning: warning) } ")
+        let put = try part(of: presenter, from: "private static func put(",
+                           to: "let alert = UIAlertController(title: title")
+        XCTAssertEqual(put, "private static func put(_ text: String, title: String?, "
+                       + "offeringSettings: Bool, on asked: UIViewController) { "
+                       + "let vc = OverTheMail.host(for: asked, warning: warning, "
+                       + "presenter: asked.presentingViewController) "
+                       + "let present = { [weak vc] () -> Bool in "
+                       + "guard let vc, vc.viewIfLoaded?.window != nil else { return false } ")
+
+        let sources = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let walk = try XCTUnwrap(FileManager.default.enumerator(at: sources,
+                                                                includingPropertiesForKeys: nil))
+        var walkers: [String] = []
+        for case let url as URL in walk where url.pathExtension == "swift" {
+            let code = try String(contentsOf: url, encoding: .utf8)
+            for line in code.components(separatedBy: "\n")
+            where line.contains("while let") && line.contains(".presentedViewController") {
+                walkers.append(url.lastPathComponent)
+            }
+        }
+        XCTAssertEqual(walkers.sorted(), ["AppDelegate.swift", "ErrorPresenter.swift"])
+        XCTAssertTrue(try source("App/AppDelegate.swift").contains(
+            "while let shown = top.presentedViewController, !shown.isBeingDismissed { top = shown } "
+            + "let compose = ComposeViewController(repository: root.repository, draft: draft)"))
+    }
+
+    /// The warning is not a sheet he has open: left up overnight, the iPad
+    /// locked over it, his return after a while away still takes him to the
+    /// Inbox at its top, under it (B-003). A sheet does hold it, over the
+    /// warning or without it, and so does another alert.
+    func testTheWarningIsNotASheetOpenOnHisReturn() throws {
+        let sheet = Screen(), alert = Screen(), warning = Screen()
+        XCTAssertFalse(OverTheMail<Screen>(screens: [], warning: nil).sheetOpen)
+        XCTAssertFalse(OverTheMail(screens: [warning], warning: warning).sheetOpen)
+        XCTAssertTrue(OverTheMail(screens: [sheet], warning: nil).sheetOpen)
+        XCTAssertTrue(OverTheMail(screens: [alert], warning: nil).sheetOpen)
+        XCTAssertTrue(OverTheMail(screens: [sheet], warning: warning).sheetOpen)
+        XCTAssertTrue(OverTheMail(screens: [warning, sheet], warning: warning).sheetOpen,
+                      "a sheet over it")
+
+        let long = Sitting.awayBeforeReturningToInbox + 1
+        let up = OverTheMail(screens: [warning], warning: warning)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: true, sheetOpen: up.sheetOpen),
+                       .refreshInbox)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false, sheetOpen: up.sheetOpen),
+                       .openInbox)
+        XCTAssertEqual(Sitting.onReturn(after: 60, showingInbox: false, sheetOpen: up.sheetOpen),
+                       .stay)
+        let writing = OverTheMail(screens: [sheet], warning: nil)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false,
+                                        sheetOpen: writing.sheetOpen), .stay)
+
+        let root = try source("UI/RootViewController.swift")
+        let returning = try part(of: root, from: "private func returnedFromAway() {",
+                                 to: "case .stay:")
+        XCTAssertTrue(returning.contains("sheetOpen: ErrorPresenter.over(self).sheetOpen) {"),
+                      returning)
+        XCTAssertFalse(returning.contains("presentedViewController"), returning)
     }
 }

@@ -26829,6 +26829,77 @@ The full suite, serially, with nothing undone: 2,492 tests, 11 of them
 B-137's and 6 B-138's, 6 skipped, none failing. The release build for the
 iPad links, with no warning from the files changed.
 
+**Changed again, 2026-10-25, where it meets the other branches.** A
+review of the tree with B-127 to B-138 merged found two things to fix and
+one small one. The text above is as it was; this says what changed.
+
+1. *A draft or a file on its way.* The warning waited for a print but not
+   for a draft tapped in Drafts while it downloads, nor for a file or a
+   picture tapped in the pane. Due at that moment, it went up first: UIKit
+   refused the composer, and the row lost its highlight and spinner; or
+   the pane, finding something presented, let the preview go without a
+   word. After OK nothing opened. It now waits for both as for a print:
+   `MessageListViewController.isOpeningDraft`, from the tap until the
+   composer is up or the failure said (`DraftOpening`), and
+   `MessageDetailViewController.isOpeningFile`, counted at the tap and let
+   go once the preview is up or the download has ended. The next check,
+   half a minute on, puts it up. Held rather than put up first and the
+   composer or preview after OK: the warning never comes between his tap
+   and what it opens, and nothing has to wait in a queue behind it. The
+   other presents were looked at: a forward opens its composer at once,
+   its files fetched as the letter goes; Print was held already; the Move,
+   Flag, Reply, link and Settings sheets, the date picker and Quick Look's
+   share go up at a tap; the composer's own go over the composer, and the
+   warning never goes up while it is open.
+2. *An alert addressed to the warning.* An Edit-mode Delete or Move
+   refused after he had opened another folder is put over what is in
+   front (`alertHost`); with the warning up, that was the warning itself.
+   The refusal waited for OK, but by then its host had left the window,
+   and it was dropped: nothing said why the letters were back on the
+   folder he had left. What is in front now stops below the warning
+   (`OverTheMail.front`, new, read through `ErrorPresenter.over`), and an
+   alert asked for over the warning itself goes over what the warning is
+   over (`OverTheMail.host`, in `ErrorPresenter.put`), whoever asks. The
+   one other walk up the presented screens, a `mailto:` link's from
+   another app (`AppDelegate`), presents its composer at once and waits
+   for nothing.
+3. *B-003 under the warning.* The warning counted as an open sheet, so
+   one left up overnight stopped the return to the Inbox at its top after
+   fifteen minutes away. The return now asks `OverTheMail.sheetOpen`,
+   anything up but the warning alone, and runs under the alert.
+
+The check in TODO has its ninth step changed to see 3 on the iPad.
+
+**Tests.** `ExpiryWarningTests`, three new: the draft held from the tap
+until the one tapped last has come or failed, the guard asking the list
+and the pane, the composer put up in the turn the draft is taken off,
+the file counted before its task and let go in its `defer` after the
+preview is presented, nothing awaited between; what is in front with
+nothing up, a sheet, an alert over a sheet, the warning alone and over a
+sheet, and an alert asked for over the warning, over a sheet, with no
+warning and with a warning not presented; the list's refusal host, the
+walk and `put`'s host from the source, and the only walks up the
+presented screens `ErrorPresenter`'s and the `mailto:` link's; the warning
+alone not a sheet, a sheet or another alert one, over the warning or
+without it, and B-003's answers with the warning up. The guard's pin in
+`testItIsPutUpOnlyWithNothingOverTheMail`, `ListBatchTests`' for
+`alertHost` and `PictureTapTests`' for `openAttachment` follow the code.
+
+Each fix undone by hand, the seven classes that read the code changed
+run, then put back and passing; every new test failed at least once.
+Counted as failures in tests: the guard not asking for a draft, 2 in 2;
+nor for a file, 2 in 2; `isOpeningDraft` always false, 1 in 1; the file
+counted only once its task runs, 2 in 2; never let go, 3 in 1;
+`isOpeningFile` always false, 2 in 1; `alertHost` walking to the warning,
+3 in 2; `front` taking the warning, 2 in 1; `put` taking the warning as
+asked, 1 in 1; `host` always as asked, 2 in 1; the return asking
+`presentedViewController`, 2 in 1; `sheetOpen` counting the warning, 3 in
+1. 25 in all.
+
+The full suite, serially, with nothing undone: 2,564 tests, 3 of them new
+here, 6 skipped, none failing. The release build for the iPad links, with
+no warning from the files changed.
+
 **Not covered.**
 
 - Not seen on the iPad: its check is in TODO, with the iPad's clock set
@@ -26848,9 +26919,16 @@ iPad links, with no warning from the files changed.
   has gone, so the waiting one can go up, is UIKit's long-standing way,
   not seen here.
 - A warning left up while he is away, the iPad locked over it: on his
-  return B-003's way back to the Inbox and its refresh are not taken,
-  as with any alert left up (`Sitting.onReturn`, a sheet open). The
-  watch's checks go on; after OK he is where he left the app.
+  return after fifteen minutes B-003's way back to the Inbox and its
+  refresh are taken under it, since 2026-10-25 (above); another alert
+  left up still holds them, as a sheet does.
+- A draft or a file on its way at the moment of a check, and an Edit-mode
+  refusal while the warning is up, cannot be made by hand on the iPad;
+  the host tests hold them.
+- A `mailto:` link from another app, which iOS hands only to the default
+  mail app, opens its composer over the warning if it is up; the
+  composer's own alerts then wait for the warning's OK, and any still
+  waiting as the composer closes are not shown.
 - Whether AirPrint's panel counts as presented over the screens was not
   looked at; the print's own `isPrinting` covers it until it closes.
 - Not tried on the iPad, as neither moment can be made by hand: a print,

@@ -337,19 +337,22 @@ final class RootViewController: UIViewController {
     /// nothing is over the mail: not over a letter he is writing, Settings,
     /// another alert or any sheet; not while his finger is on the list, it
     /// is still moving, or a page's alert waits for the finger to let go
-    /// (B-103); not while a letter is being printed; and not while the app
-    /// is in the background, where nobody would see it. Asked once the
-    /// launch's first page has been tried, and at every check of the watch,
-    /// half a minute apart while the app is in front: so it comes about
-    /// half a minute after he is back on a new day, and within half a
-    /// minute of a letter's sheet going, an alert's OK or the list coming
-    /// to rest. The day is taken as said once the alert is up, and again
-    /// when he taps OK, so a warning left up past midnight is not said
-    /// again on the day he reads it.
+    /// (B-103); not while a letter is being printed, nor while a draft he
+    /// tapped in Drafts or a file he tapped in the pane is on its way, whose
+    /// composer or preview UIKit would refuse with the warning up; and not
+    /// while the app is in the background, where nobody would see it. Asked
+    /// once the launch's first page has been tried, and at every check of
+    /// the watch, half a minute apart while the app is in front: so it
+    /// comes about half a minute after he is back on a new day, and within
+    /// half a minute of a letter's sheet going, an alert's OK, the list
+    /// coming to rest or what he tapped opening. The day is taken as said
+    /// once the alert is up, and again when he taps OK, so a warning left
+    /// up past midnight is not said again on the day he reads it.
     private func warnOfExpiryIfDue() {
         guard view.window != nil, presentedViewController == nil,
               UIApplication.shared.applicationState != .background,
-              !list.isInHand, !detail.isPrinting else { return }
+              !list.isInHand, !list.isOpeningDraft,
+              !detail.isPrinting, !detail.isOpeningFile else { return }
         let warning = ExpiryWarning.app
         let now = Date()
         guard let words = warning.words(at: now) else { return }
@@ -440,14 +443,16 @@ final class RootViewController: UIViewController {
     }
 
     /// B-003: after a while away, back to the Inbox, at the top. See
-    /// `Sitting`, which decides.
+    /// `Sitting`, which decides. The warning before the app stops opening
+    /// is not a sheet (`OverTheMail.sheetOpen`): left up overnight, the
+    /// Inbox comes back under it.
     @MainActor
     private func returnedFromAway() {
         guard let away = wentAwayAt else { return }
         wentAwayAt = nil
         switch Sitting.onReturn(after: Date().timeIntervalSince(away),
                                 showingInbox: list.shownMailbox.role == .inbox,
-                                sheetOpen: presentedViewController != nil) {
+                                sheetOpen: ErrorPresenter.over(self).sheetOpen) {
         case .stay:
             return
         case .refreshInbox:

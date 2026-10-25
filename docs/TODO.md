@@ -6208,10 +6208,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       list at rest, and of that OK, the warning, and the list not left
       pulled down. OK: the list at its top, no spinner turning.
       9. *Up across midnight:* Home; the clock to 23 August 2027, 11:55
-      PM; back: the warning within about half a minute, before midnight.
-      Left up, Home with it on the screen. The clock to 24 August 2027,
-      9:00 AM; back: the same warning, still up. OK: no warning again for
-      two minutes.
+      PM; back: the Inbox at its top, and at once Sent Mail tapped among
+      the folders. The warning within about half a minute, over Sent
+      Mail, before midnight. Left up, Home with it on the screen. The
+      clock to 24 August 2027, 9:00 AM; back: the same warning, still up,
+      and under it the Inbox in place of Sent Mail, at its top (B-003;
+      before 2026-10-25 it stayed on Sent Mail). OK: the Inbox, and no
+      warning again for two minutes.
       10. *The last morning:* the clock to 18 September 2027, an hour or
       more before the instant written down in 2, in the iPad's zone: for
       10:22:36 UTC, 5:00 AM in New York or 2:00 AM in Los Angeles, both on

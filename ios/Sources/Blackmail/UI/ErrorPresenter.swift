@@ -79,8 +79,27 @@ enum ErrorPresenter {
     private static weak var warning: UIAlertController?
     private static var afterWarning: [() -> Bool] = []
 
+    /// What is up over `root` (`OverTheMail`): the screens it presents, one
+    /// over another, up to the first on its way out, and the warning among
+    /// them while it is up.
+    static func over(_ root: UIViewController) -> OverTheMail<UIViewController> {
+        var screens: [UIViewController] = []
+        var front = root
+        while let next = front.presentedViewController, !next.isBeingDismissed {
+            screens.append(next)
+            front = next
+        }
+        return OverTheMail(screens: screens, warning: warning)
+    }
+
     private static func put(_ text: String, title: String?, offeringSettings: Bool,
-                            on vc: UIViewController) {
+                            on asked: UIViewController) {
+        // Never over the warning itself, as a walk to what is in front finds
+        // it: such an alert waits for its OK, and the warning has left the
+        // window by then, so the alert was dropped. Over what the warning
+        // is over instead, which stays (`OverTheMail.host`).
+        let vc = OverTheMail.host(for: asked, warning: warning,
+                                  presenter: asked.presentingViewController)
         let present = { [weak vc] () -> Bool in
             // Gone from the screen while the alert was held, as a list is
             // when the folder changes: there is nothing to put it over.
