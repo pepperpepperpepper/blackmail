@@ -23,8 +23,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [ ] His Google account has no app password yet. *Owner.*
 - [ ] How the signature and its logo reach his iPad. Compiling it in is
       ruled out (B-035); the old item below is dead. *Owner.*
-- [ ] How updates reach him after install; today every fix is a visit.
-      *Owner.*
+- [x] How updates reach him after install; today every fix is a visit.
+      *Owner.* *Answered 2026-09-30 by the owner: the install is the last
+      step and is never updated, so none reach him (D-004, set and
+      forget).*
 - [ ] A trial install on an ordinary, non-jailbroken iPad: every install so
       far was an SSH copy onto the jailbroken one. *Owner.*
 - [x] Try it against a mailbox his size: Go to Date back to before 2016, an
@@ -36,10 +38,10 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       scopes, Drafts, Sent Mail, Complete Threads, Refresh and the watch,
       and the kept copy passed, and Gmail answered every command in under
       5 s. Go to Date failed: every jump landed at the folder's foot, on
-      the account's own first letter (B-115, fixed, not yet seen on the
-      iPad). Seen there too: Gmail's Important and Starred drawn indented
-      among the labels, each as if inside the label above it (B-116,
-      fixed, not yet seen on the iPad). Memory could not be read from the
+      the account's own first letter (B-115, fixed, seen fixed on the
+      iPad the same day). Seen there too: Gmail's Important and Starred
+      drawn indented among the labels, each as if inside the label above
+      it (B-116, fixed, seen fixed the same day). Memory could not be read from the
       app's log. B-115, B-116 and B-117, found there, fixed and seen fixed
       the same day.*
 - [ ] Buildable now, for the install-day build:
@@ -183,8 +185,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
 - [x] `mailto:` links in letters open Apple Mail. *Done: they open this
       app's composer with the link's To, Cc, Bcc, Subject and Body and his
       signature (`MailtoLink`, B-036), and the app declares the scheme for
-      other apps' links, which iOS may not send it. Not yet seen on the
-      iPad.*
+      other apps' links, which iOS may not send it. A letter's `mailto:`
+      link was seen opening the composer on the test iPad 2026-10-21, and
+      again 2026-10-25 (B-120's check, step 6).*
 
 **Larger:**
 
@@ -276,7 +279,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       address starts with it, so "Marg" finds Margaret's, as Mail's search
       matches the start of words; still no suggestion list, and no
       subject or body found by the start of a word. B-123, and its check
-      under "Blocked on the iPad coming back".*
+      under "Blocked on the iPad coming back".* *Seen on the test iPad
+      2026-10-25, and changed again that day to up to 30 people (B-123).*
 
 **Probably used, smaller:**
 
@@ -1163,7 +1167,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       a row for each photo once and none for the logo; sent, each photo
       once, the logo once, inline, and no other file, its `raw=` the
       photos' base64 and some 18.8 KB, a plain letter's 18.2 KB (B-046).*
-- [ ] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
+- [x] **B-047, "Inbox".** *Sidebar and title seen 2026-09-29; the Move
       sheet and VoiceOver still to look at.* The sidebar's first row and the list's title read
       "Inbox" at launch and after tapping it. The Move sheet, opened on a
       letter in another folder (it leaves out the letter's own folder),
@@ -1174,7 +1178,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       read the first row "Inbox, 12 unread" on 2026-10-07, in B-079's
       check. Left: "Inbox" alone with nothing unread, not tried, the test
       account's Inbox having thirteen unread; `MailboxNameTests` holds
-      it.*
+      it.* *Done: what is left is VoiceOver's alone, not needed since
+      2026-10-24 (he does not use it).*
 - [ ] **B-048, two panes or three.** *Partly seen 2026-09-29: both ways
       with a letter open and a search up, "< Mailboxes" and the open
       folder, the choice kept across a relaunch; see B-048. Still to see:
@@ -2759,7 +2764,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       composer the same to the pixel as at the default, its type being
       fixed (D-007). Left: 9 in the share sheet, which needs the app and
       Safari taken off the Direct Touch apps and waits on a yes.*
-- [ ] **B-071, a file's preview and the text size.** Seen on the
+- [x] **B-071, a file's preview and the text size.** Seen on the
       simulator only. On the iPad, with a letter open that has two files:
       1. *The highlights.* Tap a file, then Done: the letter's row and the
       folder are still highlighted. The same in two panes, and
@@ -2794,7 +2799,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       over either. Left: VoiceOver in 3, and 4, which need the app taken
       off VoiceOver's Direct Touch apps and wait on a yes: with VoiceOver
       on, a tap on Settings' name field brought the keyboard and left
-      VoiceOver where it was.*
+      VoiceOver where it was.* *Done: what is left is VoiceOver's alone,
+      not needed since 2026-10-24 (he does not use it).*
 
 - [ ] **B-070, Send streams the letter from its files.** On the test
       iPad, the test account only, on a build of master, where it is merged.
@@ -5621,7 +5627,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       are told before that day (the in-app warning, buildable now, above).*
 - [ ] **The real signature logo** — what ships today is a solid black silhouette
       with no legible mark in either channel
-- [ ] **Signature in the source?** (B-035)
+- [x] **Signature in the source?** (B-035) *Decided 2026-09-26 by the
+      owner: his signature never goes in the repo. How it reaches his
+      iPad is the open item at the top of this file.*
 - [x] **Mail's conversation stack default** — thirty seconds on an iPhone;
       newest-first is currently a guess, not a copy
       *Decided 2026-10-06 by the owner: "copy apple mail for these". Built,
@@ -5641,8 +5649,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       moves down a line under him, against B-042's header of its final
       height from the tap. Let it stand and write it into B-042, or carry
       the Cc on the list's rows from the ENVELOPE, which holds it (B-055)
-      *Decided 2026-10-01 and built, not yet seen on the iPad: the rows
-      carry it, and the header has its line from the tap.*
+      *Decided 2026-10-01 and built: the rows carry it, and the header
+      has its line from the tap. Seen on the test iPad 2026-10-21
+      (B-055's check).*
 - [x] **A conversation's count in Sent Mail** — the row's top line holds
       some 168 points in three panes and 213 in two, and is cut at its
       end, so naming To, Cc and Bcc pushes a conversation's "(2)" past it:
@@ -5768,8 +5777,8 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       answered later, the oldest row after it, "Showing" that day; a
       reply that comes only with a page after the first frame takes the
       row on top up the list, and the day's next row comes into its place.
-      With Organize by Thread off as before. Not yet seen on the iPad
-      (B-118's check, above).*
+      With Organize by Thread off as before. Seen on the test iPad
+      2026-10-23 (B-118's check, above).*
 - [ ] **Paper** (B-110): may a check print up to four sheets on a real
       AirPrint printer? It would run B-063's print check from Quick Look
       too. Until then no paper: every print was judged on the panel's
@@ -5841,8 +5850,34 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       empty when the fetch fails. As built (empty, the default), or the
       fetch. *Decided 2026-10-25 by the owner: "fetch the title from
       YouTube for those shares, falling back to empty if it doesn't
-      answer." Built from YouTube's oEmbed, not yet seen on the iPad: see
-      B-126.*
+      answer." Built from YouTube's oEmbed and seen on the test iPad
+      2026-10-25: see B-126.*
+
+- [ ] **Quote bars beside plain-text quotes** (B-101): Mail draws its
+      blue bar beside lines quoted with "> " in a plain-text letter too;
+      here only HTML quotes have it. As built (no bar, the default), or
+      Mail's bars there too.
+- [ ] **The quoted words in the bar's colour** (B-101): Mail colours the
+      quoted words as well as the bar; that is built. The bar alone is one
+      line out of `QuoteBars.css`. As built (Mail's, the default), or the
+      bar alone.
+- [ ] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
+      offers Attach File and Photo Library from a paperclip at the right
+      of the bar above the keyboard; here they are two buttons under the
+      letter's files, always in sight. As built (the default), or the
+      paperclip too.
+- [ ] **The address book filled from his Sent Mail** (B-017, B-123): the
+      book learns from the rows the list shows and from his sends, so
+      about half the people he writes to in a month are not suggested,
+      and a half name in search does not find them, until one of their
+      letters is listed. Reading his Sent Mail's recent envelopes once
+      at sign-in would put them there from the first day. As built (the
+      default), or the fill.
+- [ ] **Three offline choices for the copy kept on the iPad** (D-016,
+      "each needs its own decision later"; with nothing built after the
+      install, now or never): fetching unread mail ahead for reading with
+      no connection; keeping more than one page of each folder; searching
+      with no connection. As built (none of them, the default), or which.
 
 ## Open, recorded, not scheduled
 

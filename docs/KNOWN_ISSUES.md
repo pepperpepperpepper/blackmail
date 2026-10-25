@@ -22740,7 +22740,7 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-115's check).
+- Seen on the test iPad 2026-10-23, fixed (TODO, B-115's check).
 - In a folder whose letters did not come in order, a day with no mail of
   its own lands on the lowest UID of the first span after it that has
   any, which can be a later day of that span than the first with mail:
@@ -23217,7 +23217,7 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-117's check).
+- Seen on the test iPad 2026-10-23, fixed (TODO, B-117's check).
 - A reply 61 to 110 letters later, on the page asked for as the day
   lands: the jump lands on the letter's row without it, and as that page
   comes the row stays at the top and becomes the conversation's, headed
@@ -23506,7 +23506,7 @@ none failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-118's check).
+- Seen on the test iPad 2026-10-23 (TODO, B-118's check).
 - Mail's list with Organize by Thread on was not looked at on a screen for
   this: the rule is the ruling's account of it, and this app's rows.
 - A reply that comes with a page after the first frame, the page asked
