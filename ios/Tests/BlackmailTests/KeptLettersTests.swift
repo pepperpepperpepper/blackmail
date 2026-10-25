@@ -7,7 +7,8 @@ import XCTest
 /// letter is read back under, the bounds and the order of eviction, the
 /// check at every read, a damaged or foreign index, the sweep at the first
 /// use, a relaunch, the wipe and the discard and a keep on its way through
-/// either, another account, the floor, a disk that will not write, the keeps
+/// either, another account, the floor and its reading held (B-136), a disk
+/// that will not write, the keeps
 /// waiting for the disk, what the server takes away, the flush, the shelf's
 /// life, the backup marks, the log, and the time a 5 MB letter takes. What
 /// the repository keeps and shows, and when, is `KeptLetterOpeningTests`.
@@ -484,9 +485,10 @@ final class KeptLettersTests: XCTestCase {
         XCTAssertEqual(read(5, on: unread), raw(5), "nil free space keeps")
     }
 
-    /// The kept note gives the free-space reading's own time beside the
-    /// keep's whole time, so the iPad's check can tell what the reading
-    /// costs from what the write costs. And the app's reading makes its
+    /// The note of a keep that read the free space, as the first keep of a
+    /// launch does (B-136), gives the reading's own time beside the keep's
+    /// whole time, so the iPad's check can tell what the reading costs from
+    /// what the write costs. And the app's reading makes its
     /// URLs afresh each time, read from the source since the reading is
     /// iOS's: a URL held from one reading to the next can answer from what
     /// it read the first time.
@@ -518,6 +520,123 @@ final class KeptLettersTests: XCTestCase {
         let closure = try section(of: app, from: "return {", to: "return nil")
         XCTAssertTrue(closure.contains("let kept = URL(fileURLWithPath: path, isDirectory: true)"))
         XCTAssertFalse(closure.contains("root"), "the URL made once and held")
+    }
+
+    // MARK: - The reading held (B-136)
+
+    /// Options reading the free space as `free` says, each reading counted
+    /// in `readings`, at a clock in seconds that the test moves.
+    private func held(free: Measure, readings: Measure, clock: Measure,
+                      unreadable: Bool = false) -> KeptLetters.Options {
+        var options = KeptLetters.Options()
+        options.freeSpace = {
+            readings.value += 1
+            return unreadable ? nil : free.value
+        }
+        options.now = { Date(timeIntervalSince1970: TimeInterval(clock.value)) }
+        return options
+    }
+
+    /// Letter `n` kept, and its turn on the disk queue waited for, so the
+    /// clock the test moves next is after it.
+    private func keepNow(_ n: Int, on shelf: MailShelf, size: Int = 600) {
+        keep(n, on: shelf, size: size)
+        _ = shelf.letters.records
+    }
+
+    /// Which kept notes read the free space, in order.
+    private var keptReading: [Bool] {
+        letterNotes.filter { $0.hasPrefix("KEPT-LETTER kept") }.map { $0.contains(" free-ms=") }
+    }
+
+    /// With room to spare, the free space is read at the first keep of a
+    /// launch and held: not read again until a keep five minutes after the
+    /// reading, then held again; the next launch reads at its first keep.
+    /// Only a keep that read it gives `free-ms`. A 5 MB letter is not large
+    /// beside gigabytes free.
+    func testTheFreeSpaceIsReadAtALaunchsFirstKeepAndAgainAfterFiveMinutes() {
+        XCTAssertEqual(KeptLetters.Bounds().freeAge, 5 * 60)
+        XCTAssertEqual(KeptLetters.Bounds().freeRoom, 1 << 30)
+        let free = Measure(Int64(8) << 30), readings = Measure(0), clock = Measure(1_790_000_000)
+        let options = held(free: free, readings: readings, clock: clock)
+        let shelf = shelf(options: options)
+        keepNow(1, on: shelf)
+        XCTAssertEqual(readings.value, 1)
+        clock.value += 60
+        keepNow(2, on: shelf, size: 5 << 20)
+        clock.value += 239
+        keepNow(3, on: shelf)
+        XCTAssertEqual(readings.value, 1, "held for 299 s")
+        clock.value += 1
+        keepNow(4, on: shelf)
+        XCTAssertEqual(readings.value, 2, "read again at five minutes")
+        clock.value += 299
+        keepNow(5, on: shelf)
+        XCTAssertEqual(readings.value, 2)
+        XCTAssertEqual(keptNumbers(shelf), [1, 2, 3, 4, 5])
+        XCTAssertEqual(read(2, on: shelf)?.count, 5 << 20)
+        XCTAssertEqual(keptReading, [true, false, false, true, false])
+
+        let next = self.shelf(options: options)
+        keepNow(6, on: next)
+        XCTAssertEqual(readings.value, 3, "the next launch's first keep")
+    }
+
+    /// A clock set back past the reading reads again, and the new reading
+    /// is held from the time it was taken.
+    func testAClockSetBackReadsAgain() {
+        let free = Measure(Int64(8) << 30), readings = Measure(0), clock = Measure(1_790_000_000)
+        let shelf = shelf(options: held(free: free, readings: readings, clock: clock))
+        keepNow(1, on: shelf)
+        clock.value -= 3_600
+        keepNow(2, on: shelf)
+        XCTAssertEqual(readings.value, 2)
+        clock.value += 60
+        keepNow(3, on: shelf)
+        XCTAssertEqual(readings.value, 2)
+        XCTAssertEqual(keptNumbers(shelf), [1, 2, 3])
+    }
+
+    /// The reading answers only with a gigabyte to spare above the floor
+    /// after every letter kept since it and the letter now: 2,000 bytes
+    /// more than that hold for three letters of 600 and not a fourth, and
+    /// a letter of 3,000 reads first. A gigabyte or less above the floor,
+    /// every keep reads, as every keep did, and one that would leave less
+    /// than the floor clears the letters as before.
+    func testNearTheFloorTheLettersKeptSinceAndALargeLetterReadAgain() {
+        let floor = KeptLetters.Bounds().floor, room = KeptLetters.Bounds().freeRoom
+        let free = Measure(floor + room + 2_000), readings = Measure(0), clock = Measure(1_790_000_000)
+        let shelf = shelf(options: held(free: free, readings: readings, clock: clock))
+        for n in 1...4 { keepNow(n, on: shelf) }
+        XCTAssertEqual(readings.value, 2)
+        XCTAssertEqual(keptReading, [true, false, false, true])
+        keepNow(5, on: shelf, size: 3_000)
+        XCTAssertEqual(readings.value, 3, "large beside the room left")
+        XCTAssertEqual(keptNumbers(shelf), [1, 2, 3, 4, 5])
+
+        free.value = floor + room
+        for n in 6...8 { keepNow(n, on: shelf) }
+        XCTAssertEqual(readings.value, 6, "every keep near the floor reads")
+        free.value = floor + 500
+        keepNow(9, on: shelf)
+        XCTAssertEqual(readings.value, 7)
+        XCTAssertEqual(keptNumbers(shelf), [])
+        XCTAssertEqual(letterNotes.last, "KEPT-LETTER cleared reason=space")
+    }
+
+    /// Free space that cannot be read keeps, as before, and is not asked
+    /// again at every keep: held for five minutes as a reading is.
+    func testFreeSpaceThatCannotBeReadIsHeldForFiveMinutesToo() {
+        let free = Measure(0), readings = Measure(0), clock = Measure(1_790_000_000)
+        let shelf = shelf(options: held(free: free, readings: readings, clock: clock,
+                                        unreadable: true))
+        keepNow(1, on: shelf)
+        keepNow(2, on: shelf)
+        XCTAssertEqual(readings.value, 1)
+        clock.value += 300
+        keepNow(3, on: shelf)
+        XCTAssertEqual(readings.value, 2)
+        XCTAssertEqual(keptNumbers(shelf), [1, 2, 3])
     }
 
     // MARK: - A disk that will not write

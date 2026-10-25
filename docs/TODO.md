@@ -4620,7 +4620,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       from the copy; a keep 62 to 85 ms, the free-space reading 44 to 58 ms
       of it, 70 to 90% of every keep; each 3 MB letter's first opening
       stood in for one fetched after a password save. Left: 5, which needs
-      the password typed; 9, the simulator.*
+      the password typed; 9, the simulator.* *8's last sentence done in
+      B-136 (2026-10-25): the free space is read at a launch's first keep
+      and held for five minutes, read again near the floor, and only a
+      keep that read it gives `free-ms`; its own check is below.*
 - [x] **B-107, a reply's files and the Forward question.** On the test
       iPad, the test account only, built from the `feat-replyfiles`
       worktree before it is merged (it touches Send). A stands for the
@@ -5643,6 +5646,30 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *Two panes:* 1 again, then three panes back.
       9. *Put back:* Cancel, All Mailboxes, the Inbox at its top. Nothing
       else: nothing was written to the mailbox.
+- [ ] **B-136, the kept copy's free-space reading.** On the test iPad
+      (16.5.1), the test account only, from a build of the `bm-searchprev`
+      worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a
+      photo in each, made on the host and APPENDed by it, read (\Seen),
+      into a label of their own, "B-136", none in the Inbox, dated three
+      days back, subjects "B-136 1" to "B-136 8"; nothing is composed or
+      sent. Three panes; the app's log read after each step, its
+      `KEPT-LETTER` notes written down.
+      1. *A launch's first keep.* The app ended in the app switcher and
+      launched, the label opened, letter 1 opened: one `KEPT-LETTER kept
+      bytes=… ms=… free-ms=…` note. Its ms and free-ms written down.
+      2. *Held.* Within a minute, letters 2, 3 and 4, one after another:
+      their kept notes have no `free-ms`, and their ms is about 1's less
+      its free-ms. Letter 4 opened while the list beside it is dragged up
+      and down in a screen recording: no stop in it longer than B-111's.
+      3. *Five minutes on.* The iPad left as he leaves it for six minutes,
+      then letter 5: its note has `free-ms` again; letter 6 at once after
+      it: none.
+      4. *Opened again.* Letters 1 and 2: `KEPT-LETTER shown`, no kept
+      note, as B-111.
+      5. *A relaunch.* The app ended and launched, letter 7: `free-ms`
+      again; letter 8 at once after it: none.
+      6. *Put back:* the host takes the label and its eight letters away;
+      nothing was sent.
 
 ## Blocked on the owner
 

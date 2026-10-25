@@ -21327,7 +21327,9 @@ its pictures and a forward's files.
   reading to the next can keep what it read the first time; nil off iOS
   or where it cannot be read, which keeps): a letter that would
   leave less is not kept, every kept letter goes, said once, and nothing
-  more is kept in that launch.
+  more is kept in that launch. *Since B-136 the free space is read at a
+  launch's first keep and held for five minutes, and read again first
+  wherever a gigabyte above the floor is not to spare.*
 - *The check.* Every read looks up the four keys and reads the file in
   one block on the disk queue, and checks its size and CRC-32 against the
   record. Anything else drops the letter, record and file, and the
@@ -21397,7 +21399,8 @@ its pictures and a forward's files.
   the same launch; built so, the owner's question's default.
 - *The log.* `KEPT-LETTER shown bytes=<n> ms=<n>`, `kept bytes=<n>
   ms=<n> free-ms=<n>` (the free-space reading's own part of the keep's
-  time), `not-kept reason=…`, `dropped reason=check`, `cleared
+  time; *since B-136 only on a keep that read it*), `not-kept reason=…`,
+  `dropped reason=check`, `cleared
   reason=space`: numbers and a word, never a folder, a UID, a Message-ID, a subject or a name. A
   showing sends nothing, so nothing of it reaches the wire log.
 
@@ -21533,7 +21536,8 @@ release build for the iPad links.
   Timed on the iPad by the kept note's ms, and the reading's own part by
   its `free-ms`, step 8 of the check: 44 to 58 ms of each keep was the
   reading, 70 to 90% of it (below). If that is slow, it can be read once a
-  launch or every few minutes instead.
+  launch or every few minutes instead. *Done in B-136: read at a launch's
+  first keep and held for five minutes, read again near the floor.*
 - The move's and the erasing's forgetting of the letters shown before the
   last (the 64 of this launch, read again from their files): no test can
   tell it, since the letter's record goes with it (`gone`) and its file
@@ -25085,3 +25089,98 @@ build for the iPad links.
   asked for again if found again.
 - The counts on his own mailbox, and the grey lines, are the check's to
   see; the scripted mailbox is not his, and the numbers above are its own.
+
+## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
+
+Built in the `bm-searchprev` worktree (branch `fix-searchprev`), after
+B-135.
+
+**Found where.** B-111's check, step 8, on the test iPad 2026-10-22: "a
+keep 62 to 85 ms, the free-space reading 44 to 58 ms of it, 70 to 90% of
+every keep". The step said what to do then: "If `free-ms` is large, the
+floor is to be read once a launch, or every few minutes, instead."
+
+**What Mail does.** Nothing to copy: how often Mail reads the iPad's free
+space is not known, and he sees nothing of it. The floor and the store are
+D-016's.
+
+**What it was.** `KeptLetters.store`, on the shelf's disk queue, read the
+volume's `volumeAvailableCapacityForOpportunisticUsage` (through URLs made
+afresh at each reading, B-111) before every letter it kept, and met the
+floor of 512 MB against it. A page read from the main thread waits on the
+same queue, behind the reading as well as the write.
+
+**Changed.**
+
+1. *Held* (`KeptLetters.spaceFree(before:)`): the free space is read at the
+   first keep of a launch and the reading held. It answers for a keep,
+   less every letter written since it, while it is under five minutes old
+   (`Bounds.freeAge`), the clock has not gone back past it, and it shows a
+   gigabyte or more above the floor after the letter now
+   (`Bounds.freeRoom`). Otherwise the free space is read again first, and
+   that reading held. So it is read at a launch's first keep, at the first
+   keep five minutes after a reading, and before a write large beside the
+   room the last reading left.
+2. *The bound kept.* The floor is 512 MB as before, and meeting it does what
+   it did. With a gigabyte or less to spare above it every keep reads, as
+   every keep did, so a keep that would leave less than the floor is found
+   by a fresh reading and clears the letters as before. A held reading is
+   trusted only with a gigabyte to spare and for five minutes at most: for
+   a keep to land under the floor, the iPad's other apps would have to take
+   that gigabyte within those minutes, and a letter here is at most 5 MB,
+   all of them 64 MB. A disk they fill makes the write fail, keeping
+   nothing (`reason=disk`), as before.
+3. *Unreadable* free space, nil as off iOS, keeps as before, and is held
+   for five minutes as a reading is, rather than asked again at every keep.
+4. *The note:* `KEPT-LETTER kept bytes=<n> ms=<n>`, with ` free-ms=<n>`
+   only on a keep that read the free space.
+5. *Comments and docs:* `KeptLetters`'s bounds and `keep`; B-111 here, its
+   bounds, its log and its "Not covered"; its check's step 8 in TODO;
+   PERFORMANCE.md's note on the hitch; the kept note's test's comment.
+
+**Not changed.** The floor and what meeting it does: every kept letter goes,
+said once, and nothing more is kept in the launch. The reading itself
+(`freeSpace(near:)`), its URLs made afresh. The bounds of 300 letters,
+64 MB, 5 MB a letter and 16 MB waiting. Where a keep runs, the shelf's disk
+queue, and the order of its writes. D-016 as written: its floor says
+nothing of when the space is read.
+
+**What he sees.** Nothing new. On an iPad with gigabytes free, every keep
+but the first in five minutes is the reading's 44 to 58 ms shorter, so a
+page read from the main thread at that moment waits that much less. The
+time on the iPad is its check's.
+
+**Tests.** `KeptLettersTests`, four new, 30 in all. With room to spare,
+read at a launch's first keep and held, not read again until a keep five
+minutes after the reading, then held again, the next launch reading at
+its first keep, only a keep that read it giving `free-ms`, and a 5 MB
+letter not large beside gigabytes free; a clock set back reading again;
+near the floor, 2,000 bytes more than a gigabyte above it holding for three
+letters of 600 and not a fourth, a letter of 3,000 reading first, every
+keep reading with no more than a gigabyte to spare, and one that would
+leave less than the floor clearing the letters; free space that cannot be
+read held for five minutes too. The floor's own test passes unchanged: its
+second keep, near the floor, reads again and clears.
+
+Each part undone by hand, the class run (30 tests), then put back and
+passing, counted as failures in tests: read at every keep, as before, 13 in
+4; no age, a reading held for the launch, 5 in 2; a clock set back not
+reading again, 2 in 1; held down to the floor with no gigabyte to spare,
+7 in 1; the letters kept since the reading not counted against it, 7 in 1;
+`free-ms` on every note, 2 in 2; free space that cannot be read asked again
+at every keep, 2 in 1.
+
+The full suite, serially: 2,489 tests, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad. Its check is in TODO.
+- Another app taking more than a gigabyte in the five minutes a reading is
+  held: a keep could then land under the floor, by 5 MB at most. Not
+  tried; the host has no iPad's disk, and a disk really full is tried, as
+  for B-111, through what the store is handed.
+- The five minutes are by the clock, so a clock set forward reads early and
+  one set back reads again; neither keeps a letter the floor would refuse.
+- His iPad's free space is not known. With a gigabyte or less above the
+  floor, every keep reads, as before this change.

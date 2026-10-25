@@ -53,6 +53,16 @@ final class KeptLetters: @unchecked Sendable {
         /// is not kept, the kept letters all go, and nothing more is kept
         /// in that launch.
         var floor: Int64 = 512 << 20
+        /// How long a reading of the free space answers for (B-136): read
+        /// at the first keep of a launch, and again at the first keep after
+        /// this long, or after the clock has gone back past the reading.
+        var freeAge: TimeInterval = 5 * 60
+        /// The room above the floor a held reading must show, less every
+        /// letter kept since it and the letter now, to answer for a keep
+        /// (B-136). A write large beside the room the reading left reads
+        /// again first, so near the floor every keep reads, as every keep
+        /// did; with gigabytes free, no letter here is large.
+        var freeRoom: Int64 = 1 << 30
 
         init() {}
     }
@@ -70,6 +80,9 @@ final class KeptLetters: @unchecked Sendable {
         /// before its index goes into memory, for a test that has something
         /// come between the two.
         var afterFiles: (@Sendable () -> Void)?
+        /// The time, for how old the free-space reading is. Nil for the
+        /// clock.
+        var now: (@Sendable () -> Date)?
 
         init() {}
     }
@@ -92,6 +105,7 @@ final class KeptLetters: @unchecked Sendable {
     private let bounds: Bounds
     private let freeSpace: @Sendable () -> Int64?
     private let afterFiles: (@Sendable () -> Void)?
+    private let now: @Sendable () -> Date
 
     private let lock = NSLock()
     /// What is kept, as `letters.json` says, once it has been read.
@@ -110,6 +124,10 @@ final class KeptLetters: @unchecked Sendable {
     private var waiting = 0
     /// The floor has been met in this launch: nothing more is kept.
     private var full = false
+    /// The last reading of the free space (B-136): what it said, nil where
+    /// it could not be read, when, and the bytes of letters written since.
+    /// Read and written on the disk queue alone, by `store`.
+    private var reading: (free: Int64?, at: Date, since: Int64)?
 
     /// Made by the shelf over its own directory, touching nothing on disk.
     /// `alive` is the shelf's generation test, made from its root and
@@ -124,6 +142,7 @@ final class KeptLetters: @unchecked Sendable {
         bounds = options.bounds
         freeSpace = options.freeSpace ?? Self.freeSpace(near: root)
         afterFiles = options.afterFiles
+        now = options.now ?? { Date() }
     }
 
     // MARK: - Reading
@@ -173,7 +192,8 @@ final class KeptLetters: @unchecked Sendable {
     /// queue, a moment from now. Not when it is over `Bounds.letter`, when
     /// `Bounds.waiting` would be passed, or once the floor has been met in
     /// this launch. A letter kept already under the same four is only
-    /// touched.
+    /// touched. The floor is met from the free space as last read, read
+    /// again when that cannot answer (`spaceFree(before:)`, B-136).
     ///
     /// Its file is written, then the index with it and the letters it
     /// evicts, each atomically, and only then does memory take the index,
@@ -219,13 +239,16 @@ final class KeptLetters: @unchecked Sendable {
         }
         guard let now else { return }
 
-        // The floor, read before anything is written, and timed on its own
-        // for the note: on the shared disk queue a page read from the main
-        // thread waits behind it as well as behind the write.
-        let reading = DispatchTime.now().uptimeNanoseconds
-        let free = freeSpace()
-        let freeMS = (DispatchTime.now().uptimeNanoseconds - reading) / 1_000_000
-        if let free, free - Int64(raw.count) < bounds.floor {
+        // The floor, before anything is written, from the free space as
+        // last read (`spaceFree(before:)`, B-136). On the test iPad the
+        // reading took 44 to 58 ms of each 62 to 85 ms keep, and on the
+        // shared disk queue a page read from the main thread waits behind
+        // it as well as behind the write; so it is timed on its own for the
+        // note when it is taken, and taken only when the reading held
+        // cannot answer.
+        let size = Int64(raw.count)
+        let (free, freeMS) = spaceFree(before: size)
+        if let free, free - size < bounds.floor {
             clear(epoch: epoch)
             return
         }
@@ -255,6 +278,7 @@ final class KeptLetters: @unchecked Sendable {
             Diagnostics.log(.note, "KEPT-LETTER not-kept reason=disk")
             return
         }
+        reading?.since += size
         afterFiles?()
         // A discard may have come while the files were written; its removal
         // of the directory comes after this block, and takes them.
@@ -270,7 +294,38 @@ final class KeptLetters: @unchecked Sendable {
             try? manager.removeItem(at: files.appendingPathComponent(gone.file))
         }
         let ms = (DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
-        Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms) free-ms=\(freeMS)")
+        Diagnostics.log(.note, "KEPT-LETTER kept bytes=\(raw.count) ms=\(ms)"
+                        + (freeMS.map { " free-ms=\($0)" } ?? ""))
+    }
+
+    /// On the disk queue: the bytes free before a letter of `size` is
+    /// written, and the ms the reading took, nil when none was taken
+    /// (B-136).
+    ///
+    /// The reading held answers, less every letter written since it, when
+    /// it is under `Bounds.freeAge` old, the clock has not gone back past
+    /// it, and it shows at least `Bounds.freeRoom` above the floor after
+    /// this letter; a reading that could not be read answers as it did, by
+    /// keeping, for as long. Otherwise the free space is read now, and
+    /// that reading is held. So it is read at the first keep of a launch,
+    /// at the first after five minutes, and before every keep near the
+    /// floor, as it was before every keep. A held reading answers only
+    /// with a gigabyte to spare above the floor, and for five minutes at
+    /// most, so for a keep to land under the floor the iPad's other apps
+    /// would have to take that gigabyte within those minutes; and a disk
+    /// they fill makes the write fail, keeping nothing, as before.
+    private func spaceFree(before size: Int64) -> (free: Int64?, ms: UInt64?) {
+        let time = now()
+        if let held = reading, held.at <= time, time.timeIntervalSince(held.at) < bounds.freeAge {
+            guard let free = held.free else { return (nil, nil) }
+            let left = free - held.since
+            if left - size >= bounds.floor + bounds.freeRoom { return (left, nil) }
+        }
+        let started = DispatchTime.now().uptimeNanoseconds
+        let free = freeSpace()
+        let ms = (DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
+        reading = (free, time, 0)
+        return (free, ms)
     }
 
     /// The least recently opened, out of `records`, until there are at most
