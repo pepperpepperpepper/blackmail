@@ -6502,7 +6502,9 @@ the stack's first line half under it until the stack is scrolled. And an
 Edit Delete of two conversations' rows met `* BYE System Error` from Gmail
 at its first MOVE: nothing moved on the server, "Can't connect to mail
 server." came, and both rows stayed off the list until a Refresh brought
-them back; the Delete made again moved all five. Not looked into.
+them back; the Delete made again moved all five. Not looked into. (B-132
+since: the rows were back on the list, out of sight above it, on a build
+without B-093.)
 
 **Open, for the owner.** Whether letters' pictures from the web load
 (the spec asks for them blocked by default if feasible). A bare address is
@@ -11127,7 +11129,8 @@ Deleting them after: the first Delete in Sent Mail, the app back from
 some four minutes in the background, failed with "Can't connect to mail
 server.", and one of the four rows went from the list behind the message.
 Refresh brought it back, and a second Delete took all four. Not B-075's;
-not looked into.
+not looked into. (B-132 since: a row put back out of sight above the
+list, on a build without B-093.)
 
 **Seen on the test iPad, 2026-10-19**, the same iPad, landscape, two
 panes, a build of a0b6062, B-079 to B-083 merged on master 44d953c, on the
@@ -24946,3 +24949,136 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+---
+
+## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete left its rows off the list until a Refresh; every row that did not move comes back where it stood
+
+**Found on the iPad, twice, and left in "Seen in passing".** On
+2026-10-07, at the end of B-075's run, Edit mode's Delete of four rows in
+Sent Mail, the app back from some four minutes in the background, failed
+with "Can't connect to mail server." and one of the four rows went from
+the list behind the alert; Refresh brought it back, and a second Delete
+took all four. On 2026-10-21, at the end of B-055's run, Edit mode's
+Delete of the Inbox's first two rows, two conversations of five letters,
+met Gmail's `* BYE System Error` at its first MOVE; nothing moved on the
+server, "Can't connect to mail server." came, and both rows stayed off
+the list until a Refresh. Not looked into then.
+
+**What Mail does.** Not what decides it: a Delete or Move the server does
+not take brings its rows back where they stood and says so, which is
+B-062's rule, with B-093's place. Mail's own answer to a move that fails
+is known only by its alert, "Unable to Move Message" (Apple Community
+thread 4014036, as B-062 has it); how its list shows such a message was
+not found described.
+
+**What it was.** The rows were back on the list, out of sight above it.
+The connection log of 2026-10-21 has `UID MOVE 386 "[Gmail]/Trash"` at
+07:07:21.788, the oldest of the five, and `* BYE System Error` 1.5 s on,
+with no tagged answer and nothing more of the Delete after it: the batch
+stopped at the failure and put every letter back on the list, as B-062
+has it. The watch's check that connected again at 07:07:38 found
+nothing gone, and the Refresh at 07:08:32 listed all five in the Inbox. The rows came back to the list's
+letters, and the list drew them in where they belonged, but it put
+itself back by the rows he could see then. The build, 1233252, master
+with B-092, was cut that morning before B-093's three changes, which
+came later the same day (01ecf20, 29f4127, 20fb3f5). Without them a row
+put back was put back by the first row in view: the two rows were the
+Inbox's first two, at its top; at the tap the rows below closed up into
+their place; each row put back went in above the row now first in view,
+which stayed where it was, so the list ended two rows down with both
+rows above it, out of sight under the search field. The list read as if
+they had gone. Refresh takes the list to its top, where they were.
+2026-10-07 has no connection log kept; the build was older still, and
+one row of four out of sight above the first in view is the same
+picture. Nothing was lost either time.
+
+B-093 keeps the place from before the tap (`TakenRows`) and puts every
+row of a refused batch back by it while the list shows what the tap
+left, one place for all of them until the last is back. It was held by
+the host tests at the place's level, with rows of one letter each, and
+never with a batch run through the repository against a server that
+fails it.
+
+**Changed.** Nothing in the app; its code is B-062's batch and B-093's
+place, as they are on master. What is new is the suite's:
+
+- The scripted server can answer a command as Gmail did on 2026-10-21,
+  `* BYE System Error` and the connection closed, nothing of it carried
+  out (`ScriptedIMAPServer.hangsUpOnVerbs`).
+- The list on the screen, laid out as `ListPlaceTests` lays it out, drawn
+  again at every change the list's letters tell the way
+  `regroup(for:)` draws it (`ListOnScreen`, test support).
+- Three tests that run Edit mode's Delete through `ListBatch`, the
+  shipping repository and the scripted server, and look at the list as
+  he would.
+
+**Not changed.**
+
+- A MOVE whose answer is lost after Gmail has carried it out, the
+  connection dropping between the two, is taken as not moved, as B-092
+  has it ("refused as not moved"): its row comes back with the alert
+  though the letter is in the Trash, until a Refresh, or a Delete again,
+  whose MOVE finds it gone (B-092's look). Telling the two apart needs a
+  look in the folder on a new connection after the failure; not built.
+  Neither sighting was this: nothing had moved.
+- A row put back after he has scrolled the list since the tap, or after
+  newer mail has joined a row in view, goes back by the rows he can see
+  then, as B-093 has it: one that stood above them goes in out of sight,
+  where it is in the list. A batch on a half-open connection can take the
+  read deadline, half a minute, before it fails, time enough to scroll.
+- The reading pane, emptied at the tap if it showed a letter going,
+  stays empty; Edit mode is not put back; the rows come back not ticked
+  (B-062).
+- The alert: the app's own sentence for what failed, "Can't connect to
+  mail server." for a BYE or a dead connection, Mail's "Cannot Get Mail"
+  for a refused password. One alert for the batch.
+
+**What he sees.** Edit mode's Delete or Move that fails at its first
+letter: the rows go at the tap and are back where they stood, every row
+in view where it was before the tap, and "Can't connect to mail server."
+Failing after some letters went: the rows of the letters that went stay
+off and the rows below close up into their place; the rest are back
+where they stood, a conversation with the letters of it that did not
+move, headed as before.
+
+**Tests.** In `ListBatchTests`, three, new:
+`testAByeAtTheFirstMovePutsEveryRowBackWhereItStood`, the two
+conversations of the iPad at the top of the Inbox, three letters and
+two, Gmail's BYE to the first MOVE: one MOVE sent, the oldest letter's,
+and nothing after it, the five still in the Inbox, every letter back on
+the list, the list at its top and every row on the screen where it stood,
+nothing billed or swept, "Can't connect to mail server."; the same put
+back by the rows in view, as before B-093, ending two rows down with both
+rows out of sight, as on the iPad; and the Delete made again moving all
+five, the rows below closed up. `testADeadConnectionPutsEveryRowBackWhereItStood`,
+the connection reset under the list with nothing yet to say so, three
+rows in the middle of the list ticked, the first in view among them: the
+first MOVE lost on the dead socket, nothing else sent, nothing moved,
+every row where it stood. `testSomeMovedThenAFailureBringsBackExactlyTheRestWhereTheyStood`,
+the Links conversation and Roof's first letter moved and Gmail's BYE to
+the next MOVE: those three in the Trash and off the list, Roof's row back
+where it stood with its two letters left, headed by its newest, Links'
+row gone and the rows below closed up, Roof's unread letter not billed.
+
+Each part undone by hand, the class run, then put back and passing, the
+failures counted as failures in tests, the three new among them each
+time: a row put back by the rows in view, no place from before the tap
+(`TakenRows.move` always `.stay`), 9 in 3; the letters after a failure
+not put back, 16 in 6; the letter that failed not put back, 10 in 6; the
+failure not said, 16 in 6; the letters that moved put back with the
+rest, 15 in 7, the two new tests where letters moved among them.
+
+The full suite, serially, run with B-133 beside it: 2,480 tests, 5 of
+them new (3 here), 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Gmail's BYE cannot be had on the iPad at will; its TODO check fails
+  the Delete with Airplane Mode, which sends nothing (`NO-PATH`), and
+  turns it on part-way through a Delete of many rows for some moved and
+  then a failure.
+- The host suite cannot lay out a table: the screen is `ListOnScreen`'s
+  layout, taken as `ListPlaceTests` takes UIKit's (B-093).
+- The lost answer to a MOVE carried out, above.

@@ -1722,9 +1722,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       stack's first line half under it until the stack is scrolled; and an
       Edit Delete of two rows met Gmail's `* BYE System Error` at its first
       MOVE, nothing moved, and the rows stayed off the list until a
-      Refresh. Left: the Cc from the kept Inbox, which needs it on the
-      letter the header names, and the letter that tries to go somewhere,
-      which needs a letter from another account and waits on a yes.*
+      Refresh (B-132 since: out of sight above it, before B-093). Left:
+      the Cc from the kept Inbox, which needs it on the letter the header
+      names, and the letter that tries to go somewhere, which needs a
+      letter from another account and waits on a yes.*
 - [x] A folder count asked just before his read mark reaches the server
       puts the old count back for a second: at launch, a letter read while
       the STATUS sweep that follows the first page is out shows the Inbox
@@ -5597,6 +5598,42 @@ checks below is left as not needed, not open, and none is worth a round.*
       OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
       after the pause (B-123). Not possible: 6b and 11, the size test's
       mailbox having no such sender.*
+- [ ] **B-132, a failed Edit mode Delete puts its rows back where they
+      stood.** On the test iPad, the test account, from a build of the
+      `bm-editlist` worktree (branch `fix-editlist`). Nothing is sent and
+      nothing comes to the Inbox: the letters are the host's, APPENDed
+      read into a label "B-132" it makes, dated two days back and more,
+      and a Delete moves them to Trash. Three panes; the connection log
+      read after each step; Airplane Mode turned off after each step that
+      turns it on.
+      0. *The letters:* sixteen, read. Two conversations of two letters,
+      "B-132 one" and "B-132 two", the reply's In-Reply-To and References
+      naming the first, dated two days back; and twelve alone, "B-132
+      single 1" to "12", three and four days back, below them.
+      1. *Refused at the first letter, at the top:* B-132 opened at its
+      top. Edit, the two conversations' rows ticked, Airplane Mode on,
+      Delete. The two rows go at the tap and are back where they stood,
+      the list at its top, every row as before the tap, not ticked, Edit
+      mode over; "Can't connect to mail server.", OK. The log: one
+      `NO-PATH UID MOVE nothing-sent`. Airplane Mode off, Refresh: the
+      same rows.
+      2. *In the middle of the list:* scrolled until a single's row is
+      the first in view, a little way down; write down which. Edit, that
+      row and the next two ticked, Airplane Mode on, Delete: the three go
+      and come back where they stood, every row in view where it was
+      before the tap, the list not scrolled; the alert as in 1.
+      3. *Some moved, then a failure:* at the top, Edit, Select All,
+      Delete, and Airplane Mode on about a second after the tap. The rows
+      whose letters the log shows answered `OK [COPYUID …]` stay off, the
+      rows below closing up; the rest come back where they stood, a
+      conversation of which one letter went with the other alone; the
+      alert. Airplane Mode off, Refresh: the same rows as before it, row
+      for row. A row that came back but is gone at the Refresh, its MOVE
+      on the wire as the network went, is B-092's lost answer (B-132,
+      Not changed): write it down, with its log lines.
+      4. *Two panes:* 1 again, then three panes back.
+      5. *Put back:* the label B-132, with what is left in it, deleted
+      by the host, and the letters in Trash left there.
 
 ## Blocked on the owner
 
