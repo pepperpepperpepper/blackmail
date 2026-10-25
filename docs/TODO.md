@@ -5494,10 +5494,13 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a
       search by title cannot find. Naming it needs the page's title fetched
-      while the sheet is up (LinkPresentation, or YouTube's oEmbed), which
-      Mail does not do, and would have to never hold Send, never write
-      over a subject he has typed, and leave it empty when the fetch
-      fails. As built (empty, the default), or the fetch.
+      while the sheet is up (LinkPresentation, or YouTube's oEmbed). Mail
+      fetches nothing to fill a share's Subject, taking the app's answer;
+      its composer does fetch a page's preview for a link pasted into a
+      letter, which it makes a rich link. A fetch here would have to never
+      hold Send, never write over a subject he has typed, and leave it
+      empty when the fetch fails. As built (empty, the default), or the
+      fetch.
 
 ## Open, recorded, not scheduled
 

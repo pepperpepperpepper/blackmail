@@ -2449,7 +2449,8 @@ B-091 (cba64fa), share checks 11, 13, 14, 16 and 17, letters To A with
   video's title. On the owner's word to copy Mail, the subject is what the
   share hands over that names it; the YouTube app's share still has none,
   since nothing it hands an extension names it, and naming it would take
-  a fetch, which Mail does not do (an owner question).*
+  a fetch, where Mail fetches nothing to fill a share's Subject (an owner
+  question).*
 - *Cancel with a word* (13): a dark popover from Cancel, Delete Draft
   alone. A tap on the sheet's body closed it with the word still there;
   Delete Draft ended the share, and nothing went.
@@ -23652,8 +23653,10 @@ failing. The release build for the iPad links.
   sharing app's `showKeyboardAutomatically` is off unless set, and Mail's
   composer then picks the field once its content has loaded).
 - Here the keyboard comes up once the sheet has arrived (`viewDidAppear`),
-  a moment after the sheet, where Mail picks the field as it is about to
-  appear.
+  a moment after the sheet. Mail picks the field as the sheet is about to
+  appear only when whatever opened it asked for the keyboard at once;
+  otherwise it picks once the letter's content has loaded, after the
+  sheet appeared.
 - The field Mail gives back after its own camera, scan, markup or a
   person's card: this composer has none of those; after its photo or file
   picker the field he was in is UIKit's to give back, and nothing here
@@ -23769,10 +23772,15 @@ the share sheet's own subject, and from nothing else; the words and
 addresses shared are its body. Safari answers with its page's title, for
 every kind of share but AirDrop (`_SFActivityItemProvider`,
 SafariServices). The YouTube app answers with the video's title, by his
-letters. Mail fetches nothing for it: neither its share entry nor MessageUI's
-composer asks LinkPresentation for anything, and the composer's
-`contentURLs` serve its donation to Siri's suggestions
-(`hasDuetDonationContext`), not a fetch.
+letters. Mail fetches nothing to fill a share's Subject: its share entry,
+preparing the letter, asks LinkPresentation for nothing, and the
+composer's `contentURLs` serve its donation to Siri's suggestions
+(`hasDuetDonationContext`), not a fetch. Its composer does fetch a page's
+preview for a link pasted into a letter's body, which it makes a rich
+link (`-[MFComposeWebView pasteRichLink]`,
+`insertRichLinkWithURL:completionHandler:`, `MSRichLinkGenerator`,
+`richLinkDidStartLoading:` and `richLinkDidFinishLoading:`, MessageUI of
+iOS 18.6); that is the body's, not a share's Subject.
 
 **What a share extension is handed.** The share sheet asks the subject
 question for Mail, Messages, Reading List and AirDrop only. A share
@@ -23815,8 +23823,8 @@ comment saying that was how Mail takes it; a YouTube share had none.
    YouTube app none (`ShareItems.name`, `SharedItem.link`, the share
    sheet's own).
 3. *No fetch.* Nothing in the share sheet asks for the page, by
-   LinkPresentation, a URL session or YouTube's oEmbed, since Mail does
-   not; a test holds it so.
+   LinkPresentation, a URL session or YouTube's oEmbed, since Mail fetches
+   nothing to fill a share's Subject; a test holds it so.
 
 **Not changed.** What any share's subject is: Safari's as before, the
 YouTube app's still empty, now for want of anything naming it rather than
@@ -23830,8 +23838,9 @@ can change like any subject; a YouTube share with Subject empty and "New
 Message" over the sheet.
 
 **Left for the owner.** Naming a YouTube share as Mail does needs the
-page's title fetched while the sheet is up, which Mail does not do (TODO,
-"Blocked on the owner", a YouTube share's subject).
+page's title fetched while the sheet is up. Mail fetches nothing to fill
+a share's Subject, though its composer does fetch a pasted link's preview
+(TODO, "Blocked on the owner", a YouTube share's subject).
 
 **Tests.** `ShareNameTests`, five: Safari's shape, the words "Opera house
 - Wikipedia" and no title, the subject, the link alone in the body; an
@@ -23839,14 +23848,18 @@ app's own title before the words, a blank title giving way to them, a
 blank one alone nothing; the YouTube app's shape, nothing, the subject
 empty and the link alone; the extension reading its items through
 `ShareItems.name` and its words in no other place; and no LinkPresentation,
-URL session, `dataTask`, page read or oEmbed in the share sheet's four
-files.
+URL session or connection, `dataTask`, page read, oEmbed or web view in
+any Swift file of the share sheet's folder (`Sources/Blackmail/Share`,
+five named files checked to be among those read).
 
 Each part undone by hand, the class run, then put back and passing,
 counted as failures in tests: the words before the title, 1 in 1; the
 title alone, Safari's words not read, 3 in 2; names not trimmed, 3 in 2;
 the extension reading its own way, as it did, 1 in 1; LinkPresentation
-brought into the share sheet, 1 in 1.
+brought into the share sheet, 1 in 1; a metadata fetch in
+`ShareMirror.swift`, a file of the share sheet the test once did not
+read, 3 in 1; a web view in `ShareViewController.swift`, 1 in 1; a URL
+connection in `ShareSheet.swift`, 1 in 1.
 
 The full suite, serially: 2,422 tests, 5 of them new, 6 skipped, none
 failing. The release build for the iPad links.

@@ -62,8 +62,8 @@ enum ShareItems {
     /// video's. An app's subject and its LinkPresentation title for the
     /// share sheet's header both stop at the share sheet: seen in the
     /// simulator, an app offering both, and the extension had the link
-    /// alone. Naming it would need the page fetched, which Mail does not
-    /// do, so nothing here fetches.
+    /// alone. Naming it would need the page fetched, and Mail fetches
+    /// nothing to fill a share's Subject, so nothing here fetches.
     static func name(title: String?, words: String?) -> String? {
         [title, words]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }

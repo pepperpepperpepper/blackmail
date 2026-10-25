@@ -56,26 +56,39 @@ final class ShareNameTests: XCTestCase {
     }
 
     /// Mail fetches nothing to name a share, so nothing in the share sheet
-    /// does: no LinkPresentation, no URL session, no page asked for.
+    /// does, in any of its files: no LinkPresentation, no URL session or
+    /// connection, no web view, no page asked for.
     func testNothingInTheShareSheetFetchesThePage() throws {
-        for file in ["Share/ShareViewController.swift", "Share/ShareItems.swift",
-                     "Share/ShareLetter.swift", "Share/ShareSheet.swift"] {
-            let code = try source(file)
+        let share = sources.appendingPathComponent("Share")
+        let files = try FileManager.default.contentsOfDirectory(atPath: share.path)
+            .filter { $0.hasSuffix(".swift") }.sorted()
+        for known in ["ShareItems.swift", "ShareLetter.swift", "ShareMirror.swift",
+                      "ShareSheet.swift", "ShareViewController.swift"] {
+            XCTAssertTrue(files.contains(known), "every file of the share sheet is read: \(known)")
+        }
+        for file in files {
+            let code = try source("Share/\(file)")
             for fetch in ["LinkPresentation", "LPMetadataProvider", "startFetchingMetadata",
-                          "URLSession", "dataTask(", "Data(contentsOf: url", "oembed"] {
+                          "URLSession", "dataTask(", "Data(contentsOf: url", "oembed",
+                          "WKWebView", "NSURLConnection"] {
                 XCTAssertFalse(code.lowercased().contains(fetch.lowercased()), "\(file): \(fetch)")
             }
         }
     }
 
-    /// The file's code with its comment lines dropped and its spacing
-    /// made single, so a line is found however it is wrapped.
-    private func source(_ path: String) throws -> String {
-        let url = URL(fileURLWithPath: #filePath)
+    /// The app's sources, `ios/Sources/Blackmail`.
+    private var sources: URL {
+        URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()     // BlackmailTests
             .deletingLastPathComponent()     // Tests
             .deletingLastPathComponent()     // ios
-            .appendingPathComponent("Sources/Blackmail/\(path)")
+            .appendingPathComponent("Sources/Blackmail")
+    }
+
+    /// The file's code with its comment lines dropped and its spacing
+    /// made single, so a line is found however it is wrapped.
+    private func source(_ path: String) throws -> String {
+        let url = sources.appendingPathComponent(path)
         return try String(contentsOf: url, encoding: .utf8)
             .components(separatedBy: "\n")
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }

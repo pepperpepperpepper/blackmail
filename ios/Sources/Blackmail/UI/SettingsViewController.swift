@@ -151,10 +151,11 @@ final class SettingsViewController: UIViewController, UITextViewDelegate {
         signatureView.layer.borderColor = Theme.separator.cgColor
         signatureView.text = account.signature
         signatureView.delegate = self
-        // Smart punctuation off, exactly as in the composer: a signature is
-        // the one piece of text that gets sent thousands of times, and
-        // having iOS turn his "--" into an em dash behind his back is not
-        // help.
+        // Smart punctuation off for the signature's own sake: it is the one
+        // piece of text that gets sent thousands of times, and having iOS
+        // turn his "--" into an em dash behind his back is not help. Since
+        // B-121 this is no longer the composer's setting: its Subject and
+        // body take Smart Punctuation, as Mail's do.
         signatureView.smartDashesType = .no
         signatureView.smartQuotesType = .no
         signatureView.autocorrectionType = .no
