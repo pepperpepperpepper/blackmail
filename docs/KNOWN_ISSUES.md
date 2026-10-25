@@ -24983,16 +24983,19 @@ letter whose body could not be downloaded, offline say, kept "To: me"
 under the pane's words. A conversation's header at its opening did the
 same for its newest letter.
 
-**What Mail does.** Mail has a letter's header fields from the listing,
-before the body: Dovecot's imaptest, which models clients by what they
-send, has its Apple Mail profile fetch `INTERNALDATE UID RFC822.SIZE FLAGS
-BODY.PEEK[HEADER.FIELDS (date subject from to cc message-id in-reply-to
-references …)]` as it syncs a mailbox, and the body later by
-`BODY.PEEK[]` (doc.dovecot.org/main/core/admin/testing.html, "AppleMail";
-a model of Mail on the Mac, not a log of the iPad's: medium). So its
-header has whom the letter is to while the body is still coming. That it
-draws them before the body on an iPad is from that order, not seen here:
-medium.
+**What Mail does.** Mail draws whom a letter is to without its body, and
+keeps it when the body does not come: on an iPhone, under Mail's "This
+message has not been downloaded from the server.", "I get the To/From
+info and the subject line but that is all" (Apple Community,
+discussions.apple.com/thread/254527027, January 2023, an iPhone 11). And
+Dovecot's imaptest, a load-testing tool, has an "AppleMail" profile that
+fetches `INTERNALDATE UID RFC822.SIZE FLAGS BODY.PEEK[HEADER.FIELDS (date
+subject from to cc message-id in-reply-to references …)]` as it syncs a
+mailbox, and the body later by `BODY.PEEK[]`
+(doc.dovecot.org/main/core/admin/testing.html, "AppleMail"); the page
+does not say which Mail it follows, or how closely, so it is an
+inference that the order is Mail's. That Mail on an iPad with iPadOS 18
+has the To before the body is from these, not seen here: medium.
 
 **Changed.**
 
@@ -25034,12 +25037,18 @@ To, and one to nobody: no To, so "To: me"; a row kept with its To, read
 back by the next launch's shelf: its To line. And the source, read: the
 single letter's stand-in drawn by `heading(for:)`, its failure leaving
 the header alone, the header writing "To: me" only for a letter with no
-To, and the row's To taken as the Cc is.
+To, and the row's To taken as the Cc is. `PaneLoadsTests`' test of the
+stand-in, `testTheStandInHeaderIsTheRowsSenderSubjectDateToCcAndFiles`
+(renamed from `…SenderSubjectDateAndFiles`), gives its row a To and
+asserts the header's is the row's, where it asserted none.
 
 Undone by hand, the header's To left out as before, the four run with
 `ReadingPaneCcTests`, `PaneLoadsTests`, `PaneDocumentTests`,
 `MailShelfTests` and `SentRowNamesTests`, then put back and passing: 7
 failures in 4 tests, all four of the new ones, nothing else failing.
+Undone so again with `PaneLoadsTests`' test of the stand-in asking for
+the To, the same six run: 9 failures in 5 tests, the four new ones and
+that one.
 
 The full suite, serially: 2,479 tests, 4 of them new, 6 skipped, none failing. The release build for the iPad
 links.

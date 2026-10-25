@@ -68,11 +68,13 @@ final class PaneLoadsTests: XCTestCase {
     }
 
     /// What the header says before the letter lands: the row's sender,
-    /// subject and date, its Cc and the files the row lists, and nothing it
-    /// does not know. The Cc and the files are what the header is sized by;
-    /// see `PaneDocumentTests.testTheHeaderListsTheLettersFilesFromItsRow`
-    /// and `ReadingPaneCcTests.testTheHeaderHasItsCcLineFromTheTap`.
-    func testTheStandInHeaderIsTheRowsSenderSubjectDateAndFiles() {
+    /// subject and date, its To (B-127) and Cc, and the files the row lists,
+    /// and nothing it does not know. The Cc and the files are what the
+    /// header is sized by; see
+    /// `PaneDocumentTests.testTheHeaderListsTheLettersFilesFromItsRow`,
+    /// `ReadingPaneCcTests.testTheHeaderHasItsCcLineFromTheTap` and
+    /// `ToAtTheTapTests`.
+    func testTheStandInHeaderIsTheRowsSenderSubjectDateToCcAndFiles() {
         var row = MessageSummary(id: "600001/1119", mailboxID: "inbox",
                                  sender: "Sam Example <sam@example.com>",
                                  subject: "Letter 119: garden", preview: "A few words",
@@ -81,6 +83,7 @@ final class PaneLoadsTests: XCTestCase {
         let quote = Attachment(id: "2", filename: "Garden quote.pdf", mimeType: "application/pdf",
                                size: 3_000)
         row.attachments = [quote]
+        row.to = ["Jane Example <jane@example.com>", "carlo@example.org"]
         row.cc = ["Pat Example <pat@example.com>", "lee@example.com"]
         let heading = Message.heading(for: row)
         XCTAssertEqual(heading.id, row.id)
@@ -89,7 +92,8 @@ final class PaneLoadsTests: XCTestCase {
         XCTAssertEqual(heading.senderAddress, "sam@example.com")
         XCTAssertEqual(heading.subject, row.subject)
         XCTAssertEqual(heading.date, row.date)
-        XCTAssertEqual(heading.to, [])
+        XCTAssertEqual(heading.to, row.to)
+        XCTAssertEqual(heading.to, ["Jane Example <jane@example.com>", "carlo@example.org"])
         XCTAssertEqual(heading.cc, ["Pat Example <pat@example.com>", "lee@example.com"])
         XCTAssertEqual(heading.attachments, [quote])
         XCTAssertNil(heading.textBody)

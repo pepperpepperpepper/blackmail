@@ -5615,14 +5615,23 @@ checks below is left as not needed, not open, and none is worth a round.*
       APPENDs them, read (`\Seen`), to a label of their own, "B-127", not
       the Inbox, each dated three days back: (a) from "Jane Example", To
       "Example, Pat" (a quoted name with its comma), a name in an encoded
-      word and a bare address, Cc one more, and a PDF of about 4 MB so its
-      body takes a moment; (b) the same To, three lines of words; (c) a
-      letter to Sam with a Cc and (d) Sam's reply to it, To Jane alone, one
-      conversation (Gmail's thread, its References naming (c)). His
-      own letter in Sent Mail to someone else is one already there, found
-      by the host read only (B-060's "B-060 two", to Sam's bare address
-      with Cc Jane, or another), and written down. Three panes, then two;
-      a screen recording through each tap.
+      word and a bare address, Cc one more, and a PDF of about 3 MB, no
+      more than 3.5, so its body takes a moment; (b) the same To, three
+      lines of words; (c) a letter to Sam with a Cc and (d) Sam's reply to
+      it, To Jane alone, one conversation (Gmail's thread, its References
+      naming (c)). The PDF's size matters: in base64 a file comes to about
+      1.37 times its size, so 3 MB is a letter of about 4.1 MB, under the
+      5 MiB above which the app opens a letter without its files
+      (`IMAPMailRepository.largeLetterBytes`), and it is fetched whole: a
+      3 MB letter took about 1.3 s on the test iPad (B-111's check), this
+      one a little longer. A 4 MB PDF is a letter of about 5.5 MB, opened
+      in part, its text alone, as fast as a small letter. The host reads
+      back (a)'s RFC822.SIZE before the run and finds it under 5,242,880.
+      His own letter in Sent Mail to someone else is one already there,
+      found by the host read only (B-060's "B-060 two", to Sam's bare
+      address with Cc Jane, or another), and written down. Organize by
+      Thread on, three panes, then two; a screen recording through each
+      tap.
       1. *A letter alone:* the label opened, (a) tapped. In the first
       frame with "Loading…" the header's To line names the three, "To:
       Example, Pat, " then the encoded name decoded, then the bare
@@ -5638,7 +5647,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *A conversation:* the conversation of (c) and (d) opened from the
       label: its header has (d)'s To, "To: Jane Example", from the first
       frame, and nothing in the header changes as its body lands.
-      5. *Two panes:* 1 and 2 again, then three panes back.
+      5. *Two panes:* 1 and 2 again, then three panes back. (a) is likely
+      kept on the iPad since 1 (B-111), its body then coming at once, with
+      no frame of "Loading…"; the To line in the first frame is what is
+      looked at.
       6. *Put back:* the label's letters and the label left for B-128's
       and B-129's checks, or moved to Trash by the host, as the owner
       prefers. Nothing was written to Sent Mail.
