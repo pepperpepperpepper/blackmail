@@ -23559,7 +23559,7 @@ about 0.2 s, then the day's next row took its place under the same
 'Showing', never a later day's rows. With Organize by Thread off, 1 June
 2012 opened on the day's first letter, as before. VoiceOver was not tried.
 
-## B-119 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Every date was written day first, 03/10/26 for 3 October, where his iPad writes month first; every date is now written the iPad's way
+## B-119 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. Every date was written day first, 03/10/26 for 3 October, where his iPad writes month first; every date is now written the iPad's way
 
 **Found** in the read-only look at the gaps between this app and iPadOS 18
 Mail, 2026-10-24, the first of those to close before the install: the
@@ -23694,7 +23694,11 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-119's check).
+- Not seen on the test iPad (2026-10-25): the rows of today (a time) and
+  of yesterday ("Yesterday"), and the header's "Today at" and "Yesterday
+  at", no letter in the test account being dated that day or the day
+  before and nothing to be sent or saved; another region (the check's
+  step 10), with no yes from the owner to change the test iPad's.
 - The strings pinned are this host's ICU's. The iPad's are its own, which
   is what its Mail writes, and can differ in a detail: the space before
   AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
@@ -23716,7 +23720,25 @@ failing. The release build for the iPad links.
 - What it costs: nothing more; one formatter kept for each form, as one
   was for each pattern.
 
-## B-120 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A letter opened with no caret and no keyboard; Mail's opens ready to type
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816) at
+the size test's mailbox, its region the United States with 24-Hour Time
+off, three panes and two, Organize by Thread on. Every date was month
+first, none day first. Rows older than a week read '8/14/26' at the
+Inbox's top and '10/3/26' for 3 October; a row of this week 'Thursday'. 1
+June 2012: 'Showing June 1, 2012', Museum Members '6/1/12' (763) on top,
+Hayden Lorem '5/30/12' (761) under it, Harper Mock's conversation '6/5/12'
+up the list, its stack 6/1/12, 6/2/12, 6/5/12 and his own 6/6/12. 763's
+header and Print's preview 'June 1, 2012 at 11:02 AM'. Reply's line 'On
+Jun 1, 2012, at 11:02 AM, Museum Members <…> wrote:', Forward's 'Date:
+June 1, 2012 at 11:02:28 AM EDT', each closed by Cancel with no question,
+nothing typed. The kept page, launched offline after a kill, had '8/14/26'
+from its first frame with rows. In Edit mode '12/28/25' was whole beside
+the mark. Not possible: today's and yesterday's rows and headers, no
+letter being dated 23 or 24 October and nothing to be sent or saved. Not
+run: step 10, another region, with no yes from the owner. Nothing was
+sent, saved or printed.
+
+## B-120 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A letter opened with no caret and no keyboard; Mail's opens ready to type
 
 **What Mail does.** Apple's iPadOS 18 guide goes from Reply straight to
 "Type your response, then tap Send", and from Forward to "Enter the email
@@ -23816,7 +23838,9 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-120's check).
+- Not shown on the test iPad (2026-10-25), in two panes: the caret in a
+  Reply, its shot having the keyboard up and no caret in sight, and the
+  three Cancels closing without a question, no shot kept of them.
 - Mail's composer was read, not watched: when its keyboard comes up on
   the iPad (as the sheet arrives, or after) was not seen, and neither was
   whether a share from another app opens Mail's keyboard at once (the
@@ -23834,7 +23858,23 @@ failing. The release build for the iPad links.
 - Split View, Slide Over and Stage Manager: the app runs full screen only
   (`UIRequiresFullScreen`).
 
-## B-121 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816), the
+test account, the on-screen keyboard, frames taken from each tap. Every
+sheet opened in the field the rule picks, the keyboard up, no list under
+To. Compose: the sheet up at 0.55 s with no caret, the caret in To at 0.81
+s, the keyboard up by 1.22 s. Reply, and Reply All on a letter with a Cc:
+the caret on the empty first line above the signature and the quote from
+1.22 and 1.34 s. Forward: To, from 1.20 s. A caret put in the quote stayed
+there through the photo picker and through Cancel's question. A draft
+reopened from Drafts: the caret before its first word at 0.94 s; then
+deleted. A `mailto:` link with no subject: Subject, at 0.80 s. Safari's
+share: To, at 0.85 s. So the caret comes about 0.25 s after the sheet
+stops and the keyboard is up 0.3 to 0.4 s later (`viewDidAppear`). Every
+untouched sheet closed on Cancel without a question. In two panes the
+same, but the Reply's shot had no caret in sight, and no shot was kept of
+the three Cancels. Nothing was sent.
+
+## B-121 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
 
 **What Mail does.** Apple's guide is silent. Mail's composer, read from
 iOS 18.6's MessageUI in the simulator runtime, sets capitals,
@@ -23911,7 +23951,6 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-121's check).
 - His iPad's Settings > General > Keyboard were not read: Mail and this
   app both follow them, so whatever he has set there holds for both.
 - What a correction does to a word he meant, a name or a word of another
@@ -23920,7 +23959,23 @@ failing. The release build for the iPad links.
 - The keyboard's shortcut bar and predictive row are the system's in both
   Mail and here; not compared.
 
-## B-122 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A tap on a photo in a letter did nothing; Mail opens it full screen, with Save Image and Save to Files
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816), the
+test account, every key a tap on the on-screen keyboard. The test iPad's
+Auto-Capitalization, Auto-Correction and Smart Punctuation were off as
+found, not the factory's; they were turned on for the check and off again
+after it. Subject: "sunday lunch " read "Sunday lunch", "teh" was
+corrected to "the", and " don't" came out with a curly ’. The body's
+first line: “Yes” — don’t, the Y a capital, the two hyphens one dash. In
+To a name typed in lower case stayed so, uncorrected, on the email
+keyboard with no prediction bar. A draft saved with it read back from the
+server, read only, as typed: Subject in UTF-8 encoded words, both bodies
+quoted-printable UTF-8 with U+201C, U+201D, U+2014 and U+2019; reopened
+from Drafts as typed, then deleted. The share sheet from a Wikipedia page
+the same: " don’t" curly at the end of Subject, “Great” on the body's
+first line, a lower-case name in To left as typed; its Cancel offered
+Delete Draft alone. Nothing was sent.
+
+## B-122 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A tap on a photo in a letter did nothing; Mail opens it full screen, with Save Image and Save to Files
 
 **Found** in the gap review of 2026-10-24, the fifth of the gaps to close
 before the install: a photo shown among a letter's words could not be
@@ -24127,10 +24182,11 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-122's check). That WebKit makes a
-  click on a picture given a listener in the app's content world is as the
-  stack's lines had it from B-074, not seen for a picture; nor what WebKit
-  does with its tap highlight on one.
+- Not seen on the test iPad (2026-10-25): a pinch on a photo, the injected
+  touches having one finger; his own letter from Sent Mail with a photo in
+  a stack, the test account having none and none to be sent; a PDF's row
+  tapped and another row at once, its 309 KB coming in 0.16 s, before the
+  second tap. Nor what WebKit does with its tap highlight on a picture.
 - Mail on the iPad was not looked at: the reports are of the iPhone. Mail
   opens a logo or a picture drawn small, by the reports; here neither does.
 - No sign while a picture downloads, where a file's row in the header shows
@@ -24145,6 +24201,11 @@ failing. The release build for the iPad links.
   as before, and no Quick Look after it; a hold WebKit does not take for
   its menu could end as a click, as it can on a link. Not seen; the check's
   step 2 looks.
+- WebKit's menu starts at about 0.35 s on iPadOS 16.5.1: on the test iPad a
+  press of 0.2 s opened the picture as a tap, and one of 0.35 s or more gave
+  the menu and no Quick Look. The first hold after a launch may select
+  nearby words instead. Both are WebKit's, as the touch and hold is (Not
+  changed).
 - A picture shown by `<picture>`, `srcset` alone or a CSS background does
   not open, as a `<picture>` does not in Mail by the report. An `<img>`
   with a `srcset` by `cid:` as well as its `src` opens the part its `src`
@@ -24159,6 +24220,25 @@ failing. The release build for the iPad links.
 - His letters from Sent Mail in a stack are held whole while the
   conversation is on screen, a letter's size each, as the conversation's
   own are.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816),
+three panes and two, on five letters the host put in the test account's
+Inbox, read and dated days back, since none there had a photo shown by
+`cid:`. A tap on a photo opened Quick Look with its name in about 0.5 s;
+Done gave the letter at its place; Save Image put it in Photos, and Save
+to Files was there. A press of 0.2 s opened it as a tap; holds of 0.35 s
+and more gave WebKit's menu (Share…, Save to Photos, Copy, Show Text) and
+no Quick Look. The step expected a half-second hold to open it: a second
+run found the menu starting at about 0.35 s on iPadOS 16.5.1, and the app
+opens a picture on the click alone (`ConversationDocument`), so the step
+was worded wrong and now says so. The logo and a picture from the web
+opened nothing, a linked picture 'Open this link?' alone; a bookmarked
+photo and a panorama opened. A kept photo opened in 0.54 s with no FETCH.
+With another row tapped 0.25 s after a photo not kept, or a file's row,
+that row's letter stayed, with nothing over it and no alert for 30 s.
+Offline the kept photo opened, the other 'Attachment could not be
+downloaded.' Not possible: the pinch, his own Sent Mail letter with a
+photo, and the PDF row's race. Nothing was sent.
 
 ## B-123 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
 
@@ -24425,7 +24505,7 @@ suite on the branch: 2,421 tests, 6 skipped, none failing; the release
 build for the iPad links. Not yet seen on the iPad (TODO, B-123's check,
 steps 1, 4 and 10 again).
 
-## B-124 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
+## B-124 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
 
 **Found** in the same look at the gaps between this app and iPadOS 18
 Mail as B-119, the last of those to close before the install, from what
@@ -24513,9 +24593,8 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-124's check). The launch screen
-  is the system's, drawn before any code; the host can read the key, not
-  the screen.
+- Not seen on the test iPad (2026-10-25): Blackmail's card in the app
+  switcher, which the injected touches cannot open; Smart Invert, not run.
 - The keyboard, the edit menu and the loupe: which style they go by was
   not looked at.
 - The Print panel on iPadOS 18: presented over the pane by the same code
@@ -24523,7 +24602,23 @@ failing. The release build for the iPad links.
 - The share sheet's first frame over a light app, before its controller
   pins it dark: not looked at, and not this key's.
 
-## B-125 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A YouTube share was left with no subject as Mail's would be; Mail's has the video's title, and the subject is what the share hands over that names it, Safari's page title, the YouTube app's none
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816), from
+a screen recording at 60 frames a second. Five cold launches, three in
+three panes, one in two and one offline: no white frame in any. The icon's
+zoom was a black card from its first frame, the status bar's words white
+over it, and the share of bright pixels fell from the Home screen's 11.4%
+to none and did not rise again. From the zoom's first frame to the rows:
+283, 267 and 283 ms in three panes, 317 ms in two, 167 ms offline, beside
+B-053's 167 ms; the four online launches were 100 to 150 ms slower, for a
+reason not found. Dark as before: the keyboard, the edit menu and the
+loupe, the photo picker and Files, Quick Look around a PDF, Go to Date's
+calendar, 'Open this link?', the Print panel around its white paper, and
+the connection log's share sheet. A page shared from Safari: the sheet
+dark and filled, Cancel closing it without a question. Not possible: step
+2, the app switcher, which the injected touches cannot open. Not run: step
+5, Smart Invert, not asked for. Nothing was sent or saved.
+
+## B-125 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A YouTube share was left with no subject as Mail's would be; Mail's has the video's title, and the subject is what the share hands over that names it, Safari's page title, the YouTube app's none
 
 **The ruling reopened.** On 2026-10-21 the owner ruled: "Leave the
 two-tap Send, the 'View recent photos.png' name, and the subjectless
@@ -24640,9 +24735,11 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-125's check). The simulator was
-  iPadOS 18.6; his iPad's 18.7 was not read. The test iPad, on 16.5.1,
-  has shown Safari's title as the subject since 2026-09-30.
+- Not seen on the test iPad (2026-10-25): words an app shares beside a
+  link (the check's step 4), Notes being offloaded there and no other app
+  at hand sharing them. The simulator was iPadOS 18.6; his iPad's 18.7
+  was not read. The test iPad, on 16.5.1, has shown Safari's title as the
+  subject since 2026-09-30.
 - The YouTube app on iPadOS 18 was not seen: on 16.5.1 it handed over the
   link alone, twice.
 - Words an app shares beside a link: here they are the subject too, where
@@ -24651,7 +24748,24 @@ failing. The release build for the iPad links.
 - Other apps that share links (News, Maps, a podcast app) were not tried;
   each is named by what it hands over, by the rule above.
 
-## B-126 — CHANGED 2026-10-25 by the owner's ruling, not yet seen on the iPad. A share from the YouTube app had an empty Subject; the video's title is asked of YouTube as the sheet comes up, as Mail has it from the YouTube app
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (ac1b816),
+before B-126, the test account. Safari's Wikipedia page: Subject and the
+sheet's title the page's title, '… - Wikipedia', the link under the empty
+first line; ' x' typed at Subject's end, both followed; Cancel asked, and
+Delete Draft closed it. A YouTube page in Safari the same way, Subject the
+page's title ending ' - YouTube'. The YouTube app, a video's Share, then
+More, then Blackmail: Subject empty, 'New Message' over the sheet, the
+link alone on the line under the empty first one, the caret in To at 0.98
+s; Cancel closed it without a question. Before Blackmail was tapped, the
+share sheet's header showed the video's thumbnail, a name over the site's
+and a SharePlay button, not the video's whole title; the name was the
+channel's or the title cut at ' - ', the two being the same there. Not
+possible: step 4, Notes being offloaded on the test iPad and no other app
+at hand sharing words beside a link. Outside the steps, a word selected in
+Safari and shared alone went into the body, Subject empty. Nothing was
+sent.
+
+## B-126 — CHANGED 2026-10-25 by the owner's ruling, seen on the test iPad 2026-10-25. A share from the YouTube app had an empty Subject; the video's title is asked of YouTube as the sheet comes up, as Mail has it from the YouTube app
 
 **The ruling.** B-125 left a YouTube share's Subject empty, since the
 YouTube app hands a share extension the link alone, and put a fetch to the
@@ -24712,7 +24826,7 @@ host, and its title set against the subject Mail sent:
 5. *The test that held the share sheet to no fetch* (B-125) now holds it
    to this one: no file of the share sheet but `VideoTitle.swift` fetches
    anything, and that one asks the one address, on an ephemeral session
-   built once.
+   of its own each time.
 
 **Not changed.** Mail fetches nothing for a share's Subject (B-125); this
 fetch is the owner's ruling for the one app that hands an extension
@@ -24720,9 +24834,11 @@ nothing. Safari's shares, words an app shares beside a link, the body,
 the HTML twin, the sheet's look. No new words on his screen.
 
 **What he sees.** A video shared from the YouTube app: the sheet as
-before, and a moment later its title in Subject and over the sheet, cut
-as the YouTube app cuts a long one. With no connection, or no answer from
-YouTube, Subject stays empty, as before.
+before, and its title in Subject and over the sheet as soon as YouTube
+answers, cut as the YouTube app cuts a long one. On the test iPad's Wi-Fi
+the title was in Subject on the sheet's very first frame, YouTube
+answering 0.22 to 0.40 s after the tap. With no connection, or no answer
+from YouTube, Subject stays empty, as before.
 
 **What it costs.** One small request to YouTube for each share from the
 YouTube app, carrying the video's address, which YouTube has already,
@@ -24772,7 +24888,12 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-126's check).
+- Not seen on the test iPad (2026-10-25): the title coming into a Subject
+  he has already typed in or tapped into (the check's steps 3 and 3b).
+  That race could not be tried: the title was always in Subject before
+  the sheet was in place, and no slower network was at hand. The host's
+  tests hold that case (`ShareSheetTests`). Nor the extension's
+  SHARE-TITLE lines, which leave its memory only with a send.
 - A Send before the title comes: not tried on the iPad, since nothing is
   sent in the rounds while the test account rings the owner's phone; the
   host's tests hold it.
@@ -24785,3 +24906,21 @@ failing. The release build for the iPad links.
   often; not done, by the ruling's "falling back to empty".
 - His iPad's iPadOS 18 and its YouTube app: not seen. His letters show its
   links are youtu.be.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int15 (eaa68f5), the
+test account. From the YouTube app, a video with a 38-character title: the
+title was in Subject and over the sheet on the sheet's first frame, 0.49 s
+after the tap on Blackmail, while it was still sliding up; the iPad's
+system log had YouTube's 200 at 0.40 s. Cancel closed it without a
+question. A 96-character title: Subject its first 72 characters and '...',
+from the first frame at 0.40 s. Over the four shares made online YouTube
+answered 0.22 to 0.40 s after the tap. The race of steps 3 and 3b was not
+possible: the sheet is in place only at about 1.4 s, so a tap in Subject
+found the title already there. ' x' typed after it followed, the sheet's
+title with it, and Cancel asked, then Delete Draft. Offline the request
+failed within 0.02 s, the sheet came up as fast, and Subject stayed empty
+for 21 s. The same video's page from Safari: Subject the page's title
+ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
+Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
+be read: they leave its memory only with a send. Nothing was sent or
+saved.

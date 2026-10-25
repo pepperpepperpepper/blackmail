@@ -5281,7 +5281,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       three panes a ten-character date whole.
       11. *Put back:* the jump to 20 October last, so the day and scope
       remembered are as found.
-- [ ] **B-124, no white at launch.** On the test iPad, the test account,
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816), a US region
+      with 24-Hour Time off: 1, 2's rows of this week and older, 3, 4's
+      763, 5 to 9 and 11 passed, every date month first (B-119). Not
+      possible: 2's rows of today and yesterday and 4's "Today at" and
+      "Yesterday at", no letter in the mailbox being dated 23 or 24
+      October and nothing to be sent or saved; those stay open, for a day
+      the mailbox has such letters. Not run: 10, with no yes from the
+      owner to change the region; open too.*
+- [x] **B-124, no white at launch.** On the test iPad, the test account,
       from a build with the change; nothing written to the mailbox, no
       letter sent and none saved. Screen recordings at 60 frames a second,
       as B-053's of 2026-10-21.
@@ -5305,6 +5313,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Smart Invert,* only if it is to be run: on, a cold launch: the
       launch screen and the rows inverted alike, no flash between; then
       off again.
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816): 1, 3 and 4
+      passed, no white frame in five cold launches, black from the zoom's
+      first frame, 267 to 317 ms to the rows online and 167 ms offline
+      (B-124). Not possible: 2, the app switcher, which the injected
+      touches cannot open. Not run: 5, Smart Invert, not asked for. Left:
+      those two.*
 - [ ] **B-120, a letter opens ready to type.** On the test iPad, the test
       account only, from a build with the change, the on-screen keyboard
       (no hardware keyboard attached). Nothing is sent: no Send anywhere,
@@ -5337,7 +5351,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       the keyboard up, the caret in To, no list. Cancel: it closes without
       asking. Nothing sent.
       8. *Two panes,* 1 and 2 again, then three panes back.
-- [ ] **B-121, typing as in Mail.** On the test iPad, the test account
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816): 1 to 7
+      passed, each sheet in the field the rule picks, the caret about
+      0.25 s after the sheet stopped and the keyboard up 0.3 to 0.4 s
+      later (B-120). In 8, Compose and Reply All as in three panes. Left
+      in 8: the caret in Reply, whose shot had the keyboard up and no
+      caret in sight, and the three Cancels closing without a question,
+      no shot kept of them.*
+- [x] **B-121, typing as in Mail.** On the test iPad, the test account
       only, from a build with the change, the on-screen keyboard. Nothing
       is sent: no Send anywhere, a draft saved once and deleted again.
       First, Settings > General > Keyboard: Auto-Capitalization,
@@ -5359,7 +5380,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       at the end of Subject type ` don't`, and on the body's first line
       `"great"`: curly, as in the composer; in To, `carlo`, no capital.
       Cancel, Delete Draft. Nothing sent.
-- [ ] **B-125, a share's subject from what it hands over.** On the test
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816), the three
+      switches off as found, turned on for it and off again after: every
+      step passed in both sheets, Subject capitalized and corrected,
+      apostrophes and quotes curly and "--" one dash in Subject and body,
+      read back from the server in UTF-8, To as typed (B-121).*
+- [x] **B-125, a share's subject from what it hands over.** On the test
       iPad, the test account only, from a build with the change installed
       through TrollStore's helper as the share extension is (B-036). Nothing
       is sent: every share ends with Cancel.
@@ -5379,8 +5405,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       4. *Words beside a link,* if an app at hand shares them (Notes with
       a link in a note, or another): what Subject shows, written down.
       Cancel.
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816), before B-126:
+      1 to 3 passed. Safari's Wikipedia and YouTube pages gave their
+      titles; the YouTube app's share an empty Subject; the share sheet's
+      header the video's thumbnail and a name over the site's, not its
+      whole title (B-125). Not possible: 4, Notes being offloaded on the
+      test iPad and no other app at hand sharing words beside a link.*
 
-- [ ] **B-126, a YouTube share's subject, fetched.** On the test iPad,
+- [x] **B-126, a YouTube share's subject, fetched.** On the test iPad,
       the test account only, from a build with the change installed
       through TrollStore's helper as the share extension is (B-036). Nothing
       is sent: every share ends with Cancel or Delete Draft. Screenshots at
@@ -5410,8 +5442,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       it offers Blackmail: Subject empty. Cancel.
       Send before the title comes is not tried: nothing is sent in these
       rounds, and the host's tests hold it (`ShareSheetTests`).
+      *Seen on the test iPad 2026-10-25 on int15 (eaa68f5): 1, 2, 4, 5
+      and 6 passed, the title in Subject from the sheet's first frame,
+      YouTube answering 0.22 to 0.40 s after the tap; a 96-character
+      title cut to its first 72 characters and "..."; offline, Subject
+      empty for 21 s (B-126). Not possible: the race in 3 and 3b, the
+      title always there before the sheet was in place, which the host's
+      tests hold; their ` x`, Cancel and Delete Draft passed.*
 
-- [ ] **B-122, a photo in a letter, tapped.** On the test iPad, the test
+- [x] **B-122, a photo in a letter, tapped.** On the test iPad, the test
       account only, built from the `bm-photo` worktree (branch
       `fix-photo-tap`) before it is merged. Nothing is sent, saved as a
       draft or APPENDed: one of the test accounts is signed in on the
@@ -5431,10 +5470,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       sheet. Save Image tapped: the photo in Photos (the test iPad's
       library may be used, B-067). Save to Files tapped: the Files sheet,
       then Cancel, nothing saved. Done.
-      2. *The finger:* a tap held about half a second opens it as a tap
-      does. A touch and hold of a second or more: WebKit's menu, as before
-      (Save to Photos), and no Quick Look under it or after it; a tap
-      outside closes the menu. A drag that starts on the photo scrolls the
+      2. *The finger:* a short press, under about a quarter second, opens
+      it as a tap does. From about 0.35 s, WebKit's menu (Share…, Save to
+      Photos, Copy, Show Text), and no Quick Look under it or after it; a
+      tap outside closes it. A drag that starts on the photo scrolls the
       letter and opens nothing; a pinch on it zooms the letter and opens
       nothing. Two quick taps: one Quick Look.
       3. *The signature's logo,* tapped: nothing opens. A picture from the
@@ -5465,6 +5504,16 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Two panes,* 1 and 3 again, then three panes back.
       7. *Put back:* any letter where it was found (B-109's in Trash), the
       photo saved in 1 left in Photos or deleted, as the owner prefers.
+      *Seen on the test iPad 2026-10-25 on int15 (ac1b816), on five letters
+      the host put in the Inbox, read and dated days back, as none had a
+      photo by `cid:`: every step passed but for what follows (B-122). 2
+      as first written failed: holds of 0.35 and 0.5 s gave WebKit's menu,
+      not Quick Look, and 0.2 s opened it as a tap. WebKit's menu starts at
+      about 0.35 s on iPadOS 16.5.1 and the app opens a picture on the
+      click alone, so the step was worded wrong; it now says so. Not
+      possible: the pinch (one finger); his own Sent Mail letter with a
+      photo (none, and none to send); the PDF row raced with another row,
+      its 309 KB coming in 0.16 s.*
 - [ ] **B-123, a half-typed name in search.** On the test iPad, the test
       account as filled for the size test (above), from a build of the
       `bm-halfname` worktree (branch `fix-halfname`). *Changed 2026-10-25
