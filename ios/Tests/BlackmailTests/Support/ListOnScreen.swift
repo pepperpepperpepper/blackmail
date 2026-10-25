@@ -32,8 +32,9 @@ final class ListOnScreen {
     private(set) var offset: Double
     private var taken = TakenRows()
     /// Every change drawn holding the rows he can see, with no place kept
-    /// from before a take: a row put back went in by the rows in view then,
-    /// as before B-093.
+    /// from before a take: a row put back goes in by the rows in view then.
+    /// A model of the placement before B-093, for an illustration, not of
+    /// the build of then, whose `regroup` held the rows UIKit had visible.
     private let byRowsInView: Bool
 
     init(_ letters: ListLetters, at offset: Double = ListOnScreen.top, byRowsInView: Bool = false) {

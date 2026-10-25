@@ -24952,7 +24952,7 @@ saved.
 
 ---
 
-## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete left its rows off the list until a Refresh; every row that did not move comes back where it stood
+## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
 
 **Found on the iPad, twice, and left in "Seen in passing".** On
 2026-10-07, at the end of B-075's run, Edit mode's Delete of four rows in
@@ -24989,9 +24989,16 @@ their place; each row put back went in above the row now first in view,
 which stayed where it was, so the list ended two rows down with both
 rows above it, out of sight under the search field. The list read as if
 they had gone. Refresh takes the list to its top, where they were.
-2026-10-07 has no connection log kept; the build was older still, and
-one row of four out of sight above the first in view is the same
-picture. Nothing was lost either time.
+2026-10-07 has no connection log kept; the build was older still,
+master 434422b, with the same placement, and it sent the batch newest
+first, before B-084. So only the first row put back, the newest, went in
+above the row first in view, out of sight; the three after it were put
+back by that row, which UIKit counted as visible under the bars, and
+went in below it, in view. The picture of the alert from B-075's run
+(`b075-90-sent-delete-view.png`) shows exactly that: of the four rows
+ticked at the top of Sent Mail, the newest, "IPAD B-075 him two",
+missing, and the next first under the search field. Nothing was lost
+either time.
 
 B-093 keeps the place from before the tap (`TakenRows`) and puts every
 row of a refused batch back by it while the list shows what the tap
@@ -25009,18 +25016,29 @@ place, as they are on master. What is new is the suite's:
 - The list on the screen, laid out as `ListPlaceTests` lays it out, drawn
   again at every change the list's letters tell the way
   `regroup(for:)` draws it (`ListOnScreen`, test support).
-- Three tests that run Edit mode's Delete through `ListBatch`, the
-  shipping repository and the scripted server, and look at the list as
-  he would.
+- Six tests that run Edit mode's Delete, and its Move to a label,
+  through `ListBatch`, the shipping repository and the scripted server,
+  and look at the list as he would; and one that models the placement
+  before B-093, an illustration of what was seen, not a test of the app.
 
 **Not changed.**
 
 - A MOVE whose answer is lost after Gmail has carried it out, the
   connection dropping between the two, is taken as not moved, as B-092
   has it ("refused as not moved"): its row comes back with the alert
-  though the letter is in the Trash, until a Refresh, or a Delete again,
-  whose MOVE finds it gone (B-092's look). Telling the two apart needs a
-  look in the folder on a new connection after the failure; not built.
+  though the letter has gone. In the Inbox, while its list starts at its
+  newest letter and shows no search, the watch's next check, within
+  about half a minute (`MailWatch.interval`), connects again and
+  searches the folder, as it does after every SELECT
+  (`IMAPClient.unsearchedNews`), finds the letter gone, and takes the
+  row off once he is at the top of the list with nothing ticked
+  (`ListLetters.hold`, `showNews`), the counts swept with it; scrolled
+  down, the row waits for him to go back to the top. In another folder,
+  a day jumped to, or a search, the row stays until a Refresh, or a
+  Delete or Move again, whose MOVE finds it gone (B-092's look).
+  Telling the two apart at the failure needs a look in the folder on a
+  new connection after it; not built, and put to the owner (TODO,
+  Blocked on the owner, "A Delete or Move whose answer is lost").
   Neither sighting was this: nothing had moved.
 - A row put back after he has scrolled the list since the tap, or after
   newer mail has joined a row in view, goes back by the rows he can see
@@ -25042,43 +25060,74 @@ off and the rows below close up into their place; the rest are back
 where they stood, a conversation with the letters of it that did not
 move, headed as before.
 
-**Tests.** In `ListBatchTests`, three, new:
-`testAByeAtTheFirstMovePutsEveryRowBackWhereItStood`, the two
+**Tests.** In `ListBatchTests`, seven, new: three scenarios, each run
+for Edit mode's Delete and for its Move to a label, which out of the
+Inbox takes the row off, bills nothing at the list and sweeps for an
+unread letter (`PaneActions.effect`); and an illustration.
+
+`testAByeAtTheFirstMovePutsEveryRowBackWhereItStood` and
+`testAByeAtTheFirstMoveToALabelPutsEveryRowBackWhereItStood`: the two
 conversations of the iPad at the top of the Inbox, three letters and
 two, Gmail's BYE to the first MOVE: one MOVE sent, the oldest letter's,
-and nothing after it, the five still in the Inbox, every letter back on
-the list, the list at its top and every row on the screen where it stood,
-nothing billed or swept, "Can't connect to mail server."; the same put
-back by the rows in view, as before B-093, ending two rows down with both
-rows out of sight, as on the iPad; and the Delete made again moving all
-five, the rows below closed up. `testADeadConnectionPutsEveryRowBackWhereItStood`,
+and nothing after it, the five still in the Inbox and none in the Trash
+or the label, every letter back on the list, the list at its top and
+every row on the screen where it stood, nothing billed or swept, "Can't
+connect to mail server."; and the Delete or the Move made again taking
+all five, the rows below closed up.
+
+`testADeadConnectionPutsEveryRowBackWhereItStood` and
+`testADeadConnectionUnderAMoveToALabelPutsEveryRowBackWhereItStood`:
 the connection reset under the list with nothing yet to say so, three
 rows in the middle of the list ticked, the first in view among them: the
-first MOVE lost on the dead socket, nothing else sent, nothing moved,
-every row where it stood. `testSomeMovedThenAFailureBringsBackExactlyTheRestWhereTheyStood`,
-the Links conversation and Roof's first letter moved and Gmail's BYE to
-the next MOVE: those three in the Trash and off the list, Roof's row back
-where it stood with its two letters left, headed by its newest, Links'
-row gone and the rows below closed up, Roof's unread letter not billed.
+first MOVE lost on the dead socket, nothing else sent, nothing moved or
+filed, every row where it stood.
+
+`testSomeMovedThenAFailureBringsBackExactlyTheRestWhereTheyStood` and
+`testSomeMovedToALabelThenAFailureBringsBackExactlyTheRestWhereTheyStood`:
+the Links conversation and Roof's first letter moved, two of the three
+unread, and Gmail's BYE to the next MOVE: those three in the Trash or
+the label and off the list, Roof's row back where it stood with its two
+letters left, headed by its newest, Links' row gone and the rows below
+closed up; one sweep for the two unread that went, not one each, though
+the batch failed; the Delete billing each of them off the Inbox's and
+All Mail's counts and the Move billing nothing; Roof's unread letter,
+which stayed, not billed.
+
+`testAModelOfThePlacementBeforeB093PutsBothRowsBackOutOfSight`: the
+first scenario's Delete with its rows put back by the rows in view, no
+place kept from before the tap, ending two rows down with both rows out
+of sight. An illustration of what was seen, a model of the old
+placement and not of the old build: the build of 2026-10-21 held the
+rows UIKit had visible, those under the bars too, where the model holds
+B-093's rows in sight; stepped through by hand, that build's `regroup`
+ends at the same offset here. It runs nothing of `TakenRows`, so it
+pins nothing of this entry.
 
 Each part undone by hand, the class run, then put back and passing, the
-failures counted as failures in tests, the three new among them each
-time: a row put back by the rows in view, no place from before the tap
-(`TakenRows.move` always `.stay`), 9 in 3; the letters after a failure
-not put back, 16 in 6; the letter that failed not put back, 10 in 6; the
-failure not said, 16 in 6; the letters that moved put back with the
-rest, 15 in 7, the two new tests where letters moved among them.
+failures counted as failures in tests: a row put back by the rows in
+view, no place from before the tap (`TakenRows.move` always `.stay`), 18
+in 6, the six scenario tests; the letters after a failure not put back,
+26 in 10, the six, the illustration and three of the class's earlier
+ones; the letter that failed not put back, 16 in 10, the same ten; the
+failure not said, 25 in 9, the six and three of the class's earlier
+ones; the letters that moved put back with the rest at the failure, 14
+in 3, the two where some moved and one of the class's earlier ones; a
+Move's rows not put back, a Delete's alone, 11 in 3, the three for the
+Move and no other; the sweep dropped when the batch stops, 3 in 3, the
+two where some moved and one of the class's earlier ones; a sweep for
+each letter that went, 4 in 4, the two where some moved and two of the
+class's earlier ones.
 
-The full suite, serially, run with B-133 beside it: 2,480 tests, 5 of
-them new (3 here), 6 skipped, none failing. The release build for the
+The full suite, serially, run with B-133 beside it: 2,484 tests, 9 of
+them new (7 here), 6 skipped, none failing. The release build for the
 iPad links.
 
 **Not covered.**
 
 - Gmail's BYE cannot be had on the iPad at will; its TODO check fails
-  the Delete with Airplane Mode, which sends nothing (`NO-PATH`), and
-  turns it on part-way through a Delete of many rows for some moved and
-  then a failure.
+  the Delete and the Move with Airplane Mode, which sends nothing
+  (`NO-PATH`), and turns it on part-way through a Delete or a Move of
+  many rows for some moved and then a failure.
 - The host suite cannot lay out a table: the screen is `ListOnScreen`'s
   layout, taken as `ListPlaceTests` takes UIKit's (B-093).
 - The lost answer to a MOVE carried out, above.
