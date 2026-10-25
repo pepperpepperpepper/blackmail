@@ -607,9 +607,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       words.* The outgoing half is verified by tests and Chromium renders.
       Every HTML letter the app sends with a signature carries the marker
       (`AppleMailHTML.signatureOpen`), so no send is needed. A letter shown
-      alone is drawn by `PanePage.letter`, which has no such rule, so its
-      signature shows white on the dark pane (seen in passing in B-074,
-      not yet looked into); that is what is left of this item.
+      alone is drawn by `PanePage.letter`, which had no such rule until
+      B-130, so its signature showed white on the dark pane (seen in
+      passing in B-074); that was what was left of this item.
       *Looked for on the test iPad 2026-10-21, a build of master with B-092
       (1233252): not possible. No conversation on the test account holds a
       letter with the signature: each of the 22 letters that carry it is
@@ -620,6 +620,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       black. Left: what the letter alone should show, seen as above and
       not yet looked into; the stack again on purpose needs a conversation
       holding a reply sent from the app, and the check sent none.*
+      *Built 2026-10-25 (B-130): a letter on its own has the stack's rules
+      now, from the one string (`SignatureSheet`), on every HTML letter's
+      page. Left: seeing both, which B-130's check below does with letters
+      the host puts in a label, none sent.*
 - [ ] Register and test the share extension. *Registered and seen
       2026-09-30 through TrollStore's installd path: a Safari link shares,
       sends and arrives; see B-036. Still to try is below.* It is installed
@@ -3991,8 +3995,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *A quote holding a signature's white sheet:* in the stack the
       sheet white with its own black words, not coloured, and the quote's
       bar beside it; on the letter's own page the sheet inverted as
-      before. A quote inside the sheet, in the stack: Mail's light colour
-      on the white.
+      before (*white since B-130, as in the stack*). A quote inside the
+      sheet, in the stack: Mail's light colour on the white.
       6. *Two panes and three:* 1 to 3 in each.
       7. *A PDF sent inline,* as Apple Mail sends one (multipart/mixed, the
       PDF `Content-Disposition: inline`, no `Content-ID`): its row in the
@@ -5597,6 +5601,36 @@ checks below is left as not needed, not open, and none is worth a round.*
       OK, "Picture Pey" finding that letter first, the rows 0.7 to 0.9 s
       after the pause (B-123). Not possible: 6b and 11, the size test's
       mailbox having no such sender.*
+- [ ] **B-130, the signature's white sheet for a letter shown alone.** On
+      the test iPad, the test account, from a build of the
+      `bm-signsheet` worktree (branch `fix-signsheet`). Nothing is
+      composed, sent, moved or deleted in the app, so no new mail reaches
+      the phone the account is signed in on. Three letters the host makes
+      and APPENDs, read (`\Seen`), to a label of their own, "B-130", never
+      the Inbox, dated three days back: (a) "B-130 alone", an HTML copy of
+      one of the 22 letters on the account that carry the signature, its
+      sheet and logo part as they are; (b) "B-130 stack", a letter from
+      another address, and (a)'s body as a reply to it, "Re: B-130
+      stack", its In-Reply-To and References naming the first, a day
+      later, so the two are one conversation; (c) "B-130 quoted", a reply
+      from Gmail's web page whose `gmail_quote` holds (a)'s body, alone in
+      its thread. Three panes unless a step says two.
+      1. *Alone:* "B-130", then "B-130 alone": the signature on a white
+      sheet across the letter, its lines black, its links blue, the logo
+      as on paper, dark ink on the white; the words above it white on the
+      black. Then two panes: the same.
+      2. *One of the 22, alone,* one already read, in whichever folder
+      it is, nothing done to it: as 1.
+      3. *In a stack:* "Re: B-130 stack", the reply's line tapped open if
+      it is closed: its signature on the same white sheet as in 1, the
+      words and the logo alike.
+      4. *Quoted:* "B-130 quoted": the violet bar down the quote, and
+      inside it the sheet white with its black words and the logo.
+      5. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the signature's words black and the logo as on paper, no
+      black box; Cancel. No paper.
+      6. *Put back:* the host deletes the label "B-130" and its three
+      letters; nothing else was written.
 
 ## Blocked on the owner
 

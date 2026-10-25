@@ -405,6 +405,32 @@ final class PrintPageTests: XCTestCase {
         }
     }
 
+    /// A signature's white sheet (B-130) prints as written. The pane's
+    /// rules for it, which cancel the pane's invert, are not on the paper,
+    /// which has no invert and no filter to cancel: the sheet's own white
+    /// and black, declared in its markup, and its logo as drawn, the body
+    /// being the pane's, byte for byte, the logo decoded as it is drawn.
+    /// The pane's page has the rules.
+    func testASignaturesSheetPrintsAsWritten() throws {
+        let logo = Attachment(id: "2", filename: "logo.png", mimeType: "image/png", size: 900,
+                              contentID: "sig-logo", isInline: true)
+        let m = letter(text: "Lunch on Sunday?", html: PanePageTests.signedLetter, attachments: [logo])
+        let page = self.page(m)
+        let sheet = try self.sheet(page)
+        for pane in [SignatureSheet.className, "filter", "invert"] {
+            XCTAssertFalse(sheet.contains(pane), pane)
+        }
+        let content = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"])
+        let printed = try body(page)
+        XCTAssertEqual(printed, PrintPage.decodedAtOnce(content))
+        XCTAssertTrue(AppleMailHTML.signatureOpen.contains("background-color: #ffffff; color: #000000;"))
+        XCTAssertTrue(printed.contains(AppleMailHTML.signatureOpen + "<div dir=\"ltr\"><table style=\""
+                                       + AppleMailHTML.signatureTableStyle + "\"><tr><td>"
+                                       + "<img decoding=sync src=\"bmcid://sig-logo\" width=\"70\">"), printed)
+        let pane = try XCTUnwrap(PanePage.letter(m, style: .init(inset: 26, bodyPointSize: 17, lineHeight: 1.41)))
+        XCTAssertTrue(pane.contains(SignatureSheet.css(in: "#bm")))
+    }
+
     // MARK: - In words
 
     /// The words: the header's lines with the date in full, a blank line,

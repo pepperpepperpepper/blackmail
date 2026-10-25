@@ -24946,3 +24946,141 @@ ending ' - YouTube', nothing asked; a channel's page from the YouTube app:
 Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
+
+## B-130 — FIXED 2026-10-25, not yet seen on the iPad. A letter with his signature shown alone had its signature white on the black and its logo a dark box hardly seen; it has the white sheet a conversation's stack gives it
+
+**Found** on the test iPad: in passing at B-074's check, 2026-10-07, and
+looked for on 2026-10-21 (TODO, "Confirm the signature's white sheet in
+the reading pane"). In a conversation's stack, a reply's signature and
+what it quotes showed on a white sheet with dark words. A letter with the
+signature shown alone had no sheet: its thirteen lines white on the black
+page, its links blue, and the logo as drawn, dark ink, a dark box hardly
+to be seen on the black. Every HTML letter the app sends with a signature
+carries the marker (`AppleMailHTML.signatureOpen`, a `<div
+class="bm-signature">` declaring a white sheet and black words); 22 such
+letters are on the test account, each alone in its thread.
+
+**What it was.** The stack's style sheet (`ConversationDocument.html`)
+has two rules for the marker under `.bm-html`: the sheet inverted a
+second time, which cancels the invert of the letter's HTML, and its
+pictures not inverted a third time. The page of a letter on its own
+(`PanePage.letter`) had the invert and the rule for pictures, and nothing
+for the marker, so the sheet took the invert with the words around it:
+its white black, its black words white, and the logo, its own invert
+cancelled, dark ink on the black. So since the app's first version.
+
+**What Mail does.** Read from iOS 18.6's MobileMailUI and MessageUI in
+the simulator runtime on the Mac (high for the rules; medium for how they
+draw his signature, inferred, not rendered or seen). Mail draws no sheet.
+In Dark Mode its pane gives a letter that declares no colour scheme, and
+has no picture from the web and no background picture on its body, the
+class `apple-mail-implicit-dark-support` (`_styleForSystemAppearance`),
+and its style sheet sets `-apple-color-filter: apple-invert-lightness()`
+on that root: WebKit turns the lightness of every colour in the letter,
+the sheet's white and its words' black with the rest, and leaves pictures
+as they are. A letter that declares a light scheme only, or has a picture
+from the web, is drawn light (`apple-mail-light-only`). His letters
+declare none: Mail reads the scheme of the root and of a `<meta>`, not
+the sheet's `color-scheme: light`, and his logo is a `cid:` picture. So
+on a dark iPad Mail draws his signature black with white words and the
+logo dark on it, as this pane drew it alone; in Light, black on white;
+under Smart Invert (D-010), inverted with the rest, the pictures left.
+The white sheet is this app's own, in the stack since its first version;
+this change makes the letter alone agree with the stack, not with Mail.
+
+**Changed.**
+
+1. *One string for the rules* (`SignatureSheet.css(in:)`, new,
+   `Mail/SignatureSheet.swift`): the sheet inverted once more by the
+   pane's own invert, `invert(1) hue-rotate(180deg)`, which cancels it,
+   so the sheet is drawn as written; and the sheet's pictures, `img`,
+   `svg`, `picture` and `video`, with no filter, so the logo is not
+   inverted a third time. Each selector under the scope it is given, as
+   Mail's bars are (`QuoteBars.css(in:)`, B-101). Its class is the
+   marker's (`SignatureSheet.className`).
+2. *A letter on its own* (`PanePage.letter`): the rules under `#bm`, in an
+   HTML letter's style, after the invert and the rule for pictures, which
+   the second rule outranks by its class, and before Mail's bars: the
+   stack's order. On every HTML letter's page, so the sheet is white in
+   any letter carrying the class: his own, a letter quoting his, and
+   anyone's. Not on a plain letter's page, which is not inverted, and
+   whose `<` is written `&lt;`, so it can carry no sheet.
+3. *The stack* (`ConversationDocument.html`) takes its rules from the
+   same string, under `.bm-html`: the same selectors and declarations, a
+   line each where they were wrapped over four. Its comment says so.
+
+**Print** (B-110), checked. `PrintPage.letter` is light, with no invert
+and no filter anywhere, so there is nothing for the rules to cancel, and
+they are not added: the sheet prints as written, its words black
+(`color: #000000`) on the paper's white, its logo as drawn. With no
+backgrounds printed (`LetterPrint`), the sheet's own white is not
+printed, the paper's is under it; black words are well over 4.5:1 on
+white, so WebKit leaves them. Its comment says so, and a test holds the
+print to no rule of the sheet's and no filter.
+
+**Not changed.** The letter's markup, the marker and every letter he
+sends. The stack's drawing. A plain letter's page. The print. No new
+words.
+
+**What he sees.** A letter with his signature opened on its own: the
+signature on a white sheet across the letter, its words black, its links
+blue, its logo as on paper; before, its words were white on the black and
+the logo all but gone. As in a conversation. A reply quoting his letter,
+alone: the quoted signature on its white sheet inside the quote's bar.
+
+**Rendered in Chromium,** the pages as the app builds them, a letter as
+the app sends one with a signature of a table, a dark logo on
+transparency and a link: alone, as before, its sheet black, the words
+white and the logo its own dark blue on the black; alone now, the sheet
+white, 46,207 white pixels, the words black and the logo the same dark
+blue on the white; in a stack, the same sheet, 46,453 white pixels, the
+logo the same; a reply from Gmail quoting it, alone, the sheet white
+inside the violet bar; and the print, black on white as before.
+
+**Tests.** `PanePageTests`, two new: a letter as `AppleMailHTML.document`
+makes one with his signature, a table, the logo by `cid:` and a link, its
+page with the rules written out under `#bm`, after the invert and the
+rule for pictures and before the bars, the sheet's invert the page's own,
+the class the marker's, the stack's document with the same rules from the
+same string under `.bm-html`, and the markup as it came, the logo pointed
+at the loader inside the sheet, in the page and in the stack's body; and
+every letter of the pane's set, a Gmail reply quoting the signed letter
+and a plain letter whose words are the marker: the rules once on every
+HTML letter's page, none on a plain one's, the quoted sheet as it came,
+the plain marker written as words. `PrintPageTests`, one new: the signed
+letter printed with no rule of the sheet's and no filter, its body the
+pane's byte for byte with the logo decoded as drawn, the sheet's white
+and black its own, and the pane's page with the rules. Changed:
+`PanePageTests`' page byte for byte as before, the sheet's rules taken
+out as the bars are, found once in an HTML letter's page and never in a
+plain one's, and its bars' test, the bars after the sheet;
+`ConversationDocumentTests`, the stack's rules the string's, once, and
+the bars after them; `BoundedLetterTests`' fingerprints of the ordinary
+letters' pages, taken with the sheet's rules out as with the bars
+(`OrdinaryMail.pageFingerprints`), every page otherwise as it was.
+
+Each part undone by hand, `PanePageTests`, `PrintPageTests` and
+`ConversationDocumentTests` run, then put back and passing, counted as
+failures in tests: a letter alone without the rules, 26 in 5; the sheet's
+pictures inverted a third time, its second rule gone, 4 in 2; the rules
+put on the print's page, 33 in 2; the rules on a plain letter's page too,
+14 in 3; the stack keeping its own copy as it was written, 3 in 3; a
+letter's rules after Mail's bars, 3 in 2; the sheet's class not the
+marker's, 4 in 2.
+
+The full suite, serially: 2,478 tests, 3 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: the letter alone with the sheet, on WebKit
+  of iPadOS 16.5 or 18; the stack's sheet was seen only in passing
+  (B-074). Its check is under "Blocked on the iPad coming back" (TODO).
+- Mail's own drawing of his signature in Dark Mode is read, not seen on a
+  screen; nor whether his iPad is in Dark Mode, in Light, or under Smart
+  Invert.
+- Anything in the sheet with a background picture in its style takes the
+  pane's rule for those a third time and comes out negative, in the stack
+  as alone, as before; whether his signature has one was not looked at.
+- A sheet inside a sheet, which no letter of his makes, is inverted a
+  third time, black, in the stack as alone.

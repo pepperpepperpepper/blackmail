@@ -223,8 +223,7 @@ final class ConversationDocumentTests: XCTestCase {
         let html = document([entry("1/2", expanded: true, body: .init(html: "<p>x</p>", isHTML: true)),
                              entry("1/1", expanded: true, body: .init(html: "> words", isHTML: false))])
         let sheet = try XCTUnwrap(html.components(separatedBy: "</style>").first)
-        XCTAssertTrue(sheet.contains("""
-                     filter: none; }
+        XCTAssertTrue(sheet.contains(SignatureSheet.css(in: ".bm-html") + "\n" + """
           /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
         \(rules)
           .bm-body img, .bm-body table {
@@ -237,16 +236,17 @@ final class ConversationDocumentTests: XCTestCase {
     /// The signature's rules are as they were: its white sheet inverted
     /// back, and its pictures not inverted a third time. A quote's bar and
     /// words inside the sheet come out in Mail's light colours, on white.
+    /// Written once, in the string a letter on its own has them from too
+    /// (`SignatureSheet`, B-130), the same selectors and declarations as
+    /// before, a line each.
     func testTheSignaturesRulesAreAsTheyWere() {
         let html = document([entry("1/1")])
-        XCTAssertTrue(html.contains("""
-          .bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); }
-        """), html)
-        XCTAssertTrue(html.contains("""
-          .bm-html .bm-signature img, .bm-html .bm-signature svg,
-          .bm-html .bm-signature picture, .bm-html .bm-signature video {
-                     filter: none; }
-        """), html)
+        XCTAssertEqual(SignatureSheet.css(in: ".bm-html"),
+                       ".bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); }\n"
+                       + ".bm-html .bm-signature img, .bm-html .bm-signature svg, "
+                       + ".bm-html .bm-signature picture, .bm-html .bm-signature video { filter: none; }")
+        XCTAssertEqual(html.components(separatedBy: "\n" + SignatureSheet.css(in: ".bm-html") + "\n")
+                        .count - 1, 1, html)
         XCTAssertEqual(html.components(separatedBy: "bm-signature").count - 1, 5)
     }
 

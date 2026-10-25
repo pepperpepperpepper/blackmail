@@ -113,14 +113,17 @@ enum PanePage {
         // is exactly the trick that keeps a photograph looking like a
         // photograph while the text around it goes light-on-dark.
         //
-        // After it, Mail's bars beside quoted text (`QuoteBars`, B-101), for
-        // HTML only: a plain letter's quotes are words, with no blockquote.
+        // After it, a signature's white sheet, inverted back, its pictures
+        // as drawn (`SignatureSheet`, B-130), the stack's own rules; then
+        // Mail's bars beside quoted text (`QuoteBars`, B-101). For HTML
+        // only: a plain letter's quotes are words, with no blockquote, and
+        // it can carry no sheet, its `<` written `&lt;`.
         let smartInvert = isHTML
             ? """
               #bm { filter: invert(1) hue-rotate(180deg); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: invert(1) hue-rotate(180deg); }
-              """ + "\n" + QuoteBars.css(in: "#bm")
+              """ + "\n" + SignatureSheet.css(in: "#bm") + "\n" + QuoteBars.css(in: "#bm")
             : ""
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">

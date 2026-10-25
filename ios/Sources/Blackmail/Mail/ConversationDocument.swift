@@ -341,14 +341,11 @@ enum ConversationDocument {
              a letter that is supposed to look like paper rather than like
              this app. Inverting an already-inverted parent cancels out, so
              this renders exactly as authored, which is the same trick the
-             image rule above uses. */
-          .bm-html .bm-signature { filter: invert(1) hue-rotate(180deg); }
-          /* …and pictures inside it must NOT take the image rule as well, or
-             the logo would be inverted three times and come out negative.
-             Higher specificity than `.bm-html img`, so it wins. */
-          .bm-html .bm-signature img, .bm-html .bm-signature svg,
-          .bm-html .bm-signature picture, .bm-html .bm-signature video {
-                     filter: none; }
+             image rule above uses; and pictures inside it do NOT take the
+             image rule as well, or the logo would be inverted three times
+             and come out negative. The rules a letter on its own has too
+             (SignatureSheet, B-130). */
+        \(SignatureSheet.css(in: ".bm-html"))
           /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
         \(QuoteBars.css(in: ".bm-html"))
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
