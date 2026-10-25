@@ -2140,6 +2140,18 @@ final class MessageListViewController: UITableViewController {
     private var afterLetGo = LetGoHold<Error>()
     private var letGoWatch: Task<Void, Never>?
 
+    /// His finger is on the list, or the list is still moving from one, or
+    /// a page's alert waits for the finger to let go: an alert he did not
+    /// ask for is not put up now, since one put up under a held pull takes
+    /// the end of the drag (B-103). "Touching" as `landFreshPage` and
+    /// `showNewsIfAtTop` have it. Asked by the warning before the app stops
+    /// opening, which tries again at the next check (B-137).
+    var isInHand: Bool {
+        guard isViewLoaded else { return false }
+        return tableView.isTracking || tableView.isDragging || tableView.isDecelerating
+            || afterLetGo.held != nil
+    }
+
     /// A page he asked for has failed: its alert put up now, or, while his
     /// finger is on the list, as it lets go. Put up under a pull still held,
     /// it took the end of the drag, and the list stayed pulled down with the

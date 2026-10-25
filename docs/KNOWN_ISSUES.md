@@ -25001,7 +25001,9 @@ nothing would open, with no word from the app before it.
    zone, up to the instant itself, and never after it, when the words
    would be untrue; once a day, midnight to midnight where he is, the day
    kept in the app's defaults (`blackmail.expiryWarningShown`) and taken
-   as said only once the alert is up.
+   as said once the alert is up, and again when he taps OK, so a warning
+   left up past midnight, the iPad locked over it, is not said a second
+   time on the day he reads it.
 4. *The words*, the day written as the iPad writes a long date (B-119;
    `DisplayDates.Form.longDate`, new, the locale's long date style): with
    his US region "This app will stop opening on September 18, 2027. After
@@ -25011,14 +25013,35 @@ nothing would open, with no word from the app before it.
    `ErrorPresenter.warn`, which puts it up): an alert with no title, the
    words and OK, as the app's other notices are (`ErrorPresenter.tell`).
    Only with nothing over the mail, so never over a letter he is writing,
-   Settings, another alert or any sheet, and not while the app is in the
-   background. Asked once the launch's first page has been tried, after
-   that page's own alert if it could not be fetched, and at every check
-   of the watch (B-049), half a minute apart while the app is in front,
-   whether the check reached the server or not. So it comes at a launch,
-   or about half a minute after he is back in the app on a new day, or
-   within half a minute of a letter's sheet going.
-6. *The connection log*: "EXPIRY stops 2027-09-18 10:22:36 +0000" (or
+   Settings, another alert or any sheet; never while his finger is on the
+   list, the list is still moving, or a page's alert waits for the finger
+   to let go (`MessageListViewController.isInHand`, the list's own
+   "touching" with B-103's `LetGoHold`): an alert put up under a held
+   pull takes the end of the drag, and the list stays pulled down with
+   the spinner turning (B-103); never while a letter is being printed,
+   from Print to its panel closed (`MessageDetailViewController.isPrinting`):
+   put up while the PDF is made it would cover the pane, and after
+   `PrintSteps.coverLimit` the print would end with no panel; and not
+   while the app is in the background. Asked once the launch's first page
+   has been tried, and at every check of the watch (B-049), half a minute
+   apart while the app is in front, whether the check reached the server
+   or not; a check that finds any of those waits for the next. So a
+   first page that could not be fetched has its own alert up first, or
+   held for his finger, and the warning comes at a check after its OK. So
+   it comes at a launch, or about half a minute after he is back in the
+   app on a new day, or within half a minute of a letter's sheet going,
+   an alert's OK, a print's panel closing or the list coming to rest.
+6. *Alerts asked for while it is up wait for its OK* (`ErrorPresenter`):
+   UIKit puts up one alert at a time and refuses a second, which was
+   then lost: a Move or a Delete the server refused, a Refresh or a
+   folder's page that failed, an alert held for his finger or for a
+   sheet. Every alert the app puts up through `ErrorPresenter` goes
+   through `showFirst`, which, while the warning is presented, keeps
+   them; OK puts up the latest that still has a screen to go over, as
+   `showFirst` always has. The warning is held weakly and taken as up
+   only while it is presented, so one UIKit did not put up holds nothing
+   back.
+7. *The connection log*: "EXPIRY stops 2027-09-18 10:22:36 +0000" (or
    "none, no profile", "none, TrollStore", "none, profile unreadable")
    once a launch, and "EXPIRY-WARNING shown" when it is up.
 
@@ -25044,7 +25067,8 @@ other words.
 **What he sees.** Nothing until 19 August 2027 with today's profile. Then
 once a day until the morning of 18 September, at a launch or within about
 half a minute of opening the app that day: the alert, and OK. Never over
-a letter he is writing: the alert waits until the sheet has gone.
+a letter he is writing, nor under his finger on the list: it waits until
+the sheet has gone or the list is at rest.
 
 **Tests.** `ExpiryWarningTests`, eleven, new, on a profile made up in the
 test (a CMS envelope in DER around a made-up plist, a made-up
@@ -25053,8 +25077,9 @@ certificate of X.509's shape, the device and team made-up zeros and
 and the signer, and nothing from no plist, half a plist or an array; the
 certificate's `notAfter` in UTCTime and GeneralizedTime, with the version
 and without, UTCTime's centuries, notBefore not taken for it; nothing,
-never a fault, from a bad time (no Z, a zone, a letter, 31 February, month
-13, hour 25, minute 60, empty, the wrong tag), a certificate cut short at
+never a fault, from a bad time (no Z, of the right length or short, in
+either form, a zone, a letter, 31 February, month 13, hour 25, minute 60,
+empty, the wrong tag), a certificate cut short at
 every length, a length past its holder, BER's indefinite length, fields
 out of order; the day the earlier of profile and certificate, a later
 certificate not taken, the soonest of two, one already past left out, an
@@ -25065,11 +25090,14 @@ TrollStore's, a profile that is not one; the last thirty days in New
 York from midnight on 19 August to the second before the instant, across
 the clocks going back; once a day by his midnight, not UTC's; the words in
 en_US and en_GB, and the 17th west of UTC-10:22; the day kept in the
-defaults and known to a warning made afresh; and from the source, the
-guard, the alert's title, words and one OK, the day taken as said in the
-presentation's completion alone, asked once the launch's first page has
-been tried and at every check of the watch and nowhere else, with the
-iPad's locale and zone, and no day written in any Swift file of the app.
+defaults and known to a warning made afresh, and said again at an OK
+the next morning; and from the source, the guard with the list's finger
+and the print, the alert's title, words and one OK, the day taken as
+said in the presentation's completion and at OK and nowhere else, the
+alerts asked for while it is up kept for its OK, asked once the launch's
+first page has been tried and at every check of the watch and nowhere
+else, with the iPad's locale and zone, and no day written in any Swift
+file of the app.
 
 The first full run failed two older tests that read the root's source,
 as they should: the container says `animated: true` nowhere, its panes
@@ -25098,6 +25126,50 @@ The full suite, serially, on the tree with B-138 beside it: 2,491 tests,
 11 of them new here and 5 B-138's, 6 skipped, none failing. The release
 build for the iPad links.
 
+**Reviewed 2026-10-25, and fixed.** A review of the change above found
+three things to fix, two of them the same, and four small ones of its own
+(two more were B-138's); each is fixed in the text above, which says how
+it is now. The warning went up whatever his finger was doing on the list.
+B-103's rule, from the test iPad on 2026-10-22, is that no alert goes up
+under a held pull, where it takes the end of the drag and the list stays
+pulled down with the spinner turning after OK; a page's alert waits for
+the let-go. A pull or a scroll held as the launch's first page ended, or
+as the day's first due check came, brought that back; and a first page
+that failed under the finger had its alert held for the let-go, then
+refused as the warning was already up, so "its alert up first" was not
+always true. The day was taken as said only as the alert went up: left
+up past midnight, the iPad locked over it, his OK the next morning
+brought the same warning again within half a minute. An alert asked for
+while the warning was up was refused by UIKit and lost, `ErrorPresenter`
+taking it as shown: a Move or a Delete the server refused, a Refresh that
+failed, an alert held for the let-go. A Print tapped just before a check
+had the pane covered while its PDF was made, and after
+`PrintSteps.coverLimit`, ten seconds, it ended with no panel. The device
+check's last morning, 6:00 AM, was after the instant anywhere west of
+UTC-4:22, where the app rightly shows nothing; and its second half took
+the clock past the instant, where any app on the test iPad signed with
+that profile would stop opening, to prove what the host tests hold. And
+nothing held the Z that ends a time: the test's "no Z" was refused for
+its length; with the Z check taken out, every test passed.
+
+The check now has a step with a pull held across two checks of the watch,
+and one with the warning left up past midnight; its last morning is set
+from the zone, and the clock is never taken past the instant.
+
+Each fix undone by hand, `ExpiryWarningTests` run, then put back and
+passing. Counted as failures in tests: the guard not asking the list, 1
+in 1; the list's test without a page's alert held for the let-go, 1 in 1;
+without the list still moving, 1 in 1; the guard not asking about a
+print, 1 in 1; `isPrinting` always false, 1 in 1; the day not said again
+at OK, 2 in 1; `shown` keeping the first day it was given, 1 in 1; the
+alerts asked for while the warning is up not kept, 1 in 1; not put up
+after its OK, 2 in 1; the Z not looked for, 2 in 1. 13 in all, each in
+the test of what it undid.
+
+The full suite, serially, with nothing undone: 2,492 tests, 11 of them
+B-137's and 6 B-138's, 6 skipped, none failing. The release build for the
+iPad links, with no warning from the files changed.
+
 **Not covered.**
 
 - Not seen on the iPad: its check is in TODO, with the iPad's clock set
@@ -25108,11 +25180,23 @@ build for the iPad links.
 - A certificate revoked before its day, as a lapsed membership revokes it
   at once (B-035): the app stops opening with no warning. Nothing on the
   iPad can know it.
-- An alert about his mail asked for while the warning is up, a page that
-  could not be fetched in the same moment: UIKit shows one alert at a
-  time and `ErrorPresenter` does not wait for this one, so that alert is
-  not shown; the line under the list still says what failed. The warning
-  itself waits for any alert already up.
+- Alerts asked for while the warning is up wait for its OK, and only the
+  latest of them still with a screen goes up then, as with a sheet
+  (`showFirst`): two failures while it is up show one. An alert asked
+  for in the third of a second the warning takes to slide in, before
+  UIKit counts it as presented, is refused and lost, as any two alerts at
+  once were before. That UIKit calls an alert's OK handler once the alert
+  has gone, so the waiting one can go up, is UIKit's long-standing way,
+  not seen here.
+- A warning left up while he is away, the iPad locked over it: on his
+  return B-003's way back to the Inbox and its refresh are not taken,
+  as with any alert left up (`Sitting.onReturn`, a sheet open). The
+  watch's checks go on; after OK he is where he left the app.
+- Whether AirPrint's panel counts as presented over the screens was not
+  looked at; the print's own `isPrinting` covers it until it closes.
+- Not tried on the iPad, as neither moment can be made by hand: a print,
+  or another alert, at the moment of a check that puts the warning up.
+  The source tests hold both.
 - The iPad's clock: the day rules follow it. Set wrong by days, the
   warning comes early or late by as many.
 - A calendar other than the Gregorian: the days are the iPad's own

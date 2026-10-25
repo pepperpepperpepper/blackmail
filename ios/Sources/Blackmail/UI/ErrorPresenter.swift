@@ -48,16 +48,36 @@ enum ErrorPresenter {
         put(alert.message, title: alert.title, offeringSettings: alert.offersSettings, on: vc)
     }
 
-    /// Puts up `text` alone, with OK, over `vc` at once, and calls `shown`
-    /// once it is up: the warning before the app stops opening (B-137).
-    /// Its caller asks only with nothing over the screens, so there is no
-    /// sheet on its way out to wait for, and it is not held: one UIKit
-    /// would not put up is not taken as said.
-    static func warn(_ text: String, over vc: UIViewController, shown: @escaping () -> Void) {
+    /// Puts up `text` alone, with OK, over `vc` at once, calls `shown` once
+    /// it is up and `dismissed` when OK is tapped: the warning before the
+    /// app stops opening (B-137). Its caller asks only with nothing over the
+    /// screens, so there is no sheet on its way out to wait for, and it is
+    /// not held: one UIKit would not put up is not taken as said. While it
+    /// is up, the alerts asked for wait for its OK (`showFirst`).
+    static func warn(_ text: String, over vc: UIViewController,
+                     shown: @escaping () -> Void, dismissed: @escaping () -> Void) {
         let alert = UIAlertController(title: nil, message: text, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            dismissed()
+            // UIKit calls this once the warning has gone: what waited for
+            // it goes up now.
+            warning = nil
+            let waiting = afterWarning
+            afterWarning = []
+            showFirst(waiting)
+        })
+        afterWarning = []
+        warning = alert
         vc.present(alert, animated: true, completion: shown)
     }
+
+    /// The warning before the app stops opening, and the alerts asked for
+    /// while it is up, latest first: UIKit puts up one alert at a time, and
+    /// would drop a Move the server refused, or a Refresh that failed, under
+    /// the warning (B-137). Weak, and taken as up only while it is presented,
+    /// so a warning UIKit never put up holds nothing back.
+    private static weak var warning: UIAlertController?
+    private static var afterWarning: [() -> Bool] = []
 
     private static func put(_ text: String, title: String?, offeringSettings: Bool,
                             on vc: UIViewController) {
@@ -91,8 +111,12 @@ enum ErrorPresenter {
     }
 
     /// The first of `alerts` that can still be put up, and no more: UIKit
-    /// shows one at a time.
+    /// shows one at a time. With the warning up, all wait for its OK.
     private static func showFirst(_ alerts: [() -> Bool]) {
+        guard warning?.presentingViewController == nil else {
+            afterWarning = alerts + afterWarning
+            return
+        }
         for present in alerts where present() { return }
     }
 

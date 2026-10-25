@@ -5651,13 +5651,28 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *Two panes:* the view button to two panes; the clock to 21 August
       2027, 9:00 AM; kill and launch: the warning as in 4. OK; back to
       three panes.
-      8. *The last morning, and after:* the clock to 18 September 2027,
-      6:00 AM (before 10:22 UTC in the iPad's zone, written down); kill
-      and launch: the warning, "September 18, 2027". OK. The clock to 19
-      September 2027, 9:00 AM; kill and launch: if it opens, as an app
-      TrollStore installed should, no warning for a minute, its day being
-      past.
-      9. *Put back:* `_TrollStore.aside` renamed back to `_TrollStore`;
+      8. *Not under a finger:* the Inbox in front. Home; the clock to 22
+      August 2027, 9:00 AM; back in Blackmail, and at once a finger on
+      the list, pulled down past the spinner and held still for a full
+      minute, two checks of the watch: no warning while it is held. Let
+      go: the list springs back; a "Can't connect to mail server." that
+      comes as the finger lifts is OKed. Within about half a minute of the
+      list at rest, and of that OK, the warning, and the list not left
+      pulled down. OK: the list at its top, no spinner turning.
+      9. *Up across midnight:* Home; the clock to 23 August 2027, 11:55
+      PM; back: the warning within about half a minute, before midnight.
+      Left up, Home with it on the screen. The clock to 24 August 2027,
+      9:00 AM; back: the same warning, still up. OK: no warning again for
+      two minutes.
+      10. *The last morning:* the clock to 18 September 2027, an hour or
+      more before the instant written down in 2, in the iPad's zone: for
+      10:22:36 UTC, 5:00 AM in New York or 2:00 AM in Los Angeles, both on
+      summer time then; the time set written down. Kill and launch: the
+      warning, "September 18, 2027". OK. The clock is not taken past the
+      instant: any app on the test iPad signed with that profile and not
+      installed by TrollStore would stop opening while it was there, and
+      the host tests hold that nothing is said after it.
+      11. *Put back:* `_TrollStore.aside` renamed back to `_TrollStore`;
       Set Automatically on; kill and launch: no warning, the log's
       "EXPIRY none, TrollStore"; TrollStore lists Blackmail as before.
 

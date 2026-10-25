@@ -149,6 +149,9 @@ final class ExpiryWarningTests: XCTestCase {
             XCTAssertNil(AppExpiry.notAfter(certificate: certificate(notAfter: utcTime(bad))), bad)
         }
         XCTAssertNil(AppExpiry.notAfter(certificate: certificate(notAfter: generalizedTime("270918102236Z"))))
+        // The right length, a digit where the Z should be: in either form.
+        XCTAssertNil(AppExpiry.notAfter(certificate: certificate(notAfter: utcTime("2709181022360"))))
+        XCTAssertNil(AppExpiry.notAfter(certificate: certificate(notAfter: generalizedTime("202709181022360"))))
         XCTAssertNil(AppExpiry.notAfter(certificate: certificate(notAfter: tlv(0x04, Array("270918102236Z".utf8)))))
         let whole = [UInt8](certificate(notAfter: utcTime("270918102236Z")))
         // Cut short at every length: nothing, never a fault.
@@ -351,6 +354,15 @@ final class ExpiryWarningTests: XCTestCase {
         XCTAssertNil(ExpiryWarning(found: .stops(stops), defaults: defaults)
             .words(at: utc(2027, 9, 1, 22), locale: us, timeZone: ny))
         XCTAssertNotNil(warning.words(at: utc(2027, 9, 2, 13), locale: us, timeZone: ny))
+
+        // Up at 9 PM on 2 September, and still up the next morning, when
+        // he taps OK: that is said for 3 September too, and it does not
+        // come again that day. Taken as said only when it went up, it
+        // would come again within half a minute of the OK.
+        warning.shown(at: utc(2027, 9, 3, 1))
+        XCTAssertNotNil(warning.words(at: utc(2027, 9, 3, 13), locale: us, timeZone: ny))
+        warning.shown(at: utc(2027, 9, 3, 13))
+        XCTAssertNil(warning.words(at: utc(2027, 9, 3, 13, 0, 30), locale: us, timeZone: ny))
         XCTAssertEqual(ExpiryWarning.key, "blackmail.expiryWarningShown")
         XCTAssertEqual(ExpiryWarning.days, 30)
     }
@@ -378,35 +390,68 @@ final class ExpiryWarningTests: XCTestCase {
     }
 
     /// The alert: no title, the words, OK alone, put up by
-    /// `ErrorPresenter.warn`; only with nothing over the mail and the app
-    /// not in the background; the day taken as said once it is up. Asked
-    /// once the launch's first page has been tried and at every check of
-    /// the watch, and from nowhere else.
+    /// `ErrorPresenter.warn`; only with nothing over the mail, no finger on
+    /// the list and no page's alert held for one (B-103), no letter being
+    /// printed, and the app not in the background; the day taken as said
+    /// once it is up, and again at OK. Asked once the launch's first page
+    /// has been tried and at every check of the watch, and from nowhere
+    /// else.
     func testItIsPutUpOnlyWithNothingOverTheMail() throws {
         let root = try source("UI/RootViewController.swift")
         let warn = try part(of: root, from: "private func warnOfExpiryIfDue() {",
                             to: "private var wentAwayAt: Date?")
         XCTAssertTrue(warn.contains("guard view.window != nil, presentedViewController == nil, "
-                                    + "UIApplication.shared.applicationState != .background "
+                                    + "UIApplication.shared.applicationState != .background, "
+                                    + "!list.isInHand, !detail.isPrinting "
                                     + "else { return }"), warn)
         XCTAssertTrue(warn.contains("let warning = ExpiryWarning.app"), warn)
         XCTAssertTrue(warn.contains("guard let words = warning.words(at: now) else { return }"), warn)
-        XCTAssertTrue(warn.contains("ErrorPresenter.warn(words, over: self) { "
+        XCTAssertTrue(warn.contains("ErrorPresenter.warn(words, over: self, shown: { "
                                     + "warning.shown(at: now) "
-                                    + "Diagnostics.log(.note, \"EXPIRY-WARNING shown\") }"), warn)
-        // Shown is written only once the alert is up.
-        XCTAssertEqual(warn.components(separatedBy: "shown(at:").count - 1, 1, warn)
-        // The alert: no title, the words, OK alone, and `shown` as the
-        // presentation's completion.
+                                    + "Diagnostics.log(.note, \"EXPIRY-WARNING shown\") "
+                                    + "}, dismissed: { warning.shown(at: Date()) })"), warn)
+        // Shown is written once the alert is up, and again at OK.
+        XCTAssertEqual(warn.components(separatedBy: "shown(at:").count - 1, 2, warn)
+
+        // The finger on the list as the list's own rules have it, and a
+        // page's alert held for its let-go.
+        let list = try source("UI/MessageListViewController.swift")
+        let inHand = try part(of: list, from: "var isInHand: Bool {",
+                              to: "@MainActor private func showWhenLetGo(")
+        XCTAssertEqual(inHand, "var isInHand: Bool { guard isViewLoaded else { return false } "
+                       + "return tableView.isTracking || tableView.isDragging "
+                       + "|| tableView.isDecelerating || afterLetGo.held != nil } ")
+        // A print, from Print to its panel closed.
+        XCTAssertTrue(try source("UI/MessageDetailViewController.swift")
+            .contains("var isPrinting: Bool { printing != nil }"))
+
+        // The alert: no title, the words, OK alone, `shown` as the
+        // presentation's completion and `dismissed` at OK, the alerts that
+        // waited for it put up after.
         let presenter = try source("UI/ErrorPresenter.swift")
         let alert = try part(of: presenter, from: "static func warn(",
-                             to: "private static func put(")
+                             to: "private static weak var warning")
         XCTAssertEqual(alert, "static func warn(_ text: String, over vc: UIViewController, "
-                       + "shown: @escaping () -> Void) { "
+                       + "shown: @escaping () -> Void, dismissed: @escaping () -> Void) { "
                        + "let alert = UIAlertController(title: nil, message: text, "
                        + "preferredStyle: .alert) "
-                       + "alert.addAction(UIAlertAction(title: \"OK\", style: .default)) "
+                       + "alert.addAction(UIAlertAction(title: \"OK\", style: .default) { _ in "
+                       + "dismissed() warning = nil let waiting = afterWarning "
+                       + "afterWarning = [] showFirst(waiting) }) "
+                       + "afterWarning = [] warning = alert "
                        + "vc.present(alert, animated: true, completion: shown) } ")
+        // Every alert asked for while it is up waits for its OK, a sheet's
+        // held alerts too: they all go through `showFirst`.
+        let first = try part(of: presenter, from: "private static func showFirst(",
+                             to: "static func log(_ line: String) {")
+        XCTAssertEqual(first, "private static func showFirst(_ alerts: [() -> Bool]) { "
+                       + "guard warning?.presentingViewController == nil else { "
+                       + "afterWarning = alerts + afterWarning return } "
+                       + "for present in alerts where present() { return } } ")
+        XCTAssertTrue(presenter.contains("private static weak var warning: UIAlertController? "
+                                         + "private static var afterWarning: [() -> Bool] = []"))
+        XCTAssertEqual(presenter.components(separatedBy: "vc.present(").count - 1, 2)
+        XCTAssertEqual(presenter.components(separatedBy: "showFirst(").count - 1, 5)
 
         // Asked once the launch's first page has been tried, and at every
         // check of the watch; nowhere else.

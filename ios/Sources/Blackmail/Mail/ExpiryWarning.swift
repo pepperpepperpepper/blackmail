@@ -11,7 +11,8 @@ import Foundation
 ///
 /// The day rules are here, on the host; when it is put up is the screens'
 /// (`RootViewController.warnOfExpiryIfDue`): only with nothing over the
-/// mail, so never over a letter he is writing, an alert or a sheet, and
+/// mail, so never over a letter he is writing, an alert or a sheet; never
+/// under his finger on the list (B-103) or while a letter is printed; and
 /// never before the launch's first page has been tried.
 struct ExpiryWarning {
 
@@ -44,7 +45,9 @@ struct ExpiryWarning {
         return Self.words(stops: stops, locale: locale, timeZone: timeZone)
     }
 
-    /// It has been put up at `now`: not again that day.
+    /// It has been put up at `now`, or OK tapped then: not again that day.
+    /// Said at both, so a warning left up past midnight is not put up again
+    /// on the day he reads it.
     func shown(at now: Date) {
         defaults.set(now, forKey: Self.key)
     }

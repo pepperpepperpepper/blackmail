@@ -301,7 +301,9 @@ final class RootViewController: UIViewController {
         list.onFirstLoadFinished = { [weak self] came in
             self?.mailboxList.releaseSweeps(firstPageCame: came)
             // The page's own alert, if it could not be fetched, is up by
-            // now, and the warning waits for it (B-137).
+            // now, or held for his finger to let go of the list: either
+            // way the warning waits for it, until a check of the watch
+            // finds nothing over the mail and no finger on the list (B-137).
             self?.warnOfExpiryIfDue()
             // Once the first page has been tried, so a check never goes
             // beside it: the first is half a minute on, after the counts.
@@ -333,23 +335,30 @@ final class RootViewController: UIViewController {
     /// The warning that the app will stop opening, in its last thirty days
     /// and once a day (`ExpiryWarning`, D-004, B-137), put up only when
     /// nothing is over the mail: not over a letter he is writing, Settings,
-    /// another alert or any sheet, and not while the app is in the
-    /// background, where nobody would see it. Asked once the launch's first
-    /// page has been tried, its alert up first if it failed, and at every
-    /// check of the watch, half a minute apart while the app is in front:
-    /// so it comes about half a minute after he is back on a new day, and
-    /// within half a minute of a letter's sheet going if one was up. The
-    /// day is taken as said only once the alert is up.
+    /// another alert or any sheet; not while his finger is on the list, it
+    /// is still moving, or a page's alert waits for the finger to let go
+    /// (B-103); not while a letter is being printed; and not while the app
+    /// is in the background, where nobody would see it. Asked once the
+    /// launch's first page has been tried, and at every check of the watch,
+    /// half a minute apart while the app is in front: so it comes about
+    /// half a minute after he is back on a new day, and within half a
+    /// minute of a letter's sheet going, an alert's OK or the list coming
+    /// to rest. The day is taken as said once the alert is up, and again
+    /// when he taps OK, so a warning left up past midnight is not said
+    /// again on the day he reads it.
     private func warnOfExpiryIfDue() {
         guard view.window != nil, presentedViewController == nil,
-              UIApplication.shared.applicationState != .background else { return }
+              UIApplication.shared.applicationState != .background,
+              !list.isInHand, !detail.isPrinting else { return }
         let warning = ExpiryWarning.app
         let now = Date()
         guard let words = warning.words(at: now) else { return }
-        ErrorPresenter.warn(words, over: self) {
+        ErrorPresenter.warn(words, over: self, shown: {
             warning.shown(at: now)
             Diagnostics.log(.note, "EXPIRY-WARNING shown")
-        }
+        }, dismissed: {
+            warning.shown(at: Date())
+        })
     }
 
     // MARK: - Coming back to it
