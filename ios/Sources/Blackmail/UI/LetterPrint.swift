@@ -110,7 +110,7 @@ final class LetterPrint: NSObject, WKNavigationDelegate {
     private nonisolated static func made(_ m: Message, style: PrintPage.Style) async
         -> (page: String, words: String) {
         let size: (Int64) -> String = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-        return (PrintPage.letter(m, style: style, size: size), PrintPage.words(m, size: size))
+        return PrintPage.made(m, style: style, size: size)
     }
 
     /// The page in a web view of its own, locked down as the pane's is, and

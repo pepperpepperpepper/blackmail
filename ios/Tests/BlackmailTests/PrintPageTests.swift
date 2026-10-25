@@ -536,6 +536,66 @@ final class PrintPageTests: XCTestCase {
                         .hasSuffix("\n\n" + MailText.shortenedNotice + "\n\nThe beginning."))
     }
 
+    /// An HTML letter over 512 KiB is cut before it is made words, as its
+    /// page cuts it, and says so as its page does: the pane's line over
+    /// what the cut leaves, words or none. A long style sheet first, which
+    /// makes no words, is the header and the line alone in words, never
+    /// "This message has no text." and never the header alone; the words
+    /// before a long comment, the line over them. A letter whose own plain
+    /// words are printed, whole, has no line.
+    func testAnHTMLLetterCutHereSaysSoInWordsAsOnItsPage() throws {
+        let head = "Sam Example\nTo: Jane Example, sam@example.com\nThe garden\n"
+            + "September 21, 2026 at 2:13\u{202F}PM"
+        func words(_ m: Message) -> String {
+            PrintPage.words(m, size: size, locale: posix, timeZone: utc)
+        }
+        let rule = "p { color: #333333; margin: 0 0 1em 0; }\n"
+        let styled = "<html><head><style>"
+            + String(repeating: rule, count: PrintPage.htmlLimit / rule.utf8.count + 1)
+            + "</style></head><body><p>Dear Sam,</p><p>The roses.</p></body></html>"
+        let commented = "<p>Dear Sam,</p><!-- "
+            + String(repeating: "x", count: PrintPage.htmlLimit) + " --><p>The roses.</p>"
+        for markup in [styled, commented] {
+            XCTAssertGreaterThan(markup.utf8.count, PrintPage.htmlLimit)
+            XCTAssertTrue(HTMLText.plainText(from: markup).contains("The roses."))
+        }
+        XCTAssertEqual(HTMLText.plainText(from: try XCTUnwrap(PrintPage.cut(styled, to: PrintPage.htmlLimit)))
+                        .trimmingCharacters(in: .whitespacesAndNewlines), "", "the cut makes no words")
+
+        for text: String? in [nil, " \n"] {
+            let m = letter(text: text, html: styled)
+            XCTAssertFalse(PanePage.isEmpty(m))
+            XCTAssertEqual(words(m), head + "\n\n" + MailText.shortenedNotice)
+            let printed = try body(page(m))
+            XCTAssertTrue(printed.hasPrefix(PrintPage.shortened), "its page has the line")
+            XCTAssertFalse(printed.contains(MailText.emptyBodyNotice))
+
+            let said = letter(text: text, html: commented)
+            XCTAssertEqual(words(said), head + "\n\n" + MailText.shortenedNotice + "\n\nDear Sam,")
+            XCTAssertTrue(try body(page(said)).hasPrefix(PrintPage.shortened), "its page has the line")
+        }
+        let plain = letter(text: "Dear Sam,\nThe roses.", html: styled)
+        XCTAssertEqual(words(plain), head + "\n\nDear Sam,\nThe roses.")
+    }
+
+    /// The page and the words of one print, made together with the pane's
+    /// question asked once, are the page and the words made apart, for a
+    /// letter with nothing in it, whole and shown in part, one that is only
+    /// a picture, one with words, and one cut here.
+    func testThePageAndTheWordsMadeTogetherAreTheirOwn() {
+        var letters = nothing.map { letter(text: $0.text, html: $0.html) }
+        letters += letters.map { var m = $0; m.isShortened = true; return m }
+        letters += [letter(text: nil, html: "<img src=\"cid:logo@example.com\">", attachments: files),
+                    letter(text: "Hello."), letter(text: nil, html: "<p>Hello.</p>"),
+                    letter(text: nil, html: "<p>" + String(repeating: "a", count: PrintPage.htmlLimit + 1))]
+        for (i, m) in letters.enumerated() {
+            let made = PrintPage.made(m, style: style, size: size, locale: posix, timeZone: utc)
+            XCTAssertEqual(made.page, page(m), "letter \(i)")
+            XCTAssertEqual(made.words, PrintPage.words(m, size: size, locale: posix, timeZone: utc),
+                           "letter \(i)")
+        }
+    }
+
     // MARK: - The job
 
     func testTheJobIsNamedForTheSubject() {

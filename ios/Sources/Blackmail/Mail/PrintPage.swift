@@ -83,8 +83,28 @@ enum PrintPage {
     /// escaped, and only ever written as text, never in an attribute.
     static func letter(_ m: Message, style: Style, size: (Int64) -> String,
                        locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        letter(m, isEmpty: PanePage.isEmpty(m), style: style, size: size, locale: locale, timeZone: timeZone)
+    }
+
+    /// The page and the words of one print, which `LetterPrint` makes
+    /// together, as `letter` and `words` make them, with the pane's question
+    /// (`PanePage.isEmpty`) asked once for both. Of an HTML letter with no
+    /// picture and no words of its own, that makes words of all its
+    /// markup, up to the 5 MB of a letter fetched whole, against the
+    /// print's time limit (`PrintSteps.timeLimit`).
+    static func made(_ m: Message, style: Style, size: (Int64) -> String,
+                     locale: Locale = .current, timeZone: TimeZone = .current)
+        -> (page: String, words: String) {
+        let isEmpty = PanePage.isEmpty(m)
+        return (letter(m, isEmpty: isEmpty, style: style, size: size, locale: locale, timeZone: timeZone),
+                words(m, isEmpty: isEmpty, size: size, locale: locale, timeZone: timeZone))
+    }
+
+    /// The page, given the pane's answer to `PanePage.isEmpty` for `m`.
+    private static func letter(_ m: Message, isEmpty: Bool, style: Style, size: (Int64) -> String,
+                               locale: Locale, timeZone: TimeZone) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
-        let (body, isHTML) = Self.body(m)
+        let (body, isHTML) = Self.body(m, isEmpty: isEmpty)
         func line(_ kind: String, _ text: String) -> String {
             "<div class=\"\(kind)\">\(ConversationDocument.escape(text))</div>"
         }
@@ -142,7 +162,11 @@ enum PrintPage {
     /// as they are drawn (`decodedAtOnce`); a plain letter's body has none,
     /// every `<` in it written `&lt;`.
     static func body(_ m: Message) -> (html: String, isHTML: Bool) {
-        guard !PanePage.isEmpty(m) else {
+        body(m, isEmpty: PanePage.isEmpty(m))
+    }
+
+    private static func body(_ m: Message, isEmpty: Bool) -> (html: String, isHTML: Bool) {
+        guard !isEmpty else {
             return (empty, false)
         }
         let known = PanePage.contentIDs(of: m)
@@ -247,31 +271,42 @@ enum PrintPage {
 
     /// The letter in words, for when its page could not be drawn: the
     /// header's lines, a blank line, then its text (an HTML letter's made
-    /// words, `HTMLText`), under the same limit and line as the page, or
+    /// words, `HTMLText`), under the same limits and line as the page, or
     /// the pane's words for a letter with none, only where the pane says
-    /// them (`PanePage.isEmpty`, B-131). A letter shown only in part with no
-    /// words in what came is the header and the line alone; a letter whose
-    /// page shows no words but has something to show, a picture, is the
-    /// header alone.
+    /// them (`PanePage.isEmpty`, B-131). A letter shown only in part, or
+    /// cut here, with no words in what is printed is the header and the
+    /// line alone; a letter whose page shows no words but has something to
+    /// show, a picture, is the header alone.
     static func words(_ m: Message, size: (Int64) -> String,
                       locale: Locale = .current, timeZone: TimeZone = .current) -> String {
+        words(m, isEmpty: PanePage.isEmpty(m), size: size, locale: locale, timeZone: timeZone)
+    }
+
+    /// The words, given the pane's answer to `PanePage.isEmpty` for `m`.
+    private static func words(_ m: Message, isEmpty: Bool, size: (Int64) -> String,
+                              locale: Locale, timeZone: TimeZone) -> String {
         let head = Self.head(m, size: size, locale: locale, timeZone: timeZone)
         let lines = [head.sender, head.to] + [head.cc].compactMap { $0 }
             + [head.subject, head.date] + head.files
         // `quotableText`, but with an HTML letter's markup cut to the
-        // page's limit before it is made words, so the work is bounded.
+        // page's limit before it is made words, as the page cuts it: a cut
+        // there is a cut, said by the line, as on the page, even when what
+        // is left makes no words, a style sheet or a picture's data.
         var text = m.textBody ?? ""
+        var cutHere = false
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let html = m.htmlBody {
-            text = HTMLText.plainText(from: cut(html, to: htmlLimit) ?? html)
+            let markup = cut(html, to: htmlLimit)
+            cutHere = markup != nil
+            text = HTMLText.plainText(from: markup ?? html)
         }
         text = String(text.drop(while: { $0 == "\n" || $0 == "\r" }))
         let said: String
-        if PanePage.isEmpty(m) {
+        if isEmpty {
             said = MailText.emptyBodyNotice
         } else {
             let cut = Self.cut(text, to: textLimit)
             let words = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : cut ?? text
-            said = [cut != nil || m.isShortened ? MailText.shortenedNotice : "", words]
+            said = [cutHere || cut != nil || m.isShortened ? MailText.shortenedNotice : "", words]
                 .filter { !$0.isEmpty }.joined(separator: "\n\n")
         }
         return lines.joined(separator: "\n") + (said.isEmpty ? "" : "\n\n" + said)

@@ -593,7 +593,9 @@ this host. Ordered by value, not by size.
       *Done 2026-10-25, B-131: both ask `PanePage.isEmpty`; a letter that
       is only a picture, which the pane shows, is its header alone in
       words. `PrintPageTests`, two, the pane's five shapes of nothing.
-      Its check is under "Blocked on the iPad coming back".*
+      Its check is under "Blocked on the iPad coming back". Also: an HTML
+      letter cut at 512 KiB has the line in words, as on its page, and the
+      question is asked once for both (`PrintPage.made`); two tests more.*
 
 ## Blocked on the iPad coming back
 
@@ -5659,9 +5661,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       the Inbox, dated three days back: (a) "B-131 only the beginning", over
       5 MB, multipart/mixed of an HTML part whose first 2.2 MB are a
       `<style>` holding only comments, then a paragraph of words, and a
-      PDF of about 4 MB, so the pane fetches the HTML's first 2 MB alone
+      PDF of about 4 MB, so the pane fetches the HTML's first 2 MiB alone
       and they draw nothing; (b) "B-131 nothing", a small HTML letter of
-      `<div><br></div>`. Three panes.
+      `<div><br></div>`. Each with a new Message-ID of its own; the host
+      notes each APPEND's UID from its APPENDUID, and stops if one has
+      none. Three panes.
       1. *Shown in part:* "B-131", then (a): the pane's grey "Only the
       beginning of this message is shown." and nothing under it, never
       "This message has no text." (B-114). If words show, the style was
@@ -5672,8 +5676,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       3. *Nothing in it, whole:* (b): the pane's grey "This message has no
       text."; Reply, Print: the preview the same words under the header;
       Cancel.
-      4. *Put back:* the host deletes the label "B-131" and its two
-      letters; nothing else was written.
+      4. *Put back:* the host moves the two UIDs it noted, and only them,
+      from the label to the Trash (`UID MOVE`), deletes in the Trash only
+      the UIDs that move answered (`COPYUID`), then deletes the label,
+      empty. Never anything found by subject, Message-ID or label.
+      Nothing else was written.
 
 ## Blocked on the owner
 
@@ -5903,6 +5910,10 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       dark on it in Dark Mode or under Smart Invert (read in its code, not
       seen). The app's white sheet in both panes (built, the default), or
       none in the stack either, as Mail.
+- [ ] **A letter that is only a picture, printed in words** (B-131): when
+      its page cannot be drawn, its header alone (built, the default), as
+      the pane never says it has no text; or "This message has no text."
+      under it, as before, true of its words and not of the letter.
 - [ ] **The new words on his screen**, each held from his iPad until the
       owner approves it, the entry listing them: VoiceOver's "Replied" and
       "Forwarded" (B-102); "Checking for Mail…" under the list while a pull's

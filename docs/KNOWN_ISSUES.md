@@ -20714,9 +20714,12 @@ print every letter open in it, the last at least a screen tall.
    that fits, and the pane's grey line, "Only the beginning of this
    message is shown.", is above it, as above a letter the pane already
    shortened. A letter with nothing in it prints the pane's "This message
-   has no text.", grey. `words` is the same letter in plain words, for
-   when the page cannot be drawn: the header's lines, a blank line, the
-   text, under the same limit and line. `jobName` is the subject. US
+   has no text.", grey (*since B-131, only where the pane says it*).
+   `words` is the same letter in plain words, for when the page cannot be
+   drawn: the header's lines, a blank line, the text, under the same limit
+   and line (*since B-131, a letter that is only a picture is the header
+   alone, and an HTML letter cut at 512 KiB has the line*). `jobName` is
+   the subject. US
    Letter, 612 × 792 pt, a 36 pt margin. The pane's map of pictures by
    Content-ID is now `PanePage.pictures(of:)`, which the pane and the
    print both read; the later letter wins a clash, as before.
@@ -25141,14 +25144,20 @@ on the iPad.
 alone, so a letter shown only in part whose beginning that came draws
 nothing printed "This message has no text." under its header, where the
 pane says "Only the beginning of this message is shown." over that
-nothing. Such a letter is one over 5 MB (`largeLetterBytes`), its parts
-fetched to 2 MB in all (`largeLetterSectionBytes`), whose HTML's first
-2 MB are a style sheet or a comment; a letter none of whose words came
-fails as one that could not be downloaded (B-114), with no page to print.
-`PrintPage.words`, the print in words when the page cannot be drawn,
-said it of any letter whose text, or its HTML made words, was blank:
-such a letter, and a letter that is only a picture, which the pane shows
-and never says has no text.
+nothing. Such a letter is one over 5 MB (`largeLetterBytes`), the first
+2 MiB of its HTML, and of its plain words, fetched
+(`largeLetterSectionBytes`), whose HTML's first 2 MiB are a style sheet
+or a comment; a letter none of whose words came fails as one that could
+not be downloaded (B-114), with no page to print. `PrintPage.words`, the
+print in words when the page cannot be drawn, said it of any letter
+whose text, or its HTML made words, was blank: such a letter, and a
+letter that is only a picture, which the pane shows and never says has
+no text. And `words` cut an HTML letter's markup at the page's limit,
+512 KiB, before making it words, and then forgot the cut, since B-110:
+an HTML letter over it had no line in words, where its page had it, and
+one whose first 512 KiB make no words, a long style sheet, a picture's
+data written into the markup or a comment, with words after, said "This
+message has no text." (after the first change below, its header alone).
 
 **What Mail does.** Mail prints a letter as its pane shows it: its
 header view drawn into the print, then its body's web view's print
@@ -25171,7 +25180,17 @@ it has only the beginning of was not looked at here.
    letter that is only a picture is its header alone in words, where it
    said "This message has no text.": the pane never says so of it, and
    words cannot show the picture. A letter with words, cut here or shown
-   in part, is the line over them, as before.
+   in part, is the line over them, as before. An HTML letter cut here, at
+   512 KiB, before it is made words, has the line, as its page has it:
+   over the words its first 512 KiB make, or alone when they make none.
+   A letter whose own plain words are printed, whole, has none.
+3. *Asked once* (`PrintPage.made`, which `LetterPrint` calls): the page
+   and the words of one print made together, the pane's question asked
+   once for both. Of an HTML letter with no picture and no words of its
+   own, it makes words of all its markup, up to the 5 MB of a letter
+   fetched whole, which the page and the words each did, against the
+   print's 10 s limit. `letter`, `words` and `body` still ask it
+   themselves, for any other caller.
 
 **Not changed.** The pane, as B-114 left it. The page of every letter not
 shown in part, and of every letter with words. The limits, the cut, the
@@ -25180,7 +25199,9 @@ header, the greys. No new words: both lines are the pane's.
 **What he sees.** Rarely anything: a letter too large to fetch whole,
 whose beginning shows nothing, printed has its header and then the grey
 "Only the beginning of this message is shown.", as the pane shows it,
-where it said "This message has no text."
+where it said "This message has no text." In words, which only a page
+that cannot be drawn is printed as, an HTML letter over 512 KiB has the
+same line.
 
 **Tests.** `PrintPageTests`, two new, beside `PanePageTests`' of B-114
 (`testALetterShownOnlyInPartIsNeverSaidToHaveNoText`) and with its five
@@ -25191,16 +25212,28 @@ pane's `#bm` has it after its line, HTML where the letter's is, and never
 "This message has no text.". The words: whole, the header and "This
 message has no text."; said to be short, the header and the line alone;
 a letter that is only a picture, the header alone; a letter said to be
-short with words, the line over them.
+short with words, the line over them. Two more: an HTML letter over
+512 KiB, its first 512 KiB a style sheet with words after it, in words
+the header and the line alone and on its page the line, with no text
+part and with a blank one; one whose words come before a long comment,
+the line over them; and one whose own plain words are printed, whole,
+no line. And the page and the words made together (`made`) the same as
+each made apart, for the five shapes of nothing, whole and said to be
+short, a picture, words and an HTML letter cut here.
 
 Each change undone by hand, `PrintPageTests` and `PanePageTests` run, then
 put back and passing, counted as failures in tests: the page asking
 `MailText.hasNoVisibleContent` again, 13 in 1; the words as they were,
 6 in 1; the words' line followed by a blank line over nothing, 5 in 1;
-a blank line after a header with nothing under it, 1 in 1.
+a blank line after a header with nothing under it, 1 in 1; the words
+forgetting the HTML's cut again, 4 in 1; `made` asking
+`MailText.hasNoVisibleContent` for both, 10 in 1. Each file put back
+was touched, so the build took it again.
 
 The full suite, serially: 2,480 tests, 2 of them new, 6 skipped, none
-failing. The release build for the iPad links.
+failing. The release build for the iPad links. With the HTML's cut in
+words and `made`, after B-130's colours: 2,485 tests, 2 more new, 6
+skipped, none failing; the release build links.
 
 **Not covered.**
 
@@ -25211,6 +25244,9 @@ failing. The release build for the iPad links.
   these letters is held by the host's tests alone.
 - A letter that is only a picture is its header alone in words, by the
   pane's rule; "This message has no text." there would be true of its
-  words and untrue of the letter. Not asked of the owner.
+  words and untrue of the letter. Put to the owner (TODO, "Blocked on
+  the owner").
+- What `made` saves, one making of words from a large letter's whole
+  markup in place of two, was not timed on the iPad.
 - Mail's pane, and its print, of a letter it has only the beginning of:
   not seen.
