@@ -2772,22 +2772,30 @@ private extension ScriptedIMAPServer {
 
         enum Comparison { case since, before, on }
 
-        static func parse(_ tokens: [Token]) -> SearchKey? {
+        /// The most ORs nested one inside another that a key may hold, as
+        /// Gmail parses: at the size of his mailbox a row of 100 ORs was
+        /// answered and one of 103 was BAD "Could not parse command"
+        /// (2026-10-25). Deeper, the key is not parsed, and the SEARCH is
+        /// answered BAD.
+        static let deepestOr = 100
+
+        static func parse(_ tokens: [Token], ors: Int = 0) -> SearchKey? {
             guard !tokens.isEmpty else { return nil }
             var index = 0
             var keys: [SearchKey] = []
             while index < tokens.count {
-                guard let key = parseOne(tokens, &index) else { return nil }
+                guard let key = parseOne(tokens, &index, ors: ors) else { return nil }
                 keys.append(key)
             }
             return keys.count == 1 ? keys[0] : .and(keys)
         }
 
-        private static func parseOne(_ tokens: [Token], _ index: inout Int) -> SearchKey? {
+        private static func parseOne(_ tokens: [Token], _ index: inout Int,
+                                     ors: Int = 0) -> SearchKey? {
             guard index < tokens.count else { return nil }
             let token = tokens[index]
             index += 1
-            if let inner = token.items { return parse(inner) }
+            if let inner = token.items { return parse(inner, ors: ors) }
             guard let word = token.text?.uppercased() else { return nil }
 
             func argument() -> String? {
@@ -2802,12 +2810,14 @@ private extension ScriptedIMAPServer {
             switch word {
             case "ALL": return .all
             case "OR":
-                guard let a = parseOne(tokens, &index), let b = parseOne(tokens, &index) else {
+                guard ors < deepestOr,
+                      let a = parseOne(tokens, &index, ors: ors + 1),
+                      let b = parseOne(tokens, &index, ors: ors + 1) else {
                     return nil
                 }
                 return .or(a, b)
             case "NOT":
-                return parseOne(tokens, &index).map { .not($0) }
+                return parseOne(tokens, &index, ors: ors).map { .not($0) }
             case "FROM", "TO", "CC", "BCC", "SUBJECT", "BODY", "TEXT":
                 return argument().map { .field(word, $0) }
             case "HEADER":

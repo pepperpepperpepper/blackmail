@@ -7,8 +7,9 @@ import XCTest
 /// "Marg" finds Margaret's letters. Gmail matches whole words only, and the
 /// scripted server here does too (`matchesWholeWords`), so "Marg" alone
 /// finds nothing. The word he is still typing asks, beside itself, for the
-/// From, To or Cc of up to four people in the book whose name or address
-/// starts with it. A word with a space after it is searched as before.
+/// From, To or Cc of up to 30 people in the book whose name or address
+/// starts with it, in a tree of ORs Gmail parses. A word with a space after
+/// it is searched as before.
 ///
 /// Through the shipping `IMAPMailRepository` and `IMAPClient`, over
 /// `ScriptedIMAPServer`, and `SearchCriteria` and `RecipientBook` on their
@@ -90,15 +91,26 @@ final class HalfNameSearchTests: XCTestCase {
 
     private var searches: [Server.LogEntry] { server.log.filter { $0.verb == "UID SEARCH" } }
 
-    /// `word` in the five fields, a quoted string, then each of `people` in
-    /// From, To and Cc, one OR for each term after the first, as RFC 3501
-    /// writes OR: what the key is, written out here by hand.
+    /// `word` in the five fields, a quoted string, one OR for each term
+    /// after the first, as RFC 3501 writes OR; with `people`, OR that and
+    /// each of them in From, To and Cc, the people in a tree of ORs, each
+    /// half in parentheses, the first half the smaller: what the key is,
+    /// worked out here on its own.
     private func group(_ word: String, _ people: [String] = []) -> String {
-        var terms = ["FROM", "TO", "CC", "SUBJECT", "BODY"].map { "\($0) \(word)" }
-        for person in people {
-            terms += ["FROM", "TO", "CC"].map { "\($0) \"\(person)\"" }
+        func row(_ terms: [String]) -> String {
+            String(repeating: "OR ", count: terms.count - 1) + terms.joined(separator: " ")
         }
-        return String(repeating: "OR ", count: terms.count - 1) + terms.joined(separator: " ")
+        func tree(_ keys: [String]) -> String {
+            guard keys.count > 1 else { return keys[0] }
+            let first = keys.count / 2
+            return "OR (" + tree(Array(keys.prefix(first))) + ") ("
+                + tree(Array(keys.dropFirst(first))) + ")"
+        }
+        let own = row(["FROM", "TO", "CC", "SUBJECT", "BODY"].map { "\($0) \(word)" })
+        guard !people.isEmpty else { return own }
+        return "OR " + own + " " + tree(people.map { person in
+            row(["FROM", "TO", "CC"].map { "\($0) \"\(person)\"" })
+        })
     }
 
     private func q(_ word: String) -> String { "\"\(word)\"" }
@@ -148,6 +160,37 @@ final class HalfNameSearchTests: XCTestCase {
         XCTAssertEqual(alone, [])
         XCTAssertEqual(searches.map(\.command), Array(repeating: "UID SEARCH " + group(q("Marg")),
                                                       count: 3))
+    }
+
+    /// Many people whose names start so, as the size test's book had 36
+    /// "Pey" on the test iPad (2026-10-25), where "Pey" found four of them
+    /// and "Picture Pey" missed the picture letter of a fifth: the first 30
+    /// in the book's order are each asked for, their letters found, and
+    /// "Picture Pey" finds the tenth's letter about the picture. The server
+    /// parses the key as Gmail does, refusing ORs nested past 100.
+    func testManyPeopleStartingSoAreAllAskedFor() async throws {
+        var ids: [String: String] = [:]
+        let addresses = (1...32).map { String(format: "peyton.p%02d@example.org", $0) }
+        for (i, address) in addresses.enumerated() {
+            let who = Server.Address(name: String(format: "Peyton P%02d", i + 1), address: address)
+            let subject = i + 1 == 10 ? "Picture of the garden" : "Note \(i + 1)"
+            ids[address] = deliver(from: who, subject, "A few words.")[Server.allMail]!
+        }
+        let repository = makeRepository()
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+
+        let first = Array(addresses.prefix(30))
+        let found = try await search(repository, "Pey", .allMailboxes)
+        XCTAssertEqual(Set(found.map(\.id)), Set(first.map { ids[$0]! }))
+        XCTAssertEqual(searches.map(\.command),
+                       Array(repeating: "UID SEARCH " + group(q("Pey"), first), count: 3))
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
+
+        server.clearLog()
+        let picture = try await search(repository, "Picture Pey", .allMailboxes)
+        XCTAssertEqual(picture.map(\.id), [ids["peyton.p10@example.org"]!])
+        XCTAssertEqual(server.log.filter { $0.status != "OK" }, [])
     }
 
     /// A half name nobody in the book has, and one of two letters, which
@@ -415,11 +458,29 @@ final class HalfNameSearchTests: XCTestCase {
         XCTAssertEqual(SearchCriteria.imap(for: "Marg", people: people), group(q("Marg"), people))
     }
 
-    /// At most four people, in the order given; an address over 100 bytes,
+    /// The key's shape for one, two and three people, written out by hand:
+    /// the word's five, then each person's three in a tree of ORs.
+    func testThePeopleAreATreeOfOrs() {
+        let word = #"OR OR OR OR FROM "pey" TO "pey" CC "pey" SUBJECT "pey" BODY "pey""#
+        let a = #"OR OR FROM "a@x.org" TO "a@x.org" CC "a@x.org""#
+        let b = #"OR OR FROM "b@x.org" TO "b@x.org" CC "b@x.org""#
+        let c = #"OR OR FROM "c@x.org" TO "c@x.org" CC "c@x.org""#
+        XCTAssertEqual(SearchCriteria.anyField("pey", people: ["a@x.org"]), "OR \(word) \(a)")
+        XCTAssertEqual(SearchCriteria.anyField("pey", people: ["a@x.org", "b@x.org"]),
+                       "OR \(word) OR (\(a)) (\(b))")
+        XCTAssertEqual(SearchCriteria.anyField("pey", people: ["a@x.org", "b@x.org", "c@x.org"]),
+                       "OR \(word) OR (\(a)) (OR (\(b)) (\(c)))")
+        XCTAssertEqual(SearchCriteria.anyField("pey"), word)
+    }
+
+    /// At most 30 people, in the order given; an address over 100 bytes,
     /// one that is no address, one with a control character, one given
-    /// twice in any case and the word itself passed over; each escaped. So
-    /// the line grows by at most four addresses in three fields.
-    func testAtMostFourPeopleAndNoLongAddress() throws {
+    /// twice in any case and the word itself passed over; each escaped.
+    /// The line grows by at most 30 addresses in three fields, and its ORs
+    /// nest at most 30 deep, counted generously, where Gmail parses about
+    /// 100 and a row of 30 people's would be 94.
+    func testAtMostThirtyPeopleAndNoLongAddress() throws {
+        XCTAssertEqual(SearchCriteria.mostPeople, 30)
         let long = String(repeating: "a", count: 90) + "@example.com"
         XCTAssertGreaterThan(long.utf8.count, SearchCriteria.longestAddress)
         let exactly = String(repeating: "b", count: 88) + "@example.com"
@@ -430,17 +491,40 @@ final class HalfNameSearchTests: XCTestCase {
         let key = try XCTUnwrap(SearchCriteria.imap(for: "marg@example.com", people: people))
         XCTAssertEqual(key, group(q("marg@example.com"),
                                   ["one@example.com", "\\\"o\\\\b\\\"@example.com", exactly,
-                                   "five@example.com"]))
+                                   "five@example.com", "six@example.com"]))
         XCTAssertEqual(SearchCriteria.askable(people, besides: "Marg"),
-                       ["marg@example.com", "one@example.com", "\"o\\b\"@example.com", exactly])
+                       ["marg@example.com", "one@example.com", "\"o\\b\"@example.com", exactly,
+                        "five@example.com", "six@example.com"])
 
-        // The most it adds: four of the longest, three fields each.
-        let longest = (1...6).map { String(repeating: "\($0)", count: 88) + "@example.com" }
+        // 40 offered: the first 30, in their order.
+        let many = (1...40).map { "p\($0)@example.com" }
+        XCTAssertEqual(SearchCriteria.askable(many, besides: "Pey"), Array(many.prefix(30)))
+        XCTAssertEqual(SearchCriteria.imap(for: "Pey", people: many),
+                       group(q("Pey"), Array(many.prefix(30))))
+
+        // The most it adds: 30 of the longest, three fields each, and the
+        // tree's ORs and parentheses.
+        let longest = (10...49).map { "\($0)" + String(repeating: "x", count: 86) + "@example.com" }
+        XCTAssertEqual(Set(longest.map(\.utf8.count)), [SearchCriteria.longestAddress])
         let grown = try XCTUnwrap(SearchCriteria.imap(for: "Marg", people: longest))
         let plain = try XCTUnwrap(SearchCriteria.imap(for: "Marg"))
-        XCTAssertEqual(grown.utf8.count - plain.utf8.count,
-                       4 * ("OR FROM \"\" ".count + 100 + 2 * ("OR TO \"\" ".count + 100)))
-        XCTAssertEqual(grown.utf8.count - plain.utf8.count, 1_316)
+        let addresses = 30 * ("OR OR FROM \"\" TO \"\" CC \"\"".count + 3 * 100)
+        let tree = "OR ".count + " ".count + 29 * "OR () ()".count
+        XCTAssertEqual(grown.utf8.count - plain.utf8.count, addresses + tree)
+        XCTAssertLessThan(grown.utf8.count, 11_000)
+
+        // How deep the ORs nest: an OR inside an OR, counted.
+        var deepest = 0, depth = 0, open: [Int] = []
+        for word in grown.replacingOccurrences(of: "(", with: "( ")
+            .replacingOccurrences(of: ")", with: " )").split(separator: " ") {
+            switch word {
+            case "OR": depth += 1; deepest = max(deepest, depth)
+            case "(": open.append(depth)
+            case ")": depth = open.removeLast()
+            default: break
+            }
+        }
+        XCTAssertLessThanOrEqual(deepest, 30, "a row would be 94")
     }
 
     // MARK: - The book
