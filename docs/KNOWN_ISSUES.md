@@ -25010,9 +25010,16 @@ it had come that morning, until a scroll or a tap drew it again.
    line under the list says its age again, its "Updated at" a time too.
    The cells are patched in place, as for the previews: no row is loaded
    again, so the list does not move, the letter open in the pane stays
-   highlighted, Edit mode keeps its ticks, and nothing is fetched. Rows
-   out of sight are drawn as they come into it, as before. The Mailboxes
-   column shows no dates.
+   highlighted, Edit mode keeps its ticks, and nothing is fetched. A row
+   out of sight has its date written the same way as it comes into sight
+   (`tableView(_:willDisplay:forRowAt:)`, one writer for both,
+   `writeDate`). Leaving it to the table to draw it then, as before, was
+   not enough: since iOS 15 the table prepares the cell for the row just
+   past the edge ahead of time (cell prefetching, on by default), and
+   shows it later without asking for it again; that row is not among the
+   rows in sight, so after 24-Hour Time it would have come in at the next
+   scroll with "9:14 PM", and at midnight with "11:50 PM" where it should
+   read "Yesterday". The Mailboxes column shows no dates.
 3. *The reading pane* (`MessageDetailViewController.datesChanged`). On
    both words, the header's date is written again from the letter's own,
    kept by the header (`MessageHeaderView.drawDate`), with VoiceOver's
@@ -25056,7 +25063,7 @@ front, or as it comes back the next day: last evening's letters read
 "Yesterday", their header "Yesterday at" and the time, and this week's
 weekdays move on by a day.
 
-**Tests.** `DatesRedrawnTests`, ten, new. The word: on the main queue,
+**Tests.** `DatesRedrawnTests`, eleven, new. The word: on the main queue,
 after iOS's own call has returned, and an observer writing a date then
 given a formatter built afresh, for a change of zone, of locale, and one
 said on another thread; changes that come together said once, and one
@@ -25076,10 +25083,11 @@ stack loading has its dates as it finishes; at once once loaded, every
 letter's, inserted and appended ones too; none owed to a stack replaced or
 lost. And the screens, read: the list and the pane each hear both words;
 the list's redraw, the pane's and the header's and the cell's whole, with
-nothing in them that loads, moves, selects or fetches; one writer of each
-date; the dates run after a stack finishes loading.
+nothing in them that loads, moves, selects or fetches; a row coming into
+sight has its date written again first, by the redraw's writer; one
+writer of each date; the dates run after a stack finishes loading.
 
-Each part undone by hand, the ten run, then put back and passing, counted
+Each part undone by hand, the eleven run, then put back and passing, counted
 as failures in tests: no word said, 11 in 3; the word said at once,
 before the formatters go, 7 in 2; said for each change, 3 in 1; the
 stack's lines written for the clock and the iPad whatever is asked, 9 in
@@ -25089,9 +25097,10 @@ dates handed out at once, 3 in 1; not handed back as it finishes, 1 in 1;
 the list not hearing midnight, 1 in 1; the list not writing the row's
 date, 1 in 1; nor the age line, 1 in 1; the header not written again,
 1 in 1; the header's date written once and not kept, 2 in 1; a finished
-stack's dates not run, 1 in 1.
+stack's dates not run, 1 in 1; a row coming into sight not written
+again, 2 in 1.
 
-The full suite, serially: 2,485 tests, 10 of them new, 6 skipped, none
+The full suite, serially: 2,486 tests, 11 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -25100,6 +25109,13 @@ failing. The release build for the iPad links.
 - The list, the header and the pane are UIKit and WebKit: their wiring is
   read from the source, not run; `bmWhen` is run on a model in node, not
   in WebKit.
+- The cell prepared ahead: from the SDK's header (`cellForRowAtIndexPath:`
+  "Returns any existing visible or prepared cell", `prefetchingEnabled`
+  from iOS 15) and Apple's account of cell prefetching, not seen on the
+  iPad; the check scrolls two or three rows after the change for it
+  (TODO, steps 2 and 6). The previews' patch (`apply`) goes by the rows
+  in sight alike, so a row prepared before its preview came would come
+  in without it until drawn again; not a date, not B-139's, not changed.
 - iOS's order: that `significantTimeChangeNotification` comes at midnight
   and, queued, as the app comes back, is Apple's documentation, not seen
   here; nor how soon after the change in Settings the locale's and the
