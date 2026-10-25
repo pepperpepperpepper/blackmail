@@ -90,6 +90,10 @@ struct PaneDocument {
     /// His letters from Sent Mail that came while it was still loading
     /// (B-104), to go in as it finishes, before the bodies.
     private var waitingInserts: [ConversationDocument.Insert] = []
+    /// The stack's dates are to be written again as it finishes (B-139):
+    /// the iPad's form or day changed while it loaded, and it may have been
+    /// written in the old one.
+    private var waitingDates = false
     /// The document went with WebKit's process and has not been drawn
     /// again. `content` is still what it held, and bodies that come
     /// meanwhile are kept in it for the redraw.
@@ -131,6 +135,7 @@ struct PaneDocument {
         finished = navigation == nil
         waiting = []
         waitingInserts = []
+        waitingDates = false
         lost = false
         drawn = redrawing ? .again(finished: finished ? now() : nil) : .byPane
         redrawing = false
@@ -223,9 +228,28 @@ struct PaneDocument {
         content = .conversation(entries)
     }
 
+    /// The dates on the lines of the conversation on screen, to be written
+    /// again where they are (B-139): the iPad's 24-Hour Time switch, its
+    /// time zone or its region has changed, or the day has turned over.
+    /// Every letter of the stack, his from Sent Mail and those that came
+    /// into it included. Nil, with nothing to do, when the pane shows no
+    /// conversation, and when WebKit has lost it, as the redraw writes the
+    /// lines afresh. Nil while the stack is still loading, which may have
+    /// been written before the change: its dates are written once it has
+    /// finished (`didFinish`), after what else was waiting.
+    mutating func dates() -> ConversationDocument.Dates? {
+        guard case .conversation(let entries) = content, !lost else { return nil }
+        guard finished else {
+            waitingDates = true
+            return nil
+        }
+        return ConversationDocument.Dates(entries)
+    }
+
     /// A document has finished loading. When it is the one on screen, what
     /// was waiting for it, each in the order it came: his letters from Sent
-    /// Mail to go in, then the bodies.
+    /// Mail to go in, then the bodies; then its dates written again, if the
+    /// iPad's form or day changed while it loaded, every letter's.
     mutating func didFinish(_ navigation: ObjectIdentifier) -> Finished {
         guard navigation == self.navigation, !finished else { return Finished() }
         finished = true
@@ -233,14 +257,21 @@ struct PaneDocument {
         defer {
             waiting = []
             waitingInserts = []
+            waitingDates = false
         }
-        return Finished(inserts: waitingInserts, fills: waiting)
+        var dates: ConversationDocument.Dates?
+        if waitingDates, case .conversation(let entries) = content {
+            dates = ConversationDocument.Dates(entries)
+        }
+        return Finished(inserts: waitingInserts, fills: waiting, dates: dates)
     }
 
     /// What `didFinish` hands back.
     struct Finished: Equatable {
         var inserts: [ConversationDocument.Insert] = []
         var fills: [ConversationDocument.Fill] = []
+        /// The stack's dates, written again (B-139); nil for none.
+        var dates: ConversationDocument.Dates? = nil
     }
 
     /// WebKit's content process has ended and taken the document with it.
@@ -263,6 +294,7 @@ struct PaneDocument {
         finished = false
         waiting = []
         waitingInserts = []
+        waitingDates = false
         drawn = .byPane
         switch content {
         case .nothing, .blank:

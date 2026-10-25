@@ -123,7 +123,8 @@ final class PrintWiringTests: XCTestCase {
             XCTAssertTrue(header.contains(words), words)
             XCTAssertTrue(printed.contains(words), words)
         }
-        XCTAssertTrue(header.contains("MailFormat.detailTimestamp(m.date)"), "on screen, as it was")
+        XCTAssertTrue(header.contains("date = m.date"), "on screen, as it was")
+        XCTAssertTrue(header.contains("MailFormat.detailTimestamp(date)"), "on screen, as it was")
         XCTAssertFalse(printed.contains("detailTimestamp"))
         XCTAssertTrue(printed.contains("MailFormat.fullTimestamp(m.date, locale: locale, timeZone: timeZone)"))
         // The sizes as the header writes them.

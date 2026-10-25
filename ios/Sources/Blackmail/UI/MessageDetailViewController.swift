@@ -199,11 +199,43 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         NotificationCenter.default.addObserver(
             self, selector: #selector(appBecameActive),
             name: UIApplication.didBecomeActiveNotification, object: nil)
+        // The header's date and the stack's written again where they are
+        // when the iPad's form or day changes (B-139).
+        for name in [DisplayDates.didChange, UIApplication.significantTimeChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
+                                                   name: name, object: nil)
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         drawAgain()
+    }
+
+    /// The iPad's 24-Hour Time switch, its time zone or its region has
+    /// changed, and the kept formatters have been let go
+    /// (`DisplayDates.didChange`), or the day has turned over, at midnight
+    /// or with the clock set (`significantTimeChangeNotification`): the
+    /// header's date and the dates on the stack's lines are written again
+    /// where they are, as Mail's are taken to be, and "Today at" turns to
+    /// "Yesterday at" at midnight (B-139). They kept the words they were drawn with:
+    /// after 24-Hour Time was switched on, the status bar read 14:41 and the
+    /// header "Today at 12:39 PM", until the letter was opened again.
+    ///
+    /// The words alone: nothing is fetched or drawn again, the stack does
+    /// not move, no letter opens or closes, and the header keeps its height
+    /// and its letter. A stack still loading has its dates written once it
+    /// has loaded (`PaneDocument.dates`).
+    @objc private func datesChanged() {
+        header.drawDate()
+        if let dates = document.dates() { run(dates) }
+    }
+
+    /// The stack's dates written again by script, in the app's content
+    /// world (`ConversationDocument.Dates`).
+    private func run(_ dates: ConversationDocument.Dates) {
+        webView.callAsyncJavaScript(ConversationDocument.Dates.script, arguments: dates.arguments,
+                                    in: nil, in: .defaultClient)
     }
 
     // MARK: - Toolbar
@@ -941,6 +973,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         let finished = document.didFinish(ObjectIdentifier(navigation))
         for insert in finished.inserts { run(insert) }
         for fill in finished.fills { run(fill) }
+        if let dates = finished.dates { run(dates) }
     }
 
     /// WebKit's content process has ended, as iOS ends it for memory while

@@ -448,10 +448,12 @@ enum ConversationDocument {
     /// order: more of his letters, letters for the bottom (`bmAppend`), and
     /// a body for a section not on the page yet (`bmFill`), which would
     /// otherwise find nothing; a body for a letter on the page goes in at
-    /// once. Each runs once, and one that throws takes none of the rest
-    /// with it. What is held is the page's own: a new page, another letter
-    /// or the stack drawn again, starts with nothing held, and the pane's
-    /// document has his letters for a redraw (`PaneDocument.insert`). With
+    /// once, as the lines' dates are written again at once, and again
+    /// behind what is held (`bmWhen`, B-139). Each runs once, and one that
+    /// throws takes none of the rest with it. What is held is the page's
+    /// own: a new page, another letter or the stack drawn again, starts
+    /// with nothing held, and the pane's document has his letters for a
+    /// redraw (`PaneDocument.insert`). With
     /// nothing moving nothing is held, so the stack opened and left alone
     /// takes them at once, as it did.
     ///
@@ -522,6 +524,20 @@ enum ConversationDocument {
       body.className = 'bm-body ' + (isHTML ? 'bm-html' : 'bm-text');
       body.innerHTML = html;
       bmWirePictures(body);
+    }
+    function bmWhen(when) {
+      var letters = document.querySelectorAll('body > .bm-letter');
+      for (var i = 0; i < letters.length; i++) {
+        var words = when[letters[i].id];
+        if (typeof words !== 'string') continue;
+        for (var head = letters[i].firstElementChild; head; head = head.nextElementSibling) {
+          if (!head.classList.contains('bm-head')) continue;
+          for (var line = head.firstElementChild; line; line = line.nextElementSibling) {
+            if (line.classList.contains('bm-when') && line.textContent !== words) line.textContent = words;
+          }
+        }
+      }
+      if (bmHeld.length) bmLater(function () { bmWhen(when); });
     }
     var bmOpening = null;
     var bmSet = null;
@@ -825,6 +841,44 @@ enum ConversationDocument {
         var arguments: [String: Any] {
             ["id": sectionID, "html": body.html, "isHTML": body.isHTML]
         }
+    }
+
+    /// The date on each letter's line written again where it is, as the
+    /// iPad writes it now (B-139): after its 24-Hour Time switch, its time
+    /// zone or its region has changed, and as the day turns over, so a line
+    /// of 11:50 PM reads "Yesterday" once midnight has passed. `script`'s
+    /// `bmWhen`, called through `callAsyncJavaScript` with the words for
+    /// each section, as `section` writes them.
+    ///
+    /// The words alone change: nothing is drawn again, no letter opens or
+    /// closes, no body is touched or asked for, and the stack does not
+    /// move, a line's date being one line that does not wrap. Only the
+    /// stack's own lines: the section a body's child, its line the
+    /// section's, its date the line's, so a letter's markup with a
+    /// `bm-when` of its own is left alone. Sections that `bmInsert` or
+    /// `bmAppend` is holding while the stack moves are written as they go
+    /// in, `bmWhen` waiting behind them.
+    struct Dates: Equatable {
+        /// Each letter's section and its line's date.
+        let when: [String: String]
+
+        /// The lines of `entries`, written for `now`, in `locale` and
+        /// `timeZone`: the clock and the iPad's unless a test hands in others.
+        init(_ entries: [Entry], now: Date = Date(), locale: Locale = .current,
+             timeZone: TimeZone = .current) {
+            var when: [String: String] = [:]
+            for e in entries {
+                when[ConversationDocument.sectionID(for: e.id)] =
+                    MailFormat.listTimestamp(e.date, now: now, locale: locale, timeZone: timeZone)
+            }
+            self.when = when
+        }
+
+        /// What `callAsyncJavaScript` runs, in the app's content world,
+        /// where `script` defined `bmWhen`.
+        static let script = "bmWhen(when)"
+
+        var arguments: [String: Any] { ["when": when] }
     }
 
     /// Letters that came into the conversation while its stack was open,

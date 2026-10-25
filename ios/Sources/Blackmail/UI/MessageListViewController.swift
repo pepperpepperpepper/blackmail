@@ -598,6 +598,12 @@ final class MessageListViewController: UITableViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
                                                name: UIAccessibility.elementFocusedNotification,
                                                object: nil)
+        // The rows' dates written again where they are when the iPad's form
+        // or day changes (B-139).
+        for name in [DisplayDates.didChange, UIApplication.significantTimeChangeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(datesChanged),
+                                                   name: name, object: nil)
+        }
 
         // The folder's page kept on the iPad, before anything is sent
         // (D-016): at launch the Inbox is in the first frame, and so is
@@ -1252,6 +1258,35 @@ final class MessageListViewController: UITableViewController {
     @MainActor
     func showAge() {
         if showingAge { sayAge() }
+    }
+
+    /// The iPad's 24-Hour Time switch, its time zone or its region has
+    /// changed, and the kept formatters have been let go
+    /// (`DisplayDates.didChange`), or the day has turned over, at midnight
+    /// or with the clock set (`significantTimeChangeNotification`): the
+    /// dates on the rows in sight are written again where they are, as
+    /// Mail's are taken to be, and a letter of late last evening reads
+    /// "Yesterday" once midnight has passed (B-139). They kept the words
+    /// they were drawn with: after 24-Hour Time was switched on, the status
+    /// bar read 14:41 and the open letter's row "12:39 PM", until a scroll
+    /// drew it anew. The line under the list says its age again, its
+    /// "Updated at" a time too. Rows out of sight are written as they come
+    /// into it.
+    ///
+    /// The words alone, the cells patched in place as for the previews
+    /// (`apply`): no row is loaded again, so the list does not move, the
+    /// selection, the letter open in the pane, stays highlighted, and Edit
+    /// mode keeps its ticks; nothing is fetched.
+    @objc private func datesChanged() {
+        for indexPath in tableView.indexPathsForVisibleRows ?? [] where indexPath.row < rows.count {
+            guard let cell = tableView.cellForRow(at: indexPath) as? MessageCell else { continue }
+            cell.drawDate()
+            switch rows[indexPath.row] {
+            case let .thread(thread):
+                cell.accessibilityLabel = thread.accessibilityLabel(in: mailbox, mine: mine)
+            }
+        }
+        showAge()
     }
 
     /// Puts what the watch has found on the list, if he is where that moves
