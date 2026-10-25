@@ -25150,8 +25150,12 @@ correspond to a clearly highlighted item in the primary pane." (iOS Human
 Interface Guidelines, Split Views; the older edition's words, mirrored at
 codershigh.github.io). Confident of the highlight itself, which is how
 his Mail looks every day, and the app already keeps it through a redraw
-(B-071, `ListEdit.selectedRows`). Whether Mail's Done puts it back was
-not seen on an iPad here: medium, by the guideline. Mail has no Go to
+(`ListEdit.selectedRows`). Whether Mail puts the highlight back when its
+edit mode ends was not seen on an iPad: medium, by the guideline. Nor is
+Mail's way out of that mode the app's Done, it seems: guides to Mail
+describe Edit, then Select All, with Cancel to leave, and Apple's current
+page (support.apple.com/102428) has More, then Select, and does not say
+how it ends; low to medium, not seen on an iPad. Mail has no Go to
 Date; the guideline is the rule there.
 
 **What it was.** The highlight is the table's selection and nothing
@@ -25191,7 +25195,10 @@ through every redraw after, until he tapped a row.
 **Not changed.** Entering Edit mode still clears the highlight, as UIKit
 does, so the open letter is never ticked for him. Go to Date across All
 Mailboxes opens All Mail, which empties the pane, as before. The
-highlight's colour and the rows' look. No new words on his screen.
+highlight's colour and the rows' look. No new words on his screen. The
+app's Done itself, where Mail's word may be Cancel: the owner's to
+decide (TODO, Blocked on the owner, "Edit mode's Done"), not part of
+this change.
 
 **What he sees.** A letter open, Edit, Done: its row highlighted again,
 the list where it was. Go to Date to a day whose list has the letter's
@@ -25219,7 +25226,7 @@ highlight in a redraw with nothing to put back, 2 in 1; that redraw's
 highlight in Edit mode too, 1 in 1. All but the first in the test that
 reads the controller.
 
-The full suite, serially: 2,480 tests, 2 of them new here, 6 skipped,
+The full suite, serially: 2,484 tests, 2 of them new here, 6 skipped,
 none failing. The release build for the iPad links.
 
 **Not covered.**
@@ -25228,4 +25235,5 @@ none failing. The release build for the iPad links.
   selected straight after `setEditing(false, animated: true)`, and that
   `selectRow` sends no tap, are UIKit's, and the iPad's to show (TODO,
   B-133's check).
-- Mail's own Done not seen on an iPad here.
+- Whether Mail puts the highlight back as its edit mode ends, and with
+  which word it ends, not seen on an iPad here.

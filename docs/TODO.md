@@ -5669,18 +5669,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Go to Date:* the calendar, Current Mailbox, the open
       conversation's day: the list at the day as before, the
       conversation's row highlighted where it lands, the list not moved
-      to it, and in the log nothing but the jump's own SEARCH and FETCH,
-      no body fetched and no STORE. Then, in All Mail, a read letter near
-      its top opened and Go to Date to a day far enough back that the
-      day's list does not reach it, if the account has one (write down
-      which, or that it has none): no row highlighted, the letter in the
-      pane; the list scrolled up until the pages bring its row: the row
-      highlighted as it comes, no tap, nothing fetched for it.
+      to it, and in the log nothing but the jump's own: its SEARCH, and
+      the FETCHes of the day's page, envelopes and previews
+      (`BODY.PEEK[1]<0.2048>`, or another part's first 2,048 bytes),
+      which are expected. A FETCH of the open letter's whole body, or any
+      STORE, at the highlight is a fail. Then,
+      in All Mail, a read letter near its top opened and Go to Date to a
+      day far enough back that the day's list does not reach it, if the
+      account has one (write down which, or that it has none): no row
+      highlighted, the letter in the pane; the list scrolled up until the
+      pages bring its row: the row highlighted as it comes, no tap, and
+      nothing fetched but the pages' own envelopes and previews, by the
+      same rule.
       6. *A Delete of the open letter:* B-132, a single opened, Edit, its
       row and another ticked, Delete: the pane empty, both rows gone, no
       row highlighted.
       7. *Two panes:* 1 again, then three panes back.
-      8. *Put back:* nothing more; the label goes with B-132's step 6.
+      8. *Put back:* if the letters were made again for this check, the
+      label B-132, with what is left in it, deleted by the host here, and
+      the letters in Trash left there; otherwise nothing more, the label
+      going with B-132's step 6.
 
 ## Blocked on the owner
 
@@ -5922,6 +5930,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       As built (the default, B-092's "refused as not moved"), or a look
       in the folder on the next connection after such a failure, the row
       taken off if the letter has gone (not built).
+- [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
+      edit mode with Cancel, not seen on an iPad; Blackmail's button says
+      Done. As built (the default), or Mail's word once seen on his iPad.
 - [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a
