@@ -1885,9 +1885,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       draft, which need letters from another account and wait on a yes.*
       *Since B-140 (2026-10-25): the round of 2026-10-25 made such a letter
       on the host, HTML over 2 MB and nearly all words, and its Reply froze
-      the app. A quote now holds at most 64 KiB of the original's words,
-      ended with the same line, and the letter received quotes them as
-      words, not the original's markup, the grey line after them, once.
+      the app. A quote now holds at most 64 KiB or 2,000 lines of the
+      original's words, ended with the same line, and the letter received
+      quotes them as words, not the original's markup, the grey line after
+      them, once.
       B-140's check sees that letter's Reply and Forward in the composer,
       sending nothing; what is left here is the letter received, in Mail
       and on Gmail's web page, and the draft saved, reopened and sent,
@@ -6279,7 +6280,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       the pane fetches its first 2 MiB; (b) "B-140 long plain", text/plain
       alone, 9,000 such lines numbered from 00001, about 620 KB, fetched
       whole; (c) "B-140 short", a small HTML letter of three paragraphs
-      with a link and a bold word.
+      with a link and a bold word; (d) "B-140 short lines", text/plain
+      alone, 30,000 lines, each a number of five figures from 00001, about
+      180 KB; (e) "B-140 links", an HTML letter of two links,
+      "Write the lines", `mailto:nobody@example.com?subject=B-140%20lines&body=`
+      and the numbers 1 to 6000 joined by `%0D%0A`, and "Write the long
+      one", `mailto:nobody@example.com?subject=B-140%20long&body=` and
+      2,000 lines "Line 0001 of the long link, written to fill the
+      composer to its bound and a little more.", numbered from 0001, their
+      spaces `%20`, joined by `%0D%0A`, some 260 KB of address.
       1. *Shown in part:* "Notes", then (a): the grey "Only the beginning of
       this message is shown." above its paragraphs, and the app answering
       touches.
@@ -6304,9 +6313,24 @@ checks below is left as not needed, not open, and none is worth a round.*
       Cancel as in 2.
       5. *Ordinary mail:* (c), Reply: its three paragraphs quoted whole, no
       "Only the beginning" line. Cancel as in 2.
-      6. *Nothing saved:* Drafts opened: no draft from these steps; the
+      6. *Short lines:* (d), Reply: the sheet up within two seconds of the
+      tap, the time written down; it scrolls under a finger. At its end
+      "> 02000", "> " and "> Only the beginning of this message is shown.",
+      the 2,000 lines a quote keeps however short. Cancel as in 2. Forward
+      the same, up within two seconds: "02000", a blank line and the line,
+      no "> ". Cancel as in 2.
+      7. *The composer's own bounds:* (e), tap "Write the lines": the
+      composer up within two seconds, To nobody@example.com, Subject
+      "B-140 lines", the time written down; at the end of the body "3997",
+      "3998", a blank line and "Only the beginning of this message is
+      shown.", no signature under it: 4,000 lines. Cancel as in 2. Then
+      "Write the long one": up within two seconds, its body ending "Line
+      1472 of the long link, …", a blank line and the line: 128 KiB. Cancel
+      as in 2. If either tap opens nothing, write it down: the address may
+      be longer than WebKit hands over.
+      8. *Nothing saved:* Drafts opened: no draft from these steps; the
       log shows no APPEND.
-      7. *Put back:* the host moves the three UIDs it noted, and only them,
+      9. *Put back:* the host moves the five UIDs it noted, and only them,
       from "Notes" to the Trash (`UID MOVE`), deletes in the Trash only the
       UIDs that move answered (`COPYUID`), and deletes "Notes" only if it
       made it. Never anything found by subject, Message-ID or label.

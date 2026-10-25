@@ -38,7 +38,9 @@ enum ShareLetter {
     /// The subject is the first title offered, on one line. A text that is
     /// only a link's address again, which some apps send beside the link,
     /// is not written twice, and a link whose address is already in a text
-    /// is not added again.
+    /// is not added again. What is shared comes to no more than the app's
+    /// composer is given of a letter (`ComposeForm.bounded(body:)`,
+    /// B-140), ended with the line that says so, his signature under it.
     static func draft(from items: [SharedItem], signature: String) -> Draft {
         var draft = Draft()
         var lines: [String] = []
@@ -75,7 +77,11 @@ enum ShareLetter {
             }
         }
 
-        let typed = lines.joined(separator: "\n")
+        // Bounded as the app's composer bounds a letter (B-140): the share
+        // sheet's body is the same kind of text view, as tall as its
+        // words, and a long text shared from another app went into it
+        // whole. His signature goes under what is kept.
+        let typed = ComposeForm.bounded(body: lines.joined(separator: "\n"))
         draft.body = typed.isEmpty
             ? Draft.blank(signature: signature).body
             : typed + Draft.signatureBlock(signature)

@@ -259,32 +259,40 @@ extension Message {
     /// empty message while the same mail rendered perfectly in the pane
     /// behind the compose sheet. HTML-only is not an edge case; it is most
     /// transactional mail.
-    var quotableText: String { quotableText(within: nil).text }
+    var quotableText: String {
+        if let textBody, !textBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return textBody
+        }
+        if let htmlBody { return HTMLText.plainText(from: htmlBody) }
+        return ""
+    }
 
     /// `quotableText`, an HTML letter's made from no more of its markup
     /// than it takes to have `limit` characters of words
     /// (`HTMLText.plainText(from:limit:)`, B-140), and whether more was
     /// left unread, when the text ends wherever the words passed `limit`.
-    /// A text part is taken as it is, whatever its size. Nil reads it all.
-    func quotableText(within limit: Int?) -> (text: String, isCut: Bool) {
+    /// A text part is taken as it is, whatever its size. `read` is how
+    /// many characters of the markup were read, nought for a text part:
+    /// for a test, that Reply and Forward stop where the words they keep
+    /// end.
+    func quotableText(within limit: Int) -> (text: String, isCut: Bool, read: Int) {
         if let textBody, !textBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return (textBody, false)
+            return (textBody, false, 0)
         }
-        guard let htmlBody else { return ("", false) }
-        guard let limit else { return (HTMLText.plainText(from: htmlBody), false) }
+        guard let htmlBody else { return ("", false, 0) }
         let made = HTMLText.plainText(from: htmlBody, limit: limit)
-        return (made.text, made.isCut)
+        return (made.text, made.isCut, made.read)
     }
 
     /// What a reply or a forward quotes, as the composer is given it: the
-    /// lines of `quotableText` that fit in `QuotedOriginal.largestWords`,
-    /// each after `prefix`, "> " for a reply; and under them, for a letter
-    /// shown only in part (`isShortened`) or one whose words did not all
-    /// fit (`isCut`), a blank line and the line the pane shows above a
-    /// letter shown in part (`QuotedOriginal.shortenedEnding`), each after
-    /// the prefix too. Whoever the quote goes to would otherwise take the
-    /// beginning of the letter for the whole of it, and a forward would
-    /// pass it on as such. Nothing more of the letter is fetched for it.
+    /// lines of `quotableText` that fit in `QuotedOriginal.largestWords`
+    /// and `largestLines`, each after `prefix`, "> " for a reply; and under
+    /// them, for a letter shown only in part (`isShortened`) or one whose
+    /// words did not all fit (`isCut`), a blank line and the line the pane
+    /// shows above a letter shown in part
+    /// (`QuotedOriginal.shortenedEnding`), each after the prefix too.
+    /// Whoever the quote goes to would otherwise take the beginning of the
+    /// letter for the whole of it, and a forward would pass it on as such. Nothing more of the letter is fetched for it.
     ///
     /// At the end of the quote rather than above it, where the pane has it:
     /// these are words, not the sender's markup cut wherever the fetch
@@ -296,16 +304,20 @@ extension Message {
     /// body is a text view as tall as its words: the sheet never came, and
     /// the app took no touch for ten minutes until it was ended. No more
     /// of the markup is read than the words that fit need.
-    func quoted(eachLineAfter prefix: String = "") -> (text: String, isShortened: Bool, isCut: Bool) {
+    ///
+    /// `read`, how many characters of the markup were read for it, is for
+    /// a test (`quotableText(within:)`).
+    func quoted(eachLineAfter prefix: String = "")
+        -> (text: String, isShortened: Bool, isCut: Bool, read: Int) {
         let limit = QuotedOriginal.largestWords
         let made = quotableText(within: limit)
-        let cut = QuotedOriginal.cut(made.text, within: limit, prefix: prefix.utf8.count,
-                                     more: made.isCut)
+        let cut = QuotedOriginal.cut(made.text, within: limit, lines: QuotedOriginal.largestLines,
+                                     prefix: prefix.utf8.count, more: made.isCut)
         let shortened = isShortened || cut != nil
         let words = (cut ?? made.text) + (shortened ? QuotedOriginal.shortenedEnding : "")
         let text = prefix.isEmpty
             ? words : prefix + words.replacingOccurrences(of: "\n", with: "\n" + prefix)
-        return (text, shortened, cut != nil)
+        return (text, shortened, cut != nil, made.read)
     }
 }
 
@@ -558,7 +570,8 @@ extension Draft {
     /// with files the header lists (`ReplyFiles.forwardAsks`, B-107):
     /// Include, or no question, carries every part, as a forward always
     /// has; Don't Include only the pictures the original shows in its body,
-    /// which its quote shows too (`DraftAttachment.carried(from:)`).
+    /// which its quote shows too (`DraftAttachment.carried(from:)`), and
+    /// none when its quote is cut to what fits, which shows none (B-140).
     static func forwarding(_ m: Message, signature: String = "",
                            includingFiles: Bool = true) -> Draft {
         var draft = Draft()
@@ -597,7 +610,13 @@ extension Draft {
         // Made by the mapper a reply's files are made by
         // (`DraftAttachment.carried(from:)`), so the two name every part
         // the same way.
-        draft.attachments = DraftAttachment.carried(from: m, filesToo: includingFiles)
+        //
+        // A quote cut to what fits (B-140) quotes the words alone, without
+        // the original's pictures, so Don't Include carries none: the
+        // pictures it would carry are the ones the quote shows, and here
+        // it shows none. They went as files.
+        draft.attachments = quoted.isCut && !includingFiles
+            ? [] : DraftAttachment.carried(from: m, filesToo: includingFiles)
         // No threading headers on a forward: it starts a new conversation
         // with a new recipient, and claiming the original as its parent
         // would file it into a thread they have never seen.

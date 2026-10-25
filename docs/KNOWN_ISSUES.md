@@ -27109,7 +27109,7 @@ changed here; the release build for the iPad links.
   CoreTrust bug found, the rule would need changing; the install is set
   and forget, so it would not reach his iPad.
 
-## B-140 — FIXED 2026-10-25, not yet seen on the iPad. A Reply to a letter that fills its 2 MB froze the app: the keyboard rose with no sheet over the pane, and the app took no touch for ten minutes until it was ended; a quote puts at most 64 KiB of the original's words into the composer, says where it stops, and the composer opens on no more than 128 KiB of any letter
+## B-140 — FIXED 2026-10-25, not yet seen on the iPad. A Reply to a letter that fills its 2 MB froze the app: the keyboard rose with no sheet over the pane, and the app took no touch for ten minutes until it was ended; a quote puts at most 64 KiB or 2,000 lines of the original's words into the composer, says where it stops, and the composer opens on no more than 128 KiB or 4,000 lines of any letter
 
 **Found** on the test iPad on 2026-10-25, in the round of letters the
 host made (r6-s6-host-letters, a build of int16 at 662d63d), and made
@@ -27155,16 +27155,29 @@ his mail in this app until somebody came.
 **Changed.**
 
 1. *A quote's words are bounded* (`QuotedOriginal.largestWords`, 64 KiB
-   of UTF-8, `Message.quoted`, which replaces `quotedWords`). The words
-   that fit, counted as the composer is given them, each line with its
-   "> " in a reply; cut at the end of the last whole line that fits
-   (`QuotedOriginal.cut`), unless that comes to less than half the bound,
-   when a paragraph longer than that is cut at its last space that fits,
-   or failing one at its last whole character, never through one. White
-   space left at the end goes. Under them, as for a letter shown only in
-   part (B-054), a blank line and "Only the beginning of this message is
-   shown.", each after "> " in a reply. A letter whose words fit is quoted
-   as before, word for word.
+   of UTF-8, and `largestLines`, 2,000 lines; `Message.quoted`, which
+   replaces `quotedWords`). The words that fit, counted as the composer
+   is given them, each line with its "> " in a reply; cut at the end of
+   the last whole line that fits (`QuotedOriginal.cut`), unless that comes
+   to less than half the bound, when a paragraph longer than that is cut
+   at its last space that fits, or failing one at its last whole
+   character, never through one: a character as Swift has it and the text
+   view draws it, a flag, a family joined by zero-width joiners, a letter
+   and the accent written after it. More than 2,000 lines are cut at the
+   end of the 2,000th, however few bytes that is. White space left at the
+   end goes. Under them, as for a letter shown only in part (B-054), a
+   blank line and "Only the beginning of this message is shown.", each
+   after "> " in a reply. A letter whose words fit is quoted as before,
+   word for word. As first built, the bound was in bytes alone, and the
+   last resort went back to a scalar's start, not a character's: half a
+   flag, a family without its last member and a joiner left hanging, a
+   letter without its accent. A later review found both: the text view
+   lays out and draws every line, whatever its length, and 64 KiB of short
+   lines is 16,000 of "> 1" in a reply and 32,000 of "a" in a forward,
+   where the round's letter quoted at the bound is 1,770 lines and the
+   2 MiB of it that froze the app some 55,000. 2,000 is about what the
+   bytes allow of a letter of paragraphs, so the line bound changes
+   nothing for those.
 2. *Cut, the quote is shortened, and its HTML is his words*
    (`QuotedOriginal(quoting:as:region:cut:)`). `isShortened` is set, so the
    HTML twin ends the quote with the grey line (`AppleMailHTML.letter`),
@@ -27174,7 +27187,10 @@ his mail in this app until somebody came.
    the 2 MiB fetched of it; quoted, the grey line under it would say what
    is not so, and the letter would send far more than the composer showed
    him. A forward's pictures then go as its files, as they do once he
-   changes the quote.
+   changes the quote; answered Don't Include, a forward so cut carries
+   none (`Draft.forwarding`): the pictures Don't Include keeps are those
+   its quote shows, and the cut quote, words alone, shows none. As first
+   built they were rows all the same, and went as files.
 3. *No more of the markup is read than those words need*
    (`HTMLText.plainText(from:limit:)`). Read in pieces from its start,
    four times as many characters as the bound first and four times as
@@ -27182,9 +27198,25 @@ his mail in this app until somebody came.
    white space not counted, pass the bound. The rest is never walked: for
    the round's letter, 262,144 characters of its 2 MiB. Measured on the
    host for the letter in 2: the draft made in 0.05 s, its body 65,596
-   bytes, where it was 0.87 s and 1,924,046.
+   bytes, where it was 0.87 s and 1,924,046. Each piece is read on from
+   the last, and walked on from where the last walk stopped (`Walk`), a
+   tag or a comment across a piece's end read again from its "<". As
+   first built, every piece was read and walked from the start of the
+   markup, so a letter of markup and few words, which the walk reads to
+   its end either way, was walked some three times over. On the host,
+   built for speed, HTMLText alone: a 2 MB letter with its picture
+   written in as `data:` took 0.042 s read whole, 0.138 s as first built
+   and 0.065 s now; a 2 MB newsletter of tables and styles 0.087 s whole,
+   0.208 s and 0.109 s; the round's letter 0.49 s whole, 0.034 s and
+   0.030 s. Still a little over the whole walk where the words never
+   reach the bound: a 2 MB tag is read again from its "<" with each
+   longer piece, and the characters come one at a time. Reply and
+   Forward now read the markup only through `Message.quoted`, which
+   passes the bound on, and say how much they read (`read`), for a
+   test.
 4. *Every letter the composer opens on is bounded* (`ComposeForm.largestBody`,
-   128 KiB, `ComposeForm.bounded`), in `ComposeViewController.init`, which
+   128 KiB, and `largestLines`, 4,000 lines, the ending's two among them,
+   `ComposeForm.bounded`), in `ComposeViewController.init`, which
    every sheet of the app's composer comes through: a draft reopened from
    Drafts, one written in another client or saved by a build before the
    bound, a letter kept on the iPad or waiting in the Outbox, a `mailto:`
@@ -27194,25 +27226,32 @@ his mail in this app until somebody came.
    after "> " when the last line kept is a quote's. A draft written as
    HTML alone has its words made no further than this bound
    (`Draft.reopening`); its text part, which Drafts fetches whole
-   (`loadDraft`), is cut by the composer.
+   (`loadDraft`), is cut by the composer. The lines are counted only of a
+   body whose bytes fit, so never further than 128 KiB.
 5. The comment on `loadDraft`, that a draft is fetched whole because a
    text cut short would be sent cut short, now says the composer is given
    no more than its bound all the same, and why.
+6. *Text shared from another app is bounded too* (`ShareLetter.draft`,
+   by `ComposeForm.bounded(body:)`), his signature under what is kept:
+   the share sheet's body is the same kind of text view, as tall as its
+   words. As first built, it went in whole (Not covered then).
 
 **Not changed.** Ordinary mail: a letter whose words fit is quoted word
 for word, its markup carried, its pictures where it showed them, as since
 B-050. The 4 MB ceiling on the markup a quote carries. The composer's
 layout, its body as tall as its words, scrolled with the fields (B-069).
 The reading pane, which shows the letter as before. What is fetched: a
-reply fetches nothing more. The share sheet's composer (Not covered).
+reply fetches nothing more.
 
 **What he sees.** Reply to a letter of more words than fit: the sheet up
 at once, as for any letter, the caret above his signature; at the end of
 the quote, after about 11,000 words, "Only the beginning of this message
 is shown." under a blank line. The letter he sends ends its quote the
 same way, the line grey in the HTML, and quotes the words as words,
-without the sender's colours or pictures. Forward the same, without the
-"> ". Any other letter: as before.
+without the sender's colours or pictures. A letter of short lines stops
+after 2,000 of them, however few words that is. Forward the same,
+without the "> "; answered Don't Include, it carries no pictures. Any
+other letter: as before.
 
 **Tests.** `QuoteThatFitsTests`, twelve, new. The round's letter, HTML of
 28,000 paragraphs cut at 2 MiB, more than 1.7 MB of words: the reply's
@@ -27243,6 +27282,30 @@ Forward make their drafts in the model, and the model reads markup whole
 only for `quotableText`. `ReplyFilesWiringTests` pins the initializer's
 new line where it pinned the old.
 
+Since the review, seven more, nineteen in all. Short lines: a plain
+letter of 30,000 numbers quoted to "> 02000" and the line, 2,002 lines,
+under a third of the bytes; an HTML letter of 60,000 one-letter
+paragraphs; a forward of 60,000 lines of "a"; the composer taking each
+as it is. The composer's own lines: 4,000 taken as they are, 4,001 cut
+at a whole line to 4,000 with the ending, 50,000 lines of a quote ended
+after "> ", a `mailto:` link of 50,000 numbers cut so, and the check's
+two links, 6,000 numbers ending at 3998 and 2,000 long lines of some 180
+KB ending at line 1472. Reply and Forward of the round's letter reading
+at most four times the bound of its markup, a quarter of it and less,
+the drafts ending with what `quoted` made. A cut forward answered Don't Include carrying no rows,
+Include both, a forward that fits its body's picture. Text shared: a
+megabyte bounded with the line and his signature under it, 60,000 short
+lines bounded, a short one as it was. The pieces walked on, at every
+limit from 1 to past the words of forty copies of a short page with a
+style sheet, comments, a quoted `>`, a table, a conditional comment and
+a flag: the whole's text as far as it goes, all of it once the words do
+not pass; a 2 MB `data:` picture read once to its end. And, read, the one walk for all the pieces and the
+scan starting where it stopped. In the cut's test, flags, a family
+joined by zero-width joiners and a letter with its accent after it, and
+the lines bound; in the composer's, read, Reply and Forward quoting
+through `quoted`, its bound in bytes and in lines, and the limit asked
+for there and for a draft written as HTML alone, nowhere else.
+
 Each part undone by hand, `QuoteThatFitsTests`, `ReplyFilesWiringTests`
 and `RichQuoteTests` run, then put back and passing, counted as failures
 in tests: the markup read whole, 4 in 2; the walk not stopping at the
@@ -27250,36 +27313,53 @@ bound, 9 in 3; the quote not cut, 16 in 4; the "> " not counted, 2 in 2; a
 cut quote carrying the markup, 5 in 2; a cut quote not shortened, 1 in 1;
 the cut never at a line's end, 8 in 3; the composer's bound giving the
 body back, 7 in 2; the composer not bounding, 2 in 2; an HTML draft's
-words made whole, 3 in 1. 57 in all.
+words made whole, 3 in 1. 57 in all, as first built. Since the review,
+`QuoteThatFitsTests`, `ReplyFilesTests`, `RichQuoteTests`,
+`ShareLetterTests`, `HTMLTextTests`, `MailtoLinkTests` and
+`PreviewTextTests` run: the quote without its lines bound, 11 in 2; the
+cut not counting lines, 21 in 4; the composer without its lines bound,
+8 in 2; the cut back to a scalar's start, 6 in 1; Reply and Forward
+reading the markup whole, 6 in 2, where as first built nothing failed;
+a cut forward's Don't Include carrying its pictures, 1 in 1; text shared
+not bounded, 4 in 1; every piece walked again from the start, 1 in 1, the
+text being the same; a piece's walk started at the start with the text
+kept, 648 in 2; the element skipped not carried from piece to piece, 58
+in 3. 764 in all.
 
-The full suite, serially: 2,577 tests, 12 of them new, 6 skipped, none
-failing. The release build for the iPad links.
+The full suite, serially: 2,577 tests as first built, 12 of them new;
+since the review 2,596, seven more here and B-141's five; 6 skipped,
+none failing. The release build for the iPad links.
 
 **Not covered.**
 
 - Not seen on the iPad (TODO, B-140's check). The freeze itself is
   UIKit's and was not made on the host; the composer's side is read from
   its source.
-- The two bounds are chosen, not measured on the iPad: 64 KiB is the size
-  the second run proposed, 128 KiB Print's own limit for a plain letter.
-  That 128 KiB in this text view comes up at once on the test iPad is for
-  the check, which times the sheet with a quote at the bound; a draft
-  over it, which the check cannot make under its rules, is held by the
-  host tests alone.
+- The bounds are chosen, not measured on the iPad: 64 KiB is the size the
+  second run proposed, 128 KiB Print's own limit for a plain letter, and
+  2,000 and 4,000 lines about what those bytes come to in a letter of
+  paragraphs. That the composer comes up at once with each is for the
+  check: a reply's quote at 64 KiB of paragraphs (1,770 lines) and at
+  2,000 short lines, and the composer itself opened by two `mailto:`
+  links of a letter he is sent, one of 6,000 numbers cut to 4,000 lines,
+  one of some 180 KB of long lines cut at 128 KiB. As first written, this
+  said the check timed a body at 128 KiB and could not make one over it
+  under its rules: its largest body was some 66 KB, and a link in a
+  letter he is sent opens the composer on a larger one. Whether
+  the work grows with lines, bytes or the height laid out is not known;
+  both are bounded. Lines are counted at their line ends: a paragraph of
+  64 KiB with none is one line here and some 900 as the view wraps it.
 - A paste is not bounded. Nothing he types comes near it: 128 KiB is
   about sixty pages. But a long letter's words selected and copied, in
   the pane or another app, and pasted into the body, go whole into the
   same view, and a paste of a megabyte could freeze it the same way.
   Refusing a paste, or cutting it, is not what Mail does, and would need
   words of its own to say so; left for the owner.
-- The share sheet's composer is the same kind of view, and text shared
-  from another app goes into it whole. Not bounded here.
 - A long newsletter forwarded past the bound goes as its words, without
   its look, and without its end. Mail may send it whole (above).
-- A forward of such a letter answered Don't Include still carries, as
-  rows, the pictures its body showed, which its quote's words no longer
-  show: they go as files, as when he changes the quote. He sees them and
-  can take them off.
+- A `mailto:` link's body past the composer's bound loses his signature
+  with its end: the signature is put under the link's body, and the
+  composer cuts the whole. Such a link is not in ordinary mail.
 - What the composer cuts off a reopened draft is not kept: sent, or saved
   over the draft, the letter is what the composer showed. Closed
   untouched, the copy in Drafts keeps all of it.

@@ -249,6 +249,15 @@ enum ComposeForm {
     /// Outbox, a `mailto:` link's body.
     static let largestBody = 128 << 10
 
+    /// The most lines of any letter the composer is given, under
+    /// `largestBody` too: 4,000, twice a quote's (`QuotedOriginal.
+    /// largestLines`), so a reply or a forward made here comes under it
+    /// whole. The text view does some work for every line whatever its
+    /// length, and 128 KiB of one-letter lines is some 65,000 of them,
+    /// more than the 55,000 that froze the app. Chosen, not measured
+    /// (B-140's check times the composer at each bound).
+    static let largestLines = 4_000
+
     /// `draft` as the composer opens on it: its body bounded
     /// (`bounded(body:)`), all else as it is. A quote it carries no longer
     /// ends the body once the body is cut, so the letter's HTML is made
@@ -259,9 +268,9 @@ enum ComposeForm {
         return bounded
     }
 
-    /// `body` whole when it fits in `largestBody`; else the whole lines of
-    /// it that fit (`QuotedOriginal.cut`), and under them a blank line and
-    /// "Only the beginning of this message is shown."
+    /// `body` whole when it fits in `largestBody` and `largestLines`; else
+    /// the whole lines of it that fit (`QuotedOriginal.cut`), and under
+    /// them a blank line and "Only the beginning of this message is shown."
     /// (`QuotedOriginal.shortenedEnding`), both after "> " when the last
     /// line kept is a quote's, as a reply's quote of a letter shown in part
     /// ends. `more` when `body` is itself only the beginning of the
@@ -274,11 +283,17 @@ enum ComposeForm {
     /// Drafts keeps all of it. A body cut here is nearly always a quote's
     /// end: his own words would have to run to sixty pages first.
     static func bounded(body: String, more: Bool = false) -> String {
-        guard more || body.utf8.count > largestBody else { return body }
+        // Lines counted only of a body whose bytes fit, so no further
+        // than `largestBody`.
+        if !more, body.utf8.count <= largestBody,
+           body.utf8.lazy.filter({ $0 == 0x0A }).count < largestLines {
+            return body
+        }
         let ending = QuotedOriginal.shortenedEnding
-        // Room for the ending, and for the two "> " it can be given.
+        // Room for the ending, and for the two "> " it can be given; its
+        // two lines among the most.
         let room = largestBody - ending.utf8.count - 4
-        let kept = QuotedOriginal.cut(body, within: room, more: more) ?? body
+        let kept = QuotedOriginal.cut(body, within: room, lines: largestLines - 2, more: more) ?? body
         let bytes = kept.utf8
         let lastLine = bytes.lastIndex(of: 0x0A).map { bytes.index(after: $0) } ?? bytes.startIndex
         let quoted = bytes[lastLine...].first == UInt8(ascii: ">")

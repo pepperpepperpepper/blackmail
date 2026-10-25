@@ -32,14 +32,15 @@ final class QuoteThatFitsTests: XCTestCase {
 
     /// The fixture's shape: an HTML part of paragraphs over 2 MB, cut at
     /// the 2 MiB the pane fetches (`<0.2097152>`), shown only in part.
-    private func longLetter(paragraphs: Int = 28_000, shortened: Bool = true) -> Message {
-        let whole = "<html><body>" + (1...paragraphs).map { "<p>\(paragraph($0))</p>\n" }.joined()
-            + "</body></html>"
+    private func longLetter(paragraphs: Int = 28_000, shortened: Bool = true, html: String? = nil,
+                            attachments: [Attachment] = []) -> Message {
+        let whole = html ?? "<html><body>"
+            + (1...paragraphs).map { "<p>\(paragraph($0))</p>\n" }.joined() + "</body></html>"
         let fetched = shortened ? String(decoding: whole.utf8.prefix(2 << 20), as: UTF8.self) : whole
         var m = Message(id: "600001/77", mailboxID: "INBOX",
                         sender: "Jane Example <jane@example.com>", senderAddress: "jane@example.com",
                         to: ["sam@example.com"], cc: [], subject: "The long letter", date: when,
-                        textBody: nil, htmlBody: fetched, attachments: [],
+                        textBody: nil, htmlBody: fetched, attachments: attachments,
                         messageID: "<long-1@example.com>")
         m.isShortened = shortened
         return m
@@ -207,9 +208,11 @@ final class QuoteThatFitsTests: XCTestCase {
 
     /// Where a quote is cut: at the end of the last line that fits, its
     /// "> " counted; a paragraph too long for that at its last space, or
-    /// at its last whole character, never through one; white space left at
-    /// the end taken off; and a text that was itself only the beginning
-    /// loses its last line even when it fits.
+    /// at its last whole character, never through one, a flag, a family
+    /// joined by zero-width joiners or a letter and its accent included;
+    /// no more than `lines` lines; white space left at the end taken off;
+    /// and a text that was itself only the beginning loses its last line
+    /// even when it fits.
     func testTheCutIsAtALinesEnd() {
         XCTAssertNil(QuotedOriginal.cut("one\ntwo", within: 7))
         XCTAssertEqual(QuotedOriginal.cut("one\ntwo\nthree", within: 9), "one\ntwo")
@@ -224,6 +227,29 @@ final class QuoteThatFitsTests: XCTestCase {
         XCTAssertEqual(QuotedOriginal.cut("abcdefghij", within: 4), "abcd")
         XCTAssertEqual(QuotedOriginal.cut("ééééé", within: 5), "éé")
         XCTAssertEqual(QuotedOriginal.cut("👍👍", within: 7), "👍")
+        // A whole character as Swift has it, and as the text view draws
+        // it: not half a flag, nor a family without its last member and a
+        // joiner left hanging, nor a letter without the accent after it.
+        let flags = "🇺🇸🇺🇸🇺🇸"
+        XCTAssertEqual(QuotedOriginal.cut(flags, within: 6), "")
+        XCTAssertEqual(QuotedOriginal.cut(flags, within: 12), "🇺🇸")
+        XCTAssertEqual(QuotedOriginal.cut(flags, within: 16), "🇺🇸🇺🇸")
+        let family = "👨\u{200D}👩\u{200D}👧"
+        XCTAssertEqual(family.utf8.count, 18)
+        XCTAssertEqual(QuotedOriginal.cut(family + family, within: 25), family)
+        XCTAssertEqual(QuotedOriginal.cut(family + family, within: 17), "")
+        let accent = "e\u{0301}"
+        XCTAssertEqual(QuotedOriginal.cut(accent + accent + accent, within: 4), accent)
+        XCTAssertEqual(QuotedOriginal.cut(accent + accent + accent, within: 5), accent)
+        XCTAssertEqual(QuotedOriginal.cut(accent + accent + accent, within: 6), accent + accent)
+        // No more than `lines` lines, at a line's end, however few bytes.
+        XCTAssertEqual(QuotedOriginal.cut("a\nb\nc", within: 100, lines: 2), "a\nb")
+        XCTAssertNil(QuotedOriginal.cut("a\nb", within: 100, lines: 2))
+        XCTAssertEqual(QuotedOriginal.cut("a\nb\nc", within: 100, lines: 1), "a")
+        XCTAssertEqual(QuotedOriginal.cut("a\n\n\nb", within: 100, lines: 3), "a")
+        XCTAssertEqual(QuotedOriginal.cut("one\ntwo\nthree", within: 9, lines: 3), "one\ntwo",
+                       "the bytes first, when they are fewer")
+        XCTAssertEqual(QuotedOriginal.cut("one\ntwo\nthr", within: 100, lines: 2, more: true), "one\ntwo")
         // Only the beginning: its last line goes even when it fits.
         XCTAssertEqual(QuotedOriginal.cut("one\ntwo\nthr", within: 100, more: true), "one\ntwo")
         XCTAssertEqual(QuotedOriginal.cut("one", within: 100, more: true), "one")
@@ -247,6 +273,210 @@ final class QuoteThatFitsTests: XCTestCase {
         XCTAssertTrue(found.text.hasPrefix(paragraph(1)), String(found.text.prefix(100)))
         XCTAssertEqual(found.read, 500 * 4 * 4 * 4, "three pieces, each four times the last")
         XCTAssertLessThan(found.read, styled.count)
+    }
+
+    // MARK: - Short lines
+
+    private func lineCount(_ text: String) -> Int {
+        text.utf8.lazy.filter { $0 == 0x0A }.count + 1
+    }
+
+    /// A letter of short lines, far more of them in 64 KiB than of the
+    /// round's paragraphs: its quote stops at `largestLines` lines, at a
+    /// whole line, and says so once, after "> " in a reply. A plain letter
+    /// of 30,000 numbers, an HTML one of 60,000 one-letter paragraphs, and
+    /// a forward of 60,000 lines of "a". The composer takes each as it is.
+    func testALetterOfShortLinesIsQuotedNoMoreThanTheLinesBound() throws {
+        let numbers = (1...30_000).map { String(format: "%05d", $0) }.joined(separator: "\n")
+        let m = plainLetter(numbers)
+        let draft = reply(m)
+        let quote = try XCTUnwrap(draft.body.range(of: "> 00001\n"))
+        let quoted = String(draft.body[quote.lowerBound...])
+        XCTAssertEqual(lineCount(quoted), QuotedOriginal.largestLines + 2, String(quoted.suffix(80)))
+        XCTAssertTrue(quoted.hasSuffix("> 02000\n> \n> " + notice), String(quoted.suffix(80)))
+        XCTAssertFalse(quoted.contains("02001"))
+        XCTAssertLessThan(quoted.utf8.count, QuotedOriginal.largestWords / 3, "the lines, not the bytes")
+        XCTAssertTrue(try XCTUnwrap(draft.quote).isShortened)
+        XCTAssertEqual(ComposeForm.bounded(draft).body, draft.body)
+        XCTAssertLessThan(lineCount(draft.body), ComposeForm.largestLines)
+
+        let paragraphs = "<html><body>" + String(repeating: "<p>a</p>", count: 60_000) + "</body></html>"
+        let fromHTML = reply(longLetter(shortened: false, html: paragraphs))
+        XCTAssertLessThanOrEqual(lineCount(fromHTML.body), lineCount(draft.body))
+        XCTAssertTrue(fromHTML.body.hasSuffix("> a\n> \n> " + notice), String(fromHTML.body.suffix(80)))
+        XCTAssertEqual(occurrences(of: notice, in: fromHTML.body), 1)
+        XCTAssertEqual(ComposeForm.bounded(fromHTML).body, fromHTML.body)
+
+        let forward = Draft.forwarding(plainLetter(String(repeating: "a\n", count: 60_000)),
+                                       signature: signature)
+        let header = try XCTUnwrap(forward.body.range(of: "Subject: The long letter\n\n"))
+        let words = String(forward.body[header.upperBound...])
+        XCTAssertEqual(lineCount(words), QuotedOriginal.largestLines + 2)
+        XCTAssertTrue(words.hasSuffix("a\n\n" + notice))
+        XCTAssertEqual(ComposeForm.bounded(forward).body, forward.body)
+    }
+
+    /// The composer's own bound on lines: a body of more than
+    /// `largestLines` short lines, far under `largestBody`, a draft or a
+    /// `mailto:` link's, is cut at a whole line to `largestLines` with the
+    /// ending; one of exactly `largestLines` lines opens as it is.
+    func testTheComposerTakesNoMoreThanItsLines() throws {
+        let most = ComposeForm.largestLines
+        let exactly = (1...most).map { String(format: "%05d", $0) }.joined(separator: "\n")
+        XCTAssertEqual(ComposeForm.bounded(body: exactly), exactly)
+        let over = exactly + "\n" + String(format: "%05d", most + 1)
+        let cut = ComposeForm.bounded(body: over)
+        XCTAssertEqual(lineCount(cut), most)
+        XCTAssertTrue(cut.hasSuffix("\n" + String(format: "%05d", most - 2) + "\n\n" + notice),
+                      String(cut.suffix(80)))
+        let quoted = ComposeForm.bounded(body: (1...50_000).map { "> \($0)" }.joined(separator: "\n"))
+        XCTAssertEqual(lineCount(quoted), most)
+        XCTAssertTrue(quoted.hasSuffix("> \(most - 2)\n> \n> " + notice), String(quoted.suffix(80)))
+
+        let link = try XCTUnwrap(URL(string: "mailto:jane@example.com?body="
+            + (1...50_000).map(String.init).joined(separator: "%0D%0A")))
+        let draft = try XCTUnwrap(MailtoLink.draft(from: link, signature: signature))
+        XCTAssertGreaterThan(lineCount(draft.body), 50_000)
+        let opened = ComposeForm.bounded(draft)
+        XCTAssertEqual(lineCount(opened.body), most)
+        XCTAssertTrue(opened.body.hasPrefix("1\n2\n3\n"))
+        XCTAssertTrue(opened.body.hasSuffix("\n\(most - 2)\n\n" + notice), String(opened.body.suffix(80)))
+
+        // B-140's check: a link of 6,000 numbers stops at 3998, and one of
+        // 2,000 long lines, some 180 KB, at the bytes, after line 1472.
+        let numbers = try XCTUnwrap(URL(string: "mailto:nobody@example.com?subject=B-140%20lines&body="
+            + (1...6_000).map(String.init).joined(separator: "%0D%0A")))
+        let six = ComposeForm.bounded(try XCTUnwrap(MailtoLink.draft(from: numbers, signature: signature)))
+        XCTAssertTrue(six.body.hasSuffix("\n3997\n3998\n\n" + notice))
+        let long = (1...2_000).map {
+            "Line \(String(format: "%04d", $0)) of the long link, written to fill the composer "
+                + "to its bound and a little more."
+        }
+        let words = try XCTUnwrap(URL(string: "mailto:nobody@example.com?subject=B-140%20long&body="
+            + long.map { $0.replacingOccurrences(of: " ", with: "%20") }.joined(separator: "%0D%0A")))
+        let draft2 = try XCTUnwrap(MailtoLink.draft(from: words, signature: signature))
+        XCTAssertGreaterThan(draft2.body.utf8.count, 170_000)
+        let bounded = ComposeForm.bounded(draft2).body
+        XCTAssertLessThanOrEqual(bounded.utf8.count, ComposeForm.largestBody)
+        XCTAssertTrue(bounded.hasSuffix(long[1_471] + "\n\n" + notice), String(bounded.suffix(160)))
+    }
+
+    // MARK: - What Reply and Forward read
+
+    /// Reply, Reply All and Forward of the round's letter read no more of
+    /// its markup than the words they keep need, a quarter of it and
+    /// less, through `Message.quoted`, which the drafts are made from (the
+    /// composer, read, below). A text part reads no markup. As first
+    /// built, `quoted` asking for the markup whole failed nothing: the cut
+    /// made the same quote of it.
+    func testReplyAndForwardReadNoMoreOfTheMarkupThanTheyKeep() throws {
+        let m = longLetter()
+        let markup = try XCTUnwrap(m.htmlBody).count
+        for prefix in ["> ", ""] {
+            let quoted = m.quoted(eachLineAfter: prefix)
+            XCTAssertTrue(quoted.isCut)
+            XCTAssertLessThanOrEqual(quoted.read, 4 * QuotedOriginal.largestWords, prefix)
+            XCTAssertLessThan(quoted.read, markup / 4, prefix)
+        }
+        XCTAssertEqual(plainLetter("Lunch?").quoted().read, 0)
+        // The drafts quote what `quoted` makes, word for word.
+        XCTAssertTrue(reply(m).body.hasSuffix(m.quoted(eachLineAfter: "> ").text))
+        XCTAssertTrue(Draft.forwarding(m, signature: signature).body.hasSuffix(m.quoted().text))
+    }
+
+    // MARK: - A forward's rows
+
+    /// A forward whose quote is cut, answered Don't Include, carries no
+    /// rows: the pictures it would carry are those its quote shows, and the
+    /// cut quote, words alone, shows none, so they would have gone as
+    /// files. Include carries every part, as always; a letter whose words
+    /// fit still carries its body's pictures with Don't Include.
+    func testDontIncludeOnACutForwardCarriesNoPictures() throws {
+        let photo = Attachment(id: "2", filename: "garden.jpg", mimeType: "image/jpeg", size: 1_200,
+                               contentID: "garden", isInline: true)
+        let pdf = Attachment(id: "3", filename: "Programme.pdf", mimeType: "application/pdf", size: 22)
+        let long = longLetter(attachments: [photo, pdf])
+        XCTAssertEqual(Draft.forwarding(long, includingFiles: false).attachments, [])
+        XCTAssertEqual(Draft.forwarding(long, includingFiles: true).attachments.map(\.filename),
+                       ["garden.jpg", "Programme.pdf"])
+        let short = longLetter(paragraphs: 3, shortened: false, attachments: [photo, pdf])
+        XCTAssertEqual(Draft.forwarding(short, includingFiles: false).attachments.map(\.filename),
+                       ["garden.jpg"])
+    }
+
+    // MARK: - The share sheet
+
+    /// Text shared from another app goes into the share sheet's own text
+    /// view, as tall as its words, bounded as the composer's is: a
+    /// megabyte of it comes to no more than `largestBody` and
+    /// `largestLines` with the ending, his signature under it. A short one
+    /// as it was.
+    func testTextSharedIsBoundedAsTheComposersIs() {
+        let huge = (1...26_000).map(paragraph).joined(separator: "\n")
+        let block = Draft.signatureBlock(signature)
+        let draft = ShareLetter.draft(from: [.text(huge)], signature: signature)
+        XCTAssertTrue(draft.body.hasSuffix(".\n\n" + notice + block), String(draft.body.suffix(200)))
+        XCTAssertLessThanOrEqual(draft.body.utf8.count, ComposeForm.largestBody + block.utf8.count)
+        XCTAssertEqual(occurrences(of: notice, in: draft.body), 1)
+        let lines = ShareLetter.draft(from: [.text(String(repeating: "a\n", count: 60_000) + "z")],
+                                      signature: signature)
+        XCTAssertLessThanOrEqual(lineCount(lines.body), ComposeForm.largestLines + lineCount(block))
+        let short = ShareLetter.draft(from: [.text("Have a look at this.")], signature: signature)
+        XCTAssertEqual(short.body, "Have a look at this." + block)
+    }
+
+    // MARK: - The markup read on from piece to piece
+
+    /// Each piece of the markup is walked on from where the last stopped,
+    /// a tag, a comment, a quoted `>` or a style sheet across its end
+    /// included: at every limit, what is made is the whole's text as far
+    /// as it goes, and all of it once the words do not pass the limit.
+    /// Markup with few words is read once, to its end.
+    func testThePiecesAreWalkedOnNotAgain() {
+        let piece = "<div class=\"a\"><style>p { x: 1 }</style><!-- a > b --><p title=\"x > y\">"
+            + "Hello &amp; <b>wel</b>come</p><table><tr><td>one</td><td>two</td></tr></table>"
+            + "<!--[if mso]><p>no</p><![endif]--><br>caf\u{00E9} e\u{0301} 🇺🇸</div>\n"
+        let html = String(repeating: piece, count: 40)
+        let whole = HTMLText.plainText(from: html)
+        let words = whole.unicodeScalars.filter { !$0.properties.isWhitespace }.count
+        for limit in 1...words + 5 {
+            let made = HTMLText.plainText(from: html, limit: limit)
+            if made.isCut {
+                let lastBreak = made.text.lastIndex(of: "\n") ?? made.text.startIndex
+                XCTAssertTrue(whole.hasPrefix(String(made.text[..<lastBreak])), "limit \(limit)")
+            } else {
+                XCTAssertEqual(made.text, whole, "limit \(limit)")
+                XCTAssertEqual(made.read, html.count)
+            }
+        }
+        // A picture written into the letter, 2 MB of it, and a few words.
+        let picture = "<p>Hello, here is the photo.</p><img src=\"data:image/png;base64,"
+            + String(repeating: "QUJDRA==", count: 250_000) + "\"><p>Love, Jane</p>"
+        let made = HTMLText.plainText(from: picture, limit: QuotedOriginal.largestWords)
+        XCTAssertFalse(made.isCut)
+        XCTAssertEqual(made.text, HTMLText.plainText(from: picture))
+        XCTAssertEqual(made.read, picture.count)
+    }
+
+    /// Read: one walk for all the pieces, made before the first and gone
+    /// on with by each (`walk`), and the scan starting where it stopped,
+    /// not at the start; each piece read on from the last, not from the
+    /// start of the markup. As first built, every piece was read and
+    /// walked again from the start, the same text made, three times the
+    /// work for a letter of markup and few words.
+    func testEachPieceIsWalkedOnFromTheLast() throws {
+        let code = try source("MIME/HTMLText.swift")
+        let limited = try XCTUnwrap(code.range(of: "static func plainText(from html: String, limit: Int)"))
+        let body = String(code[limited.upperBound...].prefix(1_200))
+        XCTAssertTrue(body.contains(
+            "var rest = html.makeIterator() var chars: [Character] = [] var walk = Walk() "
+                + "var take = max(limit, 1) * 4 while true {"), body)
+        XCTAssertTrue(body.contains("while chars.count < take { guard let c = rest.next() else {"), body)
+        XCTAssertTrue(body.contains("scan(chars, limit: limit, walk: &walk)"), body)
+        XCTAssertEqual(code.components(separatedBy: "Walk()").count - 1, 2, "here and for the whole")
+        XCTAssertTrue(code.contains("var out = walk.out var skipping = walk.skipping var i = walk.at "
+                                    + "var words = walk.words"))
+        XCTAssertFalse(code.contains("Array(html[..<"))
     }
 
     // MARK: - Every other letter the composer opens on
@@ -296,13 +526,14 @@ final class QuoteThatFitsTests: XCTestCase {
         XCTAssertEqual(ComposeForm.bounded(reopened).body, reopened.body)
     }
 
-    /// A letter under the bound, the reply of every day and a long one he
+    /// A letter under the bounds, the reply of every day and a long one he
     /// wrote, opens as it is.
     func testALetterUnderTheBoundOpensAsItIs() {
         let everyDay = reply(plainLetter("Lunch on Sunday?\n\nJane"))
         XCTAssertEqual(ComposeForm.bounded(everyDay).body, everyDay.body)
-        let long = String(repeating: "A line he wrote, and another.\n", count: 4_000)
+        let long = String(repeating: "A line he wrote, and another, and a third one.\n", count: 2_500)
         XCTAssertLessThan(long.utf8.count, ComposeForm.largestBody)
+        XCTAssertGreaterThan(long.utf8.count, ComposeForm.largestBody * 8 / 10)
         XCTAssertEqual(ComposeForm.bounded(body: long), long)
     }
 
@@ -360,6 +591,19 @@ final class QuoteThatFitsTests: XCTestCase {
         XCTAssertEqual(model.components(separatedBy: "HTMLText.plainText(from: htmlBody)").count - 1, 1,
                        "read whole only for `quotableText` itself")
         XCTAssertFalse(model.contains("quotedWords"))
+        // Reply and Forward quote through `quoted`, which reads the markup
+        // no further than the words that fit, and bounds them in bytes and
+        // in lines; nothing else asks for all of it.
+        XCTAssertTrue(model.contains("let quoted = m.quoted(eachLineAfter: \"> \")"))
+        XCTAssertTrue(model.contains("let quoted = m.quoted() region += "))
+        XCTAssertTrue(model.contains(
+            "let limit = QuotedOriginal.largestWords let made = quotableText(within: limit) "
+                + "let cut = QuotedOriginal.cut(made.text, within: limit, lines: QuotedOriginal.largestLines, "
+                + "prefix: prefix.utf8.count, more: made.isCut)"))
+        XCTAssertEqual(model.components(separatedBy: "quotableText(within: ").count - 1, 2,
+                       "`quoted`, and a draft written as HTML alone")
+        XCTAssertTrue(model.contains("m.quotableText(within: ComposeForm.largestBody)"))
+        XCTAssertEqual(model.components(separatedBy: ".quoted(").count - 1, 2)
     }
 
     // MARK: - Helpers

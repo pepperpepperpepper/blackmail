@@ -52,7 +52,9 @@ enum HTMLText {
     /// at all, which is honest and no worse than the blank we would otherwise
     /// have shown.
     static func plainText(from html: String) -> String {
-        tidyLines(decodingEntities(scan(Array(html), limit: nil).out))
+        var walk = Walk()
+        scan(Array(html), limit: nil, walk: &walk)
+        return tidyLines(decodingEntities(walk.out))
     }
 
     /// `plainText(from:)` made from no more of `html` than it takes to
@@ -67,23 +69,38 @@ enum HTMLText {
     /// again while that was not enough, and the walk stops as the words
     /// pass `limit`.
     ///
+    /// Each piece is walked on from where the last one stopped (`Walk`),
+    /// not from the start: as first built each was read again from the
+    /// beginning, so markup with few words, a picture written into the
+    /// letter as `data:` or a newsletter of tables and styles, was walked
+    /// some three times over, about three times as long as read whole. Now
+    /// such a letter is walked once, as `plainText(from:)` walks it.
+    ///
     /// `isCut` is true when it stopped there, with more of the markup
     /// unread: the text then ends wherever the words passed `limit`,
     /// mid-line as often as not. `read` is how many characters of `html`
-    /// the last walk was given, for a test.
+    /// were read, for a test.
     static func plainText(from html: String, limit: Int) -> (text: String, isCut: Bool, read: Int) {
+        var rest = html.makeIterator()
+        var chars: [Character] = []
+        var walk = Walk()
         var take = max(limit, 1) * 4
         while true {
-            let end = html.index(html.startIndex, offsetBy: take, limitedBy: html.endIndex)
-                ?? html.endIndex
-            let chars = Array(html[..<end])
-            let made = scan(chars, limit: limit)
+            var ended = false
+            while chars.count < take {
+                guard let c = rest.next() else {
+                    ended = true
+                    break
+                }
+                chars.append(c)
+            }
+            scan(chars, limit: limit, walk: &walk)
             // Enough words, or the whole of it read: either way, done. A
-            // piece that ended inside a tag or a comment stops the walk
-            // there, as the end of a fetch does, which is why a piece that
-            // was not enough is not used and a longer one is read instead.
-            if made.stopped || end == html.endIndex {
-                return (tidyLines(decodingEntities(made.out)), made.stopped, chars.count)
+            // piece that ended inside a tag or a comment stops the walk at
+            // its "<", as the end of a fetch does, and the next piece goes
+            // on from there, so the tag is read whole or not at all.
+            if walk.stopped || ended {
+                return (tidyLines(decodingEntities(walk.out)), walk.stopped, chars.count)
             }
             take *= 4
         }
@@ -91,17 +108,43 @@ enum HTMLText {
 
     // MARK: - The scan
 
-    /// The text of `chars`, its markup taken out. With a `limit`, it stops
+    /// How far a scan has got, so that it can go on over a longer piece
+    /// of the same markup: the text so far, the element it is skipping,
+    /// where it stopped, the characters of words it has, and whether those
+    /// passed its limit.
+    private struct Walk {
+        var out = ""
+        var skipping: String?
+        var at = 0
+        var words = 0
+        var stopped = false
+    }
+
+    /// The text of `chars` from `walk.at` on, its markup taken out, added
+    /// to `walk.out`. Stops at the end of `chars`, or at a tag or comment
+    /// it ends inside, `walk.at` left at its "<". With a `limit`, it stops
     /// once the characters of words in it, white space not counted, are
-    /// more than `limit`, and says so (`stopped`).
-    private static func scan(_ chars: [Character], limit: Int?) -> (out: String, stopped: Bool) {
+    /// more than `limit`, and says so (`walk.stopped`).
+    ///
+    /// Given `chars` longer by more of the same markup, it goes on as if it
+    /// had been given all of it at first: every tag and comment before
+    /// `walk.at` ended within the shorter piece, where the longer one ends
+    /// it too, since each is read from its "<" up to the first end it has.
+    private static func scan(_ chars: [Character], limit: Int?, walk: inout Walk) {
         let commentOpen = Array("<!--")
         let commentClose = Array("-->")
 
-        var out = ""
-        var skipping: String?
-        var i = 0
-        var words = 0
+        var out = walk.out
+        var skipping = walk.skipping
+        var i = walk.at
+        var words = walk.words
+        defer {
+            walk.out = out
+            walk.skipping = skipping
+            walk.at = i
+            walk.words = words
+        }
+        walk.out = ""
 
         while i < chars.count {
             guard chars[i] == "<" else {
@@ -109,7 +152,11 @@ enum HTMLText {
                     out.append(chars[i])
                     if let limit, !chars[i].isWhitespace {
                         words += 1
-                        if words > limit { return (out, true) }
+                        if words > limit {
+                            walk.stopped = true
+                            i += 1
+                            return
+                        }
                     }
                 }
                 i += 1
@@ -118,7 +165,8 @@ enum HTMLText {
 
             if matches(chars, at: i, commentOpen) {
                 // A conditional comment can hold a whole second stylesheet, so
-                // its contents go whole. An unterminated one is the end.
+                // its contents go whole. An unterminated one is the end, of
+                // the markup or of the piece read so far.
                 guard let end = index(of: commentClose, in: chars, from: i + commentOpen.count) else {
                     break
                 }
@@ -126,8 +174,9 @@ enum HTMLText {
                 continue
             }
 
-            // An unterminated tag means the fragment stopped inside one, so
-            // there is no more readable text to be had.
+            // An unterminated tag means the fragment, or the piece read so
+            // far, stopped inside one, so there is no more readable text to
+            // be had from it.
             guard let close = indexOfTagEnd(chars, from: i) else { break }
             let tag = tagName(chars, open: i, close: close)
 
@@ -147,7 +196,6 @@ enum HTMLText {
             }
             i = close + 1
         }
-        return (out, false)
     }
 
     // MARK: - Entities

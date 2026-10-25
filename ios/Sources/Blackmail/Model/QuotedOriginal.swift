@@ -76,18 +76,19 @@ struct QuotedOriginal {
     /// markup turns out to show go with the letter.
     var pictures: [Picture]
     /// True when the original was shown only in part
-    /// (`Message.isShortened`): `region` ends with `shortenedEnding`, and
-    /// the HTML twin ends the quote with the same line, grey
-    /// (`AppleMailHTML.letter`). False for a quote taken back from a saved
-    /// draft, whose stored markup carries the line already, and for every
-    /// other.
+    /// (`Message.isShortened`), or its words were cut to what a quote puts
+    /// into the composer (`largestWords`, `largestLines`, B-140; `html` is
+    /// then nil): `region` ends with `shortenedEnding`, and the HTML twin
+    /// ends the quote with the same line, grey (`AppleMailHTML.letter`).
+    /// False for a quote taken back from a saved draft, whose stored markup
+    /// carries the line already, and for every other.
     var isShortened = false
 
-    /// What the quote of a letter shown only in part ends with, under the
-    /// original's words (`Message.quotedWords`): a blank line, then the
-    /// reading pane's own words for it, "Only the beginning of this message
-    /// is shown." A reply's quote marks both lines with "> ", as it marks
-    /// every line of the original.
+    /// What the quote of a letter shown only in part, or cut, ends with,
+    /// under the original's words (`Message.quoted(eachLineAfter:)`): a
+    /// blank line, then the reading pane's own words for it, "Only the
+    /// beginning of this message is shown." A reply's quote marks both
+    /// lines with "> ", as it marks every line of the original.
     static let shortenedEnding = "\n\n" + MailText.shortenedNotice
 
     /// The most of an original's words a quote puts into the composer: 64
@@ -104,6 +105,19 @@ struct QuotedOriginal {
     /// markup has its ceiling (`AppleMailHTML.largestQuotedMarkup`), its
     /// words have this one.
     static let largestWords = 64 << 10
+
+    /// The most lines of an original's words a quote puts into the
+    /// composer, under `largestWords` too: 2,000, about what the bytes
+    /// allow of a letter's paragraphs with a blank line between each, so
+    /// that a letter of short lines is not quoted ten times as many.
+    ///
+    /// The composer's text view lays out and draws every line it holds,
+    /// some work for each whatever its length: 64 KiB is 1,770 lines of
+    /// the round's letter in a reply, but some 16,000 of "> 1", and 32,000
+    /// of "a" in a forward. The 2 MiB of the letter that froze the app came
+    /// to some 55,000. Chosen, not measured, as the bytes are (B-140's
+    /// check times a quote at each).
+    static let largestLines = 2_000
 
     /// What a Reply, Reply All or Forward of `m` quotes, given the region
     /// it has just put into the body. `cut` when that region holds only
@@ -125,14 +139,18 @@ struct QuotedOriginal {
 
     /// `text` cut to the whole lines of it that fit in `limit` bytes of
     /// UTF-8, each line counted with `prefix` bytes more, the "> " a reply
-    /// gives every line of its quote, and any white space left at the end
-    /// of what is kept taken off; nil when all of it fits and nothing was
-    /// left out before it (B-140).
+    /// gives every line of its quote, and in `lines` lines, and any white
+    /// space left at the end of what is kept taken off; nil when all of it
+    /// fits and nothing was left out before it (B-140).
     ///
     /// Cut at the end of the last line that fits, so no line is broken,
     /// unless that comes to less than half the limit: a paragraph longer
     /// than that is cut at its last space that fits, or failing one at its
-    /// last whole character, rather than leaving the quote nearly empty.
+    /// last whole character, rather than leaving the quote nearly empty. A
+    /// text of more than `lines` lines is cut at the end of the last of
+    /// them, however few bytes that is. A whole character is Swift's, what
+    /// the text view draws as one: a flag, a family joined by zero-width
+    /// joiners, a letter and the accent written after it.
     ///
     /// `more` when `text` is itself only the beginning of the words, cut
     /// wherever its maker stopped (`HTMLText.plainText(from:limit:)`): its
@@ -141,23 +159,32 @@ struct QuotedOriginal {
     ///
     /// Walks no further into `text` than `limit` bytes, so a text of
     /// megabytes costs no more than one of the limit.
-    static func cut(_ text: String, within limit: Int, prefix: Int = 0,
+    static func cut(_ text: String, within limit: Int, lines: Int = .max, prefix: Int = 0,
                     more: Bool = false) -> String? {
         let utf8 = text.utf8
         var used = prefix
+        var ends = 0
         var i = utf8.startIndex
         // The last line end within the limit, and how much was used by it;
         // the last space after it, on the line it is cutting.
         var lineEnd: String.Index?
         var lineEndUsed = 0
         var space: String.Index?
+        var tooManyLines = false
         while i < utf8.endIndex {
             let byte = utf8[i]
+            // The end of the last line it may keep: the next is one too many.
+            if byte == 0x0A, ends + 1 >= lines {
+                lineEnd = i
+                tooManyLines = true
+                break
+            }
             // A line end brings the next line's prefix with it.
             let cost = byte == 0x0A ? 1 + prefix : 1
             guard used + cost <= limit else { break }
             used += cost
             if byte == 0x0A {
+                ends += 1
                 lineEnd = i
                 lineEndUsed = used
                 space = nil
@@ -168,7 +195,9 @@ struct QuotedOriginal {
         }
         guard i < utf8.endIndex || more else { return nil }
         let end: String.Index
-        if let lineEnd, lineEndUsed >= limit / 2 || space == nil {
+        if tooManyLines, let lineEnd {
+            end = lineEnd
+        } else if let lineEnd, lineEndUsed >= limit / 2 || space == nil {
             end = lineEnd
         } else if let space {
             end = space
@@ -177,16 +206,30 @@ struct QuotedOriginal {
             end = i
         } else {
             // Back to the start of the character the limit fell in, so that
-            // none is broken.
-            var j = i
-            while j > utf8.startIndex, utf8[j] & 0xC0 == 0x80 { j = utf8.index(before: j) }
-            end = j
+            // none is broken: not the scalar's start alone, which kept the
+            // first half of a flag, a family without its last member and
+            // a joiner left hanging, a letter without its accent.
+            end = characterStart(at: i, in: text)
         }
         var kept = Substring(text.utf8[..<end])
         while let last = kept.unicodeScalars.last, last.properties.isWhitespace {
             kept.unicodeScalars.removeLast()
         }
         return String(kept)
+    }
+
+    /// The start of the character of `text` that `index`, a place in its
+    /// UTF-8, falls in; `index` itself when a character starts there.
+    /// Walks the characters from the start up to it, which for a cut is no
+    /// further than the limit.
+    private static func characterStart(at index: String.Index, in text: String) -> String.Index {
+        var start = text.startIndex
+        while start < text.endIndex {
+            let next = text.index(after: start)
+            if next > index { break }
+            start = next
+        }
+        return start
     }
 
     init(kind: Kind, region: String, html: String?, pictures: [Picture],
