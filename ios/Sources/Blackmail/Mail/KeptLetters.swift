@@ -55,7 +55,8 @@ final class KeptLetters: @unchecked Sendable {
         var floor: Int64 = 512 << 20
         /// How long a reading of the free space answers for (B-136): read
         /// at the first keep of a launch, and again at the first keep after
-        /// this long, or after the clock has gone back past the reading.
+        /// this long, after the clock has gone back past the reading, or
+        /// after a write that failed.
         var freeAge: TimeInterval = 5 * 60
         /// The room above the floor a held reading must show, less every
         /// letter kept since it and the letter now, to answer for a keep
@@ -126,7 +127,8 @@ final class KeptLetters: @unchecked Sendable {
     private var full = false
     /// The last reading of the free space (B-136): what it said, nil where
     /// it could not be read, when, and the bytes of letters written since.
-    /// Read and written on the disk queue alone, by `store`.
+    /// Read and written on the disk queue alone, by `store`, which lets it
+    /// go when a write fails.
     private var reading: (free: Int64?, at: Date, since: Int64)?
 
     /// Made by the shelf over its own directory, touching nothing on disk.
@@ -268,6 +270,11 @@ final class KeptLetters: @unchecked Sendable {
             try raw.write(to: file, options: .atomic)
         } catch {
             // A disk that is full: nothing kept, and the index as it was.
+            // The reading held said there was room, and the disk says
+            // otherwise: it is let go, so the next keep reads the free
+            // space again and, if it is down to the floor, clears the
+            // letters (B-136).
+            reading = nil
             Diagnostics.log(.note, "KEPT-LETTER not-kept reason=disk")
             return
         }
@@ -275,6 +282,7 @@ final class KeptLetters: @unchecked Sendable {
             try JSONEncoder().encode(written).write(to: indexURL, options: .atomic)
         } catch {
             try? manager.removeItem(at: file)
+            reading = nil
             Diagnostics.log(.note, "KEPT-LETTER not-kept reason=disk")
             return
         }
@@ -312,8 +320,13 @@ final class KeptLetters: @unchecked Sendable {
     /// floor, as it was before every keep. A held reading answers only
     /// with a gigabyte to spare above the floor, and for five minutes at
     /// most, so for a keep to land under the floor the iPad's other apps
-    /// would have to take that gigabyte within those minutes; and a disk
-    /// they fill makes the write fail, keeping nothing, as before.
+    /// would have to take that gigabyte within those minutes, and the
+    /// letters could then go under it by no more than the store can still
+    /// grow, at most its 64 MB. A disk they fill makes the write fail,
+    /// keeping nothing, and the reading goes with it (`store`): the next
+    /// keep reads the free space and, under the floor, clears the letters,
+    /// where before the keep that met the full disk had read it first and
+    /// cleared them itself.
     private func spaceFree(before size: Int64) -> (free: Int64?, ms: UInt64?) {
         let time = now()
         if let held = reading, held.at <= time, time.timeIntervalSince(held.at) < bounds.freeAge {

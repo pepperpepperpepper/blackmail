@@ -624,6 +624,49 @@ final class KeptLettersTests: XCTestCase {
         XCTAssertEqual(letterNotes.last, "KEPT-LETTER cleared reason=space")
     }
 
+    /// A write that fails lets the reading held go, though it showed
+    /// gigabytes to spare: another app can have filled the disk since. The
+    /// next keep reads the free space, finds it under the floor and clears
+    /// the letters, as the keep that met the full disk did when every keep
+    /// read. So for the letter's file and for the index, each on a shelf
+    /// of its own.
+    func testAWriteThatFailsLetsTheReadingGoAndTheNextKeepMeetsTheFloor() throws {
+        let floor = KeptLetters.Bounds().floor
+        let manager = FileManager.default
+        for (failing, address) in [("letters", "owner@example.com"),
+                                   ("letters.json", "second@example.com")] {
+            let free = Measure(Int64(8) << 30), readings = Measure(0)
+            let clock = Measure(1_790_000_000)
+            let shelf = shelf(for: address,
+                              options: held(free: free, readings: readings, clock: clock))
+            keepNow(1, on: shelf)
+            shelf.flush()
+            XCTAssertEqual(readings.value, 1, failing)
+
+            // The disk filled by another app, and the write fails.
+            free.value = floor - 1
+            let path = shelf.directory.appendingPathComponent(failing)
+            let aside = shelf.directory.appendingPathComponent(failing + ".aside")
+            try manager.moveItem(at: path, to: aside)
+            if failing == "letters" {
+                try Data("in the way".utf8).write(to: path)
+            } else {
+                try manager.createDirectory(at: path, withIntermediateDirectories: false)
+            }
+            clock.value += 60
+            keepNow(2, on: shelf)
+            XCTAssertEqual(readings.value, 1, "\(failing): the reading held answered")
+            XCTAssertEqual(letterNotes.last, "KEPT-LETTER not-kept reason=disk", failing)
+
+            clock.value += 60
+            keepNow(3, on: shelf)
+            XCTAssertEqual(readings.value, 2, "\(failing): read again after the failed write")
+            XCTAssertEqual(letterNotes.last, "KEPT-LETTER cleared reason=space", failing)
+            XCTAssertEqual(keptNumbers(shelf), [], failing)
+            XCTAssertNil(read(1, on: shelf), failing)
+        }
+    }
+
     /// Free space that cannot be read keeps, as before, and is not asked
     /// again at every keep: held for five minutes as a reading is.
     func testFreeSpaceThatCannotBeReadIsHeldForFiveMinutesToo() {

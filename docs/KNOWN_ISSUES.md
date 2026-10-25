@@ -21329,7 +21329,8 @@ its pictures and a forward's files.
   leave less is not kept, every kept letter goes, said once, and nothing
   more is kept in that launch. *Since B-136 the free space is read at a
   launch's first keep and held for five minutes, and read again first
-  wherever a gigabyte above the floor is not to spare.*
+  wherever a gigabyte above the floor is not to spare, and after a write
+  that failed.*
 - *The check.* Every read looks up the four keys and reads the file in
   one block on the disk queue, and checks its size and CRC-32 against the
   record. Anything else drops the letter, record and file, and the
@@ -25127,16 +25128,27 @@ same queue, behind the reading as well as the write.
    by a fresh reading and clears the letters as before. A held reading is
    trusted only with a gigabyte to spare and for five minutes at most: for
    a keep to land under the floor, the iPad's other apps would have to take
-   that gigabyte within those minutes, and a letter here is at most 5 MB,
-   all of them 64 MB. A disk they fill makes the write fail, keeping
-   nothing (`reason=disk`), as before.
-3. *Unreadable* free space, nil as off iOS, keeps as before, and is held
+   that gigabyte within those minutes, and the letters could then go under
+   it by no more than the store can still grow: a letter here is at most
+   5 MB, all of them 64 MB.
+3. *A write that fails* lets the reading held go (`store`, both its
+   `reason=disk` paths, the letter's file and the index). A disk another
+   app has filled since a reading that showed gigabytes free makes the
+   write fail, keeping nothing, as before; the next keep then reads the
+   free space and, under the floor, clears the letters and keeps nothing
+   more in the launch. When every keep read, the keep that met the full
+   disk found it by its own reading and cleared the letters at once; now
+   the keep after it does, so one keep more says `not-kept reason=disk`
+   first, and the letters' up to 64 MB go back to the iPad one letter
+   opened later.
+4. *Unreadable* free space, nil as off iOS, keeps as before, and is held
    for five minutes as a reading is, rather than asked again at every keep.
-4. *The note:* `KEPT-LETTER kept bytes=<n> ms=<n>`, with ` free-ms=<n>`
+5. *The note:* `KEPT-LETTER kept bytes=<n> ms=<n>`, with ` free-ms=<n>`
    only on a keep that read the free space.
-5. *Comments and docs:* `KeptLetters`'s bounds and `keep`; B-111 here, its
-   bounds, its log and its "Not covered"; its check's step 8 in TODO;
-   PERFORMANCE.md's note on the hitch; the kept note's test's comment.
+6. *Comments and docs:* `KeptLetters`'s bounds, `keep` and `store`; B-111
+   here, its bounds, its log and its "Not covered"; its check's step 8 in
+   TODO; PERFORMANCE.md's note on the hitch; the kept note's test's
+   comment.
 
 **Not changed.** The floor and what meeting it does: every kept letter goes,
 said once, and nothing more is kept in the launch. The reading itself
@@ -25150,7 +25162,7 @@ but the first in five minutes is the reading's 44 to 58 ms shorter, so a
 page read from the main thread at that moment waits that much less. The
 time on the iPad is its check's.
 
-**Tests.** `KeptLettersTests`, four new, 30 in all. With room to spare,
+**Tests.** `KeptLettersTests`, five new, 31 in all. With room to spare,
 read at a launch's first keep and held, not read again until a keep five
 minutes after the reading, then held again, the next launch reading at
 its first keep, only a keep that read it giving `free-ms`, and a 5 MB
@@ -25159,27 +25171,37 @@ near the floor, 2,000 bytes more than a gigabyte above it holding for three
 letters of 600 and not a fourth, a letter of 3,000 reading first, every
 keep reading with no more than a gigabyte to spare, and one that would
 leave less than the floor clearing the letters; free space that cannot be
-read held for five minutes too. The floor's own test passes unchanged: its
-second keep, near the floor, reads again and clears.
+read held for five minutes too; a write that fails, of the letter's file
+or of the index, letting go a reading that showed gigabytes to spare, the
+next keep reading again, finding the disk under the floor and clearing
+the letters, each on a shelf of its own. The floor's own test passes
+unchanged: its second keep, near the floor, reads again and clears.
 
-Each part undone by hand, the class run (30 tests), then put back and
-passing, counted as failures in tests: read at every keep, as before, 13 in
-4; no age, a reading held for the launch, 5 in 2; a clock set back not
-reading again, 2 in 1; held down to the floor with no gigabyte to spare,
-7 in 1; the letters kept since the reading not counted against it, 7 in 1;
-`free-ms` on every note, 2 in 2; free space that cannot be read asked again
-at every keep, 2 in 1.
+Each part undone by hand, the class run (30 tests, and 31 for the failed
+write), then put back and passing, counted as failures in tests: read at
+every keep, as before, 13 in 4; no age, a reading held for the launch, 5
+in 2; a clock set back not reading again, 2 in 1; held down to the floor
+with no gigabyte to spare, 7 in 1; the letters kept since the reading not
+counted against it, 7 in 1; `free-ms` on every note, 2 in 2; free space
+that cannot be read asked again at every keep, 2 in 1; the reading held
+kept after a failed write, at the letter's file 3 in 1, at the index 4
+in 1.
 
-The full suite, serially: 2,489 tests, 6 skipped, none failing. The release
+The full suite, serially: 2,490 tests, 6 skipped, none failing. The release
 build for the iPad links.
 
 **Not covered.**
 
 - Not seen on the test iPad. Its check is in TODO.
 - Another app taking more than a gigabyte in the five minutes a reading is
-  held: a keep could then land under the floor, by 5 MB at most. Not
-  tried; the host has no iPad's disk, and a disk really full is tried, as
-  for B-111, through what the store is handed.
+  held, and leaving the disk short of full: the keeps could then land
+  under the floor, by as much as the store can still grow, up to its
+  64 MB, before the reading is five minutes old, and by about one letter
+  once the store is full, each keep then evicting about what it writes.
+  One that fills the disk is found by the write that fails, at the keep
+  after it (3 above). Not tried on an iPad; the host has no iPad's disk,
+  and a disk really full is tried, as for B-111, through what the store is
+  handed.
 - The five minutes are by the clock, so a clock set forward reads early and
   one set back reads again; neither keeps a letter the floor would refuse.
 - His iPad's free space is not known. With a gigabyte or less above the

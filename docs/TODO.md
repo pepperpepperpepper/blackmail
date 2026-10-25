@@ -5654,21 +5654,31 @@ checks below is left as not needed, not open, and none is worth a round.*
       days back, subjects "B-136 1" to "B-136 8"; nothing is composed or
       sent. Three panes; the app's log read after each step, its
       `KEPT-LETTER` notes written down.
-      1. *A launch's first keep.* The app ended in the app switcher and
+      1. *The free space.* Settings > General > iPad Storage: the space
+      free written down. Steps 3, 4 and 6 need more than 2 GB: with less,
+      every keep reads the free space by design (the 512 MB floor, a
+      gigabyte to spare above it, and the letters), so every kept note
+      has `free-ms`, as it should, and those steps' "none" is not to be
+      looked for.
+      2. *A launch's first keep.* The app ended in the app switcher and
       launched, the label opened, letter 1 opened: one `KEPT-LETTER kept
       bytes=… ms=… free-ms=…` note. Its ms and free-ms written down.
-      2. *Held.* Within a minute, letters 2, 3 and 4, one after another:
+      3. *Held.* Within a minute, letters 2, 3 and 4, one after another:
       their kept notes have no `free-ms`, and their ms is about 1's less
       its free-ms. Letter 4 opened while the list beside it is dragged up
       and down in a screen recording: no stop in it longer than B-111's.
-      3. *Five minutes on.* The iPad left as he leaves it for six minutes,
-      then letter 5: its note has `free-ms` again; letter 6 at once after
-      it: none.
-      4. *Opened again.* Letters 1 and 2: `KEPT-LETTER shown`, no kept
+      4. *Five minutes on.* Six minutes with the app in front, the list
+      dragged a little every minute or so, so the iPad does not lock and
+      the app stays in front, then letter 5: its note has `free-ms` again;
+      letter 6 at once after it: none. The log still has letters 1 to 4's
+      notes above letter 5's: the log is the launch's own, so a relaunch
+      between would have emptied it, and 5's `free-ms` would say nothing
+      of the five minutes.
+      5. *Opened again.* Letters 1 and 2: `KEPT-LETTER shown`, no kept
       note, as B-111.
-      5. *A relaunch.* The app ended and launched, letter 7: `free-ms`
+      6. *A relaunch.* The app ended and launched, letter 7: `free-ms`
       again; letter 8 at once after it: none.
-      6. *Put back:* the host takes the label and its eight letters away;
+      7. *Put back:* the host takes the label and its eight letters away;
       nothing was sent.
 
 ## Blocked on the owner
