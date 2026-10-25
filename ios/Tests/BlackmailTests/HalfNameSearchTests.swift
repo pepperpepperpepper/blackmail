@@ -48,13 +48,19 @@ final class HalfNameSearchTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeRepository(name: String = "") -> IMAPMailRepository {
+    /// The repository, its account named `name` and listing `others` as
+    /// his other addresses; `saved` is the account as Settings saved it
+    /// since, as the app reads it for each letter.
+    private func makeRepository(name: String = "", others: [String] = [],
+                                saved: MailAccount? = nil) -> IMAPMailRepository {
         let clock = self.clock!
         var account = server.account
         account.displayName = name
+        account.otherAddresses = others
         return IMAPMailRepository(account: account, password: server.password,
-                                  transport: server.transportFactory, recipients: book,
-                                  now: { clock.now() }, shelf: keptShelf(for: account))
+                                  transport: server.transportFactory, saved: { saved },
+                                  recipients: book, now: { clock.now() },
+                                  shelf: keptShelf(for: account))
     }
 
     /// A letter newer than every one before it, in `mailboxes`; its
@@ -255,7 +261,8 @@ final class HalfNameSearchTests: XCTestCase {
         XCTAssertEqual(first.map(\.id), [a[Server.inbox]!])
         let second = try await search(repository, "Marg", after: first.last?.id, limit: 1)
         XCTAssertEqual(second.map(\.id), [b[Server.inbox]!])
-        XCTAssertEqual(book.addresses(startingWith: "Marg", besides: server.account.address),
+        XCTAssertEqual(book.addresses(startingWith: "Marg",
+                                      besides: OwnAddresses(account: server.account)),
                        [Self.margaret.address, Self.margot.address])
         let third = try await search(repository, "Marg", after: second.last?.id, limit: 1)
         XCTAssertEqual(third.map(\.id), [c[Server.inbox]!])
@@ -306,24 +313,89 @@ final class HalfNameSearchTests: XCTestCase {
         XCTAssertEqual(searches.map(\.command), ["UID SEARCH " + group(q("Own"))])
     }
 
+    /// His second address, listed under his account (B-076), is his too:
+    /// about half he sends go to it, so asked for, it would find half his
+    /// mailbox, newest first. The book holds it as his sends teach it,
+    /// with no name, then under the name his letters to it carried, not
+    /// his account's, with an old address of his under that name too.
+    /// "Vid" starts its part before the @, "Gra" that name: each is asked
+    /// byte for byte as before, nobody beside it, and finds nothing. With
+    /// the account's own address alone left out, as when the second is
+    /// not listed, "Vid" asks for it and finds his letter to it. The same
+    /// with the address added in Settings after the app was opened.
+    func testHisOtherAddressesAreNeverAskedFor() async throws {
+        let second = "owen.videos@example.org"
+        let old = "grandpa1936@example.net"
+        _ = deliver(from: Server.owner, to: [Server.Address(name: "Grandpa", address: second)],
+                    "Watch this", "A link.", to: [Server.sent, Server.allMail])
+        book.used(address: second)
+        book.used(address: second)
+        book.note(address: old, name: "Grandpa")
+
+        // The account not knowing it: his letter to it found by "Vid".
+        let unknowing = makeRepository(name: "Owen Marsh")
+        _ = try await unknowing.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        let found = try await search(unknowing, "Vid", .allMailboxes)
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(searches.map(\.command),
+                       Array(repeating: "UID SEARCH " + group(q("Vid"), [second]), count: 3))
+
+        let repository = makeRepository(name: "Owen Marsh", others: [second])
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        let vid = try await search(repository, "Vid", .allMailboxes)
+        XCTAssertEqual(vid, [])
+        book.note(address: second, name: "Grandpa")
+        let gra = try await search(repository, "Gra", .allMailboxes)
+        XCTAssertEqual(gra, [])
+        XCTAssertEqual(searches.map(\.command),
+                       Array(repeating: "UID SEARCH " + group(q("Vid")), count: 3)
+                       + Array(repeating: "UID SEARCH " + group(q("Gra")), count: 3))
+        XCTAssertEqual(searches.map(\.command),
+                       Array(repeating: "UID SEARCH " + SearchCriteria.imap(for: "Vid")!, count: 3)
+                       + Array(repeating: "UID SEARCH " + SearchCriteria.imap(for: "Gra")!, count: 3))
+
+        // Added in Settings since: his at once.
+        var settings = server.account
+        settings.displayName = "Owen Marsh"
+        settings.otherAddresses = [second]
+        let since = makeRepository(name: "Owen Marsh", saved: settings)
+        _ = try await since.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        let later = try await search(since, "Vid", .allMailboxes)
+        XCTAssertEqual(later, [])
+        let laterName = try await search(since, "Gra", .allMailboxes)
+        XCTAssertEqual(laterName, [])
+        XCTAssertEqual(searches.map(\.command),
+                       Array(repeating: "UID SEARCH " + group(q("Vid")), count: 3)
+                       + Array(repeating: "UID SEARCH " + group(q("Gra")), count: 3))
+    }
+
     // MARK: - The word he is still typing
 
     /// The last word, with nothing typed after it, of three letters or
     /// digits or more. Not after a space, a closing quote mark, a closing
-    /// single quote or a dash; not a phrase; not a word past the twenty.
+    /// single quote or a dash; not a phrase; not a word past the twenty;
+    /// not a word whose text only ends the last one typed, that one
+    /// dropped as asked already or past the twenty: "ann" of "Joann ann
+    /// joann".
     func testTheWordStillBeingTypedIsTheLastWithNothingAfterIt() {
         let open: [(String, String)] = [
             ("Marg", "Marg"), ("  Marg", "Marg"), ("lunch Marg", "Marg"), ("Marg Ell", "Ell"),
             ("‘Marg", "Marg"), ("“Marg", "Marg"), ("garden—Marg", "Marg"), ("O’Bri", "O’Bri"),
             ("Núñ", "Núñ"), ("m.ell", "m.ell"), ("marg@exa", "marg@exa"), ("Marg marg", "Marg"),
-            ("ab1", "ab1"), ("Margaret", "Margaret"),
+            ("ab1", "ab1"), ("Margaret", "Margaret"), ("ann ‘ann", "ann"), ("ann  Ann", "ann"),
         ]
         for (typed, word) in open {
             XCTAssertEqual(SearchCriteria.halfWord(of: typed), word, typed)
         }
         let closed = ["Marg ", "Marg\n", "Marg\t", "“Marg”", "\"Marg\"", "Marg’", "Marg'",
                       "Marg—", "Ma", "Ma ", "a b", "o’b", "x y z", "", "   ", "“”", "lunch Ma",
-                      (1...20).map { "w\($0)" }.joined(separator: " ") + " Marg"]
+                      (1...20).map { "w\($0)" }.joined(separator: " ") + " Marg",
+                      "Joann ann joann", "Joann ann Joann",
+                      (1...19).map { "w\($0)" }.joined(separator: " ") + " ann Joann",
+                      (1...19).map { "w\($0)" }.joined(separator: " ") + " ann Jo’ann"]
         for typed in closed {
             XCTAssertNil(SearchCriteria.halfWord(of: typed), typed)
         }
@@ -390,9 +462,13 @@ final class HalfNameSearchTests: XCTestCase {
             person(nil, "smith-jones@example.org"),
             person("Rosemary Hill", "rhill@example.com"),
             person(nil, "info@margate.example"),
+            person("Margery Hunt via Garden Club", "garden-club@groups.example"),
+            person("Marjorie Lowe (via Shared Docs)", "docs-noreply@example.com"),
+            person("Silvia Rand", "srand@example.com"),
         ]
         func found(_ typed: String) -> [String] {
-            RecipientBook.addresses(all, startingWith: typed, besides: "owner@example.com")
+            RecipientBook.addresses(all, startingWith: typed,
+                                    besides: OwnAddresses(["owner@example.com"]))
         }
         XCTAssertEqual(found("Marg"), ["m.ellis1947@example.net"])
         XCTAssertEqual(found("ELL"), ["m.ellis1947@example.net"])
@@ -405,6 +481,14 @@ final class HalfNameSearchTests: XCTestCase {
         XCTAssertEqual(found("obri"), ["peggy@example.ie"])
         XCTAssertEqual(found("jon"), ["smith-jones@example.org"])
         XCTAssertEqual(found("smith-jo"), ["smith-jones@example.org"])
+        // A letter sent on someone's behalf: not by that name, which the
+        // relay's address carried last, but by the address; "via" is a word.
+        XCTAssertEqual(found("Marge"), [])
+        XCTAssertEqual(found("Marj"), [])
+        XCTAssertEqual(found("Hunt"), [])
+        XCTAssertEqual(found("gard"), ["garden-club@groups.example"])
+        XCTAssertEqual(found("docs"), ["docs-noreply@example.com"])
+        XCTAssertEqual(found("Silv"), ["srand@example.com"])
         // The middle of a word, the domain: nobody.
         XCTAssertEqual(found("mary"), [])
         XCTAssertEqual(found("arg"), [])
@@ -415,8 +499,8 @@ final class HalfNameSearchTests: XCTestCase {
 
     /// Best first: where the word starts, a name before an address; then
     /// the addresses he has written to most, then those seen last, then by
-    /// address, so the order never shuffles. His own address and any under
-    /// the name the book has for it are left out.
+    /// address, so the order never shuffles. Each of his own addresses and
+    /// any under a name the book has for one of them are left out.
     func testTheBookOrdersThemAndLeavesHimOut() {
         let all = [
             person("Owen Marsh", "owner@example.com", uses: 40),
@@ -428,20 +512,34 @@ final class HalfNameSearchTests: XCTestCase {
             person("Marco Tull", "tull@example.com", uses: 0, seen: 50),
             person(nil, "mar@example.com"),
         ]
-        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Mar", besides: "Owner@Example.com"),
+        let him = OwnAddresses(["Owner@Example.com"])
+        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Mar", besides: him),
                        ["mward@example.com", "ames@example.com", "lott@example.com",
                         "tull@example.com", "mark.d@example.com", "mar@example.com"])
-        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Owe", besides: "owner@example.com"),
-                       [])
-        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Own", besides: "owner@example.com"),
-                       [])
-        // With no name for his address, only his address is left out.
+        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Owe", besides: him), [])
+        XCTAssertEqual(RecipientBook.addresses(all, startingWith: "Own", besides: him), [])
+        // With no name for his address, only his address is left out: the
+        // other is nobody the app knows to be him.
         var unnamed = all
         unnamed[0].name = nil
-        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "Owe", besides: "owner@example.com"),
+        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "Owe", besides: him),
                        ["owen.marsh@example.org"])
-        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "Own", besides: "owner@example.com"),
-                       [])
+        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "Own", besides: him), [])
+
+        // His second address listed as his (B-076): left out with no name,
+        // under its own name, and with any other address under that name.
+        let both = OwnAddresses(["owner@example.com", "owen.marsh@example.org"])
+        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "Owe", besides: both), [])
+        var renamed = unnamed
+        renamed[1].name = "Grandpa"
+        renamed.append(person("Grandpa", "grandpa1936@example.net", uses: 2))
+        renamed.append(person("Grace Hill", "ghill@example.com"))
+        XCTAssertEqual(RecipientBook.addresses(renamed, startingWith: "Gra", besides: both),
+                       ["ghill@example.com"])
+        XCTAssertEqual(RecipientBook.addresses(renamed, startingWith: "Gra", besides: him),
+                       ["owen.marsh@example.org", "grandpa1936@example.net", "ghill@example.com"])
+        unnamed[1].name = nil
+        XCTAssertEqual(RecipientBook.addresses(unnamed, startingWith: "owen.m", besides: both), [])
     }
 
     // MARK: - The list

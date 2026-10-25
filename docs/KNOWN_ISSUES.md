@@ -23572,9 +23572,12 @@ did not use it.
 1. *The word he is still typing* (`SearchCriteria.halfWord(of:)`): the
    last word of the text as B-105 reads it, when nothing was typed after
    it, not a space, a closing quote mark, a closing single quote or a
-   dash, and it has three letters or digits or more. A word with a space
-   after it is whole, as the keyboard's suggestions finish a word with
-   one. Three, not Mail's two: two letters are often a name or a word on
+   dash, and it has three letters or digits or more, and the text ends
+   with it as a word of its own: nothing, white space, a quote mark or a
+   dash before it, with any single quotes that open it. So in "Joann ann
+   joann" the last "joann", asked already, leaves no such word, though
+   the text ends "ann". A word with a space after it is whole, as the
+   keyboard's suggestions finish a word with one. Three, not Mail's two: two letters are often a name or a word on
    their own, "Ed", "Jo", "to", "my", which the word finds whole, and the
    people of a book of 300 whose name starts with two letters can be many
    more than four, so the four asked for would be picked by the book's
@@ -23590,11 +23593,25 @@ did not use it.
    @: "gmai" starts most of his correspondents' addresses and nobody's
    name. In order: a name before an address, then the addresses he has
    written to most, then those seen last, then by address, the
-   composer's own order. Never himself: not his address, nor an address
-   under the name the book has for his (his account's name since B-082),
-   as his other address may be. Every letter in his mailbox is to him or
-   from him, so his address beside "Bla" would turn a search for a Blair
-   into his whole mailbox; his own name typed whole finds what it found.
+   composer's own order. Never himself: none of the addresses his
+   account lists as his and its login (`OwnAddresses(account:)`, as
+   Reply All leaves them out, B-076), as Settings last saved them, so
+   one added there since the app was opened is his at once; nor an
+   address under a name the book has for any of them: his account's
+   name for his address (B-082), and for his second address whatever
+   name his letters to it carried, or none, as the list passes over
+   only the account's own address when it notes names. Every letter in
+   his mailbox is to him or from him, and about half he sends go to his
+   second address (the gap review in TODO: 1,186 YouTube and 256
+   Wikipedia links in 30 days), so one of his beside "Bla" would turn a
+   search for a Blair into his whole mailbox, or half of it, ranked
+   first by those sends; his own name typed whole finds what it found.
+   Not by the name of a letter sent on someone's behalf, with "via" as a
+   word in it: "'Margaret Ellis' via Garden Club" at the group's
+   address, "Jane Doe via LinkedIn" at the service's. The book keeps the
+   last name it saw for an address, so her name would have asked for
+   every letter of the group, other people's too. Such an entry is still
+   found by its address, "gard" for the group.
 3. *The SEARCH* (`SearchCriteria.imap(for:people:)`): that word's group
    asks for the word in its five fields as before and, beside it in the
    same OR, each of up to four of those addresses in From, To and Cc:
@@ -23660,11 +23677,20 @@ the word, go on with one SEARCH and no row twice, while a new search asks
 for both, Margaret first. Never himself: "Mars" asks for Marshall and
 neither the account's address nor his other address under his name, "Owe"
 for nobody; with no name for the account, "Own" asks for nobody, where his
-address would have found every letter. On their own: the word still being
-typed, fourteen forms that are and eighteen that are not; the key as
-before without one; four people at most, the bounds, the escaping and the
-1,316 bytes; where a book entry matches and where not; the order, and him
-left out. And, read from the source, the list handing the field's text to
+address would have found every letter. His second address listed under
+his account, in the book with no name, then under the name his letters
+to it carried, with an old address of his under that name too: "Vid",
+the start of its part before the @, and "Gra", of that name, each asked
+byte for byte as before and finding nothing, where with the account's
+own address alone left out "Vid" asked for it and found his letter to
+it; the same with the address added in Settings after the app was
+opened. On their own: the word still being typed, sixteen forms that
+are and twenty-two that are not, "Joann ann joann" among them; the key
+as before without one; four people at most, the bounds, the escaping and
+the 1,316 bytes; where a book entry matches and where not, a name with
+"via" as a word in it not matched, its address still, and "Silvia"
+matched; the order, and him left out, each of his addresses and every
+name the book has for one of them. And, read from the source, the list handing the field's text to
 the repository as typed, after the 350 ms pause.
 
 Each part undone by hand, the four classes run (`HalfNameSearchTests`,
@@ -23685,6 +23711,24 @@ text, 1 in 1. And the scripted server matching parts of words, as before:
 The full suite, serially: 2,418 tests, 14 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
+**Since.** Three changes, the same day. Each of his addresses is left
+out, as Settings last saved them, and every name the book has for one of
+them: the first build left out the account's address and the name the
+book had for it alone, so his second address, once listed, named in the
+book by his letters to it or not at all, was asked for by a half word
+that started it, first among the four by its uses. A name with "via" as
+a word in it is not matched. And the word still being typed has to stand
+on its own at the end of the text. Each undone by hand, the four classes
+run (77 tests), then put back and passing: the account's own address
+alone left out, 7 failures in 1 test; the account as the app was opened
+with and not as Settings saved it, 3 in 1; no name left out, 7 in 3;
+the name of the account's address alone, 4 in 2; nothing asked before
+the word, 4 in 1; single quotes before it not passed over, 2 in 1; white
+space alone before it, 2 in 1; a "via" name matched, 4 in 1; "via"
+anywhere in a name, 1 in 1; an entry with a "via" name passed over
+whole, 2 in 1. The full suite, serially: 2,419 tests, 6 skipped, none
+failing. The release build for the iPad links.
+
 **Not covered.**
 
 - Seen on the test iPad: not yet (TODO, B-123's check).
@@ -23701,11 +23745,24 @@ failing. The release build for the iPad links.
 - Earlier words are whole words: "Marg Ell" finds nothing, where Mail's
   search on the iPad would find Margaret Ellis. Mail's own as-you-type
   path was not read for this.
-- His own name: someone else with exactly his name is never asked for
-  by half a name; found by the whole name as before.
+- His own names: someone else with exactly his name, or with a name the
+  book has for one of his addresses, is never asked for by half a name;
+  found by the whole name as before.
 - A search kept among the recent ones is kept cleaned, so "Marg " is kept
   as "Marg" and, tapped, asks for people.
 - The time Gmail takes for up to twelve more terms on his mailbox was not
   measured.
 - An address with 8-bit text in it, as a literal: built as any word is,
   not tried on Gmail.
+- His second address is his to search only once it is listed in
+  Settings under his account (TODO, on the day; B-076). Until then a
+  half word that starts its part before the @, or the name his letters
+  to it carried, asks for it, and finds about half his mailbox.
+- A letter sent on someone's behalf is told by "via" alone. A sharer
+  whose last letter the list saw was a Google Docs share ("Name (via
+  Google Docs)" at the sharer's own address, as in the sample of his
+  received mail in the audit) is not found by half the name until a
+  letter of the sharer's own names them again; the whole name finds them
+  as before. A list that writes the poster's name alone over the list's
+  address is matched by that name, and asks for every letter of the
+  list. None such was seen in the sample.

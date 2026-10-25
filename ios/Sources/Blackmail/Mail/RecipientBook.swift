@@ -310,16 +310,21 @@ final class RecipientBook {
     /// the start of words, ignoring case and accents. `SearchCriteria`
     /// asks for the first few of them beside the word.
     ///
-    /// Never his own: not `own`, his address, nor an address under the
-    /// name the book has for it, as his other address may be. Every letter
-    /// in his mailbox is to him or from him, so his address beside "Bla"
-    /// would turn a search for Blair into his whole mailbox; his own name,
-    /// typed whole, still finds what it found.
-    func addresses(startingWith word: String, besides own: String) -> [String] {
+    /// Never his own: none of `mine`, the addresses his account lists as
+    /// his and its login (`OwnAddresses(account:)`), nor an address under
+    /// a name the book has for any of them. Every letter in his mailbox is
+    /// to him or from him, and about half he sends go to his second
+    /// address, so one of his beside "Bla" would turn a search for Blair
+    /// into his whole mailbox, or half of it; his own name, typed whole,
+    /// still finds what it found. Asked of `mine` and not of the names
+    /// alone: the book names his second address with whatever his letters
+    /// to it carried (`IMAPMailRepository.rows` passes over only the
+    /// account's own), or with nothing.
+    func addresses(startingWith word: String, besides mine: OwnAddresses) -> [String] {
         lock.lock()
         let all = Array(entries.values)
         lock.unlock()
-        return Self.addresses(all, startingWith: word, besides: own)
+        return Self.addresses(all, startingWith: word, besides: mine)
     }
 
     /// The pure half of `addresses(startingWith:besides:)`. In order of
@@ -328,16 +333,16 @@ final class RecipientBook {
     /// suggestions go: the addresses he has written to most, then the
     /// ones seen last, then by address, so the order is total.
     static func addresses(_ all: [KnownRecipient], startingWith word: String,
-                          besides own: String) -> [String] {
+                          besides mine: OwnAddresses) -> [String] {
         let typed = folded(word)
         guard !typed.isEmpty else { return [] }
-        let ownAddress = own.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let ownName = all.first(where: { $0.address == ownAddress })?.name
-            .map(folded).flatMap { $0.isEmpty ? nil : $0 }
+        let hisNames = Set(all.filter { mine.contains($0.address) }
+            .compactMap { $0.name.map(folded) }
+            .filter { !$0.isEmpty })
 
         let scored: [(KnownRecipient, Int)] = all.compactMap { entry in
-            guard entry.address != ownAddress else { return nil }
-            if let ownName, let name = entry.name, folded(name) == ownName { return nil }
+            guard !mine.contains(entry.address) else { return nil }
+            if let name = entry.name, hisNames.contains(folded(name)) { return nil }
             guard let tier = startTier(entry, typed) else { return nil }
             return (entry, tier)
         }
@@ -355,13 +360,27 @@ final class RecipientBook {
     /// "m.ellis1947", 2 for the whole address, "margaret@exa"; nil for
     /// none. Never the part after the @: "gmai" is the start of most of
     /// his correspondents' addresses, and of nobody's name.
+    ///
+    /// Not the name of a letter sent on someone's behalf, which has "via"
+    /// as a word in it: "'Margaret Ellis' via Garden Club" at the group's
+    /// address, "Jane Doe via LinkedIn" at the service's. The book keeps
+    /// the last name it saw for an address, so Margaret's name would ask
+    /// for every letter of the group, other people's too. Its address is
+    /// matched as any other.
     private static func startTier(_ entry: KnownRecipient, _ typed: String) -> Int? {
-        if let name = entry.name, startsAWord(folded(name), typed) { return 0 }
+        if let name = entry.name.map(folded), !onBehalf(name), startsAWord(name, typed) {
+            return 0
+        }
         let address = folded(entry.address)
         let local = address.lastIndex(of: "@").map { String(address[..<$0]) } ?? address
         if startsAWord(local, typed) { return 1 }
         if address.hasPrefix(typed) { return 2 }
         return nil
+    }
+
+    /// Whether a folded name has "via" as a word in it, "(via" too.
+    private static func onBehalf(_ name: String) -> Bool {
+        name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).contains("via")
     }
 
     /// Whether `typed` is at the start of `text` or just after a character

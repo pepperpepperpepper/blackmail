@@ -89,7 +89,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Accounts on his iPad: whether his Gmail account lists his second
       address under Email, and whether that address is an account of its
       own. Then add his second address in Blackmail's Settings with "Add
-      Another Email…", and Save (B-076).
+      Another Email…", and Save (B-076; until then a half name in search
+      can ask for it, B-123).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -5254,6 +5255,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       name as Settings shows it: not every letter of the account; the
       log's line has neither the account's address nor any address the
       book has under that name.
+      6a. *His other address:* Settings, "Add Another Email…" with
+      Peyton Standin's address as one of Peyton's letters shows it, and
+      Save; Settings and the app not otherwise touched. 1's "Pey": not
+      Peyton's letters by the address, likely "No results", and the
+      log's line has no address of Peyton's. The same for the first
+      three letters of that address, if they are not "Pey". Settings:
+      Remove it, Save; Settings again: its addresses as before 6a. "Pey"
+      again: Peyton's letters as in 1.
+      6b. *On someone's behalf,* if a sender in sight reads "… via …",
+      a Google Group's: the first three letters of the name before
+      "via": the log's line does not have the group's address. Write
+      down which.
       7. *Pages:* the first three letters of a sender with more than 50
       letters, as Museum Members, "Mus": scrolled to the foot of the
       results and on, twice: no row twice, and one UID SEARCH per
@@ -5271,8 +5284,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       person's letters both times, never "Could not search. Check the
       connection.", the accented word a `{n+}` literal in the log.
       12. *Two panes:* 1 again, then three panes back.
-      13. *Put back:* Cancel, and the Inbox at its top. Nothing else:
-      nothing was written.
+      13. *Put back:* Cancel, and the Inbox at its top; Settings lists
+      the addresses it did before 6a. Nothing else: nothing was written
+      to the mailbox.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

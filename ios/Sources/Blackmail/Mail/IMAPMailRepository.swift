@@ -3155,13 +3155,15 @@ actor IMAPMailRepository: MailRepository {
         // after the last word is what says it is finished. A later page of
         // the same words asks what its first page asked, so the session goes
         // on; its rows have taught the book since, and a new key would start
-        // the search again at its first page.
+        // the search again at its first page. Never one of his own
+        // addresses, as Settings last saved them (`sender`): one added
+        // there since launch is his at once, as it is to Reply All.
         let criteria: String
         if beforeUID != nil, let session = searchSession, session.query == trimmed {
             criteria = session.criteria
         } else {
             let people = SearchCriteria.halfWord(of: query).map {
-                recipients.addresses(startingWith: $0, besides: account.address)
+                recipients.addresses(startingWith: $0, besides: OwnAddresses(account: sender))
             } ?? []
             guard let asked = SearchCriteria.imap(for: query, people: people) else { return [] }
             criteria = asked

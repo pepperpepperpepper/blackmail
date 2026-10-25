@@ -53,10 +53,12 @@ import Foundation
 /// The word he is still typing (`halfWord(of:)`) is asked for as before,
 /// and beside it, in the same group, From, To or Cc of up to `mostPeople`
 /// addresses from the people the app already knows whose name or address
-/// starts with it (`RecipientBook.addresses(startingWith:besides:)`). A
-/// word with a space after it is a whole word, searched as before; the
-/// subject and the body are never searched by the start of a word, which
-/// needs an index of the whole mailbox the app does not keep (D-016).
+/// starts with it (`RecipientBook.addresses(startingWith:besides:)`), never
+/// one of his own addresses (`OwnAddresses`) nor one under a name the app
+/// has for them, which would find every letter. A word with a space after
+/// it is a whole word, searched as before; the subject and the body are
+/// never searched by the start of a word, which needs an index of the
+/// whole mailbox the app does not keep (D-016).
 enum SearchCriteria {
 
     /// The fields a search looks at.
@@ -272,15 +274,23 @@ enum SearchCriteria {
     /// suggestions finish a word with one, and is searched whole, as
     /// before. A phrase in quote marks is closed by its last mark. A word
     /// cut off by the twenty-word limit, or asked for already, is not the
-    /// last asked unless it is that same word, typed again.
+    /// last asked unless it is that same word, typed again: the text ends
+    /// with the last word asked, and before it is nothing, white space, a
+    /// quote mark or a dash, with any single quotes that open the word.
+    /// So "Joann ann joann", whose last "joann" is asked already, has no
+    /// such word: "ann" ends the text, but as the end of "joann".
     static func halfWord(of query: String) -> String? {
         guard let typed = query.last, !typed.isWhitespace,
               let last = words(of: query).last,
               !last.contains(where: { $0.isWhitespace }),
-              query.lowercased().hasSuffix(last.lowercased()),
               last.filter({ $0.isLetter || $0.isNumber }).count >= shortestHalfWord
         else { return nil }
-        return last
+        let text = query.lowercased(), word = last.lowercased()
+        guard text.hasSuffix(word) else { return nil }
+        var before = text.dropLast(word.count)
+        while let c = before.last, singleQuotes.contains(c) { before = before.dropLast() }
+        guard let c = before.last else { return last }
+        return c.isWhitespace || quoteMarks.contains(c) || dashes.contains(c) ? last : nil
     }
 
     /// The addresses of `people` to ask for: in their order, the first
