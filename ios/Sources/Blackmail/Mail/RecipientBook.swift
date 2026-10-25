@@ -20,7 +20,9 @@ struct KnownRecipient: Codable, Equatable {
     }
 }
 
-/// The addresses the composer can offer instead of making him type.
+/// The addresses the composer can offer instead of making him type, and
+/// the people search asks for beside a name he is still typing, so "Marg"
+/// finds Margaret's letters (`addresses(startingWith:besides:)`, B-123).
 ///
 /// The reason this exists is one fact: he *sends emails
 /// to himself*, constantly, and he is ninety. Every one of those meant
@@ -298,6 +300,112 @@ final class RecipientBook {
         if address.contains(q) { return 3 }
         if (entry.name ?? "").lowercased().contains(q) { return 4 }
         return nil
+    }
+
+    // MARK: - Search (B-123)
+
+    /// The addresses of the people a word he is still typing in search may
+    /// be the start of, best first: every entry whose name or address
+    /// starts with it (`startTier`), as Mail's search on the iPad matches
+    /// the start of words, ignoring case and accents. `SearchCriteria`
+    /// asks for the first few of them beside the word.
+    ///
+    /// Never his own: none of `mine`, the addresses his account lists as
+    /// his and its login (`OwnAddresses(account:)`), nor an address under
+    /// a name the book has for any of them. Every letter in his mailbox is
+    /// to him or from him, and about half he sends go to his second
+    /// address, so one of his beside "Bla" would turn a search for Blair
+    /// into his whole mailbox, or half of it; his own name, typed whole,
+    /// still finds what it found. Asked of `mine` and not of the names
+    /// alone: the book names his second address with whatever his letters
+    /// to it carried (`IMAPMailRepository.rows` passes over only the
+    /// account's own), or with nothing.
+    func addresses(startingWith word: String, besides mine: OwnAddresses) -> [String] {
+        lock.lock()
+        let all = Array(entries.values)
+        lock.unlock()
+        return Self.addresses(all, startingWith: word, besides: mine)
+    }
+
+    /// The pure half of `addresses(startingWith:besides:)`. In order of
+    /// where the word starts (a name's word, then the address's part
+    /// before the @, then the whole address), then as the composer's
+    /// suggestions go: the addresses he has written to most, then the
+    /// ones seen last, then by address, so the order is total.
+    static func addresses(_ all: [KnownRecipient], startingWith word: String,
+                          besides mine: OwnAddresses) -> [String] {
+        let typed = folded(word)
+        guard !typed.isEmpty else { return [] }
+        let hisNames = Set(all.filter { mine.contains($0.address) }
+            .compactMap { $0.name.map(folded) }
+            .filter { !$0.isEmpty })
+
+        let scored: [(KnownRecipient, Int)] = all.compactMap { entry in
+            guard !mine.contains(entry.address) else { return nil }
+            if let name = entry.name, hisNames.contains(folded(name)) { return nil }
+            guard let tier = startTier(entry, typed) else { return nil }
+            return (entry, tier)
+        }
+        return scored.sorted { a, b in
+            if a.1 != b.1 { return a.1 < b.1 }
+            if a.0.uses != b.0.uses { return a.0.uses > b.0.uses }
+            if a.0.lastSeen != b.0.lastSeen { return a.0.lastSeen > b.0.lastSeen }
+            return a.0.address < b.0.address
+        }
+        .map { $0.0.address }
+    }
+
+    /// Where `typed`, folded, starts a word of the entry: 0 for a word of
+    /// its name, 1 for one of its address before the @, "ellis" of
+    /// "m.ellis1947", 2 for the whole address, "margaret@exa"; nil for
+    /// none. Never the part after the @: "gmai" is the start of most of
+    /// his correspondents' addresses, and of nobody's name.
+    ///
+    /// Not the name of a letter sent on someone's behalf, which has "via"
+    /// as a word in it: "'Margaret Ellis' via Garden Club" at the group's
+    /// address, "Jane Doe via LinkedIn" at the service's. The book keeps
+    /// the last name it saw for an address, so Margaret's name would ask
+    /// for every letter of the group, other people's too. Its address is
+    /// matched as any other.
+    private static func startTier(_ entry: KnownRecipient, _ typed: String) -> Int? {
+        if let name = entry.name.map(folded), !onBehalf(name), startsAWord(name, typed) {
+            return 0
+        }
+        let address = folded(entry.address)
+        let local = address.lastIndex(of: "@").map { String(address[..<$0]) } ?? address
+        if startsAWord(local, typed) { return 1 }
+        if address.hasPrefix(typed) { return 2 }
+        return nil
+    }
+
+    /// Whether a folded name has "via" as a word in it, "(via" too.
+    private static func onBehalf(_ name: String) -> Bool {
+        name.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).contains("via")
+    }
+
+    /// Whether `typed` is at the start of `text` or just after a character
+    /// that is not a letter or a digit: a space, a dot, a hyphen, "<".
+    private static func startsAWord(_ text: String, _ typed: String) -> Bool {
+        var atAStart = true
+        var index = text.startIndex
+        while index < text.endIndex {
+            if atAStart, text[index...].hasPrefix(typed) { return true }
+            atAStart = !text[index].isLetter && !text[index].isNumber
+            index = text.index(after: index)
+        }
+        return false
+    }
+
+    /// Lower case, accents off, so "nun" starts "Núñez", and "mül" and
+    /// "mul" both start "Müller"; apostrophes, straight or curly, out, so
+    /// "O’Bri", as his keyboard types it, starts "O'Brien"
+    /// (`SearchCriteria.singleQuotes`); each run of white space one space.
+    static func folded(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .lowercased()
+            .filter { !SearchCriteria.singleQuotes.contains($0) }
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
     }
 
     // MARK: - Storage

@@ -89,7 +89,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       Accounts on his iPad: whether his Gmail account lists his second
       address under Email, and whether that address is an account of its
       own. Then add his second address in Blackmail's Settings with "Add
-      Another Email…", and Save (B-076).
+      Another Email…", and Save (B-076; until then a half name in search
+      can ask for it, B-123).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -268,7 +269,14 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       under the field before he types, for 7 days. Suggestions as he types
       are left out: they need an index of the whole mailbox on the iPad,
       which D-016 does not keep. B-105, and its check under "Blocked on
-      the iPad coming back".*
+      the iPad coming back".* *Changed 2026-10-24 to copy Apple Mail, not
+      yet seen on the iPad: the last word, with no space typed after it
+      and three letters or more, also finds the letters from, to or
+      copied to up to four people the app already knows whose name or
+      address starts with it, so "Marg" finds Margaret's, as Mail's search
+      matches the start of words; still no suggestion list, and no
+      subject or body found by the start of a word. B-123, and its check
+      under "Blocked on the iPad coming back".*
 
 **Probably used, smaller:**
 
@@ -5420,6 +5428,72 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Two panes,* 1 and 3 again, then three panes back.
       7. *Put back:* any letter where it was found (B-109's in Trash), the
       photo saved in 1 left in Photos or deleted, as the owner prefers.
+- [ ] **B-123, a half-typed name in search.** On the test iPad, the test
+      account as filled for the size test (above), from a build of the
+      `bm-halfname` worktree (branch `fix-halfname`). Read only: nothing
+      is composed, sent, moved, deleted or written to the mailbox, so no
+      new mail reaches the phone the account is signed in on. Smart
+      Punctuation on (Settings > General > Keyboard), as on his. Three
+      panes unless a step says two; the app's connection log read after
+      each step. The names below are the size test's own; where one is
+      not listed, take another sender whose first name is no word of the
+      subjects in sight, and write down which.
+      1. *A name the app has seen.* The Inbox opened at its top and
+      scrolled down two pages, so its senders are in the address book.
+      All Mailboxes, the field tapped, "Pe" typed and a pause: as before,
+      whatever "Pe" finds as a whole word, likely "No results". "y", so
+      "Pey", and a pause: Peyton Standin's letters, newest first, those
+      from Peyton, to Peyton and copied to Peyton, with the letters of
+      up to three others in the book whose name or address starts "Pey",
+      and never "No results". The log: one UID SEARCH each for the Trash,
+      Spam and All Mail, the word in its five fields and after it FROM,
+      TO and CC of each address, four at most, answered OK.
+      2. *Typing on:* "Peyt", "Peyto", "Peyton", each after a pause: the
+      same person's letters each time.
+      3. *A space:* "Peyton " with a space: the letters with Peyton as a
+      whole word, as before, and the log's line has no address in it.
+      Then "Pey " with a space: as before, likely "No results".
+      4. *Two words:* a word from the subject of one of Peyton's letters,
+      a space, then "Pey": only Peyton's letters with that word. Then
+      "Pey Sta": "Pey" asked whole, as before, likely "No results", and
+      the log asking people for "Sta" alone.
+      5. *Nobody:* "Qzx": "No results", and no address in the log's line.
+      6. *Himself:* the first three letters of the test account's own
+      name as Settings shows it: not every letter of the account; the
+      log's line has neither the account's address nor any address the
+      book has under that name.
+      6a. *His other address:* Settings, "Add Another Email…" with
+      Peyton Standin's address as one of Peyton's letters shows it, and
+      Save; Settings and the app not otherwise touched. 1's "Pey": not
+      Peyton's letters by the address, likely "No results", and the
+      log's line has no address of Peyton's. The same for the first
+      three letters of that address, if they are not "Pey". Settings:
+      Remove it, Save; Settings again: its addresses as before 6a. "Pey"
+      again: Peyton's letters as in 1.
+      6b. *On someone's behalf,* if a sender in sight reads "… via …",
+      a Google Group's: the first three letters of the name before
+      "via": the log's line does not have the group's address. Write
+      down which.
+      7. *Pages:* the first three letters of a sender with more than 50
+      letters, as Museum Members, "Mus": scrolled to the foot of the
+      results and on, twice: no row twice, and one UID SEARCH per
+      mailbox for those words in the log, none again as the pages come.
+      8. *Current Mailbox,* in the Inbox: 1's "Pey": Peyton's Inbox
+      letters, one UID SEARCH, the Inbox's.
+      9. *Recent searches:* "Pey", Search on the keyboard, Cancel, a tap
+      in the empty field: "Pey" first among Recent Searches. Tapped: the
+      same letters as in 1. Cancel.
+      10. *Time:* from the pause after "Pey" to the rows, and the same
+      for "Peyton " with its space, in All Mailboxes, each written down.
+      11. *An accent,* if a sender with an accent in the name is listed:
+      the first three letters of the accented name typed without the
+      accent, then with it from the letter's accent popover: that
+      person's letters both times, never "Could not search. Check the
+      connection.", the accented word a `{n+}` literal in the log.
+      12. *Two panes:* 1 again, then three panes back.
+      13. *Put back:* Cancel, and the Inbox at its top; Settings lists
+      the addresses it did before 6a. Nothing else: nothing was written
+      to the mailbox.
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these

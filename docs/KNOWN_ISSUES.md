@@ -19163,7 +19163,10 @@ Smart Punctuation stays on: Mail's own field is not known to turn it off,
 and a paste brings curly quotes whatever the field says. X-GM-RAW is not
 used: Gmail would read his words as its operators. No suggestions as he
 types: they need an index of the whole mailbox on the iPad, which D-016
-does not keep. No swipe to delete a recent search: the app has no swipe,
+does not keep. *Since B-123 the last word, typed with no space after it,
+also asks for the people the app knows whose name or address starts with
+it, from the address book it already keeps; still no suggestions.* No
+swipe to delete a recent search: the app has no swipe,
 and the week clears them. The folder's rows under the band, `ListPlace`,
 `ListLetters` and B-079's VoiceOver code are as they were. The connection
 log carries the longer SEARCH line; the words of a search were in it
@@ -19172,7 +19175,10 @@ the words of the last three, and so does this.
 
 **What he sees.** Several words find the letters that have every one of
 them, each in any of From, To, Cc, Subject or the body: a name only in
-From and a word only in the body find the letter, in either order. A part
+From and a word only in the body find the letter, in either order. *Since
+B-123 the last of them, typed with no space after it, finds too the
+letters from, to or copied to up to four people whose name or address
+starts with it.* A part
 in quotes, typed with the keyboard's curly quotes or not, is asked for as
 one string, as Mail asks it. On Gmail that finds the letters with all its
 words, the phrase among them, because BODY matches them anywhere: “Plan B”
@@ -23987,6 +23993,198 @@ in 1, nor before it says it failed, 1 in 1; what the pane shows never
 changing, 4 in 1.
 
 The full suite, serially: 2,415 tests, 11 of them new, 6 skipped, none
+
+---
+
+## B-123 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
+
+Built in the `bm-halfname` worktree (branch `fix-halfname`), off master at
+b9ca9a4.
+
+**What Mail does.** Apple's iPad User Guide for iPadOS 18: "The most
+relevant messages appear in Top Hits above the search suggestions as you
+type" (support.apple.com/guide/ipad/search-for-email-ipadedcc14e6/18.0/ipados/18.0).
+How a word half typed is matched it does not say. iOS 18.6's
+Message.framework, read from the binary in the simulator runtime and not
+run, has the on-device criterion `= '%@*'cdwt`: the start of a word,
+ignoring case and accents, so "Marg" finds Margaret among the letters on
+the iPad. That this is 18.6's code is sure; that his 18.7 takes that path
+as he types is likely, not seen. Mail's own search of an IMAP server asks
+for whole words, as this app does (B-105).
+
+**What he saw.** Not on his own iPad, where the app is not installed yet.
+What the app does there: each pause of 350 ms in his typing sends a SEARCH
+of whole words (`SearchCriteria`, the list's `queryChanged`), and Gmail
+matches whole words only (B-105, measured 2026-10-22: "conver" and "gard"
+found nothing). So a name typed slowly reads "No results" after every
+letter until the last one is in. On the test account, read only, during
+the audit of 2026-10-24: a sender's whole name found about 2,000 letters
+in From and Subject, and its first four letters none, for each of three
+names. He searches all the time (D-012). The address book the composer
+offers addresses from was already on the iPad, filled from every envelope
+the list fetches and from his sends (`RecipientBook`, B-017), and search
+did not use it.
+
+**Changed.**
+
+1. *The word he is still typing* (`SearchCriteria.halfWord(of:)`): the
+   last word of the text as B-105 reads it, when nothing was typed after
+   it, not a space, a closing quote mark, a closing single quote or a
+   dash, and it has three letters or digits or more, and the text ends
+   with it as a word of its own: nothing, white space, a quote mark or a
+   dash before it, with any single quotes that open it. So in "Joann ann
+   joann" the last "joann", asked already, leaves no such word, though
+   the text ends "ann". A word with a space after it is whole, as the
+   keyboard's suggestions finish a word with one. Three, not Mail's two: two letters are often a name or a word on
+   their own, "Ed", "Jo", "to", "my", which the word finds whole, and the
+   people of a book of 300 whose name starts with two letters can be many
+   more than four, so the four asked for would be picked by the book's
+   order and not by his typing. A three-letter name, "Ann", "Sam", is
+   still found whole, its letters among the hits.
+2. *The people it may be the start of*
+   (`RecipientBook.addresses(startingWith:besides:)`): every address in
+   the book whose name has a word that starts with it, or whose part
+   before the @ does ("ellis" of "m.ellis1947"), or the whole address
+   ("margaret@exa"); ignoring case and accents ("nun" and "Núñ" start
+   "Núñez") and apostrophes ("O’Bri" as his keyboard types it starts
+   "O'Brien"). Never the middle of a word, and never the part after the
+   @: "gmai" starts most of his correspondents' addresses and nobody's
+   name. In order: a name before an address, then the addresses he has
+   written to most, then those seen last, then by address, the
+   composer's own order. Never himself: none of the addresses his
+   account lists as his and its login (`OwnAddresses(account:)`, as
+   Reply All leaves them out, B-076), as Settings last saved them, so
+   one added there since the app was opened is his at once; nor an
+   address under a name the book has for any of them: his account's
+   name for his address (B-082), and for his second address whatever
+   name his letters to it carried, or none, as the list passes over
+   only the account's own address when it notes names. Every letter in
+   his mailbox is to him or from him, and about half he sends go to his
+   second address (the gap review in TODO: 1,186 YouTube and 256
+   Wikipedia links in 30 days), so one of his beside "Bla" would turn a
+   search for a Blair into his whole mailbox, or half of it, ranked
+   first by those sends; his own name typed whole finds what it found.
+   Not by the name of a letter sent on someone's behalf, with "via" as a
+   word in it: "'Margaret Ellis' via Garden Club" at the group's
+   address, "Jane Doe via LinkedIn" at the service's. The book keeps the
+   last name it saw for an address, so her name would have asked for
+   every letter of the group, other people's too. Such an entry is still
+   found by its address, "gard" for the group.
+3. *The SEARCH* (`SearchCriteria.imap(for:people:)`): that word's group
+   asks for the word in its five fields as before and, beside it in the
+   same OR, each of up to four of those addresses in From, To and Cc:
+   `OR OR OR OR OR OR OR FROM "Marg" TO "Marg" CC "Marg" SUBJECT "Marg"
+   BODY "Marg" FROM "m.ellis1947@example.net" TO "…" CC "…"`. The other
+   words' groups, and every key with no such word or nobody found, are
+   byte for byte as before. An address over 100 bytes, one with a control
+   character, one without an @, one given twice in any case, and the word
+   itself, are passed over (`askable`), each address escaped as a word
+   is, and one with 8-bit text in it goes as a literal as any word does
+   (B-105). So the line grows by 1,316 bytes at most, four addresses of
+   100 bytes in three fields; Gmail took 17.6 KB in 112 ms (B-105).
+4. *The repository* (`IMAPMailRepository.search`) looks the people up as
+   the search starts, from the text as the list hands it in, untrimmed,
+   since the space is what says a word is whole; the list hands in the
+   field's text as typed, as before. A later page of the same words asks
+   what its first page asked (`SearchSession.query` and `criteria`): the
+   first page's own envelopes teach the book, and Margot, learned from a
+   letter Margaret was copied on, asked for at the second page would have
+   started the search again at its first page, its rows twice. The same
+   words with a space typed after them since go on as well.
+5. *Comments and docs:* `SearchCriteria`'s header, `RecipientBook`'s,
+   `MailRepository.search`'s `query`; B-105 here and its TODO line, which
+   said nothing is found by the start of a word.
+
+**Not changed.** B-105's rules: each word asked for in From, To, Cc,
+Subject or the body, all of them required; quote marks straight and curly,
+the dashes, single quotes around a word, one-letter words left out, the
+first twenty words, CHARSET UTF-8 and literals for 8-bit words. The two
+scopes, the Trash and Spam merge, paging. The 350 ms pause. Recent
+searches: kept at Search on the keyboard and at a letter opened from the
+results, never at a keystroke, as before. No suggestion list as he types,
+which stays dropped, and no subject or body found by the start of a word:
+that needs an index of the whole mailbox on the iPad, which D-016 does not
+keep. The book itself: what it learns, its 300 entries, what the composer
+offers. The Mock repository, which matches any part of a field, as before.
+No new words on his screen. The connection log carries the longer line;
+the addresses in it were in its envelopes already (D-016).
+
+**What he sees.** "Marg", after a pause: Margaret's letters, from her, to
+her and those she was copied on, newest first, with any letter that has
+"Marg" as a whole word, and the letters of up to three others in the book
+whose name or address starts "Marg"; the same as he types on to
+"Margaret". With a space after it, the word is searched whole, as before.
+"lunch Marg" finds her letters about lunch. A person the app has never
+listed a letter of, or seen him write to, is not found by half a name;
+the whole name finds them as before.
+
+**Tests.** `HalfNameSearchTests`, fourteen, new. Over the scripted
+server, which now matches whole words in From, To, Cc, Subject and the body
+when asked (`matchesWholeWords`), as Gmail does, so "Marg" alone finds
+nothing there. "Marg" in All Mailboxes, after the Inbox was listed: her
+letter, his to her and one she was copied on, not Carlo's, the Trash, Spam
+and All Mail each asked the word and her address in one group; with the
+book emptied, as before and nothing. "Zeb", nobody, and "Ma", two letters:
+byte for byte as before, and nothing. "lunch Marg": her two letters about
+lunch; "Marg Ell": the first word whole, and nothing. "Marg ", "Margaret "
+and “Marg”: as before, "Margaret " finding her three by her name. "Núñ",
+the word a literal, and "nun" and "Jos", plain, each finding José Núñez;
+"O’Bri", a literal, finding Peggy O'Brien. Pages: a page's rows teach the
+book Margot, and the next pages, the last asked with a space typed after
+the word, go on with one SEARCH and no row twice, while a new search asks
+for both, Margaret first. Never himself: "Mars" asks for Marshall and
+neither the account's address nor his other address under his name, "Owe"
+for nobody; with no name for the account, "Own" asks for nobody, where his
+address would have found every letter. His second address listed under
+his account, in the book with no name, then under the name his letters
+to it carried, with an old address of his under that name too: "Vid",
+the start of its part before the @, and "Gra", of that name, each asked
+byte for byte as before and finding nothing, where with the account's
+own address alone left out "Vid" asked for it and found his letter to
+it; the same with the address added in Settings after the app was
+opened. On their own: the word still being typed, sixteen forms that
+are and twenty-two that are not, "Joann ann joann" among them; the key
+as before without one; four people at most, the bounds, the escaping and
+the 1,316 bytes; where a book entry matches and where not, a name with
+"via" as a word in it not matched, its address still, and "Silvia"
+matched; the order, and him left out, each of his addresses and every
+name the book has for one of them. And, read from the source, the list handing the field's text to
+the repository as typed, after the 350 ms pause.
+
+Each part undone by hand, the four classes run (`HalfNameSearchTests`,
+`SearchCriteriaTests`, `RecipientBookTests`, `SearchLiteralTests`, 76
+tests), then put back and passing, counted as failures in tests: nobody
+asked for, 19 in 5; a space after the word not read as finishing it, 9 in
+3; two letters enough, 7 in 3; people beside every word, 4 in 2; the last
+word asked with people though something was typed after it, 8 in 2;
+accents not folded, 4 in 2; apostrophes kept, 4 in 2; his other address
+under his name asked for, 3 in 2; his own address, 3 in 2; a later page
+asked with what the book learned since, 3 in 1; with a space typed after
+the word since, 2 in 1; no bound on an address's length, 2 in 1; no cap of
+four, 4 in 1; the part after the @ matched, 2 in 1; the middle of a word
+matched, 2 in 1; an address before a name, 1 in 1; the list trimming the
+text, 1 in 1. And the scripted server matching parts of words, as before:
+6 in 5, so the tests rest on Gmail's whole words.
+
+The full suite, serially: 2,418 tests, 14 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Since.** Three changes, the same day. Each of his addresses is left
+out, as Settings last saved them, and every name the book has for one of
+them: the first build left out the account's address and the name the
+book had for it alone, so his second address, once listed, named in the
+book by his letters to it or not at all, was asked for by a half word
+that started it, first among the four by its uses. A name with "via" as
+a word in it is not matched. And the word still being typed has to stand
+on its own at the end of the text. Each undone by hand, the four classes
+run (77 tests), then put back and passing: the account's own address
+alone left out, 7 failures in 1 test; the account as the app was opened
+with and not as Settings saved it, 3 in 1; no name left out, 7 in 3;
+the name of the account's address alone, 4 in 2; nothing asked before
+the word, 4 in 1; single quotes before it not passed over, 2 in 1; white
+space alone before it, 2 in 1; a "via" name matched, 4 in 1; "via"
+anywhere in a name, 1 in 1; an entry with a "via" name passed over
+whole, 2 in 1. The full suite, serially: 2,419 tests, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -24377,3 +24575,41 @@ failing. The release build for the iPad links.
 - His letters from Sent Mail in a stack are held whole while the
   conversation is on screen, a letter's size each, as the conversation's
   own are.
+
+---
+
+- Seen on the test iPad: not yet (TODO, B-123's check).
+- Mail's own results as he types were not seen: Top Hits and its list of
+  matching letters may differ from these, which are every letter of up to
+  four people, newest first, and whole-word hits of the half word.
+- Only people in the book: the last 300 addresses the list's envelopes
+  and his sends taught it, the never-chosen oldest going first. About half
+  the people he writes to in a month would not be in it at first (B-017's
+  open question, a fill from Sent Mail, would put them there). Their
+  whole names find them as before.
+- More than four people starting so: the first four in the book's order;
+  the others' letters come as he types on.
+- Earlier words are whole words: "Marg Ell" finds nothing, where Mail's
+  search on the iPad would find Margaret Ellis. Mail's own as-you-type
+  path was not read for this.
+- His own names: someone else with exactly his name, or with a name the
+  book has for one of his addresses, is never asked for by half a name;
+  found by the whole name as before.
+- A search kept among the recent ones is kept cleaned, so "Marg " is kept
+  as "Marg" and, tapped, asks for people.
+- The time Gmail takes for up to twelve more terms on his mailbox was not
+  measured.
+- An address with 8-bit text in it, as a literal: built as any word is,
+  not tried on Gmail.
+- His second address is his to search only once it is listed in
+  Settings under his account (TODO, on the day; B-076). Until then a
+  half word that starts its part before the @, or the name his letters
+  to it carried, asks for it, and finds about half his mailbox.
+- A letter sent on someone's behalf is told by "via" alone. A sharer
+  whose last letter the list saw was a Google Docs share ("Name (via
+  Google Docs)" at the sharer's own address, as in the sample of his
+  received mail in the audit) is not found by half the name until a
+  letter of the sharer's own names them again; the whole name finds them
+  as before. A list that writes the poster's name alone over the list's
+  address is matched by that name, and asks for every letter of the
+  list. None such was seen in the sample.

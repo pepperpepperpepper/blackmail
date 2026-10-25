@@ -200,6 +200,10 @@ protocol MailRepository {
     /// where it stopped. For a man who searches every day through years
     /// of mail, a silent ceiling is worse than a slow scroll: the
     /// letter he wants is simply not there and nothing says why.
+    ///
+    /// `query` is the field's text as he typed it, untrimmed: a space after
+    /// the last word says the word is whole, and without one the real
+    /// repository asks too for the people it may be the start of (B-123).
     func search(in mailboxID: String, query: String, scope: MailSearchScope,
                 beforeUID: String?, limit: Int) async throws -> [MessageSummary]
 

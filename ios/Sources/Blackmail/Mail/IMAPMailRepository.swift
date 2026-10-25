@@ -3111,6 +3111,13 @@ actor IMAPMailRepository: MailRepository {
     private struct SearchSession {
         /// Mailbox name + criteria. A change to either is a new search.
         let key: String
+        /// What he typed, trimmed, and the SEARCH key it was asked as: a
+        /// page after the first asks what the first asked, though the
+        /// people a half-typed name finds may have changed since, with the
+        /// first page's own envelopes, or a space been typed after it while
+        /// the page was asked for (B-123).
+        let query: String
+        let criteria: String
         /// The folder All Mail hits are paged out of, and its UIDVALIDITY.
         let primaryID: String
         let primaryName: String
@@ -3142,7 +3149,25 @@ actor IMAPMailRepository: MailRepository {
         // among them. Server-side rather than filtering the page already on
         // screen: searching only the visible 50 would quietly fail to find
         // the letter he is after.
-        guard let criteria = SearchCriteria.imap(for: trimmed) else { return [] }
+        //
+        // A word he is still typing asks for the people it may be the start
+        // of too, from the book (B-123): the text as handed in, as a space
+        // after the last word is what says it is finished. A later page of
+        // the same words asks what its first page asked, so the session goes
+        // on; its rows have taught the book since, and a new key would start
+        // the search again at its first page. Never one of his own
+        // addresses, as Settings last saved them (`sender`): one added
+        // there since launch is his at once, as it is to Reply All.
+        let criteria: String
+        if beforeUID != nil, let session = searchSession, session.query == trimmed {
+            criteria = session.criteria
+        } else {
+            let people = SearchCriteria.halfWord(of: query).map {
+                recipients.addresses(startingWith: $0, besides: OwnAddresses(account: sender))
+            } ?? []
+            guard let asked = SearchCriteria.imap(for: query, people: people) else { return [] }
+            criteria = asked
+        }
 
         // Safe to run twice: the session is written back only once a step
         // has fully succeeded, so a run cut short by a dead socket leaves
@@ -3157,12 +3182,13 @@ actor IMAPMailRepository: MailRepository {
         // results handed back in that gap would be drawn, and the session
         // they would have written is not his current search's either.
         return try await retryingIfDisconnected {
-            try await self.searchOnce(in: mailboxID, criteria: criteria, scope: scope,
-                                      beforeUID: beforeUID, limit: limit)
+            try await self.searchOnce(in: mailboxID, query: trimmed, criteria: criteria,
+                                      scope: scope, beforeUID: beforeUID, limit: limit)
         }
     }
 
-    private func searchOnce(in mailboxID: String, criteria: String, scope: MailSearchScope,
+    private func searchOnce(in mailboxID: String, query: String, criteria: String,
+                            scope: MailSearchScope,
                             beforeUID: String?, limit: Int) async throws -> [MessageSummary] {
         // The paged folder. For "all mailboxes" that is Gmail's All Mail,
         // which holds everything except Trash and Spam; those two are
@@ -3172,7 +3198,7 @@ actor IMAPMailRepository: MailRepository {
         let key = "\(primaryID)\u{0}\(scope.rawValue)\u{0}\(criteria)"
 
         if beforeUID == nil || searchSession?.key != key {
-            let started = try await startSearch(key: key, primaryID: primaryID,
+            let started = try await startSearch(key: key, query: query, primaryID: primaryID,
                                                 criteria: criteria, scope: scope)
             try Task.checkCancellation()
             searchSession = started
@@ -3227,7 +3253,7 @@ actor IMAPMailRepository: MailRepository {
     /// landed included. Nobody is waiting to hear about either, and
     /// `CancellationError` is the one answer the list knows to leave the
     /// screen alone for.
-    private func startSearch(key: String, primaryID: String, criteria: String,
+    private func startSearch(key: String, query: String, primaryID: String, criteria: String,
                              scope: MailSearchScope) async throws -> SearchSession? {
         let client = try await connected()
         let primary = try await resolve(primaryID)
@@ -3255,7 +3281,8 @@ actor IMAPMailRepository: MailRepository {
         }
         binned.sort(by: SearchMerge.isOrderedBefore)
 
-        return SearchSession(key: key, primaryID: primaryID, primaryName: primary,
+        return SearchSession(key: key, query: query, criteria: criteria,
+                             primaryID: primaryID, primaryName: primary,
                              primaryValidity: found.validity,
                              primaryUIDs: found.uids, primaryCursor: nil,
                              binned: binned, primaryExhausted: found.uids.isEmpty)

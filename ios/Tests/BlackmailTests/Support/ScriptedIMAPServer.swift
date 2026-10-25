@@ -630,6 +630,18 @@ final class ScriptedIMAPServer: @unchecked Sendable {
         set { locked { $0.esearchItems = newValue } }
     }
 
+    /// FROM, TO, CC, SUBJECT and BODY match only whole words, as Gmail's
+    /// do: what is asked for has no letter or digit right before it or
+    /// right after it in the field, so "Marg" finds no "Margaret", and
+    /// "carlo@example.org" finds "Carlo <carlo@example.org>" (measured
+    /// read-only on the test account, 2026-10-22: "conver" and "gard"
+    /// found nothing). Off, they match any part of the field, as RFC
+    /// 3501 has it and as every test before B-123 was written against.
+    var matchesWholeWords: Bool {
+        get { locked { $0.matchesWholeWords } }
+        set { locked { $0.matchesWholeWords = newValue } }
+    }
+
     /// A UID SEARCH with `CHARSET` answered BAD, as by a server that will
     /// not take the argument; the same SEARCH without it is answered as
     /// ever.
@@ -1318,6 +1330,7 @@ private extension ScriptedIMAPServer {
         var ignoresSearchReturn = false
         var esearchItems: (@Sendable ([UInt32]) -> String)?
         var refusesCharset = false
+        var matchesWholeWords = false
         var refusesLiterals = false
         var completesApart: Set<String> = []
         var refusedVerbs: Set<String> = []
@@ -1842,7 +1855,7 @@ private extension ScriptedIMAPServer.State {
             guard let found = letter(uid, in: name, on: id) else { return false }
             return key.matches(found.stored, key: found.key, uid: uid,
                                deleted: folder.deleted.contains(uid), highest: seen.last ?? 0,
-                               thread: thread(of: found.key))
+                               thread: thread(of: found.key), wholeWords: matchesWholeWords)
         }
         if let returning, !ignoresSearchReturn {
             var answer = "ESEARCH (TAG \(Server.quoted(r.tag))) UID"
@@ -2819,7 +2832,7 @@ private extension ScriptedIMAPServer {
         }
 
         func matches(_ stored: Stored, key: Int, uid: UInt32, deleted: Bool,
-                     highest: UInt32, thread: UInt64) -> Bool {
+                     highest: UInt32, thread: UInt64, wholeWords: Bool = false) -> Bool {
             let letter = stored.letter
             switch self {
             case .all:
@@ -2827,16 +2840,16 @@ private extension ScriptedIMAPServer {
             case .and(let keys):
                 return keys.allSatisfy {
                     $0.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
-                               thread: thread)
+                               thread: thread, wholeWords: wholeWords)
                 }
             case let .or(a, b):
                 return a.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
-                                 thread: thread)
+                                 thread: thread, wholeWords: wholeWords)
                     || b.matches(stored, key: key, uid: uid, deleted: deleted, highest: highest,
-                                 thread: thread)
+                                 thread: thread, wholeWords: wholeWords)
             case .not(let inner):
                 return !inner.matches(stored, key: key, uid: uid, deleted: deleted,
-                                      highest: highest, thread: thread)
+                                      highest: highest, thread: thread, wholeWords: wholeWords)
             case let .field(name, needle):
                 let haystack: String
                 switch name {
@@ -2849,7 +2862,10 @@ private extension ScriptedIMAPServer {
                     haystack = String(decoding: stored.sections["TEXT"] ?? Data(), as: UTF8.self)
                 default:        haystack = String(decoding: stored.raw, as: UTF8.self)
                 }
-                return haystack.range(of: needle, options: .caseInsensitive) != nil
+                guard wholeWords, ["FROM", "TO", "CC", "SUBJECT", "BODY"].contains(name) else {
+                    return haystack.range(of: needle, options: .caseInsensitive) != nil
+                }
+                return Self.holdsWhole(needle, in: haystack)
             case let .header(name, needle):
                 // RFC 3501: the field's text after the colon contains the
                 // string, compared without regard to case. Folded lines are
@@ -2895,6 +2911,26 @@ private extension ScriptedIMAPServer {
             calendar.timeZone = TimeZone(identifier: "UTC")!
             return calendar
         }()
+
+        /// `needle` somewhere in `haystack`, ignoring case, with no letter
+        /// or digit right before it or right after it (`matchesWholeWords`).
+        static func holdsWhole(_ needle: String, in haystack: String) -> Bool {
+            var from = haystack.startIndex
+            while let found = haystack.range(of: needle, options: .caseInsensitive,
+                                             range: from..<haystack.endIndex) {
+                let before = found.lowerBound == haystack.startIndex
+                    ? nil : haystack[haystack.index(before: found.lowerBound)]
+                let after = found.upperBound == haystack.endIndex ? nil : haystack[found.upperBound]
+                let apart: (Character?) -> Bool = { c in
+                    guard let c else { return true }
+                    return !c.isLetter && !c.isNumber
+                }
+                if apart(before) && apart(after) { return true }
+                guard found.lowerBound < haystack.endIndex else { return false }
+                from = haystack.index(after: found.lowerBound)
+            }
+            return false
+        }
     }
 }
 
