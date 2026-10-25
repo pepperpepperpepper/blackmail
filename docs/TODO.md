@@ -5622,7 +5622,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       row of a letter "Pey" showed has its two lines in the first frame it
       is drawn, no grey lines on it, and the log has the UID SEARCHes and
       no preview FETCH after them but for UIDs "Pey" did not find, if any,
-      written down. The same for "o" and "n", one at a time.
+      written down. The same for "o" and "n", one at a time. The two empty
+      drafts among the hits (UIDs 83185 and 83701 on that mailbox) are
+      asked for at "Pey" alone, answered with two bytes each, and at no
+      pause after; on int16 (662d63d) every pause asked for them again
+      (B-135, "Found on the test iPad").
       2. *The right words.* Three rows of 1's "Peyton" that have no
       unread dot, tapped one by one: each letter begins with its row's
       words. Only rows already read, so that opening one marks nothing
@@ -5646,6 +5650,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       back to its top, Current Mailbox, "Pey" and a pause: its rows with
       their lines at once, no preview FETCH for letters on those pages.
       8. *Two panes:* 1 again, then three panes back.
+      8b. *Drafts refreshed.* Cancel, Drafts, its rows and their lines
+      let come: one preview FETCH names the two empty drafts' UIDs there,
+      answered with two bytes each. Then pulled down to Refresh, twice,
+      the rows let come each time: no preview FETCH after either. No
+      draft is tapped: one tapped opens in the composer.
       9. *Put back:* Cancel, All Mailboxes, the Inbox at its top. Nothing
       else: nothing was written to the mailbox.
 - [ ] **B-136, the kept copy's free-space reading.** On the test iPad

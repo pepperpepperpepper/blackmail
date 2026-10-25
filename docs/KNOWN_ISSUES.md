@@ -24952,7 +24952,7 @@ Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
 
-## B-135 — FIXED 2026-10-25, not yet seen on the iPad. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
+## B-135 — FIXED 2026-10-25; a fault found on the test iPad the same day fixed, not yet seen fixed. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
 
 Built in the `bm-searchprev` worktree (branch `fix-searchprev`), off master
 at 7056602.
@@ -25019,7 +25019,9 @@ never did.
    well, those words would have been carried into every answer after,
    where before they were asked for again at the next. Only folders that
    share a UIDVALIDITY give two letters one id, which Gmail's folders, as
-   a rule, and the scripted server's do not.
+   a rule, and the scripted server's do not. *Since the round on the test
+   iPad (below), an answer of no words is kept for the folder's rows of
+   its letter too, as a letter drawn with none.*
 6. *A page of hits* (`ListLetters.appendPage`): the same, the previews it
    carries made the newest as an answer's are, and the list asks for the
    page's rows that have none.
@@ -25030,7 +25032,8 @@ never did.
 
 **Not changed.** What a search asks the server, its pause, its paging and
 its merge. A Refresh's carry and a cancelled search's (`endSearch`). The
-folder's own pages. The pass's order, a mailbox at a time, and its stop as
+folder's own pages. *Since the round on the test iPad (below), none of
+these asks for a letter drawn with no words.* The pass's order, a mailbox at a time, and its stop as
 the list is replaced. No new words.
 
 **What it saves.** Over the scripted server, at a mailbox of 29 letters in
@@ -25066,7 +25069,8 @@ no Gmail id on either, the same folder and id carry; the read mark, the
 flag and the subject the new answer's; a preview drawn in an answer no
 longer on screen, after one with nothing found and after a cancelled
 search; the last 300, one drawn again the newest, a row with none not
-kept; an answer that came after its list was replaced kept for the next,
+kept (*since the round on the test iPad, kept, as a letter drawn with
+none; the list hands it only rows drawn*); an answer that came after its list was replaced kept for the next,
 nothing after it asked, its folder's rows alone; an answer in time, one
 id in All Mail, the Trash and the Inbox, each hit taking its own folder's
 words, the Inbox's row none, and an answer after one with nothing found
@@ -25103,7 +25107,8 @@ none failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the test iPad. Its check is in TODO.
+- Not seen on the test iPad but for the round below, which found a fault
+  now fixed and not yet seen fixed. Its check is in TODO.
 - In All Mailboxes, letters the Inbox's rows have drawn are asked for
   again under All Mail's ids: in the measure above, 2 of the first
   answer's 3 FETCHes and the last answer's 1, so 3 of the 4; the Trash
@@ -25116,6 +25121,108 @@ none failing. The release build for the iPad links.
   asked for again if found again.
 - The counts on his own mailbox, and the grey lines, are the check's to
   see; the scripted mailbox is not his, and the numbers above are its own.
+
+**Found on the test iPad, 2026-10-25**, on a build of int16 (662d63d), in
+the check's step 1. "Pey" typed in All Mailboxes, then "t", "o" and "n",
+a pause after each: every pause after the first asked
+`UID FETCH 83185,83701 (UID BODY.PEEK[1]<0.2048>)` again. The two are
+empty drafts among the hits, whose previews had been fetched once
+already and answered with two bytes each, no words.
+
+*The cause.* A letter drawn with no words could not be told from one
+never drawn. The repository answered only previews with words
+(`IMAPMailRepository.previewTexts`), so a letter fetched and found empty
+was missing from the answer, as one never asked for is; `SearchPreviews`
+kept only rows with a preview (`note`), carried only those
+(`carrying(into:from:)`), and `ListLetters.showResults` handed the pass
+every hit left with none. So each pause asked again, and each answer was
+nothing again. A Refresh's carry, which this copied
+(`ListEdit.carryingPreviews` in `fetchedAfresh`), had the same fault: an
+empty draft in Drafts was asked for at every Refresh, at every page the
+watch fetched afresh, at every cancelled search (`endSearch`) and on a
+page, each time answered with nothing.
+
+*The fix.*
+
+1. *The answer* (`IMAPMailRepository.previewTexts`, `MailRepository.previews`):
+   a letter with no words is in it with an empty preview, one fetched and
+   found to say nothing, as those two bytes, and one whose words the
+   server sizes at nothing, which is not fetched, as before. A letter the
+   server gave nothing for, or one the repository cannot ask for (its
+   listing forgotten, its folder renumbered), is missing as before, and
+   asked for again.
+2. *Drawn with none* (`SearchPreviews`): a letter drawn with no words is
+   kept as drawn, its preview empty; a letter not kept has not been drawn.
+   `note` keeps every row handed it, and `hasDrawn` says a row is drawn
+   when it has a preview or its letter is kept. The list hands `note`
+   only rows drawn: an answer's, in time or late (`apply(previews:in:)`,
+   `previewsCameLate`), and the hits that have their preview or took it
+   (`showResults`, `appendPage`).
+3. *The folder's rows* drawn with no words are kept there too
+   (`apply(previews:in:)`): a row holds its words, but not that it has
+   none.
+4. *What every pass asks for* is `ListLetters.toDraw` of its rows: an
+   answer's hits, a Refresh's page and one fetched afresh under a search,
+   a cancelled search's rows, and a page of the folder or of hits (the
+   controller's page asked for its rows with no preview).
+5. *Kept as before*: the same letter is its folder, its id (UIDVALIDITY
+   and UID) and Gmail's id, so a draft saved again, a new UID, is asked
+   for; and the bound is the last 300 drawn, letters drawn with none among
+   them, the one drawn longest ago going first.
+
+Comments in `SearchPreviews`, `ListLetters`, `MailRepository.previews`,
+`IMAPMailRepository.previewTexts` and at the page's call in
+`MessageListViewController`.
+
+*Tests.* `SearchPreviewsTests`, five new, two changed, seventeen in all. A
+hit drawn with no words not asked for by the next answer, by one after an
+answer with nothing found, or on a page of hits; a hit asked for and not
+answered asked again; a draft saved again, and the same folder and id
+under another Gmail id, asked for. A Drafts row drawn with none not asked
+for by a Refresh, a page fetched afresh under a search, a hit of its
+letter, a cancelled search or a page of the folder; a draft saved again in
+its place asked for. A late answer of no words kept for its folder's row
+alone. Letters drawn with none among the last 300. And over the scripted
+server, two empty drafts to Peyton among four hits, one of two bytes, as
+the round's, and one of none: "Pey", then t, o and n in All Mailboxes,
+from the Inbox's page drawn, hand the pass 4, 0, 0 and 0 hits and FETCH
+3, 0, 0 and 0 UIDs, the two-byte draft's preview once in all and the
+other's never; Drafts opened and refreshed three times asks for 4, 0, 0
+and 0 rows, the two-byte draft once in all. Changed: the bound's test,
+where a row handed in with none is now kept among the 300, and the
+wiring's, which reads the page's call to `toDraw`.
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the answer leaving out a letter with no
+words, as before, 5 in 1 (the two-byte draft asked at every pause and
+every Refresh, 4 times each); a part sized at nothing left out, 2 in 1;
+`note` passing over a row with none, as before, 21 in 6 (over the wire,
+hits handed 4, 2, 2 and 2, the two-byte draft's FETCH at every pause, as
+the round saw); `hasDrawn` by the preview alone, 18 in 6; `showResults`
+handing the pass every hit with none, as before, 7 in 4; `showResults`
+noting every hit, those not drawn too, 118 in 10; a page of hits the
+same, 1 in 1; a Refresh asking for every row with none, as before, 3 in
+2; a page fetched afresh under a search the same, 1 in 1; a cancelled
+search the same, 1 in 1; the folder's rows drawn with none not kept, 7
+in 2; the controller's page asking for every row with none, 2 in 1; a
+late answer of no words dropped, 1 in 1.
+
+The full suite, serially: 2,497 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+*Not covered.*
+
+- Not yet seen fixed on the iPad: the check's step 1 again, and step 8b,
+  new, for Drafts.
+- A letter with no words part at all, a photo alone, is not asked of the
+  server, as before, but the pass still hands it to the repository at
+  each answer, which sends nothing for it.
+- A Refresh does not make the folder's letters drawn with none the
+  newest kept: after 300 others drawn in the list's life, such a letter is
+  asked for once more.
+- An All Mailboxes hit drawn with none, the search then cancelled: the
+  Inbox's row of the same letter is asked for once under its own id, as
+  nothing goes across folders by Gmail's id.
 
 ## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
 
