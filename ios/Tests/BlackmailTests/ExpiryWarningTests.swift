@@ -540,11 +540,26 @@ final class ExpiryWarningTests: XCTestCase {
 
         let list = try source("UI/MessageListViewController.swift")
         XCTAssertTrue(list.contains("var isOpeningDraft: Bool { drafts.loading != nil }"))
-        // Taken off and the composer put up in one turn of the main thread.
+        // Taken off and the composer put up in one turn of the main thread:
+        // nothing awaited, and no hop to a later turn, in which a check of
+        // the watch could find the draft let go and the composer not up.
         let landed = try part(of: list, from: "guard self.drafts.landed(summary.id) else { return }",
                               to: "private func openWaiting(")
-        XCTAssertFalse(landed.contains("await"), landed)
-        XCTAssertTrue(landed.contains("self.presentComposer(draft, key: nil, from: summary)"), landed)
+        XCTAssertEqual(landed, "guard self.drafts.landed(summary.id) else { return } "
+                       + "self.showDraftSpinners() if let row = self.rowIndex(showing: summary.id) { "
+                       + "self.tableView.deselectRow(at: IndexPath(row: row, section: 0), "
+                       + "animated: false) } if notKept { PaneActions.notTheKeptLetter(summary, "
+                       + "list: self.letters) return } guard let draft else { "
+                       + "ErrorPresenter.show(reaching: failure, on: self) return } "
+                       + "self.presentComposer(draft, key: nil, from: summary) } } @MainActor ")
+        let composer = try part(of: list, from: "private func presentComposer(",
+                                to: "private func showDraftSpinners(")
+        XCTAssertTrue(composer.hasSuffix("let nav = UINavigationController(rootViewController: compose) "
+                                         + "nav.modalPresentationStyle = .formSheet "
+                                         + "present(nav, animated: true) } @MainActor "), composer)
+        for hop in ["await", "DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {
+            XCTAssertFalse(landed.contains(hop), hop)
+        }
 
         let pane = try source("UI/MessageDetailViewController.swift")
         XCTAssertTrue(pane.contains("private var filesOpening = 0"))
@@ -556,10 +571,24 @@ final class ExpiryWarningTests: XCTestCase {
                                     + "if message?.id == m.id {"), open)
         XCTAssertEqual(open.components(separatedBy: "filesOpening").count - 1, 2, open)
         XCTAssertEqual(pane.components(separatedBy: "filesOpening").count - 1, 4)
-        // Nothing awaited between the file come and its preview put up.
+        // Nothing awaited between the file come and its preview put up, and
+        // no hop to a later turn: the count is let go in the `defer`, after
+        // the preview is presented, in the same turn.
         let shown = try part(of: open, from: "let data = try await", to: "} catch {")
+        XCTAssertEqual(shown, "let data = try await repository.fetchAttachmentData( "
+                       + "attachment.id, of: m.id, mailboxID: m.mailboxID) "
+                       + "guard loads.stillShows(shown) else { return } "
+                       + "guard presentedViewController == nil else { return } "
+                       + "if let shown = previewURL { AttachmentStore.removeStaged(shown) } "
+                       + "previewURL = nil "
+                       + "previewURL = try AttachmentStore.write(data, named: attachment.filename) "
+                       + "let preview = QLPreviewController() preview.dataSource = self "
+                       + "preview.modalPresentationStyle = .fullScreen "
+                       + "present(preview, animated: true) ")
         XCTAssertEqual(shown.components(separatedBy: "await").count - 1, 1, shown)
-        XCTAssertTrue(shown.contains("present(preview, animated: true)"), shown)
+        for hop in ["DispatchQueue", "asyncAfter", "Task {", "Task.", "RunLoop", "perform("] {
+            XCTAssertFalse(shown.contains(hop), hop)
+        }
     }
 
     /// No alert is put over the warning itself. Asked for while it is up,
@@ -601,7 +630,8 @@ final class ExpiryWarningTests: XCTestCase {
                        + "var screens: [UIViewController] = [] var front = root "
                        + "while let next = front.presentedViewController, !next.isBeingDismissed { "
                        + "screens.append(next) front = next } "
-                       + "return OverTheMail(screens: screens, warning: warning) } ")
+                       + "return OverTheMail(screens: screens, warning: warning, "
+                       + "waiting: afterWarning.count) } ")
         let put = try part(of: presenter, from: "private static func put(",
                            to: "let alert = UIAlertController(title: title")
         XCTAssertEqual(put, "private static func put(_ text: String, title: String?, "
@@ -646,21 +676,67 @@ final class ExpiryWarningTests: XCTestCase {
 
         let long = Sitting.awayBeforeReturningToInbox + 1
         let up = OverTheMail(screens: [warning], warning: warning)
-        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: true, sheetOpen: up.sheetOpen),
-                       .refreshInbox)
-        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false, sheetOpen: up.sheetOpen),
-                       .openInbox)
-        XCTAssertEqual(Sitting.onReturn(after: 60, showingInbox: false, sheetOpen: up.sheetOpen),
-                       .stay)
-        let writing = OverTheMail(screens: [sheet], warning: nil)
+        XCTAssertFalse(up.holdsTheReturn)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: true,
+                                        sheetOpen: up.holdsTheReturn), .refreshInbox)
         XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false,
-                                        sheetOpen: writing.sheetOpen), .stay)
+                                        sheetOpen: up.holdsTheReturn), .openInbox)
+        XCTAssertEqual(Sitting.onReturn(after: 60, showingInbox: false,
+                                        sheetOpen: up.holdsTheReturn), .stay)
+        let writing = OverTheMail(screens: [sheet], warning: nil)
+        XCTAssertTrue(writing.holdsTheReturn)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false,
+                                        sheetOpen: writing.holdsTheReturn), .stay)
 
         let root = try source("UI/RootViewController.swift")
         let returning = try part(of: root, from: "private func returnedFromAway() {",
                                  to: "case .stay:")
-        XCTAssertTrue(returning.contains("sheetOpen: ErrorPresenter.over(self).sheetOpen) {"),
+        XCTAssertTrue(returning.contains("sheetOpen: ErrorPresenter.over(self).holdsTheReturn) {"),
                       returning)
         XCTAssertFalse(returning.contains("presentedViewController"), returning)
+    }
+
+    /// An alert waiting behind the warning holds his return after a while
+    /// away, as it did before the warning stopped holding it: an Edit-mode
+    /// Delete or Move refused in another folder as the warning went up is
+    /// addressed to that folder's list, and with the Inbox put in its
+    /// place under the warning, the refusal had nothing to go over at OK
+    /// and was dropped. Only while the warning is up: one taken away
+    /// without its OK holds nothing. With nothing waiting it still runs
+    /// under the warning, and a sheet holds it whatever waits.
+    func testTheReturnWaitsForAnAlertBehindTheWarning() throws {
+        let sheet = Screen(), warning = Screen()
+        let long = Sitting.awayBeforeReturningToInbox + 1
+        let refused = OverTheMail(screens: [warning], warning: warning, waiting: 1)
+        XCTAssertFalse(refused.sheetOpen, "still no sheet")
+        XCTAssertTrue(refused.holdsTheReturn)
+        XCTAssertTrue(OverTheMail(screens: [warning], warning: warning, waiting: 2).holdsTheReturn)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: false,
+                                        sheetOpen: refused.holdsTheReturn), .stay)
+        XCTAssertEqual(Sitting.onReturn(after: long, showingInbox: true,
+                                        sheetOpen: refused.holdsTheReturn), .stay)
+        XCTAssertFalse(OverTheMail(screens: [warning], warning: warning, waiting: 0).holdsTheReturn)
+        XCTAssertFalse(OverTheMail<Screen>(screens: [], warning: nil, waiting: 1).holdsTheReturn,
+                       "the warning gone without its OK")
+        XCTAssertFalse(OverTheMail(screens: [], warning: warning, waiting: 1).holdsTheReturn,
+                       "the warning not presented")
+        XCTAssertTrue(OverTheMail(screens: [sheet], warning: nil, waiting: 0).holdsTheReturn)
+        XCTAssertTrue(OverTheMail(screens: [warning, sheet], warning: warning, waiting: 0)
+                        .holdsTheReturn)
+
+        // Counted from the alerts kept for the warning's OK, the very list
+        // `showFirst` keeps them in and OK empties.
+        let presenter = try source("UI/ErrorPresenter.swift")
+        XCTAssertTrue(presenter.contains(
+            "return OverTheMail(screens: screens, warning: warning, waiting: afterWarning.count) }"))
+        XCTAssertTrue(presenter.contains(
+            "guard warning?.presentingViewController == nil else { "
+            + "afterWarning = alerts + afterWarning return }"))
+        XCTAssertTrue(presenter.contains(
+            "warning = nil let waiting = afterWarning afterWarning = [] showFirst(waiting)"))
+        let root = try source("UI/RootViewController.swift")
+        let returning = try part(of: root, from: "private func returnedFromAway() {",
+                                 to: "case .stay:")
+        XCTAssertFalse(returning.contains(".sheetOpen"), returning)
     }
 }

@@ -26865,23 +26865,48 @@ one small one. The text above is as it was; this says what changed.
    for nothing.
 3. *B-003 under the warning.* The warning counted as an open sheet, so
    one left up overnight stopped the return to the Inbox at its top after
-   fifteen minutes away. The return now asks `OverTheMail.sheetOpen`,
-   anything up but the warning alone, and runs under the alert.
+   fifteen minutes away. The return now asks
+   `OverTheMail.holdsTheReturn`: anything up but the warning alone, or an
+   alert waiting behind the warning for its OK. With nothing waiting it
+   runs under the alert.
 
 The check in TODO has its ninth step changed to see 3 on the iPad.
 
-**Tests.** `ExpiryWarningTests`, three new: the draft held from the tap
+Checked again after these fixes, which found three small things, each
+fixed. The return under the warning lost what 2 had saved: an Edit-mode
+refusal in a folder other than the Inbox, asked for as the warning went
+up with the list still on screen, is addressed to that list; he walked
+away without OK, and on his return the Inbox took the list's place, so
+at OK the refusal had nothing to go over and was dropped. The return now
+waits while any alert waits behind the warning (`waiting`, the count of
+`ErrorPresenter`'s `afterWarning`, read by `over`), and only while the
+warning is presented, so one taken away without its OK holds nothing.
+The test that the composer and the preview go up in the turn the draft
+is taken off or the file let go looked only for `await`: a present moved
+to a later turn by `DispatchQueue.main.async` or a `Task`, in which a
+check could put the warning up first, passed it. Both stretches are now
+pinned as exact text, `presentComposer`'s present with them, and no hop
+is allowed in either. A tap WebKit hands on a moment late was not
+written down; it is now, under Not covered.
+
+**Tests.** `ExpiryWarningTests`, four new: the draft held from the tap
 until the one tapped last has come or failed, the guard asking the list
 and the pane, the composer put up in the turn the draft is taken off,
 the file counted before its task and let go in its `defer` after the
-preview is presented, nothing awaited between; what is in front with
+preview is presented, nothing awaited and no hop to a later turn
+between, both stretches and `presentComposer`'s present as exact text;
+what is in front with
 nothing up, a sheet, an alert over a sheet, the warning alone and over a
 sheet, and an alert asked for over the warning, over a sheet, with no
 warning and with a warning not presented; the list's refusal host, the
 walk and `put`'s host from the source, and the only walks up the
 presented screens `ErrorPresenter`'s and the `mailto:` link's; the warning
 alone not a sheet, a sheet or another alert one, over the warning or
-without it, and B-003's answers with the warning up. The guard's pin in
+without it, and B-003's answers with the warning up; and B-003 held by
+one alert waiting behind the warning or two, in the Inbox or another
+folder, not by none, nor by alerts left waiting with the warning gone
+or not presented, a sheet holding it whatever waits, and the count read
+from the list `showFirst` keeps and OK empties. The guard's pin in
 `testItIsPutUpOnlyWithNothingOverTheMail`, `ListBatchTests`' for
 `alertHost` and `PictureTapTests`' for `openAttachment` follow the code.
 
@@ -26894,9 +26919,15 @@ counted only once its task runs, 2 in 2; never let go, 3 in 1;
 3 in 2; `front` taking the warning, 2 in 1; `put` taking the warning as
 asked, 1 in 1; `host` always as asked, 2 in 1; the return asking
 `presentedViewController`, 2 in 1; `sheetOpen` counting the warning, 3 in
-1. 25 in all.
+1. 25 in all. And for the three small ones, `ExpiryWarningTests` run:
+the return not waiting for an alert behind the warning, 4 in 1; waiting
+for one with the warning gone, 2 in 1; `over` not counting them, 2 in 2;
+the return asking `sheetOpen`, 2 in 2; the preview presented a turn
+later by `DispatchQueue.main.async`, 2 in 1; the composer the same, 2 in
+1; the composer by a `Task`, 2 in 1; `presentComposer`'s own present by
+a `Task`, 1 in 1. 17 in all.
 
-The full suite, serially, with nothing undone: 2,564 tests, 3 of them new
+The full suite, serially, with nothing undone: 2,565 tests, 4 of them new
 here, 6 skipped, none failing. The release build for the iPad links, with
 no warning from the files changed.
 
@@ -26921,10 +26952,18 @@ no warning from the files changed.
 - A warning left up while he is away, the iPad locked over it: on his
   return after fifteen minutes B-003's way back to the Inbox and its
   refresh are taken under it, since 2026-10-25 (above); another alert
-  left up still holds them, as a sheet does.
+  left up still holds them, as a sheet does, and so does any alert
+  waiting behind the warning, even one whose screen the Inbox would not
+  have replaced.
 - A draft or a file on its way at the moment of a check, and an Edit-mode
   refusal while the warning is up, cannot be made by hand on the iPad;
   the host tests hold them.
+- A tap that reaches the app only after a check has put the warning up
+  opens nothing: a file row or a picture in a letter's text, or a link,
+  comes through WebKit a moment after the touch, and if the one check a
+  day that puts the warning up falls in that moment, the file is
+  downloaded and its preview let go, or the link's alert or composer
+  refused. After OK he taps again, and it opens.
 - A `mailto:` link from another app, which iOS hands only to the default
   mail app, opens its composer over the warning if it is up; the
   composer's own alerts then wait for the warning's OK, and any still

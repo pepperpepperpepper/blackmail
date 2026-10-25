@@ -80,8 +80,8 @@ enum ErrorPresenter {
     private static var afterWarning: [() -> Bool] = []
 
     /// What is up over `root` (`OverTheMail`): the screens it presents, one
-    /// over another, up to the first on its way out, and the warning among
-    /// them while it is up.
+    /// over another, up to the first on its way out, the warning among
+    /// them while it is up, and the alerts waiting for its OK.
     static func over(_ root: UIViewController) -> OverTheMail<UIViewController> {
         var screens: [UIViewController] = []
         var front = root
@@ -89,7 +89,7 @@ enum ErrorPresenter {
             screens.append(next)
             front = next
         }
-        return OverTheMail(screens: screens, warning: warning)
+        return OverTheMail(screens: screens, warning: warning, waiting: afterWarning.count)
     }
 
     private static func put(_ text: String, title: String?, offeringSettings: Bool,

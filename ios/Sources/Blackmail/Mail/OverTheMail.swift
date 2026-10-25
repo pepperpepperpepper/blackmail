@@ -20,13 +20,33 @@ struct OverTheMail<Screen: AnyObject> {
     let screens: [Screen]
     /// The warning, while it is up.
     let warning: Screen?
+    /// The alerts asked for while the warning is up, waiting for its OK
+    /// (`ErrorPresenter.showFirst`).
+    let waiting: Int
+
+    init(screens: [Screen], warning: Screen?, waiting: Int = 0) {
+        self.screens = screens
+        self.warning = warning
+        self.waiting = waiting
+    }
 
     /// Something he opened, or is answering, is over the mail: anything up
-    /// but the warning alone. B-003's return to the Inbox after a while
-    /// away waits for a sheet (`Sitting.onReturn`), and not for the
-    /// warning, which can be left up overnight with the iPad locked over
-    /// it: the Inbox comes back, at its top, under it.
+    /// but the warning alone.
     var sheetOpen: Bool { screens.contains { $0 !== warning } }
+
+    /// What B-003's return to the Inbox after a while away waits for
+    /// (`Sitting.onReturn`): a sheet he has open, and an alert waiting
+    /// behind the warning, but not the warning alone, which can be left
+    /// up overnight with the iPad locked over it: the Inbox comes back, at
+    /// its top, under it. An alert waiting is addressed to the screen it
+    /// was asked for over, as an Edit-mode refusal is to the list; the
+    /// Inbox put in the list's place, it has nothing to go over at OK and
+    /// is dropped (`ErrorPresenter.put`), so the return waits, as it did
+    /// for the warning. Only while the warning is up: one taken away
+    /// without its OK leaves nothing waiting for it.
+    var holdsTheReturn: Bool {
+        sheetOpen || (waiting > 0 && screens.contains { $0 === warning })
+    }
 
     /// What an alert goes over: the screen in front, below the warning if
     /// it is up; `root` itself with nothing over it, or the warning alone.

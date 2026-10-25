@@ -444,15 +444,16 @@ final class RootViewController: UIViewController {
 
     /// B-003: after a while away, back to the Inbox, at the top. See
     /// `Sitting`, which decides. The warning before the app stops opening
-    /// is not a sheet (`OverTheMail.sheetOpen`): left up overnight, the
-    /// Inbox comes back under it.
+    /// is not a sheet (`OverTheMail.holdsTheReturn`): left up overnight,
+    /// the Inbox comes back under it, unless an alert waits behind it, as
+    /// one for the list the Inbox would replace can.
     @MainActor
     private func returnedFromAway() {
         guard let away = wentAwayAt else { return }
         wentAwayAt = nil
         switch Sitting.onReturn(after: Date().timeIntervalSince(away),
                                 showingInbox: list.shownMailbox.role == .inbox,
-                                sheetOpen: ErrorPresenter.over(self).sheetOpen) {
+                                sheetOpen: ErrorPresenter.over(self).holdsTheReturn) {
         case .stay:
             return
         case .refreshInbox:
