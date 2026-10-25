@@ -24947,7 +24947,7 @@ Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
 
-## B-137 — FIXED 2026-10-25, not yet seen on the iPad. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
+## B-137 — FIXED 2026-10-25, fixed again 2026-10-25 after the test iPad, not yet seen there. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
 
 **Found** in D-004 (2026-09-19), item 3, and in the gap review's list of
 what is buildable for the install-day build (TODO, "the in-app warning
@@ -24990,12 +24990,13 @@ nothing would open, with no word from the app before it.
 2. *Nothing where there is no profile, or TrollStore installed the app.*
    The simulator and a build run from the host have no profile. This
    project's TrollStore installs do carry one (they are the signed IPA),
-   so TrollStore is told by the empty file it writes beside the app in its
-   bundle container, `_TrollStore`, or `_TrollStoreLite` for TrollStore
-   Lite (`TS_MARKER` and `TS_LITE_MARKER` in TrollStore's
-   `Shared/TSUtil.h`, written by its helper's `installApp`, read
-   2026-10-25 from github.com/opa334/TrollStore: high for TrollStore 2's
-   code).
+   so TrollStore is told by the entitlement its helper adds to the app's
+   own signature as it installs it,
+   `com.apple.private.security.container-required`, read from the app's
+   own executable (`OwnEntitlements`). Until the test iPad of 2026-10-25
+   it was told by the empty file TrollStore writes beside the app in its
+   bundle container, `_TrollStore`, which the app's sandbox never lets it
+   see (below).
 3. *The day rules* (`ExpiryWarning`, new): due from the first moment of
    the thirtieth day before the day it stops, in the iPad's calendar and
    zone, up to the instant itself, and never after it, when the words
@@ -25043,7 +25044,9 @@ nothing would open, with no word from the app before it.
    back.
 7. *The connection log*: "EXPIRY stops 2027-09-18 10:22:36 +0000" (or
    "none, no profile", "none, TrollStore", "none, profile unreadable")
-   once a launch, and "EXPIRY-WARNING shown" when it is up.
+   once a launch, before it "EXPIRY entitlements unread" if the app's own
+   signature could not be read, and "EXPIRY-WARNING shown" when it is
+   up.
 
 Read on the build host against the real ad-hoc profile in the signing
 directory, by this code compiled on its own outside the repo: its
@@ -25084,9 +25087,11 @@ every length, a length past its holder, BER's indefinite length, fields
 out of order; the day the earlier of profile and certificate, a later
 certificate not taken, the soonest of two, one already past left out, an
 unreadable one passed over, none without the profile's date; the bundle
-with a profile, without one, with TrollStore's mark or TrollStore Lite's
-beside it (nothing even with a profile), a mark inside the bundle not
-TrollStore's, a profile that is not one; the last thirty days in New
+with a profile, without one, TrollStore's when its signature holds the
+entitlement (nothing even with a profile), the profile read when the
+entitlement is not held or could not be read, TrollStore's mark and
+TrollStore Lite's beside it deciding nothing, a profile that is not one
+(as changed after the test iPad, below); the last thirty days in New
 York from midnight on 19 August to the second before the instant, across
 the clocks going back; once a day by his midnight, not UTC's; the words in
 en_US and en_GB, and the 17th west of UTC-10:22; the day kept in the
@@ -25170,13 +25175,148 @@ The full suite, serially, with nothing undone: 2,492 tests, 11 of them
 B-137's and 6 B-138's, 6 skipped, none failing. The release build for the
 iPad links, with no warning from the files changed.
 
+**Found on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+installed by TrollStore's helper as every build there is. The check's
+first step failed. With `_TrollStore` beside `Blackmail.app` in its
+bundle container, as root sees it, every launch logged "EXPIRY stops
+2027-09-18 10:22:36 +0000", never "EXPIRY none, TrollStore", and with
+the clock at 1 September 2027, 9:00 AM, the warning came up within half
+a minute of coming back to the app. Steps 2 to 10 were not run: 2 renamed
+a file in the bundle container, a write the round was not cleared for.
+The warning left the day it was said, 1 September 2027, 16:02 UTC, in the
+app's prefs (`blackmail.expiryWarningShown`).
+
+*The cause*, measured that day with `sandbox_check` against the running
+app's process: its sandbox denies `file-read-metadata` on every file in
+the bundle container but the `.app` (`_TrollStore`, `_TrollStoreLite`,
+`BundleMetadata.plist`, the container's own metadata plist) and
+`file-read-data` on those tried (`_TrollStore`, `BundleMetadata.plist`),
+and allows both on the `.app`, its `Info.plist` and its
+`embedded.mobileprovision`. A look the sandbox refuses reads the same as
+a file that is not there, so `fileExists` said no, and the mark could
+never be seen from inside the app. The host tests made the mark in a
+folder of their own, where nothing is refused.
+
+*What tells TrollStore.* The installed app's entitlements, read on the
+iPad with root's tools, hold
+`com.apple.private.security.container-required`, set to the bundle id;
+the IPA it was installed from has none, the name
+nowhere in its executable. TrollStore's helper adds it as it signs the
+app again at install, so that the app gets its data container (its
+`signApp`, read 2026-10-25 from github.com/opa334/TrollStore: added
+unless the app has it already as a string, or has `no-container` or
+`no-sandbox`). No install by a certificate can carry it: iOS refuses a
+private entitlement the profile does not grant. So the app's own
+signature holding it means TrollStore, or an installer like it, and no
+expiry.
+
+*Changed.* `OwnEntitlements`, new, reads the app's own entitlements from
+the code signature in its own executable (`Bundle.main.executableURL`),
+which the sandbox lets it read, as it does the profile beside it: the
+64-bit Mach-O's load commands to its `LC_CODE_SIGNATURE`, the SuperBlob
+that points at, and in it the DER entitlements (slot 7, magic
+`0xfade7172`), which iOS 15 and later go by, or the XML plist (slot 5,
+`0xfade7171`) where there is no DER one. A fat file holds it only if
+every slice does; TrollStore's helper writes one slice. Held is a
+non-empty string or true. Every offset and length is checked against
+what holds it, and nothing is searched for in the bytes, where the app's
+own code would be found. The name is put together at run time from its
+parts, so it is not whole anywhere in the app's binary: the release build
+for the iPad holds it 0 times, and a search of an executable for it, as
+the round made of the IPA's, still finds only a signature's.
+`AppExpiry` asks once a launch, before the profile: held is TrollStore,
+"EXPIRY none, TrollStore"; not held, or a signature that could not be
+read in any way, is a certificate's install, his iPad's, and the profile
+is read, so the warning stays. A signature not read puts "EXPIRY
+entitlements unread" in the log first. The file beside the bundle is no
+longer looked for: on the iPad the sandbox hides it, and where it can be
+seen it does not mean TrollStore.
+
+Read from the executable rather than asked of the system
+(`SecTaskCreateFromSelf` and `SecTaskCopyValueForEntitlement`, the
+kernel's copy of the same entitlements): neither is in the iOS SDK, so
+both would be looked up by name at run time and could be tried only on
+an iPad. The executable's signature is the one iOS checked at launch,
+reading it needs nothing outside the SDK, and every step of it runs on
+the host, on made-up bytes and on a real signer's.
+
+Read on the host, outside the repo, against a real signer: this build's
+executable signed ad hoc by `zsign`, the signer `tools/sign-ipa.sh` uses,
+with made-up entitlements, once with the entitlement and once without.
+Both blobs were written, XML and DER; the first read as held and the
+second as not, in 4 ms and 1 ms for 7 MB.
+
+**Tests.** `OwnEntitlementsTests`, seven, new, on executables made up in
+the test (a Mach-O header and load commands, filler code with the
+entitlement's name in it, a SuperBlob with a made-up CodeDirectory,
+requirements, CMS and both entitlement blobs, the team "EXAMPLE000" and
+the bundle id "org.example.mail"): TrollStore's signature held and a
+certificate's not, the name in the code, the CodeDirectory, the CMS, as
+a value or as a key nested in another never taken; the DER blob over the
+XML one both ways, the XML one alone, neither, the index shuffled with an
+alternate CodeDirectory, bytes not starting at 0; a string or true held,
+false, empty, a list or a number not; unread for no bytes, text, a 32-bit
+or big-endian header, no signature or two, the file cut short at every
+length, a wrong sizeofcmds, command size, signature offset or size,
+SuperBlob magic, length or count, blob offset or length, the DER slot
+with the XML magic, a slot twice, an XML blob not a plist or not a
+dictionary, six wrong DER shapes, and DER cut at every length never held;
+any one byte of a certificate's executable changed never held; fat files
+of both widths held only if every slice holds it, unread for a slice not
+a Mach-O, a fat file inside, a slice past the end, none, 33, a count past
+the slices; the executable read from its file, and a missing file, a
+folder or none unread; and from the source, the launch's read with its
+log line, TrollStore only when held and before the profile, the mark
+gone, the name whole in no line of the app's code, and asked for by
+`AppExpiry` alone. In `ExpiryWarningTests` the bundle's test now gives
+the entitlement's answer (held is TrollStore even with a profile, not
+held and unread read the profile, the marks beside the bundle decide
+nothing), and the source pin of the launch's read follows the code.
+
+Each part undone by hand, `OwnEntitlementsTests` and `ExpiryWarningTests`
+run, then put back and passing: every new test failed at least once, and
+the bundle's test with them. Counted as failures in tests: the
+entitlement not asked and the mark looked for again, 8 in 2; a signature
+not read taken as TrollStore's, 2 in 2; the bytes searched for the name
+in place of the signature read, 4,386 in 6; the name written whole, 1 in
+1; the XML blob read before the DER one, 3 in 2; a fat file held if any
+slice holds it, 2 in 1; any value taken as holding it, 4 in 1; an
+executable that could not be read taken as read, 4 in 2; a DER pair of
+three taken, 1 in 1; a DER key not a string taken, 1 in 1; a second
+`LC_CODE_SIGNATURE` taken, 1 in 1; "EXPIRY entitlements unread" not
+logged, 1 in 1; a 64-bit fat file's entries read as 32-bit ones, 2 in 1.
+4,416 in all, 4,386 of them the byte search, which finds the name in the
+code of every file cut short.
+
+The full suite, serially, with nothing undone: 2,499 tests, 7 of them new
+here, 6 skipped, none failing. The release build for the iPad links,
+with no warning from the files changed, and the name is nowhere whole in
+its executable.
+
+The check in TODO changes: its first step's 2027 half is on 2 September,
+not the day the round left in the prefs; the second copies the build
+signed by the certificate over TrollStore's, in place of setting the
+mark aside; the eleventh installs the IPA by TrollStore again. It no
+longer depends on the day left in the prefs, and says how a later run
+takes it out if a run stops part way.
+
 **Not covered.**
 
-- Not seen on the iPad: its check is in TODO, with the iPad's clock set
-  forward and TrollStore's mark moved aside, nothing sent.
-- Whether an app's sandbox lets it see TrollStore's mark beside its
-  bundle was not tried. If not, a TrollStore install would show the
-  warning in its last thirty days too; that is the test iPad, not his.
+- Not seen on the iPad since the change after the test iPad: its check
+  is in TODO, with the iPad's clock set forward and the build signed by
+  the certificate copied over TrollStore's, nothing sent.
+- TrollStore Lite, for jailbroken iPads, adds no such entitlement (its
+  helper signs ad hoc and adds `jb.pmap_cs.custom_trust` instead, in the
+  same source): an app it installs reads as a certificate's, and says the
+  warning in its last thirty days though it would go on opening. So would
+  any installer that never expires and adds nothing of the kind. Neither
+  the test iPad, which has TrollStore, nor his iPad, which has neither,
+  is such a case; the mistake, where there is one, is the safe way round.
+- The reader was tried on a signature `zsign` wrote, not on one written
+  by TrollStore's helper (`ldid`, then its CoreTrust bypass). The test
+  iPad's installed signature was read there with root's tools, its
+  entitlements holding the bundle id; the check's first step is the app
+  reading it.
 - A certificate revoked before its day, as a lapsed membership revokes it
   at once (B-035): the app stops opening with no warning. Nothing on the
   iPad can know it.

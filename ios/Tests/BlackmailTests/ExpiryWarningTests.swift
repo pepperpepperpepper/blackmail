@@ -213,8 +213,11 @@ final class ExpiryWarningTests: XCTestCase {
     }
 
     /// The bundle: its profile; nothing without one; nothing for an app
-    /// TrollStore installed, whose bundle container holds its mark, even
-    /// with a profile in the bundle; and a profile with no date in it.
+    /// TrollStore installed, its signature holding the entitlement
+    /// TrollStore adds, even with a profile in the bundle; the profile read
+    /// when the entitlement is not held or could not be read; and a profile
+    /// with no date in it. TrollStore's mark beside the bundle decides
+    /// nothing: on the iPad the app's sandbox hides it (B-137).
     func testTheBundleIsReadAndTrollStoreAndNoProfileSayNothing() throws {
         let files = FileManager.default
         let container = files.temporaryDirectory
@@ -224,26 +227,32 @@ final class ExpiryWarningTests: XCTestCase {
         defer { try? files.removeItem(at: container) }
         let now = utc(2027, 8, 1)
 
-        XCTAssertEqual(AppExpiry.read(bundle: bundle, now: now), .noProfile)
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .notHeld, now: now),
+                       .noProfile)
 
         let profileURL = bundle.appendingPathComponent("embedded.mobileprovision")
         try profile(expires: stops, certificates: [certificate(notAfter: utcTime("270918102236Z"))])
             .write(to: profileURL)
-        XCTAssertEqual(AppExpiry.read(bundle: bundle, now: now), .stops(stops))
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .notHeld, now: now),
+                       .stops(stops))
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .unread, now: now),
+                       .stops(stops), "a signature not read is a certificate's")
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .held, now: now),
+                       .trollStore)
 
         for mark in ["_TrollStore", "_TrollStoreLite"] {
             let markURL = container.appendingPathComponent(mark)
             try Data().write(to: markURL)
-            XCTAssertEqual(AppExpiry.read(bundle: bundle, now: now), .trollStore, mark)
+            XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .notHeld, now: now),
+                           .stops(stops), mark)
             try files.removeItem(at: markURL)
         }
-        // The mark inside the bundle is not TrollStore's.
-        try Data().write(to: bundle.appendingPathComponent("_TrollStore"))
-        XCTAssertEqual(AppExpiry.read(bundle: bundle, now: now), .stops(stops))
-        try files.removeItem(at: bundle.appendingPathComponent("_TrollStore"))
 
         try Data("not a profile".utf8).write(to: profileURL)
-        XCTAssertEqual(AppExpiry.read(bundle: bundle, now: now), .unreadable)
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .notHeld, now: now),
+                       .unreadable)
+        XCTAssertEqual(AppExpiry.read(bundle: bundle, containerRequired: .held, now: now),
+                       .trollStore)
 
         XCTAssertEqual(AppExpiry.Found.stops(stops).logged, "stops 2027-09-18 10:22:36 +0000")
         XCTAssertEqual(AppExpiry.Found.trollStore.logged, "none, TrollStore")
@@ -504,7 +513,7 @@ final class ExpiryWarningTests: XCTestCase {
         XCTAssertGreaterThan(read, 100)
         XCTAssertEqual(Set(askers), ["RootViewController.swift", "ExpiryWarning.swift"])
         let expiry = try source("Mail/AppExpiry.swift")
-        XCTAssertTrue(expiry.contains("read(bundle: Bundle.main.bundleURL, now: Date())"))
+        XCTAssertTrue(expiry.contains("read(bundle: Bundle.main.bundleURL, containerRequired: entitlement, now: Date())"))
         XCTAssertTrue(expiry.contains("plist[\"ExpirationDate\"] as? Date"))
     }
 }

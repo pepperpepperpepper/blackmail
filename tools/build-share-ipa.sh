@@ -10,9 +10,10 @@
 #   ideviceinstaller -i ios/Blackmail-share.ipa   # iPad on USB; its UDID is in the profile
 #
 # or TrollStore on the iPad, which keeps each bundle's entitlements as
-# signed. Then open Blackmail once (that hands the account to the
-# extension), share a page from Safari, and look for Blackmail in the row of
-# apps. The IPA embeds the profile, with its device list and the name on
+# signed and adds one of its own, container-required (B-137: how the app
+# knows it will not expire). Then open Blackmail once (that hands the
+# account to the extension), share a page from Safari, and look for
+# Blackmail in the row of apps. The IPA embeds the profile, with its device list and the name on
 # the certificate: move it over SSH, never through a public URL.
 set -euo pipefail
 cd "$(dirname "$0")/.."

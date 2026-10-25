@@ -208,14 +208,16 @@ Required:
 3. An in-app warning. The app knows its own profile's expiry date; it should say
    so in plain language for the last month rather than dying silently. Cheap to
    build, and it converts a mystery into a phone call.
-   *Built 2026-10-25 as B-137, not yet seen on the iPad: the day read at
-   launch from the app's own `embedded.mobileprovision`, its
+   *Built 2026-10-25 as B-137, and fixed the same day after the test
+   iPad, where TrollStore was not recognised; not yet seen there since:
+   the day read at launch from the app's own `embedded.mobileprovision`, its
    `ExpirationDate` or its certificate's `notAfter` if earlier, never
    written into the code; from the thirtieth day before it, once a day, an
    alert he dismisses with OK, never over a letter he is writing: "This
    app will stop opening on September 18, 2027. After that, use Mail.",
-   the day in the iPad's way. Nothing with no profile or under TrollStore.
-   The words await the owner's approval.*
+   the day in the iPad's way. Nothing with no profile or under TrollStore,
+   told by the entitlement it adds to the app's own signature. The words
+   await the owner's approval.*
 
 ---
 
