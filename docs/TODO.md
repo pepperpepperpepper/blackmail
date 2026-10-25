@@ -45,7 +45,15 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       app's log. B-115, B-116 and B-117, found there, fixed and seen fixed
       the same day.*
 - [ ] Buildable now, for the install-day build:
-      - [ ] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
+      - [x] the in-app warning before the 2027-09-18 expiry (D-004 item 3)
+            *Done 2026-10-25, not yet seen on the iPad: the day read at
+            launch from the app's own profile, the earlier of its expiry
+            and its certificate's, never written into the code; in the
+            last thirty days, once a day, an alert with OK, never over a
+            letter he is writing; nothing with no profile or under
+            TrollStore. Its words await the owner's approval ("The new
+            words on his screen", below). B-137, and its check under
+            "Blocked on the iPad coming back".*
       - [x] "Password needs updating" on a read, not "Can't connect to mail
             server." for every failure (`MessageListViewController` :504,
             :580, :1167 and the pane's handlers flatten it)
@@ -78,8 +86,15 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             *Done 2026-10-01, seen on the iPad. B-058.* And on 2026-10-03,
             seen on the iPad: one copied in with a wrong arrival cannot
             either, and a jump lands on his day, not the evening before.
-      - [ ] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
+      - [x] `provision-ipad.sh`: the TrollStore iOS range is wrong (:132 takes
             all of 16.7.x)
+            *Done 2026-10-25, not yet run with an iPad on the cable: the
+            build read too, and the rule in `tools/trollstore-range.sh`,
+            pinned by a host test: 14.0 to 16.6.1, the 16.7 RC (20H18) and
+            17.0 in range; 16.7.x, 17.0.1 on and later past; below 14.0
+            older. An iOS older than the app's 16.0 stops the script before
+            the iPad is registered. B-138, and its check under "Blocked on
+            the iPad coming back".*
       - [x] the reading pane runs no letter's script and goes nowhere by
             itself. *Done 2026-09-30, not yet seen on the iPad: script off,
             the pane's own in the app's content world, only its own pages
@@ -6142,6 +6157,85 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *Put back:* the host takes the label and its eight letters away;
       nothing was sent.
 
+- [ ] **B-137, the warning before the app stops opening.** On the test
+      iPad, the test account, from a build with the change. Nothing is
+      sent and nothing is written to the mailbox: the one composer ends
+      with Cancel, then Delete Draft. The iPad's clock is set by hand
+      (Settings > General > Date & Time, Set Automatically off) and put
+      back at the end. With the clock in 2027 Gmail's certificate may not
+      be taken, so "Can't connect to mail server." may come at a launch
+      and later: OK it each time and go on. "Kill and launch" is the app
+      swiped away in the app switcher, then its icon. The connection log
+      (five taps on the line under the list) keeps its last 500 lines, so
+      it is read within a minute of a launch. Three panes unless a step
+      says two. Screenshots of each alert.
+      1. *TrollStore:* the clock automatic; kill and launch: no warning,
+      and the log's "EXPIRY none, TrollStore". The clock to 1 September
+      2027, 9:00 AM; kill and launch: no warning for a minute, the same
+      log line.
+      2. *TrollStore's mark set aside:* over SSH, in the app's bundle
+      container (the folder holding `Blackmail.app`), `_TrollStore`
+      renamed `_TrollStore.aside` (renamed, never deleted). The clock
+      automatic; kill and launch: no warning, the log's "EXPIRY stops
+      2027-09-18 10:22:36 +0000", or the instant of the profile the build
+      was signed with, written down.
+      3. *The day before the thirty:* the clock to 18 August 2027, 11:00
+      PM; kill and launch: no warning for a minute.
+      4. *The first day:* the clock to 19 August 2027, 9:00 AM; kill and
+      launch: once the list is up, or within half a minute of the
+      connection alert's OK if it came, an alert with no title, "This app
+      will stop opening on September 18, 2027. After that, use Mail.",
+      and OK alone. OK: the list and the pane as they were. The log:
+      "EXPIRY-WARNING shown".
+      5. *Once a day:* kill and launch: no warning for two minutes. Home,
+      a minute away, back: none.
+      6. *Not over a letter:* Compose, a word typed in the body. Home; the
+      clock to 20 August 2027, 9:00 AM; back in Blackmail: the composer
+      as it was left, and no alert over it for a minute. Cancel, Delete
+      Draft: the warning within about half a minute. OK.
+      7. *Two panes:* the view button to two panes; the clock to 21 August
+      2027, 9:00 AM; kill and launch: the warning as in 4. OK; back to
+      three panes.
+      8. *Not under a finger:* the Inbox in front. Home; the clock to 22
+      August 2027, 9:00 AM; back in Blackmail, and at once a finger on
+      the list, pulled down past the spinner and held still for a full
+      minute, two checks of the watch: no warning while it is held. Let
+      go: the list springs back; a "Can't connect to mail server." that
+      comes as the finger lifts is OKed. Within about half a minute of the
+      list at rest, and of that OK, the warning, and the list not left
+      pulled down. OK: the list at its top, no spinner turning.
+      9. *Up across midnight:* Home; the clock to 23 August 2027, 11:55
+      PM; back: the warning within about half a minute, before midnight.
+      Left up, Home with it on the screen. The clock to 24 August 2027,
+      9:00 AM; back: the same warning, still up. OK: no warning again for
+      two minutes.
+      10. *The last morning:* the clock to 18 September 2027, an hour or
+      more before the instant written down in 2, in the iPad's zone: for
+      10:22:36 UTC, 5:00 AM in New York or 2:00 AM in Los Angeles, both on
+      summer time then; the time set written down. Kill and launch: the
+      warning, "September 18, 2027". OK. The clock is not taken past the
+      instant: any app on the test iPad signed with that profile and not
+      installed by TrollStore would stop opening while it was there, and
+      the host tests hold that nothing is said after it.
+      11. *Put back:* `_TrollStore.aside` renamed back to `_TrollStore`;
+      Set Automatically on; kill and launch: no warning, the log's
+      "EXPIRY none, TrollStore"; TrollStore lists Blackmail as before.
+
+- [ ] **B-138, provision-ipad.sh's TrollStore range.** On the laptop or
+      the Mac, with the whole repo and the test iPad on the cable,
+      unlocked and trusting it. Read only: nothing is registered, signed
+      or installed, and nothing is sent. The script is not run without
+      `--check`: past the iOS line it goes on to sign and install.
+      1. `tools/provision-ipad.sh --check`: among the pre-flight's lines,
+      "✓ trollstore-range.sh". Any ✗ line is the visit's own, written
+      down, not mended here.
+      2. `ideviceinfo -k ProductVersion` and `ideviceinfo -k BuildVersion`,
+      both written down; then, from the repo's root, `.
+      tools/trollstore-range.sh; trollstore_range "$(ideviceinfo -k
+      ProductVersion)" "$(ideviceinfo -k BuildVersion)"`: "in" for the
+      test iPad's 16.5.1. Then `ios_below "$(ideviceinfo -k
+      ProductVersion)" 16.0; echo $?`: 1, not older than the app needs.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -6162,7 +6256,8 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       every version TrollStore installs on, so the install is by a
       certificate, and the app stops opening on his iPad the day it runs
       out. Left to the owner: which certificate, and what he and his helper
-      are told before that day (the in-app warning, buildable now, above).*
+      are told before that day (the in-app warning, built 2026-10-25 as
+      B-137, its words awaiting his approval).*
 - [ ] **The real signature logo** — what ships today is a solid black silhouette
       with no legible mark in either channel
 - [x] **Signature in the source?** (B-035) *Decided 2026-09-26 by the
@@ -6397,6 +6492,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
 - [ ] **Edit mode's Done** (B-133): guides to Mail describe leaving its
       edit mode with Cancel, not seen on an iPad; Blackmail's button says
       Done. As built (the default), or Mail's word once seen on his iPad.
+      sentences for files that could not be attached (B-108); "This app
+      will stop opening on September 18, 2027. After that, use Mail.",
+      with OK, once a day in the app's last thirty days, the day the one
+      its profile says, written in the iPad's way (B-137). It names Mail,
+      so it goes with "Apple Mail after the install", above.
 - [x] **A YouTube share's subject** (B-125): Mail's is the video's title,
       which the YouTube app gives Mail and never a share extension; here
       it stays empty, some 31 letters a day, rows "(no subject)" that a

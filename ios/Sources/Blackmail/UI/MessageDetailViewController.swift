@@ -1382,6 +1382,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         present(sheet, animated: true)
     }
 
+    /// A print of a letter on its way, from Print to its panel closed or
+    /// the job ended: the warning before the app stops opening waits for
+    /// it, since put up while the PDF is made it would cover the pane and
+    /// end the print with no panel (`PrintSteps.coverLimit`, B-137).
+    var isPrinting: Bool { printing != nil }
+
     /// Prints `m`, the letter the sheet was opened for (B-110). Nothing
     /// while a print is being made ready; a print whose panel is up holds
     /// only its bytes, and is replaced. Named so as not to hide Swift's

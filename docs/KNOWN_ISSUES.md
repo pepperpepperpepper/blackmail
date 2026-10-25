@@ -26615,3 +26615,385 @@ build for the iPad links.
   one set back reads again; neither keeps a letter the floor would refuse.
 - His iPad's free space is not known. With a gigabyte or less above the
   floor, every keep reads, as before this change.
+
+---
+
+## B-137 — FIXED 2026-10-25, not yet seen on the iPad. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
+
+**Found** in D-004 (2026-09-19), item 3, and in the gap review's list of
+what is buildable for the install-day build (TODO, "the in-app warning
+before the 2027-09-18 expiry"). Since 2026-10-05 it is known that his
+iPad's iOS is past every version TrollStore installs on, so the app goes
+on it by a certificate and stops opening the day the certificate or its
+profile runs out (TODO, "His iPad's iOS version"). Built on the owner's
+word of 2026-10-25 to start on the buildable list.
+
+**What Mail does.** Nothing to copy: Mail is Apple's and never stops
+opening. Apple states that an app whose embedded provisioning profile has
+expired will not launch (D-004); what iOS shows when it is tapped after
+that was not looked at. Apple Mail stays on his iPad with his account in
+it unless the owner decides otherwise (TODO, "Apple Mail after the
+install", the default), so Mail is what the words send him to.
+
+**What it was.** Nothing in the app knew the day. With today's signing
+files it is 18 September 2027, 10:22:36 UTC, the profile's
+`ExpirationDate` and the certificate's `notAfter` the same instant
+(D-004, `LAYOUT_CONSTANTS.md`). On that day he would tap the icon and
+nothing would open, with no word from the app before it.
+
+**Changed.**
+
+1. *The day, read from the app's own profile at launch*
+   (`AppExpiry`, new), never written into the code: the
+   `embedded.mobileprovision` in the app's bundle, which the signing puts
+   there (`tools/sign-ipa.sh`). It is a CMS envelope in DER around an XML
+   plist; the plist is taken as the bytes from `<?xml` to `</plist>`, whole
+   in a DER envelope, and read with `PropertyListSerialization`. The day is
+   its `ExpirationDate`, or the `notAfter` of a certificate in its
+   `DeveloperCertificates` if that is earlier, read by a small DER reader
+   (definite lengths only, every length checked against the bytes holding
+   it, UTCTime and GeneralizedTime, a date taken only if it reads back as
+   written). A certificate already out of date is left out, since the app
+   is open and so was not signed with it; with several, the soonest still
+   to come. A certificate that cannot be read is passed over; a profile
+   without an `ExpirationDate` gives nothing. Read once a launch, the
+   first time it is asked for.
+2. *Nothing where there is no profile, or TrollStore installed the app.*
+   The simulator and a build run from the host have no profile. This
+   project's TrollStore installs do carry one (they are the signed IPA),
+   so TrollStore is told by the empty file it writes beside the app in its
+   bundle container, `_TrollStore`, or `_TrollStoreLite` for TrollStore
+   Lite (`TS_MARKER` and `TS_LITE_MARKER` in TrollStore's
+   `Shared/TSUtil.h`, written by its helper's `installApp`, read
+   2026-10-25 from github.com/opa334/TrollStore: high for TrollStore 2's
+   code).
+3. *The day rules* (`ExpiryWarning`, new): due from the first moment of
+   the thirtieth day before the day it stops, in the iPad's calendar and
+   zone, up to the instant itself, and never after it, when the words
+   would be untrue; once a day, midnight to midnight where he is, the day
+   kept in the app's defaults (`blackmail.expiryWarningShown`) and taken
+   as said once the alert is up, and again when he taps OK, so a warning
+   left up past midnight, the iPad locked over it, is not said a second
+   time on the day he reads it.
+4. *The words*, the day written as the iPad writes a long date (B-119;
+   `DisplayDates.Form.longDate`, new, the locale's long date style): with
+   his US region "This app will stop opening on September 18, 2027. After
+   that, use Mail." In the US Eastern zone the instant is 6:22:36 AM on
+   the 18th; only west of UTC-10:22 is it the 17th, and the words say so.
+5. *When it is put up* (`RootViewController.warnOfExpiryIfDue`, and
+   `ErrorPresenter.warn`, which puts it up): an alert with no title, the
+   words and OK, as the app's other notices are (`ErrorPresenter.tell`).
+   Only with nothing over the mail, so never over a letter he is writing,
+   Settings, another alert or any sheet; never while his finger is on the
+   list, the list is still moving, or a page's alert waits for the finger
+   to let go (`MessageListViewController.isInHand`, the list's own
+   "touching" with B-103's `LetGoHold`): an alert put up under a held
+   pull takes the end of the drag, and the list stays pulled down with
+   the spinner turning (B-103); never while a letter is being printed,
+   from Print to its panel closed (`MessageDetailViewController.isPrinting`):
+   put up while the PDF is made it would cover the pane, and after
+   `PrintSteps.coverLimit` the print would end with no panel; and not
+   while the app is in the background. Asked once the launch's first page
+   has been tried, and at every check of the watch (B-049), half a minute
+   apart while the app is in front, whether the check reached the server
+   or not; a check that finds any of those waits for the next. So a
+   first page that could not be fetched has its own alert up first, or
+   held for his finger, and the warning comes at a check after its OK. So
+   it comes at a launch, or about half a minute after he is back in the
+   app on a new day, or within half a minute of a letter's sheet going,
+   an alert's OK, a print's panel closing or the list coming to rest.
+6. *Alerts asked for while it is up wait for its OK* (`ErrorPresenter`):
+   UIKit puts up one alert at a time and refuses a second, which was
+   then lost: a Move or a Delete the server refused, a Refresh or a
+   folder's page that failed, an alert held for his finger or for a
+   sheet. Every alert the app puts up through `ErrorPresenter` goes
+   through `showFirst`, which, while the warning is presented, keeps
+   them; OK puts up the latest that still has a screen to go over, as
+   `showFirst` always has. The warning is held weakly and taken as up
+   only while it is presented, so one UIKit did not put up holds nothing
+   back.
+7. *The connection log*: "EXPIRY stops 2027-09-18 10:22:36 +0000" (or
+   "none, no profile", "none, TrollStore", "none, profile unreadable")
+   once a launch, and "EXPIRY-WARNING shown" when it is up.
+
+Read on the build host against the real ad-hoc profile in the signing
+directory, by this code compiled on its own outside the repo: its
+`ExpirationDate` and its one certificate's `notAfter` both 2027-09-18
+10:22:36 +0000, the envelope DER with the plist whole in it, about 0.6 ms
+to read and parse on the host. Nothing of that profile is in the repo.
+
+**Not changed.** The share sheet, where he is always writing a letter,
+and the setup form say nothing. Nothing is blocked: after OK the mail is
+as it was. No date is in the code; the day is whatever profile the build
+that goes on his iPad is signed with, which is the owner's choice and
+still open. The rows, the pane, the composer and Settings.
+
+**The words are new on his screen** and held from his iPad until the
+owner approves them: "This app will stop opening on September 18, 2027.
+After that, use Mail." OK is Mail's. Added to TODO's "The new words on
+his screen". They name Mail, so they go with the decision on Apple Mail
+after the install: were Mail turned off for his account, they would need
+other words.
+
+**What he sees.** Nothing until 19 August 2027 with today's profile. Then
+once a day until the morning of 18 September, at a launch or within about
+half a minute of opening the app that day: the alert, and OK. Never over
+a letter he is writing, nor under his finger on the list: it waits until
+the sheet has gone or the list is at rest.
+
+**Tests.** `ExpiryWarningTests`, eleven, new, on a profile made up in the
+test (a CMS envelope in DER around a made-up plist, a made-up
+certificate of X.509's shape, the device and team made-up zeros and
+"EXAMPLE000"): the plist read out of its envelope past the certificates
+and the signer, and nothing from no plist, half a plist or an array; the
+certificate's `notAfter` in UTCTime and GeneralizedTime, with the version
+and without, UTCTime's centuries, notBefore not taken for it; nothing,
+never a fault, from a bad time (no Z, of the right length or short, in
+either form, a zone, a letter, 31 February, month 13, hour 25, minute 60,
+empty, the wrong tag), a certificate cut short at
+every length, a length past its holder, BER's indefinite length, fields
+out of order; the day the earlier of profile and certificate, a later
+certificate not taken, the soonest of two, one already past left out, an
+unreadable one passed over, none without the profile's date; the bundle
+with a profile, without one, with TrollStore's mark or TrollStore Lite's
+beside it (nothing even with a profile), a mark inside the bundle not
+TrollStore's, a profile that is not one; the last thirty days in New
+York from midnight on 19 August to the second before the instant, across
+the clocks going back; once a day by his midnight, not UTC's; the words in
+en_US and en_GB, and the 17th west of UTC-10:22; the day kept in the
+defaults and known to a warning made afresh, and said again at an OK
+the next morning; and from the source, the guard with the list's finger
+and the print, the alert's title, words and one OK, the day taken as
+said in the presentation's completion and at OK and nowhere else, the
+alerts asked for while it is up kept for its OK, asked once the launch's
+first page has been tried and at every check of the watch and nowhere
+else, with the iPad's locale and zone, and no day written in any Swift
+file of the app.
+
+The first full run failed two older tests that read the root's source,
+as they should: the container says `animated: true` nowhere, its panes
+moving only in `PaneMotion` (`PaneArrangementTests`), and the launch's
+first-page closure ends with SafeStart's call (`SafeStartTests`). The
+alert moved into `ErrorPresenter.warn`, and the call to the top of the
+closure, after the sweeps it releases; both pass.
+
+Each part undone by hand, `ExpiryWarningTests` and
+`DatesTheIPadsWayTests` run (with `SafeStartTests` and
+`PaneArrangementTests` for the wiring), then put back and passing:
+every test failed at least once. Counted as failures in tests:
+TrollStore's mark not looked for, 2 in 1; the certificate's date not
+taken, 2 in 1; a certificate already past not left out, 1 in 1; still
+said after the instant, 2 in 1; thirty-one days, 2 in 1; not once a day,
+6 in 2; the day in UTC rather than his zone, 1 in 1; the date always in
+en_US, 3 in 2; the date in the host's zone, 1 in 1; the day taken as said
+before the alert is up, 1 in 1; put up over a sheet, 1 in 1; not at the
+watch's checks, 2 in 1; not at the launch's first page, 2 in 1; a day
+written into the code, 2 in 2; a date not read back, 4 in 1; UTCTime's
+years all in the 2000s, 1 in 1; the certificate's version not skipped, 7
+in 2; the plist cut before its end, 11 in 3; the words asked for in
+en_US, 3 in 2; `shown` called before the alert is up, 1 in 1. 55 in all.
+
+The full suite, serially, on the tree with B-138 beside it: 2,491 tests,
+11 of them new here and 5 B-138's, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Reviewed 2026-10-25, and fixed.** A review of the change above found
+three things to fix, two of them the same, and four small ones of its own
+(two more were B-138's); each is fixed in the text above, which says how
+it is now. The warning went up whatever his finger was doing on the list.
+B-103's rule, from the test iPad on 2026-10-22, is that no alert goes up
+under a held pull, where it takes the end of the drag and the list stays
+pulled down with the spinner turning after OK; a page's alert waits for
+the let-go. A pull or a scroll held as the launch's first page ended, or
+as the day's first due check came, brought that back; and a first page
+that failed under the finger had its alert held for the let-go, then
+refused as the warning was already up, so "its alert up first" was not
+always true. The day was taken as said only as the alert went up: left
+up past midnight, the iPad locked over it, his OK the next morning
+brought the same warning again within half a minute. An alert asked for
+while the warning was up was refused by UIKit and lost, `ErrorPresenter`
+taking it as shown: a Move or a Delete the server refused, a Refresh that
+failed, an alert held for the let-go. A Print tapped just before a check
+had the pane covered while its PDF was made, and after
+`PrintSteps.coverLimit`, ten seconds, it ended with no panel. The device
+check's last morning, 6:00 AM, was after the instant anywhere west of
+UTC-4:22, where the app rightly shows nothing; and its second half took
+the clock past the instant, where any app on the test iPad signed with
+that profile would stop opening, to prove what the host tests hold. And
+nothing held the Z that ends a time: the test's "no Z" was refused for
+its length; with the Z check taken out, every test passed.
+
+The check now has a step with a pull held across two checks of the watch,
+and one with the warning left up past midnight; its last morning is set
+from the zone, and the clock is never taken past the instant.
+
+Each fix undone by hand, `ExpiryWarningTests` run, then put back and
+passing. Counted as failures in tests: the guard not asking the list, 1
+in 1; the list's test without a page's alert held for the let-go, 1 in 1;
+without the list still moving, 1 in 1; the guard not asking about a
+print, 1 in 1; `isPrinting` always false, 1 in 1; the day not said again
+at OK, 2 in 1; `shown` keeping the first day it was given, 1 in 1; the
+alerts asked for while the warning is up not kept, 1 in 1; not put up
+after its OK, 2 in 1; the Z not looked for, 2 in 1. 13 in all, each in
+the test of what it undid.
+
+The full suite, serially, with nothing undone: 2,492 tests, 11 of them
+B-137's and 6 B-138's, 6 skipped, none failing. The release build for the
+iPad links, with no warning from the files changed.
+
+**Not covered.**
+
+- Not seen on the iPad: its check is in TODO, with the iPad's clock set
+  forward and TrollStore's mark moved aside, nothing sent.
+- Whether an app's sandbox lets it see TrollStore's mark beside its
+  bundle was not tried. If not, a TrollStore install would show the
+  warning in its last thirty days too; that is the test iPad, not his.
+- A certificate revoked before its day, as a lapsed membership revokes it
+  at once (B-035): the app stops opening with no warning. Nothing on the
+  iPad can know it.
+- Alerts asked for while the warning is up wait for its OK, and only the
+  latest of them still with a screen goes up then, as with a sheet
+  (`showFirst`): two failures while it is up show one. An alert asked
+  for in the third of a second the warning takes to slide in, before
+  UIKit counts it as presented, is refused and lost, as any two alerts at
+  once were before. That UIKit calls an alert's OK handler once the alert
+  has gone, so the waiting one can go up, is UIKit's long-standing way,
+  not seen here.
+- A warning left up while he is away, the iPad locked over it: on his
+  return B-003's way back to the Inbox and its refresh are not taken,
+  as with any alert left up (`Sitting.onReturn`, a sheet open). The
+  watch's checks go on; after OK he is where he left the app.
+- Whether AirPrint's panel counts as presented over the screens was not
+  looked at; the print's own `isPrinting` covers it until it closes.
+- Not tried on the iPad, as neither moment can be made by hand: a print,
+  or another alert, at the moment of a check that puts the warning up.
+  The source tests hold both.
+- The iPad's clock: the day rules follow it. Set wrong by days, the
+  warning comes early or late by as many.
+- A calendar other than the Gregorian: the days are the iPad's own
+  calendar's, not tried.
+- The connection log keeps its last 500 lines, so the EXPIRY line is
+  there only for the first minutes after a launch.
+- What iOS itself shows when the app is tapped after the day: not looked
+  at.
+
+## B-138 — FIXED 2026-10-25, not yet seen on the iPad. provision-ipad.sh called every 16.7.x, 17.0.1 to 17.0.3 and iOS 10 to 13 within TrollStore's range; it reads the build too, says in or past as TrollStore's own list has it, and stops before registration on an iOS older than the app's 16.0
+
+**Found** in the gap review of 2026-09-30, among what is buildable for the
+install-day build (TODO, "`provision-ipad.sh`: the TrollStore iOS range is
+wrong"). The line it named, :132, had moved to :154.
+
+**What TrollStore says.** Its README (github.com/opa334/TrollStore, read
+2026-10-25): "Supported versions: 14.0 beta 2 - 16.6.1, 16.7 RC (20H18),
+17.0", and "16.7.x (excluding 16.7 RC) and 17.0.1+ will NEVER be supported
+(unless a third CoreTrust bug is discovered, which is unlikely)." High.
+The 16.7 RC and the 16.7 that shipped are both "16.7"; only the build,
+20H18 for the RC, tells them apart.
+
+**What it was.** At the visit, with the iPad on the cable, the script read
+its ProductVersion alone and matched it against `1[0-6].*|17.0|17.0.*`:
+"in TrollStore range: a permanent install with NO expiry is possible",
+else "past TrollStore". So every 16.7 and 16.7.x was called in range, and
+17.0.1 to 17.0.3 by the `17.0.*` glob, and iOS 10 to 13 too, older than
+TrollStore reaches; iOS 9 and before were called past it. 14.0 to 16.6.1,
+17.0 itself and 17.1 on were right.
+
+**What it means for him.** Nothing: his iPad is on iPadOS 18, past
+TrollStore by either rule (TODO, "His iPad's iOS version"). Another iPad
+on 16.7.x would have been sent towards a TrollStore install that cannot be
+made.
+
+**Changed.**
+
+1. *The rules, in one place* (`tools/trollstore-range.sh`, new): a shell
+   function, `trollstore_range VERSION BUILD`, that prints one word. "in"
+   for 14.0 to 16.6.1, for 16.7 with the build 20H18, and for 17.0;
+   "below" for anything before 14.0; "past" for the rest, a 16.7 whose
+   build was not read among them; "unknown" for no version, or one that is
+   not one to three parts of digits. The parts are read in base 10. Exit
+   status 0 for "in" alone. Beside it `ios_below VERSION MINIMUM`, exit 0
+   when the version is read and older than the minimum, and 1 otherwise, a
+   version not read among them; both read a version with `ios_number`.
+2. *The script* (`tools/provision-ipad.sh`) reads the iPad's BuildVersion
+   with its ProductVersion, shows both ("iOS 16.7 (20H18)") and sources
+   the rules. An iOS older than the app's MinimumOSVersion, 16.0, is said
+   ("older than this app needs (16.0): it will not install on this iPad")
+   and the script stops there, before registration, which would take one
+   of the account's device slots for the membership year (disabling a
+   device does not free one: `BUILD_DECISION.md`, section 5, item 3), and
+   before a signing and an install that must fail. Otherwise it says
+   one of three things: in TrollStore's range; past it, which now ends by
+   saying the app warns him for its last thirty days (B-137) where it said
+   "Diarise it"; or not read, when it goes on as before. A comment says
+   what the old pattern called in range.
+3. *The pre-flight* wants `trollstore-range.sh` beside the script, as it
+   wants `sign-ipa.sh`: a laptop with a partial copy fails at home, not at
+   his table.
+
+**Not changed.** Registration, signing and the install, on an iOS the app
+takes or one not read. 14.0's first beta,
+outside TrollStore's range, is not told apart from 14.0. No words on his
+screen.
+
+**Tests.** `ProvisionRangeTests`, six, new: the functions run in bash on
+each version, its word and exit status. In: 14.0, 14.8.1, 15.0, 15.7.9,
+16.0, 16.5.1, 16.6, 16.6.1, 16.7 with 20H18, 17.0, 17.0.0, and "15.08"
+and "16.06.01" for base 10. Past: 16.6.2, 16.7 with 20H19 and with no
+build, 16.7.1, 16.7.2, 16.7.10, 16.7.12, 17.0.1 to 17.0.3, 17.1, 17.7.10,
+18.0, 18.7.9 and 26.0.1. Below: 13.7, 13.99, 12.5.7, 10.3.3, 9.3.5, 8.4.1,
+1.0. Unknown: empty, "x", "16.a", four parts, a leading space, "-16",
+"16..1". Nothing on stderr for any of them. Older than 16.0: 15.7.9,
+15.99, 14.0, 13.7, 9.3.5 and "15.08"; not: 16.0, 16.0.0, 16.0.1, 16.5.1,
+18.7.9, no version, "x", "16.a", and no minimum or a bad one. And the
+script, comments left out: the build read, the rules sourced, the stop
+for an iOS older than the app's MinimumOSVersion as its Info.plist has
+it, its words and its exit, before registration; the case on TrollStore's
+rule before registration too, and what each of its answers says; the old
+pattern gone, the pre-flight asking for the file, each rule called in one
+place, and `bash -n` passing.
+
+Each part undone by hand, the class run, then put back and passing:
+every test failed at least once. Counted as failures in tests: every
+16.7 in range, 7 in 1; the build not looked at, 2 in 1; every 17.0.x in
+range, 10 in 1; iOS 10 to 13 in range, 4 in 1; the parts read as octal,
+2 in 1; anything taken for a version, 7 in 1; the old pattern back in
+the script, 4 in 1; the build not read, 1 in 1; the pre-flight not asking
+for the rule's file, 1 in 1. 38 in all.
+
+The full suite, serially: 2,491 tests, 5 of them new here and B-137's
+eleven, 6 skipped, none failing. No code of the app changed; the release
+build for the iPad links.
+
+**Reviewed 2026-10-25, and fixed.** A review found two small things,
+each fixed in the text above, which says how it is now. Below 16.0 the
+script said the app "will not install here" and went on all the same:
+it registered the iPad with Apple, re-signed and tried an install that
+must fail. It now stops there. And nothing held what each answer said:
+with `-lt 16` made `-lt 14`, or two messages swapped, every test passed,
+and an iPad on 14.x or 15.x would have been offered "a permanent install
+with NO expiry". The split by the app's minimum is now `ios_below`, run
+in the test on each side of 16.0, and the test reads the script's stop
+and each answer's words.
+
+Each fix undone by hand, `ProvisionRangeTests` run, then put back and
+passing. Counted as failures in tests: 16.0 taken as older than 16.0, 1
+in 1; a version not read taken as older, 1 in 1; the script not stopping
+after its words, 1 in 1; its minimum 14.0, not the Info.plist's 16.0, 1 in
+1; the in and past messages swapped, 2 in 1; the stop moved after
+registration, 1 in 1. 7 in all. The two older ones that touch the moved
+code, again on it: the parts read as octal, 4 in 2; anything taken for a
+version, 3 in 2.
+
+The full suite, serially, with nothing undone: 2,492 tests, 6 of them
+B-138's and 11 B-137's, 6 skipped, none failing. No code of the app
+changed here; the release build for the iPad links.
+
+**Not covered.**
+
+- Not run with an iPad on the cable: its check is in TODO, read only.
+- The visit's own path through the script was not run here, there being
+  no iPad on this host; the rules and the script's text are what is held.
+  No iPad older than 16.0 is at hand to see the stop on.
+- TrollStore's range as its README gives it on 2026-10-25. Were a third
+  CoreTrust bug found, the rule would need changing; the install is set
+  and forget, so it would not reach his iPad.
