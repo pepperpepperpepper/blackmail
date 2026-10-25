@@ -1,10 +1,10 @@
 import XCTest
 
-/// Whether TrollStore installs on an iPad, as `tools/provision-ipad.sh`
-/// tells whoever is at his table (B-138). The rule is a shell function in
-/// `tools/trollstore-range.sh`, which the script sources; here it is run in
-/// bash on each version that matters, and the script read to see it uses
-/// it.
+/// Whether TrollStore installs on an iPad, and whether the app does at
+/// all, as `tools/provision-ipad.sh` tells whoever is at his table (B-138).
+/// The rules are shell functions in `tools/trollstore-range.sh`, which the
+/// script sources; here they are run in bash on each version that matters,
+/// and the script read to see it uses them.
 ///
 /// TrollStore's README: "Supported versions: 14.0 beta 2 - 16.6.1, 16.7 RC
 /// (20H18), 17.0", and "16.7.x (excluding 16.7 RC) and 17.0.1+ will NEVER
@@ -20,14 +20,14 @@ final class ProvisionRangeTests: XCTestCase {
 
     private let bash = "/bin/bash"
 
-    /// Each version and build through `trollstore_range`: its word and its
-    /// exit status.
-    private func range(_ cases: [(String, String)]) throws -> [String] {
+    /// Each pair through `function`, the rules' file sourced: what it
+    /// printed and its exit status.
+    private func run(_ function: String, _ cases: [(String, String)]) throws -> [String] {
         try XCTSkipUnless(FileManager.default.isExecutableFile(atPath: bash), "no bash here")
         let script = """
             . "$1"; shift
             while [ $# -gt 0 ]; do
-                word=$(trollstore_range "$1" "$2"); status=$?
+                word=$(\(function) "$1" "$2"); status=$?
                 printf '%s %s\\n' "$word" "$status"
                 shift 2
             done
@@ -51,7 +51,7 @@ final class ProvisionRangeTests: XCTestCase {
 
     private func check(_ expected: String, _ cases: [(String, String)],
                        file: StaticString = #filePath, line: UInt = #line) throws {
-        let said = try range(cases)
+        let said = try run("trollstore_range", cases)
         XCTAssertEqual(said.count, cases.count, file: file, line: line)
         let status = expected == "in" ? 0 : 1
         for (index, (version, build)) in cases.enumerated() where index < said.count {
@@ -100,9 +100,23 @@ final class ProvisionRangeTests: XCTestCase {
         ])
     }
 
-    /// The script reads the build, sources the rule and says what it
-    /// says; the old pattern is gone; the pre-flight wants the rule's file;
-    /// and bash reads the script.
+    /// Older than the app's MinimumOSVersion, 16.0: `ios_below` says so,
+    /// exit 0 and nothing printed. 16.0 and later are not, and a version
+    /// not read is not known to be older.
+    func testOlderThanTheAppIsBelowItsMinimum() throws {
+        let older = [("15.7.9", "16.0"), ("15.99", "16.0"), ("14.0", "16.0"), ("13.7", "16.0"),
+                     ("9.3.5", "16.0"), ("15.08", "16.0")]
+        let not = [("16.0", "16.0"), ("16.0.0", "16.0"), ("16.0.1", "16.0"), ("16.5.1", "16.0"),
+                   ("18.7.9", "16.0"), ("", "16.0"), ("x", "16.0"), ("16.a", "16.0"),
+                   ("16.0", ""), ("16.0", "x")]
+        let said = try run("ios_below", older + not)
+        XCTAssertEqual(said, older.map { _ in " 0" } + not.map { _ in " 1" })
+    }
+
+    /// The script reads the build, sources the rules, stops before
+    /// registration on an iOS older than the app needs, and says what
+    /// TrollStore's rule says; the old pattern is gone; the pre-flight
+    /// wants the rules' file; and bash reads the script.
     func testTheScriptUsesTheRule() throws {
         let path = Self.tools.appendingPathComponent("provision-ipad.sh").path
         let text = try String(contentsOfFile: path, encoding: .utf8)
@@ -110,11 +124,38 @@ final class ProvisionRangeTests: XCTestCase {
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
             .joined(separator: "\n")
         XCTAssertTrue(code.contains("BUILD=$(ideviceinfo -u \"$UDID\" -k BuildVersion 2>/dev/null)"))
-        XCTAssertTrue(code.contains("\n. \"$TOOLS/trollstore-range.sh\"\n"
-                                    + "case \"$(trollstore_range \"$VER\" \"$BUILD\")\" in\n"))
-        for branch in ["\n  in) ", "\n  below) ", "\n  past) ", "\n  *) "] {
-            XCTAssertTrue(code.contains(branch), branch)
-        }
+        let sourced = try XCTUnwrap(code.range(of: "\n. \"$TOOLS/trollstore-range.sh\"\n"))
+        let range = try XCTUnwrap(code.range(
+            of: "\ncase \"$(trollstore_range \"$VER\" \"$BUILD\")\" in\n"))
+        let registration = try XCTUnwrap(code.range(of: "\nif profile_udids | grep -qx \"$UDID\"; then\n"))
+        // Older than the app's minimum, as its Info.plist has it: said, and
+        // stopped, before the iPad is registered with Apple.
+        let infoPlist = Self.tools.deletingLastPathComponent()
+            .appendingPathComponent("ios/Resources/Info.plist")
+        let info = try PropertyListSerialization.propertyList(from: Data(contentsOf: infoPlist),
+                                                              options: [], format: nil)
+        let minimum = try XCTUnwrap((info as? [String: Any])?["MinimumOSVersion"] as? String)
+        XCTAssertEqual(minimum, "16.0")
+        let stop = try XCTUnwrap(code.range(of: """
+
+            if ios_below "$VER" \(minimum); then
+                echo "  → iOS $VER is older than this app needs (\(minimum)): it will not install
+                on this iPad. Stopping here: nothing was registered or installed."
+                exit 1
+            fi
+
+            """))
+        XCTAssertLessThan(sourced.lowerBound, stop.lowerBound)
+        XCTAssertLessThan(stop.upperBound, registration.lowerBound)
+        XCTAssertLessThan(sourced.lowerBound, range.lowerBound)
+        XCTAssertLessThan(range.upperBound, registration.lowerBound)
+        // What each answer says: in range, past, or not read.
+        XCTAssertTrue(code.contains("\n  in) echo \"  → iOS $VER ($BUILD) is in TrollStore range: "
+                                    + "a permanent install with NO expiry\n"))
+        XCTAssertTrue(code.contains("\n  past) echo \"  → iOS $VER ($BUILD) is past TrollStore. "
+                                    + "Certificate signing it is"))
+        XCTAssertTrue(code.contains("\n  *) echo \"  → the iPad's iOS version could not be read"))
+        XCTAssertEqual(code.components(separatedBy: "ios_below").count - 1, 1)
         XCTAssertFalse(code.contains("1[0-6]"))
         XCTAssertFalse(code.contains("17.0.*"))
         XCTAssertTrue(code.contains(

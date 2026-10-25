@@ -90,8 +90,9 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
             build read too, and the rule in `tools/trollstore-range.sh`,
             pinned by a host test: 14.0 to 16.6.1, the 16.7 RC (20H18) and
             17.0 in range; 16.7.x, 17.0.1 on and later past; below 14.0
-            older. B-138, and its check under "Blocked on the iPad coming
-            back".*
+            older. An iOS older than the app's 16.0 stops the script before
+            the iPad is registered. B-138, and its check under "Blocked on
+            the iPad coming back".*
       - [x] the reading pane runs no letter's script and goes nowhere by
             itself. *Done 2026-09-30, not yet seen on the iPad: script off,
             the pane's own in the app's content world, only its own pages
@@ -5688,7 +5689,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       both written down; then, from the repo's root, `.
       tools/trollstore-range.sh; trollstore_range "$(ideviceinfo -k
       ProductVersion)" "$(ideviceinfo -k BuildVersion)"`: "in" for the
-      test iPad's 16.5.1.
+      test iPad's 16.5.1. Then `ios_below "$(ideviceinfo -k
+      ProductVersion)" 16.0; echo $?`: 1, not older than the app needs.
 
 ## Blocked on the owner
 
