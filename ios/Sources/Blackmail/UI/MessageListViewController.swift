@@ -1618,8 +1618,9 @@ final class MessageListViewController: UITableViewController {
             // are the last N" stopped being true the moment the list
             // grouped. `regroup` puts the selection back by id.
             self.regroup()
-            // A page of hits comes with the previews already drawn (B-135).
-            self.loadPreviews(for: fresh.filter { $0.preview.isEmpty })
+            // A page of hits comes with the previews already drawn, and
+            // neither page asks for a letter drawn with no words (B-135).
+            self.loadPreviews(for: self.letters.toDraw(fresh))
         }
     }
 

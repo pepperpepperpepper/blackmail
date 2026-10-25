@@ -1594,16 +1594,25 @@ actor IMAPMailRepository: MailRepository {
 
         var parts: [String: MIMEPart] = [:]
         var grouped: [Request: [UInt32]] = [:]
+        // A letter whose words are none is in the answer with an empty
+        // preview, so the list knows it drawn and asks for it no more
+        // (`MailRepository.previews`, B-135's check): one fetched and
+        // found to say nothing, as an empty draft's two bytes, and one
+        // whose part the server sizes at nothing, which is not fetched.
+        var out: [String: String] = [:]
 
         for id in ids {
             // A message listed before the last refresh, or one whose mailbox
             // has been renumbered under us, simply has no preview. Both are
             // ordinary, so neither is an error. A renumbering nobody has seen
             // yet is found by the fetch's own SELECT, and the client sends
-            // nothing for those.
+            // nothing for those. Neither is in the answer: not drawn.
             guard let part = previewParts[id], let message = try? Self.parseID(id),
                   known == nil || known == message.validity else { continue }
-            if part.size == 0 { continue }
+            if part.size == 0 {
+                out[id] = ""
+                continue
+            }
             parts[id] = part
             let isHTML = part.subtype == "html"
             grouped[Request(validity: message.validity, section: part.fetchSection,
@@ -1611,7 +1620,6 @@ actor IMAPMailRepository: MailRepository {
                     default: []].append(message.uid)
         }
 
-        var out: [String: String] = [:]
         for (request, uids) in grouped {
             let bodies: [UInt32: Data]
             if whileOpen {
@@ -1627,8 +1635,7 @@ actor IMAPMailRepository: MailRepository {
             for (uid, raw) in bodies {
                 let id = Self.makeID(validity: request.validity, uid: uid)
                 guard let part = parts[id] else { continue }
-                let text = Self.preview(from: raw, part: part)
-                if !text.isEmpty { out[id] = text }
+                out[id] = Self.preview(from: raw, part: part)
             }
         }
         return out

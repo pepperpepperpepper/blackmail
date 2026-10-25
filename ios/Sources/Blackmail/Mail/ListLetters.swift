@@ -28,7 +28,8 @@ final class ListLetters: PaneActionList {
     private var removed = RemovedLetters()
     private var billing = ReadBilling()
     /// The previews the hits have drawn, for the next answer's hits as he
-    /// types (`SearchPreviews`, B-135).
+    /// types, and the letters drawn with no words, the folder's too
+    /// (`SearchPreviews`, B-135).
     private var drawn = SearchPreviews()
 
     /// Drafts only: the letters kept on the iPad that the server does not
@@ -97,8 +98,12 @@ final class ListLetters: PaneActionList {
     ///
     /// Previews already drawn go across to the same letters, by id, and only
     /// the rest are asked for (`ListEdit.carryingPreviews`). A refresh used
-    /// to blank every preview and fetch them all again. And what was taken
-    /// off by hand, the server now has the say on (`RemovedLetters`).
+    /// to blank every preview and fetch them all again. A letter drawn with
+    /// no words, as an empty draft is, is not asked for again either
+    /// (`toDraw`): its row has no preview to carry, and every Refresh, and
+    /// every page the watch fetched afresh, asked for it again, to be
+    /// answered with nothing (B-135's check). And what was taken off by
+    /// hand, the server now has the say on (`RemovedLetters`).
     ///
     /// His own read marks and flags stay on over it where the listing was
     /// asked before the server had them (`asked`, from `askingAfresh`; by
@@ -110,7 +115,7 @@ final class ListLetters: PaneActionList {
         fromShelf = false
         removed.listReplaced()
         dropNews()
-        return folder.filter { $0.preview.isEmpty }
+        return toDraw(folder)
     }
 
     /// The folder's page kept on the iPad, in place of everything, before
@@ -130,12 +135,13 @@ final class ListLetters: PaneActionList {
     ///
     /// What was taken off by hand stays off until the list is next fetched
     /// afresh with no search showing: the hits can hold the same letters.
-    /// His own read marks and flags stay on over it, as in `fetchedAfresh`.
+    /// His own read marks and flags stay on over it, and a letter drawn
+    /// with no words is not asked for again, as in `fetchedAfresh`.
     func fetchedUnderSearch(_ page: [MessageSummary], asked: Int? = nil) -> [MessageSummary] {
         folder = holdingHisMarks(ListEdit.carryingPreviews(from: folder, into: page), asked: asked)
         fromShelf = false
         dropNews()
-        return folder.filter { $0.preview.isEmpty }
+        return toDraw(folder)
     }
 
     /// The mail around a day, in place of everything.
@@ -150,13 +156,15 @@ final class ListLetters: PaneActionList {
     /// Returns the letters it added: not the ones already here, which a
     /// letter moved in by another client can be, twice across two pages.
     /// A page of hits comes with the previews already drawn for its letters,
-    /// as a search's first page does (`showResults`).
+    /// as a search's first page does (`showResults`). Its previews still to
+    /// be asked for, the folder's page's too, are `toDraw(_:)` of it.
     func appendPage(_ page: [MessageSummary], toResults: Bool) -> [MessageSummary] {
         let known = Set(visible.map(\.id))
         var fresh = page.filter { !known.contains($0.id) }
         if toResults {
             fresh = drawn.carrying(into: fresh, from: everything)
-            drawn.note(fresh)
+            let drew = fresh.filter { drawn.hasDrawn($0) }
+            drawn.note(drew)
             results?.append(contentsOf: fresh)
         } else {
             folder.append(contentsOf: fresh)
@@ -181,13 +189,26 @@ final class ListLetters: PaneActionList {
     /// drew (`SearchPreviews`, B-135), and only the rest are asked for. Each
     /// pause in his typing brings an answer, and every hit of each was
     /// asked for again, though most are the letters the last answer found
-    /// and drew a moment before.
+    /// and drew a moment before. A hit whose letter was drawn with no words,
+    /// as an empty draft is, is drawn, and is not asked for either.
     @discardableResult
     func showResults(_ hits: [MessageSummary]) -> [MessageSummary] {
         let carried = drawn.carrying(into: hits, from: everything)
-        drawn.note(carried)
+        let drew = carried.filter { drawn.hasDrawn($0) }
+        drawn.note(drew)
         results = carried
-        return carried.filter { $0.preview.isEmpty }
+        return toDraw(carried)
+    }
+
+    /// `rows` whose previews are still to be asked for: those with none,
+    /// less those whose letters were drawn with no words (`SearchPreviews`,
+    /// B-135's check). A row shows no preview the same either way, and
+    /// asking again for a letter drawn with none is answered with none. A
+    /// row with none whose letter was drawn with words is asked for: the
+    /// words kept are for the hits to take, and the folder's rows never
+    /// take them (`SearchPreviews.hasDrawn`).
+    func toDraw(_ rows: [MessageSummary]) -> [MessageSummary] {
+        rows.filter { !drawn.hasDrawn($0) }
     }
 
     /// Drafts' letters kept on the iPad and not yet on the server
@@ -249,13 +270,13 @@ final class ListLetters: PaneActionList {
     /// (`apply(previews:in:)` fills both)
     /// or, for an All Mailboxes hit, under All Mail's
     /// (`ListEdit.carryingPreviews(fromTwins:into:)`). Letters taken off by
-    /// hand are not asked for.
+    /// hand are not asked for, nor letters drawn with no words (`toDraw`).
     @discardableResult
     func endSearch() -> [MessageSummary] {
         let hits = results ?? []
         results = nil
         folder = ListEdit.carryingPreviews(fromTwins: hits, into: folder)
-        return shown.filter { $0.preview.isEmpty }
+        return toDraw(shown)
     }
 
     /// A group's previews, come for its rows of `mailboxID` (`PreviewPass`):
@@ -266,12 +287,21 @@ final class ListLetters: PaneActionList {
     /// same, as `previewsCameLate` holds too. Drawn by id alone, an All
     /// Mail answer could fill a Trash hit, and the words kept under it
     /// would then be carried into every answer after.
+    ///
+    /// An empty preview in the answer is a letter drawn with no words
+    /// (`MailRepository.previews`): kept as drawn, the folder's rows' too,
+    /// so that no pass asks for it again (`toDraw`, B-135's check).
     func apply(previews: [String: String], in mailboxID: String) {
-        for i in folder.indices where folder[i].mailboxID == mailboxID {
-            if let text = previews[folder[i].id] { folder[i].preview = text }
-        }
-        guard var hits = results else { return }
         var drew: [MessageSummary] = []
+        for i in folder.indices where folder[i].mailboxID == mailboxID {
+            guard let text = previews[folder[i].id] else { continue }
+            folder[i].preview = text
+            if text.isEmpty { drew.append(folder[i]) }
+        }
+        guard var hits = results else {
+            drawn.note(drew)
+            return
+        }
         for i in hits.indices where hits[i].mailboxID == mailboxID {
             guard let text = previews[hits[i].id] else { continue }
             hits[i].preview = text
@@ -285,7 +315,8 @@ final class ListLetters: PaneActionList {
     /// replaced, by the next answer as he typed or a Refresh: drawn by no
     /// row, and kept for the hits of the next answer, which can be the same
     /// letters (B-135). They are the server's for those rows' letters as
-    /// much as if they had come in time.
+    /// much as if they had come in time, an empty one a letter drawn with
+    /// no words.
     func previewsCameLate(_ previews: [String: String], in mailboxID: String,
                           for rows: [MessageSummary]) {
         drawn.note(rows.compactMap { row -> MessageSummary? in

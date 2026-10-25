@@ -6112,7 +6112,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       `bm-searchprev` worktree (branch `fix-searchprev`). Read only, as
       B-123's check: nothing is composed, sent, moved, deleted or written
       to the mailbox, so no new mail reaches the phone the account is
-      signed in on. Three panes; the app's connection log read after each
+      signed in on. The Outbox empty before step 1: a pulled Refresh
+      (step 8b) sends what waits there (B-072), so if it holds a letter,
+      stop there. Three panes; the app's connection log read after each
       step, a preview's FETCH being `UID FETCH … (UID BODY.PEEK[…]<0.n>)`
       after the UID SEARCHes; a screen recording through steps 1 to 4.
       1. *A name typed slowly.* The Inbox at its top with its previews
@@ -6122,7 +6124,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       row of a letter "Pey" showed has its two lines in the first frame it
       is drawn, no grey lines on it, and the log has the UID SEARCHes and
       no preview FETCH after them but for UIDs "Pey" did not find, if any,
-      written down. The same for "o" and "n", one at a time.
+      written down. The same for "o" and "n", one at a time. The two empty
+      drafts among the hits (UIDs 83185 and 83701 on that mailbox) are
+      asked for at "Pey" alone, answered with two bytes each, and at no
+      pause after; on int16 (662d63d) every pause asked for them again
+      (B-135, "Found on the test iPad").
       2. *The right words.* Three rows of 1's "Peyton" that have no
       unread dot, tapped one by one: each letter begins with its row's
       words. Only rows already read, so that opening one marks nothing
@@ -6145,9 +6151,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *The Inbox alone.* Cancel, the Inbox scrolled down two pages and
       back to its top, Current Mailbox, "Pey" and a pause: its rows with
       their lines at once, no preview FETCH for letters on those pages.
+      7b. *The Inbox's rows after Cancel.* Cancel, Sent, then the Inbox,
+      so that it opens afresh with only its first page loaded, and at
+      once, before its lines fill, Current Mailbox, "Pey" and a pause, its
+      rows' lines let come; write down whether the Inbox's lines were
+      still coming as the search began. Cancel: every row of the Inbox
+      has its two lines, a preview FETCH asking for any still grey at the
+      Cancel, and none is left grey. Then scrolled down to the first row
+      of a letter "Pey" found below that first page, if there is one: its
+      two lines come, and the log has a preview FETCH naming its UID. On
+      the fix's first form (B-135, "A fault in the fix's first form")
+      those rows were left grey.
       8. *Two panes:* 1 again, then three panes back.
-      9. *Put back:* Cancel, All Mailboxes, the Inbox at its top. Nothing
-      else: nothing was written to the mailbox.
+      8b. *Drafts refreshed.* Cancel, Drafts, its rows and their lines
+      let come: one preview FETCH names the two empty drafts' UIDs there,
+      answered with two bytes each. Then pulled down to Refresh, twice,
+      the rows let come each time: no preview FETCH after either. No
+      draft is tapped: one tapped opens in the composer.
+      9. *Put back:* from Drafts, the Inbox, at its top; the search's
+      scope left on All Mailboxes, as step 8 left it. Nothing else:
+      nothing was written to the mailbox.
 - [ ] **B-136, the kept copy's free-space reading.** On the test iPad
       (16.5.1), the test account only, from a build of the `bm-searchprev`
       worktree (branch `fix-searchprev`). Eight letters of about 3 MB, a

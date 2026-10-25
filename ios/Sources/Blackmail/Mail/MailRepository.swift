@@ -78,7 +78,9 @@ protocol MailRepository {
     /// itself does.
     ///
     /// Keyed by message id; an id missing from the result simply has no
-    /// preview, which is not an error.
+    /// preview yet, which is not an error. An id whose letter has no words,
+    /// as an empty draft has none, is in it with an empty preview: drawn,
+    /// and not to be asked for again (`SearchPreviews`, B-135's check).
     func previews(for ids: [String], in mailboxID: String) async throws -> [String: String]
 
     /// The letter a row stands for. `gmailMessageID` is the row's own
