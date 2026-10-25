@@ -260,14 +260,19 @@ enum IMAPDate {
     /// arrival is a letter dated wrong.
     static let arrivalSlack = 7
 
-    /// `20 June` / `20 June 2025` — how the jump reports where it landed.
+    /// `June 20` / `June 20, 2025` with his US region, `20 June` / `20 June
+    /// 2025` with a British one: how the jump reports where it landed, in
+    /// the locale's own order from a template, as every date shown is
+    /// (B-119).
     ///
-    /// The year appears only when it is not the current one, because "20
-    /// June 2026" on a day in 2026 is three words where two would do, and
-    /// its absence is the fastest way to say "this year".
+    /// The year appears only when it is not the current one, because "June
+    /// 20, 2026" on a day in 2026 is three words where two would do, and
+    /// its absence is the fastest way to say "this year". `locale` is the
+    /// iPad's unless a test hands in another.
     static func spokenDay(_ date: Date, now: Date = Date(),
-                          calendar: Calendar = .current) -> String {
+                          calendar: Calendar = .current, locale: Locale = .current) -> String {
         let f = DateFormatter()
+        f.locale = locale
         f.calendar = calendar
         f.timeZone = calendar.timeZone
         let sameYear = calendar.component(.year, from: date)

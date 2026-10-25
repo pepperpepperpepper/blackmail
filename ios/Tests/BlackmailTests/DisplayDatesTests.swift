@@ -4,13 +4,17 @@ import XCTest
 /// The list's and the reading pane's timestamps, with their formatters kept
 /// (`DisplayDates`) rather than built on every call: the same words as a
 /// formatter built afresh, the day worked out from `now` every time, and
-/// the iPad's locale and time zone followed when they change.
+/// the iPad's locale and time zone followed when they change. The words
+/// themselves, in three regions, are `DatesTheIPadsWayTests` (B-119).
 final class DisplayDatesTests: XCTestCase {
 
     private let utc = TimeZone(identifier: "UTC")!
     private let newYork = TimeZone(identifier: "America/New_York")!
     private let tokyo = TimeZone(identifier: "Asia/Tokyo")!
-    private let posix = Locale(identifier: "en_US_POSIX")
+    /// His iPad's region (B-119).
+    private let us = Locale(identifier: "en_US")
+    /// The space the formatter puts before AM and PM.
+    private let nb = "\u{202F}"
 
     /// 2026-09-27, a Sunday, at `hour`:`minute` UTC, or `days` later.
     private func sunday(_ hour: Int, _ minute: Int, plusDays days: Int = 0) -> Date {
@@ -30,22 +34,22 @@ final class DisplayDatesTests: XCTestCase {
     func testTodayAndYesterdayAreWorkedOutFromNowEveryTime() {
         let letter = sunday(23, 50)
         let list = { (now: Date) in
-            MailFormat.listTimestamp(letter, now: now, locale: self.posix, timeZone: self.utc)
+            MailFormat.listTimestamp(letter, now: now, locale: self.us, timeZone: self.utc)
         }
         let detail = { (now: Date) in
-            MailFormat.detailTimestamp(letter, now: now, locale: self.posix, timeZone: self.utc)
+            MailFormat.detailTimestamp(letter, now: now, locale: self.us, timeZone: self.utc)
         }
 
-        XCTAssertEqual(list(sunday(23, 55)), "11:50 PM")
+        XCTAssertEqual(list(sunday(23, 55)), "11:50\(nb)PM")
         XCTAssertEqual(list(sunday(0, 5, plusDays: 1)), "Yesterday")
         XCTAssertEqual(list(sunday(0, 5, plusDays: 2)), "Sunday")
         XCTAssertEqual(list(sunday(23, 0, plusDays: 6)), "Sunday", "within six days")
-        XCTAssertEqual(list(sunday(0, 5, plusDays: 7)), "27/09/26")
-        XCTAssertEqual(list(sunday(23, 55)), "11:50 PM", "and back")
+        XCTAssertEqual(list(sunday(0, 5, plusDays: 7)), "9/27/26")
+        XCTAssertEqual(list(sunday(23, 55)), "11:50\(nb)PM", "and back")
 
-        XCTAssertEqual(detail(sunday(23, 55)), "Today at 11:50 PM")
-        XCTAssertEqual(detail(sunday(0, 5, plusDays: 1)), "Yesterday at 11:50 PM")
-        XCTAssertEqual(detail(sunday(0, 5, plusDays: 2)), "27 September 2026 at 11:50 PM")
+        XCTAssertEqual(detail(sunday(23, 55)), "Today at 11:50\(nb)PM")
+        XCTAssertEqual(detail(sunday(0, 5, plusDays: 1)), "Yesterday at 11:50\(nb)PM")
+        XCTAssertEqual(detail(sunday(0, 5, plusDays: 2)), "September 27, 2026 at 11:50\(nb)PM")
     }
 
     // MARK: - The zone and the locale are followed
@@ -58,27 +62,27 @@ final class DisplayDatesTests: XCTestCase {
         let letter = sunday(23, 45)
         let now = sunday(0, 30, plusDays: 1)
         let list = { (zone: TimeZone) in
-            MailFormat.listTimestamp(letter, now: now, locale: self.posix, timeZone: zone)
+            MailFormat.listTimestamp(letter, now: now, locale: self.us, timeZone: zone)
         }
         let detail = { (zone: TimeZone) in
-            MailFormat.detailTimestamp(letter, now: now, locale: self.posix, timeZone: zone)
+            MailFormat.detailTimestamp(letter, now: now, locale: self.us, timeZone: zone)
         }
 
         XCTAssertEqual(list(utc), "Yesterday")
-        XCTAssertEqual(list(newYork), "7:45 PM")
-        XCTAssertEqual(list(tokyo), "8:45 AM")
+        XCTAssertEqual(list(newYork), "7:45\(nb)PM")
+        XCTAssertEqual(list(tokyo), "8:45\(nb)AM")
         XCTAssertEqual(list(utc), "Yesterday", "and back")
 
-        XCTAssertEqual(detail(utc), "Yesterday at 11:45 PM")
-        XCTAssertEqual(detail(newYork), "Today at 7:45 PM")
-        XCTAssertEqual(detail(tokyo), "Today at 8:45 AM")
+        XCTAssertEqual(detail(utc), "Yesterday at 11:45\(nb)PM")
+        XCTAssertEqual(detail(newYork), "Today at 7:45\(nb)PM")
+        XCTAssertEqual(detail(tokyo), "Today at 8:45\(nb)AM")
 
         // Far enough back for a date, which falls on another day in Tokyo.
         let older = sunday(20, 0, plusDays: -20)
-        XCTAssertEqual(MailFormat.listTimestamp(older, now: now, locale: posix, timeZone: utc),
-                       "07/09/26")
-        XCTAssertEqual(MailFormat.listTimestamp(older, now: now, locale: posix, timeZone: tokyo),
-                       "08/09/26")
+        XCTAssertEqual(MailFormat.listTimestamp(older, now: now, locale: us, timeZone: utc),
+                       "9/7/26")
+        XCTAssertEqual(MailFormat.listTimestamp(older, now: now, locale: us, timeZone: tokyo),
+                       "9/8/26")
     }
 
     /// The weekday in the language it is asked for, one after another.
@@ -102,30 +106,30 @@ final class DisplayDatesTests: XCTestCase {
         let dates = DisplayDates(notifications: center)
         let letter = sunday(9, 14)
         let time = { (zone: TimeZone) in
-            dates.string(from: letter, format: "h:mm a", locale: self.posix, timeZone: zone)
+            dates.string(from: letter, .time, locale: self.us, timeZone: zone)
         }
 
-        XCTAssertEqual(time(utc), "9:14 AM")
-        XCTAssertEqual(time(utc), "9:14 AM")
+        XCTAssertEqual(time(utc), "9:14\(nb)AM")
+        XCTAssertEqual(time(utc), "9:14\(nb)AM")
         XCTAssertEqual(dates.built, 1, "kept")
-        XCTAssertEqual(dates.string(from: letter, format: "EEEE", locale: posix, timeZone: utc),
+        XCTAssertEqual(dates.string(from: letter, .weekday, locale: us, timeZone: utc),
                        "Sunday")
-        XCTAssertEqual(dates.built, 2, "one for each format")
+        XCTAssertEqual(dates.built, 2, "one for each form")
 
         center.post(name: .NSSystemTimeZoneDidChange, object: nil)
-        XCTAssertEqual(time(utc), "9:14 AM")
+        XCTAssertEqual(time(utc), "9:14\(nb)AM")
         XCTAssertEqual(dates.built, 3, "made again after the time zone changed")
 
         center.post(name: NSLocale.currentLocaleDidChangeNotification, object: nil)
-        XCTAssertEqual(time(utc), "9:14 AM")
+        XCTAssertEqual(time(utc), "9:14\(nb)AM")
         XCTAssertEqual(dates.built, 4, "made again after the locale changed")
 
-        XCTAssertEqual(time(tokyo), "6:14 PM")
-        XCTAssertEqual(time(tokyo), "6:14 PM")
+        XCTAssertEqual(time(tokyo), "6:14\(nb)PM")
+        XCTAssertEqual(time(tokyo), "6:14\(nb)PM")
         XCTAssertEqual(dates.built, 5, "made again for another zone, then kept")
-        XCTAssertEqual(dates.string(from: letter, format: "h:mm a",
+        XCTAssertEqual(dates.string(from: letter, .time,
                                     locale: Locale(identifier: "de_DE"), timeZone: tokyo),
-                       fresh("h:mm a", Locale(identifier: "de_DE"), tokyo).string(from: letter))
+                       "18:14", "the locale's own clock")
         XCTAssertEqual(dates.built, 6, "and for another locale")
     }
 
@@ -138,62 +142,67 @@ final class DisplayDatesTests: XCTestCase {
     func testTheAppsFormattersHearTheSystemsNotifications() {
         let letter = sunday(9, 14)
         for dates in [DisplayDates.shared, DisplayDates()] {
-            let time = { dates.string(from: letter, format: "h:mm a", locale: self.posix,
-                                      timeZone: self.utc) }
-            XCTAssertEqual(time(), "9:14 AM")
+            let time = { dates.string(from: letter, .time, locale: self.us, timeZone: self.utc) }
+            XCTAssertEqual(time(), "9:14\(nb)AM")
             let kept = dates.built
-            XCTAssertEqual(time(), "9:14 AM")
+            XCTAssertEqual(time(), "9:14\(nb)AM")
             XCTAssertEqual(dates.built, kept, "kept")
 
             NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
-            XCTAssertEqual(time(), "9:14 AM")
+            XCTAssertEqual(time(), "9:14\(nb)AM")
             XCTAssertEqual(dates.built, kept + 1, "made again after the time zone changed")
 
             NotificationCenter.default.post(name: NSLocale.currentLocaleDidChangeNotification,
                                             object: nil)
-            XCTAssertEqual(time(), "9:14 AM")
+            XCTAssertEqual(time(), "9:14\(nb)AM")
             XCTAssertEqual(dates.built, kept + 2, "made again after the locale changed")
         }
     }
 
-    private func fresh(_ format: String, _ locale: Locale, _ zone: TimeZone) -> DateFormatter {
+    /// A formatter built afresh, here, from the locale's styles: the time,
+    /// the weekday, the short date, or the long date and the time.
+    private enum Fresh { case time, weekday, short, long }
+
+    private func fresh(_ kind: Fresh, _ locale: Locale, _ zone: TimeZone) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.timeZone = zone
-        formatter.dateFormat = format
+        switch kind {
+        case .time: formatter.timeStyle = .short
+        case .weekday: formatter.setLocalizedDateFormatFromTemplate("EEEE")
+        case .short: formatter.dateStyle = .short
+        case .long:
+            formatter.dateStyle = .long
+            formatter.timeStyle = .short
+        }
         return formatter
     }
 
-    /// The list timestamp exactly as it was written before the formatters
-    /// were kept, with the day taken from `now` rather than the clock, and
-    /// the locale and zone given rather than the iPad's.
+    /// The list timestamp as a formatter built afresh writes it, with the
+    /// day taken from `now` rather than the clock, and the locale and zone
+    /// given rather than the iPad's.
     private func previousList(_ date: Date, now: Date, _ locale: Locale, _ zone: TimeZone) -> String {
         var cal = Calendar.current
         cal.timeZone = zone
-        let f = DateFormatter()
-        f.locale = locale
-        f.timeZone = zone
         if cal.isDate(date, inSameDayAs: now) {
-            f.dateFormat = "h:mm a"
+            return fresh(.time, locale, zone).string(from: date)
         } else if let y = cal.date(byAdding: .day, value: -1, to: now), cal.isDate(date, inSameDayAs: y) {
             return "Yesterday"
         } else if let week = cal.date(byAdding: .day, value: -6, to: now), date > week {
-            f.dateFormat = "EEEE"
-        } else {
-            f.dateFormat = "dd/MM/yy"
+            return fresh(.weekday, locale, zone).string(from: date)
         }
-        return f.string(from: date)
+        return fresh(.short, locale, zone).string(from: date)
     }
 
     private func previousDetail(_ date: Date, now: Date, _ locale: Locale, _ zone: TimeZone) -> String {
         var cal = Calendar.current
         cal.timeZone = zone
-        let time = fresh("h:mm a", locale, zone)
+        let time = fresh(.time, locale, zone)
         if cal.isDate(date, inSameDayAs: now) { return "Today at " + time.string(from: date) }
         if let y = cal.date(byAdding: .day, value: -1, to: now), cal.isDate(date, inSameDayAs: y) {
             return "Yesterday at " + time.string(from: date)
         }
-        return fresh("d MMMM yyyy 'at' h:mm a", locale, zone).string(from: date)
+        return fresh(.long, locale, zone).string(from: date)
     }
 
     /// Word for word what a formatter built afresh writes, across the days
@@ -230,9 +239,9 @@ final class DisplayDatesTests: XCTestCase {
     }
 
     /// Left to their defaults, the clock, the iPad's locale and its zone,
-    /// they say what the code before them said, which read all three
-    /// itself. Skipped in the instant either side of midnight, when the
-    /// two sides could fairly disagree.
+    /// they say what a formatter left to its own defaults says, which reads
+    /// all three itself. Skipped in the instant either side of midnight,
+    /// when the two sides could fairly disagree.
     func testTheDefaultsAreTheClockTheLocaleAndTheZone() {
         for ago: TimeInterval in [60, 86_400, 3 * 86_400, 30 * 86_400] {
             let before = Date()
@@ -241,15 +250,15 @@ final class DisplayDatesTests: XCTestCase {
             let f = DateFormatter()
             let list: String
             if cal.isDateInToday(letter) {
-                f.dateFormat = "h:mm a"
+                f.timeStyle = .short
                 list = f.string(from: letter)
             } else if cal.isDateInYesterday(letter) {
                 list = "Yesterday"
             } else if let week = cal.date(byAdding: .day, value: -6, to: before), letter > week {
-                f.dateFormat = "EEEE"
+                f.setLocalizedDateFormatFromTemplate("EEEE")
                 list = f.string(from: letter)
             } else {
-                f.dateFormat = "dd/MM/yy"
+                f.dateStyle = .short
                 list = f.string(from: letter)
             }
             let kept = MailFormat.listTimestamp(letter)
@@ -269,7 +278,7 @@ final class DisplayDatesTests: XCTestCase {
         let dates = DisplayDates(notifications: center)
         let letter = sunday(9, 14)
         let zones = [utc, tokyo, newYork]
-        let expected = zones.map { fresh("h:mm a", posix, $0).string(from: letter) }
+        let expected = zones.map { fresh(.time, us, $0).string(from: letter) }
         let wrong = Wrong()
 
         DispatchQueue.concurrentPerform(iterations: 8) { thread in
@@ -279,9 +288,8 @@ final class DisplayDatesTests: XCTestCase {
                     center.post(name: i % 50 == 0 ? .NSSystemTimeZoneDidChange
                                     : NSLocale.currentLocaleDidChangeNotification, object: nil)
                 }
-                let words = dates.string(from: letter, format: "h:mm a", locale: posix,
-                                         timeZone: zones[z])
-                _ = dates.day(of: letter, now: letter, locale: posix, timeZone: zones[z])
+                let words = dates.string(from: letter, .time, locale: us, timeZone: zones[z])
+                _ = dates.day(of: letter, now: letter, locale: us, timeZone: zones[z])
                 if words != expected[z] { wrong.add("\(zones[z].identifier): \(words)") }
             }
         }

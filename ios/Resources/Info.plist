@@ -126,7 +126,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Dark, as the app is (D-010). The launch screen, a UILaunchScreen
+	     with nothing in it, is the system's plain screen drawn in this
+	     style before any of the app's code runs: Light drew it white for
+	     about 130 ms before the dark rows at every cold launch (B-124).
+	     Everything after it is in the app's one window, pinned dark in
+	     code (AppDelegate), and the paper is pinned light (LetterPrint). -->
 	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
+	<string>Dark</string>
 </dict>
 </plist>

@@ -428,6 +428,12 @@ a photograph.
 own colours and its header as the pane shows it, the date written out in
 full, as Mail prints; the dark pane is never printed (B-110).
 
+**2026-10-24:** the launch screen is dark too. Info.plist's
+`UIUserInterfaceStyle`, Light from the first commit, from before this
+decision, drew the system's launch screen white for about 130 ms at every
+cold launch; it is Dark (B-124). Everything after the launch screen was
+already pinned by the window.
+
 ---
 
 ## D-011 — The app password is masked only when the iPad has a passcode

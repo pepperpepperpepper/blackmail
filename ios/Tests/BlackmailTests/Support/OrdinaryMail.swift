@@ -391,10 +391,13 @@ enum OrdinaryMail {
     /// `MIMEDecoder.decodeMessage` and `parseHeaders` of each of `letters`:
     /// the text, the HTML, every file and every header.
     static func decodedFingerprints() -> [String] {
-        // A forwarded letter's Date line is written in the iPad's zone
-        // (`MailFormat.forwardedDate`, B-114): put back in GMT, the zone the
-        // fingerprints were taken in, so they are the same in every zone.
+        // A forwarded letter's Date line is written in the iPad's zone and
+        // its region's way (`MailFormat.forwardedDate`, B-114, B-119): put
+        // back in GMT and `en_US_POSIX`, the zone and the words the
+        // fingerprints were taken in, so they are the same in every zone and
+        // region.
         let gmt = TimeZone(identifier: "GMT") ?? TimeZone(secondsFromGMT: 0)!
+        let posix = Locale(identifier: "en_US_POSIX")
         let dates = (10..<59).compactMap {
             IMAPParser.parseHeaderDate("Mon, 20 Sep 2026 10:\($0):00 +0100")
         }
@@ -403,7 +406,8 @@ enum OrdinaryMail {
             var text = (body.text ?? "\u{1}") + "\u{0}" + (body.html ?? "\u{1}")
             for date in dates {
                 text = text.replacingOccurrences(of: MailFormat.forwardedDate(date),
-                                                 with: MailFormat.forwardedDate(date, timeZone: gmt))
+                                                 with: MailFormat.forwardedDate(date, locale: posix,
+                                                                                timeZone: gmt))
             }
             for a in body.attachments {
                 text += "\u{0}\(a.id)|\(a.filename)|\(a.mimeType)|\(a.size ?? -1)|"

@@ -38,7 +38,9 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         // be the default with no setting required — so the app must not hand the
         // decision back to a switch he would then have to find again. Pinning
         // it also keeps the keyboard, alerts and selection highlights dark
-        // rather than flashing white over a black app.
+        // rather than flashing white over a black app. Info.plist's
+        // UIUserInterfaceStyle is Dark too, for the launch screen the system
+        // draws before this runs, which was white while it said Light (B-124).
         window.overrideUserInterfaceStyle = .dark
         // NOTE: the app cannot defend itself against Smart Invert. Setting
         // `accessibilityIgnoresInvertColors` was tried here AND on the root
