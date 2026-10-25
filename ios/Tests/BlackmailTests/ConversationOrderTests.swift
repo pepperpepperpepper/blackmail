@@ -294,14 +294,18 @@ final class ConversationOrderTests: XCTestCase {
     // MARK: - His place when the header changes
 
     /// The header grows by a line or a file's row as he opens a letter with
-    /// more recipients or files: the stack is scrolled down by as much, so
-    /// what he sees stays where it was; shrunk, up by as much. Within what
-    /// the stack can scroll to.
+    /// more recipients or files, or shrinks: the stack keeps its offset, so
+    /// what was at the top of the pane stays at the top, under the header,
+    /// and is put at its end only where a header that shrank leaves it past
+    /// what it can scroll to. Changed by B-128: B-074 scrolled it by as much
+    /// the other way, 300 to 344 and to 280, which took the top of the pane
+    /// under the header (`StackUnderTheHeaderTests`).
     func testTheStackMovesAgainstTheHeader() {
-        XCTAssertEqual(StackPlace.offset(from: 300, headerGrewBy: 44, range: 0...1000), 344)
-        XCTAssertEqual(StackPlace.offset(from: 300, headerGrewBy: -20, range: 0...1000), 280)
-        XCTAssertEqual(StackPlace.offset(from: 10, headerGrewBy: -20, range: 0...1000), 0)
-        XCTAssertEqual(StackPlace.offset(from: 990, headerGrewBy: 44, range: 0...1000), 1000)
+        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: 44, range: 0...1000))
+        XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: -20, range: 0...1000))
+        XCTAssertNil(StackPlace.offset(from: 10, headerGrewBy: -20, range: 0...1000))
+        XCTAssertNil(StackPlace.offset(from: 990, headerGrewBy: 44, range: 0...1000))
+        XCTAssertEqual(StackPlace.offset(from: 1000, headerGrewBy: -20, range: 0...980), 980)
         XCTAssertNil(StackPlace.offset(from: 300, headerGrewBy: 0, range: 0...1000))
         XCTAssertNil(StackPlace.offset(from: 0, headerGrewBy: 44, range: 0...0),
                      "a stack shorter than the pane cannot scroll")

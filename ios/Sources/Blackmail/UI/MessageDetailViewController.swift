@@ -602,8 +602,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// Points the header and the toolbar at one letter of the stack, and
-    /// keeps the stack where it was on the glass if the header changes
-    /// height with it (`StackPlace`, B-074).
+    /// keeps the stack hanging from the header if it changes height with
+    /// it (`StackPlace`, B-128).
     private func focusLetter(_ m: Message) {
         focused = m.id
         message = m
@@ -615,8 +615,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     /// The header has been given another letter: laid out now, and the
-    /// stack scrolled by as much as the header grew or shrank, so the line
-    /// he tapped does not move under his finger.
+    /// stack left at the offset it had, so what was at the top of the pane
+    /// stays at the top, wholly under the header, which pushes it down as
+    /// it grows and draws it up as it shrinks (B-128). Only kept within
+    /// what the stack can scroll to now. It used to be scrolled by as much
+    /// as the header grew or shrank, so the line he tapped stayed where it
+    /// was on the glass, and the top of the pane went under the header:
+    /// half the line at the top, the line he had just tapped as often as
+    /// not, until he scrolled.
     private func keepPlace(headerWas before: CGFloat) {
         view.layoutIfNeeded()
         let scroll = webView.scrollView

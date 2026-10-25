@@ -6500,7 +6500,8 @@ needs a letter from another account and waits on a yes.
   seen.
 
 Seen in passing: a header that gains a Cc line at a tap in the stack leaves
-the stack's first line half under it until the stack is scrolled. And an
+the stack's first line half under it until the stack is scrolled (*fixed
+as B-128*). And an
 Edit Delete of two conversations' rows met `* BYE System Error` from Gmail
 at its first MOVE: nothing moved on the server, "Can't connect to mail
 server." came, and both rows stayed off the list until a Refresh brought
@@ -10614,7 +10615,12 @@ at the top.
    come, and can change height with it, a line for a Cc, a row for each
    file. The stack is now scrolled by as much the other way, so the line
    he tapped stays under his finger (`StackPlace`). At the very top of the
-   stack there is nothing to scroll, and it moves as before.
+   stack there is nothing to scroll, and it moves as before. *Not so, and
+   changed: the stack is always taller than the pane, so it was scrolled
+   at its top too, and the top of the pane went under the header, the
+   stack's first line or the line he had tapped half under a Cc line.
+   Since B-128 the stack keeps its offset and moves with the header, what
+   was at the top of the pane staying there, whole.*
 5. *New mail goes at the bottom.* A letter that comes into the
    conversation open in the pane goes in at the bottom of its stack as the
    list takes it (`ConversationDocument.arrivals`,
@@ -17175,7 +17181,7 @@ the check.
 
 Seen in passing, as in B-055's check: a header that gains a Cc line at a
 tap leaves the stack's first line half under it until the stack is
-scrolled.
+scrolled. *Fixed as B-128.*
 
 **Not covered.**
 
@@ -25047,3 +25053,114 @@ links.
   line wins.
 - VoiceOver's label of the header names the sender, subject and date, not
   the To, as before; not needed (TODO, the owner's 2026-10-24 note).
+
+## B-128 — FIXED 2026-10-25, not yet seen on the iPad. In a conversation's stack, a header that gained a Cc line at a tap left the stack's first line half under it until he scrolled; the stack hangs from the header now, what was at the top of the pane staying there, whole
+
+**Found** on the test iPad on 2026-10-21, in passing, in B-055's check and
+again in B-095's: "a header that gains a Cc line at a tap in the stack
+leaves the stack's first line half under it until the stack is
+scrolled." Put in section 5 of the owner's list on 2026-10-25: the stack
+must stay wholly visible under the header whenever the header's height
+changes.
+
+**What Mail does.** Mail has no one header over a conversation: its
+letters are listed one after another in one scroll, each with its own
+sender and date at its top, opened and closed in place (Apple's iPad
+guide, "Show the whole conversation",
+support.apple.com/guide/ipad/check-your-email-ipad99a3ef9e/ipados; a guide
+to the conversation view of iOS 10, idownloadblog.com, 20 October 2016,
+"emails listed one after another"; medium for iPadOS 18). So nothing over
+its stack changes height at a tap, and nothing goes under anything. The
+header here is the pane's own (B-022), which Mail's has no part like;
+there is nothing of Mail's to copy, and the rule is the owner's.
+
+**What it was.** The header names the letter he opened, and since B-074
+grows or shrinks with it, a Cc line about 20 pt, a file's row 44 pt.
+`StackPlace` scrolled the stack by as much the other way, so the line he
+tapped stayed where it was on the glass. But the glass under the
+header's new bottom edge is the header's, so the top of the pane went
+under it by as much. B-074 said that at the very top of the stack there
+is nothing to scroll; there always is, the last letter being at least as
+tall as the pane, so the stack at its top was scrolled too and its first
+line went under. And a stack opens with a letter's line at the top of the
+pane (`ConversationDocument.opensAt`), the line he is likeliest to tap
+next: tapped, with a Cc line gained, about half of it, some 20 of its 45
+pt, was under the header until he scrolled. A header that shrank drew a
+sliver of the line above in at the top the same way.
+
+**Changed.**
+
+1. *The stack keeps its offset* (`StackPlace.offset`) when the header
+   changes height, so it hangs from the header: what was at the top of the
+   pane stays at the top, wholly under it, and the stack moves down on the
+   glass by as much as the header grew, up by as much as it shrank. The
+   offset is changed only where a header that shrank leaves a stack
+   scrolled to its end past what it can scroll to now, and then to its
+   end, which moves it down, never up under the header.
+2. *The stack's opening place* is no longer let go by the header changing
+   height, which scrolled the pane: nothing scrolls now, and the letter
+   the stack opened at stays at the top of the pane.
+3. The comments that said the line he tapped stays under his finger
+   (`StackPlace`, `keepPlace`, `focusLetter`, the stack's script), and
+   B-074's item 4 here and its check's step 5 in TODO, say what it is now.
+
+**Not changed.** When the header changes: still as the letter's body
+lands. The header's lines and sizes. The stack's own place-keeping as
+letters above the top grow or shrink (B-074 item 4), and a letter opened
+growing below its own line. The single letter's pane, whose header is
+drawn before its page and is its final height from the tap (B-041, B-055,
+B-127). No new words.
+
+**What he sees.** A letter opened by its line whose header has a Cc line
+or a file the last one had not: the whole stack moves down by that line
+or row as the header grows, and the line at the top of the pane, the one
+he tapped as often as not, is still the top line, whole, under the
+header. One with fewer: the stack moves up with the header, the top line
+still the top line, nothing of the line above it showing. The line he
+tapped moves with the stack, by the header's change; under B-074 it
+stayed still and the top of the pane went under the header.
+
+**Tests.** `StackUnderTheHeaderTests`, four, new. On the glass as the pane
+lays it out, the stack's web view pinned to the header's bottom edge: the
+stack at its very top under a header that gains a Cc line, a Cc line and
+two files' rows, or a file's row: its first line's top at the header's
+new bottom edge, whole. The stack as it opens, the line at the top of the
+pane tapped, under a header that gains or loses a Cc line, a file's row,
+a Cc line and three rows, or a Cc line and one: that line at the top,
+whole, and nothing of the line above it in sight. For every change of
+-132 to 132 pt, five ends the stack can scroll to and offsets of 0 to
+1,000 every 25: the offset never grows, is always one it can scroll to,
+and is the one it had wherever it still can be. And the source, read:
+the pane writes the stack's offset in one place, `keepPlace`, from
+`StackPlace` alone. B-074's `ConversationOrderTests.
+testTheStackMovesAgainstTheHeader` is changed to the new rule, its
+comment saying why; `testTheHeaderKeepsHisPlace` is as it was.
+
+Each part undone by hand, the four run with `ConversationOrderTests` and
+`FlagMenuTests`, then put back and passing, counted as failures in tests:
+B-074's rule put back in `StackPlace`, the offset moved by the header's
+change, 1,604 in 4 (the three new on the glass, most of them the sweep's,
+and B-074's changed one); the pane scrolling the stack by the header's
+change itself, past `StackPlace`, 3 in 2 (the new source test and B-074's
+`testTheHeaderKeepsHisPlace`).
+
+The full suite, serially: 2,483 tests, 4 of them new, 6 skipped, none failing. The release build for the iPad
+links.
+
+**Not covered.**
+
+- Not seen on the iPad (TODO, B-128's check).
+- That the stack keeps its offset when the web view's frame moves down
+  and shrinks under a growing header, and is not scrolled by WebKit, is
+  UIKit's and WebKit's, not the host's: the stack moved with the header so
+  before B-074's `StackPlace`, as its comment and B-074 recorded, and the
+  page's own place-keeping finds nothing to move (its last letter's height
+  follows the pane's, `100vh`, and nothing above the top changes).
+- What it costs: the line he tapped moves by the header's change, a Cc
+  line about 20 pt or a file's row 44 pt, as its letter's body lands. A
+  second tap made just then, on a line above the one he opened, lands that
+  much off where the line was: within a closed line of about 45 pt for a
+  Cc line, off it for two files' rows or more. Not tried.
+- A header that changes height for a reason of its own, a subject wrapping
+  to two lines at a new width: the stack keeps its offset there too, as
+  it always did, `keepPlace` running only when a letter takes the header.

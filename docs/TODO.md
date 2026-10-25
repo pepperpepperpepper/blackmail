@@ -1719,7 +1719,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       had no Cc, so none showed, rightly; its letter with a Cc, tapped
       offline, could not be downloaded, and so did not take the header.
       Seen in passing: a header that gains a Cc line at a tap leaves the
-      stack's first line half under it until the stack is scrolled; and an
+      stack's first line half under it until the stack is scrolled (fixed
+      as B-128, its check below); and an
       Edit Delete of two rows met Gmail's `* BYE System Error` at its first
       MOVE, nothing moved, and the rows stayed off the list until a
       Refresh. Left: the Cc from the kept Inbox, which needs it on the
@@ -2941,6 +2942,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *The header.* A reply with the account in Cc as well. Open the
       conversation, and tap the line above the newest: when its body comes
       the header loses its Cc line, and the line tapped stays where it was.
+      *Since B-128 the stack moves up with the header instead, the line
+      tapped staying at the top of the pane, whole: B-128's check.*
       6. *The view button.* Down a long letter in the stack, switch from
       three panes to two and back: that letter stays the one at the top of
       the pane. Its lines wrap again, and other words of it can be at the
@@ -5632,6 +5635,38 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Put back:* the label's letters and the label left for B-128's
       and B-129's checks, or moved to Trash by the host, as the owner
       prefers. Nothing was written to Sent Mail.
+- [ ] **B-128, the stack under a header that changes height.** On the
+      test iPad, the test account only, built from the `bm-paneheader`
+      worktree (branch `fix-paneheader`) before it is merged. Nothing is
+      sent, saved as a draft or composed. The host APPENDs three letters,
+      read (`\Seen`), to the label "B-127" (or one of their own, "B-128"),
+      dated four, three and two days back, one conversation (Gmail's
+      thread, each reply's References naming the one before): (a) plain,
+      no Cc, no file; (b) a reply with a Cc and a PDF of about 100 KB;
+      (c) a reply, plain, no Cc, no file. Organize by Thread on, three
+      panes, then two; a screen recording through each tap.
+      1. *Opened:* the conversation's row tapped. (c) open, (b)'s line at
+      the top of the pane, whole, (a)'s above it out of sight; the header
+      (c)'s, no Cc line, no file.
+      2. *A header that grows, the line at the top:* (b)'s line tapped.
+      When its body lands the header gains the Cc line and the PDF's row,
+      and the whole stack moves down by as much: (b)'s line is still the
+      top line of the pane, whole, its top at the header's bottom edge,
+      not half under it. Written down: how far (b)'s line moved.
+      3. *A header that shrinks, the stack's first line:* the status bar
+      tapped: (a)'s line at the top, whole. (a)'s line tapped: when its
+      body lands the header loses the Cc line and the PDF's row, the stack
+      moves up with it, and (a)'s line is still the top line, whole.
+      4. *A header that grows, the stack at its very top:* the status bar
+      tapped again if the stack has moved; (b)'s line tapped twice, closed
+      then opened: its body already in the stack, the header gains the Cc
+      line and the row at once, and (a)'s line, the stack's first, is still
+      the top line, whole, the case seen in B-055's check.
+      5. *Nothing else moved:* in 2 to 4, the letter opened grows below its
+      own line, and no frame shows a line half under the header.
+      6. *Two panes:* 1 to 3 again, then three panes back.
+      7. *Put back:* the label's letters left for B-129's check, or moved
+      to Trash by the host, as the owner prefers.
 
 ## Blocked on the owner
 

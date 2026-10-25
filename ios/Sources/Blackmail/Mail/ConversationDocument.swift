@@ -389,10 +389,12 @@ enum ConversationDocument {
     /// the first frame. It holds it there while the bodies and their
     /// pictures come, which can grow the stack above it, until he touches
     /// the pane, or the pane scrolls by anything but the script: the status
-    /// bar tapped, VoiceOver's scroll, the header changing height
-    /// (`StackPlace`). The script notes where it put the page, and a scroll
-    /// to anywhere else lets go. Without that the hold went on, and the next
-    /// letter to grow pulled him back to where the stack opened. From then
+    /// bar tapped, VoiceOver's scroll. The header changing height scrolls
+    /// nothing since B-128 (`StackPlace`): the stack hangs from it, and the
+    /// letter held stays at the top of the pane. The script notes where it
+    /// put the page, and a scroll to anywhere else lets go. Without that
+    /// the hold went on, and the next letter to grow pulled him back to
+    /// where the stack opened. From then
     /// on it keeps his place instead: the letter at the top of the pane
     /// stays where it is on the glass when a letter above it grows or
     /// shrinks, as a body comes into it, its pictures load, or it wraps
