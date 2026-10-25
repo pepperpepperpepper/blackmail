@@ -23688,8 +23688,31 @@ own in `MessageCell`, 2 in 2; the row's date asked for in en_GB there, 4
 in 2; Go to Date's calendar given en_GB, 3 in 2.
 
 The full suite, serially: 2,414 tests, 10 of them new, 6 skipped, none
+failing. The release build for the iPad links.
 
----
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-119's check).
+- The strings pinned are this host's ICU's. The iPad's are its own, which
+  is what its Mail writes, and can differ in a detail: the space before
+  AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
+  order is the region's on both.
+- The 24-Hour Time switch: followed now, through the locale, as it is
+  changed in Settings (B-043's notification); not tried.
+- Another language: the app has English words only, so on an iPad in
+  another language the region's dates would sit inside them. What the
+  iPad's locale is for an app with English alone was not looked at. Not
+  his.
+- The row's date column: his short dates are no wider than the old ones,
+  "12/28/25" the same eight characters as "28/12/25", which B-080
+  measured at about 63 points, and "10/3/26" narrower. A British
+  region's "28/12/2025" is ten, about as wide as "Wednesday", 80 points,
+  which B-080 fitted in Edit mode in three panes; not measured on a
+  screen.
+- Go to Date's calendar (`UIDatePicker`) is the system's, the region's
+  already; not looked at for this.
+- What it costs: nothing more; one formatter kept for each form, as one
+  was for each pattern.
 
 ## B-120 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A letter opened with no caret and no keyboard; Mail's opens ready to type
 
@@ -23787,8 +23810,113 @@ made first responder with its caret left where it was, 1 in 1; the share
 sheet into To only, as it was, 4 in 2.
 
 The full suite, serially: 2,411 tests, 7 of them new, 6 skipped, none
+failing. The release build for the iPad links.
 
----
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-120's check).
+- Mail's composer was read, not watched: when its keyboard comes up on
+  the iPad (as the sheet arrives, or after) was not seen, and neither was
+  whether a share from another app opens Mail's keyboard at once (the
+  sharing app's `showKeyboardAutomatically` is off unless set, and Mail's
+  composer then picks the field once its content has loaded).
+- Here the keyboard comes up once the sheet has arrived (`viewDidAppear`),
+  a moment after the sheet. Mail picks the field as the sheet is about to
+  appear only when whatever opened it asked for the keyboard at once;
+  otherwise it picks once the letter's content has loaded, after the
+  sheet appeared.
+- The field Mail gives back after its own camera, scan, markup or a
+  person's card: this composer has none of those; after its photo or file
+  picker the field he was in is UIKit's to give back, and nothing here
+  moves it.
+- Split View, Slide Over and Stage Manager: the app runs full screen only
+  (`UIRequiresFullScreen`).
+
+## B-121 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
+
+**What Mail does.** Apple's guide is silent. Mail's composer, read from
+iOS 18.6's MessageUI in the simulator runtime, sets capitals,
+corrections and the keyboard type only on its address fields
+(`MFComposeRecipientTextView`, `MFComposeRecipientView`: no corrections,
+no capitals, the email keyboard), and Smart Punctuation on nothing at all:
+its Subject (`MFComposeSubjectView`) and its body (a web view) keep the
+system's own, a capital to begin, corrections, and Smart Punctuation, each
+as Settings > General > Keyboard has it, all on from the factory. His own
+letters show it: of the 479 letters he began in 30 days, 467 subjects
+start with a capital and 1 with a small letter; in 90 sampled letters, 16
+have a curly apostrophe he typed and none a straight one; in his subjects
+9 curly against 2 straight (gap list, 2026-10-24).
+
+**What he would have seen.** About 16 subjects a day typed: each in lower
+case unless he reached for Shift, no word corrected, and every apostrophe
+and quote in Subject and the body straight, where his letters from Mail
+have them curly.
+
+**What it was.** Subject, in the composer and the share sheet: capitals
+none, corrections off, Smart Dashes and Smart Quotes off, left from when
+the same row served To, Cc and Bcc (before B-076). The body, in both:
+Smart Dashes and Smart Quotes off, from a code comment calling them no
+help, with no decision behind it.
+
+**Changed.** Subject, in both sheets: capitals by sentence, corrections,
+Smart Dashes and Smart Quotes at the system's default, written out so the
+choice is seen. The body, in both: Smart Dashes and Smart Quotes at the
+default; its capitals and corrections were already the system's. So
+"don't" typed has a curly ’ when Settings' Smart Punctuation is on, quotes
+come out “ ” and ‘ ’, and "--" a dash, as in Mail; with any of the three
+switched off in Settings, off here as in Mail.
+
+**Not changed.** To, Cc and Bcc keep `RecipientField`'s email keyboard,
+no capitals, no corrections and straight quotes: an address corrected or
+curled bounces. The search field keeps its own (B-105). On the wire
+nothing changed, and nothing had to: Subject goes as UTF-8 encoded words,
+the text and the HTML twin as quoted-printable UTF-8, and the app's own
+reader gives back what he typed; B-105's search keeps ’ inside its word,
+reads “ ” as a phrase's marks and — as a space, and asks for a word with
+’ in it as a UTF-8 literal (`SearchLiteralTests`). No new words.
+
+**What he sees.** In Subject, the first letter a capital as he begins and
+a misspelt word corrected as he goes on, in both sheets. In Subject and
+the body, his apostrophes and quotes curly and "--" a dash, as Settings
+has them. In To, Cc and Bcc, nothing different.
+
+**Tests.** `TypingAsInMailTests`, six: Subject in both sheets with
+capitals, corrections and Smart Punctuation at the system's own and none
+of the four off; the body in both with Smart Punctuation and nothing
+off; the address rows' email keyboard and their four settings kept, and
+Subject's row the only one in either sheet setting capitals; a letter
+with “ ” ‘ ’ ’ — and – in Subject and body, built by the app and read
+back by it: every byte seven-bit, Subject in UTF-8 encoded words reading
+back as typed, the plain part's and the HTML twin's words as typed under
+`charset=utf-8`, no straight apostrophe anywhere; the share sheet's
+letter the same, its link still a link; and the subject's words as
+B-105's search takes them, "Don’t", "miss", "Tosca", "Sunday’s", "at".
+
+Each part undone by hand, the class run, then put back and passing,
+counted as failures in tests: the composer's Subject in lower case, 2 in
+1; uncorrected, 2 in 1; with straight quotes, 2 in 1; the share sheet's
+Subject as it was, 5 in 1; the composer's body as it was, 3 in 1; the
+share sheet's body as it was, 3 in 1; the address rows curling quotes, 1
+in 1; Subject's header not encoded past ASCII, 4 in 2; the bodies' bytes
+past ASCII left eight-bit, 2 in 2; the twin labelled Latin-1, 2 in 2
+(before its label was asserted, 0: the app's own reader takes UTF-8
+whatever the label says); the twin straightening apostrophes, 8 in 2; the
+share's linked twin doing so, 4 in 1; the search splitting a word at its
+’, 1 in 1; and keeping “ ” in a word, 1 in 1.
+
+The full suite, serially: 2,417 tests, 6 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-121's check).
+- His iPad's Settings > General > Keyboard were not read: Mail and this
+  app both follow them, so whatever he has set there holds for both.
+- What a correction does to a word he meant, a name or a word of another
+  language, is the keyboard's, as in Mail.
+- A subject pasted in, or one the share brings, is left as it came.
+- The keyboard's shortcut bar and predictive row are the system's in both
+  Mail and here; not compared.
 
 ## B-122 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A tap on a photo in a letter did nothing; Mail opens it full screen, with Save Image and Save to Files
 
@@ -23993,8 +24121,42 @@ in 1, nor before it says it failed, 1 in 1; what the pane shows never
 changing, 4 in 1.
 
 The full suite, serially: 2,415 tests, 11 of them new, 6 skipped, none
+failing. The release build for the iPad links.
 
----
+**Not covered.**
+
+- Seen on the test iPad: not yet (TODO, B-122's check). That WebKit makes a
+  click on a picture given a listener in the app's content world is as the
+  stack's lines had it from B-074, not seen for a picture; nor what WebKit
+  does with its tap highlight on one.
+- Mail on the iPad was not looked at: the reports are of the iPhone. Mail
+  opens a logo or a picture drawn small, by the reports; here neither does.
+- No sign while a picture downloads, where a file's row in the header shows
+  a spinner; a second tap meanwhile fetches it again, and only the first is
+  shown (`openAttachment`). A picture, or a file, whose letter he has left
+  before it comes is not called off: it ends on the one connection, the
+  next letter's body waiting behind it, and is let go (Changed, 5). That
+  nothing then comes up over the next letter is from `PaneLoads` and the
+  source, not seen; the check's step 4 looks.
+- The touch and hold stays WebKit's, not Mail's Save Image and Save to
+  Files. With a click listener on the picture, WebKit's menu is expected
+  as before, and no Quick Look after it; a hold WebKit does not take for
+  its menu could end as a click, as it can on a link. Not seen; the check's
+  step 2 looks.
+- A picture shown by `<picture>`, `srcset` alone or a CSS background does
+  not open, as a `<picture>` does not in Mail by the report. An `<img>`
+  with a `srcset` by `cid:` as well as its `src` opens the part its `src`
+  names, which may not be the one WebKit drew; going by what it drew
+  (`currentSrc`) would open a `<picture>`'s too. Rare: the shapes the tests
+  take from Apple Mail, Outlook and Gmail have a `src` alone.
+- A panorama longer than about 11 to 1, drawn some 500 points wide in
+  three panes, is under 44 high and does not open (`leastAcross`); in two
+  panes, up to about 15 to 1.
+- A part named with no extension may show its name and no picture in Quick
+  Look, as a file's row so named does.
+- His letters from Sent Mail in a stack are held whole while the
+  conversation is on screen, a letter's size each, as the conversation's
+  own are.
 
 ## B-123 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
 
@@ -24189,27 +24351,41 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the test iPad: not yet (TODO, B-119's check).
-- The strings pinned are this host's ICU's. The iPad's are its own, which
-  is what its Mail writes, and can differ in a detail: the space before
-  AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
-  order is the region's on both.
-- The 24-Hour Time switch: followed now, through the locale, as it is
-  changed in Settings (B-043's notification); not tried.
-- Another language: the app has English words only, so on an iPad in
-  another language the region's dates would sit inside them. What the
-  iPad's locale is for an app with English alone was not looked at. Not
-  his.
-- The row's date column: his short dates are no wider than the old ones,
-  "12/28/25" the same eight characters as "28/12/25", which B-080
-  measured at about 63 points, and "10/3/26" narrower. A British
-  region's "28/12/2025" is ten, about as wide as "Wednesday", 80 points,
-  which B-080 fitted in Edit mode in three panes; not measured on a
-  screen.
-- Go to Date's calendar (`UIDatePicker`) is the system's, the region's
-  already; not looked at for this.
-- What it costs: nothing more; one formatter kept for each form, as one
-  was for each pattern.
+- Seen on the test iPad: not yet (TODO, B-123's check).
+- Mail's own results as he types were not seen: Top Hits and its list of
+  matching letters may differ from these, which are every letter of up to
+  four people, newest first, and whole-word hits of the half word.
+- Only people in the book: the last 300 addresses the list's envelopes
+  and his sends taught it, the never-chosen oldest going first. About half
+  the people he writes to in a month would not be in it at first (B-017's
+  open question, a fill from Sent Mail, would put them there). Their
+  whole names find them as before.
+- More than four people starting so: the first four in the book's order;
+  the others' letters come as he types on.
+- Earlier words are whole words: "Marg Ell" finds nothing, where Mail's
+  search on the iPad would find Margaret Ellis. Mail's own as-you-type
+  path was not read for this.
+- His own names: someone else with exactly his name, or with a name the
+  book has for one of his addresses, is never asked for by half a name;
+  found by the whole name as before.
+- A search kept among the recent ones is kept cleaned, so "Marg " is kept
+  as "Marg" and, tapped, asks for people.
+- The time Gmail takes for up to twelve more terms on his mailbox was not
+  measured.
+- An address with 8-bit text in it, as a literal: built as any word is,
+  not tried on Gmail.
+- His second address is his to search only once it is listed in
+  Settings under his account (TODO, on the day; B-076). Until then a
+  half word that starts its part before the @, or the name his letters
+  to it carried, asks for it, and finds about half his mailbox.
+- A letter sent on someone's behalf is told by "via" alone. A sharer
+  whose last letter the list saw was a Google Docs share ("Name (via
+  Google Docs)" at the sharer's own address, as in the sample of his
+  received mail in the audit) is not found by half the name until a
+  letter of the sharer's own names them again; the whole name finds them
+  as before. A list that writes the poster's name alone over the list's
+  address is matched by that name, and asks for every letter of the
+  list. None such was seen in the sample.
 
 ## B-124 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
 
@@ -24295,100 +24471,6 @@ pinned light, 2 in 1; the share extension's plist Light, 1 in 1; its
 window not pinned, 1 in 1.
 
 The full suite, serially: 2,416 tests, 2 of them new, 6 skipped, none
-
----
-
-- Seen on the test iPad: not yet (TODO, B-120's check).
-- Mail's composer was read, not watched: when its keyboard comes up on
-  the iPad (as the sheet arrives, or after) was not seen, and neither was
-  whether a share from another app opens Mail's keyboard at once (the
-  sharing app's `showKeyboardAutomatically` is off unless set, and Mail's
-  composer then picks the field once its content has loaded).
-- Here the keyboard comes up once the sheet has arrived (`viewDidAppear`),
-  a moment after the sheet. Mail picks the field as the sheet is about to
-  appear only when whatever opened it asked for the keyboard at once;
-  otherwise it picks once the letter's content has loaded, after the
-  sheet appeared.
-- The field Mail gives back after its own camera, scan, markup or a
-  person's card: this composer has none of those; after its photo or file
-  picker the field he was in is UIKit's to give back, and nothing here
-  moves it.
-- Split View, Slide Over and Stage Manager: the app runs full screen only
-  (`UIRequiresFullScreen`).
-
-## B-121 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
-
-**What Mail does.** Apple's guide is silent. Mail's composer, read from
-iOS 18.6's MessageUI in the simulator runtime, sets capitals,
-corrections and the keyboard type only on its address fields
-(`MFComposeRecipientTextView`, `MFComposeRecipientView`: no corrections,
-no capitals, the email keyboard), and Smart Punctuation on nothing at all:
-its Subject (`MFComposeSubjectView`) and its body (a web view) keep the
-system's own, a capital to begin, corrections, and Smart Punctuation, each
-as Settings > General > Keyboard has it, all on from the factory. His own
-letters show it: of the 479 letters he began in 30 days, 467 subjects
-start with a capital and 1 with a small letter; in 90 sampled letters, 16
-have a curly apostrophe he typed and none a straight one; in his subjects
-9 curly against 2 straight (gap list, 2026-10-24).
-
-**What he would have seen.** About 16 subjects a day typed: each in lower
-case unless he reached for Shift, no word corrected, and every apostrophe
-and quote in Subject and the body straight, where his letters from Mail
-have them curly.
-
-**What it was.** Subject, in the composer and the share sheet: capitals
-none, corrections off, Smart Dashes and Smart Quotes off, left from when
-the same row served To, Cc and Bcc (before B-076). The body, in both:
-Smart Dashes and Smart Quotes off, from a code comment calling them no
-help, with no decision behind it.
-
-**Changed.** Subject, in both sheets: capitals by sentence, corrections,
-Smart Dashes and Smart Quotes at the system's default, written out so the
-choice is seen. The body, in both: Smart Dashes and Smart Quotes at the
-default; its capitals and corrections were already the system's. So
-"don't" typed has a curly ’ when Settings' Smart Punctuation is on, quotes
-come out “ ” and ‘ ’, and "--" a dash, as in Mail; with any of the three
-switched off in Settings, off here as in Mail.
-
-**Not changed.** To, Cc and Bcc keep `RecipientField`'s email keyboard,
-no capitals, no corrections and straight quotes: an address corrected or
-curled bounces. The search field keeps its own (B-105). On the wire
-nothing changed, and nothing had to: Subject goes as UTF-8 encoded words,
-the text and the HTML twin as quoted-printable UTF-8, and the app's own
-reader gives back what he typed; B-105's search keeps ’ inside its word,
-reads “ ” as a phrase's marks and — as a space, and asks for a word with
-’ in it as a UTF-8 literal (`SearchLiteralTests`). No new words.
-
-**What he sees.** In Subject, the first letter a capital as he begins and
-a misspelt word corrected as he goes on, in both sheets. In Subject and
-the body, his apostrophes and quotes curly and "--" a dash, as Settings
-has them. In To, Cc and Bcc, nothing different.
-
-**Tests.** `TypingAsInMailTests`, six: Subject in both sheets with
-capitals, corrections and Smart Punctuation at the system's own and none
-of the four off; the body in both with Smart Punctuation and nothing
-off; the address rows' email keyboard and their four settings kept, and
-Subject's row the only one in either sheet setting capitals; a letter
-with “ ” ‘ ’ ’ — and – in Subject and body, built by the app and read
-back by it: every byte seven-bit, Subject in UTF-8 encoded words reading
-back as typed, the plain part's and the HTML twin's words as typed under
-`charset=utf-8`, no straight apostrophe anywhere; the share sheet's
-letter the same, its link still a link; and the subject's words as
-B-105's search takes them, "Don’t", "miss", "Tosca", "Sunday’s", "at".
-
-Each part undone by hand, the class run, then put back and passing,
-counted as failures in tests: the composer's Subject in lower case, 2 in
-1; uncorrected, 2 in 1; with straight quotes, 2 in 1; the share sheet's
-Subject as it was, 5 in 1; the composer's body as it was, 3 in 1; the
-share sheet's body as it was, 3 in 1; the address rows curling quotes, 1
-in 1; Subject's header not encoded past ASCII, 4 in 2; the bodies' bytes
-past ASCII left eight-bit, 2 in 2; the twin labelled Latin-1, 2 in 2
-(before its label was asserted, 0: the app's own reader takes UTF-8
-whatever the label says); the twin straightening apostrophes, 8 in 2; the
-share's linked twin doing so, 4 in 1; the search splitting a word at its
-’, 1 in 1; and keeping “ ” in a word, 1 in 1.
-
-The full suite, serially: 2,417 tests, 6 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -24402,17 +24484,6 @@ failing. The release build for the iPad links.
   as on 16.5.1, so in the window; not seen there.
 - The share sheet's first frame over a light app, before its controller
   pins it dark: not looked at, and not this key's.
-
----
-
-- Seen on the test iPad: not yet (TODO, B-121's check).
-- His iPad's Settings > General > Keyboard were not read: Mail and this
-  app both follow them, so whatever he has set there holds for both.
-- What a correction does to a word he meant, a name or a word of another
-  language, is the keyboard's, as in Mail.
-- A subject pasted in, or one the share brings, is left as it came.
-- The keyboard's shortcut bar and predictive row are the system's in both
-  Mail and here; not compared.
 
 ## B-125 — CHANGED 2026-10-24 to copy Apple Mail, not yet seen on the iPad. A YouTube share was left with no subject as Mail's would be; Mail's has the video's title, and the subject is what the share hands over that names it, Safari's page title, the YouTube app's none
 
@@ -24540,76 +24611,3 @@ failing. The release build for the iPad links.
   shares that way is not known; not changed.
 - Other apps that share links (News, Maps, a podcast app) were not tried;
   each is named by what it hands over, by the rule above.
-
----
-
-- Seen on the test iPad: not yet (TODO, B-122's check). That WebKit makes a
-  click on a picture given a listener in the app's content world is as the
-  stack's lines had it from B-074, not seen for a picture; nor what WebKit
-  does with its tap highlight on one.
-- Mail on the iPad was not looked at: the reports are of the iPhone. Mail
-  opens a logo or a picture drawn small, by the reports; here neither does.
-- No sign while a picture downloads, where a file's row in the header shows
-  a spinner; a second tap meanwhile fetches it again, and only the first is
-  shown (`openAttachment`). A picture, or a file, whose letter he has left
-  before it comes is not called off: it ends on the one connection, the
-  next letter's body waiting behind it, and is let go (Changed, 5). That
-  nothing then comes up over the next letter is from `PaneLoads` and the
-  source, not seen; the check's step 4 looks.
-- The touch and hold stays WebKit's, not Mail's Save Image and Save to
-  Files. With a click listener on the picture, WebKit's menu is expected
-  as before, and no Quick Look after it; a hold WebKit does not take for
-  its menu could end as a click, as it can on a link. Not seen; the check's
-  step 2 looks.
-- A picture shown by `<picture>`, `srcset` alone or a CSS background does
-  not open, as a `<picture>` does not in Mail by the report. An `<img>`
-  with a `srcset` by `cid:` as well as its `src` opens the part its `src`
-  names, which may not be the one WebKit drew; going by what it drew
-  (`currentSrc`) would open a `<picture>`'s too. Rare: the shapes the tests
-  take from Apple Mail, Outlook and Gmail have a `src` alone.
-- A panorama longer than about 11 to 1, drawn some 500 points wide in
-  three panes, is under 44 high and does not open (`leastAcross`); in two
-  panes, up to about 15 to 1.
-- A part named with no extension may show its name and no picture in Quick
-  Look, as a file's row so named does.
-- His letters from Sent Mail in a stack are held whole while the
-  conversation is on screen, a letter's size each, as the conversation's
-  own are.
-
----
-
-- Seen on the test iPad: not yet (TODO, B-123's check).
-- Mail's own results as he types were not seen: Top Hits and its list of
-  matching letters may differ from these, which are every letter of up to
-  four people, newest first, and whole-word hits of the half word.
-- Only people in the book: the last 300 addresses the list's envelopes
-  and his sends taught it, the never-chosen oldest going first. About half
-  the people he writes to in a month would not be in it at first (B-017's
-  open question, a fill from Sent Mail, would put them there). Their
-  whole names find them as before.
-- More than four people starting so: the first four in the book's order;
-  the others' letters come as he types on.
-- Earlier words are whole words: "Marg Ell" finds nothing, where Mail's
-  search on the iPad would find Margaret Ellis. Mail's own as-you-type
-  path was not read for this.
-- His own names: someone else with exactly his name, or with a name the
-  book has for one of his addresses, is never asked for by half a name;
-  found by the whole name as before.
-- A search kept among the recent ones is kept cleaned, so "Marg " is kept
-  as "Marg" and, tapped, asks for people.
-- The time Gmail takes for up to twelve more terms on his mailbox was not
-  measured.
-- An address with 8-bit text in it, as a literal: built as any word is,
-  not tried on Gmail.
-- His second address is his to search only once it is listed in
-  Settings under his account (TODO, on the day; B-076). Until then a
-  half word that starts its part before the @, or the name his letters
-  to it carried, asks for it, and finds about half his mailbox.
-- A letter sent on someone's behalf is told by "via" alone. A sharer
-  whose last letter the list saw was a Google Docs share ("Name (via
-  Google Docs)" at the sharer's own address, as in the sample of his
-  received mail in the audit) is not found by half the name until a
-  letter of the sharer's own names them again; the whole name finds them
-  as before. A list that writes the poster's name alone over the list's
-  address is matched by that name, and asks for every letter of the
-  list. None such was seen in the sample.
