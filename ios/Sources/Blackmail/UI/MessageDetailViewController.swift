@@ -6,6 +6,8 @@
 import UIKit
 import WebKit
 import QuickLook
+import Photos
+import UniformTypeIdentifiers
 
 /// The right column. Never navigates — it only ever swaps content, so nothing
 /// in it moves between one message and the next.
@@ -89,6 +91,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// while no other letter of the conversation has been opened by its
     /// line since, and which are coming (`FileTaps`, B-141).
     private var fileTaps = FileTaps()
+    /// Where the finger was held on a picture, in the web view, for the
+    /// share sheet its menu's Share puts up there (B-150).
+    private var pictureSpot = CGRect.zero
 
     private let header = MessageHeaderView()
     private let webView: WKWebView
@@ -879,7 +884,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     func userContentController(_ controller: WKUserContentController,
                                didReceive scriptMessage: WKScriptMessage) {
         if scriptMessage.name == PanePictures.handler {
-            if let tap = PanePictures.Tap(scriptMessage.body) { openPicture(tap) }
+            if let tap = PanePictures.Tap(scriptMessage.body) {
+                if tap.isHold { holdPicture(tap) } else { openPicture(tap) }
+            }
             return
         }
         guard scriptMessage.name == "bmLetter",
@@ -1028,15 +1035,22 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// `defer`, and the last one keeps its spinner until it opens. A file
     /// tapped again while it is still coming starts no second download:
     /// the one running opens it as it lands.
-    private func openAttachment(_ attachment: Attachment, of letter: Message? = nil) {
+    ///
+    /// `item` is what it is opened for: Quick Look, or an item of the menu
+    /// of a picture held (`holdPicture`, B-150), Save Image, Save to Files,
+    /// Share or Copy, each done with the bytes as they land by the same
+    /// rules, and what the last tap on it asked for wins.
+    private func openAttachment(_ attachment: Attachment, of letter: Message? = nil,
+                                for item: PanePictures.Item = .quickLook) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
         let shown = loads.shown
         let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown)
         // Already coming: this tap makes it the last again, and its
-        // download, running, opens it (B-141). A second behind it on the
-        // one connection made him wait for both.
-        guard fileTaps.tapped(file) else { return }
+        // download, running, opens it (B-141), for what this tap asked
+        // (B-150). A second behind it on the one connection made him wait
+        // for both.
+        guard fileTaps.tapped(file, for: item) else { return }
         // Counted at the tap, not once the task runs, so that no check of
         // the watch comes between (`isOpeningFile`). A file let go for a
         // later one is still counted until its download ends: the warning
@@ -1062,6 +1076,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // Another file tapped since, or another letter opened by
                 // its line: that is what he wants now (B-141).
                 guard fileTaps.opens(file) else { return }
+                // What the last tap on it asked for (B-150). Save Image and
+                // Copy put nothing over the pane, and need no file.
+                let use = fileTaps.item(of: file) ?? item
+                if !use.presents {
+                    keep(data, of: attachment, by: use)
+                    return
+                }
                 // A file that comes while a preview, or anything else, is up
                 // over the pane could not be shown: UIKit presents nothing
                 // over a controller already presenting. It is not written
@@ -1077,15 +1098,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 // URL synchronously the moment it appears, and handing it one
                 // that is not on disk yet shows "No preview available"
                 // permanently rather than retrying.
-                previewURL = try AttachmentStore.write(data, named: attachment.filename)
+                let url = try AttachmentStore.write(data, named: attachment.filename)
+                previewURL = url
 
-                let preview = QLPreviewController()
-                preview.dataSource = self
-                // Full screen, not a sheet. A scanned letter or a receipt is
-                // the thing he is trying to read, and the whole point of the
-                // iPad is that it can be as large as the glass.
-                preview.modalPresentationStyle = .fullScreen
-                present(preview, animated: true)
+                switch use {
+                case .saveToFiles:
+                    // Files' own sheet, which copies it where he picks.
+                    present(UIDocumentPickerViewController(forExporting: [url], asCopy: true), animated: true)
+                case .share:
+                    let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                    share.popoverPresentationController?.sourceView = webView
+                    share.popoverPresentationController?.sourceRect = pictureSpot
+                    present(share, animated: true)
+                case .quickLook, .saveImage, .copy:
+                    let preview = QLPreviewController()
+                    preview.dataSource = self
+                    // Full screen, not a sheet. A scanned letter or a receipt is
+                    // the thing he is trying to read, and the whole point of the
+                    // iPad is that it can be as large as the glass.
+                    preview.modalPresentationStyle = .fullScreen
+                    present(preview, animated: true)
+                }
             } catch {
                 // Nor is a failure said over another letter, or for a file
                 // he has tapped past.
@@ -1253,6 +1286,76 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                                  stack: loaded, his: { related.letter(inSection: $0) })
         else { return }
         openAttachment(opening.part, of: opening.letter)
+    }
+
+    /// A finger held on a picture of a letter's own (B-150): Mail's menu
+    /// for a file of the letter's, Quick Look, Save Image, Save to Files,
+    /// Share and Copy (`PanePictures.menu`), as a sheet at the finger, as
+    /// the Flag and Reply buttons have theirs, where WebKit's own menu was,
+    /// with Save to Photos and no Save to Files. The picture is the one a
+    /// tap would open, any size; each item downloads it as a tap does
+    /// (`openAttachment`), unless the pane has been given something else
+    /// meanwhile, and does with it what it says. A tap outside closes it
+    /// with nothing done.
+    private func holdPicture(_ tap: PanePictures.Tap) {
+        guard presentedViewController == nil,
+              let opening = PanePictures.opening(tap, inStack: !threadSummaries.isEmpty, alone: message,
+                                                 stack: loaded, his: { related.letter(inSection: $0) })
+        else { return }
+        let bounds = webView.bounds
+        let spot = CGRect(x: min(max(CGFloat(tap.x), 0), bounds.width) - 1,
+                          y: min(max(CGFloat(tap.y), 0), bounds.height) - 1, width: 2, height: 2)
+        let shown = loads.shown
+        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        sheet.popoverPresentationController?.sourceView = webView
+        sheet.popoverPresentationController?.sourceRect = spot
+        for item in PanePictures.menu {
+            sheet.addAction(UIAlertAction(title: item.title, style: .default) { [weak self] _ in
+                guard let self, self.loads.stillShows(shown) else { return }
+                self.pictureSpot = spot
+                self.openAttachment(opening.part, of: opening.letter, for: item)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(sheet, animated: true)
+    }
+
+    /// Save Image and Copy, with the picture's bytes (B-150). Into Photos
+    /// as they came, as Mail's Save Image keeps a picture as it is, asking
+    /// to add to Photos alone (`NSPhotoLibraryAddUsageDescription`, which
+    /// iOS asks him for once, B-067), and as a picture made from them where
+    /// Photos will not take them as they are. Onto the pasteboard as the
+    /// kind of picture they are, or as a picture made from them where the
+    /// kind is not known. Nothing is said: the save is iOS's own, and a
+    /// save he has not allowed is noted in the log alone.
+    private func keep(_ data: Data, of picture: Attachment, by use: PanePictures.Item) {
+        switch use {
+        case .copy:
+            if let kind = UTType(mimeType: picture.mimeType), kind.conforms(to: .image) {
+                UIPasteboard.general.setData(data, forPasteboardType: kind.identifier)
+            } else if let image = UIImage(data: data) {
+                UIPasteboard.general.image = image
+            }
+        case .saveImage:
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { allowed in
+                guard allowed == .authorized else {
+                    Diagnostics.log(.note, "photos: save not allowed \(allowed.rawValue)")
+                    return
+                }
+                PHPhotoLibrary.shared().performChanges({
+                    PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: nil)
+                }) { saved, _ in
+                    guard !saved, let image = UIImage(data: data) else { return }
+                    PHPhotoLibrary.shared().performChanges({
+                        _ = PHAssetChangeRequest.creationRequestForAsset(from: image)
+                    }) { saved, _ in
+                        if !saved { Diagnostics.log(.note, "photos: save failed") }
+                    }
+                }
+            }
+        case .quickLook, .saveToFiles, .share:
+            break
+        }
     }
 
     /// Links open in Safari after a confirmation, and never navigate the pane

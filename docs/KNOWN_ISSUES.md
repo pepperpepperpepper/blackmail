@@ -30370,3 +30370,153 @@ iPad links.
   goes up at `show`, so such a frame, if it still comes, is not covered.
 - A tap on the pane in the instant the cover is up lands on the cover and
   does nothing, half a second at most.
+
+## B-150 — FIXED 2026-10-26, not yet seen on the iPad. A finger held on a photo in a letter gave WebKit's menu, with Save to Photos and no Save to Files; it gives Mail's: Quick Look, Save Image, Save to Files, Share and Copy
+
+**Found** in B-122's "Not changed" and "Not covered", the touch and hold
+left as WebKit's (B-067); among the older questions closed on 2026-10-26:
+"close the gaps in our decision tree by copying Apple Mail".
+
+**What Mail does.** A file of a letter touched and held gives Mail's menu:
+Quick Look, Markup and Reply, Save Image, Save to Files, Share and Copy, as
+read from an iPhone on iOS 16 (Apple Community, thread 254539724). Apple's
+iPadOS 18 guide, "Download email attachments in Mail on iPad", names Save
+Image, Save to Files and Share for an attachment held, and Look Up for a
+photo held. Medium confidence; the iPad's menu on iPadOS 18 was not seen.
+A picture from the web is no file of the letter's.
+
+**What it was.** B-122 made a tap on a picture of the letter's own open it
+in Quick Look and left the hold as it was: "Not changed. The touch and
+hold: WebKit's menu with Save to Photos, as before (B-067)". On iPadOS
+16.5.1 that menu, from about 0.35 s, was Share…, Save to Photos, Copy and
+Show Text, with no Save to Files.
+
+**Changed.**
+
+1. *WebKit's menu kept off* (`ConversationDocument.script`): each picture
+   the script wires for a tap, a picture of the letter's own by `cid:` and
+   not in a link, an image map or a button, has `-webkit-touch-callout:
+   none` and `-webkit-user-select: none` on itself, important, which no
+   rule of a letter outranks. A picture from the web, or in a link, is not
+   wired and keeps WebKit's menu.
+2. *The hold, heard on the window* as the lines' touches are (B-095), on
+   every page: a lone finger landing on such a picture and staying within
+   10 px of where it landed for half a second (`bmPictureHold`, UIKit's own
+   for a touch and hold) is posted to `bmPicture` as a tap is, with `hold`
+   and where the finger is in the web view, its place in the page's
+   viewport scaled by a pinch (`visualViewport`). A lift before then, a
+   move of more than 10 px, a second finger or a touch WebKit cancels is no
+   hold. The lift after a hold stops WebKit's own tap (`preventDefault`),
+   and a click on the picture before the next touch opens nothing, so a
+   hold never opens Quick Look as well.
+3. *The menu* (`holdPicture`): a sheet at the finger, in a popover from the
+   web view, as the Flag and Reply buttons have theirs: Quick Look, Save
+   Image, Save to Files, Share and Copy (`PanePictures.menu`), and a tap
+   outside to close it. For any picture of the letter's own, whatever its
+   size (`PanePictures.opening`, `Tap.isHold`): a hold is never made by
+   chance, as a tap on a logo can be, and WebKit's menu had the logo too.
+   Not while something else is over the pane.
+4. *Each item* downloads the picture as a tap does, by `openAttachment`
+   (B-122, with B-141's last tap), unless the pane has been given something
+   else since the hold, and does what it says with the bytes: Quick Look,
+   full screen; Save Image, into Photos as they came
+   (`PHAssetCreationRequest`), asking to add to Photos only
+   (`requestAuthorization(for: .addOnly)`; the words iOS asks with,
+   `NSPhotoLibraryAddUsageDescription`, have been in Info.plist since
+   B-067: checked), and where Photos will not take them so, as a picture
+   made from them; Save to Files, Files' own sheet for a copy
+   (`UIDocumentPickerViewController(forExporting:asCopy:)`), from the one
+   copy staged as a tap stages it (B-063); Share, the share sheet at the
+   finger; Copy, the bytes on the pasteboard under their kind
+   (`UTType(mimeType:)`), or a picture made from them where the kind is not
+   known. A picture still coming does what the last tap on it asked
+   (`FileTaps`, which keeps the item with the tap).
+5. `llvm-objdump --dylibs-used` on the release build lists Photos.framework
+   and libswiftUniformTypeIdentifiers, which the composer's imports of
+   PhotosUI and UniformTypeIdentifiers bring in already (not compared with
+   a build of master); no linker setting was added.
+
+**What it reverses.** B-122's "Not changed. The touch and hold", and with
+it B-067's Save to Photos as the way to keep a picture of a letter's from
+the letter.
+
+**Not changed.** A tap on a picture (B-122): Quick Look for one large
+enough, nothing for a logo. Pictures from the web and pictures in a link:
+WebKit's menu. A file's row, in the header or among the words: a tap opens
+it, a hold does nothing, where Mail's tile has a menu of its own (noted,
+not built). The share sheet's extension.
+
+**What he sees.** His finger held on a photo in a letter: after half a
+second, a small menu beside it, Quick Look, Save Image, Save to Files,
+Share and Copy. Save Image puts the photo in Photos, the first time after
+iOS asks whether Blackmail may add to his Photos; Save to Files opens
+Files to choose where; Share the share sheet; Copy puts it on the
+clipboard. A tap on the photo opens it, as before. The menu's words are
+Mail's.
+
+**Tests.** `PictureHoldTests`, nine, new. A hold read as the script posts
+it, its place as WebKit or Swift hands numbers over, `hold` false a tap,
+and a hold with no place, a place not a number or not finite, or a `hold`
+of another kind, nothing. The menu, Mail's words in Mail's order, and which
+items put something over the pane. A hold opens the menu for the photo,
+his logo drawn small and a photo not yet come, where a tap opens neither of
+the last two; none for a part the letter lacks, or a letter of the stack
+not come. The last tap on a picture still coming says what it is opened
+for, a second download never started. In node, on the model of the pane's
+page (`ModelPage`, which now lands a finger on an element and keeps each
+picture's style): on a letter's own page a hold of half a second on the
+photo posts once, with the finger's place, its lift stopped and the click
+after it opening nothing, and a tap after that opens it; his logo held
+posts; a picture in a link and one from the web held post nothing; the
+photo and the logo have WebKit's menu and selection kept off, important,
+and the other two not; a lift before the half second is a tap, a move of
+20 px no hold, a move of 8 px a hold; in a stack, a hold names its
+letter's section and opens or closes no letter. And read from the source:
+the pane sending a hold to `holdPicture` and a tap to `openPicture`, the
+menu at the finger, each item through `openAttachment` for that item while
+the pane still shows what it did, the last tap's item done as it lands,
+Save Image asking to add only, Files' export sheet, Share at the finger,
+and the key in Info.plist; the script's style, its half second, the
+picture under the finger, the lift stopped and the click let pass.
+Changed, as the code they read changed: `PictureTapTests` (three),
+`LastFileTappedTests`, `ExpiryWarningTests`, `AttachmentStoreTests`,
+`PaneNavigationTests` and `LinePressTests`, the last now counting eight
+touch listeners on the window, the lines' four and the picture's four, and
+two `preventDefault`s.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run, then put back and passing, counted as failures in tests: WebKit's
+menu not kept off, 3 in 3; the lift after a hold not stopped, 4 in 4,
+`LinePressTests`' count among them; the click after a hold opening the
+picture as well, 5 in 2; a hold not read as one, 12 in 2; a hold held to a
+tap's bound of size, 3 in 2; a picture still coming done for the first
+tap's item, not the last's, 1 in 1; a hold sent to `openPicture`, 2 in 2;
+the hold taking five seconds, 12 in 4; a finger that moves still taken as
+a hold, 2 in 1; what lands done as Quick Look whatever was chosen, 4 in 4;
+the menu out of Mail's order, 2 in 1.
+
+The full suite, serially, with B-148 and B-149 beside it: 2,686 tests, 9
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: that `-webkit-touch-callout: none` keeps
+  WebKit's menu off a picture on 16.5.1, and on 18; whether WebKit's own
+  long press, at about 0.35 s, starts a selection of the words near the
+  picture or its loupe before the half second; whether a click still comes
+  after a hold that the script's `preventDefault` does not stop.
+- The menu is a sheet of words at the finger, not Mail's menu with the
+  picture shown large above it: UIKit has no public way to open such a
+  menu at the page's word.
+- Its place under a pinch: from `visualViewport`, not tried.
+- Save Image after he has said Don't Allow: nothing happens, a line in the
+  log only; what Mail does then is not known. A picture Photos will not
+  take as it came is saved as a picture made from it, not in its own
+  format.
+- Mail's Markup and Reply and Look Up are not built.
+- A hold on a picture of a letter in a stack whose body has not come does
+  nothing.
+- A second finger is no hold by the script's own test; the model of the
+  page has one finger, so that is read, not run.

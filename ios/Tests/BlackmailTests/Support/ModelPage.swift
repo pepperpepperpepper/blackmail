@@ -35,7 +35,10 @@ import Foundation
 /// drawn at its `data-dw` by `data-dh`, and whose `src`, as WebKit reads
 /// it, is its attribute with the spaces around it trimmed; a click goes to
 /// what it names and up through its ancestors, and what the script posts
-/// of a picture tapped is kept as it posted it (B-122).
+/// of a picture tapped is kept as it posted it (B-122). A finger can land
+/// on an element by its `id` (`down(_:on:)`), as WebKit sends a touch the
+/// element under it, and each picture's style set by the script is kept,
+/// as written, for the run's end (B-150).
 ///
 /// The pane's word that the header over the stack changed height
 /// (`ConversationDocument.Shift`, B-128) is a step of its own. The move it
@@ -68,6 +71,11 @@ enum ModelPage {
         /// sent, as for a finger that landed on the page before.
         static func down(_ at: Int, y: Int, silent: Bool = false) -> Step {
             Step(at: at, action: "down", y: y, silent: silent ? true : nil)
+        }
+        /// A finger lands at `y` on the element whose `id` is `id`, the
+        /// target of its touches until it lifts (B-150).
+        static func down(_ at: Int, on id: String, y: Int = 300) -> Step {
+            Step(at: at, action: "down", y: y, id: id)
         }
         /// The finger moves to `y`; `silent`, with no touchmove sent.
         static func move(_ at: Int, y: Int, silent: Bool = false) -> Step {
@@ -113,6 +121,9 @@ enum ModelPage {
         let posts: [Post]
         /// What the script posted to `bmPicture` (B-122), as it posted it.
         let pictures: [Picture]
+        /// Each picture's style as the script set it, by its `id`: a
+        /// property and its value, `!important` after it when so (B-150).
+        let styles: [String: [String: String]]
         let errors: [String]
         /// How many touch events the script stopped WebKit's own doing of
         /// (`preventDefault`).
@@ -159,12 +170,21 @@ enum ModelPage {
             let height: Double
             let drawnWidth: Double
             let drawnHeight: Double
+            /// A hold, and where the finger was (B-150); nil for a tap.
+            var hold: Bool? = nil
+            var x: Double? = nil
+            var y: Double? = nil
 
             /// As WebKit hands it to the pane.
             var body: [String: Any] {
-                ["src": src, "section": section, "width": NSNumber(value: width),
-                 "height": NSNumber(value: height), "drawnWidth": NSNumber(value: drawnWidth),
-                 "drawnHeight": NSNumber(value: drawnHeight)]
+                var body: [String: Any] = [
+                    "src": src, "section": section, "width": NSNumber(value: width),
+                    "height": NSNumber(value: height), "drawnWidth": NSNumber(value: drawnWidth),
+                    "drawnHeight": NSNumber(value: drawnHeight)]
+                if let hold { body["hold"] = NSNumber(value: hold) }
+                if let x { body["x"] = NSNumber(value: x) }
+                if let y { body["y"] = NSNumber(value: y) }
+                return body
             }
         }
 
@@ -292,6 +312,13 @@ enum ModelPage {
         this.children = [];
         this.parentNode = null;
         this.listeners = {};
+        const props = {};
+        this.style = {
+          props: props,
+          setProperty: function (name, value, priority) {
+            props[name] = String(value) + (priority ? ' !' + priority : '');
+          },
+        };
       }
       get id() { return this.attrs.id || ''; }
       get className() { return this.attrs['class'] || ''; }
@@ -482,7 +509,9 @@ enum ModelPage {
       posts.push({ id: m.id, open: m.open });
     } }, bmPicture: { postMessage: function (m) {
       pictures.push({ src: m.src, section: m.section, width: m.width, height: m.height,
-                      drawnWidth: m.drawnWidth, drawnHeight: m.drawnHeight });
+                      drawnWidth: m.drawnWidth, drawnHeight: m.drawnHeight,
+                      hold: m.hold === undefined ? null : m.hold,
+                      x: m.x === undefined ? null : m.x, y: m.y === undefined ? null : m.y });
     } } } };
     const observers = [];
     globalThis.ResizeObserver = class {
@@ -508,9 +537,9 @@ enum ModelPage {
       }
       return body;
     }
-    function touchEvent(y, down) {
+    function touchEvent(y, down, on) {
       const touch = { clientX: 300, clientY: y };
-      return { touches: down ? [touch] : [], changedTouches: [touch], target: lineAt(y),
+      return { touches: down ? [touch] : [], changedTouches: [touch], target: on || lineAt(y),
                preventDefault: function () { out.stopped += 1; } };
     }
     function fingerTo(y) {
@@ -552,7 +581,7 @@ enum ModelPage {
       }
     }
 
-    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [] };
+    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [], styles: {} };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
@@ -591,19 +620,21 @@ enum ModelPage {
     function act(step) {
       switch (step.do) {
         case 'down':
-          finger = { startY: step.y, y: step.y, panning: false };
+          finger = { startY: step.y, y: step.y, panning: false,
+                     on: step.id ? doc.getElementById(step.id) : null };
           coast = null;
-          if (!step.silent) dispatch('touchstart', touchEvent(step.y, true));
+          if (!step.silent) dispatch('touchstart', touchEvent(step.y, true, finger.on));
           return;
         case 'move':
           fingerTo(step.y);
-          if (!step.silent) dispatch('touchmove', touchEvent(step.y, true));
+          if (!step.silent) dispatch('touchmove', touchEvent(step.y, true, finger.on));
           return;
         case 'up': {
           const y = finger.y;
+          const on = finger.on;
           if (step.coast) coast = { v: step.coast, pos: scrollY };
           finger = null;
-          if (!step.silent) dispatch('touchend', touchEvent(y, false));
+          if (!step.silent) dispatch('touchend', touchEvent(y, false, on));
           return;
         }
         case 'click': {
@@ -676,6 +707,9 @@ enum ModelPage {
       nextFrame += FRAME;
     }
     out.held = vm.runInThisContext('typeof bmHeld === "undefined" ? null : bmHeld.length');
+    for (const el of documentElement.descendants()) {
+      if (el.tagName === 'IMG' && el.id && Object.keys(el.style.props).length) out.styles[el.id] = el.style.props;
+    }
     process.stdout.write(JSON.stringify(out));
     """#
 }

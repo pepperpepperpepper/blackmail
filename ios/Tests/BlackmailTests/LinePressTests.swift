@@ -90,7 +90,8 @@ final class LinePressTests: XCTestCase {
         ] {
             XCTAssertTrue(script.contains(wiring), wiring)
         }
-        XCTAssertEqual(script.components(separatedBy: "preventDefault").count, 2, "one, at the tap")
+        XCTAssertEqual(script.components(separatedBy: "preventDefault").count, 3,
+                       "one at the tap, and one at the lift of a picture held (B-150)")
         XCTAssertEqual(script.components(separatedBy: "bmToggle(").count, 4,
                        "defined, the click, the tap")
     }
@@ -156,10 +157,11 @@ final class LinePressTests: XCTestCase {
     /// VoiceOver's activation of a line is the click it was. WebKit sends
     /// an element a touch in place of the click when it or a node above it
     /// has a touch listener, so the touches are heard on the window, which
-    /// is not a node, and on nothing else.
+    /// is not a node, and on nothing else: the lines' four, and the four of
+    /// a picture held (B-150).
     func testTheTouchesAreHeardOnTheWindowSoVoiceOverStillClicks() {
         let touchListeners = script.components(separatedBy: "addEventListener('touch").count - 1
-        XCTAssertEqual(touchListeners, 4, script)
+        XCTAssertEqual(touchListeners, 8, script)
         XCTAssertEqual(script.components(separatedBy: "window.addEventListener('touch").count - 1,
                        touchListeners, script)
         XCTAssertFalse(script.contains("document.addEventListener"), script)

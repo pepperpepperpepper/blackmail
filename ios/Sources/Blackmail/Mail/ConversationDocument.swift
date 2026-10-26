@@ -512,6 +512,24 @@ enum ConversationDocument {
     /// child, so a letter's markup cannot name another letter's. The
     /// wiring never throws, so nothing a letter holds stops a body going in
     /// or the stack's lines being wired.
+    ///
+    /// **A picture held** (B-150). Each picture wired for a tap has
+    /// WebKit's own menu kept off it, `-webkit-touch-callout: none`, and
+    /// its selection, both on the picture itself and important, which no
+    /// rule of a letter's outranks. A finger that lands on it alone and
+    /// stays within 10 px of where it landed for `bmPictureHold`, half a
+    /// second, UIKit's own for a touch and hold, is a hold: the script
+    /// tells the pane through `bmPicture` as of a tap, with `hold` and
+    /// where the finger is in the web view, its place in the page's
+    /// viewport scaled by a pinch (`visualViewport`), and the pane puts up
+    /// Mail's menu there (`PanePictures.menu`). The lift after a hold stops
+    /// WebKit's own tap by its `preventDefault`, and a click on the picture
+    /// before the next touch opens nothing, so a hold never opens Quick
+    /// Look as well. A second finger, a finger that moves, a lift before
+    /// the half second, or a touch WebKit cancels is no hold. The touches
+    /// are heard on the window, as the lines' are, on every page. A
+    /// picture from the web, in a link, an image map or a button is not
+    /// wired, and keeps WebKit's menu.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -754,6 +772,7 @@ enum ConversationDocument {
     function bmPictureTapped(event) {
       var img = event.currentTarget;
       if (!bmOwnPicture(img)) return;
+      if (bmPictureHeld === img) { bmPictureHeld = null; return; }
       if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
       var drawn = img.getBoundingClientRect();
       window.webkit.messageHandlers.bmPicture.postMessage({
@@ -765,12 +784,63 @@ enum ConversationDocument {
       try {
         var pictures = root.querySelectorAll('img');
         for (var i = 0; i < pictures.length; i++) {
-          if (bmOwnPicture(pictures[i])) pictures[i].addEventListener('click', bmPictureTapped);
+          if (!bmOwnPicture(pictures[i])) continue;
+          pictures[i].addEventListener('click', bmPictureTapped);
+          pictures[i].style.setProperty('-webkit-touch-callout', 'none', 'important');
+          pictures[i].style.setProperty('-webkit-user-select', 'none', 'important');
         }
       } catch (e) {}
     }
+    var bmPictureHolding = null;
+    var bmPictureHeld = null;
+    var bmPictureHold = 500;
+    function bmPictureLetGo() {
+      if (!bmPictureHolding) return;
+      clearTimeout(bmPictureHolding.timer);
+      bmPictureHolding = null;
+    }
+    function bmPictureDown(event) {
+      bmPictureLetGo();
+      bmPictureHeld = null;
+      if (event.touches.length !== 1) return;
+      var img = event.target;
+      if (!img || String(img.tagName || '').toLowerCase() !== 'img' || !bmOwnPicture(img)) return;
+      var touch = event.touches[0];
+      var holding = { img: img, x: touch.clientX, y: touch.clientY };
+      holding.timer = setTimeout(function () { bmPictureHeldDown(holding); }, bmPictureHold);
+      bmPictureHolding = holding;
+    }
+    function bmPictureHeldDown(holding) {
+      if (bmPictureHolding !== holding) return;
+      bmPictureHolding = null;
+      var img = holding.img;
+      bmPictureHeld = img;
+      if (!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bmPicture)) return;
+      var drawn = img.getBoundingClientRect();
+      var view = window.visualViewport;
+      var scale = view && view.scale > 0 ? view.scale : 1;
+      window.webkit.messageHandlers.bmPicture.postMessage({
+        src: bmPictureSrc(img), section: bmPictureIn(img),
+        width: img.naturalWidth, height: img.naturalHeight,
+        drawnWidth: drawn.width, drawnHeight: drawn.height, hold: true,
+        x: (holding.x - (view ? view.offsetLeft : 0)) * scale,
+        y: (holding.y - (view ? view.offsetTop : 0)) * scale });
+    }
+    function bmPictureMove(event) {
+      if (bmPictureHolding && (event.touches.length !== 1 || !bmStill(bmPictureHolding, event.touches[0]))) {
+        bmPictureLetGo();
+      }
+    }
+    function bmPictureUp(event) {
+      bmPictureLetGo();
+      if (bmPictureHeld && event.touches.length === 0) event.preventDefault();
+    }
     (function () {
       if (document.body) bmWirePictures(document.body);
+      window.addEventListener('touchstart', bmPictureDown, { capture: true, passive: true });
+      window.addEventListener('touchmove', bmPictureMove, { capture: true, passive: true });
+      window.addEventListener('touchend', bmPictureUp, { capture: true, passive: false });
+      window.addEventListener('touchcancel', bmPictureLetGo, { capture: true, passive: true });
     })();
     (function () {
       if (document.getElementById('bm')) return;

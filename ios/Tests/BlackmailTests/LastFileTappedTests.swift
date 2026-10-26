@@ -418,12 +418,14 @@ final class LastFileTappedTests: XCTestCase {
             "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
-                + "guard fileTaps.tapped(file) else { return } filesOpening += 1 "
+                + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "
                 + "Task { @MainActor in defer { filesOpening -= 1 fileTaps.ended(file) "
                 + "if message?.id == m.id { header.setAttachment(attachment.id, busy: false) } }"),
                       open)
         XCTAssertTrue(open.contains(
             "guard loads.stillShows(shown) else { return } guard fileTaps.opens(file) else { return } "
+                + "let use = fileTaps.item(of: file) ?? item "
+                + "if !use.presents { keep(data, of: attachment, by: use) return } "
                 + "guard presentedViewController == nil else { return }"), open)
         XCTAssertTrue(open.contains(
             "} catch { guard loads.stillShows(shown), fileTaps.opens(file) else { return } "

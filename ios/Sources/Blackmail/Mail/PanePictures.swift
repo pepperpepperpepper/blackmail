@@ -27,6 +27,15 @@ import Foundation
 /// link's page, which they take for a fault. A bookmark, an `<a>` with no
 /// `href`, is no link, and a picture in one opens. And not a small one: a
 /// spacer, an icon, a logo in a signature (`Tap.opens`).
+///
+/// A finger held on such a picture gives Mail's menu for a file of the
+/// letter's (B-150): Quick Look, Save Image, Save to Files, Share and Copy
+/// (`menu`), where it gave WebKit's, with Save to Photos and no Save to
+/// Files (B-067, B-122). The script tells the pane of the hold as of a tap
+/// (`Tap.isHold`), with where the finger is, and keeps WebKit's own menu
+/// off the picture; any picture of the letter's own has it, whatever its
+/// size, as a file has it in Mail. A picture from the web, or in a link,
+/// keeps WebKit's menu.
 enum PanePictures {
 
     /// The name the stack's script posts a tap under, in the app's content
@@ -67,19 +76,29 @@ enum PanePictures {
         /// Its size as the letter draws it, in points.
         let drawnWidth: Double
         let drawnHeight: Double
+        /// A finger held on it, not a tap (B-150): the menu, at `x` and `y`,
+        /// where the finger is in the web view, in points. Nought for a tap.
+        let isHold: Bool
+        let x: Double
+        let y: Double
 
         init(contentID: String, section: String, width: Double, height: Double,
-             drawnWidth: Double, drawnHeight: Double) {
+             drawnWidth: Double, drawnHeight: Double, isHold: Bool = false, x: Double = 0, y: Double = 0) {
             self.contentID = contentID
             self.section = section
             self.width = width
             self.height = height
             self.drawnWidth = drawnWidth
             self.drawnHeight = drawnHeight
+            self.isHold = isHold
+            self.x = x
+            self.y = y
         }
 
         /// What the script posted, nil for anything else: a `src` that is
         /// not the loader's address, or a field missing or of another kind.
+        /// A hold says so, `hold` true, with the finger's place, which a tap
+        /// has none of.
         init?(_ body: Any) {
             guard let fields = body as? [String: Any],
                   let src = fields["src"] as? String,
@@ -92,8 +111,20 @@ enum PanePictures {
                   let drawnWidth = Self.number(fields["drawnWidth"]),
                   let drawnHeight = Self.number(fields["drawnHeight"])
             else { return nil }
+            var isHold = false
+            if let hold = fields["hold"] {
+                guard let held = (hold as? Bool) ?? (hold as? NSNumber)?.boolValue else { return nil }
+                isHold = held
+            }
+            guard isHold else {
+                self.init(contentID: contentID, section: section, width: width, height: height,
+                          drawnWidth: drawnWidth, drawnHeight: drawnHeight)
+                return
+            }
+            guard let x = Self.number(fields["x"]), let y = Self.number(fields["y"]), x.isFinite, y.isFinite
+            else { return nil }
             self.init(contentID: contentID, section: section, width: width, height: height,
-                      drawnWidth: drawnWidth, drawnHeight: drawnHeight)
+                      drawnWidth: drawnWidth, drawnHeight: drawnHeight, isHold: true, x: x, y: y)
         }
 
         /// A number as WebKit hands one over, an `NSNumber`, or as Swift
@@ -128,9 +159,13 @@ enum PanePictures {
     /// the section: one of the conversation's that has come (`stack`, by
     /// their ids), or one of his own from Sent Mail that has (`his`, by the
     /// section, B-104); one whose body has not come has no picture.
+    ///
+    /// A hold has the menu for any picture of the letter's own, whatever
+    /// its size (B-150): it is never made by chance, as a tap on a logo
+    /// is, and WebKit's menu, which the script keeps off it, had it too.
     static func opening(_ tap: Tap, inStack: Bool, alone: Message?, stack: [String: Message],
                         his: (String) -> Message?) -> (letter: Message, part: Attachment)? {
-        guard tap.opens else { return nil }
+        guard tap.isHold || tap.opens else { return nil }
         let letter: Message?
         if inStack {
             letter = stack.first(where: { ConversationDocument.sectionID(for: $0.key) == tap.section })?.value
@@ -141,6 +176,34 @@ enum PanePictures {
         guard let m = letter, let part = part(tap.contentID, of: m) else { return nil }
         return (m, part)
     }
+
+    /// An item of the menu a finger held on a picture gives (B-150), and
+    /// what is done with the picture's bytes when he chooses it; and Quick
+    /// Look, what a tap on a picture or a file's row does.
+    enum Item: String, CaseIterable {
+        /// Full screen in Quick Look, as a tap opens it.
+        case quickLook = "Quick Look"
+        /// Into Photos, as its own bytes, which the app asks to add to
+        /// Photos for (`NSPhotoLibraryAddUsageDescription`, B-067).
+        case saveImage = "Save Image"
+        /// To a folder he picks in Files, a copy.
+        case saveToFiles = "Save to Files"
+        /// The share sheet, at the picture.
+        case share = "Share"
+        /// Onto the pasteboard, as a picture.
+        case copy = "Copy"
+
+        var title: String { rawValue }
+
+        /// Whether it puts something over the pane, which it cannot while
+        /// something else is there.
+        var presents: Bool { self != .saveImage && self != .copy }
+    }
+
+    /// The menu, in Mail's order, for a picture of the letter's own: Mail's
+    /// for a file, less Markup and Reply, which would be a composer of its
+    /// own, and Look Up, which is for the words in a picture.
+    static let menu: [Item] = [.quickLook, .saveImage, .saveToFiles, .share, .copy]
 
     /// The part of `m` with the `Content-ID` `contentID`: the last of them
     /// where it has two, the one the loader drew (`PanePage.pictures`).
