@@ -1736,9 +1736,10 @@ final class OutboxTests: XCTestCase {
                                       mimeType: { $0 == "pdf" ? "application/pdf" : nil })
         XCTAssertTrue(item.moves)
         var staged: SharedItem?
-        item.load(ComposeIntake.staging(room: ShareItems.Staging.budget, unnamed: 0,
-                                        moves: item.moves),
-                  ShareItems.Tally()) { staged = $0 }
+        let loading = item.load(ComposeIntake.staging(room: ShareItems.Staging.budget, unnamed: 0,
+                                                      moves: item.moves),
+                                ShareItems.Tally()) { staged = $0 }
+        XCTAssertNil(loading, "read where it is, at once, and never called off (B-142)")
         guard case let .file(url, filename, mimeType, size)? = staged else {
             return XCTFail("staged")
         }

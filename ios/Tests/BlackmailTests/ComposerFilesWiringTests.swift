@@ -125,7 +125,7 @@ final class ComposerFilesWiringTests: XCTestCase {
         XCTAssertEqual(count("ShareItems.read(", in: code), 1)
         let share = try source("Sources/Blackmail/Share/ShareViewController.swift")
         XCTAssertTrue(share.contains("static func read(_ provider: NSItemProvider, title: String?, "
-                                     + "staging: Staging, tally: Tally, done: @escaping (SharedItem?) -> Void) {"))
+                                     + "staging: Staging, tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {"))
         XCTAssertFalse(share.contains("private static func read("))
     }
 
@@ -202,6 +202,90 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "}"], in: code)
         XCTAssertEqual(count("intake.away()", in: code), 1)
         XCTAssertEqual(count("intake.back()", in: code), 1)
+    }
+
+    /// A photo or a video still being read in as the app goes is called
+    /// off (B-142). `ShareItems.read` hands back its read, and every load
+    /// it begins is the one the read calls off: a video's, whose line then
+    /// says so, and each of a picture's ways, the next not begun once it is
+    /// called off. The composer hands that read to the intake as the
+    /// closure's one expression, and leaving the app calls it off before
+    /// the letter is kept; coming back reads it again.
+    func testAReadUnderWayIsCalledOffAsTheAppGoes() throws {
+        let share = try source("Sources/Blackmail/Share/ShareViewController.swift")
+        inOrder(["static func read(_ provider: NSItemProvider, title: String?, staging: Staging, "
+                    + "tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {",
+                 "let loading = Loading()",
+                 "picture(provider, type: type, staging: staging, loading: loading) { item in",
+                 "let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
+                 "went: loading.isCancelled ? .calledOff : .notGiven))",
+                 "return done(nil)",
+                 "done(item)",
+                 "loading.track(progress)",
+                 "} else {",
+                 "done(nil)",
+                 "return loading"], in: share)
+        XCTAssertEqual(count("loading.track(", in: share), 1)
+
+        let imageIO = try source("Sources/Blackmail/Share/SharedPhotoImageIO.swift")
+        inOrder(["private static func picture(_ provider: NSItemProvider, as types: ArraySlice<String>, "
+                    + "unopened: [String], staging: Staging, loading: Loading,",
+                 "guard !loading.isCancelled else {",
+                 "return calledOff(",
+                 "guard let type = types.first else {",
+                 "let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
+                 "case .unopened: break",
+                 "guard !loading.isCancelled else {",
+                 "report.went = .leftOut(\"called off\")",
+                 "return finish(nil, report, done)",
+                 "let progress = provider.loadDataRepresentation(forTypeIdentifier: type) { data, _ in",
+                 "loading.track(progress)",
+                 "loading.track(progress)",
+                 "static func calledOff("], in: imageIO)
+        XCTAssertEqual(count("loading.track(", in: imageIO), 2)
+
+        let object = try source("Sources/Blackmail/Share/SharedPhotoObject.swift")
+        inOrder(["let progress = provider.loadObject(ofClass: UIImage.self) { object, _ in",
+                 "loading.track(progress)",
+                 "private static func item(",
+                 "guard !loading.isCancelled else {",
+                 "return calledOff(",
+                 "provider.loadItem(forTypeIdentifier: type, options: nil) { object, _ in"], in: object)
+
+        let composer = try source(Self.composer)
+        XCTAssertTrue(composer.contains(
+            "kind: kind) { staging, tally, done in "
+            + "ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done) }"),
+            "the read handed back, as the closure's one expression")
+        inOrder(["@objc private func leavingTheApp() {",
+                 "intake.away()",
+                 "actions.putAside { self.currentLetter() }",
+                 "}",
+                 "@objc private func backInTheApp() {",
+                 "intake.back()",
+                 "}"], in: composer)
+    }
+
+    /// The sheet closing with nothing waiting for what is coming calls the
+    /// read under way off (B-142): every way the composer closes without
+    /// Send or Save Draft goes through `ComposeActions`, Delete Draft, a
+    /// Cancel that asks nothing and the sheet put away, which tells the
+    /// intake (`whenClosed`, pinned on the host by `ComposerFilesTests`).
+    /// The sheet's one `dismiss` is `ComposeActions`'.
+    func testClosingTheSheetReachesTheIntake() throws {
+        let composer = try source(Self.composer)
+        inOrder(["dismiss: { [weak self] in self?.close() },",
+                 "private lazy var intake = ComposeIntake( actions: actions,"], in: composer)
+        inOrder(["override func viewDidDisappear(_ animated: Bool) {",
+                 "guard navigationController?.isBeingDismissed ?? isBeingDismissed else { return }",
+                 "actions.sheetGone { currentLetter() }"], in: composer)
+        inOrder(["@objc private func cancelTapped() {",
+                 "actions.closeWithoutAsking { letter }",
+                 "self.actions.saveAndClose({ self.draft }, then: nil)",
+                 "self.actions.deleteAndClose(self.draft.savedID, letter: self.draft.savedLetter,"],
+                in: composer)
+        let intake = try source("Sources/Blackmail/Mail/ComposeIntake.swift")
+        XCTAssertTrue(intake.contains("actions.whenClosed { [weak self] in self?.close() }"))
     }
 
     /// At launch the staging and the Inbox go, in the app and the share

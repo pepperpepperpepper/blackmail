@@ -403,13 +403,19 @@ final class ComposeViewController: UIViewController,
     }
 
     @objc private func leavingTheApp() {
-        // No bound on what is coming in runs while the app is away
-        // (`ComposeIntake.away`).
+        // No bound on what is coming in runs while the app is away, and
+        // the photo or video being read in is called off and set aside,
+        // before the letter is kept: Photos' copy of a large video, left
+        // running, got the app ended within a minute, the letter with it
+        // (`ComposeIntake.away`, B-142). So the keep waits for nothing set
+        // aside, and gives its background time back at once. With a Send
+        // or a Save Draft waiting for it, the read has 20 seconds first.
         intake.away()
         actions.putAside { self.currentLetter() }
     }
 
     @objc private func backInTheApp() {
+        // What was set aside is read again, with three minutes from now.
         intake.back()
     }
 

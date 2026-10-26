@@ -28735,3 +28735,371 @@ none failing. The release build for the iPad links.
   was on, A's own line closed and opened again.
 - A row among another letter's words, or a picture, shows nothing while
   its file comes, as before (B-113, B-122).
+
+## B-142 — FIXED 2026-10-26, not yet seen on the iPad. A large video still coming into the composer when he locked the iPad or left the app got the app ended by iOS half a minute later, and the letter with it; the photo or video being read in is called off as the app goes (20 seconds after, with a Send or Save Draft waiting for it), its row kept, and read again on his return, and called off as well when it is counted out or the letter closes
+
+**Found** on the test iPad on 2026-10-25, in the round r6-s6-marks-net
+(B-108's check, the second half of its step 9), on a build of int16, and
+made again by a second run, in three runs. Each run: a new letter, Photo
+Library, Videos, the test iPad's own 1.39 GB QuickTime video (IMG_0712),
+Add, and the iPad locked 0.4 s after. In run 1 a "File Coordination Claim"
+assertion was taken on Blackmail at the Add, became active as the app went
+into the background, was warned of 26.6 s after the lock, and timed out
+5 s later; runningboardd
+then ended the app, 31.7 s after the lock, "Terminating with context ...
+code:0x2182BAAD explanation:Timed-out waiting for process
+[osservice<com.apple.FileCoordination>] to invalidate assertion ... 'File
+Coordination Claim ...'", and the picker's process went with it. Run 2 the
+same, 31.6 s after the lock. No crash report and no jetsam report was
+written. Woken 3 min 40 s and 2 min 46 s after the lock: the Home Screen,
+the letter and the pick gone, and no draft anywhere; the composer had not
+been touched, so nothing had been kept on the iPad. Run 3, the control, in
+front and not locked: the row was still turning at 148 s, its bound
+counted it out at 180 s ("The video could not be attached."), and the file
+came 4 min 22.7 s after the Add, 1,391,839,411 bytes, thrown away and more
+than the letter's room anyway. It was counted out at 20:20:07.4, and the
+claim was let go, and the file came, only at 20:21:18.6: Photos' copy, and
+its claim on the app, ran on 71 s after the count-out, with nothing in the
+app reading any more. B-108's check of 2026-10-22 had its video come 1.9 s
+after the lock, so this was not reached then. The round's first pass had
+picked the same video twice before: the second time it came 8.5 s after
+the Add, the iPad locked, 1,391,838,751 bytes, and was left out for the
+letter's room (`SHARE-FILE ... went=left out, more than the letter's
+room`), most likely from the copy Photos had made for the first try. So a
+video picked again within minutes can come in seconds, and is no test of
+this.
+
+**What it was** (read in the code by the second run, and here).
+`ShareItems.read`, through which the composer's Photo Library reads what
+he picks (B-108), called `NSItemProvider.loadFileRepresentation` and threw
+away the `Progress` it returns, which is the one way to call the load off.
+The picker asks for Photos' compatible copy (`.compatible`), so Photos
+makes a copy of the video while the load is under way, and all that time
+filecoordinationd holds its claim on the app. As he left,
+`leavingTheApp` called `ComposeIntake.away`, which stopped the three
+minutes' bound and nothing else: the load went on. iOS gives such a claim
+on an app in the background about 30 seconds, then ends the app, and says
+nothing. The app's own background time does not stop it: run 1 held one
+and was ended all the same. So any pick that takes longer than about 30
+seconds to come, a long video or an original kept only in iCloud, ended the
+app when he locked the iPad or left it in that time.
+
+Nor was a read called off once nothing would take what it brought. At its
+bound (`countOut`), or at a Send's or Save Draft's (`countOutAll`), the
+intake counted it out and forgot it, and the load went on, the claim with
+it, for as long as Photos' copy took: 71 s more in run 3, minutes for a
+larger video. `away` then found nothing being read and called nothing off,
+so "The video could not be attached.", then the lock or Photos for a
+shorter clip, got the app ended the same way. So did a read under way as
+the composer closed, by Delete Draft or the sheet put away.
+
+**What Mail does.** Not seen, and said with little confidence. Mail is
+generally said to keep a letter he is writing when it is ended, the letter
+back at the next launch as a draft or in its composer; that was not tried,
+and how Mail's own photo picker treats a large video still coming as the
+iPad locks is not known. Mail is Apple's, and may be allowed what this app
+is not.
+
+**Changed.**
+
+1. *A read can be called off* (`ShareItems.Loading`, new, in the part the
+   suite runs). `ShareItems.read` returns it, and every load it begins is
+   kept in it: a video's, and each of a picture's ways in turn, its file,
+   its bytes, the next type, the object. Called off, every load it began is
+   called off, one begun after it is called off as it is handed over, and a
+   picture's next way is not begun (`loadItem` gives no `Progress`, so it
+   is not begun once the read is called off). All are kept, not only the
+   last: a picture's next load can be handed over from inside the last
+   one's call back before that one's own is. A video called off says
+   `went=called off` in its `SHARE-FILE` line (`called off, set aside`
+   in the first commit), a picture `way=left out, called off`, whatever
+   called it off; the intake's own `COMPOSE-ITEM` line says what.
+   `ComposeIntake.Item.load` returns the read;
+   Attach File's returns none: its file is read where it is, at once, and
+   once moved out of the Inbox could not be read again.
+2. *Set aside as the app goes* (`ComposeIntake.away`). The read under way,
+   where it can be called off, is called off (with a Send or Save Draft
+   waiting, 20 seconds later: 9); its row stays, still
+   turning, and goes back to the head of the queue; nothing is counted
+   out, said, or told to `ComposeActions`, where it still counts as coming,
+   so Cancel still asks and a Send still waits. The log says `COMPOSE-ITEM
+   set aside as the app went, called off`. Each read now has a number of its
+   own, which its call back carries, so a set-aside read's call back is told
+   from a later read of the same row.
+3. *Its call back changes nothing* (`cameSetAside`). With nothing, as a read
+   called off calls back: `COMPOSE-ITEM set aside, its read ended with
+   nothing`, never "came after its bound", and nothing counted. With a
+   file, the read having ended before it could be called off: the file goes
+   in as it would have, counted as attached, and its row is taken from the
+   queue, or, being read again already, see 11.
+4. *Nothing is begun while the app is away* (`startNext`): neither the row
+   set aside nor anything after it. A read that cannot be called off goes
+   on, and lands while the app is away, as before.
+5. *Read again on his return* (`back` begins it): from the start, with a
+   staging, a tally and three minutes of its own from then. A Send or Save
+   Draft that was waiting has its bound from then, as before (B-108).
+6. *The keep as he leaves waits only for a read under way*
+   (`ComposeActions.putAside`, with `reading` and `readingChanged`, called
+   `itemSetAside` in the first commit). The
+   letter is kept at once, as before. With a read under way that cannot be
+   called off, its "Keep Draft" time is held until nothing is being read,
+   and the letter kept again; for anything set aside, or waiting its turn,
+   the time is given back at once, and iOS suspends the app. It held the
+   time until everything had landed, which a row set aside never does while
+   the app is away. A keep still waiting from an earlier leaving looks again
+   whenever something lands, is set aside or begins to be read, so it does
+   not hold its time until iOS takes it back.
+
+A second commit:
+
+7. *Called off when counted out* (`countOut`, `countOutAll`): at its own
+   bound, or at a Send's or Save Draft's, the read under way is called off
+   as it is counted out, so Photos' copy and its claim end there, not a
+   minute or more later. Its call back changes nothing; a file it ended
+   with first is thrown away, as before (`came after its bound, thrown
+   away`).
+8. *Called off when the letter closes* (`ComposeIntake.close`, told by
+   `ComposeActions.whenClosed`): Delete Draft, a Cancel that asks nothing,
+   the sheet put away, and a Send that has gone. The read under way is
+   called off, nothing more is begun and nothing is said
+   (`COMPOSE-ITEM called off, the letter closed`; a file come after it,
+   `came after the letter closed, thrown away`). Save Draft is not one:
+   it waits for what is coming after the sheet has gone.
+9. *With a Send or Save Draft waiting, 20 seconds first*
+   (`ComposeIntake.grace`, `away`). The read under way is let run on for
+   20 s from the moment the app goes, and set aside only if it has not
+   come by then (`COMPOSE-ITEM let run 20 s as the app went, a Send or
+   Save Draft waiting`, then `set aside 20 s after the app went, called
+   off`). The round saw Photos' claim warned of 26 s after the app went and
+   the app ended at 31 s; 20 leaves the call-off time to take. A photo a
+   moment from coming lands, and the letter goes while the iPad is locked,
+   as before B-142. With nothing waiting it is called off at once, as in
+   2. Back before the 20 s, the read goes on with its bound again.
+10. *Send keeps the letter at the tap* when something is still coming
+   (`ComposeActions.send`), as the autosave it stops would have: a Send
+   left waiting through a lock is on the iPad should iOS end the app.
+   And the background time of Send and Save Draft is given back while
+   everything they wait for is set aside or waiting its turn, and asked for
+   again as soon as something is read (`itemsLanded(holding:)`,
+   `BackgroundStretch.pause`, `resume`, the intake telling
+   `ComposeActions.readingChanged` as a read is set aside or begun). Held,
+   it kept the app up doing nothing until iOS took it back.
+11. *A set-aside read whose file comes while its row is read again*
+   (`cameSetAside`): the file is taken, counted as that read counted it,
+   and the read again is called off (`COMPOSE-ITEM set aside and come while
+   it was read again, taken, the read again called off`); a file that later
+   read brings is thrown away (`came after an earlier read of it came,
+   thrown away`). The file used to be thrown away and Photos' copy made
+   again, so a video that had come could end as "could not be attached".
+   One that comes after its row was counted out, or the letter closed, is
+   thrown away and says which (`set aside and come after it was counted
+   out, thrown away`).
+
+**Weighed, and chosen.**
+
+- *A copy of the letter, so an ended app loses nothing.* Mostly there
+  already. Since B-051 the composer keeps a letter he has changed on the
+  iPad a few seconds after he stops, and at once as he leaves the app
+  (`putAside`), before anything is waited for; ended after that, the letter
+  is in Drafts at the next launch, "On this iPad only". Save Draft keeps it
+  at the tap. Send did not: it stops the autosave at the tap and kept the
+  letter only once the picks had landed, and `putAside` does nothing once a
+  Send is under way, so a Send waiting for a pick through a lock and ended
+  by iOS lost the letter. It is now kept at the tap when something is still
+  coming (Changed, 10). The round's letter was not kept because nothing of
+  his was in it: a new letter with nothing typed, and a pick still coming
+  is not a change (`take` does not mark the letter changed, only a file
+  landing does), and `putAside` keeps only a changed letter. Words he had
+  typed would have been kept even by the old build; the round could not
+  try it without leaving a draft (step 3 of the check). A pick still coming
+  cannot be kept: the picker's item provider lives only in the app's
+  process, and a picker without the photo library gives the app nothing to
+  fetch the video by after a relaunch; asking for the library brings back
+  the permission prompt B-108 kept out. So what can be kept is kept, and
+  the change is in what the app leaves running: no read of its own goes on
+  into the background past a waiting Send's or Save Draft's 20 s, nor past
+  a count-out or a close. That iOS then suspends the app rather than
+  ending it depends on Photos letting go of its claim when the load is
+  called off, which is not yet seen (Not covered).
+- *A Send or Save Draft waiting as he leaves.* The first commit called the
+  read off at once, so a Send tapped with a photo a second from coming,
+  then the lock, waited behind "Sending…" until he next opened the app,
+  hours perhaps, and read the photo again; before B-142 the photo landed
+  and the letter went while the iPad was locked. Chosen: 20 s first
+  (Changed, 9), inside the 26 s and 31 s the round saw, so a short read
+  ends while he is away and a long one is still called off. Only writing
+  down that a waiting Send now goes on his return was not enough: a man who
+  taps Send and locks the iPad at once takes the letter for gone. What is
+  not in by 20 s still goes only on his return (What he sees).
+- *A call-off in the intake's deinit*, as a backstop: not added. Every way
+  the sheet goes is `ComposeActions`' (its `dismiss` is the sheet's only
+  one, and `viewDidDisappear` hands anything else to `sheetGone`), each
+  that leaves nothing waiting tells the intake (Changed, 8), and Send and
+  Save Draft wait until every read has landed or been counted out, which
+  now calls it off. A deinit is not on the main actor, where the read is
+  held, so it would also need the read kept somewhere else.
+- *The share sheet's own pick.* The same `ShareItems.read`, so the same
+  claim is likely while Photos makes its copy for the extension, which goes
+  into the background with the app it was opened from. Not changed: the
+  sheet reads everything it is given before it shows the letter, with only
+  a spinner and Cancel until then, so a sheet ended there has nothing of
+  his in it, and he shares again. Not seen on the iPad either way; step 5 of
+  the check writes down what happens.
+- *Photos' current copy for videos* (`.current` in place of `.compatible`),
+  so that no copy is made and the claim is short: not done, since a video
+  would go as HEVC, which not every recipient can open (B-108). It is the
+  way left should calling the load off not end Photos' copy.
+- *Mail*, as above: not seen.
+
+**Not changed.** The three minutes' bound and what B-108 counts out and
+says; it starts whole again on his return. A read that cannot be called
+off, a file from Attach File. A video of 1.39 GB still takes Photos over
+four minutes to copy in front, and is then left out for the letter's 25
+MB, as before.
+
+**What he sees.** A video he picked, still coming as he locks the iPad or
+goes to another app: back in Blackmail, minutes later, the letter is as he
+left it and the video's row turns again; it comes in, or is left out with
+the words as before, at most three minutes from his return, so long as he
+does not lock the iPad or leave again meanwhile (each time sets it aside
+again, Auto-Lock too: Not covered). Before, iOS ended Blackmail half a
+minute after the lock, and he came back to the Home Screen, the letter and
+the video gone. Read again from the start, the video takes as long again
+as it would have from the pick.
+
+Send tapped while a photo or video is still coming, then the lock: one
+that comes within 20 s of the lock comes, and the letter goes while the
+iPad is locked, as before. One that does not is set aside, and the letter
+waits behind "Sending…" until he next opens Blackmail; then it is read
+again from the start, and the letter goes once it is in, or the sheet is
+put back with the words, as for any count-out. That is new: before B-142
+the read ran on while he was away, and the app was ended if it took more
+than about 30 s. The letter is on the iPad from the tap, so should iOS end
+the app meanwhile, it is in Drafts, "On this iPad only", not sent; one
+with nothing in it but its recipients is not kept, as the autosave keeps
+no empty letter. Save
+Draft the same, the sheet already gone: the draft is on the iPad at once,
+and reaches Drafts on the server after his return.
+
+"The video could not be attached.", then the lock or another app: nothing
+of the app's own is left running. Before, Photos' copy ran on for a minute
+or more, and the app could be ended all the same.
+
+**Tests.** `ComposerFilesTests`, eight new in the first commit, over the
+shipping intake and actions with the test's own loads and clock: the
+round's case, the read called off as the app goes, the row kept turning,
+the called-off read's nothing changing nothing and not logged as late,
+nothing begun however long the app is away, read again on the return with
+a staging, a tally and three minutes of its own, and in; a called-off
+read's call back after the return, its nothing ignored, and two set-asides
+before either call back comes, the third read neither ended nor counted by
+them; a read that ended just as the app went going in while away, counted
+as attached, and not read again; a video set aside 170 s into its bound
+counted out 180 s after the return and not before; three things in two
+picks, the video set aside and read again first, each with the room the
+rows before it leave, a pick's words said once; leaving with a video coming
+keeping the letter and giving the time back at once; a file that cannot be
+called off waited for and nothing else, and a keep left waiting woken when
+the video begun after it is set aside; and the read handle itself, every
+load called off whatever their order, one begun after called off at once,
+and the log's words for a video called off. One changed: the bound not
+running while the app is away is now pinned for a read that cannot be
+called off. `ComposerFilesWiringTests`, one new: read from the source,
+`ShareItems.read` returning its read with the video's load kept in it and
+its line, each of a picture's ways kept and none begun once called off,
+the composer handing the read over as its closure's one expression, and
+leaving the app setting aside before the letter is kept. Pins moved where
+the signatures changed: `SharedPhotoTests`, `SharePictureFallbackTests`,
+`ComposerFilesWiringTests`; `OutboxTests` has Attach File's read return
+none.
+
+In the second commit, `ComposerFilesTests`, six new. A Send waiting as the app
+goes, with a photo that lands at 19 s of its 20: the letter kept at the
+tap, the read not called off, the letter gone while away inside the Send's
+one stretch of time, the grace let go. A Send waiting with a video not in
+by 20 s: the letter kept at the tap before any waiting, the read held 20 s
+then called off, the Send's time given back, nothing sent or said
+however long he is away, read again on his return, the time asked for
+again, and the letter gone with the video, each line in the log. Save
+Draft the same, the read not called off as the sheet goes. A read counted
+out called off, at its own bound and at a Send's, not before, its nothing
+changing nothing and its late file thrown away. Closing the sheet calls the
+read off and begins nothing more, by Delete Draft, the sheet put away, a
+Cancel that asks nothing, and a Send gone, with the late file's words. A
+set-aside read that lands counted with the rest of its pick: two videos,
+"1 video could not be attached.", and two photos, the first's set-aside
+read landing while it is read again, "1 photo could not be attached.".
+Changed: the called-off read whose file comes while its row is read again
+(`testACalledOffReadsFileIsTakenWhileTheVideoIsReadAgain`, was
+`...IsIgnoredOnceTheVideoIsReadAgain`) now has it taken and the read again
+called off, its late file thrown away; the video set aside 170 s into its
+bound now has its second read called off at the count-out; the leaving
+test lost its Send half to the new tests, and pins that nothing waiting
+means no grace; a Send waiting for a load now keeps the letter at the tap
+(`testSendDoesNotGoWhenALoadIsCountedOutWhileItWaits`, and in
+`ComposeActionsTests` the two that log when the letter is asked for); the
+video's called-off words. `ComposerFilesWiringTests`, one new: the sheet's
+closes all `ComposeActions`', the intake made over it, and the intake
+hearing of a close.
+
+Each part undone in place, the three classes these touch run (82 tests:
+`ComposerFilesTests`, `ComposerFilesWiringTests`, `ComposeActionsTests`),
+then put back, its hash checked, counted as failing assertions in failing
+tests: a count-out leaving the read running, 2 in 2; a Send's count-out
+leaving it, 1 in 1; the close leaving it, 4 in 1; the intake never told of
+a close, 11 in 2; Delete Draft not telling it, 7 in 1; the sheet put away
+not telling it, 1 in 1; a Cancel that asks nothing not telling it, 1 in 1;
+a Send gone not telling it, 1 in 1; a closed intake beginning the next, 1
+in 1; no grace with a Send waiting, 11 in 3; a grace with nothing waiting,
+48 in 8; a grace that never sets aside, 18 in 2; a grace of 30 s, 20 in 3;
+the letter not kept at the Send tap, 9 in 5; a wait that never gives its
+time back, 6 in 2; one that never asks for it again, 4 in 2; a read begun
+not waking a wait, 2 in 2; a set-aside landing not counted in its pick, 2
+in 1; a set-aside file thrown away while its row is read again, 18 in 2;
+the read again not called off when it is taken, 1 in 1; a set-aside read
+not waking a wait, 7 in 3; a landing in the grace leaving the grace
+running, 1 in 1. 176 in all, every part caught.
+
+The full suite, serially: 2,640 tests, sixteen of them new here; 6
+skipped, none failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Not seen on the iPad (TODO, B-142's check).
+- That calling the load off ends Photos' copy and lets go of the claim at
+  once is not known. If it does not, the app is still ended, now with
+  nothing of the app's own keeping it up; step 1 of the check says which,
+  and `.current` for videos is the way left. The 20 s given a read a Send
+  or Save Draft waits for assumes the claim goes within about 10 s of the
+  call-off and that iOS's 26 s and 31 s hold; step 6 watches it.
+- Nor is it known that a picker's item provider can be read again after a
+  read of it was called off. If it cannot, the video set aside calls back
+  with nothing on his return and is said not to have been attached: the
+  letter is still there. A set-aside read whose file comes after all is
+  now taken, even while its row is read again.
+- Nothing of the first copy is kept: a video Photos took four minutes to
+  copy takes four more on his return.
+- Every lock sets the read aside again, Auto-Lock too, and its copy starts
+  over on the wake. With his iPad's Auto-Lock shorter than the copy or the
+  bound (the iPad's default is 2 minutes), and nobody touching the screen
+  while the row turns or "Sending…" shows, a long video is set aside again
+  before it can come or be counted out, round after round, and a Send or
+  Save Draft waiting for it never ends. The test iPad is at 15 minutes, so
+  the check does not meet it. Keeping the screen on while something is read
+  in front would end it; not done here.
+- A Send waiting for something not in by 20 s goes only on his return.
+  Ended by iOS meanwhile, for its memory or otherwise, the letter is in
+  Drafts on the iPad, not sent, and he may take it for gone.
+- iOS may still end a suspended app for its memory, as any app. Then what
+  he typed is kept (B-051), and a Send waiting is kept from its tap; a pick
+  still coming is lost with the app.
+- Two other holders of a claim on the app, not looked at: Attach File's
+  document picker copying a large file, or one kept only in iCloud, into
+  the app's Inbox (`asCopy: true`), for which the app has no `Progress`;
+  and a picture's last way, `loadItem` (`SharedPhotoObject.item`), which
+  gives no `Progress` and runs on once begun. Step 8 of the check, if a
+  large file is in Files already.
+- The share sheet's own pick (Weighed).
+- A picture called off says "left out, called off" in its line, and a
+  video `went=called off`, whether it was set aside or let go; the
+  `COMPOSE-ITEM` line says which.
