@@ -99,6 +99,19 @@ final class ContactSuggestionsTests: XCTestCase {
                        ["a.sole@example.com", "pat@example.net"])
     }
 
+    /// The group decides before how it matched: an address he has written
+    /// to, found only by the start of its address, still comes before a
+    /// card and an address only seen, each found by a name.
+    func testWrittenToFirstHoweverItMatched() {
+        let carlZ = [ContactCard(name: "Carl Z", givenName: "Carl", familyName: "Z",
+                                 addresses: ["z@example.com"])]
+        let book = [written("carlo@example.com", nil, uses: 2), seenOnly("x@example.org", "Carl Seen")]
+        XCTAssertEqual(offered("carl", book: book, cards: carlZ),
+                       ["carlo@example.com", "z@example.com", "x@example.org"])
+        XCTAssertEqual(offered("carl", book: [written("carla@example.com", nil, uses: 2)], cards: carlZ),
+                       ["carla@example.com", "z@example.com"])
+    }
+
     /// An address both in the book and on a card is one row, named as
     /// Contacts names it: first when he has written to it, among his
     /// Contacts when the book has only seen it.
@@ -225,8 +238,8 @@ final class ContactSuggestionsTests: XCTestCase {
         XCTAssertEqual(Array(asking.keys), ["Mail/AddressContacts.swift"])
         XCTAssertEqual(count("requestAccess(", in: try source("Mail/AddressContacts.swift")), 1)
         XCTAssertTrue(try source("Mail/AddressContacts.swift").contains(
-            "func heTyped(then cameIn: @escaping () -> Void) { guard Self.access.asksWhenHeTypes "
-                + "else { return }"))
+            "func heTyped(then cameIn: @escaping () -> Void) { guard !answered else { return } "
+                + "guard Self.access.asksWhenHeTypes else { answered = true return } lock.lock()"))
         let typing = sources.filter { $0.value.contains("AddressContacts.shared.heTyped") }
         XCTAssertEqual(Array(typing.keys), ["UI/ComposeViewController.swift"])
 
@@ -241,16 +254,46 @@ final class ContactSuggestionsTests: XCTestCase {
             + "field.isEditing else { return } refreshSuggestions(after: lastAddressEvent) }"))
         XCTAssertTrue(composer.contains("lastAddressEvent = event suggestions = ComposeForm.suggestions("))
 
-        // Launch, the background and the return read, if allowed, and
-        // never ask; the read is before the mirror, so a build without
-        // the extension reads too.
+        // The mirror's sync reads, if allowed, and never asks; the read is
+        // before the mirror, so a build without the extension reads too.
         let app = try source("App/AppDelegate.swift")
-        XCTAssertTrue(app.contains("mirrorQueue.async { let contacts = AddressContacts.shared.readIfAllowed() "
-            + "guard let mirror = ShareMirror.app else { return }"))
+        XCTAssertTrue(app.contains("mirrorQueue.async { let contacts = reads ? "
+            + "AddressContacts.shared.readIfAllowed() : nil guard let mirror = ShareMirror.app else { return }"))
         XCTAssertTrue(app.contains("book: .shared, contacts: contacts)"))
         XCTAssertFalse(app.contains("heTyped"))
         XCTAssertTrue(try source("Mail/AddressContacts.swift").contains(
             "func readIfAllowed() -> [ContactCard]? { guard Self.access == .allowed else { keep([]) return [] }"))
+    }
+
+    /// Once iOS's question is found answered, a keystroke asks iOS
+    /// nothing more, not even how it was answered: the answer is noted
+    /// where it is found, and only there.
+    func testAKeystrokeAsksNothingOnceTheQuestionIsAnswered() throws {
+        let contacts = try source("Mail/AddressContacts.swift")
+        XCTAssertTrue(contacts.contains("private var answered = false"))
+        XCTAssertTrue(contacts.contains("func heTyped(then cameIn: @escaping () -> Void) { guard !answered "
+            + "else { return } guard Self.access.asksWhenHeTypes else { answered = true return }"))
+        XCTAssertEqual(count("answered = true", in: contacts), 1)
+    }
+
+    /// His Contacts are read at launch and on his return, and not as the
+    /// app goes into the background, where the copy is left as it is; and
+    /// not at all in a launch that follows launches in a row that never
+    /// finished (`SafeStart`'s first step), for the whole of that launch.
+    func testContactsAreReadAtLaunchAndOnReturnOnly() throws {
+        let app = try source("App/AppDelegate.swift")
+        XCTAssertTrue(app.contains("private static func syncShareMirror(readingContacts: Bool = true) { "
+            + "let reads = readingContacts && !SafeStart.app.steps.forgetsKeptState mirrorQueue.async { "
+            + "let contacts = reads ? AddressContacts.shared.readIfAllowed() : nil"))
+        XCTAssertTrue(app.contains("LayoutAudit.beginSweeping() Self.syncShareMirror() "))
+        XCTAssertTrue(app.contains("repository.shelf?.flush() Self.syncShareMirror(readingContacts: false) }"))
+        XCTAssertTrue(app.contains("Diagnostics.wentAwayOrCameBack() Self.syncShareMirror() }"))
+        XCTAssertEqual(count("Self.syncShareMirror()", in: app), 2)
+        XCTAssertEqual(count("Self.syncShareMirror(readingContacts: false)", in: app), 1)
+        XCTAssertEqual(count("syncShareMirror(", in: app), 4)
+        XCTAssertEqual(count("readIfAllowed()", in: app), 1)
+        // SafeStart's steps are this launch's, decided at its start.
+        XCTAssertTrue(app.contains("SafeStart.app.launch()"))
     }
 
     /// The share extension reads no Contacts of its own: its sheet offers

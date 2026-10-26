@@ -114,6 +114,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       own. Then add his second address in Blackmail's Settings with "Add
       Another Email…", and Save (B-076; until then a half name in search
       can ask for it, B-123).
+- [ ] On the day, with him or his helper: Blackmail's New Message, one
+      letter typed in To, and iOS's question about Contacts answered with
+      Allow (on iPadOS 18, Continue, then share all of them); then Cancel
+      and Delete Draft. Until then the share sheet offers none of his
+      Contacts, and he would meet the question alone in the middle of a
+      letter, where a Don't Allow is for good and nothing in the app says
+      so (B-162).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -7382,8 +7389,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       neither; "nun": Pat Núñez; "scar": scarlo@example.org alone; "jo":
       no Jo Pine. Cc/Bcc tapped, "car" in Cc: the same two rows.
       3. *A pick.* In To, "sa", then sam@example.com tapped: a bubble
-      "Sam Carlo", the list closed. "sa" again: scarlo@example.org alone.
-      Cancel, Delete Draft.
+      "Sam Carlo", the list closed. "sa" again: scarlo@example.org ("Sam
+      Carlo"), then "Sales"; no sam@example.com. Cancel, Delete Draft.
       4. *Asked once.* The app to the background and back, New Message,
       "c" in To: no question. Ended and opened again, the same.
       5. *The share sheet.* Blackmail opened once after 1, then Safari on
@@ -7394,11 +7401,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       question. Cancel. The share sheet from Safari, "car": no Sam Carlo.
       Cancel. Blackmail's switch back on: its next return offers him
       again.
-      7. *(Sends, test account only, needs the owner's go.)* A letter
-      from the composer to the test account's own address, which then
-      starts the list, ahead of Sam Carlo, for the first letters of its
-      name or address that his card also starts with.
-      8. *Put back:* the three cards deleted in Contacts; Blackmail's
+      The people he has written to coming before his Contacts is not
+      looked for here, as it needs a letter sent; the host pins it
+      (`ContactSuggestionsTests`).
+      7. *Put back:* the three cards deleted in Contacts; Blackmail's
       Contacts switch as written down in 0 (off if it was never asked).
       The host moves the UIDs it noted, and only them, from "Notes" to
       the Trash (`UID MOVE`), and deletes in the Trash only the UIDs that

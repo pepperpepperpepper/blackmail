@@ -138,8 +138,9 @@ struct ShareMirror {
     ///
     /// `contacts` as the app has just read them (`AddressContacts.
     /// readIfAllowed`): empty when it may not read them, so a no given
-    /// later in Settings takes the copy away too; nil when they could not
-    /// be read, which leaves the copy as it is (B-162).
+    /// later in Settings takes the copy away too; nil when they were not
+    /// read this time or could not be read, which leaves the copy as it is
+    /// (B-162).
     func sync(account: MailAccount?, password: String?,
               signatureImages: [SignatureImages.InlineImage], book: RecipientBook,
               contacts: [ContactCard]? = nil) {

@@ -30162,13 +30162,22 @@ offered the same book, mirrored to it (`ShareMirror`).
    again for what he has typed, without another key. At a no nothing is
    read and nothing is asked again; the list is the book's, as before.
    iPadOS 18's "Select Contacts" counts as a yes, for the cards he chose.
+   Once the question is found answered, a keystroke asks iOS nothing
+   more for the rest of that run of the app, not even how it was
+   answered.
    Only names and addresses are read, of the cards that have an address,
    2,000 at most, and kept in memory.
 4. *Read again* where the share mirror is brought up to date, off the
-   main thread, if he has said yes: at launch, and as the app goes into
-   and comes back from the background, so a card changed in Contacts is
-   offered from his next return. A no given later in Settings lets the
-   cards go. Never asked there.
+   main thread, if he has said yes: at launch, and as the app comes back
+   from the background, so a card changed in Contacts is offered from his
+   next return. Not as it goes into the background, where iOS may
+   suspend the read halfway and his return reads again anyway; the copy
+   is left as it is then. Not at all in a launch that follows launches in
+   a row that never finished (B-057, from its first step, two), for the
+   whole of that launch: the read is in the seconds after the first
+   frame, where a card that ended every launch inside Contacts would
+   otherwise be read again at each. A no given later in Settings lets
+   the cards go. Never asked there.
 5. *The share sheet* offers his Contacts from a copy the app mirrors
    (`ShareMirror`, a new item, "contacts"), and never asks. An extension
    could ask with the words in its own Info.plist, but whether iOS would
@@ -30198,30 +30207,34 @@ Contacts." It is Apple's own sentence for Mail, with Blackmail's name in
 it and "automatically" left out. The question's title and its buttons
 are iOS's.
 
-**Tests.** `ContactSuggestionsTests`, sixteen, new, with made-up cards
+**Tests.** `ContactSuggestionsTests`, nineteen, new, with made-up cards
 in Contacts' order. Nothing offered as he goes in, after a pick or a
 tapped bubble, for nothing typed or for an "@". The start of a first or
 last name, "sam c", case and accents aside; nothing within a word. The
 start of an address finds that address alone. Each address of a card,
 under its name; a card with none offers nothing. Written to, then
 Contacts in their own order (by name and by address both shown not to
-decide it), then seen. An address in both is one row under the card's
-name, first if written to, among Contacts if only seen, and found by the
-book's name too. The book's matches within come last. Four rows at most.
-An address on two cards once. Nobody already in the field, typed or a
-bubble. The share sheet offers the mirrored cards as the composer does,
-and the mirror follows what the app read: kept when not read, emptied by
-none, gone with the account. The question asked only while never
-answered, iPadOS 18's limited access a yes. And read from the source:
-`requestAccess` in one place, behind `asksWhenHeTypes`, reached only from
-the composer's typing in an address field; the composer offering his
-Contacts and offering again when they come in, as it last offered; the
-launch, the background and the return reading only, before the mirror,
-never asking; nothing in the share extension's sources reading Contacts;
-the words in the app's Info.plist alone. Changed, each with the reason
-in its comment: the source pins of the composer's call in
-`ComposeLikeMailTests.testAPickClosesTheList` and
-`ReplyLikeMailTests`, and of the share sheet's in
+decide it), then seen; and written to first however it matched, an
+address he has written to found by its start ahead of a card and of an
+address only seen, each found by a name. An address in both is one row
+under the card's name, first if written to, among Contacts if only seen,
+and found by the book's name too. The book's matches within come last.
+Four rows at most. An address on two cards once. Nobody already in the
+field, typed or a bubble. The share sheet offers the mirrored cards as
+the composer does, and the mirror follows what the app read: kept when
+not read, emptied by none, gone with the account. The question asked
+only while never answered, iPadOS 18's limited access a yes. And read
+from the source: `requestAccess` in one place, behind `asksWhenHeTypes`,
+reached only from the composer's typing in an address field; a keystroke
+asking iOS nothing once the question is found answered; the composer
+offering his Contacts and offering again when they come in, as it last
+offered; the launch and the return reading only, before the mirror,
+never asking, the background not reading, and no read in a launch under
+B-057's steps; nothing in the share extension's sources reading
+Contacts; the words in the app's Info.plist alone. Changed, each with
+the reason in its comment: the source pins of the composer's call in
+`ComposeLikeMailTests.testAPickClosesTheList` and `ReplyLikeMailTests`,
+and of the share sheet's in
 `ComposeLikeMailTests.testOnlyTypingShowsTheListInEither`; the body of
 the composer's typing in an address field in
 `ReplyFilesWiringTests.testTheComposerFollowsTheBubblesFromEachChange`,
@@ -30245,9 +30258,16 @@ share sheet without the cards, 6 in 3; iPadOS 18's "Select Contacts"
 taken as a no, 1 in 1; the question put as he goes into a field, not as
 he types, 3 in 3; Contacts read only in a build with the extension, 1 in
 1; the share sheet asking for Contacts itself, 4 in 4; no words in the
-app's Info.plist, 2 in 2. Each new test failed under at least one.
+app's Info.plist, 2 in 2. Then, the same way, `ContactSuggestionsTests`
+run, 19 tests, and for the reads `SafeStartTests` with it, 45: the match
+before the group, so a card or an address only seen found by a name went
+ahead of an address he has written to found by its start, 2 in 1; a
+keystroke asking iOS how the question was answered every time, 3 in 2;
+the background reading again, 3 in 1; a launch under B-057's steps
+reading all the same, 1 in 1; every sync reading, the background's too,
+2 in 2. Each new test failed under at least one.
 
-The full suite, serially: 2,680 tests, 16 of them new, 6 skipped, none
+The full suite, serially: 2,683 tests, 19 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -30272,9 +30292,21 @@ failing. The release build for the iPad links.
 - The share sheet has a card from the app's last return; one added since
   is offered there once Blackmail has been opened again. His first
   typing in the share sheet asks nothing: the question waits for the
-  app's composer.
+  app's composer. So the share sheet, where about half of what he sends
+  starts, offers none of his Contacts until he has typed once in To, Cc
+  or Bcc in the app's own composer and said yes. The ruling's notes put
+  the question at the install; the TODO has it answered there, with him
+  or his helper, beside adding his second address ("On the day").
 - A no is kept until Settings > Privacy & Security > Contacts says
   otherwise; nothing in the app says so.
+- A card that ended the app inside Contacts at every read, which was
+  not seen and is Apple's code: B-057's steps keep the read from the
+  whole of a launch after two in a row that never finished, but the
+  first launch after one that finished reads again, so it would still
+  end the app often. The way out is Settings > Privacy & Security >
+  Contacts, Blackmail off: nothing is read from then on, the list is the
+  book's, and the share sheet's copy is emptied at the next launch or
+  return that reads; nothing in the app or in what he is told says so.
 - Whether his iPad's Contacts hold the people he writes to is not
   known; it is one of the questions put to the owner on 2026-10-26. With
   none of them there, the list is the book's, as before.

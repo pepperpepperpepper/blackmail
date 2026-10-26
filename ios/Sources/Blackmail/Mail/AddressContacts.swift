@@ -16,12 +16,14 @@ import Contacts
 /// read, nothing asked again (`ContactsAccess`). The share extension never
 /// asks; it is handed the cards the app read (`ShareMirror`).
 ///
-/// Read again, off the main thread, wherever the share mirror is brought up
-/// to date (`AppDelegate.syncShareMirror`): at launch, and as the app goes
-/// into and comes back from the background, so a card changed in Contacts
-/// is offered from his next return to the app. Only names and addresses
-/// are read, of the cards that have an address, and kept in memory; never
-/// written anywhere but the share mirror.
+/// Read again, off the main thread, as the share mirror is brought up to
+/// date at launch and as the app comes back from the background
+/// (`AppDelegate.syncShareMirror`), so a card changed in Contacts is
+/// offered from his next return to the app. Not as it goes into the
+/// background, where iOS may suspend a read halfway, and not at all in a
+/// launch that follows launches in a row that never finished (`SafeStart`).
+/// Only names and addresses are read, of the cards that have an address,
+/// and kept in memory; never written anywhere but the share mirror.
 final class AddressContacts {
 
     static let shared = AddressContacts()
@@ -31,6 +33,10 @@ final class AddressContacts {
     private var cards: [ContactCard] = []
     /// The question is up: a second keystroke under it asks nothing.
     private var asking = false
+    /// iOS's question was found answered: from then on a keystroke asks
+    /// iOS nothing, not even how it was answered. Only Settings changes an
+    /// answer. Read and written on the main thread alone, where he types.
+    private var answered = false
     private let queue = DispatchQueue(label: "wtf.uhoh.blackmail.contacts", qos: .userInitiated)
 
     /// The cards as last read, in Contacts' order; none until read, and
@@ -50,8 +56,13 @@ final class AddressContacts {
     /// question has never been answered, it goes up, once; at a yes his
     /// cards are read and `cameIn` is called on the main thread, for the
     /// list to be offered again with them. Anything else asks nothing.
+    /// On the main thread.
     func heTyped(then cameIn: @escaping () -> Void) {
-        guard Self.access.asksWhenHeTypes else { return }
+        guard !answered else { return }
+        guard Self.access.asksWhenHeTypes else {
+            answered = true
+            return
+        }
         lock.lock()
         guard !asking else {
             lock.unlock()
