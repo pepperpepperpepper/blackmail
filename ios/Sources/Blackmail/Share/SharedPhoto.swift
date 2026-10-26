@@ -50,10 +50,54 @@ import Foundation
 /// read on. A photo from his iPad's camera, 4032 px, goes at its own size
 /// as its own bytes; made a JPEG, at its own size where the memory allows
 /// it and at a half where it does not.
+///
+/// The composer is not the extension (B-142). Its Photo Library hands over
+/// a HEIC as Photos keeps it, where it had handed over Photos' JPEG of it
+/// at its own size, which went as its own bytes; so there, in the app's
+/// memory, a picture made a JPEG for what it is, not for its weight, is
+/// made at its own size where the memory allows it, as that JPEG was
+/// (`Bound`).
 enum SharedPhoto {
 
     /// The longest side a JPEG made here has, in pixels.
     static let longestSide = 4096
+
+    /// How large a JPEG made here may be (B-142).
+    enum Bound: Equatable {
+        /// At most `longestSide`, whatever the picture: the share sheet's,
+        /// in an extension killed at about 120 MB.
+        case longestSide
+        /// At its own size where the picture fits the letter's room as it
+        /// is, and is made a JPEG for what it is, a HEIC above all; at most
+        /// `longestSide` where it does not fit, as a JPEG over the room was
+        /// made smaller before. The composer's, in the app's memory: Photos
+        /// handed it a JPEG of a HEIC at its own size, which went as its
+        /// own bytes, until the picker took what Photos keeps (`.current`).
+        case ownSizeWhereItFits
+    }
+
+    /// No bound on a side: a JPEG made at its own size (`Bound`).
+    static let ownSize = Int.max
+
+    /// The longest side a JPEG made of a picture of `size` bytes may have
+    /// under `bound`, with `room` left of the letter: `ownSize` where the
+    /// composer's bound lets it go at its own size, a picture that fits
+    /// the room as it is; `longestSide` otherwise.
+    static func most(_ bound: Bound, size: Int64, room: Int64) -> Int {
+        bound == .ownSizeWhereItFits && size > 0 && size <= room ? ownSize : longestSide
+    }
+
+    /// A JPEG made at its own size, read at `factor`, larger than the room:
+    /// the longest side it is made again at, `longestSide`, as a picture
+    /// over the room was made smaller before (B-142). Nil where that would
+    /// make it no smaller, its side at `factor` no more than `longestSide`,
+    /// or where it was made at `longestSide` already.
+    static func again(width: Int, height: Int, factor: Int, most: Int) -> Int? {
+        guard most > longestSide,
+              let made = size(width: width, height: height, factor: factor, most: most),
+              made.longest > longestSide else { return nil }
+        return longestSide
+    }
 
     /// The JPEG's quality, as the composer's (`ComposeViewController`).
     static let quality = 0.85
@@ -192,18 +236,20 @@ enum SharedPhoto {
     static let factors = [1, 2, 4, 8]
 
     /// What a picture whose longest side is `longest` is read at: the
-    /// smallest factor that brings it to `longestSide` or less. Past an
-    /// eighth, over 32768 px, an eighth all the same, the most there is.
-    /// The least it is read at: the memory may ask for more
+    /// smallest factor that brings it to `most` or less, `longestSide`
+    /// unless the composer lets it go at its own size (`Bound`), which is
+    /// 1. Past an eighth, over 32768 px, an eighth all the same, the most
+    /// there is. The least it is read at: the memory may ask for more
     /// (`factor(width:height:type:available:)`).
-    static func factor(longest: Int) -> Int {
-        factors.first { longest / $0 <= longestSide } ?? 8
+    static func factor(longest: Int, most: Int = longestSide) -> Int {
+        factors.first { longest / $0 <= most } ?? 8
     }
 
     /// The size a picture `width` by `height` goes at as a JPEG, read at
     /// the least factor (`factor(longest:)`).
-    static func size(width: Int, height: Int) -> Size? {
-        size(width: width, height: height, factor: factor(longest: max(width, height)))
+    static func size(width: Int, height: Int, most: Int = longestSide) -> Size? {
+        size(width: width, height: height, factor: factor(longest: max(width, height), most: most),
+             most: most)
     }
 
     /// The size a picture `width` by `height` goes at as a JPEG, read at
@@ -223,16 +269,21 @@ enum SharedPhoto {
     /// makes a second picture of 4096 from it, holding both for a moment.
     /// A panorama 40000 by 10000 is 25 MB at an eighth and 17 MB at 4096.
     ///
+    /// `most` is the bound, `longestSide`; at `ownSize`, the composer's
+    /// for a picture that fits (`Bound`), it is read at 1 and goes at its
+    /// own size, and at a half or more only where the memory asks it, at
+    /// that factor's size: 5712 at 5712, or at 2856 read at a half.
+    ///
     /// The other side in proportion, to the nearest pixel and never less
     /// than one. Nil when the picture does not say its size. ImageIO is told
     /// only the longest side (`ShareItems.picture`) and works out the other
     /// itself, which is this to within a pixel.
-    static func size(width: Int, height: Int, factor: Int) -> Size? {
+    static func size(width: Int, height: Int, factor: Int, most: Int = longestSide) -> Size? {
         guard width > 0, height > 0 else { return nil }
         let longest = max(width, height)
-        let halving = max(factor, self.factor(longest: longest))
+        let halving = max(factor, self.factor(longest: longest, most: most))
         guard halving > 1 else { return Size(width: width, height: height) }
-        let asked = max(1, min(longest / halving, longestSide))
+        let asked = max(1, min(longest / halving, most))
         let scale = Double(asked) / Double(longest)
         func fitted(_ side: Int) -> Int {
             side == longest ? asked : max(1, Int((Double(side) * scale).rounded()))
@@ -285,14 +336,15 @@ enum SharedPhoto {
     /// at `factor`, is expected to hold at its peak, in bytes: the decoder's
     /// share (`decoding`) of the picture it decodes, at four bytes a pixel,
     /// and the JPEG made, at most a byte a pixel of the size it goes at.
-    static func peak(width: Int, height: Int, type: String, factor: Int) -> Int64 {
+    static func peak(width: Int, height: Int, type: String, factor: Int,
+                     most: Int = longestSide) -> Int64 {
         let decoder = decoding(type: type)
-        let halving = max(factor, self.factor(longest: max(width, height)))
+        let halving = max(factor, self.factor(longest: max(width, height), most: most))
         func part(_ side: Int) -> Double {
             decoder.halves ? Double((side + halving - 1) / halving) : Double(side)
         }
         let decoded = part(width) * part(height) * 4 * decoder.peak
-        let made = size(width: width, height: height, factor: halving)
+        let made = size(width: width, height: height, factor: halving, most: most)
             .map { Double($0.width) * Double($0.height) } ?? 0
         return Int64(decoded + made)
     }
@@ -309,27 +361,33 @@ enum SharedPhoto {
     /// A picture that does not say its size is read as before, at 1:
     /// there is nothing to weigh, and ImageIO is asked for no more than
     /// `longestSide`.
-    static func factor(width: Int, height: Int, type: String, available: Int64) -> Int? {
+    ///
+    /// `most` is the bound (`size`): at `ownSize`, the composer's, the
+    /// least is 1, and a larger factor is still taken where the memory
+    /// asks it.
+    static func factor(width: Int, height: Int, type: String, available: Int64,
+                       most: Int = longestSide) -> Int? {
         guard width > 0, height > 0 else { return 1 }
         let allowed = Double(available) * memoryShare
-        return tried(width: width, height: height, type: type).first { factor in
-            Double(peak(width: width, height: height, type: type, factor: factor)) <= allowed
+        return tried(width: width, height: height, type: type, most: most).first { factor in
+            Double(peak(width: width, height: height, type: type, factor: factor, most: most))
+                <= allowed
         }
     }
 
     /// The factors a picture is tried at, the least first: from the least
-    /// that brings it to `longestSide` to an eighth, or that least alone
-    /// for one decoded whole whatever is asked.
-    private static func tried(width: Int, height: Int, type: String) -> [Int] {
-        let least = factor(longest: max(width, height))
+    /// that brings it to `most` to an eighth, or that least alone for one
+    /// decoded whole whatever is asked.
+    private static func tried(width: Int, height: Int, type: String, most: Int) -> [Int] {
+        let least = factor(longest: max(width, height), most: most)
         return decoding(type: type).halves ? factors.filter { $0 >= least } : [least]
     }
 
     /// What the last factor tried holds at its peak (`peak`): the least a
     /// picture can be made a JPEG in, which the log gives for one left out.
-    static func leastPeak(width: Int, height: Int, type: String) -> Int64 {
-        let last = tried(width: width, height: height, type: type).last ?? 8
-        return peak(width: width, height: height, type: type, factor: last)
+    static func leastPeak(width: Int, height: Int, type: String, most: Int = longestSide) -> Int64 {
+        let last = tried(width: width, height: height, type: type, most: most).last ?? 8
+        return peak(width: width, height: height, type: type, factor: last, most: most)
     }
 
     // MARK: - A picture handed over as an object
@@ -663,6 +721,12 @@ enum SharedPhoto {
         var went: Went = .notOpened
         /// Why it was not sent as its own bytes, when it was meant to be.
         var fellBack: String?
+        /// The size a JPEG made here was made at, for the log; nil for any
+        /// other way.
+        var made: Size?
+        /// What a JPEG made at its own size measured where it was larger
+        /// than the room, and was made again at `longestSide` (B-142).
+        var ownSizeOverRoom: Int64?
         var bytes: Int64 = 0
 
         init(offered: [String], read: String, named: Named) {
@@ -680,10 +744,14 @@ enum SharedPhoto {
             }
             let file = inside.map { $0 == read ? "" : " (\($0) inside)" } ?? ""
             let back = fellBack.map { " (not as its own bytes: \($0))" } ?? ""
+            let again = ownSizeOverRoom.map {
+                " (at its own size \($0) bytes, more than the letter's room)"
+            } ?? ""
+            let size = made.map { " size=\($0.width)x\($0.height)" } ?? ""
             let tried = (unopened + [read]).joined(separator: ",")
             return "SHARE-PICTURE offered=\(offered.joined(separator: ",")) read=\(tried)\(file)"
                 + " name=\(source) \"\(Self.logged(name))\" way=\(Self.words(went))\(back)"
-                + " bytes=\(bytes)"
+                + "\(again)\(size) bytes=\(bytes)"
         }
 
         /// `name` as the log has it: as it is when it is "IMG_" or "image"

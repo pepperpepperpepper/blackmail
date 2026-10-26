@@ -892,7 +892,11 @@ extension ShareItems {
             for provider in item.attachments ?? [] {
                 tally.offered += 1
                 loads.append { done in
-                    read(provider, title: title, staging: staging, tally: tally, done: done)
+                    // A video as the sharing app hands it over, and nothing
+                    // made of it here (`videos: nil`): Photos hands the sheet
+                    // its own H.264 copy of an HEVC video (B-070).
+                    read(provider, title: title, staging: staging, tally: tally, videos: nil,
+                         done: done)
                 }
             }
         }
@@ -933,9 +937,15 @@ extension ShareItems {
     /// the background, a picture's or a video's load under way, to read it
     /// again on his return (`Loading`, `ComposeIntake.away`, B-142). A
     /// video called off says so in its line, and calls back with nothing.
+    ///
+    /// A video staged is made H.264 by `videos`, where it is given and the
+    /// video needs it, once the load's call back has returned
+    /// (`stageRead`, `compatible`, B-142): the composer's, since its picker
+    /// hands over the video Photos keeps. The share sheet gives none.
     @discardableResult
     static func read(_ provider: NSItemProvider, title: String?, staging: Staging,
-                     tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {
+                     tally: Tally, videos: VideoConversion?,
+                     done: @escaping (SharedItem?) -> Void) -> Loading {
         let loading = Loading()
         if let type = SharedPhoto.fileType(offered: provider.registeredTypeIdentifiers)
             ?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {
@@ -965,7 +975,8 @@ extension ShareItems {
             if movie != nil { tally.videos += 1 }
             // The copy iOS hands over lasts only as long as this callback,
             // so it is staged here; by its size first, which a video can
-            // make larger than the letter's room.
+            // make larger than the letter's room. A video staged is made
+            // H.264 after, from the staged copy (`stageRead`, B-142).
             let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
                 guard let url,
                       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
@@ -978,21 +989,19 @@ extension ShareItems {
                 let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
                     ?? "application/octet-stream"
                 let name = filename(suggested: provider.suggestedName, for: url)
-                let room = staging.room
-                let item = staging.file(at: url, size: Int64(size), named: name, mimeType: mime)
-                if item != nil, movie != nil { tally.videosAttached += 1 }
-                // What its copy measured, where it was copied, which is what
-                // decided it; the sharing app's word where it was not.
-                let bytes = staging.lastMeasured ?? Int64(size)
-                Diagnostics.log(.note, fileNote(
-                    read: type, suggested: !(provider.suggestedName ?? "").isEmpty, name: name,
-                    mimeType: mime, bytes: bytes,
-                    went: fileWent(item, size: bytes, room: room)))
-                done(item)
+                stageRead(url, size: Int64(size), type: type,
+                          suggested: !(provider.suggestedName ?? "").isEmpty, name: name,
+                          mimeType: mime, videos: movie != nil ? videos : nil, staging: staging,
+                          loading: loading) { item in
+                    if item != nil, movie != nil { tally.videosAttached += 1 }
+                    done(item)
+                }
             }
             // Photos' copy of a video is made while this load is under
             // way, minutes for a large one, and iOS holds a file
-            // coordination claim on the app all that time (B-142).
+            // coordination claim on the app all that time, which calling
+            // the load off does not end (B-142): hence `.current` in the
+            // composer's picker, and no copy made.
             loading.track(progress)
         } else {
             done(nil)

@@ -39,16 +39,18 @@ final class ComposerFilesWiringTests: XCTestCase {
         }
     }
 
-    /// Photo Library: photos and videos, five at a time, as Photos'
-    /// compatible copies, through PHPicker, which asks no permission; each
-    /// read by the share sheet's intake once the picker has been put away.
-    func testPhotoLibraryOffersPhotosAndVideosFiveAtATimeAsCompatibleCopies() throws {
+    /// Photo Library: photos and videos, five at a time, as Photos keeps
+    /// them, with no copy made (`.current`, B-142), through PHPicker,
+    /// which asks no permission; each read by the share sheet's intake once
+    /// the picker has been put away, a video made H.264 in the app
+    /// (`videos: .h264`).
+    func testPhotoLibraryOffersPhotosAndVideosFiveAtATimeAsPhotosKeepsThem() throws {
         let code = try source(Self.composer)
         inOrder(["@objc private func photoLibraryTapped() {",
                  "var config = PHPickerConfiguration()",
                  "config.filter = .any(of: [.images, .videos])",
                  "config.selectionLimit = 5",
-                 "config.preferredAssetRepresentationMode = .compatible",
+                 "config.preferredAssetRepresentationMode = .current",
                  "let picker = PHPickerViewController(configuration: config)",
                  "picker.delegate = self",
                  "present(picker, animated: true)"], in: code)
@@ -59,8 +61,11 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "let kind = ComposeIntake.kind(offered: provider.registeredTypeIdentifiers, "
                     + "isMovie: { UTType($0)?.conforms(to: .movie) == true })",
                  "return ComposeIntake.Item(name: provider.suggestedName, kind: kind) { staging, tally, done in",
-                 "ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done)"],
+                 "ShareItems.read(provider, title: nil, staging: staging, tally: tally, videos: .h264, "
+                    + "done: done)"],
                 in: code)
+        XCTAssertFalse(code.contains(".compatible"), "no copy asked of Photos (B-142)")
+        XCTAssertEqual(count("preferredAssetRepresentationMode", in: code), 1)
         XCTAssertFalse(code.contains("suggestedName ?? \"\""), "a row with no name says what it is")
         XCTAssertEqual(count("PHPickerConfiguration(", in: code), 1)
         XCTAssertEqual(count("PHPickerConfiguration(photoLibrary", in: code), 0,
@@ -125,7 +130,8 @@ final class ComposerFilesWiringTests: XCTestCase {
         XCTAssertEqual(count("ShareItems.read(", in: code), 1)
         let share = try source("Sources/Blackmail/Share/ShareViewController.swift")
         XCTAssertTrue(share.contains("static func read(_ provider: NSItemProvider, title: String?, "
-                                     + "staging: Staging, tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {"))
+                                     + "staging: Staging, tally: Tally, videos: VideoConversion?, "
+                                     + "done: @escaping (SharedItem?) -> Void) -> Loading {"))
         XCTAssertFalse(share.contains("private static func read("))
     }
 
@@ -214,7 +220,7 @@ final class ComposerFilesWiringTests: XCTestCase {
     func testAReadUnderWayIsCalledOffAsTheAppGoes() throws {
         let share = try source("Sources/Blackmail/Share/ShareViewController.swift")
         inOrder(["static func read(_ provider: NSItemProvider, title: String?, staging: Staging, "
-                    + "tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {",
+                    + "tally: Tally, videos: VideoConversion?, done: @escaping (SharedItem?) -> Void) -> Loading {",
                  "let loading = Loading()",
                  "picture(provider, type: type, staging: staging, loading: loading) { item in",
                  "let progress = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
@@ -255,7 +261,8 @@ final class ComposerFilesWiringTests: XCTestCase {
         let composer = try source(Self.composer)
         XCTAssertTrue(composer.contains(
             "kind: kind) { staging, tally, done in "
-            + "ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done) }"),
+            + "ShareItems.read(provider, title: nil, staging: staging, tally: tally, videos: .h264, "
+            + "done: done) }"),
             "the read handed back, as the closure's one expression")
         inOrder(["@objc private func leavingTheApp() {",
                  "intake.away()",
