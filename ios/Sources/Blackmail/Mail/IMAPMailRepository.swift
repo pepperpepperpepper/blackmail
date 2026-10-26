@@ -2031,7 +2031,8 @@ actor IMAPMailRepository: MailRepository {
             references: MIMEDecoder.headerValue("References", in: headers)?
                 .trimmingCharacters(in: .whitespaces),
             gmailMessageID: named,
-            isShortened: shortened)
+            isShortened: shortened,
+            textIsFlowed: decoded.textIsFlowed)
     }
 
     private static let rfc2822: DateFormatter = {

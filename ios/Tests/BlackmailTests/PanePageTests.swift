@@ -12,7 +12,10 @@ import XCTest
 /// and that is the one change to a letter's markup: a letter with none comes
 /// out as it did, and the letter here with one differs by its `<a>` alone.
 /// Since B-101 an HTML letter's page has Mail's bars beside quoted text
-/// (`QuoteBars`), rules added to its style and nothing else.
+/// (`QuoteBars`), rules added to its style and nothing else; since B-147 a
+/// plain letter's has them too, in Mail's dark colours, and its quotes are
+/// Mail's blockquotes, the one change to the letter here with one
+/// (`PlainQuoteBarsTests`).
 final class PanePageTests: XCTestCase {
 
     /// The pane's measurements as `Theme` gives them on the iPad.
@@ -143,23 +146,31 @@ final class PanePageTests: XCTestCase {
     /// Which of `letters` has a link written in it.
     private static let linked = 11
 
+    /// Which has plain text quoted with ">" (B-147).
+    static let quoted = 10
+
+    /// Mail's quote bars as a plain letter's page has them (B-147): its
+    /// dark colours, where the HTML's go after the invert.
+    static let plainBars = QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
+
     /// Byte for byte, but for Mail's quote bars (B-101): in an HTML
-    /// letter's style once, after the invert, and in a plain letter's not
-    /// at all. Taken out, the page is the page the pane built. No rule for
-    /// a signature's white sheet (B-146).
+    /// letter's style once, after the invert, and in a plain letter's once,
+    /// in Mail's dark colours (B-147). Taken out, the page is the page the
+    /// pane built. No rule for a signature's white sheet (B-146).
     func testALettersPageComesOutByteForByteAsThePaneBuiltIt() {
         let bars = "\n" + QuoteBars.css(in: "#bm")
-        for (i, m) in letters.enumerated() where i != Self.linked {
+        for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let page = PanePage.letter(m, style: style)
-            XCTAssertEqual(page.map { $0.components(separatedBy: bars).count - 1 },
-                           page.map { _ in m.htmlBody == nil ? 0 : 1 }, "letter \(i)")
-            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: bars, with: "").utf8) },
+            let added = m.htmlBody == nil ? Self.plainBars : bars
+            XCTAssertEqual(page.map { $0.components(separatedBy: added).count - 1 }, page.map { _ in 1 },
+                           "letter \(i)")
+            XCTAssertEqual(page.map { Array($0.replacingOccurrences(of: added, with: "").utf8) },
                            previousPage(m).map { Array($0.utf8) }, "letter \(i)")
         }
     }
 
     func testAStackBodyComesOutByteForByteAsThePaneBuiltIt() {
-        for (i, m) in letters.enumerated() where i != Self.linked {
+        for (i, m) in letters.enumerated() where i != Self.linked && i != Self.quoted {
             let body = PanePage.stackBody(m)
             let previous = previousStackBody(m)
             XCTAssertEqual(Array(body.html.utf8), Array(previous.html.utf8), "letter \(i)")
@@ -177,7 +188,7 @@ final class PanePageTests: XCTestCase {
         let link = "<a href=\"\(written)\">\(written)</a>"
         let before = try XCTUnwrap(previousPage(m))
         XCTAssertTrue(before.contains("<div id=\"bm\">\(written) &lt;/script></div>"), before)
-        XCTAssertEqual(PanePage.letter(m, style: style),
+        XCTAssertEqual(PanePage.letter(m, style: style)?.replacingOccurrences(of: Self.plainBars, with: ""),
                        before.replacingOccurrences(of: "<div id=\"bm\">\(written) ",
                                                    with: "<div id=\"bm\">\(link) "))
         XCTAssertEqual(PanePage.stackBody(m),
@@ -211,7 +222,7 @@ final class PanePageTests: XCTestCase {
         XCTAssertEqual(PanePage.stackBody(letters[9]),
                        .init(html: "<span class=\"bm-waiting\">This message has no text.</span>",
                              isHTML: false))
-        let text = try XCTUnwrap(PanePage.letter(letters[10], style: style))
+        let text = try XCTUnwrap(PanePage.letter(letters[Self.quoted], style: style))
         XCTAssertTrue(text.contains("<div id=\"bm\">Dear Sam,\n\nIt's &lt;b>not&lt;/b> bold &amp;"),
                       text)
         XCTAssertTrue(text.contains("white-space: pre-wrap;"))
@@ -305,9 +316,10 @@ final class PanePageTests: XCTestCase {
             XCTAssertEqual(sheet.components(separatedBy: " !important;").count - 1, 12 + 1,
                            "each rule's four, and the pictures' width")
         }
-        // A plain letter's quotes are words: no rule for a blockquote.
-        let plain = try XCTUnwrap(PanePage.letter(letters[10], style: style))
-        XCTAssertFalse(plain.contains("blockquote"), plain)
+        // A plain letter's quotes are Mail's blockquotes since B-147, its
+        // rules the same in Mail's dark colours (`PlainQuoteBarsTests`).
+        let plain = try XCTUnwrap(PanePage.letter(letters[Self.quoted], style: style))
+        XCTAssertEqual(plain.components(separatedBy: Self.plainBars).count - 1, 1, plain)
     }
 
     /// Mail's reply and Gmail's keep their markup byte for byte, on the

@@ -205,9 +205,10 @@ final class ConversationDocumentTests: XCTestCase {
 
     /// The stack has Mail's rules for its letters' quotes, as a letter's own
     /// page has them (`PanePageTests`), each under `.bm-html`, a letter's
-    /// HTML: never a plain letter, whose quotes are words, and never the
-    /// stack's own lines. After the rule for the HTML's pictures: no
-    /// signature's rules between them since B-146.
+    /// HTML, in Mail's light colours; and under `.bm-text`, a plain
+    /// letter's, in its dark ones (B-147); never the stack's own lines.
+    /// After the rule for the HTML's pictures: no signature's rules
+    /// between them since B-146.
     func testTheStackHasMailsBarsBesideAnHTMLLettersQuotes() throws {
         let quote = ":is(blockquote[type=cite i], blockquote[class~=gmail_quote])"
         func rule(_ selector: String, _ colour: String) -> String {
@@ -228,12 +229,17 @@ final class ConversationDocumentTests: XCTestCase {
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
              letter, as Mail draws it: no rule of its own (B-146). */
-          /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
+          /* Mail's bars beside quoted text (B-101): a letter's HTML in its
+             light colours, which the invert turns; a plain letter's quotes,
+             Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
+             as a plain letter is not inverted. */
         \(rules)
+        \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table {
         """), sheet)
-        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 + 4 + 6)
+        XCTAssertEqual(sheet.components(separatedBy: "blockquote[").count - 1, 2 * (2 + 4 + 6))
         XCTAssertEqual(sheet.components(separatedBy: ".bm-html :is(").count - 1, 3)
+        XCTAssertEqual(sheet.components(separatedBy: ".bm-text :is(").count - 1, 3)
         XCTAssertFalse(sheet.contains("#bm"), "the letter's own page's scope")
     }
 

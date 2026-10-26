@@ -7431,6 +7431,55 @@ checks below is left as not needed, not open, and none is worth a round.*
       with iPadOS 18 and Mail is at hand: (a) there, to see how Mail draws
       the signature, which is inferred from its code and not seen; the
       words and the logo written down beside 1's.
+- [ ] **B-147, quote bars beside a plain letter's quotes.** On the test
+      iPad, the test account only, from a build of the `bm-cm-pages`
+      worktree (branch `copy-pages`) or of the int it is merged into.
+      Nothing is composed, sent, moved or deleted in the app, and nothing
+      is printed on paper: the Print panel's preview only. The host makes
+      four letters, each from another address, with a new Message-ID of
+      its own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox; it notes each UID
+      from its APPENDUID, and stops if one has none. (a) "B-147 plain",
+      text/plain, not flowed, its lines: "Yes, Sunday.", a blank line, "On
+      Monday, Carlo wrote:", "> Lunch on Sunday?", "> > Or Saturday?",
+      ">> The garden is ready.", "> > > Three deep.", ">>>> Four deep.",
+      "> See https://example.com/b147", "> Back to one.", ">From the
+      store's line.", a blank line, "Sam"; (b) "B-147 flowed", text/plain
+      with `format=flowed`, its lines "Yes.", "> One.", "> > Still one.",
+      ">> Two."; (c) "B-147 stack" and (d) "Re: B-147 stack", a day later,
+      (a)'s words as a reply to it, its In-Reply-To and References naming
+      (c)'s new Message-ID, so the two are one conversation. Three panes
+      unless a step says two; Organize by Thread on.
+      1. *Plain, alone:* "Notes", then "B-147 plain". Under "On Monday,
+      Carlo wrote:", a violet bar down the quote's left, its words 5 pt
+      from it and violet; "Or Saturday?" and "The garden is ready." in a
+      teal bar inside the violet one; "Three deep." in a green bar inside
+      those, and "Four deep." in a fourth, green too; "Back to one." in the
+      violet bar alone. No ">" before any of those lines. ">From the
+      store's line." as typed, its ">" and no bar; "Sam" under it with no
+      bar. The lines where they were: no blank line added above the first
+      quoted line or below the last. The link blue; not tapped. The
+      colours from a full-size screenshot: about rgb(191, 90, 242),
+      rgb(0, 200, 250) and rgb(87, 217, 119), Mail's dark ones.
+      2. *Flowed:* "B-147 flowed": "One." and "> Still one." in the violet
+      bar, that line with its one ">"; "Two." in a teal bar inside it.
+      3. *Two panes:* 1 and 2 again.
+      4. *In a stack:* "Re: B-147 stack", (d)'s line tapped open if it is
+      closed: its quotes as in 1.
+      5. *Print:* on 1's letter, Reply, then Print: the preview's paper
+      white, the quotes with their bars and words in Mail's light violet,
+      teal and green, no ">" before them, ">From the store's line." as
+      typed; Cancel.
+      6. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash (`UID
+      MOVE`), and deletes in the Trash only the UIDs that move answered
+      (`COPYUID`); "Notes" itself stays. Never anything found by subject
+      or Message-ID: a UID not noted is left, and written down. Nothing
+      else was written.
+      If Mail is back on the test iPad (B-028), in Dark Mode, or an iPad
+      with iPadOS 18 and Mail is at hand: (a) and (b) there, the bars, the
+      colours, the 5 pt, and how Mail draws the ">From" line, the flowed
+      "> > " line and the fourth level, written down beside 1's and 2's.
 
 ## Blocked on the owner
 
@@ -7709,10 +7758,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       answer." Built from YouTube's oEmbed and seen on the test iPad
       2026-10-25: see B-126.*
 
-- [ ] **Quote bars beside plain-text quotes** (B-101): Mail draws its
+- [x] **Quote bars beside plain-text quotes** (B-101): Mail draws its
       blue bar beside lines quoted with "> " in a plain-text letter too;
       here only HTML quotes have it. As built (no bar, the default), or
       Mail's bars there too.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-147.*
 - [ ] **The quoted words in the bar's colour** (B-101): Mail colours the
       quoted words as well as the bar; that is built. The bar alone is one
       line out of `QuoteBars.css`. As built (Mail's, the default), or the

@@ -451,18 +451,21 @@ final class PrintPageTests: XCTestCase {
     }
 
     /// Mail's bars beside quoted text (B-101): the pane's own string, at
-    /// the end of an HTML letter's style; none for a plain letter.
+    /// the end of every letter's style, in Mail's light colours on the
+    /// paper; a plain letter's too since B-147, its quotes Mail's
+    /// blockquotes as in the pane, whose plain page has Mail's dark ones.
     func testTheQuoteBarsAreThePanes() throws {
         let rules = QuoteBars.css(in: "#bm")
         let style = PanePage.Style(inset: 26, bodyPointSize: 17, lineHeight: 1.41)
-        for m in PaneLetters.all {
+        for (i, m) in PaneLetters.all.enumerated() {
             let sheet = try self.sheet(page(m))
-            if m.htmlBody != nil, let pane = PanePage.letter(m, style: style) {
-                XCTAssertTrue(sheet.hasSuffix("\n" + rules + "\n"), sheet)
-                XCTAssertTrue(try self.sheet(pane).contains("\n" + rules + "\n"))
-            } else {
-                XCTAssertFalse(sheet.contains("blockquote"), sheet)
-            }
+            XCTAssertTrue(sheet.hasSuffix("\n" + rules + "\n"), "letter \(i)")
+            XCTAssertFalse(sheet.contains(QuoteBars.dark[0]), "letter \(i)")
+            guard let pane = PanePage.letter(m, style: style) else { continue }
+            XCTAssertTrue(try self.sheet(pane).contains(m.htmlBody != nil
+                                                        ? "\n" + rules + "\n"
+                                                        : QuoteBars.css(in: "#bm", palette: QuoteBars.dark)),
+                          "letter \(i)")
         }
     }
 

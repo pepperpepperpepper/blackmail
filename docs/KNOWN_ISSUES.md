@@ -30295,3 +30295,166 @@ build for the iPad links.
   letter.
 - The logo is dark on the black, hard to see, as Mail draws it. It was
   the reason for the sheet; the owner's ruling takes Mail's.
+
+## B-147 — FIXED 2026-10-26, not yet seen on the iPad. A plain letter's quotes were drawn as typed, each line with its ">" and no bar; they are drawn as Mail draws them, Mail's quote bars beside them, a deeper bar for each mark more, the marks hidden, on the pane, in a conversation and on paper
+
+**Ruled** by the owner on 2026-10-26: "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", "Quote bars
+beside plain-text quotes").
+
+**What Mail does.** Read from iOS 18.6's Message framework, its code
+(high; not seen on a screen): Mail makes a plain letter HTML before it
+draws it (`mf_convertFromFlowedText`), each level of ">" a `BLOCKQUOTE`
+of `type=cite`, the marks taken out, and its style sheet gives each the
+bar and the colour it gives a quote in an HTML letter (B-101): 1 px down
+its left, 5 px from its words, the words in its colour, violet, teal,
+then green for the third level and deeper. How deep: in flowed text (RFC
+3676, `format=flowed`, as Mail itself sends plain text) the unbroken run
+of marks a line begins with, so "> > " is one level whose words begin
+"> "; in any other, marks with spaces between them count as one run, so
+"> > " is two. A plain letter is drawn light-on-dark in Dark Mode, not
+inverted, so its bars take Mail's dark colours, rgb(191, 90, 242),
+rgb(0, 200, 250) and rgb(87, 217, 119), from MessageUI's asset catalog
+(B-101).
+
+**What Blackmail did.** A plain letter's words were written into its
+page as they came (`TextLinks.plain`), every quoted line with its marks,
+no bar: B-101 drew Mail's bars beside an HTML letter's quotes only, and
+left a plain letter's to the owner. Nothing read `format=flowed`.
+
+**Changed.**
+
+1. *Quotes made Mail's* (`PlainQuotes`, new, in `MIME/`). Each line begun
+   with ">" is a quote as deep as its marks, by the rules above, the marks
+   and one space after them taken out; a run of lines at one depth is one
+   `<blockquote type="cite">`, one inside another for each level more, as
+   Mail makes them, so the pane's rules for Mail's quotes find them
+   (`QuoteBars.quote`). A quote begins at the start of its first line and
+   ends after the break of its last: the page keeps a plain letter's lines
+   (`white-space: pre-wrap`), and they are drawn where they were. Not a
+   quote, as before: a line begun ">From ", as a mail store keeps a line
+   its sender began "From "; a line whose first character is not ">"; a
+   mark inside a line.
+2. *Links and escaping as before.* The words are escaped as each page
+   always escaped them, and links made as they were, a quoted line's too:
+   `TextLinks.plain` takes the quotes' markup as tags put in at the start
+   of a line (`TextLinks.Tag`), where no link can be, a link ending at a
+   line break; one that falls where a link begins goes before it. A
+   letter with no quote comes out byte for byte as it did.
+3. *Bounded.* A quote deeper than 32 levels (`PlainQuotes.deepest`) is
+   drawn 32 deep, the marks past it as words. A letter whose quotes would
+   add more markup than the letter is long, or 64 KiB for a short one
+   (`markupAllowed`), is drawn as before, marks and all: a stranger's
+   letter of ">" lines going in and out on every line would make a page
+   twelve times its size, up to its 2 MB.
+4. *The bars in Mail's dark colours* (`QuoteBars.dark`, and a palette for
+   `QuoteBars.css`): a plain letter's page has Mail's rules under `#bm` in
+   them (`PanePage.letter`), and a conversation's stack under `.bm-text`,
+   a plain letter's body, beside the HTML's under `.bm-html`
+   (`ConversationDocument.html`). An HTML letter keeps the light ones,
+   which the pane's invert turns, as before.
+5. *On paper* (`PrintPage`, B-110): a plain letter prints the pane's
+   body, its quotes Mail's blockquotes, and the page has Mail's rules in
+   its light colours, as an HTML letter's always had: the paper is white
+   and not inverted.
+6. *Flowed text read* (new plumbing). `MIMEDecoder.BodyPlan.textIsFlowed`:
+   every part of the plain words text/plain with `format=flowed`, in any
+   case, and at least one. Carried by `DecodedBody` and
+   `Message.textIsFlowed` from the letter fetched whole, from one fetched
+   in part (`IMAPMailRepository`, whose structure says it) and from the
+   copy kept on the iPad, which is decoded again; handed to the page, the
+   stack and the print.
+
+**Reverses** B-101's "plain quotes have no bar" (and its line in
+`QuoteBars`' comment).
+
+**Not changed.** A flowed letter's lines. Flowed text is read by joining
+the lines its sender broke softly and taking out the space put before a
+line begun with a space, ">" or "From " (RFC 3676), which Mail's
+converter is named for; here the lines are drawn as they came, as before
+(differing from Mail by the RFC and the converter's name, not read in its
+code; not built). The list's preview, a reply's quote of a plain letter
+(still "> " in the composer) and a printed letter in words, when its page
+cannot be drawn (`PrintPage.words`, marks and all). HTML letters. No new
+words.
+
+**What he sees.** In a plain letter, a reply that quotes another, the
+quoted lines have a thin bar down their left, violet, and their words 5
+pt from it in violet; a quote inside it a teal bar inside the violet one,
+and deeper green; no ">" before the lines. The same in a conversation and
+in Print's preview, there in Mail's light colours on the white. A line
+">From …" as before. A link in a quote is blue and opens at a tap.
+
+**Tests.** `PlainQuoteBarsTests`, thirteen, new: a quote made Mail's
+blockquote, the marks and one space gone, beginning and ending at its
+lines, a blank quoted line, a mark alone, a quote at the end; each mark
+more a deeper quote and fewer closing them, "> > ", ">> ", "> >> " and
+spaced marks; flowed text counting the unbroken run, "> > " one level
+with its words "> " (escaped in the stack's escaping); ">From " lines, a
+space before the mark, a mark inside a line as typed, and every letter
+of the pane's set with no quote, and others, byte for byte as
+`TextLinks.plain` writes them, in both escapings, flowed or not; links
+in quotes, one at the start of a quoted line inside its quote, the
+escaping each page's, and a tag at a link's start before it; a quote 40
+deep drawn 32 deep, the marks past it words, a letter of 40,000 quotes
+in and out drawn as before and 1,000 under the limit made; Mail's dark
+colours and their rules; the pane's set's quoted letter on its own page,
+its body whole and the dark rules after the links' colour, no light
+colour, no filter; the same letter in a stack, escaped as the stack
+escapes, at first draw and by `bmFill`, the `.bm-text` rules after the
+`.bm-html` ones; on paper, the quote and the light rules, no dark colour;
+a page counting as flowed text only when the letter is; flowed read from
+seven letters' parts (one part, quoted and in capitals, Apple Mail's
+pair, a mixed letter with one part not flowed, every part flowed, HTML
+alone), by `decodeMessage` and by `bodyPlan`; and through the shipping
+repository and the scripted server, a flowed letter opened whole, one too
+large opened in part, and one not flowed, each `textIsFlowed` and page as
+it should be. Changed: `PanePageTests`, the page byte for byte with a
+plain letter's dark rules taken out as the HTML's light ones are, the
+quoted letter left out of it and of the stack's body byte for byte,
+checked in the new class instead, a plain letter's rules found once; `ConversationDocumentTests`, the stack's rules
+for both kinds of body; `PrintPageTests`, the light rules on every
+letter's paper.
+
+Each undone by hand in the worktree, then put back and passing, the
+touched classes run, in four runs, several at once where they reach
+different tests, each failure read by its line; counted as failures in
+tests, the new class's first: the converter undone, `PlainQuotes.html` as
+`TextLinks.plain` alone, 25 in 11 (all but Mail's dark colours and the
+flowed mark read from the parts); the pages' bodies back to
+`TextLinks.plain`, so the pane, the stack and the print as before B-147,
+9 in 5; a plain page with no rules, 1 in 1, and `PanePageTests`' page
+byte for byte and its plain rules, 3 in 2, and `PrintPageTests`' pane's
+rules, 4 in 1; the stack with no `.bm-text` rules, 1 in 1, and
+`ConversationDocumentTests`' rules, 3 in 1; the print's rules for HTML
+alone, as before, 1 in 1, and `PrintPageTests`' rules on every letter's
+paper, 7 in 1; marks with spaces between them not one run, 2 in 1;
+flowed text counted as any other, 6 in 3; no depth bound, 2 in 1; no
+markup bound, 1 in 1; a ">From " line taken for a quote, 6 in 1; a tag at
+a link's start put after the link, 2 in 1; Mail's dark violet a shade
+off, 2 in 1; the flowed mark not set by `flatten`, 8 in 2, from
+`decodeMessage` and through the repository, whole and in part; and not
+handed on by the repository, 2 in 1.
+
+The full suite, serially, on the branch with B-145 and B-146: 2,680
+tests, 20 of them new for the three, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- Not seen against Mail: the test iPad has no Mail (B-028), and none with
+  iPadOS 18 was at hand. The decision's unsure point: Mail's colours are
+  read from iOS 18.6, and the Mail of iPadOS 16.5.1, all the test iPad
+  could show once Mail is back on it, may have older ones. Also not seen
+  in Mail, and built as decided: a ">From " line
+  (here as before, marks and all), the spaced marks in a letter not
+  flowed, and how deep Mail goes (here 32).
+- Pages are strings here; how WebKit draws a quote's first and last
+  lines in a plain page, with no blank line added at either end, is read
+  from CSS's rules for a block's line breaks, not rendered. To be looked
+  at on the test iPad (TODO, B-147's check).
+- The 5 pt and the colours come out of the same rules as an HTML letter's
+  (B-101), there seen on the test iPad; on a plain page they are not
+  inverted, so they are Mail's dark colours as written.
+- A flowed letter's soft line breaks are kept, as before; Mail joins them
+  (above).

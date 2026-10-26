@@ -338,8 +338,12 @@ enum ConversationDocument {
                      filter: \(SignatureSheet.invert); }
           /* A signature's white sheet is inverted with the rest of its
              letter, as Mail draws it: no rule of its own (B-146). */
-          /* Mail's bars beside quoted text, a letter's HTML only (B-101). */
+          /* Mail's bars beside quoted text (B-101): a letter's HTML in its
+             light colours, which the invert turns; a plain letter's quotes,
+             Mail's blockquotes too (PlainQuotes, B-147), in its dark ones,
+             as a plain letter is not inverted. */
         \(QuoteBars.css(in: ".bm-html"))
+        \(QuoteBars.css(in: ".bm-text", palette: QuoteBars.dark))
           .bm-body img, .bm-body table { max-width: 100% !important; height: auto; }
           .bm-text a { color: #0A84FF; }
           .bm-html a { color: #007AFF; }

@@ -96,7 +96,7 @@ enum PanePage {
         // opens it (`BodyFiles`, B-113); a letter with none is as it was.
         let content = isHTML
             ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m)), of: m)
-            : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m))
+            : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
 
         // Every property lives on #bm, a container the inner document cannot
         // reach, rather than on `body` where a sender's inline style outranks
@@ -117,15 +117,17 @@ enum PanePage {
         // A signature's white sheet is inverted with the rest, as Mail
         // draws it (B-146): its rules, which inverted it back, are gone.
         // After the invert, Mail's bars beside quoted text (`QuoteBars`,
-        // B-101), in its light colours, which the invert turns. For HTML
-        // only: a plain letter's quotes are words, with no blockquote.
+        // B-101), in its light colours, which the invert turns. A plain
+        // letter's quotes are Mail's blockquotes too (`PlainQuotes`,
+        // B-147), and its page is not inverted: the bars in Mail's dark
+        // colours, as Mail draws a plain letter in Dark Mode.
         let smartInvert = isHTML
             ? """
               #bm { filter: \(SignatureSheet.invert); background: #fff; }
               #bm img, #bm video, #bm svg, #bm picture, #bm [style*="background-image"] {
                   filter: \(SignatureSheet.invert); }
               """ + "\n" + QuoteBars.css(in: "#bm")
-            : ""
+            : QuoteBars.css(in: "#bm", palette: QuoteBars.dark)
         return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -163,25 +165,26 @@ enum PanePage {
     /// What goes in `#bm` for a letter's body, `html` when it has one and
     /// `text` otherwise: the sender's markup without its wrapper, with its
     /// pictures by `cid:` pointed at the loader where `known` has them, and
-    /// text escaped with its leading blank lines dropped; with the links it
-    /// writes out made links. The pane's page (`letter`) and a printed
-    /// letter's (`PrintPage`, B-110) both draw it, so a printed letter is
-    /// the letter he read.
-    static func content(text: String?, html: String?, known: Set<String>) -> String {
+    /// text escaped with its leading blank lines dropped, its quotes Mail's
+    /// blockquotes, as deep as `flowed` text counts them (`PlainQuotes`,
+    /// B-147); with the links it writes out made links. The pane's page
+    /// (`letter`) and a printed letter's (`PrintPage`, B-110) both draw it,
+    /// so a printed letter is the letter he read.
+    static func content(text: String?, html: String?, known: Set<String>, flowed: Bool = false) -> String {
         if let html {
             return TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: html),
                                                               known: known))
         }
-        return TextLinks.plain((text ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
-                               escaping: .ampersandAndLessThan)
+        return PlainQuotes.html((text ?? "").drop(while: { $0 == "\n" || $0 == "\r" }), flowed: flowed,
+                                escaping: .ampersandAndLessThan)
     }
 
     /// One letter's body for its section of a conversation's stack: the
     /// sender's markup without its wrapper, text escaped with its leading
     /// blank lines dropped as a letter on its own drops them, or the words
-    /// for a letter with nothing in it. Its links are made links, and a file
-    /// sent among its words has its row there, as a letter on its own has
-    /// them.
+    /// for a letter with nothing in it. Its links are made links, a plain
+    /// letter's quotes Mail's blockquotes (B-147), and a file sent among its
+    /// words has its row there, as a letter on its own has them.
     static func stackBody(_ m: Message) -> ConversationDocument.Entry.Rendered {
         let isHTML = m.htmlBody != nil
         let empty = isEmpty(m)
@@ -190,8 +193,8 @@ enum PanePage {
             : (isHTML
                ? BodyFiles.rows(in: TextLinks.html(InlineImageRewriter.rewrite(
                    DocumentWrapper.stripped(from: m.htmlBody!), known: contentIDs(of: m))), of: m)
-               : TextLinks.plain((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
-                                 escaping: .ampersandAndBrackets))
+               : PlainQuotes.html((m.textBody ?? "").drop(while: { $0 == "\n" || $0 == "\r" }),
+                                  flowed: m.textIsFlowed, escaping: .ampersandAndBrackets))
         return .init(html: empty ? content : shortened(m) + content, isHTML: isHTML && !empty)
     }
 

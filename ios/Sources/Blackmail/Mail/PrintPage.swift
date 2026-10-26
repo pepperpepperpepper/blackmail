@@ -115,8 +115,10 @@ enum PrintPage {
             + head.files.map { line("bm-meta", $0) }
             + [rule]
         // Mail's bars beside quoted text (B-101), the pane's own string:
-        // Mail's light colours, which on white are as Mail draws them.
-        let bars = isHTML ? "\n" + QuoteBars.css(in: "#bm") : ""
+        // Mail's light colours, which on white are as Mail draws them. A
+        // plain letter's too, its quotes Mail's blockquotes as in the pane
+        // (`PlainQuotes`, B-147), in the same light colours on the paper.
+        let bars = "\n" + QuoteBars.css(in: "#bm")
         // The header prints in its own colours (`exact`), its lines grey as
         // in the pane and as Mail's header, which UIKit draws, prints them.
         // With no backgrounds printed (`LetterPrint.load`), WebKit changes
@@ -178,7 +180,8 @@ enum PrintPage {
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)
         return (notice(cut != nil || m.isShortened)
-                    + PanePage.content(text: cut ?? text, html: nil, known: known), false)
+                    + PanePage.content(text: cut ?? text, html: nil, known: known,
+                                       flowed: m.textIsFlowed), false)
     }
 
     /// The pane's words for a letter with nothing in it, grey on paper too.

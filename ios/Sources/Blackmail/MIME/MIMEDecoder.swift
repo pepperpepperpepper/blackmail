@@ -1141,6 +1141,7 @@ enum MIMEDecoder {
                                attachments: [])
         // By the body the pane shows, the HTML whenever there is any.
         body.isShortened = body.html != nil ? plan.htmlGoesOn : plan.textGoesOn
+        body.textIsFlowed = plan.textIsFlowed
         var attachments: [Attachment] = []
         collectAttachments(part, skipping: plan.sections, depth: 0, into: &attachments)
         body.attachments = attachments
@@ -1253,6 +1254,19 @@ enum MIMEDecoder {
         /// to fetch whole fetches of itself (`Allowance`).
         var sections: Set<String> {
             Set((html + text).compactMap { $0.words?.section })
+        }
+
+        /// Whether the plain words are flowed text (RFC 3676): every part
+        /// of them text/plain with `format=flowed`, as Apple Mail and
+        /// Thunderbird send plain text, and at least one. How deep a line's
+        /// quote is depends on it (`PlainQuotes`, B-147). Nothing else
+        /// reads it: the lines are drawn as they came.
+        var textIsFlowed: Bool {
+            let parts = text.compactMap(\.words)
+            return !parts.isEmpty && parts.allSatisfy { part in
+                part.type == "text" && part.subtype == "plain"
+                    && MIMEDecoder.parameter("format", in: part.parameters)?.lowercased() == "flowed"
+            }
         }
     }
 
