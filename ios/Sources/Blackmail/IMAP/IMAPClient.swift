@@ -1121,6 +1121,48 @@ actor IMAPClient {
         return ordered
     }
 
+    /// How many letters' envelopes one hold of `fetchEnvelopes` asks for.
+    static let envelopesPerHold = 100
+
+    /// What `fetchEnvelopes` asks of each letter.
+    static let envelopeItems = "(UID INTERNALDATE ENVELOPE)"
+
+    /// The envelopes alone, with each letter's UID and INTERNALDATE, for
+    /// the address book's fill from his Sent Mail (B-155): no flags, no
+    /// structure, no body, so nothing is marked read. In the background
+    /// line, `envelopesPerHold` letters a hold, so a letter he opens waits
+    /// for one hold at most, and each selects the mailbox again if another
+    /// screen had the socket in between. Under `validity` or not at all.
+    ///
+    /// Stops between holds once its task is cancelled. A chunk refused is
+    /// passed over, as in `fetchSummaries`; every one refused throws.
+    func fetchEnvelopes(uids: [UInt32], in mailbox: String,
+                        validity: UInt32) async throws -> [IMAPFetchResult] {
+        var fetched: [IMAPFetchResult] = []
+        var sawFailure = false
+        for start in stride(from: 0, to: uids.count, by: Self.envelopesPerHold) {
+            try Task.checkCancellation()
+            let some = Array(uids[start..<min(start + Self.envelopesPerHold, uids.count)])
+            let answer = try await inMailbox(mailbox, validity: validity, .background) {
+                (_: IMAPMailboxState) async throws -> [IMAPFetchResult]? in
+                var got: [IMAPFetchResult] = []
+                for chunk in Self.uidSetChunks(some) {
+                    let result = try await self.performCommand("UID FETCH \(chunk) \(Self.envelopeItems)")
+                    guard result.status == .ok else { return nil }
+                    got += IMAPParser.parseFetch(result.untagged)
+                }
+                return got
+            }
+            guard let answer else {
+                sawFailure = true
+                continue
+            }
+            fetched += answer
+        }
+        if fetched.isEmpty, sawFailure { throw MailError.cannotConnect }
+        return fetched
+    }
+
     /// A page he is waiting to see, the first of a folder he opened or the
     /// one a date jump lands on: the SEARCHes that decide which letters it
     /// holds, then their summaries, in one hold of the gate, in the

@@ -30224,3 +30224,157 @@ build for the iPad links.
 - Noticed, not built: Mail's iPadOS 18 bar has Insert Drawing beside the
   paperclip, and its paperclip offers Take Photo or Video and Scan
   Document too (B-108's reasons stand).
+
+## B-155 — FIXED 2026-10-26, not yet seen on the iPad. The address book knew only the people of the rows listed and of his sends from the app, so about half the people he writes to in a month were not offered until one of their letters was listed; it is filled once per account from six months of his Sent Mail
+
+Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
+at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
+decision tree by copying Apple Mail", for the TODO's "The address book
+filled from his Sent Mail" (B-017, B-123).
+
+**What Mail does.** Mail suggests addresses from Contacts and from
+Recents, the addresses he has sent to, which iOS keeps for Mail and
+iCloud carries from device to device, years of them (osxdaily,
+idownloadblog, lapcatsoftware, 2026-08; B-123's audit). So on a new iPad
+signed in to his Apple ID, the people he writes to are suggested from the
+first day. How Mail ranks them, and how far back Recents go, is not
+known.
+
+**What it was.** The book (`RecipientBook`, B-017) learned from the
+envelopes of the rows the list fetched and from each letter he sent from
+the app, 300 at most, those written to above those only seen. So about
+half the people he writes to in a month were not suggested, and a half
+name in search did not find them (B-123), until one of their letters was
+listed.
+
+**Changed.**
+
+1. *Once per account, after the Inbox's first page*
+   (`RootViewController`, `onFirstLoadFinished`, after the counts are let
+   go and before the watch starts): `IMAPMailRepository.fillBookFromSent`,
+   with nothing waiting for it. Done, the account is marked with the book
+   (`blackmail.recipients.filledFromSent`, its address in any case) and it
+   is never asked again: not at the next launch, nor by the repository a
+   new password makes. On an iPad with the account set up already, the
+   first launch of this build fills; after a sign-in, its first page.
+2. *What is read.* In the folder LIST names `\Sent`, never All Mail,
+   which holds the letters to him too: one `UID SEARCH SINCE` six months back,
+   by the iPad's calendar (`bookFillMonths`), then of the newest 2,000 hits
+   (`bookFillLetters`, about ten months of his at some two hundred
+   letters a month) `(UID INTERNALDATE ENVELOPE)` alone
+   (`IMAPClient.fetchEnvelopes`), a hundred letters a hold
+   (`envelopesPerHold`), all in the background line, so what he taps goes
+   first and waits for one hold at most. No flags, no body, no STORE:
+   nothing is marked read, and nothing is kept but the book.
+3. *Who goes in* (`RecipientBook.writtenTo`): each letter's To, Cc and
+   Bcc, an address counted once a letter and never one of his own (the
+   account's, its login and every other Settings lists, `OwnAddresses`),
+   so a letter only to his own addresses gives nothing. Each counted by
+   its letters, dated by the newest of them (Gmail's date, INTERNALDATE,
+   else its Date), and named as the newest letter naming it names it.
+   Ranked by count, then by date, then by address.
+4. *Into the book* (`RecipientBook.fill`): as written to, in that order,
+   as many as the 300 holds beside his own addresses in it. An entry the
+   book has keeps its name, or takes this one if it had none, and takes
+   the larger count and the later date, so a letter sent from the app and
+   counted as it went (`used`) is not counted twice. What no longer fits
+   goes by the book's rule: those only seen first, then the oldest.
+5. *His own never pushed out* (`RecipientBook.keepOwn`): each repository
+   tells the book his addresses as it is made, and the fill again, and
+   the book never evicts one. A book filled with people written to holds
+   few that were only seen, and his own, noted at launch and seldom
+   chosen, were the first that the next sender noted would have pushed
+   out.
+6. *Never in the way.* Work he did not ask for, as B-104's look in Sent
+   Mail is: nothing is sent without a connection up, which it never
+   makes, nor before the folders are listed, nor with no `\Sent`; one
+   under way, a second is not begun. A refusal or a lost connection
+   fills nothing, marks nothing and is not tried again until the next
+   launch. One line in the connection log, `BOOK-FILL letters=N
+   people=M`, or `BOOK-FILL not-now`; no address in it.
+
+**What it reverses.** Nothing ruled and nothing built: B-017's book
+learns as before, and its "Not backed by Contacts" stands (Contacts in
+the suggestions is another of the owner's items). The book is filled as
+well.
+
+**What he sees.** From the first day, the start of the name or address of
+anyone he wrote to in the last six months offers them as he types, the
+people he writes to most first; and a half-typed name in search finds
+their letters (B-123). Nothing says the book was filled. No new words.
+
+**Tests.** `SentFillTests`, eighteen, new. The people of a letter: ranked
+by letters, then by the newest, then by address; To, Cc and Bcc each
+counted, an address once a letter in any case; his own, the account's
+and the others listed, never taken, a letter only to them giving nothing
+and one to him and Sam giving Sam; the name the newest letter's, a blank
+or the address again no name; Gmail's date before a Date in the future,
+the Date with none; a group's name, an address with nothing on one side
+of its @ and a letter with no envelope giving nobody. The book: 400
+people into a book of his two addresses and 280 only seen, 298 taken,
+the best, his two kept and the 280 gone; an entry keeping its name and
+taking the larger count and the later date, one with no name taking the
+fill's; his own kept through fifty senders noted after a fill, and through
+320 people written to in a book told his addresses; the fill marked once
+per account, in any case, kept across launches; the newest 2,000 of the
+hits read. Over the scripted server, after the Inbox's first page: one
+SELECT of Sent Mail, `UID SEARCH SINCE "21-Mar-2026"` six months before,
+one `UID FETCH … (UID INTERNALDATE ENVELOPE)`, nothing else, every answer
+OK, no BODY or FLAGS asked, an unread letter left unread, the log's line,
+and as he types Quentin offered with his two letters, Carlo with his
+eight, Sam from a letter to him and Sam, nobody of seven months back and
+not his second address; a second fill, and one by a new repository,
+sending nothing; nothing sent and nothing marked with no connection, and
+with no `\Sent`, never All Mail; a connection lost under the SEARCH
+filling and marking nothing, with no reconnect, nothing sent when asked
+again with none, and the next repository's filling; 250 letters in three
+FETCHes. Read from the source: the fill asked for after the first page,
+not waited for, once; each repository telling the book his addresses;
+the fill's order, the mark last; the envelopes in the background line,
+called off between holds.
+
+Each rule undone by hand, `SentFillTests`, `RecipientBookTests`,
+`NameAtOnceTests`, `HalfNameSearchTests`, `CompleteThreadsTests` and
+`SafeStartTests` run, then put back and passing, counted as failures in
+tests; in four runs, the rules of a run each failing tests of their own,
+told apart by the failures' words. His own addresses taken in by
+`writtenTo`, 2 in 1 (the fill leaves them out again, so the server's test
+passes); an address counted again in the same letter, 1 in 1; ranked by
+the newest alone, 3 in 1; the counts added, not the larger kept, 1 in 1;
+All Mail in place of a Sent Mail not listed, 4 in 2; the envelopes a
+thousand a hold, 2 in 1; the oldest 2,000 read, 2 in 1; the fill never
+asked for, 2 in 1; the 300 taken with no room kept for his own, 1 in 1;
+the fill's name over the book's, 1 in 1; the account not marked, 4 in 2;
+a connection made for it, 4 in 2; no repository telling the book his
+addresses, 1 in 1; his own evicted, 7 in 3; the rows' summaries fetched
+in place of the envelopes, 3 in 2; the account marked when the fill
+failed, 3 in 1; six months taken as twelve, 5 in 2.
+
+The full suite, serially, with B-154 beside it: 2,687 tests, 23 of them
+new, eighteen of them this entry's, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- On an iPad: nothing yet. How long his Sent Mail's six months take,
+  about 1,200 letters, twelve holds, and how much memory the envelopes
+  need, not measured; whether a letter tapped meanwhile waits, the device
+  check.
+- Gmail's SINCE counts its days in its own zone, so the window's first
+  day may be a day off his; at six months, nothing.
+- Mail's Recents go back years and are ranked as Mail ranks them, which
+  is not known; the fill reads six months, ranked as the book ranks.
+- His own addresses keep what the book had for them: a letter to himself
+  is not counted, as the ruling has it. So until he has written to
+  himself from the app as often, someone whose name starts as his and
+  whom he wrote to more often comes above his own address in the
+  composer's list. Mail's Recents would count his letters to himself.
+  Noticed, not built.
+- A second account on the iPad shares the one book, as before; its own
+  fill comes at its own first page.
+- A fill stopped by the app going into the background, the connection
+  dying under it, is done again at the next launch: nothing of it is in
+  the book until all of it has been read.
+- Mail's Recents, and what Mail suggests on a new iPad, not seen: the
+  test iPad has no Mail, and no iPad on iOS 18 with a test account was at
+  hand.

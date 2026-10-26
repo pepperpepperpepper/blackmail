@@ -7389,6 +7389,50 @@ checks below is left as not needed, not open, and none is worth a round.*
       the caret in the body: no paperclip in its bar. Cancel, Delete Draft
       if asked.
       Nothing else is tapped; Drafts and Sent Mail counted before and after.
+- [ ] **B-155, the address book filled from his Sent Mail.** On the test
+      iPad, the test account only, from a build of the `bm-cm-compose`
+      worktree (branch `copy-compose`) or of the int it is merged into. The
+      fill runs once for the account, at the first launch of a build that
+      has it, so 1 is done before that build is first launched; a build
+      with it launched before leaves 2 to nothing, and is written down.
+      Nothing is sent, composed letters end with Cancel and Delete Draft if
+      asked, and nothing is opened in Sent Mail but in 5's search.
+      1. *The letters, before the launch.* The host APPENDs four letters
+      to the test account's "[Gmail]/Sent Mail" (an APPEND sends nothing),
+      each From the test account, with a new Message-ID of its own, and
+      notes each UID from its APPENDUID, stopping if one has none: (a) To
+      "Quentin Fill <quentin.b155@example.com>", read (`\Seen`), its
+      internal date four months back; (b) the same To, unread, no flags,
+      two months back; (c) To "Olive Old <olive.b155@example.com>", read,
+      seven months back; (d) To the test account itself alone, read, three
+      months back. The book is not to know Quentin or Olive already: the
+      host checks that neither address is in any other letter of the
+      account.
+      2. *The launch.* The build installed and launched. The Inbox's first
+      page comes as before, and the list can be scrolled and a letter
+      opened meanwhile. In the connection log, after the first page and
+      the counts: `SELECT "[Gmail]/Sent Mail"`, `UID SEARCH SINCE
+      "dd-Mmm-yyyy"`, six months before the day, `UID FETCH … (UID
+      INTERNALDATE ENVELOPE)` for at most a hundred letters each, and
+      `BOOK-FILL letters=N people=M`, both numbers written down, with the
+      time from the SEARCH to that line. No STORE and no BODY among them.
+      An Inbox letter tapped while they run: the time it took written
+      down.
+      3. *Offered.* A new letter. In To type "quen": "Quentin Fill" offered.
+      Delete it; type "oliv": nothing offered. Delete it; type the first
+      four letters of the test account's own address: offered as before.
+      Cancel, Delete Draft if asked.
+      4. *Nothing marked.* The host reads (b)'s flags: still no `\Seen`.
+      5. *Search* (B-123). In Sent Mail, Current Mailbox, type "Quen" with
+      no space after it: (a) and (b) found. Cancel the search. Nothing
+      opened.
+      6. *Once.* The app ended in the switcher and launched again: no
+      `BOOK-FILL` line and no SEARCH in Sent Mail in the log.
+      7. *Put back:* the host moves the four UIDs it noted, and only them,
+      from Sent Mail to the Trash (`UID MOVE`), and deletes in the Trash
+      only the UIDs that move answered (`COPYUID`). Never anything found
+      by subject or Message-ID: a UID not noted is left, and written down.
+      Nothing else was written.
 
 ## Blocked on the owner
 
@@ -7686,6 +7730,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       letters is listed. Reading his Sent Mail's recent envelopes once
       at sign-in would put them there from the first day. As built (the
       default), or the fill.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-155.*
 - [ ] **Three offline choices for the copy kept on the iPad** (D-016,
       "each needs its own decision later"; with nothing built after the
       install, now or never): fetching unread mail ahead for reading with

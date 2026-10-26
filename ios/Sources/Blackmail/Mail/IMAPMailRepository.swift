@@ -208,6 +208,9 @@ actor IMAPMailRepository: MailRepository {
         // the name his account gives him, whatever name an old letter of
         // his taught the book (B-082).
         recipients.noteOwn(address: account.address, name: account.displayName)
+        // And none of his addresses ever pushed out of the book, which the
+        // fill from his Sent Mail leaves full of people written to (B-155).
+        recipients.keepOwn(OwnAddresses(account: account.withSettings(of: saved())))
     }
 
     #if canImport(Network) && canImport(Security)
@@ -2528,6 +2531,69 @@ actor IMAPMailRepository: MailRepository {
     private static func shown(_ found: RelatedLetters, besides: Set<UInt64>) -> RelatedLetters {
         RelatedLetters(folderName: found.folderName,
                        letters: CompleteThreads.shown(found.letters, besides: besides))
+    }
+
+    // MARK: - The address book from his Sent Mail (B-155)
+
+    /// How far back his Sent Mail is read for the book: six months.
+    static let bookFillMonths = 6
+
+    /// The most letters read for it, the newest: about ten months of his,
+    /// at some two hundred letters a month, so six months of a busier
+    /// sender's are read at most this far.
+    static let bookFillLetters = 2_000
+
+    /// Whether a fill is under way, so a second is not begun beside it.
+    private var fillingBook = false
+
+    /// The book filled from his Sent Mail, once for this account (Mail's
+    /// Recents, B-155): one UID SEARCH SINCE six months ago in the folder
+    /// LIST names `\Sent`, never All Mail, which holds the letters to him
+    /// too; then the envelopes of the newest `bookFillLetters` of them,
+    /// `IMAPClient.envelopesPerHold` a hold, all in the background line
+    /// (`IMAPClient.fetchEnvelopes`). No flags, no body, no STORE: nothing
+    /// is marked read, and nothing kept but the book. The people he wrote
+    /// to go in as written to, within the 300, never pushing out his own
+    /// addresses, and leaving out letters only to them
+    /// (`RecipientBook.writtenTo`, `fill`). Marked done for the account
+    /// once the book is written out.
+    ///
+    /// Work he did not ask for, as `lettersOfHis` is: nothing is sent
+    /// without a connection up, which this never makes, nor before the
+    /// folders have been listed. A refusal or a lost connection fills
+    /// nothing and is not tried again until the next launch. Nobody waits
+    /// for it, and it says nothing to him.
+    func fillBookFromSent() async -> BookFill {
+        let key = account.address
+        guard !recipients.filledFromSent(account: key) else { return .filledBefore }
+        guard !retired, !fillingBook, let sent = roleNames[.sent],
+              await imap.isConnected else { return .notNow }
+        fillingBook = true
+        defer { fillingBook = false }
+        let client = imap
+        let since = calendar.date(byAdding: .month, value: -Self.bookFillMonths, to: now()) ?? now()
+        do {
+            let found = try await client.search(
+                "SINCE \(IMAPDate.criteriaValue(for: since, timeZone: calendar.timeZone))", in: sent)
+            let letters = try await client.fetchEnvelopes(uids: Self.lettersForTheBook(found.uids),
+                                                          in: sent, validity: found.validity)
+            let mine = OwnAddresses(account: sender)
+            let taken = recipients.fill(with: RecipientBook.writtenTo(letters, besides: mine),
+                                        besides: mine)
+            recipients.flush()
+            recipients.markFilledFromSent(account: key)
+            Diagnostics.log(.note, "BOOK-FILL letters=\(letters.count) people=\(taken)")
+            return .filled(letters: letters.count, people: taken)
+        } catch {
+            Diagnostics.log(.note, "BOOK-FILL not-now")
+            return .notNow
+        }
+    }
+
+    /// Of Sent Mail's UIDs since the day, ascending as SEARCH gives them,
+    /// the newest `bookFillLetters`.
+    static func lettersForTheBook(_ uids: [UInt32]) -> [UInt32] {
+        Array(uids.sorted().suffix(bookFillLetters))
     }
 
     /// Where Send finds each file the letter carries (B-070): a photo on

@@ -39,6 +39,15 @@ struct KnownRecipient: Codable, Equatable {
 /// extra network cost, because the list already asks for ENVELOPE to draw a
 /// row.
 ///
+/// **And from his Sent Mail, once per account** (B-155). Mail suggests
+/// everyone he has written to from its Recents; a book that learned only
+/// from the rows listed missed about half the people he writes to in a
+/// month until one of their letters was listed. So the envelopes of the
+/// last six months of his Sent Mail are read once, after the Inbox's first
+/// page (`IMAPMailRepository.fillBookFromSent`), and the people he wrote to
+/// go in as written to (`writtenTo`, `fill`), within the 300, his own
+/// addresses never pushed out.
+///
 /// Stored in `UserDefaults` alongside the account for the same reason the
 /// account is: none of it is secret. It is a list of people he corresponds
 /// with, already sitting in plaintext on the server.
@@ -65,6 +74,10 @@ final class RecipientBook {
     /// `lock` with `entries`, because a flush from one thread has to see
     /// what another has noted.
     private var dirty = false
+    /// His own addresses as the account last told the book
+    /// (`keepOwn`): never evicted. Under `lock` with `entries`. Empty until
+    /// a repository is made, which is before anything is noted.
+    private var own = OwnAddresses([])
     /// Held for the dictionary and the flag, and for nothing else: never
     /// across the encode or the write to the defaults. A keystroke waits at
     /// most for one `record`, a few microseconds, and never for a flush.
@@ -127,6 +140,18 @@ final class RecipientBook {
         entries[key] = entry
         evictIfNeeded()
         dirty = true
+    }
+
+    /// His own addresses, the account's and every other Settings lists,
+    /// which the book never evicts (B-155). Told by each repository as it
+    /// is made, and again by the fill from his Sent Mail. Filled with the
+    /// people he wrote to, the book holds few entries never chosen, and his
+    /// own, noted at launch and seldom chosen, were the first a newsletter
+    /// noted next would have pushed out.
+    func keepOwn(_ mine: OwnAddresses) {
+        lock.lock()
+        own = mine
+        lock.unlock()
     }
 
     /// Each address filed under itself (`keys(for:)`): "jane@example.com;",
@@ -222,10 +247,11 @@ final class RecipientBook {
 
     /// Drops the least useful when full: never-chosen entries first, oldest
     /// first within that. Someone he has actually written to survives a
-    /// thousand newsletters. The caller holds `lock`.
+    /// thousand newsletters. Never one of his own addresses (`own`, B-155).
+    /// The caller holds `lock`.
     private func evictIfNeeded() {
         guard entries.count > Self.capacity else { return }
-        let ordered = entries.values.sorted {
+        let ordered = entries.values.filter { !own.contains($0.address) }.sorted {
             if ($0.uses > 0) != ($1.uses > 0) { return $0.uses == 0 }
             return $0.lastSeen < $1.lastSeen
         }
@@ -406,6 +432,103 @@ final class RecipientBook {
             .filter { !SearchCriteria.singleQuotes.contains($0) }
             .split(whereSeparator: { $0.isWhitespace })
             .joined(separator: " ")
+    }
+
+    // MARK: - From his Sent Mail (B-155)
+
+    /// The people his letters went to, from their envelopes in Sent Mail,
+    /// best first: each letter's To, Cc and Bcc, an address counted once a
+    /// letter and never one of his own (`mine`), so a letter only to his
+    /// own addresses gives nothing. Each as written to: `uses` the letters
+    /// to it, `lastSeen` when the newest of them went, Gmail's date for it
+    /// (INTERNALDATE) or else its Date, and the name the newest letter
+    /// naming it gave it. In the order the composer ranks by: the most
+    /// letters first, then the newest, then by address, so it is total.
+    static func writtenTo(_ letters: [IMAPFetchResult], besides mine: OwnAddresses) -> [KnownRecipient] {
+        var people: [String: KnownRecipient] = [:]
+        var namedAt: [String: Date] = [:]
+        for letter in letters {
+            guard let envelope = letter.envelope else { continue }
+            let went = letter.internalDate ?? envelope.date ?? .distantPast
+            var counted = Set<String>()
+            for to in envelope.to + envelope.cc + envelope.bcc {
+                // A group's name, "undisclosed-recipients", has no host,
+                // and is nobody (`OwnAddresses.key`).
+                guard let key = OwnAddresses.key(to.address), key.count > 2, !mine.contains(key),
+                      counted.insert(key).inserted else { continue }
+                var person = people[key]
+                    ?? KnownRecipient(address: key, name: nil, uses: 0, lastSeen: .distantPast)
+                person.uses += 1
+                person.lastSeen = max(person.lastSeen, went)
+                let name = (to.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty, name.lowercased() != key, went >= namedAt[key] ?? .distantPast {
+                    person.name = name
+                    namedAt[key] = went
+                }
+                people[key] = person
+            }
+        }
+        return people.values.sorted { a, b in
+            if a.uses != b.uses { return a.uses > b.uses }
+            if a.lastSeen != b.lastSeen { return a.lastSeen > b.lastSeen }
+            return a.address < b.address
+        }
+    }
+
+    /// The people his Sent Mail says he wrote to (`writtenTo`) taken in as
+    /// written to, in their order, as many as the 300 holds beside the
+    /// addresses of his own in it, which are never pushed out (`mine`, kept
+    /// from now as `keepOwn` keeps it). An entry the book has keeps its
+    /// name, or takes this one if it has none, and the larger count and
+    /// the later date, so a letter sent from the app and counted as it went
+    /// (`used`) is not counted twice. What no longer fits goes as ever:
+    /// what was only seen first, then the oldest. Written out by the
+    /// caller (`flush`). Returns how many were taken in.
+    @discardableResult
+    func fill(with people: [KnownRecipient], besides mine: OwnAddresses) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        own = mine
+        let room = Self.capacity - entries.keys.filter { mine.contains($0) }.count
+        var taken = 0
+        for person in people where !mine.contains(person.address) {
+            guard taken < room else { break }
+            var entry = entries[person.address]
+                ?? KnownRecipient(address: person.address, name: nil, uses: 0, lastSeen: .distantPast)
+            if (entry.name ?? "").isEmpty, let name = person.name, !name.isEmpty {
+                entry.name = name
+            }
+            entry.uses = max(entry.uses, person.uses)
+            entry.lastSeen = max(entry.lastSeen, person.lastSeen)
+            entries[person.address] = entry
+            taken += 1
+        }
+        evictIfNeeded()
+        if taken > 0 { dirty = true }
+        return taken
+    }
+
+    private static let filledKey = "blackmail.recipients.filledFromSent"
+
+    /// Whether the book has been filled from the Sent Mail of the account
+    /// at `address` (`IMAPMailRepository.fillBookFromSent`): once per
+    /// account, in any letter case, kept with the book.
+    func filledFromSent(account address: String) -> Bool {
+        (defaults.stringArray(forKey: Self.filledKey) ?? []).contains(Self.accountKey(address))
+    }
+
+    /// The fill from that account's Sent Mail done, never to be asked
+    /// again.
+    func markFilledFromSent(account address: String) {
+        var filled = defaults.stringArray(forKey: Self.filledKey) ?? []
+        let key = Self.accountKey(address)
+        guard !filled.contains(key) else { return }
+        filled.append(key)
+        defaults.set(filled, forKey: Self.filledKey)
+    }
+
+    private static func accountKey(_ address: String) -> String {
+        address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     // MARK: - Storage
