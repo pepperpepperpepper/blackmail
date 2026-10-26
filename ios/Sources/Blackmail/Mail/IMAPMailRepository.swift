@@ -2473,6 +2473,11 @@ actor IMAPMailRepository: MailRepository {
     /// The app's are `mostAhead` and `mostAheadBytes`; a test hands in its own.
     private let aheadMost: Int
     private let aheadMostBytes: Int
+    /// The bytes each letter the room of the letters fetched ahead had too
+    /// little for took, its words with them, or the size the server gave
+    /// it, by its row's id in the Inbox: in this launch it is fetched again
+    /// only once the room has that much (`KeptLetters.roomAhead`).
+    private var aheadNeeds: [String: Int] = [:]
 
     /// The newest unread letters on the Inbox's kept page, which since its
     /// first page this launch are the server's newest, fetched whole and
@@ -2483,22 +2488,31 @@ actor IMAPMailRepository: MailRepository {
     /// pass at a time.
     ///
     /// Each in pieces in the background line (`IMAPClient.fetchBodyAhead`),
-    /// so what he taps meanwhile goes first, after the piece on the wire;
-    /// BODY.PEEK, never a STORE, so nothing is marked read; and with Gmail's
-    /// id asked beside the first piece, the letter kept only if it is the
-    /// row's (D-016). Passed over: a letter kept already, one with no Gmail
-    /// id, a draft, one the server has named another letter under, and one
-    /// above `largeAbove`, which is opened in parts and never kept (B-054).
-    /// Stops at the first that fails, the connection gone, or the bounds.
+    /// so what he taps meanwhile goes first, after the piece on the wire,
+    /// and only while the Inbox is the folder open, so nothing he does in
+    /// another folder waits for a SELECT; BODY.PEEK, never a STORE, so
+    /// nothing is marked read; and with Gmail's id asked beside the first
+    /// piece, the letter kept only if it is the row's (D-016). Passed over:
+    /// a letter kept already, one with no Gmail id, a draft, one the server
+    /// has named another letter under, and one above `largeAbove`, which is
+    /// opened in parts and never kept (B-054). Stops at the first that
+    /// fails, the connection gone, the Inbox no longer open, the bounds, and
+    /// the first letter the room of the letters fetched ahead has no room
+    /// for without one newer than it going (`KeptLetters.roomAhead`): every
+    /// letter after it is older, so a pass over letters kept already sends
+    /// nothing.
     func fetchAhead() async {
-        guard !retired, !fetchingAhead, let shelf, let listed, await imap.isConnected else { return }
+        // Taken before the first wait, so two asked at once, a reload's and
+        // a page landing's, are one pass.
+        guard !retired, !fetchingAhead, let shelf, let listed else { return }
         fetchingAhead = true
         defer { fetchingAhead = false }
+        guard await imap.isConnected else { return }
         let inbox = Self.serverName(for: "inbox", listed: listed, roles: roleNames)
         guard let drafts = draftsName(), inbox != drafts, let page = shelf.page(of: inbox) else { return }
         var bytes = 0
         var fetched = 0
-        for row in FetchAhead.letters(on: page.rows, most: aheadMost) {
+        passing: for row in FetchAhead.letters(on: page.rows, most: aheadMost) {
             guard !Task.isCancelled, !retired, bytes < aheadMostBytes,
                   await imap.isConnected else { break }
             guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
@@ -2510,26 +2524,62 @@ actor IMAPMailRepository: MailRepository {
                 guard known.validity == at.validity else { break }
                 if let there = known.letters[at.uid], there != letter { continue }
             }
-            let raw: Data
+            guard let room = shelf.letters.roomAhead(validity: at.validity, uid: at.uid),
+                  (aheadNeeds[row.id] ?? 0) <= room else { break }
+            let got: IMAPClient.AheadLetter
             do {
-                guard let got = try await imap.fetchBodyAhead(uid: at.uid, in: inbox, validity: at.validity,
-                                                              letter: letter, piece: Self.aheadPiece,
-                                                              most: largeAbove) else { continue }
-                raw = got
+                got = try await imap.fetchBodyAhead(uid: at.uid, in: inbox, validity: at.validity,
+                                                    letter: letter, piece: Self.aheadPiece,
+                                                    most: min(largeAbove, room))
             } catch {
                 break
             }
-            saw([at.uid: letter], validity: at.validity, in: inbox)
-            guard !raw.isEmpty else { continue }
-            let shown = Self.letter(row.id, in: inbox, headers: MIMEDecoder.parseHeaders(raw),
-                                    decoded: MIMEDecoder.decodeMessage(raw), named: letter, shortened: false)
-            shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, message: letter,
-                               words: KeptSearch.words(of: shown), ahead: true)
-            bytes += raw.count
-            fetched += 1
+            switch got {
+            case .notOpen:
+                break passing
+            case .notThere:
+                continue
+            case .over(let size):
+                saw([at.uid: letter], validity: at.validity, in: inbox)
+                // Above the size opened in parts, it is never kept, and is
+                // opened so; otherwise the room has too little for it.
+                if size > largeAbove {
+                    rememberLarge(row.id, in: inbox, size: size)
+                    continue
+                }
+                needs(size, for: row.id)
+                break passing
+            case .letter(let raw):
+                saw([at.uid: letter], validity: at.validity, in: inbox)
+                guard !raw.isEmpty else { continue }
+                let shown = Self.letter(row.id, in: inbox, headers: MIMEDecoder.parseHeaders(raw),
+                                        decoded: MIMEDecoder.decodeMessage(raw), named: letter,
+                                        shortened: false)
+                let words = KeptSearch.words(of: shown)
+                // Its words with it, as the room counts them: the room asked
+                // again, after every keep before it.
+                let need = raw.count + words.utf8.count
+                guard need <= shelf.letters.roomAhead(validity: at.validity, uid: at.uid) ?? 0 else {
+                    needs(need, for: row.id)
+                    break passing
+                }
+                shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, message: letter,
+                                   words: words, ahead: true)
+                bytes += raw.count
+                fetched += 1
+            }
         }
         if fetched > 0 { Diagnostics.log(.note, "KEPT-AHEAD letters=\(fetched) bytes=\(bytes)") }
     }
+
+    /// The bytes the letter `id` needs in the room of the letters fetched
+    /// ahead, for the rest of the launch; all forgotten past a few hundred,
+    /// which costs each of them no more than its first piece again.
+    private func needs(_ bytes: Int, for id: String) {
+        if aheadNeeds.count >= Self.maximumRememberedNeeds { aheadNeeds = [:] }
+        aheadNeeds[id] = bytes
+    }
+    private static let maximumRememberedNeeds = 500
 
     // MARK: - His letters in a conversation
 

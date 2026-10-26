@@ -5,9 +5,11 @@ import XCTest
 /// of its three parts): Mail downloads mail ahead of his opening it, so with
 /// no connection a letter he never opened opens. Here the newest unread
 /// letters of the Inbox's kept page are fetched whole after its first page
-/// and its previews, in pieces in the background line, by BODY.PEEK with
-/// Gmail's id asked beside the first, never a STORE, and kept as letters
-/// fetched ahead, which go first.
+/// and its previews, in pieces in the background line while the Inbox is
+/// the folder open, by BODY.PEEK with Gmail's id and size asked beside the
+/// first, never a STORE, and kept as letters fetched ahead, in room of
+/// their own, the oldest letter going first, so a pass over letters kept
+/// already sends nothing, however full the store.
 ///
 /// The rule, the store's tier, the client's pieces and the pass over the
 /// scripted server through the shipping repository and client, and the
@@ -126,7 +128,7 @@ final class FetchAheadTests: XCTestCase {
         await repository.fetchAhead()
         XCTAssertEqual(server.log.map(\.verb), Array(repeating: "UID FETCH", count: 6))
         XCTAssertEqual(server.log.map(\.command),
-                       waiting.map { "UID FETCH \(uid($0.id)) (UID X-GM-MSGID BODY.PEEK[]<0.131072>)" })
+                       waiting.map { "UID FETCH \(uid($0.id)) (UID X-GM-MSGID RFC822.SIZE BODY.PEEK[]<0.131072>)" })
         XCTAssertFalse(server.log.contains { $0.command.contains("BODY[") })
         for row in waiting {
             XCTAssertFalse(server.flags(uid: uid(row.id), in: Server.inbox).contains("\\Seen"), row.id)
@@ -170,7 +172,7 @@ final class FetchAheadTests: XCTestCase {
         await repository.fetchAhead()
         let piece = IMAPMailRepository.aheadPiece
         XCTAssertEqual(server.log.map(\.command), [
-            "UID FETCH \(long) (UID X-GM-MSGID BODY.PEEK[]<0.\(piece)>)",
+            "UID FETCH \(long) (UID X-GM-MSGID RFC822.SIZE BODY.PEEK[]<0.\(piece)>)",
             "UID FETCH \(long) (UID BODY.PEEK[]<\(piece).\(piece)>)",
             "UID FETCH \(long) (UID BODY.PEEK[]<\(2 * piece).\(piece)>)",
         ])
@@ -231,37 +233,64 @@ final class FetchAheadTests: XCTestCase {
         XCTAssertEqual(server.log, [], "no connection made")
     }
 
-    /// Another letter at the UID than the row's: the client asks no more
-    /// after the first piece, and nothing is handed back.
+    /// Only while the Inbox is the folder open, under the row's
+    /// UIDVALIDITY: with nothing open, or another folder, nothing is sent,
+    /// not even a SELECT. Another letter at the UID than the row's: the
+    /// client asks no more after the first piece, and nothing is handed
+    /// back. Past the most it may be by the size given beside the first
+    /// piece: nothing more asked.
     func testAnotherLetterUnderTheUIDIsNotFetched() async throws {
         let client = IMAPClient(account: server.account, transport: server.transportFactory)
         try await client.connect(password: server.password)
         let newest = try XCTUnwrap(server.uids(in: Server.inbox).last)
         let validity = server.uidValidity(of: Server.inbox)
         let real = try XCTUnwrap(server.gmailMessageID(uid: newest, in: Server.inbox))
+        let raw = try XCTUnwrap(server.raw(uid: newest, in: Server.inbox))
         server.clearLog()
+        let closed = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity,
+                                                     letter: real, piece: 64, most: 1 << 20)
+        XCTAssertEqual(closed, .notOpen)
+        XCTAssertEqual(server.log, [])
+        _ = try await client.searchAll(in: Server.sent)
+        server.clearLog()
+        let elsewhere = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity,
+                                                        letter: real, piece: 64, most: 1 << 20)
+        XCTAssertEqual(elsewhere, .notOpen)
+        XCTAssertEqual(server.log, [], "nothing sent, not even a SELECT")
+
+        _ = try await client.searchAll(in: Server.inbox)
+        server.clearLog()
+        let renumbered = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity + 1,
+                                                         letter: real, piece: 64, most: 1 << 20)
+        XCTAssertEqual(renumbered, .notOpen)
         let got = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity,
                                                   letter: real + 1, piece: 64, most: 1 << 20)
-        XCTAssertNil(got)
-        XCTAssertEqual(server.log.map(\.verb), ["SELECT", "UID FETCH"])
+        XCTAssertEqual(got, .notThere)
+        XCTAssertEqual(server.log.map(\.verb), ["UID FETCH"])
         let whole = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity,
                                                     letter: real, piece: 64, most: 1 << 20)
-        XCTAssertEqual(whole, server.raw(uid: newest, in: Server.inbox))
+        XCTAssertEqual(whole, .letter(raw))
+        server.clearLog()
         let over = try await client.fetchBodyAhead(uid: newest, in: Server.inbox, validity: validity,
                                                    letter: real, piece: 64, most: 100)
-        XCTAssertNil(over, "past the most it may be")
+        XCTAssertEqual(over, .over(raw.count), "past the most it may be, by its size")
+        XCTAssertEqual(server.log.count, 1, "nothing asked past the first piece")
         await client.disconnect()
     }
 
     // MARK: - The store
 
-    /// Fetched ahead, a letter goes first: before any he opened when the
-    /// store is past its bounds, and past their own bounds the one fetched
-    /// longest ago. Opened, it is a letter he opened. Fetched ahead again,
-    /// a letter he opened stays as it was.
-    func testLettersFetchedAheadGoFirst() throws {
+    /// Letters fetched ahead have room of their own: neither kind ever
+    /// goes for the other. Past their room the oldest letter goes, by its
+    /// UID, not the one fetched longest ago, so the newest stay; one older
+    /// than every letter in a full room is not kept, nothing going for it,
+    /// and the room says so before it is fetched (`roomAhead`). Opened, a
+    /// letter fetched ahead is one he opened, and the letters he opened go
+    /// as theirs do. Fetched ahead again, a letter he opened stays as it
+    /// was.
+    func testLettersFetchedAheadHaveRoomOfTheirOwn() throws {
         var options = KeptLetters.Options()
-        options.bounds.letters = 4
+        options.bounds.letters = 2
         options.bounds.ahead = 2
         let shelf = makeShelf(options: options)
         let letters = shelf.letters
@@ -271,24 +300,190 @@ final class FetchAheadTests: XCTestCase {
         }
         func kept() -> [UInt32] { letters.records.map(\.uid) }
         keep(1, ahead: false)
-        keep(2, ahead: true)
+        keep(2, ahead: false)
+        keep(10, ahead: true)
+        keep(11, ahead: true)
+        XCTAssertEqual(kept(), [1, 2, 10, 11], "each in its own room")
         keep(3, ahead: false)
-        keep(4, ahead: true)
-        XCTAssertEqual(kept(), [1, 2, 3, 4])
-        keep(5, ahead: true)
-        XCTAssertEqual(kept(), [1, 3, 4, 5], "past their own bound, the oldest fetched ahead")
-        keep(6, ahead: false)
-        XCTAssertEqual(kept(), [1, 3, 5, 6], "past the store's, one fetched ahead before one opened")
-        XCTAssertNotNil(letters.letter(in: Server.inbox, validity: 1, uid: 5, message: 5, touch: true))
-        keep(7, ahead: false)
-        XCTAssertEqual(kept(), [3, 6, 5, 7], "opened, it is evicted as one he opened")
+        XCTAssertEqual(kept(), [2, 10, 11, 3], "a letter opened puts out one opened")
+        keep(12, ahead: true)
+        XCTAssertEqual(kept(), [2, 11, 3, 12], "past their room, the oldest letter")
+        XCTAssertNil(letters.roomAhead(validity: 1, uid: 9), "older than both: no room")
+        XCTAssertNotNil(letters.roomAhead(validity: 1, uid: 13))
+        XCTAssertNotNil(letters.roomAhead(validity: 1, uid: 11), "only 12 is newer")
+        keep(9, ahead: true)
+        XCTAssertEqual(kept(), [2, 11, 3, 12], "not kept, and nothing goes for it")
+        XCTAssertNotNil(letters.letter(in: Server.inbox, validity: 1, uid: 11, message: 11, touch: true))
+        XCTAssertEqual(kept(), [3, 12, 11], "opened, it is one he opened, and the oldest opened goes")
+        XCTAssertEqual(letters.records.filter(\.isAhead).map(\.uid), [12])
         keep(3, ahead: true)
-        XCTAssertEqual(kept(), [3, 6, 5, 7], "fetched ahead again, left as it was")
-        XCTAssertFalse(letters.records.contains(where: \.isAhead))
-        XCTAssertTrue(letters.has(in: Server.inbox, validity: 1, uid: 7, message: 7))
-        XCTAssertFalse(letters.has(in: Server.inbox, validity: 1, uid: 7, message: 8))
+        XCTAssertEqual(kept(), [3, 12, 11], "fetched ahead again, left as it was")
+        XCTAssertTrue(letters.has(in: Server.inbox, validity: 1, uid: 12, message: 12))
+        XCTAssertFalse(letters.has(in: Server.inbox, validity: 1, uid: 12, message: 13))
         shelf.flush()
-        XCTAssertEqual(makeShelf(options: options).letters.records.map(\.uid), [3, 6, 5, 7])
+        XCTAssertEqual(makeShelf(options: options).letters.records.map(\.uid), [3, 12, 11])
+    }
+
+    /// The words kept beside a letter count with it, in the bounds and
+    /// against the floor.
+    func testTheWordsCountWithTheLetter() throws {
+        let raw = Data("Subject: 1\r\n\r\nLetter.\r\n".utf8)
+        let words = String(repeating: "w", count: 100)
+        var options = KeptLetters.Options()
+        options.bounds.bytes = 2 * raw.count + 150
+        let shelf = makeShelf(options: options)
+        shelf.letters.keep(raw, in: Server.inbox, validity: 1, uid: 1, message: 1, words: words)
+        shelf.letters.keep(raw, in: Server.inbox, validity: 1, uid: 2, message: 2, words: words)
+        XCTAssertEqual(shelf.letters.records.map(\.uid), [2], "two letters' bytes, and their words")
+        XCTAssertEqual(shelf.letters.records.first?.words, 100)
+        XCTAssertEqual(shelf.letters.records.first?.kept, raw.count + 100)
+
+        MailShelf.wipe(root: kept)
+        var floor = KeptLetters.Options()
+        floor.bounds.floor = 1_000
+        floor.freeSpace = { 1_000 + Int64(raw.count) + 50 }
+        let near = makeShelf(options: floor)
+        near.letters.keep(raw, in: Server.inbox, validity: 1, uid: 1, message: 1, words: words)
+        XCTAssertEqual(near.letters.records, [], "under the floor with its words")
+    }
+
+    // MARK: - Passes over a full store
+
+    /// A store full of letters he opened leaves the letters fetched ahead
+    /// their room: a pass keeps every one it fetched, and the next, with
+    /// nothing new, sends nothing. Each one fetched ahead used to put out
+    /// the one fetched before it, and every pass fetched them all again.
+    func testAFullStoreOfOpenedLettersAndTwoPasses() async throws {
+        var options = KeptLetters.Options()
+        options.bounds.letters = 3
+        let shelf = makeShelf(options: options)
+        for n in 1...3 {
+            shelf.letters.keep(Data("Subject: \(n)\r\n\r\nOpened \(n).\r\n".utf8), in: "Archive", validity: 1,
+                               uid: UInt32(n), message: UInt64(n))
+        }
+        XCTAssertEqual(shelf.letters.records.count, 3)
+        let repository = makeRepository(shelf: shelf)
+        let rows = try await listed(repository)
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log.count, 6)
+        try await until { shelf.letters.records.filter(\.isAhead).count == 6 }
+        XCTAssertEqual(shelf.letters.records.filter { !$0.isAhead }.count, 3, "none he opened went")
+        XCTAssertEqual(Set(shelf.letters.records.filter(\.isAhead).map(\.uid)), Set(unread(rows).map { uid($0.id) }))
+
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log, [], "the second pass sends nothing")
+    }
+
+    /// With more unread letters than the room holds, one new letter is one
+    /// FETCH: the pass fetches it, the oldest letter fetched ahead goes,
+    /// and the rest are kept already. A pass after it sends nothing.
+    func testOneNewLetterIsOneFetch() async throws {
+        var options = KeptLetters.Options()
+        options.bounds.ahead = 3
+        let shelf = makeShelf(options: options)
+        let repository = makeRepository(shelf: shelf, aheadLetters: 3)
+        let rows = try await listed(repository)
+        let waiting = unread(rows)
+        XCTAssertGreaterThan(waiting.count, 3)
+        await repository.fetchAhead()
+        try await until { shelf.letters.records.count == 3 }
+
+        let fresh = server.deliver(Server.Letter(from: Server.sam, to: [Server.owner], subject: "New",
+                                                 date: Server.newestDate.addingTimeInterval(60),
+                                                 text: "Something new.\r\n", messageID: "<new@example.com>"),
+                                   to: [Server.inbox, Server.allMail])
+        let new = try XCTUnwrap(fresh[Server.inbox])
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log.map(\.command),
+                       ["UID FETCH \(new) (UID X-GM-MSGID RFC822.SIZE BODY.PEEK[]<0.131072>)"])
+        try await until { shelf.letters.records.contains { $0.uid == new } }
+        XCTAssertEqual(Set(shelf.letters.records.map(\.uid)),
+                       Set([new] + waiting.prefix(2).map { uid($0.id) }), "the oldest went")
+
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log, [], "nothing more")
+    }
+
+    /// The pass stops at the first letter the room has no room for without
+    /// a newer one going, before it is fetched: by the count, nothing
+    /// asked; by its size, given beside the first piece, nothing past that
+    /// piece, and nothing at all at the next pass.
+    func testThePassStopsWhereTheRoomIsFull() async throws {
+        var options = KeptLetters.Options()
+        options.bounds.ahead = 2
+        let two = makeShelf(options: options)
+        let repository = makeRepository(shelf: two)
+        let rows = try await listed(repository)
+        let waiting = unread(rows)
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log.count, 2, "the third never asked")
+        try await until { two.letters.records.count == 2 }
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log, [])
+
+        // The room for the newest two and half the third.
+        let kept = Dictionary(uniqueKeysWithValues: two.letters.records.map { ($0.uid, $0.kept) })
+        let third = try XCTUnwrap(server.raw(uid: uid(waiting[2].id), in: Server.inbox))
+        MailShelf.wipe(root: self.kept)
+        var bytes = KeptLetters.Options()
+        bytes.bounds.aheadBytes = (kept[uid(waiting[0].id)] ?? 0) + (kept[uid(waiting[1].id)] ?? 0)
+            + third.count / 2
+        let small = makeShelf(options: bytes)
+        let next = makeRepository(shelf: small)
+        _ = try await listed(next)
+        server.clearLog()
+        await next.fetchAhead()
+        XCTAssertEqual(server.log.map(\.command).last,
+                       "UID FETCH \(uid(waiting[2].id)) (UID X-GM-MSGID RFC822.SIZE BODY.PEEK[]<0.131072>)")
+        XCTAssertEqual(server.log.count, 3, "the third's first piece, and no more")
+        try await until { small.letters.records.count == 2 }
+        server.clearLog()
+        await next.fetchAhead()
+        XCTAssertEqual(server.log, [], "nothing at the next pass")
+    }
+
+    /// Only while the Inbox is the folder open: with Sent Mail open the
+    /// pass sends nothing, not a SELECT of the Inbox, so his next tap there
+    /// waits for nothing, and a lookup's few words there are not skipped.
+    func testNothingIsFetchedWhileAnotherFolderIsOpen() async throws {
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await listed(repository)
+        _ = try await repository.listMessages(in: Server.sent, beforeUID: nil, limit: 50)
+        server.clearLog()
+        await repository.fetchAhead()
+        XCTAssertEqual(server.log, [])
+        XCTAssertEqual(shelf.letters.records, [])
+    }
+
+    /// Two asked at once are one pass: each letter fetched once. The pass
+    /// is marked as under way before its first wait, read from the source,
+    /// since whether two calls meet in that wait is the scheduler's to say.
+    func testTwoAskedAtOnceAreOnePass() async throws {
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        let rows = try await listed(repository)
+        server.clearLog()
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<8 { group.addTask { await repository.fetchAhead() } }
+        }
+        XCTAssertEqual(server.log.count, unread(rows).count)
+        XCTAssertEqual(Set(server.log.map(\.command)).count, server.log.count, "none twice")
+
+        let code = try source("Mail/IMAPMailRepository.swift")
+        let pass = try section(of: code, from: "func fetchAhead() async {", to: "passing: for row in")
+        let marked = try XCTUnwrap(pass.range(of: "fetchingAhead = true"))
+        let wait = try XCTUnwrap(pass.range(of: "await "))
+        XCTAssertLessThan(marked.lowerBound, wait.lowerBound, "marked before the first wait")
+        XCTAssertTrue(pass.contains("guard !retired, !fetchingAhead, let shelf, let listed else { return } "
+                                    + "fetchingAhead = true"))
     }
 
     // MARK: - The list
@@ -309,7 +504,10 @@ final class FetchAheadTests: XCTestCase {
         XCTAssertEqual(list.components(separatedBy: "fetchAhead(").count - 1, 4)
         let client = try source("IMAP/IMAPClient.swift")
         let ahead = try section(of: client, from: "func fetchBodyAhead(", to: "struct LetterInPart")
-        XCTAssertTrue(ahead.contains("try await inMailbox(mailbox, validity: validity, .background)"))
+        XCTAssertTrue(ahead.contains("try await beginExchange(.background)"))
+        XCTAssertTrue(ahead.contains("guard selectedMailbox == mailbox, mailboxState?.uidValidity == validity else { "
+                                     + "return .notOpen }"))
+        XCTAssertFalse(ahead.contains("inMailbox("), "never a SELECT")
         XCTAssertFalse(ahead.contains(".interactive"))
         XCTAssertFalse(ahead.contains("BODY["))
     }

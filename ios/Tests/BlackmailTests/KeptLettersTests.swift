@@ -867,7 +867,7 @@ final class KeptLettersTests: XCTestCase {
         XCTAssertEqual(letters.components(separatedBy: ".write(to:").count - 1, 4,
                        "the letter, its words (B-160), its index, and the index behind")
         XCTAssertTrue(store.contains("try makeDirectories() try raw.write(to: file, options: .atomic) "
-                                     + "if let words, !words.isEmpty { try Data("),
+                                     + "if !said.isEmpty { try said.write("),
                       "its words beside it, once the directories are made and marked")
 
         let shelfSource = try source("Mail/MailShelf.swift")

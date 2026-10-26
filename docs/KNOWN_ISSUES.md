@@ -30326,25 +30326,62 @@ connection's work to what he asked for.
    never kept (B-054), and one the server has named another letter under.
 2. *When* (`IMAPMailRepository.fetchAhead`, `MessageListViewController.fetchAhead(after:)`):
    once the Inbox's fresh first page has landed and its previews have
-   come, the Outbox's pass gone before them: wherever the Inbox's first
-   page is fetched afresh, at a launch, a Refresh, or the watch's fetch
-   over the kept page; only on a connection already up, never making
-   one; one pass at a time.
+   come, the Outbox's pass started before them, and not waited for:
+   wherever the Inbox's first page is fetched afresh, at a launch, a
+   Refresh, or the watch's fetch over the kept page; only on a connection
+   already up, never making one; one pass at a time, the pass marked as
+   under way before its first wait, so two asked at once, a reload's and a
+   page landing's, are one.
 3. *How* (`IMAPClient.fetchBodyAhead`): `BODY.PEEK[]` from its first byte,
    128 KB a piece (`aheadPiece`), each piece its own exchange in the
    background line, so a letter he taps waits for one piece at most and
-   then goes first; Gmail's id asked beside the first piece, and the
-   letter kept only if it is the row's (D-016); nothing more asked once it
-   is not, once the letter has gone between two pieces, or past 5 MB.
-   Never a STORE, so nothing is marked read.
-4. *Kept as fetched ahead* (`KeptLetters`, `Record.ahead`, `keep(ahead:)`):
-   in the 300 letters and 64 MB, with bounds of their own, 50 and 20 MB,
-   and evicted first, the one fetched longest ago first, before any letter
-   he opened. Opened, it is a letter he opened, evicted as one. Fetched
-   ahead again, a letter kept already is left as it was. The index gains
-   an optional field, absent for every letter he opened and in an index
-   written before: no new format. The log: `KEPT-AHEAD letters=<n>
-   bytes=<n>`, and `ahead` on the keep's note; numbers only.
+   then goes first; Gmail's id and the letter's size (`RFC822.SIZE`) asked
+   beside the first piece, and the letter kept only if it is the row's
+   (D-016); nothing more asked once it is not, once the letter has gone
+   between two pieces, or once it is past the room it may have or 5 MB.
+   Never a STORE, so nothing is marked read. Each piece only while the
+   Inbox is the folder open on the connection, under the row's
+   UIDVALIDITY, checked in the same hold as its FETCH, as the few words
+   of his lines in Sent Mail are (`fetchPartialBodiesWhileOpen`, B-104):
+   never a SELECT. A piece that selected the Inbox again made his next
+   tap in another folder wait for a SELECT back, and one between a lookup
+   in Sent Mail and the few words of his lines there had them skipped. So
+   a folder he opens, or a lookup in Sent Mail, ends the pass where it is,
+   and the next listing of the Inbox from the top starts one again.
+4. *Kept as fetched ahead* (`KeptLetters`, `Record.ahead`, `keep(ahead:)`),
+   in room of their own, 50 letters and 20 MB, beside the 300 letters and
+   64 MB he opened, which are now his alone: neither kind ever goes for
+   the other, so the store holds at most 350 letters and 84 MB. Past
+   their room the oldest letter goes, by its UIDVALIDITY and UID, so the
+   newest stay, as a pass fetches them newest first; a letter older than
+   every one in a full room is not kept, and nothing goes for it. The
+   pass asks the room before each letter (`roomAhead`): it stops at the
+   first that has no room without a newer one going, before anything is
+   sent, since every letter after it is older, and at once when the
+   free-space floor has been met in the launch, where nothing more is
+   kept and every letter fetched would be thrown away; a letter's size
+   from the first piece past the room, or with its words past it once
+   fetched, is remembered for the launch, so the next pass stops there
+   with nothing sent until the room has that much (`aheadNeeds`); one past
+   5 MB is remembered as a letter opened in parts, and passed over.
+   Opened, a letter fetched ahead is a letter he opened, evicted as one,
+   and the letter he opened longest ago goes if that puts them past their
+   bounds. Fetched ahead again, a letter kept already is left as it was.
+   The index gains two optional fields, `ahead` and the bytes of the words
+   kept beside the letter, absent for a letter he opened and with none,
+   and in an index written before: no new format. The log: `KEPT-AHEAD
+   letters=<n> bytes=<n>`, `ahead` on the keep's note, and `KEPT-LETTER
+   not-kept reason=room` for a letter the room had none for; numbers only.
+
+   At first they had one room with the letters he opened, went first, and
+   went the one fetched longest ago first, which, a pass going newest
+   first, was the newest: with the store full of letters he had opened, a
+   few weeks' worth, each letter fetched ahead put out the one fetched
+   before it, one survived a pass, and every listing of the Inbox from the
+   top fetched up to 50 letters or 20 MB again; with more unread letters
+   than the bound, one new letter set off a fetch of every one. Each was
+   a download of his mail with nothing to show for it, counted toward
+   Gmail's daily IMAP download, and a write to the iPad's flash.
 
 **Changed, part 3: searching with no connection** (its own commit).
 
@@ -30354,7 +30391,9 @@ connection's work to what he asked for.
    in a file beside the letter's, `….txt` for `….eml`, written before the
    index names the letter and removed with it, however it goes; swept at
    the first use when no record names it. Kept for a letter he opened and
-   one fetched ahead. Never read for anything but a search.
+   one fetched ahead. Never read for anything but a search. Its bytes
+   count with the letter's, in the bounds and against the free-space
+   floor (`Record.kept`).
 2. *The search* (`IMAPMailRepository.searchKept`, `KeptSearch.hits`): the
    kept rows of the folder, and with All Mailboxes those of every folder
    kept (`MailShelf.rowsOfEveryFolder`), each letter once, by Gmail id, the
@@ -30455,8 +30494,9 @@ now `testListingsFromTheTopAndPagesBelowThemAreKeptAndNothingElse` (the
 page below kept after the top, the fresh page keeping what goes on below
 it, a letter taken out elsewhere above and below dropping out);
 `KeptLetterOpeningTests`' `testTheRepositoryReadsTheCopyInThreePlacesAndNeverForWhatIsSent`,
-now six places, the letters fetched ahead looked for and kept, and the
-words read by the search, which reaches neither the connection nor
+now eight places, the letters fetched ahead looked for, their room asked
+before the FETCH and again before the keep, and kept, and the words read
+by the search, which reaches neither the connection nor
 `lastBody`; and `KeptLettersTests`' count of writes, now four, the letter's
 words among them, once the directories are made and marked out of backup.
 

@@ -1095,11 +1095,12 @@ final class KeptLetterOpeningTests: XCTestCase {
         XCTAssertTrue(requirements.contains("func openLetter(_ row: MessageSummary) async throws -> Message"))
     }
 
-    /// In the repository the copy of the letters is reached in six places
+    /// In the repository the copy of the letters is reached in eight places
     /// alone: `keptLetter`, the keep after a whole FETCH, `keptPart`, and
-    /// since B-160 the letters fetched ahead, looked for and kept
-    /// (`fetchAhead`), and the words kept beside them read by a search with
-    /// no connection (`searchKept`), which sends nothing.
+    /// since B-160 the letters fetched ahead, looked for, their room asked
+    /// before the FETCH and again before the keep, and kept (`fetchAhead`),
+    /// and the words kept beside them read by a search with no connection
+    /// (`searchKept`), which sends nothing.
     /// `keptLetter` neither makes the letter `lastBody` nor tells `seen`
     /// or the shelf's vouching. A forward's parts never come through the
     /// public `fetchAttachmentData`, and the letter on screen they may come
@@ -1107,13 +1108,15 @@ final class KeptLetterOpeningTests: XCTestCase {
     func testTheRepositoryReadsTheCopyInThreePlacesAndNeverForWhatIsSent() throws {
         let repository = try source("Mail/IMAPMailRepository.swift")
         XCTAssertEqual(repository.components(separatedBy: "shelf.letters.").count
-                        + repository.components(separatedBy: "shelf?.letters.").count - 2, 6)
+                        + repository.components(separatedBy: "shelf?.letters.").count - 2, 8)
         let ahead = try section(of: repository, from: "func fetchAhead() async {",
                                 to: "func lettersOfHis(inThread thread: UInt64")
         XCTAssertTrue(ahead.contains("!shelf.letters.has(in: inbox, validity: at.validity, uid: at.uid, "
                                      + "message: letter)"))
         XCTAssertTrue(ahead.contains("shelf.letters.keep(raw, in: inbox, validity: at.validity, uid: at.uid, "
                                      + "message: letter,"))
+        XCTAssertEqual(ahead.components(separatedBy: "shelf.letters.roomAhead(validity: at.validity, uid: at.uid)")
+                        .count - 1, 2)
         XCTAssertFalse(ahead.contains("lastBody"))
         let shown = try section(of: repository, from: "private func keptLetter(",
                                 to: "private func keptFolderName(")
