@@ -16,9 +16,13 @@ import Foundation
 /// one letter opens there; they go into the reading pane's stack closed,
 /// by date, and are never part of the list: not its rows, its counts, Edit
 /// mode, the read marks or the pane's Delete, Move, Flag and Reply, which
-/// stay on the Inbox letter he opened last. Nothing of them is kept on the
-/// iPad (`MailShelf`, `LocalDrafts`): the pane holds them while it shows
-/// the conversation, and the repository its answer for `remembered`.
+/// stay on the Inbox letter he opened last. The pane holds them while it
+/// shows the conversation, and the repository its answer for
+/// `remembered`. Since B-159 the last answer for each conversation is kept
+/// on the iPad with it (`MailShelf.lettersOfHis`), and a letter of his he
+/// opened with the letters he opened (`KeptLetters`), as Mail keeps what it
+/// downloaded, so after a relaunch with no connection a conversation shows
+/// them as it did; never in `LocalDrafts`.
 ///
 /// What decides whether a conversation is looked up, and which of what is
 /// found are shown, is here, out of the controllers, so the suite on Linux

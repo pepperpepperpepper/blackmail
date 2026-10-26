@@ -89,9 +89,9 @@ protocol MailRepository {
     /// (D-016), and `MailShelf.NotTheKeptLetter` is thrown otherwise.
     ///
     /// From the server, and kept nowhere: for a letter wanted for anything
-    /// but the reading pane's opening of a row, his letters from Sent Mail
-    /// in a conversation's stack (B-104) among them. The pane opens a row
-    /// with `openLetter`.
+    /// but the reading pane's opening of a row. The pane opens a row with
+    /// `openLetter`, his letters from Sent Mail in a conversation's stack
+    /// (B-104) among them since B-159.
     func loadMessage(id: String, gmailMessageID: UInt64?, mailboxID: String) async throws -> Message
 
     /// The letter the reading pane opens from `row`: from the copy kept on
@@ -269,6 +269,21 @@ protocol MailRepository {
     /// holding it, a check, a pass over the Outbox, a preview on its way,
     /// sends the old password again or reaches the mailbox it opened.
     func retire() async
+}
+
+extension MailRepository {
+
+    /// What the last `lettersOfHis` for `thread` found, as the copy kept on
+    /// the iPad holds it with the conversation (`MailShelf.lettersOfHis`,
+    /// B-159), less the stack's own, `besides`; nil when nothing is kept.
+    /// At once, with nothing sent, for the stack's first frame when nothing
+    /// is remembered, and after a relaunch with no connection.
+    func lettersOfHisKept(inThread thread: UInt64, besides: Set<UInt64>) -> RelatedLetters? {
+        shelf?.lettersOfHis(inThread: thread).map {
+            RelatedLetters(folderName: $0.folderName,
+                           letters: CompleteThreads.shown($0.letters, besides: besides))
+        }
+    }
 }
 
 /// Where a search looks — the two scopes Mail itself offers.

@@ -7348,6 +7348,40 @@ checks below is left as not needed, not open, and none is worth a round.*
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
 
+- [ ] **B-159, his replies kept with an Inbox conversation.** On the
+      test iPad, the test account only, from a build of the
+      `bm-cm-offline` worktree (branch `copy-offline`) or of the int it is
+      merged into. Nothing is composed, sent, saved, moved or deleted in the
+      app. It needs Inbox conversations of more than one letter, each with
+      a reply of A's (the account's address) in Sent Mail alone: two left
+      on the account by B-104's check (subjects beginning "B-104") are
+      used, and nothing is made. If fewer are left, J (a second test
+      address) writes to A, A answers from Gmail on the web and J answers
+      again (sends, test account only, needs the owner's go). Complete
+      Threads on in Settings, three panes; the app's connection log read
+      after each step.
+      1. *Online.* The first conversation opened: A's line comes in once
+      the newest letter has come, and reads "Found in Sent Mail" once
+      open; its body comes in one `UID FETCH … (UID BODY.PEEK[])` in
+      `[Gmail]/Sent Mail`, no STORE, and `KEPT-LETTER kept` is in the log.
+      The second opened too, its A's line left closed.
+      2. *Offline relaunch.* Blackmail ended, Airplane Mode on, Blackmail
+      opened: the kept Inbox. The first conversation tapped: A's line is in
+      the stack in its first frame, where it was online, and the letter
+      the stack opens at is where it was. A's line opened: its body at
+      once, `KEPT-LETTER shown`. Nothing in the log but the launch's own
+      failure to connect.
+      3. *Never opened.* The second conversation, offline: A's line is
+      there; opened, it says the message could not be downloaded.
+      4. *Back online.* Airplane Mode off, the first conversation opened
+      again after ten minutes: the lookup's `SELECT`, `UID SEARCH
+      X-GM-THRID` and `UID FETCH`es go once the newest letter has come,
+      and A's line is there once, not twice.
+      5. *The switch.* Complete Threads off: the stack without A's line,
+      nothing looked up. On again.
+      Put back: Airplane Mode off, Blackmail on the Inbox. Nothing was
+      written.
+
 ## Blocked on the owner
 
 **Before the house visit** — `provision-ipad.sh --check` fails until these
@@ -7497,10 +7531,11 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       gives it (B-102).
 - [ ] **Move to Junk in the Flag sheet** (B-106): built on
       `feat-flagmenu`'s last commit, not merged.
-- [ ] **His own Sent Mail lines in a conversation after an offline
+- [x] **His own Sent Mail lines in a conversation after an offline
       relaunch** (B-111, D-021): Mail shows them; nothing of his Sent Mail
       is kept here, so they are not there. Keep it so (the default), or
       keep their summaries beside the kept letters.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-159.*
 - [ ] **A printed letter's faint colours** (B-110): with no backgrounds
       printed, WebKit lightens a sender's light colours, small grey print
       all but gone. As built, Mail's light print (the default), or the

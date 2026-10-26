@@ -551,7 +551,7 @@ final class CompleteThreadsTests: XCTestCase {
 
         let load = try XCTUnwrap(related.load(for: "r6/4"))
         XCTAssertEqual(load, PaneRelated.Load(entryID: "r6/4", id: "6/4", gmailMessageID: 8_004,
-                                              mailboxID: Server.sent))
+                                              mailboxID: Server.sent, row: his(4)))
         XCTAssertNil(related.load(for: "1/5"), "a letter of the conversation's")
         XCTAssertNil(related.load(for: "6/4"), "by its entry, not its id")
 
@@ -584,7 +584,7 @@ final class CompleteThreadsTests: XCTestCase {
         XCTAssertEqual(related.entryID(forSection: "mr6_4"), "r6/4")
         let load = try XCTUnwrap(related.load(for: "r6/4"))
         XCTAssertEqual(load, PaneRelated.Load(entryID: "r6/4", id: "6/4", gmailMessageID: 8_004,
-                                              mailboxID: Server.sent))
+                                              mailboxID: Server.sent, row: his(4)))
         var document = PaneDocument()
         document.loaded(.conversation(entries), navigation: nil)
         let body = ConversationDocument.Entry.Rendered(html: "Yes, Tuesday.", isHTML: false)
@@ -1150,13 +1150,21 @@ final class CompleteThreadsTests: XCTestCase {
                                     + "self?.detail.show(thread: thread, completing: completing) }"))
         for file in ["UI/MessageListViewController.swift", "UI/RootViewController.swift",
                      "Mail/ListLetters.swift", "Mail/ListBatch.swift", "Mail/ListEdit.swift",
-                     "Mail/PaneActions.swift", "Mail/FolderCounts.swift", "Mail/MailShelf.swift",
+                     "Mail/PaneActions.swift", "Mail/FolderCounts.swift",
                      "Mail/LocalDrafts.swift"] {
             let code = try source(file)
             for never in ["lettersOfHis", "RelatedLetters", "relatedID", "related[", "PaneRelated"] {
                 XCTAssertFalse(code.contains(never), "\(file): \(never)")
             }
         }
+        // Since B-159 the copy kept on the iPad keeps them with the
+        // conversation, in a file of their own, apart from the pages the
+        // list draws: no page's rows, nor what the list reads of them.
+        let shelf = try source("Mail/MailShelf.swift")
+        let pages = try section(of: shelf, from: "func page(of mailboxID: String) -> Page? {",
+                                to: "func folderName(for mailboxID: String) -> String {")
+        XCTAssertFalse(pages.contains("related"))
+        XCTAssertFalse(shelf.contains("PaneRelated"))
     }
 
     /// The pane draws his letters remembered in the first frame, and
@@ -1174,7 +1182,8 @@ final class CompleteThreadsTests: XCTestCase {
             "stackLetters = thread.messages.reversed()",
             "let besides = Set(thread.messages.compactMap(\\.gmailMessageID))",
             "let remembered = related.show(stackLetters, completing: completing, remembered: "
-                + "completing.flatMap { self.repository.rememberedLettersOfHis(inThread: $0, besides: besides) })",
+                + "completing.flatMap { self.repository.rememberedLettersOfHis(inThread: $0, besides: besides) "
+                + "}, kept: completing.flatMap { self.repository.lettersOfHisKept(inThread: $0, besides: besides) })",
             "let entries = ConversationDocument.stack(of: thread, related: remembered)",
             "settle: { [weak self] result in self?.settleBody(result, for: newest.id, focus: true) "
                 + "self?.lookForHis(afterTheNewestCame: (try? result.get()) != nil, besides: besides) })",
@@ -1304,8 +1313,8 @@ final class CompleteThreadsTests: XCTestCase {
         // own section, never one by the letter's id.
         for wiring in [
             "guard let load = related.load(for: entryID) else { return }",
-            "loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID, "
-                + "mailboxID: load.mailboxID) }, prepare: { m in (m, PanePage.stackBody(m)) }, "
+            "loads.start({ try await repository.openLetter(load.row) }, "
+                + "prepare: { m in (m, PanePage.stackBody(m)) }, "
                 + "settle: { [weak self] result in self?.settleRelated(result, for: load) })",
             "case .success(let (m, body)): prepareInlineImages(for: [m]) related.keep(m, for: load) "
                 + "fill(related.bodyCame(for: load), body) "
@@ -1320,10 +1329,13 @@ final class CompleteThreadsTests: XCTestCase {
         }
     }
 
-    /// Nothing of his letters is kept on the iPad: nothing in the lookup,
-    /// the previews it fetches, or the pane's handling of them reaches the
-    /// copy kept on the iPad or the letters kept there.
-    func testHisLettersAreNeverKept() throws {
+    /// His letters are kept on the iPad in two places alone, since B-159:
+    /// the lookup's answer with the conversation, by the shelf, in one call
+    /// after the memo's, and a letter of his he opens with the letters he
+    /// opened, as the pane opens a row. Nothing of them reaches Local
+    /// Drafts or the Outbox, and nothing in the previews or the pane's
+    /// handling writes to the copy.
+    func testHisLettersAreKeptByTheShelfAloneAndOpenedAsARow() throws {
         let repository = try source("Mail/IMAPMailRepository.swift")
         let lookup = try section(of: repository, from: "func lettersOfHis(inThread thread: UInt64",
                                  to: "private func letterFiles(")
@@ -1334,10 +1346,22 @@ final class CompleteThreadsTests: XCTestCase {
                                    to: "private var pageStyle")
         let held = try source("Mail/PaneRelated.swift")
         for (name, code) in [("lookup", lookup), ("previews", previews), ("pane", handling), ("held", held)] {
-            for never in ["shelf", "MailShelf", "LocalDrafts", "kept.", "Outbox"] {
+            for never in ["LocalDrafts", "Outbox"] {
                 XCTAssertFalse(code.contains(never), "\(name): \(never)")
             }
         }
+        for (name, code) in [("previews", previews), ("pane", handling), ("held", held)] {
+            for never in ["shelf", "MailShelf", "kept."] {
+                XCTAssertFalse(code.contains(never), "\(name): \(never)")
+            }
+        }
+        XCTAssertEqual(lookup.components(separatedBy: "shelf").count - 1, 1, "one call")
+        let memo = try XCTUnwrap(lookup.range(of: "hisLetters.keep(found, inThread: thread, asOf: asOf)"))
+        let kept = try XCTUnwrap(lookup.range(of: "shelf?.took(lettersOfHis: found, inThread: thread, "
+                                              + "folder: sent, validity: hits.validity)"))
+        XCTAssertLessThan(memo.upperBound, kept.lowerBound)
+        XCTAssertTrue(handling.contains("loads.start({ try await repository.openLetter(load.row) }"))
+        XCTAssertFalse(handling.contains("loadMessage"))
         // The rows' own path is the one every row takes, and keeps nothing.
         let rows = try section(of: repository, from: "private func rows(from fetched:",
                                to: "func messages(around date: Date")

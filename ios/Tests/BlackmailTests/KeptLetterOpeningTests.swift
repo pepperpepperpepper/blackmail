@@ -1071,22 +1071,23 @@ final class KeptLetterOpeningTests: XCTestCase {
 
     // MARK: - Read from the source
 
-    /// The reading pane opens a row with `openLetter` in exactly its three
-    /// places, the letter tapped, a conversation's newest and a letter of
-    /// it opened; his letters from Sent Mail (B-104) go by `loadMessage`.
-    /// `openLetter` is a requirement of the protocol itself, so the
-    /// repository's own is the one the pane calls.
-    func testThePaneOpensItsRowsWithOpenLetterAndHisSentMailWithLoadMessage() throws {
+    /// The reading pane opens a row with `openLetter` in exactly its four
+    /// places, the letter tapped, a conversation's newest, a letter of it
+    /// opened, and since B-159 a letter of his from Sent Mail (B-104),
+    /// which went by `loadMessage` and was never kept. `openLetter` is a
+    /// requirement of the protocol itself, so the repository's own is the
+    /// one the pane calls, and the pane calls `loadMessage` nowhere.
+    func testThePaneOpensItsRowsAndHisSentMailWithOpenLetter() throws {
         let pane = try source("UI/MessageDetailViewController.swift")
-        XCTAssertEqual(pane.components(separatedBy: "repository.openLetter(").count - 1, 3)
+        XCTAssertEqual(pane.components(separatedBy: "repository.openLetter(").count - 1, 4)
         XCTAssertTrue(pane.contains("try await repository.openLetter(summary)"))
         XCTAssertTrue(pane.contains("try await repository.openLetter(newest)"))
         XCTAssertTrue(pane.contains("loads.start({ try await repository.openLetter(row) }"))
         let related = try section(of: pane, from: "private func loadRelated(",
                                   to: "private func settleRelated(")
-        XCTAssertTrue(related.contains("repository.loadMessage("))
-        XCTAssertFalse(related.contains("openLetter"))
-        XCTAssertEqual(pane.components(separatedBy: "repository.loadMessage(").count - 1, 1)
+        XCTAssertTrue(related.contains("loads.start({ try await repository.openLetter(load.row) }"))
+        XCTAssertFalse(related.contains("loadMessage"))
+        XCTAssertEqual(pane.components(separatedBy: "repository.loadMessage(").count - 1, 0)
 
         let protocolFile = try source("Mail/MailRepository.swift")
         let requirements = try section(of: protocolFile, from: "protocol MailRepository {",

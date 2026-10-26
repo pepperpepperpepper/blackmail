@@ -30110,3 +30110,151 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-159 — FIXED 2026-10-26, not yet seen on the iPad. His own replies in an Inbox conversation were not there after a relaunch with no connection, and one he had read could not be opened; Mail keeps them with the conversation
+
+Built on the owner's ruling of 2026-10-26, "close the gaps in our decision
+tree by copying Apple Mail" (TODO, "Blocked on the owner", his own Sent
+Mail lines after an offline relaunch).
+
+**What Mail does.** With Complete Threads on, its factory setting, an
+Inbox conversation shows his replies from Sent Mail among the letters they
+answer, each "Found in Sent Mail" (Mail's "Found in %@"). Mail keeps the
+mail it has downloaded on the device, Sent Mail's with the rest, out of
+the backup (support.apple.com/102556), so a conversation opened after a
+relaunch with no connection still shows them, and a reply whose body came
+opens. That last is inferred from what Mail keeps, not seen: the test iPad
+has no Mail (B-028), and no iPadOS 18 device with Mail has been looked at.
+
+**What Blackmail did.** His lines were looked up in Sent Mail as an Inbox
+conversation opened (B-104) and held in memory for ten minutes (D-021,
+"Never kept"); his letter opened by its line was fetched by `loadMessage`,
+which keeps nothing (B-111). Seen on the test iPad 2026-10-22: offline
+within a launch and ten minutes his line was there and, tapped, could not
+be downloaded; after an offline relaunch it was not there at all.
+
+**Changed.**
+
+1. *The lookup's answer is kept with the conversation*
+   (`MailShelf.took(lettersOfHis:)`, called once in
+   `IMAPMailRepository.lettersOfHis`, after the memo's keep): in
+   `related.json` in the account's directory of `Kept/`, beside the pages,
+   the shelf's format 1, by Gmail's thread number, his rows as the lookup
+   had them, their few words with them, with Sent Mail's name and the
+   UIDVALIDITY their ids are under. A lookup that finds none keeps none for
+   the conversation. On the shelf's disk queue, read the first time it is
+   asked for, written behind and at `flush`, out of backup with the
+   directory, and gone with the shelf's discard and wipe (a password
+   saved).
+2. *Kept with the conversation and no longer.* The Inbox listed from the
+   top takes the letters of every conversation it no longer holds. At most
+   500 conversations (`mostConversations`), 2,000 letters
+   (`mostLettersOfHis`) and 20 a conversation (a stack's `mostLetters`),
+   the conversation looked up longest ago going first; about a megabyte at
+   most, a row being some 600 bytes.
+3. *Gone when the server says so.* Sent Mail under another UIDVALIDITY,
+   found by a lookup or by a listing of Sent Mail from the top, throws
+   them all away; his letter deleted or moved out of Sent Mail, a letter
+   binned or marked as spam (by its Gmail id, from any folder but where it
+   went), and a row the server says is another letter (`refuse`) each take
+   theirs.
+4. *The stack's first frame* (`PaneRelated.show`, `kept:`;
+   `MailRepository.lettersOfHisKept`). What the lookup found in the last
+   ten minutes, as before; otherwise what is kept, drawn as remembered
+   lines are drawn, and the lookup still goes once the newest letter has
+   come. With a connection it adds what has come since, and nothing twice
+   (`PaneRelated.take` passes over the lines already in the stack). With
+   none it sends nothing and finds none, as before, and the kept lines
+   stay.
+5. *His letter opened by its line goes by `openLetter`*
+   (`MessageDetailViewController.loadRelated`, `PaneRelated.Load.row`), as
+   a row of the list does: from the letters kept on the iPad when it is
+   there, with nothing sent; otherwise fetched as before, the FETCH
+   `loadMessage`'s byte for byte, BODY.PEEK, no STORE, and kept under Sent
+   Mail's folder, UIDVALIDITY, UID and Gmail id once its body has come
+   whole, by B-111's rules, bounds and checks. The pane calls
+   `loadMessage` nowhere now.
+
+**What it reverses.** D-021's "Never kept", and its line that after an
+offline relaunch his line is not there; D-016's "It keeps none of his
+letters from Sent Mail that an Inbox conversation brings in"; B-111's
+"never kept" for a letter Complete Threads brings from Sent Mail, which
+went by `loadMessage`; B-104's "Nothing of them is kept on the iPad". The
+lookup, its wire, its timing and its ten minutes in memory are as B-104
+built them.
+
+**Not changed.** Read only, Inbox stacks only, never All Mail, no focus on
+his letters. The switch: off, nothing is drawn or looked up, and what is
+kept waits unused. Sent Mail's own kept page: the lookup's few words do
+not reach it (`testTheLookupLeavesTheKeptCopyAsItWas`, as before). Nothing
+of his letters in Local Drafts or the Outbox. A reply of his deleted from
+Sent Mail in another client keeps its line on the iPad until the
+conversation is next looked up with a connection, as a kept row keeps its
+place until the next listing.
+
+**What he sees.** An Inbox conversation he opened before shows his
+replies, "Found in Sent Mail", from its first frame, with a connection or
+without, after a relaunch too; a reply he opened before opens at once
+offline. One he never opened says, offline, that it could not be
+downloaded, as before. No new words.
+
+**Tests.** `HisRepliesKeptTests`, 11, new. The store through the shelf: what
+a lookup found read back by the next launch's shelf, rows, few words, To,
+Gmail ids and Sent Mail's name, another conversation none, a lookup that
+finds none keeping none; Sent Mail under another UIDVALIDITY, by a lookup
+and by a listing from the top with no page of it kept, throwing them all
+away, the same UIDVALIDITY keeping them; the Inbox listed from the top
+taking the conversations it no longer holds, another folder none; the
+bounds, 500 conversations and 2,000 letters, the one looked up longest ago
+going first and one looked up again the newest; a delete or move out of
+Sent Mail, a letter binned by its Gmail id, a refusal, the copy thrown away
+and a password saved each taking theirs, a refusal for another letter and
+a removal from another folder not. The pane's first frame
+(`PaneRelated`): the kept lines less the stack's own with the lookup still
+due, its answer adding only what came since, the memo shown before them
+with nothing looked up, and nothing with Complete Threads off. Over the
+scripted server, launch after launch: after a launch that looked his reply
+up and opened it, a relaunch with no connection has its line, "Sent Mail",
+the line equal to the lookup's, opens it from the iPad, its lookup finding
+none, and sends nothing at all, not even the LOGIN; a reply never opened
+has its line and no body offline; his reply opened is one `UID FETCH` of
+`BODY.PEEK[]`, no STORE, its `\Seen` unchanged, kept under Sent Mail's
+four keys, and opened again sends nothing; Sent Mail renumbered, the next
+lookup replaces the kept line with the reply under its new UID; and
+nothing of his letters, the folder, a name or a word of them, in the log.
+
+Rewritten, as what they pinned is reversed: `CompleteThreadsTests`'
+`testHisLettersAreNeverKept`, now
+`testHisLettersAreKeptByTheShelfAloneAndOpenedAsARow` (the lookup reaches
+the shelf in one call, after the memo's; nothing of them in Local Drafts
+or the Outbox; the previews, the pane and `PaneRelated` never reach the
+shelf; the pane opens his line by `openLetter(load.row)`), the pane's
+wiring in `testHisLetterFoundLateOpensFromSentMailIntoItsOwnSection` and
+`testThePaneLooksAfterTheNewestAndForgetsThemWhenItMovesOn`, the shelf's
+place in `testTheListAsksAndNeverHasThem` (it keeps them in a file of its
+own, apart from the pages the list reads), and two `Load`s with their row;
+`KeptLetterOpeningTests`' `testThePaneOpensItsRowsWithOpenLetterAndHisSentMailWithLoadMessage`,
+now `testThePaneOpensItsRowsAndHisSentMailWithOpenLetter` (four calls of
+`openLetter`, none of `loadMessage`).
+
+Each rule undone, in one run with B-160's undone beside it (the queue for
+the build lock being long; B-160's touch none of these): the lookup's
+keep on the shelf taken out, the opening's keep taken out, `related.json`
+never written, Sent Mail's UIDVALIDITY not compared, the Inbox's listing
+not taking any, the bounds lifted, the server's removals not reaching
+them, a note naming the folder as the kept lines are read, the first frame
+ignoring the kept lines, a lookup's answer put in twice, and the pane
+opening his line by `loadMessage`: all 11 of `HisRepliesKeptTests`
+failed, and with them the rewritten `testHisLettersAreKeptByTheShelfAloneAndOpenedAsARow`,
+`testATapOnHisLineNeitherMarksNorFocuses` and
+`testThePaneOpensItsRowsAndHisSentMailWithOpenLetter`; then all of it put
+back.
+
+The full suite, serially, at this commit: 2,675 tests, 6 skipped, none
+failing; with B-160 after it, 2,702, 6 skipped, none failing, and the
+release build for the iPad links.
+
+**Not seen.** Nothing of this on the iPad yet; the TODO check is under
+"Blocked on the iPad coming back". Mail's own conversation after an
+offline relaunch is inferred, not seen: Mail on 16.5.1 stands in once it
+is back on the test iPad (B-028).

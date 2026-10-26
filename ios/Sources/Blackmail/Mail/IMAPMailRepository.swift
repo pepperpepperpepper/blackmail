@@ -144,7 +144,8 @@ actor IMAPMailRepository: MailRepository {
 
     /// What Sent Mail answered for each conversation whose stack looked
     /// for his letters there, for ten minutes (`lettersOfHis`, B-104). In
-    /// memory alone: nothing of it is kept on the iPad.
+    /// memory; what is kept on the iPad with the conversation is the
+    /// shelf's (`MailShelf.lettersOfHis`, B-159).
     nonisolated let hisLetters: RelatedMemo
 
     /// Set when Sent Mail would not open or would not be searched for a
@@ -2435,7 +2436,13 @@ actor IMAPMailRepository: MailRepository {
     /// SEARCH X-GM-THRID, a UID FETCH of the newest hits' summaries, in one
     /// hold of the connection in the background line
     /// (`IMAPClient.search(_:across:)`), then a FETCH of their previews.
-    /// No STORE, MOVE, COPY or APPEND, and nothing kept on the iPad.
+    /// No STORE, MOVE, COPY or APPEND.
+    ///
+    /// What it finds is kept on the iPad with the conversation, in place of
+    /// what was kept for it (`MailShelf.took(lettersOfHis:)`, B-159), so an
+    /// Inbox conversation opened after a relaunch with no connection shows
+    /// his replies as Mail shows them, from what it downloaded. Sent Mail's
+    /// UIDVALIDITY is kept with them, and another throws them all away.
     ///
     /// Sent Mail by the role LIST gives it, `\Sent`, and never All Mail in
     /// its place, which `sentMailFolder` falls back to: All Mail holds the
@@ -2504,6 +2511,7 @@ actor IMAPMailRepository: MailRepository {
             guard !Task.isCancelled else { return .none }
             let found = RelatedLetters(folderName: folder.displayName, letters: letters)
             hisLetters.keep(found, inThread: thread, asOf: asOf)
+            shelf?.took(lettersOfHis: found, inThread: thread, folder: sent, validity: hits.validity)
             return Self.shown(found, besides: besides)
         } catch {
             return .none

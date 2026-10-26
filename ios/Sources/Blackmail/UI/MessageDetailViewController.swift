@@ -462,10 +462,14 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
         // His letters of it, in the first frame when the repository found
         // them in the last ten minutes; otherwise looked for once the
-        // newest letter has come, below.
+        // newest letter has come, below, and meanwhile as the copy kept on
+        // the iPad has them from the last lookup, with a connection or
+        // without (B-159).
         let besides = Set(thread.messages.compactMap(\.gmailMessageID))
         let remembered = related.show(stackLetters, completing: completing, remembered: completing.flatMap {
             self.repository.rememberedLettersOfHis(inThread: $0, besides: besides)
+        }, kept: completing.flatMap {
+            self.repository.lettersOfHisKept(inThread: $0, besides: besides)
         })
 
         // The oldest at the top, the newest at the bottom, open, with the
@@ -546,16 +550,17 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
 
     /// Fetches his letter from Sent Mail, opened by its line, and puts it in
     /// its section (B-104), from that folder, by its id and Gmail's id for
-    /// it, which the fetch checks (D-016) (`PaneRelated.load`). Only that:
-    /// the header and the toolbar stay on the conversation's letter he
-    /// opened last, whenever the header follows a letter he opens, and
-    /// nothing is marked read. Called off with the rest if the pane moves
-    /// on first.
+    /// it, which the fetch checks (D-016) (`PaneRelated.load`). Opened as a
+    /// row is (`openLetter`): from the copy kept on the iPad when it is
+    /// there, with a connection or without, and kept there once its body
+    /// has come (B-159). Only that: the header and the toolbar stay on the
+    /// conversation's letter he opened last, whenever the header follows a
+    /// letter he opens, and nothing is marked read. Called off with the
+    /// rest if the pane moves on first.
     private func loadRelated(_ entryID: String) {
         guard let load = related.load(for: entryID) else { return }
         let repository = self.repository
-        loads.start({ try await repository.loadMessage(id: load.id, gmailMessageID: load.gmailMessageID,
-                                                       mailboxID: load.mailboxID) },
+        loads.start({ try await repository.openLetter(load.row) },
                     prepare: { m in (m, PanePage.stackBody(m)) },
                     settle: { [weak self] result in self?.settleRelated(result, for: load) })
     }
