@@ -7379,9 +7379,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *The widths (D-009).* In "Notes", Edit, in three panes and then
       in two (the view button; "< Mailboxes" and the calendar before the
       title): "Cancel" whole at the right, the title whole or cut with
-      "…", never under a button; the same in All Mail and in the label
-      with the longest name the account has, its title's look written
-      down with Edit and with Cancel. Each time Cancel, then back to three
+      "…", never under a button; the same in Important, All Mail and
+      Starred, and in the label with the longest name the account has,
+      each title's look written down with Edit and with Cancel. Expected
+      in two panes with Cancel, from the reading of 2026-10-25 (B-144's
+      widths): "Important" cut, about "Impor…", and "All Mail" and
+      "Starred" whole, only just. Each time Cancel, then back to three
       panes.
       7. *The Move sheet.* In "Notes", Edit, the "B-144 forward letter"
       ticked, Move: the sheet lists the folders by the names of step 1,
@@ -7728,6 +7731,16 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       for the first letter after a launch. As built (the default), or a
       cover over the pane from the tap, lifted once WebKit has painted
       "Loading…", which would hide the letter if it ever failed to lift.
+- [ ] **Trash for letters only on the iPad** (B-144): in the Outbox, and
+      for the letters kept on the iPad at the top of Drafts, Edit mode's
+      third button says "Trash" in the bar's blue, the ruling's word
+      outside the Trash, and its tap takes them off the iPad with nothing
+      asked and no copy in the Trash: a letter not yet sent, or a draft
+      not yet on the server, cannot be got back. Before B-144 it said
+      "Delete", in red. What Mail's Outbox bar says was not seen. As built
+      (the default), or "Delete" there: one line for the Outbox; in
+      Drafts, which holds the server's drafts too, the word would follow
+      his ticks.
 
 ## Open, recorded, not scheduled
 

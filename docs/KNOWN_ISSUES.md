@@ -30185,10 +30185,11 @@ device with Mail was at hand.
 2. *The bar's third button* (`EditBar.deleteTitle`, new;
    `MessageListViewController.buildBottomBar`). "Delete" in the Trash, where
    it erases after `EraseQuestion`'s question, "Trash" in every other list,
-   by the list's folder; the same rule as `EraseQuestion.erases`, so the
-   word is "Delete" exactly where the tap erases. Its colour is the bar's
-   blue, as Mark's and Move's: `deleteItem.tintColor` is gone. What it does
-   is unchanged.
+   by the list's folder, the ruling's word. "Trash" is not always where the
+   tap puts the letters: in the Outbox, and for the letters kept on the
+   iPad at the top of Drafts, it takes them off the iPad with nothing asked
+   (see "Also seen"). Its colour is the bar's blue, as Mark's and Move's:
+   `deleteItem.tintColor` is gone. What it does is unchanged.
 3. *Cancel* (`EditBar.edit`, `EditBar.cancel`; `editTapped`, the one place
    that switches the title). What it does is Done's: Edit mode ends, his
    ticks are let go, nothing is done, and the open letter's row is
@@ -30224,53 +30225,65 @@ B-137's sentence.
 
 **Widths (D-009)**, read from the layout code and summed with word widths
 estimated on the host (Arial at 17 pt; SF is a few per cent wider), not
-measured on the iPad. The Edit button is the list's right bar item, with no
-width of its own, 15 pt from the pane's edge (`rowTextRightInset`), its
-word at 17 pt (`fontBarButton`, the text size held at the default, B-071):
-"Edit" about 29 pt, "Done" 41, "Cancel" 53. So in Edit mode it is about
-12 pt wider than Done was. UIKit gives a bar's buttons their width first and
-the title what is left, cut with "…" if it does not fit; nothing else
-moves, and "Cancel" is never cut. On his iPad, 1080 pt wide, the list is
-300 pt in three panes (27.6% is 298, held at `listColumnMin`), the calendar
-alone before the title, which leaves about 165 pt for the title in Edit mode,
-12 pt less than with Done; in two panes it is 375 pt
+measured on the iPad, and in two panes set by what the iPad showed. The
+Edit button is the list's right bar item, with no width of its own, 15 pt
+from the pane's edge (`rowTextRightInset`), its word at 17 pt
+(`fontBarButton`, the text size held at the default, B-071): "Edit" about
+29 pt, "Done" 41, "Cancel" 53. So in Edit mode it is about 12 pt wider
+than Done was. UIKit gives a bar's buttons their width first and the title
+what is left, cut with "…" if it does not fit; nothing else moves, and
+"Cancel" is never cut. On his iPad, 1080 pt wide, the list is 300 pt in
+three panes (27.6% is 298, held at `listColumnMin`), the calendar alone
+before the title, which leaves about 165 pt for the title in Edit mode by
+the sum, 12 pt less than with Done. In two panes it is 375 pt
 (`twoPaneLeftColumnWidth`), with the view button, "< Mailboxes" and the
-calendar before the title, which leaves about 100 pt, against about 112.
-Gmail's folders fit in both, All Mail the widest at about 63 pt in the
-title's semibold, and the new names are shorter than the old ("Sent" about
-39 pt where "Sent Mail" was about 78). A label of more than about ten
-letters is cut a little sooner in two panes' Edit mode than it was. The
-bottom bar in Edit mode, Deselect All (about 89 pt), Mark, Move and Trash
-(about 43 pt, 6 pt narrower than Delete) with flexible space between, fits
-300 pt with room. The Mailboxes pane and the Move sheet only get shorter
-names. D-009's notes are not edited here.
+calendar before the title. The sum gave about 100 pt there, against 112
+with Done, and is some 30 pt too generous: on the test iPad on 2026-10-25
+(D-015's check, TODO) the bar with Edit read "Unopene…" for "Unopened
+4/17/17" and "Note to…" for "Note to Self: Letters to Himself", which in
+the title's weight (Arial Bold standing in for SF Semibold) are about
+90 pt and "Note to S…" about 92, so the title has about 90 pt with Edit,
+about 79 with Done and about 66 with Cancel. D-015's own estimate was 75
+to 85. In two panes' Edit mode, then, Gmail's "Important" (about 78 pt)
+fitted with Done, only just, and is now cut, likely "Impor…"; "All Mail"
+and "Starred" (about 60 pt each) fit with some 6 pt to spare; "Sent"
+(about 37), "Junk" (40), "Drafts", "Trash" and "Inbox" fit with room, and
+"Sent Mail" (about 75), which fitted with Done, would now be cut were it
+not "Sent". A label of more than about seven letters ("Holidays", about
+71 pt) is cut in two panes' Edit mode, where with Done it was more than
+about nine. The three-pane figure is the sum's alone, and may be as
+generous: 30 pt less still holds every Gmail folder whole. The bottom bar
+in Edit mode, Deselect All (about 89 pt), Mark, Move and Trash (about
+43 pt, 6 pt narrower than Delete) with flexible space between, fits 300 pt
+with room. The Mailboxes pane and the Move sheet only get shorter names.
+D-009's notes are not edited here.
 
 **Tests.** `EditBarTests`, five, new: "Edit" and "Cancel"; the third
 button "Delete" in the Trash and "Trash" in every other role, the Outbox
-and a label included; "Delete" exactly where `EraseQuestion` erases; and
-from the controller's source, the bar in Mail's order with the third
-button titled once by the list's folder and no colour of its own, no
-`Theme.destructive` in the list, "Edit" as it opens and "Cancel" while
-Edit mode is on in the one place that switches it, no "Done", "Delete",
-"Edit" or "Trash" literal in the list, and no width set on the button.
-`MailboxNameTests`, one new and three changed: Sent and Junk by role
-whatever the server calls them ("Sent Mail", "Sent Items", "Spam", "Junk
-E-mail"), ids and names kept; labels called "Sent Mail", "Spam", "Sent" or
-"Junk" with no role keep their names, as do All Mail, Drafts, Trash, a
-Trash called "Bin" and the Outbox; VoiceOver's "Sent, 2 unread" and
-"Junk"; the scripted Gmail's folders in the pane's order, Drafts, Sent,
-Junk, Trash, All Mail, Starred, their names Gmail's. `CompleteThreadsTests`,
-three changed: the lookup through the repository from the scripted Gmail
-gives "Sent", and the page says "Found in Sent", never "Found in Sent
-Mail"; a server's `\Sent` called "Sent Items" says "Found in Sent"; the
-remembered lookup's folder "Sent". `ReplyFilesTests` and
-`ReplyFilesWiringTests`: "Don’t Include" with U+2019 and no straight
-apostrophe, said only in `ReplyFiles`, and the straight one nowhere.
-`ComposerFilesTests`: every combination, the share sheet's sentences with
-no title, Mail's alert, word for word, for every one with a file missing;
-two files left out of one pick, a folder picked, a load that fails while
-Send waits, and a photo pick and a file pick counted out together at
-Send's bound, each told Mail's alert with its title.
+and a label included; "Delete" exactly where `EraseQuestion` asks first,
+so the bar's word and the question's agree; and from the controller's
+source, the bar in Mail's order with the third button titled once by the
+list's folder and no colour of its own, no `Theme.destructive` in the
+list, "Edit" as it opens and "Cancel" while Edit mode is on in the one
+place that switches it, no "Done", "Delete", "Edit" or "Trash" literal in
+the list, and no width set on the button. `MailboxNameTests`, one new and
+three changed: Sent and Junk by role whatever the server calls them ("Sent
+Mail", "Sent Items", "Spam", "Junk E-mail"), ids and names kept; labels
+called "Sent Mail", "Spam", "Sent" or "Junk" with no role keep their
+names, as do All Mail, Drafts, Trash, a Trash called "Bin" and the Outbox;
+VoiceOver's "Sent, 2 unread" and "Junk"; the scripted Gmail's folders in
+the pane's order, Drafts, Sent, Junk, Trash, All Mail, Starred, their
+names Gmail's. `CompleteThreadsTests`, three changed: the lookup through
+the repository from the scripted Gmail gives "Sent", and the page says
+"Found in Sent", never "Found in Sent Mail"; a server's `\Sent` called
+"Sent Items" says "Found in Sent"; the remembered lookup's folder "Sent".
+`ReplyFilesTests` and `ReplyFilesWiringTests`: "Don’t Include" with U+2019
+and no straight apostrophe, said only in `ReplyFiles`, and the straight
+one nowhere. `ComposerFilesTests`: every combination, the share sheet's
+sentences with no title, Mail's alert, word for word, for every one with a
+file missing; two files left out of one pick, a folder picked, a load that
+fails while Send waits, and a photo pick and a file pick counted out
+together at Send's bound, each told Mail's alert with its title.
 `ComposerFilesWiringTests`: the composer puts it up with its title.
 
 Each part undone by hand, the seven classes run (131 tests), then put back
@@ -30303,9 +30316,20 @@ failing. The release build for the iPad links.
 
 **Also seen, differing from Mail, not built.**
 
-- *The Outbox*: Edit mode's third button says "Trash" there too, and its
-  tap takes the letters off the iPad (`LocalDrafts.delete`), not to the
-  Trash. What Mail's Outbox bar says was not looked at.
+- *The Outbox, and the letters kept on the iPad at the top of Drafts*:
+  Edit mode's third button says "Trash" there too, the ruling's word for
+  every list but the Trash, and its tap takes them off the iPad
+  (`LocalDrafts.delete`), with nothing asked and no copy in the Trash (any
+  copy an upload left in Drafts is expunged): a letter not yet sent, or a
+  draft not yet on the server, cannot be got back. Before this the word
+  there was "Delete", in red. In Drafts one selection can hold both, the
+  server's drafts going to the Trash and the kept ones off the iPad. What
+  Mail's Outbox bar says, and what its tap does with an unsent letter, was
+  not looked at. Not changed here, the ruling being "Trash" outside the
+  Trash: put to the owner (TODO, "Blocked on the owner", "Trash for
+  letters only on the iPad"). "Delete" in the Outbox would be one line in
+  `EditBar.deleteTitle`; in Drafts the word would have to follow his
+  ticks, not the folder.
 - *An All Mailboxes search* keeps its folder's word: from the Trash the
   button says "Delete" while some hits go to the Trash, which the erase
   question says; from elsewhere "Trash" for hits that are in the Trash and

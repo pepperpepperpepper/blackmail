@@ -28,9 +28,13 @@ final class EditBarTests: XCTestCase {
         XCTAssertEqual(EditBar.deleteTitle(inFolderWithRole: nil), "Trash", "a label")
     }
 
-    /// The word says what the tap does: "Delete" exactly where it erases,
-    /// and asks first (`EraseQuestion`).
-    func testDeleteIsSaidExactlyWhereItErases() {
+    /// "Delete" exactly where `EraseQuestion` asks before the tap, the
+    /// Trash, so the bar's word and the question's red Delete agree. Not
+    /// everywhere the tap cannot be taken back: the Outbox's letters, and
+    /// those kept on the iPad in Drafts, go from the iPad with nothing
+    /// asked under "Trash", the ruling's word, a question left to the
+    /// owner.
+    func testDeleteIsSaidWhereTheEraseQuestionIsAsked() {
         for role in [Mailbox.Role.inbox, .sent, .drafts, .trash, .archive, .junk, .outbox] {
             XCTAssertEqual(EditBar.deleteTitle(inFolderWithRole: role) == "Delete",
                            EraseQuestion.erases(fromFolderWithRole: role), "\(role)")

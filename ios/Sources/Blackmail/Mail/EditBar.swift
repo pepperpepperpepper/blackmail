@@ -24,10 +24,16 @@ enum EditBar {
 
     /// The third button in a list of the folder with `role`: "Delete" in
     /// the Trash, where it erases the letters, after `EraseQuestion`'s
-    /// question, and "Trash" anywhere else, where it puts them there. By
-    /// the list's folder, as Mail's bar is: an All Mailboxes search keeps
-    /// its folder's word, and `EraseQuestion` says which of its hits would
-    /// be erased.
+    /// question, and "Trash" anywhere else, the ruling's word. By the
+    /// list's folder, as Mail's bar is: an All Mailboxes search keeps its
+    /// folder's word, and `EraseQuestion` says which of its hits would be
+    /// erased.
+    ///
+    /// "Trash" is not always where the tap puts them. In the Outbox, and
+    /// for the letters kept on the iPad at the top of Drafts, it takes
+    /// them off the iPad (`LocalDrafts.delete`), with nothing asked and no
+    /// copy in the Trash, where the word was "Delete" in red. Left to the
+    /// owner (TODO, "Blocked on the owner").
     static func deleteTitle(inFolderWithRole role: Mailbox.Role?) -> String {
         EraseQuestion.erases(fromFolderWithRole: role) ? "Delete" : "Trash"
     }
