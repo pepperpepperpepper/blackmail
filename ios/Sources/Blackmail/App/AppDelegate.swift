@@ -4,6 +4,7 @@
 #if canImport(UIKit)
 
 import UIKit
+import UserNotifications
 
 // `public` because the executable target is now a separate module whose
 // main.swift names this class.
@@ -12,8 +13,27 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     public override init() { super.init() }
 
+    /// A launch he sees starts the app at once. A launch into the
+    /// background, iOS waking the app for its check for new mail (B-161),
+    /// starts nothing of it: no screen, no connection of the mail's, no
+    /// pass over the Outbox, nothing kept read or written, and no launch
+    /// counted (`SafeStart`). The check goes on a connection of its own,
+    /// and the app starts as he opens it (`applicationWillEnterForeground`).
+    ///
+    /// The check is registered at every launch, before the launch ends, as
+    /// iOS requires, and the banners' taps come here (`userNotificationCenter`).
     public func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        if application.applicationState != .background { start() }
+        NewMailTask.register()
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    /// The app started: at a launch he sees, or as he opens an app iOS
+    /// launched into the background. Once.
+    private func start() {
+        guard window == nil else { return }
         // First, before anything kept on the iPad is read: this launch is
         // counted, and after launches in a row that never finished, what
         // they read before the first frame is set aside (B-057). With no
@@ -78,7 +98,6 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
             OriginalSignature.keepIfFirst(account, images: SignatureImages.load(),
                                           in: OriginalSignature.appRoot)
         }
-        return true
     }
 
     /// The address book is written once per page of mail listed, so the
@@ -96,12 +115,18 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     ///
     /// A command on the wire as he leaves is not timed for the connection
     /// log: iOS may hold the app still with it (`Diagnostics.awayOrBack`).
+    ///
+    /// And he has left the app: the number on its icon is set again, mail
+    /// that comes from now has banners, and the next check for it is asked
+    /// for (B-161). Only for an app that was started: one iOS launched into
+    /// the background was never in front of him.
     public func applicationDidEnterBackground(_ application: UIApplication) {
         SafeStart.app.finished()
         Diagnostics.wentAwayOrCameBack()
         RecipientBook.shared.flush()
         (window?.rootViewController as? RootViewController)?.repository.shelf?.flush()
         Self.syncShareMirror()
+        if window != nil { NewMailTask.leaving() }
     }
 
     /// Ended while it was still running, swiped away in the app switcher
@@ -130,9 +155,21 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     /// And a command that was on the wire while the app was away, whose
     /// answer is read only now, is not timed for the connection log
     /// (`Diagnostics.awayOrBack`).
+    ///
+    /// A check for new mail on its way is called off first, before anything
+    /// of it is shown and before the launch is counted (B-161); and an app
+    /// iOS launched into the background for one starts now, as he opens it.
     public func applicationWillEnterForeground(_ application: UIApplication) {
         Diagnostics.wentAwayOrCameBack()
+        NewMailTask.cameToFront()
+        start()
         Self.syncShareMirror()
+    }
+
+    /// In front: started, if coming forward did not start it already.
+    public func applicationDidBecomeActive(_ application: UIApplication) {
+        NewMailTask.cameToFront()
+        start()
     }
 
     /// A `mailto:` link, from another app or from a letter, opens this app's
@@ -213,6 +250,34 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
                                                                       saying: notice)
         }
         return nav
+    }
+}
+
+// MARK: - The banners for new mail (B-161)
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+
+    /// None while the app is in front, as Mail puts up none for the Inbox in
+    /// front of him. The check puts up none then either; this is for one
+    /// that reached iOS as he opened the app.
+    public func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                       willPresent notification: UNNotification,
+                                       withCompletionHandler completionHandler:
+                                        @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([])
+    }
+
+    /// A banner tapped: its letter opened in the Inbox, as a tap on its row
+    /// opens it (`RootViewController.openFromBanner`).
+    public func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                       didReceive response: UNNotificationResponse,
+                                       withCompletionHandler completionHandler: @escaping () -> Void) {
+        defer { completionHandler() }
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+              let letter = NewMailBanners.Tapped(
+                userInfo: response.notification.request.content.userInfo) else { return }
+        start()
+        (window?.rootViewController as? RootViewController)?.openFromBanner(letter)
     }
 }
 

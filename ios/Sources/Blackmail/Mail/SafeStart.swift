@@ -61,6 +61,15 @@ import Foundation
 /// is the very write that matters. Nothing here can itself stop a launch: a
 /// count that cannot be read is no count, and one that cannot be written is
 /// a launch the guard does not see.
+///
+/// The check for new mail iOS runs while the app is in the background
+/// (B-161) is counted as a launch is, in the same count, and finished as it
+/// ends (`checkBegins`, `checkEnded`). A launch into the background for it
+/// reads nothing kept and is not counted itself: the mail's screens, and
+/// `launch`, wait for him to open the app. A check goes only when no
+/// launch, and no check, is unfinished: after one that crashed, none goes
+/// until he has been in the app and left it, so a letter that ends every
+/// check costs one a visit, and checks alone never take the count past one.
 @MainActor
 final class SafeStart {
 
@@ -182,6 +191,8 @@ final class SafeStart {
     private var count = 0
     /// Waits for the healthy point, once the first page has been tried.
     private var watching: Task<Void, Never>?
+    /// A check for new mail is on its way, counted (`checkBegins`).
+    private(set) var checking = false
 
     /// `kept` is the copy of his mail, `Kept/`, `searches` the file of his
     /// recent searches (B-105), which goes with it, and `letters` the store
@@ -211,6 +222,13 @@ final class SafeStart {
     /// for. First thing in `didFinishLaunching`, before anything kept is read.
     @discardableResult
     func launch() -> Steps {
+        // A check for new mail on its way in this process as he opens the
+        // app is called off, and its count taken back first: it is no
+        // launch that never finished (B-161).
+        if checking {
+            checking = false
+            finished()
+        }
         // The count and the mark are all that is read before the steps:
         // nothing a letter holds, and nothing else beside them.
         var unfinished = Self.unfinished(in: directory)
@@ -287,6 +305,31 @@ final class SafeStart {
     func finished() {
         guard count != 0, write(0) else { return }
         count = 0
+    }
+
+    // MARK: - The check for new mail in the background (B-161)
+
+    /// Whether the check for new mail iOS has woken the app for may go,
+    /// counted as a launch is: only with no launch unfinished, on disk or
+    /// in this process, and no check on its way. A crash in it leaves the
+    /// count at one, so the next check does not go, and the next launch
+    /// counts it as a launch that never finished: one, which takes no step.
+    func checkBegins() -> Bool {
+        guard !checking, count == 0, Self.unfinished(in: directory) == 0, write(1) else {
+            return false
+        }
+        count = 1
+        checking = true
+        return true
+    }
+
+    /// The check has ended, as it went, called off, or out of time: the
+    /// count goes back to none. Nothing when none was counted, or when a
+    /// launch has taken it back since (`launch`).
+    func checkEnded() {
+        guard checking else { return }
+        checking = false
+        finished()
     }
 
     // MARK: - Letters set aside

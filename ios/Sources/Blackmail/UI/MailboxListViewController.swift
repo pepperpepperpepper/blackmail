@@ -154,6 +154,9 @@ final class MailboxListViewController: UITableViewController {
             }
             redraw()
             counted = true
+            // The number on the app's icon is the Inbox's count, as Mail's
+            // is (B-161).
+            AppBadge.app.counted(inboxUnread)
         } catch {
             if !quietly { ErrorPresenter.show(reaching: error, on: self) }
         }
@@ -214,6 +217,9 @@ final class MailboxListViewController: UITableViewController {
             else { continue }
             configure(cell, with: folder)
         }
+        // A read mark, or an unread letter binned, on the icon's number too
+        // (B-161).
+        AppBadge.app.counted(inboxUnread)
     }
 
     /// The Inbox, then everything else — the two blocks classic Mail

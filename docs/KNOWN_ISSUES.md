@@ -30110,3 +30110,214 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-161 — FIXED 2026-10-26, not yet seen on the iPad. Blackmail put no number on its icon and no banner for new mail, as Apple Mail does from the factory; the icon carries the Inbox's unread count, and a check iOS wakes the app for while it is away puts up a banner for each new unread letter in the Inbox, a tap on it opening the letter
+
+**From the owner's ruling of 2026-10-26**, "close the gaps in our decision
+tree by copying Apple Mail", with Mail's factory behaviour built where his
+own settings would decide, since they cannot be read. The item was the
+gap review's "app badge and notifications. *Owner decisions.*" (TODO), the
+decision record's 334c.
+
+**What Mail does.** Its number: "When you turn on Badges, the number of
+unread emails in your inbox appears above the Mail app on your Home
+Screen" (Apple's support article 108412, "Customize your Mail
+notifications on your iPhone or iPad", for iPhone and iPad). Since
+iPadOS 18.4, which brought Mail's categories to the iPad, the factory
+Badge Count with categories on is the unread letters in Primary alone,
+Apple's own sorting on the iPad; the other choice is "All Unread
+Messages", the whole Inbox (the same article; Six Colors and 9to5Mac on
+iOS 18.2). Its banners: one for each new letter, the sender over the
+subject and the first lines of the letter, a tap opening that letter;
+none while Mail is in front with the Inbox. A Gmail account is fetched,
+not pushed, as Gmail gives Mail no push. Its New Mail sound is None from
+the factory on current versions (Ding on old ones), as published guides
+and users report it; Apple's article says only that the sound chosen
+plays. Mail, Apple's own, asks nothing before it badges; any other app
+asks iOS's question first.
+
+**What Blackmail did.** Nothing of it: no number, no banner, nothing run
+while the app was away (B-049: "Nothing runs while the app is in the
+background").
+
+**Changed.**
+
+1. *The number* (`AppBadge`, new): the Inbox's unread count as the folder
+   pane shows it, set each time the pane learns it, a sweep of the counts
+   landing (`sweepOnce`; a Refresh, a check of the watch that found the
+   count changed or news, a return after a while away) and a read mark or
+   an unread letter binned (`adjustUnreadCounts`), and set again as he
+   leaves the app. Not from the counts kept from the last launch, which
+   are not counts the server has said in this one: until the launch's
+   first sweep the icon keeps the number last set. Every unread letter in
+   the Inbox, Mail's "All Unread Messages": Blackmail has no categories,
+   and its Inbox is one list, as Mail's List View. Set through iOS's
+   notification centre (`setBadgeCount`, iOS 16), which puts it on the
+   icon only with his yes to iOS's question and Badges on for the app.
+2. *iOS's question* (`BannerQuestion`, `NewMailTask.askIfDue`), banners
+   and the number, no sound, as Mail's factory New Mail sound is None:
+   once, the first time the Inbox's list has come from the server, at a
+   moment that interrupts nothing, with nothing over the mail (the
+   warning before the app stops opening included), no finger on the list
+   and the app in front; at the launch's first page, else at a later
+   check of the watch. Never again once iOS has an answer, as iOS asks
+   only once in any case. His no: no number, no banner, no check, nothing
+   asked again.
+3. *The check* (`InboxCheck`, new, and `NewMailTask`, its UIKit half): an
+   app refresh (`BGAppRefreshTask`), named in Info.plist
+   (`BGTaskSchedulerPermittedIdentifiers`, `wtf.uhoh.blackmail.new-mail`,
+   and `UIBackgroundModes` `fetch`), registered at every launch before the
+   launch ends, asked for as he leaves and after each check, fifteen
+   minutes on at the soonest; iOS runs it when it chooses. Only with his
+   yes and banners or the number on, an account set up, and nothing
+   unfinished (5). On a connection of its own, closed as it ends: LOGIN
+   and `STATUS "INBOX" (UNSEEN UIDNEXT UIDVALIDITY)`, and with nothing
+   above the last check's mark, that is all and LOGOUT. Above it, a SELECT
+   of the Inbox, `UID SEARCH UNSEEN UID n:*`, or `UNSEEN SINCE` the day
+   before he left at the first check after he left and after a
+   renumbering, a `UID FETCH` of the newest twenty letters' summaries and
+   one of their first words, PEEK, from the part and window the list's
+   previews come from. No STORE, MOVE, EXPUNGE or APPEND, no SMTP, and
+   nothing kept: not the copy of his mail, not the address book. The mark
+   is written once STATUS has said how far the Inbox goes, before any
+   letter is fetched, so a letter that ends a check is never fetched by
+   one again, and a letter has one banner.
+4. *The banners*: one for each letter still unread that reached the Inbox
+   after he last left the app, by Gmail's own time for it (INTERNALDATE),
+   oldest first so the newest is on top, at most twenty a check: mail
+   that came while he was in the app was on the list, as in Mail. Its
+   title the sender as the row names them, its subtitle the subject or
+   the row's "(no subject)", its words the row's grey line, at most 400
+   characters, iOS cutting the banner to its lines. Named by the letter,
+   so one put up again takes the first one's place. The number set from
+   STATUS's count. None if he has opened the app meanwhile, and none
+   while the app is in front (`willPresent` answers none, for one that
+   reached iOS as he opened it). The check ends within 25 seconds, when
+   iOS says its time is up, or as he opens the app, and then nothing of
+   it is shown.
+5. *The safe start* (`SafeStart`, B-057): a launch into the background,
+   iOS waking the app for the check, starts nothing of the app, no
+   window, no connection of the mail's, no pass over the Outbox, nothing
+   kept read or written, and is not counted; the app starts as he opens
+   it (`applicationWillEnterForeground`, and `applicationDidBecomeActive`
+   should that not come). A launch he sees is counted first as before.
+   The check is counted as a launch is, in the same count
+   (`checkBegins`, `checkEnded`), and goes only with no launch and no
+   check unfinished: after one that crashed, none goes until he has been
+   in the app and left it, and the next launch counts it as one launch
+   unfinished, which takes no step, so checks alone never take the count
+   past one. A launch in the same process while a check runs takes the
+   check's count back first.
+6. *A refused sign-in*: no check signs in again until he has been back in
+   the app, where the refusal is said, as the watch never sends a refused
+   password again.
+7. *The tap* (`AppDelegate` as the notification centre's delegate,
+   `RootViewController.openFromBanner`, `MessageListViewController.openRow`):
+   the Inbox in front, opened if another folder was, and the letter's row
+   opened as a tap on it opens it, the letter or its conversation in the
+   reading pane, marked read, its row highlighted; a letter not yet on the
+   list once the list has been fetched again from its newest letter;
+   before the launch's first page, once it has been tried; only the same
+   letter, by Gmail's id. Over a sheet he has open, the composer or
+   Settings, nothing: the app comes in front as he left it.
+8. *Back after a check*: a check that reached the server since he left
+   has set the number from the server's count, so the counts are swept as
+   he comes back, quietly, and the folder pane and the number agree.
+9. The repository's preview decoding and its two windows, unchanged, are
+   reachable from the check (`IMAPMailRepository.preview`).
+
+**What it reverses.** B-049's "Nothing runs while the app is in the
+background", in part: the watch still stops as the app goes and its
+connection sends nothing, and a check of its own now runs when iOS wakes
+the app. B-057's "every launch is counted": a launch into the background
+is not, and starts nothing. No D-entry and no line of the spec said no
+notifications; the spec's "Do not promise continuous background IMAP
+connectivity" (ARCHITECTURE.md) stands, nothing here being continuous.
+D-016's rejected "background keeper" of the copy of his mail is not
+this: the check keeps nothing.
+
+**New words.** None of the app's own. iOS's own question, in iOS's words,
+shown once: on iPadOS 16 to 18, as Apple writes it, "“Blackmail” Would
+Like to Send You Notifications", "Notifications may include alerts,
+sounds, and icon badges. These can be configured in Settings.", "Don't
+Allow" and "Allow" (not seen on his iPad). The banners carry his letters'
+own words, and "(no subject)" as the rows have it. Listed for the owner,
+the question being new on his screen.
+
+**What he sees.** Once, when the Inbox has come, iOS's question; with
+Allow, the red number on the icon, the Inbox's unread count, as the
+number beside Inbox; while the app is away, now and then as iOS lets it,
+a banner for each new letter, a tap on which opens it in the app; in the
+app, no banner.
+
+**Tests.** `NewMailBannersTests`, seventeen, new. The check over the
+scripted server, as the app runs it: the first check only marks where the
+Inbox goes, LOGIN, STATUS, LOGOUT, the count the Inbox's six unread; two
+letters come after he left, a banner each, oldest first, the sender's name,
+the subject or "(no subject)", the first words, the letters still unread,
+only LOGIN, STATUS, SELECT, SEARCH, two FETCHes (the second PEEK) and
+LOGOUT; a second check with nothing new is LOGIN, STATUS, LOGOUT and no
+banner again; no banner for a letter read on the phone or one that came
+while he was in the app; at most the newest twenty of twenty-five; the
+mark kept before the FETCH, which is held and its connection lost, and the
+next check fetching nothing; a refused sign-in not sent again until the
+refusal is taken back; a renumbered Inbox searched from the day before he
+left. The banner's words and its tap, a banner the app did not make
+naming no letter; the number, a count not known leaving it; iOS's question
+once and only at a moment that interrupts nothing; the sweep on return
+only after a check. The safe start: a check counted and going only with
+nothing unfinished; a check that crashed holding the next and counted as
+one launch, which takes no step; a launch during a check taking its count
+back. Info.plist naming the check, the background mode `fetch` alone, and
+no `aps-environment`. And read from the source: the registration at every
+launch and a launch into the background starting nothing, the number set
+where the folder pane learns the count and as he leaves, no banner in
+front, the question after the first page and at the watch's checks, a
+check held by the safe start and its banners only in the background. Two
+pins moved with the code: `SafeStartTests`' read of the launch's first
+lines, and `CompleteThreadsTests`' end marker for the previews' section.
+
+Each part undone by hand and the two suites run, then put back and
+passing, in three runs of parts that do not touch the same tests, counted as
+failures in tests. First run: the first check searching though he has
+never left; no words fetched; a quiet Inbox searched all the same; no
+limit of twenty; the refusal not held; a renumbered mark used as it is;
+any user info taken for a letter; a count not known set as nought; the
+question asked again; the sweep on every return; the check's name changed
+in Info.plist; the leaving not told: 18 in 13, each test its own part's,
+and the mark's test by the quiet Inbox's SELECT. (Taking the in-process
+count out of `checkBegins` failed nothing: the count on disk holds it
+first; its test fails with `checkEnded` not finishing, below.) Second run:
+the time he left not looked at; the mark written as the check ends; the
+count on disk not looked at; a launch not taking a check's count back; a
+launch into the background starting the app: 13 in 7, each its own
+part's. Third run: a check's end not finishing it: 2 in 1, the count's
+test.
+
+The full suite, serially: 2,681 tests, 17 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
+**Not covered.**
+
+- Nothing of it on the iPad. When iOS runs a refresh is its own: from
+  how often he opens the app, the battery and the network; perhaps not
+  for hours, and never with Low Power Mode on or Background App Refresh
+  off. A sideloaded app's refresh on iPadOS 18 not seen.
+- Mail's categories: if his Mail counts Primary alone, his icon showed a
+  smaller number than Blackmail's will. Which his is, not known.
+- That UIKit calls `applicationWillEnterForeground` for an app it launched
+  into the background as he opens it: Apple's account of the life cycle,
+  not seen; `applicationDidBecomeActive` starts the app as well.
+- The tap, the question and the number are UIKit: read from the source.
+- Mail takes a banner out of the Notification Centre once its letter is
+  read; here it stays until he clears it or taps it. Not built.
+- iOS groups the banners by app, as it does without a thread named;
+  whether Mail groups them by conversation, not looked at.
+- A process iOS wakes lets what it had left on its way go on for those
+  seconds, a pass over the Outbox cut off as he left among it: iOS's, not
+  the check's.
+- A letter read on another device while he is away takes the number down
+  at the next check or his return, not before.
+- A banner tapped for a letter that is no longer among the newest fifty,
+  the list's first page, after a day of mail, opens nothing: the Inbox is
+  left at its top. Mail would open it.
