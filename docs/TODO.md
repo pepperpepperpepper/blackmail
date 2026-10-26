@@ -310,12 +310,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       iPad: it did end the app, from "Save to Photos" on a picture in a
       letter; both keys are in, iOS asks, and "Save Image" is offered.
       B-067.*
-- [ ] Mark as Unread and Move to Junk from the Flag menu. *Mark as
+- [x] Mark as Unread and Move to Junk from the Flag menu. *Mark as
       Unread done 2026-10-22, seen on the iPad the same day: the Flag
       button opens Flag or Unflag and Mark as Unread or Read, as Mail's
-      did. Move to Junk is built on the `feat-flagmenu` branch and not
-      merged, for the owner. B-106, and its check under "Blocked on the
-      iPad coming back".*
+      did. Move to Junk ruled 2026-10-26, copy Apple Mail, and on the
+      `copy-junk` branch, not yet seen on the iPad: Move to Junk at the
+      end of the sheet, and Move to Inbox there inside Junk. B-106, and
+      its checks under "Blocked on the iPad coming back".*
 - [x] Reply with the original's attachments. *Done 2026-10-22, seen on
       the iPad the same day: a reply carries the original's files as rows
       when he adds someone the original did not go to (Mail's When Adding
@@ -4857,11 +4858,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *VoiceOver* reads "Flag" or "Unflag", "Mark as Unread" or "Mark
       as Read", and the button for each, one swipe at a time.
       8. *Put back.* The "B-106" letters to Trash.
-      Only if the owner says yes to Move to Junk, from the branch's last
-      commit: Move to Junk from the sheet: the row goes, "Moving…" shows,
-      the letter is in Spam on Gmail's web, and the counts are right; in
-      Spam, Move to Inbox brings it back; with Spam's "Show in IMAP" off in
-      Gmail's settings, no Junk item.
+      Move to Junk, and Move to Inbox inside Junk, ruled 2026-10-26 and
+      now on the `copy-junk` branch: their own check, "B-106, Move to
+      Junk in the Flag sheet", at the end of this section.
       *Seen on the test iPad 2026-10-22, a build of int11 (e739d2c), the
       letters made on the host: 1 to 6 and 8 passed (B-106). The sheet a
       popover with no Cancel, a tap outside closing it with nothing
@@ -7347,6 +7346,47 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-106, Move to Junk in the Flag sheet.** On the test iPad, the
+      test account only, from a build of the `bm-cm-junk` worktree
+      (branch `copy-junk`) or of the int it is merged into. Nothing is
+      composed, sent or saved. The host makes the letters, each from
+      another address, with a new Message-ID of its own, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox,
+      noting each UID from its APPENDUID. Three panes; the connection log
+      read after each step.
+      0. *The letters:* three, "B-106 junk one", "two" and "three".
+      1. *The sheet.* "Notes" opened, "B-106 junk one" opened, Flag: the
+      sheet under the Flag button reads Flag, Mark as Unread, Move to
+      Junk, in that order, in the plain style, no Cancel in the popover. A
+      tap outside closes it, and nothing is written in the log.
+      2. *Move to Junk.* Flag, Move to Junk: no question, the pane empties
+      and the row goes at the tap, "Moving…" under the list until the
+      answer, and no alert. The log: one `UID MOVE n "[Gmail]/Spam"`
+      answered `OK [COPYUID …]`, and nothing else written. Mailboxes,
+      the Junk folder (named Spam in the sidebar until the words of 7554
+      are built, Junk after): the letter at its top, read. On Gmail's
+      web, in Spam and no longer in Notes.
+      3. *Inside Junk.* The letter opened there, Flag: Flag, Mark as
+      Unread, Move to Inbox, and no Move to Junk. Move to Inbox: the row
+      leaves Junk, the log one `UID MOVE n "INBOX"`; the Inbox has the
+      letter, read. A move into the Inbox is not new mail to Gmail; if
+      the phone with the test account rings for it, write it down.
+      4. *From a search.* All Mailboxes, "B-106 junk two" searched for:
+      its hit, from All Mail, opened, Flag: Move to Junk offered, the
+      hit's own folder being All Mail. Move to Junk: the hit goes, the
+      log's `UID MOVE` sent with "[Gmail]/All Mail" selected, and on
+      Gmail's web the letter in Spam, no longer in Notes.
+      5. *Not in Edit mode.* "Notes", Edit, a row ticked, Mark: Flag and
+      Mark as Unread or Read alone, no Move to Junk (D-022). Cancel.
+      6. *Spam not shown in IMAP.* On Gmail's web, Settings, Labels:
+      Spam's "Show in IMAP" off. In the app, Mailboxes pulled down to
+      refresh: no Junk folder. "B-106 junk three" opened in "Notes",
+      Flag: Flag and Mark as Unread alone. Then "Show in
+      IMAP" on again, as found, and the Junk folder back after a refresh.
+      7. *Put back:* "one" in the Inbox, "two" in Junk and "three" in
+      "Notes" deleted from the app, to the Trash; the host
+      deletes in the Trash only the letters with the Message-IDs it
+      made. Spam's "Show in IMAP" as found. Nothing was sent.
 
 ## Blocked on the owner
 
@@ -7495,8 +7535,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       missing arrow mean nothing. Either way, VoiceOver's "Replied" and
       "Forwarded" await his approval, and are held from his iPad until he
       gives it (B-102).
-- [ ] **Move to Junk in the Flag sheet** (B-106): built on
+- [x] **Move to Junk in the Flag sheet** (B-106): built on
       `feat-flagmenu`'s last commit, not merged.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-106.*
 - [ ] **His own Sent Mail lines in a conversation after an offline
       relaunch** (B-111, D-021): Mail shows them; nothing of his Sent Mail
       is kept here, so they are not there. Keep it so (the default), or

@@ -19882,13 +19882,16 @@ row and mark it.
 - Offline, nothing is queued (D-016): each item fails with Flag's alert.
 - A tap on a row and a line opened in a stack mark a letter read as
   before, and nothing else does.
-- Move to Junk is not in the sheet. It is built on the `feat-flagmenu`
-  branch's last commit, which the merge leaves out until the owner says
-  yes (D-022). iOS 7's sheet had it beside Mark as Unread, and Apple
+- Move to Junk was not in the sheet. It was built on the `feat-flagmenu`
+  branch's last commit, which the merge left out until the owner ruled
+  (D-022). iOS 7's sheet had it beside Mark as Unread, and Apple
   Community users wrote of junking letters while reaching for Mark as
   Unread just beside it (https://discussions.apple.com/thread/5362045,
   2013); Mail's shake to undo brought them back there, and Blackmail has
-  no Undo.
+  no Undo. Ruled 2026-10-26, "copy Apple Mail": the commit is now on the
+  `copy-junk` branch, with Mail's words, Move to Junk, and Move to Inbox
+  inside Junk ("B-106 — FIXED 2026-10-26", Move to Junk, at the end of
+  this file).
 
 **What he sees.** A tap on Flag opens a small sheet under it: Flag, or
 Unflag, then Mark as Unread. Flag flags the letter as the button did, and
@@ -19929,7 +19932,8 @@ as the button wrote; the read mark handed as the pane has the letter, and
 put back if refused; the pane's own mark forgotten at each show and at the
 line's tap; no read STORE without a tap, the calls counted across the app
 and none in the pane's redraws; Edit mode's Mark sheet as it was, its
-bookkeeping `readTaken`; and no Move to Junk anywhere in the app.
+bookkeeping `readTaken`; and no Move to Junk anywhere in the app (that
+test went with Move to Junk's commit, 2026-10-26).
 `ReadOnEveryCopyTests` reads Edit mode's bookkeeping as `readTaken` now.
 
 Each rule undone in the worktree, one at a time, and ten classes run, 231
@@ -19986,9 +19990,9 @@ release build for the iPad links.
   seconds between. Both taken, as on a working connection, it ends
   right.
 - One flag, as before: no colours, which iPadOS 18's sheet offers.
-- Move to Junk, Move to Inbox inside Spam, and their words ("Move to Junk"
-  or "Move to Spam", his sidebar's word): the owner's, on the branch's
-  last commit.
+- Move to Junk, and Move to Inbox inside Junk: ruled 2026-10-26, copy
+  Apple Mail, and now on the `copy-junk` branch with Mail's words, not
+  yet seen on the iPad (Move to Junk's entry at the end of this file).
 
 **Seen on the test iPad, 2026-10-22**, a build of int11 (e739d2c), three
 panes, the test account; the letters made on the host and put in its
@@ -30110,3 +30114,106 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-106 — FIXED 2026-10-26, not yet seen on the iPad. Move to Junk: the Flag button's sheet held Flag and the read mark alone, Move to Junk left out for the owner; Mail's sheet has Move to Junk, and Move to Inbox inside Junk, and so does this one now
+
+The second half of B-106, which keeps its number. Built in the
+`bm-cm-junk` worktree (branch `copy-junk`), off master at 4a390c2.
+
+**What Mail does.** An open letter's More Actions sheet on iPadOS 18 has
+Move to Junk below Move Message and Archive, and inside Junk the same
+place reads Move to Inbox; neither asks anything first. Select, then Mark,
+has Move to Junk too, and it is one of the swipe choices (Apple's iPad
+guide for 18, "Organize your email in mailboxes"; MobileMailUI's strings).
+iOS 7 put Move to Junk in the Flag button's sheet, beside Mark as Unread,
+the era whose toolbar this app copies (B-106). Mail shows Gmail's Spam as
+Junk, by its `\Junk` role.
+
+**What it was.** The Flag button's sheet held Flag or Unflag and Mark as
+Unread or Read. Move to Junk was built on the `feat-flagmenu` branch's
+last commit, 562aea0, and left out of the merge for the owner (D-022):
+a mis-tap on it hides a letter in a folder he never opens, which Gmail
+empties after 30 days, and Blackmail has no Undo. The Move sheet reached
+Spam.
+
+**Ruled 2026-10-26** by the owner, "close the gaps in our decision tree
+by copying Apple Mail". This reverses D-022's "Move to Junk is not in
+it" and the line in B-106's Not changed that said so. It does not
+reverse D-022's "never from Edit mode": Mail's Select, Mark, Move to Junk
+is not built, and D-022's guard against Select All's 30,000-letter
+accident stays until the owner drops it.
+
+**Changed.**
+
+1. *562aea0 cherry-picked* onto master, 143 commits on. Its code went in
+   as it was, with nothing to resolve: `FlagMenu.items` given
+   `FlagMenu.Folders`, the pane's `foldersForJunk` and `move(_:to:)`,
+   which the Move sheet's folder goes through too, `RootViewController`
+   handing the folders by role, `MoveToJunkTests`, and `FlagMenuTests`
+   without its test that no Move to Junk is in the app. Its docs
+   conflicted with the 143 commits and were written again here, not
+   taken: its D-022 lines are left for the integration (DECISIONS.md is
+   not edited on this branch).
+2. *As built there.* Last in the sheet, in the plain style, Move to Junk
+   for a letter in any folder but Junk, when LIST names a folder with the
+   `\Junk` role; inside Junk, Move to Inbox in its place, when the Inbox
+   is listed. Neither for a letter kept on the iPad, nor with no such
+   folder listed (Gmail's Spam with "Show in IMAP" off): no name is
+   guessed. The role is that of the letter's own folder, which for an
+   All Mailboxes hit is not the list's. Chosen, it is the pane's Move of
+   the one letter the toolbar acts on: the pane empties at the tap, the
+   row goes, "Moving…" until Gmail answers, one `UID MOVE`, and
+   `PaneActions` takes a move to Junk as a Delete by another name, the
+   letter leaving every folder and an unread one coming off their counts.
+   Refused, the row comes back where it stood and he is told.
+3. *Mail's words.* "Move to Junk" and "Move to Inbox", in
+   `FlagMenu.Item.title` and nowhere else, as the test that holds them
+   to the sheet reads the sources. The folder is named by its role, Junk,
+   as Mail names it, not by Gmail's word, Spam; the comments in
+   `FlagMenu`, the pane, `RootViewController` and `MoveToJunkTests` say
+   Junk where they meant the folder, Spam where they mean Gmail's own.
+
+**Not changed.** Edit mode's Mark sheet (D-022). The Move sheet, which
+still lists Spam by Gmail's name. Offline, nothing is queued (D-016):
+refused, the row comes back with the alert. No Undo.
+
+**What he sees.** In a letter, Flag opens Flag, Mark as Unread and Move
+to Junk. Move to Junk takes the letter away at once, as Delete does, and
+it is in the Junk folder; opened there, the same sheet offers Move to
+Inbox, which puts it back in the Inbox. Nothing asks first, as in Mail.
+
+**Tests.** `MoveToJunkTests`, ten, as built on `feat-flagmenu` and
+passing here unchanged but for their comments: Move to Junk last from the
+Inbox, All Mail, Sent Mail, Trash and a label; Move to Inbox inside Junk,
+and nothing there without an Inbox listed; no third item with no `\Junk`
+folder, for a letter kept on the iPad, or with no folders handed; the
+words; over the scripted server, Spam unlisted leaving no folder to move
+to, Move to Junk one `UID MOVE n "[Gmail]/Spam"` with the row gone at the
+tap, refused the row back and the letter still in the Inbox, and Move to
+Inbox one `UID MOVE` to the Inbox; read from the source, the pane moving
+the one letter through `perform`, the container's folders by role, and
+the words in the sheet alone, never in Edit mode.
+
+Each rule undone on this branch, `MoveToJunkTests` and `FlagMenuTests`
+run, then put back and passing, counted as failures in tests: Move to
+Junk never offered, 10 in 1; the item's word "Move to Spam", 2 in 2; the
+role read off the list in front and not the letter's own folder, 1 in 1.
+
+The full suite, serially: 2,673 tests, 6 skipped, none failing. The
+release build for the iPad links.
+
+**Not covered.**
+
+- Not yet seen on the iPad: TODO, "B-106, Move to Junk in the Flag
+  sheet", under "Blocked on the iPad coming back".
+- Mail's own sheet was not seen on an iPad: the test iPad has no Mail
+  app (question 25 of the 2026-10-26 decisions). Its order below Archive,
+  and whether inside Junk it says Move to Inbox or Not Junk, are from
+  Apple's guide and Mail's strings, less surely; built as Move to Inbox.
+- The sidebar and the Move sheet still say Spam, Gmail's name, until
+  Mail's words are built (TODO, Blocked on the owner, "Mail's words in
+  three places", ruled 2026-10-26: Junk by its role); the item says Junk
+  already.
+- Seen, not built: Mail's Select, Mark, Move to Junk (D-022's guard), its
+  swipe choice ("Swipe to Trash on a row"), and its shake to undo (TODO,
+  "Undo for Delete and Move").

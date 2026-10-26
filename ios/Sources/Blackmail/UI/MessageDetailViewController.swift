@@ -39,6 +39,12 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (B-106); nil where the list has no row that is the letter
     /// (`ListLetters.dot(on:)`). From the container, which holds the list.
     var dotOnList: ((MessageSummary) -> FlagMenu.Dot?)?
+    /// The role of the letter's own folder and the folders LIST named with
+    /// the `\Junk` role and the Inbox's, for the Flag button's Move to Junk
+    /// and Move to Inbox
+    /// (`FlagMenu.Folders`). From the container, which lists the folders;
+    /// nil, or none listed, and neither item is offered.
+    var foldersForJunk: ((MessageSummary) -> FlagMenu.Folders)?
 
     private let repository: MailRepository
     private var summary: MessageSummary?
@@ -1237,7 +1243,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]
         let dot = dotOnList?(s)
         let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id),
-                                   local: LocalDraft.key(ofRow: s.id) != nil)
+                                   local: LocalDraft.key(ofRow: s.id) != nil,
+                                   in: foldersForJunk?(s) ?? FlagMenu.Folders())
         for item in items {
             let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in
                 guard let self, self.summary?.id == s.id else { return }
@@ -1247,6 +1254,7 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
             case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)
             case .markAsUnread, .markAsRead:
                 action.isEnabled = !writes.readOnItsWay(s.id) && dot?.onItsWay != true
+            case .moveToJunk, .moveToInbox: break
             }
             sheet.addAction(action)
         }
@@ -1260,6 +1268,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         case .unflag: setFlag(false)
         case .markAsUnread: setRead(false)
         case .markAsRead: setRead(true)
+        case .moveToJunk(let folder), .moveToInbox(let folder):
+            guard let s = summary else { return }
+            move(s, to: folder)
         }
     }
 
@@ -1351,19 +1362,27 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         guard let s = summary else { return }
         let move = MoveMessageViewController(repository: repository,
                                              excluding: s.mailboxID) { [weak self] destination in
-            guard let self else { return }
-            // Emptied as he chooses the folder, as a Delete empties it at
-            // the tap, rather than once the server has answered.
-            if self.summary?.id == s.id { self.showEmpty() }
-            Task { @MainActor in
-                if let refused = await self.performed(.move(to: destination), on: s) {
-                    ErrorPresenter.show(reaching: refused, on: self)
-                }
-            }
+            self?.move(s, to: destination)
         }
         let nav = UINavigationController(rootViewController: move)
         nav.modalPresentationStyle = .formSheet
         present(nav, animated: true)
+    }
+
+    /// Moves the letter: from the Move sheet's folder, or the Flag
+    /// button's Move to Junk or Move to Inbox (B-106). One letter, the one
+    /// the toolbar acts on, never a selection. The row leaves the list and
+    /// the status line says "Moving…" until the server has answered
+    /// (`perform`); refused, the row comes back and he is told.
+    private func move(_ s: MessageSummary, to destination: Mailbox) {
+        // Emptied as he chooses the folder, as a Delete empties it at
+        // the tap, rather than once the server has answered.
+        if summary?.id == s.id { showEmpty() }
+        Task { @MainActor in
+            if let refused = await self.performed(.move(to: destination), on: s) {
+                ErrorPresenter.show(reaching: refused, on: self)
+            }
+        }
     }
 
     /// Empties the pane at the tap, and the row leaves the list at the same

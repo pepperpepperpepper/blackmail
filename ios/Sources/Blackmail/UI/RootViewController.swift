@@ -881,6 +881,17 @@ final class RootViewController: UIViewController {
         detail.dotOnList = { [weak self] letter in
             self?.list.letters.dot(on: letter)
         }
+        // Move to Junk and Move to Inbox from the Flag button's sheet
+        // (B-106): to the folders LIST named with the `\Junk` role, Gmail's
+        // Spam, and the Inbox's, never a name guessed, and by the role of
+        // the letter's own folder.
+        detail.foldersForJunk = { [weak self] letter in
+            guard let self else { return FlagMenu.Folders() }
+            let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            return FlagMenu.Folders(role: folders.role(of: letter.mailboxID),
+                                    junk: self.mailboxList.mailbox(for: .junk),
+                                    inbox: self.mailboxList.mailbox(for: .inbox))
+        }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
         }

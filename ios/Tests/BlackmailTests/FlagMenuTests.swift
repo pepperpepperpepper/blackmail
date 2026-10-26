@@ -369,7 +369,7 @@ final class FlagMenuTests: XCTestCase {
             "sheet.popoverPresentationController?.barButtonItem = actionItems[.flag]",
             "let dot = dotOnList?(s)",
             "let items = FlagMenu.items(flagged: s.isFlagged, read: dot?.read ?? (markedUnreadHere != s.id), "
-                + "local: LocalDraft.key(ofRow: s.id) != nil)",
+                + "local: LocalDraft.key(ofRow: s.id) != nil, in: foldersForJunk?(s) ?? FlagMenu.Folders())",
             "let action = UIAlertAction(title: item.title, style: .default) { [weak self] _ in "
                 + "guard let self, self.summary?.id == s.id else { return } self.choose(item) }",
             "case .flag, .unflag: action.isEnabled = !writes.flagOnItsWay(s.id)",
@@ -534,17 +534,6 @@ final class FlagMenuTests: XCTestCase {
         XCTAssertTrue(apply.contains("self.letters.reading(m, read: read) self.letters.readTaken(m, read: read) }"))
         XCTAssertFalse(apply.contains("self.letters.unread("))
         XCTAssertFalse(list.contains("FlagMenu"))
-    }
-
-    /// Move to Junk is not in this build (B-106's last commit, left out
-    /// until the owner says yes): no such words anywhere in the app.
-    func testThereIsNoMoveToJunk() throws {
-        for file in try sources() {
-            let code = try String(contentsOf: sourceRoot.appendingPathComponent(file), encoding: .utf8)
-            for never in ["Move to Junk", "Move to Spam", "Move to Inbox"] {
-                XCTAssertFalse(code.contains(never), "\(file): \(never)")
-            }
-        }
     }
 
     // MARK: - The bookkeeping, on the list alone
