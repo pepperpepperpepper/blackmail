@@ -38,6 +38,13 @@ protocol SharedKeychain: AnyObject {
 /// own, written once by the extension and removed by the app only once it
 /// has them: two processes reading, changing and writing back one list,
 /// with nothing to keep them apart, could each lose what the other wrote.
+///
+/// The other is a letter the extension could not send for want of a
+/// connection (B-153): a share with no files waits in the app's Outbox, as
+/// a share in Mail waits in Mail's. Each such letter is an item of its own,
+/// under its own key (`waitingPrefix`), written by the extension and taken
+/// by the app at launch and as it comes back to the front
+/// (`LocalDrafts.takeShares`), for the same reason.
 struct ShareMirror {
 
     /// The group both are signed with: `keychain-access-groups` in
@@ -71,6 +78,78 @@ struct ShareMirror {
     /// go first.
     static let sentLimit = 200
 
+    /// What each letter shared with no connection waits under for the app
+    /// to take into its Outbox (B-153), followed by the share's own key:
+    /// one item a share, however often it is written.
+    static let waitingPrefix = "waiting-share."
+
+    /// A letter the extension could not send, as the app's Outbox takes it
+    /// (B-153): the letter as it went, whom from, and what every attempt
+    /// at it is made with, as his Send in the app keeps them (B-083). Only
+    /// a share with no files is ever one: a file staged by the extension is
+    /// in its own temporary directory, which the app cannot read.
+    struct WaitingShare: Codable, Equatable {
+        /// The share's own, made once with its sheet: the item's name, and
+        /// the letter's key in the app's Outbox, so a share is one letter
+        /// there however often it is handed over.
+        var key: String
+        /// The address of the account it was written in.
+        var account: String
+        var to: [String]
+        var cc: [String]
+        var bcc: [String]
+        var subject: String
+        var body: String
+        /// The Message-ID its attempt went under, and every attempt after
+        /// it goes under (`LocalDraft.outbox`).
+        var messageID: String
+        /// The time of his Send, its Date at every attempt.
+        var sentAt: Date
+        /// The name in its From and the signature, with its formatted twin,
+        /// as the app had mirrored them when he tapped Send.
+        var name: String
+        var signature: String
+        var signatureHTML: String
+        /// When its DATA went with no 250 back, so Gmail may have it: nil
+        /// when the attempt never got so far. The app asks Sent Mail before
+        /// it sends it again (`LocalDraft.unsettled`), as for a letter of
+        /// its own cut off so.
+        var cutOff: Date?
+
+        init(key: String, account: MailAccount, draft: Draft, messageID: String,
+             sentAt: Date, cutOff: Date?) {
+            self.key = key
+            self.account = account.address
+            to = draft.to
+            cc = draft.cc
+            bcc = draft.bcc
+            subject = draft.subject
+            body = draft.body
+            self.messageID = messageID
+            self.sentAt = sentAt
+            name = account.displayName
+            signature = account.signature
+            signatureHTML = account.signatureHTML
+            self.cutOff = cutOff
+        }
+
+        var draft: Draft {
+            var draft = Draft()
+            draft.to = to
+            draft.cc = cc
+            draft.bcc = bcc
+            draft.subject = subject
+            draft.body = body
+            return draft
+        }
+
+        /// What every attempt at it is made with (B-083).
+        var atSend: AtSend {
+            AtSend(name: name, date: sentAt,
+                   signature: AtSend.Signature(text: signature, html: signatureHTML))
+        }
+    }
+
     private struct Credentials: Codable {
         var account: MailAccount
         var password: String
@@ -97,7 +176,10 @@ struct ShareMirror {
     }
 
     /// Everything gone: the account was removed from the app, and a share
-    /// must not go on sending as it.
+    /// must not go on sending as it. Not the letters waiting for the
+    /// Outbox (`waitingPrefix`, B-153): they are his, and the Outbox takes
+    /// one written in another account as it takes any, to go nowhere until
+    /// he opens it.
     func clear() {
         for item in Item.allCases { keychain.remove(named: item.rawValue) }
         for name in sentNames() { keychain.remove(named: name) }
@@ -138,6 +220,23 @@ struct ShareMirror {
         for name in names { keychain.remove(named: name) }
     }
 
+    /// The letters the extension could not send, oldest first, each with
+    /// the name of its item; nil for one whose item cannot be read
+    /// (B-153).
+    func waitingShares() -> [(name: String, share: WaitingShare?)] {
+        keychain.names().filter { $0.hasPrefix(Self.waitingPrefix) }
+            .map { ($0, read(WaitingShare.self, from: $0)) }
+            .sorted { ($0.share?.sentAt ?? .distantPast, $0.name) < ($1.share?.sentAt ?? .distantPast, $1.name) }
+    }
+
+    /// Forgets the item `name`, once the app has the letter safe. Returns
+    /// whether it has gone: one the Keychain kept would be taken again.
+    @discardableResult
+    func forgetWaiting(_ name: String) -> Bool {
+        keychain.remove(named: name)
+        return keychain.data(named: name) == nil
+    }
+
     // MARK: - The extension's side
 
     /// What the extension works from, or nil when the app has not mirrored
@@ -169,6 +268,13 @@ struct ShareMirror {
         write(addresses, as: Self.sentPrefix + String(format: "%012ld.", next) + UUID().uuidString)
     }
 
+    /// Leaves `share` for the app's Outbox (B-153), under its own key, so a
+    /// share written twice is one letter. Returns whether it is there: the
+    /// Keychain may refuse it, and then the share is refused as it was.
+    func wait(_ share: WaitingShare) -> Bool {
+        write(share, as: Self.waitingPrefix + share.key)
+    }
+
     // MARK: - Plumbing
 
     /// The letters the extension has noted, oldest first: the place in
@@ -185,14 +291,18 @@ struct ShareMirror {
         write(value, as: item.rawValue)
     }
 
-    private func write<T: Encodable>(_ value: T, as name: String) {
+    /// Whether the item holds `value` now.
+    @discardableResult
+    private func write<T: Encodable>(_ value: T, as name: String) -> Bool {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .sortedKeys
-        guard let data = try? encoder.encode(value) else { return }
-        guard keychain.data(named: name) != data else { return }
+        guard let data = try? encoder.encode(value) else { return false }
+        guard keychain.data(named: name) != data else { return true }
         if !keychain.store(data, named: name) {
             Diagnostics.log(.note, "ShareMirror: could not write \(name)")
+            return false
         }
+        return true
     }
 
     private func read<T: Decodable>(_ type: T.Type, from item: Item) -> T? {

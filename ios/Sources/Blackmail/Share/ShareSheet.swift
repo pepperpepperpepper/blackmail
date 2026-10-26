@@ -14,10 +14,28 @@ import Foundation
 /// on the account `ShareMirror` handed over. Out of the extension's view
 /// controller, as `ComposeActions` is out of the composer's, so the suite
 /// can run it against `ScriptedSubmission`.
+///
+/// A share with no files that cannot reach the server waits in the app's
+/// Outbox, as Mail's share sheet leaves a letter in Mail's (B-153): the
+/// sheet closes with the sent sound, and the letter goes when Blackmail is
+/// next opened or comes back to the front. Handed over through the shared
+/// Keychain group (`ShareMirror.wait`), since nothing else is shared with
+/// the app. A share with files is refused as before, with the reason, the
+/// sheet staying: its files are in the extension's own temporary
+/// directory, which the app cannot read. So is every share from the day
+/// the app stops opening (`waits(at:appStops:calendar:)`).
 @MainActor
 final class ShareSheet {
 
     let shared: ShareMirror.Shared
+    /// The share's own, made once with the sheet: the name its letter waits
+    /// under for the app, and its key in the app's Outbox, so however often
+    /// Send is tapped it is one letter there (B-153).
+    let key = UUID().uuidString.lowercased()
+    /// The Message-ID every attempt at the letter goes under, from the sheet
+    /// and from the Outbox, so one cut off after its DATA can be looked for
+    /// in Sent Mail before it goes again (B-153).
+    let messageID: String
     private var actions: ComposeActions!
     /// Cancel, rather than a letter that went, is what put the sheet away.
     private var cancelled = false
@@ -37,6 +55,14 @@ final class ShareSheet {
     /// read from at Send, as it goes (`ShareSheet.staged`). `memory` says
     /// what the extension has left (`SharedPhoto.memory`), for the log at
     /// each step of Send.
+    ///
+    /// `wait` leaves a letter that could not go for the app's Outbox
+    /// (`ShareMirror.wait`, B-153), and says whether it is there; one that
+    /// says no leaves the share refused, as one that leaves nothing does.
+    /// `appStops` says when the app stops opening (`AppExpiry`), nil for
+    /// never, in `calendar`, asked only once a letter could not go, so a
+    /// share that goes reads no profile; `now` is the clock the letter is
+    /// dated by and the day is read from.
     init(shared: ShareMirror.Shared,
          transport: @escaping MailTransportFactory,
          openFile: @escaping (DraftAttachment) throws -> LetterSource = ShareSheet.staged,
@@ -47,11 +73,22 @@ final class ShareSheet {
          sent: @escaping () -> Void = {},
          showError: @escaping (MailError) -> Void,
          draw: @escaping (ComposeActions.Look) -> Void,
-         background: BackgroundTime) {
+         background: BackgroundTime,
+         wait: @escaping (ShareMirror.WaitingShare) -> Bool = { _ in false },
+         appStops: @escaping () -> Date? = { nil },
+         calendar: Calendar = .current,
+         now: @escaping @Sendable () -> Date = { Date() }) {
         self.shared = shared
         let account = shared.account
+        let messageID = RFC5322Builder.freshMessageID(for: account.address)
+        self.messageID = messageID
+        let key = self.key
         actions = ComposeActions(
             sendLetter: { draft, progress in
+                // His Send: the letter's Date at this attempt, and at every
+                // attempt from the Outbox should it wait there.
+                let sentAt = now()
+                let attempt = DataWent()
                 // The letter is made from the staged files as it goes, never
                 // whole (B-070): what Send holds does not grow with them. So
                 // the log says what was left once the files were read, in
@@ -67,32 +104,51 @@ final class ShareSheet {
                 let letter = ShareLetter.letter(
                     for: draft, account: account,
                     reserving: SignatureImages.contentIDs(of: shared.signatureImages))
-                try await Submission.send(
-                    draft, from: account, password: shared.password,
-                    through: SMTPClient(account: account, transport: transport),
-                    threadHeaders: nil,
-                    attachments: {
-                        try letter.bodyPictures.map {
-                            ($0.file.filename, $0.file.mimeType, try openFile($0.file),
-                             .inBody(contentID: $0.contentID))
-                        } + letter.files.map {
-                            ($0.filename, $0.mimeType, try openFile($0), .file)
-                        }
-                    },
-                    htmlBody: letter.html,
-                    inlineImages: SignatureImages.parts(of: shared.signatureImages),
-                    rehearsed: { rehearsal in
-                        Diagnostics.log(.note, SharedPhoto.sendNote(
-                            "files read", files: rehearsal.files.map { Int64($0.bytes) },
-                            memory: memory()))
-                    },
-                    beforeData: {
-                        Diagnostics.log(.note, SharedPhoto.sendNote("built", memory: memory()))
-                    },
-                    progress: { written, total in
-                        going.note()
-                        progress(written, total)
-                    })
+                do {
+                    try await Submission.send(
+                        draft, from: account, password: shared.password,
+                        through: SMTPClient(account: account, transport: transport),
+                        threadHeaders: nil,
+                        attachments: {
+                            try letter.bodyPictures.map {
+                                ($0.file.filename, $0.file.mimeType, try openFile($0.file),
+                                 .inBody(contentID: $0.contentID))
+                            } + letter.files.map {
+                                ($0.filename, $0.mimeType, try openFile($0), .file)
+                            }
+                        },
+                        htmlBody: letter.html,
+                        inlineImages: SignatureImages.parts(of: shared.signatureImages),
+                        messageID: messageID,
+                        rehearsed: { rehearsal in
+                            Diagnostics.log(.note, SharedPhoto.sendNote(
+                                "files read", files: rehearsal.files.map { Int64($0.bytes) },
+                                memory: memory()))
+                        },
+                        beforeData: {
+                            attempt.went(at: now())
+                            Diagnostics.log(.note, SharedPhoto.sendNote("built", memory: memory()))
+                        },
+                        progress: { written, total in
+                            going.note()
+                            progress(written, total)
+                        },
+                        date: sentAt)
+                } catch {
+                    // No connection: a share with no files waits in the
+                    // app's Outbox, the sheet closing as it does when the
+                    // letter goes (B-153). Anything else, and a share with
+                    // files, stays in the sheet with the reason, as before.
+                    guard Outbox.waits(after: error), draft.attachments.isEmpty,
+                          Self.waits(at: sentAt, appStops: appStops(), calendar: calendar),
+                          wait(ShareMirror.WaitingShare(key: key, account: account, draft: draft,
+                                                        messageID: messageID, sentAt: sentAt,
+                                                        cutOff: attempt.at))
+                    else { throw error }
+                    Diagnostics.log(.note, "SHARE-WAITING error=\(error)"
+                                    + (attempt.at == nil ? "" : " after-data"))
+                    throw Outbox.Waiting()
+                }
                 Diagnostics.log(.note, SharedPhoto.sendNote("sent", memory: memory(),
                                                             whileGoing: going.least))
                 // Only after the server took it, as the app's book counts
@@ -111,6 +167,28 @@ final class ShareSheet {
             draw: draw,
             background: background,
             sent: sent)
+    }
+
+    /// Whether a share with no files that cannot go at `now` waits in the
+    /// app's Outbox (B-153): always, but from the day the app stops opening,
+    /// `appStops`, in `calendar`. From that day it is refused as it was
+    /// before: the letter would wait for an app that may not open again
+    /// before it goes, and the sheet has said it was as good as sent.
+    nonisolated static func waits(at now: Date, appStops: Date?, calendar: Calendar) -> Bool {
+        guard let appStops else { return true }
+        return now < calendar.startOfDay(for: appStops)
+    }
+
+    /// The app that holds the share extension whose bundle is `appex`
+    /// (`Blackmail.app/PlugIns/BlackmailShare.appex`), two folders up; nil
+    /// for a bundle that is in no app's PlugIns. Where the extension reads
+    /// when the app stops opening (`AppExpiry.containingApp`, B-153).
+    nonisolated static func containingApp(of appex: URL) -> URL? {
+        let plugIns = appex.deletingLastPathComponent()
+        let app = plugIns.deletingLastPathComponent()
+        guard appex.pathExtension == "appex", plugIns.lastPathComponent == "PlugIns",
+              app.pathExtension == "app" else { return nil }
+        return app
     }
 
     /// The letter a share starts as, signed as the app signs a new one.
@@ -224,11 +302,36 @@ extension ShareSheet {
                      sent: @escaping () -> Void = {},
                      showError: @escaping (MailError) -> Void,
                      draw: @escaping (ComposeActions.Look) -> Void,
-                     background: BackgroundTime) {
+                     background: BackgroundTime,
+                     wait: @escaping (ShareMirror.WaitingShare) -> Bool = { _ in false },
+                     appStops: @escaping () -> Date? = { nil },
+                     calendar: Calendar = .current,
+                     now: @escaping @Sendable () -> Date = { Date() }) {
         self.init(shared: shared, transport: transport,
                   openFile: { .bytes(try readFile($0)) },
                   memory: memory, noteSent: noteSent, finish: finish, cancel: cancel,
-                  sent: sent, showError: showError, draw: draw, background: background)
+                  sent: sent, showError: showError, draw: draw, background: background,
+                  wait: wait, appStops: appStops, calendar: calendar, now: now)
+    }
+}
+
+/// When an attempt at a share sent its DATA (B-153), from whatever thread
+/// the send runs on: a letter cut off after it may have reached Gmail, and
+/// the app asks Sent Mail before it sends it again.
+final class DataWent: @unchecked Sendable {
+    private let lock = NSLock()
+    private var time: Date?
+
+    func went(at time: Date) {
+        lock.lock()
+        self.time = time
+        lock.unlock()
+    }
+
+    var at: Date? {
+        lock.lock()
+        defer { lock.unlock() }
+        return time
     }
 }
 

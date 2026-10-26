@@ -517,9 +517,10 @@ final class ShareSheetTests: XCTestCase {
         try await lettingGo(server)
     }
 
-    /// A letter Gmail refuses, and one sent with no connection, which the
-    /// share sheet refuses as it has no Outbox: no sound, the sheet stays.
-    /// Cancel after them, and Cancel before any Send: no sound.
+    /// A letter Gmail refuses, and one sent with no connection by a sheet
+    /// that cannot leave it for the app's Outbox (B-153, `ShareWaitsTests`):
+    /// no sound, the sheet stays. Cancel after them, and Cancel before any
+    /// Send: no sound.
     func testARefusedSendAndCancelMakeNoSound() async throws {
         let tooBig = ScriptedSubmission(letterReply: "552 5.3.4 Message too big")
         let refused = sheet(tooBig, sound: true)

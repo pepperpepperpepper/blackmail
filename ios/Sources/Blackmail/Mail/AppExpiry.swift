@@ -48,6 +48,34 @@ enum AppExpiry {
         return found
     }()
 
+    /// The app the share extension is in, read from the extension, once
+    /// (B-153): a letter it could not send waits for the app only while the
+    /// app opens. Its own profile, then, should the app's bundle not be
+    /// readable from the extension, the extension's, signed with the same.
+    static let containingApp: Found = {
+        let appex = Bundle.main.bundleURL
+        let found = forShare(app: ShareSheet.containingApp(of: appex), appex: appex, now: Date())
+        Diagnostics.log(.note, "EXPIRY share \(found.logged)")
+        return found
+    }()
+
+    /// What the app at `app` that holds the share extension at `appex`
+    /// says, as of `now`: the app's bundle and its executable's signature,
+    /// as the app reads its own; where that has no profile, or there is no
+    /// app, the extension's own bundle.
+    static func forShare(app: URL?, appex: URL, now: Date,
+                         files: FileManager = .default) -> Found {
+        if let app {
+            let found = read(bundle: app, containerRequired: OwnEntitlements.containerRequired(
+                                executable: Bundle(url: app)?.executableURL),
+                             now: now, files: files)
+            if found != .noProfile { return found }
+        }
+        return read(bundle: appex, containerRequired: OwnEntitlements.containerRequired(
+                        executable: Bundle(url: appex)?.executableURL),
+                    now: now, files: files)
+    }
+
     /// What the bundle at `bundle` says, as of `now`, its executable's
     /// signature holding TrollStore's entitlement or not. Only `.held` is
     /// TrollStore: a signature that could not be read is taken as a
@@ -151,6 +179,12 @@ enum AppExpiry {
 }
 
 extension AppExpiry.Found {
+    /// The instant it stops opening, nil for never or not known.
+    var stops: Date? {
+        if case .stops(let date) = self { return date }
+        return nil
+    }
+
     /// For the connection log: what was found, and the instant as UTC.
     var logged: String {
         switch self {

@@ -2828,7 +2828,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       on the sheet closes the question with the word still there (on the
       iPad it is a popover with Delete Draft alone).
       14. *A failed send.* With Wi-Fi off, Send: the reason is shown, the
-      letter is left as it was, and Send works once Wi-Fi is back.
+      letter is left as it was, and Send works once Wi-Fi is back. Since
+      B-153 (2026-10-26) that is a share with a photo; a share with no
+      files closes and waits in Blackmail's Outbox (B-153's check).
       15. *A `mailto:` link* tapped in a letter opens the app's composer
       with its address in To and his signature under the body. Whether
       one tapped in another app comes here is only noted.
@@ -4192,7 +4194,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       Send: say where the swoosh plays, the headphones, the speaker or
       both. Informative, not blocking.
       11. *The share sheet offline.* Airplane Mode on, a page shared, Send:
-      refused, no sound, the sheet stays.
+      refused, no sound, the sheet stays. Since B-153 (2026-10-26) that is
+      a share with a photo; a share with no files closes with one swoosh
+      and waits in Blackmail's Outbox (B-153's check). Seen as first
+      written, below.
       12. *Locked after Send.* A letter with a few photos, Send, and the
       iPad locked at once: say whether a swoosh comes from the locked
       iPad when the letter goes, and that the sheet has gone when it is
@@ -7395,6 +7400,50 @@ checks below is left as not needed, not open, and none is worth a round.*
       9. *Put back:* "Notes" left, the Inbox at its top. The host moves
       the UIDs it noted, and only them, from "Notes" to the Trash; the
       letters 4 to 7 sent to `+b152` are left for the owner to say.
+- [ ] **B-153, a share with no connection waits in the Outbox.** On the
+      test iPad, the test account only, from a build of the `bm-cm-sent`
+      worktree (branch `copy-aftersend`) or of the int it is merged into,
+      installed with the share extension as the share sheet's checks say
+      (`tools/build-share-ipa.sh`, TrollStore's helper, then
+      `killall BlackmailShare`), and the app opened once. Airplane Mode
+      means Airplane Mode on with Wi-Fi off. The connection log read after
+      each step.
+      1. *A link, offline.* Blackmail in the background. Airplane Mode on.
+      In Safari, a Wikipedia page, Share, Blackmail: To the account's own
+      address with `+b153` before the @, Send: the sheet slides away with
+      one swoosh and no alert, Safari as before. Nothing can be sent: there
+      is no connection.
+      2. *A photo, offline.* In Photos, one photo, Share, Blackmail, the
+      same To, Send: "Can't connect to mail server." over the sheet, no
+      sound, the sheet stays, as before. Cancel, Delete Draft.
+      3. *In the app.* Still in Airplane Mode, bring Blackmail back: the
+      Outbox in the Mailboxes with 1; the line under the list says
+      "1 Unsent Message"; the Outbox lists the letter, To the address, the
+      page's title its subject, its time the share's. The app's
+      connection log has `SHARE-WAITING taken into the Outbox`.
+      4. *Once.* Home, then Blackmail again, and end it in the switcher
+      and open it again, still in Airplane Mode: still "1 Unsent Message",
+      one row.
+      5. *Opened and put back.* Tap the letter in the Outbox: the composer
+      with the link above his signature; Cancel untouched: back in the
+      Outbox.
+      6. *Deleted.* Still in Airplane Mode, the Outbox, Edit, tick the
+      letter, Delete: nothing asked, the row and the Outbox go, and
+      "1 Unsent Message" with them. Airplane Mode off, Refresh: nothing is
+      sent (no `LETTER-PLAN` line in the log).
+      7. *(sends, test account only, needs the owner's go)* Steps 1 and 3
+      again, then Airplane Mode off: the letter goes at the first pass, or
+      at Refresh, once; the Outbox goes. In the letter that arrives, From
+      the name in Settings, dated at the share's time, the link a link in
+      Blackmail's pane.
+      8. *(sends, test account only, needs the owner's go)* The share made
+      with Blackmail not opened since: end Blackmail in the switcher,
+      Airplane Mode on, share as in 1, Airplane Mode off, then open
+      Blackmail: it goes at the launch's first pass, once.
+      9. *Mail's side,* only if Mail is back on the test iPad (the owner's
+      question 25): Wi-Fi off with Airplane Mode off, share a page to Mail:
+      say whether Mail puts up an alert, and its words; then Airplane Mode
+      on, the same: Mail's "Cannot Send Email" alert, written down.
 
 ## Blocked on the owner
 
@@ -7589,11 +7638,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       cannot bin another. Copy Mail (the default, unless his iPad's Delete
       or Move Message Action says "Don't Select a Message", with Delete grey
       for a second after the next letter shows), or keep it empty.
-- [ ] **A share with no connection**: Mail's sheet closes and the letter
+- [x] **A share with no connection**: Mail's sheet closes and the letter
       waits in its Outbox; Blackmail's stays up with "Can't connect to mail
       server." Close it and let the letter wait in Blackmail's Outbox, to go
       when Blackmail is next opened (the default, for shares with no
       files), or as today.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-153.*
 - [ ] **Smart Invert for Blackmail alone**: if he uses it, off for Blackmail
       in Per-App Settings so his other apps keep it (the default), rather
       than off for the whole iPad.

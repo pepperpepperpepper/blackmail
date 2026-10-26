@@ -506,7 +506,7 @@ enum RFC5322Builder {
 
     // MARK: - Identity
 
-    private static func freshMessageID(for address: String) -> String {
+    static func freshMessageID(for address: String) -> String {
         // The domain half should be one we "own", and the sender's domain is
         // the closest thing to that. Gmail rewrites the id on submission
         // anyway, so this matters mainly for the copy we keep and for the

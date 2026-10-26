@@ -334,6 +334,10 @@ struct OutgoingLetter: Sendable {
     /// Writes the attempt down as on its way. DATA waits for it, and is not
     /// sent if it throws.
     var beforeData: @Sendable () async throws -> Void = {}
+    /// A share the extension could not send (B-153, `LocalDraft.isShared`):
+    /// made as the extension makes a share, its web addresses links in the
+    /// HTML (`ShareLetter.letter`).
+    var isShared = false
 }
 
 /// What a letter is made with as Send takes it (B-083): the name in its

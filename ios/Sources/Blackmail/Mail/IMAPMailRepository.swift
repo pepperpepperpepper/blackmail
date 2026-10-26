@@ -2319,13 +2319,14 @@ actor IMAPMailRepository: MailRepository {
     // MARK: - Sending
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
-        try await send(draft, messageID: nil, atSend: AtSend(), beforeData: nil,
+        try await send(draft, messageID: nil, atSend: AtSend(), beforeData: nil, shared: false,
                        progress: progress)
     }
 
     func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
         try await send(draft, messageID: letter.messageID, atSend: letter.atSend,
-                       beforeData: letter.beforeData, progress: progress)
+                       beforeData: letter.beforeData, shared: letter.isShared,
+                       progress: progress)
     }
 
     /// `atSend` is what a letter from the Outbox went into it with (B-083):
@@ -2334,8 +2335,12 @@ actor IMAPMailRepository: MailRepository {
     /// where the formatted twin goes and what it is. What is nil in it is
     /// as `sender` has it now, and the time now: a new letter, or one put
     /// in the Outbox by a build before B-083.
+    ///
+    /// `shared`, a share the extension could not send (B-153), is made as
+    /// the extension makes a share: the web addresses in his words links
+    /// in the HTML twin (`ShareLetter.letter`).
     private func send(_ draft: Draft, messageID: String?, atSend: AtSend,
-                      beforeData: (@Sendable () async throws -> Void)?,
+                      beforeData: (@Sendable () async throws -> Void)?, shared: Bool,
                       progress: UploadProgress?) async throws {
         guard !retired else { throw MailError.cannotConnect }
         // The threading headers, which used to be dropped on the floor.
@@ -2359,8 +2364,10 @@ actor IMAPMailRepository: MailRepository {
             from.signature = signature.text
             from.signatureHTML = signature.html
         }
-        let letter = AppleMailHTML.letter(for: draft, account: from,
-                                          reserving: SignatureImages.contentIDs(of: images))
+        let reserved = SignatureImages.contentIDs(of: images)
+        let letter = shared
+            ? ShareLetter.letter(for: draft, account: from, reserving: reserved)
+            : AppleMailHTML.letter(for: draft, account: from, reserving: reserved)
         guard !Submission.recipients(of: draft).isEmpty else { throw MailError.notSent }
         let pictures = try await loadPictures(letter.pictures)
         try await Submission.send(draft, from: from, password: password, through: smtp,
