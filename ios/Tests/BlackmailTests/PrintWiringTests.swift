@@ -111,18 +111,23 @@ final class PrintWiringTests: XCTestCase {
     }
 
     /// The printed header is the pane's: the same words from the same
-    /// letter, in `MessageHeaderView` and in `PrintPage`.
+    /// letter, in `MessageHeaderView` and in `PrintPage`. But for a file
+    /// drawn among the words, which the pane's header leaves to its row
+    /// there (`BodyFiles.inHeader`, B-148), and a printed letter, whose
+    /// words draw no rows, still lists under its header.
     func testThePrintedHeaderIsThePanes() throws {
         let header = try source("UI/MessageHeaderView.swift")
         let printed = try source("Mail/PrintPage.swift")
         for words in ["MailFormat.displayName(m.sender)",
                       "MailFormat.recipientsLine(\"To\", m.to) ?? \"To: me\"",
                       "MailFormat.recipientsLine(\"Cc\", m.cc)",
-                      "m.subject.isEmpty ? \"(no subject)\" : m.subject",
-                      "m.listedAttachments"] {
+                      "m.subject.isEmpty ? \"(no subject)\" : m.subject"] {
             XCTAssertTrue(header.contains(words), words)
             XCTAssertTrue(printed.contains(words), words)
         }
+        XCTAssertTrue(header.contains("let listed = BodyFiles.inHeader(m)"))
+        XCTAssertTrue(printed.contains("files: m.listedAttachments.map"))
+        XCTAssertFalse(printed.contains("BodyFiles"))
         XCTAssertTrue(header.contains("date = m.date"), "on screen, as it was")
         XCTAssertTrue(header.contains("MailFormat.detailTimestamp(date)"), "on screen, as it was")
         XCTAssertFalse(printed.contains("detailTimestamp"))

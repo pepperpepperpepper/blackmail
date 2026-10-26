@@ -7347,6 +7347,55 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-148, a PDF among the words listed once.** On the test iPad, the
+      test account only, from a build of the `bm-cm-pane` worktree (branch
+      `copy-pane`) or of the int it is merged into. Nothing is composed,
+      sent, saved, moved or deleted in the app: one of the test accounts
+      is signed in on the owner's phone and new mail rings it. The host
+      makes the letters, each from another address, with a new Message-ID
+      of its own and naming none on the account, and APPENDs them, read
+      (`\Seen`), to the label "Notes", never the Inbox, each with its Date
+      as its internal date; it notes each UID from its APPENDUID, and stops
+      if one has none. Three panes unless a step says two; the app's
+      connection log read after each step; the screen recorded at 60
+      frames a second for 2 and 5.
+      1. *The letters,* "B-148 one", "B-148 end", "B-148 three" and "B-148
+      large": one, Apple Mail's shape for a PDF among the words, as B-113's
+      check made it (multipart/alternative of the plain words and a
+      multipart/mixed of an HTML part, a PDF of about 300 KB sent inline
+      with no `Content-ID`, and an HTML part after it ending "Sent from my
+      iPad"); end, an HTML part and a PDF attached after it; three, HTML,
+      a PDF, HTML, a second PDF, HTML, and a third PDF after all the words;
+      large, Apple Mail's shape with a PDF of about 6 MB, over 5 MB, so it
+      is opened in part.
+      2. *One:* "Notes" opened, "B-148 one" tapped. From the first frame
+      after the tap to the letter drawn, no file in the header, under the
+      date only the rule; in the body the words before, "Programme.pdf"
+      (or the name the host gave it) and its size in blue on a line of its
+      own, the words after and "Sent from my iPad". In the recording the
+      header's lower rule is at the same height in every frame from the tap
+      to the letter drawn: the height written down. The blue name tapped:
+      the PDF in Quick Look; Done, the letter as it was. Its list row has
+      the paperclip.
+      3. *End:* "B-148 end" tapped: the PDF's row in the header, grey from
+      the tap then blue, as before; none in the body. Its row tapped:
+      Quick Look; Done.
+      4. *Three:* the header has the third PDF's row alone; the first two
+      have their blue rows among the words, where they sat, each opening
+      its own PDF.
+      5. *Large:* "B-148 large" tapped: the log has its BODYSTRUCTURE first
+      and then its words, not the PDF; no file in the header from the tap,
+      and the header's lower rule at the same height in every frame to the
+      letter drawn; the PDF's blue row among the words, tapped: the log has
+      the PDF's FETCH, then Quick Look on it; Done.
+      6. *Forward's question,* on "B-148 one": the Reply button, Forward:
+      Mail's question about its file (B-107) is asked, the PDF being the
+      letter's file still. Cancel at the question, so nothing is begun.
+      7. *Two panes,* 2 and 3 again, then three panes.
+      8. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      UIDs it noted, and only them, from "Notes" to the Trash, and deletes
+      in the Trash only the UIDs that move answered. Nothing else was
+      written.
 
 ## Blocked on the owner
 
@@ -7505,8 +7554,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       printed, WebKit lightens a sender's light colours, small grey print
       all but gone. As built, Mail's light print (the default), or the
       sender's backgrounds printed.
-- [ ] **A PDF's two rows** (B-113), one in the header and one among the
+- [x] **A PDF's two rows** (B-113), one in the header and one among the
       words: both (the default), or one.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-148.*
 - [x] **Go to Date with Organize by Thread on** (B-117): a jump lands on
       the row that holds the day's first letter; when that letter was
       answered, the row is its conversation's, placed by its newest letter,

@@ -11,8 +11,10 @@ import Foundation
 /// the mark of a file the header lists (`Message.listedAttachments`) into
 /// its row, once: its name and size as the header's row has them, a link
 /// that opens it as a tap on that row does (`PaneNavigation`'s
-/// `openFile`). The header keeps its row, from the tap on the letter's line
-/// as before (B-101).
+/// `openFile`). The header no longer lists it (`inHeader`, B-148): Mail
+/// lists such a file once, where it sat. It kept its row there, from the
+/// tap as before (B-101), until 2026-10-26, so a PDF among the words had
+/// two.
 ///
 /// A mark of anything else stays a comment: a picture the body shows by
 /// `cid:`, a file the letter does not have, or a mark the sender wrote,
@@ -90,6 +92,37 @@ enum BodyFiles {
             + QuotedMarkup.attributeEscaped(link(file.id, of: m.id))
             + "\" style=\"display: inline-block; padding: 10px 0; text-decoration: none;\">"
             + QuotedMarkup.escaped(file.filename + size) + "</a></div>"
+    }
+
+    /// The files the reading pane's header lists for `m` (B-148): every
+    /// file it lists (`Message.listedAttachments`) but the ones its page
+    /// draws among the words, each of which has its row there and only
+    /// there, as Mail lists a file once, where it sat.
+    ///
+    /// Which those are is the letter's structure's to say
+    /// (`Attachment.isAmongWords`, `MIMEDecoder.filesAmongWords`), so the
+    /// header drawn at the tap, from the row, before a byte of the body has
+    /// come (`Message.heading(for:)`), leaves out the files the body will
+    /// draw, and does not change height when the body comes. Once the body
+    /// has come, a file the page does not draw among the words after all
+    /// keeps its row: the page is the pane's words for a letter with
+    /// nothing in it (`PanePage.isEmpty`), or the plain words, the HTML
+    /// refused by the server, or its mark is not in the HTML that came.
+    /// The header then grows by that row when the body comes: a file is
+    /// never left with no row anywhere.
+    static func inHeader(_ m: Message) -> [Attachment] {
+        let listed = m.listedAttachments
+        guard listed.contains(where: \.isAmongWords) else { return listed }
+        // Drawn from the row: no body yet, nothing to look at but the
+        // structure.
+        guard m.htmlBody != nil || m.textBody != nil || m.isShortened else {
+            return listed.filter { !$0.isAmongWords }
+        }
+        let html = PanePage.isEmpty(m) ? nil : m.htmlBody
+        return listed.filter { file in
+            guard file.isAmongWords, let html else { return true }
+            return !html.contains(mark(file.id))
+        }
     }
 
     /// The link of the file at `section` of the letter `letter`.

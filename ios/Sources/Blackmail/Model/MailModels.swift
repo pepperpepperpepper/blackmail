@@ -348,6 +348,15 @@ struct Attachment: Identifiable, Hashable {
     /// argument order every existing call site uses.
     var isInline: Bool = false
 
+    /// True for a file the letter's HTML draws among its words, a row of
+    /// its own where it sat (`BodyFiles`), as Apple Mail sends a PDF put in
+    /// the middle of a letter: worked out from the letter's structure
+    /// (`MIMEDecoder.filesAmongWords`), for a list row before the letter has
+    /// come as for the letter, so the header leaves it out from the tap
+    /// (`BodyFiles.inHeader`, B-148). Kept on the iPad with the row
+    /// (`MailShelf`). Declared last for the reason `isInline` is.
+    var isAmongWords: Bool = false
+
     /// True for a picture the body shows by `cid:`: a part sent inline, a
     /// picture, with a `Content-ID`. It stays among the letter's parts (the
     /// reading pane needs it to resolve the reference) but the header does

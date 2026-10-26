@@ -30110,3 +30110,140 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-148 — FIXED 2026-10-26, not yet seen on the iPad. A PDF put among a letter's words had two rows, one there and one in the header's list of files; it has the one among the words, and the header, decided from the letter's structure at the tap, does not change height when the body comes
+
+**Found** in the owner's question "A PDF's two rows" (TODO, under
+"Blocked on the owner"), ruled on 2026-10-26: "close the gaps in our
+decision tree by copying Apple Mail".
+
+**What Mail does.** Mail's header has no list of files: every file of a
+letter is drawn in its body where it sits, as a tile of about 160 by 120
+with "Tap to Download" (the style sheet for attachments in iOS 18.6's Mail,
+and Apple's iPadOS 18 guide). A PDF put among the words is on the screen
+once, there. High confidence; read, not seen on a screen.
+
+**What it was.** Since B-113 a PDF put among a letter's words, as Mail on
+an iPhone or an iPad sends one, had its row there, its name and size in
+blue where it sat (`BodyFiles`), and its row in the header as well: B-113's
+step 3, "The header keeps its row, grey from the tap and blue once the
+letter has come, as B-101 has it". Two rows for one file, each 44 pt or
+more, one of them above the words.
+
+**Changed.**
+
+1. *Which files are among the words* (`MIMEDecoder.filesAmongWords`): from
+   the letter's structure alone, by the pieces its HTML draws
+   (`drawnPieces`, the one function `joined` draws the body by, now called
+   by both): a file with words before it and after it, in a letter whose
+   HTML has a part of HTML. A file before or after all the words, one in a
+   plain letter, which draws no rows, and a picture shown by `cid:`, which
+   is no file to him, are not.
+2. *A file whose mark could fall after a cut keeps its row in the header.*
+   A letter over 5 MB is fetched in part, the parts of its HTML sharing
+   2 MiB in turn (`Allowance`, B-113), and nothing is drawn after words cut
+   short or before words not fetched. The letter's size is not in its
+   structure, so every letter is read as if it were that large: a file
+   after a part of words longer than its share, or of a size not known, or
+   before a part given nothing, keeps its row. And so does a file with no
+   words after it, whose mark goes in only at the end of a body that came
+   whole. For Mail's shape, a few kilobytes of HTML on each side of the
+   file, nothing of this changes anything.
+3. *Each file says so* (`Attachment.isAmongWords`), set by `flatten` by the
+   one rule, for a list row's files from its BODYSTRUCTURE
+   (`MIMEDecoder.listedAttachments(in:)`) as for the letter downloaded,
+   whole or in part; kept on the iPad with the row (`MailShelf`'s file
+   record, `among`, written only when true: no new format).
+4. *The header* (`MessageHeaderView`) lists `BodyFiles.inHeader(m)`: the
+   files `listedAttachments` has, less those among the words. At the tap the
+   header is drawn from the row (`Message.heading(for:)`), so the PDF is not
+   in it from the first frame, and the letter landing takes nothing away:
+   the header keeps its height. Once the body has come, a file the page
+   does not draw among the words after all keeps its row, so that no file
+   is ever left with no row anywhere: the HTML refused by the server and
+   the plain words shown in its place (B-114), HTML with nothing in it to
+   show ("This message has no text."), or a mark not in the HTML that
+   came. Only then does the header grow, by that row, as the body comes.
+5. Everything else that goes by a letter's files still has the PDF: its
+   row among the words opens it (`openFile`), Forward and Reply's question
+   (`ReplyFiles`), the paperclip on its list row, and a printed letter's
+   header (`PrintPage`), whose words draw no rows.
+
+**What it reverses.** B-113's step 3, "The header keeps its row", and,
+for a file among the words, B-101's row in the header from the tap ("A PDF
+from Apple Mail on an iPhone or an iPad has its row in the header from the
+tap"). Every other file keeps B-101's row.
+
+**Not changed.** What a file is (`MIMEPart.isListedFile`,
+`Attachment.isShownInBody`), the paperclip, what is fetched and when, the
+row among the words and what it opens (B-113). Files before or after all
+the words keep their rows in the header, where Mail draws them as tiles at
+the top or the bottom of the body: that wider move is a question of its
+own, not built. Nothing like Mail's tile is drawn: a row of words, as
+before.
+
+**What he sees.** A letter from Mail on an iPad or an iPhone with a PDF
+among its words: no file in the header, from the tap; the PDF's name and
+size in blue where it sat, as before, which opens it; and the header the
+same height before and after the letter comes. A letter with a PDF
+attached after its words: its row in the header, as before. No new words.
+
+**Tests.** `FileListedOnceTests`, five, new. Apple Mail's shape: no row in
+the header at the tap, from the row's structure, nor once the letter has
+come; the PDF still listed for its row among the words, Forward's question
+and the paperclip; the page and the stack's body each with its one row.
+Eight shapes, each the files the header leaves out exactly the files the
+page draws, and the same at the tap as once come: Apple Mail's two, plain
+words split by a file, a file after all the words and one before, two
+among the words and one at the end, a picture by `cid:` among them, and a
+note, a file and a letter forwarded inline. The cut, at a limit of a
+kilobyte, 400, 999, 999 with the words after it cut, 1,000 and 1,001
+bytes before the file, and at the app's own 2 MiB, one byte under and one
+over, a letter of the latter fetched whole drawing its row and keeping its
+header row. Once the body has come: the HTML refused, HTML with nothing to
+show and HTML cut before the mark keep the row, a mark drawn leaves it out,
+and a letter not come goes by the structure. And read from the source: the
+header lists `BodyFiles.inHeader` alone, `drawnPieces` called by `joined`
+and `filesAmongWords`, and `flatten` marking the files. `MailShelfTests`,
+one, new: a row kept with a PDF among its words, its record with `among`
+for that file alone, the format 1, read back with it and its header at the
+tap leaving the PDF out, and a record with no `among`, as every page kept
+before has, read as not among. `PrintWiringTests`, one changed: the
+printed header is the pane's but for the files, which a printed letter
+lists all of.
+
+Each part undone by hand, up to six at a time, each failure read back to
+its part by the assertion that failed, these and the pane's other suites
+run (`PictureTapTests`, `PrintWiringTests`, `BodyInOrderTests` among
+them), then put back and passing, counted as failures in tests: no file
+marked as among the words (`flatten`), 13 in 3; the header listing every
+file again, as before, 3 in 2; no cut, every file between words taken as
+among them, 5 in 1; no part of HTML asked for, plain words split by a file
+taken as drawing its row, 2 in 1; nothing looked at once the body has
+come, a file the page does not draw left out all the same, 3 in 1; the
+kept row's record without `among`, 4 in 1.
+
+The full suite, serially, with B-149 and B-150 beside it: 2,686 tests, 6
+of them this entry's, 6 skipped, none failing. The release build for the
+iPad links.
+
+**Not covered.**
+
+- Not seen on the test iPad: the header's height from the tap through the
+  letter landing, in a recording at 60 frames a second (the check, step 2).
+- Mail was not looked at on a screen, 16.5.1's or 18's; its tiles are not
+  copied.
+- A letter whose HTML before the PDF is over 2 MiB, fetched whole: its PDF
+  has its row among the words and in the header, two, as before, the rule
+  reading every letter as if it were large.
+- A row kept on the iPad by a build before this one has no `among`: the
+  header lists the PDF at the tap and loses that row when the letter comes,
+  until the folder is next listed from the top. His iPad has had no build.
+- The rule reads the app's limit, 2 MiB; the suite's repositories made
+  with limits of a kilobyte cut sooner, and there the file's row comes back
+  to the header when the body comes, as the rule after the body has it.
+- Whether the body draws the mark is looked for in the HTML on the main
+  thread as the header is drawn, only for a letter with such a file: a
+  search of up to 2 MiB, not timed on the iPad.
+- A picture shown by `cid:` among the words is marked as among them too;
+  it is no file, and nothing lists it, so nothing changes for it.
