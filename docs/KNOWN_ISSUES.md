@@ -31850,3 +31850,347 @@ failing. The release build for the iPad links.
 - Not looked for: an EXPUNGE whose answer is lost (Delete inside the
   Trash), the fallback COPY of a server without MOVE, and a draft's
   deletes. On Gmail every Delete and Move outside the Trash is a MOVE.
+
+## B-152 — FIXED 2026-10-26, not yet seen on the iPad. A letter he answered or forwarded in Blackmail was never marked on Gmail, so it never had the arrow B-102 draws; once the server has taken the reply or the forward, its original is marked `\Answered` or `$Forwarded`, as Mail marks it, also when the letter goes later from the Outbox
+
+**What Mail does.** Read from iOS 18.6's Mail code (its symbols), the
+Outbox study and the 16.5 Envelope Index's schema, with medium
+confidence, and not seen on a device: once a reply or a forward has been
+delivered, Mail marks the letter it answers `\Answered`, or the letter it
+passes on `$Forwarded`, on the server; a letter sent later from its
+Outbox is marked when it goes; with no connection the change waits in
+Mail's own queue of actions. Its list shows the grey arrow (B-102), and
+nothing is said on the screen. Which keyword iPadOS 18 writes for a
+forward, `$Forwarded` or `Forwarded`, both of which its code knows, only
+a real iPadOS 18 device can show; `$Forwarded` is built.
+
+**What it was.** B-102 read both marks off the FLAGS each row is fetched
+with and drew the arrow, but nothing wrote them: `MailShelf.answered` and
+`forwarded` had no callers. A letter he answered or forwarded in
+Blackmail had no arrow, so an arrow missing said nothing. The TODO put
+the second half to the owner as a bounded exception to D-016's "no queue
+of offline changes", with the arrows to come out again if the answer was
+no.
+
+**Ruled** on 2026-10-26: "close the gaps in our decision tree by copying
+Apple Mail", which answers the TODO's question yes. This is the narrow
+exception to D-016 the TODO asked for, and no wider: the mark is kept
+only inside the letter it belongs to, written once when that letter goes,
+and a mark that cannot be written is dropped, never kept apart, queued or
+tried again.
+
+**Changed.**
+
+1. *The letter names its original* (`Draft.original`, `OriginalLetter`,
+   new). Reply, Reply All and Forward made from a letter carry Gmail's id
+   for it (X-GM-MSGID), the folder it was opened in, and which of the two
+   it is. None for a letter the server named no Gmail id for, a new
+   letter, a share, or a draft reopened from the server's Drafts.
+2. *Kept with the letter on the iPad* (`LocalDraftStore`, `original` in
+   `letter.json`), a new optional field. Absent reads as none, so a
+   letter kept by the build before reads as it did and no new format; one
+   that cannot be read reads as none (`Lenient`), and the letter still
+   goes, with nothing marked.
+3. *After the 250 and never before* (`IMAPMailRepository.send`). Once the
+   server has taken the letter, the mark is set off in a task of its own,
+   never awaited by Send, so the sheet closes at the 250 as before
+   (B-044); marks run one after the other. A letter refused, cut off or
+   never sent throws before it, and nothing is marked then.
+4. *The write* (`IMAPClient.mark`, new), in one hold of the gate: the
+   mailbox's news first (a NOOP, unless a SELECT went), `UID SEARCH
+   X-GM-MSGID <id>`, and `UID STORE <uid> +FLAGS.SILENT (\Answered)`, or
+   `($Forwarded)`, on the UID found, so the UID marked is the one found,
+   and a letter archived elsewhere since the folder was selected is not
+   taken to be there still. In the folder it was opened in, then in All
+   Mail, where it is if moved or archived since; the Trash and Spam only
+   when it was opened there. Found in neither: no STORE, nothing said, and a
+   `SENT-MARK … original gone` line in the connection log. Anything that
+   fails, a STORE refused, a connection that cannot be made or goes: the
+   mark is dropped, a `SENT-MARK … dropped` line, no alert, and the
+   letter has gone as before. Sent once, by the rule every write keeps
+   (`sendingOnce`).
+5. *From the Outbox.* A letter that waited goes by the same `send`, so its
+   original is marked when it goes, by the pass after a relaunch too,
+   named by the letter kept on the iPad. One cut off after its DATA,
+   with no 250 back, has gone if the Outbox later finds it in Sent Mail
+   (B-052's `OUTBOX-FOUND`): it is not sent again, and its original is
+   marked then, as after a 250, by the same write
+   (`MailRepository.markOriginal`, from `LocalDrafts.deliver`), once, as
+   it then leaves the Outbox. Not found, it goes again, and is marked
+   at that letter's 250.
+6. *Once the server has it*, the kept copy has it wherever the letter is
+   kept (`MailShelf.answered`, `forwarded`, B-102's), and the lists are
+   told (`OriginalLetter.marked`): the message list puts the arrow on its
+   rows of that letter, by Gmail's id, the folder's, a search's hits and
+   the news held to go on (`ListLetters.originalMarked`), as the next
+   listing draws it from the server's flags.
+
+**What it reverses.** D-016's "no queue of offline changes", in this one
+case, as ruled above (DECISIONS.md is brought up to date at
+integration). B-102's first "Not covered": a letter answered or
+forwarded in Blackmail now gets its arrow, and the arrows stay in for
+the install.
+
+**What he sees.** A few moments after a reply's sheet has closed, the
+row of the letter he answered shows the grey reply arrow, and after a
+forward the forward arrow; on a row still unread its dot, as B-102 has
+it. A reply sent with no connection: the arrow once the reply goes. If
+the mark cannot be written, nothing at all, as before.
+
+**Tests.** `SentMarkTests`, twelve, new. Reply, Reply All and Forward
+name their original by Gmail's id and folder, and a letter with no Gmail
+id, a new letter and the two keywords as written. Over the composer's
+own wiring, the shipping `LocalDrafts` and repository, the scripted IMAP
+server and a scripted submission server: a reply, no STORE while its 250
+is held, then one `UID STORE … +FLAGS.SILENT (\Answered)` on the
+original, `\Answered` on the server, the kept page's row answered, the
+lists told once, and the next listing's row with the reply arrow; a
+forward, `$Forwarded` alone and the forward arrow; a reply refused after
+DATA, the sheet with the reason and no STORE; a reply sent with no
+connection, no STORE, the letter in the Outbox naming its original, then
+the app made again over the same directory and the line back, the pass
+sends it and the original is marked; a reply cut off after its DATA, the
+sheet closed, waiting unsettled and no STORE, then found in Sent Mail,
+the pass sends nothing and marks the original, once; the original
+archived elsewhere while the Inbox stays selected, marked in All Mail;
+the original deleted before the send, the reply gone, no STORE, its
+folder and All Mail searched and nothing else, nothing told and nothing
+said; the IMAP server not reached after the 250, the reply gone, not in
+the Outbox, no error and no STORE. Kept on the iPad: the original read
+back; a damaged field and an older build's letter with none read as
+none, the letter there. The list: the arrow on the marked letter's rows
+alone, the reply's and the forward's, a search's hit too, and nothing
+changed for a letter it does not hold. Read from the source: the list
+controller hears the mark and hands it on.
+
+`KeptReferencesTests` counts, command by command, what fetching an
+original's parts costs when a forward or a reply goes; its letters now
+name no original, so the mark's commands after the 250 are not among
+what it counts. Four of its tests failed on them before that, the mark
+being on the wire as they read it.
+
+Each rule broken in place, one at a time, the new tests of both
+entries run each time, counted as failures in tests (the first fourteen
+each with one of B-153's broken beside it in the same build, in code
+these tests never reach):
+the mark never set off, 15 in 5; a forward marked `\Answered`, 5 in 2;
+a reply naming no original, 15 in 5; the original not kept with the
+letter on the iPad, 5 in 2; kept without `Lenient`, so a damaged field
+loses the letter, 1 in 1; the mark set off before the 250, 5 in 3; All
+Mail not looked in, 3 in 2; no news asked before the search, so the
+Inbox's stale view is marked, 2 in 1; the list marking no row, 5 in 1;
+the list controller not handing the mark on, 1 in 1; the kept page not
+patched, 2 in 1; the lists not told, 1 in 1; the Trash looked in too, 4
+in 1; a mark that cannot be written failing the send, 17 in 6; a mark
+that failed tried again, 1 in 1. Then put back, the new tests passing.
+Added since, in one build with two of B-153's broken beside it, in code
+these tests never reach: the original not marked when the Outbox finds
+the letter in Sent Mail, 3 in 1. Put back, passing.
+The full suite, serially, with nothing undone: 2,690 tests, the 26 of
+B-152 and B-153 among them, 6 skipped, none failing (2,688 and 24, run
+twice, before the three added since). The release build for the iPad
+links.
+
+**Not covered, and not seen.**
+
+- What Mail does is read from its code, not seen; nor which forward
+  keyword iPadOS 18 writes. If it is `Forwarded`, Mail's and Blackmail's
+  marks differ on the server; the arrow here is the same for both
+  (B-102 reads both). Whether Gmail keeps `$Forwarded` set over IMAP is
+  not tried on the test account (the device check asks).
+- Mail keeps a change it could not make in its queue of actions and makes
+  it later; here a mark that cannot be written is dropped (D-016): a
+  reply that goes while the IMAP server cannot be reached leaves its
+  original unmarked for good, and its row without the arrow.
+- The mark is not awaited by Send. Locked at once after a Send, the app
+  may be suspended before the STORE goes; it then goes when the app runs
+  again, or is lost if the app is ended. The composer's background time
+  runs until Drafts has been tidied after the 250, and the pass's until
+  its end, which usually covers it; not measured.
+- A draft reopened from the server's Drafts names no original, since
+  nothing on the server says which letter it answers but its
+  In-Reply-To; sent, nothing is marked. Mail, which keeps its drafts in
+  its own database, is taken to know; not seen.
+- An original in the Trash or Spam when the reply goes is not marked,
+  unless that is the folder it was answered from. Mail is taken to mark
+  a letter wherever it is; not seen.
+- A listing asked before the mark landed and drawn after it can take the
+  arrow off the row until the next listing: the list holds his own read
+  marks and flags over such a listing (`holdingHisMarks`), not this one.
+- The reading pane and a conversation's stack show no arrow (B-102).
+- A reply cut off after its DATA that he has put back in Drafts (B-052
+  keeps its attempt with it) is found in Sent Mail by the Drafts pass
+  and stays there; its original is marked only when he sends it from
+  Drafts, which sends nothing. Mail has no such state; not seen.
+- Not seen on the iPad. The device check's sends wait for the owner's go.
+
+## B-153 — FIXED 2026-10-26, not yet seen on the iPad. A link shared with no connection stayed in the share sheet with "Can't connect to mail server."; Mail's sheet closes and the letter waits in its Outbox, and now a share with no files closes with the sent sound and waits in Blackmail's Outbox, to go when Blackmail is next opened or comes back to the front
+
+**What Mail does.** Read from MessageUI's and MobileMailUI's strings in
+iOS 18.6 and Apple's support article 102556, with medium confidence, and
+not seen on a device: Mail's share sheet does not refuse a letter it
+cannot send; the sheet closes, the letter goes to Mail's Outbox, and
+Mail's daemon sends it later, without Mail being opened. In Airplane
+Mode Mail puts up "Cannot Send Email" with "Airplane Mode is on. The
+email has been placed in your Outbox and will be sent later."; its list
+says "1 Unsent Message". Whether Mail says anything with Wi-Fi off and
+Airplane Mode off is not known.
+
+**What it was.** The share extension sends by itself (B-036). With no
+connection the sheet said "Can't connect to mail server." over the
+letter, which stayed as it was, Send blue again (the share sheet's check
+14 and B-100's step 11, seen on 2026-10-21 and 22). Nothing could hand
+the letter to the app: the wildcard profile allows no App Group, so the
+only thing the two share is the Keychain group the account is mirrored
+through (`ShareMirror`), and the extension's files are in its own
+temporary directory.
+
+**Ruled** on 2026-10-26: copy Apple Mail, for shares with no files (the
+TODO's default).
+
+**Changed.**
+
+1. *The sheet* (`ShareSheet`). Every attempt at the letter goes under one
+   Message-ID made with the sheet, dated by his Send. One that fails as a
+   letter of the app's would wait in the Outbox (`Outbox.waits(after:)`:
+   no connection, a cut, the server's "not now"), on a share with no
+   files, before the day the app stops opening, is handed to the app, and
+   the sheet closes as for a letter that went: the sent sound once
+   (B-100), the share completed, and no alert, as the decision has it
+   (`Outbox.Waiting`, as from the app's composer). A second Send sends
+   nothing. Every other failure, a share with files, a handover the
+   Keychain refuses, and every share from the day the app stops opening,
+   are refused as before, the sheet staying with the reason.
+2. *The handover* (`ShareMirror.WaitingShare`, `wait`): one Keychain item
+   for each share, in the group the account is mirrored through, named
+   `waiting-share.` and the share's own key, made once with the sheet, so
+   written again it is the same item, as `noteSent` keeps one item per
+   letter. It holds whom the letter is to, its subject and words, the
+   account, the Message-ID, the time of his Send, the name and the
+   signature with its formatted twin as mirrored, and, for an attempt
+   whose DATA went with no 250 back, when.
+3. *The day it stops* (`ShareSheet.waits`, `ShareSheet.containingApp`,
+   `AppExpiry.containingApp`, `forShare`). The extension reads the app's
+   profile, two folders up from its own bundle in the app's PlugIns, as
+   the app reads its own (B-137), or its own profile where the app's is
+   not there or cannot be read. Asked only once a share could not go, so
+   a share that goes reads no profile. From the start of the day the app
+   stops opening, in the iPad's calendar, a share is refused as before:
+   a letter would wait for an app that may never open again, and the
+   sheet would have said it was as good as sent. The decision has it
+   refused again "after 2027-09-18"; this is the safer reading, from the
+   start of that day.
+4. *The app takes it* (`LocalDrafts.takeShares`,
+   `LocalDraftStore.keepShared`), as its screens come up at launch,
+   before the first pass, and each time it comes back to the front,
+   before that return's pass (`RootViewController.takeWaitingShares`).
+   Each is kept in the Outbox as his Send in the app would have left it:
+   under the share's key and Message-ID, dated by his Send, with the name
+   and the signature it was sent with (B-083), and its attempt written
+   down as unsettled when it was cut off after its DATA, so Sent Mail is
+   asked before it goes again (B-052). Only then is the item forgotten. An
+   item the Keychain will not forget takes the letter out of the Outbox
+   again, to be taken next time: never both. One whose key is kept
+   already, an app ended between the two, is only forgotten, the letter
+   left as it is. One that cannot be read is forgotten, with a line in
+   the log. One the app cannot keep, a write refused on a full iPad,
+   stays in the Keychain for the next take: the sheet has closed on it
+   as sent.
+5. *It goes as a share* (`LocalDraft.isShared`, `OutgoingLetter.isShared`):
+   by the app's pass, made by the share's own `ShareLetter.letter`, so the
+   web addresses in his words are links in the HTML, as the extension
+   makes them; still so if he opens it from the Outbox and sends it.
+   "1 Unsent Message" and the Outbox are B-052's; no new words.
+
+**What it reverses.** The share sheet's refusal with no connection
+(B-036): B-100's device step 11 and the share sheet's check 14 say so
+now. The TODO's owner item "A share with no connection", ruled above.
+
+**What he sees.** With no connection, a page shared from Safari and
+Send: the sheet slides away with the swoosh, as when a letter goes.
+Opening Blackmail, or coming back to it: the Outbox in the Mailboxes,
+"1 Unsent Message" under the list, and once there is a connection the
+letter goes at the first pass. A photo shared with no connection: "Can't
+connect to mail server." as before.
+
+**Tests.** `ShareWaitsTests`, fourteen, new. The sheet, against a
+scripted submission server and a Keychain group in memory: a link shared
+with no connection closes the share, once, with one sound and no error,
+and leaves one item under the share's key, its letter, account,
+Message-ID, time, name and signature, and no cut; a second Send sends
+nothing and leaves nothing more; the handover written twice is one item;
+a cut after DATA waits with the time of the cut, the attempt on the wire
+under the Message-ID and Date handed over; a share with a photo, a
+refusal after DATA, and a handover the Keychain refuses are refused as
+before; on the day the app stops a share is refused, the day before it
+waits, and the rule at the start of that day both ways. The app: a share
+taken into the Outbox under its key and Message-ID, with what it was
+sent with, dated by his Send, a share, listed, "1 Unsent Message", the
+lists told and the item forgotten; taken once, the item left over an end
+not taking it again over the letter as it now is, a Keychain that keeps
+the item leaving the letter out of the Outbox until it can be forgotten,
+and an unreadable item forgotten; a share the app cannot keep, its
+folder blocked, left in the Keychain with nothing in the Outbox and
+nothing told, then taken at the next take, one letter, the item gone; a
+share kept again is a share still, and a letter kept by the build before
+none. Over the shipping repository and the scripted IMAP server: the
+share taken in and sent by the pass, once, From the name, dated by his
+Send, under the share's Message-ID, its HTML and words those of the same
+share sent at once; one cut after its DATA, taken in unsettled and found
+in Sent Mail, not sent again. The profile read from the extension: the
+app found two folders up only in its PlugIns, its profile, then the
+extension's own where the app's is missing or unreadable, then none, an
+unreadable one said as such. Read from the source: the app takes the
+shares at launch and on its return before that return's pass, and the
+extension hands them over with the app's stopping day.
+
+`OwnEntitlementsTests` keeps the app from looking beside its own bundle
+(B-137): the walk two folders up to the app is in `ShareSheet`, not
+`AppExpiry`, and the guard stays as it was.
+
+Each rule broken in place, one at a time, the new tests of both
+entries run each time, counted as failures in tests (the first fourteen
+each with one of B-152's broken beside it in the same build, in code
+these tests never reach):
+never waiting, 13 in 4; a share with files waiting too, 4 in 1; waiting
+whatever the day, 6 in 1; a handover the Keychain refused taken as
+there, 3 in 1; every refusal waiting, 5 in 1; a new Message-ID at each
+attempt, 1 in 1; the cut after DATA not noted, 1 in 1; a share taken
+over again, over the letter as it now is, 1 in 1; a handover not
+forgotten left beside the letter, 2 in 1; an unreadable one left, 1 in
+1; a share kept again no longer a share, 2 in 1; a share sent as a
+letter of the app's, 2 in 1; taken in settled, 3 in 1; not taken on the
+app's return, 2 in 1; the extension reading its own profile alone, 2
+in 1; no app found above the extension, 3 in 1; taken in without what
+it was sent with, 4 in 2; a share written twice two items, 3 in 2. Then
+put back, the new tests passing. Added since, in one build with one of
+B-152's broken beside them, each in code the other tests never reach: a
+share the app could not keep forgotten from the Keychain, 4 in 1; the
+extension's own profile not read past the app's unreadable one, 1 in 1.
+Put back, passing.
+The full suite, serially, with nothing undone: 2,690 tests, the 26 of
+B-152 and B-153 among them, 6 skipped, none failing (2,688 and 24, run
+twice, before the three added since). The release build for the iPad
+links.
+
+**Not covered, and not seen.**
+
+- Mail's daemon sends the letter without Mail being opened. Here it goes
+  only once Blackmail is opened or comes back to the front (the
+  decision's risk, said plainly): a share made while Blackmail is never
+  opened again waits for it.
+- No alert. Mail's Airplane Mode alert is not copied: the decision builds
+  none unless Mail is seen to put one up with Airplane Mode off, and the
+  extension cannot tell Airplane Mode from Wi-Fi off. Whether Mail does
+  is not seen (Mail on the test iPad, once restored, stands in).
+- A share with files is refused as before, by the decision; Mail's
+  waits too.
+- Whether the extension can read the app's bundle on the iPad, and so
+  its profile, is not seen; it reads its own where it cannot. Where it
+  can read neither, a share waits whatever the day.
+- A share made in another account than the app's, should the account
+  change between the two, waits in the Outbox listed and goes nowhere
+  until he opens it, as any letter of another account there.
+- Each waiting share is a Keychain item of a few kilobytes; no bound is
+  kept on how many, as there is for the addresses (`sentLimit`).
+- Not seen on the iPad. The device check's sends wait for the owner's go.

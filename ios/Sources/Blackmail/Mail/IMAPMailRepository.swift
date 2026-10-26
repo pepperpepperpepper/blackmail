@@ -152,6 +152,10 @@ actor IMAPMailRepository: MailRepository {
     /// launch, or a new password's repository.
     private var lettersOfHisRefused = false
 
+    /// The last mark set off after a send (`mark`, B-152), which the next
+    /// waits for.
+    private var marking: Task<Void, Never>?
+
     /// One folder's part of `seen`.
     private struct SeenLetters {
         let validity: UInt32
@@ -2434,13 +2438,14 @@ actor IMAPMailRepository: MailRepository {
     // MARK: - Sending
 
     func send(_ draft: Draft, progress: UploadProgress?) async throws {
-        try await send(draft, messageID: nil, atSend: AtSend(), beforeData: nil,
+        try await send(draft, messageID: nil, atSend: AtSend(), beforeData: nil, shared: false,
                        progress: progress)
     }
 
     func send(_ draft: Draft, as letter: OutgoingLetter, progress: UploadProgress?) async throws {
         try await send(draft, messageID: letter.messageID, atSend: letter.atSend,
-                       beforeData: letter.beforeData, progress: progress)
+                       beforeData: letter.beforeData, shared: letter.isShared,
+                       progress: progress)
     }
 
     /// `atSend` is what a letter from the Outbox went into it with (B-083):
@@ -2449,8 +2454,12 @@ actor IMAPMailRepository: MailRepository {
     /// where the formatted twin goes and what it is. What is nil in it is
     /// as `sender` has it now, and the time now: a new letter, or one put
     /// in the Outbox by a build before B-083.
+    ///
+    /// `shared`, a share the extension could not send (B-153), is made as
+    /// the extension makes a share: the web addresses in his words links
+    /// in the HTML twin (`ShareLetter.letter`).
     private func send(_ draft: Draft, messageID: String?, atSend: AtSend,
-                      beforeData: (@Sendable () async throws -> Void)?,
+                      beforeData: (@Sendable () async throws -> Void)?, shared: Bool,
                       progress: UploadProgress?) async throws {
         guard !retired else { throw MailError.cannotConnect }
         // The threading headers, which used to be dropped on the floor.
@@ -2474,8 +2483,10 @@ actor IMAPMailRepository: MailRepository {
             from.signature = signature.text
             from.signatureHTML = signature.html
         }
-        let letter = AppleMailHTML.letter(for: draft, account: from,
-                                          reserving: SignatureImages.contentIDs(of: images))
+        let reserved = SignatureImages.contentIDs(of: images)
+        let letter = shared
+            ? ShareLetter.letter(for: draft, account: from, reserving: reserved)
+            : AppleMailHTML.letter(for: draft, account: from, reserving: reserved)
         guard !Submission.recipients(of: draft).isEmpty else { throw MailError.notSent }
         let pictures = try await loadPictures(letter.pictures)
         try await Submission.send(draft, from: from, password: password, through: smtp,
@@ -2498,10 +2509,91 @@ actor IMAPMailRepository: MailRepository {
         // A reply he has just sent is in Sent Mail now, or will be: his
         // letters of every conversation are looked for afresh (B-104).
         hisLetters.forget()
+        // The letter it answers or passes on is marked so, as Mail marks
+        // it (B-152), after the 250 and never before; not awaited, so the
+        // sheet closes at the 250 as it always has.
+        if let original = draft.original { mark(original) }
 
         // No APPEND to Sent. Gmail files SMTP-sent mail into Sent itself, and
         // appending as well produces two copies of every letter he sends —
         // which looks exactly like the app sending twice.
+    }
+
+    /// Marks `original` answered or forwarded on the server, as Mail marks
+    /// the letter a reply answers or a forward passes on once the reply or
+    /// forward has gone (B-152): `UID STORE +FLAGS.SILENT` of its flag
+    /// (`OriginalLetter.flag`), once. After every mark set off before it,
+    /// one at a time.
+    ///
+    /// Found by Gmail's id for it (`UID SEARCH X-GM-MSGID`, `IMAPClient.mark`),
+    /// first in the folder it was opened in, then in All Mail, so a letter moved or
+    /// filed since it was answered is marked where it is now; Gmail's flags
+    /// are the letter's, in every folder it is in. Not looked for in the
+    /// Trash or Spam: a letter he has deleted since is gone, and nothing is
+    /// marked, nor said.
+    ///
+    /// Once the server has taken it, kept on the iPad wherever the letter
+    /// is (`MailShelf.answered`, `forwarded`) and told to the lists
+    /// (`OriginalLetter.marked`), which put Mail's grey arrow on its rows
+    /// (B-102). A mark the server refuses, a connection that cannot be
+    /// made or goes, or a search that finds nothing, is dropped, with a
+    /// line in the connection log and nothing on his screen: the letter
+    /// has gone, and nothing is tried again (D-016; the owner's narrow
+    /// exception of 2026-10-26 is this mark alone).
+    private func mark(_ original: OriginalLetter) {
+        let before = marking
+        marking = Task {
+            await before?.value
+            await self.markNow(original)
+        }
+    }
+
+    /// A letter from the Outbox that Sent Mail has shown went, its 250
+    /// never seen (`LocalDrafts.wentEarlier`): it has gone, so its original
+    /// is marked, as after a 250, once.
+    func markOriginal(of draft: Draft) async {
+        if let original = draft.original { mark(original) }
+    }
+
+    /// Returns once every mark set off so far has been written or dropped.
+    /// For a test.
+    func marksWritten() async {
+        await marking?.value
+    }
+
+    private func markNow(_ original: OriginalLetter) async {
+        let what = original.kind == .reply ? "answered" : "forwarded"
+        guard !retired else { return }
+        do {
+            try await readyForWrite()
+            var folders: [String] = []
+            if let named = try? await resolve(original.mailboxID) { folders.append(named) }
+            _ = try await knownListing()
+            if let allMail = folderForAttribute["\\all"], !folders.contains(allMail) {
+                folders.append(allMail)
+            }
+            for name in folders {
+                let client = try await connected()
+                guard let found = try await sendingOnce({
+                    try await client.mark(original.letter, with: original.flag, in: name)
+                }) else { continue }
+                saw([found.uid: original.letter], validity: found.validity, in: name)
+                let id = Self.makeID(validity: found.validity, uid: found.uid)
+                switch original.kind {
+                case .reply: shelf?.answered(true, id: id, letter: original.letter, in: name)
+                case .forward: shelf?.forwarded(true, id: id, letter: original.letter, in: name)
+                }
+                Diagnostics.log(.note, "SENT-MARK \(what) folder=\(name)")
+                await MainActor.run {
+                    NotificationCenter.default.post(name: OriginalLetter.marked, object: nil,
+                                                    userInfo: [OriginalLetter.markedKey: original])
+                }
+                return
+            }
+            Diagnostics.log(.note, "SENT-MARK \(what) original gone, nothing sent")
+        } catch {
+            Diagnostics.log(.note, "SENT-MARK \(what) dropped error=\(type(of: error))")
+        }
     }
 
     func sentMail(holds messageIDs: [String]) async throws -> Set<String> {

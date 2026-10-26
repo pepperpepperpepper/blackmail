@@ -266,7 +266,11 @@ final class ShareComposeViewController: UIViewController, UITableViewDataSource,
                 ErrorPresenter.show(error, on: self)
             },
             draw: { [weak self] look in self?.draw(look) },
-            background: .extensionTime)
+            background: .extensionTime,
+            // A share with no files and no connection waits in the app's
+            // Outbox, while the app opens (B-153).
+            wait: { ShareMirror.device.wait($0) },
+            appStops: { AppExpiry.containingApp.stops })
         draft = sheet.letter(from: items)
         began = draft.body
         title = ComposeForm.title(subject: draft.subject)

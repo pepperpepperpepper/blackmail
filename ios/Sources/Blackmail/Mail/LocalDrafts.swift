@@ -95,6 +95,11 @@ struct LocalDraft {
     /// Written as `LocalDrafts.unfinishedTries` by Bring Back, with no try,
     /// on a letter it brings back held (`LocalDraftStore.bringBack`).
     var autoAttempts = 0
+    /// Shared from another app and handed to the app by the share
+    /// extension, which could not send it (B-153): it goes as a share goes,
+    /// a web address in his words a link in its HTML (`ShareLetter`). False
+    /// for every other letter, and for one kept before it was.
+    var isShared = false
 
     /// Where it stands in the Outbox: nil for a letter that is not there.
     var outboxState: OutboxState? {
@@ -703,6 +708,9 @@ final class LocalDraftStore {
         // his to send, and one whose Send ended the app is not taken up
         // by the pass three more times.
         letter.autoAttempts = unfinished ? before?.autoAttempts : nil
+        // A share opened from the Outbox in the composer goes as a share
+        // still (B-153).
+        letter.shared = before?.shared
         try write(letter)
         removeFiles(in: folder, keeping: names)
         return letter.letter(in: folder, markup: draft.quote?.html)
@@ -741,6 +749,31 @@ final class LocalDraftStore {
         letter.atSend = atSend
         try write(letter)
         return messageID
+    }
+
+    /// A letter shared with no connection, handed over by the share
+    /// extension (B-153), kept in the Outbox as his Send in the app would
+    /// have left it there: under the Message-ID its attempt went under,
+    /// with the name, the time and the signature it was sent with (B-083),
+    /// dated by his Send, and with that attempt written down as unsettled
+    /// when its DATA went with no 250 back, so Sent Mail is asked before it
+    /// goes again. In one write, so it is never kept without any of them.
+    func keepShared(_ share: ShareMirror.WaitingShare) throws {
+        _ = try makeFolder(for: share.key)
+        var letter = Stored(format: Self.format, key: share.key,
+                            version: UUID().uuidString.lowercased(), tried: [],
+                            unfinished: false, keptAt: share.sentAt, account: share.account,
+                            draft: share.draft, files: [])
+        letter.outbox = share.messageID
+        letter.atSend = share.atSend
+        letter.passwordSaves = passwordSaves
+        letter.shared = true
+        if let cutOff = share.cutOff {
+            letter.unsettled = [share.messageID]
+            letter.cutOff = cutOff
+            letter.unsettledSaves = passwordSaves
+        }
+        try write(letter)
     }
 
     /// Writes down that the attempt under `messageID` is about to send its
@@ -968,6 +1001,16 @@ final class LocalDraftStore {
         /// sent at once does (B-050). Absent for a letter quoting nothing.
         /// Its markup is in `quote.html`.
         var quote: StoredQuote?
+        /// `Draft.original` (B-152): the letter a reply answers or a forward
+        /// passes on, marked once this one has gone. Absent for every other
+        /// letter, and from one kept before it was, which reads as none, so
+        /// no new format. Read on its own, and one that cannot be read reads
+        /// as absent (`Lenient`): the letter goes, and nothing is marked.
+        var original: Lenient<StoredOriginal>?
+        /// `LocalDraft.isShared` (B-153). Only ever true, when present:
+        /// absent from every letter but a share's, which reads as false, so
+        /// no new format.
+        var shared: Bool?
         var files: [StoredFile]
 
         init(format: Int, key: String, version: String, tried: [String], unfinished: Bool,
@@ -989,6 +1032,7 @@ final class LocalDraftStore {
             savedID = draft.savedID
             savedLetter = draft.savedLetter
             quote = draft.quote.map(StoredQuote.init)
+            original = draft.original.map { Lenient(StoredOriginal($0)) }
             self.files = files
         }
 
@@ -1006,6 +1050,7 @@ final class LocalDraftStore {
             draft.savedID = savedID
             draft.savedLetter = savedLetter
             draft.quote = quote?.original(markup: markup)
+            draft.original = original?.value?.letterNamed
             draft.attachments = files.compactMap { $0.attachment(in: folder) }
             return LocalDraft(key: key, draft: draft, version: version, tried: tried,
                               unfinished: unfinished, keptAt: keptAt, account: account,
@@ -1014,7 +1059,8 @@ final class LocalDraftStore {
                               cutOff: cutOff, markupBytes: quote?.markup ?? 0,
                               passwordSaves: passwordSaves ?? 0,
                               unsettledSaves: unsettledSaves ?? 0,
-                              autoAttempts: autoAttempts ?? 0)
+                              autoAttempts: autoAttempts ?? 0,
+                              isShared: shared ?? false)
         }
 
         /// The four fields as one, each part nil where its field is absent
@@ -1081,6 +1127,23 @@ final class LocalDraftStore {
         func original(markup html: String?) -> QuotedOriginal {
             QuotedOriginal(kind: forward ? .forward : .reply, region: region, html: html,
                            pictures: pictures.map(\.picture), isShortened: shortened ?? false)
+        }
+    }
+
+    /// `OriginalLetter`, field by field, for the reason `Stored` is.
+    private struct StoredOriginal: Codable {
+        var forward: Bool
+        var letter: UInt64
+        var mailboxID: String
+
+        init(_ original: OriginalLetter) {
+            forward = original.kind == .forward
+            letter = original.letter
+            mailboxID = original.mailboxID
+        }
+
+        var letterNamed: OriginalLetter {
+            OriginalLetter(kind: forward ? .forward : .reply, letter: letter, mailboxID: mailboxID)
         }
     }
 
@@ -1826,9 +1889,10 @@ final class LocalDrafts {
     /// addressed to. Such an attempt is written down just before its DATA
     /// (`LocalDraftStore.noteSending`), and before the letter goes again
     /// Sent Mail is asked for it (`wentEarlier`). Found, the letter went,
-    /// and nothing is sent. Not found, it goes again, under the same
-    /// Message-ID. A letter whose attempts never reached DATA is simply
-    /// sent.
+    /// and nothing is sent, but the letter it answers or passes on is
+    /// marked, as after a 250 (B-152). Not found, it goes again, under the
+    /// same Message-ID. A letter whose attempts never reached DATA is
+    /// simply sent.
     ///
     /// A verdict from the server after DATA, a refusal or "not now",
     /// settles that attempt: nothing was delivered. Only a cut before the
@@ -1854,13 +1918,20 @@ final class LocalDrafts {
             done(key)
             announce()
         }
-        if try await wentEarlier(letter, via: repository) { return }
+        if try await wentEarlier(letter, via: repository) {
+            // It went, its 250 lost: the letter it answers or passes on is
+            // marked now, as after a 250 (B-152), once, as it then leaves
+            // the Outbox.
+            await repository.markOriginal(of: draft ?? letter.draft)
+            return
+        }
         let store = self.store
         do {
             try await repository.send(draft ?? letter.draft, as: OutgoingLetter(
                 messageID: messageID,
                 atSend: letter.atSend,
-                beforeData: { try await store.noteSending(key, messageID) }),
+                beforeData: { try await store.noteSending(key, messageID) },
+                isShared: letter.isShared),
                 progress: progress)
         } catch {
             if (error as? MailError) == .connectionLost {
@@ -2256,6 +2327,46 @@ final class LocalDrafts {
     /// and what to do (`Outbox.heldNotice`).
     func waitingNotice(_ key: String) -> String {
         store.letter(key).map(isHeld) == true ? Outbox.heldNotice : Outbox.notice
+    }
+
+    /// Takes into the Outbox the letters the share extension could not
+    /// send (B-153), oldest first, at launch and as the app comes back to
+    /// the front, before the pass that sends them. Each is kept here first
+    /// and only then forgotten there, so an app ended between the two
+    /// loses none: its key is already here at the next take, and the
+    /// handover is only forgotten. One whose handover the Keychain will
+    /// not forget is taken out of the Outbox again, to be taken next time,
+    /// never both: a share is one letter, as it was one Send. One that
+    /// cannot be read is forgotten, and the connection log says so. One
+    /// that cannot be kept here waits there for the next take.
+    func takeShares(from mirror: ShareMirror) {
+        var took = false
+        for (name, share) in mirror.waitingShares() {
+            guard let share else {
+                mirror.forgetWaiting(name)
+                Diagnostics.log(.note, "SHARE-WAITING unreadable, forgotten")
+                continue
+            }
+            if store.letter(share.key) != nil {
+                mirror.forgetWaiting(name)
+                continue
+            }
+            do {
+                try store.keepShared(share)
+            } catch {
+                Diagnostics.log(.note, "SHARE-WAITING not kept error=\(type(of: error))")
+                continue
+            }
+            guard mirror.forgetWaiting(name) else {
+                store.remove(share.key)
+                Diagnostics.log(.note, "SHARE-WAITING not forgotten, left for next time")
+                continue
+            }
+            Diagnostics.log(.note, "SHARE-WAITING taken into the Outbox"
+                            + (share.cutOff == nil ? "" : " unsettled"))
+            took = true
+        }
+        if took { announce() }
     }
 
     /// Back in front of him: the pass's tries count again.

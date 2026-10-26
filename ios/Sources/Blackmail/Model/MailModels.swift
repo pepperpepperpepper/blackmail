@@ -440,6 +440,11 @@ struct Draft {
     /// twin can show it as it looked while he edits it as plain text. Nil
     /// for a new letter. See `QuotedOriginal` for when it is used.
     var quote: QuotedOriginal?
+    /// The letter a reply answers or a forward passes on, marked on the
+    /// server once this one has gone (`OriginalLetter`, B-152). Nil for a
+    /// new letter, for a draft reopened from the server, and for an
+    /// original the server named no Gmail id for.
+    var original: OriginalLetter?
 }
 
 extension Array where Element == Mailbox {
@@ -582,6 +587,8 @@ extension Draft {
         let region = MailFormat.quoteAttribution(m.date, sender: m.sender) + "\n" + quoted.text
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .reply, region: region, cut: quoted.isCut)
+        // Marked answered once the reply has gone (B-152).
+        draft.original = OriginalLetter(m, as: .reply)
 
         // No attachments here. Quoting somebody's text back is normal;
         // posting their files back to them is not, and doing it with every
@@ -625,6 +632,8 @@ extension Draft {
         region += "Subject: \(m.subject)\n\n" + quoted.text
         draft.body = signatureBlock(signature) + "\n\n" + region
         draft.quote = QuotedOriginal(quoting: m, as: .forward, region: region, cut: quoted.isCut)
+        // Marked forwarded once the forward has gone (B-152).
+        draft.original = OriginalLetter(m, as: .forward)
         // The files come too. Forwarding a receipt and leaving its two PDFs
         // behind sends a letter about nothing, and does it silently — which
         // is the part that matters, because nothing on the sending screen

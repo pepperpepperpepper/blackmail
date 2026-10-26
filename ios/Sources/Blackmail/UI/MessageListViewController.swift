@@ -615,6 +615,10 @@ final class MessageListViewController: UITableViewController {
         // under each counts the letters waiting in the Outbox.
         NotificationCenter.default.addObserver(self, selector: #selector(keptChanged(_:)),
                                                name: LocalDrafts.changed, object: kept)
+        // A reply or a forward has gone and its original is marked on the
+        // server: the arrow on that letter's rows here (B-152).
+        NotificationCenter.default.addObserver(self, selector: #selector(originalMarked(_:)),
+                                               name: OriginalLetter.marked, object: nil)
         // Where VoiceOver goes, for a row it has been sent to (B-079).
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
                                                name: UIAccessibility.elementFocusedNotification,
@@ -1202,6 +1206,13 @@ final class MessageListViewController: UITableViewController {
     private var keptSender: String {
         let account = CredentialStore.loadAccount()
         return account.map { $0.displayName.isEmpty ? $0.address : $0.displayName } ?? ""
+    }
+
+    /// The original of a reply or a forward was marked on the server: the
+    /// arrow on its rows here (B-152).
+    @objc private func originalMarked(_ note: Notification) {
+        guard let original = note.userInfo?[OriginalLetter.markedKey] as? OriginalLetter else { return }
+        letters.originalMarked(original)
     }
 
     /// A letter kept on the iPad has changed: its row, where he is. One

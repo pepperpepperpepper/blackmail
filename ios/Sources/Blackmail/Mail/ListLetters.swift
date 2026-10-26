@@ -793,6 +793,20 @@ final class ListLetters: PaneActionList {
         hold(FolderNews(gone: ([letter] + twins).map(\.id)))
     }
 
+    /// The server has taken the mark written once a reply or a forward
+    /// went (`OriginalLetter`, B-152): Mail's grey arrow on every row of
+    /// that letter this list holds, by Gmail's id for it, the folder's, the
+    /// hits and the news held to go on, as the next listing would draw it
+    /// from the server's flags (B-102). Nothing for a list that holds none.
+    func originalMarked(_ original: OriginalLetter) {
+        guard (everything + arriving).contains(where: { $0.gmailMessageID == original.letter })
+        else { return }
+        folder = folder.map { $0.marking(original) }
+        arriving = arriving.map { $0.marking(original) }
+        results = results?.map { $0.marking(original) }
+        changed(.marked)
+    }
+
     func addCountedFolder(_ name: String, to id: String) {
         change(id) { letter in
             guard !letter.countedFolderIDs.contains(name) else { return }

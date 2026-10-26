@@ -20,6 +20,11 @@ import XCTest
 /// shipping repository over the scripted IMAP server, and a scripted
 /// submission server per connection. The line can be taken down: then every
 /// connection is refused, as a connect with no route is.
+///
+/// The replies and forwards here name no original to mark once they have
+/// gone (`Draft.original`, B-152): these count what fetching an original's
+/// parts costs on the wire, and the mark's own commands, after the 250, are
+/// `SentMarkTests`'.
 @MainActor
 final class KeptReferencesTests: XCTestCase {
 
@@ -283,6 +288,7 @@ final class KeptReferencesTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.subject == "Plans" })
         var draft = Draft.forwarding(try await repository.open(row))
         draft.to = ["carlo@example.org"]
+        draft.original = nil
         return (draft, row)
     }
 
@@ -808,6 +814,7 @@ final class KeptReferencesTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.subject == "Plans" })
         let m = try await first.open(row)
         var draft = Draft.replying(to: m, all: false, myAddress: server.username)
+        draft.original = nil
         draft.cc = ["carlo@example.org"]
         var files = try XCTUnwrap(ReplyFiles(replyingTo: m))
         draft.attachments = try XCTUnwrap(files.recipientsChanged(
@@ -1303,6 +1310,7 @@ final class KeptReferencesTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.subject == "The roof" })
         var forward = Draft.forwarding(try await first.open(row))
         forward.to = ["carlo@example.org"]
+        forward.original = nil
         XCTAssertEqual(forward.quote?.pictures.map(\.letter), [row.gmailMessageID])
         await sentOffline(forward, as: "forward", kept: makeKept(), repository: first)
         server.deliver(pictured("A scan", "scan", scan, at: Server.newestDate.addingTimeInterval(60)),
@@ -1334,6 +1342,7 @@ final class KeptReferencesTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.subject == "The roof" })
         var forward = Draft.forwarding(try await first.open(row))
         forward.to = ["carlo@example.org"]
+        forward.original = nil
         XCTAssertEqual(forward.quote?.pictures.map(\.letter), [row.gmailMessageID])
         XCTAssertTrue(forward.attachments.map(\.filename).contains("Plans.pdf"))
         await sentOffline(forward, as: "forward", kept: makeKept(), repository: first)
@@ -1367,6 +1376,7 @@ final class KeptReferencesTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.subject == "The roof" })
         var forward = Draft.forwarding(try await first.open(row))
         forward.to = ["carlo@example.org"]
+        forward.original = nil
         await sentOffline(forward, as: "forward", kept: makeKept(), repository: first)
         for (mailbox, at) in original { server.removeElsewhere(uid: at, from: mailbox) }
         server.deliver(pictured("A scan", "scan", scan, at: Server.newestDate.addingTimeInterval(60)),

@@ -252,6 +252,9 @@ final class RootViewController: UIViewController {
         wireNavigation()
         arrange(shell.arrangement)
         watchForReturn()
+        // Letters shared with no connection since the app was last open,
+        // into the Outbox before the launch's first pass (B-153).
+        takeWaitingShares()
         // Where VoiceOver goes after "< Mailboxes", for the folder's row it
         // was sent to (B-079).
         NotificationCenter.default.addObserver(self, selector: #selector(voiceOverMoved(_:)),
@@ -398,6 +401,9 @@ final class RootViewController: UIViewController {
                 // not at all if it has none; with none waiting, nothing is
                 // sent.
                 let repository = self.repository
+                // Letters shared with no connection while the app was away,
+                // into the Outbox before the pass below (B-153).
+                self.takeWaitingShares()
                 Task { @MainActor in
                     await repository.warmUp()
                     LocalDrafts.shared.uploadWaiting(to: repository)
@@ -412,6 +418,15 @@ final class RootViewController: UIViewController {
                 if self.firstPageTried { self.watch.start() }
             }
         }
+    }
+
+    /// The letters the share extension could not send, from the shared
+    /// Keychain group into the Outbox (`LocalDrafts.takeShares`, B-153):
+    /// they go by the pass that follows, as a letter his own Send left
+    /// there does. Nothing in a build without the extension.
+    private func takeWaitingShares() {
+        guard let mirror = ShareMirror.app else { return }
+        LocalDrafts.shared.takeShares(from: mirror)
     }
 
     /// The letters kept on the iPad go as he leaves the app, large ones as
