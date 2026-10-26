@@ -7347,6 +7347,48 @@ checks below is left as not needed, not open, and none is worth a round.*
       tries fitted. The host put the 210 letters in the Trash by a STORE
       of its label, the round's rules allowing no MOVE or EXPUNGE; one
       STORE answered NO was sent again. Nothing was sent.*
+- [ ] **B-154, Mail's paperclip in the keyboard's shortcut bar.** On the
+      test iPad, the test account only, from a build of the
+      `bm-cm-compose` worktree (branch `copy-compose`) or of the int it is
+      merged into. Settings, General, Keyboard, Shortcuts as found, written
+      down; it must be on for 1 to 6. The on-screen keyboard throughout but
+      in 8. Nothing is sent but in 7: every letter ends with Cancel, and
+      Delete Draft if it is asked. Before it, the host puts one small PDF,
+      "B-154.pdf", in On My iPad.
+      1. *In the letter alone.* A new letter, portrait, To left empty. Tap
+      the body: a paperclip at the right end of the bar above the
+      keyboard, after anything the system has there; Undo, Redo and Paste
+      at its left as before. Tap To, then Subject: no paperclip in their
+      bar. Tap the body again: the paperclip.
+      2. *Its menu.* Tap the paperclip: a menu, "Attach File" and "Photo
+      Library", each with its symbol; their order on the screen, top to
+      bottom, written down, and where the menu stands. Tap outside: it
+      goes, nothing opened.
+      3. *Attach File.* Paperclip, Attach File: the Files browser, as the
+      button under the files opens it. "B-154.pdf" from On My iPad: its
+      row with its weight under Subject. Remove it.
+      4. *Photo Library.* Paperclip, Photo Library: the photo picker,
+      photos and videos, as the button opens it; what it opens on written
+      down. One photo: its row, a spinner and then its weight. Remove it.
+      Cancel, Delete Draft.
+      5. *Landscape.* A new letter, landscape, the caret in the body: the
+      paperclip at the right of the bar, and Send in the sheet's own bar
+      at the top, in sight; the menu opened, Send still in sight and not
+      covered. Tap outside. Cancel.
+      6. *The buttons stay.* Under the files, "Photo Library" and "Attach
+      File" as before; each opens its picker, Cancel in each. Cancel.
+      7. *Held while a letter goes* (sends, test account only, needs the
+      owner's go). A new letter To the test account's own address,
+      Subject "B-154 held", the caret in the body, Send: while "Sending…"
+      shows, the paperclip greyed and no menu at a tap. Skipped without
+      the go, and written down.
+      8. *A keyboard of keys,* if one is at hand: the bar iOS shows at the
+      bottom while the caret is in the body has the paperclip, and its
+      menu opens; Cancel. Without one, not done, and written down.
+      9. *Not the share sheet.* From Safari on example.com, Share, Blackmail,
+      the caret in the body: no paperclip in its bar. Cancel, Delete Draft
+      if asked.
+      Nothing else is tapped; Drafts and Sent Mail counted before and after.
 
 ## Blocked on the owner
 
@@ -7631,11 +7673,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       quoted words as well as the bar; that is built. The bar alone is one
       line out of `QuoteBars.css`. As built (Mail's, the default), or the
       bar alone.
-- [ ] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
+- [x] **Mail's paperclip in the keyboard's shortcut bar** (B-108): Mail
       offers Attach File and Photo Library from a paperclip at the right
       of the bar above the keyboard; here they are two buttons under the
       letter's files, always in sight. As built (the default), or the
       paperclip too.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-154.*
 - [ ] **The address book filled from his Sent Mail** (B-017, B-123): the
       book learns from the rows the list shows and from his sends, so
       about half the people he writes to in a month are not suggested,

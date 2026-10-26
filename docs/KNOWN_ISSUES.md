@@ -30110,3 +30110,117 @@ Done. In the second run on 92f2cb9 the closing tap of a log read that had
 not opened the log opened an unread letter in the Inbox, marking it read;
 it was marked unread again a minute later. Nothing was sent; the host put
 the 210 letters in the Trash, and Notes was back to its 30.
+
+## B-154 — FIXED 2026-10-26, not yet seen on the iPad. The keyboard's shortcut bar had no paperclip, where Mail has one while he types in the letter; it has, with a menu of Attach File and Photo Library, and the two buttons under the files stay
+
+Built in the `bm-cm-compose` worktree (branch `copy-compose`), off master
+at 4a390c2, on the owner's ruling of 2026-10-26, "close the gaps in our
+decision tree by copying Apple Mail", for the TODO's "Mail's paperclip in
+the keyboard's shortcut bar" (B-108).
+
+**What Mail does.** Apple's iPad User Guide for iPadOS 18, "Add email
+attachments in Mail on iPad"
+(support.apple.com/guide/ipad/ipadcf744d81/18.0/ipados/18.0): with the
+caret in the letter, a paperclip in the shortcut bar above the keyboard,
+"Insert Attachment Actions", at its right, left of Insert Drawing, offers
+Photo Library, Take Photo or Video, Attach File and Scan Document. B-108
+lists them Attach File first; the guide's own steps name Photo Library
+first. Whether they come as a menu of words or a row of symbols, in what
+order on the screen, and what Photo Library opens on, is not known:
+iPadOS 16 and 17 had two separate buttons there, the guide's screenshots
+do not show the menu, and the test iPad has no Mail. His iPad is on
+iPadOS 18.7.9, so his Mail has the paperclip.
+
+**What it was.** Since B-108 the two labelled buttons under the letter's
+files, "Photo Library" and "Attach File", were the only way in; the bar
+above the keyboard had the system's own items alone. B-108 left the
+paperclip out ("Mail's paperclip in the keyboard's shortcut bar is not
+built") and put it to the owner.
+
+**Changed.**
+
+1. *The paperclip* (`ComposeViewController.paperclipInTheShortcutBar`):
+   one bar button, the `paperclip` symbol, put after whatever the system
+   has at the right of the body's shortcut bar
+   (`bodyView.inputAssistantItem.trailingBarButtonGroups`), made as the
+   sheet loads, before the body can take the caret. Its menu opens at a
+   tap, as a bar button's with a menu and no action of its own does:
+   Attach File (`doc`), then Photo Library (`photo.on.rectangle`), each
+   with its words and its symbol, calling `attachFileTapped` and
+   `photoLibraryTapped`. So each opens what its button opens, through the
+   same intake, rows, bounds and words (B-108, B-142). VoiceOver's name
+   for it is Mail's, "Insert Attachment Actions".
+2. *Where.* The body's bar alone: not in To, Cc, Bcc or Subject, as the
+   guide has the caret in the letter. The left of the bar, Undo, Redo and
+   Paste, is as it was. The bar is at the bottom of the screen, above the
+   keyboard, or with a keyboard of keys the bar iOS shows there; Send is
+   in the sheet's own bar at the top, and the paperclip never goes there.
+   Not in the share sheet, which has no file buttons either (B-108).
+3. *Held while a letter goes,* with the two buttons and every Remove
+   (`draw`).
+4. *One place for the words* (`ComposeForm.Attach`): "Photo Library" and
+   "Attach File" with their symbols, the menu's order, the paperclip's
+   symbol and name. The buttons take their words and symbols from it;
+   where they are and how they look is unchanged.
+
+**What it reverses.** B-108's "Mail's paperclip in the keyboard's
+shortcut bar is not built", and its comment in `attachRow`, which gave the
+buttons as the reason to leave Mail's paperclip out. Nothing the owner
+ruled before. The two buttons stay, as the owner's item asked ("the
+paperclip too").
+
+**Not changed.** Take Photo or Video, Scan Document and Insert Drawing
+stay out, for the camera's permission (B-108). The pickers, the intake
+and what they do.
+
+**What he sees.** While he types in the letter, a paperclip at the right
+end of the bar above the keyboard; a tap, a small menu, "Attach File"
+and "Photo Library", each opening what its button under the files opens.
+No new words on the screen: both are B-108's. VoiceOver's "Insert
+Attachment Actions" is new, and he does not use VoiceOver.
+
+**Tests.** `PaperclipTests`, five, new. The menu's order, Attach File then
+Photo Library, its words and symbols those of the buttons, every way in
+once, and the paperclip's symbol and name. Read from the source: the
+paperclip made in `viewDidLoad` once the body is in the sheet, before the
+suggestions; its menu built from `ComposeForm.Attach.paperclip`, each
+choice calling its button's picker; a bar button with the menu and no
+action of its own, VoiceOver's name, put after the bar's own groups at its
+right; `inputAssistantItem` touched once, the body's, and its left side
+not at all; the buttons still there and the paperclip held with them;
+Send's bar holding Send, or what stands for it while a letter goes, and
+nothing else; no other source with a shortcut bar, and nothing of it in
+the share sheet. Changed: `ComposerFilesWiringTests`' buttons test reads
+the buttons' words and symbols from `ComposeForm.Attach`.
+
+Each rule undone by hand, `PaperclipTests`, `ComposerFilesWiringTests`
+and `ComposeLikeMailTests` run, then put back and passing, counted as
+failures in tests: the paperclip never made, 2 in 1; the menu Photo
+Library first, 3 in 1; Attach File opening Photo Library's picker, 1 in
+1; the bar's own groups replaced by the paperclip's, 1 in 1; the
+paperclip not held while a letter goes, 2 in 2; Photo Library's button
+opening Attach File's picker, 2 in 2.
+
+The full suite, serially, with B-155 beside it: 2,687 tests, 23 of them
+new, five of them this entry's, 6 skipped, none failing. The release
+build for the iPad links.
+
+**Not covered.**
+
+- The bar is UIKit's: read from the source, not run. Whether a bar
+  button's menu opens from the shortcut bar on iPadOS 16.5.1 and 18, and
+  where it stands, are the device check's. So is its order on the screen:
+  left to UIKit's default (`preferredMenuElementOrder`, `.automatic`),
+  which may put the first choice nearest the paperclip, the lowest under
+  a bar at the bottom.
+- Mail's own paperclip on iPadOS 18, a menu of words or a row of symbols,
+  its order and what Photo Library opens on, not seen: built as the ruling
+  says, a menu of the two with their words and symbols.
+- With Shortcuts off in Settings, General, Keyboard, the bar is not shown
+  and the paperclip with it, as Mail's would be; the buttons are always
+  there. A group with no stand-in item is never folded into one (the
+  SDK's `UIBarButtonItemGroup.h`); how the bar fits it with little room,
+  Slide Over or a narrow Split View, not tried.
+- Noticed, not built: Mail's iPadOS 18 bar has Insert Drawing beside the
+  paperclip, and its paperclip offers Take Photo or Video and Scan
+  Document too (B-108's reasons stand).

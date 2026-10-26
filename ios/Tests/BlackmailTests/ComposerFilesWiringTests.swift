@@ -137,21 +137,21 @@ final class ComposerFilesWiringTests: XCTestCase {
 
     /// The two buttons, in Mail's words with their symbols, each the size
     /// of its words; both held while a letter goes; "Attach Photo" gone.
+    /// The words and the symbols are `ComposeForm.Attach`'s, which the
+    /// paperclip's menu takes too (B-154).
     func testTheTwoButtonsAreMailsWordsAndHeldWhileALetterGoes() throws {
         let code = try source(Self.composer)
         inOrder(["private func attachRow() -> UIView {",
-                 "let photos = attachButton(\"Photo Library\", symbol: \"photo.on.rectangle\", "
-                    + "action: #selector(photoLibraryTapped))",
-                 "let files = attachButton(\"Attach File\", symbol: \"doc\", "
-                    + "action: #selector(attachFileTapped))",
+                 "let photos = attachButton(.photoLibrary, action: #selector(photoLibraryTapped))",
+                 "let files = attachButton(.attachFile, action: #selector(attachFileTapped))",
                  "photoButton = photos",
                  "fileButton = files",
                  "files.leadingAnchor.constraint(equalTo: photos.trailingAnchor)",
-                 "private func attachButton(_ words: String, symbol: String, action: Selector) -> UIButton {",
-                 "config.image = UIImage(systemName: symbol)",
+                 "private func attachButton(_ choice: ComposeForm.Attach, action: Selector) -> UIButton {",
+                 "config.image = UIImage(systemName: choice.symbol)",
                  "config.preferredSymbolConfigurationForImage = "
                     + "UIImage.SymbolConfiguration(font: Theme.fontDetailMeta)",
-                 "var title = AttributedString(words)",
+                 "var title = AttributedString(choice.words)",
                  "title.font = Theme.fontDetailMeta",
                  "button.addTarget(self, action: action, for: .touchUpInside)"], in: code)
         XCTAssertFalse(code.contains("Attach Photo"))
@@ -159,8 +159,12 @@ final class ComposerFilesWiringTests: XCTestCase {
                  "navigationItem.leftBarButtonItem?.isEnabled = !sending",
                  "photoButton?.isEnabled = !sending",
                  "fileButton?.isEnabled = !sending"], in: code)
-        XCTAssertEqual(count("Photo Library\"", in: code), 1)
-        XCTAssertEqual(count("Attach File\"", in: code), 1)
+        XCTAssertEqual(ComposeForm.Attach.photoLibrary.words, "Photo Library")
+        XCTAssertEqual(ComposeForm.Attach.photoLibrary.symbol, "photo.on.rectangle")
+        XCTAssertEqual(ComposeForm.Attach.attachFile.words, "Attach File")
+        XCTAssertEqual(ComposeForm.Attach.attachFile.symbol, "doc")
+        XCTAssertEqual(count("Photo Library\"", in: code), 0, "the words are ComposeForm's")
+        XCTAssertEqual(count("Attach File\"", in: code), 0, "the words are ComposeForm's")
     }
 
     /// Something on its way in has a row, its name and a spinner, after

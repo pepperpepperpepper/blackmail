@@ -167,6 +167,9 @@ final class ComposeViewController: UIViewController,
     /// Remove buttons.
     private weak var photoButton: UIButton?
     private weak var fileButton: UIButton?
+    /// Mail's paperclip in the keyboard's shortcut bar while he types in
+    /// the letter (B-154), held with the two buttons.
+    private var paperclipItem: UIBarButtonItem?
 
     /// Every file the intake staged in `tmp/Attachments` and put in the
     /// letter, removed when this controller goes (B-063). They used to stay
@@ -339,6 +342,9 @@ final class ComposeViewController: UIViewController,
         bodyView.isScrollEnabled = false
         bodyView.delegate = self
         scroller.addSubview(bodyView)
+        // Mail's paperclip in the body's shortcut bar, before the body can
+        // take the caret (B-154).
+        paperclipInTheShortcutBar()
 
         let content = scroller.contentLayoutGuide
         let shown = scroller.frameLayoutGuide
@@ -557,19 +563,18 @@ final class ComposeViewController: UIViewController,
     /// side under the files, with Mail's names for the two it offers
     /// (B-108).
     ///
-    /// Labelled buttons rather than Mail's paperclip, which hangs at the
+    /// Labelled buttons as well as Mail's paperclip, which hangs at the
     /// right of the keyboard's shortcut bar and comes and goes with the
-    /// keyboard, or the callout menu Mail of this era used, because
-    /// `BRIEF.md`'s promise is that nothing needs a gesture beyond tap and
-    /// ordinary scrolling — and "press and hold in the body until a menu
-    /// appears" is exactly the kind of thing that promise exists to rule
-    /// out. Always visible, so they never move.
+    /// keyboard (`paperclipInTheShortcutBar`, B-154), and rather than the
+    /// callout menu Mail of this era used, because `BRIEF.md`'s promise is
+    /// that nothing needs a gesture beyond tap and ordinary scrolling — and
+    /// "press and hold in the body until a menu appears" is exactly the
+    /// kind of thing that promise exists to rule out. Always visible, so
+    /// they never move.
     private func attachRow() -> UIView {
         let container = UIView()
-        let photos = attachButton("Photo Library", symbol: "photo.on.rectangle",
-                                  action: #selector(photoLibraryTapped))
-        let files = attachButton("Attach File", symbol: "doc",
-                                 action: #selector(attachFileTapped))
+        let photos = attachButton(.photoLibrary, action: #selector(photoLibraryTapped))
+        let files = attachButton(.attachFile, action: #selector(attachFileTapped))
         photoButton = photos
         fileButton = files
 
@@ -598,10 +603,10 @@ final class ComposeViewController: UIViewController,
     }
 
     /// One of the two: its symbol and its words, as tall as the row.
-    private func attachButton(_ words: String, symbol: String, action: Selector) -> UIButton {
+    private func attachButton(_ choice: ComposeForm.Attach, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
         var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: symbol)
+        config.image = UIImage(systemName: choice.symbol)
         // The size of the words beside it, fixed (D-007). Left to the
         // button, the symbol grew with the iPad's text size and the words
         // did not.
@@ -610,7 +615,7 @@ final class ComposeViewController: UIViewController,
         config.imagePadding = 6
         config.contentInsets = NSDirectionalEdgeInsets(
             top: 0, leading: Theme.detailContentInsetLeft, bottom: 0, trailing: 0)
-        var title = AttributedString(words)
+        var title = AttributedString(choice.words)
         title.font = Theme.fontDetailMeta
         config.attributedTitle = title
         button.configuration = config
@@ -826,6 +831,38 @@ final class ComposeViewController: UIViewController,
     }
 
     // MARK: - Photo Library and Attach File (B-108)
+
+    /// Mail's paperclip at the right of the keyboard's shortcut bar while
+    /// he types in the letter (B-154): a menu of Attach File and Photo
+    /// Library, each opening the picker its button under the files opens.
+    /// The buttons stay, always in sight, and the paperclip comes and goes
+    /// with the keyboard, as Mail's does.
+    ///
+    /// The body's own bar alone (`inputAssistantItem`), so it is not there
+    /// in To, Cc, Bcc or Subject, nor in the share sheet. After whatever the
+    /// system puts at the right of the bar; the left of it, Undo, Redo and
+    /// Paste, is left as it is. At the bottom of the screen, above the
+    /// keyboard or, with a keyboard of keys, in the bar the system shows
+    /// for it, so it is never over Send, which is in the sheet's bar at
+    /// the top. The menu opens at a tap, as a bar button's with no action
+    /// of its own does.
+    private func paperclipInTheShortcutBar() {
+        let menu = UIMenu(children: ComposeForm.Attach.paperclip.map { choice in
+            UIAction(title: choice.words, image: UIImage(systemName: choice.symbol)) { [weak self] _ in
+                switch choice {
+                case .attachFile:   self?.attachFileTapped()
+                case .photoLibrary: self?.photoLibraryTapped()
+                }
+            }
+        })
+        let paperclip = UIBarButtonItem(image: UIImage(systemName: ComposeForm.Attach.paperclipSymbol),
+                                        menu: menu)
+        paperclip.accessibilityLabel = ComposeForm.Attach.paperclipName
+        paperclipItem = paperclip
+        let bar = bodyView.inputAssistantItem
+        bar.trailingBarButtonGroups = bar.trailingBarButtonGroups
+            + [UIBarButtonItemGroup(barButtonItems: [paperclip], representativeItem: nil)]
+    }
 
     @objc private func photoLibraryTapped() {
         // PHPicker, not the old image picker, and the difference is a
@@ -1291,10 +1328,11 @@ final class ComposeViewController: UIViewController,
 
     /// The sheet as `ComposeActions` says it should be. While a letter goes:
     /// the spinner and its words where Send was, and Cancel, Photo Library,
-    /// Attach File and every Remove held, since the one thing that must not happen then
-    /// is the letter being lost or sent twice. After a failure everything
-    /// is live again. The sheet is never let go by a swipe (`viewDidLoad`),
-    /// and a swipe while a letter goes asks nothing (`cancelTapped`).
+    /// Attach File, the paperclip and every Remove held, since the one
+    /// thing that must not happen then is the letter being lost or sent
+    /// twice. After a failure everything is live again. The sheet is never
+    /// let go by a swipe (`viewDidLoad`), and a swipe while a letter goes
+    /// asks nothing (`cancelTapped`).
     private func draw(_ look: ComposeActions.Look) {
         let sending: Bool
         switch look {
@@ -1314,6 +1352,7 @@ final class ComposeViewController: UIViewController,
         navigationItem.leftBarButtonItem?.isEnabled = !sending
         photoButton?.isEnabled = !sending
         fileButton?.isEnabled = !sending
+        paperclipItem?.isEnabled = !sending
         for row in attachmentsStack.arrangedSubviews {
             for case let remove as UIButton in row.subviews { remove.isEnabled = !sending }
         }
