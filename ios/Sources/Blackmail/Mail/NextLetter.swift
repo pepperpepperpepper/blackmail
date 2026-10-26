@@ -59,12 +59,17 @@ enum NextLetter {
     /// the tap, before it is taken off: the id of a letter that row still
     /// holds after, for the list to find the row by then; nil to leave the
     /// pane empty. `role` is that of the folder the letter was listed from
-    /// (`PaneActions.effect`), `listedIn` the list's.
+    /// (`PaneActions.effect`), `listedIn` the list's; `olderToCome`, that
+    /// the list has older letters to page in below its rows.
     ///
     /// - The row that takes its place: the one below it. At the foot of the
     ///   list, the one above. Mail does not say which way; below is what
     ///   the gap audit found most likely, and an iPad on iOS 5 was once
-    ///   seen opening the one above.
+    ///   seen opening the one above. Not at the foot of the pages loaded so
+    ///   far, `olderToCome`, with older letters still on the server, or at
+    ///   the foot of a day's list after Go to Date: the letter Mail would
+    ///   open is not on the list yet, and the one above is a newer letter
+    ///   it would not, so nothing opens.
     /// - A conversation that keeps other letters keeps its row: it opens
     ///   again without the letter, highlighted where the list draws it, as
     ///   Mail leaves a conversation on screen when one of its letters is
@@ -74,6 +79,11 @@ enum NextLetter {
     ///   whole conversation (B-129).
     /// - A letter that stays on the list, moved out of All Mail, is passed
     ///   over: the row below it, or above at the foot.
+    /// - The letter never opens again under another mailbox's id, a copy of
+    ///   it (`ListEdit.twins`), whether its take hides the copy, as when it
+    ///   leaves every folder, or leaves it, as when it is moved: it is the
+    ///   letter he has just put away. No list of the app's holds both ids
+    ///   today; an All Mailboxes search lists All Mail, Trash and Spam.
     /// - In a search, the next result: the rows are the hits, one letter
     ///   each.
     /// - Never a draft, an Outbox letter or a letter "On this iPad only":
@@ -84,7 +94,7 @@ enum NextLetter {
     ///   after its search has ended.
     static func after(_ letter: MessageSummary, _ action: PaneAction,
                       onLetterIn role: Mailbox.Role?, in rows: [MessageThread],
-                      listedIn list: Mailbox.Role?) -> String? {
+                      listedIn list: Mailbox.Role?, olderToCome: Bool = false) -> String? {
         switch action {
         case .flag, .read: return nil
         case .delete, .move: break
@@ -93,24 +103,24 @@ enum NextLetter {
               let at = rows.firstIndex(where: { $0.messages.contains { $0.id == letter.id } })
         else { return nil }
         let effect = PaneActions.effect(of: action, onLetterIn: role)
-        // What its take hides (`ListLetters.take`): the letter, and its
-        // copies under other mailboxes' ids when it leaves every folder.
-        func going(_ m: MessageSummary) -> Bool {
-            guard effect.removesRow else { return false }
-            return m.id == letter.id
-                || (effect.leavesEveryFolder && !ListEdit.twins(of: letter, among: [m]).isEmpty)
+        // The letter, under any of its ids: what its take hides
+        // (`ListLetters.take`), the letter and, when it leaves every folder,
+        // its copies; and a copy it leaves, which is the same letter.
+        func itself(_ m: MessageSummary) -> Bool {
+            m.id == letter.id || !ListEdit.twins(of: letter, among: [m]).isEmpty
         }
         // A letter of `row` that is still there after the take, and opens
-        // in the pane; nil for a row that goes, or holds a letter kept on
-        // the iPad.
+        // in the pane; nil for a row that goes, holds only the letter, or
+        // holds a letter kept on the iPad.
         func staying(_ row: MessageThread) -> MessageSummary? {
             guard !row.messages.contains(where: { LocalDraft.key(ofRow: $0.id) != nil }) else {
                 return nil
             }
-            return row.messages.first { !going($0) }
+            return row.messages.first { !itself($0) }
         }
         if effect.removesRow, let rest = staying(rows[at]) { return rest.id }
         if let below = rows[(at + 1)...].lazy.compactMap(staying).first { return below.id }
+        guard !olderToCome else { return nil }
         return rows[..<at].reversed().lazy.compactMap(staying).first?.id
     }
 }

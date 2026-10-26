@@ -3216,13 +3216,16 @@ final class MessageListViewController: UITableViewController {
     /// (B-158): chosen now, from the rows as they stand at the tap, by
     /// `NextLetter.after`, and opened by `openNext` once they are without
     /// it. Nil under Don't Select a Message, and in Edit mode, where a
-    /// selected row is a tick of his, and the pane stays empty as before.
-    /// `role` is that of the folder the letter was listed from.
+    /// selected row is a tick of his, and the pane stays empty as before;
+    /// nil too at the foot of the rows while older letters are still to be
+    /// paged in, whose next is not on the list yet. `role` is that of the
+    /// folder the letter was listed from.
     @MainActor
     func letterAfter(_ letter: MessageSummary, _ action: PaneAction,
                      onLetterIn role: Mailbox.Role?) -> String? {
         guard NextLetter.action == .viewNextMessage, !tableView.isEditing else { return nil }
-        return NextLetter.after(letter, action, onLetterIn: role, in: threads, listedIn: mailbox.role)
+        return NextLetter.after(letter, action, onLetterIn: role, in: threads,
+                                listedIn: mailbox.role, olderToCome: !reachedOldestMessage)
     }
 
     /// Opens the row holding the letter `id` as a tap on it opens it, in

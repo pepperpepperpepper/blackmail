@@ -122,27 +122,79 @@ final class NextLetterTests: XCTestCase {
 
     /// In a search the rows are the hits, one letter each, a conversation's
     /// too: the next result opens, the one below, or the one above at the
-    /// foot, whatever conversation it is of. An All Mailboxes hit binned
-    /// takes its copy under the Inbox's id with it (`ListLetters.take`), so
-    /// that copy is passed over; moved to a label, the hit stays, being in
-    /// All Mail still, and the copy below it is the next.
+    /// foot, whatever conversation it is of.
     func testInASearchTheNextResultOpens() {
         let hits = [letter(150, thread: "A"), letter(148, thread: "A"), letter(147, thread: "C")]
         let list = rows(hits, grouped: false)
         XCTAssertEqual(list.map(\.count), [1, 1, 1])
         XCTAssertEqual(after(hits[0], in: list), "7/148", "the next result, of its conversation")
         XCTAssertEqual(after(hits[2], in: list), "7/148", "the last result: the one above")
+    }
 
+    /// The letter never opens again under another mailbox's id, whatever
+    /// happens to that copy: binned, it takes the copy with it
+    /// (`ListLetters.take`); moved out of All Mail, it stays there and so
+    /// does the copy; moved from the Inbox to a label, the copy in All Mail
+    /// stays. Each time the copy is passed over for the row after it, or
+    /// the one above at the foot. Rows no list of the app's holds today, an
+    /// All Mailboxes search listing All Mail, Trash and Spam: the rule
+    /// holds all the same.
+    func testTheLetterNeverOpensAgainUnderAnotherId() {
         let all = "[Gmail]/All Mail"
         let hit = letter(150, thread: "A", in: all, id: "3/90")
         let copy = letter(150, thread: "A")
         let other = letter(147, thread: "C", in: all, id: "3/80")
+        XCTAssertEqual(ListEdit.twins(of: hit, among: [copy, other]).map(\.id), ["7/150"])
         let mixed = rows([hit, copy, other], grouped: false)
         XCTAssertEqual(after(hit, .delete, role: .archive, in: mixed, listedIn: .inbox), "3/80",
-                       "its copy goes with it")
+                       "binned: its copy goes with it")
         XCTAssertEqual(after(hit, .move(to: Self.label), role: .archive, in: mixed,
-                             listedIn: .inbox), "7/150",
-                       "a label: the hit stays in All Mail and is passed over, the copy next")
+                             listedIn: .inbox), "3/80",
+                       "out of All Mail: the hit and its copy stay, and are passed over")
+        XCTAssertEqual(after(copy, .move(to: Self.label), role: .inbox,
+                             in: rows([copy, hit, other], grouped: false), listedIn: .inbox),
+                       "3/80", "out of the Inbox: its copy in All Mail stays, and is passed over")
+        let atTheFoot = rows([other, hit, copy], grouped: false)
+        XCTAssertEqual(after(hit, .move(to: Self.label), role: .archive, in: atTheFoot,
+                             listedIn: .inbox), "3/80", "at the foot: the one above the two")
+        XCTAssertNil(after(hit, .move(to: Self.label), role: .archive,
+                           in: rows([hit, copy], grouped: false), listedIn: .inbox),
+                     "nothing else")
+    }
+
+    /// At the foot of the rows with older letters still to be paged in, or
+    /// at the foot of a day's list after Go to Date, the letter Mail would
+    /// open is not on the list yet, and the one above is newer: nothing
+    /// opens. A row below, or a conversation that keeps its row, opens as
+    /// anywhere; a row kept on the iPad below is passed over to nothing.
+    /// With the oldest on the list, the one above, as before.
+    func testAtTheFootWithOlderLettersToComeNothingOpens() {
+        let folder = [letter(150, thread: "A"), letter(149, thread: "B"), letter(148, thread: "A"),
+                      letter(147, thread: "C")]
+        let list = rows(folder)
+        XCTAssertEqual(list.map(\.id), ["7/150", "7/149", "7/147"])
+        func next(_ gone: MessageSummary, _ action: PaneAction = .delete,
+                  in rows: [MessageThread]) -> String? {
+            NextLetter.after(gone, action, onLetterIn: .inbox, in: rows, listedIn: .inbox,
+                             olderToCome: true)
+        }
+
+        XCTAssertNil(next(folder[3], in: list), "the last row loaded")
+        XCTAssertNil(next(folder[3], .move(to: Self.label), in: list), "moved")
+        XCTAssertEqual(after(folder[3], in: list), "7/149", "the oldest there is: the one above")
+        XCTAssertEqual(next(folder[1], in: list), "7/147", "a row below")
+
+        let footed = [letter(150, thread: "B"), letter(149, thread: "A"), letter(148, thread: "A")]
+        let conversation = rows(footed)
+        XCTAssertEqual(conversation.map(\.id), ["7/150", "7/149"])
+        XCTAssertEqual(next(footed[1], in: conversation), "7/148",
+                       "a conversation at the foot keeps its row")
+
+        let kept = letter(140, thread: "K", id: "local:abc")
+        let withKept = [MessageThread(messages: [folder[0]]), MessageThread(messages: [folder[1]]),
+                        MessageThread(messages: [kept])]
+        XCTAssertNil(next(folder[1], in: withKept), "a row kept on the iPad below")
+        XCTAssertEqual(after(folder[1], in: withKept), "7/150", "the oldest there is: above")
     }
 
     /// Never a draft, an Outbox letter or a letter kept "On this iPad only":
@@ -413,7 +465,10 @@ final class NextLetterTests: XCTestCase {
         ] {
             XCTAssertTrue(root.contains(line), line)
         }
-        XCTAssertEqual(root.components(separatedBy: "openNext").count, 2, "the pane's alone")
+        // Edit mode's Delete and Move open nothing: their rows leave by
+        // `onLettersLeaving`, above, and `ListBatch`, below. Not a count of
+        // the calls of `openNext`: a swipe on the open letter's row, wired
+        // to it where the swipes are merged, is one more.
 
         let list = try source("UI/MessageListViewController.swift")
         for line in [
@@ -421,7 +476,7 @@ final class NextLetterTests: XCTestCase {
                 + "onLetterIn role: Mailbox.Role?) -> String? { "
                 + "guard NextLetter.action == .viewNextMessage, !tableView.isEditing else "
                 + "{ return nil } return NextLetter.after(letter, action, onLetterIn: role, "
-                + "in: threads, listedIn: mailbox.role) }",
+                + "in: threads, listedIn: mailbox.role, olderToCome: !reachedOldestMessage) }",
             "func openNext(_ id: String) { guard !tableView.isEditing, "
                 + "let row = rowIndex(showing: id) else { return } "
                 + "let ip = IndexPath(row: row, section: 0) "
