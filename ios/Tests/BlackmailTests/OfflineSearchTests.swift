@@ -129,6 +129,30 @@ final class OfflineSearchTests: XCTestCase {
         XCTAssertEqual(ids(KeptSearch.hits(for: "Ma", in: rows) { _ in nil }), [], "too short to be a start")
     }
 
+    /// Never the start of one of his own: none of his addresses, nor a name
+    /// he goes under, as online the book offers neither (B-123); every
+    /// letter is to him or from him, so his own name half typed matched
+    /// nearly every letter. Another's name or address still matches, and
+    /// his name typed whole is a word as before.
+    func testAWordHalfTypedIsNeverTheStartOfHisOwn() {
+        let mine = OwnAddresses(["owner@example.com"])
+        let rows = [row(1, to: ["Carlo Example <owner@example.com>"]),
+                    row(2, from: "Carmen <carmen@example.com>", to: ["Carlo Example <owner@example.com>"]),
+                    row(3, to: ["Carlo Example <owner@example.com>", "Carlo Example <carlo.two@example.com>"]),
+                    row(4, to: ["carlo.two@example.com"]),
+                    row(5, to: ["Carlo Example <other@example.com>"])]
+        XCTAssertEqual(ids(KeptSearch.hits(for: "Carl", in: rows, besides: mine) { _ in nil }), ["1/5", "1/4"],
+                       "his address and the name it goes under in the same letter")
+        XCTAssertEqual(ids(KeptSearch.hits(for: "Carl", in: rows, besides: mine, names: ["Carlo Example"]) { _ in nil }),
+                       ["1/4"], "and a name of his")
+        XCTAssertEqual(ids(KeptSearch.hits(for: "Car", in: rows, besides: mine, names: ["Carlo Example"]) { _ in nil }),
+                       ["1/4", "1/2"])
+        XCTAssertEqual(ids(KeptSearch.hits(for: "owne", in: rows, besides: mine) { _ in nil }), [])
+        XCTAssertEqual(ids(KeptSearch.hits(for: "Carlo ", in: rows, besides: mine) { _ in nil }).count, 5,
+                       "typed whole, a word as before")
+        XCTAssertEqual(ids(KeptSearch.hits(for: "Carl", in: rows) { _ in nil }).count, 5, "with none of his given")
+    }
+
     /// A phrase in quote marks: as written, in any field; or in the
     /// letter's words, all its words anywhere, as Gmail reads a phrase in
     /// the body.
@@ -264,6 +288,22 @@ final class OfflineSearchTests: XCTestCase {
         let none = await offline.searchKept(in: "inbox", query: "gutters ", scope: .allMailboxes)
         XCTAssertEqual(none, [])
         XCTAssertEqual(server.log, [], "nothing sent")
+    }
+
+    /// The repository leaves his own out of a word half typed, as Settings
+    /// has his addresses: the seeded letters are all to the account's
+    /// address, and its start finds none of them.
+    func testTheRepositoryLeavesHisOwnOutOfAWordHalfTyped() async throws {
+        let shelf = makeShelf()
+        let repository = makeRepository(shelf: shelf)
+        _ = try await repository.listMailboxes()
+        let rows = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 50)
+        XCTAssertFalse(rows.isEmpty)
+        line.isUp = false
+        let own = await repository.searchKept(in: "inbox", query: "owne", scope: .currentMailbox)
+        XCTAssertEqual(own, [])
+        let sam = await repository.searchKept(in: "inbox", query: "Sam Exa", scope: .currentMailbox) ?? []
+        XCTAssertFalse(sam.isEmpty, "another's start still")
     }
 
     /// Each letter once with All Mailboxes, the folder's own row first: the

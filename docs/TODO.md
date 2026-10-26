@@ -7417,13 +7417,18 @@ checks below is left as not needed, not open, and none is worth a round.*
       Mode off. The host APPENDs to the Inbox three letters, not read,
       "B-160 ahead N", each with a word of its own in its body only
       ("aheadone", "aheadtwo", "aheadthree"). Refresh: once the page and
-      its previews have come, three `UID FETCH … (UID X-GM-MSGID
-      BODY.PEEK[]<0.131072>)`, no STORE, `KEPT-AHEAD letters=3`; the three
-      rows still unread, here and in Gmail on the web. A letter tapped while
-      they go opens after the piece on the wire, not after the three.
-      Blackmail ended, Airplane Mode on, opened: each of the three opens
-      from the iPad, `KEPT-LETTER shown`; "aheadtwo" searched in the Inbox
-      finds its letter.
+      its previews have come, a `UID FETCH <uid> (UID X-GM-MSGID
+      RFC822.SIZE BODY.PEEK[]<0.131072>)` for each of the three UIDs the
+      host noted, among any for other unread letters of the Inbox not yet
+      kept; no STORE, no SELECT between them; `KEPT-AHEAD letters=<n>`
+      with n at least 3; the three rows still unread, here and in Gmail on
+      the web. A letter tapped while they go opens after the piece on the
+      wire, not after the three. Refresh again, nothing new: no `UID
+      FETCH` of any of the three UIDs. Blackmail ended, Airplane Mode on,
+      opened: each of the three opens from the iPad, `KEPT-LETTER shown`;
+      "aheadtwo" searched in the Inbox finds its letter; the first four
+      letters of the test account's address typed, nothing after them,
+      find no letter for that alone, though every letter there is to it.
       5. *Put back:* Airplane Mode off. The host moves the UIDs it noted,
       and only them, from "Notes" and the Inbox to the Trash (`UID MOVE`),
       and deletes in the Trash only the UIDs that move answered

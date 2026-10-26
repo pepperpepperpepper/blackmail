@@ -30436,7 +30436,11 @@ connection's work to what he asked for.
    matches; a phrase as written, or in the letter's words all its words;
    the word he is still typing (`SearchCriteria.halfWord`) as the start of
    a name or address too, as the server is asked for the people it may
-   start (B-123). Newest first, all at once. Nothing is sent.
+   start (B-123), never his own: none of his addresses as Settings last
+   saved them, nor a name one of them goes under in the same letter, in
+   the book, or as his account's, as the book never offers them, every
+   letter being to him or from him. Newest first, all at once. Nothing is
+   sent.
 3. *When* (`MessageListViewController.runSearch`,
    `SearchAnswer.searchesTheIPad`): a search the server could not answer,
    for any reason but being called off, is answered so; the list draws the
@@ -30459,7 +30463,7 @@ while hits from the iPad show: Mail's own words as the decision of
 strings read for that decision, so it is as sure as that decision is. No
 other new words.
 
-**Tests.** Twenty-seven, new, in three classes, one a part.
+**Tests.** Thirty-five, new, in three classes, one a part.
 
 `KeptPagesTests`, 10 (part 1). The store: pages listed below going on
 after the kept rows, into the next launch, in order; nothing kept from a
@@ -30481,33 +30485,49 @@ connection keeping the rows below its fresh page, the letter taken out
 elsewhere dropping out; a day jumped to, a page below it, and a search
 keeping nothing.
 
-`FetchAheadTests`, 8 (part 2). The rule: the unread rows with a Gmail id,
-newest first, at most so many; the bounds' values. Over the server: after
-the Inbox's first page, its six unread letters each fetched by one
-`UID FETCH … (UID X-GM-MSGID BODY.PEEK[]<0.131072>)` and nothing else, none
-marked read, all kept as fetched ahead, and at the next launch with no
-connection one opened from the iPad with nothing sent, then a letter he
-opened; a letter of about 288 KB in three pieces, the id asked in the
-first alone, kept byte for byte the server's; the bounds, two letters, and
-a pass stopped once a byte had come; passed over, a letter kept already (a
-second pass sends nothing), letters read, letters above the size opened in
-parts, and everything with no connection (nothing sent, not even a
-LOGIN); the client asking nothing after a first piece naming another
-letter, a whole letter in 64-byte pieces equal to the server's, and none
-past its most. The store: fetched ahead past their own bound the oldest
-going, past the store's one fetched ahead before one opened, opened then
-evicted as one he opened, fetched ahead again left as it was, `has`, and
-the next launch's order. The list, read from the source: the pass after
-the Inbox's previews, at a Refresh's page and as a page over the kept one
-lands, for the Inbox alone; the client's pieces in the background line,
-never `BODY[`.
+`FetchAheadTests`, 14 (part 2). The rule: the unread rows with a Gmail
+id, newest first, at most so many; the bounds' values. Over the server:
+after the Inbox's first page, its six unread letters each fetched by one
+`UID FETCH … (UID X-GM-MSGID RFC822.SIZE BODY.PEEK[]<0.131072>)` and
+nothing else, none marked read, all kept as fetched ahead, and at the next
+launch with no connection one opened from the iPad with nothing sent, then
+a letter he opened; a letter of about 288 KB in three pieces, the id and
+size asked in the first alone, kept byte for byte the server's; the
+bounds, two letters, and a pass stopped once a byte had come; passed over,
+a letter kept already (a second pass sends nothing), letters read, letters
+above the size opened in parts, and everything with no connection
+(nothing sent, not even a LOGIN); the client sending nothing with no
+folder open, with Sent Mail open, or with the Inbox open under another
+UIDVALIDITY, asking nothing after a first piece naming another letter, a
+whole letter in 64-byte pieces equal to the server's, and nothing after
+the first piece of one past its most, by the size given beside it. The
+store: each kind in its own room, a letter opened putting out one opened
+and none fetched ahead, past their room the oldest letter going by its
+UID, one older than every letter in a full room not kept with nothing
+going for it and the room saying so first, opened then one he opened and
+the letter opened longest ago going, fetched ahead again left as it was,
+`has`, and the next launch's order; a letter's words counted with it, in
+the bounds and against the floor. Passes: a store full of letters he
+opened, then a pass keeping all six it fetched, none he opened going, and
+a second pass sending nothing; more unread letters than the room holds,
+then one new letter one `UID FETCH`, the oldest letter fetched ahead
+going, and the pass after it sending nothing; a pass stopping at the
+first letter there is no room for, by the count with nothing asked and by
+the size after its first piece, the pass after each sending nothing; Sent
+Mail open, nothing sent; two passes asked at once, each letter fetched
+once. The list, read from the source: the pass after the Inbox's
+previews, at a Refresh's page and as a page over the kept one lands, for
+the Inbox alone; the client's pieces in the background line, only while
+the Inbox is open, never a SELECT, never `BODY[`.
 
-`OfflineSearchTests`, 9 (part 3). The matching: every word wanted, each in
-the subject, the few words, Cc, To, From's name and address or the kept
+`OfflineSearchTests`, 11 (part 3). The matching: every word wanted, each
+in the subject, the few words, Cc, To, From's name and address or the kept
 words, whole, ignoring case and accents, newest first, a word of one letter
 left out; a word half typed the start of a person's name or address, not
 of a subject's or a letter's word, nor with a space after it, nor under
-three letters; a phrase as written, or all its words in the letter's
+three letters, nor of his own address, a name it goes under in the same
+letter or a name given as his, another's still, his name typed whole a
+word as before; a phrase as written, or all its words in the letter's
 words; the kept words read only where the row does not hold a word, once a
 row; Mail's words, and the iPad answering after any failure but a search
 called off. The words beside a letter: kept, cut at the bound, another
@@ -30519,7 +30539,9 @@ failing, a word in the opened letter's words found, one in a letter
 fetched ahead found, his reply in Sent Mail found with All Mailboxes and
 not with the folder, a word in none finding none, nothing sent; and each
 letter once with All Mailboxes, the Inbox's own row first, All Mail's own
-letters too. The list, read from the source: the fallback, its hits all at
+letters too; and the start of the account's own address finding none of
+the letters to it, another's start finding his. The list, read from the
+source: the fallback, its hits all at
 once, Mail's line under them, gone as the search ends.
 
 Changed with them: `KeptCopyTests`' `testOnlyAListingFromTheTopReplacesTheKeptPageAndItReplacesItWhole`,
@@ -30555,14 +30577,46 @@ second run (`took(more:)` keeping the rows as they were), both failed,
 `testAPageOverKeptRowsReplacesThemAndKeepsWhatGoesOn`, with four others of
 the class that page. Then all of it put back.
 
-The full suite, serially: 2,702 tests, 6 skipped, none failing. The
+The later changes to parts 2 and 3, each rule undone, in three runs, with
+B-159's later three in the first (they touch nothing here). The first:
+letters fetched ahead going in the order they were fetched, the room
+counting no newer letters, the words not counted, each piece selecting
+the Inbox, the pass marked as under way only after its first wait, and a
+word half typed matching his own; failed,
+`testLettersFetchedAheadHaveRoomOfTheirOwn`, `testOneNewLetterIsOneFetch`,
+`testThePassStopsWhereTheRoomIsFull`, `testTheWordsCountWithTheLetter`,
+`testNothingIsFetchedWhileAnotherFolderIsOpen`,
+`testAnotherLetterUnderTheUIDIsNotFetched`,
+`testTheListStartsThePassAfterTheInboxsPreviews`,
+`testAWordHalfTypedIsNeverTheStartOfHisOwn` and
+`testTheRepositoryLeavesHisOwnOutOfAWordHalfTyped`, while
+`testAFullStoreOfOpenedLettersAndTwoPasses` passed; and so did
+`testTwoAskedAtOnceAreOnePass`, whose two calls did not meet in the
+pass's first wait. It was given eight calls at once and the order read
+from the source, and in a run of its own, the pass marked as under way
+only after its first wait, it failed on that order; the eight calls
+still fetched each letter once. The second: the one room put back
+as it was, the size beside the first piece not compared, what a letter
+needed not remembered, and none of his addresses handed to the search;
+failed, `testAFullStoreOfOpenedLettersAndTwoPasses`,
+`testLettersFetchedAheadHaveRoomOfTheirOwn`, `testOneNewLetterIsOneFetch`,
+`testTheWordsCountWithTheLetter`, `testAnotherLetterUnderTheUIDIsNotFetched`,
+`testThePassStopsWhereTheRoomIsFull` and
+`testTheRepositoryLeavesHisOwnOutOfAWordHalfTyped`. Then all of it put
+back.
+
+The full suite, serially: 2,702 tests, 6 skipped, none failing; with the
+later changes to B-159 and B-160, 2,713, 6 skipped, none failing. The
 release build for the iPad links.
 
 **Not seen.** Nothing of this on the iPad yet; the TODO check is under
 "Blocked on the iPad coming back". Not measured there: the launch's read
 of a kept Inbox of 500 rows on the main thread, which was 1.1 ms for 50 on
 the development computer (D-016); a search over 300 letters' kept words;
-and how long a piece of 128 KB holds a tap on his Wi-Fi. Kept rows below
+how long a piece of 128 KB holds a tap on his Wi-Fi; and how long the pass
+waits on the disk queue, asking whether a letter is kept and how much room
+there is, behind a letter being written, which a tap reaching the
+repository meanwhile waits for too. Kept rows below
 the first page carry the marks their listing gave them: a letter read or
 flagged in another client shows as it was until the page it is on is
 listed again, as the first page's did between launches. Mail's own

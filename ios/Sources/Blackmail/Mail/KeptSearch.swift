@@ -12,7 +12,9 @@ import Foundation
 /// accents; a phrase in quote marks as it is written, or in the words all
 /// its words; the word he is still typing, as the start of a person's name
 /// or address too, as the server is asked for the people it may be the
-/// start of (B-123). The words of a letter are what is kept of them: its
+/// start of (B-123), never his own: none of his addresses, nor a name one
+/// of them goes under, as the book never offers them, since every letter
+/// is to him or from him. The words of a letter are what is kept of them: its
 /// row's few words, and for a letter kept whole the first
 /// `KeptLetters.Bounds.words` characters of what the pane would quote. Its
 /// files' names and the words in its pictures are not searched, nor are
@@ -33,25 +35,51 @@ enum KeptSearch {
     /// The rows of `rows` that hold every word of `query`, newest first.
     /// `words` gives a row's letter's words where they are kept, nil
     /// where not; it is asked only when the row itself does not hold a
-    /// word, once a row.
+    /// word, once a row. `mine` are his addresses and `names` the names he
+    /// goes under, folded or not, left out of the people a word half typed
+    /// may start (`RecipientBook.addresses(startingWith:besides:)`).
     static func hits(for query: String, in rows: [MessageSummary],
+                     besides mine: OwnAddresses = OwnAddresses([]), names: Set<String> = [],
                      words: (MessageSummary) -> String?) -> [MessageSummary] {
         let asked = SearchCriteria.words(of: query).map(fold)
         guard let last = asked.last else { return [] }
         let starting = SearchCriteria.halfWord(of: query) == nil ? nil : last
+        let his = Set(names.map(fold).filter { !$0.isEmpty })
         return rows.filter { row in
-            let people = fold(([row.sender] + (row.to ?? []) + row.cc + row.bcc).joined(separator: "\n"))
+            let entries = [row.sender] + (row.to ?? []) + row.cc + row.bcc
+            let people = fold(entries.joined(separator: "\n"))
             let own = people + "\n" + fold(row.subject) + "\n" + fold(row.preview)
             var body: String??
             return asked.allSatisfy { word in
                 if holds(word, in: own) { return true }
-                if word == starting, startsAWord(word, in: people) { return true }
+                if word == starting,
+                   startsAWord(word, in: fold(theirs(entries, besides: mine, names: his).joined(separator: "\n"))) {
+                    return true
+                }
                 if body == nil { body = .some(words(row).map(fold)) }
                 guard let text = body ?? nil else { return false }
                 return holds(word, in: text)
                     || (word.contains(" ") && word.split(separator: " ").allSatisfy { holds(String($0), in: text) })
             }
         }.sorted(by: SearchMerge.isOrderedBefore)
+    }
+
+    /// The entries of `entries` that are not his: none at one of his
+    /// addresses, nor under a name of his, `names` folded, or one of his
+    /// addresses goes under in the same entries.
+    private static func theirs(_ entries: [String], besides mine: OwnAddresses,
+                               names: Set<String>) -> [String] {
+        let people = entries.map { entry in (entry, MailFormat.recipient(in: entry)) }
+        var his = names
+        for (_, person) in people where person.map({ mine.contains($0.address) }) ?? false {
+            if let name = person?.name.map(fold), !name.isEmpty { his.insert(name) }
+        }
+        return people.compactMap { entry, person in
+            guard let person else { return entry }
+            if mine.contains(person.address) { return nil }
+            if let name = person.name.map(fold), his.contains(name) { return nil }
+            return entry
+        }
     }
 
     /// `text` without case, accents or the curly apostrophe's shape.

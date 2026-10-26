@@ -3532,6 +3532,10 @@ actor IMAPMailRepository: MailRepository {
     /// From, To, Cc, the subject, the few words and the words kept with a
     /// letter he opened or that was fetched ahead. Newest first, all at
     /// once. Nil when nothing is kept to search.
+    ///
+    /// A word half typed is the start of other people's names and
+    /// addresses alone, as online: never one of his, as Settings last saved
+    /// them, nor a name the book has for one of them, or his account's.
     func searchKept(in mailboxID: String, query: String,
                     scope: MailSearchScope) async -> [MessageSummary]? {
         guard let shelf else { return nil }
@@ -3540,7 +3544,11 @@ actor IMAPMailRepository: MailRepository {
         if scope == .allMailboxes { rows += shelf.rowsOfEveryFolder(besides: folder) }
         var letters: Set<UInt64> = []
         rows = rows.filter { row in row.gmailMessageID.map { letters.insert($0).inserted } ?? true }
-        return KeptSearch.hits(for: query, in: rows) { row in
+        let me = sender
+        let mine = OwnAddresses(account: me)
+        let names: Set<String> = SearchCriteria.halfWord(of: query) == nil ? [] : Set(
+            recipients.snapshot().filter { mine.contains($0.address) }.compactMap(\.name) + [me.displayName])
+        return KeptSearch.hits(for: query, in: rows, besides: mine, names: names) { row in
             guard let letter = row.gmailMessageID, let at = try? Self.parseID(row.id),
                   let name = keptFolderName(row.mailboxID) else { return nil }
             return shelf.letters.words(in: name, validity: at.validity, uid: at.uid, message: letter)
