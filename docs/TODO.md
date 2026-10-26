@@ -7014,26 +7014,32 @@ checks below is left as not needed, not open, and none is worth a round.*
       there and deletes it in the same step. Every composer ends with
       Cancel, and Delete Draft if it asks (a letter left as it opened
       closes with nothing asked). The large videos are the test iPad's own
-      in Photos, HEVC, over 25 MB; the short one, for steps 4 to 7, an HEVC
-      clip of 10 to 25 MB: the test iPad's own if it has one, else filmed
-      for about ten seconds with its Camera before step 4 and deleted, from
-      Recently Deleted too, in step 12. Before the first step, over IMAP,
-      the counts of Drafts and Sent Mail; the app's Local Drafts empty. A
-      read-only syslog capture runs throughout; the app's log is read
-      after each step. Write down any termination with 0x2182BAAD, with the
-      step it fell in, and every "File Coordination Claim" on Blackmail
-      with how long it was held.
+      in Photos, HEVC, over 25 MB. Two short HEVC clips: "the clip", for
+      steps 4 to 7, of 5 to 12 MB, and "the measure", for step 4's second
+      half, of 15 to 22 MB: the test iPad's own if it has them, else filmed
+      with its Camera before step 4, a few seconds and some twenty, their
+      sizes read from their `SHARE-FILE` lines (`bytes=M`) and filmed again
+      if outside, and deleted, from Recently Deleted too, in step 12.
+      Before the first step, over IMAP, the counts of Drafts and Sent Mail;
+      the app's Local Drafts empty. A read-only syslog capture runs
+      throughout; the app's log is read after each step. Write down any
+      termination with 0x2182BAAD, with the step it fell in, and every
+      "File Coordination Claim" on Blackmail with how long it was held.
       1. *Locked, a large video* (the round's case): a new letter, Photo
       Library, Videos, a large video, Add, and the lock within a second. In
       the syslog the claim, if one is taken, let go within a second or two
       of Add, "finished providing" without minutes of copying; no
       "Assertion warning event" near 26 s and no 0x2182BAAD near 31 s. In
-      the log `SHARE-FILE read=com.apple.quicktime-movie ... went=left out,
-      more than the letter's room` within seconds of Add, and no
-      `SHARE-VIDEO` line. Wake after three and a half minutes, nothing
-      touched: Blackmail in front, the composer up, "The video could not be
-      attached." up or said on the wake. A shot of the composer on the
-      wake. Cancel. Before the third commit the app was ended 31 s after
+      the log, either of two, both right: the read ended before the lock,
+      `SHARE-FILE read=com.apple.quicktime-movie ... went=left out, more
+      than the letter's room` within seconds of Add; or the lock first,
+      `COMPOSE-ITEM set aside as the app went, called off` and `SHARE-FILE
+      ... went=called off`, and on the wake the read again and then
+      `went=left out, more than the letter's room`. Write down which. No
+      `SHARE-VIDEO` line either way. Wake after three and a half minutes,
+      nothing touched: Blackmail in front, the composer up, "The video could
+      not be attached." up or said on the wake. A shot of the composer on
+      the wake. Cancel. Before the third commit the app was ended 31 s after
       the lock, the wake showing the Home Screen (2026-10-25 and
       2026-10-26).
       2. *Another app:* as 1, another large video, Safari opened from the
@@ -7043,15 +7049,26 @@ checks below is left as not needed, not open, and none is worth a round.*
       the lock at once. Wake after three and a half minutes: no
       0x2182BAAD, the photo's row in, and one alert, "2 videos could not
       be attached.". Cancel, Delete Draft.
-      4. *A clip that fits,* in front: a new letter, the short clip, Add,
-      and wait. In the log `SHARE-FILE ... went=staged`, then `SHARE-VIDEO
-      made H.264, bytes=N from=M`, the time between them written down; the
-      row "IMG_####.MOV" with the weight of N. Over SSH, the staged file in
-      the app's `tmp/Attachments` copied to the host and read with
-      ffprobe: H.264 video, AAC sound, the clip's size and length, N bytes.
-      Should the line say `its H.264 copy ... the original goes`, write
-      down both sizes: the original went, as built. Cancel, Delete Draft;
-      `tmp/Attachments` holds nothing of it.
+      4. *A clip that fits,* in front: a new letter, the clip, Add, and
+      wait. In the log `SHARE-FILE ... went=staged`, then `SHARE-VIDEO made
+      H.264, bytes=N from=M codec=avc1`, the time between them written
+      down; the row "IMG_####.MOV" with the weight of N. The codec is read
+      back from the copy by the app (`codec=avc1` or `avc3` is H.264; any
+      other, or `unread`, is a failure to write down). Over SSH, `stat` of
+      the staged file in the app's `tmp/Attachments`: N bytes. No media
+      tool is run on it anywhere: the app's line is the reading. Should the
+      line say `its H.264 copy ... a 720p copy` for the clip, write down
+      both lines; the clip was too large, film a shorter one. Cancel,
+      Delete Draft; `tmp/Attachments` holds nothing of it. Then *the
+      measure*, the same way, in a new letter: write down M, and every
+      `SHARE-VIDEO` line with its N, and N over M for each copy. Expected
+      one of: `made H.264` at its own size; `its H.264 copy bytes=N, more
+      than the letter's room ...: a 720p copy` and then `made H.264 at
+      720p`; or that and `its 720p H.264 copy ... left out` with "The video
+      could not be attached.". A copy `cut short at its limit` was stopped
+      5 MB past the room: its N over M is then more than written. It is how
+      often his videos now go at 720p or not at all. Cancel, Delete Draft;
+      `tmp/Attachments` holds nothing of either.
       5. *The clip, locked while it is made:* as 4, the lock within a
       second of Add. In the log `COMPOSE-ITEM set aside as the app went,
       called off`, then `SHARE-VIDEO called off` (or `SHARE-FILE ...
@@ -7072,20 +7089,29 @@ checks below is left as not needed, not open, and none is worth a round.*
       or Save Draft waiting`, then one of: `SHARE-VIDEO not made H.264,
       stopped as the app went` and `COMPOSE-ITEM set aside, its conversion
       stopped as the app went`; `COMPOSE-ITEM set aside 20 s after the app
-      went, called off`; or `SHARE-VIDEO made H.264` inside the 20 s. Write
-      down which, and when: it is how AVAssetExportSession behaves as the
-      app goes on this iPad. In the syslog the "Save Draft" background time
-      let go then, not held to its expiry; no 0x2182BAAD. Wake after three
-      and a half minutes: the clip read and made again, then the draft in
-      Drafts with it. Over IMAP, Drafts one more than counted. Open the
-      draft from Drafts in the app, Cancel, Delete Draft; over IMAP, Drafts
-      as counted.
-      8. *A photo:* a new letter, one HEIC photo from the iPad's camera,
-      Add. Its `SHARE-PICTURE` line: `offered=public.heic read=public.heic
-      ... way=JPEG at factor 1`, or, should Photos still offer a JPEG
-      beside it, `read=public.jpeg ... way=own bytes`: write down which.
-      Either way the row "IMG_####.jpg" with its weight. Cancel, Delete
-      Draft.
+      went, called off`; `COMPOSE-ITEM its conversion stopped in front,
+      read again` and then `set aside as the app went, called off`; or
+      `SHARE-VIDEO made H.264` inside the 20 s. Write down which, and when:
+      it is how AVAssetExportSession behaves as the app goes on this iPad.
+      In the syslog the "Save Draft" background time let go then, not held
+      to its expiry; no 0x2182BAAD. Wake after three and a half minutes.
+      Where it was made inside the 20 s: the draft was kept while the iPad
+      was locked, nothing read again on the wake. Otherwise: the clip read
+      and made again on the wake, then the draft kept. Either way, the
+      draft in Drafts with the copy. Over IMAP, Drafts one more than
+      counted. Open the draft from Drafts in the app, Cancel, Delete Draft;
+      over IMAP, Drafts as counted.
+      8. *Photos:* a new letter, one HEIC photo from the iPad's camera,
+      and one panorama taken with its Camera's Pano before this step
+      (deleted in step 12), over 4096 px on its long side; Add. Each
+      `SHARE-PICTURE` line: `offered=public.heic read=public.heic ...
+      way=JPEG at factor 1, N MB available size=WxH`, or, should Photos
+      still offer a JPEG beside it, `read=public.jpeg ... way=own bytes`:
+      write down which. For the panorama, `size=` its own width and height,
+      as Photos shows them, not 4096 or less: the third commit sent it at a
+      half or a quarter. Should its line say `factor 2` or more, write down
+      the memory it gives. Each row "IMG_####.jpg" with its weight. Cancel,
+      Delete Draft.
       9. *Attach File, optional:* only if a file of over about 1 GB, or one
       kept only in iCloud, is in Files already. A new letter, Attach File,
       that file, Open, and the lock within a second. Write down whether a
@@ -7102,9 +7128,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       the sheet still up, and does the syslog have a claim on the extension
       and a termination with 0x2182BAAD? Cancel if it is up.
       12. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
-      empty; the clip filmed for steps 4 to 7, if one was, deleted from
-      Photos and from Recently Deleted; Photos otherwise as found; Blackmail
-      in front on the Inbox; Auto-Lock as found. Nothing was sent, and
+      empty; the clips filmed for steps 4 to 7 and the panorama of step 8,
+      if they were, deleted from Photos and from Recently Deleted; Photos
+      otherwise as found; Blackmail in front on the Inbox; Auto-Lock as
+      found. Nothing was sent, and
       nothing is left on the account.
       *Run on the test iPad 2026-10-26 (round r6-s8-fixes, int17 56bbf61,
       the first two commits), as the check then stood: its steps 1, 2, 4
@@ -7113,8 +7140,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       letter closed, and the claim was held until Photos' compatible copy
       was made; the app was ended 31 s after it left the front, the letter
       with it. An H.264 video held its claim 0.1 s. Fixed again by the third
-      commit, `.current` and the H.264 copy made in the app; the check above
-      is for that build.*
+      commit, `.current` and the H.264 copy made in the app, and the fourth,
+      a HEIC at its own size, the 720p copy or nothing, each copy stopped
+      past the room and its codec read back; the check above is for the
+      fourth commit's build.*
 - [ ] **B-143, a row comes into sight with its preview.** On the test
       iPad, the test account only, from a build of the `bm-prepcell`
       worktree (branch `fix-prepcell`) or of the int it is merged into.

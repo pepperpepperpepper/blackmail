@@ -20342,8 +20342,10 @@ Built in the `feat-composer` worktree, off `feat-replyfiles` (master at
 answered the batch's questions; built to their defaults: photos and videos
 the share sheet's way, a video as Photos' compatible copy, two buttons and
 no paperclip. *Since B-142's second fix (2026-10-26) a video is not Photos'
-compatible copy: the picker hands over what Photos keeps, and a video that
-fits is made H.264 in the app (Changed, 3).*
+compatible copy: the picker hands over what Photos keeps, and a video is
+made H.264 in the app, at its own size or at 720p, or left out where no
+H.264 copy fits; a HEIC photo is made a JPEG in the app at its own size
+(Changed, 3).*
 
 **What Mail does.** Apple's iPadOS 18 guide
 (support.apple.com/guide/ipad/add-email-attachments-ipadcf744d81/18.0/ipados/18.0),
@@ -20396,14 +20398,21 @@ as long as they took.
    a file coordination claim on the app, which calling the read off did not
    end, and iOS ended the app half a minute after he left it, the letter
    with it. Now Photos hands over what it keeps, with no copy made. A HEIC
-   photo is made a JPEG in the app, at its own size and under the name it
-   went by before. A video goes H.264 still: one whose original fits the
+   photo is made a JPEG in the app under the name it went by before, at its
+   own size where it fits the letter's room and the app's memory allows it,
+   as Photos' JPEG of it went as its own bytes: a 24-megapixel iPhone photo
+   or a panorama whole, not at 4096 px. Only one that does not fit the
+   room, or whose JPEG at its own size does not, is made at most 4096 px,
+   as a photo over the room was before; the share sheet keeps its 4096 px.
+   A video goes H.264 or not at all, as before: one whose original fits the
    letter's room and is not H.264 already is made H.264 in the app, after
-   the read, by an `AVAssetExportSession` at
-   `AVAssetExportPresetHighestQuality` that the read calls off with the
-   rest (`ShareItems.compatible`); where that copy does not fit and the
-   original does, the original goes, HEVC; one whose original does not fit
-   is left out at once, as before.*
+   the read, by an `AVAssetExportSession` that the read calls off with the
+   rest (`ShareItems.compatible`), at its own size
+   (`AVAssetExportPresetHighestQuality`), or, where that copy does not fit,
+   at most 1280 by 720 (`AVAssetExportPreset1280x720`); where neither fits,
+   or no copy can be made, it is left out, as Photos' copy over the room
+   was. The original, HEVC, never goes. One whose original does not fit is
+   left out at once, as before.*
 4. *Attach File.* `UIDocumentPickerViewController(forOpeningContentTypes:
    [UTType.data], asCopy: true)`, several at a time: any file, not a folder
    or a package. No security-scoped access, no Info.plist key. Each copy
@@ -28769,7 +28778,7 @@ none failing. The release build for the iPad links.
 - A row among another letter's words, or a picture, shows nothing while
   its file comes, as before (B-113, B-122).
 
-## B-142 — FIXED again 2026-10-26 after the test iPad, not yet seen there. A large video still coming into the composer when he locked the iPad or left the app got the app ended by iOS half a minute later, and the letter with it; calling the read off as the app goes, as the first fix did, did not end Photos' copy nor its claim on the app, so Photo Library now hands over the video Photos keeps, with no copy made, and a video that fits the letter is made H.264 in the app, where the call-off as the app goes, at a count-out and as the letter closes ends it
+## B-142 — FIXED again 2026-10-26 after the test iPad, not yet seen there. A large video still coming into the composer when he locked the iPad or left the app got the app ended by iOS half a minute later, and the letter with it; calling the read off as the app goes, as the first fix did, did not end Photos' copy nor its claim on the app, so Photo Library now hands over the video Photos keeps, with no copy made, and a video that fits the letter is made H.264 in the app, at its own size or at 720p or not at all, where the call-off as the app goes, at a count-out and as the letter closes ends it; a HEIC photo goes at its own size, as before
 
 **Found** on the test iPad on 2026-10-25, in the round r6-s6-marks-net
 (B-108's check, the second half of its step 9), on a build of int16, and
@@ -29170,15 +29179,18 @@ as at the start.
     The setting is the whole picker's.
     - *A photo goes as before.* A HEIC arrives with no JPEG beside it, by
       the round's reading of PHPicker, and the share sheet's intake already
-      makes that a JPEG in the app (`SharedPhoto.fileType`, `way`): at its
-      own size, a camera's 4032 by 3024 decoded whole in the app's memory,
-      its date kept and no place, named "IMG_0772.jpg", the name Photos'
-      compatible JPEG went by. A JPEG goes as its own bytes, and where
-      Photos still offers a JPEG beside a HEIC, the JPEG, both as before.
-      What differs: Photos' JPEG was its own encoding, the camera's
-      orientation a tag; this one is the app's, at 0.85, turned upright.
-      The picture line says which (`offered=public.heic read=public.heic
-      ... way=JPEG at factor 1`).
+      makes that a JPEG in the app (`SharedPhoto.fileType`, `way`), its
+      date kept and no place, named "IMG_0772.jpg", the name Photos'
+      compatible JPEG went by. At its own size where it fits the room and
+      the app's memory allows it (18, the fourth commit; the third made it
+      at most 4096 px, which was not as before for a photo larger than
+      that). A JPEG goes as its own bytes, and where Photos still offers a
+      JPEG beside a HEIC, the JPEG, both as before. What differs: Photos'
+      JPEG was its own encoding, the camera's orientation a tag; this one
+      is the app's, at 0.85, turned upright, so its bytes differ and its
+      size in pixels does not. The picture line says which
+      (`offered=public.heic read=public.heic ... way=JPEG at factor 1, N MB
+      available size=4032x3024`).
     - *A video arrives as Photos keeps it,* HEVC from an iPad or an iPhone.
 13. *A video that fits is made H.264 in the app* (`ShareItems.stageRead`
     and `compatible`, in the part the suite runs; `VideoConversion.h264`,
@@ -29188,25 +29200,35 @@ as at the start.
     have been let go, AVFoundation reads the staged copy: its video
     tracks' codecs (`loadTracks`, `load(.formatDescriptions)`), and where
     any is not H.264 (`needsH264`: HEVC, Dolby Vision's HEVC, ProRes), an
-    `AVAssetExportSession` at `AVAssetExportPresetHighestQuality`. The 16.5
-    SDK's header says those presets compress the video as H.264 and the
-    sound as AAC, and never scale a video up; the highest keeps its size:
-    the most compatible copy, at its best, as Photos' was. Written as the
+    `AVAssetExportSession` at `AVAssetExportPresetHighestQuality`, and
+    where that copy does not fit, a second at `AVAssetExportPreset1280x720`
+    (19, the fourth commit). The 16.5 SDK's header says those presets
+    compress the video as H.264 and the sound as AAC, and never scale a
+    video up; the highest keeps its size: the most compatible copy, at its
+    best, as Photos' was. Written as the
     file type its name's extension says (`exportType`: QuickTime for
     ".MOV"), so its name and MIME type stay; QuickTime where the session
     cannot. Optimised for the network, its index first. Its metadata goes
     with it, as AVFoundation carries it over when given none, as the
-    location went in Photos' copy (B-070). A line, `SHARE-VIDEO`, says how
-    it ended.
+    location went in Photos' copy (B-070). Each copy is stopped 5 MB past
+    the room (20) and read back (21). A line, `SHARE-VIDEO`, says how each
+    copy ended. As it stands since the fourth commit:
     - *Original fits, copy fits:* the copy goes, in the original's place,
       under its name and type, the original taken away and the room given
-      back (`Staging.replace`): `SHARE-VIDEO made H.264, bytes=N from=M`.
-    - *Original fits, copy does not:* the original goes, HEVC (Weighed
-      again): `SHARE-VIDEO its H.264 copy bytes=N, more than the letter's
-      room, M MB left: the original goes`.
-    - *H.264 already* (`goes as it came, H.264 already`), *or the
-      conversion failed* (`not made H.264, failed code=N: the original
-      goes`): the original goes as it came.
+      back (`Staging.replace`): `SHARE-VIDEO made H.264, bytes=N from=M
+      codec=avc1`.
+    - *Original fits, copy does not:* a 720p copy, which goes where it
+      fits: `SHARE-VIDEO its H.264 copy bytes=N, more than the letter's
+      room, M MB left: a 720p copy`, then `SHARE-VIDEO made H.264 at 720p,
+      bytes=N from=M codec=avc1`. Where it does not fit either, the video
+      is left out, as B-108 left out Photos' copy over the room: `its 720p
+      H.264 copy ... left out`, and "The video could not be attached.". The
+      third commit sent the original, HEVC, here (19).
+    - *H.264 already:* the original goes as it came (`goes as it came,
+      H.264 already`).
+    - *The conversion failed, or its copy reads back as not H.264:* left
+      out (`not made H.264, failed code=N: left out`; `its copy read back as
+      hvc1, not H.264: left out`). The third commit sent the original.
     - *Original does not fit:* left out at once after the read, never
       copied and nothing made, as before.
 14. *The conversion is called off with the read*
@@ -29231,13 +29253,15 @@ as at the start.
     no more (9); stopped in it (`.interrupted`), the read hands back the
     original, marked (`Loading.wasInterrupted`), which the composer throws
     away, setting the row aside as the grace would have, to be read and
-    made again on his return (`ComposeIntake.interruptedAway`: `COMPOSE-ITEM
-    set aside, its conversion stopped as the app went`; for a read set
+    made again on his return (`ComposeIntake.interrupted`, named
+    `interruptedAway` until the fourth commit: `COMPOSE-ITEM set aside, its
+    conversion stopped as the app went`; for a read set
     aside first, `cameSetAside`: `... stopped as the app went, thrown
-    away`). Ended by the grace, it is called off. In front, a stopped
-    conversion goes as its original, as a failed one does. Nothing of the
-    app's own holds a background assertion past those 20 s: the Send's or
-    Save Draft's time is given back as the row is set aside, as before.
+    away`). Ended by the grace, it is called off. A stop whose call back
+    comes while the app is in front is read again (22, the fourth commit;
+    the third let it go as its original). Nothing of the app's own holds a
+    background assertion past those 20 s: the Send's or Save Draft's time
+    is given back as the row is set aside, as before.
 16. *The share sheet makes nothing* (`read(..., videos: nil)`). It reads
     what the sharing app hands over: Photos hands it its own H.264 copy of
     an HEVC video (B-070, seen 2026-10-20), and another app's HEVC goes as
@@ -29248,52 +29272,160 @@ as at the start.
     letter closes, the set-aside, and the 20 s grace: harmless with no
     claim to end, and now they end the conversion.
 
+**Changed in a fourth commit** (same branch).
+
+18. *A HEIC at its own size from the composer* (`SharedPhoto.Bound`,
+    `most`, `again`, `Staging.photos`, set by `ComposeIntake.staging`).
+    Under `.compatible` Photos handed the composer a JPEG of a HEIC at its
+    own size, which went as its own bytes whenever it fitted the room. The
+    third commit made the HEIC a JPEG of at most 4096 px, the share sheet's
+    bound (B-036), so a 24-megapixel photo from a family member's iPhone 15
+    or later, 5712 by 4284, went at 2856 by 2142, a quarter of its pixels;
+    a 48-megapixel one, 8064 by 6048, at 4032 by 3024; and a panorama of
+    some 13,000 px at a quarter, 3,250. Each went whole before. Now, in
+    the composer only, a picture that fits the room as it is, made a JPEG
+    for what it is and not for its weight, is read at 1 and
+    made at its own size where the memory allows it: the app's, read as the
+    extension reads its own (`os_proc_available_memory`), three fifths of
+    what is left. A 48-megapixel HEIC whole is about 283 MB at its peak by
+    B-036's measure of a HEIC; where three fifths of what is left is less,
+    it is read at a half or more, as before, at that factor's size, 4032.
+    Its JPEG made whole and larger than the room is made again at 4096 px
+    where that is smaller (`(at its own size N bytes, more than the
+    letter's room)` in its line), as a photo whose JPEG was over the room
+    was made smaller before. A picture over the room as it is: at most 4096
+    px, as before. The share sheet keeps 4096 px, for its ceiling of about
+    120 MB. The picture line now gives the size made: `size=5712x4284`.
+    Chosen over keeping the cap and saying so, since B-142's own ask of
+    `.current` was that photos go exactly as before; not put to the owner.
+19. *What goes is H.264, or nothing* (`ShareItems.compatible`). The third
+    commit sent the original, HEVC, wherever its H.264 copy was larger
+    than the room, and wherever the conversion failed. That reversed,
+    without the owner, the reason B-142 had given for not taking
+    `.current` (a video would go as HEVC, which not every recipient can
+    open, B-108), and was likely common (Weighed, again). Now, where the
+    copy at its own size does not fit, a second copy of at most 1280 by 720
+    (`AVAssetExportPreset1280x720`) is made from the staged original, with
+    the same room and limit, and goes in its place where it fits; where
+    neither fits, the video is left out, the original and both copies taken
+    away and the room given back, as B-108 left out Photos' copy over the
+    room. A conversion that fails, a copy with no place on the disk, and a
+    copy whose video reads back as anything but H.264 (21) leave it out
+    too. The original goes only where it is H.264 already. Whether an HEVC
+    original that fits should go where no H.264 copy does is a question for
+    the owner (below).
+20. *A copy that cannot fit is stopped* (`fileLengthLimit`,
+    `ShareItems.copyMargin`). Each copy's session is given a limit of the
+    room the original had and 5 MB. It ran to the end before, however
+    large: a long, low-rate HEVC original that fits, a screen recording or
+    a talk, could have a copy of a gigabyte written to tmp, and its wait
+    could run past the three minutes' bound, which called it off and said
+    the video could not be attached. Now a copy stops soon after it passes
+    the room. One stopped there is never taken. Apple's header says only
+    that an export may run past its limit ("it is possible for the output
+    to slightly exceed the file length limit"), so one stopped there
+    measures more than the room; and should one stop short of its limit
+    and measure within the room, its length read back is shorter than the
+    video's by more than half a second (`ShareItems.cutShortBy`), and it is
+    taken as cut short (`its H.264 copy cut short at its limit, bytes=N,
+    with the letter's room ...`).
+    `estimateOutputFileLength` was not used: an estimate "if it can be
+    determined", its accuracy for these presets not documented.
+21. *Its length and codec read back* (`VideoConversion.readBack`, in
+    `VideoH264.swift`). Once the session completes, the copy's length
+    beside the video's (`load(.duration)`), and the copy's video tracks'
+    codecs (`loadTracks`, `load(.formatDescriptions)`), which the routing
+    checks (19) and the line gives, four letters and numbers only
+    (`codec=avc1`; `unread` where they could not be read, which the bytes
+    then decide). So the check reads what the copy is from the app's own
+    log, with no media tool anywhere.
+22. *A conversion stopped while the app is in front is read again*
+    (`ComposeIntake.interrupted`, was `interruptedAway`). AVFoundation
+    stops a conversion only as the app goes. The third commit set a stopped
+    one aside only when `isAway` was true as its call back reached the
+    main actor, so a stop heard before the app's own going was, or after
+    his return inside the grace, took the HEVC original into the letter,
+    and a Send waiting sent it. Now a stopped conversion's original is
+    never taken: thrown away, and its row read again, on his return when
+    away, at once when in front (`COMPOSE-ITEM its conversion stopped in
+    front, read again`), where the app's going, if it is going, sets that
+    read aside (`away`). A second stop in front with no going between is
+    taken as a failed conversion, the video left out and said
+    (`... stopped again in front, left out`), so nothing is read round and
+    round; the app's going clears the count.
+
 **Weighed, and chosen, again.**
 
-- *Which goes when the H.264 copy does not fit and the original does: the
-  original.* What Mail does is not known: Apple says media shared "using
-  other methods, such as AirDrop, Messages, or email" "might automatically
-  be shared in a more compatible format, such as JPEG or H.264" when "the
+- *Which goes when the H.264 copy does not fit and the original does: a
+  720p H.264 copy, else nothing* (19). The third commit sent the original,
+  HEVC. What Mail does is not known: Apple says media shared "using other
+  methods, such as AirDrop, Messages, or email" "might automatically be
+  shared in a more compatible format, such as JPEG or H.264" when "the
   receiving device doesn't support the newer media formats"
-  (support.apple.com/en-us/116944), and a mail program cannot know its
-  reader's device; for an attachment too large, Mail offers Mail Drop,
-  which this cannot do. Mail is not on the test iPad (B-028); low
-  confidence. Chosen: the original, which fits, rather than "The video
-  could not be attached." with nothing he can do about it. A photo follows
-  the same rule, made smaller where Mail would leave him stuck rather than
-  left out (B-036). Every Apple device since iOS 11 and macOS High Sierra
-  plays HEVC, as do Gmail's viewer and most Android phones of recent
-  years; a Windows PC needs Microsoft's HEVC extension or a player such as
-  VLC. The case is narrow: an original within the room whose H.264 copy is
-  larger than it, a clip of 10 to 25 MB or so. Before, under B-108,
-  Photos' copy over the room was left out. A failed conversion goes the
-  same way, as its original.
-- *A smaller H.264 copy to fit* (a 1080p or 720p preset) where the first
-  does not: not done, a second export of its own; left to the owner.
-- *`fileLengthLimit`*: not used. By the header, the export stops at it: a
-  video cut short.
+  (support.apple.com/en-us/116944), and B-070 saw iOS hand a share target
+  H.264 of an HEVC video; a mail program cannot know its reader's device,
+  and for an attachment too large Mail offers Mail Drop, which this cannot
+  do. Mail is not on the test iPad (B-028); low confidence. Every Apple
+  device since iOS 11 and macOS High Sierra plays HEVC; what else his
+  recipients read mail on, and whether it plays HEVC, was not looked at.
+  How often the copy is over the room was not measured; likely often for
+  the clips he sends: `AVAssetExportPresetHighestQuality` is
+  H.264 (the 16.5 SDK's header), and H.264 needs more bytes than HEVC for
+  the same picture. Photos' own copies were 0.95 times their original
+  (22.2 MB made 21.0 MB, B-070) and 1.48 times (452 MB made 671 MB,
+  Found); the encoder's own rate is not known. His Sent Mail of the last
+  year has seven videos of 0.8 to 19 MB (B-108), much of the range where
+  an original fits and a copy at more than its size may not. Chosen: the
+  720p copy, which keeps H.264, the whole of his video and its sound, at a
+  smaller picture, where it fits; and where it does not, nothing, as under
+  B-108, and the question to the owner. Step 4 of the check measures copy
+  against original on a clip of 15 to 22 MB.
+- *A copy fitted to the room by its rate* (`AVAssetWriter` with an average
+  bit rate worked out from the room): not done. A reader and a writer of
+  its own, the sound, the turn and the metadata by hand, none of it seen
+  on an iPad; the 720p preset is AVFoundation's own, and its copy is
+  checked as the first is.
+- *`fileLengthLimit`*: used, as a bound on the work, never to make a copy
+  fit (20).
 - *The preset:* Photos' own is not known. Its copies were H.264 of about
   the original's size or more: 22.2 MB made 21.0 MB (B-070), 452 MB made
   671 MB (Found). `AVAssetExportPresetHighestQuality` is the H.264 preset
-  that keeps the video's size; the HEVC ones would be no help.
+  that keeps the video's size; `AVAssetExportPreset1280x720` the H.264 one
+  for the second copy, smaller in its picture and so, likely, in its
+  bytes, and never larger than the video; the HEVC ones would be no help.
+- *A photo over 4096 px from the composer: at its own size* (18), as
+  before `.current`, rather than the share sheet's 4096 px and a note of
+  the change.
 - *An original kept only in iCloud,* which Photos downloads under the same
   kind of claim: nothing can be done without the photo library's
   permission (Not covered).
 - *The share sheet:* nothing made there (16).
 
-**Not changed.** The three minutes' bound, which the conversion counts in;
+**For the owner.** A video whose original fits the letter but whose H.264
+copies, at its own size and at 720p, are both larger than its room is left
+out: "The video could not be attached.", as before B-142. Should its
+original go instead, as the iPad keeps it, in HEVC? Apple's devices on
+iOS 11 or macOS High Sierra and later play it; what his recipients read
+mail on, and whether that does, is not known.
+
+**Not changed.** The three minutes' bound, which the conversions count in;
 the 20 s grace; the room and the 25 MB; what is said when something cannot
-be attached; Attach File; the share sheet's reading.
+be attached; Attach File; the share sheet's reading, its photos at most
+4096 px.
 
 **What he sees now.** A video he picks that fits the letter: its row turns
 while it is read and made H.264, then its row as before, "IMG_0195.MOV" and
-its weight, which may be more than the video's in Photos. How long that
-takes on his iPad is not measured. Locked, or another app opened,
-meanwhile: back in Blackmail the letter is as he left it, the row turning
-again, and it comes as before; with a Send waiting, as the first fix had
-it. A video larger than the letter, kept on the iPad: "The video could not
-be attached." within seconds of the pick, where Photos' copy took minutes.
-A photo: as before.
+its weight, which may be more than the video's in Photos. Where that copy
+is too big for the letter, the row turns on while a second copy is made,
+a smaller picture, and that is the row where it fits; where neither fits,
+"The video could not be attached.", as before B-142 for a video whose
+copy was too big. How long either takes on his iPad is not measured.
+Locked, or another app opened, meanwhile: back in Blackmail the letter is
+as he left it, the row turning again, and it comes as before; with a Send
+waiting, as the first fix had it. A video larger than the letter, kept on
+the iPad: "The video could not be attached." within seconds of the pick,
+where Photos' copy took minutes. A photo: as before, at its own size; a
+24-megapixel photo from an iPhone, or a panorama, whole.
 
 **Tests, third commit.** `VideoCompatibleTests`, eleven, new. Through
 the shipping staging and read handle, with the test's own conversion: an
@@ -29357,6 +29489,69 @@ AVFoundation, CoreMedia and AVFoundation's Swift overlay
 (`libswiftAVFoundation`, for `load(.formatDescriptions)`), all in iPadOS
 since before 16.
 
+**Tests, fourth commit.** `VideoCompatibleTests`, three new, through the
+shipping staging and read handle with the test's own conversion: a copy
+over the room made again at 720p from the staged original, with the same
+room and limit, the first copy taken away, and the 720p copy going in the
+original's place under its name and type, each line in the log, and a copy
+cut short at its limit never taken, even one within the room; neither copy
+fitting leaving the video out, the original and both copies taken away
+and the room given back, and a copy read back as HEVC and a failed
+conversion, with a code and without, leaving it out the same; and a HEIC
+over 4096 px at its own size from the composer and at 4096 at most from
+the share sheet, 5712 by 4284, 8064 by 6048, and a panorama of 13,000 by
+2,900 lying and standing, read at 1 with an app's memory and at a half
+where the memory asks it, a panorama read at a half at 6,500 and not at
+4,096 or less, made again at 4096 only where that is smaller, one over the
+room as it is or of no known size at 4096 as before, the composer's
+staging and a share's each with its bound, and the picture's line with the
+size made and the bytes at its own size. Changed: the copy that fits,
+asked at its own size with its limit, 30 MB for an empty letter, and its
+line with its codec; the call-off with a cut-short copy among what it
+ends, and a read called off while its 720p copy is made, both copies'
+call-offs called and nothing left; H.264 already going as it came, alone
+(`testAVideoH264AlreadyGoesAsItCame`, was
+`testAVideoH264AlreadyOrWhoseConversionFailsGoesAsItCame`); the copy over
+the room (`testACopyOverTheRoomIsMadeAgainAt720pAndThatGoesWhereItFits`,
+was `testAnH264CopyLargerThanTheRoomLeavesTheOriginalToGo`); the photo as
+before, with the composer's bound; and read from the source, the two
+presets, both H.264 and no HEVC one, `fileLengthLimit = limit`, the length
+and the codecs read back and the cut short, and the routing's limit of the
+room and 5 MB. `SharedPhotoTests`, one new: the JPEG made again at 4096
+only through `again`, and only when over the room, the bound read once
+from the staging; five tests' pins moved to the JPEG's bound and its
+loop.
+`ComposerFilesTests`, one changed
+(`testAConversionStoppedOutsideTheGraceIsNeverTakenAndIsReadAgain`, was
+`testAConversionStoppedOutsideTheGraceIsThrownAwayOrGoesAsItsOriginal`): a
+stop heard in front before the app's going, its original thrown away and
+the row read again at once, that read set aside as the app goes and its
+nothing changing nothing; a stop in front after a going read again, not
+left out; two stops in front with nothing between leaving the video out
+and saying so, read no third time; and the conversion's line with its
+codec in `testAVideosConversionIsCalledOffWithItsRead`.
+
+Each part undone in place, the four classes these touch run
+(`VideoCompatibleTests`, `ComposerFilesTests`, `ComposerFilesWiringTests`,
+`SharedPhotoTests`, 119 tests), then put back and checked against the
+commit, counted as failing assertions in failing tests: the composer's
+staging at 4096 as a share's, 1 in 1; the bound always 4096, 19 in 1; the
+factor blind to the bound, 18 in 1; the size capped at 4096 whatever the
+bound, 1 in 1; made again at 4096 where that is no smaller, 2 in 1; never
+made again, 1 in 1; the size made not in the line, 2 in 1; no 720p copy,
+10 in 3; the original going where no copy fits, 4 in 1; a failed
+conversion sending the original, 6 in 1; a copy read back as HEVC taken, 6
+in 1; a copy cut short taken where it fits, 8 in 1; the limit the room
+alone, 5 in 3; the 720p preset the highest, 1 in 1; no `fileLengthLimit`,
+2 in 1; no read back, 1 in 1; no codec in the line, 4 in 3; a stop in
+front going as its original, 8 in 1; no bound on stops in front, 4 in 1;
+the app's going not clearing the count, 7 in 1; a stop in front not read
+again at once, 5 in 1. 115 in all, every part caught, and each new or
+changed test among those failing.
+
+The full suite, serially: 2,664 tests, three more than the third
+commit's; 6 skipped, none failing. The release build for the iPad links.
+
 **Not covered.**
 
 - Not seen on the iPad (TODO, B-142's check, rewritten for this).
@@ -29382,13 +29577,34 @@ since before 16.
     video (`.current` is the version he sees). Not looked at.
 - Whether `.current` hands over a HEIC with no JPEG beside it is the
   round's reading, not seen; either way the photo goes as a JPEG named as
-  before (step 8 of the check writes down which).
+  before, at its own size (step 8 of the check writes down which, with a
+  panorama or a 24-megapixel photo).
 - How AVAssetExportSession behaves on his iPad as the app goes is Apple's
   word and others' reports, not seen; the design holds either way: called
   off at once, or 20 s at most with a Send waiting (step 7 writes down
   which). Nor is it seen that it takes no background assertion of its own.
 - How long a conversion takes on his iPad 7 (A10) or the test iPad: not
-  measured. It counts in the three minutes' bound.
+  measured. It counts in the three minutes' bound, and where the copy at
+  its own size is over the room, the 720p copy's time is added to it,
+  bounded by each copy stopping 5 MB past the room.
+- How much larger the H.264 copy is than its HEVC original, on clips of
+  his size: not measured; step 4 of the check measures one of 15 to 22 MB.
+  So how often a video he picks now goes at 720p, or is left out, is not
+  known.
+- That a copy stopped at `fileLengthLimit` measures more than the room is
+  read from the header, which says only that it may "slightly exceed" its
+  limit; not seen. A copy stopped short of it and within the room is
+  caught by its length (`cutShortBy`), not seen either. That a
+  copy made whole is as long as its video to within half a second is
+  AVFoundation's to keep, not seen: a copy read as shorter is not taken,
+  and the 720p copy is checked the same, so a wrong reading leaves a video
+  out, never sends one cut short.
+- A photo made a JPEG at its own size in the app: the memory it takes there
+  is B-036's measure of a HEIC in the extension, not measured in the app,
+  whose own limit on his iPad 7 (3 GB) is not known; the memory left,
+  read before each decode, decides, and a half is taken where it asks it.
+  Its bytes, the app's JPEG at 0.85, are not compared with Photos' own JPEG
+  of the same photo.
 - An HDR video (an iPhone's Dolby Vision HEVC) is made an SDR H.264 copy,
   as AVFoundation makes it; not looked at.
 - A RAW photo (an iPhone Pro's ProRAW) may arrive as its DNG, developed in
