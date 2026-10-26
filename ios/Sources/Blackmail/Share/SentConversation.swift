@@ -101,7 +101,8 @@ extension SentConversation {
     ///
     /// Apple's way: the outgoing interaction with a name for the circle and
     /// an identifier for the conversation, each person by address with no
-    /// picture, since the app does not read Contacts (B-017), and no
+    /// picture: the cards read for the address fields (B-162) keep no
+    /// contact identifier or picture, so iOS draws its own; and no
     /// sender, which an outgoing one leaves to iOS. Filed under the
     /// identifier, so a conversation's can be taken back
     /// (`INInteraction.delete(with:)`). The log says how many people as it

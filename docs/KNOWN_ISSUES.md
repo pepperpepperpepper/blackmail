@@ -34294,8 +34294,10 @@ intent. Through Blackmail every share began at its icon, with To empty.
    through, after the book counts it; the share sheet's in `ShareSheet`,
    after `noteSent`. Never for a letter that did not go. On the device
    (`SentConversation.donate`): an outgoing `INSendMessageIntent` with
-   each person by address and name, no picture since the app does not
-   read Contacts (B-017), no sender, which an outgoing one leaves to iOS,
+   each person by address and name, no picture (amended at int18, where
+   it said the app does not read Contacts, B-017: the cards read for the
+   address fields, B-162, keep no contact identifier or picture, so iOS
+   draws its own), no sender, which an outgoing one leaves to iOS,
    the circle's name, the identifier as the conversation's, "Blackmail" as
    the service, filed under the identifier. The app tells only in a build
    that carries the extension (`ShareMirror.app`), the one thing a circle
@@ -34459,7 +34461,12 @@ line on B-153 above now holds as built. One that the Outbox finds in Sent
 Mail after it was cut off past its DATA is not told, as the book does not
 count it, though B-152 marks its original. `ShareWaitsTests`,
 `testAShareThatWaitsIsToldOnlyAsItGoes`, new; `ShareSuggestionTests`
-reads the merged call.
+reads the merged call. With B-162 in the same build the app does read his
+Contacts, after his yes, for the address fields; point 2 of "Changed" is
+amended to say so. Those cards keep no `CNContact.identifier`: if
+`ContactCard` ever kept it, a person told could carry it as the
+`contactIdentifier`, and iOS could name the circle and draw its picture
+from his card.
 
 ## B-165 — FIXED 2026-10-26, not yet seen on the iPad. A draft held after three tries said under its row "Open it, tap Cancel, then Save Draft.", but Cancel on it unchanged closed the composer with nothing asked, so Save Draft never came and it stayed held; Cancel now asks Save Draft or Delete Draft for such a draft as it opened
 
