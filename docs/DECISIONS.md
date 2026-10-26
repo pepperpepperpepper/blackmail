@@ -1495,3 +1495,102 @@ gone from its folder, it was looked for in All Mail, which holds neither
 the Trash nor Spam. He deletes about ten letters a day. Now, once All
 Mail has not got it, it is looked for in the Trash by the same id, and a
 part taken only from one hit. Spam is not looked in.
+
+---
+
+## D-024 — The open decisions closed by copying Apple Mail, its factory settings where his are not known, and Mail's swipes
+
+**Decided 2026-10-26 by the owner**, in three rulings the same day:
+"close the gaps in our decision tree by copying Apple Mail"; where a
+setting of his own iPad is not known, Mail's as it comes from the factory;
+and, of the swipe item, "We want to follow what Apple Mail does in terms of
+swiping. Forget about that earlier instruction." The rulings of 5, 6 and
+23 October in the same spirit stand; these close the items that were open
+under "Blocked on the owner" in TODO.md, each ticked there with its
+"Ruled 2026-10-26" line and the B-number built for it.
+
+**The rule.** Where an item asked "as built, or Mail's way", Mail's way is
+built. Where what Mail does follows a setting of his iPad not yet read off
+it, Mail's factory value is built, each in one place in the code, so
+that his own is set there once read: Swipe Options (`SwipeOptions.his`:
+Swipe Left Flag, Swipe Right Mark as Read, the Trash for what he
+discards) and Delete or Move Message Action (`NextLetter.action`: View
+Next Message). The undo assumes iOS's Shake to Undo as it comes, on; the
+icon's number and banners follow Mail's factory Notifications and Fetch,
+after iOS's own question. Rulings made before stay ruled: installed by
+certificate, his signature never in the repo, the pane always dark
+(D-010), and he does not use VoiceOver (24 October).
+
+**The swipe instruction withdrawn.** The brief's "No destructive swipe
+actions by default" (PRODUCT_SPEC), "Do not depend on swipe actions" as a
+reason to have none (UI_SPEC), the README's "No swipe actions", B-019's
+"Deliberately not a swipe or a long press" and the investigations' ban
+give way to Mail's drags on a row (B-156), with Mail's undo beside them
+(B-157), a full drag to the left being the easiest mistaken Trash there
+is. The two spec lines and the README's say what is built, citing the
+ruling. Every drag still has its tap, in the reading pane or in Edit
+mode.
+
+**What it reverses.**
+
+- D-022's "Move to Junk is not in it": the Flag button's sheet has Move
+  to Junk, and Move to Inbox inside Junk (B-106), and a row's More has
+  the same item (B-156). D-022's "never from Edit mode" stands: Mail's
+  Select, Mark, Move to Junk is not built, and the guard against Select
+  All stays until the owner drops it.
+- D-016's "no queue of offline changes", in one case and no wider: a
+  reply or a forward carries which letter it answers, and the original is
+  marked `\Answered` or `$Forwarded` once, when it goes, a mark that cannot
+  be written dropped, never queued or tried again (B-152). A lost Delete
+  or Move is still not tried again: the letter is looked for once on the
+  next connection (B-151). A share with no connection waits in the Outbox
+  as an unsent letter already did (B-153).
+- D-016's "not kept" list: more than one page of each folder, letters
+  fetched ahead in the background line, never marked read, and a search
+  with no connection over what is kept (B-160).
+- D-021's "never kept": his own replies in an Inbox conversation are kept
+  with it for a relaunch with no connection (B-159).
+- The spec's "no navigation out of the app without confirmation", as
+  B-055 built it: a tapped link opens at once (B-145).
+
+**Built under it**, all 2026-10-26, none yet seen on his iPad or the test
+iPad:
+
+- B-106's second half, Move to Junk in the Flag button's sheet.
+- B-144, Mail's words: "Sent" and "Junk", the Edit bar's "Trash" and
+  "Cancel", "Don’t Include", "Unable to Attach".
+- B-145, links open at once; B-146, no white sheet under his signature;
+  B-147, quote bars on plain-text quotes.
+- B-148, a PDF among the words listed once; B-149, the pane covered until
+  the new letter is drawn; B-150, Mail's menu on a held photo.
+- B-151, a lost Delete or Move answer looked up on the next connection.
+- B-152, the original marked answered or forwarded after a send; B-153, a
+  share with no connection waits in the Outbox.
+- B-154, the paperclip above the keyboard; B-155, the address book filled
+  from six months of his Sent Mail.
+- B-156, Mail's drags on a row; B-157, Mail's undo; B-158, the next letter
+  opens after a Delete or Move in the pane.
+- B-159, his replies kept for offline; B-160, more pages, letters fetched
+  ahead and search with no connection.
+- B-161, the red number on the icon and new-mail banners; B-162, Contacts
+  in address suggestions; B-163, the people he writes to at the top of
+  the share sheet.
+
+**Deferred.**
+
+- *Text size and Bold Text.* Mail follows the iPad's text size and Bold
+  Text; Blackmail's text size is fixed and both are ignored (D-007, whose
+  "Do NOT wire up free Dynamic Type" stands). The largest change of the
+  lot, every row height binding; left open in TODO.md, to be built only to
+  his iPad's values.
+- *Mail's options in Blackmail's Settings.* None of the Mail settings
+  these follow is offered in Blackmail's Settings: each is one value in
+  the code, Mail's factory one, to be set to his before the install-day
+  build, as nothing is built after it.
+- *The facts about him.* His iPad's own settings, read before that build
+  (TODO's "His iPad's own settings"): Swipe Options, Move Discarded
+  Messages Into, Delete or Move Message Action, Ask Before Deleting, Shake
+  to Undo, Notifications and Fetch New Data, Display & Text Size and
+  Per-App Settings, Smart Invert; whether he shares by his own circle at
+  the top of the share sheet; whether the people he writes to are in his
+  Contacts. Until they are read, the factory values stand.

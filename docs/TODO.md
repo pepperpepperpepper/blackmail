@@ -339,7 +339,7 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       file that cannot be attached is said, and Send never goes without
       one he picked. B-108, and its check under "Blocked on the iPad
       coming back".*
-- [ ] Undo for Delete and Move; Contacts in address suggestions (B-017);
+- [x] Undo for Delete and Move; Contacts in address suggestions (B-017);
       app badge and notifications. *Owner decisions.*
       *Undo for Delete and Move ruled 2026-10-26: copy Apple Mail. Built
       as B-157, not yet seen on the iPad: a shake, three fingers or
