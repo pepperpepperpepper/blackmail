@@ -783,7 +783,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       in the Inbox: the header must change at the tap to the new sender,
       subject and date with "Loading…" under it, and the previous letter
       must never be on screen beside the new selection, not even for a
-      frame. Delete a letter, then tap the next: the binned one must not
+      frame. Delete a letter, then tap the next (since B-158, under View
+      Next Message, the next opens by itself): the binned one must not
       appear at all. Tap four letters about a third of a second apart,
       one of them large: the connection log should show two
       `BODY.PEEK[]` fetches, the first and the last (for letters of 5 MB or
@@ -831,7 +832,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       following the MOVE one `UID SEARCH UID n:*` with
       `NEWS folder=INBOX arrived=0 gone=N` (the MOVE's own EXPUNGE is news
       to the watch), then NOOPs alone; no summary FETCH, LIST, STATUS or
-      page FETCH. Delete stays grey until it lands.
+      page FETCH. Delete stays grey until it lands. (Since B-158, under
+      View Next Message, Mail's factory setting and the app's, the next
+      letter opens in the pane, highlighted, and Delete stays live: the
+      empty pane and the grey Delete are Don't Select a Message's, which no
+      Settings row sets yet, host-tested only. B-158's own check has the
+      rest.)
       Mark a letter unread in Edit mode (opening it marks it read) and
       Delete it from the pane: its counts drop when the MOVE lands, and the
       log shows one LIST and a STATUS per folder after the MOVE; Trash's
