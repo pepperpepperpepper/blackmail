@@ -1515,7 +1515,10 @@ it, Mail's factory value is built, each in one place in the code, so
 that his own is set there once read: Swipe Options (`SwipeOptions.his`:
 Swipe Left Flag, Swipe Right Mark as Read, the Trash for what he
 discards) and Delete or Move Message Action (`NextLetter.action`: View
-Next Message). The undo assumes iOS's Shake to Undo as it comes, on; the
+Next Message). What he discards is in one place for a drag and More
+alone: set to the Archive, it changes those, and the Edit bar
+(`EditBar.deleteTitle`) and the pane's Delete stay Trash until B-144's
+Archive is built there. The undo assumes iOS's Shake to Undo as it comes, on; the
 icon's number and banners follow Mail's factory Notifications and Fetch,
 after iOS's own question. Rulings made before stay ruled: installed by
 certificate, his signature never in the repo, the pane always dark

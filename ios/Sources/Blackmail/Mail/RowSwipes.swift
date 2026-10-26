@@ -15,7 +15,10 @@ import Foundation
 ///
 /// Built to Mail's factory values. His own are to be read off his iPad
 /// before the last build (docs/TODO.md, "His iPad's own settings"), and
-/// set in `his`: nothing else changes for any of them.
+/// set in `his`: nothing else changes for the two swipes. `discardInto`
+/// set to `.archive` changes a drag and More alone: the Edit bar
+/// (`EditBar.deleteTitle`) and the pane's Delete stay Trash until
+/// Mail's Archive is built there (B-144, "not built").
 struct SwipeOptions: Equatable {
 
     /// What Swipe Left or Swipe Right can be set to.
@@ -31,7 +34,9 @@ struct SwipeOptions: Equatable {
         case archive
     }
 
-    /// Where the account puts what he discards.
+    /// Where the account puts what he discards. Read by a drag and More
+    /// alone (`RowSwipes`); the Edit bar and the pane's Delete trash
+    /// whatever it says, until B-144's Archive is built.
     enum Discard: Equatable {
         /// Gmail's Trash, as Blackmail's Delete does.
         case trash

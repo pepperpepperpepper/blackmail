@@ -34,6 +34,11 @@ enum EditBar {
     /// them off the iPad (`LocalDrafts.delete`), with nothing asked and no
     /// copy in the Trash, where the word was "Delete" in red. Left to the
     /// owner (TODO, "Blocked on the owner").
+    ///
+    /// By `EraseQuestion` alone, not `SwipeOptions.his.discardInto`: with
+    /// that set to the Archive a drag and More archive, and this bar still
+    /// says "Trash" and trashes, until Mail's Archive is built here and in
+    /// the pane (B-144, "not built").
     static func deleteTitle(inFolderWithRole role: Mailbox.Role?) -> String {
         EraseQuestion.erases(fromFolderWithRole: role) ? delete : trash
     }

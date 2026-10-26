@@ -8993,7 +8993,12 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       to Trash, each blocked sender made a Gmail filter); Notifications for
       Mail and Fetch New Data; Undo Send Delay; whether his Home Screen
       has a Mail widget; and one link shared from Safari, watched (Mail's
-      icon, or his own circle at the top of the sheet).*
+      icon, or his own circle at the top of the sheet).* *Added 2026-10-26
+      with D-024: Mail > Swipe Options, Swipe Left and Swipe Right
+      (`SwipeOptions.his`); the Gmail account's Advanced > Move Discarded
+      Messages Into (`SwipeOptions.his.discardInto`; Archive there also
+      needs the Edit bar's and the pane's Archive, B-144's "not built");
+      Accessibility > Touch > Shake to Undo (B-157).*
 - [x] **His signature's white sheet** (B-130): Mail draws his signature
       with the rest of the letter, black with white words and the logo
       dark on it in Dark Mode or under Smart Invert (read in its code, not
