@@ -9,8 +9,11 @@ import XCTest
 ///
 /// The routing runs here, through the shipping staging and read handle,
 /// with the test's own conversion; AVFoundation's side, which never builds
-/// on this host, is read from its source. A photo goes as before: a HEIC
-/// with no JPEG beside it is made a JPEG in the app, under the same name.
+/// on this host, is read from its source. What goes is H.264 or nothing:
+/// the copy at its own size, else a 720p one, else the video left out, as
+/// B-108 left out a compatible copy over the room. A photo goes as before:
+/// a HEIC with no JPEG beside it is made a JPEG in the app, under the same
+/// name, at its own size where it fits, as Photos' JPEG of it went.
 final class VideoCompatibleTests: XCTestCase {
 
     private var directory: URL!
@@ -146,6 +149,8 @@ final class VideoCompatibleTests: XCTestCase {
         XCTAssertNotEqual(asked.to.deletingLastPathComponent(), asked.from.deletingLastPathComponent())
         XCTAssertFalse(exists(asked.to))
         XCTAssertEqual(asked.fileType, "com.apple.quicktime-movie")
+        XCTAssertEqual(asked.copy, .ownSize, "at its own size first")
+        XCTAssertEqual(asked.limit, 30_000_000, "stopped 5 MB past the room the original had")
         XCTAssertEqual(staging.staged, 12_000_000)
 
         try conversion.make(bytes: 18_000_000)
@@ -158,14 +163,16 @@ final class VideoCompatibleTests: XCTestCase {
         XCTAssertEqual(notes(), [
             "SHARE-FILE read=com.apple.quicktime-movie name=suggested \"IMG_0195.MOV\" "
                 + "mime=video/quicktime bytes=12000000 went=staged",
-            "SHARE-VIDEO made H.264, bytes=18000000 from=12000000"])
+            "SHARE-VIDEO made H.264, bytes=18000000 from=12000000 codec=avc1"])
     }
 
-    /// The original fits and its H.264 copy does not: the original goes,
-    /// HEVC, rather than the video left out. The room is what the original
-    /// had, the rows before it in it: a copy of exactly that goes, one a
-    /// byte over does not.
-    func testAnH264CopyLargerThanTheRoomLeavesTheOriginalToGo() throws {
+    /// The original fits and its H.264 copy at its own size does not: a
+    /// second copy, of at most 1280 by 720, with the same room and limit,
+    /// and that goes where it fits. The room is what the original had, the
+    /// rows before it in it: a copy of exactly that goes, one a byte over
+    /// does not. A copy cut short at its limit is never taken, even where
+    /// it measures within the room: a video cut short does not go.
+    func testACopyOverTheRoomIsMadeAgainAt720pAndThatGoesWhereItFits() throws {
         let disk = Disk(directory)
         let staging = staging(disk, room: 20_000_000)
         XCTAssertNotNil(staging.photo(Data(count: 5_000_000), named: "IMG_0001.JPG"))
@@ -174,7 +181,9 @@ final class VideoCompatibleTests: XCTestCase {
         let first = try given("IMG_0196.MOV", bytes: 12_000_000)
         let fits = read(first, bytes: 12_000_000, staging: staging, videos: conversion.videos)
         let fitting = try XCTUnwrap(conversion.asked.last)
+        XCTAssertEqual(fitting.limit, 20_000_000, "the room it had, 15 MB, and 5")
         try conversion.make(bytes: 15_000_000)
+        XCTAssertEqual(conversion.asked.count, 1, "no second copy")
         XCTAssertEqual(fits.item, .file(fitting.to, filename: "IMG_0196.MOV",
                                         mimeType: "video/quicktime", size: 15_000_000),
                        "exactly the room the original had")
@@ -182,20 +191,111 @@ final class VideoCompatibleTests: XCTestCase {
         staging.unstage(try XCTUnwrap(fits.item))
         XCTAssertEqual(staging.staged, 5_000_000)
 
-        let second = try given("IMG_0197.MOV", bytes: 12_000_000)
-        let over = read(second, bytes: 12_000_000, staging: staging, videos: conversion.videos)
-        let asked = try XCTUnwrap(conversion.asked.last)
-        try conversion.make(bytes: 15_000_001)
-        XCTAssertEqual(over.calls, 1)
-        XCTAssertEqual(over.item, .file(asked.from, filename: "IMG_0197.MOV",
-                                        mimeType: "video/quicktime", size: 12_000_000),
-                       "the original goes")
-        XCTAssertTrue(exists(asked.from))
-        XCTAssertFalse(exists(asked.to), "the copy taken away")
-        XCTAssertEqual(staging.lastMeasured, 15_000_001)
-        XCTAssertEqual(staging.staged, 17_000_000)
-        XCTAssertEqual(notes().last, "SHARE-VIDEO its H.264 copy bytes=15000001, more than the "
-                                    + "letter's room, 15 MB left: the original goes")
+        for cutShort in [false, true] {
+            Diagnostics.clear()
+            let second = try given("IMG_0197.MOV", bytes: 12_000_000)
+            let over = read(second, bytes: 12_000_000, staging: staging, videos: conversion.videos)
+            let own = try XCTUnwrap(conversion.asked.last)
+            if cutShort {
+                try VideoCompatibleTests.sized(own.to, 14_000_000)
+                conversion.end(.cutShort)
+            } else {
+                try conversion.make(bytes: 15_000_001)
+            }
+            XCTAssertEqual(over.calls, 0, "not yet: a smaller copy")
+            XCTAssertFalse(exists(own.to), "the first copy taken away")
+            let small = try XCTUnwrap(conversion.asked.last)
+            XCTAssertEqual(conversion.asked.count, cutShort ? 5 : 3)
+            XCTAssertEqual(small.copy, .at720p)
+            XCTAssertEqual(small.from, own.from, "from the staged original again")
+            XCTAssertEqual(small.limit, 20_000_000)
+            XCTAssertEqual(small.fileType, "com.apple.quicktime-movie")
+            XCTAssertNotEqual(small.to, own.to)
+            try conversion.make(bytes: 9_000_000)
+            XCTAssertEqual(over.calls, 1)
+            XCTAssertEqual(over.item, .file(small.to, filename: "IMG_0197.MOV",
+                                            mimeType: "video/quicktime", size: 9_000_000),
+                           "the 720p copy goes, under its name and type")
+            XCTAssertFalse(exists(own.from), "the original taken away")
+            XCTAssertEqual(staging.staged, 14_000_000)
+            XCTAssertEqual(notes(), [
+                "SHARE-FILE read=com.apple.quicktime-movie name=suggested \"IMG_0197.MOV\" "
+                    + "mime=video/quicktime bytes=12000000 went=staged",
+                cutShort
+                    ? "SHARE-VIDEO its H.264 copy cut short at its limit, bytes=14000000, with the "
+                        + "letter's room, 15 MB left: a 720p copy"
+                    : "SHARE-VIDEO its H.264 copy bytes=15000001, more than the letter's room, "
+                        + "15 MB left: a 720p copy",
+                "SHARE-VIDEO made H.264 at 720p, bytes=9000000 from=12000000 codec=avc1"])
+            staging.unstage(try XCTUnwrap(over.item))
+        }
+    }
+
+    /// Neither copy fits: the video is left out, as B-108 left out Photos'
+    /// copy over the room, the original, HEVC, never going in their place.
+    /// The original and both copies are taken away and the room given
+    /// back; nothing goes, and the composer says the video could not be
+    /// attached. A copy that reads back as not H.264, or a conversion that
+    /// fails, the same: nothing goes but H.264.
+    func testAVideoWithNoH264CopyThatFitsIsLeftOutNotSentAsItsOriginal() throws {
+        let disk = Disk(directory)
+        let staging = staging(disk, room: 20_000_000)
+        let conversion = FakeVideoConversion()
+
+        let original = try given("IMG_0198.MOV", bytes: 18_000_000)
+        let got = read(original, bytes: 18_000_000, staging: staging, videos: conversion.videos)
+        let own = try XCTUnwrap(conversion.asked.last)
+        try conversion.make(bytes: 24_000_000)
+        let small = try XCTUnwrap(conversion.asked.last)
+        XCTAssertEqual(small.copy, .at720p)
+        try VideoCompatibleTests.sized(small.to, 20_000_002)
+        conversion.end(.cutShort)
+        XCTAssertEqual(got.calls, 1)
+        XCTAssertNil(got.item, "left out")
+        XCTAssertEqual(conversion.asked.count, 2, "no third copy")
+        XCTAssertFalse(exists(own.from), "the original taken away")
+        XCTAssertFalse(exists(own.to))
+        XCTAssertFalse(exists(small.to))
+        XCTAssertEqual(staging.staged, 0, "the room given back")
+        XCTAssertEqual(notes(), [
+            "SHARE-FILE read=com.apple.quicktime-movie name=suggested \"IMG_0198.MOV\" "
+                + "mime=video/quicktime bytes=18000000 went=staged",
+            "SHARE-VIDEO its H.264 copy bytes=24000000, more than the letter's room, 20 MB left: "
+                + "a 720p copy",
+            "SHARE-VIDEO its 720p H.264 copy cut short at its limit, bytes=20000002, with the "
+                + "letter's room, 20 MB left: left out"])
+
+        Diagnostics.clear()
+        let again = read(try given("IMG_0199.MOV", bytes: 18_000_000), bytes: 18_000_000,
+                         staging: staging, videos: conversion.videos)
+        try conversion.make(bytes: 21_000_000)
+        try conversion.make(bytes: 20_000_001)
+        XCTAssertNil(again.item)
+        XCTAssertEqual(staging.staged, 0)
+        XCTAssertEqual(notes().last, "SHARE-VIDEO its 720p H.264 copy bytes=20000001, more than "
+                                     + "the letter's room, 20 MB left: left out")
+
+        for (said, line) in [(ShareItems.Converted.made(codecs: ["hvc1"]),
+                              "SHARE-VIDEO its copy read back as hvc1, not H.264: left out"),
+                             (.failed(code: -11800),
+                              "SHARE-VIDEO not made H.264, failed code=-11800: left out"),
+                             (.failed(code: nil),
+                              "SHARE-VIDEO not made H.264, failed: left out")] {
+            Diagnostics.clear()
+            let loading = ShareItems.Loading()
+            let got = read(try given("IMG_0200.MOV", bytes: 2_000_000), bytes: 2_000_000,
+                           staging: staging, loading: loading, videos: conversion.videos)
+            let asked = try XCTUnwrap(conversion.asked.last)
+            if said == .made(codecs: ["hvc1"]) { try VideoCompatibleTests.sized(asked.to, 1_000) }
+            conversion.end(said)
+            XCTAssertEqual(got.calls, 1)
+            XCTAssertNil(got.item, "\(said)")
+            XCTAssertFalse(exists(asked.from))
+            XCTAssertFalse(exists(asked.to))
+            XCTAssertEqual(staging.staged, 0)
+            XCTAssertFalse(loading.wasInterrupted)
+            XCTAssertEqual(notes().last, line)
+        }
     }
 
     /// The original does not fit: left out at once after the read, as
@@ -229,7 +329,8 @@ final class VideoCompatibleTests: XCTestCase {
         let staging = staging(disk)
         let conversion = FakeVideoConversion()
 
-        for said in [ShareItems.Converted.cancelled, .made, .interrupted, .failed(code: -11800)] {
+        for said in [ShareItems.Converted.cancelled, .made(codecs: ["avc1"]), .cutShort, .interrupted,
+                     .failed(code: -11800)] {
             Diagnostics.clear()
             let loading = ShareItems.Loading()
             let original = try given("IMG_0201.MOV", bytes: 3_000_000)
@@ -240,7 +341,9 @@ final class VideoCompatibleTests: XCTestCase {
             loading.cancel()
             XCTAssertEqual(conversion.calledOff, before + 1, "called off with the read")
             XCTAssertEqual(got.calls, 0)
-            if said == .made { try VideoCompatibleTests.sized(asked.to, 4_000_000) }
+            if said == .made(codecs: ["avc1"]) || said == .cutShort {
+                try VideoCompatibleTests.sized(asked.to, 4_000_000)
+            }
             conversion.end(said)
             XCTAssertEqual(got.calls, 1)
             XCTAssertNil(got.item, "\(said)")
@@ -251,15 +354,35 @@ final class VideoCompatibleTests: XCTestCase {
             XCTAssertEqual(notes().last, "SHARE-VIDEO called off")
         }
 
+        // Called off while its 720p copy is made: that copy called off.
+        Diagnostics.clear()
+        let second = ShareItems.Loading()
+        let got = read(try given("IMG_0203.MOV", bytes: 3_000_000), bytes: 3_000_000,
+                       staging: staging, loading: second, videos: conversion.videos)
+        try conversion.make(bytes: 26_000_000)
+        let small = try XCTUnwrap(conversion.asked.last)
+        XCTAssertEqual(small.copy, .at720p)
+        let before = conversion.calledOff
+        second.cancel()
+        XCTAssertEqual(conversion.calledOff, before + 2, "both copies' call-offs, the second's live")
+        try VideoCompatibleTests.sized(small.to, 1_000)
+        conversion.end(.made(codecs: ["avc1"]))
+        XCTAssertEqual(got.calls, 1)
+        XCTAssertNil(got.item)
+        XCTAssertFalse(exists(small.from))
+        XCTAssertFalse(exists(small.to))
+        XCTAssertEqual(staging.staged, 0)
+        XCTAssertEqual(notes().last, "SHARE-VIDEO called off")
+
         Diagnostics.clear()
         let early = ShareItems.Loading()
         early.cancel()
         let asked = conversion.asked.count
-        let got = read(try given("IMG_0202.MOV", bytes: 1_000), bytes: 1_000, staging: staging,
-                       loading: early, videos: conversion.videos)
+        let none = read(try given("IMG_0202.MOV", bytes: 1_000), bytes: 1_000, staging: staging,
+                        loading: early, videos: conversion.videos)
         XCTAssertEqual(conversion.asked.count, asked, "none begun")
-        XCTAssertEqual(got.calls, 1)
-        XCTAssertNil(got.item)
+        XCTAssertEqual(none.calls, 1)
+        XCTAssertNil(none.item)
         XCTAssertEqual(staging.staged, 0)
         XCTAssertEqual(notes().last, "SHARE-VIDEO called off")
 
@@ -275,34 +398,26 @@ final class VideoCompatibleTests: XCTestCase {
     }
 
     /// A video H.264 already goes as it came, as Photos' compatible copy
-    /// left one (the round's IMG_0206, an H.264 .mp4); so does one whose
-    /// conversion failed, which fits as itself, rather than left out. The
-    /// copy's place is taken away either way.
-    func testAVideoH264AlreadyOrWhoseConversionFailsGoesAsItCame() throws {
+    /// left one (the round's IMG_0206, an H.264 .mp4), at once, with no
+    /// copy made; the copy's place is taken away.
+    func testAVideoH264AlreadyGoesAsItCame() throws {
         let disk = Disk(directory)
         let staging = staging(disk)
         let conversion = FakeVideoConversion()
-        for (said, line) in [(ShareItems.Converted.notNeeded,
-                              "SHARE-VIDEO goes as it came, H.264 already"),
-                             (.failed(code: -11800),
-                              "SHARE-VIDEO not made H.264, failed code=-11800: the original goes"),
-                             (.failed(code: nil),
-                              "SHARE-VIDEO not made H.264, failed: the original goes")] {
-            let original = try given("IMG_0206.mp4", bytes: 2_000_000)
-            let loading = ShareItems.Loading()
-            let got = read(original, bytes: 2_000_000, staging: staging, loading: loading,
-                           videos: conversion.videos)
-            let asked = try XCTUnwrap(conversion.asked.last)
-            XCTAssertEqual(asked.fileType, "public.mpeg-4", "an .mp4 written as one")
-            conversion.end(said)
-            XCTAssertEqual(got.item, .file(asked.from, filename: "IMG_0206.mp4",
-                                           mimeType: "video/quicktime", size: 2_000_000))
-            XCTAssertTrue(exists(asked.from))
-            XCTAssertTrue(disk.discarded.contains(asked.to))
-            XCTAssertFalse(loading.wasInterrupted)
-            XCTAssertEqual(notes().last, line)
-            if let item = got.item { staging.unstage(item) }
-        }
+        let original = try given("IMG_0206.mp4", bytes: 2_000_000)
+        let loading = ShareItems.Loading()
+        let got = read(original, bytes: 2_000_000, staging: staging, loading: loading,
+                       videos: conversion.videos)
+        let asked = try XCTUnwrap(conversion.asked.last)
+        XCTAssertEqual(asked.fileType, "public.mpeg-4", "an .mp4 written as one")
+        conversion.end(.notNeeded)
+        XCTAssertEqual(conversion.asked.count, 1)
+        XCTAssertEqual(got.item, .file(asked.from, filename: "IMG_0206.mp4",
+                                       mimeType: "video/quicktime", size: 2_000_000))
+        XCTAssertTrue(exists(asked.from))
+        XCTAssertTrue(disk.discarded.contains(asked.to))
+        XCTAssertFalse(loading.wasInterrupted)
+        XCTAssertEqual(notes().last, "SHARE-VIDEO goes as it came, H.264 already")
     }
 
     /// AVFoundation stops the conversion as the app goes into the
@@ -393,15 +508,101 @@ final class VideoCompatibleTests: XCTestCase {
         XCTAssertEqual(SharedPhoto.name(heic, way: .jpeg, number: 0), "IMG_0772.jpg")
         XCTAssertEqual(SharedPhoto.name(compatible, way: .own, number: 0), "IMG_0772.jpg",
                        "the name it went by before")
-        XCTAssertEqual(SharedPhoto.size(width: 4032, height: 3024), .init(width: 4032, height: 3024))
+        let most = SharedPhoto.most(.ownSizeWhereItFits, size: 2_400_000, room: budget)
+        XCTAssertEqual(SharedPhoto.size(width: 4032, height: 3024, most: most),
+                       .init(width: 4032, height: 3024))
         XCTAssertEqual(SharedPhoto.factor(width: 4032, height: 3024, type: "public.heic",
-                                          available: 1_000_000_000), 1)
+                                          available: 1_000_000_000, most: most), 1)
 
         XCTAssertEqual(SharedPhoto.fileType(offered: ["public.jpeg"]), "public.jpeg")
         XCTAssertEqual(SharedPhoto.way(type: "public.jpeg", size: 2_400_000, room: budget,
                                        carriesLocation: true), .own)
         XCTAssertEqual(SharedPhoto.fileType(offered: ["public.heic", "public.jpeg"]), "public.jpeg")
         XCTAssertEqual(ComposeIntake.kind(offered: ["public.heic"], isMovie: { _ in false }), .picture)
+    }
+
+    /// A HEIC larger than 4096 px goes at its own size from the composer,
+    /// as Photos' JPEG of it went whole as its own bytes before the picker
+    /// took what Photos keeps: a 24-megapixel iPhone photo, 5712 by 4284,
+    /// whole, not 2856 by 2142; a 48-megapixel one, 8064 by 6048, whole,
+    /// not 4032; and a panorama from his iPad, 13000 by 2900, whole, not
+    /// 3250. Read at 1 where the memory allows it, the app's, and at a
+    /// half where it does not. The share sheet, in an extension's memory,
+    /// keeps them at 4096 px at most, as before. A HEIC over the room, as
+    /// a JPEG over the room before, at 4096 px at most; and one made at its
+    /// own size whose JPEG is over the room made again at 4096 px, where
+    /// that is smaller. The composer's staging is the one that lets them
+    /// go whole; a share's is not.
+    func testAPhotoOver4096PxGoesAtItsOwnSizeFromTheComposer() {
+        let budget = ShareItems.Staging.budget
+        let room = SharedPhoto.most(.ownSizeWhereItFits, size: 6_000_000, room: budget)
+        XCTAssertEqual(room, SharedPhoto.ownSize)
+        let sheet = SharedPhoto.most(.longestSide, size: 6_000_000, room: budget)
+        XCTAssertEqual(sheet, 4096)
+        let app: Int64 = 1_200_000_000
+
+        for (width, height, capped) in [(5712, 4284, SharedPhoto.Size(width: 2856, height: 2142)),
+                                        (8064, 6048, SharedPhoto.Size(width: 4032, height: 3024)),
+                                        (13000, 2900, SharedPhoto.Size(width: 3250, height: 725)),
+                                        (2900, 13000, SharedPhoto.Size(width: 725, height: 3250))] {
+            let whole = SharedPhoto.Size(width: width, height: height)
+            XCTAssertEqual(SharedPhoto.factor(width: width, height: height, type: "public.heic",
+                                              available: app, most: room), 1, "\(width)")
+            XCTAssertEqual(SharedPhoto.size(width: width, height: height, factor: 1, most: room),
+                           whole, "the composer: its own size")
+            XCTAssertEqual(SharedPhoto.size(width: width, height: height, most: room), whole)
+            XCTAssertEqual(SharedPhoto.size(width: width, height: height, most: sheet), capped,
+                           "the share sheet: as before")
+            XCTAssertEqual(SharedPhoto.size(width: width, height: height), capped)
+            XCTAssertEqual(SharedPhoto.again(width: width, height: height, factor: 1, most: room),
+                           4096, "over the room, made again at 4096")
+            XCTAssertNil(SharedPhoto.again(width: width, height: height, factor: 1, most: sheet))
+        }
+        // The memory: a 48-megapixel HEIC whole holds about 283 MB; with
+        // 400 MB left it is read at a half, 4032, and goes so. A panorama
+        // read at a half goes at a half of its own size, 6500, not at the
+        // share sheet's 4096 or less.
+        XCTAssertEqual(SharedPhoto.factor(width: 13000, height: 2900, type: "public.heic",
+                                          available: 300_000_000, most: room), 2)
+        XCTAssertEqual(SharedPhoto.size(width: 13000, height: 2900, factor: 2, most: room),
+                       .init(width: 6500, height: 1450))
+        XCTAssertEqual(SharedPhoto.size(width: 13000, height: 2900, factor: 2, most: sheet),
+                       .init(width: 3250, height: 725))
+        XCTAssertEqual(SharedPhoto.factor(width: 8064, height: 6048, type: "public.heic",
+                                          available: 400_000_000, most: room), 2)
+        XCTAssertEqual(SharedPhoto.size(width: 8064, height: 6048, factor: 2, most: room),
+                       .init(width: 4032, height: 3024))
+        XCTAssertNil(SharedPhoto.again(width: 8064, height: 6048, factor: 2, most: room),
+                     "no smaller at 4096")
+        XCTAssertNil(SharedPhoto.again(width: 4032, height: 3024, factor: 1, most: room),
+                     "a camera's photo is 4096 px or less already")
+
+        XCTAssertEqual(SharedPhoto.most(.ownSizeWhereItFits, size: 26_000_000, room: budget), 4096,
+                       "over the room as it is: at 4096 at most, as before")
+        XCTAssertEqual(SharedPhoto.most(.ownSizeWhereItFits, size: 0, room: budget), 4096,
+                       "its size not known")
+
+        XCTAssertEqual(ShareItems.Staging().photos, .longestSide, "a share's")
+        XCTAssertEqual(ComposeIntake.staging(room: budget, unnamed: 0, moves: false).photos,
+                       .ownSizeWhereItFits, "the composer's")
+
+        var report = SharedPhoto.Report(offered: ["public.heic"], read: "public.heic",
+                                        named: .suggested("IMG_0901"))
+        report.name = "IMG_0901.jpg"
+        report.went = .jpeg(factor: 1, available: app)
+        report.made = .init(width: 5712, height: 4284)
+        report.bytes = 7_400_000
+        XCTAssertEqual(report.line, "SHARE-PICTURE offered=public.heic read=public.heic "
+                       + "name=suggested \"IMG_0901.jpg\" way=JPEG at factor 1, 1200 MB available "
+                       + "size=5712x4284 bytes=7400000")
+        report.went = .jpeg(factor: 2, available: app)
+        report.made = .init(width: 2856, height: 2142)
+        report.ownSizeOverRoom = 26_100_000
+        report.bytes = 2_100_000
+        XCTAssertEqual(report.line, "SHARE-PICTURE offered=public.heic read=public.heic "
+                       + "name=suggested \"IMG_0901.jpg\" way=JPEG at factor 2, 1200 MB available "
+                       + "(at its own size 26100000 bytes, more than the letter's room) "
+                       + "size=2856x2142 bytes=2100000")
     }
 
     // MARK: - The wiring, read from the source
@@ -440,39 +641,59 @@ final class VideoCompatibleTests: XCTestCase {
 
     /// AVFoundation's conversion: the video tracks' codecs read without
     /// blocking, the decision the suite's (`needsH264`), then an export
-    /// session at the highest quality, H.264, written as the file type
-    /// asked where the session can, for a network; begun under the lock
-    /// unless called off first, and called off by `cancelExport`; stopped
-    /// as the app went said so by AVFoundation's own code. No API newer
+    /// session at the preset the copy asks, the highest quality at its own
+    /// size and 1280x720 for the second, both H.264, written as the file
+    /// type asked where the session can, for a network, stopped at the
+    /// limit it is handed; begun under the lock unless called off first,
+    /// and called off by `cancelExport`; stopped as the app went said so
+    /// by AVFoundation's own code. Written, its length is read back beside
+    /// the video's, shorter by more than half a second taken as cut short,
+    /// and its codecs read back for the routing and the log. No API newer
     /// than the SDK, so nothing behind `#available`.
     func testTheConversionIsAVFoundationsExportCalledOffByTheRead() throws {
         let code = try source("Sources/Blackmail/Share/VideoH264.swift")
         inOrder(["#if canImport(UIKit) && canImport(AVFoundation)",
                  "import AVFoundation",
-                 "static let h264 = ShareItems.VideoConversion { from, to, fileType, done in",
+                 "static let h264 = ShareItems.VideoConversion { from, to, fileType, copy, limit, done in",
                  "let export = H264Export()",
                  "let asset = AVURLAsset(url: from)",
                  "asset.loadTracks(withMediaType: .video) { tracks, error in",
                  "return done(.failed(code: (error as NSError?)?.code))",
+                 "guard let found = await ShareItems.VideoConversion.codecs(of: tracks) else {",
+                 "guard ShareItems.needsH264(codecs: found) else { return done(.notNeeded) }",
+                 "let preset = copy == .ownSize ? AVAssetExportPresetHighestQuality : "
+                    + "AVAssetExportPreset1280x720",
+                 "export.begin(asset, preset: preset, to: to, fileType: fileType, limit: limit, "
+                    + "done: done)",
+                 "return { export.cancel() }",
+                 "fileprivate static func codecs(of tracks: [AVAssetTrack]) async -> [String]? {",
                  "try? await track.load(.formatDescriptions)",
                  "ShareItems.fourCC(CMFormatDescriptionGetMediaSubType($0))",
-                 "guard ShareItems.needsH264(codecs: codecs) else { return done(.notNeeded) }",
-                 "export.begin(asset, to: to, fileType: fileType, done: done)",
-                 "return { export.cancel() }"], in: code)
-        inOrder(["func begin(_ asset: AVAsset, to: URL, fileType: String,",
-                 "AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality)",
+                 "fileprivate static func readBack(_ asset: AVAsset, _ url: URL,",
+                 "let copy = AVURLAsset(url: url)",
+                 "if let whole = try? await asset.load(.duration),",
+                 "let written = try? await copy.load(.duration),",
+                 "whole.isNumeric, written.isNumeric,",
+                 "CMTimeGetSeconds(written) < CMTimeGetSeconds(whole) - ShareItems.cutShortBy {",
+                 "return done(.cutShort)",
+                 "let tracks = (try? await copy.loadTracks(withMediaType: .video)) ?? []",
+                 "let found = await ShareItems.VideoConversion.codecs(of: tracks) ?? []",
+                 "done(.made(codecs: found))"], in: code)
+        inOrder(["func begin(_ asset: AVAsset, preset: String, to: URL, fileType: String, limit: Int64,",
+                 "AVAssetExportSession(asset: asset, presetName: preset)",
                  "let asked = AVFileType(rawValue: fileType)",
                  "let types = session.supportedFileTypes",
                  "types.contains(asked) ? asked : types.contains(.mov) ? .mov : nil",
                  "session.outputURL = to",
                  "session.outputFileType = type",
                  "session.shouldOptimizeForNetworkUse = true",
+                 "session.fileLengthLimit = limit",
                  "lock.lock()",
                  "defer { lock.unlock() }",
                  "guard !cancelled else { return done(.cancelled) }",
                  "self.session = session",
                  "session.exportAsynchronously {",
-                 "case .completed: done(.made)",
+                 "case .completed: ShareItems.VideoConversion.readBack(asset, to, done: done)",
                  "case .cancelled: done(.cancelled)",
                  "&& error?.code == AVError.Code.operationInterrupted.rawValue",
                  "done(interrupted ? .interrupted : .failed(code: error?.code))",
@@ -481,16 +702,23 @@ final class VideoCompatibleTests: XCTestCase {
                  "let session = self.session",
                  "lock.unlock()",
                  "session?.cancelExport()"], in: code)
-        XCTAssertEqual(count("AVAssetExportPreset", in: code), 1, "one preset")
+        XCTAssertEqual(count("AVAssetExportPreset", in: code), 2, "two presets, both H.264")
+        XCTAssertFalse(code.contains("HEVC"), "no HEVC preset")
         XCTAssertFalse(code.contains("#available"))
-        XCTAssertFalse(code.contains("fileLengthLimit"), "no video cut short to fit")
+        XCTAssertEqual(count("fileLengthLimit = limit", in: code), 1)
+        XCTAssertEqual(ShareItems.copyMargin, 5_000_000)
+        XCTAssertEqual(ShareItems.cutShortBy, 0.5)
 
         let items = try source("Sources/Blackmail/Share/ShareItems.swift")
         inOrder(["static func compatible(_ original: SharedItem, staging: Staging, loading: Loading,",
+                 "let room = staging.room + size",
+                 "func make(_ which: VideoCopy) {",
                  "guard !loading.isCancelled else { return calledOff(nil) }",
-                 "let callOff = conversion.convert(url, copy, exportType(for: filename)) { converted in",
+                 "let callOff = conversion.convert(url, copy, exportType(for: filename), which, "
+                    + "room + copyMargin) { converted in",
                  "guard !loading.isCancelled else { return calledOff(copy) }",
-                 "loading.track(conversion: callOff)"], in: items)
+                 "loading.track(conversion: callOff)",
+                 "make(.ownSize)"], in: items)
     }
 
     /// The composer hands its video conversion to the read; the share
@@ -517,6 +745,8 @@ final class FakeVideoConversion {
         let from: URL
         let to: URL
         let fileType: String
+        let copy: ShareItems.VideoCopy
+        let limit: Int64
     }
 
     private(set) var asked: [Asked] = []
@@ -524,19 +754,19 @@ final class FakeVideoConversion {
     private(set) var calledOff = 0
 
     var videos: ShareItems.VideoConversion {
-        ShareItems.VideoConversion { [self] from, to, fileType, done in
-            asked.append(Asked(from: from, to: to, fileType: fileType))
+        ShareItems.VideoConversion { [self] from, to, fileType, copy, limit, done in
+            asked.append(Asked(from: from, to: to, fileType: fileType, copy: copy, limit: limit))
             dones.append(done)
             return { [self] in calledOff += 1 }
         }
     }
 
     /// The last asked written whole, `bytes` long, where it was asked to
-    /// be, and said made.
-    func make(bytes: Int64) throws {
+    /// be, and said made, its codecs read back as `codecs`.
+    func make(bytes: Int64, codecs: [String] = ["avc1"]) throws {
         let to = try XCTUnwrap(asked.last).to
         try VideoCompatibleTests.sized(to, bytes)
-        end(.made)
+        end(.made(codecs: codecs))
     }
 
     /// The last asked ended so.

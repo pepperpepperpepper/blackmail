@@ -135,6 +135,12 @@ enum ShareItems {
 
         /// What is left of `limit`.
         var room: Int64 { limit - staged }
+
+        /// How large a JPEG made of a picture here may be
+        /// (`SharedPhoto.Bound`, B-142): at most 4096 px for a share, in the
+        /// extension's memory; at its own size where it fits for the
+        /// composer, in the app's.
+        let photos: SharedPhoto.Bound
         private let write: (Data, String) throws -> URL
         private let copy: (URL, String) throws -> URL
         private let place: (String) throws -> URL
@@ -147,14 +153,16 @@ enum ShareItems {
         /// weigh together, never more than `budget`, and `unnamed` the
         /// pictures with no name already in the letter, which numbers the
         /// next (B-108): a share begins with all of the one and none of the
-        /// other.
-        init(room: Int64 = budget, unnamed: Int = 0,
+        /// other. `photos` is how large a JPEG made here may be: a share's
+        /// at most 4096 px.
+        init(room: Int64 = budget, unnamed: Int = 0, photos: SharedPhoto.Bound = .longestSide,
              write: @escaping (Data, String) throws -> URL = AttachmentStore.write,
              copy: @escaping (URL, String) throws -> URL = AttachmentStore.copy,
              place: @escaping (String) throws -> URL = AttachmentStore.place,
              discard: @escaping (URL) -> Void = { AttachmentStore.removeStaged($0) }) {
             limit = max(0, min(room, Self.budget))
             self.unnamed = max(0, unnamed)
+            self.photos = photos
             self.write = write
             self.copy = copy
             self.place = place
@@ -286,7 +294,7 @@ enum ShareItems {
         }
 
         /// The size of the file at `url`, as the disk has it.
-        private static func measured(_ url: URL) -> Int64? {
+        static func measured(_ url: URL) -> Int64? {
             let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
             return (attributes?[.size] as? NSNumber)?.int64Value
         }
@@ -361,12 +369,28 @@ enum ShareItems {
 
     // MARK: - A video made H.264 (B-142)
 
+    /// Which H.264 copy of a video is made (`VideoConversion`).
+    enum VideoCopy: Equatable {
+        /// At its own size, at the best AVFoundation makes:
+        /// `AVAssetExportPresetHighestQuality`.
+        case ownSize
+        /// At most 1280 by 720, never larger than the video:
+        /// `AVAssetExportPreset1280x720`. Made only where the first was
+        /// larger than the room.
+        case at720p
+    }
+
     /// What came of making a video H.264 (`VideoConversion`).
     enum Converted: Equatable {
         /// Its pictures are H.264 already, or it has none: nothing made.
         case notNeeded
-        /// Written whole where it was asked to be.
-        case made
+        /// Written whole where it was asked to be. `codecs` are its video
+        /// tracks' codecs read back from the file written, by their four
+        /// letters; none where they could not be read.
+        case made(codecs: [String])
+        /// Written, and shorter than the video by more than `cutShortBy`:
+        /// stopped at its length limit (`fileLengthLimit`), past the room.
+        case cutShort
         /// Called off (`Loading.cancel`).
         case cancelled
         /// Stopped as the app went into the background: AVFoundation's
@@ -376,21 +400,39 @@ enum ShareItems {
         case failed(code: Int?)
     }
 
-    /// How a video is made H.264 in the app: `convert` writes an H.264
-    /// copy of the video at its first URL to its second, as the file type
-    /// its third names (`exportType`), and calls back once, from any
-    /// thread; it returns what calls it off, which `Loading` keeps. The
-    /// iPad's is AVFoundation's (`h264`, beside the sheet); the suite's,
-    /// the test's own.
+    /// How a video is made H.264 in the app: `convert` writes the H.264
+    /// copy `copy` names of the video at its first URL to its second, as
+    /// the file type its third names (`exportType`), stopped once it is
+    /// past `limit` bytes, and calls back once, from any thread; it returns
+    /// what calls it off, which `Loading` keeps. The iPad's is
+    /// AVFoundation's (`h264`, beside the sheet); the suite's, the test's
+    /// own.
     struct VideoConversion {
-        let convert: (_ from: URL, _ to: URL, _ fileType: String,
-                      _ done: @escaping (Converted) -> Void) -> () -> Void
+        let convert: (_ from: URL, _ to: URL, _ fileType: String, _ copy: VideoCopy,
+                      _ limit: Int64, _ done: @escaping (Converted) -> Void) -> () -> Void
 
-        init(convert: @escaping (_ from: URL, _ to: URL, _ fileType: String,
+        init(convert: @escaping (_ from: URL, _ to: URL, _ fileType: String, _ copy: VideoCopy,
+                                 _ limit: Int64,
                                  _ done: @escaping (Converted) -> Void) -> () -> Void) {
             self.convert = convert
         }
     }
+
+    /// How far past the room a copy is written before it is stopped
+    /// (`fileLengthLimit`): 5 MB. A copy that would be larger than the room
+    /// is stopped soon after it passes it, rather than written to its end,
+    /// minutes and a gigabyte perhaps for a long video of a low rate, and
+    /// then thrown away. One stopped there measures more than the room, and
+    /// is not taken: Apple's header says an export may run slightly past
+    /// its limit, not that it stops short of it. A copy shorter than the
+    /// video all the same is not taken either (`cutShortBy`).
+    static let copyMargin: Int64 = 5_000_000
+
+    /// By how much a copy may be shorter than its video, in seconds, and
+    /// still be whole: half a second. Shorter, it was stopped at its limit
+    /// (`Converted.cutShort`). A copy made whole is as long as its video to
+    /// within a frame.
+    static let cutShortBy = 0.5
 
     /// The codecs of a picture every recipient can play: H.264, as
     /// `avc1` and as `avc3`, by their four letters.
@@ -433,14 +475,18 @@ enum ShareItems {
     enum VideoMade: Equatable {
         /// H.264 already, or with no pictures: it goes as it came.
         case asItCame
-        /// Made H.264, `bytes` from the original's `from`, and that goes.
-        case h264(bytes: Int64, from: Int64)
-        /// Its H.264 copy, `bytes`, more than the room it had, `room`:
-        /// the original goes.
-        case h264NoRoom(bytes: Int64, room: Int64)
-        /// Not made H.264, the conversion failed, its error's code where
-        /// it had one, or its copy not placed or not measured: the
-        /// original goes.
+        /// Made H.264, the copy `copy` names, `bytes` from the original's
+        /// `from`, its codecs read back as `codecs`: that goes.
+        case h264(copy: VideoCopy, bytes: Int64, from: Int64, codecs: [String])
+        /// The copy `copy` names more than the room it had, `room`, at
+        /// `bytes`, nil where it could not be measured, or `cutShort` at
+        /// its limit: the 720p copy is made next, or after it, the video is
+        /// left out.
+        case noRoom(copy: VideoCopy, bytes: Int64?, room: Int64, cutShort: Bool)
+        /// A copy that read back as not H.264, `codecs`: left out.
+        case notH264(codecs: [String])
+        /// Not made H.264, the conversion failed, its error's code where it
+        /// had one, or its copy not placed: left out.
         case failed(code: Int?)
         /// Stopped as the app went into the background: the original
         /// handed back, and the read marked so (`Loading.wasInterrupted`).
@@ -450,19 +496,29 @@ enum ShareItems {
     }
 
     /// The line the log gets for a video once its conversion has ended
-    /// (`compatible`), after its `SHARE-FILE` line. Numbers only.
+    /// (`compatible`), after its `SHARE-FILE` line; for a copy over the
+    /// room, one for each copy. Numbers and four letters only.
     static func videoNote(_ made: VideoMade) -> String {
+        func codec(_ codecs: [String]) -> String {
+            codecs.isEmpty ? "unread" : codecs.joined(separator: ",")
+        }
         switch made {
         case .asItCame:
             return "SHARE-VIDEO goes as it came, H.264 already"
-        case .h264(let bytes, let from):
-            return "SHARE-VIDEO made H.264, bytes=\(bytes) from=\(from)"
-        case .h264NoRoom(let bytes, let room):
-            return "SHARE-VIDEO its H.264 copy bytes=\(bytes), more than the letter's room, "
-                + "\(room / 1_000_000) MB left: the original goes"
+        case .h264(let copy, let bytes, let from, let codecs):
+            return "SHARE-VIDEO made H.264\(copy == .at720p ? " at 720p" : ""), bytes=\(bytes) "
+                + "from=\(from) codec=\(codec(codecs))"
+        case .noRoom(let copy, let bytes, let room, let cutShort):
+            let which = copy == .at720p ? "its 720p H.264 copy" : "its H.264 copy"
+            let measured = bytes.map(String.init) ?? "unmeasured"
+            let size = cutShort ? "cut short at its limit, bytes=\(measured), with"
+                : "bytes=\(measured), more than"
+            return "SHARE-VIDEO \(which) \(size) the letter's room, \(room / 1_000_000) MB left: "
+                + (copy == .ownSize ? "a 720p copy" : "left out")
+        case .notH264(let codecs):
+            return "SHARE-VIDEO its copy read back as \(codec(codecs)), not H.264: left out"
         case .failed(let code):
-            return "SHARE-VIDEO not made H.264, failed\(code.map { " code=\($0)" } ?? ""): "
-                + "the original goes"
+            return "SHARE-VIDEO not made H.264, failed\(code.map { " code=\($0)" } ?? ""): left out"
         case .interrupted:
             return "SHARE-VIDEO not made H.264, stopped as the app went"
         case .calledOff:
@@ -482,15 +538,20 @@ enum ShareItems {
     /// `conversion`'s, kept in `loading`, which calls it off with the
     /// rest of the read.
     ///
-    /// What goes: the H.264 copy where one was made and fits the room the
-    /// original leaves, in its place, under its name and type; otherwise
-    /// the original, H.264 already, its copy larger than the room, or
-    /// its conversion failed; a video that fits as itself is not left out
-    /// for its copy. Stopped as the app went, the original too, and the
-    /// read marked so: the composer sets it aside, to be read again on his
-    /// return, while the app is away (`ComposeIntake`). Called off,
-    /// nothing, the original and any copy taken away. One line in the log
-    /// as it ends (`videoNote`); `done` once, from any thread.
+    /// What goes is H.264, or nothing, as under B-108, where Photos' copy
+    /// over the room was left out: the copy at its own size where it fits
+    /// the room the original leaves, in its place, under its name and type;
+    /// where it does not, a second copy of at most 1280 by 720, where that
+    /// fits; where neither does, nothing, the video left out. Each copy is
+    /// stopped soon after it passes the room (`copyMargin`). A video H.264
+    /// already goes as it came. A conversion that fails, or a copy that
+    /// reads back as not H.264, leaves the video out: the original, HEVC,
+    /// does not go (whether it should is the owner's to say). Stopped as
+    /// the app went, the original is handed back, and the read marked so:
+    /// the composer throws it away and reads the row again
+    /// (`ComposeIntake`). Called off, nothing, the original and any copy
+    /// taken away. One line in the log as each copy ends (`videoNote`);
+    /// `done` once, from any thread.
     static func compatible(_ original: SharedItem, staging: Staging, loading: Loading,
                            conversion: VideoConversion, done: @escaping (SharedItem?) -> Void) {
         guard case let .file(url, filename, _, size) = original else { return done(original) }
@@ -501,42 +562,59 @@ enum ShareItems {
             Diagnostics.log(.note, videoNote(.calledOff))
             done(nil)
         }
-        guard !loading.isCancelled else { return calledOff(nil) }
-        guard let copy = staging.placed(filename) else {
-            Diagnostics.log(.note, videoNote(.failed(code: nil)))
-            return done(original)
+        func leftOut(_ made: VideoMade) {
+            staging.unstage(original)
+            Diagnostics.log(.note, videoNote(made))
+            done(nil)
         }
-        let callOff = conversion.convert(url, copy, exportType(for: filename)) { converted in
-            guard !loading.isCancelled else { return calledOff(copy) }
-            switch converted {
-            case .cancelled:
-                calledOff(copy)
-            case .notNeeded:
-                staging.remove(copy)
-                Diagnostics.log(.note, videoNote(.asItCame))
-                done(original)
-            case .made:
-                if let made = staging.replace(original, with: copy),
-                   case let .file(_, _, _, bytes) = made {
-                    Diagnostics.log(.note, videoNote(.h264(bytes: bytes, from: size)))
-                    return done(made)
-                }
-                Diagnostics.log(.note, videoNote(staging.lastMeasured.map {
-                    .h264NoRoom(bytes: $0, room: room)
-                } ?? .failed(code: nil)))
-                done(original)
-            case .failed(let code):
-                staging.remove(copy)
-                Diagnostics.log(.note, videoNote(.failed(code: code)))
-                done(original)
-            case .interrupted:
-                staging.remove(copy)
-                loading.interrupted()
-                Diagnostics.log(.note, videoNote(.interrupted))
-                done(original)
+        func make(_ which: VideoCopy) {
+            guard !loading.isCancelled else { return calledOff(nil) }
+            guard let copy = staging.placed(filename) else { return leftOut(.failed(code: nil)) }
+            func noRoom(_ bytes: Int64?, cutShort: Bool) {
+                let made = VideoMade.noRoom(copy: which, bytes: bytes, room: room, cutShort: cutShort)
+                guard which == .ownSize else { return leftOut(made) }
+                Diagnostics.log(.note, videoNote(made))
+                make(.at720p)
             }
+            let callOff = conversion.convert(url, copy, exportType(for: filename), which,
+                                             room + copyMargin) { converted in
+                guard !loading.isCancelled else { return calledOff(copy) }
+                switch converted {
+                case .cancelled:
+                    calledOff(copy)
+                case .notNeeded:
+                    staging.remove(copy)
+                    Diagnostics.log(.note, videoNote(.asItCame))
+                    done(original)
+                case .made(let codecs):
+                    guard codecs.isEmpty || !needsH264(codecs: codecs) else {
+                        staging.remove(copy)
+                        return leftOut(.notH264(codecs: codecs))
+                    }
+                    if let made = staging.replace(original, with: copy),
+                       case let .file(_, _, _, bytes) = made {
+                        Diagnostics.log(.note, videoNote(.h264(copy: which, bytes: bytes, from: size,
+                                                               codecs: codecs)))
+                        return done(made)
+                    }
+                    noRoom(staging.lastMeasured, cutShort: false)
+                case .cutShort:
+                    let bytes = Staging.measured(copy)
+                    staging.remove(copy)
+                    noRoom(bytes, cutShort: true)
+                case .failed(let code):
+                    staging.remove(copy)
+                    leftOut(.failed(code: code))
+                case .interrupted:
+                    staging.remove(copy)
+                    loading.interrupted()
+                    Diagnostics.log(.note, videoNote(.interrupted))
+                    done(original)
+                }
+            }
+            loading.track(conversion: callOff)
         }
-        loading.track(conversion: callOff)
+        make(.ownSize)
     }
 
     /// What became of a file of `size` bytes, `item` what staging made of

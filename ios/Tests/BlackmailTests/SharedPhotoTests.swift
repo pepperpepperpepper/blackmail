@@ -1004,7 +1004,7 @@ final class SharedPhotoTests: XCTestCase {
                  "guard index < CGImageSourceGetCount(source) else {",
                  "report.went = .leftOut(\"no picture at its index\")",
                  "return .undecodable",
-                 "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor) else {",
+                 "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor, most: most) else {",
                  "return .undecodable"],
                 in: code)
         XCTAssertEqual(count("return .unopened", in: code), 2, "the file and the bytes not opened")
@@ -1060,7 +1060,7 @@ final class SharedPhotoTests: XCTestCase {
                  "return .staged(item)",
                  "report.fellBack = copied == nil ? \"no place on the disk\" : copied == false ? \"CopyImageSource failed\" : still.map { \"the file written \\($0)\" } ?? \"too large for the room as written\"",
                  "case .jpeg: break",
-                 "SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor)"],
+                 "SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor, most: most)"],
                 in: code)
         XCTAssertEqual(count("staging.written(", in: code), 1)
         XCTAssertEqual(count("SharedPhoto.readBack(", in: code), 1)
@@ -1134,13 +1134,16 @@ final class SharedPhotoTests: XCTestCase {
         inOrder(["case .jpeg: break",
                  "let width = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0",
                  "let height = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0",
+                 "var most = SharedPhoto.most(staging.photos, size: size, room: staging.room)",
+                 "while true {",
                  "let available = SharedPhoto.availableMemory()",
-                 "guard let factor = SharedPhoto.factor(width: width, height: height, type: kind, available: available ?? SharedPhoto.assumedAvailable) else {",
+                 "guard let factor = SharedPhoto.factor(width: width, height: height, type: kind, available: available ?? SharedPhoto.assumedAvailable, most: most) else {",
                  "report.went = .tooLargeForMemory(",
-                 "needs: SharedPhoto.leastPeak(width: width, height: height, type: kind),",
+                 "needs: SharedPhoto.leastPeak(width: width, height: height, type: kind, most: most),",
                  "return .staged(nil)",
                  "report.went = .jpeg(factor: factor, available: available)",
-                 "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor)"],
+                 "report.made = SharedPhoto.size(width: width, height: height, factor: factor, most: most)",
+                 "guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties, factor: factor, most: most)"],
                 in: code)
         XCTAssertEqual(count("SharedPhoto.availableMemory()", in: code), 1,
                        "right before the decode, and no longer for a room at Send (B-070)")
@@ -1158,10 +1161,10 @@ final class SharedPhotoTests: XCTestCase {
                  "guard index < CGImageSourceGetCount(source) else {",
                  "let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil)"],
                 in: code)
-        inOrder(["properties: [String: Any], factor halving: Int) -> Data? {",
+        inOrder(["properties: [String: Any], factor halving: Int, most: Int = longestSide) -> Data? {",
                  "let width = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0",
                  "let height = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0",
-                 "let longest = size(width: width, height: height, factor: halving)?.longest ?? longestSide",
+                 "let longest = size(width: width, height: height, factor: halving, most: most)?.longest ?? longestSide",
                  "var thumbnail: [CFString: Any] = [",
                  "kCGImageSourceCreateThumbnailFromImageAlways: true,",
                  "kCGImageSourceThumbnailMaxPixelSize: longest,",
@@ -1207,11 +1210,37 @@ final class SharedPhotoTests: XCTestCase {
                  "case .own:",
                  "case .jpeg: break",
                  "let name = SharedPhoto.name(named, way: .jpeg, number: staging.unnamed)",
-                 "let item = staging.photo(jpeg, named: name, unnamed: named == .none)",
+                 "if let item = staging.photo(jpeg, named: name, unnamed: named == .none) {",
                  "return .staged(item)"],
                 in: code)
         XCTAssertEqual(count("staging.file(", in: code), 1, "a file copied only whole")
         XCTAssertEqual(count("staging.photo(", in: code), 2, "bytes kept whole, and the JPEG")
+    }
+
+    /// The JPEG's bound (B-142): at most 4096 px, unless the staging is
+    /// the composer's and the picture fits the room as it is, then its own
+    /// size where the memory allows it, as Photos' JPEG of a HEIC went.
+    /// Made at its own size and over the room, it is made again at 4096 px
+    /// where that is smaller (`again`), its own size's bytes in its line;
+    /// otherwise left out for the room, as before.
+    func testAJPEGMadeAtItsOwnSizeOverTheRoomIsMadeAgainAt4096() throws {
+        let code = try source("SharedPhotoImageIO.swift")
+        let jpeg = try part(of: code, from: "case .jpeg: break", to: "extension SharedPhoto {")
+        inOrder(["var most = SharedPhoto.most(staging.photos, size: size, room: staging.room)",
+                 "while true {",
+                 "if let item = staging.photo(jpeg, named: name, unnamed: named == .none) {",
+                 "return .staged(item)",
+                 "let over = Int64(jpeg.count) > staging.room",
+                 "if over, let again = SharedPhoto.again(width: width, height: height, factor: factor, most: most) {",
+                 "report.ownSizeOverRoom = Int64(jpeg.count)",
+                 "most = again",
+                 "continue",
+                 "report.went = .leftOut(over ? \"no room\" : \"not written\")",
+                 "return .staged(nil)"],
+                in: jpeg)
+        XCTAssertEqual(count("continue", in: jpeg), 1)
+        XCTAssertEqual(count("most = ", in: jpeg), 2, "set once, and made again only at what `again` gives")
+        XCTAssertEqual(count("staging.photos", in: code), 1)
     }
 
     /// One line in the log for each picture, as it ends, with the bytes it

@@ -48,8 +48,9 @@ import Foundation
 /// at once, goes on. With a Send or a Save Draft waiting for it, the read
 /// under way is let run `grace`, 20 seconds, first, well inside those 30:
 /// a photo that comes in a second or two still goes while he is away; a
-/// video's conversion stopped there is set aside as well
-/// (`interruptedAway`).
+/// video's conversion stopped there is set aside as well, and one stopped
+/// as the app was going but before it had gone is read again
+/// (`interrupted`).
 ///
 /// And no read is left running once nothing will take what it brings:
 /// counted out at its bound or a wait's, or the sheet closed with no Send
@@ -223,6 +224,10 @@ final class ComposeIntake {
     private var hurryTimer: Task<Void, Never>?
     /// The app is not in front: no bound runs (`away`, `back`).
     private var isAway = false
+    /// The rows whose video's conversion stopped while the app was in
+    /// front, since it last went (`interrupted`): a second stop, the app
+    /// not having gone between, leaves the video out.
+    private var stoppedInFront: Set<Int> = []
     /// The pictures with no name put in the letter so far, which numbers
     /// the next: "image0.jpeg", "image1.jpeg" (`SharedPhoto.name`).
     private var unnamed = 0
@@ -275,9 +280,13 @@ final class ComposeIntake {
     var isReading: Bool { current != nil }
 
     /// The app's staging: in `tmp/Attachments`, as the share sheet's, a
-    /// document picker's file moved there and anything else copied.
+    /// document picker's file moved there and anything else copied. A
+    /// picture made a JPEG for what it is, a HEIC, at its own size where it
+    /// fits the room and the memory allows it, as Photos' JPEG of it went
+    /// before the picker took what Photos keeps (`SharedPhoto.Bound`,
+    /// B-142).
     nonisolated static func staging(room: Int64, unnamed: Int, moves: Bool) -> ShareItems.Staging {
-        ShareItems.Staging(room: room, unnamed: unnamed,
+        ShareItems.Staging(room: room, unnamed: unnamed, photos: .ownSizeWhereItFits,
                            copy: moves ? AttachmentStore.move : AttachmentStore.copy)
     }
 
@@ -382,11 +391,11 @@ final class ComposeIntake {
     /// then: a photo a second or two from coming goes in, and the letter
     /// with it, while he is away, as before B-142, and a long video is
     /// still called off well inside iOS's 30 seconds. A video's conversion
-    /// AVFoundation stops in that time is set aside then
-    /// (`interruptedAway`).
+    /// AVFoundation stops in that time is set aside then (`interrupted`).
     func away() {
         guard !isAway else { return }
         isAway = true
+        stoppedInFront = []
         hurryTimer?.cancel()
         hurryTimer = nil
         guard var now = current else { return }
@@ -472,8 +481,8 @@ final class ComposeIntake {
 
     private func arrived(_ read: Int, _ item: SharedItem?) {
         if let aside = setAside.removeValue(forKey: read) { return cameSetAside(aside, item) }
-        if isAway, let now = current, now.read == read, now.loading?.wasInterrupted == true {
-            return interruptedAway(now, item)
+        if let now = current, now.read == read, now.loading?.wasInterrupted == true {
+            return interrupted(now, item)
         }
         guard let now = current, now.read == read else {
             // Counted out at its bound, and come after all, having ended
@@ -501,23 +510,36 @@ final class ComposeIntake {
         settle([(now.id, now.pick)])
     }
 
-    /// A video whose conversion stopped as the app went (B-142), with a
-    /// Send or a Save Draft waiting, in its `grace`: an app gives up its
+    /// A video whose conversion stopped (B-142): an app gives up its
     /// encoder in the background, and AVFoundation stops the conversion
-    /// (`ShareItems.compatible`). It is set aside as the grace would have
-    /// set it aside, its row back at the head of the queue, still
-    /// turning, nothing counted out and nothing said, and read again from
-    /// the start on his return, made H.264 then; the original it brought
-    /// is thrown away. In front, a conversion stopped goes as its original,
-    /// as one that failed does, and is not read again.
-    private func interruptedAway(_ now: Current, _ item: SharedItem?) {
+    /// (`ShareItems.compatible`), so the read brings the original, which
+    /// never goes in its place. It is thrown away, and its row goes back to
+    /// the head of the queue, still turning, nothing counted out and
+    /// nothing said, to be read again from the start and made H.264 then.
+    ///
+    /// Away, with a Send or a Save Draft waiting, in its `grace`: set aside
+    /// as the grace would have set it aside, and read again on his return.
+    /// In front: read again at once. A stop comes only as the app goes, so
+    /// in front it is the app going before its own handler has run, which
+    /// then sets the read again aside (`away`), or his return before the
+    /// stop's call back. A second stop in front, the app not having gone
+    /// between, is taken as a failed conversion, the video left out and
+    /// said, so nothing is read round and round.
+    private func interrupted(_ now: Current, _ item: SharedItem?) {
         now.timer?.cancel()
         now.grace?.cancel()
         current = nil
         if let url = Self.file(item) { discard(url) }
+        guard isAway || stoppedInFront.insert(now.id).inserted else {
+            Diagnostics.log(.note, "COMPOSE-ITEM its conversion stopped again in front, left out")
+            count(now.tally, attached: false, into: now.pick)
+            return settle([(now.id, now.pick)])
+        }
         queue.insert(Queued(id: now.id, pick: now.pick, item: now.item), at: 0)
-        Diagnostics.log(.note, "COMPOSE-ITEM set aside, its conversion stopped as the app went")
+        Diagnostics.log(.note, isAway ? "COMPOSE-ITEM set aside, its conversion stopped as the app went"
+                        : "COMPOSE-ITEM its conversion stopped in front, read again")
         actions.readingChanged()
+        startNext()
     }
 
     /// The call back of a read set aside as the app went (`away`). With

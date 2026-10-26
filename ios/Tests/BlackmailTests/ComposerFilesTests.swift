@@ -1325,10 +1325,14 @@ final class ComposerFilesTests: XCTestCase {
 
     /// A conversion stopped whose read was set aside first, the app gone
     /// with nothing waiting: what it brings, its original, is thrown away,
-    /// and its row is read again on his return. In front, a conversion
-    /// stopped goes as its original, as one that failed does, and is not
-    /// read again.
-    func testAConversionStoppedOutsideTheGraceIsThrownAwayOrGoesAsItsOriginal() async throws {
+    /// and its row is read again on his return. A conversion stopped while
+    /// the app is still in front, its call back come before the app's
+    /// going was heard, or after his return: never its original, thrown
+    /// away, and the row read again at once; the app's going then sets that
+    /// read aside. Stopped a second time in front, the app not having gone
+    /// between, it is left out and said, and not read round and round; the
+    /// app going clears that count.
+    func testAConversionStoppedOutsideTheGraceIsNeverTakenAndIsReadAgain() async throws {
         Diagnostics.clear()
         let actions = makeActions()
         let intake = makeIntake(actions)
@@ -1347,17 +1351,54 @@ final class ComposerFilesTests: XCTestCase {
         try await until { intake.coming.isEmpty }
         XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV"])
 
+        // In front: the stop heard before the app's going.
         let film = Load(cancellable: true)
         intake.take([item("IMG_0197", .video, film)])
         film.loadings[0].interrupted()
+        let first = try XCTUnwrap(land(film, "IMG_0197.MOV", .video))
+        try await until { film.begins == 2 }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.path), "its original thrown away")
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV"], "not taken")
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0197"])
+        XCTAssertTrue(intake.isReading, "read again at once")
+        intake.away()
+        XCTAssertEqual(film.calledOff(1), true, "the read again set aside as the app goes")
+        fail(film)
+        await settled()
+        intake.back()
+        XCTAssertEqual(film.begins, 3)
+        // In front again, after a going: read again, not left out.
+        try XCTUnwrap(film.loadings.dropFirst(2).first).interrupted()
+        land(film, "IMG_0197.MOV", .video)
+        try await until { film.begins == 4 }
+        XCTAssertEqual(told, [])
         land(film, "IMG_0197.MOV", .video)
         try await until { intake.coming.isEmpty }
-        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV", "IMG_0197.MOV"], "in front, it goes")
-        XCTAssertEqual(film.begins, 1)
-        XCTAssertEqual(told, [])
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV", "IMG_0197.MOV"])
+
+        // Stopped twice in front, nothing between: left out, and said.
+        let clip = Load(cancellable: true)
+        intake.take([item("IMG_0198", .video, clip)])
+        clip.loadings[0].interrupted()
+        let once = try XCTUnwrap(land(clip, "IMG_0198.MOV", .video))
+        try await until { clip.begins == 2 }
+        try XCTUnwrap(clip.loadings.dropFirst(1).first).interrupted()
+        let twice = try XCTUnwrap(land(clip, "IMG_0198.MOV", .video))
+        try await until { told == ["The video could not be attached."] }
+        XCTAssertEqual(clip.begins, 2, "not read a third time")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: once.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: twice.path))
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV", "IMG_0197.MOV"])
+        XCTAssertTrue(intake.coming.isEmpty)
         XCTAssertEqual(itemNotes(), [
             "COMPOSE-ITEM set aside as the app went, called off",
-            "COMPOSE-ITEM set aside, its conversion stopped as the app went, thrown away"])
+            "COMPOSE-ITEM set aside, its conversion stopped as the app went, thrown away",
+            "COMPOSE-ITEM its conversion stopped in front, read again",
+            "COMPOSE-ITEM set aside as the app went, called off",
+            "COMPOSE-ITEM set aside, its read ended with nothing",
+            "COMPOSE-ITEM its conversion stopped in front, read again",
+            "COMPOSE-ITEM its conversion stopped in front, read again",
+            "COMPOSE-ITEM its conversion stopped again in front, left out"])
         for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
     }
 
@@ -1431,7 +1472,8 @@ final class ComposerFilesTests: XCTestCase {
         XCTAssertEqual(rows.map(\.filename), ["IMG_0195.MOV"])
         XCTAssertEqual(Diagnostics.entries.filter { $0.direction == .note }.map(\.text)
                         .filter { $0.hasPrefix("SHARE-VIDEO") },
-                       ["SHARE-VIDEO called off", "SHARE-VIDEO made H.264, bytes=1500 from=1000",
+                       ["SHARE-VIDEO called off",
+                        "SHARE-VIDEO made H.264, bytes=1500 from=1000 codec=avc1",
                         "SHARE-VIDEO called off", "SHARE-VIDEO called off"])
         for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
     }

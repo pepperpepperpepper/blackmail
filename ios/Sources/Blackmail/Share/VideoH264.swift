@@ -15,15 +15,20 @@ extension ShareItems.VideoConversion {
     /// Photos' compatible copy made it before (B-108).
     ///
     /// Its video tracks' codecs first, by their formats
-    /// (`ShareItems.needsH264`); then an `AVAssetExportSession` at
-    /// `AVAssetExportPresetHighestQuality`, which the 16.5 SDK's header
-    /// says compresses the video as H.264 and the sound as AAC, at the
-    /// video's own size, never larger: the most compatible copy at its
-    /// best, as Photos' was. Written as the file type asked
+    /// (`ShareItems.needsH264`); then an `AVAssetExportSession` at the
+    /// preset the copy asks: `AVAssetExportPresetHighestQuality` for the
+    /// copy at its own size, `AVAssetExportPreset1280x720` for the 720p one.
+    /// The 16.5 SDK's header says of both that they compress the video as
+    /// H.264 and the sound as AAC, and never scale a video up: the most
+    /// compatible copy, as Photos' was. Written as the file type asked
     /// (`ShareItems.exportType`), or QuickTime where the session cannot,
     /// for a network: what a reader's mail program needs first comes
     /// first. Its metadata goes with it, as AVFoundation carries it over
-    /// when it is given none, as it went in Photos' copy (B-070).
+    /// when it is given none, as it went in Photos' copy (B-070). Stopped
+    /// once it is past `limit` bytes (`fileLengthLimit`), the room and
+    /// `ShareItems.copyMargin`: a copy that cannot fit is not written to
+    /// its end. Written, its length and its codecs are read back from the
+    /// file (`readBack`).
     ///
     /// The session is kept where the call-off reaches it, which the read
     /// keeps (`ShareItems.Loading.track(conversion:)`): called off before
@@ -34,7 +39,7 @@ extension ShareItems.VideoConversion {
     /// your app goes into the background"); the composer calls it off as
     /// the app goes, and with a Send waiting its 20 seconds' grace hold
     /// nothing past that (`ComposeIntake.away`).
-    static let h264 = ShareItems.VideoConversion { from, to, fileType, done in
+    static let h264 = ShareItems.VideoConversion { from, to, fileType, copy, limit, done in
         let export = H264Export()
         let asset = AVURLAsset(url: from)
         asset.loadTracks(withMediaType: .video) { tracks, error in
@@ -42,18 +47,51 @@ extension ShareItems.VideoConversion {
                 return done(.failed(code: (error as NSError?)?.code))
             }
             Task {
-                var codecs: [String] = []
-                for track in tracks {
-                    guard let formats = try? await track.load(.formatDescriptions) else {
-                        return done(.failed(code: nil))
-                    }
-                    codecs += formats.map { ShareItems.fourCC(CMFormatDescriptionGetMediaSubType($0)) }
+                guard let found = await ShareItems.VideoConversion.codecs(of: tracks) else {
+                    return done(.failed(code: nil))
                 }
-                guard ShareItems.needsH264(codecs: codecs) else { return done(.notNeeded) }
-                export.begin(asset, to: to, fileType: fileType, done: done)
+                guard ShareItems.needsH264(codecs: found) else { return done(.notNeeded) }
+                let preset = copy == .ownSize ? AVAssetExportPresetHighestQuality
+                    : AVAssetExportPreset1280x720
+                export.begin(asset, preset: preset, to: to, fileType: fileType, limit: limit,
+                             done: done)
             }
         }
         return { export.cancel() }
+    }
+
+    /// The codecs of `tracks`' formats, by their four letters; nil where
+    /// a track's formats could not be read.
+    fileprivate static func codecs(of tracks: [AVAssetTrack]) async -> [String]? {
+        var codecs: [String] = []
+        for track in tracks {
+            guard let formats = try? await track.load(.formatDescriptions) else { return nil }
+            codecs += formats.map { ShareItems.fourCC(CMFormatDescriptionGetMediaSubType($0)) }
+        }
+        return codecs
+    }
+
+    /// A copy written (`H264Export`): its length beside its video's, and
+    /// its video tracks' codecs, read back from the file at `url`, for the
+    /// routing to check and the log to say (`SHARE-VIDEO ... codec=avc1`).
+    /// Shorter than the video by more than `ShareItems.cutShortBy`, it was
+    /// stopped at its limit: `cutShort`. Otherwise `made`, with its codecs,
+    /// none where they could not be read. A length that could not be read
+    /// is not taken as short: the bytes decide (`ShareItems.compatible`).
+    fileprivate static func readBack(_ asset: AVAsset, _ url: URL,
+                                     done: @escaping (ShareItems.Converted) -> Void) {
+        let copy = AVURLAsset(url: url)
+        Task {
+            if let whole = try? await asset.load(.duration),
+               let written = try? await copy.load(.duration),
+               whole.isNumeric, written.isNumeric,
+               CMTimeGetSeconds(written) < CMTimeGetSeconds(whole) - ShareItems.cutShortBy {
+                return done(.cutShort)
+            }
+            let tracks = (try? await copy.loadTracks(withMediaType: .video)) ?? []
+            let found = await ShareItems.VideoConversion.codecs(of: tracks) ?? []
+            done(.made(codecs: found))
+        }
     }
 }
 
@@ -65,12 +103,12 @@ private final class H264Export: @unchecked Sendable {
     private var session: AVAssetExportSession?
     private var cancelled = false
 
-    /// The session made and begun, writing `asset` to `to`, unless it has
-    /// been called off; `done` once, as it ends.
-    func begin(_ asset: AVAsset, to: URL, fileType: String,
+    /// The session made at `preset` and begun, writing `asset` to `to`,
+    /// stopped past `limit` bytes, unless it has been called off; `done`
+    /// once, as it ends.
+    func begin(_ asset: AVAsset, preset: String, to: URL, fileType: String, limit: Int64,
                done: @escaping (ShareItems.Converted) -> Void) {
-        guard let session = AVAssetExportSession(asset: asset,
-                                                 presetName: AVAssetExportPresetHighestQuality) else {
+        guard let session = AVAssetExportSession(asset: asset, presetName: preset) else {
             return done(.failed(code: nil))
         }
         let asked = AVFileType(rawValue: fileType)
@@ -81,6 +119,7 @@ private final class H264Export: @unchecked Sendable {
         session.outputURL = to
         session.outputFileType = type
         session.shouldOptimizeForNetworkUse = true
+        session.fileLengthLimit = limit
         lock.lock()
         defer { lock.unlock() }
         guard !cancelled else { return done(.cancelled) }
@@ -90,7 +129,7 @@ private final class H264Export: @unchecked Sendable {
         session.exportAsynchronously {
             switch session.status {
             case .completed:
-                done(.made)
+                ShareItems.VideoConversion.readBack(asset, to, done: done)
             case .cancelled:
                 done(.cancelled)
             default:

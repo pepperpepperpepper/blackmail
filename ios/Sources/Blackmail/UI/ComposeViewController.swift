@@ -843,9 +843,12 @@ final class ComposeViewController: UIViewController,
         // app, which calling the read off did not end, and iOS ended the
         // app half a minute after he left it, his letter with it (the test
         // iPad, 2026-10-26). A HEIC photo is made a JPEG by the share
-        // sheet's intake (`SharedPhoto.way`), and a video that fits the
-        // letter is made H.264 here (`VideoConversion.h264`): what every
-        // recipient can open, as the compatible copies were.
+        // sheet's intake (`SharedPhoto.way`), at its own size where it fits
+        // (`ComposeIntake.staging`), as Photos' JPEG of it went. A video is
+        // made H.264 here (`VideoConversion.h264`), at its own size, or at
+        // 720p where only that fits the letter, and is left out where
+        // neither does, as a compatible copy over the room was: what goes
+        // is H.264, which every recipient can open, never the HEVC original.
         config.preferredAssetRepresentationMode = .current
         let picker = PHPickerViewController(configuration: config)
         picker.delegate = self
@@ -855,9 +858,10 @@ final class ComposeViewController: UIViewController,
     /// What he chose, read in as the share sheet reads what it is shared
     /// (`ShareItems.read`): a photo as Apple Mail sends it, its own bytes
     /// under its own name, its metadata replaced and no place in it, made
-    /// a JPEG only when it has to be, as a HEIC is; a video as the file
-    /// Photos hands over, made H.264 where it is not already and its copy
-    /// fits (`ShareItems.compatible`, B-142). One at a time, onto the
+    /// a JPEG only when it has to be, as a HEIC is, at its own size where
+    /// it fits; a video as the file Photos hands over where it is H.264
+    /// already, and otherwise as an H.264 copy of it that fits, or not at
+    /// all (`ShareItems.compatible`, B-142). One at a time, onto the
     /// disk, each counted until it is in so
     /// that a Send or a Save Draft tapped meanwhile waits for it, rather
     /// than going without it (`ComposeIntake`).

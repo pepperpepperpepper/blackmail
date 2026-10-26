@@ -20,7 +20,10 @@ extension ShareItems {
     /// Any other is read by ImageIO and made a JPEG of at most 4096 px,
     /// decoded at a half, a quarter or an eighth where it is larger
     /// (`SharedPhoto.size`) or where the memory left asks it, and left out,
-    /// and said, where even an eighth would not fit. Never `UIImage`, which
+    /// and said, where even an eighth would not fit. In the composer, one
+    /// that fits the room as it is is made at its own size where the memory
+    /// allows it, and made again at 4096 px only where that JPEG does not
+    /// fit (`Staging.photos`, `SharedPhoto.Bound`, B-142). Never `UIImage`, which
     /// decodes every pixel: 195 MB for a 48-megapixel photo, in an
     /// extension killed at about 120 MB, and the sheet gone with nothing
     /// said. A `UIImage` only as the last resort, bounded (`object`).
@@ -279,29 +282,45 @@ extension ShareItems {
 
         let width = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0
         let height = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0
-        let available = SharedPhoto.availableMemory()
-        guard let factor = SharedPhoto.factor(width: width, height: height, type: kind,
-                                              available: available ?? SharedPhoto.assumedAvailable)
-        else {
-            report.went = .tooLargeForMemory(
-                needs: SharedPhoto.leastPeak(width: width, height: height, type: kind),
-                available: available)
+        // At most 4096 px; in the composer, at its own size where it fits
+        // the room as it is, a HEIC as Photos' JPEG of it went (B-142).
+        var most = SharedPhoto.most(staging.photos, size: size, room: staging.room)
+        while true {
+            let available = SharedPhoto.availableMemory()
+            guard let factor = SharedPhoto.factor(width: width, height: height, type: kind,
+                                                  available: available ?? SharedPhoto.assumedAvailable,
+                                                  most: most)
+            else {
+                report.went = .tooLargeForMemory(
+                    needs: SharedPhoto.leastPeak(width: width, height: height, type: kind, most: most),
+                    available: available)
+                return .staged(nil)
+            }
+            report.went = .jpeg(factor: factor, available: available)
+            report.made = SharedPhoto.size(width: width, height: height, factor: factor, most: most)
+            guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties,
+                                              factor: factor, most: most)
+            else {
+                report.went = .leftOut("not made a JPEG")
+                return .undecodable
+            }
+            let name = SharedPhoto.name(named, way: .jpeg, number: staging.unnamed)
+            report.name = name
+            if let item = staging.photo(jpeg, named: name, unnamed: named == .none) {
+                return .staged(item)
+            }
+            let over = Int64(jpeg.count) > staging.room
+            // Made at its own size and larger than the room: made again at
+            // 4096 px, as a picture over the room was made smaller before.
+            if over, let again = SharedPhoto.again(width: width, height: height, factor: factor,
+                                                   most: most) {
+                report.ownSizeOverRoom = Int64(jpeg.count)
+                most = again
+                continue
+            }
+            report.went = .leftOut(over ? "no room" : "not written")
             return .staged(nil)
         }
-        report.went = .jpeg(factor: factor, available: available)
-        guard let jpeg = SharedPhoto.jpeg(from: source, at: index, properties: properties,
-                                          factor: factor)
-        else {
-            report.went = .leftOut("not made a JPEG")
-            return .undecodable
-        }
-        let name = SharedPhoto.name(named, way: .jpeg, number: staging.unnamed)
-        report.name = name
-        let item = staging.photo(jpeg, named: name, unnamed: named == .none)
-        if item == nil {
-            report.went = .leftOut(Int64(jpeg.count) > staging.room ? "no room" : "not written")
-        }
-        return .staged(item)
     }
 }
 
@@ -429,7 +448,8 @@ extension SharedPhoto {
     }
 
     /// The picture at `index` of `source` as a JPEG, read at `factor`: at
-    /// most `longestSide` px, never made larger (`size`), turned upright,
+    /// most `most` px, `longestSide` but in the composer (`Bound`), never
+    /// made larger (`size`), turned upright,
     /// the colour profile it has, `quality`, and of its metadata only what
     /// `kept` keeps. Nil when ImageIO cannot make one.
     ///
@@ -449,10 +469,12 @@ extension SharedPhoto {
     /// WebP, a BMP, is decoded whole whatever is asked, and then made
     /// smaller.
     static func jpeg(from source: CGImageSource, at index: Int,
-                     properties: [String: Any], factor halving: Int) -> Data? {
+                     properties: [String: Any], factor halving: Int,
+                     most: Int = longestSide) -> Data? {
         let width = properties[kCGImagePropertyPixelWidth as String] as? Int ?? 0
         let height = properties[kCGImagePropertyPixelHeight as String] as? Int ?? 0
-        let longest = size(width: width, height: height, factor: halving)?.longest ?? longestSide
+        let longest = size(width: width, height: height, factor: halving, most: most)?.longest
+            ?? longestSide
         var thumbnail: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceThumbnailMaxPixelSize: longest,
