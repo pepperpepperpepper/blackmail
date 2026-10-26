@@ -68,7 +68,8 @@ final class SignatureLikeMailTests: XCTestCase {
 
             """), sheet)
 
-        let body = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"])
+        let body = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"],
+                                    flowed: false)
         XCTAssertTrue(page.contains("<div id=\"bm\">" + body + "</div>"), page)
         XCTAssertTrue(body.contains(AppleMailHTML.signatureOpen + "<div dir=\"ltr\">"
                                     + "<table style=\"" + AppleMailHTML.signatureTableStyle + "\">"
@@ -85,7 +86,8 @@ final class SignatureLikeMailTests: XCTestCase {
         XCTAssertFalse(sheet.contains("bm-signature"), sheet)
         XCTAssertEqual(filters(sheet), [SignatureSheet.invert, SignatureSheet.invert])
         XCTAssertTrue(sheet.contains(".bm-html { filter: \(SignatureSheet.invert); background: #fff;"), sheet)
-        let body = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"])
+        let body = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"],
+                                    flowed: false)
         XCTAssertEqual(PanePage.stackBody(signed), .init(html: body, isHTML: true))
         XCTAssertTrue(html.contains("<div class=\"bm-body bm-html\">" + body + "</div>"), html)
     }

@@ -187,10 +187,7 @@ final class PlainQuoteBarsTests: XCTestCase {
     /// On paper the same quote, with Mail's light colours, as the paper is
     /// white and not inverted; none of the pane's dark ones.
     func testThePrintHasTheBarsInMailsLightColours() throws {
-        let page = PrintPage.letter(quoted, style: .init(senderPointSize: 17, metaPointSize: 15,
-                                                          subjectPointSize: 18, bodyPointSize: 17,
-                                                          lineHeight: 1.41),
-                                    size: { "\($0) bytes" })
+        let page = printed(quoted)
         XCTAssertTrue(page.contains("\(open)On Monday, Carlo wrote:\nThe roses?\(close)</div></body>"), page)
         let sheet = try XCTUnwrap(page.components(separatedBy: "</style>").first)
         XCTAssertTrue(sheet.hasSuffix("\n" + QuoteBars.css(in: "#bm") + "\n"), sheet)
@@ -207,6 +204,22 @@ final class PlainQuoteBarsTests: XCTestCase {
         let flowed = try XCTUnwrap(PanePage.letter(m, style: style))
         XCTAssertTrue(flowed.contains("<div id=\"bm\">\(open)One.\n> Two?\(close)</div>"), flowed)
         XCTAssertEqual(PanePage.stackBody(m).html, "\(open)One.\n&gt; Two?\(close)")
+    }
+
+    /// On paper too: a flowed letter prints the one quote the pane draws,
+    /// and the same words not flowed print the two.
+    func testAFlowedLetterPrintsAsFlowedText() {
+        var m = PaneLetters.letter(text: "> One.\n> > Two?")
+        XCTAssertTrue(printed(m).contains("<div id=\"bm\">\(open)One.\n\(open)Two?\(close)\(close)</div>"),
+                      printed(m))
+        m.textIsFlowed = true
+        XCTAssertTrue(printed(m).contains("<div id=\"bm\">\(open)One.\n> Two?\(close)</div>"), printed(m))
+    }
+
+    private func printed(_ m: Message) -> String {
+        PrintPage.letter(m, style: .init(senderPointSize: 17, metaPointSize: 15, subjectPointSize: 18,
+                                         bodyPointSize: 17, lineHeight: 1.41),
+                         size: { "\($0) bytes" })
     }
 
     // MARK: - Flowed, read from the letter

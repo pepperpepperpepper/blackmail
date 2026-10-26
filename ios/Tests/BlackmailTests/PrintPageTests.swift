@@ -254,7 +254,7 @@ final class PrintPageTests: XCTestCase {
                 continue
             }
             let content = PanePage.content(text: m.textBody, html: m.htmlBody,
-                                           known: PanePage.contentIDs(of: m))
+                                           known: PanePage.contentIDs(of: m), flowed: m.textIsFlowed)
             XCTAssertEqual(Array(printed.utf8), Array(PrintPage.decodedAtOnce(content).utf8), "letter \(i)")
             if !content.lowercased().contains("<img") {
                 XCTAssertEqual(Array(printed.utf8), Array(content.utf8), "letter \(i)")
@@ -484,7 +484,8 @@ final class PrintPageTests: XCTestCase {
         for pane in ["bm-signature", "filter", "invert"] {
             XCTAssertFalse(sheet.contains(pane), pane)
         }
-        let content = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"])
+        let content = PanePage.content(text: nil, html: PanePageTests.signedLetter, known: ["sig-logo"],
+                                       flowed: false)
         let printed = try body(page)
         XCTAssertEqual(printed, PrintPage.decodedAtOnce(content))
         XCTAssertTrue(AppleMailHTML.signatureOpen.contains("background-color: #ffffff; color: #000000;"))

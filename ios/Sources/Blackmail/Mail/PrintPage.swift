@@ -175,7 +175,8 @@ enum PrintPage {
         if let html = m.htmlBody {
             let cut = Self.cut(html, to: htmlLimit)
             return (notice(cut != nil || m.isShortened)
-                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known)), true)
+                        + decodedAtOnce(PanePage.content(text: nil, html: cut ?? html, known: known,
+                                                         flowed: false)), true)
         }
         let text = m.textBody ?? ""
         let cut = Self.cut(text, to: textLimit)

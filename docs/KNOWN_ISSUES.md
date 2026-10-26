@@ -30276,8 +30276,8 @@ rules, every filter the one invert. That last test pins what B-146 left
 as it was, the marker he sends and the invert, so only a change to them
 fails it.
 
-The full suite, serially, on the branch with B-145 and B-147: 2,680
-tests, 20 of them new for the three, 6 skipped, none failing. The release
+The full suite, serially, on the branch with B-145 and B-147: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
 build for the iPad links.
 
 **Not covered.**
@@ -30363,7 +30363,8 @@ left a plain letter's to the owner. Nothing read `format=flowed`.
    `Message.textIsFlowed` from the letter fetched whole, from one fetched
    in part (`IMAPMailRepository`, whose structure says it) and from the
    copy kept on the iPad, which is decoded again; handed to the page, the
-   stack and the print.
+   stack and the print. `PanePage.content`, which the page and the print
+   share, has no default for it, so neither can leave it out.
 
 **Reverses** B-101's "plain quotes have no bar" (and its line in
 `QuoteBars`' comment).
@@ -30385,7 +30386,7 @@ and deeper green; no ">" before the lines. The same in a conversation and
 in Print's preview, there in Mail's light colours on the white. A line
 ">From …" as before. A link in a quote is blue and opens at a tap.
 
-**Tests.** `PlainQuoteBarsTests`, thirteen, new: a quote made Mail's
+**Tests.** `PlainQuoteBarsTests`, fourteen, new: a quote made Mail's
 blockquote, the marks and one space gone, beginning and ending at its
 lines, a blank quoted line, a mark alone, a quote at the end; each mark
 more a deeper quote and fewer closing them, "> > ", ">> ", "> >> " and
@@ -30403,10 +30404,10 @@ its body whole and the dark rules after the links' colour, no light
 colour, no filter; the same letter in a stack, escaped as the stack
 escapes, at first draw and by `bmFill`, the `.bm-text` rules after the
 `.bm-html` ones; on paper, the quote and the light rules, no dark colour;
-a page counting as flowed text only when the letter is; flowed read from
-seven letters' parts (one part, quoted and in capitals, Apple Mail's
-pair, a mixed letter with one part not flowed, every part flowed, HTML
-alone), by `decodeMessage` and by `bodyPlan`; and through the shipping
+a page counting as flowed text only when the letter is, and its print the
+same; flowed read from seven letters' parts (one part, quoted and in
+capitals, Apple Mail's pair, a mixed letter with one part not flowed,
+every part flowed, HTML alone), by `decodeMessage` and by `bodyPlan`; and through the shipping
 repository and the scripted server, a flowed letter opened whole, one too
 large opened in part, and one not flowed, each `textIsFlowed` and page as
 it should be. Changed: `PanePageTests`, the page byte for byte with a
@@ -30414,7 +30415,8 @@ plain letter's dark rules taken out as the HTML's light ones are, the
 quoted letter left out of it and of the stack's body byte for byte,
 checked in the new class instead, a plain letter's rules found once; `ConversationDocumentTests`, the stack's rules
 for both kinds of body; `PrintPageTests`, the light rules on every
-letter's paper.
+letter's paper, and each letter's body the pane's with its own flowed;
+it and `SignatureLikeMailTests` naming `flowed` where they draw a body.
 
 Each undone by hand in the worktree, then put back and passing, the
 touched classes run, in four runs, several at once where they reach
@@ -30434,10 +30436,12 @@ markup bound, 1 in 1; a ">From " line taken for a quote, 6 in 1; a tag at
 a link's start put after the link, 2 in 1; Mail's dark violet a shade
 off, 2 in 1; the flowed mark not set by `flatten`, 8 in 2, from
 `decodeMessage` and through the repository, whole and in part; and not
-handed on by the repository, 2 in 1.
+handed on by the repository, 2 in 1; the print's body as text not
+flowed (`flowed: false` in `PrintPage.body`), 1 in 1, which nothing caught
+before that test.
 
-The full suite, serially, on the branch with B-145 and B-146: 2,680
-tests, 20 of them new for the three, 6 skipped, none failing. The release
+The full suite, serially, on the branch with B-145 and B-146: 2,681
+tests, 21 of them new for the three, 6 skipped, none failing. The release
 build for the iPad links.
 
 **Not covered.**
@@ -30458,3 +30462,16 @@ build for the iPad links.
   inverted, so they are Mail's dark colours as written.
 - A flowed letter's soft line breaks are kept, as before; Mail joins them
   (above).
+- Two violets in one conversation. A plain letter's quote is Mail's dark
+  violet, rgb(191, 90, 242), and an HTML letter's, Mail's light one
+  inverted, about rgb(152, 150, 255) (`QuoteBars`), so a plain reply
+  beside an HTML one shows the same level in two colours; Mail shows one.
+  Not built.
+- A sender's style sheet in a conversation. The stack is one document,
+  and an HTML letter's own `<style>` applies to the whole of it (B-095);
+  a plain letter's quotes are blockquotes now, so a rule of another
+  letter's on `blockquote`, `display: none` or a `font-size`, reaches
+  them, where `QuoteBars` makes only the padding, margin, border and
+  colour important. Mail draws each letter of a conversation in a page of
+  its own. An HTML letter's quotes were open to it already; a plain
+  letter's are new to it. Not built.

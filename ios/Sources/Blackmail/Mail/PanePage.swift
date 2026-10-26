@@ -95,7 +95,8 @@ enum PanePage {
         // A file sent among the words has its row where it sat, a link that
         // opens it (`BodyFiles`, B-113); a letter with none is as it was.
         let content = isHTML
-            ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m)), of: m)
+            ? BodyFiles.rows(in: Self.content(text: nil, html: m.htmlBody, known: contentIDs(of: m),
+                                              flowed: false), of: m)
             : Self.content(text: m.textBody, html: nil, known: contentIDs(of: m), flowed: m.textIsFlowed)
 
         // Every property lives on #bm, a container the inner document cannot
@@ -169,8 +170,10 @@ enum PanePage {
     /// blockquotes, as deep as `flowed` text counts them (`PlainQuotes`,
     /// B-147); with the links it writes out made links. The pane's page
     /// (`letter`) and a printed letter's (`PrintPage`, B-110) both draw it,
-    /// so a printed letter is the letter he read.
-    static func content(text: String?, html: String?, known: Set<String>, flowed: Bool = false) -> String {
+    /// so a printed letter is the letter he read. `flowed` has no default,
+    /// so neither can leave it out and count a flowed letter's quotes as
+    /// one not flowed.
+    static func content(text: String?, html: String?, known: Set<String>, flowed: Bool) -> String {
         if let html {
             return TextLinks.html(InlineImageRewriter.rewrite(DocumentWrapper.stripped(from: html),
                                                               known: known))
