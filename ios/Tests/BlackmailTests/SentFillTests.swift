@@ -252,6 +252,29 @@ final class SentFillTests: XCTestCase {
         XCTAssertEqual(other.snapshot().first { $0.address == "second@example.com" }?.uses, 41)
     }
 
+    /// One ranking with his Contacts (B-162): the book filled from Sent
+    /// Mail is written to as before, so of those that start alike its
+    /// people come first, his own above them by the fill's one more, then
+    /// his cards in Contacts' order, then the addresses only seen. A card
+    /// naming an address he wrote to names its row, where it stands.
+    func testTheFilledBookAndHisContactsMakeOneRanking() {
+        book.keepOwn(mine)
+        book.noteOwn(address: "owner@example.com", name: "Sam Owner")
+        book.note(address: "owlet@example.net")
+        book.fill(with: [entry("owen@example.org", name: "Owen Example", uses: 40, at: days(1))],
+                  besides: mine)
+        let cards = [ContactCard(name: "Owain Card", givenName: "Owain", familyName: "Card",
+                                 addresses: ["owain@example.com"]),
+                     ContactCard(name: "Owen Ex", givenName: "Owen", familyName: "Ex",
+                                 addresses: ["owen@example.org"])]
+        let rows = AddressSuggestions.rank(book: book.snapshot(), contacts: cards, matching: "ow",
+                                           limit: RecipientBook.suggestionLimit)
+        XCTAssertEqual(rows.map(\.address), ["owner@example.com", "owen@example.org",
+                                              "owain@example.com", "owlet@example.net"])
+        XCTAssertEqual(rows[1].name, "Owen Ex", "named as his card names it")
+        XCTAssertEqual(rows[1].uses, 40, "and counted as the book counts it")
+    }
+
     /// The same for a book told his addresses as a repository is made,
     /// before any fill: a book full of people chosen keeps them.
     func testABookToldHisAddressesNeverEvictsThem() {

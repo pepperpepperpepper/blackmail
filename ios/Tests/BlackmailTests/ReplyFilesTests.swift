@@ -459,8 +459,11 @@ final class ReplyFilesWiringTests: XCTestCase {
                 + "self.replyFiles = replyFiles",
             "field.addTarget(self, action: #selector(addressEditingEnded(_:)), for: .editingDidEnd)",
             "field.addTarget(self, action: #selector(addressEditingChanged(_:)), for: .editingChanged)",
+            // Then iOS's question for his Contacts, since B-162
+            // (`ContactSuggestionsTests`).
             "@objc private func addressEditingChanged(_ field: RecipientField) { activeAddressField = field "
-                + "refreshSuggestions(after: .typed) updateSend() followRecipients() }",
+                + "refreshSuggestions(after: .typed) updateSend() followRecipients() "
+                + "AddressContacts.shared.heTyped { [weak self] in self?.contactsCameIn() } }",
             "@objc private func addressEditingEnded(_ field: RecipientField) { followRecipients()",
             "refreshSuggestions(after: .picked) updateSend() letterEdited() followRecipients() }",
             "followRecipients() opened = currentLetter()",

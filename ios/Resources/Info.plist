@@ -99,6 +99,13 @@
 	<string>3</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Contacts (B-162). Suggested in To, Cc and Bcc as he types, beside
+	     the people he has written to, as Mail suggests them. iOS asks
+	     once, the first time he types in an address field, never at
+	     launch; without these words the question would end the app. The
+	     share extension never asks: the app hands it what it read. -->
+	<key>NSContactsUsageDescription</key>
+	<string>As you type, Blackmail suggests people from your Contacts.</string>
 	<!-- Photos (B-067). "Save to Photos" on a picture in a letter, and
 	     "Save Image" from a file's preview, add to his library; without
 	     this the first ended the app, and iOS left the second out. Read

@@ -106,7 +106,8 @@ enum ComposeForm {
         case bubbleTapped
     }
 
-    /// The rows the address field offers under it, from `book`, after
+    /// The rows the address field offers under it, from `book` and his
+    /// Contacts (`contacts`, B-162, ranked by `AddressSuggestions`), after
     /// `event`, with `field` as it now reads.
     ///
     /// Mail offers addresses only while he types a name or an address.
@@ -123,9 +124,10 @@ enum ComposeForm {
     /// Nothing is offered once what he has typed holds an "@", and no
     /// address already in the field is offered again, in any spelling
     /// (B-069).
-    static func suggestions(_ book: [KnownRecipient], field: String, after event: FieldEvent,
+    static func suggestions(_ book: [KnownRecipient], contacts: [ContactCard] = [], field: String,
+                            after event: FieldEvent,
                             limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
-        suggestions(book, present: MailFormat.addresses(in: field), typing: field,
+        suggestions(book, contacts: contacts, present: MailFormat.addresses(in: field), typing: field,
                     after: event, limit: limit)
     }
 
@@ -142,16 +144,21 @@ enum ComposeForm {
     /// and the list is offered for them; whatever else changes the line
     /// under the menu, a comma in the middle of it or a letter taken back,
     /// offers nothing until the menu goes.
-    static func suggestions(_ book: [KnownRecipient], in field: RecipientBubbles, after event: FieldEvent,
+    static func suggestions(_ book: [KnownRecipient], contacts: [ContactCard] = [],
+                            in field: RecipientBubbles, after event: FieldEvent,
                             limit: Int = RecipientBook.suggestionLimit) -> [KnownRecipient] {
         guard field.selected == nil else { return [] }
-        return suggestions(book, present: field.recipients, typing: field.typed, after: event, limit: limit)
+        return suggestions(book, contacts: contacts, present: field.recipients, typing: field.typed,
+                           after: event, limit: limit)
     }
 
     /// The rows for `typing`, its last recipient begun the query, leaving
-    /// out everyone `present`.
-    private static func suggestions(_ book: [KnownRecipient], present: [String], typing: String,
-                                     after event: FieldEvent, limit: Int) -> [KnownRecipient] {
+    /// out everyone `present`. His Contacts by the same rules as the book:
+    /// nothing until he types, nothing once he has typed an "@", nobody
+    /// already in the field (B-162).
+    private static func suggestions(_ book: [KnownRecipient], contacts: [ContactCard], present: [String],
+                                     typing: String, after event: FieldEvent,
+                                     limit: Int) -> [KnownRecipient] {
         guard event == .typed else { return [] }
         let typed = MailFormat.currentRecipientToken(in: typing)
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -159,8 +166,8 @@ enum ComposeForm {
         let present = Set(present
             .map { MailFormat.bareAddress($0).lowercased() }
             .filter { !$0.isEmpty })
-        return RecipientBook.rank(book.filter { !present.contains($0.address.lowercased()) },
-                                  matching: typed, limit: limit)
+        return AddressSuggestions.rank(book: book, contacts: contacts, matching: typed,
+                                       besides: present, limit: limit)
     }
 
     // MARK: - Cc and Bcc

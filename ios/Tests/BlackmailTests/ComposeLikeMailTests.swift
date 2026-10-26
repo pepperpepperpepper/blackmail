@@ -300,9 +300,10 @@ final class ComposeLikeMailTests: XCTestCase {
         // Then a reply's files follow the bubbles (B-107).
         XCTAssertTrue(composer.contains("t.deselectRow(at: ip, animated: false) "
             + "refreshSuggestions(after: .picked) updateSend() letterEdited() followRecipients() }"))
-        // The field's bubbles, a recipient each, since B-076.
+        // The field's bubbles, a recipient each, since B-076; his Contacts
+        // beside the book since B-162.
         XCTAssertTrue(composer.contains("ComposeForm.suggestions(RecipientBook.shared.snapshot(), "
-            + "in: field.bubbles, after: event)"))
+            + "contacts: AddressContacts.shared.snapshot(), in: field.bubbles, after: event)"))
         XCTAssertTrue(composer.contains("refreshSuggestions(after: .entered)"))
         XCTAssertTrue(composer.contains("refreshSuggestions(after: .typed)"))
         let share = try source(Self.share)
@@ -353,10 +354,12 @@ final class ComposeLikeMailTests: XCTestCase {
         XCTAssertTrue(share.contains("offer(field, after: .bubbleTapped)"))
         XCTAssertEqual(count("suggestions = ", in: share), 1)
         XCTAssertTrue(share.contains("suggestions = sheet.suggestions("))
+        // His Contacts as the app mirrored them, beside the book, since
+        // B-162.
         XCTAssertTrue(try source(Self.shareRules).contains(
             "func suggestions(for field: String, after event: ComposeForm.FieldEvent = .typed) "
                 + "-> [KnownRecipient] { ComposeForm.suggestions(shared.recipients, "
-                + "field: field, after: event) }"))
+                + "contacts: shared.contacts, field: field, after: event) }"))
 
         for (file, code) in [(Self.composer, composer), (Self.share, share)] {
             let assigned = count("suggestionsView.isHidden = ", in: code)

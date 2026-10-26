@@ -407,7 +407,7 @@ final class NewMailBannersTests: XCTestCase {
                                         + "{ start() } NewMailTask.register() "
                                         + "UNUserNotificationCenter.current().delegate = self "
                                         + "return true }"))
-        XCTAssertTrue(delegate.contains("Self.syncShareMirror() if window != nil "
+        XCTAssertTrue(delegate.contains("Self.syncShareMirror(readingContacts: false) if window != nil "
                                         + "{ NewMailTask.leaving() } }"))
         XCTAssertTrue(delegate.contains("{ Diagnostics.wentAwayOrCameBack() "
                                         + "NewMailTask.cameToFront() start() "

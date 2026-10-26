@@ -125,7 +125,7 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
         Diagnostics.wentAwayOrCameBack()
         RecipientBook.shared.flush()
         (window?.rootViewController as? RootViewController)?.repository.shelf?.flush()
-        Self.syncShareMirror()
+        Self.syncShareMirror(readingContacts: false)
         if window != nil { NewMailTask.leaving() }
     }
 
@@ -205,14 +205,29 @@ public final class AppDelegate: UIResponder, UIApplicationDelegate {
     private static let mirrorQueue = DispatchQueue(label: "wtf.uhoh.blackmail.share-mirror",
                                                    qos: .utility)
 
-    private static func syncShareMirror() {
+    /// His Contacts are read again here too, if he has said yes, for the
+    /// composer and for the extension (B-162): a card changed in Contacts
+    /// is offered from his next return to the app. Never asked for here;
+    /// only his typing in an address field asks (`AddressContacts`).
+    ///
+    /// Read at launch and on his return, and not as the app goes into the
+    /// background (`readingContacts` false), where iOS may suspend the app
+    /// halfway through a read that his return makes again anyway; the copy
+    /// is left as it is then. And never in a launch that follows launches
+    /// in a row that never finished (`SafeStart`, from its first step): the
+    /// read is in the seconds after the first frame, and a card that ended
+    /// every launch inside Contacts would otherwise be read again at each.
+    private static func syncShareMirror(readingContacts: Bool = true) {
+        let reads = readingContacts && !SafeStart.app.steps.forgetsKeptState
         mirrorQueue.async {
+            let contacts = reads ? AddressContacts.shared.readIfAllowed() : nil
             guard let mirror = ShareMirror.app else { return }
             let account = CredentialStore.loadAccount()
             mirror.sync(account: account,
                         password: account.flatMap(CredentialStore.loadPassword(for:)),
                         signatureImages: SignatureImages.load(),
-                        book: .shared)
+                        book: .shared,
+                        contacts: contacts)
         }
     }
 

@@ -97,6 +97,9 @@ final class ComposeViewController: UIViewController,
     private let suggestionsView = UITableView(frame: .zero, style: .plain)
     private var suggestions: [KnownRecipient] = []
     private weak var activeAddressField: RecipientField?
+    /// What last happened in an address field, for the list to be offered
+    /// again as it was when his Contacts come in at his yes (B-162).
+    private var lastAddressEvent: ComposeForm.FieldEvent = .entered
     private static let suggestionRowHeight: CGFloat = Theme.suggestionRowHeight
 
     /// Send and Save Draft, in the order each has to happen, what the sheet
@@ -1111,6 +1114,17 @@ final class ComposeViewController: UIViewController,
         refreshSuggestions(after: .typed)
         updateSend()
         followRecipients()
+        // iOS's question for his Contacts, the first time he ever types in
+        // an address field, and never again once answered (B-162).
+        AddressContacts.shared.heTyped { [weak self] in self?.contactsCameIn() }
+    }
+
+    /// His Contacts read at his yes (B-162): the list offered again, with
+    /// them, for what the field holds, while he is still in it. What last
+    /// happened there decides, so a list a pick had closed stays closed.
+    private func contactsCameIn() {
+        guard let field = activeAddressField, field.isEditing else { return }
+        refreshSuggestions(after: lastAddressEvent)
     }
 
     /// Leaving the field, which has made a bubble of what he typed and
@@ -1129,10 +1143,13 @@ final class ComposeViewController: UIViewController,
 
     /// What the field offers after `event` (`ComposeForm.suggestions`):
     /// matches only while he types; nothing as he goes in (B-073), and
-    /// nothing once he has picked one, until he types again.
+    /// nothing once he has picked one, until he types again. From the book
+    /// and from his Contacts, as Mail offers them (B-162).
     private func refreshSuggestions(after event: ComposeForm.FieldEvent) {
         guard let field = activeAddressField else { return }
+        lastAddressEvent = event
         suggestions = ComposeForm.suggestions(RecipientBook.shared.snapshot(),
+                                              contacts: AddressContacts.shared.snapshot(),
                                               in: field.bubbles, after: event)
         suggestionsView.reloadData()
         layoutSuggestions(under: field)

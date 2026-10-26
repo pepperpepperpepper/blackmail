@@ -114,6 +114,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       own. Then add his second address in Blackmail's Settings with "Add
       Another Email…", and Save (B-076; until then a half name in search
       can ask for it, B-123).
+- [ ] On the day, with him or his helper: Blackmail's New Message, one
+      letter typed in To, and iOS's question about Contacts answered with
+      Allow (on iPadOS 18, Continue, then share all of them); then Cancel
+      and Delete Draft. Until then the share sheet offers none of his
+      Contacts, and he would meet the question alone in the middle of a
+      letter, where a Don't Allow is for good and nothing in the app says
+      so (B-162).
 
 **Ways a letter is lost** (all confirmed in the code):
 
@@ -340,13 +347,16 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       pane, with UIKit's "Undo Trash" or "Undo Move", the letters moved
       back and their rows where they stood, and a Flag, "Undo Flag", as
       Mail is reported to; and its check under "Blocked on the iPad coming
-      back". Contacts still open.*
+      back".*
       *App badge and notifications ruled 2026-10-26: copy Apple Mail. Built
       as B-161, not yet seen on the iPad: the Inbox's unread count on the
       icon, and a banner for each new unread Inbox letter from a check iOS
       wakes the app for while the iPad is on charge and on Wi-Fi, as Mail
       fetches from the factory, after iOS's own question; its check under
       "Blocked on the iPad coming back".*
+      *Contacts in address suggestions: ruled 2026-10-26: copy Apple Mail.
+      Built as B-162, and its check under "Blocked on the iPad coming
+      back".*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
       status bar to go to the top, Print. *The sent sound done 2026-10-22,
       seen on the iPad the same day, whether it is heard left for a
@@ -8551,6 +8561,59 @@ checks below is left as not needed, not open, and none is worth a round.*
       10. *Put back:* the letter of 2 marked read again; the UIDs the host
       noted in 3 and 4, and only them, moved to the Trash, answered by
       COPYUID. Nothing else was written.
+- [ ] **B-162, his Contacts in To, Cc and Bcc.** On the test iPad, the
+      test account only, from a build of the `bm-cm-contacts` worktree
+      (branch `copy-contacts`) or of the int it is merged into. Nothing is
+      sent, saved or deleted in the app: each letter begun is closed with
+      Cancel and Delete Draft, which keeps nothing. Screenshots of the
+      sheet name no one but the made-up cards below.
+      0. *Before.* Settings > Privacy & Security > Contacts: if Blackmail
+      is listed, its question has been answered and 1 cannot be seen;
+      write down the switch, and ask the owner before Reset Location &
+      Privacy, which asks every app again. In the Contacts app, by hand,
+      three cards: "Sam Carlo" (first Sam, last Carlo) with
+      sam@example.com and scarlo@example.org, in that order; "Pat Núñez"
+      with pat@example.net; "Jo Pine" with no address. The host APPENDs
+      two letters, read (`\Seen`), to the label "Notes", never the Inbox,
+      each with a new Message-ID and naming nobody on the account, one
+      From "Sammy <sam@example.com>" and one From "Sales
+      <sales@example.org>", and notes their UIDs from APPENDUID. In the
+      app, "Notes" opened once so their rows are listed, then the Inbox.
+      1. *Asked as he types, not before.* Blackmail ended and opened
+      again: no question at launch. New Message: To tapped, no question
+      and no list. "s" typed: iOS's question over the sheet, at once,
+      with the line "As you type, Blackmail suggests people from your
+      Contacts." Written down: its title and buttons as the iPad shows
+      them. OK (Allow) tapped: without another key, the list under To
+      has Sam Carlo's two rows among its matches, each "Sam Carlo" with
+      its address under it.
+      2. *What matches.* "a" typed after the "s": sam@example.com and
+      scarlo@example.org, both "Sam Carlo", ahead of "Sales"; nobody
+      named "Sammy". To emptied, then "car": Sam Carlo's two rows; "arlo":
+      neither; "nun": Pat Núñez; "scar": scarlo@example.org alone; "jo":
+      no Jo Pine. Cc/Bcc tapped, "car" in Cc: the same two rows.
+      3. *A pick.* In To, "sa", then sam@example.com tapped: a bubble
+      "Sam Carlo", the list closed. "sa" again: scarlo@example.org ("Sam
+      Carlo"), then "Sales"; no sam@example.com. Cancel, Delete Draft.
+      4. *Asked once.* The app to the background and back, New Message,
+      "c" in To: no question. Ended and opened again, the same.
+      5. *The share sheet.* Blackmail opened once after 1, then Safari on
+      example.com, Share, Blackmail: no question; "car" in To: Sam
+      Carlo's two rows. Cancel.
+      6. *A no.* Settings > Privacy & Security > Contacts, Blackmail off.
+      Back in Blackmail, New Message, "car" in To: no Sam Carlo, no
+      question. Cancel. The share sheet from Safari, "car": no Sam Carlo.
+      Cancel. Blackmail's switch back on: its next return offers him
+      again.
+      The people he has written to coming before his Contacts is not
+      looked for here, as it needs a letter sent; the host pins it
+      (`ContactSuggestionsTests`).
+      7. *Put back:* the three cards deleted in Contacts; Blackmail's
+      Contacts switch as written down in 0 (off if it was never asked).
+      The host moves the UIDs it noted, and only them, from "Notes" to
+      the Trash (`UID MOVE`), and deletes in the Trash only the UIDs that
+      move answered (`COPYUID`); a UID not noted is left, and written
+      down.
 
 ## Blocked on the owner
 

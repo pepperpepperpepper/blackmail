@@ -568,8 +568,10 @@ final class ReplyLikeMailTests: XCTestCase {
                 XCTAssertFalse(code.contains(text), "\(file): \(text)")
             }
         }
+        // His Contacts beside the book since B-162.
         XCTAssertTrue(try source(Self.composer).contains("suggestions = ComposeForm.suggestions("
-            + "RecipientBook.shared.snapshot(), in: field.bubbles, after: event)"))
+            + "RecipientBook.shared.snapshot(), contacts: AddressContacts.shared.snapshot(), "
+            + "in: field.bubbles, after: event)"))
         XCTAssertTrue(try source(Self.share).contains("suggestions = sheet.suggestions(in: field.bubbles, "
             + "after: event)"))
         let composer = try source(Self.composer)
