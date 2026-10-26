@@ -253,6 +253,68 @@ final class FileListedOnceTests: XCTestCase {
         XCTAssertEqual(BodyFiles.inHeader(letter(text: nil, html: nil)).map(\.id), [], "the row's, at the tap")
     }
 
+    // MARK: - Its row shows it coming
+
+    /// With no row in the header, the row among the words shows the file
+    /// coming, as the header's row did with its spinner: dimmed, important,
+    /// "Loading…" after its name, once however often it is said, until the
+    /// pane says it has opened or been let go, and then as it was. On a
+    /// letter's own page and in a body of a stack; a file of another
+    /// letter changes nothing. The script run in node on the model of the
+    /// page (`ModelPage`).
+    func testItsRowAmongTheWordsShowsItComing() throws {
+        let letter = Self.message(BodyInOrderTests.among)
+        let coming = BodyFiles.Busy("2.2", of: letter.id, busy: true)
+        let done = BodyFiles.Busy("2.2", of: letter.id, busy: false)
+        let link = BodyFiles.link("2.2", of: letter.id)
+        XCTAssertEqual(coming.link, link)
+        XCTAssertEqual(coming.arguments["words"] as? String, "Loading…")
+        XCTAssertEqual(coming.arguments["busy"] as? Bool, true)
+        XCTAssertEqual(done.arguments["busy"] as? Bool, false)
+        let dimmed = ModelPage.Run.File(href: link, style: ["opacity": "0.5 !important"], marks: [" Loading…"])
+        let asItWas = ModelPage.Run.File(href: link, style: [:], marks: [])
+
+        let page = try XCTUnwrap(PanePage.letter(letter, style: style))
+        let other = BodyFiles.Busy("2.2", of: "7/9", busy: true)
+        var run = try model(page, [.busy(100, coming), .busy(120, other), .busy(150, coming)])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [dimmed], "coming, said twice, one mark")
+        run = try model(page, [.busy(100, coming), .busy(300, done)])
+        XCTAssertEqual(run.files, [asItWas], "opened or let go")
+        run = try model(page, [.busy(100, other)])
+        XCTAssertEqual(run.files, [asItWas], "another letter's file")
+
+        let entry = ConversationDocument.Entry(id: letter.id, sender: letter.sender, date: letter.date,
+                                               body: nil, isExpanded: true, preview: "The programme")
+        let stack = ConversationDocument.html(entries: [entry], inset: 20, bodyPointSize: 17, lineHeight: 1.4)
+        let fill = ConversationDocument.Fill(sectionID: ConversationDocument.sectionID(for: letter.id),
+                                             body: PanePage.stackBody(letter))
+        run = try model(stack, [.fill(50, fill), .busy(100, coming)])
+        XCTAssertEqual(run.errors, [])
+        XCTAssertEqual(run.files, [dimmed], "in a stack")
+        run = try model(stack, [.fill(50, fill), .busy(100, coming), .busy(200, done)])
+        XCTAssertEqual(run.files, [asItWas])
+    }
+
+    /// The pane, read: a tap shows the file coming on its row among the
+    /// words, whichever letter it is of, beside the header's spinner; the
+    /// `defer` that ends the download takes it off on the page it was
+    /// shown on, and not on a page given since; by script, in the app's
+    /// content world.
+    func testThePaneShowsTheRowComingFromTheTapToTheEnd() throws {
+        let code = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(code.contains(
+            "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
+                + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) let shown = loads.shown"))
+        XCTAssertTrue(code.contains(
+            "if message?.id == m.id { header.setAttachment(attachment.id, busy: false) } "
+                + "if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) } }"))
+        XCTAssertTrue(code.contains(
+            "private func run(_ busy: BodyFiles.Busy) { webView.callAsyncJavaScript(BodyFiles.Busy.script, "
+                + "arguments: busy.arguments, in: nil, in: .defaultClient) }"))
+        XCTAssertEqual(code.components(separatedBy: "BodyFiles.Busy(").count - 1, 2)
+    }
+
     // MARK: - The pane
 
     /// Read from the source: the header lists `BodyFiles.inHeader` and
@@ -271,6 +333,14 @@ final class FileListedOnceTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func model(_ page: String, _ steps: [ModelPage.Step]) throws -> ModelPage.Run {
+        do {
+            return try ModelPage.run(ConversationDocument.script, page: page, steps: steps, end: 400)
+        } catch is ModelPage.NoNode {
+            throw XCTSkip("node is not on this host")
+        }
+    }
 
     private func source(_ file: String) throws -> String {
         let url = URL(fileURLWithPath: #filePath)

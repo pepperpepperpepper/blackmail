@@ -38,7 +38,9 @@ import Foundation
 /// of a picture tapped is kept as it posted it (B-122). A finger can land
 /// on an element by its `id` (`down(_:on:)`), as WebKit sends a touch the
 /// element under it, and each picture's style set by the script is kept,
-/// as written, for the run's end (B-150).
+/// as written, for the run's end (B-150). So is each link to a file the
+/// pane opens, with the words of what the script put in it, and the pane
+/// showing a file coming is a step of its own (`BodyFiles.Busy`, B-148).
 ///
 /// The pane's word that the header over the stack changed height
 /// (`ConversationDocument.Shift`, B-128) is a step of its own. The move it
@@ -62,9 +64,12 @@ enum ModelPage {
         var before: String? = nil
         var id: String? = nil
         var isHTML: Bool? = nil
+        var link: String? = nil
+        var busy: Bool? = nil
+        var words: String? = nil
 
         enum CodingKeys: String, CodingKey {
-            case at, action = "do", y, silent, coast, html, before, id, isHTML
+            case at, action = "do", y, silent, coast, html, before, id, isHTML, link, busy, words
         }
 
         /// A finger lands at `y` on the pane; `silent`, with no touchstart
@@ -112,6 +117,12 @@ enum ModelPage {
         /// What `ConversationDocument.Shift` has the pane run when the
         /// header over the stack changes height (B-128).
         static func shift(_ at: Int) -> Step { Step(at: at, action: "shift") }
+        /// What `BodyFiles.Busy` has the pane run as a file is tapped and
+        /// as it ends (B-148).
+        static func busy(_ at: Int, _ busy: BodyFiles.Busy) -> Step {
+            Step(at: at, action: "busy", link: busy.link, busy: busy.busy,
+                 words: busy.arguments["words"] as? String)
+        }
     }
 
     /// What the run saw: every frame, what the script told the pane, what
@@ -124,6 +135,10 @@ enum ModelPage {
         /// Each picture's style as the script set it, by its `id`: a
         /// property and its value, `!important` after it when so (B-150).
         let styles: [String: [String: String]]
+        /// Each link to a file the pane opens (`BodyFiles`) at the end: its
+        /// `href`, its style as the script set it, and the words of each
+        /// element the script put in it (B-148).
+        let files: [File]
         let errors: [String]
         /// How many touch events the script stopped WebKit's own doing of
         /// (`preventDefault`).
@@ -188,6 +203,12 @@ enum ModelPage {
             }
         }
 
+        struct File: Decodable, Equatable {
+            let href: String
+            let style: [String: String]
+            let marks: [String]
+        }
+
         struct Call: Decodable {
             let t: Double
             let action: String
@@ -249,6 +270,7 @@ enum ModelPage {
             let ticks: Bool
             let every: Int
             let shift: String
+            let busy: String
         }
         let input = try JSONEncoder().encode(Input(
             script: script, html: page, steps: steps, end: end,
@@ -256,7 +278,7 @@ enum ModelPage {
             motion: pane == .silent ? nil : ConversationDocument.Motion.script,
             ticks: pane == .tells,
             every: Int((ConversationDocument.Motion.every * 1_000).rounded()),
-            shift: ConversationDocument.Shift.script))
+            shift: ConversationDocument.Shift.script, busy: BodyFiles.Busy.script))
 
         let node = Process()
         node.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -318,6 +340,7 @@ enum ModelPage {
           setProperty: function (name, value, priority) {
             props[name] = String(value) + (priority ? ' !' + priority : '');
           },
+          removeProperty: function (name) { delete props[name]; },
         };
       }
       get id() { return this.attrs.id || ''; }
@@ -581,7 +604,8 @@ enum ModelPage {
       }
     }
 
-    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [], styles: {} };
+    const out = { frames: [], posts: posts, pictures: pictures, errors: errors, stopped: 0, calls: [], styles: {},
+                  files: [] };
     function frame() {
       if (coast) {
         const step = coast.v * FRAME;
@@ -661,6 +685,11 @@ enum ModelPage {
         case 'shift':
           try { callBody(INPUT.shift, {}); } catch (e) { errors.push('shift: ' + e.message); }
           return;
+        case 'busy':
+          try {
+            callBody(INPUT.busy, { link: step.link, busy: step.busy, words: step.words });
+          } catch (e) { errors.push('busy: ' + e.message); }
+          return;
         case 'breakOnce': {
           const real = body.insertBefore;
           body.insertBefore = function () { body.insertBefore = real; throw new Error('broken once'); };
@@ -709,6 +738,12 @@ enum ModelPage {
     out.held = vm.runInThisContext('typeof bmHeld === "undefined" ? null : bmHeld.length');
     for (const el of documentElement.descendants()) {
       if (el.tagName === 'IMG' && el.id && Object.keys(el.style.props).length) out.styles[el.id] = el.style.props;
+      const href = el.getAttribute('href');
+      if (el.tagName === 'A' && href !== null && href.indexOf('bmfile:') === 0) {
+        out.files.push({ href: href, style: el.style.props,
+                         marks: el.children.filter(function (c) { return typeof c.textContent === 'string'; })
+                                           .map(function (c) { return c.textContent; }) });
+      }
     }
     process.stdout.write(JSON.stringify(out));
     """#

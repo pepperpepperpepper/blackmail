@@ -14,7 +14,8 @@ import Foundation
 /// `openFile`). The header no longer lists it (`inHeader`, B-148): Mail
 /// lists such a file once, where it sat. It kept its row there, from the
 /// tap as before (B-101), until 2026-10-26, so a PDF among the words had
-/// two.
+/// two. The row among the words shows its file coming as the header's
+/// row did (`Busy`).
 ///
 /// A mark of anything else stays a comment: a picture the body shows by
 /// `cid:`, a file the letter does not have, or a mark the sender wrote,
@@ -94,6 +95,38 @@ enum BodyFiles {
             + QuotedMarkup.escaped(file.filename + size) + "</a></div>"
     }
 
+    /// A file's row among the words shown coming while its file downloads,
+    /// and as it was once it has opened or been let go (B-148):
+    /// `ConversationDocument.script`'s `bmFileBusy`, called through
+    /// `callAsyncJavaScript` with the row's link, whether it is coming,
+    /// and the words it says so with.
+    ///
+    /// The header's row has its spinner for this, and a file among the
+    /// words has had no row there since B-148: a PDF of 20 MB tapped there
+    /// took six seconds with nothing on the screen to say the tap had
+    /// landed. Nor did a row of a letter of the conversation the header is
+    /// not on ever have one. Coming, the row is dimmed, as the header's row
+    /// is greyed, and "Loading…" follows its name, the pane's word for
+    /// what is on its way, where the header's row has its spinner. Every
+    /// row with the link, so a file with a row in the header too, after a
+    /// cut, has both shown. A link the page has no row for changes
+    /// nothing: a picture's, or a page drawn since.
+    struct Busy: Equatable {
+        let link: String
+        let busy: Bool
+
+        init(_ section: String, of letter: String, busy: Bool) {
+            link = BodyFiles.link(section, of: letter)
+            self.busy = busy
+        }
+
+        /// What `callAsyncJavaScript` runs, in the app's content world,
+        /// where `ConversationDocument.script` defined `bmFileBusy`.
+        static let script = "bmFileBusy(link, busy, words)"
+
+        var arguments: [String: Any] { ["link": link, "busy": busy, "words": PaneNotice.loading] }
+    }
+
     /// The files the reading pane's header lists for `m` (B-148): every
     /// file it lists (`Message.listedAttachments`) but the ones its page
     /// draws among the words, each of which has its row there and only
@@ -108,8 +141,13 @@ enum BodyFiles {
     /// keeps its row: the page is the pane's words for a letter with
     /// nothing in it (`PanePage.isEmpty`), or the plain words, the HTML
     /// refused by the server, or its mark is not in the HTML that came.
-    /// The header then grows by that row when the body comes: a file is
-    /// never left with no row anywhere.
+    /// The header then grows by that row when the body comes: once the
+    /// body has come, a file is never left with no row anywhere. Until
+    /// then it has none: a letter that could not be downloaded keeps the
+    /// header drawn from its row, its files grey and none for such a file,
+    /// under "This message could not be downloaded.", until a tap on it
+    /// fetches it again. The grey row it had there before could not open
+    /// it either.
     static func inHeader(_ m: Message) -> [Attachment] {
         let listed = m.listedAttachments
         guard listed.contains(where: \.isAmongWords) else { return listed }

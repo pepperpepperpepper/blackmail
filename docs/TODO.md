@@ -6950,7 +6950,13 @@ checks below is left as not needed, not open, and none is worth a round.*
       made by the host, sent among the letter's words as Mail on an iPad
       sends one (an HTML part, the PDF, an HTML part), so its row is among
       A's words (B-113) as well as in the header, and "note.txt" of a few
-      hundred bytes, so the letter is over 5 MiB and opened in parts. (B)
+      hundred bytes, so the letter is over 5 MiB and opened in parts. On a
+      build with B-148 the PDF has no row in the header: its one row is
+      the one among A's words, which shows it coming, dimmed with
+      "Loading…" after its name, where the header's row had its spinner.
+      There, in 1 to 4, "the large PDF's row" is that row among A's words
+      and "its spinner" its "Loading…", and in 1 A's header has one row,
+      note.txt's. (B)
       "Re: B-141 files", an hour later, its In-Reply-To and References
       naming A, with a PDF of about 100 KB.
       1. *The round's race:* "Notes", the conversation's row: B open, the
@@ -6982,8 +6988,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *One file tapped twice:* the header on A. Scroll to the large PDF's
       row among A's words, which has no spinner, and tap it; two seconds
       later tap it again, and a third time. The header's row has its
-      spinner throughout. The log has the PDF's part fetched once, and
-      Quick Look comes as that fetch ends, once. As first built, each tap
+      spinner throughout; on a build with B-148, which has no such row,
+      the row among A's words has its "Loading…" throughout. The log has
+      the PDF's part fetched once, and Quick Look comes as that fetch
+      ends, once. As first built, each tap
       fetched it again and Quick Look came after the last. Done. Tap it again: it opens
       again. Done.
       6. *Put back:* the host moves the two UIDs it noted, and only them,
@@ -7359,8 +7367,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       if one has none. Three panes unless a step says two; the app's
       connection log read after each step; the screen recorded at 60
       frames a second for 2 and 5.
-      1. *The letters,* "B-148 one", "B-148 end", "B-148 three" and "B-148
-      large": one, Apple Mail's shape for a PDF among the words, as B-113's
+      1. *The letters,* "B-148 one", "B-148 two", "B-148 end", "B-148
+      three" and "B-148 large": one, and two made as it is, Apple Mail's
+      shape for a PDF among the words, as B-113's
       check made it (multipart/alternative of the plain words and a
       multipart/mixed of an HTML part, a PDF of about 300 KB sent inline
       with no `Content-ID`, and an HTML part after it ending "Sent from my
@@ -7386,13 +7395,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       5. *Large:* "B-148 large" tapped: the log has its BODYSTRUCTURE first
       and then its words, not the PDF; no file in the header from the tap,
       and the header's lower rule at the same height in every frame to the
-      letter drawn; the PDF's blue row among the words, tapped: the log has
-      the PDF's FETCH, then Quick Look on it; Done.
+      letter drawn; the PDF's blue row among the words, tapped: it dims,
+      "Loading…" after its name, from the tap until Quick Look comes, in
+      the recording; the log has the PDF's FETCH, then Quick Look on it;
+      Done, the row as it was, blue, no "Loading…".
       6. *Forward's question,* on "B-148 one": the Reply button, Forward:
       Mail's question about its file (B-107) is asked, the PDF being the
       letter's file still. Cancel at the question, so nothing is begun.
       7. *Two panes,* 2 and 3 again, then three panes.
-      8. *Put back:* "Notes" left, the Inbox at its top. The host moves the
+      8. *No connection:* Airplane Mode on, "B-148 two", not opened before,
+      tapped: "This message could not be downloaded." under its header,
+      no file in the header and none in the body (B-148, Not covered).
+      Written down if it is shown whole instead, kept on the iPad. Airplane
+      Mode off, "B-148 two" tapped again: as "one" in 2.
+      9. *Put back:* "Notes" left, the Inbox at its top. The host moves the
       UIDs it noted, and only them, from "Notes" to the Trash, and deletes
       in the Trash only the UIDs that move answered. Nothing else was
       written.

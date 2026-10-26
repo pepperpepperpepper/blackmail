@@ -30159,20 +30159,40 @@ more, one of them above the words.
    header is drawn from the row (`Message.heading(for:)`), so the PDF is not
    in it from the first frame, and the letter landing takes nothing away:
    the header keeps its height. Once the body has come, a file the page
-   does not draw among the words after all keeps its row, so that no file
-   is ever left with no row anywhere: the HTML refused by the server and
-   the plain words shown in its place (B-114), HTML with nothing in it to
-   show ("This message has no text."), or a mark not in the HTML that
-   came. Only then does the header grow, by that row, as the body comes.
+   does not draw among the words after all keeps its row, so that once the
+   body has come no file is left with no row anywhere: the HTML refused by
+   the server and the plain words shown in its place (B-114), HTML with
+   nothing in it to show ("This message has no text."), or a mark not in
+   the HTML that came. Only then does the header grow, by that row, as the
+   body comes. Before the body has come the file has no row, and a letter
+   that could not be downloaded leaves it so (Not covered).
 5. Everything else that goes by a letter's files still has the PDF: its
    row among the words opens it (`openFile`), Forward and Reply's question
    (`ReplyFiles`), the paperclip on its list row, and a printed letter's
    header (`PrintPage`), whose words draw no rows.
+6. *Its row shows it coming* (`BodyFiles.Busy`, the script's
+   `bmFileBusy`). The header's row had its spinner from the tap until the
+   file opened or was let go, and the row among the words had nothing, so
+   a file among the words, with no row in the header now, showed nothing
+   at all while it came: 5.7 s for the PDF of 21.7 MB in B-141's check.
+   Now `openAttachment` shows the row among the words coming as it shows
+   the header's row busy, from the tap: dimmed to half, important, and
+   "Loading…", the pane's word for what is on its way, after its name;
+   and the `defer` that ends its download puts it back as it was, on the
+   page it was shown on only, since on a page given since the same row can
+   be coming for a tap of its own. For the letter alone and for any letter
+   of a conversation, whose rows among the words had no spinner anywhere
+   before. Every link on the page to the file, so one with a row in the
+   header too (2) has both shown. Said twice, it has one mark; a link the
+   page has no row for, a picture's or a page drawn since, changes nothing.
 
 **What it reverses.** B-113's step 3, "The header keeps its row", and,
 for a file among the words, B-101's row in the header from the tap ("A PDF
 from Apple Mail on an iPhone or an iPad has its row in the header from the
-tap"). Every other file keeps B-101's row.
+tap"). Every other file keeps B-101's row. B-141's check, still open,
+tapped its large PDF's row in the header, which a build with this change
+does not have: its steps now say, for such a build, the row among A's
+words and its "Loading…" (TODO).
 
 **Not changed.** What a file is (`MIMEPart.isListedFile`,
 `Attachment.isShownInBody`), the paperclip, what is fetched and when, the
@@ -30185,10 +30205,12 @@ before.
 **What he sees.** A letter from Mail on an iPad or an iPhone with a PDF
 among its words: no file in the header, from the tap; the PDF's name and
 size in blue where it sat, as before, which opens it; and the header the
-same height before and after the letter comes. A letter with a PDF
-attached after its words: its row in the header, as before. No new words.
+same height before and after the letter comes. The blue name tapped: it
+dims, with "Loading…" after it, until the PDF opens. A letter with a PDF
+attached after its words: its row in the header, as before. No new
+words: "Loading…" is the pane's.
 
-**Tests.** `FileListedOnceTests`, five, new. Apple Mail's shape: no row in
+**Tests.** `FileListedOnceTests`, seven, new. Apple Mail's shape: no row in
 the header at the tap, from the row's structure, nor once the letter has
 come; the PDF still listed for its row among the words, Forward's question
 and the paperclip; the page and the stack's body each with its one row.
@@ -30204,7 +30226,16 @@ header row. Once the body has come: the HTML refused, HTML with nothing to
 show and HTML cut before the mark keep the row, a mark drawn leaves it out,
 and a letter not come goes by the structure. And read from the source: the
 header lists `BodyFiles.inHeader` alone, `drawnPieces` called by `joined`
-and `filesAmongWords`, and `flatten` marking the files. `MailShelfTests`,
+and `filesAmongWords`, and `flatten` marking the files. The row coming,
+in node on the model of the pane's page (`ModelPage`, which now runs the
+pane's `BodyFiles.Busy` and keeps each link to a file with what the
+script put in it): on the letter's own page and in a body of a stack,
+dimmed and "Loading…" after its name, once when said twice, as it was
+when the pane says it ended, and a file of another letter changing
+nothing; and read from the source, the tap showing it, the `defer`
+putting it back only while the pane still shows what it did, by script
+in the app's world. `LastFileTappedTests` and `PictureTapTests`, one
+each, read `openAttachment` with the two lines in it. `MailShelfTests`,
 one, new: a row kept with a PDF among its words, its record with `among`
 for that file alone, the format 1, read back with it and its header at the
 tap leaving the PDF out, and a record with no `among`, as every page kept
@@ -30221,7 +30252,9 @@ file again, as before, 3 in 2; no cut, every file between words taken as
 among them, 5 in 1; no part of HTML asked for, plain words split by a file
 taken as drawing its row, 2 in 1; nothing looked at once the body has
 come, a file the page does not draw left out all the same, 3 in 1; the
-kept row's record without `among`, 4 in 1.
+kept row's record without `among`, 4 in 1. And the row never shown
+coming, 2 in 1; never put back as it was, 3 in 1; the pane not showing
+it at the tap and putting it back on any page, 5 in 3.
 
 The full suite, serially, with B-149 and B-150 beside it: 2,686 tests, 6
 of them this entry's, 6 skipped, none failing. The release build for the
@@ -30230,7 +30263,22 @@ iPad links.
 **Not covered.**
 
 - Not seen on the test iPad: the header's height from the tap through the
-  letter landing, in a recording at 60 frames a second (the check, step 2).
+  letter landing, in a recording at 60 frames a second (the check, step 2);
+  the row among the words dimmed with "Loading…" (the check, step 5, and
+  B-141's).
+- A letter that could not be downloaded, offline or refused by the server,
+  says "This message could not be downloaded." under the header drawn from
+  its row, which leaves such a PDF out, and the page has no rows: the PDF
+  has no row anywhere until a tap on the letter fetches it. Before this
+  change its row was in that header, grey and not to be tapped (the header
+  is given nothing to open with after a failure), so nothing he could do is
+  lost. What Mail shows for a letter it could not download was not seen.
+  The check, step 8.
+- Whether and how Mail's tile shows its download coming, a bar, a ring or
+  words, was not seen. "Loading…" after a long name can take the row to a
+  second line while it comes, moving the words under it by a line and back.
+  A page drawn again in its place while the file comes, as after WebKit
+  lost it, has the row as it was, not coming.
 - Mail was not looked at on a screen, 16.5.1's or 18's; its tiles are not
   copied.
 - A letter whose HTML before the PDF is over 2 MiB, fetched whole: its PDF

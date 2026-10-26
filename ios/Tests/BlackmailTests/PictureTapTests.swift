@@ -474,6 +474,7 @@ final class PictureTapTests: XCTestCase {
                 + "for item: PanePictures.Item = .quickLook) { "
                 + "guard let m = letter ?? message else { return } "
                 + "if message?.id == m.id { header.setAttachment(attachment.id, busy: true) } "
+                + "run(BodyFiles.Busy(attachment.id, of: m.id, busy: true)) "
                 + "let shown = loads.shown "
                 + "let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown) "
                 + "guard fileTaps.tapped(file, for: item) else { return } filesOpening += 1 "

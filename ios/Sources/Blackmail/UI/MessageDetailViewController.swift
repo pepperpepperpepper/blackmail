@@ -281,6 +281,13 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                     in: nil, in: .defaultClient)
     }
 
+    /// A file's row among the words shown coming, or as it was, by script,
+    /// in the app's content world (`BodyFiles.Busy`, B-148).
+    private func run(_ busy: BodyFiles.Busy) {
+        webView.callAsyncJavaScript(BodyFiles.Busy.script, arguments: busy.arguments,
+                                    in: nil, in: .defaultClient)
+    }
+
     // MARK: - Toolbar
 
     private func buildToolbar() {
@@ -1019,7 +1026,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// row among the words of another letter of the conversation, or a
     /// picture tapped in one, or in his from Sent Mail (B-122). The
     /// header's row shows it busy only when the header shows its letter;
-    /// a picture the body shows by `cid:` has no row there.
+    /// a picture the body shows by `cid:` has no row there. Its row among
+    /// the words, if it has one, shows it coming whatever the header shows
+    /// (`BodyFiles.Busy`, B-148).
     ///
     /// Shown only if the pane still shows what it was opened from when the
     /// file has come (`PaneLoads.stillShows`): a file, or a picture, whose
@@ -1044,6 +1053,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                                 for item: PanePictures.Item = .quickLook) {
         guard let m = letter ?? message else { return }
         if message?.id == m.id { header.setAttachment(attachment.id, busy: true) }
+        // And its row among the words: the only row of a file drawn there
+        // since B-148, and of any file of a letter the header is not on.
+        run(BodyFiles.Busy(attachment.id, of: m.id, busy: true))
         let shown = loads.shown
         let file = FileTaps.File(letter: m.id, part: attachment.id, shown: shown)
         // Already coming: this tap makes it the last again, and its
@@ -1067,6 +1079,9 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
                 filesOpening -= 1
                 fileTaps.ended(file)
                 if message?.id == m.id { header.setAttachment(attachment.id, busy: false) }
+                // Only on the page it was shown coming on: on a page given
+                // since, the same row can be coming for a tap of its own.
+                if loads.stillShows(shown) { run(BodyFiles.Busy(attachment.id, of: m.id, busy: false)) }
             }
             do {
                 let data = try await repository.fetchAttachmentData(

@@ -530,6 +530,17 @@ enum ConversationDocument {
     /// are heard on the window, as the lines' are, on every page. A
     /// picture from the web, in a link, an image map or a button is not
     /// wired, and keeps WebKit's menu.
+    ///
+    /// **A file's row coming** (B-148). While the pane downloads a file,
+    /// `bmFileBusy`, called through `callAsyncJavaScript` (`BodyFiles.Busy`),
+    /// dims each link on the page to it, the row the pane made of the
+    /// file's mark among the words, important, and puts the pane's word
+    /// for something on its way after its name; once the file has opened
+    /// or been let go, it takes both off again. Each mark it put in is
+    /// kept, so it takes off its own and nothing of the letter's, and a
+    /// file shown coming twice has one mark. On any page, in a letter's own
+    /// or a body `bmFill` put in; a link with no row on the page changes
+    /// nothing, and it never throws.
     static let script = """
     function bmToggle(section) {
       var opening = !section.classList.contains('bm-open');
@@ -748,6 +759,27 @@ enum ConversationDocument {
         if (s.classList.contains('bm-open')) return false;
       }
       return true;
+    }
+    var bmComing = [];
+    function bmFileBusy(link, busy, words) {
+      try {
+        for (var i = bmComing.length - 1; i >= 0; i--) {
+          if (bmComing[i].link !== link) continue;
+          var was = bmComing.splice(i, 1)[0];
+          if (was.mark.parentNode) was.mark.parentNode.removeChild(was.mark);
+          was.row.style.removeProperty('opacity');
+        }
+        if (!busy) return;
+        var links = document.querySelectorAll('a');
+        for (var j = 0; j < links.length; j++) {
+          if (links[j].getAttribute('href') !== link) continue;
+          var mark = document.createElement('span');
+          mark.textContent = ' ' + words;
+          links[j].appendChild(mark);
+          links[j].style.setProperty('opacity', '0.5', 'important');
+          bmComing.push({ link: link, row: links[j], mark: mark });
+        }
+      } catch (e) {}
     }
     function bmPictureIn(node) {
       for (; node && node.parentNode; node = node.parentNode) {
