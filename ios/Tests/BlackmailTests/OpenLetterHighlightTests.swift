@@ -106,7 +106,9 @@ final class OpenLetterHighlightTests: XCTestCase {
             + "showing: lettersInPane()) { selection = [row] } for row in selection { "
             + "tableView.selectRow(at: IndexPath(row: row, section: 0), animated: false, "
             + "scrollPosition: .none) }"))
-        XCTAssertEqual(lines(of: list, containing: "lettersInPane()").count, 2)
+        // And twice in `runBatch`, for the letter after a row a drag or
+        // More puts away (B-156, B-158).
+        XCTAssertEqual(lines(of: list, containing: "lettersInPane()").count, 4)
 
         let root = flat(try source("UI/RootViewController.swift"))
         XCTAssertTrue(root.contains("list.lettersInPane = { [weak self] in "
