@@ -30212,9 +30212,10 @@ release build for the iPad links.
 - Not yet seen on the iPad: TODO, "B-106, Move to Junk in the Flag
   sheet", under "Blocked on the iPad coming back".
 - Mail's own sheet was not seen on an iPad: the test iPad has no Mail
-  app (question 25 of the 2026-10-26 decisions). Its order below Archive,
-  and whether inside Junk it says Move to Inbox or Not Junk, are from
-  Apple's guide and Mail's strings, less surely; built as Move to Inbox.
+  app, and putting it back needs an Apple ID signed in on it (B-028).
+  Its order below Archive, and whether inside Junk it says Move to Inbox
+  or Not Junk, are from Apple's guide and Mail's strings, less surely;
+  built as Move to Inbox.
 - The sidebar and the Move sheet still say Spam, Gmail's name, until
   Mail's words are built (TODO, Blocked on the owner, "Mail's words in
   three places", ruled 2026-10-26: Junk by its role); the item says Junk

@@ -7365,9 +7365,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       and the row goes at the tap, "Moving…" under the list until the
       answer, and no alert. The log: one `UID MOVE n "[Gmail]/Spam"`
       answered `OK [COPYUID …]`, and nothing else written. Mailboxes,
-      the Junk folder (named Spam in the sidebar until the words of 7554
-      are built, Junk after): the letter at its top, read. On Gmail's
-      web, in Spam and no longer in Notes.
+      the Junk folder (named Spam in the sidebar until Mail's words are
+      built, under "Blocked on the owner", "Mail's words in three
+      places"; Junk after): the letter at its top, read. On Gmail's web,
+      in Spam and no longer in Notes.
       3. *Inside Junk.* The letter opened there, Flag: Flag, Mark as
       Unread, Move to Inbox, and no Move to Junk. Move to Inbox: the row
       leaves Junk, the log one `UID MOVE n "INBOX"`; the Inbox has the
