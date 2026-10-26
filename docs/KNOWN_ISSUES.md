@@ -20306,6 +20306,14 @@ release build for the iPad links.
   swipe choice ("Swipe to Trash on a row"), and its shake to undo (TODO,
   "Undo for Delete and Move").
 
+**Integration (int18, with B-144 and B-158).** The TODO check, "B-106,
+Move to Junk in the Flag sheet", amended to say what an int18 build
+shows: "one" APPENDed last, so it is the top row, and a fourth letter of
+the host's in Spam, so the letter B-158 opens after Move to Junk and
+after Move to Inbox is the host's, read; the search's next result
+opening in step 4; the put-back by Edit mode's Trash, which opens no
+other letter.
+
 ## B-107 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
 
 Built in the `feat-replyfiles` worktree, off `feat-kept` (master at
@@ -31862,6 +31870,9 @@ failing. The release build for the iPad links.
   Trash), the fallback COPY of a server without MOVE, and a draft's
   deletes. On Gmail every Delete and Move outside the Trash is a MOVE.
 
+**Integration (int18, with B-144).** The TODO check's step 1 says the
+Edit bar's "Trash", "Delete" on a build without B-144.
+
 ## B-152 — FIXED 2026-10-26, not yet seen on the iPad. A letter he answered or forwarded in Blackmail was never marked on Gmail, so it never had the arrow B-102 draws; once the server has taken the reply or the forward, its original is marked `\Answered` or `$Forwarded`, as Mail marks it, also when the letter goes later from the Outbox
 
 **What Mail does.** Read from iOS 18.6's Mail code (its symbols), the
@@ -32932,6 +32943,10 @@ skipped, none failing. The release build for the iPad links.
   counted in, and the sweep has the say on the counts.
 - The kept copy of the folder (D-016) is not patched: the letter is in
   it again at the next listing.
+
+**Integration (int18, with B-144).** The TODO check's steps 2 and 3 say
+the Edit bar's "Trash" and the Move sheet's "Junk", "Delete" and "Spam"
+on a build without B-144.
 
 ## B-158 — FIXED 2026-10-26, not yet seen on the iPad. After a Delete or Move of the letter in the reading pane, the pane emptied, "No message selected"; the letter after it opens there, highlighted on the list and marked read, as Apple Mail's factory "View Next Message" opens it
 

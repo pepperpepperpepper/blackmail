@@ -7963,13 +7963,19 @@ checks below is left as not needed, not open, and none is worth a round.*
       them, read (`\Seen`), to the label "Notes", never the Inbox,
       noting each UID from its APPENDUID. Three panes; the connection log
       read after each step.
-      0. *The letters:* three, "B-106 junk one", "two" and "three".
+      0. *The letters:* three, "B-106 junk one", "two" and "three",
+      APPENDed "three" first, then "two", then "one", so "one" is the top
+      row and "two" the row below it; and a fourth, "B-106 junk four",
+      read, which the host APPENDs to "[Gmail]/Spam" itself, so on a build
+      with B-158 (the int's) the row under "one" in Junk is the host's.
       1. *The sheet.* "Notes" opened, "B-106 junk one" opened, Flag: the
       sheet under the Flag button reads Flag, Mark as Unread, Move to
       Junk, in that order, in the plain style, no Cancel in the popover. A
       tap outside closes it, and nothing is written in the log.
-      2. *Move to Junk.* Flag, Move to Junk: no question, the pane empties
-      and the row goes at the tap, "Moving…" under the list until the
+      2. *Move to Junk.* Flag, Move to Junk: no question, the row goes at
+      the tap and, on a build with B-158, the int's, "two", the row below,
+      opens in the pane, highlighted; it is read, so no STORE (the pane
+      empties on a build without it); "Moving…" under the list until the
       answer, and no alert. The log: one `UID MOVE n "[Gmail]/Spam"`
       answered `OK [COPYUID …]`, and nothing else written. Mailboxes,
       the Junk folder (named Spam in the sidebar until Mail's words are
@@ -7977,14 +7983,20 @@ checks below is left as not needed, not open, and none is worth a round.*
       places"; Junk after): the letter at its top, read. On Gmail's web,
       in Spam and no longer in Notes.
       3. *Inside Junk.* The letter opened there, Flag: Flag, Mark as
-      Unread, Move to Inbox, and no Move to Junk. Move to Inbox: the row
-      leaves Junk, the log one `UID MOVE n "INBOX"`; the Inbox has the
-      letter, read. A move into the Inbox is not new mail to Gmail; if
-      the phone with the test account rings for it, write it down.
+      Unread, Move to Inbox, and no Move to Junk. On B-158's build the row
+      below in Junk, if any, opens after the Move: before it, the row under
+      "one" is "B-106 junk four"; if it is another, the host notes that
+      letter's UID and flags and puts its `\Seen` back as noted at the
+      put-back. Move to Inbox: the row leaves Junk, the log one `UID MOVE
+      n "INBOX"`; on B-158's build the row below opens, highlighted:
+      write down which. The Inbox has the letter, read. A move into the
+      Inbox is not new mail to Gmail; if the phone with the test account
+      rings for it, write it down.
       4. *From a search.* All Mailboxes, "B-106 junk two" searched for:
       its hit, from All Mail, opened, Flag: Move to Junk offered, the
-      hit's own folder being All Mail. Move to Junk: the hit goes, the
-      log's `UID MOVE` sent with "[Gmail]/All Mail" selected, and on
+      hit's own folder being All Mail. Move to Junk: the hit goes, and on
+      B-158's build the next result opens if there is one; the log's
+      `UID MOVE` sent with "[Gmail]/All Mail" selected, and on
       Gmail's web the letter in Spam, no longer in Notes.
       5. *Not in Edit mode.* "Notes", Edit, a row ticked, Mark: Flag and
       Mark as Unread or Read alone, no Move to Junk (D-022). Cancel.
@@ -7994,9 +8006,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       Flag: Flag and Mark as Unread alone. Then "Show in
       IMAP" on again, as found, and the Junk folder back after a refresh.
       7. *Put back:* "one" in the Inbox, "two" in Junk and "three" in
-      "Notes" deleted from the app, to the Trash; the host
-      deletes in the Trash only the letters with the Message-IDs it
-      made. Spam's "Show in IMAP" as found. Nothing was sent.
+      "Notes" deleted from the app, to the Trash, each by Edit mode's
+      Trash ("Delete" on a build without B-144), which opens no other
+      letter; the host deletes "four" in Spam and, in the Trash, only the
+      letters with the Message-IDs it made, and puts back the `\Seen` of
+      any letter noted in 3. Spam's "Show in IMAP" as found. Nothing was
+      sent.
 - [ ] **B-151, a lost answer's row goes at the next connection.** On the
       test iPad, the test account only, from a build of the `bm-cm-junk`
       worktree (branch `copy-junk`) or of the int it is merged into.
@@ -8009,7 +8024,8 @@ checks below is left as not needed, not open, and none is worth a round.*
       step; Airplane Mode turned off after each step that turns it on.
       0. *The letters:* sixteen, "B-151 single 1" to "16".
       1. *Some moved, then an answer lost:* "Notes" opened at its top.
-      Edit, the sixteen rows ticked, Delete, and Airplane Mode on about a
+      Edit, the sixteen rows ticked, Trash ("Delete" on a build without
+      B-144), and Airplane Mode on about a
       second after the tap. After "Deleting…", "Can't connect to mail
       server.", OK: the rows whose MOVEs the log shows answered `OK
       [COPYUID …]` stay off, the rest come back where they stood. Find in
@@ -8321,10 +8337,12 @@ checks below is left as not needed, not open, and none is worth a round.*
       (UID X-GM-MSGID)` in the Trash and one `UID MOVE n "Notes"`, n the
       UID the Delete's MOVE answered; over IMAP letter 1 in "Notes" under
       a new UID, not in the Trash.
-      2. *Edit mode, two as one:* Edit, letters 2 and 3 ticked, Delete. A
+      2. *Edit mode, two as one:* Edit, letters 2 and 3 ticked, Trash
+      ("Delete" on a build without B-144). A
       shake, Undo: both rows back, each where it stood, two FETCHes and
       two MOVEs, letter 2's first, the older (B-084).
-      3. *The pane's Move:* letter 4 opened, Move, Spam. A shake: "Undo
+      3. *The pane's Move:* letter 4 opened, Move, Junk ("Spam" on a build
+      without B-144). A shake: "Undo
       Move"; Undo: its row back in "Notes", out of Spam.
       4. *More than one step:* letters 5 and 6 deleted by drags, 5 first.
       A shake, Undo: letter 6 back; a shake, Undo: letter 5 back.
