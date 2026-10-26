@@ -8120,13 +8120,17 @@ checks below is left as not needed, not open, and none is worth a round.*
       each step.
       1. *A link, offline.* Blackmail in the background. Airplane Mode on.
       In Safari, a Wikipedia page, Share, Blackmail: To the account's own
-      address with `+b153` before the @, Send: the sheet slides away with
+      address with `+b153` before the @. Before Send, Airplane Mode on
+      (guarded): Safari cannot load a page and Settings shows Wi-Fi off;
+      otherwise stop, as the Send would go. Send: the sheet slides away with
       one swoosh and no alert, Safari as before. Nothing can be sent: there
       is no connection.
       2. *A photo, offline.* In Photos, one photo, Share, Blackmail, the
       same To, Send: "Can't connect to mail server." over the sheet, no
       sound, the sheet stays, as before. Cancel, Delete Draft.
-      3. *In the app.* Still in Airplane Mode, bring Blackmail back: the
+      3. *In the app.* Still in Airplane Mode, guarded as in 1 (Safari
+      cannot load a page and Settings shows Wi-Fi off; otherwise stop, as
+      the app's Outbox pass would send it), bring Blackmail back: the
       Outbox in the Mailboxes with 1; the line under the list says
       "1 Unsent Message"; the Outbox lists the letter, To the address, the
       page's title its subject, its time the share's. The app's
@@ -8138,7 +8142,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       with the link above his signature; Cancel untouched: back in the
       Outbox.
       6. *Deleted.* Still in Airplane Mode, the Outbox, Edit, tick the
-      letter, Delete: nothing asked, the row and the Outbox go, and
+      letter, Trash ("Delete" on a build without B-144): nothing asked, the row and the Outbox go, and
       "1 Unsent Message" with them. Airplane Mode off, Refresh: nothing is
       sent (no `LETTER-PLAN` line in the log).
       7. *(sends, test account only, needs the owner's go)* Steps 1 and 3
@@ -8571,10 +8575,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       the icon's number agree within a few seconds of the return (a sweep
       of the counts in the log).
       7. *The safe start.* Over SSH, as the rounds read the app's files:
-      `Application Support/Launches/unfinished` reads 0 after a check and
-      after the app is opened; `Application Support/New Mail/state.json`
-      holds a mark, when he left and when a check ran, and nothing of a
-      letter.
+      `Application Support/Launches/unfinished` reads 0 after a check,
+      and after the app has been open half a minute past the Inbox's first
+      page or been sent Home; 1 while a launch or a check is under way;
+      `Application Support/New Mail/state.json` holds a mark, when he left
+      and when a check ran, and nothing of a letter.
       8. *Notifications off.* Settings > Notifications > Blackmail, Allow
       Notifications off; Home: the number gone, and no `NEW-MAIL` line
       after it in the log. Put back on.
