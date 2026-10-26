@@ -1208,16 +1208,18 @@ final class MessageListViewController: UITableViewController {
         return account.map { $0.displayName.isEmpty ? $0.address : $0.displayName } ?? ""
     }
 
-    /// A letter kept on the iPad has changed: its row, where he is. One
-    /// that has just reached the server is drawn as the copy it became
-    /// there, in place of the copies that went (`ListLetters.landed`),
-    /// without fetching the folder again, so a search, his ticks, the
-    /// pages he has scrolled through and where he is in them all stay.
+    /// The original of a reply or a forward was marked on the server: the
+    /// arrow on its rows here (B-152).
     @objc private func originalMarked(_ note: Notification) {
         guard let original = note.userInfo?[OriginalLetter.markedKey] as? OriginalLetter else { return }
         letters.originalMarked(original)
     }
 
+    /// A letter kept on the iPad has changed: its row, where he is. One
+    /// that has just reached the server is drawn as the copy it became
+    /// there, in place of the copies that went (`ListLetters.landed`),
+    /// without fetching the folder again, so a search, his ticks, the
+    /// pages he has scrolled through and where he is in them all stay.
     @objc private func keptChanged(_ note: Notification) {
         if isOutbox {
             listOutbox()

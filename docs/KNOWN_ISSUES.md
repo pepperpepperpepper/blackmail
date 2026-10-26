@@ -30155,7 +30155,7 @@ tried again.
    server has taken the letter, the mark is set off in a task of its own,
    never awaited by Send, so the sheet closes at the 250 as before
    (B-044); marks run one after the other. A letter refused, cut off or
-   never sent throws before it, and nothing is marked.
+   never sent throws before it, and nothing is marked then.
 4. *The write* (`IMAPClient.mark`, new), in one hold of the gate: the
    mailbox's news first (a NOOP, unless a SELECT went), `UID SEARCH
    X-GM-MSGID <id>`, and `UID STORE <uid> +FLAGS.SILENT (\Answered)`, or
@@ -30171,7 +30171,13 @@ tried again.
    (`sendingOnce`).
 5. *From the Outbox.* A letter that waited goes by the same `send`, so its
    original is marked when it goes, by the pass after a relaunch too,
-   named by the letter kept on the iPad.
+   named by the letter kept on the iPad. One cut off after its DATA,
+   with no 250 back, has gone if the Outbox later finds it in Sent Mail
+   (B-052's `OUTBOX-FOUND`): it is not sent again, and its original is
+   marked then, as after a 250, by the same write
+   (`MailRepository.markOriginal`, from `LocalDrafts.deliver`), once, as
+   it then leaves the Outbox. Not found, it goes again, and is marked
+   at that letter's 250.
 6. *Once the server has it*, the kept copy has it wherever the letter is
    kept (`MailShelf.answered`, `forwarded`, B-102's), and the lists are
    told (`OriginalLetter.marked`): the message list puts the arrow on its
@@ -30191,10 +30197,10 @@ forward the forward arrow; on a row still unread its dot, as B-102 has
 it. A reply sent with no connection: the arrow once the reply goes. If
 the mark cannot be written, nothing at all, as before.
 
-**Tests.** `SentMarkTests`, eleven, new. Reply, Reply All and Forward
+**Tests.** `SentMarkTests`, twelve, new. Reply, Reply All and Forward
 name their original by Gmail's id and folder, and a letter with no Gmail
-id, a new letter and the two keywords as written. Over the composer's own
-wiring, the shipping `LocalDrafts` and repository, the scripted IMAP
+id, a new letter and the two keywords as written. Over the composer's
+own wiring, the shipping `LocalDrafts` and repository, the scripted IMAP
 server and a scripted submission server: a reply, no STORE while its 250
 is held, then one `UID STORE … +FLAGS.SILENT (\Answered)` on the
 original, `\Answered` on the server, the kept page's row answered, the
@@ -30203,17 +30209,19 @@ forward, `$Forwarded` alone and the forward arrow; a reply refused after
 DATA, the sheet with the reason and no STORE; a reply sent with no
 connection, no STORE, the letter in the Outbox naming its original, then
 the app made again over the same directory and the line back, the pass
-sends it and the original is marked; the original archived elsewhere
-while the Inbox stays selected, marked in All Mail; the original deleted
-before the send, the reply gone, no STORE, its folder and All Mail
-searched and nothing else, nothing told and nothing said; the IMAP
-server not reached after the 250, the reply gone, not in the Outbox, no
-error and no STORE. Kept on the iPad: the original read back; a damaged
-field and an older build's letter with none read as none, the letter
-there. The list: the arrow on the marked letter's rows alone, the reply's
-and the forward's, a search's hit too, and nothing changed for a letter
-it does not hold. Read from the source: the list controller hears the
-mark and hands it on.
+sends it and the original is marked; a reply cut off after its DATA, the
+sheet closed, waiting unsettled and no STORE, then found in Sent Mail,
+the pass sends nothing and marks the original, once; the original
+archived elsewhere while the Inbox stays selected, marked in All Mail;
+the original deleted before the send, the reply gone, no STORE, its
+folder and All Mail searched and nothing else, nothing told and nothing
+said; the IMAP server not reached after the 250, the reply gone, not in
+the Outbox, no error and no STORE. Kept on the iPad: the original read
+back; a damaged field and an older build's letter with none read as
+none, the letter there. The list: the arrow on the marked letter's rows
+alone, the reply's and the forward's, a search's hit too, and nothing
+changed for a letter it does not hold. Read from the source: the list
+controller hears the mark and hands it on.
 
 `KeptReferencesTests` counts, command by command, what fetching an
 original's parts costs when a forward or a reply goes; its letters now
@@ -30235,9 +30243,13 @@ the list controller not handing the mark on, 1 in 1; the kept page not
 patched, 2 in 1; the lists not told, 1 in 1; the Trash looked in too, 4
 in 1; a mark that cannot be written failing the send, 17 in 6; a mark
 that failed tried again, 1 in 1. Then put back, the new tests passing.
-The full suite, serially, with nothing undone: 2,688 tests, the 24 of
-B-152 and B-153 among them, 6 skipped, none failing, run twice. The
-release build for the iPad links.
+Added since, in one build with two of B-153's broken beside it, in code
+these tests never reach: the original not marked when the Outbox finds
+the letter in Sent Mail, 3 in 1. Put back, passing.
+The full suite, serially, with nothing undone: 2,690 tests, the 26 of
+B-152 and B-153 among them, 6 skipped, none failing (2,688 and 24, run
+twice, before the three added since). The release build for the iPad
+links.
 
 **Not covered, and not seen.**
 
@@ -30266,6 +30278,10 @@ release build for the iPad links.
   arrow off the row until the next listing: the list holds his own read
   marks and flags over such a listing (`holdingHisMarks`), not this one.
 - The reading pane and a conversation's stack show no arrow (B-102).
+- A reply cut off after its DATA that he has put back in Drafts (B-052
+  keeps its attempt with it) is found in Sent Mail by the Drafts pass
+  and stays there; its original is marked only when he sends it from
+  Drafts, which sends nothing. Mail has no such state; not seen.
 - Not seen on the iPad. The device check's sends wait for the owner's go.
 
 ## B-153 — FIXED 2026-10-26, not yet seen on the iPad. A link shared with no connection stayed in the share sheet with "Can't connect to mail server."; Mail's sheet closes and the letter waits in its Outbox, and now a share with no files closes with the sent sound and waits in Blackmail's Outbox, to go when Blackmail is next opened or comes back to the front

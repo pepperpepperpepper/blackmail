@@ -282,6 +282,43 @@ final class SentMarkTests: XCTestCase {
         XCTAssertTrue(server.flags(uid: uid(row), in: Server.inbox).contains("\\Answered"))
     }
 
+    /// Cut off after its DATA, the 250 never seen: the reply waits in the
+    /// Outbox unsettled, and nothing is marked. Found in Sent Mail by the
+    /// next pass, it went: it is not sent again, and the original is
+    /// marked then, once.
+    func testAReplyFoundInSentMailMarksItsOriginal() async throws {
+        let repository = makeRepository()
+        let kept = makeKept()
+        let (row, m) = try await original(repository)
+        submissions.then { ScriptedSubmission(hangsUpBeforeLetterReply: true) }
+
+        await send(reply(to: m), as: "cut", kept: kept, repository: repository)
+        await repository.marksWritten()
+        XCTAssertEqual(queued, 1)
+        XCTAssertEqual(stores(), [], "nothing marked with no 250")
+        let waiting = try XCTUnwrap(kept.store.letter("cut"))
+        let messageID = try XCTUnwrap(waiting.outbox)
+        XCTAssertEqual(waiting.unsettled, [messageID])
+
+        server.deliver(Server.Letter(
+            from: Server.owner, to: [Server.Address(name: nil, address: m.senderAddress)],
+            subject: "Re: \(m.subject)", date: Server.newestDate.addingTimeInterval(60),
+            text: "Thank you.\r\n", flags: ["\\Seen"], messageID: messageID),
+            to: [Server.sent, Server.allMail])
+        _ = try await repository.listMessages(in: "inbox", beforeUID: nil, limit: 10)
+        await kept.uploadWaiting(to: repository)?.value
+        await repository.marksWritten()
+
+        XCTAssertEqual(kept.outbox.count, 0, "it went")
+        XCTAssertEqual(submissions.all.count, 1, "not sent again")
+        XCTAssertEqual(stores(), ["UID STORE \(uid(row)) +FLAGS.SILENT (\\Answered)"])
+        XCTAssertTrue(server.flags(uid: uid(row), in: Server.inbox).contains("\\Answered"))
+
+        await kept.uploadWaiting(to: repository)?.value
+        await repository.marksWritten()
+        XCTAssertEqual(stores().count, 1, "once")
+    }
+
     // MARK: - The original moved, or gone
 
     /// The original archived elsewhere while the reply was written, the

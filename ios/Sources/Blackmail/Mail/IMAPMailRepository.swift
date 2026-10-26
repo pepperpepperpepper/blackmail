@@ -2429,6 +2429,13 @@ actor IMAPMailRepository: MailRepository {
         }
     }
 
+    /// A letter from the Outbox that Sent Mail has shown went, its 250
+    /// never seen (`LocalDrafts.wentEarlier`): it has gone, so its original
+    /// is marked, as after a 250, once.
+    func markOriginal(of draft: Draft) async {
+        if let original = draft.original { mark(original) }
+    }
+
     /// Returns once every mark set off so far has been written or dropped.
     /// For a test.
     func marksWritten() async {

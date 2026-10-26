@@ -143,6 +143,14 @@ protocol MailRepository {
     /// removed, a letter sent twice cannot be taken back.
     func sentMail(holds messageIDs: [String]) async throws -> Set<String>
 
+    /// Marks the letter `draft` answers or passes on, as `send` marks it
+    /// after the letter's 250 (B-152), for a letter from the Outbox whose
+    /// 250 never came back and which Sent Mail has since shown went
+    /// (`LocalDrafts.wentEarlier`). Set off, not awaited. A requirement, so
+    /// a repository that marks letters is the one called through the
+    /// protocol; nothing, unless it does.
+    func markOriginal(of draft: Draft) async
+
     /// Saves to the Drafts folder, REPLACING the copy named by
     /// `draft.savedID` if there is one, and returns the id of the copy now
     /// on the server so the next save replaces this one in turn.
@@ -563,6 +571,9 @@ extension MailRepository {
 
     /// Nothing known, unless the repository makes letters itself.
     var sendingAs: AtSend { AtSend() }
+
+    /// Nothing marked, unless the repository marks letters (B-152).
+    func markOriginal(of draft: Draft) async {}
 
     /// None of his letters from Sent Mail, unless the repository looks for
     /// them (B-104).

@@ -1889,9 +1889,10 @@ final class LocalDrafts {
     /// addressed to. Such an attempt is written down just before its DATA
     /// (`LocalDraftStore.noteSending`), and before the letter goes again
     /// Sent Mail is asked for it (`wentEarlier`). Found, the letter went,
-    /// and nothing is sent. Not found, it goes again, under the same
-    /// Message-ID. A letter whose attempts never reached DATA is simply
-    /// sent.
+    /// and nothing is sent, but the letter it answers or passes on is
+    /// marked, as after a 250 (B-152). Not found, it goes again, under the
+    /// same Message-ID. A letter whose attempts never reached DATA is
+    /// simply sent.
     ///
     /// A verdict from the server after DATA, a refusal or "not now",
     /// settles that attempt: nothing was delivered. Only a cut before the
@@ -1917,7 +1918,13 @@ final class LocalDrafts {
             done(key)
             announce()
         }
-        if try await wentEarlier(letter, via: repository) { return }
+        if try await wentEarlier(letter, via: repository) {
+            // It went, its 250 lost: the letter it answers or passes on is
+            // marked now, as after a 250 (B-152), once, as it then leaves
+            // the Outbox.
+            await repository.markOriginal(of: draft ?? letter.draft)
+            return
+        }
         let store = self.store
         do {
             try await repository.send(draft ?? letter.draft, as: OutgoingLetter(
