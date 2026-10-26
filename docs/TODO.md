@@ -8359,7 +8359,7 @@ checks below is left as not needed, not open, and none is worth a round.*
       test iPad, the test account only, from a build of the `bm-cm-next`
       worktree (branch `copy-nextletter`) or of the int it is merged into.
       Nothing is composed, sent or saved as a draft, and the app's Deletes
-      and its Move go onto the host's letters alone. The host makes nine
+      and its Move go onto the host's letters alone. The host makes eleven
       letters, each from another address, with a new Message-ID of its own
       and naming none on the account, and APPENDs them to the label
       "Notes", never the Inbox, each with its Date as its internal date;
@@ -8367,8 +8367,11 @@ checks below is left as not needed, not open, and none is worth a round.*
       First a conversation of three, "B-158 talk" (a), (b) and (c), each
       reply's References naming the one before, read (`\Seen`); then six
       letters alone, "B-158 next 6" down to "B-158 next 1", all read but
-      "next 3", which is APPENDed unread. So the list goes, from the top:
-      next 1 to next 6, then the conversation, then Notes' own. It also
+      "next 3", which is APPENDed unread; then two more read letters
+      alone, older than the conversation and newer than any of Notes' own,
+      "B-158 drag 1" and then "B-158 drag 2", drag 2 the older. So the
+      list goes, from the top: next 1 to next 6, then the conversation,
+      then drag 1 and drag 2, then Notes' own. It also
       makes the label "B-158 moved", if the account has none. Organize by
       Thread on, three panes, nothing set: View Next Message, Mail's
       factory default, is what the app does. A screen recording through
@@ -8401,9 +8404,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       6. *Edit mode as before.* Cancel the search; (a) tapped. Edit, (a)'s
       row ticked, Delete in the Edit bar ("Trash" once Mail's words for it
       are in): the pane empties and nothing else opens. Done (Cancel with
-      B-144). On a build with B-156, the int's, a full drag to the left on
-      the row of the letter in the pane does as the pane's Delete in 1:
-      the row below opens, highlighted.
+      B-144). On a build with B-156, the int's: "B-158 drag 1" tapped, its
+      letter in the pane; a full drag to the left on its row: no question,
+      its row goes, and "B-158 drag 2", the row below, opens in the pane,
+      highlighted, as after the pane's Delete in 1.
       7. *Put back:* "Notes" left, the Inbox at its top. The host takes
       out of the Trash and out of "B-158 moved" only the letters with the
       Message-IDs it made, which nothing else on the account has, deletes
