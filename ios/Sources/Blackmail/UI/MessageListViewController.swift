@@ -1023,9 +1023,9 @@ final class MessageListViewController: UITableViewController {
 
     /// Draws the folder's page kept on the iPad, if there is one and the
     /// list is not opened to jump to a day (`ListOpening.kept`), and says
-    /// "Checking for Mail…" under it until the server has answered. No
-    /// paging below it until then: the pages below are not kept, and the
-    /// kept rows are an earlier launch's.
+    /// "Checking for Mail…" under it until the server has answered: its
+    /// rows from the top, as many pages as are kept (B-160). No paging
+    /// below it until then: the kept rows are an earlier launch's.
     @MainActor
     private func showKeptPage() {
         guard let page = ListOpening.kept(for: mailbox, jumpingTo: pendingJump,
@@ -1118,14 +1118,16 @@ final class MessageListViewController: UITableViewController {
             listKept()
             regroup(to: places.replaced())
         case .holdingPlace:
+            // With the kept rows below it that go on from it, so the rows he
+            // is reading, further down than one page, are still there (B-160).
             let here = place()
-            unpreviewed = letters.fetchedAfresh(first, asked: fresh.asked)
+            unpreviewed = letters.fetchedAfresh(first + keptTail(below: first), asked: fresh.asked)
             listKept()
             regroup(to: places.refetched(here: here))
         case .underSearch:
             let showingResults = letters.isSearching
             let here = place()
-            unpreviewed = letters.fetchedUnderSearch(first, asked: fresh.asked)
+            unpreviewed = letters.fetchedUnderSearch(first + keptTail(below: first), asked: fresh.asked)
             listKept()
             // Typed and not yet run, the rows on screen are the folder's.
             if !showingResults { regroup(to: .back(here)) }
@@ -1140,6 +1142,13 @@ final class MessageListViewController: UITableViewController {
         updatePageFooter()
         updateSelectAllTitle()
         loadPreviews(for: unpreviewed)
+    }
+
+    /// The kept rows below the fresh first page `first` (`ListOpening.keptTail`).
+    @MainActor
+    private func keptTail(below first: [MessageSummary]) -> [MessageSummary] {
+        guard let kept = repository.shelf?.page(of: mailbox.id) else { return [] }
+        return ListOpening.keptTail(below: first, in: kept.rows)
     }
 
     @MainActor
@@ -1640,8 +1649,8 @@ final class MessageListViewController: UITableViewController {
     /// was about to tap becomes a different letter.
     @MainActor
     private func loadNextPage() {
-        // Not below the kept page (D-016): nothing under it is kept, and its
-        // rows are an earlier launch's until the fresh page has landed.
+        // Not below the kept page (D-016): its rows are an earlier launch's
+        // until the fresh page has landed, as many pages as are kept (B-160).
         guard !isLoadingPage, !reachedOldestMessage, letters.isSearching || !letters.fromShelf,
               let cursor = visible.last?.id else { return }
 

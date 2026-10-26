@@ -990,6 +990,15 @@ actor IMAPMailRepository: MailRepository {
 
             summaries = try await page(olderThan: cursor.uid, in: listing, limit: limit,
                                        mailboxID: mailboxID, name: name, client: client)
+            // On the kept page below the rows it begins with, when they reach
+            // the cursor (B-160), so a folder he has scrolled is there with
+            // no connection as far as he scrolled it.
+            if let lowest = summaries.last.flatMap({ try? Self.parseID($0.id) }) {
+                shelf?.took(more: summaries, of: name, validity: listing.validity, below: cursor.uid,
+                            sizes: largeSizes(of: summaries, in: name),
+                            continuing: PageWindow.older(than: lowest.uid, in: listing.uids,
+                                                         limit: MailShelf.mostInboxRows))
+            }
         } else {
             // From the top: a folder he has just opened, or refreshed, with
             // nothing on screen until this lands. The SEARCH and the page's
@@ -1016,15 +1025,19 @@ actor IMAPMailRepository: MailRepository {
             uidListing[name] = listing
             summaries = rows(from: opened.summaries, in: mailboxID, name: name,
                              validity: listing.validity)
-            // The folder's page kept on the iPad, replaced whole by this one
+            // The folder's page kept on the iPad, replaced by this one
             // (D-016), unless this listing says the kept one was not this
-            // mailbox's, when the whole copy goes first. Numbers and a
-            // reason only: nothing kept is ever written to this log.
-            let sizes = summaries.reduce(into: [String: Int]()) { sizes, row in
-                sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
-            }
+            // mailbox's, when the whole copy goes first. The kept rows
+            // below it stay as far as they go on from it in the folder's
+            // UIDs now (B-160). Numbers and a reason only: nothing kept is
+            // ever written to this log.
+            let asked = PageWindow.older(than: nil, in: listing.uids, limit: limit)
+            let below = asked.last.map {
+                PageWindow.older(than: $0, in: listing.uids, limit: MailShelf.mostInboxRows)
+            } ?? []
             if let discard = shelf?.took(page: summaries, of: name, validity: listing.validity,
-                                         sizes: sizes) {
+                                         sizes: largeSizes(of: summaries, in: name),
+                                         continuing: below) {
                 Diagnostics.log(.note, "KEPT-DISCARDED folder=\(name) "
                                 + "reason=\(discard == .renumbered ? "uidvalidity" : "msgid")")
             }
@@ -1052,6 +1065,14 @@ actor IMAPMailRepository: MailRepository {
                         + "first-row=\(newestID) "
                         + "msgid=\(newestLetter)")
         return summaries
+    }
+
+    /// The sizes of the rows the repository opens without their files, for
+    /// the kept page (`MailShelf.size(of:in:)`).
+    private func largeSizes(of rows: [MessageSummary], in name: String) -> [String: Int] {
+        rows.reduce(into: [String: Int]()) { sizes, row in
+            sizes[row.id] = largeLetters[Self.key(row.id, in: name)]
+        }
     }
 
     /// The snapshot a listing of `name` is paging through, unless the

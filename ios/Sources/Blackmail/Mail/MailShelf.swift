@@ -10,13 +10,17 @@ import Foundation
 /// letters from Sent Mail in the Inbox's conversations, as the last lookup
 /// of each found them, kept with the conversation (`lettersOfHis`, B-159).
 ///
-/// Only ever what the server last said. A page is replaced whole by each
-/// listing of its folder from the top (`took(page:of:validity:)`), and
-/// changed in between only by his own reads, flags, moves and deletes once
-/// the server has taken them. Pages further down, a day jumped to and a
-/// search's hits are not kept, nor are letters he never opened, and nor are
-/// the letters kept on the iPad by `LocalDrafts`, which have a store of
-/// their own beside this one that nothing here touches.
+/// Only ever what the server last said. A page is replaced by each listing
+/// of its folder from the top (`took(page:of:validity:)`), and changed in
+/// between only by his own reads, flags, moves and deletes once the server
+/// has taken them, and by the pages below it listed in the same launch
+/// (`took(more:of:validity:below:)`, B-160): the rows kept are the folder's
+/// from the top, contiguous, as far as they were listed, up to
+/// `mostInboxRows` of the Inbox and `mostRows` of any other, and the kept
+/// rows below a fresh first page stay only as far as they go on from it in
+/// the folder's order now. A day jumped to and a search's hits are not
+/// kept, and nor are the letters kept on the iPad by `LocalDrafts`, which
+/// have a store of their own beside this one that nothing here touches.
 ///
 /// Never the wrong mailbox. The files are under a directory named for the
 /// account's address and server, and every other account's is removed as
@@ -129,6 +133,15 @@ final class MailShelf: @unchecked Sendable {
     private static let foldersFile = "folders.json"
     /// His letters of the Inbox's conversations, all in one (B-159).
     private static let relatedFile = "related.json"
+
+    /// The most rows kept of the Inbox, and of any other folder (B-160):
+    /// about ten pages of the Inbox and four of the rest, from the top.
+    static let mostInboxRows = 500
+    static let mostRows = 200
+    /// About the most bytes a folder's kept rows may hold, all told
+    /// (`RowRecord.weight`): what a launch reads on the main thread before
+    /// its first frame, about half a megabyte where fifty rows were 27 KB.
+    static let mostPageBytes = 512 << 10
 
     /// The most conversations whose letters of his are kept (B-159), the
     /// least recently looked up going first: no more than the Inbox's kept
@@ -244,14 +257,24 @@ final class MailShelf: @unchecked Sendable {
     /// `sizes` are the sizes on the server of the rows the repository
     /// opens without their files (`IMAPMailRepository.largeLetterBytes`),
     /// kept with those rows and read back by `size(of:in:)`.
+    ///
+    /// `continuing` is the folder's UIDs below the page, newest first, as
+    /// the listing found them (B-160): the kept rows under those UIDs stay
+    /// below the page, in that order, as far as they go on from it, up to
+    /// the first UID with no row kept. Not when the page and the kept rows
+    /// have no letter in common under the same UID and Gmail id, which
+    /// shows the kept rows to be this mailbox's; on a server that names no
+    /// letters, the UIDVALIDITY alone. A letter gone from the folder since
+    /// is not among those UIDs, and its row goes.
     @discardableResult
     func took(page rows: [MessageSummary], of folder: String, validity: UInt32,
-              sizes: [String: Int] = [:]) -> Discard? {
+              sizes: [String: Int] = [:], continuing: [UInt32] = []) -> Discard? {
         guard isAlive else { return nil }
         let kept = record(of: folder)
         var discard: Discard?
         var previews: [String: String] = [:]
         var matched = false
+        var below: [RowRecord] = []
         if let kept {
             var letters: [String: RowRecord] = [:]
             for row in kept.rows { letters[row.id] = row }
@@ -268,15 +291,18 @@ final class MailShelf: @unchecked Sendable {
                     if was.message != nil { matched = true }
                     if !was.preview.isEmpty { previews[row.id] = was.preview }
                 }
+                if matched || !kept.rows.contains(where: { $0.message != nil }) {
+                    below = Self.following(continuing, in: kept.rows, besides: Set(rows.map(\.id)))
+                }
             }
         }
         if discard != nil { discardEverything() }
+        let fresh = rows.map { row in
+            RowRecord(row, preview: row.preview.isEmpty ? previews[row.id] ?? "" : row.preview,
+                      size: sizes[row.id])
+        }
         let page = PageRecord(format: Self.format, folder: folder, validity: validity, keptAt: now(),
-                              rows: rows.map { row in
-                                  RowRecord(row, preview: row.preview.isEmpty
-                                            ? previews[row.id] ?? "" : row.preview,
-                                            size: sizes[row.id])
-                              })
+                              rows: bounded(fresh + below, of: folder))
         locked {
             pages[folder] = page
             absent.remove(folder)
@@ -296,6 +322,77 @@ final class MailShelf: @unchecked Sendable {
     func size(of id: String, in folder: String) -> Int? {
         guard isAlive else { return nil }
         return record(of: folder)?.rows.first { $0.id == id }?.size
+    }
+
+    /// A page of `folder` listed below the row whose UID is `cursor`, under
+    /// `validity`, in the same launch as the listing from the top whose
+    /// rows the kept page begins with (B-160): in place of the kept rows
+    /// below the cursor, when the kept rows reach down to it, so they stay
+    /// the folder's from the top, contiguous. The kept rows below the page
+    /// stay as far as they go on from it in the folder's order now
+    /// (`continuing`, as in `took(page:of:validity:)`), and previews kept
+    /// for the page's letters go across. Nothing, when the kept rows end
+    /// above the cursor, a gap the page would leave, when the folder has
+    /// not been listed from the top in this launch, or under another
+    /// UIDVALIDITY. A row of the page kept under its UID with another Gmail
+    /// id keeps nothing below the page.
+    func took(more rows: [MessageSummary], of folder: String, validity: UInt32, below cursor: UInt32,
+              sizes: [String: Int] = [:], continuing: [UInt32] = []) {
+        guard isAlive, !rows.isEmpty, let kept = record(of: folder), kept.validity == validity,
+              locked({ listed.contains(folder) }),
+              let last = kept.rows.last.flatMap({ Self.parse($0.id) }), last.uid <= cursor
+        else { return }
+        var letters: [String: RowRecord] = [:]
+        for row in kept.rows { letters[row.id] = row }
+        let above = kept.rows.prefix { (Self.parse($0.id)?.uid ?? 0) >= cursor }
+        var another = false
+        let fresh = rows.map { row -> RowRecord in
+            let was = letters[row.id]
+            if let was, let now = row.gmailMessageID, let then = was.message, now != then { another = true }
+            let carried = was?.message == row.gmailMessageID ? was?.preview ?? "" : ""
+            return RowRecord(row, preview: row.preview.isEmpty ? carried : row.preview, size: sizes[row.id])
+        }
+        let besides = Set(above.map(\.id)).union(rows.map(\.id))
+        let below = another ? [] : Self.following(continuing, in: kept.rows, besides: besides)
+        let joined = bounded(Array(above) + fresh + below, of: folder)
+        locked {
+            guard var page = pages[folder], page.validity == validity else { return }
+            page.rows = joined
+            pages[folder] = page
+            changedPages.insert(folder)
+            queueWrite()
+        }
+    }
+
+    /// The kept rows under `uids`, in their order, up to the first UID with
+    /// no row kept, none of them `besides` (B-160).
+    private static func following(_ uids: [UInt32], in rows: [RowRecord],
+                                  besides: Set<String>) -> [RowRecord] {
+        var byUID: [UInt32: RowRecord] = [:]
+        for row in rows where !besides.contains(row.id) {
+            if let at = parse(row.id) { byUID[at.uid] = row }
+        }
+        var out: [RowRecord] = []
+        for uid in uids {
+            guard let row = byUID[uid] else { break }
+            out.append(row)
+        }
+        return out
+    }
+
+    /// `rows`, the first of them as far as the bounds allow (B-160):
+    /// `mostInboxRows` of the Inbox, `mostRows` of any other folder, and
+    /// about `mostPageBytes` in all. The first row always.
+    private func bounded(_ rows: [RowRecord], of folder: String) -> [RowRecord] {
+        let most = folder == folderName(for: "inbox") ? Self.mostInboxRows : Self.mostRows
+        var bytes = 0
+        var out: [RowRecord] = []
+        for row in rows.prefix(most) {
+            bytes += row.weight
+            guard out.isEmpty || bytes <= Self.mostPageBytes else { break }
+            out.append(row)
+        }
+        return out
     }
 
     /// Previews fetched for rows of `folder`, put on its kept page where
@@ -1039,6 +1136,14 @@ final class MailShelf: @unchecked Sendable {
             arrived = row.arrived
             answered = row.isAnswered ? true : nil
             forwarded = row.isForwarded ? true : nil
+        }
+
+        /// About the bytes the row takes in its file (B-160): its words,
+        /// and a few hundred for the rest.
+        var weight: Int {
+            let words = [sender, subject, preview].reduce(0) { $0 + $1.utf8.count }
+            let people = ((to ?? []) + (cc ?? []) + (bcc ?? [])).reduce(0) { $0 + $1.utf8.count }
+            return 300 + words + people + files.reduce(0) { $0 + 120 + $1.filename.utf8.count }
         }
 
         func summary(in mailboxID: String) -> MessageSummary {
