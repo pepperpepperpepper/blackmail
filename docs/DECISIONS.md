@@ -1572,7 +1572,8 @@ iPad:
 - B-154, the paperclip above the keyboard; B-155, the address book filled
   from six months of his Sent Mail.
 - B-156, Mail's drags on a row; B-157, Mail's undo; B-158, the next letter
-  opens after a Delete or Move in the pane.
+  opens after a Delete or Move in the pane, or by a drag or More on its
+  row.
 - B-159, his replies kept for offline; B-160, more pages, letters fetched
   ahead and search with no connection.
 - B-161, the red number on the icon and new-mail banners; B-162, Contacts

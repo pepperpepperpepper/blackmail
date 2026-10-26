@@ -2833,7 +2833,9 @@ final class MessageListViewController: UITableViewController {
     ///
     /// The Trash at once, with no question, as Mail's full drag; the rows
     /// go at the tap, the reading pane empties if it shows one of the
-    /// letters, and a letter Gmail did not take comes back where it stood
+    /// letters, and under View Next Message the row after opens there
+    /// (`runBatch`'s `fromRow`, B-158), and a letter Gmail did not take
+    /// comes back where it stood
     /// with the alert, as Edit mode's Delete (`runBatch`, B-041, B-092).
     /// Inside Trash, Delete erases, and asks first as Edit mode's does; the
     /// row slides back while he is asked, and goes if he says Delete.
@@ -3650,17 +3652,9 @@ final class MessageListViewController: UITableViewController {
         tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
     }
 
-    /// The letter to open once the reading pane's Delete or Move of
-    /// `letter` has taken its row off, as Mail's View Next Message opens it
-    /// (B-158): chosen now, from the rows as they stand at the tap, by
-    /// `NextLetter.after`, and opened by `openNext` once they are without
-    /// it. Nil under Don't Select a Message, and in Edit mode, where a
-    /// selected row is a tick of his, and the pane stays empty as before;
-    /// nil too at the foot of the rows while older letters are still to be
-    /// paged in, whose next is not on the list yet. `role` is that of the
-    /// folder the letter was listed from.
-    /// `letterAfter`, for every letter of a row a drag or More puts away
-    /// (B-156): the row after it, by the same rule and the same setting.
+    /// `letterAfter`'s letter, for every letter of a row a drag or More
+    /// puts away (B-156): the row after it, by the same rule and the same
+    /// setting.
     @MainActor
     private func lettersAfter(_ chosen: [MessageSummary], _ action: PaneAction) -> String? {
         guard NextLetter.action == .viewNextMessage, !inEditMode, let first = chosen.first else {
@@ -3670,6 +3664,15 @@ final class MessageListViewController: UITableViewController {
                                 listedIn: mailbox.role, olderToCome: !reachedOldestMessage)
     }
 
+    /// The letter to open once the reading pane's Delete or Move of
+    /// `letter` has taken its row off, as Mail's View Next Message opens it
+    /// (B-158): chosen now, from the rows as they stand at the tap, by
+    /// `NextLetter.after`, and opened by `openNext` once they are without
+    /// it. Nil under Don't Select a Message, and in Edit mode, where a
+    /// selected row is a tick of his, and the pane stays empty as before;
+    /// nil too at the foot of the rows while older letters are still to be
+    /// paged in, whose next is not on the list yet. `role` is that of the
+    /// folder the letter was listed from.
     @MainActor
     func letterAfter(_ letter: MessageSummary, _ action: PaneAction,
                      onLetterIn role: Mailbox.Role?) -> String? {
