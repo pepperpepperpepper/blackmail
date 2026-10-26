@@ -1584,7 +1584,8 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`perform`); refused, the row comes back and he is told.
     private func move(_ s: MessageSummary, to destination: Mailbox) {
         // Emptied as he chooses the folder, as a Delete empties it at
-        // the tap, rather than once the server has answered.
+        // the tap, rather than once the server has answered; the letter
+        // after it opens in it once the row is off (`NextLetter`, B-158).
         if summary?.id == s.id { showEmpty() }
         Task { @MainActor in
             if let refused = await self.performed(.move(to: destination), on: s) {
@@ -1603,8 +1604,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// (`questionBeforeDeleting`, B-062), and the pane empties only once he
     /// has said Delete; Cancel leaves the letter in the pane and on the
     /// list. It went at the first tap, with nothing asked.
+    ///
+    /// The letter after it then opens, as Mail's View Next Message opens it
+    /// (`NextLetter`, B-158), from the container once the row is off. A tap
+    /// within half a second of the last Delete does nothing, so a double tap
+    /// does not bin the letter the first one opened (`PaneWrites`).
     @objc private func deleteTapped() {
-        guard let s = summary, !writes.deleting else { return }
+        guard let s = summary, writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else {
+            return
+        }
         guard let question = questionBeforeDeleting?(s) else {
             delete(s)
             return
@@ -1618,7 +1626,10 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     }
 
     private func delete(_ s: MessageSummary) {
-        guard writes.startDelete() else { return }
+        guard writes.startDelete(at: ProcessInfo.processInfo.systemUptime,
+                                 untilAnswered: NextLetter.action == .dontSelectAMessage) else {
+            return
+        }
         showEmpty()
         Task { @MainActor in
             let refused = await self.performed(.delete, on: s)

@@ -1018,19 +1018,28 @@ final class RootViewController: UIViewController {
         detail.perform = { [weak self] action, letter in
             guard let self else { return .cannotConnect }
             let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            let role = folders.role(of: letter.mailboxID)
             // A Move is asked for at the tap on its folder, while the sheet
             // slides away, and the list says so until the server answers.
             // The letter itself has gone from the pane and the list by then.
             var moving: (() -> Void)?
             if case .move = action { moving = self.list.working(StatusLine.moving) }
             defer { moving?() }
+            // The letter after it opens in the pane, highlighted and marked
+            // read, as Mail's View Next Message opens it (B-158): chosen
+            // from the rows as they stand, and opened once its row is off.
+            // Only into a pane its Delete or Move has emptied; one showing
+            // another letter by then is his, and is left as it is.
+            let list = self.list
+            let next = self.detail.lettersShown.isEmpty
+                ? list.letterAfter(letter, action, onLetterIn: role) : nil
             // What the server took is a step of Mail's Undo (B-157), with
             // the list it was taken from: a Delete or a Move as the list's
             // copy of the letter was at the tap, which its row comes back
             // as; a Flag on the letter.
-            let letters = self.list.letters
+            let letters = list.letters
             let refused = await PaneActions.refusal(
-                running: action, on: letter, inFolderWithRole: folders.role(of: letter.mailboxID),
+                running: action, on: letter, inFolderWithRole: role,
                 list: letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.refreshMailboxes() },
                 landed: { [weak self, weak letters] landing, before in
@@ -1038,7 +1047,8 @@ final class RootViewController: UIViewController {
                         action, took: [before], landings: [before.id: landing],
                         role: { folders.role(of: $0) }) else { return }
                     self?.canUndo(.move(step), from: letters)
-                })
+                },
+                taken: { if let next { list.openNext(next) } })
             if refused == nil, let step = UndoableFlag.after(action, took: [letter]) {
                 self.canUndo(.flag(step), from: letters)
             }

@@ -895,7 +895,9 @@ final class PaneActionsTests: XCTestCase {
     /// one Flag for the whole pane, so flagging the next letter he opened
     /// while the last one's STORE waited, behind a probe and a reconnect or
     /// a half-open socket's read deadline, was dropped without a word. One
-    /// Delete at a time, whatever the pane shows.
+    /// Delete at a time, whatever the pane shows, under Don't Select a
+    /// Message; under View Next Message, Mail's default, see
+    /// `NextLetterTests` (B-158).
     func testAFlagTappedTwiceOnOneLetterGoesOnceAndAnotherLettersFlagStillGoes() {
         var writes = PaneWrites()
         XCTAssertTrue(writes.startFlag("1/1"))
@@ -906,12 +908,12 @@ final class PaneActionsTests: XCTestCase {
         XCTAssertFalse(writes.startFlag("1/2"))
 
         XCTAssertFalse(writes.deleting)
-        XCTAssertTrue(writes.startDelete())
+        XCTAssertTrue(writes.startDelete(at: 0, untilAnswered: true))
         XCTAssertTrue(writes.deleting)
-        XCTAssertFalse(writes.startDelete())
+        XCTAssertFalse(writes.startDelete(at: 10, untilAnswered: true))
         writes.deleteAnswered()
         XCTAssertFalse(writes.deleting)
-        XCTAssertTrue(writes.startDelete())
+        XCTAssertTrue(writes.startDelete(at: 20, untilAnswered: true))
     }
 
     /// A regroup puts back every row that was selected, by id: in Edit mode

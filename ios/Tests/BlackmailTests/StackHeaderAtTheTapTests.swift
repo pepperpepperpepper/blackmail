@@ -192,7 +192,8 @@ final class StackHeaderAtTheTapTests: XCTestCase {
         XCTAssertTrue(code.contains("@objc private func replyTapped() { guard let m = message else { return }"))
         for button in ["@objc private func flagTapped() { guard let s = summary else { return }",
                        "@objc private func moveTapped() { guard let s = summary else { return }",
-                       "@objc private func deleteTapped() { guard let s = summary, !writes.deleting else { return }"] {
+                       "@objc private func deleteTapped() { guard let s = summary, "
+                       + "writes.deleteGoes(at: ProcessInfo.processInfo.systemUptime) else { return }"] {
             XCTAssertTrue(code.contains(button), button)
         }
     }

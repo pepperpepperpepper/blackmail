@@ -2519,11 +2519,21 @@ final class MessageListViewController: UITableViewController {
     /// What the server took is one step of Mail's Undo (B-157), handed up
     /// once the batch has ended (`onUndoable`): a refusal stops the rest,
     /// and the letters that went are the step.
+    ///
+    /// `fromRow`, a drag on a row or More's sheet (B-156): if the pane shows
+    /// a letter of it, the letter after the row opens there once the row is
+    /// off, as after the pane's own Delete or Move (`NextLetter`, B-158),
+    /// chosen now from the rows as they stand, by the same setting, and
+    /// only into the pane the batch has emptied. Edit mode's Delete and
+    /// Move open nothing, as B-158 left them.
     @MainActor
     private func runBatch(_ action: PaneAction, on chosen: [MessageSummary],
-                          saying words: String) {
+                          saying words: String, fromRow: Bool = false) {
         guard !chosen.isEmpty else { return }
         let done = working(words)
+        let inPane = lettersInPane()
+        let next = fromRow && chosen.contains(where: { inPane.contains($0.id) })
+            ? lettersAfter(chosen, action) : nil
         onLettersLeaving?(chosen)
         Task { @MainActor [weak window = view.window] in
             var landings: [String: MoveLanding] = [:]
@@ -2531,7 +2541,11 @@ final class MessageListViewController: UITableViewController {
                 action, on: chosen, role: { self.role(of: $0) },
                 list: self.letters, repository: self.repository,
                 requestSweep: { [weak self] in self?.requestSweep?() },
-                landed: { letter, landing in landings[letter.id] = landing })
+                landed: { letter, landing in landings[letter.id] = landing },
+                taken: { [weak self] in
+                    guard let self, let next, self.lettersInPane().isEmpty else { return }
+                    self.openNext(next)
+                })
             done()
             let took = chosen.filter { outcome.taken.contains($0.id) }
             if let step = UndoableMove.after(action, took: took, landings: landings,
@@ -2777,21 +2791,21 @@ final class MessageListViewController: UITableViewController {
         let chosen = row.letters
         switch action {
         case .trash:
-            runBatch(.delete, on: chosen, saying: StatusLine.deleting)
+            runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)
             return true
         case .delete:
             guard let question = EraseQuestion.before(deleting: chosen,
                                                       role: { self.role(of: $0) }) else {
-                runBatch(.delete, on: chosen, saying: StatusLine.deleting)
+                runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)
                 return true
             }
             EraseConfirmation.ask(question, on: self) { [weak self] in
-                self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting)
+                self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true)
             }
             return false
         case .archive:
             guard let all = archive(for: row.thread) else { return false }
-            runBatch(.move(to: all), on: chosen, saying: StatusLine.moving)
+            runBatch(.move(to: all), on: chosen, saying: StatusLine.moving, fromRow: true)
             return true
         case .move:
             moveRow(key)
@@ -2852,7 +2866,8 @@ final class MessageListViewController: UITableViewController {
                                              excluding: row.thread.newest.mailboxID) {
             [weak self] destination in
             guard let self, let row = self.lettersOfRow(key), !row.letters.isEmpty else { return }
-            self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving)
+            self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving,
+                          fromRow: true)
         }
         let nav = UINavigationController(rootViewController: move)
         nav.modalPresentationStyle = .formSheet
@@ -2907,7 +2922,7 @@ final class MessageListViewController: UITableViewController {
         case .markAsRead: _ = mark(.read(true), on: key)
         case .markAsUnread: _ = mark(.read(false), on: key)
         case .moveToJunk(let folder), .moveToInbox(let folder):
-            runBatch(.move(to: folder), on: row.letters, saying: StatusLine.moving)
+            runBatch(.move(to: folder), on: row.letters, saying: StatusLine.moving, fromRow: true)
         case .moveMessage: moveRow(key)
         }
     }
@@ -3553,6 +3568,53 @@ final class MessageListViewController: UITableViewController {
     private func letGo(_ letter: MessageSummary) {
         guard !inEditMode, let row = rowIndex(showing: letter.id) else { return }
         tableView.deselectRow(at: IndexPath(row: row, section: 0), animated: false)
+    }
+
+    /// The letter to open once the reading pane's Delete or Move of
+    /// `letter` has taken its row off, as Mail's View Next Message opens it
+    /// (B-158): chosen now, from the rows as they stand at the tap, by
+    /// `NextLetter.after`, and opened by `openNext` once they are without
+    /// it. Nil under Don't Select a Message, and in Edit mode, where a
+    /// selected row is a tick of his, and the pane stays empty as before;
+    /// nil too at the foot of the rows while older letters are still to be
+    /// paged in, whose next is not on the list yet. `role` is that of the
+    /// folder the letter was listed from.
+    /// `letterAfter`, for every letter of a row a drag or More puts away
+    /// (B-156): the row after it, by the same rule and the same setting.
+    @MainActor
+    private func lettersAfter(_ chosen: [MessageSummary], _ action: PaneAction) -> String? {
+        guard NextLetter.action == .viewNextMessage, !inEditMode, let first = chosen.first else {
+            return nil
+        }
+        return NextLetter.after(chosen, action, onLetterIn: role(of: first.mailboxID), in: threads,
+                                listedIn: mailbox.role, olderToCome: !reachedOldestMessage)
+    }
+
+    @MainActor
+    func letterAfter(_ letter: MessageSummary, _ action: PaneAction,
+                     onLetterIn role: Mailbox.Role?) -> String? {
+        guard NextLetter.action == .viewNextMessage, !inEditMode else { return nil }
+        return NextLetter.after(letter, action, onLetterIn: role, in: threads,
+                                listedIn: mailbox.role, olderToCome: !reachedOldestMessage)
+    }
+
+    /// Opens the row holding the letter `id` as a tap on it opens it, in
+    /// the reading pane, marked read, and highlights it (B-158). Not
+    /// scrolled to: it is the row in the place of the one that went, the
+    /// one above it, or the conversation's own, which the list draws lower
+    /// once its newest has gone. Not in Edit mode, which may have begun
+    /// since.
+    @MainActor
+    func openNext(_ id: String) {
+        guard !inEditMode, let row = rowIndex(showing: id) else { return }
+        let ip = IndexPath(row: row, section: 0)
+        tableView.selectRow(at: ip, animated: false, scrollPosition: .none)
+        switch rows[row] {
+        case let .thread(thread) where thread.count > 1:
+            open(thread, at: ip)
+        case let .thread(thread):
+            open(thread.newest, at: ip)
+        }
     }
 }
 

@@ -701,7 +701,7 @@ final class UndoMovesTests: XCTestCase {
             "landed: { [weak self, weak letters] landing, before in guard let landing, let step = "
                 + "UndoableMove.after( action, took: [before], landings: [before.id: landing], "
                 + "role: { folders.role(of: $0) }) else { return } self?.canUndo(.move(step), "
-                + "from: letters) })",
+                + "from: letters) },",
             "self.returnedFromAway() self.takeUndo()",
         ] {
             XCTAssertTrue(root.contains(line), line)
@@ -713,7 +713,7 @@ final class UndoMovesTests: XCTestCase {
             "let took = chosen.filter { outcome.taken.contains($0.id) } if let step = "
                 + "UndoableMove.after(action, took: took, landings: landings, role: { "
                 + "self.role(of: $0) }) { self.onUndoable?(.move(step), self.letters) }"))
-        XCTAssertTrue(list.contains("landed: { letter, landing in landings[letter.id] = landing })"))
+        XCTAssertTrue(list.contains("landed: { letter, landing in landings[letter.id] = landing },"))
         let steps = try source("Mail/UndoMoves.swift")
         for kept in ["UserDefaults", "FileManager", "write(to", "MailShelf", "Codable"] {
             XCTAssertFalse(steps.contains(kept), kept)

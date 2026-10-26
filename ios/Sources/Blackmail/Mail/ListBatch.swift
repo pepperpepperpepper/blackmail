@@ -89,15 +89,22 @@ enum ListBatch {
     /// repository says it went, once the list has been billed for it: for
     /// their Undo (B-157). Not for a letter erased inside Trash, nor where
     /// the repository cannot say.
+    ///
+    /// `taken` runs once every row is off, before the first write goes: where
+    /// a drag on the row of the letter open in the pane opens the letter
+    /// after it (`NextLetter`, B-158), as the pane's `PaneActions.refusal`
+    /// runs its own.
     static func run(_ action: PaneAction, on letters: [MessageSummary],
                     role: (String) -> Mailbox.Role?, list: PaneActionList?,
                     repository: MailRepository,
                     requestSweep: @MainActor () -> Void,
-                    landed: @MainActor (MessageSummary, MoveLanding) -> Void = { _, _ in })
+                    landed: @MainActor (MessageSummary, MoveLanding) -> Void = { _, _ in },
+                    taken: @MainActor () -> Void = {})
         async -> Outcome {
         let started = letters.map {
             PaneActions.start(action, on: $0, inFolderWithRole: role($0.mailboxID), list: list)
         }
+        taken()
         var outcome = Outcome()
         var sweepOwed = false
         var stopped = false

@@ -178,13 +178,21 @@ enum PaneActions {
     /// letter at the tap, as the list took it off, which its row comes
     /// back as: the pane's can be out of date, unread where the tap that
     /// opened it has marked it read.
+    ///
+    /// `taken` runs once the list has been edited at the tap, the row off,
+    /// and before the write goes: where the reading pane opens the letter
+    /// after it (`NextLetter`, B-158), from the rows as they are without it.
+    /// Not when the list's row under the letter's id is another letter
+    /// (D-016), which is left on the list, and nothing opens.
     static func refusal(running action: PaneAction, on letter: MessageSummary,
                         inFolderWithRole role: Mailbox.Role?,
                         list shown: PaneActionList?, repository: MailRepository,
                         requestSweep: @MainActor () -> Void,
-                        landed: @MainActor (MoveLanding?, MessageSummary) -> Void = { _, _ in })
+                        landed: @MainActor (MoveLanding?, MessageSummary) -> Void = { _, _ in },
+                        taken: @MainActor () -> Void = {})
         async -> MailError? {
         let started = start(action, on: letter, inFolderWithRole: role, list: shown)
+        if started.list != nil { taken() }
         let landing: MoveLanding?
         do {
             landing = try await send(action, on: letter, repository: repository)
@@ -403,11 +411,22 @@ struct PaneWrites {
     /// Letters with a Flag's STORE on its way.
     private var flagging: Set<String> = []
 
-    /// A Delete on its way. Delete stays grey until it is answered, whatever
-    /// the pane shows meanwhile, so a second tap cannot bin the next letter
-    /// he opens before the first has gone. Greyed, so it is never a tap
-    /// that silently does nothing.
+    /// A Delete on its way under Don't Select a Message (`NextLetter`).
+    /// Delete stays grey until it is answered, whatever the pane shows
+    /// meanwhile, so a second tap cannot bin the next letter he opens
+    /// before the first has gone. Greyed, so it is never a tap that
+    /// silently does nothing. Under View Next Message, Mail's factory
+    /// default, it is never set: the next letter opens with Delete live, as
+    /// Mail's does (B-158), and a second Delete can go while the first is
+    /// on its way.
     private(set) var deleting = false
+
+    /// When the last Delete went, on the clock the pane reads
+    /// (`systemUptime`): a tap on Delete within `NextLetter.doubleTap` of
+    /// it does nothing, greyed or not (B-158). Invisible, and not Mail's:
+    /// it is what is left of B-041's guard, so a double tap does not bin the
+    /// letter the first tap opened. Nil before the first.
+    private var deleteWent: Double?
 
     /// Letters with a Mark as Unread's or Mark as Read's STORE on its way.
     private var marking: Set<String> = []
@@ -460,10 +479,23 @@ struct PaneWrites {
         marking.remove(id)
     }
 
-    /// Whether a Delete tapped now goes.
-    mutating func startDelete() -> Bool {
+    /// Whether a Delete tapped at `now` goes: not while one is on its way
+    /// greyed, and not within half a second of the last (B-158). Asked
+    /// before Trash's question too, so a double tap there does not put the
+    /// question up over the letter the first one opened.
+    func deleteGoes(at now: Double) -> Bool {
         guard !deleting else { return false }
-        deleting = true
+        guard let went = deleteWent else { return true }
+        return now - went >= NextLetter.doubleTap
+    }
+
+    /// Whether a Delete tapped at `now` goes, and if it does, the clock
+    /// for the next started. `untilAnswered`, under Don't Select a Message,
+    /// greys Delete until this one is answered (`deleting`).
+    mutating func startDelete(at now: Double, untilAnswered: Bool) -> Bool {
+        guard deleteGoes(at: now) else { return false }
+        deleting = untilAnswered
+        deleteWent = now
         return true
     }
 

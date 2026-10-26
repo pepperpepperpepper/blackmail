@@ -193,11 +193,12 @@ final class RowSwipesTests: XCTestCase {
             // By its id and its folder: two folders' letters can share an id.
             "init(_ thread: MessageThread) { id = thread.id folder = thread.newest.mailboxID }",
             "guard let row = threads.firstIndex(where: { RowKey($0) == key }) else { return nil }",
-            "case .trash: runBatch(.delete, on: chosen, saying: StatusLine.deleting) return true",
+            "case .trash: runBatch(.delete, on: chosen, saying: StatusLine.deleting, fromRow: true) return true",
             "case .delete: guard let question = EraseQuestion.before(deleting: chosen, role: { "
                 + "self.role(of: $0) }) else { runBatch(.delete, on: chosen, saying: "
-                + "StatusLine.deleting) return true } EraseConfirmation.ask(question, on: self) { "
-                + "[weak self] in self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting) } "
+                + "StatusLine.deleting, fromRow: true) return true } EraseConfirmation.ask(question, on: self) { "
+                + "[weak self] in self?.runBatch(.delete, on: chosen, saying: StatusLine.deleting, "
+                + "fromRow: true) } "
                 + "return false",
             "case .flag, .unflag: return mark(.flag(action == .flag), on: key)",
             "case .markRead, .markUnread: return mark(.read(action == .markRead), on: key)",
@@ -212,10 +213,11 @@ final class RowSwipesTests: XCTestCase {
             // More's Move to Junk, or Move to Inbox inside Junk (B-106), is
             // Edit mode's Move into that folder.
             "case .moveToJunk(let folder), .moveToInbox(let folder): "
-                + "runBatch(.move(to: folder), on: row.letters, saying: StatusLine.moving)",
+                + "runBatch(.move(to: folder), on: row.letters, saying: StatusLine.moving, fromRow: true)",
             "case .trashMessage: _ = swiped(.trash, on: key) case .archiveMessage: _ = "
                 + "swiped(.archive, on: key) case .deleteMessage: _ = swiped(.delete, on: key)",
-            "self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving)",
+            "self.runBatch(.move(to: destination), on: row.letters, saying: StatusLine.moving, "
+                + "fromRow: true)",
         ] {
             XCTAssertTrue(list.contains(line), line)
         }
