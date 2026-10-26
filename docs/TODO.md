@@ -336,7 +336,8 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       *App badge and notifications ruled 2026-10-26: copy Apple Mail. Built
       as B-161, not yet seen on the iPad: the Inbox's unread count on the
       icon, and a banner for each new unread Inbox letter from a check iOS
-      wakes the app for, after iOS's own question; its check under
+      wakes the app for while the iPad is on charge and on Wi-Fi, as Mail
+      fetches from the factory, after iOS's own question; its check under
       "Blocked on the iPad coming back".*
 - [ ] Pull to refresh, the sent sound, blue bars on quoted text, tap the
       status bar to go to the top, Print. *The sent sound done 2026-10-22,
@@ -7407,7 +7408,14 @@ checks below is left as not needed, not open, and none is worth a round.*
       8. *Notifications off.* Settings > Notifications > Blackmail, Allow
       Notifications off; Home: the number gone, and no `NEW-MAIL` line
       after it in the log. Put back on.
-      9. *Put back:* the letter of 2 marked read again; the UIDs the host
+      9. *Only on charge and Wi-Fi* (the second commit). The app at Home,
+      the iPad unplugged; the host marks the letter of 2 unread again.
+      An hour or more on battery: the icon's number as it was, and the
+      log with no `NEW-MAIL unread=` line in that time, only `NEW-MAIL
+      held not-charging-on-wifi` if iOS ran a check. Plugged in, on
+      Wi-Fi: at the next check (`NEW-MAIL unread=N`), the number one
+      more. Written down how long iOS took either way.
+      10. *Put back:* the letter of 2 marked read again; the UIDs the host
       noted in 3 and 4, and only them, moved to the Trash, answered by
       COPYUID. Nothing else was written.
 

@@ -30130,11 +30130,16 @@ Messages", the whole Inbox (the same article; Six Colors and 9to5Mac on
 iOS 18.2). Its banners: one for each new letter, the sender over the
 subject and the first lines of the letter, a tap opening that letter;
 none while Mail is in front with the Inbox. A Gmail account is fetched,
-not pushed, as Gmail gives Mail no push. Its New Mail sound is None from
-the factory on current versions (Ding on old ones), as published guides
-and users report it; Apple's article says only that the sound chosen
-plays. Mail, Apple's own, asks nothing before it badges; any other app
-asks iOS's question first.
+not pushed, as Gmail gives Mail no push, and Mail's factory Fetch is
+Automatically: "With iOS 11 and later, and iPadOS, Automatically is set
+by default. Your device will fetch new data in the background only when
+your device is charging and connected to Wi-Fi" (Apple's support article
+102578). From the factory, then, Mail's banners and number for his
+Gmail change while he is away only with the iPad on charge and on Wi-Fi.
+Its New Mail sound is None from the factory on current versions (Ding on
+old ones), as published guides and users report it; Apple's article
+says only that the sound chosen plays. Mail, Apple's own, asks nothing
+before it badges; any other app asks iOS's question first.
 
 **What Blackmail did.** Nothing of it: no number, no banner, nothing run
 while the app was away (B-049: "Nothing runs while the app is in the
@@ -30169,9 +30174,10 @@ background").
    and `UIBackgroundModes` `fetch`), registered at every launch before the
    launch ends, asked for as he leaves and after each check, fifteen
    minutes on at the soonest; iOS runs it when it chooses. Only with his
-   yes and banners or the number on, an account set up, and nothing
-   unfinished (5). On a connection of its own, closed as it ends: LOGIN
-   and `STATUS "INBOX" (UNSEEN UIDNEXT UIDVALIDITY)`, and with nothing
+   yes and banners or the number on, an account set up, the iPad on
+   charge and on Wi-Fi (10, the second commit), and nothing unfinished
+   (5). On a connection of its own, closed as it ends: LOGIN and
+   `STATUS "INBOX" (UNSEEN UIDNEXT UIDVALIDITY)`, and with nothing
    above the last check's mark, that is all and LOGOUT. Above it, a SELECT
    of the Inbox, `UID SEARCH UNSEEN UID n:*`, or `UNSEEN SINCE` the day
    before he left at the first check after he left and after a
@@ -30183,18 +30189,23 @@ background").
    letter is fetched, so a letter that ends a check is never fetched by
    one again, and a letter has one banner.
 4. *The banners*: one for each letter still unread that reached the Inbox
-   after he last left the app, by Gmail's own time for it (INTERNALDATE),
-   oldest first so the newest is on top, at most twenty a check: mail
-   that came while he was in the app was on the list, as in Mail. Its
-   title the sender as the row names them, its subtitle the subject or
-   the row's "(no subject)", its words the row's grey line, at most 400
-   characters, iOS cutting the banner to its lines. Named by the letter,
-   so one put up again takes the first one's place. The number set from
-   STATUS's count. None if he has opened the app meanwhile, and none
+   after he last left the app, by Gmail's own time for it (INTERNALDATE):
+   mail that came while he was in the app was on the list, and Mail puts
+   up no banner for it. Oldest first, so the newest is on top. At most
+   twenty a check, the newest: a departure from Mail, which puts up one
+   for every letter and lets iOS stack them, so that after a day away a
+   check does not put up a wall of banners for mail he will see on the
+   list. Its title the sender as the row names them, its subtitle the
+   subject or the row's "(no subject)", its words the row's grey line, at
+   most 400 characters, iOS cutting the banner to its lines. Named by the
+   letter, so one put up again takes the first one's place. The number set
+   from STATUS's count. None if he has opened the app meanwhile, and none
    while the app is in front (`willPresent` answers none, for one that
    reached iOS as he opened it). The check ends within 25 seconds, when
-   iOS says its time is up, or as he opens the app, and then nothing of
-   it is shown.
+   iOS says its time is up, or as he opens the app, and then nothing of it
+   is shown. As the mark has moved past its letters by then (3), a letter
+   that check had passed never has a banner from a later one: on a slow
+   network, not only after a crash.
 5. *The safe start* (`SafeStart`, B-057): a launch into the background,
    iOS waking the app for the check, starts nothing of the app, no
    window, no connection of the mail's, no pass over the Outbox, nothing
@@ -30246,9 +30257,18 @@ the question being new on his screen.
 
 **What he sees.** Once, when the Inbox has come, iOS's question; with
 Allow, the red number on the icon, the Inbox's unread count, as the
-number beside Inbox; while the app is away, now and then as iOS lets it,
-a banner for each new letter, a tap on which opens it in the app; in the
-app, no banner.
+number beside Inbox; while the app is away and the iPad on charge and on
+Wi-Fi, now and then as iOS lets it, a banner for each new letter, a tap
+on which opens it in the app; in the app, no banner.
+
+Most of the banners, and much of the number, will be his own letters.
+The gap review of 2026-10-24 counted 237 unread letters reaching his
+Inbox in seven days, 176 of them his own shares coming back to him,
+about three in four (1,045 of 1,371 in thirty days). Each of those has
+its banner and counts in the number, as in Mail. Leaving out letters
+from his own addresses (B-076's list of them), which that review said a
+build would have to do, was weighed and not built: the ruling is to copy
+Mail.
 
 **Tests.** `NewMailBannersTests`, seventeen, new. The check over the
 scripted server, as the app runs it: the first check only marks where the
@@ -30297,18 +30317,75 @@ test.
 The full suite, serially: 2,681 tests, 17 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
+**Changed in a second commit** (same branch).
+
+10. *Only on charge and on Wi-Fi, as Mail fetches* (`NewMailTask`,
+    `mailWouldFetch`, `onWiFi`). The first commit checked whenever iOS
+    woke the app, on battery as well, so he would have had banners, and
+    wakes on battery, that Mail's factory Fetch does not give. Now, as
+    iOS wakes the app and before the check is counted (5), the iPad's
+    power is read (`UIDevice.batteryState`, monitoring on for the reading
+    alone): charging, or full on the charger. On charge, the network's
+    path, from a monitor started for its one answer and stopped as it
+    gives it (`NWPathMonitor`): up, and over Wi-Fi; no answer within two
+    seconds counts as not. Otherwise the check is held: nothing is sent to
+    the server, the number and the mark stay as they were, the wake ends
+    at once as a success with the next one asked for, and the log says
+    `NEW-MAIL held not-charging-on-wifi`. A held check has not had the
+    count, so his return sweeps nothing for it (8). A check he opens the
+    app during is called off as before, while the power and path are read
+    as well. This takes back the first commit's checks on battery, and
+    nothing else.
+
+**Tests, second commit.** `NewMailBannersTests`, two new, read from the
+source as the rest of the UIKit half is. The charge and Wi-Fi rule: the
+check held before it is counted unless the iPad is charging or full and
+the path is up over Wi-Fi, no answer in two seconds counting as not, a
+held check ending at once as a success after the next is asked for. The
+tap: the notification centre's delegate handing a banner the app made to
+the root after starting the app; `openFromBanner` and `openTappedBanner`
+never over a sheet, and waiting for the launch's first page; `open`
+opening the Inbox when another folder is in front, and the row at once or
+once the list is fetched again from its newest; `openRow` opening the
+row as a tap does, the same letter only. One pin moved: the safe start's
+guard, which now comes after the charge and Wi-Fi.
+
+Each part undone by hand and the suite run, then put back and passing,
+counted as failures in tests: the charge and Wi-Fi not looked at before
+the count; on battery taken for on charge; any network taken for Wi-Fi;
+no answer taken for Wi-Fi; the tap not handed to the root; a tap opened
+over a sheet; the Inbox not opened from another folder; another letter
+opened under the same row: 1 in 1 each, the rule's test for the first
+four and the tap's for the rest.
+
+The full suite, serially: 2,683 tests, 2 of them new, 6 skipped, none
+failing. The release build for the iPad links.
+
 **Not covered.**
 
 - Nothing of it on the iPad. When iOS runs a refresh is its own: from
   how often he opens the app, the battery and the network; perhaps not
   for hours, and never with Low Power Mode on or Background App Refresh
-  off. A sideloaded app's refresh on iPadOS 18 not seen.
+  off. An app swiped away in the app switcher is not woken for a check
+  until he opens it again (Apple, WWDC 2020 session 10063): if he closes
+  apps that way by habit, no banner comes at all, and the number stays as
+  he left it. A sideloaded app's refresh on iPadOS 18 not seen.
+- If his Mail's Fetch is set to a schedule, every 15, 30 or 60 minutes,
+  and not Automatically, his Mail fetched on battery too. Which his is,
+  not known; the factory's is built.
+- On battery iOS may still wake the app for a check now and then: it
+  reads the power and ends, sending nothing. Whether iOS wakes Mail so,
+  not known.
+- That `UIDevice.batteryState` reads at once once monitoring is turned
+  on, and that the path monitor answers within two seconds of starting:
+  Apple's account, not seen. Either not so holds the check.
 - Mail's categories: if his Mail counts Primary alone, his icon showed a
   smaller number than Blackmail's will. Which his is, not known.
 - That UIKit calls `applicationWillEnterForeground` for an app it launched
   into the background as he opens it: Apple's account of the life cycle,
   not seen; `applicationDidBecomeActive` starts the app as well.
-- The tap, the question and the number are UIKit: read from the source.
+- The tap, the question, the number and the charge and Wi-Fi rule are
+  UIKit: read from the source, none of them run.
 - Mail takes a banner out of the Notification Centre once its letter is
   read; here it stays until he clears it or taps it. Not built.
 - iOS groups the banners by app, as it does without a thread named;

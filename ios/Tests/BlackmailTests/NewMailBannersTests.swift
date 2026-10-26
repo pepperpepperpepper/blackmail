@@ -426,11 +426,88 @@ final class NewMailBannersTests: XCTestCase {
                                     + "guard lastCheckFailed else { return }"))
 
         let task = try source("Sources/Blackmail/App/NewMailTask.swift")
-        XCTAssertTrue(task.contains("guard running == nil, "
+        XCTAssertTrue(task.contains("guard !Task.isCancelled, "
                                     + "UIApplication.shared.applicationState == .background, "
                                     + "SafeStart.app.checkBegins() else"))
         XCTAssertTrue(task.contains("requestAuthorization(options: [.alert, .badge])"))
         XCTAssertTrue(task.contains("guard !Task.isCancelled, "
                                     + "UIApplication.shared.applicationState == .background else"))
+    }
+
+    /// A check goes only with the iPad on charge and on Wi-Fi, as Mail's
+    /// factory Fetch, Automatically, fetches in the background (Apple's
+    /// 102578), read from the source: charging or full, the path up over
+    /// Wi-Fi, no answer counting as not; looked at before the check is
+    /// counted, and a check held there ends at once as a success, the next
+    /// one already asked for.
+    func testTheCheckGoesOnlyOnChargeAndWiFiAsMailFetches() async throws {
+        let task = try source("Sources/Blackmail/App/NewMailTask.swift")
+        XCTAssertTrue(task.contains("private static func run(_ task: BGTask) { schedule() "
+                                    + "guard running == nil, "
+                                    + "UIApplication.shared.applicationState == .background else {"))
+        XCTAssertTrue(task.contains("let work = Task { @MainActor in "
+                                    + "guard await mailWouldFetch() else { "
+                                    + "Diagnostics.log(.note, \"NEW-MAIL held not-charging-on-wifi\") "
+                                    + "end(true) return } "
+                                    + "guard !Task.isCancelled, "
+                                    + "UIApplication.shared.applicationState == .background, "
+                                    + "SafeStart.app.checkBegins() else {"))
+        XCTAssertTrue(task.contains("device.isBatteryMonitoringEnabled = true "
+                                    + "let power = device.batteryState "
+                                    + "device.isBatteryMonitoringEnabled = false "
+                                    + "guard power == .charging || power == .full else { return false } "
+                                    + "return await onWiFi() }"))
+        XCTAssertTrue(task.contains("answer(path.status == .satisfied && path.usesInterfaceType(.wifi))"))
+        XCTAssertTrue(task.contains("queue.asyncAfter(deadline: .now() + 2) { answer(false) }"))
+    }
+
+    /// A tapped banner opens its letter, read from the source: the
+    /// notification centre's delegate hands a banner this app made to the
+    /// root, starting the app first; the root opens it now, or once the
+    /// launch's first page has been tried, never over a sheet; the Inbox in
+    /// front, or opened, and the letter's row opened as a tap opens it, at
+    /// once or once the list has been fetched again from its newest.
+    func testATappedBannerOpensItsLetter() async throws {
+        let delegate = try source("Sources/Blackmail/App/AppDelegate.swift")
+        XCTAssertTrue(delegate.contains("defer { completionHandler() } "
+                                        + "guard response.actionIdentifier == UNNotificationDefaultActionIdentifier, "
+                                        + "let letter = NewMailBanners.Tapped( "
+                                        + "userInfo: response.notification.request.content.userInfo) "
+                                        + "else { return } start() "
+                                        + "(window?.rootViewController as? RootViewController)?"
+                                        + ".openFromBanner(letter)"))
+
+        let root = try source("Sources/Blackmail/UI/RootViewController.swift")
+        XCTAssertTrue(root.contains("func openFromBanner(_ letter: NewMailBanners.Tapped) { "
+                                    + "guard !ErrorPresenter.over(self).sheetOpen else { return } "
+                                    + "guard firstPageTried else { bannerTapped = letter return } "
+                                    + "open(letter) }"))
+        XCTAssertTrue(root.contains("private func openTappedBanner() { "
+                                    + "guard let letter = bannerTapped else { return } "
+                                    + "bannerTapped = nil "
+                                    + "guard !ErrorPresenter.over(self).sheetOpen else { return } "
+                                    + "open(letter) }"))
+        XCTAssertTrue(root.contains("private func open(_ letter: NewMailBanners.Tapped) { "
+                                    + "guard list.shownMailbox.role == .inbox else { "
+                                    + "let inbox = mailboxList.mailbox(for: .inbox) ?? .inboxBeforeListing "
+                                    + "shell.open(inbox) mailboxList.select(mailboxID: inbox.id) "
+                                    + "list.onFirstLoadFinished = { [weak self] _ in "
+                                    + "_ = self?.list.openRow(of: letter.id, letter: letter.gmailMessageID) } "
+                                    + "return } shell.showList() "
+                                    + "if list.openRow(of: letter.id, letter: letter.gmailMessageID) { return } "
+                                    + "let list = self.list Task { @MainActor in "
+                                    + "guard await list.returnToNewest() else { return } "
+                                    + "_ = list.openRow(of: letter.id, letter: letter.gmailMessageID) } }"))
+
+        let list = try source("Sources/Blackmail/UI/MessageListViewController.swift")
+        XCTAssertTrue(list.contains("func openRow(of id: String, letter: UInt64?) -> Bool { "
+                                    + "guard !tableView.isEditing, let row = rowIndex(showing: id) "
+                                    + "else { return false } "
+                                    + "if let letter, let listed = letters.letter(id)?.gmailMessageID, "
+                                    + "listed != letter { return false } "
+                                    + "let at = IndexPath(row: row, section: 0) "
+                                    + "tableView.selectRow(at: at, animated: false, scrollPosition: .none) "
+                                    + "tableView.scrollToRow(at: at, at: .none, animated: false) "
+                                    + "tableView(tableView, didSelectRowAt: at) return true }"))
     }
 }

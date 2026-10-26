@@ -8,10 +8,14 @@ import Foundation
 /// title, the subject under it and the first words of the letter, a tap on
 /// it opening that letter. It shows no banner for mail that comes while it
 /// is in front. His Gmail account is fetched, not pushed (Gmail offers Mail
-/// no push), on a schedule iOS keeps.
+/// no push), and Mail's factory Fetch, Automatically, fetches in the
+/// background only while the iPad is charging and on Wi-Fi (Apple's support
+/// article 102578): from the factory, his banners and number change while
+/// he is away only then.
 ///
 /// Blackmail has no server and nothing pushes to it, so it is iOS's own
-/// background refresh that wakes it, when iOS chooses (`interval`): one
+/// background refresh that wakes it, when iOS chooses (`interval`), and it
+/// checks only on charge and Wi-Fi, as Mail fetches (`NewMailTask`): one
 /// check on a short connection of its own (`InboxCheck`), a banner for each
 /// unread letter that reached the Inbox after he left the app, and the
 /// Inbox's unread count on the icon. In front, the number follows the
@@ -41,7 +45,8 @@ enum NewMailBanners {
 
     /// At most this many banners from one check, for the newest letters:
     /// after a day away, a banner for every letter would be a column of
-    /// them for mail he will see on the list.
+    /// them for mail he will see on the list. A departure from Mail, which
+    /// puts one up for every letter and lets iOS stack them.
     static let most = 20
 
     /// The longest line of a letter's words a banner carries. iOS cuts the
@@ -292,7 +297,9 @@ final class BannerStore: @unchecked Sendable {
 ///
 /// The mark is written as soon as STATUS has said how far the Inbox goes,
 /// before any letter is fetched: a letter whose summary ends the check is
-/// never fetched by a check again, and a letter is bannered once.
+/// never fetched by a check again, and a letter is bannered once. So a
+/// letter a check had passed when it was ended, at its allowance on a slow
+/// network or as he opened the app, never has a banner.
 ///
 /// A banner only for a letter still unread, that reached the Inbox after
 /// he last left the app (`BannerState.leftAt`): mail that came while he was

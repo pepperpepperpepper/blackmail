@@ -5,6 +5,7 @@
 
 import UIKit
 import BackgroundTasks
+import Network
 import UserNotifications
 
 extension AppBadge {
@@ -27,8 +28,10 @@ extension AppBadge {
 /// requires: a launch into the background for it would otherwise be ended.
 ///
 /// A check goes only with his yes to iOS's question and banners or the
-/// number on for the app, with an account set up, and when no launch and no
-/// check is unfinished (`SafeStart.checkBegins`). It ends within
+/// number on for the app, with an account set up, with the iPad on charge
+/// and on Wi-Fi, as Mail fetches from the factory (`mailWouldFetch`), and
+/// when no launch and no check is unfinished (`SafeStart.checkBegins`).
+/// Otherwise iOS's wake is held at once, the next asked for. It ends within
 /// `NewMailBanners.allowance`, or when iOS says its time is up, or as he
 /// opens the app, which calls it off before anything of it is shown: no
 /// banner is put up while the app is in front, as Mail puts up none for
@@ -122,8 +125,7 @@ enum NewMailTask {
     private static func run(_ task: BGTask) {
         // The next one first, so a check that is ended still leaves one asked for.
         schedule()
-        guard running == nil, UIApplication.shared.applicationState == .background,
-              SafeStart.app.checkBegins() else {
+        guard running == nil, UIApplication.shared.applicationState == .background else {
             Diagnostics.log(.note, "NEW-MAIL held")
             task.setTaskCompleted(success: true)
             return
@@ -133,10 +135,22 @@ enum NewMailTask {
             guard !ended else { return }
             ended = true
             running = nil
+            // Nothing unless the check was counted.
             SafeStart.app.checkEnded()
             task.setTaskCompleted(success: success)
         }
         let work = Task { @MainActor in
+            guard await mailWouldFetch() else {
+                Diagnostics.log(.note, "NEW-MAIL held not-charging-on-wifi")
+                end(true)
+                return
+            }
+            guard !Task.isCancelled, UIApplication.shared.applicationState == .background,
+                  SafeStart.app.checkBegins() else {
+                Diagnostics.log(.note, "NEW-MAIL held")
+                end(true)
+                return
+            }
             let success = await check()
             end(success)
         }
@@ -152,6 +166,44 @@ enum NewMailTask {
                 work.cancel()
                 end(false)
             }
+        }
+    }
+
+    /// Whether Mail would fetch now, as it does from the factory. His Gmail
+    /// gives Mail no push, so Mail fetches, and its factory Fetch,
+    /// Automatically, "will fetch new data in the background only when your
+    /// device is charging and connected to Wi-Fi" (Apple's support article
+    /// 102578). On charge, charging or full, and the network up over Wi-Fi;
+    /// a state iOS does not say counts as neither.
+    private static func mailWouldFetch() async -> Bool {
+        let device = UIDevice.current
+        device.isBatteryMonitoringEnabled = true
+        let power = device.batteryState
+        device.isBatteryMonitoringEnabled = false
+        guard power == .charging || power == .full else { return false }
+        return await onWiFi()
+    }
+
+    /// The network as iOS has it now, from a monitor started for its one
+    /// answer and stopped as it gives it: up, and over Wi-Fi. No answer
+    /// within two seconds counts as not.
+    private static func onWiFi() async -> Bool {
+        await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+            let monitor = NWPathMonitor()
+            let queue = DispatchQueue(label: "wtf.uhoh.blackmail.new-mail.path")
+            // Both answers come on `queue`: the first is told, and stops the
+            // monitor; the second finds it stopped.
+            let answer: (Bool) -> Void = { onWiFi in
+                guard monitor.pathUpdateHandler != nil else { return }
+                monitor.pathUpdateHandler = nil
+                monitor.cancel()
+                done.resume(returning: onWiFi)
+            }
+            monitor.pathUpdateHandler = { path in
+                answer(path.status == .satisfied && path.usesInterfaceType(.wifi))
+            }
+            monitor.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + 2) { answer(false) }
         }
     }
 
