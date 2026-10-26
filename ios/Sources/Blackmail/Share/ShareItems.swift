@@ -225,6 +225,53 @@ enum ShareItems {
             }
         }
 
+        /// Where a file named `filename` may be written, in a directory of
+        /// its own, as `written` places one: a video's H.264 copy, made
+        /// after its original is staged (`ShareItems.compatible`, B-142).
+        /// Nil when no place can be made.
+        func placed(_ filename: String) -> URL? {
+            try? place(filename)
+        }
+
+        /// A file written at a place this gave (`placed`) and not staged,
+        /// taken away again.
+        func remove(_ url: URL) {
+            discard(url)
+        }
+
+        /// `item`, a file staged here, taken away again, and its room given
+        /// back: a video whose conversion was called off (B-142).
+        func unstage(_ item: SharedItem) {
+            guard case let .file(url, _, _, size) = item else { return }
+            discard(url)
+            staged -= size
+        }
+
+        /// The file at `url`, written at a place this gave (`placed`),
+        /// staged in place of `item`, a file staged here (B-142): measured,
+        /// and staged when it fits the room `item` leaves, under `item`'s
+        /// name and type, `item` then taken away. Otherwise it is taken
+        /// away itself, and `item` stays. `lastMeasured` is what it
+        /// measured, nil when it could not be. Nil when it does not take
+        /// `item`'s place.
+        func replace(_ item: SharedItem, with url: URL) -> SharedItem? {
+            lastMeasured = nil
+            guard case let .file(old, filename, mimeType, size) = item else {
+                discard(url)
+                return nil
+            }
+            lastMeasured = Self.measured(url)
+            guard let measured = lastMeasured, measured > 0, staged - size + measured <= limit else {
+                discard(url)
+                return nil
+            }
+            discard(old)
+            staged -= size
+            return stage(size: measured, filename: filename, mimeType: mimeType, unnamed: false) {
+                url
+            }
+        }
+
         /// What `rows`, a letter's files, leave of `budget` for more: the
         /// room the composer's picks begin with (B-108). A row whose size
         /// is not known counts as the whole of it, since what it weighs
@@ -286,6 +333,210 @@ enum ShareItems {
         /// or once nothing would take it, counted out or the letter closed.
         /// The composer's own line says which (`ComposeIntake`).
         case calledOff
+    }
+
+    /// A file a provider handed over at `url`, `size` bytes by its account,
+    /// read as `type`, and lasting only as long as the read's call back:
+    /// copied into `staging` under `name` when it fits (`Staging.file`),
+    /// and its line in the log (`fileNote`). A video staged, where
+    /// `videos` is given, is then made H.264 in the app where it needs to
+    /// be (`compatible`, B-142), from the copy, once the call back has
+    /// returned and the provider's file, and Photos' claim on the app with
+    /// it, have been let go; `done` has what goes then. A file that does
+    /// not fit is left out at once, and nothing is made of it.
+    static func stageRead(_ url: URL, size: Int64, type: String, suggested: Bool, name: String,
+                          mimeType: String, videos: VideoConversion?, staging: Staging,
+                          loading: Loading, done: @escaping (SharedItem?) -> Void) {
+        let room = staging.room
+        let item = staging.file(at: url, size: size, named: name, mimeType: mimeType)
+        // What its copy measured, where it was copied, which is what
+        // decided it; the sharing app's word where it was not.
+        let bytes = staging.lastMeasured ?? size
+        Diagnostics.log(.note, fileNote(read: type, suggested: suggested, name: name,
+                                        mimeType: mimeType, bytes: bytes,
+                                        went: fileWent(item, size: bytes, room: room)))
+        guard let item, let videos else { return done(item) }
+        compatible(item, staging: staging, loading: loading, conversion: videos, done: done)
+    }
+
+    // MARK: - A video made H.264 (B-142)
+
+    /// What came of making a video H.264 (`VideoConversion`).
+    enum Converted: Equatable {
+        /// Its pictures are H.264 already, or it has none: nothing made.
+        case notNeeded
+        /// Written whole where it was asked to be.
+        case made
+        /// Called off (`Loading.cancel`).
+        case cancelled
+        /// Stopped as the app went into the background: AVFoundation's
+        /// `operationInterrupted`, an encoder an app gives up there.
+        case interrupted
+        /// Failed for another reason, its error's code where it had one.
+        case failed(code: Int?)
+    }
+
+    /// How a video is made H.264 in the app: `convert` writes an H.264
+    /// copy of the video at its first URL to its second, as the file type
+    /// its third names (`exportType`), and calls back once, from any
+    /// thread; it returns what calls it off, which `Loading` keeps. The
+    /// iPad's is AVFoundation's (`h264`, beside the sheet); the suite's,
+    /// the test's own.
+    struct VideoConversion {
+        let convert: (_ from: URL, _ to: URL, _ fileType: String,
+                      _ done: @escaping (Converted) -> Void) -> () -> Void
+
+        init(convert: @escaping (_ from: URL, _ to: URL, _ fileType: String,
+                                 _ done: @escaping (Converted) -> Void) -> () -> Void) {
+            self.convert = convert
+        }
+    }
+
+    /// The codecs of a picture every recipient can play: H.264, as
+    /// `avc1` and as `avc3`, by their four letters.
+    static let h264Codecs: Set<String> = ["avc1", "avc3"]
+
+    /// Whether a video whose pictures are coded as `codecs`, by their four
+    /// letters, one for each of its video tracks' formats, is made H.264:
+    /// when any is not H.264 already, as Photos' compatible copy made an
+    /// HEVC video H.264 and left an H.264 one as it was (B-108). HEVC,
+    /// `hvc1` or `hev1`, is the case: an iPad or an iPhone films in it.
+    /// Not one with no pictures at all.
+    static func needsH264(codecs: [String]) -> Bool {
+        codecs.contains { !h264Codecs.contains($0) }
+    }
+
+    /// A codec's four letters, from the number CoreMedia gives them as,
+    /// its first letter in its highest byte: "hvc1", "avc1". A byte that
+    /// is not a printable letter is a "?".
+    static func fourCC(_ code: UInt32) -> String {
+        String([24, 16, 8, 0].map { shift -> Character in
+            let byte = UInt8((code >> UInt32(shift)) & 0xFF)
+            return (0x20...0x7E).contains(byte) ? Character(UnicodeScalar(byte)) : "?"
+        })
+    }
+
+    /// The file type a video's H.264 copy is written as, by its name's
+    /// extension, so that its name and its MIME type stay those of the
+    /// video he picked: MPEG-4 for ".mp4", M4V for ".m4v", and QuickTime,
+    /// which is how Photos keeps a video, ".MOV", for anything else.
+    /// AVFoundation's `AVFileType` by its identifier.
+    static func exportType(for filename: String) -> String {
+        switch (filename as NSString).pathExtension.lowercased() {
+        case "mp4": return "public.mpeg-4"
+        case "m4v": return "com.apple.m4v-video"
+        default: return "com.apple.quicktime-movie"
+        }
+    }
+
+    /// What became of a video staged as it came, for the log.
+    enum VideoMade: Equatable {
+        /// H.264 already, or with no pictures: it goes as it came.
+        case asItCame
+        /// Made H.264, `bytes` from the original's `from`, and that goes.
+        case h264(bytes: Int64, from: Int64)
+        /// Its H.264 copy, `bytes`, more than the room it had, `room`:
+        /// the original goes.
+        case h264NoRoom(bytes: Int64, room: Int64)
+        /// Not made H.264, the conversion failed, its error's code where
+        /// it had one, or its copy not placed or not measured: the
+        /// original goes.
+        case failed(code: Int?)
+        /// Stopped as the app went into the background: the original
+        /// handed back, and the read marked so (`Loading.wasInterrupted`).
+        case interrupted
+        /// Called off: nothing goes.
+        case calledOff
+    }
+
+    /// The line the log gets for a video once its conversion has ended
+    /// (`compatible`), after its `SHARE-FILE` line. Numbers only.
+    static func videoNote(_ made: VideoMade) -> String {
+        switch made {
+        case .asItCame:
+            return "SHARE-VIDEO goes as it came, H.264 already"
+        case .h264(let bytes, let from):
+            return "SHARE-VIDEO made H.264, bytes=\(bytes) from=\(from)"
+        case .h264NoRoom(let bytes, let room):
+            return "SHARE-VIDEO its H.264 copy bytes=\(bytes), more than the letter's room, "
+                + "\(room / 1_000_000) MB left: the original goes"
+        case .failed(let code):
+            return "SHARE-VIDEO not made H.264, failed\(code.map { " code=\($0)" } ?? ""): "
+                + "the original goes"
+        case .interrupted:
+            return "SHARE-VIDEO not made H.264, stopped as the app went"
+        case .calledOff:
+            return "SHARE-VIDEO called off"
+        }
+    }
+
+    /// A video staged as it came (`original`, a file staged in `staging`),
+    /// made H.264 in the app where it needs to be (B-142).
+    ///
+    /// The picker hands over the video Photos keeps, with no copy made
+    /// (`.current`): its compatible copy was made under a file
+    /// coordination claim on the app, which calling the read off did not
+    /// end, and iOS ended the app half a minute after it left the front
+    /// (the test iPad, 2026-10-26). So the H.264 copy B-108 sent is made
+    /// here, from the staged original, where no claim is held:
+    /// `conversion`'s, kept in `loading`, which calls it off with the
+    /// rest of the read.
+    ///
+    /// What goes: the H.264 copy where one was made and fits the room the
+    /// original leaves, in its place, under its name and type; otherwise
+    /// the original, H.264 already, its copy larger than the room, or
+    /// its conversion failed; a video that fits as itself is not left out
+    /// for its copy. Stopped as the app went, the original too, and the
+    /// read marked so: the composer sets it aside, to be read again on his
+    /// return, while the app is away (`ComposeIntake`). Called off,
+    /// nothing, the original and any copy taken away. One line in the log
+    /// as it ends (`videoNote`); `done` once, from any thread.
+    static func compatible(_ original: SharedItem, staging: Staging, loading: Loading,
+                           conversion: VideoConversion, done: @escaping (SharedItem?) -> Void) {
+        guard case let .file(url, filename, _, size) = original else { return done(original) }
+        let room = staging.room + size
+        func calledOff(_ copy: URL?) {
+            if let copy { staging.remove(copy) }
+            staging.unstage(original)
+            Diagnostics.log(.note, videoNote(.calledOff))
+            done(nil)
+        }
+        guard !loading.isCancelled else { return calledOff(nil) }
+        guard let copy = staging.placed(filename) else {
+            Diagnostics.log(.note, videoNote(.failed(code: nil)))
+            return done(original)
+        }
+        let callOff = conversion.convert(url, copy, exportType(for: filename)) { converted in
+            guard !loading.isCancelled else { return calledOff(copy) }
+            switch converted {
+            case .cancelled:
+                calledOff(copy)
+            case .notNeeded:
+                staging.remove(copy)
+                Diagnostics.log(.note, videoNote(.asItCame))
+                done(original)
+            case .made:
+                if let made = staging.replace(original, with: copy),
+                   case let .file(_, _, _, bytes) = made {
+                    Diagnostics.log(.note, videoNote(.h264(bytes: bytes, from: size)))
+                    return done(made)
+                }
+                Diagnostics.log(.note, videoNote(staging.lastMeasured.map {
+                    .h264NoRoom(bytes: $0, room: room)
+                } ?? .failed(code: nil)))
+                done(original)
+            case .failed(let code):
+                staging.remove(copy)
+                Diagnostics.log(.note, videoNote(.failed(code: code)))
+                done(original)
+            case .interrupted:
+                staging.remove(copy)
+                loading.interrupted()
+                Diagnostics.log(.note, videoNote(.interrupted))
+                done(original)
+            }
+        }
+        loading.track(conversion: callOff)
     }
 
     /// What became of a file of `size` bytes, `item` what staging made of
@@ -409,13 +660,23 @@ enum ShareItems {
     /// with it (seen on the test iPad, 2026-10-25). The load's `Progress`
     /// is how a load is called off; it was thrown away.
     ///
+    /// Calling a load off does not end Photos' copy, nor its claim: it
+    /// only has the load call back at once with nothing, and the claim is
+    /// held until Photos' copy is made (seen on the test iPad, 2026-10-26).
+    /// So the picker asks for no copy (`.current`), and a video is made
+    /// H.264 in the app, where it can be called off: the conversion is
+    /// kept here too (`track(conversion:)`, `compatible`), and called off
+    /// with the loads. A conversion stopped as the app went marks the read
+    /// (`wasInterrupted`).
+    ///
     /// Called off, a load begun after it is called off at once, and a
     /// picture's next way of being read is not begun (`isCancelled`).
     /// Any thread: the loads call back on threads of their own.
     final class Loading: @unchecked Sendable {
         private let lock = NSLock()
-        private var progresses: [Progress] = []
+        private var callOffs: [() -> Void] = []
         private var cancelled = false
+        private var stopped = false
 
         init() {}
 
@@ -426,24 +687,53 @@ enum ShareItems {
             return cancelled
         }
 
+        /// Whether a video's conversion was stopped as the app went into
+        /// the background (`compatible`): what it brings is its original,
+        /// which the composer sets aside rather than takes, while the app
+        /// is away (`ComposeIntake`).
+        var wasInterrupted: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return stopped
+        }
+
+        /// A video's conversion was stopped as the app went.
+        func interrupted() {
+            lock.lock()
+            stopped = true
+            lock.unlock()
+        }
+
         /// `progress` is a load it has begun. Called off already, it is
         /// called off at once.
         func track(_ progress: Progress) {
-            lock.lock()
-            let off = cancelled
-            if !off { progresses.append(progress) }
-            lock.unlock()
-            if off { progress.cancel() }
+            track(callOff: { progress.cancel() })
         }
 
-        /// Calls off every load it has begun, and any begun after.
+        /// `callOff` calls off a video's conversion it has begun
+        /// (`compatible`): the iPad's cancels its `AVAssetExportSession`
+        /// (`cancelExport`). Called off already, it is called at once.
+        func track(conversion callOff: @escaping () -> Void) {
+            track(callOff: callOff)
+        }
+
+        private func track(callOff: @escaping () -> Void) {
+            lock.lock()
+            let off = cancelled
+            if !off { callOffs.append(callOff) }
+            lock.unlock()
+            if off { callOff() }
+        }
+
+        /// Calls off every load and conversion it has begun, and any begun
+        /// after.
         func cancel() {
             lock.lock()
             cancelled = true
-            let begun = progresses
-            progresses = []
+            let begun = callOffs
+            callOffs = []
             lock.unlock()
-            for progress in begun { progress.cancel() }
+            for callOff in begun { callOff() }
         }
     }
 

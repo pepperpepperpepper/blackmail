@@ -40,18 +40,23 @@ import Foundation
 /// is begun meanwhile. Left running, Photos' copy of a large video held a
 /// file coordination claim on the app, which iOS gives a background app
 /// about 30 seconds: then it ended the app, and the letter he was writing
-/// went with it (seen on the test iPad, 2026-10-25). A read that cannot be
+/// went with it (seen on the test iPad, 2026-10-25). Calling the read off
+/// did not end that copy, nor the claim (2026-10-26): so the picker asks
+/// for none (`.current`), and a video is made H.264 in the app, which the
+/// call-off does end (`ShareItems.compatible`). A read that cannot be
 /// called off, a file Attach File handed over, which is read where it is
 /// at once, goes on. With a Send or a Save Draft waiting for it, the read
 /// under way is let run `grace`, 20 seconds, first, well inside those 30:
-/// a photo that comes in a second or two still goes while he is away.
+/// a photo that comes in a second or two still goes while he is away; a
+/// video's conversion stopped there is set aside as well
+/// (`interruptedAway`).
 ///
 /// And no read is left running once nothing will take what it brings:
 /// counted out at its bound or a wait's, or the sheet closed with no Send
 /// or Save Draft waiting (`close`), it is called off there, as it is as
-/// the app goes. Left running after a count-out, Photos' copy went on for
-/// over a minute more, its claim with it, and leaving the app then got the
-/// app ended all the same.
+/// the app goes, a video's conversion with it. Left running after a
+/// count-out, Photos' copy went on for over a minute more, its claim with
+/// it, and leaving the app then got the app ended all the same.
 ///
 /// Never short: everything chosen counts in `ComposeActions` from the pick
 /// until it is in, has failed or has been counted out (`itemComing`,
@@ -173,7 +178,8 @@ final class ComposeIntake {
         var timer: Task<Void, Never>?
         var grace: Task<Void, Never>?
 
-        /// Its bound and its grace stopped, and its read called off.
+        /// Its bound and its grace stopped, and its read called off, a
+        /// video's conversion with it (`ShareItems.Loading`, B-142).
         func callOff() {
             timer?.cancel()
             grace?.cancel()
@@ -184,11 +190,14 @@ final class ComposeIntake {
     /// A read called off as the app went (`away`), its row back at the
     /// head of the queue. Its call back is still to come: the nothing of a
     /// read called off, or what it read should it have ended first.
+    /// `loading` is the read, which says whether a video's conversion was
+    /// stopped as the app went (B-142).
     private struct SetAside {
         let id: Int
         let pick: Pick
         let tally: ShareItems.Tally
         let staging: ShareItems.Staging
+        let loading: ShareItems.Loading?
     }
 
     private var queue: [Queued] = []
@@ -372,7 +381,9 @@ final class ComposeIntake {
     /// first let run `grace`, and set aside only if it has not come by
     /// then: a photo a second or two from coming goes in, and the letter
     /// with it, while he is away, as before B-142, and a long video is
-    /// still called off well inside iOS's 30 seconds.
+    /// still called off well inside iOS's 30 seconds. A video's conversion
+    /// AVFoundation stops in that time is set aside then
+    /// (`interruptedAway`).
     func away() {
         guard !isAway else { return }
         isAway = true
@@ -397,7 +408,7 @@ final class ComposeIntake {
         now.callOff()
         current = nil
         setAside[now.read] = SetAside(id: now.id, pick: now.pick, tally: now.tally,
-                                      staging: now.staging)
+                                      staging: now.staging, loading: now.loading)
         queue.insert(Queued(id: now.id, pick: now.pick, item: now.item), at: 0)
         Diagnostics.log(.note, "COMPOSE-ITEM set aside \(when), called off")
         actions.readingChanged()
@@ -434,10 +445,10 @@ final class ComposeIntake {
 
     /// The sheet is done with what is coming (`ComposeActions.whenClosed`):
     /// Delete Draft, a Cancel that asked nothing, the sheet put away, or a
-    /// Send that has gone. The read under way is called off, so Photos'
-    /// copy and its claim on the app end with it (B-142), and nothing more
-    /// is begun; nothing is said. A Save Draft is not this: it waits for
-    /// what is coming after the sheet has gone.
+    /// Send that has gone. The read under way is called off, a video's
+    /// conversion with it (B-142), and nothing more is begun; nothing is
+    /// said. A Save Draft is not this: it waits for what is coming after
+    /// the sheet has gone.
     func close() {
         guard !isClosed else { return }
         isClosed = true
@@ -461,6 +472,9 @@ final class ComposeIntake {
 
     private func arrived(_ read: Int, _ item: SharedItem?) {
         if let aside = setAside.removeValue(forKey: read) { return cameSetAside(aside, item) }
+        if isAway, let now = current, now.read == read, now.loading?.wasInterrupted == true {
+            return interruptedAway(now, item)
+        }
         guard let now = current, now.read == read else {
             // Counted out at its bound, and come after all, having ended
             // before it could be called off: not in the letter, which he
@@ -487,6 +501,25 @@ final class ComposeIntake {
         settle([(now.id, now.pick)])
     }
 
+    /// A video whose conversion stopped as the app went (B-142), with a
+    /// Send or a Save Draft waiting, in its `grace`: an app gives up its
+    /// encoder in the background, and AVFoundation stops the conversion
+    /// (`ShareItems.compatible`). It is set aside as the grace would have
+    /// set it aside, its row back at the head of the queue, still
+    /// turning, nothing counted out and nothing said, and read again from
+    /// the start on his return, made H.264 then; the original it brought
+    /// is thrown away. In front, a conversion stopped goes as its original,
+    /// as one that failed does, and is not read again.
+    private func interruptedAway(_ now: Current, _ item: SharedItem?) {
+        now.timer?.cancel()
+        now.grace?.cancel()
+        current = nil
+        if let url = Self.file(item) { discard(url) }
+        queue.insert(Queued(id: now.id, pick: now.pick, item: now.item), at: 0)
+        Diagnostics.log(.note, "COMPOSE-ITEM set aside, its conversion stopped as the app went")
+        actions.readingChanged()
+    }
+
     /// The call back of a read set aside as the app went (`away`). With
     /// nothing, as a read called off calls back, nothing changes: its row
     /// waits at the head of the queue, still turning, and is read again on
@@ -498,9 +531,20 @@ final class ComposeIntake {
     /// the row, a read of which may not come again. A row done with
     /// meanwhile, counted out, ended by a later read or the letter closed,
     /// takes nothing more: this copy is thrown away, and the log says why.
+    /// Nor does a video whose conversion stopped as the app went, which
+    /// brings its original (B-142): thrown away, its row read again.
     private func cameSetAside(_ aside: SetAside, _ item: SharedItem?) {
         guard case let .file(url, filename, mimeType, size)? = item else {
             Diagnostics.log(.note, "COMPOSE-ITEM set aside, its read ended with nothing")
+            return
+        }
+        // A video whose conversion stopped as the app went brings its
+        // original, not what it was read for: thrown away, and its row,
+        // waiting or read again already, made H.264 on his return (B-142).
+        guard aside.loading?.wasInterrupted != true else {
+            discard(url)
+            Diagnostics.log(.note, "COMPOSE-ITEM set aside, its conversion stopped as the app went, "
+                            + "thrown away")
             return
         }
         if let index = queue.firstIndex(where: { $0.id == aside.id }) {
@@ -527,9 +571,8 @@ final class ComposeIntake {
         settle([(aside.id, aside.pick)])
     }
 
-    /// Not in at its bound: counted out, its read called off, so Photos'
-    /// copy and its claim on the app end there (B-142), and the next
-    /// begun.
+    /// Not in at its bound: counted out, its read called off, a video's
+    /// conversion with it (B-142), and the next begun.
     private func countOut(_ read: Int) {
         guard let now = current, now.read == read else { return }
         now.callOff()

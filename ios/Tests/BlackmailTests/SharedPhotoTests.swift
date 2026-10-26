@@ -1304,12 +1304,12 @@ final class SharedPhotoTests: XCTestCase {
                  "let tally = Tally()",
                  "for provider in item.attachments ?? [] {",
                  "tally.offered += 1",
-                 "read(provider, title: title, staging: staging, tally: tally, done: done)",
+                 "read(provider, title: title, staging: staging, tally: tally, videos: nil, done: done)",
                  "oneAtATime(loads) { items in",
                  "let leftOut = tally.leftOut",
                  "Task { @MainActor in completion(items, leftOut) }"],
                 in: sheet)
-        inOrder(["tally: Tally, done: @escaping (SharedItem?) -> Void) -> Loading {",
+        inOrder(["tally: Tally, videos: VideoConversion?, done: @escaping (SharedItem?) -> Void) -> Loading {",
                  "?? (provider.canLoadObject(ofClass: UIImage.self) ? UTType.image.identifier : nil) {",
                  "tally.pictures += 1",
                  "picture(provider, type: type, staging: staging, loading: loading) { item in",
@@ -1323,23 +1323,33 @@ final class SharedPhotoTests: XCTestCase {
         // A video, the last branch (B-070): read as QuickTime where it is
         // offered, counted as it is offered and again as it is attached,
         // so one left out is said; and its line in the log has what its
-        // copy measured, which decided whether it fitted.
+        // copy measured, which decided whether it fitted (`stageRead`,
+        // where a video staged is also made H.264 where it is asked to be,
+        // B-142).
         inOrder(["} else if let first = provider.registeredTypeIdentifiers.first {",
                  "let movie = movieType(offered: provider.registeredTypeIdentifiers,",
                  "isMovie: { UTType($0)?.conforms(to: .movie) == true })",
                  "let type = movie ?? first",
                  "if movie != nil { tally.videos += 1 }",
                  "provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in",
-                 "let room = staging.room",
-                 "let item = staging.file(at: url, size: Int64(size), named: name, mimeType: mime)",
+                 "stageRead(url, size: Int64(size), type: type,",
+                 "mimeType: mime, videos: movie != nil ? videos : nil, staging: staging,",
+                 "loading: loading) { item in",
                  "if item != nil, movie != nil { tally.videosAttached += 1 }",
-                 "let bytes = staging.lastMeasured ?? Int64(size)",
-                 "mimeType: mime, bytes: bytes,",
-                 "went: fileWent(item, size: bytes, room: room)))",
                  "done(item)"],
                 in: sheet)
         XCTAssertEqual(count("tally.videos += 1", in: sheet), 1)
         XCTAssertEqual(count("tally.videosAttached += 1", in: sheet), 1)
+        let items = try source("ShareItems.swift")
+        inOrder(["static func stageRead(",
+                 "let room = staging.room",
+                 "let item = staging.file(at: url, size: size, named: name, mimeType: mimeType)",
+                 "let bytes = staging.lastMeasured ?? size",
+                 "mimeType: mimeType, bytes: bytes,",
+                 "went: fileWent(item, size: bytes, room: room)))",
+                 "guard let item, let videos else { return done(item) }",
+                 "compatible(item, staging: staging, loading: loading, conversion: videos, done: done)"],
+                in: items)
 
         inOrder(["ShareItems.load(from: extensionContext) { [weak self] items, leftOut in",
                  "self?.show(items, leftOut: leftOut, shared: shared)",

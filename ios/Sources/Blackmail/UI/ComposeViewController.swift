@@ -405,11 +405,12 @@ final class ComposeViewController: UIViewController,
     @objc private func leavingTheApp() {
         // No bound on what is coming in runs while the app is away, and
         // the photo or video being read in is called off and set aside,
-        // before the letter is kept: Photos' copy of a large video, left
-        // running, got the app ended within a minute, the letter with it
-        // (`ComposeIntake.away`, B-142). So the keep waits for nothing set
-        // aside, and gives its background time back at once. With a Send
-        // or a Save Draft waiting for it, the read has 20 seconds first.
+        // a video's conversion with it, before the letter is kept: Photos'
+        // copy of a large video, left running, got the app ended within a
+        // minute, the letter with it (`ComposeIntake.away`, B-142). So the
+        // keep waits for nothing set aside, and gives its background time
+        // back at once. With a Send or a Save Draft waiting for it, the
+        // read has 20 seconds first.
         intake.away()
         actions.putAside { self.currentLetter() }
     }
@@ -837,9 +838,15 @@ final class ComposeViewController: UIViewController,
         // Photos and videos, as Mail's Photo Library offers both.
         config.filter = .any(of: [.images, .videos])
         config.selectionLimit = 5
-        // Photos' compatible copy of each: a JPEG for a HEIC photo and an
-        // H.264 video for an HEVC one, which every recipient can open.
-        config.preferredAssetRepresentationMode = .compatible
+        // What Photos keeps, with no copy made (B-142). Photos' compatible
+        // copy of a video was made under a file coordination claim on the
+        // app, which calling the read off did not end, and iOS ended the
+        // app half a minute after he left it, his letter with it (the test
+        // iPad, 2026-10-26). A HEIC photo is made a JPEG by the share
+        // sheet's intake (`SharedPhoto.way`), and a video that fits the
+        // letter is made H.264 here (`VideoConversion.h264`): what every
+        // recipient can open, as the compatible copies were.
+        config.preferredAssetRepresentationMode = .current
         let picker = PHPickerViewController(configuration: config)
         picker.delegate = self
         present(picker, animated: true)
@@ -848,8 +855,10 @@ final class ComposeViewController: UIViewController,
     /// What he chose, read in as the share sheet reads what it is shared
     /// (`ShareItems.read`): a photo as Apple Mail sends it, its own bytes
     /// under its own name, its metadata replaced and no place in it, made
-    /// a JPEG only when it has to be; a video as the file Photos hands
-    /// over. One at a time, onto the disk, each counted until it is in so
+    /// a JPEG only when it has to be, as a HEIC is; a video as the file
+    /// Photos hands over, made H.264 where it is not already and its copy
+    /// fits (`ShareItems.compatible`, B-142). One at a time, onto the
+    /// disk, each counted until it is in so
     /// that a Send or a Save Draft tapped meanwhile waits for it, rather
     /// than going without it (`ComposeIntake`).
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
@@ -862,7 +871,8 @@ final class ComposeViewController: UIViewController,
             let kind = ComposeIntake.kind(offered: provider.registeredTypeIdentifiers,
                                           isMovie: { UTType($0)?.conforms(to: .movie) == true })
             return ComposeIntake.Item(name: provider.suggestedName, kind: kind) { staging, tally, done in
-                ShareItems.read(provider, title: nil, staging: staging, tally: tally, done: done)
+                ShareItems.read(provider, title: nil, staging: staging, tally: tally, videos: .h264,
+                                done: done)
             }
         })
     }

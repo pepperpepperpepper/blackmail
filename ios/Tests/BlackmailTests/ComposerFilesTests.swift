@@ -1272,6 +1272,170 @@ final class ComposerFilesTests: XCTestCase {
         for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
     }
 
+    // MARK: - A video made H.264 in the app (B-142, again)
+
+    /// A Send waiting as the app goes, a video's conversion under way in
+    /// its 20 seconds' grace, and AVFoundation stopping it, as it does an
+    /// app's encoder in the background: the read hands back its original,
+    /// marked. It is not taken: thrown away, the row set aside, its grace
+    /// let go and the Send's time given back, nothing sent, counted out or
+    /// said however long he is away. On his return it is read again and
+    /// made H.264, and the Send goes with that.
+    func testAConversionStoppedInTheGraceIsSetAsideAndMadeOnHisReturn() async throws {
+        Diagnostics.clear()
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let video = Load(cancellable: true)
+        intake.take([item("IMG_0195", .video, video)])
+        let sending = try XCTUnwrap(actions.send({ [unowned self] in letter() }, then: nil))
+        try await until { bound.waiting == 2 }
+        intake.away()
+        try await until { bound.asked.last == ComposeIntake.grace && bound.waiting == 1 }
+        await settled()
+        XCTAssertEqual(background.ended, [], "the Send's time held while it is read")
+
+        video.loadings[0].interrupted()
+        let original = try XCTUnwrap(land(video, "IMG_0195.MOV", .video))
+        try await until { !FileManager.default.fileExists(atPath: original.path) }
+        try await until { background.ended == [1] }
+        try await until { bound.waiting == 0 }
+        XCTAssertFalse(intake.isReading)
+        XCTAssertEqual(video.calledOff(0), false, "ended, nothing to call off")
+        bound.advance(by: .seconds(1_000))
+        await settled()
+        XCTAssertEqual(sends, 0, "still waiting")
+        XCTAssertEqual(told, [])
+        XCTAssertEqual(rows, [])
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0195"])
+        XCTAssertEqual(video.begins, 1, "not begun again while the app is away")
+
+        intake.back()
+        XCTAssertEqual(video.begins, 2, "read again on his return")
+        try await until { background.begun == ["Send", "Send"] }
+        land(video, "IMG_0195.MOV", .video)
+        guard try await ends(sending) else { return }
+        XCTAssertEqual(sends, 1)
+        XCTAssertEqual(log.last(where: { $0.hasPrefix("send") }), "send with [\"IMG_0195.MOV\"]")
+        XCTAssertEqual(told, [])
+        XCTAssertEqual(itemNotes(), [
+            "COMPOSE-ITEM let run 20 s as the app went, a Send or Save Draft waiting",
+            "COMPOSE-ITEM set aside, its conversion stopped as the app went"])
+        for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
+    /// A conversion stopped whose read was set aside first, the app gone
+    /// with nothing waiting: what it brings, its original, is thrown away,
+    /// and its row is read again on his return. In front, a conversion
+    /// stopped goes as its original, as one that failed does, and is not
+    /// read again.
+    func testAConversionStoppedOutsideTheGraceIsThrownAwayOrGoesAsItsOriginal() async throws {
+        Diagnostics.clear()
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let video = Load(cancellable: true)
+        intake.take([item("IMG_0196", .video, video)])
+        intake.away()
+        XCTAssertEqual(video.calledOff(0), true)
+        video.loadings[0].interrupted()
+        let original = try XCTUnwrap(land(video, "IMG_0196.MOV", .video))
+        try await until { !FileManager.default.fileExists(atPath: original.path) }
+        XCTAssertEqual(rows, [])
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0196"])
+        intake.back()
+        XCTAssertEqual(video.begins, 2, "read again on his return")
+        land(video, "IMG_0196.MOV", .video)
+        try await until { intake.coming.isEmpty }
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV"])
+
+        let film = Load(cancellable: true)
+        intake.take([item("IMG_0197", .video, film)])
+        film.loadings[0].interrupted()
+        land(film, "IMG_0197.MOV", .video)
+        try await until { intake.coming.isEmpty }
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0196.MOV", "IMG_0197.MOV"], "in front, it goes")
+        XCTAssertEqual(film.begins, 1)
+        XCTAssertEqual(told, [])
+        XCTAssertEqual(itemNotes(), [
+            "COMPOSE-ITEM set aside as the app went, called off",
+            "COMPOSE-ITEM set aside, its conversion stopped as the app went, thrown away"])
+        for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
+    /// Through the shipping read's staging and conversion
+    /// (`ShareItems.stageRead`, `compatible`), with the test's own
+    /// conversion: a video's conversion is called off with its read as the
+    /// app goes, at its count-out and as the letter closes; called off, it
+    /// leaves nothing on the disk; read again on his return, it is made
+    /// H.264, and the copy is the row.
+    func testAVideosConversionIsCalledOffWithItsRead() async throws {
+        Diagnostics.clear()
+        let actions = makeActions()
+        let intake = makeIntake(actions)
+        let conversion = FakeVideoConversion()
+        let given = try file("IMG_0195.MOV", bytes: 1_000)
+        func video(_ name: String) -> ComposeIntake.Item {
+            ComposeIntake.Item(name: name, kind: .video) { staging, tally, done in
+                tally.videos += 1
+                let loading = ShareItems.Loading()
+                ShareItems.stageRead(given, size: 1_000, type: "com.apple.quicktime-movie",
+                                     suggested: true, name: name + ".MOV",
+                                     mimeType: "video/quicktime", videos: conversion.videos,
+                                     staging: staging, loading: loading) { item in
+                    if item != nil { tally.videosAttached += 1 }
+                    done(item)
+                }
+                return loading
+            }
+        }
+
+        intake.take([video("IMG_0195")])
+        XCTAssertEqual(conversion.asked.count, 1)
+        let first = try XCTUnwrap(conversion.asked.last)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.from.path))
+        intake.away()
+        XCTAssertEqual(conversion.calledOff, 1, "called off as the app goes")
+        conversion.end(.cancelled)
+        try await until { !FileManager.default.fileExists(atPath: first.from.path) }
+        await settled()
+        XCTAssertEqual(rows, [])
+        XCTAssertEqual(intake.coming.map(\.name), ["IMG_0195"])
+
+        intake.back()
+        XCTAssertEqual(conversion.asked.count, 2, "read again, and made again")
+        let second = try XCTUnwrap(conversion.asked.last)
+        try conversion.make(bytes: 1_500)
+        try await until { intake.coming.isEmpty }
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0195.MOV"])
+        XCTAssertEqual(rows.map(\.size), [1_500], "the H.264 copy")
+        XCTAssertEqual(rows.map(\.source), [.localFile(second.to)])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: second.from.path))
+
+        try await until { bound.waiting == 0 }
+        intake.take([video("IMG_0198")])
+        try await until { bound.waiting == 1 }
+        XCTAssertEqual(conversion.asked.count, 3)
+        bound.advance(by: .seconds(180))
+        try await until { told == ["The video could not be attached."] }
+        XCTAssertEqual(conversion.calledOff, 2, "called off at its count-out")
+        conversion.end(.cancelled)
+
+        intake.take([video("IMG_0226")])
+        XCTAssertEqual(conversion.asked.count, 4)
+        XCTAssertNotNil(actions.deleteAndClose(nil, letter: nil, then: nil))
+        XCTAssertEqual(conversion.calledOff, 3, "called off as the letter closes")
+        let last = try XCTUnwrap(conversion.asked.last)
+        try conversion.make(bytes: 1_200)
+        await settled()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: last.to.path), "nothing left")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: last.from.path))
+        XCTAssertEqual(rows.map(\.filename), ["IMG_0195.MOV"])
+        XCTAssertEqual(Diagnostics.entries.filter { $0.direction == .note }.map(\.text)
+                        .filter { $0.hasPrefix("SHARE-VIDEO") },
+                       ["SHARE-VIDEO called off", "SHARE-VIDEO made H.264, bytes=1500 from=1000",
+                        "SHARE-VIDEO called off", "SHARE-VIDEO called off"])
+        for case .localFile(let url) in rows.map(\.source) { AttachmentStore.removeStaged(url) }
+    }
+
     /// The handle a read is called off by: every load it has begun called
     /// off, in whatever order they were handed over, a picture's next way
     /// handed over before the one it follows; and one begun after it
