@@ -138,14 +138,16 @@ final class PaneNavigationTests: XCTestCase {
     }
 
     /// A file's row among a letter's words (`BodyFiles`, B-113) opens the
-    /// file as the header's row opens it: the letter alone in the pane or
-    /// one of its conversation's, the file one that letter lists, by
+    /// file as the header's row opens it: the letter alone in the pane,
+    /// one of its conversation's or his from Sent Mail (`related`), the
+    /// file one that letter lists, by
     /// `openAttachment`, the header's row shown busy only when the header
     /// shows that letter. Read from the source, which does not build here.
     func testAFilesRowAmongTheWordsOpensItAsTheHeadersRowDoes() throws {
         let code = try source("MessageDetailViewController.swift")
         XCTAssertNotNil(place(of: "private func openFile(_ section: String, of letter: String) { "
-                                  + "let shown = message?.id == letter ? message : loaded[letter] "
+                                  + "let shown = message?.id == letter ? message "
+                                  + ": (loaded[letter] ?? related.letter(withID: letter)) "
                                   + "guard let m = shown, let file = m.listedAttachments.first(where: "
                                   + "{ $0.id == section }) else { return } openAttachment(file, of: m) }",
                               in: code))

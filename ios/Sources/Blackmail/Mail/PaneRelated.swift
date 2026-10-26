@@ -144,6 +144,14 @@ struct PaneRelated {
         entryID(forSection: sectionID).flatMap { opened[$0] }
     }
 
+    /// His letter `id` if it has come, nil for any other: for a file's row
+    /// among its words (`BodyFiles`), whose link names the letter by its
+    /// id. Unambiguous, as `apart` leaves out any of his letters whose id
+    /// is a stack letter's.
+    func letter(withID id: String) -> Message? {
+        opened.values.first { $0.id == id }
+    }
+
     /// Of `found`, the letters that are not the stack's own: by Gmail's id,
     /// or by id, since each folder has a UIDVALIDITY of its own and nothing
     /// says a Sent Mail id is never an Inbox one. With his letter and one of

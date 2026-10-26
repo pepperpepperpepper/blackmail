@@ -1305,9 +1305,11 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
     /// A file's row among a letter's words, tapped (`BodyFiles`, B-113):
     /// the file opened as its row in the header opens it. The letter is the
     /// one on its own in the pane, or one of the conversation's, opened or
-    /// not the last; a file it does not list opens nothing.
+    /// not the last, or his from Sent Mail once it has come (`related`,
+    /// B-104), whose row is its file's only one; a file it does not list
+    /// opens nothing.
     private func openFile(_ section: String, of letter: String) {
-        let shown = message?.id == letter ? message : loaded[letter]
+        let shown = message?.id == letter ? message : (loaded[letter] ?? related.letter(withID: letter))
         guard let m = shown, let file = m.listedAttachments.first(where: { $0.id == section }) else {
             return
         }

@@ -492,6 +492,45 @@ final class PictureTapTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: ".attachmentFailed, on: self)").count - 1, 1)
     }
 
+    /// A file's row among the words of his letter from Sent Mail in a
+    /// stack (B-104, B-113): its link names his letter by its id, and the
+    /// pane finds the letter in `related` once its body has come, as it
+    /// finds one of the conversation's in `loaded`; before, it found none,
+    /// and the tap did nothing. Not a letter of the stack's, not before it
+    /// has come, not once the pane has moved on.
+    func testAFileRowInHisLetterFindsHisLetter() throws {
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        func row(_ id: String, _ mailbox: String, _ n: Int, gmail: UInt64) -> MessageSummary {
+            MessageSummary(id: id, mailboxID: mailbox, sender: "Sam Example <sam@example.com>",
+                           subject: "Re: the roof", preview: "letter \(n)",
+                           date: base.addingTimeInterval(Double(n) * 60), isRead: true, isFlagged: false,
+                           threadID: "1700000000000000042", gmailMessageID: gmail,
+                           arrived: base.addingTimeInterval(Double(n) * 60))
+        }
+        let stack = [row("1/3", "INBOX", 3, gmail: 9_003), row("1/5", "INBOX", 5, gmail: 9_005)]
+        var related = PaneRelated()
+        XCTAssertNil(related.show(stack, completing: 42, remembered: nil))
+        _ = related.take(RelatedLetters(folderName: "Sent Mail",
+                                        letters: [row("6/4", "[Gmail]/Sent Mail", 4, gmail: 8_004)]),
+                         stack: stack)
+        let load = try XCTUnwrap(related.load(for: "r6/4"))
+        let his = letter("6/4", mailbox: "[Gmail]/Sent Mail", attachments: [pdf])
+        let link = try XCTUnwrap(URL(string: BodyFiles.link(pdf.id, of: his.id)))
+        let opening = try XCTUnwrap(BodyFiles.opening(link))
+        XCTAssertEqual(opening.letter, "6/4")
+        XCTAssertNil(related.letter(withID: opening.letter), "not come")
+
+        related.keep(his, for: load)
+        let found = try XCTUnwrap(related.letter(withID: opening.letter))
+        XCTAssertEqual(found.mailboxID, "[Gmail]/Sent Mail")
+        XCTAssertEqual(found.listedAttachments.first(where: { $0.id == opening.section })?.filename, "rates.pdf")
+        XCTAssertNil(related.letter(withID: "1/5"), "a letter of the conversation's")
+        XCTAssertNil(related.letter(withID: "r6/4"), "by the letter's id, not its entry's")
+
+        related.clear()
+        XCTAssertNil(related.letter(withID: "6/4"), "the pane moved on")
+    }
+
     // MARK: - Helpers
 
     private func source(_ file: String) throws -> String {

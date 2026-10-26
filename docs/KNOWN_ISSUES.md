@@ -31192,7 +31192,10 @@ more, one of them above the words.
    body comes. Before the body has come the file has no row, and a letter
    that could not be downloaded leaves it so (Not covered).
 5. Everything else that goes by a letter's files still has the PDF: its
-   row among the words opens it (`openFile`), Forward and Reply's question
+   row among the words opens it (`openFile`; in his own letter from Sent
+   Mail in a conversation, B-104, only since int18, by
+   `PaneRelated.letter(withID:)`: before, that row did nothing, and his
+   letters never had a header row), Forward and Reply's question
    (`ReplyFiles`), the paperclip on its list row, and a printed letter's
    header (`PrintPage`), whose words draw no rows.
 6. *Its row shows it coming* (`BodyFiles.Busy`, the script's
