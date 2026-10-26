@@ -3116,6 +3116,34 @@ Every part of the TODO check passed but the first frame:
   the tap, active once the letter was drawn, and the header's lines at
   the same height to the pixel throughout.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on letters the host put in the label Notes, read. The first
+frame at the tap, from a screen recording at 60 frames a second, seven
+taps 1.5 s apart through letters each a block of one colour: the letter
+before stood beside the new selection in 3 taps of 7, for two frames, 33
+ms, once, and for one, 17 ms, twice, not counting in those two a frame
+with both rows lit under the old header; in the other four the first frame
+with the new selection had the new header over "Loading…". The letter came
+67 to 117 ms after "Loading…", no white or blank frame between. The first
+letter after a launch: two frames of an empty pane under its header
+(B-098). Delete and Flag over a socket gone silent, the iPad's Wi-Fi
+interface taken down over its cable under the connection, a guard armed
+first to bring it back. Delete: its `UID MOVE` never answered, the row
+gone and the pane empty from the first frame, every pane button but
+Compose grey, with no letter in it, and "Can't connect to mail server."
+15 to 20 s on, the row back where it stood, as the connection was dropped;
+the interface up and Refresh, the letter where it was, nothing moved on
+the server. The Flag, four times, its own STORE never written. Once its
+SELECT went into the silent socket, and the flag went back with "Can't
+connect" about 20 s on, at the drop. Once it waited behind a Refresh's
+STATUS, on the wire as the network went, for that command's 90 s bound
+(B-063), and went back with "Can't connect" about 100 s after the tap.
+Once, behind the watch's STATUS, it went back about 48 s on, after the
+drop and a reconnect's 30 s bound, as its log has it. And once, the row
+out of sight and the connection log's screen up as the 90 s ran out, the
+flag went back with no alert seen; not made again without that screen.
+Nothing was set on the server, and nothing was sent.
+
 ---
 
 ## B-042 — CHANGED 2026-09-28. Things that move under him
@@ -3303,7 +3331,8 @@ before letting go was not tried.
   another letter: its rows grey after the download ended, until it
   landed. A download of the second letter's own as the first ends cannot
   be made: the one connection fetches in turn, so the second letter, and
-  any tap on its rows, comes only after the first download.
+  any tap on its rows, comes only after the first download, unless its
+  words are in first, as on 2026-10-25, below.
 
 Seen in passing, not part of the checks: a letter open before a jump
 stays in the pane, its row no longer highlighted until it is tapped
@@ -3335,6 +3364,26 @@ passed but the conversation of twenty letters, not made.
   with no text, drawn as a notice, the same left the pane empty rather than
   saying so: a notice lost twice is not drawn a third time, as built. Its
   row tapped again drew it.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on letters the host put in the label Notes. The conversation
+of twenty letters: 22, half HTML, half plain, threaded by References,
+opened five times on Wi-Fi from the list, another row first each time: the
+newest open with its body in the first frame, 0.44 s, every time, and
+"Loading…" in no frame, only the first and fifth opens' first frames
+looked at a second time; fetched once, 931 bytes, then shown from the copy
+kept on the iPad (B-111). The header's files: a conversation of two
+letters over 5 MB, the older with a PDF of 4.4 MB, the newest with one of
+14.7 MB, the header on the newest. The older letter's words were fetched
+first, its line opened and closed, so its file row could be tapped while
+the first came. Its file tapped, the older letter's
+line within a second and that letter's own file a second later: the
+older's row kept its spinner as the first download ended, but the first
+file then opened in Quick Look over the older letter's header, and the
+older's, landing 1.7 s later, was let go with no word. A second run made
+it again from a fresh start, and saw the older's file open alone with
+nothing else coming. Found here, fixed as B-141, see its entry. Nothing
+was sent.
 
 ## B-043 — CHANGED 2026-09-28. The reading pane's own work, off the screen's thread
 
@@ -3448,6 +3497,26 @@ Not seen: a newsletter of a few hundred KB, which the account does not
 have, a letter of a megabyte, a conversation of twenty letters, the time
 zone and the 24-hour clock, which wait on a yes, and "Yesterday" after
 midnight. Not known: why one flick was not taken.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on letters the host put in the label Notes. A newsletter of
+455 KB, 420 KB of it HTML in coloured tables, tapped and the list flung
+down and up four times at once: its body in 0.26 s after the tap and drawn
+by 0.51 s, and every frame from 0.26 to 4.40 s, 0.25 to 0.3 s apart, had
+the list somewhere else, none standing still; six flings in the newsletter
+brought its last stories, drawn. Only two of those frames were looked at a
+second time. A conversation of 22 letters, half HTML, half plain: the
+newest filled in at each of five opens (B-042); letter 1, HTML, and letter
+2, plain, opened by their lines, and letter 1 closed and opened again, its
+body back, its shot not looked at a second time. The CPU could not be
+read: the iPad has no `top`, and its process list gives none. The time
+zone and the 24-hour clock, each changed in Settings with a letter of
+today open: the rows drawn afterwards followed every change, but the open
+letter's header and the rows in sight kept their old form until drawn
+again, and with the zone put back the header was three hours wrong. Found
+here, fixed as B-139, see its entry. Not seen: a letter of a megabyte's
+fill timed in the app, and the memory. Not known: why one flick was not
+taken. Nothing was sent.
 
 ---
 
@@ -4002,6 +4071,17 @@ thumb resting on the list was not tried.
 Seen in passing: Edit clears the selection and Done does not put it back,
 so after Done the open letter's row is no longer highlighted, the letter
 still in the pane. (B-133 since.)
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), the
+long folder name, on two labels the size test made on the account, both
+empty. In two panes the list's bar read "< Mailboxes" whole, the calendar,
+then "Note to…" for "Note to Self: Letters to Himself", and "Unopene…" for
+"Unopened 4/17/17", its "…" close against Edit; Sent Mail's "Sent Mail"
+whole, and "< Mailboxes" whole with it. The view button gave three panes
+back. Seen in passing: in two panes with the folders in front, a tap on
+the status bar took them to their top. Not tried: the thumb resting on the
+list, two touches at once, which touches from outside cannot make. Nothing
+was sent.
 
 ---
 
@@ -5056,6 +5136,22 @@ needs Auto-Lock at Never.
   changes, and the list takes them as known. Nothing moved for them, by
   design; the check now says so.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, the archive elsewhere and the hour. A letter the host put in
+the Inbox, read and dated three days back, went on at the top at the
+watch's next check: its NOOP answered `EXISTS`, the SEARCH, one FETCH and
+`NEWS folder=INBOX arrived=1 gone=0`. The host took the Inbox label off it
+with the Inbox selected: Gmail answered OK and changed nothing, the letter
+still in the Inbox five minutes on, and the row rightly stayed. Taken off
+from All Mail, nothing tapped: the watch's next NOOP, 4 s on, was answered
+`EXPUNGE` and `EXISTS`, then the SEARCH and `NEWS folder=INBOX arrived=0
+gone=1`, no page FETCH, and the row was gone in the next shot. Sent Mail
+in front 62 minutes, nothing touched, Auto-Lock at Never for it and put
+back after: "Updated 59 minutes ago" at an hour, and "Updated at 6:43 PM",
+its listing's time, at 63 minutes; in the log 118 `STATUS "INBOX"
+(UNSEEN)` about 32 s apart, and nothing else. The shots at 15, 30 and 45
+minutes were not looked at a second time. Nothing was sent.
+
 ---
 
 ## B-052 — CHANGED 2026-09-30, seen on the iPad. A letter that could not be sent lasted only as long as its sheet
@@ -5988,6 +6084,26 @@ its style Light (Dark since B-124, 2026-10-24). A flag before the fresh
 page lands was still not
 caught, and the password saved again was not tried.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes. A flag before the fresh page lands: a letter of his in Sent
+Mail opened, so kept; the app ended and opened with Airplane Mode on: the
+kept Inbox, Sent Mail's kept page and the letter from its copy. A Flag
+offline was refused at once, as B-091 has it. Airplane Mode off and the
+Flag tapped 1.7 s later: on the new connection the vouching `UID FETCH n
+(UID X-GM-MSGID)`, then the STORE, answered `\Flagged`, and only then the
+page, its line for the letter `\Flagged` too; the flag on the row 0.7 s
+after the tap, before the page, and still on almost a minute later. Unflag
+put it back. The password saved again: the test account's own, typed into
+Settings, never on a screen kept, and Save: the sign-in checked for
+sending too, the copy was wiped and a new sign-in made; 2.04 s after Save
+the Inbox empty under "Checking for Mail…", no counts, at 2.20 s its rows,
+their previews by 2.90 s. Ended and opened: the kept Inbox, the page
+listed since the save, with its previews and counts in the app's first
+frame, 0.35 s, before its sign-in was answered. Not possible: the drafts
+"On this iPad only" and the Outbox through the save, none being there at
+the start and none made; the save leaves Local Drafts alone but for its
+own count of saves (B-051). Nothing was sent.
+
 *Phase 2, the letters he opened, built 2026-10-22: B-111.*
 
 ## B-054 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. A stranger's letter could hang the app, or take all its memory
@@ -6269,6 +6385,28 @@ file, and with them the next letter tapped while they come; and an HTML
 part over 2 MB. Both need a letter from another account, or put in the
 Inbox from this host.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on letters the host put in the label Notes. A letter of 13 MB
+as an iPhone sends it, three photographs of about 3 MB shown by `cid:` and
+a PDF of 486 KB: not kept, for its size; its structure and header, its
+text and HTML cut at `<0.2097152>`, then each photograph by its own `UID
+FETCH n (UID BODY.PEEK[1.2.k])`, about 1.1 s each, and no `BODY.PEEK[]`;
+the words and the PDF's row first, the first photograph at 1.93 s, the
+next under it. Ended and opened, so that WebKit held none of them, the
+next letter tapped 1 s after it: the one photograph on the wire, then the
+next letter's FETCH, whole 1.52 s after the first tap, and no FETCH of the
+other two, then or later. Two letters of about 6 MB, one HTML part each:
+"Only the beginning of this message is shown." over each. On the one that
+is mostly markup, some 15 KB of words: Reply's quote ended in "> Only the
+beginning of this message is shown." once, under a blank quoted line, and
+Forward's the same, each closed by Cancel; the reply saved as a draft,
+reopened with the line once, then deleted, its own APPEND, STORE and
+EXPUNGE alone. On the one whose words fill its 2 MB, Reply put up the
+keyboard but never drew the sheet; the sheet, up unseen, took every touch
+but the keyboard's, and the screen stayed the same for ten minutes, until
+the app was ended: found here, fixed as B-140, see its entry. Nothing was
+sent.
+
 ---
 
 ## B-055 — CHANGED 2026-09-30 and 2026-10-01, seen on the iPad. The reading pane runs no letter's script and goes nowhere by itself; links in plain letters can be tapped; Cc under To
@@ -6514,6 +6652,26 @@ without B-093.)
 **Open, for the owner.** Whether letters' pictures from the web load
 (the spec asks for them blocked by default if feasible). A bare address is
 not made a link.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on letters the host put in the label Notes and the Inbox, the
+two parts left. The letter that tries to go somewhere, one HTML part: a
+meta refresh, a frame, a form posting with a field and a button, a script
+that would rewrite its first line and turn the page yellow, and a picture
+whose `onerror` would rewrite another, each aimed at
+`https://example.com/`. At 2.5 s and at 8 s it read as written, the frame
+an empty box in its border, no script's or `onerror`'s change, the pane
+where it was; its button tapped, nothing at 1.5 s or 5 s. The connection
+log held one FETCH of it and `example.com` only in other letters'
+addresses; a system log taken through it had no WebKit network line for
+the app. The same letter as the newest of a conversation of two: the same,
+its line closed and opened again, its body put back as written, and the
+other letter opened above it. The Cc from the kept Inbox: a letter with a
+named Cc put in the Inbox three days back and listed once; the app ended
+and opened with Airplane Mode on, its row tapped: its To and "Cc: Cleo
+Copy" in the header at the tap, from the kept row, over "This message
+could not be downloaded.", the letter never opened before; online again,
+tapped, the same lines in the same place over its body. Nothing was sent.
 
 ---
 
@@ -13249,7 +13407,7 @@ account has no label) and the Outbox in 9 (no letter waiting).
 
 ---
 
-## B-080 — CHANGED 2026-10-07, seen in the iPadOS 18 simulator and on the iPad but for a Wednesday. Every folder but Sent Mail, Drafts and the Outbox ended a conversation's names with its count; Mail has no count on any row and marks a conversation after the date
+## B-080 — CHANGED 2026-10-07, seen in the iPadOS 18 simulator and on the iPad, a Wednesday there 2026-10-25. Every folder but Sent Mail, Drafts and the Outbox ended a conversation's names with its count; Mail has no count on any row and marks a conversation after the date
 
 **Asked** in B-075, 2026-10-06. B-075 took the count off the rows of
 Sent Mail, Drafts and the Outbox and marked a conversation there with
@@ -13548,10 +13706,18 @@ one", sent at 9:35. The mark was there, with no count, as B-080 has it.
 - Item 5 was seen with the app's clock moved, not on a real Friday. On the
   iPad its step needs a Friday to a Tuesday and a conversation whose
   newest letter came on the Wednesday before. On 2026-10-19, a Monday, the
-  test account had none.
+  test account had none. Seen there 2026-10-25, below.
 - A language whose day names are longer than "Wednesday" takes more
   from the names the same way, since the cell measures each row's own
   date. Only English was tried.
+
+**Seen on the test iPad, 2026-10-25**, a Sunday, on a build of int16
+(662d63d), step 8, on a conversation of two the host put in the label
+Notes, its newest letter of Wednesday 21 October: the row "Sam Example,
+Jan…", "Wednesday", then the mark, no count. In Edit, "Wednesday" whole
+before the mark, the names cut shorter, "Sam Example,…"; Done, the rows as
+before and the open letter's row highlighted again. In two panes,
+"Wednesday" and the mark. Nothing was sent.
 
 ---
 
@@ -17341,6 +17507,22 @@ the pane's own colour, lifted when WebKit has painted "Loading…". If it
 ever failed to lift, a letter would stay hidden under it, which is worse
 than one frame of the letter before. For a frame, it is left as it is.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+measured again from a screen recording at 60 frames a second read frame by
+frame, seven taps 1.5 s apart through letters the host put in the label
+Notes, each a block of one colour (B-041's check): the letter before stood
+beside the new selection in 3 taps of 7, against 5 of 7 before. In the
+first, from a plain letter, two frames, 33 ms: the selection moved over
+the old header and body, then the new header over the old body. In two
+more, one frame, 17 ms, the new header over the letter before's colour,
+not counting a frame before it with both rows lit under the old header. In
+the other four, the first frame with the new selection already had the new
+header over "Loading…". The letter came 67 to 117 ms after "Loading…", no
+white or blank frame between. The first letter after a launch: two frames
+of an empty pane under its header, as before. Still left as it is; whether
+to cover it is the owner's (TODO, "One frame of the letter before").
+Nothing was sent.
+
 ## B-099 — RECORDED 2026-10-21, found on the iPad, not changed. A letter that comes while a search shows goes on at the check after Cancel, up to some 32 s later
 
 **What was seen.** Seen on the test iPad on 2026-10-21, in B-049's check,
@@ -17809,6 +17991,24 @@ bars beside these, there being no device with Mail at hand.
   2026-10-22, a shape beyond the check's step 9: B-114, fixed and seen
   fixed the same day.
 
+**Seen on the Mac's iOS 18.6 simulator, 2026-10-25**, an iPad (7th
+generation), on a simulator build of int16 (662d63d), three panes and two,
+the check's letters opened in the Trash. Steps 1 to 3, 5 on the letter's
+own page, and 6 to 9 passed: Mail's reply with its violet bar and violet
+words, the attribution's bar joined to the quote's; Gmail's grey bar gone;
+three deep violet, teal and green, deeper levels green; the exact figures,
+their match with the host's and the 5 pt not read again from the full-size
+shots kept. A letter's own page with the signature's white sheet, black
+words on it and a quote inside it in Mail's light violet and teal; two
+panes the same. The inline PDF's row grey under "Loading…" and blue once
+landed, its paperclip, Quick Look, and the words after it with "Sent from
+my iPad"; the logo with no row or paperclip; a forward's words with no row
+of its own, its own PDF with its row and paperclip. In 4 a conversation's
+stack drew the same bars, letter two's line above letter three in its
+first shot. Not done there: 4's touch as the bodies come, and 5 in the
+stack, both passed on the test iPad 2026-10-22. Not tried: Mail's own
+bars, there being no device with Mail. Nothing was sent.
+
 ## B-102 — BUILT 2026-10-22, seen on the iPad 2026-10-22. Rows had no reply or forward arrow; Mail's show one in the gutter
 
 **What Mail does.** A letter he has answered has a small grey arrow on its
@@ -18017,6 +18217,14 @@ split.
 Not done there: step 0, which needs a device with Mail, and 6's look
 beside Mail's picture, on the simulator.
 
+**Looked at on the Mac's iOS 18.6 simulator, 2026-10-25**, an iPad (7th
+generation), on a simulator build of int16 (662d63d): step 6's look beside
+Mail's picture was not possible. No letter on the test account has
+`\Answered`, `$Forwarded` or `Forwarded`, asked read only in the Inbox,
+All Mail and the Trash, and the run set no flag, so no row drew an arrow.
+The preview's grey, the arrow's, read 142 on black there, as above.
+Nothing was sent.
+
 ## B-103 — BUILT 2026-10-22, seen on the iPad; two faults found there fixed and seen fixed 2026-10-22. Pulling the list down only bounced; Mail checks for mail
 
 **What Mail does.** Pulled down past the top of the message list and let
@@ -18175,7 +18383,8 @@ release build for the iPad links.
   released at least 80 pt past the top call the same `refresh`, with the
   line under the list the only sign. Not built. Seen on the iPad
   2026-10-22, below: the gap was there, and was fixed another way and
-  seen fixed; VoiceOver's scroll and the simulator not yet.
+  seen fixed; VoiceOver's scroll not yet; the simulator seen 2026-10-25,
+  below.
 - Whether the search band, pinned at the top of the list, keeps to the
   bar when he scrolls down while the spinner turns is not known; the
   check's first step looks.
@@ -18458,6 +18667,31 @@ Not done there: 11, VoiceOver's three-finger scroll, which needs a
 person's hand, from outside one finger being all that can be put on the
 screen; 13's Mailboxes part, every folder fitting the column; and the
 simulator.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), 13's
+Mailboxes part, the size test's labels making the column scroll. Three
+panes, the Mailboxes column scrolled to its end: a tap on the status bar
+over it took the folders to their top, Inbox first. Again with the Inbox
+list scrolled down a screen as well: the same tap took the column to its
+top and left the list where it was, and a tap over the list then took the
+list to its top. The same day, on the Mac's iOS 18.6 simulator, an iPad
+(7th generation), on a simulator build of int16 (662d63d): 1, 4, 5, 7, 8,
+12 and 13 passed. A pull showed the grey spinner, "Checking for Mail…",
+then "Updated Just Now", the list closing up with no band; in Edit with
+two ticks and in a search only a bounce, the ticks and the words kept;
+after the view button, another folder, or Home and back, no spinner left
+and no gap; B-096's switch at once, the spinner at rest in two panes;
+thirty pulls, and Refresh fetching a page after; the status bar took the
+list and Edit mode with its ticks to the top, and with the composer open
+nothing behind it moved. Not looked at a second time there, though in the
+shots and the log kept: 1's ten quick pulls, 8's next switch back to three
+panes, and 12's 25 page FETCHes, never two out at once. Not shown there:
+13's Mailboxes column and search results. Not settled there: 3, the
+touches coming some 0.4 s apart, so that the pull's page had answered
+before the Refresh, which fetched a second page. Not possible there: 2 and
+6's offline half, the simulator having no Airplane Mode, and 9 and 10,
+which need a send or a letter mailed; 11, VoiceOver, is not needed.
+Nothing was sent.
 
 ## B-104 — BUILT 2026-10-22, seen on the iPad; one fault found there fixed and seen fixed 2026-10-22. An Inbox conversation left out his own replies; Mail brings them in from Sent
 
@@ -19006,8 +19240,8 @@ more. The release build for the iPad links.
   coast does the same, a finger held still in a drag at its next move,
   and the bounce at the top, was not seen. All are held. On the iPad
   since, 2026-10-22, a coast and a finger held still in the middle of a
-  drag were held, and nothing stepped; the bounce at the top was not
-  tried.
+  drag were held, and nothing stepped; the bounce at the top was held on
+  2026-10-25 (below).
 - UIKit is taken to count a finger at rest on the pane, before it has
   moved, as tracking, and the bounce back from the top as decelerating.
   Not seen. If it does not count the finger, one put down at the tap on
@@ -19018,7 +19252,9 @@ more. The release build for the iPad links.
   dropping J2 a line. Step 1's early finger on J1's line and its pull down
   at the top are where they are seen. The finger was seen counted on the
   iPad, 2026-10-22: put down at the tap on J1's line and held still, the
-  line stayed under it. The bounce not yet.
+  line stayed under it. The bounce was seen counted on 2026-10-25: J's
+  second letter never stepped as the stack bounced back from a pull at its
+  top, A's line going in once it was at rest.
 - The still-finger cases the iPad showed holding, after a small scroll and
   with a drag too slow to scroll, had each become a text selection, with
   no pan active. A finger still in the middle of a pan, not seen then, was
@@ -19068,6 +19304,28 @@ half a second and its pause of six seconds, the drags and the pause run
 having all begun with the finger at the tap, J2 already moving by 0.40 s.
 Not done: 8's VoiceOver, the app being on VoiceOver's Direct Touch list
 there, and 9, the simulator.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, step 1's (c), on a conversation the host put in the Inbox
+three and four days back: J's two letters, and A's answer between them in
+Sent Mail alone. Before each run another folder and back left no row
+selected, and Refresh, so nothing was remembered; frames about 0.13 s
+apart. Untouched, the stack opened with J's first line at the top and J's
+second letter open under it; A's line took J's first line's place between
+0.40 and 0.54 s, J's second still, the log having the Sent Mail SELECT,
+the SEARCH and its two FETCHes. Twice the stack pulled down at its top,
+the finger 60 px, the stack some 25, rubber-banded, and let go as A's line
+was found: it bounced back and was at rest by 1.20 and 1.23 s, J's second
+letter never stepping, and A's line went in within 0.15 s of the rest, the
+stack then as the untouched run's. The same day, on the Mac's iOS 18.6
+simulator, an iPad (7th generation), on a simulator build of int16
+(662d63d), step 9, on a conversation of the size test's in the Inbox: his
+line at the top of the stack above the newest letter; opened, "Found in
+Sent Mail" in small grey between his line and his words, the header
+staying on the other's letter; in Settings, Complete Threads on under
+Organize by Thread, its line under it; nothing cut or overlapping. Not
+run: (b), the drag from a finger put down once the stack is drawn. Nothing
+was sent.
 
 ## B-105 — BUILT 2026-10-22, seen on the iPad; two faults found there fixed and seen fixed 2026-10-22. Several words were searched as one string, and there were no recent searches; Mail asks for each word, and offers the last three
 
@@ -19512,6 +19770,15 @@ gone.
   covers its top rows at the first tap in the field, before anything is
   typed, as Mail's covers its list; the rows below it stay.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), step
+6, none yet. Before the save a tap in the empty field showed Cancel, the
+scope bar and "Recent Searches" with three. The test account's password
+typed into Settings and saved; then, before any search, a tap in the
+field: Cancel and the scope bar, All Mailboxes still chosen, and under
+them the Inbox's rows at once, no "Recent Searches" and no row of it, the
+save taking them away with the copy (B-053). The three were made again
+after, in their order. Nothing was sent.
+
 ## B-106 — BUILT 2026-10-22, seen on the iPad 2026-10-22. The Flag button flagged at once and nothing in the pane could mark a letter unread; Mail's Flag button opened Flag and Mark as Unread
 
 Built in the `bm-flagmenu` worktree (branch `feat-flagmenu`), off
@@ -19704,11 +19971,9 @@ release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the iPad, below: the popover, with no Cancel in it. Not seen:
-  the greyed item, whether the read item is ever greyed just after a
-  letter is opened, its STORE still on the wire, which a sheet opened
-  again after the answer does not; VoiceOver past the sheet's first item;
-  the simulator.
+- Seen on the iPad, below: the popover, with no Cancel in it. Seen on the
+  simulator 2026-10-25, below: the greyed item. Not seen: VoiceOver past
+  the sheet's first item.
 - Two read marks on one letter on their way at once, and the first
   refused: the list answers a mark by the letter's id (`readAnswered`),
   so the answer to the first acts on the second, and the dot can be wrong
@@ -19755,6 +20020,16 @@ Not done there: 7, VoiceOver past the sheet's first item, which it read,
 Touch list there, and the swipes that move its cursor cannot be made from
 outside. The greyed read item, its STORE answered in 0.14 s, before the
 sheet could open. The simulator. Move to Junk, not in the build (D-022).
+
+**Seen on the Mac's iOS 18.6 simulator, 2026-10-25**, an iPad (7th
+generation), on a simulator build of int16 (662d63d), step 1 and the
+greyed item. The sheet a popover under the Flag button with Flag and Mark
+as Unread, and no Cancel. An unread letter in the Trash tapped, and Flag
+tapped just after it: the sheet with Mark as Unread grey while the read
+mark's STORE was out, and Flag blue. Put back: the two letters read made
+unread again from the sheet, the Trash's unread count as found. Not shown:
+the tap outside and the times. With Flag about 0.4 s after the row the
+item was not grey, its shot not looked at a second time. Nothing was sent.
 
 ## B-107 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A reply to someone new went without the original's files, and Forward asked nothing; Mail carries them and asks
 
@@ -20412,6 +20687,24 @@ a video still coming into the composer through more than three minutes
 away, which a longer HEVC video, or another app opened at once in place
 of the lock, could make.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), step
+9's second half, on a video in Photos of over twelve minutes, 1.39 GB.
+Picked in a new letter, Add, and the iPad locked at once: iOS ended the
+app within two minutes, and at the wake the Home Screen, the letter and
+its pick gone, no draft and no crash report. In the round's second try the
+app lived, the video came 7.5 s after the lock, likely ready from the
+first try, and was left out for the letter's room. A second run from a
+fresh start, twice, locked 0.4 s after Add: RunningBoard ended the app 31
+s after the lock, as a file claim taken at the pick, held while Photos
+made the video ready, had outlasted what iOS allows an app in the
+background; no report, the letter and the pick gone. In front and not
+locked, the video's row still spun at 148 s, was counted out at three
+minutes, and the file came at 4 min 23 s, left out for the room. So a
+video still coming as he locks the iPad ends the app some 30 s later, and
+the letter is lost. Whether words typed before it would be kept was not
+tried, a typed letter leaving a draft. Found here: fixed as B-142 on its
+branch, not yet seen on the iPad. Nothing was sent.
+
 ## B-109 — BUILT 2026-10-22, seen on the iPad 2026-10-22. His photos went as attachments under the letter; Mail's sit in it, under his words
 
 Built in the `feat-photos` worktree, off `feat-composer` (master at
@@ -20626,7 +20919,7 @@ page and in Mail on another device was not done.
   was; a reopened draft's rows read 61 KB and 6 KB where the picked photos
   read 60 and 5, the server's estimate.
 
-## B-110 — BUILT 2026-10-22, seen on the iPad; three faults found there fixed and seen fixed 2026-10-23 but for the time of a letter tapped after Print, met in one run of two. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
+## B-110 — BUILT 2026-10-22, seen on the iPad; three faults found there fixed and seen fixed 2026-10-23, the time of a letter tapped after Print on 2026-10-25, missed once at a slow moment of the wire. A letter could not be printed; Mail prints it from the Reply button, on white, with its header and pictures
 
 Built in the `feat-print` worktree, off `feat-replyfiles` (master at
 88ef40d with B-100 to B-105, B-111 and B-107). It shares no hunk with
@@ -21293,6 +21586,36 @@ run, were not run again; 7b and 13, the simulator's and the Mac's; 14 and
 15, paper, for the owner's yes. Still to run on the test iPad: 10a a third
 time, the tapped letter's body timed against a letter with no print.
 
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), step
+10a a third time, on a letter of five 4.16 MB pictures the host put in the
+label Notes, opened in parts and not kept, and small letters never opened.
+Three times, Reply, Print, and 1.1 s later a small letter tapped: no
+panel; `PRINT ended why=moved` 0.27 to 0.37 s after the tap; the one
+picture already on the wire finished, none after it, then the tapped
+letter's FETCH. Its body 0.79 s after the tap twice, and 2.38 s once, when
+that picture took 2.67 s on the wire. With no print, 0.26 s. A second run
+from a fresh start, on letters made afresh: four times, once tapped 0.65 s
+after Print as its picture went out, the body at 0.7 to 1.2 s, against
+0.38 s with no print; the 16 other pictures took 1.07 to 1.33 s each. So
+the tapped letter waits for the rest of the one picture on the wire, as
+built, about a second on this link and longer at a slow moment of it: met
+in six runs of seven, the seventh one slow moment of the wire. The step
+had the letter open as quickly as with no print, which no run did; it now
+says it waits for that picture. The same day, on the Mac's iOS 18.6
+simulator, an iPad (7th generation), on a simulator build of int16
+(662d63d), steps 7b and 13. The letter with the inline photo, from the
+Trash, printed 21 times, each Reply, Print, the centred Print Options
+panel with no printer, and Cancel: `PRINT ready` in 304 to 314 ms after
+the first's 349, one WebContent process throughout, about 190 MB, and the
+app's footprint 100 to 101 MB after each and 100 MB 10 s after the last.
+Its preview saved from the panel's Share to Files as a PDF of one Letter
+page, drawn with Ghostscript on another machine, not the Mac, pdftoppm
+being on neither it nor the Mac: white paper, the sender blue, the To, the
+date and the file's line grey, two rules, the subject bold black, the
+words black, the photo in its colours, nothing inverted, no black box, no
+page break. Not looked for: the Mac's Printer Simulator. Nothing was sent
+or printed on paper.
+
 ## B-111 — BUILT 2026-10-22, seen on the iPad 2026-10-22. A letter he had read could not be opened again with no connection, and each opening fetched it again; Mail keeps the letters it has downloaded
 
 Built in the `feat-kept` worktree, off `featAB-int` (master at 88ef40d
@@ -21579,7 +21902,8 @@ release build for the iPad links.
   own. The letter last shown, held in memory, is tested.
 - A letter deleted in another client stays until it is evicted, reachable
   only from a kept row: the server's last word.
-- The check on the simulator. On the iPad, below.
+- The check on the simulator: step 9, 2026-10-25, below; no listing of
+  its container kept.
 
 **Seen on the test iPad, 2026-10-22**, a build of int11 (e739d2c), iPadOS
 16.5.1, three panes, the test account; P, H, F, L, N and two 3 MB letters
@@ -21622,7 +21946,30 @@ Not done there: 5, a password saved, which needs the password typed, not
 done on the test iPad; in 8 each 3 MB letter's first opening stood in for
 one fetched after a password save. 9, the simulator.
 
-## B-112 — FIXED 2026-10-22, found on the iPad and seen there fixed but for the flag. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), step
+5, a password saved: the test account's password typed into Settings and
+saved, the copy wiped, 15 pages and 90 letters, and the Inbox listed at
+once by the sign-in after it. Sent Mail opened once. Ended, Airplane Mode
+on, and opened: nothing kept from before the save showed. The Trash, whose
+page of 50 rows was kept before, opened with no rows, "No Connection" and
+"Can't connect to mail server."; a letter of his kept before, tapped in
+Sent Mail, its header over "This message could not be downloaded."; no
+letter on the disk, nor their index. What showed was what the new sign-in
+had listed since: the Inbox's page in the first frame, "Updated 1 minute
+ago" over "No Connection", and Sent Mail's. So the step as first written,
+no kept pages and no letters, cannot hold after any save: the sign-in
+after it keeps the Inbox's page at once, as the shelf is made to, and
+B-053's check wants that page in the first frame after a relaunch. The
+step now says what shows. Nothing went on the wire offline. The same day,
+on the Mac's iOS 18.6 simulator, an iPad (7th generation), on a simulator
+build of int16 (662d63d), step 9: the connection log's notes were `kept`
+and `shown`, `free-ms` only on the keeps five minutes or more apart, each
+the first keep after five minutes, that read the free space (B-136), and
+never `reason=space`, `cleared` or `not-kept`. Its container held a letter
+for each opened, with the backup exclusion, as read there; no listing of
+it was kept, so that is not shown. Nothing was sent.
+
+## B-112 — FIXED 2026-10-22, found on the iPad and seen there fixed, the flag too on 2026-10-25. A mark set on another device, told inside a Refresh's listing, made the letter's row "(unknown sender)", "(no subject)", 31/12/69, and split its conversation
 
 **What he saw.** Seen on the test iPad on 2026-10-22, in B-102's check,
 and made again three times in three the same morning. Organize by Thread
@@ -21840,8 +22187,8 @@ release build for the iPad links.
 
 **Not covered.**
 
-- Seen on the iPad fixed, below, but for `\Flagged`, whose news is the
-  same line: still to run on the test iPad (TODO).
+- Seen on the iPad fixed, below, `\Flagged` too on 2026-10-25, its news
+  the same line.
 - A listing from the top with a letter left out for no ENVELOPE comes back
   one short, which the list takes for the end of the folder until the next
   Refresh, as for a letter gone between the SEARCH and the FETCH. It needs
@@ -21870,6 +22217,23 @@ split the row in B-102's check, its news inside the listing this time,
 kept it whole. `\Flagged` was not set from the host there; `$Forwarded`
 stood in, its news the same line. `\Flagged`'s news inside the listing,
 the flag on the row at that Refresh, is still to run on the test iPad.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, Organize by Thread on, `\Flagged`, on a conversation of two
+the host put in the label Notes, the newer a reply to the older. Eleven
+pairs of `UID STORE +FLAGS (\Flagged)` and `-FLAGS (\Flagged)` from the
+host on the newer letter, each followed by Refresh, from about a second
+after the OK to a moment before it. Of the 18 Refreshes in the logs, the
+news came inside the listing's answer 6 times, after the letter's own line
+and before the OK, once for a `+FLAGS` and five times for a `-FLAGS`; on
+the Refresh's NOOP 11 times; and nowhere once, the letter's own line
+already saying it. The letter's own line in the listing carried the new
+flags every time. Every row whole, one for the conversation, its sender,
+subject and date the newer letter's; the flag on after every `+FLAGS`, the
+one whose news came inside the listing included, and off at the next
+Refresh after the `-FLAGS`; the log's id for the letter a number each
+time; no `FETCH-NO-ENVELOPE` line. Put back: the flag off, and the
+conversation put in the Trash by the host. Nothing was sent.
 
 ## B-113 — FIXED 2026-10-22, found on the iPad and seen there fixed. The words after a file put among them, as Apple Mail sends one, were nowhere
 
@@ -23731,17 +24095,16 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the test iPad (2026-10-25): the rows of today (a time) and
-  of yesterday ("Yesterday"), and the header's "Today at" and "Yesterday
-  at", no letter in the test account being dated that day or the day
-  before and nothing to be sent or saved; another region (the check's
-  step 10), with no yes from the owner to change the test iPad's.
+- Not seen on the test iPad: another region (the check's step 10), with
+  no yes from the owner to change the test iPad's.
 - The strings pinned are this host's ICU's. The iPad's are its own, which
   is what its Mail writes, and can differ in a detail: the space before
   AM and PM, an abbreviation ("Sep" or "Sept"), Canada's "a.m.". The
   order is the region's on both.
 - The 24-Hour Time switch: followed now, through the locale, as it is
-  changed in Settings (B-043's notification); not tried.
+  changed in Settings (B-043's notification); tried on int16 in B-043's
+  check, 2026-10-25: the rows drawn afterwards followed it, the open
+  header and the rows in sight only once drawn again (B-139).
 - Another language: the app has English words only, so on an iPad in
   another language the region's dates would sit inside them. What the
   iPad's locale is for an app with English alone was not looked at. Not
@@ -23774,6 +24137,14 @@ the mark. Not possible: today's and yesterday's rows and headers, no
 letter being dated 23 or 24 October and nothing to be sent or saved. Not
 run: step 10, another region, with no yes from the owner. Nothing was
 sent, saved or printed.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), its
+region the United States with 24-Hour Time off, three panes, on two
+letters the host put in the label Notes, read, one dated two hours before
+and one the evening before. Their rows read "12:39 PM" and "Yesterday";
+opened, their headers "Today at 12:39 PM" and "Yesterday at 8:15 PM". Not
+run: step 10, another region, with no yes from the owner. Nothing was
+sent.
 
 ## B-120 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A letter opened with no caret and no keyboard; Mail's opens ready to type
 
@@ -23875,9 +24246,6 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not shown on the test iPad (2026-10-25), in two panes: the caret in a
-  Reply, its shot having the keyboard up and no caret in sight, and the
-  three Cancels closing without a question, no shot kept of them.
 - Mail's composer was read, not watched: when its keyboard comes up on
   the iPad (as the sheet arrives, or after) was not seen, and neither was
   whether a share from another app opens Mail's keyboard at once (the
@@ -23910,6 +24278,16 @@ stops and the keyboard is up 0.3 to 0.4 s later (`viewDidAppear`). Every
 untouched sheet closed on Cancel without a question. In two panes the
 same, but the Reply's shot had no caret in sight, and no shot was kept of
 the three Cancels. Nothing was sent.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), two
+panes, step 8's leftovers, on a letter with a Cc that the host put in the
+label Notes, not the Inbox. Reply, frames from the tap, nothing touched:
+the sheet in place at 0.85 s with no caret, the caret on the empty first
+line above the signature at 1.12 s as the keyboard came up, up by 1.58 s.
+Reply All: To the sender, Cc the Cc, the caret on the first line, the
+keyboard up. Compose: the caret in To, no list under it. Cancel on each,
+untouched: no question, the sheet sliding down, Reply's gone by 0.55 s,
+and nothing more through 2.5 s; no draft saved. Nothing was sent.
 
 ## B-121 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. Subject began in lower case and was not corrected, and his apostrophes and quotes went straight; Mail's Subject takes a capital and corrections, and both it and the body Smart Punctuation
 
@@ -24224,10 +24602,9 @@ failing. The release build for the iPad links.
 **Not covered.**
 
 - Not seen on the test iPad (2026-10-25): a pinch on a photo, the injected
-  touches having one finger; his own letter from Sent Mail with a photo in
-  a stack, the test account having none and none to be sent; a PDF's row
-  tapped and another row at once, its 309 KB coming in 0.16 s, before the
-  second tap. Nor what WebKit does with its tap highlight on a picture.
+  touches having one finger; a PDF's row tapped and another row at once,
+  its 309 KB coming in 0.16 s, before the second tap. Nor what WebKit does
+  with its tap highlight on a picture.
 - Mail on the iPad was not looked at: the reports are of the iPhone. Mail
   opens a logo or a picture drawn small, by the reports; here neither does.
 - No sign while a picture downloads, where a file's row in the header shows
@@ -24282,6 +24659,19 @@ that row's letter stayed, with nothing over it and no alert for 30 s.
 Offline the kept photo opened, the other 'Attachment could not be
 downloaded.' Not possible: the pinch, his own Sent Mail letter with a
 photo, and the PDF row's race. Nothing was sent.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, step 4's letter of his from Sent Mail, on letters the host
+put in the Inbox and in Sent Mail three days back, one conversation: the
+other's letter, his reply with a photo of 1.1 MB shown by `cid:` as an
+iPhone sends it, and a second letter of the other's. With one Inbox letter
+alone the row opened as a single letter without his, as Complete Threads
+brings his in only to an Inbox conversation of more than one letter
+(B-104); with two, his line came between them, from Sent Mail in the log.
+Opened: "Found in Sent Mail", his words and the photo drawn, the letter
+fetched whole. The photo tapped: Quick Look full screen on it, its name at
+the top. Done, back to the stack, its shot not looked at a second time.
+Nothing was sent.
 
 ## B-123 — CHANGED 2026-10-24 to copy Apple Mail, changed again 2026-10-25 after the test iPad, seen there 2026-10-25. A half-typed name found nothing in search until the last letter of it was in; Mail's search matches the start of words, so "Marg" finds Margaret's letters
 
@@ -24476,10 +24866,6 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the test iPad (2026-10-25): a name sent on someone's
-  behalf (6b) and an accented sender (11), the size test's mailbox having
-  neither; steps 2, 3, 5 to 9, 12 and 13 were seen on the build before
-  the change to 30 people, not again after it.
 - Mail's own results as he types were not seen: Top Hits and its list of
   matching letters may differ from these, which are every letter of up to
   30 people (four until 2026-10-25), newest first, and whole-word hits of
@@ -24569,6 +24955,20 @@ row; the rows came 0.7 to 0.9 s after the 350 ms pause, three times,
 against 1.0 to 1.3 s for four people before. Not possible: a name sent
 on someone's behalf (6b) and an accented sender (11), none in that
 mailbox. Nothing was sent.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+steps 2, 3, 5 to 9, 12 and 13 again, all passed as on int15, and 6b and 11
+on letters the host put in the label Notes. 6b: one from "'Peyton Rand'
+via Rose Society" at a group's address to the test account, and one via
+Garden Club to the group. "Pey" asked, in the Trash, Spam and All Mail,
+for exactly the book's first 30 "Pey" people, worked out beforehand from a
+copy of the book, and neither group's address; worked out without the
+"via" rule, the Rose Society's address came first. 11: "Zoe" found Zoë
+Müller's letter by her name, her address not starting so; "Zoë", the ë
+from the e key's accent popover, the same letter, every field's word a
+`{4+}` literal under `CHARSET UTF-8`, each SEARCH answered OK, never
+"Could not search. Check the connection." Not run on int16: steps 1, 4, 6a
+and 10. Nothing was sent, and the app wrote nothing to the mailbox.
 
 ## B-124 — CHANGED 2026-10-24 to copy Apple Mail, seen on the test iPad 2026-10-25. A cold launch showed white for about 130 ms before the dark rows; the launch screen is dark
 
@@ -24990,7 +25390,7 @@ Subject empty, nothing asked. The extension's SHARE-TITLE lines could not
 be read: they leave its memory only with a send. Nothing was sent or
 saved.
 
-## B-127 — CHANGED 2026-10-25 to copy Apple Mail, not yet seen on the iPad. The reading pane's header read "To: me" from the tap until the letter's body landed, and for good when it could not be downloaded, a letter in Sent Mail to someone else too; the header's To is the row's from the tap, as its Cc is
+## B-127 — CHANGED 2026-10-25 to copy Apple Mail, seen on the test iPad 2026-10-25. The reading pane's header read "To: me" from the tap until the letter's body landed, and for good when it could not be downloaded, a letter in Sent Mail to someone else too; the header's To is the row's from the tap, as its Cc is
 
 **Found** three times and left each time. B-060 (2026-10-03) gave the list's
 rows their To, from the ENVELOPE, for Sent Mail's top line, and left the
@@ -25085,7 +25485,6 @@ links.
 
 **Not covered.**
 
-- Not seen on the iPad (TODO, B-127's check).
 - A To written as a group, `undisclosed-recipients:;`: the ENVELOPE names
   no address for a group (`IMAPParser.parseAddresses` passes over its
   markers), so the row has no To and the tap's header reads "To: me"; the
@@ -25096,7 +25495,31 @@ links.
 - VoiceOver's label of the header names the sender, subject and date, not
   the To, as before; not needed (TODO, the owner's 2026-10-24 note).
 
-## B-128 — FIXED 2026-10-25, not yet seen on the iPad. In a conversation's stack, a header that gained a Cc line at a tap left the stack's first line half under it until he scrolled; the stack hangs from the header now, what was at the top of the pane staying there, whole
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes and two, Organize by Thread on, frames 0.13 s apart from each
+tap, on four letters the host put in the label Notes, read and dated three
+days back, the round's rules allowing no label of their own. (a), To a
+quoted name with its comma, a name in an encoded word and a bare address,
+Cc one more, 4,105,802 bytes with its PDF: in the first frame with
+"Loading…", 0.27 s after the tap, the To line named all three, the encoded
+name decoded, the Cc under it, the PDF's row grey; the body landed at 1.53
+s, the row turned blue, and the To and Cc lines kept their words and their
+place. The account's own letter in Sent Mail to someone else: its To from
+the first frame, 0.14 s, before the body. Offline, (b), never opened
+there: its To over "This message could not be downloaded. Check the
+connection and tap it again.", and the alert. The conversation of (c) and
+(d): (d)'s "To: Jane Example" from 0.14 s, unchanged to 1.66 s. In two
+panes the same, (a), kept by then, whole at 0.27 s with no "Loading…".
+Never "To: me" in any frame. Outside the steps: for one frame, 0.13 s, a
+letter's new header stood over what the pane showed before it, (b)'s
+offline words under (d)'s header, and in two panes the letter before's
+words under the Sent Mail letter's header. The same day, on the Mac's iOS
+18.6 simulator, an iPad (7th generation), on a simulator build of int16
+(662d63d), (a) opened from the Trash: the same To and Cc lines under
+"Loading…", unchanged as its body landed. Nothing was sent; the host put
+the four letters in the Trash.
+
+## B-128 — FIXED 2026-10-25, seen in part on the test iPad 2026-10-25. In a conversation's stack, a header that gained a Cc line at a tap left the stack's first line half under it until he scrolled; the stack hangs from the header now, what was at the top of the pane staying there, whole
 
 **Found** on the test iPad on 2026-10-21, in passing, in B-055's check and
 again in B-095's: "a header that gains a Cc line at a tap in the stack
@@ -25277,7 +25700,10 @@ failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the iPad (TODO, B-128's check).
+- Not shown on the test iPad (2026-10-25): that no frame has a line half
+  under the header as it changes height (TODO, B-128's check, step 7). The
+  frames were stills 0.13 s apart, not a recording, and the header changed
+  between two of them each time; none had a line cut by it.
 - That the stack keeps its offset when the web view's frame moves down
   and shrinks under a growing header, and is not scrolled by WebKit, is
   UIKit's and WebKit's, not the host's: the stack moved with the header so
@@ -25306,7 +25732,9 @@ failing. The release build for the iPad links.
   line he tapped go down, partly or wholly out of sight, and scrolls to
   it. Under B-074 the line stayed under his finger, and the top of the
   pane went under the header instead. Which is better is the owner's
-  (TODO, B-128's check, step 5). Not seen.
+  (TODO, B-128's check, step 5). Seen on the test iPad 2026-10-25: a
+  closed line about 70 pt above the edge went down 64 pt, to about 6 pt
+  above it, in sight in part, none of its words in sight.
 - The stack held only at its top (item 4): a stack whose last letter is
   taller than the pane, scrolled to its very end, under a header that
   shrinks, does not grow with the pane, and its end is nearer by the
@@ -25320,7 +25748,31 @@ failing. The release build for the iPad links.
   to two lines at a new width: the stack keeps its offset there too, as
   it always did, `keepPlace` running only when a letter takes the header.
 
-## B-129 — FIXED 2026-10-25, not yet seen on the iPad. A letter opened inside a conversation took the header and the toolbar only once its body had come, and one opened before it could take them back as it landed; the letter opened takes them at the tap, from its row, and the last one opened keeps them
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d), with
+B-129, three panes and two, frames 0.13 s apart from each tap, on three
+letters the host put in the label Notes, read, one conversation: (a) forty
+lines, (b) a Cc and a 102 KB PDF, (c) plain. Opened: (c) open, (b)'s line
+the top line, whole, the header (c)'s. (b)'s line tapped: by 0.26 s the
+header had the Cc line and the file's row and the stack had moved down 64
+pt, (b)'s line still the top line, whole, its top on the header's bottom
+rule, "Loading…" under it. The status bar, then (a)'s line: the header
+lost both, the stack moved up with it, and (a)'s line was the top line,
+whole. At the stack's very top, (b) closed and opened again: the header
+grew at once, and (a)'s line, the stack's first, stayed the top line,
+whole. Two panes the same for these three. A double tap on (b)'s line,
+0.21 s apart: (b) opened and took the header, and the second tap, by then
+on the header's bottom rule and the top of (a)'s line, did nothing; a tap
+on (a)'s line two seconds later opened it. For the owner (step 5): (b)'s
+closed line, about 70 pt above the pane's bottom edge, tapped, went down
+64 pt to about 6 pt above it, in sight in part under the home bar, none of
+its words in sight. In every frame of these taps the letter opened grew
+below its own line and no line was cut by the header. Not shown: that no
+frame does, as the check asks of a recording. The frames were stills, and
+the header changed between two of them each time, within the first 0.26 s,
+so a line half under it for less than that is not ruled out. Nothing was
+sent; the host put the three letters in the Trash.
+
+## B-129 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. A letter opened inside a conversation took the header and the toolbar only once its body had come, and one opened before it could take them back as it landed; the letter opened takes them at the tap, from its row, and the last one opened keeps them
 
 **Found** in the lag fixes, batch 4 (B-041, B-042), and left in TODO's
 "Left from batch 4": "Opening another letter inside a conversation still
@@ -25435,7 +25887,6 @@ links.
 
 **Not covered.**
 
-- Not seen on the iPad (TODO, B-129's check).
 - The pane itself is UIKit: its steps are read from its source and run as
   the test's own copy over `PaneLoads`, not through WebKit's message for a
   tapped line.
@@ -25457,7 +25908,40 @@ links.
   on the old build. They carry about 3 MB now, fetched whole, and each
   such step is checked against the log's time for the FETCH.
 
-## B-130 — FIXED 2026-10-25, not yet seen on the iPad. A letter with his signature shown alone had its signature white on the black and its logo a dark box hardly seen; it has the white sheet a conversation's stack gives it
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes and two, frames taken from each tap, on five letters the host
+put in the label Notes, read, one conversation, none opened there before.
+(a), (b) and (d) carried a 3 MB PDF, 4,105,272 to 4,105,463 bytes, so were
+fetched whole, each FETCH 1.06 to 1.13 s in the log, and every tap that
+had to come before a body did, so no copy was needed. Opened: (e) open,
+(d)'s line the top line, the header (e)'s. (b)'s line tapped: at 0.22 s
+the header was (b)'s, its Cc and its PDF's row grey, "Loading…" under the
+line, and the stack had moved down with the header, (b)'s line still the
+top line, whole. Reply, tapped 0.79 s before the body came, opened
+nothing; after it, Reply quoted (b), To its sender. (d)'s line, then Flag,
+and Flag in its sheet 0.39 s before its body came: the host, read only,
+found `\Flagged` on (d) alone, and after Unflag on none. The race: (a)'s
+line, then (b)'s twice, the second 0.64 s after (a)'s tap, inside (a)'s
+1.06 s FETCH: (b)'s header, its row blue, at 0.89 s; (a)'s words landed in
+its section at 1.38 s, and the header was still (b)'s then and 15 and 30 s
+on; Reply quoted (b). The log had (a) asked once, `BODY.PEEK[]`, and no
+`BODY.PEEK[HEADER]`. Offline, (c): its header from the first frame, 0.45
+s, and in its section "This message could not be downloaded. Tap the line
+above twice to try again.", Reply doing nothing, the log `NO-PATH UID
+FETCH not-sent`; online again, two taps brought its words under the same
+header, and Reply quoted it. A double tap on (b)'s line, 0.21 s apart: (b)
+took the header and the toolbar, and the second tap, by then on the
+header's bottom rule and the top of (a)'s line, did nothing. In two panes,
+(a), (b) and (c) tapped in turn: the header followed each and ended on
+(c)'s, (a)'s line the top line, whole, after each. The same day, on the
+Mac's iOS 18.6 simulator, an iPad (7th generation), on a simulator build
+of int16 (662d63d), the same conversation, viewed only: (b)'s header, its
+Cc and its grey PDF row, in the first shot after the tap, (a)'s line still
+the top line, whole, and the row blue when the body landed. Nothing was
+sent: every composer closed untouched on Cancel, with no question and no
+draft. No flag was left, and the host put the five letters in the Trash.
+
+## B-130 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. A letter with his signature shown alone had its signature white on the black and its logo a dark box hardly seen; it has the white sheet a conversation's stack gives it
 
 **Found** on the test iPad: in passing at B-074's check, 2026-10-07, and
 looked for on 2026-10-21 (TODO, "Confirm the signature's white sheet in
@@ -25616,9 +26100,9 @@ none failing; the release build links.
 
 **Not covered.**
 
-- Not seen on the test iPad: the letter alone with the sheet, on WebKit
-  of iPadOS 16.5 or 18; the stack's sheet was seen only in passing
-  (B-074). Its check is under "Blocked on the iPad coming back" (TODO).
+- WebKit of his iPad's iPadOS 18.7: the sheet, alone, in the stack and
+  quoted, was seen on the test iPad's 16.5.1 (2026-10-25), and alone on
+  the iOS 18.6 simulator, not on 18.7.
 - Mail's own drawing of his signature in Dark Mode is read, not seen on a
   screen; nor whether his iPad is in Dark Mode, in Light, or under Smart
   Invert.
@@ -25636,7 +26120,30 @@ none failing; the release build links.
 - The sheet's colours for a sheet that has lost its style are held by
   the host's tests alone; no such letter was rendered or seen.
 
-## B-131 — FIXED 2026-10-25, not yet seen on the iPad. Print said "This message has no text." of a letter the pane shows only the beginning of, where the pane says "Only the beginning of this message is shown."; it says it only where the pane does
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes and two, on four letters the host put in the label Notes, read
+and dated three days back, each with a Message-ID of its own: (a) the HTML
+and the logo of one of the account's letters carrying the signature,
+nothing else of it; a letter and (a)'s body as a reply to it, one
+conversation; and a quote holding (a)'s body. (a) alone: the signature on
+a white sheet across the letter, its lines black, its links blue, the logo
+dark on the white as on paper; the same in two panes. (a) has no words
+above the signature; in one of the account's own letters with it, already
+read and found by a search, the link above the sheet was blue on the
+black, and the sheet the same. In the stack, the reply open under the
+first letter's line: the same sheet. Quoted: the reply's own words white
+on the black, then the violet bar and its line, and inside it the white
+sheet with its black words and the logo. Print's preview, from Reply on
+(a): white paper, the words black, the logo as on paper, no black box;
+Cancel, nothing printed. The label held the account's own 30 letters as
+well, so the host listed the four by Message-ID, and put them in the Trash
+so, the round's rules allowing no MOVE or delete. The same day, on the
+Mac's iOS 18.6 simulator, an iPad (7th generation), on a simulator build
+of int16 (662d63d), one of the account's letters with the signature, alone
+in three panes: the same white sheet, and the link above it blue on black;
+two panes were not looked at there. Nothing was sent.
+
+## B-131 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. Print said "This message has no text." of a letter the pane shows only the beginning of, where the pane says "Only the beginning of this message is shown."; it says it only where the pane does
 
 **Found** on the host, with B-114 and B-110 (TODO, under "Doable now",
 the print's "This message has no text." only where the pane's). B-114
@@ -25743,8 +26250,6 @@ skipped, none failing; the release build links.
 
 **Not covered.**
 
-- Not seen on the test iPad: such a letter printed. Its check is under
-  "Blocked on the iPad coming back" (TODO).
 - The words are printed only when the page cannot be drawn
   (`PrintSteps`), which no check on the iPad has met; what they say of
   these letters is held by the host's tests alone.
@@ -25757,7 +26262,18 @@ skipped, none failing; the release build links.
 - Mail's pane, and its print, of a letter it has only the beginning of:
   not seen.
 
-## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, not yet seen on the iPad. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, on two letters the host put in the label Notes, read: (a) of
+7,755,734 bytes, its HTML's `<style>` 2,250,069 bytes of comments before a
+paragraph of words, with a 4 MB PDF; (b) `<div><br></div>`. (a) in the
+pane: the grey "Only the beginning of this message is shown." and nothing
+under it, its PDF's row in the header. Reply, then Print: the preview's
+header, then the same grey line and nothing under it, never "This message
+has no text.". (b): "This message has no text." in the pane, and the same
+words under the header in its print's preview. Each closed with Cancel;
+nothing was printed or sent. The host put the two letters in the Trash.
+
+## B-132 — FIXED 2026-10-21 by B-093's change, found so and pinned 2026-10-25, seen in part on the test iPad 2026-10-25. A failed Edit mode Delete seemed to leave its rows off the list until a Refresh: they were back on it, out of sight above; every row that did not move, of a Delete or a Move, comes back where it stood
 
 **Found on the iPad, twice, and left in "Seen in passing".** On
 2026-10-07, at the end of B-075's run, Edit mode's Delete of four rows in
@@ -25929,6 +26445,11 @@ iPad links.
 
 **Not covered.**
 
+- Not shown on the test iPad (2026-10-25): the rows going at the tap, the
+  first frame, 0.26 s after it, having them back; a Refresh after the
+  Delete in two panes, none made; and the log's `NO-PATH UID MOVE
+  nothing-sent` for a Move refused when no connection was held, which
+  wrote no line (TODO, B-132's check, step 4).
 - Gmail's BYE cannot be had on the iPad at will; its TODO check fails
   the Delete and the Move with Airplane Mode, which sends nothing
   (`NO-PATH`), and turns it on part-way through a Delete or a Move of
@@ -25937,7 +26458,42 @@ iPad links.
   layout, taken as `ListPlaceTests` takes UIKit's (B-093).
 - The lost answer to a MOVE carried out, above.
 
-## B-133 — FIXED 2026-10-25, not yet seen on the iPad. After Edit then Done, and after Go to Date, the letter open in the pane lost its row's highlight; the row is highlighted again wherever the list has it
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes and two, Airplane Mode for the failures, on sixteen letters
+the host put in the label Notes, read, the round's rules allowing no label
+of their own: two conversations of two letters and twelve alone. The Move
+went to an empty label of the account's own. Notes held the account's 30
+letters too, so the rows were ticked by hand where the check says Select
+All. Delete offline, the two conversations at the top: in the first frame,
+0.26 s after the tap, both rows back where they stood, not ticked, Edit
+mode over, then "Can't connect to mail server."; the log one `NO-PATH UID
+MOVE nothing-sent`; online, Refresh: the same rows. Three rows in the
+middle of the list, the first in view cut at its top: every row in view
+where it was, the list not scrolled, the same alert and line. The 14 rows
+deleted, Airplane Mode on 1.02 s after the tap: the MOVEs of singles 1 and
+2 answered `OK [COPYUID …]`, the third's sent as the network went and
+never answered; after some 30 to 40 s of "Deleting…" the alert, 1 and 2
+off, the rows below closed up, the rest back where they stood. At the
+Refresh single 3 had gone as well, B-092's lost answer; the host found it
+in the Trash. A Move of the top two, Airplane Mode on before it: the
+labels still offered, every row back where it stood, and the alert. The 13
+rows moved, Airplane Mode on 1.02 s after the label was chosen: singles 4
+to 8 answered, 9's MOVE never answered; 4 to 8 off and the rest back; at
+the Refresh 9 had gone, and the label held 4 to 9, the five answered and
+the lost one, as the host found. In two panes the top two deleted offline:
+back where they stood, not ticked, the alert, one `NO-PATH UID MOVE
+nothing-sent`. No conversation was split, the network going before their
+letters were reached. Not shown: the rows going at the tap, every first
+frame having them back already; a Refresh after the two panes' Delete,
+none being made; and the refused Move's line in the log. The Inbox's poll
+had found no path 4 s before it, `NO-PATH STATUS not-sent`, and the Move
+wrote no line at all, where the check asks for one `NO-PATH UID MOVE
+nothing-sent`: a difference in the log, not looked into; the screen was
+right. Nothing was sent. The host put eleven of the sixteen in the Trash,
+the other five there already by the app's Deletes, here and in B-133's
+check.
+
+## B-133 — FIXED 2026-10-25, seen in part on the test iPad 2026-10-25. After Edit then Done, and after Go to Date, the letter open in the pane lost its row's highlight; the row is highlighted again wherever the list has it
 
 **Found on the test iPad, 2026-10-21, in passing, twice.** In B-048's
 run: "Edit clears the selection and Done does not put it back, so after
@@ -26037,11 +26593,43 @@ none failing. The release build for the iPad links.
 - The host suite cannot run UIKit: whether the table keeps a row
   selected straight after `setEditing(false, animated: true)`, and that
   `selectRow` sends no tap, are UIKit's, and the iPad's to show (TODO,
-  B-133's check).
+  B-133's check); seen so on the test iPad 2026-10-25.
+- Not shown on the test iPad (2026-10-25): Go to Date's list not moved to
+  the open conversation's row, the conversation there being its day's
+  newest letter, so the day's list began with its row either way (TODO,
+  B-133's check, step 5).
 - Whether Mail puts the highlight back as its edit mode ends, and with
   which word it ends, not seen on an iPad here.
 
-## B-134 — CHANGED 2026-10-25 to copy Apple Mail, not yet seen on the iPad. With a bubble's menu up, letters typed opened the list under the menu and left the bubble and its menu; now they take the bubble's place, as typing over Mail's picked-out recipient does, the menu goes, and the list is in sight. "Cc/Bcc" stayed under Bcc once they were open; it goes while they show, and they fold back, as Mail's do
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes and two, on B-132's letters left in the label Notes. A letter
+open, Edit: no row highlighted or ticked, the letter still in the pane;
+Done: its row highlighted again, the list where it was, and nothing in the
+log after the letter's own FETCH but the Inbox's STATUS polls. Two other
+rows ticked, then Done: the ticks gone, the open letter's row highlighted.
+Another row ticked, Mark as Unread: Edit mode over, that row's dot on, the
+open letter's row highlighted; Mark as Read put it back, the log one STORE
+each way on that letter. A conversation open, Edit, Done: its row
+highlighted. Go to Date, Current Mailbox, the conversation's day: "Showing
+October 23", its row first and highlighted, the stack still in the pane,
+the log the jump's SEARCHes and the page's envelopes and previews alone,
+no body fetched and no STORE. In All Mail, a read letter near the top
+open, then Go to Date to 10 August: no row highlighted, the letter in the
+pane; scrolled up, its row highlighted as the pages brought it, with no
+tap, the log the pages' envelopes and previews alone. A first try in All
+Mail, at 28 September, was not used, its log having rolled out of the
+500-line ring before it was read. A Delete of the open letter and another:
+the pane empty, both rows gone, none highlighted. In two panes, Edit,
+Done: the row highlighted again, the letter in the pane, the list where it
+was. Not shown: at the jump in Notes, that the list was not moved to the
+conversation's row, the conversation being its day's newest letter, so the
+day's list began with its row either way. The same day, on the Mac's iOS
+18.6 simulator, an iPad (7th generation), on a simulator build of int16
+(662d63d), Edit then Done with a conversation open in Notes: its row
+highlighted again, the letter in the pane, the list where it was. Nothing
+was sent; the two letters deleted went to the Trash with B-132's.
+
+## B-134 — CHANGED 2026-10-25 to copy Apple Mail, seen in part on the test iPad 2026-10-25. With a bubble's menu up, letters typed opened the list under the menu and left the bubble and its menu; now they take the bubble's place, as typing over Mail's picked-out recipient does, the menu goes, and the list is in sight. "Cc/Bcc" stayed under Bcc once they were open; it goes while they show, and they fold back, as Mail's do
 
 **Found** on the test iPad on 2026-10-07, in passing, in B-076's second
 check and B-078's (both above): in To, Cc or Bcc, in the composer and the
@@ -26299,8 +26887,11 @@ none failing. The release build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the iPad or in the simulator: built and tested on the host.
-  The TODO's check is the first look.
+- Not seen on the test iPad (2026-10-25): a tap on another field's bubble
+  with letters still on To's line (the check's step 5). To's list covered
+  the Cc row, so the letters were left by Tab, and became a bubble as the
+  caret left To; whether a tap does the same, as in Mail, is not known.
+  The simulator saw step 1 alone.
 - Mail itself was read, not watched. That letters over a picked-out
   recipient replace it is its code's plain path; his iPad's 18.7 was not
   read, and Mail's composer in its share sheet was not run.
@@ -26330,6 +26921,38 @@ none failing. The release build for the iPad links.
   by a backspace on an empty line, where the caret has nowhere to go.
 - Mail's From row and the image size row it folds with Cc and Bcc: not
   built here (one account).
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+landscape, three panes, the on-screen keyboard up. A bubble "Al" tapped:
+its menu under it, no list. "s" typed: "Al" and its menu gone, "s" on the
+line and the list under To, its four rows in sight, nothing over it;
+Delete took the "s" and closed the list. "s" typed before the tap: the tap
+closed the list and opened the menu; Return made "s" a bubble after "Al",
+"Al" still bright with its menu, no list; a tap outside left "Al" plain.
+Delete over the menu: "Al" gone, "sa" left on the line and its list in
+sight. Cc/Bcc: the two rows, the caret in Cc, no "Cc/Bcc" under Bcc;
+Subject folded them; with "Bo" in Bcc they stayed at a tap in the body;
+"Bo" removed, a tap in To folded them. From the body, "Al" tapped: the
+menu under it, its arrow on it, the caret in To on the email keyboard; "s"
+brought To's list, which covered the Cc row, so "Jo" could not be tapped.
+To was left by Tab instead, and the "s" became a bubble as the caret left;
+"Jo" tapped then, its menu under it, its arrow on it, the caret in Cc, and
+"s" there brought the Cc list in sight, its fourth row cut by the
+keyboard's top edge. With the keyboard put away, "Al" tapped where it then
+was: its menu, the keyboard still down; a tap where it had been hit
+nothing. In the share sheet from Safari on example.com, 1 and 4 the same,
+Cancel and Send blue with the menu up and at Cancel's question, of which
+only the blue with the menu up was looked at a second time; in the app's
+composer the same blue. A space after "sa" over the menu: "Al" gone,
+"sa " on the line, the list for "sa" with every row in sight. After a
+Delete picked out "Bo", a tap on the line after the bubbles: "Bo" plain,
+the caret there; "c" after both; Delete twice, then "d" with no tap: "Bo"
+gone and "d" after "Al". Not shown: a tap on "Jo" with letters still on
+To's line, which To's list made impossible there. Every letter ended with
+Cancel, and Delete Draft when asked; nothing was sent or saved. The same
+day, on the Mac's iOS 18.6 simulator, an iPad (7th generation), on a
+simulator build of int16 (662d63d), step 1 the same, a keyboard bar in
+place of the on-screen keyboard.
 
 ## B-135 — FIXED 2026-10-25; a fault found on the test iPad the same day fixed, not yet seen fixed. Each pause in a search he was typing asked for every hit's preview again, its rows two grey lines until they came; the previews already drawn for the same letters are carried over by id, and only the rest are asked for
 
@@ -26648,7 +27271,7 @@ the iPad links.
   words kept: one FETCH a carry into the folder's rows would save, left
   out so that the folder's rows take nothing kept, as before the fix.
 
-## B-136 — FIXED 2026-10-25, not yet seen on the iPad. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
+## B-136 — FIXED 2026-10-25, seen on the test iPad 2026-10-25. Every letter kept read the iPad's free space first, 44 to 58 ms of each 62 to 85 ms keep on the test iPad; it is read at a launch's first keep and held, and read again after five minutes or before a write that would come near the floor
 
 Built in the `bm-searchprev` worktree (branch `fix-searchprev`), after
 B-135.
@@ -26749,7 +27372,6 @@ build for the iPad links.
 
 **Not covered.**
 
-- Not seen on the test iPad. Its check is in TODO.
 - Another app taking more than a gigabyte in the five minutes a reading is
   held, and leaving the disk short of full: the keeps could then land
   under the floor, by as much as the store can still grow, up to its
@@ -26763,6 +27385,23 @@ build for the iPad links.
   one set back reads again; neither keeps a letter the floor would refuse.
 - His iPad's free space is not known. With a gigabyte or less above the
   floor, every keep reads, as before this change.
+
+**Seen on the test iPad, 2026-10-25**, on a build of int16 (662d63d),
+three panes, about 39 GB free, on eight letters the host put in the label
+Notes, read, each 3.70 to 3.76 MB with a 2.7 MB photo. The app ended and
+launched again, by a kill, not the app switcher: letter 1, `kept
+bytes=3759166 ms=87 free-ms=57`. Letters 2 to 4 within the minute: ms 29,
+31 and 22, no `free-ms`, about 87 less 57. Letter 4 opened while the list
+was dragged: every frame, 0.13 s apart, differed from the one before, so
+no stop longer than about 0.26 s, as fine as B-111's frames could tell.
+Six minutes on, the app in front: letter 5 tapped and letter 6 0.3 s
+after, before 5's body had come, so 5's keep was let go (`not-kept
+reason=cancelled`) and 6's, the first after the five minutes, read the
+free space, `ms=74 free-ms=44`; 5 opened again at once, `ms=32` and none;
+letters 1 to 4's notes above in the same log. Letters 1 and 2 again:
+`KEPT-LETTER shown`, ms 29, no kept note. After another kill and launch,
+letter 7, `ms=89 free-ms=58`, and letter 8, `ms=30` and none. Nothing was
+sent; the host put the eight letters in the Trash.
 
 ## B-137 — FIXED 2026-10-25, fixed again 2026-10-25 after the test iPad, not yet seen there. The app would stop opening on the day its profile runs out with not a word before it; in its last thirty days it says so once a day, the day read from its own profile
 
@@ -27343,7 +27982,7 @@ line before its alert.
 - What iOS itself shows when the app is tapped after the day: not looked
   at.
 
-## B-138 — FIXED 2026-10-25, not yet seen on the iPad. provision-ipad.sh called every 16.7.x, 17.0.1 to 17.0.3 and iOS 10 to 13 within TrollStore's range; it reads the build too, says in or past as TrollStore's own list has it, and stops before registration on an iOS older than the app's 16.0
+## B-138 — FIXED 2026-10-25, seen in part on the test iPad 2026-10-25. provision-ipad.sh called every 16.7.x, 17.0.1 to 17.0.3 and iOS 10 to 13 within TrollStore's range; it reads the build too, says in or past as TrollStore's own list has it, and stops before registration on an iOS older than the app's 16.0
 
 **Found** in the gap review of 2026-09-30, among what is buildable for the
 install-day build (TODO, "`provision-ipad.sh`: the TrollStore iOS range is
@@ -27456,13 +28095,28 @@ changed here; the release build for the iPad links.
 
 **Not covered.**
 
-- Not run with an iPad on the cable: its check is in TODO, read only.
+- The pre-flight on the laptop or the Mac taken on the visit: on
+  2026-10-25 it ran on the host, where the whole repo is, so its ✗ lines
+  were the host's (TODO, B-138's check, step 1). The rules were run on the
+  laptop with the test iPad on its cable.
 - The visit's own path through the script was not run here, there being
   no iPad on this host; the rules and the script's text are what is held.
   No iPad older than 16.0 is at hand to see the stop on.
 - TrollStore's range as its README gives it on 2026-10-25. Were a third
   CoreTrust bug found, the rule would need changing; the install is set
   and forget, so it would not reach his iPad.
+
+**Seen on the test iPad, 2026-10-25**, at int16 (662d63d), read only:
+nothing was registered, signed or installed.
+`tools/provision-ipad.sh --check` ran on the host, where the whole repo
+is, not on the laptop or the Mac: among the pre-flight's lines,
+"✓ trollstore-range.sh". Its ✗ lines, no ideviceinstaller and no IPA
+where the script looks, and "Pre-flight FAILED" with exit 1, are the
+host's, not those of the machine taken on the visit, and were not mended.
+On the laptop, the test iPad on its cable, `tools/trollstore-range.sh`
+from the same commit and no copy of the repo: ProductVersion 16.5.1,
+BuildVersion 20F75, `trollstore_range` "in" with exit 0, and `ios_below`
+against 16.0 1, not older than the app needs. Nothing was sent.
 
 ## B-139 — FIXED 2026-10-25, not yet seen on the iPad. After 24-Hour Time was switched on, or the time zone changed, the dates already on the screen kept their old form until they were drawn again; the rows in sight, the open letter's header and a conversation's lines are written again where they are, and again as the day turns over
 
