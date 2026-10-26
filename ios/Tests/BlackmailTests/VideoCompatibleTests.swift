@@ -301,7 +301,7 @@ final class VideoCompatibleTests: XCTestCase {
             XCTAssertTrue(disk.discarded.contains(asked.to))
             XCTAssertFalse(loading.wasInterrupted)
             XCTAssertEqual(notes().last, line)
-            staging.unstage(got.item!)
+            if let item = got.item { staging.unstage(item) }
         }
     }
 

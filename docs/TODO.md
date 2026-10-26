@@ -7005,123 +7005,116 @@ checks below is left as not needed, not open, and none is worth a round.*
       Trash only the UIDs that move answered (`COPYUID`); "Notes" itself
       stays. Never anything found by subject or Message-ID: a UID not
       noted is left, and written down. Nothing else was written.
-- [ ] **B-142, a large video still coming into the composer as he locks
-      the iPad or leaves the app.** On the test iPad, the test account
-      only, from a build of the `bm-videopick` worktree (branch
-      `fix-videopick`) or of the int it is merged into. Nothing is sent:
-      no recipient is typed in any step, so Send cannot go. Nothing is
-      left on the account: step 6, optional, saves one draft there and
-      deletes it in the same step, and step 3's copy on the iPad goes with
-      its Delete Draft. Every composer ends with Cancel, and Delete Draft
-      if it asks (a letter left as it opened closes with nothing asked).
-      The videos
-      are the test iPad's own in Photos, 1.2 to 2.7 GB (IMG_0712, the
-      round's, is 1.39 GB); nothing is put on the iPad or taken off it.
-      Each step takes a video not picked earlier in the round, its name
-      written down: one picked again within minutes can come in seconds
-      from the copy Photos made the time before (the round's first pass,
-      8.5 s), and tests nothing. Where the iPad has too few, one may be
-      used again only if, at the lock, its row still turns and a claim is
-      in the syslog; if it came within seconds, write it down and redo the
-      step with another. Before the first step, over IMAP, the counts of
-      Drafts and Sent Mail; the app's Local Drafts empty. A read-only
-      syslog capture runs throughout; the app's log is read after each
-      step.
-      Between steps, and before leaving Blackmail after any "could not be
-      attached": wait until filecoordinationd has let go of every "File
-      Coordination Claim" on Blackmail ("Invalidating assertion ... File
-      Coordination Claim"), or none was taken, or the step's `SHARE-FILE
-      ... went=` line is in the log. Write down any termination with
-      0x2182BAAD, with the step it fell in. A claim left from a step before
-      must not be read as this step's.
-      1. *Locked, the round's case:* a new letter, Photo Library, Videos, a
-      video, Add: its row with a spinner. Lock the iPad within a second,
-      the row still turning and a claim in the syslog. In the syslog,
-      within a second or two of the lock, the claim invalidated; no
-      "Assertion warning event" for it near 26 s and no termination with
-      0x2182BAAD near 31 s. In the log, `COMPOSE-ITEM set aside as the app
-      went, called off`, then `SHARE-FILE read=com.apple.quicktime-movie`
-      with `went=called off` and `COMPOSE-ITEM set aside, its read ended
-      with nothing`. Wake after three and a half minutes, nothing touched:
-      Blackmail in front, the composer up, the row turning again, and a new
-      claim in the syslog. Then, not at once on the return: either it comes
-      and is left out for the letter's room, "The video could not be
-      attached." with `SHARE-FILE ... went=left out, more than the letter's
-      room`, or it is counted out three minutes after the return
-      (`COMPOSE-ITEM counted out after 180 s`), the same words, and the
-      claim let go within a second or two of the count-out. A shot of the
-      composer on the wake. Wait for the claim to go, then Cancel, and
-      Delete Draft if it asks. Before 2026-10-26 the app was ended 31 s
-      after the lock, and the wake showed the Home Screen. If the claim is
-      not let go at the lock and the app is ended all the same, with no
-      claim left from before, write down the syslog's lines:
-      `Progress.cancel()` then does not end Photos' copy, and the way left
-      is the picker's `.current` for videos (no copy made, B-108's
-      compatible copy given up), a change of its own.
-      2. *Another app:* as 1, with another video, Safari opened from the
+- [ ] **B-142, a video coming into the composer as he locks the iPad or
+      leaves the app, and Photo Library as Photos keeps it.** On the test
+      iPad, the test account only, from a build of the `bm-videopick2`
+      worktree (branch `fix-videopick2`) or of the int it is merged into.
+      Nothing is sent: no recipient is typed in any step, so Send cannot
+      go. Nothing is left on the account: step 7, optional, saves one draft
+      there and deletes it in the same step. Every composer ends with
+      Cancel, and Delete Draft if it asks (a letter left as it opened
+      closes with nothing asked). The large videos are the test iPad's own
+      in Photos, HEVC, over 25 MB; the short one, for steps 4 to 7, an HEVC
+      clip of 10 to 25 MB: the test iPad's own if it has one, else filmed
+      for about ten seconds with its Camera before step 4 and deleted, from
+      Recently Deleted too, in step 12. Before the first step, over IMAP,
+      the counts of Drafts and Sent Mail; the app's Local Drafts empty. A
+      read-only syslog capture runs throughout; the app's log is read
+      after each step. Write down any termination with 0x2182BAAD, with the
+      step it fell in, and every "File Coordination Claim" on Blackmail
+      with how long it was held.
+      1. *Locked, a large video* (the round's case): a new letter, Photo
+      Library, Videos, a large video, Add, and the lock within a second. In
+      the syslog the claim, if one is taken, let go within a second or two
+      of Add, "finished providing" without minutes of copying; no
+      "Assertion warning event" near 26 s and no 0x2182BAAD near 31 s. In
+      the log `SHARE-FILE read=com.apple.quicktime-movie ... went=left out,
+      more than the letter's room` within seconds of Add, and no
+      `SHARE-VIDEO` line. Wake after three and a half minutes, nothing
+      touched: Blackmail in front, the composer up, "The video could not be
+      attached." up or said on the wake. A shot of the composer on the
+      wake. Cancel. Before the third commit the app was ended 31 s after
+      the lock, the wake showing the Home Screen (2026-10-25 and
+      2026-10-26).
+      2. *Another app:* as 1, another large video, Safari opened from the
       Dock in place of the lock, three and a half minutes there, then back
       to Blackmail by the app switcher. The same.
-      3. *Words typed:* only if 1 and 2 passed. A new letter, "B-142" typed
-      in the body and nothing else, then another video as in 1, and the
-      lock. In the syslog the "Keep Draft" background time let go within a
-      second of the lock, not held to its expiry. Wake after three and a
-      half minutes: the composer up with the words, the row turning again.
-      Wait for the claim to go, then Cancel, Delete Draft; Local Drafts
-      empty. Should the app have been ended, the letter is in Drafts at the
-      next launch: written down, and deleted there in the app, Edit,
-      Delete.
-      4. *Several:* a new letter, Photo Library, two videos not used yet,
-      the larger first, and one photo, in that order, Add, and the lock at
-      once. Wake after three and a half minutes: three rows turning; the
-      first video read again first, then the second, then the photo, each
-      after the one before it has ended; the photo's row comes in, and when
-      the pick ends, one alert, "2 videos could not be attached.". Wait for
-      the claim to go, then Cancel, Delete Draft.
-      5. *The share sheet,* written down, nothing in it changed by B-142:
-      Photos, a video not used yet, Share, Blackmail. The sheet's spinner
-      while it reads the video; lock within a second; wake after one
-      minute: is the sheet still up, and does the syslog have a claim on
-      the extension and a termination with 0x2182BAAD? Cancel if it is up.
-      The sheet has nothing of his in it until the video has been read.
-      6. *Save Draft waiting, the 20 seconds:* only if 1 passed, and
-      optional: it saves one draft to the test account, which every other
-      step avoids; skip it if the round may write nothing there. A new
-      letter, "B-142 save" typed as the subject and nothing else, then a
-      video not used yet as in 1; while its row turns, Cancel, Save Draft:
-      the sheet goes. Lock within a second. In the syslog: the claim still
-      held after the lock, then invalidated about 20 s after it, not within
-      a second or two; no "Assertion warning event" near 26 s and no
-      0x2182BAAD; the "Save Draft" background time let go at about the same
-      moment, not held to its expiry. In the log, `COMPOSE-ITEM let run 20
-      s as the app went, a Send or Save Draft waiting`, then `COMPOSE-ITEM
-      set aside 20 s after the app went, called off`. Wake after three and
-      a half minutes: the video read again (a new claim; a `SHARE-FILE`
-      line or `COMPOSE-WAIT counted out 1 after 180 s` within three
-      minutes), then the draft in Drafts without the video. Over IMAP,
-      Drafts one more than counted. Wait for the claim to go, then open the
+      3. *Several:* a new letter, two large videos and one HEIC photo, Add,
+      the lock at once. Wake after three and a half minutes: no
+      0x2182BAAD, the photo's row in, and one alert, "2 videos could not
+      be attached.". Cancel, Delete Draft.
+      4. *A clip that fits,* in front: a new letter, the short clip, Add,
+      and wait. In the log `SHARE-FILE ... went=staged`, then `SHARE-VIDEO
+      made H.264, bytes=N from=M`, the time between them written down; the
+      row "IMG_####.MOV" with the weight of N. Over SSH, the staged file in
+      the app's `tmp/Attachments` copied to the host and read with
+      ffprobe: H.264 video, AAC sound, the clip's size and length, N bytes.
+      Should the line say `its H.264 copy ... the original goes`, write
+      down both sizes: the original went, as built. Cancel, Delete Draft;
+      `tmp/Attachments` holds nothing of it.
+      5. *The clip, locked while it is made:* as 4, the lock within a
+      second of Add. In the log `COMPOSE-ITEM set aside as the app went,
+      called off`, then `SHARE-VIDEO called off` (or `SHARE-FILE ...
+      went=called off` if the read had not ended); no claim held past the
+      lock, no 0x2182BAAD. Should `made H.264` come before the lock, write
+      it down and redo the step with a longer clip. Wake after three and a
+      half minutes: the row turning again, then `SHARE-VIDEO made H.264`
+      and its row. Cancel, Delete Draft.
+      6. *The clip, the letter closed while it is made:* as 4; while its
+      row turns, Cancel, Delete Draft. In the log `COMPOSE-ITEM called off,
+      the letter closed` and `SHARE-VIDEO called off`; `tmp/Attachments`
+      holds nothing of it.
+      7. *Save Draft waiting, the 20 seconds,* optional: it saves one draft
+      to the test account, which every other step avoids. A new letter,
+      "B-142 save" typed as the subject and nothing else, the clip, and
+      while its row turns, Cancel, Save Draft: the sheet goes. Lock within a
+      second. In the log `COMPOSE-ITEM let run 20 s as the app went, a Send
+      or Save Draft waiting`, then one of: `SHARE-VIDEO not made H.264,
+      stopped as the app went` and `COMPOSE-ITEM set aside, its conversion
+      stopped as the app went`; `COMPOSE-ITEM set aside 20 s after the app
+      went, called off`; or `SHARE-VIDEO made H.264` inside the 20 s. Write
+      down which, and when: it is how AVAssetExportSession behaves as the
+      app goes on this iPad. In the syslog the "Save Draft" background time
+      let go then, not held to its expiry; no 0x2182BAAD. Wake after three
+      and a half minutes: the clip read and made again, then the draft in
+      Drafts with it. Over IMAP, Drafts one more than counted. Open the
       draft from Drafts in the app, Cancel, Delete Draft; over IMAP, Drafts
-      as counted. Should the app be ended near 26 to 31 s with the claim
-      still held at 20 s, write down the lines: the 20 s is too long, or
-      the call-off slow. This is how a Send waiting through a lock
-      behaves too, which the check cannot try without a recipient.
-      7. *Called off at a count-out,* in front: a new letter, the largest
-      video not used yet, Add, and wait, the iPad not locked (Auto-Lock as
-      the test iPad has it, 15 minutes). At three minutes, "The video could
-      not be attached." and `COMPOSE-ITEM counted out after 180 s`, and in
-      the syslog the claim invalidated within a second or two of it, where
-      the round's run 3 had it held 71 s more. Then to the Home Screen for
-      one minute: no 0x2182BAAD. Back to Blackmail, Cancel, and Delete
-      Draft if it asks. Should the video come and be left out for the room
-      before three minutes, write it down; the step is then not reached.
-      8. *Attach File, optional:* only if a file of over about 1 GB, or one
+      as counted.
+      8. *A photo:* a new letter, one HEIC photo from the iPad's camera,
+      Add. Its `SHARE-PICTURE` line: `offered=public.heic read=public.heic
+      ... way=JPEG at factor 1`, or, should Photos still offer a JPEG
+      beside it, `read=public.jpeg ... way=own bytes`: write down which.
+      Either way the row "IMG_####.jpg" with its weight. Cancel, Delete
+      Draft.
+      9. *Attach File, optional:* only if a file of over about 1 GB, or one
       kept only in iCloud, is in Files already. A new letter, Attach File,
       that file, Open, and the lock within a second. Write down whether a
-      claim is held on Blackmail, for how long, and any 0x2182BAAD. Wait
-      for the claim to go, then Cancel, and Delete Draft if it asks.
+      claim is held on Blackmail, for how long, and any 0x2182BAAD.
       Nothing is changed for this (B-142, Not covered).
-      9. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
-      empty; Photos as found; Blackmail in front on the Inbox; Auto-Lock
-      as found. Nothing was sent, and nothing is left on the account.
+      10. *An original kept only in iCloud, optional:* only if Photos on
+      the test iPad has a video kept only in iCloud (it had none so far).
+      As 1: write down how long the claim is held while it downloads, and
+      whether the app is ended. Nothing can be changed for this without the
+      photo library's permission (B-142, Not covered).
+      11. *The share sheet,* written down, nothing in it changed: Photos, a
+      large video not used yet, Share, Blackmail. The sheet's spinner while
+      it reads the video; lock within a second; wake after one minute: is
+      the sheet still up, and does the syslog have a claim on the extension
+      and a termination with 0x2182BAAD? Cancel if it is up.
+      12. *Put back:* Drafts and Sent Mail as counted first; Local Drafts
+      empty; the clip filmed for steps 4 to 7, if one was, deleted from
+      Photos and from Recently Deleted; Photos otherwise as found; Blackmail
+      in front on the Inbox; Auto-Lock as found. Nothing was sent, and
+      nothing is left on the account.
+      *Run on the test iPad 2026-10-26 (round r6-s8-fixes, int17 56bbf61,
+      the first two commits), as the check then stood: its steps 1, 2, 4
+      and 7 failed in a second run, each with a video never picked before.
+      The read was called off as the app went, at the count-out and as the
+      letter closed, and the claim was held until Photos' compatible copy
+      was made; the app was ended 31 s after it left the front, the letter
+      with it. An H.264 video held its claim 0.1 s. Fixed again by the third
+      commit, `.current` and the H.264 copy made in the app; the check above
+      is for that build.*
 - [ ] **B-143, a row comes into sight with its preview.** On the test
       iPad, the test account only, from a build of the `bm-prepcell`
       worktree (branch `fix-prepcell`) or of the int it is merged into.
