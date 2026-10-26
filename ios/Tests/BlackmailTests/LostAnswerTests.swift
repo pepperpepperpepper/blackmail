@@ -47,7 +47,8 @@ final class LostAnswerTests: XCTestCase {
     /// as before, the row back and "Can't connect to mail server.", the
     /// kept copy keeping it, nothing billed. The watch's next check reaches
     /// the server on a new connection and looks once, `UID SEARCH
-    /// X-GM-MSGID` in Notes: not there, so the row goes with no alert, the
+    /// X-GM-MSGID` in Notes, after the screens are told how the check went:
+    /// not there, so the row goes with no alert, the list at its top, the
     /// letter comes off the counts once with one sweep, and the kept copy
     /// lets it go. A check after that looks no more.
     @MainActor
@@ -84,6 +85,7 @@ final class LostAnswerTests: XCTestCase {
 
         XCTAssertEqual(screen.outcomes.count, 1)
         guard case .reached = screen.outcomes.first else { return XCTFail("\(screen.outcomes)") }
+        XCTAssertEqual(screen.told, ["checked", "moved"], "told of the check before the look")
         XCTAssertEqual(looks, [lookFor(letter)])
         XCTAssertEqual(server.log.first { $0.command == lookFor(letter) }?.selected, Self.notes)
         XCTAssertEqual(list.shown.map(\.id), rows.map(\.id).filter { $0 != letter.id })
@@ -379,35 +381,228 @@ final class LostAnswerTests: XCTestCase {
         let gone = PaneActions.movedAfterAll(
             [moved(rows[0]), moved(rows[2]), moved(rows[3], in: Server.inbox),
              moved(rows[4], letter: 99), moved(rows[1])],
-            list: list, requestSweep: { sweeps += 1 })
+            list: list, showsNews: true, requestSweep: { sweeps += 1 })
 
         XCTAssertEqual(gone.map(\.id), [rows[1].id])
         XCTAssertEqual(list.shown.map(\.id), [rows[2], rows[3], rows[4]].map(\.id))
         XCTAssertEqual(sweeps, 1, "the one that went was unread")
     }
 
+    // MARK: - Where he is
+
+    /// The same lost Delete, unread, with him scrolled down the list when
+    /// the look finds the letter gone: nothing on the list changes, the row
+    /// held with the watch's news (B-049), nothing billed, and the counts
+    /// swept once, which has them from the server. Back at the top, the row
+    /// goes, and is not billed then either.
+    @MainActor
+    func testScrolledDownTheRowWaitsForTheTop() async throws {
+        let (repository, rows) = try await notesListed()
+        let letter = rows[1]
+        XCTAssertFalse(letter.isRead)
+        let (list, counts) = makeList(rows)
+        server.hangsUpAfterVerbs = ["UID MOVE"]
+        _ = await PaneActions.refusal(running: .delete, on: letter, inFolderWithRole: nil,
+                                      list: list, repository: repository, requestSweep: {})
+        server.hangsUpAfterVerbs = []
+        server.clearLog()
+        let screen = Screen(list)
+        screen.atTop = false
+        let watch = MailWatch(repository: repository)
+        watch.target = screen
+        await watch.check()
+
+        XCTAssertEqual(looks, [lookFor(letter)])
+        XCTAssertEqual(notes.last, "LOST-ANSWER-LOOK folder=\(Self.notes) uid=\(uid(letter.id)) gone")
+        XCTAssertEqual(list.shown.map(\.id), rows.map(\.id), "nothing moves under him")
+        XCTAssertEqual(screen.gone, [])
+        XCTAssertEqual(counts.billed, [])
+        XCTAssertEqual(screen.sweeps, 1, "the counts from the server")
+        XCTAssertFalse(list.shows(letter), "held to go")
+        XCTAssertEqual(screen.showIfAtTop(), .wait)
+
+        screen.atTop = true
+        XCTAssertEqual(screen.showIfAtTop(), .shown([]))
+        XCTAssertEqual(list.shown.map(\.id), rows.map(\.id).filter { $0 != letter.id })
+        XCTAssertEqual(counts.billed, [], "the sweep has the counts")
+        XCTAssertEqual(screen.sweeps, 1)
+
+        server.clearLog()
+        await watch.check()
+        XCTAssertEqual(looks, [])
+    }
+
+    /// A row ticked in Edit mode, or a finger on the list, holds the row as
+    /// being scrolled down does; each goes once he is at the top with
+    /// nothing ticked and no finger down.
+    @MainActor
+    func testTickedOrTouchingTheRowWaitsToo() {
+        let rows = (1...4).map { n in
+            MessageSummary(id: "600200/\(n)", mailboxID: Self.notes, sender: "Sam",
+                           subject: "Letter \(n)", preview: "",
+                           date: Server.newestDate.addingTimeInterval(Double(-n) * 60),
+                           isRead: n != 2, isFlagged: false, gmailMessageID: 1_000 + UInt64(n))
+        }
+        for (ticked, touching) in [(true, false), (false, true)] {
+            let (list, counts) = makeList(rows)
+            let screen = Screen(list)
+            screen.ticked = ticked
+            screen.touching = touching
+            screen.movedAfterAll([MovedAfterAll(id: rows[1].id, mailboxID: Self.notes,
+                                                gmailMessageID: rows[1].gmailMessageID!,
+                                                leftEveryFolder: true)])
+
+            let place = "ticked \(ticked), touching \(touching)"
+            XCTAssertEqual(list.shown.map(\.id), rows.map(\.id), place)
+            XCTAssertEqual(screen.gone, [], place)
+            XCTAssertEqual(counts.billed, [], place)
+            XCTAssertEqual(screen.sweeps, 1, place)
+            XCTAssertEqual(screen.showIfAtTop(), .wait, place)
+
+            screen.ticked = false
+            screen.touching = false
+            XCTAssertEqual(screen.showIfAtTop(), .shown([]), place)
+            XCTAssertEqual(list.shown.map(\.id), [rows[0], rows[2], rows[3]].map(\.id), place)
+        }
+    }
+
+    /// A Delete from an All Mailboxes hit, the letter also in the Inbox
+    /// underneath, unread: the hit and the Inbox's row are one letter, and
+    /// binned it has left both. Where the news goes on now, both rows go,
+    /// and it comes off the counts once. A search showing is not such a
+    /// place in the app, which holds the rows instead: the hit stays among
+    /// the hits, nothing billed, one sweep, and the Inbox's row goes once
+    /// the search has ended with the list at its top.
+    @MainActor
+    func testABinnedLettersRowUnderAnotherIdGoesWithIt() {
+        func row(_ id: String, in folder: String, read: Bool = true, letter: UInt64,
+                 subject: String) -> MessageSummary {
+            MessageSummary(id: id, mailboxID: folder, sender: "Sam", subject: subject, preview: "",
+                           date: Server.newestDate, isRead: read, isFlagged: false,
+                           threadID: "thread-\(letter)", gmailMessageID: letter,
+                           countedFolderIDs: read ? [] : ["inbox", Self.notes])
+        }
+        let inbox = [row("500/1", in: "inbox", letter: 1, subject: "One"),
+                     row("500/2", in: "inbox", read: false, letter: 2, subject: "Two"),
+                     row("500/3", in: "inbox", letter: 3, subject: "Three")]
+        let hit = row("600200/27", in: Self.notes, read: false, letter: 2, subject: "Two")
+        let moved = MovedAfterAll(id: hit.id, mailboxID: Self.notes, gmailMessageID: 2,
+                                  leftEveryFolder: true)
+
+        // Now.
+        do {
+            let (list, counts) = makeList(inbox)
+            _ = list.showResults([hit])
+            var sweeps = 0
+            let gone = PaneActions.movedAfterAll([moved], list: list, showsNews: true,
+                                                 requestSweep: { sweeps += 1 })
+            XCTAssertEqual(gone, [moved])
+            XCTAssertEqual(list.shown, [], "the hit gone")
+            _ = list.endSearch()
+            XCTAssertEqual(list.shown.map(\.id), ["500/1", "500/3"], "and the Inbox's row")
+            XCTAssertEqual(counts.billed.count, 1, "one off the counts, once")
+            XCTAssertEqual(sweeps, 1)
+        }
+
+        // Held, a search showing.
+        do {
+            let (list, counts) = makeList(inbox)
+            _ = list.showResults([hit])
+            let screen = Screen(list)
+            screen.searching = true
+            screen.movedAfterAll([moved])
+            XCTAssertEqual(screen.gone, [])
+            XCTAssertEqual(list.shown.map(\.id), [hit.id], "the hit stays among the hits")
+            XCTAssertEqual(counts.billed, [])
+            XCTAssertEqual(screen.sweeps, 1)
+
+            _ = list.endSearch()
+            XCTAssertEqual(list.shown.map(\.id), inbox.map(\.id), "held")
+            screen.searching = false
+            XCTAssertEqual(screen.showIfAtTop(), .shown([]))
+            XCTAssertEqual(list.shown.map(\.id), ["500/1", "500/3"], "the Inbox's row goes")
+            XCTAssertEqual(counts.billed, [])
+        }
+    }
+
+    /// The pane empties only when the letter it opened is the one gone:
+    /// the same row as the same letter, or, binned, the same letter under
+    /// another id. Not for another letter of its conversation, nor for the
+    /// same letter elsewhere after a Move to a label, which leaves it
+    /// there.
+    func testThePaneLetsGoOnlyOfTheLetterItOpened() {
+        func letter(_ id: String, _ gmail: UInt64, in folder: String = Self.notes) -> MessageSummary {
+            MessageSummary(id: id, mailboxID: folder, sender: "Sam", subject: "Garden", preview: "",
+                           date: Server.newestDate, isRead: true, isFlagged: false,
+                           threadID: "thread", gmailMessageID: gmail)
+        }
+        let binned = MovedAfterAll(id: "600200/27", mailboxID: Self.notes, gmailMessageID: 7,
+                                   leftEveryFolder: true)
+        var filed = binned
+        filed.leftEveryFolder = false
+
+        XCTAssertTrue(PaneActions.empties(paneOpenOn: letter("600200/27", 7), for: [binned]))
+        XCTAssertTrue(PaneActions.empties(paneOpenOn: letter("600200/27", 7), for: [filed]))
+        XCTAssertFalse(PaneActions.empties(paneOpenOn: letter("600200/26", 6), for: [binned]),
+                       "another letter of the conversation")
+        XCTAssertFalse(PaneActions.empties(paneOpenOn: letter("600200/27", 8), for: [binned]),
+                       "another letter under that id")
+        XCTAssertTrue(PaneActions.empties(paneOpenOn: letter("500/9", 7, in: "inbox"), for: [binned]),
+                      "the binned letter opened from the Inbox")
+        XCTAssertFalse(PaneActions.empties(paneOpenOn: letter("500/9", 7, in: "inbox"), for: [filed]),
+                       "filed in a label, the Inbox's copy stays")
+        XCTAssertFalse(PaneActions.empties(paneOpenOn: nil, for: [binned]))
+    }
+
     // MARK: - Read from the source
 
-    /// The app's target takes the rows off the list in front, lets the
-    /// pane go of a letter that went, and sweeps quietly.
+    /// The app's target hands the rows to the list in front, which takes
+    /// them off now or holds them by where he is, read off its table as the
+    /// watch's news reads it; the pane lets go of the letter it opened, if
+    /// it went now; the counts are swept quietly.
     func testTheRootTakesTheRowsOffQuietly() throws {
         let root = try source("UI/RootViewController.swift")
         XCTAssertTrue(root.contains(
-            "func movedAfterAll(_ letters: [MovedAfterAll]) { let gone = PaneActions.movedAfterAll("
-            + "letters, list: list.letters, requestSweep: { [weak self] in "
-            + "self?.refreshMailboxes(quietly: true) }) detail.clearIfShowing(any: gone) }"))
+            "func movedAfterAll(_ letters: [MovedAfterAll]) { let gone = list.movedAfterAll("
+            + "letters, requestSweep: { [weak self] in self?.refreshMailboxes(quietly: true) }) "
+            + "detail.clearIfOpened(any: gone) }"))
+        let list = try source("UI/MessageListViewController.swift")
+        XCTAssertTrue(list.contains(
+            "let here = isViewLoaded ? newsPlace : nil let showsNews = here.map { "
+            + "ListPlaces.showsNews(atTop: $0.atTop, searching: $0.searching, ticked: $0.ticked, "
+            + "touching: $0.touching) } ?? false return PaneActions.movedAfterAll(moved, "
+            + "list: letters, showsNews: showsNews, requestSweep: requestSweep)"))
+        XCTAssertTrue(list.contains(
+            "let here = newsPlace switch letters.putNewsOn(atTop: here.atTop, "
+            + "searching: here.searching, ticked: here.ticked, touching: here.touching)"),
+            "the same place as the watch's news")
+        XCTAssertTrue(list.contains(
+            "if case .failed = outcome { return } fetchOverKeptQuietly() showNewsIfAtTop() }"),
+            "what is held goes on at a check")
+        let pane = try source("UI/MessageDetailViewController.swift")
+        XCTAssertTrue(pane.contains(
+            "func clearIfOpened(any letters: [MovedAfterAll]) { guard PaneActions.empties("
+            + "paneOpenOn: summary, for: letters) else { return } showEmpty() }"))
     }
 
     // MARK: - Helpers
 
     /// What the watch asks of the screens, over the list the test holds,
     /// with another folder than the Inbox in front: a check is the Inbox's
-    /// count, and then the look.
+    /// count, and then the look. Where he is on the list, as the list in
+    /// the app reads it off its table (`MessageListViewController.newsPlace`):
+    /// at the top, nothing ticked, no finger, no search, unless a test says.
     @MainActor
     private final class Screen: MailWatchTarget {
         let list: ListLetters
+        var atTop = true
+        var searching = false
+        var ticked = false
+        var touching = false
         private(set) var outcomes: [MailWatch.Outcome] = []
-        private(set) var gone: [MessageSummary] = []
+        private(set) var gone: [MovedAfterAll] = []
+        /// What the watch told the screens, in order: "checked" and "moved".
+        private(set) var told: [String] = []
         /// Sweeps the rows that went asked for, apart from the ones the
         /// watch asks for itself when the Inbox's count is not the pane's.
         private(set) var sweeps = 0
@@ -418,11 +613,26 @@ final class LostAnswerTests: XCTestCase {
         var shownInboxUnread: Int? { nil }
         func found(_ news: FolderNews, in mailboxID: String) -> NewsTaken { .notTaken }
         func countsChanged() {}
-        func checked(_ outcome: MailWatch.Outcome) { outcomes.append(outcome) }
+
+        func checked(_ outcome: MailWatch.Outcome) {
+            outcomes.append(outcome)
+            told.append("checked")
+        }
 
         func movedAfterAll(_ letters: [MovedAfterAll]) {
-            let went = PaneActions.movedAfterAll(letters, list: list, requestSweep: { sweeps += 1 })
+            told.append("moved")
+            let went = PaneActions.movedAfterAll(
+                letters, list: list,
+                showsNews: ListPlaces.showsNews(atTop: atTop, searching: searching, ticked: ticked,
+                                                touching: touching),
+                requestSweep: { sweeps += 1 })
             gone += went
+        }
+
+        /// What the list does whenever he may be back at the top, and at
+        /// every check: what it holds goes on, or waits.
+        func showIfAtTop() -> ListLetters.NewsStep {
+            list.putNewsOn(atTop: atTop, searching: searching, ticked: ticked, touching: touching)
         }
     }
 

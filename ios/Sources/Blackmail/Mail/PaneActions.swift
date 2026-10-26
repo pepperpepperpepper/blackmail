@@ -55,6 +55,11 @@ protocol PaneActionList: AnyObject {
     /// Whether the letter's row is on the list now: not taken off since,
     /// by hand or as the watch's news, nor held by the watch to go.
     func shows(_ letter: MessageSummary) -> Bool
+    /// Holds the letter's row to go as the watch's news of a letter gone
+    /// elsewhere goes, when he is back at the top (B-049), and, when the
+    /// letter has left every folder, the rows that are the same letter
+    /// under other ids.
+    func holdGone(_ letter: MessageSummary, fromEveryFolder: Bool)
 }
 
 /// What a Delete, Move or Flag from the reading pane does besides its write.
@@ -282,13 +287,23 @@ enum PaneActions {
     /// connection, refused then as not moved, their rows put back with the
     /// alert, and found gone from their folder by a look on a later
     /// connection (`MailRepository.lookAfterLostAnswers`, B-151): Gmail did
-    /// move them. Each row goes quietly, as a Delete's or a Move's does
-    /// once the server has taken it: off the list, with the letter's rows
-    /// under other mailboxes' ids for a letter binned, an unread one off
-    /// the folder counts, and a sweep asked for if one was unread. No
-    /// alert, and nothing on the status line: nothing he did has failed.
-    /// Returns the rows taken off, for the reading pane to let go of one it
-    /// shows.
+    /// move them. No alert, and nothing on the status line: nothing he did
+    /// has failed. A sweep is asked for if one was unread, which has the
+    /// counts from the server.
+    ///
+    /// He did not ask for this, so it goes by the watch's rule for news
+    /// (`ListPlaces.showsNews`, B-049). Where the news goes on now
+    /// (`showsNews`), at the top with no search, no tick and no finger on
+    /// the list, each row goes as a Delete's or a Move's does once the
+    /// server has taken it: off the list, with the letter's rows under
+    /// other mailboxes' ids for a letter binned, and an unread one off the
+    /// folder counts. Anywhere else nothing on the list changes: each row
+    /// is held with the watch's news (`holdGone`), to go when he is back at
+    /// the top. A row taken out where he is scrolled to, ticking or
+    /// touching would close the gap under his thumb, and a tap meant for
+    /// the row below would open the next letter, marking it read. Returns
+    /// the letters whose rows went now, for the reading pane to let go of
+    /// the one it opened (`empties`).
     ///
     /// Only a row the list still shows, from the same folder, as the same
     /// letter. One he has deleted or moved again since, or that the watch
@@ -296,21 +311,42 @@ enum PaneActions {
     /// that one's to bill; a list fetched afresh since has the server's
     /// word already.
     @discardableResult
-    static func movedAfterAll(_ letters: [MovedAfterAll], list: PaneActionList?,
-                              requestSweep: @MainActor () -> Void) -> [MessageSummary] {
+    static func movedAfterAll(_ letters: [MovedAfterAll], list: PaneActionList?, showsNews: Bool,
+                              requestSweep: @MainActor () -> Void) -> [MovedAfterAll] {
         guard let list else { return [] }
-        var gone: [MessageSummary] = []
+        var gone: [MovedAfterAll] = []
+        var unread = false
         for moved in letters {
             guard let row = list.letter(moved.id), list.shows(row),
                   row.mailboxID == moved.mailboxID,
                   row.gmailMessageID == moved.gmailMessageID else { continue }
+            if !row.isRead { unread = true }
+            guard showsNews else {
+                list.holdGone(row, fromEveryFolder: moved.leftEveryFolder)
+                continue
+            }
             list.letGo(row)
             list.take(row, fromEveryFolder: moved.leftEveryFolder)
             list.removalLanded(row, fromEveryFolder: moved.leftEveryFolder)
-            gone.append(row)
+            gone.append(moved)
         }
-        if gone.contains(where: { !$0.isRead }) { requestSweep() }
+        if unread { requestSweep() }
         return gone
+    }
+
+    /// Whether the reading pane, which opened `letter`, empties for letters
+    /// whose rows `movedAfterAll` has just taken off: only if that letter
+    /// is one of them, under the same id as the same letter, or, gone to
+    /// the Trash or Spam, under another mailbox's id. Not for another letter
+    /// of the conversation it shows: he did not ask, and he may be reading
+    /// that one. Edit mode's Delete empties it for any (`ListEdit.going`),
+    /// at his own tap.
+    nonisolated static func empties(paneOpenOn letter: MessageSummary?,
+                                    for gone: [MovedAfterAll]) -> Bool {
+        guard let letter, let message = letter.gmailMessageID else { return false }
+        return gone.contains { moved in
+            moved.gmailMessageID == message && (moved.id == letter.id || moved.leftEveryFolder)
+        }
     }
 
     /// A row kept on the iPad that the server has said is not the letter it

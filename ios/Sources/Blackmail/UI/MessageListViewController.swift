@@ -1272,6 +1272,11 @@ final class MessageListViewController: UITableViewController {
         // to fetch it afresh (D-016).
         if case .failed = outcome { return }
         fetchOverKeptQuietly()
+        // What this list holds goes on if he is at the top now: a finger
+        // lifted from a tap tells the list nothing. The Inbox's has been
+        // handed its news already (`newsFound`); another folder's holds
+        // only the rows of a lost answer's look (B-151).
+        showNewsIfAtTop()
     }
 
     /// The line at rest said again as of now, if it is saying how fresh the
@@ -1373,12 +1378,9 @@ final class MessageListViewController: UITableViewController {
     private func showNewsIfAtTop() {
         // Asked first: `tableView` loads the view.
         guard letters.holdsNews, isViewLoaded else { return }
-        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
-        let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
-        let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
-                                       topInset: Double(tableView.adjustedContentInset.top))
-        switch letters.putNewsOn(atTop: atTop, searching: isSearchingOrTyping, ticked: ticked,
-                                 touching: touching) {
+        let here = newsPlace
+        switch letters.putNewsOn(atTop: here.atTop, searching: here.searching, ticked: here.ticked,
+                                 touching: here.touching) {
         case .wait:
             return
         case .refetch:
@@ -1402,6 +1404,36 @@ final class MessageListViewController: UITableViewController {
 
     /// A quiet fetch afresh for the watch's news is on its way.
     private var refetchingQuietly = false
+
+    /// Where he is, as the watch's news goes by it (`ListPlaces.showsNews`):
+    /// at the top or not, a search showing or typed, a row ticked in Edit
+    /// mode, a finger on the list or the list still moving from one. With
+    /// the view loaded.
+    private var newsPlace: (atTop: Bool, searching: Bool, ticked: Bool, touching: Bool) {
+        let ticked = tableView.isEditing && !(tableView.indexPathsForSelectedRows ?? []).isEmpty
+        let touching = tableView.isTracking || tableView.isDragging || tableView.isDecelerating
+        let atTop = ListPlaces.isAtTop(offset: Double(tableView.contentOffset.y),
+                                       topInset: Double(tableView.adjustedContentInset.top))
+        return (atTop, isSearchingOrTyping, ticked, touching)
+    }
+
+    /// Letters whose Delete or Move had its answer lost, found gone by the
+    /// watch's look (B-151): off the list now if he is where the watch's
+    /// news goes on, and held with it otherwise, to go when he is back at
+    /// the top (`PaneActions.movedAfterAll`). Returns the letters whose rows
+    /// went now.
+    @MainActor
+    func movedAfterAll(_ moved: [MovedAfterAll],
+                       requestSweep: @MainActor () -> Void) -> [MovedAfterAll] {
+        // Asked first: `tableView` loads the view.
+        let here = isViewLoaded ? newsPlace : nil
+        let showsNews = here.map {
+            ListPlaces.showsNews(atTop: $0.atTop, searching: $0.searching, ticked: $0.ticked,
+                                 touching: $0.touching)
+        } ?? false
+        return PaneActions.movedAfterAll(moved, list: letters, showsNews: showsNews,
+                                         requestSweep: requestSweep)
+    }
 
     /// A search showing, or one typed and not yet run: either way a fetch
     /// afresh would clear the field under his fingers.

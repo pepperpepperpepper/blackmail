@@ -783,6 +783,16 @@ final class ListLetters: PaneActionList {
         self.letter(letter.id) != nil && !removed.hides(letter.id) && !leaving.contains(letter.id)
     }
 
+    /// Held as the watch's news of a letter gone elsewhere is (`hold`),
+    /// with its twins among the hits and the folder's rows when it has
+    /// left every folder: the folder's rows go with the rest when he is
+    /// back at the top (`showNews`). A hit stays among the hits; they go
+    /// as the search ends.
+    func holdGone(_ letter: MessageSummary, fromEveryFolder: Bool) {
+        let twins = fromEveryFolder ? ListEdit.twins(of: letter, among: everything) : []
+        hold(FolderNews(gone: ([letter] + twins).map(\.id)))
+    }
+
     func addCountedFolder(_ name: String, to id: String) {
         change(id) { letter in
             guard !letter.countedFolderIDs.contains(name) else { return }

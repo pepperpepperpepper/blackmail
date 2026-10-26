@@ -7426,9 +7426,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       watch had found the path gone first, as in B-132's check). Airplane
       Mode off; after the next check, no `UID SEARCH X-GM-MSGID`, and the
       row stays.
-      5. *A Move:* 1 and 2 again on what is left in "Notes", with Move in
-      place of Delete, the empty label chosen and Airplane Mode on about a
-      second after: gone, the letter is in the label on Gmail's web.
+      5. *A Move, scrolled down:* 1 again on what is left in "Notes", with
+      Move in place of Delete, the empty label chosen and Airplane Mode on
+      about a second after. Then, before Airplane Mode goes off, the list
+      dragged up a little and left there, no longer at its top, the row
+      written down still in sight. At the look, `gone`: nothing on the
+      list moves, and that row stays where it is. The list scrolled back
+      to its top: the row goes then, by itself. On Gmail's web the letter
+      is in the label. If the look says `there`, the hold was not seen:
+      write it down.
       6. *Put back:* the host deletes, in the Trash and in the label, only
       the letters with the Message-IDs it made, and what is left of them
       in "Notes"; the label stays, empty, as found. Nothing was sent.

@@ -132,8 +132,9 @@ final class MailWatch {
     /// two. With another folder, the Inbox's unread count, and a sweep only
     /// when it is not what the folder pane says.
     ///
-    /// Then, the server having answered, a Delete or Move whose answer was
-    /// lost with an earlier connection is looked for on this one, once
+    /// Then, the server having answered and the screens told how the check
+    /// went, a Delete or Move whose answer was lost with an earlier
+    /// connection is looked for on this one, once
     /// (`MailRepository.lookAfterLostAnswers`, B-151), and the rows of the
     /// letters Gmail did move go quietly (`MailWatchTarget.movedAfterAll`).
     func check() async {
@@ -177,6 +178,10 @@ final class MailWatch {
             if error is CancellationError || Task.isCancelled { return }
             outcome = .failed((error as? MailError) ?? .cannotConnect, at: now())
         }
+        target.checked(outcome)
+        // After the check is told: the Outbox's pass and the line under the
+        // list do not wait for the look, which can wait out a SELECT on a
+        // link that has gone again. Counted finished once the look is over.
         switch outcome {
         case .failed:
             break
@@ -185,7 +190,6 @@ final class MailWatch {
             if !moved.isEmpty { target.movedAfterAll(moved) }
         }
         checks += 1
-        target.checked(outcome)
     }
 }
 

@@ -347,6 +347,15 @@ final class MessageDetailViewController: UIViewController, WKNavigationDelegate,
         showEmpty()
     }
 
+    /// A lost answer's look has taken `letters` off the list (B-151): empty
+    /// only if the letter the pane opened is one of them, and left as it
+    /// is for another letter of its conversation, which he may be reading
+    /// and did not ask about (`PaneActions.empties`).
+    func clearIfOpened(any letters: [MovedAfterAll]) {
+        guard PaneActions.empties(paneOpenOn: summary, for: letters) else { return }
+        showEmpty()
+    }
+
     /// A letter opened from a row kept on the iPad, before this launch has
     /// shown the server to be the mailbox the copy was kept from, and the
     /// FETCH that brought it has said the UID names another letter now

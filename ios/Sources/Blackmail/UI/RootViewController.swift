@@ -1078,14 +1078,14 @@ extension RootViewController: MailWatchTarget {
 
     /// A Delete or Move whose answer was lost, its letter found gone on a
     /// later connection (B-151): the row goes from the list in front, with
-    /// no alert, the pane lets go of the letter if it shows it, as for
-    /// Edit mode's Delete, and the counts are swept quietly, as above.
+    /// no alert, now if he is where the watch's news goes on and when he is
+    /// back at the top otherwise; the pane lets go of the letter if it is
+    /// the one it opened; and the counts are swept quietly, as above.
     func movedAfterAll(_ letters: [MovedAfterAll]) {
-        let gone = PaneActions.movedAfterAll(letters, list: list.letters,
-                                             requestSweep: { [weak self] in
-                                                 self?.refreshMailboxes(quietly: true)
-                                             })
-        detail.clearIfShowing(any: gone)
+        let gone = list.movedAfterAll(letters, requestSweep: { [weak self] in
+            self?.refreshMailboxes(quietly: true)
+        })
+        detail.clearIfOpened(any: gone)
     }
 
     func checked(_ outcome: MailWatch.Outcome) {

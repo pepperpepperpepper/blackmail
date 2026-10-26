@@ -30296,18 +30296,44 @@ refused, or never written, is as it was.
    to go on waits for the next check. The log names the folder and the
    UID: `LOST-ANSWER-LOOK folder=Notes uid=27 gone`, or `there`,
    `unanswered`, `not-asked`.
-4. *The row goes quietly* (`PaneActions.movedAfterAll`, new, through
-   `MailWatchTarget.movedAfterAll` in `RootViewController`): off the list
-   in front as a Delete's or a Move's row goes once the server has taken
-   it, with the letter's rows under other ids for a letter binned, one
-   off the counts for an unread letter binned, and a quiet sweep for an
-   unread one. No alert, nothing on the status line. The reading pane
-   empties if it shows the letter, as for Edit mode's Delete
-   (`clearIfShowing`). Only a row the list still shows, from the same
+4. *The row goes quietly, by the watch's rule* (`PaneActions.movedAfterAll`,
+   new, through `MailWatchTarget.movedAfterAll` in `RootViewController`
+   and the list in front, `MessageListViewController.movedAfterAll`).
+   He did not ask for it, so it goes as the watch's news does
+   (`ListPlaces.showsNews`, B-049), read off the table the same way
+   (`newsPlace`, new, which the news now reads too). At the top of the
+   list, with no search, nothing ticked and no finger on the list: off the
+   list at once, as a Delete's or a Move's row goes once the server has
+   taken it, with the letter's rows under other ids for a letter binned,
+   and one off the counts for an unread letter binned. Anywhere else:
+   nothing on the list changes, not a row, a tick or the highlight; the
+   row is held with the watch's news (`ListLetters.holdGone`, new), with
+   its twins in the folder for a letter binned, and goes with the rest
+   when he is back at the top: scrolled there, out of Edit mode or the
+   last tick off, the search ended at the top, a finger lifted from a
+   drag, or, for a finger lifted from a tap, at the next check, which
+   puts what the list holds on in every folder now (`checked`), not only
+   in the Inbox. A held row is not billed; the counts come from the
+   sweep. Either way a quiet sweep for an unread one, no alert, nothing
+   on the status line. Only a row the list still shows, from the same
    folder, as the same letter (`ListLetters.shows`, new): not one he has
    deleted or moved again, nor one the watch has found gone and holds to
    take off, which is that one's to bill, nor anything after the list was
    fetched afresh, which has the server's word already.
+5. *The reading pane* (`clearIfOpened`, new, `PaneActions.empties`)
+   empties only for a row that went at once, and only if the letter it
+   opened is the one gone: the same row as the same letter, or, binned,
+   the same letter under another mailbox's id. Never for another letter
+   of the conversation it shows, which he may be reading: Edit mode's
+   Delete empties it for any letter of it (`clearIfShowing`), but that
+   follows his own tap. A held row leaves the pane as it is, and so does
+   the row going later, as for the watch's own news.
+6. *The look waits for the check to be told* (`MailWatch.check`): the
+   screens hear how the check went first, so the Outbox's pass after a
+   connection comes back, and the line under the list, do not wait for
+   the look's SELECT, NOOP and SEARCH, which on a link gone again can
+   wait out a SELECT's deadline, twice. The check counts as finished once
+   the look is over.
 
 **Not changed.** Nothing is queued and nothing is sent again (D-016). The
 alert at the failure, and the row back where it stood. B-092's hollow
@@ -30321,10 +30347,12 @@ not looked for.
 **What he sees.** A Delete or Move cut off as it went: the row back with
 "Can't connect to mail server.", as before. Once the connection is back,
 at the next check while the app is in front, within half a minute, the
-row goes by itself if Gmail had moved the letter after all. If it had
-not, the row stays, and the next Delete is his.
+row goes by itself if Gmail had moved the letter after all: then, if he
+is at the top of the list, and otherwise when he is next back there,
+nothing moving under him meanwhile. If it had not, the row stays, and
+the next Delete is his.
 
-**Tests.** `LostAnswerTests`, ten, new, over the shipping repository,
+**Tests.** `LostAnswerTests`, fourteen, new, over the shipping repository,
 client and kept copy, the list's own letters and `MailWatch` against the
 scripted server, whose `hangsUpAfterVerbs` (new) carries a command out
 and then answers `* BYE System Error` and hangs up, the answer never
@@ -30333,10 +30361,26 @@ sent:
 - *Gmail moved it:* a Delete from the pane in Notes, the letter unread,
   the MOVE carried out and hung up on: refused, the alert's words, one
   MOVE, the letter in the Trash and not in Notes, the row back, kept,
-  nothing billed or swept, the `LOST-ANSWER` line. The next check: one
+  nothing billed or swept, the `LOST-ANSWER` line. The next check, the
+  list at its top: the screens told of the check before the look, one
   `UID SEARCH X-GM-MSGID n` with Notes selected, the row gone, billed
   once from Notes, one sweep, the kept copy without it, the log's `gone`;
   a check after it looks no more.
+- *Where he is:* the same, scrolled down at the look: the log's `gone`,
+  every row still there and the letter held to go, nothing billed, one
+  sweep; back at the top it goes, still not billed; no second look. A
+  row ticked, or a finger on the list: held the same, and gone once
+  neither is so.
+- *Its row under another id:* a Delete from an All Mailboxes hit whose
+  letter, unread, is in the Inbox underneath. Where the rows go at once,
+  the hit and the Inbox's row both go, billed once, one sweep; with the
+  search showing, as in the app, the hit stays among the hits, nothing
+  billed, one sweep, and the Inbox's row goes once the search has ended
+  at the top.
+- *The pane:* it lets go of the letter it opened, the same row as the
+  same letter, or the binned letter under another id; not of another
+  letter of its conversation, another letter under that id, nor the
+  Inbox's copy of a letter filed in a label.
 - *Edit mode:* three rows deleted, the second's MOVE carried out and hung
   up on: the first taken, the second and third back; the next check looks
   for the second alone, its row goes and the third's stays.
@@ -30360,11 +30404,16 @@ sent:
 - *Only a row still shown:* not one taken off by hand, held by the watch
   to go, from another folder under the same id, or another letter now;
   the one that goes, unread, asks one sweep.
-- *Read from the source:* the root's target takes the rows off the list
-  in front, sweeps quietly and empties the pane.
+- *Read from the source:* the root's target hands the rows to the list
+  in front, sweeps quietly and has the pane let go of the letter it
+  opened; the list reads where he is as the watch's news does, takes the
+  rows by it, and puts what it holds on at each check.
 
-`NewMailTests`' stand-in for the screens takes the rows off as the root
-does.
+`NewMailTests`' stand-in for the screens takes the rows off, or holds
+them, as the list does. Two of `HollowMoveTests`, a MOVE refused on a
+connection that stays up (hollow twice with the letter still there,
+`there not-moved`; the second MOVE answered NO), now also see no
+`LOST-ANSWER` line, and nothing asked by the look after.
 
 Each part undone by hand, `LostAnswerTests`, `NewMailTests`,
 `HollowMoveTests` and `ListBatchTests` run, then put back and passing,
@@ -30378,9 +30427,19 @@ the look, 1 in 1; any row under the id taken off, 2 in 1; nothing billed
 as the row goes, 3 in 1; a row the watch holds to go taken all the same,
 2 in 1; the root not emptying the pane, 1 in 1. In the first round four
 of them stopped the run at an index read on an empty list in the first
-test; that read is an optional now, and the four were run again.
+test; that read is an optional now, and the four were run again. In the
+second, after the hold, `LostAnswerTests`, `HollowMoveTests` and
+`NewMailTests` run for each: the rows taken at once wherever he is, 19
+in 3; the rows under other ids not taken at once, 1 in 1; nor held, 2
+in 1; the look before the screens are told, 1 in 1; a MOVE refused on a
+connection still up taken for a lost answer, 4 in 2; the pane emptied
+for the letter under any id, 1 in 1; the list not putting what it holds
+on at a check, 1 in 1; the list taking the rows at once whatever its
+table says, 1 in 1. Before the tests for them, the rows under other ids
+not taken, and a refusal on a connection still up taken for a lost
+answer, had each passed every test.
 
-The full suite, serially: 2,683 tests, 10 of them new, 6 skipped, none
+The full suite, serially: 2,687 tests, 14 of them new, 6 skipped, none
 failing. The release build for the iPad links.
 
 **Not covered.**
@@ -30400,6 +30459,19 @@ failing. The release build for the iPad links.
 - In the Inbox at its top, the watch's own news can find the letter gone
   first; the row is then that check's to take off, and the look leaves
   it, as above.
+- A row held to go keeps its dot while it waits, though the sweep has
+  taken the letter off the counts. Tapped meanwhile, it opens a letter
+  Gmail has moved, as a row the watch holds to go does (B-049); what its
+  read mark then does to the counts was not looked into. A hit among a
+  search's results stays until the search ends. Read from the code, not
+  seen.
+- The pane keeps a conversation open when another letter of it is the
+  one gone, and that letter stays in its stack until the conversation is
+  opened again. A letter opened whose row is held, or went later with the
+  watch's news, stays in the pane, as one the watch finds gone does.
+- The list's table is what says where he is (`newsPlace`): the hold was
+  pinned on the host through `ListLetters` and read from the source, and
+  is not yet seen on the iPad (step 5 of the check).
 - Not looked for: an EXPUNGE whose answer is lost (Delete inside the
   Trash), the fallback COPY of a server without MOVE, and a draft's
   deletes. On Gmail every Delete and Move outside the Trash is a MOVE.
