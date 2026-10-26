@@ -131,6 +131,12 @@ final class MailWatch {
     /// already merges (`SweepCoalescer`), so a burst of letters costs one or
     /// two. With another folder, the Inbox's unread count, and a sweep only
     /// when it is not what the folder pane says.
+    ///
+    /// Then, the server having answered and the screens told how the check
+    /// went, a Delete or Move whose answer was lost with an earlier
+    /// connection is looked for on this one, once
+    /// (`MailRepository.lookAfterLostAnswers`, B-151), and the rows of the
+    /// letters Gmail did move go quietly (`MailWatchTarget.movedAfterAll`).
     func check() async {
         guard let target else { return }
         let outcome: Outcome
@@ -172,8 +178,18 @@ final class MailWatch {
             if error is CancellationError || Task.isCancelled { return }
             outcome = .failed((error as? MailError) ?? .cannotConnect, at: now())
         }
-        checks += 1
         target.checked(outcome)
+        // After the check is told: the Outbox's pass and the line under the
+        // list do not wait for the look, which can wait out a SELECT on a
+        // link that has gone again. Counted finished once the look is over.
+        switch outcome {
+        case .failed:
+            break
+        case .listed, .reached:
+            let moved = await repository.lookAfterLostAnswers()
+            if !moved.isEmpty { target.movedAfterAll(moved) }
+        }
+        checks += 1
     }
 }
 
@@ -197,6 +213,10 @@ protocol MailWatchTarget: AnyObject {
     func found(_ news: FolderNews, in mailboxID: String) -> NewsTaken
     /// The folder counts may be out of date.
     func countsChanged()
+    /// Letters whose Delete or Move had its answer lost, found gone by the
+    /// look after this check (B-151): their rows go, quietly, by
+    /// `PaneActions.movedAfterAll`.
+    func movedAfterAll(_ letters: [MovedAfterAll])
     /// How the check went, for the line under the list.
     func checked(_ outcome: MailWatch.Outcome)
 }

@@ -111,6 +111,14 @@ protocol MailRepository {
               to destinationMailboxID: String) async throws
     func delete(_ id: String, gmailMessageID: UInt64?, from mailboxID: String) async throws
 
+    /// One look, on the connection up now, for each letter whose Delete or
+    /// Move went to the server and had its answer lost with the connection,
+    /// refused then as not moved (B-151): the ones found gone from their
+    /// folder, which Gmail did move, for their rows to go
+    /// (`PaneActions.movedAfterAll`). For `MailWatch`, at a check the
+    /// server has answered. None, unless the repository holds a connection.
+    func lookAfterLostAnswers() async -> [MovedAfterAll]
+
     /// Returns once the server has taken the letter, its 250 after DATA,
     /// and not after anything that follows it; see `SMTPClient.send`.
     /// `progress` hears how much of the built letter has been handed to the
@@ -572,8 +580,26 @@ extension MailRepository {
 
     func forgetLettersOfHis() async {}
 
+    /// Nothing to look for, unless the repository holds a connection.
+    func lookAfterLostAnswers() async -> [MovedAfterAll] { [] }
+
     /// `send`, with nobody told how the upload is getting on.
     func send(_ draft: Draft) async throws {
         try await send(draft, progress: nil)
     }
+}
+
+/// A letter whose Delete or Move had its answer lost with the connection,
+/// found gone from the folder its MOVE was sent in when looked for on a
+/// later one: Gmail did move it (B-151, `MailRepository.lookAfterLostAnswers`).
+struct MovedAfterAll: Equatable, Sendable {
+    /// The row's id, and its folder as the list had it.
+    var id: String
+    var mailboxID: String
+    /// Gmail's id for the letter: the row goes only while it is that letter.
+    var gmailMessageID: UInt64
+    /// To the Trash or Spam, which take a letter out of every folder: its
+    /// rows under other folders' ids go too, and an unread one comes off
+    /// their counts, as for a Delete that has landed.
+    var leftEveryFolder: Bool
 }

@@ -310,12 +310,13 @@ elsewhere in these docs ("715 sent", "1 of 433") were samples.
       iPad: it did end the app, from "Save to Photos" on a picture in a
       letter; both keys are in, iOS asks, and "Save Image" is offered.
       B-067.*
-- [ ] Mark as Unread and Move to Junk from the Flag menu. *Mark as
+- [x] Mark as Unread and Move to Junk from the Flag menu. *Mark as
       Unread done 2026-10-22, seen on the iPad the same day: the Flag
       button opens Flag or Unflag and Mark as Unread or Read, as Mail's
-      did. Move to Junk is built on the `feat-flagmenu` branch and not
-      merged, for the owner. B-106, and its check under "Blocked on the
-      iPad coming back".*
+      did. Move to Junk ruled 2026-10-26, copy Apple Mail, and on the
+      `copy-junk` branch, not yet seen on the iPad: Move to Junk at the
+      end of the sheet, and Move to Inbox there inside Junk. B-106, and
+      its checks under "Blocked on the iPad coming back".*
 - [x] Reply with the original's attachments. *Done 2026-10-22, seen on
       the iPad the same day: a reply carries the original's files as rows
       when he adds someone the original did not go to (Mail's When Adding
@@ -4975,11 +4976,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       7. *VoiceOver* reads "Flag" or "Unflag", "Mark as Unread" or "Mark
       as Read", and the button for each, one swipe at a time.
       8. *Put back.* The "B-106" letters to Trash.
-      Only if the owner says yes to Move to Junk, from the branch's last
-      commit: Move to Junk from the sheet: the row goes, "Moving…" shows,
-      the letter is in Spam on Gmail's web, and the counts are right; in
-      Spam, Move to Inbox brings it back; with Spam's "Show in IMAP" off in
-      Gmail's settings, no Junk item.
+      Move to Junk, and Move to Inbox inside Junk, ruled 2026-10-26 and
+      now on the `copy-junk` branch: their own check, "B-106, Move to
+      Junk in the Flag sheet", at the end of this section.
       *Seen on the test iPad 2026-10-22, a build of int11 (e739d2c), the
       letters made on the host: 1 to 6 and 8 passed (B-106). The sheet a
       popover with no Cancel, a tap outside closing it with nothing
@@ -6583,7 +6582,9 @@ checks below is left as not needed, not open, and none is worth a round.*
       for row. A row that came back but is gone at the Refresh, its MOVE
       on the wire as the network went, is B-092's lost answer (B-132,
       Not changed; in a label the watch does not look, so it waits for
-      the Refresh): write it down, with its log lines.
+      the Refresh): write it down, with its log lines. On a build with
+      B-151 such a row goes by itself at the watch's next check, before
+      the Refresh: B-151's check.
       4. *A Move:* 1 and 3 again on what 3 left, with Move in place of
       Delete: Edit, the top two rows for 1's and Select All for 3's, Move,
       "B-132 moved" chosen, Airplane Mode on before the Move for 1's, and
@@ -7915,6 +7916,97 @@ checks below is left as not needed, not open, and none is worth a round.*
       noted, and only them, from "Notes" to the Trash, and deletes in the
       Trash only the UIDs that move answered. Nothing else was written to
       the account.
+- [ ] **B-106, Move to Junk in the Flag sheet.** On the test iPad, the
+      test account only, from a build of the `bm-cm-junk` worktree
+      (branch `copy-junk`) or of the int it is merged into. Nothing is
+      composed, sent or saved. The host makes the letters, each from
+      another address, with a new Message-ID of its own, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox,
+      noting each UID from its APPENDUID. Three panes; the connection log
+      read after each step.
+      0. *The letters:* three, "B-106 junk one", "two" and "three".
+      1. *The sheet.* "Notes" opened, "B-106 junk one" opened, Flag: the
+      sheet under the Flag button reads Flag, Mark as Unread, Move to
+      Junk, in that order, in the plain style, no Cancel in the popover. A
+      tap outside closes it, and nothing is written in the log.
+      2. *Move to Junk.* Flag, Move to Junk: no question, the pane empties
+      and the row goes at the tap, "Moving…" under the list until the
+      answer, and no alert. The log: one `UID MOVE n "[Gmail]/Spam"`
+      answered `OK [COPYUID …]`, and nothing else written. Mailboxes,
+      the Junk folder (named Spam in the sidebar until Mail's words are
+      built, under "Blocked on the owner", "Mail's words in three
+      places"; Junk after): the letter at its top, read. On Gmail's web,
+      in Spam and no longer in Notes.
+      3. *Inside Junk.* The letter opened there, Flag: Flag, Mark as
+      Unread, Move to Inbox, and no Move to Junk. Move to Inbox: the row
+      leaves Junk, the log one `UID MOVE n "INBOX"`; the Inbox has the
+      letter, read. A move into the Inbox is not new mail to Gmail; if
+      the phone with the test account rings for it, write it down.
+      4. *From a search.* All Mailboxes, "B-106 junk two" searched for:
+      its hit, from All Mail, opened, Flag: Move to Junk offered, the
+      hit's own folder being All Mail. Move to Junk: the hit goes, the
+      log's `UID MOVE` sent with "[Gmail]/All Mail" selected, and on
+      Gmail's web the letter in Spam, no longer in Notes.
+      5. *Not in Edit mode.* "Notes", Edit, a row ticked, Mark: Flag and
+      Mark as Unread or Read alone, no Move to Junk (D-022). Cancel.
+      6. *Spam not shown in IMAP.* On Gmail's web, Settings, Labels:
+      Spam's "Show in IMAP" off. In the app, Mailboxes pulled down to
+      refresh: no Junk folder. "B-106 junk three" opened in "Notes",
+      Flag: Flag and Mark as Unread alone. Then "Show in
+      IMAP" on again, as found, and the Junk folder back after a refresh.
+      7. *Put back:* "one" in the Inbox, "two" in Junk and "three" in
+      "Notes" deleted from the app, to the Trash; the host
+      deletes in the Trash only the letters with the Message-IDs it
+      made. Spam's "Show in IMAP" as found. Nothing was sent.
+- [ ] **B-151, a lost answer's row goes at the next connection.** On the
+      test iPad, the test account only, from a build of the `bm-cm-junk`
+      worktree (branch `copy-junk`) or of the int it is merged into.
+      Nothing is composed, sent or saved. The host makes the letters, each
+      from another address, with a new Message-ID of its own, and APPENDs
+      them, read (`\Seen`), to the label "Notes", never the Inbox, dated
+      two days back and more, noting each UID from its APPENDUID. A Delete
+      moves them to the Trash; a Move goes to an empty label of the
+      account's own. Three panes; the connection log read after each
+      step; Airplane Mode turned off after each step that turns it on.
+      0. *The letters:* sixteen, "B-151 single 1" to "16".
+      1. *Some moved, then an answer lost:* "Notes" opened at its top.
+      Edit, the sixteen rows ticked, Delete, and Airplane Mode on about a
+      second after the tap. After "Deleting…", "Can't connect to mail
+      server.", OK: the rows whose MOVEs the log shows answered `OK
+      [COPYUID …]` stay off, the rest come back where they stood. Find in
+      the log the MOVE that went with no answer, followed by `LOST-ANSWER
+      UID MOVE folder=Notes uid=n`, and write down n and its row's
+      subject. If there is none (every MOVE answered, or the next kept
+      back with `NO-PATH UID MOVE not-sent`), there was no lost answer:
+      write it down, and try again on what is left, the timing a little
+      earlier or later.
+      2. *The look:* Airplane Mode off, and the list left alone: no
+      Refresh, no tap, up to a minute. In the log, after the watch's next
+      check: `UID SEARCH X-GM-MSGID …` with "Notes" selected, then
+      `LOST-ANSWER-LOOK folder=Notes uid=n` and `gone` or `there`. Gone:
+      the row written down in 1 leaves the list by itself, with no alert
+      and nothing new on the line under the list, and on Gmail's web the
+      letter is in the Trash. There: the row stays, and the letter is in
+      Notes on Gmail's web. The check after it sends no such SEARCH.
+      3. *Refresh:* the same rows as at the end of 2, row for row.
+      4. *Nothing went:* a letter in "Notes" opened, Airplane Mode on,
+      Delete: the row back and the alert, and no `LOST-ANSWER` line in the
+      log (one `NO-PATH UID MOVE nothing-sent`, or no line where the
+      watch had found the path gone first, as in B-132's check). Airplane
+      Mode off; after the next check, no `UID SEARCH X-GM-MSGID`, and the
+      row stays.
+      5. *A Move, scrolled down:* 1 again on what is left in "Notes", with
+      Move in place of Delete, the empty label chosen and Airplane Mode on
+      about a second after. Then, before Airplane Mode goes off, the list
+      dragged up a little and left there, no longer at its top, the row
+      written down still in sight. At the look, `gone`: nothing on the
+      list moves, and that row stays where it is. The list scrolled back
+      to its top: the row goes then, by itself. On Gmail's web the letter
+      is in the label. If the look says `there`, the hold was not seen:
+      write it down.
+      6. *Put back:* the host deletes, in the Trash and in the label, only
+      the letters with the Message-IDs it made, and what is left of them
+      in "Notes"; the label stays, empty, as found. Nothing was sent.
 
 ## Blocked on the owner
 
@@ -8063,8 +8155,9 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       missing arrow mean nothing. Either way, VoiceOver's "Replied" and
       "Forwarded" await his approval, and are held from his iPad until he
       gives it (B-102).
-- [ ] **Move to Junk in the Flag sheet** (B-106): built on
+- [x] **Move to Junk in the Flag sheet** (B-106): built on
       `feat-flagmenu`'s last commit, not merged.
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-106.*
 - [ ] **His own Sent Mail lines in a conversation after an offline
       relaunch** (B-111, D-021): Mail shows them; nothing of his Sent Mail
       is kept here, so they are not there. Keep it so (the default), or
@@ -8171,7 +8264,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       *Ruled 2026-10-26: copy Apple Mail. Built as B-144.*
       *B-137's sentence is not among them: its words wait with "His iPad's
       iOS version", above.*
-- [ ] **A Delete or Move whose answer is lost** (B-132): the connection
+- [x] **A Delete or Move whose answer is lost** (B-132): the connection
       dropping after Gmail has carried out a MOVE and before its answer
       comes, the row comes back with "Can't connect to mail server."
       though the letter has gone. In the Inbox at its top the watch takes
@@ -8180,6 +8273,7 @@ are done, and it is meant to fail at home rather than at his kitchen table:
       As built (the default, B-092's "refused as not moved"), or a look
       in the folder on the next connection after such a failure, the row
       taken off if the letter has gone (not built).
+      *Ruled 2026-10-26: copy Apple Mail. Built as B-151.*
 - [x] **Edit mode's Done** (B-133): guides to Mail describe leaving its
       edit mode with Cancel, not seen on an iPad; Blackmail's button says
       Done. As built (the default), or Mail's word once seen on his iPad.

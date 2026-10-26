@@ -881,6 +881,17 @@ final class RootViewController: UIViewController {
         detail.dotOnList = { [weak self] letter in
             self?.list.letters.dot(on: letter)
         }
+        // Move to Junk and Move to Inbox from the Flag button's sheet
+        // (B-106): to the folders LIST named with the `\Junk` role, Gmail's
+        // Spam, and the Inbox's, never a name guessed, and by the role of
+        // the letter's own folder.
+        detail.foldersForJunk = { [weak self] letter in
+            guard let self else { return FlagMenu.Folders() }
+            let folders = [self.list.shownMailbox] + self.mailboxList.folders
+            return FlagMenu.Folders(role: folders.role(of: letter.mailboxID),
+                                    junk: self.mailboxList.mailbox(for: .junk),
+                                    inbox: self.mailboxList.mailbox(for: .inbox))
+        }
         detail.onLetterOpened = { [weak self] letter in
             self?.list.markRead(letter)
         }
@@ -1063,6 +1074,18 @@ extension RootViewController: MailWatchTarget {
     /// already says when the connection has gone.
     func countsChanged() {
         refreshMailboxes(quietly: true)
+    }
+
+    /// A Delete or Move whose answer was lost, its letter found gone on a
+    /// later connection (B-151): the row goes from the list in front, with
+    /// no alert, now if he is where the watch's news goes on and when he is
+    /// back at the top otherwise; the pane lets go of the letter if it is
+    /// the one it opened; and the counts are swept quietly, as above.
+    func movedAfterAll(_ letters: [MovedAfterAll]) {
+        let gone = list.movedAfterAll(letters, requestSweep: { [weak self] in
+            self?.refreshMailboxes(quietly: true)
+        })
+        detail.clearIfOpened(any: gone)
     }
 
     func checked(_ outcome: MailWatch.Outcome) {

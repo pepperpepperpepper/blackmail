@@ -102,6 +102,21 @@ final class HollowMoveTests: XCTestCase {
         "UID MOVE \(uid(row.id)) \"\(Server.trash)\""
     }
 
+    /// A MOVE refused on a connection that stayed up is what it was, not a
+    /// lost answer (B-151): no `LOST-ANSWER` line, and the watch's look
+    /// after its next check, on the same connection, asks the server
+    /// nothing and finds nothing.
+    private func assertNoLostAnswer(_ repository: IMAPMailRepository,
+                                    file: StaticString = #filePath, line: UInt = #line) async throws {
+        XCTAssertFalse(Diagnostics.entries.contains { $0.text.hasPrefix("LOST-ANSWER") },
+                       "\(Diagnostics.entries.map(\.text))", file: file, line: line)
+        server.clearLog()
+        let found = await repository.lookAfterLostAnswers()
+        XCTAssertEqual(found, [], file: file, line: line)
+        XCTAssertFalse(server.log.contains { $0.command.hasPrefix("UID SEARCH X-GM-MSGID") },
+                       "\(server.log.map(\.command))", file: file, line: line)
+    }
+
     private func search(_ row: MessageSummary) -> String { "UID SEARCH UID \(uid(row.id))" }
 
     private let folders = [
@@ -307,6 +322,7 @@ final class HollowMoveTests: XCTestCase {
             "MOVE-HOLLOW folder=INBOX uid=\(n) copyuid=dest-0 no-expunge",
             "MOVE-CHECKED folder=INBOX uid=\(n) there not-moved",
         ])
+        try await assertNoLostAnswer(repository)
     }
 
     /// The second MOVE refused: no COPY in its place, which would be a
@@ -333,6 +349,7 @@ final class HollowMoveTests: XCTestCase {
         XCTAssertEqual(copies(of: id, in: Server.trash), 0)
         XCTAssertEqual(kept(row), true)
         XCTAssertEqual(moveNotes.last, "MOVE-CHECKED folder=INBOX uid=\(uid(row.id)) refused not-moved")
+        try await assertNoLostAnswer(repository)
     }
 
     /// The question unanswered, its SEARCH refused: nothing is sent again,
