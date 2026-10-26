@@ -7936,9 +7936,10 @@ checks below is left as not needed, not open, and none is worth a round.*
       own); the logo tapped: nothing, as before. The picture from the web
       held: WebKit's menu as before (Save to Photos among it), tapped:
       nothing. The photo in the link held: WebKit's menu for the link,
-      closed with a tap outside. Tapped: Safari opens at the page at once,
-      with no "Open this link?" (B-145): back to the app with the iPad's
-      own back link, the letter as it was.
+      closed with a tap outside. Tapped: on a build that asks before a link
+      opens, "Open this link?", Cancel; on one that does not, Safari opens
+      at the page: back to the app with the iPad's own back link, the
+      letter as it was.
       10. *Moving:* a finger landing on the photo and dragging the letter:
       it scrolls, no menu. A flick of the letter, then a finger put on the
       photo as it coasts, to stop it, and held there a second: the letter
@@ -8386,14 +8387,15 @@ checks below is left as not needed, not open, and none is worth a round.*
       and naming none on the account, and APPENDs them to the label
       "Notes", never the Inbox, each with its Date as its internal date;
       it notes each UID from its APPENDUID, and stops if one has none.
-      First a conversation of three, "B-158 talk" (a), (b) and (c), each
-      reply's References naming the one before, read (`\Seen`); then six
-      letters alone, "B-158 next 6" down to "B-158 next 1", all read but
-      "next 3", which is APPENDed unread; then two more read letters
-      alone, older than the conversation and newer than any of Notes' own,
-      "B-158 drag 1" and then "B-158 drag 2", drag 2 the older. So the
-      list goes, from the top: next 1 to next 6, then the conversation,
-      then drag 1 and drag 2, then Notes' own. It also
+      First two read letters alone, "B-158 drag 2" and then "B-158 drag
+      1", dated older than the conversation and newer than any of Notes'
+      own, drag 2 the older; then a conversation of three, "B-158 talk"
+      (a), (b) and (c), each reply's References naming the one before,
+      read (`\Seen`); then six letters alone, "B-158 next 6" down to "B-158
+      next 1", all read but "next 3", which is APPENDed unread. The list
+      goes by UID, the order they were APPENDed, the last on top: next 1
+      to next 6, then the conversation, then drag 1 and drag 2, then
+      Notes' own. It also
       makes the label "B-158 moved", if the account has none. Organize by
       Thread on, three panes, nothing set: View Next Message, Mail's
       factory default, is what the app does. A screen recording through

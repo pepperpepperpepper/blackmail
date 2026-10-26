@@ -33189,8 +33189,10 @@ and opens the next. `PaneActions.refusal` takes both `landed` (B-157) and
 `taken`. `NextLetterTests` reads the merged lines; one test new,
 `testARowPutAwayWholeOpensTheRowBelow`. The TODO checks of B-156 (steps
 5, 7, 8) and B-158 (step 6) say what an int18 build shows; B-158's host
-makes two letters more for it, "B-158 drag 1" and "B-158 drag 2", so its
-step 6 drags a letter of the host's and not one of Notes' own.
+makes two letters more for it, "B-158 drag 1" and "B-158 drag 2",
+APPENDed before the others so that, the list going by UID, they sit under
+the conversation, and its step 6 drags a letter of the host's and not one
+of Notes' own.
 
 ## B-159 — FIXED 2026-10-26, not yet seen on the iPad. His own replies in an Inbox conversation were not there after a relaunch with no connection, and one he had read could not be opened; Mail keeps them with the conversation
 
